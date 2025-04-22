@@ -431,7 +431,7 @@ export async function generateColorTheme(
       finalTheme['on-error'] = parsedTheme['on-error'].trim();
       // Ensure consistency if on-error was provided
       if (!finalTheme['on-destructive']) {
-          const errorColor = finalTheme['error'] || '0 84% 60%'; // Ensure error exists
+          // const errorColor = finalTheme['error'] || '0 84% 60%'; // Ensure error exists
           finalTheme['on-destructive'] = parsedTheme['on-error'];
       }
       if (!finalTheme['destructive_foreground']) {

@@ -16,11 +16,12 @@ interface PageData {
 
 interface LandingPageClientContentProps {
   pageData: PageData;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   session: any;
 }
 
 export function LandingPageClientContent({ pageData, session }: LandingPageClientContentProps) {
-  const { id, slug, userId, isClaimed, tweaksLeft } = pageData;
+  const { id, slug, userId, tweaksLeft } = pageData;
   const isLoggedIn = !!session?.user;
   const isOwner = isLoggedIn && session.user.id === userId;
 

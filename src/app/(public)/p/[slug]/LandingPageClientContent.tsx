@@ -35,7 +35,7 @@ export function LandingPageClientContent({
   };
 
   // Determine user/ownership status
-  const isLoggedIn = !!session;
+  // const isLoggedIn = !!session;
   const isPageClaimed = initialPageData?.isClaimed ?? false;
   // const canTweak = isOwner && (initialPageData?.tweaksLeft ?? 0) > 0; // No longer needed
 

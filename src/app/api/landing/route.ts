@@ -6,9 +6,9 @@ import { fileToBuffer, uploadImageToCloudinary } from '@/lib/cloudinary';
 import { checkRateLimit } from '@/lib/rate-limit'; // Import rate limit checker
 import { generateRandomString, slugify } from '@/lib/utils';
 // Import the base schema to apply refinement after omit
-import { baseLandingPageSchemaForOmit } from '@/lib/zod-schemas';
+import type { ColorThemeJson } from '@/lib/ai'; // Import types
 import { auth } from '@/lib/auth'; // Import auth untuk cek sesi
-import type { ColorThemeJson, AiGeneratedContent } from '@/lib/ai'; // Import types
+import { baseLandingPageSchemaForOmit } from '@/lib/zod-schemas';
 
 // Define types for testimonials and social links
 type Testimonial = {

@@ -1,10 +1,8 @@
 "use client"; // Needs to be a client component for potential event handlers
 
 import { Button } from "@/components/ui/button";
-import { Phone } from "lucide-react";
 import { motion } from "framer-motion";
-import Link from "next/link";
-import { AiGeneratedContent, ColorThemeJson } from "@/lib/ai"; // Keep AiGeneratedContent, maybe remove ColorThemeJson if unused after edit
+import { Phone } from "lucide-react";
 
 interface StickyCTAProps {
   ctaText: string;

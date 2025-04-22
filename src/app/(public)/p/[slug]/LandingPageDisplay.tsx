@@ -5,7 +5,6 @@ import { LandingPageRenderer } from "@/components/landing-page/LandingPageRender
 import { StickyCTA } from "@/components/landing-page/StickyCTA";
 import { Separator } from "@/components/ui/separator";
 import type { AiGeneratedContent, ColorThemeJson } from "@/lib/ai"; // Add AiGeneratedContent
-import { useQueryClient } from "@tanstack/react-query"; // Import for cache invalidation
 import { motion } from "framer-motion";
 import {
   Facebook,
@@ -268,7 +267,7 @@ export function LandingPageDisplay({
 }: LandingPageDisplayProps) {
   const [openLightbox, setOpenLightbox] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const queryClient = useQueryClient(); // Initialize query client
+  // const queryClient = useQueryClient(); // Initialize query client
   const router = useRouter(); // Initialize router
 
   // Check if current user is the owner (with safe check for session.user)

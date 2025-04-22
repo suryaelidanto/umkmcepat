@@ -51,7 +51,9 @@ export async function GET(
     return NextResponse.json({
       ...page,
       aiContent: page.aiContent as unknown as AiGeneratedContent, // Assert via unknown
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       testimonials: page.testimonials as unknown as any[], // Assert via unknown
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       socialLinks: page.socialLinks as unknown as any[], // Assert via unknown
       colorTheme: page.colorTheme as unknown as ColorThemeJson | null, // Assert via unknown
     }, { status: 200 });
@@ -63,7 +65,6 @@ export async function GET(
 }
 
 // Helper function to update nested fields in an object
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function updateNestedField(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   obj: any, path: string,

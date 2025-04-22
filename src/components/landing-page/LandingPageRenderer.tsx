@@ -244,64 +244,64 @@ export function LandingPageRenderer({
 
 // Re-define CtaSectionContent here as it was removed by the edit model
 // Ensure it uses the props passed down correctly
-const CtaSectionContentReTyped: React.FC<{
-    isOwner: boolean;
-    ctaText: string;
-    whatsappCTA: boolean;
-    whatsappNumber: string | null | undefined;
-    handleSaveContent: (fieldKey: string, newValue: string) => Promise<void>;
-    handleCTAClick: () => void;
-}> = ({
-    isOwner,
-    ctaText,
-    whatsappCTA,
-    whatsappNumber,
-    handleSaveContent,
-    handleCTAClick
-}) => {
-    const [isEditingCta, setIsEditingCta] = React.useState(false);
+// const CtaSectionContentReTyped: React.FC<{
+//     isOwner: boolean;
+//     ctaText: string;
+//     whatsappCTA: boolean;
+//     whatsappNumber: string | null | undefined;
+//     handleSaveContent: (fieldKey: string, newValue: string) => Promise<void>;
+//     handleCTAClick: () => void;
+// }> = ({
+//     isOwner,
+//     ctaText,
+//     whatsappCTA,
+//     whatsappNumber,
+//     handleSaveContent,
+//     handleCTAClick
+// }) => {
+//     const [isEditingCta, setIsEditingCta] = React.useState(false);
 
-    if (isOwner && isEditingCta) {
-        return (
-            <InlineEditText
-               as="span"
-               initialValue={ctaText} // Already has default from parent
-               isOwner={isOwner}
-               fieldKey="ctaText"
-               onSave={async (key: string, value: string) => {
-                   await handleSaveContent(key, value);
-                   setIsEditingCta(false);
-               }}
-               onCancel={() => setIsEditingCta(false)}
-               className="inline-block text-lg"
-               inputClassName="text-lg px-2 py-1 border border-primary rounded bg-background text-foreground focus:ring-1 focus:ring-primary"
-               placeholder="Teks Tombol Aksi"
-               hideControls={true}
-            />
-        );
-    } else {
-        return (
-            <Button
-                size="lg"
-                className="w-full max-w-xs shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-8 py-4 relative group"
-                onClick={!isOwner ? handleCTAClick : undefined} // Only trigger main click if not owner
-            >
-                <span
-                    className={cn(
-                        "relative",
-                        isOwner && "cursor-pointer group-hover:bg-primary/80 p-1 -m-1 rounded transition-colors"
-                    )}
-                    onClick={(e) => {
-                        if (isOwner) {
-                            e.stopPropagation();
-                            setIsEditingCta(true);
-                        }
-                    }}
-                >
-                    {ctaText}
-                     {isOwner && <Edit className="h-3 w-3 absolute top-0.5 right-0.5 text-primary-foreground/70 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                </span>
-            </Button>
-        );
-    }
-};
+//     if (isOwner && isEditingCta) {
+//         return (
+//             <InlineEditText
+//                as="span"
+//                initialValue={ctaText} // Already has default from parent
+//                isOwner={isOwner}
+//                fieldKey="ctaText"
+//                onSave={async (key: string, value: string) => {
+//                    await handleSaveContent(key, value);
+//                    setIsEditingCta(false);
+//                }}
+//                onCancel={() => setIsEditingCta(false)}
+//                className="inline-block text-lg"
+//                inputClassName="text-lg px-2 py-1 border border-primary rounded bg-background text-foreground focus:ring-1 focus:ring-primary"
+//                placeholder="Teks Tombol Aksi"
+//                hideControls={true}
+//             />
+//         );
+//     } else {
+//         return (
+//             <Button
+//                 size="lg"
+//                 className="w-full max-w-xs shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-8 py-4 relative group"
+//                 onClick={!isOwner ? handleCTAClick : undefined} // Only trigger main click if not owner
+//             >
+//                 <span
+//                     className={cn(
+//                         "relative",
+//                         isOwner && "cursor-pointer group-hover:bg-primary/80 p-1 -m-1 rounded transition-colors"
+//                     )}
+//                     onClick={(e) => {
+//                         if (isOwner) {
+//                             e.stopPropagation();
+//                             setIsEditingCta(true);
+//                         }
+//                     }}
+//                 >
+//                     {ctaText}
+//                      {isOwner && <Edit className="h-3 w-3 absolute top-0.5 right-0.5 text-primary-foreground/70 opacity-0 group-hover:opacity-100 transition-opacity" />}
+//                 </span>
+//             </Button>
+//         );
+//     }
+// };
