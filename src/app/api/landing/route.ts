@@ -209,16 +209,20 @@ export async function POST(request: Request) {
         namaUsaha: namaUsaha,
         kategori: finalKategori,
         whatsapp: whatsapp || null,
-        aiContent: JSON.stringify(aiContent),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        aiContent: aiContent as any,
         images: uploadedImageData.map(img => img.url),
         imagePublicIds: uploadedImageData.map(img => img.publicId),
-        userId: userId, // Simpan userId jika ada, null jika tidak
-        isClaimed: !!userId, // isClaimed true HANYA jika user login saat membuat
+        userId: userId,
+        isClaimed: !!userId,
         tweaksLeft: 5,
         address: address || null,
-        testimonials: JSON.stringify(testimonials),
-        socialLinks: JSON.stringify(socialLinks),
-        colorTheme: JSON.stringify(resolvedTheme),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        testimonials: testimonials as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        socialLinks: socialLinks as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        colorTheme: resolvedTheme as any,
       },
     });
 
