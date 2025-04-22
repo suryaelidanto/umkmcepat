@@ -17,6 +17,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -32,11 +33,13 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { AlertCircle, ExternalLink, PlusCircle, Trash2 } from "lucide-react";
+import { AlertCircle, Copy, ExternalLink, PlusCircle, Trash2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 
 // Tipe data yang diharapkan dari API /api/my-pages
 interface MyPageData {
@@ -71,7 +74,7 @@ const deletePage = async (pageId: string): Promise<{ message: string }> => {
 };
 
 export default function MyPagesDashboard() {
-  const { status: sessionStatus } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const queryClient = useQueryClient();
 
   // State for managing which page is targeted for deletion
@@ -107,6 +110,21 @@ export default function MyPagesDashboard() {
       deleteMutation.mutate(pageToDelete.id);
     }
   };
+
+  // --- Copy Link Handler ---
+  const handleCopyLink = (slug: string) => {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://tokko.online";
+    const pageUrl = `${baseUrl}/p/${slug}`;
+    navigator.clipboard.writeText(pageUrl)
+      .then(() => {
+        toast.success("Link halaman berhasil disalin!");
+      })
+      .catch((err) => {
+        console.error("Gagal menyalin link:", err);
+        toast.error("Gagal menyalin link.");
+      });
+  };
+  // --- End Copy Link Handler ---
 
   // Handle loading state for session
   if (sessionStatus === "loading") {
@@ -184,6 +202,9 @@ export default function MyPagesDashboard() {
     );
   }
 
+  // Base URL for constructing links
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://tokko.online";
+
   return (
     <AlertDialog
       open={!!pageToDelete}
@@ -199,87 +220,114 @@ export default function MyPagesDashboard() {
           </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Daftar Landing Page</CardTitle>
-            <CardDescription>
-              Berikut adalah daftar landing page yang telah Anda buat.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {pages && pages.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nama Usaha</TableHead>
-                    <TableHead>Alamat (Slug)</TableHead>
-                    <TableHead>Tanggal Dibuat</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pages.map((page) => (
-                    <TableRow key={page.id}>
-                      <TableCell className="font-medium">
-                        {page.namaUsaha}
-                      </TableCell>
-                      <TableCell>
-                        <Link
-                          href={`/p/${page.slug}`}
-                          target="_blank"
-                          className="hover:underline text-blue-600"
-                        >
-                          /p/{page.slug}
+        {pages && pages.length > 0 ? (
+          <>
+            {/* Desktop View: Table */}
+            <div className="hidden md:block">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Daftar Landing Page</CardTitle>
+                  <CardDescription>
+                    Berikut adalah daftar landing page yang telah Anda buat.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nama Usaha</TableHead>
+                        <TableHead>Link Publik</TableHead>
+                        <TableHead>Tanggal Dibuat</TableHead>
+                        <TableHead className="text-right">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pages.map((page) => {
+                        const pageUrl = `${baseUrl}/p/${page.slug}`;
+                        return (
+                          <TableRow key={page.id}>
+                            <TableCell className="font-medium">{page.namaUsaha}</TableCell>
+                            <TableCell>
+                              <Link href={pageUrl} target="_blank" className="hover:underline text-blue-600 text-sm break-all">
+                                {pageUrl}
+                              </Link>
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(page.createdAt), "dd MMMM yyyy, HH:mm", { locale: localeId })}
+                            </TableCell>
+                            <TableCell className="text-right space-x-1">
+                              <Button variant="outline" size="icon" className="h-8 w-8" asChild title="Lihat Halaman">
+                                <Link href={pageUrl} target="_blank">
+                                  <ExternalLink className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                              <Button variant="outline" size="icon" className="h-8 w-8" title="Salin Link" onClick={() => handleCopyLink(page.slug)}>
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon" className="h-8 w-8" title="Hapus Halaman" onClick={() => setPageToDelete(page)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Mobile View: Cards */}
+            <div className="block md:hidden space-y-4">
+              <h2 className="text-xl font-semibold mb-4">Daftar Landing Page</h2>
+              {pages.map((page) => {
+                const pageUrl = `${baseUrl}/p/${page.slug}`;
+                return (
+                  <Card key={page.id}>
+                    <CardHeader>
+                      <CardTitle>{page.namaUsaha}</CardTitle>
+                      <CardDescription>
+                        Dibuat: {format(new Date(page.createdAt), "dd MMM yyyy, HH:mm", { locale: localeId })}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Link Publik:</Label>
+                      <Link href={pageUrl} target="_blank" className="block text-sm text-blue-600 hover:underline break-all">
+                        {pageUrl}
+                      </Link>
+                    </CardContent>
+                    <CardFooter className="flex justify-end space-x-2">
+                      <Button variant="outline" size="sm" asChild title="Lihat Halaman">
+                        <Link href={pageUrl} target="_blank">
+                          <ExternalLink className="mr-1 h-4 w-4" /> Lihat
                         </Link>
-                      </TableCell>
-                      <TableCell>
-                        {format(
-                          new Date(page.createdAt),
-                          "dd MMMM yyyy, HH:mm",
-                          { locale: localeId }
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          title="Lihat Halaman"
-                        >
-                          <Link href={`/p/${page.slug}`} target="_blank">
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
+                      </Button>
+                      <Button variant="outline" size="sm" title="Salin Link" onClick={() => handleCopyLink(page.slug)}>
+                        <Copy className="mr-1 h-4 w-4" /> Salin
+                      </Button>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="icon" className="h-9 w-9" title="Hapus Halaman" onClick={() => setPageToDelete(page)}>
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            title="Hapus Halaman"
-                            onClick={() => setPageToDelete(page)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-muted-foreground mb-4">
-                  Anda belum membuat landing page.
-                </p>
-                <Button asChild>
-                  <Link href="/">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Buat Halaman Pertama
-                    Anda
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      </AlertDialogTrigger>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-10 border rounded-lg bg-card">
+            <p className="text-muted-foreground mb-4">Anda belum membuat landing page.</p>
+            <Button asChild>
+              <Link href="/create">
+                <PlusCircle className="mr-2 h-4 w-4" /> Buat Halaman Pertama Anda
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       <AlertDialogContent>
