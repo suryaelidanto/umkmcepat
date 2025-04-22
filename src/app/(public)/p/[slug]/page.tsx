@@ -5,8 +5,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { AiGeneratedContent } from "@/lib/ai";
 import type { ColorThemeJson } from "@/lib/ai";
-
-// Impor Client Component yang baru dibuat
 import { LandingPageDisplay } from "./LandingPageDisplay";
 
 // Tipe Props tetap sama
@@ -119,4 +117,4 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images: imageUrl ? [imageUrl] : [],
     },
   };
-}
+} 

@@ -10,21 +10,37 @@ import { baseLandingPageSchemaForOmit } from '@/lib/zod-schemas';
 import { auth } from '@/lib/auth'; // Import auth untuk cek sesi
 import type { ColorThemeJson } from '@/lib/ai'; // Import type ColorThemeJson
 
-// Definisikan tema warna default
+// Definisikan tema warna default (disamakan dengan di LandingPageDisplay - Attempt 2, careful syntax)
 const defaultColorTheme: ColorThemeJson = {
-  primary: "#1f2937",        // slate-800
-  "on-primary": "#ffffff",   // white
-  secondary: "#4b5563",    // slate-600
-  "on-secondary": "#ffffff",
-  background: "#f9fafb",    // slate-50
-  "on-background": "#1f2937", // slate-800
-  surface: "#ffffff",       // white
-  "on-surface": "#1f2937",  // slate-800
-  accent: "#3b82f6",        // blue-500 (sebagai contoh)
-  muted: "#e5e7eb",        // slate-200
-  border: "#d1d5db",        // slate-300
-  success: "#10b981",      // green-500
-  error: "#ef4444"        // red-500
+  primary: "hsl(222.2 47.4% 11.2%)",
+  "on-primary": "hsl(0 0% 100%)",
+  secondary: "hsl(210 40% 96.1%)",
+  "on-secondary": "hsl(222.2 47.4% 11.2%)",
+  background: "hsl(0 0% 100%)",
+  "on-background": "hsl(222.2 47.4% 11.2%)",
+  surface: "hsl(0 0% 100%)",
+  "on-surface": "hsl(222.2 47.4% 11.2%)",
+  accent: "hsl(217.2 91.2% 59.8%)",
+  muted: "hsl(210 40% 96.1%)",
+  border: "hsl(214.3 31.8% 91.4%)",
+  success: "hsl(142.1 70.6% 45.3%)",
+  error: "hsl(0 84.2% 60.2%)",
+  card: "hsl(0 0% 100%)",
+  "on-card": "hsl(222.2 47.4% 11.2%)",
+  popover: "hsl(0 0% 100%)",
+  "on-popover": "hsl(222.2 47.4% 11.2%)",
+  destructive: "hsl(0 84.2% 60.2%)",
+  "on-destructive": "hsl(0 0% 100%)",
+  input: "hsl(214.3 31.8% 91.4%)",
+  ring: "hsl(215 20.2% 65.1%)",
+  foreground: "hsl(222.2 47.4% 11.2%)",
+  primary_foreground: "hsl(0 0% 100%)",
+  secondary_foreground: "hsl(222.2 47.4% 11.2%)",
+  muted_foreground: "hsl(215.4 16.3% 46.9%)",
+  accent_foreground: "hsl(0 0% 100%)",
+  destructive_foreground: "hsl(0 0% 100%)",
+  card_foreground: "hsl(222.2 47.4% 11.2%)",
+  popover_foreground: "hsl(222.2 47.4% 11.2%)",
 };
 
 // POST /api/landing - Create a new landing page

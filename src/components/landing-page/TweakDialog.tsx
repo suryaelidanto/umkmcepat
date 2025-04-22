@@ -68,21 +68,8 @@ export function TweakDialog({ slug, tweaksLeft, children }: TweakDialogProps) {
     mutationFn: sendTweakInstruction,
     onSuccess: (data) => {
       toast.success("Tweak Berhasil!", { description: data.message });
-      // Update the query cache with the new data from the server
-      queryClient.setQueryData(
-        queryKey,
-        (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          oldData: any
-        ) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            aiContent: data.updatedAiContent,
-            tweaksLeft: data.tweaksLeft,
-          };
-        }
-      );
+      // Invalidate the query to refetch data from the server
+      queryClient.invalidateQueries({ queryKey });
       form.reset(); // Clear the form
       setIsOpen(false); // Close the dialog
     },

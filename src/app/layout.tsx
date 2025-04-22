@@ -38,16 +38,14 @@ export default function RootLayout({
             />
           </head>
           <body
+            suppressHydrationWarning={true}
             className={cn(
               "min-h-screen bg-background font-sans antialiased",
               inter.variable
             )}
           >
-            <div className="relative flex min-h-screen flex-col bg-background">
-              <Header />
-              <main className="flex-1">{children}</main>
-              <Footer />
-            </div>
+            {/* REMOVED wrapper div, Header, main wrapper, Footer */}
+            {children} { /* Render children directly */}
             <Toaster richColors position="bottom-right" />
           </body>
         </html>

@@ -1,89 +1,63 @@
 "use client"; // Needs to be a client component for potential event handlers
 
-import React from "react";
 import { Button } from "@/components/ui/button";
+import { Phone } from "lucide-react";
+import { motion } from "framer-motion";
 import Link from "next/link";
-import { MessageCircle, Send } from "lucide-react"; // Ganti Phone ke MessageCircle
-import type { ColorThemeJson } from "@/lib/ai"; // Import ColorThemeJson
+import { AiGeneratedContent, ColorThemeJson } from "@/lib/ai"; // Keep AiGeneratedContent, maybe remove ColorThemeJson if unused after edit
 
 interface StickyCTAProps {
-  ctaText?: string;
-  whatsappCTA?: boolean;
-  whatsappNumber?: string;
-  colorTheme: ColorThemeJson; // Tambah colorTheme prop
+  ctaText: string;
+  whatsappCTA: boolean;
+  whatsappNumber: string | undefined;
+  // colorTheme: ColorThemeJson; // REMOVED: No longer needed
 }
 
 export function StickyCTA({
-  ctaText = "Hubungi Kami",
-  whatsappCTA = false,
+  ctaText,
+  whatsappCTA,
   whatsappNumber,
-  colorTheme: theme, // Terima theme
-}: StickyCTAProps) {
-  const whatsappLink = whatsappNumber
-    ? `https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}`
-    : "#";
+}: // colorTheme, // REMOVED
+StickyCTAProps) {
+  // if (!ctaText) return null; // Don't render if no CTA text
 
-  // Tentukan warna dan ikon berdasarkan whatsappCTA dan theme
-  const isWhatsApp = whatsappCTA && whatsappNumber;
-  const finalButtonColor = theme.primary;
-  const finalButtonTextColor = theme["on-primary"];
-  const ButtonIcon = isWhatsApp ? MessageCircle : Send;
-
-  const buttonStyle = {
-    backgroundColor: finalButtonColor,
-    color: finalButtonTextColor,
+  const handleCTAClick = () => {
+    if (whatsappCTA && whatsappNumber) {
+      const waLink = `https://wa.me/${whatsappNumber.replace(/\D/g, "")}`;
+      window.open(waLink, "_blank");
+    }
+    // Handle non-WhatsApp CTA later if needed
   };
 
-  const CTAContent = () => (
-    <Button
-      style={buttonStyle}
-      size="lg"
-      className="w-full sm:w-auto text-lg font-semibold shadow-lg hover:opacity-90 hover:scale-[0.98] active:scale-95 transition-all cursor-pointer"
-    >
-      <ButtonIcon className="mr-2 h-5 w-5" />
-      {ctaText}
-    </Button>
-  );
-
-  // TODO: UX/Styling - Test sticky behavior thoroughly on different devices/browsers.
-  // TODO: UX/Styling - Consider desktop CTA placement (e.g., non-sticky at the bottom).
   return (
-    <>
-      {/* Mobile Sticky CTA */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:hidden">
-        {whatsappCTA ? (
-          <div className="cursor-pointer hover:opacity-95 active:scale-[0.99] transition-all">
-            <Link
-              href={whatsappLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={ctaText}
-            >
-              <CTAContent />
-            </Link>
-          </div>
+    <motion.div
+      className="sticky bottom-0 left-0 right-0 z-40 p-4 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      initial={{ y: 100 }}
+      animate={{ y: 0 }}
+      transition={{ type: "spring", stiffness: 100, damping: 20 }}
+      // Removed inline styles for background and border
+    >
+      <div className="container mx-auto max-w-4xl flex items-center justify-center">
+        {whatsappCTA && whatsappNumber ? (
+          <Button
+            size="lg"
+            className="w-full max-w-sm shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={handleCTAClick}
+            // Removed inline style, use shadcn classes
+          >
+            <Phone className="mr-2 h-5 w-5" />
+            {ctaText || "Hubungi via WhatsApp"} {/* Fallback text */}
+          </Button>
         ) : (
-          <CTAContent />
+          <Button
+            size="lg"
+            className="w-full max-w-sm shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+            // Use default primary button style if not WhatsApp
+          >
+            {ctaText || "Lihat Penawaran"} {/* Fallback text */}
+          </Button>
         )}
       </div>
-
-      {/* Desktop CTA (Non-Sticky, placed after content) */}
-      <div className="mt-16 hidden sm:flex justify-center">
-        {whatsappCTA ? (
-          <div className="cursor-pointer hover:opacity-95 active:scale-[0.99] transition-all">
-            <Link
-              href={whatsappLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={ctaText}
-            >
-              <CTAContent />
-            </Link>
-          </div>
-        ) : (
-          <CTAContent />
-        )}
-      </div>
-    </>
+    </motion.div>
   );
 }

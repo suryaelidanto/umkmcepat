@@ -75,4 +75,4 @@ export function LandingPageClientContent({
       </div>
     </div>
   );
-}
+} 

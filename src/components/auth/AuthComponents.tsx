@@ -10,8 +10,9 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogIn, LogOut } from 'lucide-react';
+import { LogIn, LogOut, LayoutList } from 'lucide-react';
 import { signIn, signOut, useSession } from 'next-auth/react';
+import Link from 'next/link';
 
 export function AuthButton() {
     const { data: session, status } = useSession();
@@ -54,11 +55,12 @@ export function AuthButton() {
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {/* Add links to dashboard, settings etc. if needed */}
-                {/* <DropdownMenuItem> */}
-                {/*     <UserIcon className="mr-2 h-4 w-4" /> */}
-                {/*     <span>Profil</span> */}
-                {/* </DropdownMenuItem> */}
+                <DropdownMenuItem asChild>
+                  <Link href="/my-pages">
+                    <LayoutList className="mr-2 h-4 w-4" />
+                    <span>Halaman Saya</span>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut()}>
                     <LogOut className="mr-2 h-4 w-4" />
