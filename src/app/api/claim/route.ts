@@ -51,7 +51,6 @@ export async function POST(request: Request) {
       data: {
         userId: userId,
         isClaimed: true,
-        editToken: null, // Remove edit token upon claiming
       },
     });
 

@@ -20,18 +20,14 @@ export async function PUT(request: Request, { params }: { params: { slug: string
     // 1. Verify Token and Page Status again before update
     const landingPage = await prisma.landingPage.findUnique({
       where: { slug },
-      select: { id: true, isClaimed: true, editToken: true, images: true, imagePublicIds: true },
+      select: { id: true, isClaimed: true, images: true, imagePublicIds: true },
     });
 
     if (!landingPage) {
       return NextResponse.json({ message: 'Halaman tidak ditemukan' }, { status: 404 });
     }
-    if (landingPage.isClaimed || !landingPage.editToken) {
-      return NextResponse.json({ message: 'Update tidak diizinkan (sudah diklaim atau token tidak valid)' }, { status: 403 });
-    }
-    const isTokenValid = await bcrypt.compare(token, landingPage.editToken);
-    if (!isTokenValid) {
-      return NextResponse.json({ message: 'Token edit tidak valid' }, { status: 403 });
+    if (landingPage.isClaimed) {
+      return NextResponse.json({ message: 'Update tidak diizinkan (sudah diklaim)' }, { status: 403 });
     }
 
     // 2. Process FormData

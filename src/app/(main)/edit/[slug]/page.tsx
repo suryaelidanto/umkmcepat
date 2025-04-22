@@ -31,7 +31,6 @@ async function verifyTokenAndGetData(slug: string, token?: string | string[]) {
             whatsapp: true,
             images: true,
             isClaimed: true,
-            editToken: true, // Need the hashed token
         },
     });
 
@@ -41,17 +40,6 @@ async function verifyTokenAndGetData(slug: string, token?: string | string[]) {
 
     if (landingPage.isClaimed) {
         return { error: 'Halaman ini sudah diklaim dan tidak bisa diedit via token.' };
-    }
-
-    if (!landingPage.editToken) {
-        // Should not happen if not claimed, but good to check
-        return { error: 'Token edit tidak valid atau sudah dihapus.' };
-    }
-
-    const isTokenValid = await bcrypt.compare(providedToken, landingPage.editToken);
-
-    if (!isTokenValid) {
-        return { error: 'Token edit tidak valid.' };
     }
 
     // Token is valid, return data needed for the form
