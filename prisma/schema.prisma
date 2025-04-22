@@ -1,0 +1,94 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // Make sure this is set in your .env file (e.g., from Neon)
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model LandingPage {
+  id           String    @id @default(uuid())
+  slug         String    @unique
+  namaUsaha    String
+  kategori     String
+  // AI Generated Content (stored as JSON string for flexibility initially, or separate fields)
+  // Option 1: JSON String
+  aiContent    Json?
+  // Option 2: Separate Fields (match the expected AI output)
+  // headline     String?
+  // subheadline  String?
+  // description  String?
+  // features     Json? // Array of strings or objects
+  // primaryColor String? // Hex code like #RRGGBB
+  // ctaText      String?
+  // layoutStyle  String? // e.g., 'standard', 'minimal'
+  // tone         String? // e.g., 'professional', 'friendly'
+  // font         String? // e.g., 'Inter', 'Poppins' (Consider storing class name)
+  // whatsappCTA  Boolean? @default(false)
+
+  harga        String?   // Optional, future feature
+  whatsapp     String?   // User-provided WhatsApp number
+  images       String[]  // Array of Cloudinary secure_urls
+  imagePublicIds String[] @default([]) // Array of Cloudinary public_ids
+  userId       String?   // User ID from Auth.js if claimed
+  editToken    String?   // Hashed bcrypt token (nullable after claim)
+  isClaimed    Boolean   @default(false)
+  tweaksLeft   Int       @default(5) // Number of AI tweaks remaining
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade) // Optional relation
+
+  @@index([userId]) // Index for faster lookups of user's pages
+}
+
+// NextAuth.js (Auth.js v5) Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  landingPages  LandingPage[] // Relation back to LandingPage
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+} 
