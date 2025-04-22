@@ -167,7 +167,6 @@ export default async function PublicLandingPage({ params }: Props) {
         {/* --- Hero Section (From AI Renderer) --- */}
         <LandingPageRenderer
           data={pageData.aiContent}
-          images={pageData.images} // Pass images here if renderer uses them for hero
           namaUsaha={pageData.namaUsaha}
         />
 
@@ -175,11 +174,11 @@ export default async function PublicLandingPage({ params }: Props) {
         {pageData.images && pageData.images.length > 0 && (
           <section className="my-12 md:my-16">
             <h2 className="text-2xl font-semibold mb-6 text-center">Galeri</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
               {pageData.images.map((imgUrl, index) => (
                 <div
                   key={index}
-                  className="relative aspect-[4/3] w-full overflow-hidden rounded-lg shadow-md"
+                  className="relative aspect-[4/3] w-full sm:w-[48%] md:w-[31%] overflow-hidden rounded-lg shadow-md grow-0 shrink-0"
                 >
                   <Image
                     src={imgUrl}
@@ -202,7 +201,7 @@ export default async function PublicLandingPage({ params }: Props) {
             <h2 className="text-2xl lg:text-3xl font-semibold mb-8">
               Apa Kata Pelanggan Kami?
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className={`grid grid-cols-1 gap-6 ${testimonials.length > 1 ? 'md:grid-cols-2' : ''}`}>
               {testimonials.map((testimonial, index) => (
                 <blockquote
                   key={index}
