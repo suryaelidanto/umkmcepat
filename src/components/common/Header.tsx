@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Coffee } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { Sparkles } from "lucide-react";
 
 export function Header() {
   return (
@@ -27,24 +28,13 @@ export function Header() {
           </nav> */}
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2 md:space-x-4">
-          {" "}
-          {/* Adjust spacing */}
-          {/* Ubah variant tombol support */}
-          <Button
-            size="sm"
-            asChild
-            className="bg-black hover:bg-black/80 text-primary-foreground"
-          >
-            <Link
-              href="http://support.tokko.online/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center"
-            >
-              <Coffee className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Support Developer</span>
+          {/* Tambah Tombol Buat Halaman */}
+          <Button size="sm" asChild>
+            <Link href="/create">
+              <Sparkles className="h-4 w-4 mr-1.5" /> Buat Halaman
             </Link>
           </Button>
+
           <AuthButton />
         </div>
       </div>

@@ -77,7 +77,6 @@ export function StickyCTA({
               rel="noopener noreferrer"
               aria-label={ctaText}
             >
-                sadsad
               <CTAContent />
             </Link>
           </div>

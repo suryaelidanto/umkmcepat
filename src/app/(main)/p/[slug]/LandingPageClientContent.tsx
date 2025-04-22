@@ -65,10 +65,10 @@ export function LandingPageClientContent({
               variant="outline"
               size="sm"
               disabled={!canTweak}
-              aria-label="Tweak Konten"
+              aria-label="Ubah Konten dengan AI"
             >
               <Bot className="mr-2 h-4 w-4" />
-              Tweak Konten (Sisa {initialPageData.tweaksLeft}x)
+              Ubah Konten dengan AI (Sisa {initialPageData.tweaksLeft}x)
             </Button>
           </TweakDialog>
         )}
