@@ -38,7 +38,7 @@ export function StickyCTA({
         <Button 
             style={buttonStyle} 
             size="lg" 
-            className="w-full sm:w-auto text-lg font-semibold shadow-lg hover:opacity-90 transition-opacity"
+            className="cursor-pointer w-full sm:w-auto text-lg font-semibold shadow-lg hover:opacity-90 transition-opacity"
         >
             <ButtonIcon className="mr-2 h-5 w-5"/>
             {ctaText}

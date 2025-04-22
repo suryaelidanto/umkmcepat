@@ -1,147 +1,80 @@
 "use client";
 
-import { TweakDialog } from '@/components/landing-page/TweakDialog'; // Correct import path
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bot, Edit, Info, Loader2, Lock } from 'lucide-react';
-import { Session } from 'next-auth'; // Import Session type
-import { signIn } from 'next-auth/react';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import React, { useState } from "react"; // Removed useEffect as it's no longer needed for token
+import { TweakDialog } from "@/components/landing-page/TweakDialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Bot, Edit, Info, Loader2, Lock } from "lucide-react";
+import { Session } from "next-auth"; // Ensure Session type is imported
+import { signIn } from "next-auth/react"; // Ensure signIn is imported
+import Link from "next/link";
 
-interface LandingPageClientContentProps<TPageData> {
-    pageData: TPageData;
-    session: Session | null; // Pass session from server
+// Define TPageData based on expected props (simplified version)
+interface TPageData {
+  slug: string;
+  isClaimed: boolean;
+  userId?: string | null;
+  tweaksLeft?: number | null;
+  // Include other fields from pageData if LandingPageClientContent uses them directly
 }
 
-// API fetcher function (example, might not be needed if only mutating)
-// const fetchPageData = async (slug: string): Promise<PageData> => {
-//   const res = await fetch(`/api/landing/${slug}`); // Assuming a GET endpoint exists
-//   if (!res.ok) throw new Error('Failed to fetch page data');
-//   return res.json();
-// };
+// Define props interface
+interface LandingPageClientContentProps {
+  pageData: TPageData;
+  session: Session | null; // Use the imported Session type
+}
 
-// Mutation function for claiming
-const claimPage = async (slug: string): Promise<{ message: string }> => {
-    const res = await fetch('/api/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.message || 'Gagal mengklaim halaman');
-    }
-    return data;
-};
+export function LandingPageClientContent({
+  pageData: initialPageData,
+  session,
+}: LandingPageClientContentProps) {
+  const slug = initialPageData.slug;
 
-export function LandingPageClientContent<TPageData extends { slug: string; isClaimed: boolean; userId?: string | null; tweaksLeft?: number | null }>({ pageData: initialPageData, session }: LandingPageClientContentProps<TPageData>) {
-    const queryClient = useQueryClient();
-    const slug = initialPageData.slug;
-    const queryKey = ['landingPage', slug];
-    const [retrievedEditToken, setRetrievedEditToken] = useState<string | null>(null);
+  const handleClaim = () => {
+    // Always trigger Google Sign In
+    // Redirect to claim API after login
+    signIn("google", { callbackUrl: `/api/landing/${slug}/claim` });
+  };
 
-    const claimMutation = useMutation({
-        mutationFn: claimPage,
-        onSuccess: (data) => {
-            toast.success('Berhasil Diklaim!', { description: data.message });
-            // Invalidate and refetch the landing page data to reflect the claimed status
-            queryClient.invalidateQueries({ queryKey: queryKey });
-            // Refetch session potentially? Or just rely on UI update based on pageData
-        },
-        onError: (error) => {
-            toast.error('Gagal Mengklaim', { description: error.message });
-        },
-    });
+  // Determine user/ownership status
+  const isLoggedIn = !!session;
+  const isOwner = isLoggedIn && session?.user?.id === initialPageData?.userId;
+  const isPageClaimed = initialPageData?.isClaimed ?? false;
+  const canTweak = isOwner && (initialPageData?.tweaksLeft ?? 0) > 0;
 
-    // Attempt to retrieve the edit token from sessionStorage on mount
-    useEffect(() => {
-        if (!initialPageData.isClaimed && initialPageData.slug) {
-            const storedToken = sessionStorage.getItem(`editToken_${initialPageData.slug}`);
-            if (storedToken) {
-                setRetrievedEditToken(storedToken);
-                // Optional: Remove the token after retrieving it?
-                // sessionStorage.removeItem(`editToken_${initialPageData.slug}`);
-            }
-        }
-    }, [initialPageData.isClaimed, initialPageData.slug]);
+  return (
+    <div className="container mx-auto max-w-4xl px-4 pt-4 sm:px-6 lg:px-8">
+      <div className={`mb-6 flex flex-wrap items-center justify-end gap-2`}>
+        {!isPageClaimed && (
+          <>
+            <Alert variant="destructive" className="w-full text-sm mb-2">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Perhatian!</AlertTitle>
+              <AlertDescription>
+                Halaman ini belum diklaim dan bisa diedit oleh siapa saja yang
+                punya link khusus.
+              </AlertDescription>
+            </Alert>
+            <Button onClick={handleClaim} size="sm">
+              <Lock className="mr-2 h-4 w-4" /> Klaim dengan Google
+            </Button>
+          </>
+        )}
 
-    const handleClaim = async () => {
-        if (!session) {
-            // If not logged in, initiate Google Sign In
-            // Redirect back to this page after successful login (handled by NextAuth default)
-            signIn('google');
-        } else {
-            // If already logged in, proceed with claim mutation
-            claimMutation.mutate(slug);
-        }
-    };
-
-    // Determine user/ownership status
-    const isLoggedIn = !!session;
-    const isOwner = isLoggedIn && session?.user?.id === initialPageData?.userId;
-    const isPageClaimed = initialPageData?.isClaimed ?? false;
-    const canTweak = isOwner && (initialPageData?.tweaksLeft ?? 0) > 0;
-
-    // Show loading skeleton or spinner if needed
-    // if (isQueryLoading && !pageData) return <div className="container mx-auto p-4">Memuat data halaman...</div>;
-
-    // Display loading state during claim mutation if needed (Button already shows spinner)
-    // if (claimMutation.isPending) { ... }
-
-    return (
-        <div className="container mx-auto max-w-4xl px-4 pt-4 sm:px-6 lg:px-8">
-            {/* Edit/Claim/Tweak Controls */}
-            {/* Add opacity change during claim mutation for visual feedback */}
-            <div className={`mb-6 flex flex-wrap items-center justify-end gap-2 transition-opacity ${claimMutation.isPending ? 'opacity-70 pointer-events-none' : 'opacity-100'}`}>
-                {!isPageClaimed && (
-                    <>
-                        <Alert variant="destructive" className="w-full text-sm mb-2">
-                            <Info className="h-4 w-4" />
-                            <AlertTitle>Perhatian!</AlertTitle>
-                            <AlertDescription>
-                                Halaman ini belum diklaim dan bisa diedit oleh siapa saja yang punya link khusus.
-                            </AlertDescription>
-                        </Alert>
-                        {retrievedEditToken && ( // Only show button if token was retrieved
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                className="border-dashed border-yellow-600 text-yellow-700 hover:bg-yellow-50"
-                            >
-                                <Link href={`/edit/${slug}?token=${retrievedEditToken}`}> 
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit via Token
-                                </Link>
-                            </Button>
-                        )}
-                        <Button onClick={handleClaim} size="sm" disabled={claimMutation.isPending}>
-                            {claimMutation.isPending ? (
-                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mengklaim...</>
-                            ) : (
-                                <><Lock className="mr-2 h-4 w-4" /> Klaim Halaman Ini</>
-                            )}
-                        </Button>
-                    </>
-                )}
-
-                {isPageClaimed && isOwner && (
-                    <TweakDialog slug={slug} tweaksLeft={initialPageData.tweaksLeft ?? 0}>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={!canTweak} // Disable if tweaksLeft is 0
-                            aria-label="Tweak Konten"
-                        >
-                            <Bot className="mr-2 h-4 w-4" />
-                            Tweak Konten (Sisa {initialPageData.tweaksLeft}x)
-                        </Button>
-                    </TweakDialog>
-                )}
-            </div>
-        </div>
-    );
-} 
+        {isPageClaimed && isOwner && (
+          <TweakDialog slug={slug} tweaksLeft={initialPageData.tweaksLeft ?? 0}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!canTweak}
+              aria-label="Tweak Konten"
+            >
+              <Bot className="mr-2 h-4 w-4" />
+              Tweak Konten (Sisa {initialPageData.tweaksLeft}x)
+            </Button>
+          </TweakDialog>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -19,7 +19,6 @@ model LandingPage {
   imagePublicIds String[] // Array of Cloudinary public IDs corresponding to images
   userId         String? // Foreign key to User model if claimed
   User           User?    @relation(fields: [userId], references: [id])
-  editToken      String? // Hashed token for editing before claim
   isClaimed      Boolean  @default(false)
   tweaksLeft     Int      @default(5) // Number of AI tweaks remaining
   createdAt      DateTime @default(now())

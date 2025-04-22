@@ -7,15 +7,18 @@ import { checkRateLimit } from '@/lib/rate-limit'; // Import rate limit checker
 import { generateRandomString, slugify } from '@/lib/utils';
 // Import the base schema to apply refinement after omit
 import { baseLandingPageSchemaForOmit } from '@/lib/zod-schemas';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
+import { auth } from '@/lib/auth'; // Import auth untuk cek sesi
 
 // POST /api/landing - Create a new landing page
 export async function POST(request: Request) {
   try {
-    // Apply rate limiting first (using stricter AI limit)
+    // Apply rate limiting first
     const rateLimitResponse = await checkRateLimit(request, 'ai');
     if (rateLimitResponse) return rateLimitResponse;
+
+    // Cek sesi user
+    const session = await auth();
+    const userId = session?.user?.id;
 
     const formData = await request.formData();
 
@@ -94,11 +97,6 @@ export async function POST(request: Request) {
       throw new Error("Gagal membuat slug unik setelah beberapa percobaan.");
     }
 
-    // Generate Edit Token
-    const editToken = crypto.randomUUID();
-    const saltRounds = 10;
-    const hashedEditToken = await bcrypt.hash(editToken, saltRounds);
-
     // Generate AI Content
     const hasWhatsApp = !!whatsapp && whatsapp.length > 5;
     const aiContent = await generateLandingPageContent(
@@ -147,27 +145,23 @@ export async function POST(request: Request) {
         namaUsaha: namaUsaha,
         kategori: finalKategori,
         whatsapp: whatsapp || null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        aiContent: aiContent as any, // Prisma JSON type issue
+        aiContent: aiContent as any,
         images: uploadedImageData.map(img => img.url),
         imagePublicIds: uploadedImageData.map(img => img.publicId),
-        editToken: hashedEditToken,
-        isClaimed: false,
+        userId: userId, // Set userId jika user login, null jika tidak
+        isClaimed: !!userId, // Set isClaimed true jika user login
         tweaksLeft: 5,
-        // Add new optional fields (parsed arrays)
-        address: address || null, // Ensure address is passed correctly
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        testimonials: testimonials.length > 0 ? testimonials as any : undefined, // Pass array or undefined
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        socialLinks: socialLinks.length > 0 ? socialLinks as any : undefined,    // Pass array or undefined
+        address: address || null,
+        testimonials: testimonials.length > 0 ? testimonials as any : undefined,
+        socialLinks: socialLinks.length > 0 ? socialLinks as any : undefined,
       },
     });
 
-    console.log("New Landing Page Created:", newLandingPage.id, "Slug:", pageSlug);
+    console.log("New Landing Page Created:", newLandingPage.id, "Slug:", pageSlug, "UserID:", userId);
 
-    // Return slug and original edit token to the client
+    // Return slug ONLY (tanpa edit token)
     return NextResponse.json(
-      { slug: pageSlug, editToken: editToken, message: 'Landing page berhasil dibuat!' },
+      { slug: pageSlug, message: 'Landing page berhasil dibuat!' },
       { status: 201 }
     );
 
