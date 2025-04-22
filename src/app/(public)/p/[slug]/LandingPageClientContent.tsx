@@ -24,7 +24,6 @@ interface LandingPageClientContentProps {
 
 export function LandingPageClientContent({
   pageData: initialPageData,
-  session,
 }: LandingPageClientContentProps) {
   const slug = initialPageData.slug;
 

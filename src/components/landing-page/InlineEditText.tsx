@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Edit, Save, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Edit, Loader2, Save, X } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface InlineEditTextProps {
@@ -41,13 +41,13 @@ export function InlineEditText({
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null); // Ref for the edit mode wrapper
 
-  const handleCancelInternal = () => {
+  const handleCancelInternal = useCallback(() => {
     setCurrentValue(initialValue); // Revert changes
     setIsEditing(false);
     if (onCancel) {
       onCancel(); // Call the passed-in cancel handler
     }
-  };
+  }, [initialValue, onCancel]);
 
   // Update internal state if initialValue changes from parent
   useEffect(() => {
