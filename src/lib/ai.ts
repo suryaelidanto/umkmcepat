@@ -16,6 +16,10 @@ export interface AiGeneratedContent {
   subheadline: string;
   description: string;
   features: string[]; // Array of feature strings
+  featuresTitle?: string; // Added: Optional title for features section
+  galleryTitle?: string; // Added: Optional title for gallery section
+  testimonialsTitle?: string; // Added: Optional title for testimonials section
+  contactTitle?: string; // Added: Optional title for contact section
   primaryColor: string; // Hex color code (e.g., "#3B82F6")
   ctaText: string; // Text for the main Call to Action button
   layoutStyle: 'standard' | 'minimal' | string; // Predefined or custom

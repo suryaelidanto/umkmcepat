@@ -18,24 +18,26 @@ const redisClient = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_RE
     : null;
 
 // Create a Ratelimit instance using Upstash Redis client (if available)
-const generalRatelimit = redisClient ? new Ratelimit({
+// Global limiter (more generous)
+const globalLimiter = redisClient ? new Ratelimit({
     redis: redisClient,
-    limiter: Ratelimit.slidingWindow(10, "10 s"), // 10 requests per 10 seconds
+    limiter: Ratelimit.slidingWindow(30, "60 s"), // 30 requests per 60 seconds (1 minute)
     analytics: true,
-    prefix: "@upstash/ratelimit/tokko/general",
+    prefix: "@upstash/ratelimit/tokko/global", // Updated prefix
 }) : null;
 
-const aiActionRatelimit = redisClient ? new Ratelimit({
+// AI specific limiter (stricter)
+const aiLimiter = redisClient ? new Ratelimit({
     redis: redisClient,
-    limiter: Ratelimit.slidingWindow(5, "60 s"), // 5 requests per 60 seconds for AI actions
+    limiter: Ratelimit.slidingWindow(5, "600 s"), // 5 requests per 600 seconds (10 minutes)
     analytics: true,
     prefix: "@upstash/ratelimit/tokko/ai",
 }) : null;
 
 // Helper function to apply rate limiting
-export async function checkRateLimit(request: Request, type: 'general' | 'ai' = 'general') {
+export async function checkRateLimit(request: Request, type: 'global' | 'ai' = 'global') { // Default to global
     // If Redis client or ratelimiter couldn't be initialized, disable rate limiting
-    const ratelimit = type === 'ai' ? aiActionRatelimit : generalRatelimit;
+    const ratelimit = type === 'ai' ? aiLimiter : globalLimiter; // Use updated names
     if (!ratelimit) {
         // console.log("Rate limiting is disabled due to missing Redis config.");
         return null; 

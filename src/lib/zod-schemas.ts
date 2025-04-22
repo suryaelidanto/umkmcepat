@@ -28,7 +28,7 @@ const baseLandingPageSchema = z.object({
     'Lainnya'
   ], { errorMap: () => ({ message: 'Pilih kategori usaha yang valid' }) }),
   kategoriLainnya: z.string().nullish(), // Allow string, null, or undefined
-  deskripsi_user: z.string().max(500, { message: 'Deskripsi maksimal 500 karakter' }).optional(),
+  deskripsi_user: z.string().max(500, { message: 'Deskripsi maksimal 500 karakter' }).optional().nullable(),
   images: z
     .custom<FileList | undefined>() // Allow undefined initially
     .refine((files) => files === undefined || files.length === 0 || files.length <= 3, 'Maksimal 3 gambar.')
@@ -48,9 +48,14 @@ const baseLandingPageSchema = z.object({
     )
     .optional(),
   whatsapp: z.string()
-    .regex(/^(\+62|62|0)8[1-9][0-9]{7,11}$/, { message: 'Format nomor WhatsApp tidak valid (contoh: 62812...) ' })
     .optional()
-    .or(z.literal('')), // Allow empty string
+    .nullable()
+    .refine((val) => {
+        // Allow null, undefined, or empty string
+        if (val === null || val === undefined || val === '') return true;
+        // If a non-empty string is provided, validate format
+        return /^(\+62|62|0)8[1-9][0-9]{7,11}$/.test(val);
+    }, { message: 'Format nomor WhatsApp tidak valid (contoh: 62812...) atau biarkan kosong' }),
 
   // === UPDATED OPTIONAL FIELDS ===
   testimonials: z.array(z.object({
@@ -66,8 +71,8 @@ const baseLandingPageSchema = z.object({
   })).max(3, { message: 'Maksimal 3 link sosial media' }).optional(),
 
   // Optional Color Theme (passed as stringified JSON from form)
-  colorThemeJson: z.string().optional().refine((val) => {
-    if (!val) return true; // Optional is fine
+  colorThemeJson: z.string().optional().nullable().refine((val) => {
+    if (!val) return true; // Optional or null is fine
     try {
       JSON.parse(val);
       return true;

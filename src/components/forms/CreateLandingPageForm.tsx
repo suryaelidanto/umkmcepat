@@ -27,7 +27,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { useRouter } from "next/navigation"; // Use next/navigation for App Router
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useRef, useEffect } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner"; // Use sonner directly
 // import { createLandingPageAction } from '@/app/_actions/landingPageActions'; // Example if using Server Action
@@ -80,6 +80,16 @@ export function CreateLandingPageForm({
   const [generatedPrimaryColor, setGeneratedPrimaryColor] = useState<
     string | null
   >(null);
+  const redirectTimerRef = useRef<NodeJS.Timeout | null>(null); // Ref to store timer ID
+
+  // Cleanup timer on component unmount
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   const form = useForm<LandingPageSchema>({
     resolver: zodResolver(landingPageSchema),
@@ -211,6 +221,11 @@ export function CreateLandingPageForm({
   const onSubmit = (data: LandingPageSchema) => {
     // Clear previous toasts if any
     toast.dismiss();
+    // Clear any existing redirect timer before starting a new one
+    if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+    }
 
     startTransition(async () => {
       try {
@@ -296,61 +311,57 @@ export function CreateLandingPageForm({
           const result = await response.json();
 
           if (!response.ok) {
-            console.error("API Error:", result);
-            throw new Error(
-              result.message ||
-                `Gagal membuat landing page (${response.status})`
-            );
+            console.error("API Error Response:", result);
+            throw new Error(result.message || "Gagal membuat landing page.");
           }
 
-          // Handle success for creation
-          toast.success("Sukses!", {
-            description: result.message || "Landing page berhasil dibuat.",
-            action: {
-              label: "Lihat Halaman",
-              onClick: () => {
-                // Store token before redirecting
-                sessionStorage.setItem(
-                  `editToken_${result.slug}`,
-                  result.editToken
-                );
-                router.push(`/p/${result.slug}`);
+          // --- Success Handling with Button and Countdown --- 
+          const newSlug = result.slug;
+          if (!newSlug) {
+               console.error("Slug not found in API response after creation.");
+               toast.error("Gagal Mendapatkan Alamat Halaman", {
+                   description: "Tidak dapat memproses hasil pembuatan halaman."
+               });
+               return; // Stop if slug is missing
+          }
+
+          const redirectUrl = `/p/${newSlug}`;
+
+          // Set timeout for automatic redirect
+          redirectTimerRef.current = setTimeout(() => {
+              router.push(redirectUrl);
+              redirectTimerRef.current = null; // Clear ref after execution
+          }, 5000); // 5 seconds
+
+          // Show toast with action button
+          toast.success("🎉 Landing Page Berhasil Dibuat!", {
+              description:
+                "Klik tombol atau tunggu 5 detik untuk melihat halaman.",
+              duration: 5500, // Keep toast visible slightly longer than redirect
+              action: {
+                label: "Lihat Halaman",
+                onClick: () => {
+                  // Clear the automatic redirect timer
+                  if (redirectTimerRef.current) {
+                     clearTimeout(redirectTimerRef.current);
+                     redirectTimerRef.current = null;
+                  }
+                  // Redirect immediately
+                  router.push(redirectUrl);
+                  // Optionally dismiss the toast explicitly if needed
+                  // toast.dismiss(); 
+                },
               },
-            },
-            duration: 8000, // Give user more time to click
           });
-
-          // Store token in sessionStorage immediately as a fallback
-          // in case the user doesn't click the toast action
-          try {
-            sessionStorage.setItem(
-              `editToken_${result.slug}`,
-              result.editToken
-            );
-          } catch (e) {
-            console.error("Failed to save edit token to sessionStorage:", e);
-            // Inform user they need to save the edit link manually?
-            // toast.warning("Gagal menyimpan link edit otomatis. Salin link dari sini jika perlu.");
-          }
-
-          // Optional: Auto-redirect after a delay
-          // setTimeout(() => {
-          //    if (window.location.pathname !== `/p/${result.slug}`) {
-          //       router.push(`/p/${result.slug}`);
-          //    }
-          // }, 7500);
-
-          return; // Exit after starting success flow
+          // No return here, let the timer run unless button is clicked
         }
 
-        // Remove placeholder success for edit mode
-        // await new Promise(resolve => setTimeout(resolve, 1500));
-        // const resultSlug = slug || "placeholder-slug";
-        // toast.success("Sukses!", {
-        //     description: `Landing page diperbarui. Mengalihkan...`,
-        // });
-        // router.push(`/p/${resultSlug}`);
       } catch (error) {
+        // Clear timer on error as well
+        if (redirectTimerRef.current) {
+            clearTimeout(redirectTimerRef.current);
+            redirectTimerRef.current = null;
+        }
         console.error("Form submission error:", error);
         const errorMessage =
           error instanceof Error

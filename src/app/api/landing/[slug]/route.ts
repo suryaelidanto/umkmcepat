@@ -86,7 +86,7 @@ export async function PUT(request: Request, { params }: { params: { slug: string
     const aiContent = await generateLandingPageContent(
       namaUsaha,
       finalKategori,
-      deskripsi_user,
+      deskripsi_user || undefined,
       hasWhatsApp
     );
     if (aiContent.whatsappCTA && hasWhatsApp) {

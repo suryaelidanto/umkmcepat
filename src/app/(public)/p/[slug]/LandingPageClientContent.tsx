@@ -1,9 +1,9 @@
 "use client";
 
-import { TweakDialog } from "@/components/landing-page/TweakDialog";
+// import { TweakDialog } from "@/components/landing-page/TweakDialog"; // Remove this import
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Bot, Info, Lock } from "lucide-react";
+import { /* Bot, */ Info, Lock } from "lucide-react"; // Remove Bot import
 import { Session } from "next-auth"; // Ensure Session type is imported
 import { signIn } from "next-auth/react"; // Ensure signIn is imported
 
@@ -12,7 +12,7 @@ interface TPageData {
   slug: string;
   isClaimed: boolean;
   userId?: string | null;
-  tweaksLeft?: number | null;
+  // tweaksLeft?: number | null; // No longer needed here if button is removed
   // Include other fields from pageData if LandingPageClientContent uses them directly
 }
 
@@ -36,10 +36,20 @@ export function LandingPageClientContent({
 
   // Determine user/ownership status
   const isLoggedIn = !!session;
-  const isOwner = isLoggedIn && session?.user?.id === initialPageData?.userId;
   const isPageClaimed = initialPageData?.isClaimed ?? false;
-  const canTweak = isOwner && (initialPageData?.tweaksLeft ?? 0) > 0;
+  // const canTweak = isOwner && (initialPageData?.tweaksLeft ?? 0) > 0; // No longer needed
 
+  // If the page is claimed and the current user is not the owner,
+  // or if the page is not claimed and the user is not logged in,
+  // we don't need to render anything here (or render minimal info if desired).
+  // For now, let's only render the claim button if applicable.
+  if (isPageClaimed) {
+    // If claimed, this component currently doesn't render anything specific
+    // Later, it might hold owner-specific controls if not handled by inline editing directly
+    return null;
+  }
+
+  // Render only the claim section if the page is not claimed
   return (
     <div className="container mx-auto max-w-4xl px-4 pt-4 sm:px-6 lg:px-8">
       <div className={`mb-6 flex flex-wrap items-center justify-end gap-2`}>
@@ -59,7 +69,7 @@ export function LandingPageClientContent({
           </>
         )}
 
-        {isPageClaimed && isOwner && (
+        {/* {isPageClaimed && isOwner && ( // REMOVE Tweak Dialog Section
           <TweakDialog slug={slug} tweaksLeft={initialPageData.tweaksLeft ?? 0}>
             <Button
               variant="outline"
@@ -71,8 +81,8 @@ export function LandingPageClientContent({
               Ubah Konten dengan AI (Sisa {initialPageData.tweaksLeft}x)
             </Button>
           </TweakDialog>
-        )}
+        )} */}
       </div>
     </div>
   );
-} 
+}

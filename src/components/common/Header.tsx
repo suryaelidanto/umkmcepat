@@ -1,9 +1,8 @@
 import { AuthButton } from "@/components/auth/AuthComponents";
 import { Button } from "@/components/ui/button";
-import { Coffee } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 
 export function Header() {
   return (

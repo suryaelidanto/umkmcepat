@@ -1,14 +1,13 @@
 "use client";
 
+import { InlineEditText } from "@/components/landing-page/InlineEditText"; // Import InlineEditText
 import { LandingPageRenderer } from "@/components/landing-page/LandingPageRenderer";
 import { StickyCTA } from "@/components/landing-page/StickyCTA";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import type { ColorThemeJson } from "@/lib/ai"; // Import type ColorThemeJson
-import { AiGeneratedContent } from "@/lib/ai"; // Type import is fine
+import type { AiGeneratedContent, ColorThemeJson } from "@/lib/ai"; // Add AiGeneratedContent
+import { useQueryClient } from "@tanstack/react-query"; // Import for cache invalidation
 import { motion } from "framer-motion";
 import {
-  ExternalLink,
   Facebook,
   Globe,
   Instagram,
@@ -19,23 +18,32 @@ import {
   Quote,
   Send,
   Twitter,
-  Youtube,
+  Youtube
 } from "lucide-react";
+import { Session } from "next-auth"; // Import Session type
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation"; // Import for router.refresh
+import React, { useState } from "react"; // Import React
+import { toast } from "sonner"; // For notifications
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { LandingPageClientContent } from "./LandingPageClientContent";
 
-// Type for the fetched page data (adjust based on getLandingPageData return type)
+// Type for the fetched page data
 type PageData = {
   id: string;
   slug: string;
   namaUsaha: string;
   kategori: string;
   whatsapp: string | null;
-  aiContent: AiGeneratedContent;
+  // Update aiContent to include optional titles
+  aiContent: AiGeneratedContent & {
+      featuresTitle?: string;
+      galleryTitle?: string;
+      testimonialsTitle?: string;
+      contactTitle?: string;
+  };
   images: string[] | null;
   userId: string | null;
   isClaimed: boolean;
@@ -43,14 +51,13 @@ type PageData = {
   testimonials: { name: string; comment: string }[];
   address: string | null;
   socialLinks: { platform: string; url: string }[];
-  colorTheme: ColorThemeJson | null; // Add colorTheme to PageData type
+  colorTheme: ColorThemeJson | null;
 };
 
 // Define props for the client component
 interface LandingPageDisplayProps {
   pageData: PageData;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  session: any; // Replace 'any' with your actual session type
+  session: Session | null; // Use imported Session type
 }
 
 // Definisikan tema warna default (sama seperti di API route)
@@ -261,10 +268,37 @@ export function LandingPageDisplay({
 }: LandingPageDisplayProps) {
   const [openLightbox, setOpenLightbox] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const queryClient = useQueryClient(); // Initialize query client
+  const router = useRouter(); // Initialize router
 
-  // Check if current user is the owner
+  // Check if current user is the owner (with safe check for session.user)
   const isLoggedIn = !!session?.user;
-  const isOwner = isLoggedIn && session.user.id === pageData.userId;
+  const isOwner = isLoggedIn && session?.user?.id === pageData.userId; // Added optional chaining ?. 
+
+  // --- API Call Handler for Saving Inline Edits (Moved Here) ---
+  const handleSaveContent = async (fieldKey: string, newValue: string) => {
+    try {
+      const response = await fetch(`/api/my-pages/${pageData.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fieldKey, newValue }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "Gagal menyimpan perubahan.");
+      }
+      toast.success("Perubahan disimpan!"); // Show success toast
+      router.refresh(); // Refresh server data
+      // Optional: Manually update cache if needed for immediate feedback before refresh completes
+      // queryClient.invalidateQueries({ queryKey: ['landingPageData', pageData.slug] });
+    } catch (error) {
+      console.error("Failed to save content:", error);
+      toast.error("Gagal menyimpan", { description: error instanceof Error ? error.message : "Kesalahan server" });
+      // Re-throw error for InlineEditText to handle its state
+      throw error;
+    }
+  };
+  // --- End API Call Handler ---
 
   const theme = pageData.colorTheme || defaultColorTheme;
   const themeStyle = generateThemeStyle(theme);
@@ -283,6 +317,11 @@ export function LandingPageDisplay({
   const socialLinks = pageData.socialLinks;
   const imagesForLightbox = pageData.images?.map((url) => ({ src: url })) || [];
 
+  // Get section titles from aiContent, with defaults
+  const galleryTitle = pageData.aiContent?.galleryTitle || "Galeri";
+  const testimonialsTitle = pageData.aiContent?.testimonialsTitle || "Apa Kata Pelanggan Kami?";
+  const contactTitle = pageData.aiContent?.contactTitle || "Hubungi Kami";
+
   return (
     <div className="relative overflow-x-hidden" style={themeStyle}>
       {/* Client Content (Claim/Tweak Buttons) */}
@@ -293,10 +332,12 @@ export function LandingPageDisplay({
 
       {/* Main Content Area */}
       <div className="container mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        {/* Landing Page Renderer (Client Component) */}
+        {/* Ensure only necessary props are passed down */}
         <LandingPageRenderer
           data={pageData.aiContent}
           namaUsaha={pageData.namaUsaha}
+          isOwner={isOwner} 
+          handleSaveContent={handleSaveContent}
         />
 
         {/* --- Gallery Section --- */}
@@ -308,9 +349,16 @@ export function LandingPageDisplay({
             whileInView="visible"
             viewport={{ once: true, amount: 0.2 }}
           >
-            <h2 className="text-2xl md:text-3xl font-semibold mb-8 md:mb-10 text-center text-card-foreground">
-              Galeri
-            </h2>
+            <InlineEditText
+              as="h2"
+              initialValue={galleryTitle}
+              isOwner={isOwner}
+              fieldKey="galleryTitle"
+              onSave={handleSaveContent}
+              className="text-2xl md:text-3xl font-semibold mb-8 md:mb-10 text-center text-card-foreground"
+              inputClassName="text-2xl md:text-3xl font-semibold text-center"
+              placeholder="Judul Galeri"
+            />
             <div className="flex flex-wrap justify-center gap-4">
               {pageData.images.map((imgUrl, index) => (
                 <div
@@ -343,9 +391,16 @@ export function LandingPageDisplay({
             whileInView="visible"
             viewport={{ once: true, amount: 0.2 }}
           >
-            <h2 className="text-2xl lg:text-3xl font-semibold mb-8 text-foreground">
-              Apa Kata Pelanggan Kami?
-            </h2>
+            <InlineEditText
+              as="h2"
+              initialValue={testimonialsTitle}
+              isOwner={isOwner}
+              fieldKey="testimonialsTitle"
+              onSave={handleSaveContent}
+              className="text-2xl lg:text-3xl font-semibold mb-8 text-foreground"
+              inputClassName="text-2xl lg:text-3xl font-semibold text-center"
+              placeholder="Judul Testimoni"
+            />
             <div
               className={`grid grid-cols-1 gap-6 ${
                 testimonials.length > 1 ? "md:grid-cols-2" : ""
@@ -391,12 +446,16 @@ export function LandingPageDisplay({
                 border: `1px solid ${theme.border}`,
               }}
             >
-              <h2
+              <InlineEditText
+                as="h2"
+                initialValue={contactTitle}
+                isOwner={isOwner}
+                fieldKey="contactTitle"
+                onSave={handleSaveContent}
                 className="text-2xl md:text-3xl font-semibold mb-8 md:mb-10"
-                style={{ color: theme["on-surface"] }}
-              >
-                Hubungi Kami
-              </h2>
+                inputClassName="text-2xl md:text-3xl font-semibold text-center"
+                placeholder="Judul Kontak"
+              />
               <div className="flex flex-col items-center gap-6">
                 {address && (
                   <div

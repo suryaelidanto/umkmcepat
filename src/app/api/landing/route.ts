@@ -8,7 +8,18 @@ import { generateRandomString, slugify } from '@/lib/utils';
 // Import the base schema to apply refinement after omit
 import { baseLandingPageSchemaForOmit } from '@/lib/zod-schemas';
 import { auth } from '@/lib/auth'; // Import auth untuk cek sesi
-import type { ColorThemeJson } from '@/lib/ai'; // Import type ColorThemeJson
+import type { ColorThemeJson, AiGeneratedContent } from '@/lib/ai'; // Import types
+
+// Define types for testimonials and social links
+type Testimonial = {
+  name: string;
+  comment: string;
+}
+
+type SocialLink = {
+  platform: string;
+  url: string;
+}
 
 // Definisikan tema warna default (disamakan dengan di LandingPageDisplay - Attempt 2, careful syntax)
 const defaultColorTheme: ColorThemeJson = {
@@ -50,9 +61,9 @@ export async function POST(request: Request) {
     const rateLimitResponse = await checkRateLimit(request, 'ai');
     if (rateLimitResponse) return rateLimitResponse;
 
-    // Cek sesi user
+    // Cek sesi user (tidak wajib login)
     const session = await auth();
-    const userId = session?.user?.id;
+    const userId = session?.user?.id; // Bisa null jika tidak login
 
     const formData = await request.formData();
 
@@ -152,7 +163,7 @@ export async function POST(request: Request) {
     const aiContent = await generateLandingPageContent(
       namaUsaha,
       finalKategori,
-      deskripsi_user,
+      deskripsi_user || undefined,
       hasWhatsApp
     );
 
@@ -172,7 +183,7 @@ export async function POST(request: Request) {
     const socialLinksString = formData.get('socialLinks') as string | null;
 
     // Parse JSON strings into arrays
-    let testimonials = [];
+    let testimonials: Testimonial[] = [];
     try {
       testimonials = testimonialsString ? JSON.parse(testimonialsString) : [];
     } catch (e) {
@@ -180,13 +191,16 @@ export async function POST(request: Request) {
       // Handle error, maybe return bad request?
     }
 
-    let socialLinks = [];
+    let socialLinks: SocialLink[] = [];
     try {
       socialLinks = socialLinksString ? JSON.parse(socialLinksString) : [];
     } catch (e) {
       console.error("Failed to parse socialLinks JSON:", e);
       // Handle error
     }
+
+    // Add logging to check the userId value before saving
+    console.log(`Attempting to create LandingPage with userId: ${userId ?? 'null'}`); // Log null if userId is undefined
 
     // Save to Database
     const newLandingPage = await prisma.landingPage.create({
@@ -195,20 +209,16 @@ export async function POST(request: Request) {
         namaUsaha: namaUsaha,
         kategori: finalKategori,
         whatsapp: whatsapp || null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        aiContent: aiContent as any,
+        aiContent: JSON.stringify(aiContent),
         images: uploadedImageData.map(img => img.url),
         imagePublicIds: uploadedImageData.map(img => img.publicId),
-        userId: userId, // Set userId jika user login, null jika tidak
-        isClaimed: !!userId, // Set isClaimed true jika user login
+        userId: userId, // Simpan userId jika ada, null jika tidak
+        isClaimed: !!userId, // isClaimed true HANYA jika user login saat membuat
         tweaksLeft: 5,
         address: address || null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        testimonials: testimonials.length > 0 ? testimonials as any : undefined,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        socialLinks: socialLinks.length > 0 ? socialLinks as any : undefined,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        colorTheme: resolvedTheme as any, // Simpan tema warna (Prisma JSON type issue)
+        testimonials: JSON.stringify(testimonials),
+        socialLinks: JSON.stringify(socialLinks),
+        colorTheme: JSON.stringify(resolvedTheme),
       },
     });
 
