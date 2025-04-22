@@ -18,12 +18,13 @@ import {
 } from "@/lib/zod-schemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  ListChecks,
   Loader2,
+  Palette,
   PlusCircle,
   Sparkles,
   Trash2,
   UploadCloud,
-  Palette,
 } from "lucide-react";
 import { useRouter } from "next/navigation"; // Use next/navigation for App Router
 import React, { useState, useTransition } from "react";
@@ -76,7 +77,9 @@ export function CreateLandingPageForm({
     useState<string[]>(existingImageUrls);
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [isGeneratingColors, setIsGeneratingColors] = useState(false);
-  const [generatedPrimaryColor, setGeneratedPrimaryColor] = useState<string | null>(null);
+  const [generatedPrimaryColor, setGeneratedPrimaryColor] = useState<
+    string | null
+  >(null);
 
   const form = useForm<LandingPageSchema>({
     resolver: zodResolver(landingPageSchema),
@@ -161,7 +164,8 @@ export function CreateLandingPageForm({
 
     if (!namaUsaha || !kategori) {
       toast.warning("Input Diperlukan", {
-        description: "Masukkan Nama Usaha dan Kategori terlebih dahulu untuk generate warna.",
+        description:
+          "Masukkan Nama Usaha dan Kategori terlebih dahulu untuk generate warna.",
       });
       return;
     }
@@ -186,19 +190,21 @@ export function CreateLandingPageForm({
       }
 
       // Store the entire JSON string in the form state
-      form.setValue('colorThemeJson', JSON.stringify(result), { shouldValidate: true });
+      form.setValue("colorThemeJson", JSON.stringify(result), {
+        shouldValidate: true,
+      });
       setGeneratedPrimaryColor(result.primary); // Show primary color as feedback
       toast.success("Skema Warna Dihasilkan!", {
-          description: "Warna utama yang disarankan telah ditampilkan."
+        description: "Warna utama yang disarankan telah ditampilkan.",
       });
-
     } catch (error) {
-        console.error("Color generation error:", error);
-        toast.error("Generate Warna Gagal", {
-            description: error instanceof Error ? error.message : "Terjadi kesalahan."
-        });
+      console.error("Color generation error:", error);
+      toast.error("Generate Warna Gagal", {
+        description:
+          error instanceof Error ? error.message : "Terjadi kesalahan.",
+      });
     } finally {
-        setIsGeneratingColors(false);
+      setIsGeneratingColors(false);
     }
   };
 
@@ -211,26 +217,27 @@ export function CreateLandingPageForm({
         const formData = new FormData();
         // --- Loop to append data (adjust for colorThemeJson) ---
         Object.entries(data).forEach(([key, value]) => {
-            if (key === "images") {
-                if (selectedFiles) {
-                    Array.from(selectedFiles).forEach((file) => {
-                        formData.append("images", file);
-                    });
-                }
-            } else if (key === 'testimonials' || key === 'socialLinks') {
-                // Handle arrays of objects by stringifying
-                if (value && Array.isArray(value) && value.length > 0) {
-                    formData.append(key, JSON.stringify(value));
-                }
-            } else if (key === 'colorThemeJson') {
-                // Only append if it has a value (stringified JSON)
-                if (typeof value === 'string' && value.length > 2) { // Check if not undefined/empty string/empty JSON
-                    formData.append(key, value);
-                }
-            } else if (value !== undefined && value !== null && value !== "") {
-                // Append other simple values
-                formData.append(key, String(value));
+          if (key === "images") {
+            if (selectedFiles) {
+              Array.from(selectedFiles).forEach((file) => {
+                formData.append("images", file);
+              });
             }
+          } else if (key === "testimonials" || key === "socialLinks") {
+            // Handle arrays of objects by stringifying
+            if (value && Array.isArray(value) && value.length > 0) {
+              formData.append(key, JSON.stringify(value));
+            }
+          } else if (key === "colorThemeJson") {
+            // Only append if it has a value (stringified JSON)
+            if (typeof value === "string" && value.length > 2) {
+              // Check if not undefined/empty string/empty JSON
+              formData.append(key, value);
+            }
+          } else if (value !== undefined && value !== null && value !== "") {
+            // Append other simple values
+            formData.append(key, String(value));
+          }
         });
 
         // === Handle Social Links Object ===
@@ -520,7 +527,6 @@ export function CreateLandingPageForm({
           )}
         </CardContent>
       </Card>
-
       {/* Upload Gambar - Refined Dropzone Style */}
       <div>
         <Label htmlFor="images">Gambar Produk/Jasa (Maks 3, Opsional)</Label>
@@ -595,7 +601,6 @@ export function CreateLandingPageForm({
           </p>
         )}
       </div>
-
       {/* Nomor WhatsApp (Opsional) */}
       <div>
         <Label htmlFor="whatsapp">Nomor WhatsApp (Opsional)</Label>
@@ -616,12 +621,13 @@ export function CreateLandingPageForm({
           </p>
         )}
       </div>
-
       {/* --- Bagian Opsional (Accordion) --- */}
-      <Accordion type="single" collapsible className="w-full border-t pt-4">
-        <AccordionItem value="item-1" className="border-b-0">
+      <Accordion type="multiple" className="w-full border-t pt-4 space-y-2">
+        <AccordionItem value="item-details" className="border-b-0">
           <AccordionTrigger className="text-base font-medium hover:no-underline py-3">
-            Detail Tambahan (Opsional)
+            <div className="flex items-center gap-2">
+              <ListChecks className="h-5 w-5" /> Detail Tambahan (Opsional)
+            </div>
           </AccordionTrigger>
           <AccordionContent className="pt-4">
             <div className="space-y-6">
@@ -808,51 +814,54 @@ export function CreateLandingPageForm({
             </div>
           </AccordionContent>
         </AccordionItem>
-      </Accordion>
 
-      {/* --- Optional Color Theme AccordionItem --- */}
-      <AccordionItem value="item-colors">
-        <AccordionTrigger className="text-base font-medium">
-          <div className="flex items-center gap-2">
-             <Palette className="h-5 w-5"/> Desain & Warna (Opsional)
-          </div>
-        </AccordionTrigger>
-        <AccordionContent className="pt-4 space-y-4">
-           <p className="text-sm text-muted-foreground">
-              Biarkan AI memilihkan skema warna terbaik berdasarkan usaha Anda, atau kosongkan untuk menggunakan tema default.
-           </p>
-          <div className="flex items-center gap-4">
-              <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={handleGenerateColors}
-                  disabled={isGeneratingColors || !form.watch('namaUsaha') || !form.watch('kategori')}
+        {/* --- Optional Color Theme AccordionItem (Pindahkan ke sini) --- */}
+        <AccordionItem value="item-colors" className="border-b-0">
+          <AccordionTrigger className="text-base font-medium hover:no-underline py-3">
+            <div className="flex items-center gap-2">
+              <Palette className="h-5 w-5" /> Desain & Warna (Opsional)
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Biarkan AI memilihkan skema warna terbaik berdasarkan usaha Anda,
+              atau kosongkan untuk menggunakan tema default.
+            </p>
+            <div className="flex items-center gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGenerateColors}
+                disabled={
+                  isGeneratingColors ||
+                  !form.watch("namaUsaha") ||
+                  !form.watch("kategori")
+                }
               >
-              {isGeneratingColors ? (
+                {isGeneratingColors ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
+                ) : (
                   <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              Generate Warna Otomatis (AI)
+                )}
+                Generate Warna Otomatis (AI)
               </Button>
               {generatedPrimaryColor && (
-                  <div className="flex items-center gap-2 text-sm">
-                      <span 
-                          className="h-5 w-5 rounded border border-border inline-block"
-                          style={{ backgroundColor: generatedPrimaryColor }}
-                      ></span>
-                      <span>Warna utama: {generatedPrimaryColor}</span>
-                  </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span
+                    className="h-5 w-5 rounded border border-border inline-block"
+                    style={{ backgroundColor: generatedPrimaryColor }}
+                  ></span>
+                  <span>Warna utama: {generatedPrimaryColor}</span>
+                </div>
               )}
-          </div>
-          {/* Hidden field to store the generated JSON string */}
-          <input type="hidden" {...form.register("colorThemeJson")} />
-           <p className="text-xs text-muted-foreground pt-2">
-              Catatan: AI akan membuat skema 13 warna (termasuk warna teks yang kontras) berdasarkan Nama Usaha & Kategori.
-           </p>
-        </AccordionContent>
-      </AccordionItem>
-
+            </div>
+            {/* Hidden field to store the generated JSON string */}
+            <input type="hidden" {...form.register("colorThemeJson")} />
+          </AccordionContent>
+        </AccordionItem>
+        {/* Akhir dari item warna */}
+      </Accordion>{" "}
+      {/* Pastikan ini adalah penutup Accordion yang benar */}
       {/* Submit Button */}
       <Button
         type="submit"
