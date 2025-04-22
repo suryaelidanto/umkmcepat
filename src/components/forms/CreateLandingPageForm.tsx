@@ -20,9 +20,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Loader2,
   PlusCircle,
+  Sparkles,
   Trash2,
   UploadCloud,
-  Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation"; // Use next/navigation for App Router
 import React, { useState, useTransition } from "react";
@@ -330,7 +330,10 @@ export function CreateLandingPageForm({
         id: genToastId,
         description: "Anda masih bisa mengeditnya jika perlu.",
       });
-    } catch (error: any) {
+    } catch (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      error: any
+    ) {
       console.error("Description generation error:", error);
       toast.error("Gagal Generate Deskripsi", {
         id: genToastId,
@@ -726,7 +729,9 @@ export function CreateLandingPageForm({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => appendSocialLink({ platform: SOCIAL_PLATFORMS[0], url: '' })} // Default to first platform
+                  onClick={() =>
+                    appendSocialLink({ platform: SOCIAL_PLATFORMS[0], url: "" })
+                  } // Default to first platform
                   disabled={isPending || socialLinkFields.length >= 3} // Ensure correct limit check
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
