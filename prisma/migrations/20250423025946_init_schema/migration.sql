@@ -2,18 +2,22 @@
 CREATE TABLE "LandingPage" (
     "id" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
-    "namaUsaha" TEXT NOT NULL,
-    "kategori" TEXT NOT NULL,
+    "namaUsaha" VARCHAR(100) NOT NULL,
+    "kategori" VARCHAR(50) NOT NULL,
     "aiContent" JSONB,
     "harga" TEXT,
     "whatsapp" TEXT,
     "images" TEXT[],
+    "imagePublicIds" TEXT[],
     "userId" TEXT,
-    "editToken" TEXT,
     "isClaimed" BOOLEAN NOT NULL DEFAULT false,
     "tweaksLeft" INTEGER NOT NULL DEFAULT 5,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "testimonials" JSONB,
+    "address" VARCHAR(255),
+    "socialLinks" JSONB,
+    "colorTheme" JSONB,
 
     CONSTRAINT "LandingPage_pkey" PRIMARY KEY ("id")
 );
@@ -22,16 +26,16 @@ CREATE TABLE "LandingPage" (
 CREATE TABLE "Account" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
-    "provider" TEXT NOT NULL,
-    "providerAccountId" TEXT NOT NULL,
+    "type" VARCHAR(50) NOT NULL,
+    "provider" VARCHAR(50) NOT NULL,
+    "providerAccountId" VARCHAR(100) NOT NULL,
     "refresh_token" TEXT,
     "access_token" TEXT,
     "expires_at" INTEGER,
-    "token_type" TEXT,
-    "scope" TEXT,
+    "token_type" VARCHAR(50),
+    "scope" VARCHAR(100),
     "id_token" TEXT,
-    "session_state" TEXT,
+    "session_state" VARCHAR(100),
 
     CONSTRAINT "Account_pkey" PRIMARY KEY ("id")
 );
@@ -49,8 +53,8 @@ CREATE TABLE "Session" (
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
-    "name" TEXT,
-    "email" TEXT,
+    "name" VARCHAR(100),
+    "email" VARCHAR(100),
     "emailVerified" TIMESTAMP(3),
     "image" TEXT,
 
@@ -59,7 +63,7 @@ CREATE TABLE "User" (
 
 -- CreateTable
 CREATE TABLE "VerificationToken" (
-    "identifier" TEXT NOT NULL,
+    "identifier" VARCHAR(100) NOT NULL,
     "token" TEXT NOT NULL,
     "expires" TIMESTAMP(3) NOT NULL
 );
@@ -71,7 +75,28 @@ CREATE UNIQUE INDEX "LandingPage_slug_key" ON "LandingPage"("slug");
 CREATE INDEX "LandingPage_userId_idx" ON "LandingPage"("userId");
 
 -- CreateIndex
+CREATE INDEX "LandingPage_slug_idx" ON "LandingPage"("slug");
+
+-- CreateIndex
+CREATE INDEX "LandingPage_namaUsaha_idx" ON "LandingPage"("namaUsaha");
+
+-- CreateIndex
+CREATE INDEX "LandingPage_kategori_idx" ON "LandingPage"("kategori");
+
+-- CreateIndex
+CREATE INDEX "LandingPage_createdAt_idx" ON "LandingPage"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "LandingPage_updatedAt_idx" ON "LandingPage"("updatedAt");
+
+-- CreateIndex
+CREATE INDEX "LandingPage_isClaimed_idx" ON "LandingPage"("isClaimed");
+
+-- CreateIndex
 CREATE INDEX "Account_userId_idx" ON "Account"("userId");
+
+-- CreateIndex
+CREATE INDEX "Account_provider_idx" ON "Account"("provider");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Account_provider_providerAccountId_key" ON "Account"("provider", "providerAccountId");
@@ -83,16 +108,28 @@ CREATE UNIQUE INDEX "Session_sessionToken_key" ON "Session"("sessionToken");
 CREATE INDEX "Session_userId_idx" ON "Session"("userId");
 
 -- CreateIndex
+CREATE INDEX "Session_expires_idx" ON "Session"("expires");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE INDEX "User_email_idx" ON "User"("email");
+
+-- CreateIndex
+CREATE INDEX "User_name_idx" ON "User"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "VerificationToken_token_key" ON "VerificationToken"("token");
 
 -- CreateIndex
+CREATE INDEX "VerificationToken_expires_idx" ON "VerificationToken"("expires");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");
 
 -- AddForeignKey
-ALTER TABLE "LandingPage" ADD CONSTRAINT "LandingPage_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LandingPage" ADD CONSTRAINT "LandingPage_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
