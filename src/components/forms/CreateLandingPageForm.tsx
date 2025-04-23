@@ -436,7 +436,7 @@ export function CreateLandingPageForm({
            <Terminal className="h-4 w-4 !text-yellow-700" />
            <AlertTitle className="font-semibold">Saran: Login Terlebih Dahulu</AlertTitle>
            <AlertDescription>
-             Login via Google untuk menyimpan halaman Anda di dashboard.
+             Login memastikan halaman Anda tetap terjaga dan tidak diklaim orang lain.
            </AlertDescription>
          </Alert>
       )}
