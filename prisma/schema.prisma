@@ -31,6 +31,7 @@ model LandingPage {
 
   // === NEW COLOR THEME FIELD ===
   colorTheme   Json?    // Store generated color theme JSON
+  generationStatus String @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
 
   @@index([userId])
   @@index([slug])

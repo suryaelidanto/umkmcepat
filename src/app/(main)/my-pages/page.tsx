@@ -118,7 +118,7 @@ export default function MyPagesDashboard() {
 
   // --- Copy Link Handler ---
   const handleCopyLink = (slug: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://tokko.online";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tokko.online";
     const pageUrl = `${baseUrl}/p/${slug}`;
     navigator.clipboard
       .writeText(pageUrl)
@@ -209,7 +209,7 @@ export default function MyPagesDashboard() {
   }
 
   // Base URL for constructing links
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://tokko.online";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tokko.online";
 
   return (
     <AlertDialog

@@ -54,6 +54,15 @@ const defaultColorTheme: ColorThemeJson = {
   popover_foreground: "hsl(222.2 47.4% 11.2%)",
 };
 
+// Inisialisasi QStash Client
+// Hanya butuh token untuk client
+if (!process.env.QSTASH_TOKEN) {
+  console.error("Missing QStash Token in environment variables");
+  // Pertimbangkan untuk throw error di sini jika QStash wajib, agar cepat ketahuan
+  throw new Error("QStash Token is required");
+}
+
+
 // POST /api/landing - Create a new landing page
 export async function POST(request: Request) {
   try {

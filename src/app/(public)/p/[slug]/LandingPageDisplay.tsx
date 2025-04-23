@@ -323,7 +323,7 @@ export function LandingPageDisplay({
   const contactTitle = pageData.aiContent?.contactTitle || "Hubungi Kami";
 
   // --- Construct Share URL ---
-  const baseUrl = process.env.NEXTAUTH_URL || 'https://tokko.online'; // Get base URL
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://tokko.online'; // Get base URL
   const pageUrl = `${baseUrl}/p/${pageData.slug}`;
   const pageTitle = pageData.aiContent?.headline || pageData.namaUsaha;
 
