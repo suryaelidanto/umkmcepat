@@ -6,7 +6,7 @@ export function Footer() {
   return (
     <footer className="border-t bg-background py-4">
       <div className="container mx-auto flex flex-col sm:flex-row h-auto sm:h-16 items-center justify-center px-4 sm:px-6 lg:px-8 gap-4">
-        <div className="flex items-center justify-center gap-x-4">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Button variant="outline" size="sm" asChild>
             <Link
               href="https://www.linkedin.com/in/cintarasuryaelidanto/"
