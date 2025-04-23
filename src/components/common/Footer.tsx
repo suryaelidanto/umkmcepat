@@ -23,7 +23,7 @@ export function Footer() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Coffee className="h-4 w-4 mr-1.5" /> Support Developer
+              <Coffee className="h-4 w-4 mr-1.5" /> Bantu Tokko.Online Tetap Gratis
             </Link>
           </Button>
         </div>

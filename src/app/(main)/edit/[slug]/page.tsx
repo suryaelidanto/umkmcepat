@@ -43,7 +43,7 @@ async function verifyTokenAndGetData(slug: string, token?: string | string[]) {
 
     // Token is valid, return data needed for the form
     const aiContent = (landingPage.aiContent || {}) as unknown as AiGeneratedContent;
-    const deskripsi_user_or_ai = aiContent.description || '';
+    const deskripsi_user_or_ai = aiContent.heroDescription || '';
 
     // Ensure kategori is one of the allowed enum values or handle 'Lainnya'
     const standardKategori = [

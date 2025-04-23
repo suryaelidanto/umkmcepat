@@ -1,9 +1,8 @@
 "use client";
 
+import { ShareButtons } from "@/components/common/ShareButtons"; // Import ShareButtons
 import { InlineEditText } from "@/components/landing-page/InlineEditText"; // Import InlineEditText
-import { LandingPageRenderer } from "@/components/landing-page/LandingPageRenderer";
 import { StickyCTA } from "@/components/landing-page/StickyCTA";
-import { Separator } from "@/components/ui/separator";
 import type { AiGeneratedContent, ColorThemeJson } from "@/lib/ai"; // Add AiGeneratedContent
 import { motion } from "framer-motion";
 import {
@@ -28,22 +27,16 @@ import { toast } from "sonner"; // For notifications
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { LandingPageClientContent } from "./LandingPageClientContent";
-import { ShareButtons } from "@/components/common/ShareButtons"; // Import ShareButtons
 
-// Type for the fetched page data
+// Type for the fetched page data - ** ADJUSTED TO MATCH NEW AI STRUCTURE **
 type PageData = {
   id: string;
   slug: string;
   namaUsaha: string;
   kategori: string;
   whatsapp: string | null;
-  // Update aiContent to include optional titles
-  aiContent: AiGeneratedContent & {
-      featuresTitle?: string;
-      galleryTitle?: string;
-      testimonialsTitle?: string;
-      contactTitle?: string;
-  };
+  // Use the revamped AiGeneratedContent structure
+  aiContent: AiGeneratedContent | null; // Make it potentially null initially if generated separately
   images: string[] | null;
   userId: string | null;
   isClaimed: boolean;
@@ -262,20 +255,20 @@ const SocialIcon = ({
   }
 };
 
+// --- MAIN DISPLAY COMPONENT ---
 export function LandingPageDisplay({
-  pageData,
+  pageData: initialPageData,
   session,
 }: LandingPageDisplayProps) {
-  const [openLightbox, setOpenLightbox] = useState(false);
+  const router = useRouter();
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  // const queryClient = useQueryClient(); // Initialize query client
-  const router = useRouter(); // Initialize router
 
-  // Check if current user is the owner (with safe check for session.user)
-  const isLoggedIn = !!session?.user;
-  const isOwner = isLoggedIn && session?.user?.id === pageData.userId; // Added optional chaining ?. 
+  // --- State for Editable Content ---
+  // Initialize state with initial page data
+  // ** USE UPDATED STRUCTURE HERE **
+  const [pageData] = useState<PageData>(initialPageData);
 
-  // --- API Call Handler for Saving Inline Edits (Moved Here) ---
   const handleSaveContent = async (fieldKey: string, newValue: string) => {
     try {
       const response = await fetch(`/api/my-pages/${pageData.id}`, {
@@ -298,239 +291,314 @@ export function LandingPageDisplay({
       throw error;
     }
   };
-  // --- End API Call Handler ---
 
+  // Determine ownership
+  const isOwner = session?.user?.id === pageData.userId && pageData.isClaimed;
+
+  // --- Theme Application ---
   const theme = pageData.colorTheme || defaultColorTheme;
   const themeStyle = generateThemeStyle(theme);
 
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.6, ease: "easeOut" },
-    },
+  // Fallback content
+  const aiContent = pageData.aiContent || {
+      businessType: 'Other',
+      tone: 'professional',
+      headline: pageData.namaUsaha || "Selamat Datang",
+      subheadline: "Informasi lebih lanjut tentang bisnis kami.",
+      heroDescription: "Deskripsi bisnis belum tersedia.",
+      sections: [],
+      ctaText: pageData.whatsapp ? "Hubungi Kami" : "Pelajari Lebih Lanjut",
+      whatsappCTA: !!pageData.whatsapp,
+      whatsappNumber: pageData.whatsapp || undefined,
   };
 
-  const testimonials = pageData.testimonials;
+  // --- Prepare Data for Rendering ---
+  const { headline, subheadline, heroDescription, sections, ctaText, whatsappCTA, whatsappNumber } = aiContent;
+  const images = pageData.images || [];
+  const testimonials = pageData.testimonials || [];
+  const socialLinks = pageData.socialLinks || [];
   const address = pageData.address;
-  const socialLinks = pageData.socialLinks;
-  const imagesForLightbox = pageData.images?.map((url) => ({ src: url })) || [];
+  const whatsAppLink = whatsappNumber
+    ? `https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}`
+    : null;
 
-  // Get section titles from aiContent, with defaults
-  const galleryTitle = pageData.aiContent?.galleryTitle || "Galeri";
-  const testimonialsTitle = pageData.aiContent?.testimonialsTitle || "Apa Kata Pelanggan Kami?";
-  const contactTitle = pageData.aiContent?.contactTitle || "Hubungi Kami";
+  // Lightbox setup
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
 
-  // --- Construct Share URL ---
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://tokko.online'; // Get base URL
-  const pageUrl = `${baseUrl}/p/${pageData.slug}`;
-  const pageTitle = pageData.aiContent?.headline || pageData.namaUsaha;
+  // Function to render section content (handles paragraphs and lists)
+  const renderSectionContent = (content: string, layoutHint?: string) => {
+    if (layoutHint === 'list' || content.startsWith('-')) {
+      return (
+        <ul className="list-disc space-y-2 pl-5">
+          {content.split('\n').map((item, index) => {
+            const trimmedItem = item.trim();
+            if (trimmedItem.startsWith('-')) {
+              return <li key={index}>{trimmedItem.substring(1).trim()}</li>;
+            } else if (trimmedItem) {
+               return <li key={index}>{trimmedItem}</li>; // Handle lists without leading dash
+            }
+            return null;
+          })}
+        </ul>
+      );
+    }
+    // Default to paragraph rendering, replace newlines with breaks
+    return content.split('\n').map((paragraph, index, arr) => (
+        <React.Fragment key={index}>
+            {paragraph}
+            {index < arr.length - 1 && <br />}
+        </React.Fragment>
+    ));
+  };
 
+  // --- MAIN JSX STRUCTURE --- Apply themeStyle and refine styling
   return (
-    <div className="relative overflow-x-hidden" style={themeStyle}>
-      {/* Client Content (Claim/Tweak Buttons) */}
-      <div className="container mx-auto max-w-4xl px-4 pt-4 sm:px-6 lg:px-8">
-        {/* Assuming LandingPageClientContent is okay here */}
-        <LandingPageClientContent pageData={pageData} session={session} />
-      </div>
+    <>
+      <main style={themeStyle} className="flex flex-col min-h-screen bg-[var(--background)] text-[var(--foreground)] font-sans">
+        {/* Added font-sans as a base */}
 
-      {/* Main Content Area */}
-      <div className="container mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        {/* Ensure only necessary props are passed down */}
-        <LandingPageRenderer
-          data={pageData.aiContent}
-          namaUsaha={pageData.namaUsaha}
-          isOwner={isOwner} 
-          handleSaveContent={handleSaveContent}
-        />
-
-        {/* --- Share Buttons Section --- */}
-        <div className="my-10 md:my-12">
-          <Separator className="mb-6" />
-          <ShareButtons url={pageUrl} title={pageTitle} />
-        </div>
-
-        {/* --- Gallery Section --- */}
-        {pageData.images && pageData.images.length > 0 && (
-          <motion.section
-            className="my-16 md:my-20 rounded-lg p-6 md:p-8 shadow-inner bg-card border"
-            variants={sectionVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
+        {/* --- Hero Section --- Enhanced Spacing & Alignment */}
+        <section className="container mx-auto px-6 py-20 md:py-28 text-center flex flex-col items-center">
+          {/* Increased padding, centered items */}
+          <motion.h1
+            className="text-4xl sm:text-5xl md:text-6xl font-bold mb-5 leading-tight"
+             /* ... motion props ... */
           >
-            <InlineEditText
-              as="h2"
-              initialValue={galleryTitle}
-              isOwner={isOwner}
-              fieldKey="galleryTitle"
-              onSave={handleSaveContent}
-              className="text-2xl md:text-3xl font-semibold mb-8 md:mb-10 text-center text-card-foreground"
-              inputClassName="text-2xl md:text-3xl font-semibold text-center"
-              placeholder="Judul Galeri"
-            />
-            <div className="flex flex-wrap justify-center gap-4">
-              {pageData.images.map((imgUrl, index) => (
-                <div
-                  key={index}
-                  className="relative aspect-[4/3] w-full sm:w-[48%] md:w-[31%] overflow-hidden rounded-lg shadow-md grow-0 shrink-0 cursor-pointer"
-                  onClick={() => {
-                    setLightboxIndex(index);
-                    setOpenLightbox(true);
-                  }}
+            {isOwner ? (
+              <InlineEditText fieldKey="headline" initialValue={headline} onSave={handleSaveContent} isOwner={isOwner} />
+            ) : (
+              headline
+            )}
+          </motion.h1>
+          <motion.p
+            className="text-lg md:text-xl text-[var(--muted-foreground)] mb-8 max-w-3xl"
+             /* ... motion props ... */
+          >
+            {isOwner ? (
+              <InlineEditText fieldKey="subheadline" initialValue={subheadline} onSave={handleSaveContent} isOwner={isOwner} />
+            ) : (
+              subheadline
+            )}
+          </motion.p>
+          <motion.div
+            className="prose prose-lg dark:prose-invert max-w-2xl mx-auto mb-10 text-center text-[var(--foreground)]"
+            /* Changed text alignment, added dark:prose-invert */
+             /* ... motion props ... */
+          >
+            {isOwner ? (
+              <InlineEditText fieldKey="heroDescription" initialValue={heroDescription} onSave={handleSaveContent} isOwner={isOwner} />
+            ) : (
+               // Render basic paragraphs from heroDescription - FIXED SYNTAX
+               <>
+                {heroDescription.split('\n').map((paragraph, index) => (
+                      <p key={index}>{paragraph}</p>
+                ))}
+               </>
+            )}
+          </motion.div>
+
+          {/* CTA Button - Ensure good visibility */}
+          {ctaText && (
+             <motion.div /* ... motion props ... */ >
+                <a
+                  href={whatsappCTA && whatsAppLink ? whatsAppLink : '#'}
+                  target={whatsappCTA && whatsAppLink ? "_blank" : "_self"}
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center px-10 py-4 border border-transparent text-lg font-semibold rounded-md shadow-md text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary)]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] transition-all duration-150 ease-in-out"
+                  // Enhanced styling: larger padding/text, shadow, focus ring
+                >
+                  {isOwner ? (
+                      <InlineEditText fieldKey="ctaText" initialValue={ctaText} onSave={handleSaveContent} isOwner={isOwner} />
+                  ) : (
+                      ctaText
+                  )}
+                  {whatsappCTA && <Send className="ml-2.5 h-5 w-5" />}
+                </a>
+             </motion.div>
+          )}
+        </section>
+
+        {/* Render Sections Dynamically - Rewritten Block */}
+        <div className="space-y-16 md:space-y-24"> {/* Container for sections */}
+          {sections?.map((section, index) => (
+            <motion.section
+              key={index}
+              id={section.title.toLowerCase().replace(/\s+/g, '-')}
+              className={`py-16 md:py-20 ${index % 2 === 1 ? 'bg-[hsl(var(--secondary))]' : 'bg-[hsl(var(--background))]'}"`}
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 * index }}
+            >
+              <div className="container mx-auto px-6">
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-10 md:mb-14 text-[var(--foreground)]">
+                  {section.title}
+                </h2>
+                <div className="prose prose-lg lg:prose-xl max-w-none text-[var(--foreground)]">
+                  {renderSectionContent(section.content, section.layoutHint)}
+                </div>
+
+                {/* Gallery specific logic inside the section map */}
+                {section.layoutHint === 'gallery_placeholder' && images.length > 0 && (
+                  <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 md:gap-8">
+                    {images.map((imgUrl, imgIndex) => (
+                      <motion.div
+                        key={`gallery-img-${imgIndex}`} // Correct key placement
+                        className="relative aspect-video overflow-hidden rounded-lg shadow-lg cursor-pointer group border border-[var(--border)]"
+                        onClick={() => openLightbox(imgIndex)}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: imgIndex * 0.1 }}
+                      >
+                        <Image
+                          src={imgUrl}
+                          alt={`${pageData.namaUsaha} - Gambar ${imgIndex + 1}`}
+                          layout="fill"
+                          objectFit="cover"
+                          className="group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity duration-300" />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div> {/* Close container */}
+            </motion.section> /* Close motion.section */
+          ))}
+        </div> {/* Close sections container */}
+
+       {/* --- Gallery Section (Fallback) --- Improved Styling */}
+        {images.length > 0 && !sections?.some(s => s.layoutHint === 'gallery_placeholder') && (
+            <section id="gallery" className="py-16 md:py-20 bg-[var(--muted)]">
+                 {/* Removed text color here, rely on foreground */} 
+                <div className="container mx-auto px-6">
+                    <h2 className="text-3xl md:text-4xl font-bold text-center mb-14 text-[var(--foreground)]">Galeri</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 md:gap-8">
+                    {images.map((imgUrl, index) => (
+                        <motion.div
+                          key={`gallery-img-${index}`}
+                          className="relative aspect-video overflow-hidden rounded-lg shadow-lg cursor-pointer group border border-[var(--border)]"
+                          onClick={() => openLightbox(index)}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.3, delay: index * 0.1 }}
                 >
                   <Image
                     src={imgUrl}
                     alt={`${pageData.namaUsaha} - Gambar ${index + 1}`}
-                    fill
-                    sizes="(max-width: 768px) 50vw, 33vw"
-                    className="object-cover transition-transform duration-300 hover:scale-105"
-                  />
+                                layout="fill"
+                                objectFit="cover"
+                                className="group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity duration-300" />
+                        </motion.div>
+                    ))}
+                    </div>
                 </div>
-              ))}
-            </div>
-          </motion.section>
+            </section>
         )}
 
-        {/* --- Testimonials Section --- */}
-        {testimonials && testimonials.length > 0 && (
-          <motion.section
-            className="my-16 md:my-20 text-center"
-            variants={sectionVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-          >
-            <InlineEditText
-              as="h2"
-              initialValue={testimonialsTitle}
-              isOwner={isOwner}
-              fieldKey="testimonialsTitle"
-              onSave={handleSaveContent}
-              className="text-2xl lg:text-3xl font-semibold mb-8 text-foreground"
-              inputClassName="text-2xl lg:text-3xl font-semibold text-center"
-              placeholder="Judul Testimoni"
-            />
-            <div
-              className={`grid grid-cols-1 gap-6 ${
-                testimonials.length > 1 ? "md:grid-cols-2" : ""
-              }`}
-            >
+        {/* --- Testimonials Section --- Using Card Colors */}
+        {testimonials.length > 0 && (
+          <section id="testimonials" className="py-16 md:py-20 bg-[var(--background)]">
+            <div className="container mx-auto px-6">
+              <h2 className="text-3xl md:text-4xl font-bold text-center mb-14 text-[var(--foreground)]">
+                 {"Apa Kata Mereka?"}
+              </h2>
+              {/* Use card colors for testimonials */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {testimonials.map((testimonial, index) => (
-                <blockquote
+                  <motion.div
                   key={index}
-                  className="p-6 md:p-8 rounded-r-lg text-left shadow-lg transition duration-300 hover:shadow-xl bg-card text-card-foreground border-l-4 border-primary"
-                >
-                  <Quote
-                    className="h-5 w-5 mb-2 opacity-80 text-primary"
-                    aria-hidden="true"
-                  />
-                  <p className="italic leading-relaxed mb-3 text-card-foreground">
-                    {testimonial.comment}
-                  </p>
-                  <footer className="text-sm font-medium text-foreground">
-                    - {testimonial.name}
-                  </footer>
-                </blockquote>
-              ))}
+                    className="p-8 rounded-lg shadow-lg bg-[var(--card)] text-[var(--on-card)] border border-[var(--border)] flex flex-col"
+                    // Increased padding, added flex col
+                     /* ... motion props ... */
+                  >
+                    <Quote className="w-10 h-10 text-[var(--primary)] mb-5 flex-shrink-0" />
+                    <p className="italic mb-6 flex-grow">"{testimonial.comment}"</p>
+                    <p className="font-semibold text-right">- {testimonial.name}</p>
+                  </motion.div>
+                ))}
+              </div>
             </div>
-          </motion.section>
+          </section>
         )}
 
-        {/* --- Contact/Location Section --- */}
-        {(address || (socialLinks && socialLinks.length > 0)) && (
-          <motion.div
-            variants={sectionVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-          >
-            <Separator
-              className="my-16 md:my-20"
-              style={{ backgroundColor: theme.border }}
-            />
-            <section
-              className="my-16 md:my-20 text-center rounded-lg p-8 md:p-10 shadow-inner"
-              style={{
-                backgroundColor: theme.surface,
-                border: `1px solid ${theme.border}`,
-              }}
-            >
-              <InlineEditText
-                as="h2"
-                initialValue={contactTitle}
-                isOwner={isOwner}
-                fieldKey="contactTitle"
-                onSave={handleSaveContent}
-                className="text-2xl md:text-3xl font-semibold mb-8 md:mb-10"
-                inputClassName="text-2xl md:text-3xl font-semibold text-center"
-                placeholder="Judul Kontak"
-              />
-              <div className="flex flex-col items-center gap-6">
+        {/* --- Contact / Info Section --- Improved Spacing & Styling */}
+        {(address || socialLinks.length > 0) && (
+            <section id="contact" className="py-16 md:py-20 bg-[var(--secondary)] text-[var(--on-secondary)]">
+                <div className="container mx-auto px-6 text-center">
+                 <h2 className="text-3xl md:text-4xl font-bold text-center mb-14">
+                    {"Hubungi Kami"}
+                 </h2>
+                 <div className="flex flex-col md:flex-row justify-center items-center gap-x-12 gap-y-6 text-lg">
+                    {/* Increased gap */}
                 {address && (
-                  <div
-                    className="flex items-center gap-3 md:text-lg"
-                    style={{ color: theme["on-surface"] }}
-                  >
-                    <MapPin className="w-5 h-5 flex-shrink-0" />
+                        <div className="flex items-center gap-3">
+                            <MapPin className="w-6 h-6 text-[var(--primary)] flex-shrink-0" />
                     <span>{address}</span>
                   </div>
                 )}
-                {socialLinks && socialLinks.length > 0 && (
-                  <div className="mt-8 flex flex-wrap justify-center gap-4">
-                    {socialLinks.map((link, index) => (
-                      <a
-                        key={index}
+                    {socialLinks.length > 0 && (
+                        <div className="flex items-center flex-wrap justify-center gap-5">
+                            {/* Added flex-wrap */}
+                            {socialLinks.map((link) => (
+                                <a
+                                key={link.platform}
                         href={link.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center p-3 rounded-full transition-colors duration-200 bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground"
-                        aria-label={`Kunjungi ${link.platform}`}
+                                className="text-[var(--on-secondary)] hover:text-[var(--primary)] transition-colors"
+                                title={link.platform}
                       >
-                        <SocialIcon
-                          platform={link.platform}
-                          className="h-5 w-5"
-                        />
+                                <SocialIcon platform={link.platform} className="w-7 h-7" /> {/* Increased icon size */}
                       </a>
                     ))}
                   </div>
                 )}
+                 </div>
               </div>
             </section>
-          </motion.div>
         )}
 
-        {/* Sticky CTA needs theme */}
-        <StickyCTA
-          ctaText={pageData.aiContent.ctaText}
-          whatsappCTA={pageData.aiContent.whatsappCTA}
-          whatsappNumber={pageData.aiContent.whatsappNumber}
-        />
+         {/* --- Footer --- Cleaner look */}
+        <footer className="py-10 bg-[var(--muted)] text-[var(--muted-foreground)] border-t border-[var(--border)]">
+            {/* Added border top */}
+          <div className="container mx-auto px-6 text-center">
+             <div className="flex justify-center items-center gap-6 mb-6">
+                 {/* Increased gap */}
+                <ShareButtons url={typeof window !== 'undefined' ? window.location.href : ''} title={pageData.namaUsaha} />
       </div>
-
-      {/* --- Watermark Section (Always shows now) --- */}
-      <footer className="text-center py-6 border-t border-border mt-16">
-        <p className="text-xs text-muted-foreground">
-          Dibuat dengan {" "}
-          <Link
-            href="https://tokko.online"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium hover:underline text-primary/80"
-          >
-            tokko.online
+            <p className="text-sm">&copy; {new Date().getFullYear()} {pageData.namaUsaha}. Dibuat dengan Tokko.Online</p>
+             <Link href="/" className="text-sm text-[var(--primary)] hover:underline transition-colors">
+                Buat halaman Anda sendiri
           </Link>
-        </p>
+          </div>
       </footer>
 
-      {/* Lightbox Component */}
+        {/* --- Sticky CTA --- (Logic unchanged, relies on StickyCTA internal styling) */}
+         {ctaText && whatsappCTA && whatsappNumber && (
+            <StickyCTA ctaText={ctaText} whatsappCTA={whatsappCTA} whatsappNumber={whatsappNumber} />
+        )}
+
+      </main>
+
+      {/* --- Lightbox Component --- Correct props */}
       <Lightbox
-        open={openLightbox}
-        close={() => setOpenLightbox(false)}
-        slides={imagesForLightbox}
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={images.map((url) => ({ src: url }))}
         index={lightboxIndex}
       />
-    </div>
+
+       {/* --- Owner Toolbar / Edit UI --- Correct props */}
+       <LandingPageClientContent
+         pageData={pageData}
+         session={session}
+       />
+
+    </>
   );
 } 

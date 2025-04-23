@@ -9,28 +9,43 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Define the expected structure of the AI-generated JSON
-// This should EXACTLY match the prompt requirements
+// --- Updated AI Content Structure ---
+// More focused on persuasive elements and dynamic sections
 export interface AiGeneratedContent {
-  headline: string;
-  subheadline: string;
-  description: string;
-  features: string[]; // Array of feature strings
-  featuresTitle?: string; // Added: Optional title for features section
-  galleryTitle?: string; // Added: Optional title for gallery section
-  testimonialsTitle?: string; // Added: Optional title for testimonials section
-  contactTitle?: string; // Added: Optional title for contact section
-  primaryColor: string; // Hex color code (e.g., "#3B82F6")
-  ctaText: string; // Text for the main Call to Action button
-  layoutStyle: 'standard' | 'minimal' | string; // Predefined or custom
-  tone: 'professional' | 'friendly' | 'persuasive' | string; // Predefined or custom
-  font: 'Inter' | 'Poppins' | string; // Font name or class
-  whatsappCTA: boolean; // True if CTA should link to WhatsApp
-  whatsappNumber?: string; // WhatsApp number (only if whatsappCTA is true)
+  // Meta
+  businessType: 'Product' | 'Service' | 'Other'; // AI's best guess based on input
+  tone: 'professional' | 'friendly' | 'persuasive' | 'enthusiastic' | string; // Expanded options, context-dependent
+
+  // Core Hero Content (Persuasive & Contextual)
+  headline: string; // Compelling, benefit-driven, tailored to Product/Service
+  subheadline: string; // Supports headline, adds detail/credibility
+  heroDescription: string; // Persuasive intro, addresses pain points/desires (3-5 sentences)
+
+  // Dynamic Content Sections (Tailored to Business Type)
+  sections: Array<{
+    id: string; // Suggested semantic ID (e.g., 'features', 'benefits', 'why-us', 'services', 'products', 'how-it-works', 'gallery')
+    title: string; // Relevant title for the section (e.g., "Mengapa Memilih Kami?", "Layanan Unggulan Kami", "Produk Terlaris")
+    content: string; // Formatted content (can be paragraph or list - AI decides best format and includes it as a single string)
+    layoutHint?: 'list' | 'paragraph' | 'gallery_placeholder'; // Hint for frontend rendering
+  }>;
+
+  // Call To Action (Clear & Strong)
+  ctaText: string; // Very specific, action-oriented, leads to conversion goal
+  whatsappCTA: boolean; // Determines if CTA links to WhatsApp
+  whatsappNumber?: string; // Included only if whatsappCTA is true
+
+  // Optional aesthetic hints (less critical for core content)
+  layoutStyle?: 'standard' | 'minimal' | 'modern' | string; // Optional suggestion
+  font?: 'Inter' | 'Poppins' | string; // Optional suggestion
+
+  // --- Fields being removed/handled elsewhere ---
+  // primaryColor is handled by generateColorTheme
+  // features (replaced by dynamic sections)
+  // description (replaced by heroDescription)
+  // featuresTitle, galleryTitle, etc. (replaced by dynamic sections[].title)
 }
 
-// === Interface for Color Theme ===
-// Updated to include all shadcn/ui compatible tokens and specify HSL format
+// === Color Theme Interface (Remains the same) ===
 export interface ColorThemeJson {
   primary: string;        // HSL string e.g., "222.2 47.4% 11.2%"
   "on-primary": string;   // HSL string
@@ -71,7 +86,7 @@ export interface ColorThemeJson {
   "on-error"?: string;    // Optional HSL string for text on error/destructive color
 }
 
-// Function to generate landing page content using GPT-4o-mini
+// --- Revamped AI Content Generation Function ---
 export async function generateLandingPageContent(
   namaUsaha: string,
   kategori: string,
@@ -79,24 +94,109 @@ export async function generateLandingPageContent(
   hasWhatsApp?: boolean
 ): Promise<AiGeneratedContent> {
 
+  // --- NEW DETAILED SYSTEM PROMPT ---
   const systemPrompt = `
-    You are an expert landing page copywriter and designer for Indonesian SMEs (UMKM).
-    Generate content for a simple promotional landing page based on the user's input.
-    Output ONLY a valid JSON object matching the AiGeneratedContent interface, with no extra text or markdown formatting.
-    Interface: { headline: string; subheadline: string; description: string; features: string[]; primaryColor: string; ctaText: string; layoutStyle: string; tone: string; font: string; whatsappCTA: boolean; whatsappNumber?: string; }
-    Constraints:
-    - headline: Compelling, short (max 10 words).
-    - subheadline: Supportive, slightly longer (max 20 words).
-    - description: Persuasive, highlighting benefits (3-5 sentences).
-    - features: 3-5 bullet points of key features/benefits (string array).
-    - primaryColor: Choose an attractive hex color code suitable for the business category (e.g., food=orange/red, tech=blue, beauty=pink/purple).
-    - ctaText: Generate a strong Call to Action text specifically inviting users to contact via WhatsApp (e.g., "Hubungi via WhatsApp", "Chat Sekarang di WA", "Kontak via WhatsApp"). Avoid generic phrases like "Pesan Sekarang" unless the context *only* makes sense for ordering (like food). If the user didn't provide a WhatsApp number, generate a relevant non-WhatsApp CTA (e.g., "Lihat Produk", "Pelajari Lebih Lanjut").
-    - layoutStyle: Suggest 'standard' or 'minimal'.
-    - tone: Suggest 'professional', 'friendly', or 'persuasive'.
-    - font: Suggest 'Inter' (preferred) or 'Poppins'.
-    - whatsappCTA: Set to true ONLY if the user provided a WhatsApp number (indicated by 'Has WhatsApp Number: Yes' in the user message), otherwise false.
-    - whatsappNumber: Include the user's provided number ONLY if whatsappCTA is true, otherwise omit this field.
-    Be creative and tailor the content to the Indonesian market and the business category.
+You are Genesis, a world-class digital marketing strategist and copywriter specializing in creating high-converting landing pages for Indonesian SMEs (UMKM). Your goal is NOT just to describe, but to **SELL** effectively by understanding the business and its target audience.
+
+**Your Task:**
+Generate a complete, persuasive landing page content structure based on the user's limited input. Output **ONLY** a valid JSON object adhering STRICTLY to the updated AiGeneratedContent interface below, with no introductory text, explanations, or markdown formatting outside the JSON structure.
+
+**Output JSON Interface (AiGeneratedContent):**
+\`\`\`json
+{
+  "businessType": "Product | Service | Other",
+  "tone": "professional | friendly | persuasive | enthusiastic | string",
+  "headline": "Catchy main headline (string, plain text only, max 15 words)",
+  "subheadline": "Supporting subheadline (string, plain text only, max 25 words)",
+  "heroDescription": "Detailed description of the business, value, offerings. **MUST BE 100% PLAIN TEXT. NO MARKDOWN (##,*, -, etc). NO EMOJI. NO HTML.** Write naturally. Use \\n ONLY to separate logical paragraphs if needed. Max ~2000 chars. (string)",
+  "sections": [
+    {
+      "title": "Relevant Section Title for specific info (e.g., 'Layanan Utama', 'Tentang Kami')",
+      "content": "Content for this section. **MUST BE 100% PLAIN TEXT. NO MARKDOWN (##,*, -, etc). NO EMOJI. NO HTML.** Use \\n ONLY to separate logical paragraphs if needed. Do not format as a list unless layoutHint is 'list'.",
+      "layoutHint": "Optional: 'default' or 'list' or 'gallery_placeholder'"
+    }
+    // ... generate 1-3 highly relevant, focused sections that ADD to heroDescription ...
+  ],
+  "ctaText": "Compelling call-to-action button text (string, plain text only, max 5 words)",
+  "whatsappCTA": boolean indicating if the CTA should link to WhatsApp (boolean),
+  "whatsappNumber": "WhatsApp number if whatsappCTA is true, otherwise null (string or null)"
+}
+\`\`\`
+
+**Core Instructions & Mindset:**
+
+1.  **Analyze Input & Determine Business Type:** Carefully analyze 'Business Name', 'Category', and 'User Description' to determine if the core offering is a tangible **'Product'**, an intangible **'Service'**, or **'Other'**. This is CRUCIAL for tailoring the content.
+2.  **Adopt the Right Tone:** Based on \`businessType\` and \`Category\`, choose the most appropriate \`tone\`.
+    *   **Service (e.g., Konsultan, Agensi, Reparasi):** Usually 'professional' or 'persuasive', focusing on expertise, trust, solutions, and results.
+    *   **Product (e.g., Makanan, Pakaian, Kerajinan):** Often 'enthusiastic', 'friendly', or 'persuasive', focusing on benefits, desire, uniqueness, and ease of purchase.
+    *   **Other (e.g., Komunitas, Acara):** Adapt tone accordingly ('friendly', 'informative').
+3.  **Craft Persuasive Hero Content:**
+    *   \`headline\`: Grab attention instantly. Focus on the **main benefit** or solve a key **pain point**. Use strong verbs. Tailor to Product/Service.
+    *   \`subheadline\`: Elaborate on the headline, add credibility, or highlight a key differentiator.
+    *   \`heroDescription\`: Write a compelling narrative (3-5 sentences). Start with the customer's need/desire. Introduce the business as the solution. Emphasize unique value and benefits. Build trust and desire.
+4.  **Generate Relevant & Dynamic Sections:** Create 2 to 4 \`sections\` that best showcase the business's value. **Do NOT use generic titles like "Fitur"**. Choose titles and content relevant to the \`businessType\`:\n    *   **If Service:** Consider sections like 'Layanan Kami' (list key services), 'Mengapa Memilih Kami?' (highlight differentiators/expertise), 'Proses Kerja Kami' (build transparency/trust), 'Studi Kasus/Portofolio' (provide proof).
+    *   **If Product:** Consider sections like 'Keunggulan Produk' (list key benefits/features), 'Koleksi Kami' / 'Produk Terlaris' (showcase items), 'Testimoni Pelanggan' (social proof), 'Cara Pemesanan'.
+    *   **For \`content\`:** Format it clearly. If it's a list of benefits/services/products, use bullet points (e.g., "- Benefit 1\\\\n- Benefit 2"). If it's explanatory, use a paragraph. Choose the \`layoutHint\` accordingly. For a gallery section, use \`layoutHint: 'gallery_placeholder'\` and write placeholder content like "Lihat hasil karya/produk kami yang luar biasa.".
+5.  **Write a Powerful Call To Action (CTA):**
+    *   \`ctaText\`: Be specific and action-oriented. What EXACTLY should the user do next?\n        *   If \`hasWhatsApp\` is true: Focus on direct contact (e.g., "Chat Langsung di WA Sekarang!", "Konsultasi Gratis via WhatsApp", "Pesan Produk via WA").
+        *   If \`hasWhatsApp\` is false: Focus on the next logical step (e.g., "Lihat Semua Produk", "Pelajari Layanan Kami", "Daftar Workshop").
+    *   \`whatsappCTA\`: Set strictly based on the \`hasWhatsApp\` input flag.
+    *   \`whatsappNumber\`: Include ONLY if \`whatsappCTA\` is true.
+6.  **Indonesian Context:** Use clear, natural Bahasa Indonesia suitable for UMKM and their customers.
+7.  **Strict JSON Output:** Ensure the final output is ONLY the valid JSON object specified, without any other text.
+
+**Example User Input for Guidance:**
+\`\`\`
+Business Name: Kopi Senja Abadi
+Category: Minuman Kopi
+User Description: Kedai kopi kecil dengan biji lokal berkualitas dan suasana tenang.
+Has WhatsApp Number: Yes
+\`\`\`
+*(Your output for this should be a JSON object following the interface, likely with businessType: 'Product', a friendly/enthusiastic tone, relevant sections like 'Menu Andalan' or 'Kenapa Kopi Kami Spesial?', and a WhatsApp CTA).*
+
+**PERINGATAN PENTING: Output HARUS HANYA JSON yang valid. JANGAN PERNAH menyertakan karakter markdown seperti \\\`###\\\`, \\\`*\\\`, atau \\\`_\\\` di dalam nilai string JSON manapun (terutama headline, subheadline, heroDescription, dan sections[].content). Nilai string harus berupa teks biasa atau teks dengan newline (\\\\n) jika diperlukan untuk daftar bullet dalam 'content'.**
+
+Output Format: JSON object with the following structure. **ALL FIELDS LISTED HERE ARE MANDATORY unless explicitly marked optional.**
+{
+  "businessType": "Product | Service | Other",
+  "tone": "professional | friendly | persuasive | enthusiastic | string",
+  "headline": "Catchy main headline (string, plain text only, max 15 words)",
+  "subheadline": "Supporting subheadline (string, plain text only, max 25 words)",
+  "heroDescription": "Detailed description... PLAIN TEXT ONLY... Max ~2000 chars. (string)",
+  "sections": [
+    {
+      "id": "string",
+      "title": "Relevant Section Title...",
+      "content": "Content... PLAIN TEXT ONLY...",
+      "layoutHint": "Optional: 'default' or 'list' or 'gallery_placeholder'"
+    }
+    // ... generate 1-3 sections total ...
+  ],
+  "ctaText": "Compelling call-to-action... (string, plain text only, max 5 words)",
+  "whatsappCTA": boolean,
+  "whatsappNumber": "WhatsApp number if whatsappCTA is true, otherwise null (string or null)",
+  "layoutStyle": "string | undefined",
+  "font": "string | undefined"
+}
+
+Constraint Checklist & Confidence Score:
+1. Generated Headline (Yes/No):
+2. Generated Subheadline (Yes/No):
+3. Generated Hero Description (PLAIN TEXT ONLY...) (Yes/No):
+4. Generated 1-3 Sections **(Array with required fields)** (Yes/No):
+5. Section Content (**PLAIN TEXT ONLY**, no markdown/emoji/tags) (Yes/No):
+6. Generated CTA Text (Yes/No):
+7. Generated WhatsApp CTA fields (Yes/No):
+Confidence Score (1-5):
+
+Confidence Score: (1-5) - Evaluate the quality and relevance of the generated content.
+
+IMPORTANT:
+- **CRITICAL:** ALL string values MUST be plain text. They MUST NOT contain ANY markdown (##, ###, *, _, lists like '- item'), emojis, or HTML tags. Use only standard punctuation and paragraph breaks (\\n).
+- Focus on clarity, relevance, and the desired tone.
+- Provide diverse and meaningful content for each section.
+- If key information is sparse, make reasonable assumptions based on the category.
+- Make sure the JSON is valid.
   `;
 
   const userMessage = `
@@ -107,14 +207,15 @@ export async function generateLandingPageContent(
   `;
 
   try {
+    // Use a more capable model if necessary for complex instructions, but start with gpt-4o
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Use the specified model
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
-      temperature: 0.7, // Adjust temperature for creativity vs consistency
-      response_format: { type: "json_object" }, // Ensure JSON output
+      temperature: 0.75, // Balanced temperature for creativity and relevance
+      response_format: { type: "json_object" },
     });
 
     const content = response.choices[0]?.message?.content;
@@ -124,246 +225,165 @@ export async function generateLandingPageContent(
     }
 
     // Attempt to parse the JSON content
-    const parsedContent: AiGeneratedContent = JSON.parse(content);
-
-    // Basic validation (can be enhanced)
-    if (
-      !parsedContent.headline ||
-      !parsedContent.subheadline ||
-      !parsedContent.description ||
-      !parsedContent.features ||
-      !parsedContent.primaryColor ||
-      !parsedContent.ctaText
-      // ... add more checks if needed
-    ) {
-      throw new Error("Generated JSON is missing required fields.");
+    let parsedContent: AiGeneratedContent;
+    try {
+      parsedContent = JSON.parse(content);
+    } catch (parseError) {
+      console.error("Failed to parse OpenAI JSON response:", parseError);
+      console.error("Raw OpenAI Response:", content); // Log raw response for debugging
+      throw new Error("Gagal memproses respons dari AI. Format tidak valid.");
     }
 
-    // Ensure whatsappNumber is only present if whatsappCTA is true
+    // --- Enhanced Validation & Default Fallbacks --- 
+    // Instead of throwing error immediately, check each field and provide defaults
+
+    if (!parsedContent.businessType || !['Product', 'Service', 'Other'].includes(parsedContent.businessType)) {
+        console.warn("AI Validation Warning: Missing or invalid 'businessType', defaulting to 'Other'. Raw AI content:", content);
+        parsedContent.businessType = 'Other';
+    }
+    if (!parsedContent.tone) {
+        console.warn("AI Validation Warning: Missing 'tone', defaulting to 'professional'. Raw AI content:", content);
+        parsedContent.tone = 'professional';
+    }
+    if (!parsedContent.headline) {
+        console.warn("AI Validation Warning: Missing 'headline', defaulting to business name. Raw AI content:", content);
+        parsedContent.headline = namaUsaha; // Use business name as fallback
+    }
+    if (!parsedContent.subheadline) {
+        console.warn("AI Validation Warning: Missing 'subheadline', providing generic default. Raw AI content:", content);
+        parsedContent.subheadline = `Solusi ${kategori} terbaik untuk Anda.`; // Generic fallback
+    }
+    if (!parsedContent.heroDescription) {
+        console.warn("AI Validation Warning: Missing 'heroDescription', providing generic default. Raw AI content:", content);
+        parsedContent.heroDescription = `Temukan ${kategori} berkualitas dari ${namaUsaha}. Kami menyediakan layanan dan produk terbaik untuk kebutuhan Anda.`; // Generic fallback
+    }
+    if (!Array.isArray(parsedContent.sections) || parsedContent.sections.length === 0) {
+        console.warn("AI Validation Warning: Missing or empty 'sections', providing default section. Raw AI content:", content);
+        parsedContent.sections = [
+            { 
+                id: 'about', 
+                title: `Tentang ${namaUsaha}`, 
+                content: `Informasi lebih lanjut mengenai ${namaUsaha} dan layanan yang kami tawarkan.`, 
+                layoutHint: 'paragraph' 
+            }
+        ];
+    } else {
+        // Validate fields within each section
+        parsedContent.sections = parsedContent.sections.map((section, index) => {
+            let validatedSection = { ...section };
+            if (!validatedSection.id) {
+                console.warn(`AI Validation Warning: Section ${index} missing 'id', defaulting to 'section-${index}'.`);
+                validatedSection.id = `section-${index}`;
+            }
+            if (!validatedSection.title) {
+                console.warn(`AI Validation Warning: Section ${index} missing 'title', providing default.`);
+                validatedSection.title = `Informasi Bagian ${index + 1}`;
+            }
+            if (!validatedSection.content) {
+                console.warn(`AI Validation Warning: Section ${index} missing 'content', providing default.`);
+                validatedSection.content = `Detail untuk bagian ini belum tersedia.`;
+            }
+            // Ensure layoutHint is valid if provided
+            if (validatedSection.layoutHint && !['list', 'paragraph', 'gallery_placeholder'].includes(validatedSection.layoutHint)) {
+                 console.warn(`AI Validation Warning: Section ${index} has invalid 'layoutHint', defaulting to 'paragraph'.`);
+                validatedSection.layoutHint = 'paragraph';
+            }
+            return validatedSection;
+        });
+    }
+    if (!parsedContent.ctaText) {
+        console.warn("AI Validation Warning: Missing 'ctaText', providing default based on WhatsApp. Raw AI content:", content);
+        parsedContent.ctaText = hasWhatsApp ? 'Hubungi via WA' : 'Pelajari Lebih Lanjut';
+    }
+    if (typeof parsedContent.whatsappCTA !== 'boolean') {
+        console.warn("AI Validation Warning: Missing or invalid 'whatsappCTA', defaulting based on input flag. Raw AI content:", content);
+        parsedContent.whatsappCTA = !!hasWhatsApp; // Default based on whether user provided number
+    }
+
+    // Ensure whatsappNumber consistency
     if (!parsedContent.whatsappCTA && parsedContent.whatsappNumber) {
+        console.warn("Correcting AI output: Removing whatsappNumber because whatsappCTA is false.");
         delete parsedContent.whatsappNumber;
     }
     if (parsedContent.whatsappCTA && !hasWhatsApp) {
-        // If AI hallucinated whatsappCTA=true without input, correct it
+        console.warn("Correcting AI output: Setting whatsappCTA to false because no WhatsApp number was provided by the user.");
         parsedContent.whatsappCTA = false;
         delete parsedContent.whatsappNumber;
     }
 
+    // --- Optional: Add basic content moderation or length checks here if needed ---
 
-    console.log("AI Generated Content:", parsedContent);
+    console.log("AI Generated Content (Revamped V2):", parsedContent);
     return parsedContent;
 
   } catch (error) {
-    console.error("Error generating landing page content:", error);
-    // Provide a fallback or throw a more specific error
-    throw new Error("Gagal menghasilkan konten AI. Coba lagi nanti.");
+    console.error("Error generating landing page content (Revamped):", error);
+    // Provide a more specific error message if possible
+    if (error instanceof Error && error.message.includes("JSON")) {
+         throw error; // Re-throw parsing errors
+    }
+    throw new Error(`Gagal menghasilkan konten AI: ${error instanceof Error ? error.message : 'Unknown AI Error'}`);
   }
 }
 
-// Function to tweak landing page content using AI
-export async function tweakLandingPageContent(
-  currentContent: AiGeneratedContent,
-  userInstruction: string
-): Promise<AiGeneratedContent> {
-
- const systemPrompt = `
-    You are an expert landing page editor.
-    The user wants to modify their existing landing page content based on their instruction.
-    Current content (JSON): ${JSON.stringify(currentContent)}
-    User's instruction: ${userInstruction}
-    Modify the current JSON based *only* on the user's instruction.
-    Maintain the original structure and fields unless specifically asked to change them.
-    Output ONLY the modified, valid JSON object matching the AiGeneratedContent interface, with no extra text or markdown formatting.
-    Interface: { headline: string; subheadline: string; description: string; features: string[]; primaryColor: string; ctaText: string; layoutStyle: string; tone: string; font: string; whatsappCTA: boolean; whatsappNumber?: string; }
-  `;
-
-  try {
-    const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-            { role: "system", content: systemPrompt },
-            // No user message needed here as instruction is in system prompt
-        ],
-        temperature: 0.5, // Lower temperature for more predictable edits
-        response_format: { type: "json_object" },
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("OpenAI tweak response content is empty.");
-    }
-
-    const parsedContent: AiGeneratedContent = JSON.parse(content);
-
-    // Add validation similar to the generation function
-    if (!parsedContent.headline /* ... etc */) {
-        throw new Error("Tweaked JSON is missing required fields.");
-    }
-
-     // Ensure whatsappNumber consistency remains after tweak
-     if (!parsedContent.whatsappCTA && parsedContent.whatsappNumber) {
-        delete parsedContent.whatsappNumber;
-    }
-    // We trust the AI to not add whatsappCTA if it wasn't there and wasn't asked for
-    // but if whatsappCTA becomes true, ensure number exists if possible from original
-    if (parsedContent.whatsappCTA && !parsedContent.whatsappNumber && currentContent.whatsappNumber) {
-        parsedContent.whatsappNumber = currentContent.whatsappNumber;
-    }
-
-
-    console.log("AI Tweaked Content:", parsedContent);
-    return parsedContent;
-
-  } catch (error) {
-      console.error("Error tweaking landing page content:", error);
-      throw new Error("Gagal melakukan tweak AI. Coba lagi nanti.");
-  }
-}
-
-// === NEW FUNCTION for Generating Description ===
-export async function generateBusinessDescription(
-  namaUsaha: string,
-  kategori: string
-): Promise<string> {
-  const systemPrompt = `
-    Anda adalah copywriter AI yang ahli membuat deskripsi singkat (maksimal 3-4 kalimat atau sekitar 400 karakter) untuk landing page UMKM Indonesia.
-    Fokus pada manfaat utama bagi calon pelanggan dan gunakan gaya bahasa yang persuasif namun profesional.
-    Hindari penggunaan list/bullet point.
-    Output HANYA teks deskripsi saja, tanpa kalimat pembuka/penutup atau format tambahan.
-  `;
-
-  const userMessage = `
-    Nama Usaha: ${namaUsaha}
-    Kategori Usaha: ${kategori}
-    Buatkan deskripsi landing page yang menarik.
-  `;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-      temperature: 0.8, // Slightly higher temp for more creative descriptions
-      max_tokens: 150, // Limit output length
-      // No response_format needed as we expect plain text
-    });
-
-    const description = response.choices[0]?.message?.content?.trim();
-
-    if (!description) {
-      throw new Error("OpenAI response for description is empty.");
-    }
-
-    console.log("AI Generated Description:", description);
-    return description;
-
-  } catch (error) {
-    console.error("Error generating business description:", error);
-    throw new Error("Gagal menghasilkan deskripsi AI.");
-  }
-}
-
-// === NEW FUNCTION for Generating Color Theme ===
+// === Color Theme Generation Function (generateColorTheme) ===
+// Keep this function as is for now, assuming it works well for generating the ColorThemeJson.
+// It will be called separately by the API route.
 export async function generateColorTheme(
   namaUsaha: string,
   kategori: string
 ): Promise<ColorThemeJson> {
   const systemPrompt = `
-    You are a UI color theme generator specializing in creating accessible and appealing themes for Indonesian SMEs (UMKM) based on shadcn/ui conventions.
-    Your task is to generate a COMPLETE color theme based on the business name and category.
-    Output ONLY a valid JSON object matching the ColorThemeJson interface, with no extra text or markdown formatting.
-    All color values MUST be in HSL format as a string: "H S% L%" (e.g., "210 40% 96.1%"). Do NOT use Hex.
+    You are an expert UI/UX designer specializing in color theory for branding Indonesian SMEs.
+    Your task is to generate a complete, harmonious, and accessible color theme based on the business name and category.
+    Output **ONLY** a valid JSON object adhering STRICTLY to the ColorThemeJson interface below.
+    The output MUST use **HSL color format without the 'hsl()' wrapper**, just the numbers and percentages (e.g., "222.2 47.4% 11.2%").
+    Ensure sufficient contrast between background/foreground pairs (e.g., primary/on-primary, background/foreground, card/on-card).
+    Follow shadcn/ui conventions for color tokens.
 
-    Interface Definition:
+    **Output JSON Interface (ColorThemeJson):**
+    \`\`\`json
     {
-      primary: string; "on-primary": string;
-      secondary: string; "on-secondary": string;
-      background: string; "on-background": string;
-      surface: string; "on-surface": string; // Typically slightly different from background for elements like cards
-      accent: string; // A distinct color for highlights or specific CTAs
-      muted: string; // For subtle backgrounds or borders
-      border: string; // Default border color
-      success: string; "on-success"?: string; // Generate success color, on-success is optional
-      error: string; "on-error"?: string; // Generate error color, on-error is optional (often same as destructive)
-
-      // Additional required shadcn tokens
-      card: string; "on-card": string; // Often same as surface, on-surface
-      popover: string; "on-popover": string; // Often same as card, on-card
-      destructive: string; "on-destructive": string; // For destructive actions (often same as error)
-      input: string; // Border color for input fields (often same as border or slightly different)
-      ring: string; // Focus ring color
-
-      // Foreground variants (derive if possible, but define explicitly)
-      foreground: string; // Alias for on-background
-      primary_foreground: string; // Alias for on-primary
-      secondary_foreground: string; // Alias for on-secondary
-      muted_foreground: string; // Text on muted background
-      accent_foreground: string; // Text on accent background
-      destructive_foreground: string; // Alias for on-destructive
-      card_foreground: string; // Alias for on-card
-      popover_foreground: string; // Alias for on-popover
+      "primary": "string (HSL value)", "on-primary": "string (HSL value)",
+      "secondary": "string (HSL value)", "on-secondary": "string (HSL value)",
+      "background": "string (HSL value)", "on-background": "string (HSL value)",
+      "surface": "string (HSL value)", "on-surface": "string (HSL value)",
+      "accent": "string (HSL value)", "muted": "string (HSL value)",
+      "border": "string (HSL value)", "success": "string (HSL value)", "error": "string (HSL value)",
+      "card": "string (HSL value)", "on-card": "string (HSL value)",
+      "popover": "string (HSL value)", "on-popover": "string (HSL value)",
+      "destructive": "string (HSL value)", "on-destructive": "string (HSL value)",
+      "input": "string (HSL value)", "ring": "string (HSL value)",
+      "foreground": "string (HSL value)", "primary_foreground": "string (HSL value)",
+      "secondary_foreground": "string (HSL value)", "muted_foreground": "string (HSL value)",
+      "accent_foreground": "string (HSL value)", "destructive_foreground": "string (HSL value)",
+      "card_foreground": "string (HSL value)", "popover_foreground": "string (HSL value)"
     }
+    \`\`\`
 
-    Color Generation Guidelines:
-    1.  **Accessibility:** Ensure sufficient contrast between background colors (primary, secondary, background, surface, card, popover, accent, destructive, muted) and their corresponding foreground colors (on-*, *_foreground). Use WCAG AA contrast ratios as a target. For example, 'on-primary' must contrast well with 'primary'. 'foreground' must contrast with 'background'. 'card-foreground' must contrast with 'card'.
-    2.  **Category Appropriateness:** Choose a 'primary' color suitable for the business category (e.g., food=warm tones like orange/red, tech=blue/purple, nature=green, finance=blue/green, beauty=pink/purple/peach).
-    3.  **Harmony:** Secondary and accent colors should complement the primary color. Background, surface, card, popover should generally be neutral (light or dark depending on the theme type).
-    4.  **Consistency:**
-        - 'on-primary', 'primary_foreground' should be the same.
-        - 'on-secondary', 'secondary_foreground' should be the same.
-        - 'on-background', 'foreground' should be the same.
-        - 'on-card', 'card_foreground' should be the same, and often the same as 'on-surface'.
-        - 'on-popover', 'popover_foreground' should be the same, and often the same as 'on-card'.
-        - 'on-destructive', 'destructive_foreground' should be the same.
-        - 'error' and 'destructive' can often be the same color. 'on-error' and 'on-destructive'/'destructive_foreground' should also be the same.
-        - 'surface' and 'card' are often the same. 'popover' is often the same as 'card'.
-        - 'input' border is often the same as 'border'.
-        - 'accent_foreground' often uses the same color as 'on-primary' for simplicity and contrast.
-        - 'muted_foreground' should contrast with 'muted'.
-    5.  **HSL Format:** Strictly use the "H S% L%" format for all color strings.
-
-    Example (Light Theme):
-    {
-      "primary": "222.2 47.4% 11.2%", "on-primary": "0 0% 100%",
-      "secondary": "210 40% 96.1%", "on-secondary": "222.2 47.4% 11.2%",
-      "background": "0 0% 100%", "on-background": "222.2 47.4% 11.2%",
-      "surface": "0 0% 100%", "on-surface": "222.2 47.4% 11.2%",
-      "accent": "217.2 91.2% 59.8%", "on-accent": "0 0% 100%", // Note: using on-accent in prompt, map to accent_foreground later if needed
-      "muted": "210 40% 96.1%", "on-muted": "215.4 16.3% 46.9%", // Note: using on-muted in prompt, map to muted_foreground later if needed
-      "border": "214.3 31.8% 91.4%",
-      "success": "142.1 70.6% 45.3%", "on-success": "0 0% 100%",
-      "error": "0 84.2% 60.2%", "on-error": "0 0% 100%",
-      "card": "0 0% 100%", "on-card": "222.2 47.4% 11.2%",
-      "popover": "0 0% 100%", "on-popover": "222.2 47.4% 11.2%",
-      "destructive": "0 84.2% 60.2%", "on-destructive": "0 0% 100%",
-      "input": "214.3 31.8% 91.4%",
-      "ring": "215 20.2% 65.1%",
-      "foreground": "222.2 47.4% 11.2%",
-      "primary_foreground": "0 0% 100%",
-      "secondary_foreground": "222.2 47.4% 11.2%",
-      "muted_foreground": "215.4 16.3% 46.9%",
-      "accent_foreground": "0 0% 100%",
-      "destructive_foreground": "0 0% 100%",
-      "card_foreground": "222.2 47.4% 11.2%",
-      "popover_foreground": "222.2 47.4% 11.2%"
-    }
+    **Guidelines:**
+    - Choose a 'primary' color that strongly reflects the business category (e.g., Food: warm tones; Tech: blues; Nature: greens).
+    - **VARIATION IS KEY:** Generate diverse themes. **Actively avoid** themes where 'primary', 'secondary', and 'background' are all very light (e.g., Lightness > 85%). Aim for clear visual distinction. Randomly consider generating a **dark theme** (dark background, light text) or a **light theme** (light background, dark text).
+    - Ensure high contrast for 'on-primary', 'on-background', 'on-card', etc.
+    - Derive other colors (secondary, accent, muted, border, etc.) harmoniously.
+    - **CRITICAL HSL FORMAT:** Output HSL values ONLY as strings like "210 40% 96.1%".
+    - **EXAMPLE TO AVOID:** { primary: "210 20% 90%", secondary: "0 0% 95%", background: "0 0% 100%", ... } (This is too light/monochromatic).
   `;
 
-    const userMessage = `
+   const userMessage = `
     Business Name: ${namaUsaha}
     Category: ${kategori}
+    Generate a complete and *visually distinct* HSL color theme JSON according to the interface. Consider light or dark mode.
   `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Or a model known for good JSON generation
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
-      temperature: 0.8, // Slightly higher temperature for more varied color palettes
+      temperature: 0.7,
       response_format: { type: "json_object" },
     });
 
@@ -372,84 +392,192 @@ export async function generateColorTheme(
       throw new Error("OpenAI color theme response content is empty.");
     }
 
-    const parsedTheme: Partial<ColorThemeJson> = JSON.parse(content);
-
-    // --- Post-processing & Validation ---
-    // Ensure all required keys exist and have valid HSL strings
-    const requiredKeys: Array<keyof ColorThemeJson> = [
-      'primary', 'on-primary', 'secondary', 'on-secondary', 'background', 'on-background',
-      'surface', 'on-surface', 'accent', 'muted', 'border', 'success', 'error',
-      'card', 'on-card', 'popover', 'on-popover', 'destructive', 'on-destructive',
-      'input', 'ring', 'foreground', 'primary_foreground', 'secondary_foreground',
-      'muted_foreground', 'accent_foreground', 'destructive_foreground',
-      'card_foreground', 'popover_foreground'
-    ];
-
-    const finalTheme = {} as ColorThemeJson;
-    let isValid = true;
-    const hslRegex = /^\s*(\d{1,3}(\.\d+)?)\s+(\d{1,3}(\.\d+)?)%\s+(\d{1,3}(\.\d+)?)%\s*$/;
-
-    for (const key of requiredKeys) {
-      const value = parsedTheme[key];
-      if (typeof value === 'string' && hslRegex.test(value)) {
-        finalTheme[key] = value.trim(); // Assign valid value
-      } else {
-        // Attempt to fill based on conventions if missing or invalid
-        console.warn(`Missing or invalid HSL for key: ${key}. Attempting fallback.`);
-        if (key === 'foreground') finalTheme[key] = finalTheme['on-background'] || '0 0% 8%'; // dark default
-        else if (key === 'primary_foreground') finalTheme[key] = finalTheme['on-primary'] || '0 0% 98%'; // light default
-        else if (key === 'secondary_foreground') finalTheme[key] = finalTheme['on-secondary'] || '0 0% 8%';
-        else if (key === 'card') finalTheme[key] = finalTheme['surface'] || finalTheme['background'] || '0 0% 100%';
-        else if (key === 'on-card' || key === 'card_foreground') finalTheme[key] = finalTheme['on-surface'] || finalTheme['foreground'] || '0 0% 8%';
-        else if (key === 'popover') finalTheme[key] = finalTheme['card'] || '0 0% 100%';
-        else if (key === 'on-popover' || key === 'popover_foreground') finalTheme[key] = finalTheme['on-card'] || '0 0% 8%';
-        else if (key === 'destructive') finalTheme[key] = finalTheme['error'] || '0 84% 60%';
-        else if (key === 'on-destructive' || key === 'destructive_foreground') finalTheme[key] = parsedTheme['on-error'] || finalTheme['on-primary'] || '0 0% 98%';
-        else if (key === 'input') finalTheme[key] = finalTheme['border'] || '214 32% 91%';
-        else if (key === 'ring') finalTheme[key] = finalTheme['primary'] || '215 20% 65%';
-        else if (key === 'accent_foreground') finalTheme[key] = finalTheme['on-primary'] || '0 0% 98%';
-        else if (key === 'muted_foreground') finalTheme[key] = finalTheme['secondary_foreground'] || '215 16% 47%';
-        else {
-          console.error(`Could not determine fallback for missing/invalid key: ${key}`);
-          isValid = false; // Mark as invalid if a required key cannot be filled
-          break; // Stop processing if a critical key is missing
-        }
-         // Re-validate fallback value
-        if (!hslRegex.test(finalTheme[key])) {
-           console.error(`Fallback HSL value for ${key} is also invalid: ${finalTheme[key]}`);
-           isValid = false;
-           break;
-        }
-      }
+    let parsedTheme: ColorThemeJson;
+     try {
+        parsedTheme = JSON.parse(content);
+        // --- Add HSL Value Validation ---
+        Object.values(parsedTheme).forEach(value => {
+            if (typeof value !== 'string' || !/^\d+(\.\d+)?\s+\d+(\.\d+)?%\s+\d+(\.\d+)?%$/.test(value)) {
+                throw new Error(`Invalid HSL format detected: "${value}". Expected format like "222.2 47.4% 11.2%".`);
+            }
+        });
+    } catch (parseError) {
+      console.error("Failed to parse or validate OpenAI Color JSON response:", parseError);
+      console.error("Raw OpenAI Response:", content);
+      throw new Error("Gagal memproses tema warna dari AI. Format tidak valid.");
     }
 
-    // Add optional keys if they exist and are valid
-    if (parsedTheme['on-success'] && typeof parsedTheme['on-success'] === 'string' && hslRegex.test(parsedTheme['on-success'])) {
-      finalTheme['on-success'] = parsedTheme['on-success'].trim();
-    }
-    if (parsedTheme['on-error'] && typeof parsedTheme['on-error'] === 'string' && hslRegex.test(parsedTheme['on-error'])) {
-      finalTheme['on-error'] = parsedTheme['on-error'].trim();
-      // Ensure consistency if on-error was provided
-      if (!finalTheme['on-destructive']) {
-          // const errorColor = finalTheme['error'] || '0 84% 60%'; // Ensure error exists
-          finalTheme['on-destructive'] = parsedTheme['on-error'];
-      }
-      if (!finalTheme['destructive_foreground']) {
-          finalTheme['destructive_foreground'] = parsedTheme['on-error'];
-      }
+     // Basic check for essential keys (can be expanded)
+    if (!parsedTheme.primary || !parsedTheme['on-primary'] || !parsedTheme.background || !parsedTheme.foreground) {
+         console.error("Generated Color Theme is missing essential fields:", parsedTheme);
+        throw new Error("Struktur tema warna AI yang dihasilkan tidak lengkap.");
     }
 
 
-    if (!isValid) {
-        throw new Error("Generated color theme JSON is incomplete or has invalid HSL values after attempting fallbacks.");
-    }
-
-
-    console.log("AI Generated Color Theme (HSL):", finalTheme);
-    return finalTheme;
+    console.log("AI Generated Color Theme (V2):", parsedTheme);
+    return parsedTheme;
 
   } catch (error) {
     console.error("Error generating color theme:", error);
-    throw new Error(`Gagal menghasilkan tema warna AI: ${error instanceof Error ? error.message : String(error)}`);
+     if (error instanceof Error && (error.message.includes("JSON") || error.message.includes("HSL"))) {
+         throw error; // Re-throw parsing/validation errors
+    }
+    throw new Error(`Gagal menghasilkan tema warna AI: ${error instanceof Error ? error.message : 'Unknown AI Error'}`);
   }
-} 
+}
+
+
+// --- Tweak Function (Cleaned up) ---
+export async function tweakLandingPageContent(
+  currentContent: AiGeneratedContent,
+  userInstruction: string
+): Promise<AiGeneratedContent> {
+
+ const systemPrompt = `
+    You are an expert landing page editor, focusing on improving conversion.
+    The user wants to modify their existing landing page content based on their instruction.
+    **Analyze the instruction carefully.** Does it target a specific section (headline, heroDescription, a specific section title/content) or a general aspect (tone, focus)?
+
+    Current content (JSON): ${JSON.stringify(currentContent, null, 2)}
+
+    User's instruction: ${userInstruction}
+
+    Modify the current JSON based on the user's instruction.
+    - If the instruction is specific (e.g., "Ubah headline menjadi...", "Tambahkan detail X ke bagian Y"), make the precise change.
+    - If the instruction is general (e.g., "Buat lebih menjual", "Fokuskan pada kecepatan layanan"), intelligently revise the relevant parts (headline, descriptions, section content) to reflect the instruction, while maintaining the overall structure.
+    - Preserve fields not mentioned in the instruction.
+    - Ensure the output is **ONLY** the modified, valid JSON object matching the AiGeneratedContent interface provided below, with no extra text or markdown formatting.
+
+    **Output JSON Interface (AiGeneratedContent):**
+    \`\`\`json
+    {
+      "businessType": "${currentContent.businessType}",
+      "tone": "string",
+      "headline": "string",
+      "subheadline": "string",
+      "heroDescription": "string",
+      "sections": [
+        {
+          "id": "string",
+          "title": "string",
+          "content": "string",
+          "layoutHint": "list | paragraph | gallery_placeholder"
+        }
+      ],
+      "ctaText": "string",
+      "whatsappCTA": ${currentContent.whatsappCTA},
+      "whatsappNumber": ${currentContent.whatsappNumber ? `"${currentContent.whatsappNumber}"` : undefined},
+      "layoutStyle": "string | undefined",
+      "font": "string | undefined"
+    }
+    \`\`\`
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+            { role: "system", content: systemPrompt },
+        ],
+        temperature: 0.5,
+        response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("OpenAI tweak response content is empty.");
+    }
+
+     let parsedContent: AiGeneratedContent;
+    try {
+        parsedContent = JSON.parse(content);
+    } catch (parseError) {
+      console.error("Failed to parse OpenAI tweak JSON response:", parseError);
+      console.error("Raw OpenAI Response:", content);
+      throw new Error("Gagal memproses hasil tweak dari AI. Format tidak valid.");
+    }
+
+    // Simplified validation for tweak
+    if (
+      !parsedContent.businessType ||
+      !parsedContent.headline ||
+      !parsedContent.ctaText
+    ) {
+      console.error("Tweaked JSON is missing required fields:", parsedContent);
+      throw new Error("Struktur konten AI yang di-tweak tidak lengkap.");
+    }
+
+    // Ensure whatsappNumber consistency
+     if (!parsedContent.whatsappCTA && parsedContent.whatsappNumber) {
+        delete parsedContent.whatsappNumber;
+    }
+    if (parsedContent.whatsappCTA && !parsedContent.whatsappNumber && currentContent.whatsappNumber) {
+        parsedContent.whatsappNumber = currentContent.whatsappNumber;
+    }
+
+    console.log("AI Tweaked Content (Revamped):", parsedContent);
+    return parsedContent;
+
+  } catch (error) {
+      console.error("Error tweaking landing page content (Revamped):", error);
+       if (error instanceof Error && error.message.includes("JSON")) {
+         throw error; // Re-throw parsing errors
+      }
+      throw new Error(`Gagal melakukan tweak AI: ${error instanceof Error ? error.message : 'Unknown AI Error'}`);
+  }
+}
+
+
+// === Description Generation Function (generateBusinessDescription - Sales Focused) ===
+export async function generateBusinessDescription(
+  namaUsaha: string,
+  kategori: string
+): Promise<string> {
+  const systemPrompt = `
+    You are an expert Indonesian digital marketing copywriter specializing in high-conversion landing page descriptions for SMEs (UMKM).
+    Your **sole mission** is to write copy that **SELLS** and drives **CONVERSION**.
+    Focus on the **customer's needs, desires, and pain points**, positioning the business as the perfect solution.
+    Highlight unique benefits and create a sense of urgency or desire.
+  `;
+
+  const userMessage = `
+    Business Name: ${namaUsaha}
+    Category: ${kategori}
+
+    Generate a **short, punchy, and highly persuasive** landing page description (around 2-3 concise paragraphs).
+
+    **CRITICAL INSTRUCTIONS:**
+    1.  **Format:** PURE PLAIN TEXT with standard sentences and paragraphs.
+    2.  **Markdown/HTML:** **NO MARKDOWN (like **, ##, -, *) and NO HTML tags.** Absolutely forbidden.
+    3.  **Emojis:** **Emojis ARE ALLOWED** and encouraged where they add value and personality 😊👍🎉, but use them sparingly and appropriately.
+    4.  **Length:** Keep it **concise and impactful**, around 500-800 characters ideally. Focus on the core selling points.
+    5.  **Tone:** Highly persuasive, benefit-driven, and engaging.
+
+    Example of desired style (with emojis):
+    "🚀 Tingkatkan penjualan Anda dengan [Nama Usaha]! Kami solusi [Kategori] terbaik untuk [target audiens].\\n\\n✨ Dapatkan [manfaat utama 1] dan [manfaat utama 2] dengan mudah. Produk kami [keunggulan unik].\\n\\n💬 Hubungi kami sekarang untuk penawaran spesial! 😉"
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.75,
+      max_tokens: 250,
+    });
+    const description = response.choices[0]?.message?.content?.trim();
+    if (!description) {
+         throw new Error("OpenAI description response is empty.");
+    }
+
+    return description;
+
+  } catch (error) {
+    console.error("Error generating business description:", error);
+    throw new Error(`Gagal menghasilkan deskripsi AI: ${error instanceof Error ? error.message : 'Unknown AI Error'}`);
+  }
+}
+
+// ... (Ensure all exports are correct) ...

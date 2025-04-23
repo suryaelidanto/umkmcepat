@@ -529,7 +529,7 @@ export function CreateLandingPageForm({
             disabled={isPending}
           />
           <p className="text-xs text-muted-foreground mt-1.5">
-            Maks. 500 karakter.
+            Maks. 2000 karakter.
           </p>
           {form.formState.errors.deskripsi_user && (
             <p className="text-sm text-red-600">
