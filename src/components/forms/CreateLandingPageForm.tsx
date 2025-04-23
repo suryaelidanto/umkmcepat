@@ -436,7 +436,7 @@ export function CreateLandingPageForm({
            <Terminal className="h-4 w-4 !text-yellow-700" />
            <AlertTitle className="font-semibold">Saran: Login Terlebih Dahulu</AlertTitle>
            <AlertDescription>
-             Dengan login (gratis via Google), halaman yang Anda buat akan otomatis tersimpan di dashboard Anda dan tidak akan hilang.
+             Login via Google untuk menyimpan halaman Anda di dashboard.
            </AlertDescription>
          </Alert>
       )}
@@ -558,7 +558,7 @@ export function CreateLandingPageForm({
           </div>
           <Textarea
             id="deskripsi_user"
-            placeholder="Jelaskan produk/jasa unggulanmu. AI akan gunakan info ini untuk membuat konten yang lebih baik."
+            placeholder="Jelaskan produk/jasa unggulanmu"
             {...form.register("deskripsi_user")}
             className="mt-1.5"
             rows={3}
