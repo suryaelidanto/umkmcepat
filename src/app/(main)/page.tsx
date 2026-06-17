@@ -8,7 +8,7 @@ export default function HomePage() {
     <div className="container mx-auto flex max-w-3xl flex-col items-center justify-center px-4 py-16 text-center sm:py-24">
       <Image
         src="/logo.svg"
-        alt="Tokko Logo"
+        alt="UMKM Cepat Logo"
         width={48}
         height={48}
         className="mb-6"
@@ -18,7 +18,7 @@ export default function HomePage() {
         <span className="text-primary">Instan</span> dengan AI
       </h1>
       <p className="mt-6 text-lg leading-8 text-slate-600">
-        tokko.online membantu UMKM dan siapa saja membuat halaman promosi
+        umkmcepat.online membantu UMKM dan siapa saja membuat halaman promosi
         produk/jasa yang efektif dalam hitungan detik. Tanpa login, tanpa ribet,
         cukup jelaskan usahamu.
       </p>

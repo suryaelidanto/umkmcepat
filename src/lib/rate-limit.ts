@@ -23,7 +23,7 @@ const globalLimiter = redisClient ? new Ratelimit({
     redis: redisClient,
     limiter: Ratelimit.slidingWindow(30, "60 s"), // 30 requests per 60 seconds (1 minute)
     analytics: true,
-    prefix: "@upstash/ratelimit/tokko/global", // Updated prefix
+    prefix: "@upstash/ratelimit/umkmcepat/global", // Updated prefix
 }) : null;
 
 // AI specific limiter (stricter)
@@ -31,7 +31,7 @@ const aiLimiter = redisClient ? new Ratelimit({
     redis: redisClient,
     limiter: Ratelimit.slidingWindow(5, "600 s"), // 5 requests per 600 seconds (10 minutes)
     analytics: true,
-    prefix: "@upstash/ratelimit/tokko/ai",
+    prefix: "@upstash/ratelimit/umkmcepat/ai",
 }) : null;
 
 // Helper function to apply rate limiting

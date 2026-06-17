@@ -9,8 +9,8 @@ import { LandingPageDisplay } from "./LandingPageDisplay";
 
 // Tipe Props tetap sama
 type Props = {
-  params: { slug: string };
-  searchParams?: { [key: string]: string | string[] | undefined };
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 // Fungsi getLandingPageData tetap sama (dijalankan di server)
@@ -100,14 +100,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const imageUrl = pageData.images?.[0];
 
   return {
-    title: `${title} | tokko.online`,
+    title: `${title} | umkmcepat.online`,
     description: description,
     openGraph: {
       title: title,
       description: description,
       images: imageUrl ? [{ url: imageUrl }] : [],
       url: `/p/${slug}`,
-      siteName: "tokko.online",
+      siteName: "umkmcepat.online",
       type: "website",
     },
     twitter: {

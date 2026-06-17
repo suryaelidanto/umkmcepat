@@ -8,8 +8,8 @@ import { notFound } from 'next/navigation';
 
 // Gunakan nama standar 'Props' dan buat searchParams opsional
 type Props = {
-    params: { slug: string };
-    searchParams?: { [key: string]: string | string[] | undefined }; // Opsional
+    params: Promise<{ slug: string }>;
+    searchParams?: Promise<{ [key: string]: string | string[] | undefined }>; // Opsional
 };
 
 // Function to verify token and fetch data server-side
@@ -76,8 +76,9 @@ async function verifyTokenAndGetData(slug: string, token?: string | string[]) {
 
 // Gunakan tipe Props di default export
 export default async function EditLandingPage({ params, searchParams }: Props) {
-    const { slug } = params;
-    const token = searchParams?.token; // Akses token dengan optional chaining
+    const { slug } = await params;
+    const resolvedSearchParams = searchParams ? await searchParams : undefined;
+    const token = resolvedSearchParams?.token; // Akses token dengan optional chaining
 
     const verificationResult = await verifyTokenAndGetData(slug, token);
 
@@ -130,8 +131,9 @@ export default async function EditLandingPage({ params, searchParams }: Props) {
 
 // Gunakan tipe Props yang sama di generateMetadata
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
   return {
-    title: `Edit Halaman ${params.slug} | tokko.online`,
+    title: `Edit Halaman ${slug} | UMKM Cepat`,
     robots: { index: false, follow: false }, // Prevent indexing of edit pages
   };
 }

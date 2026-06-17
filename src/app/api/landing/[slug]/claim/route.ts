@@ -4,10 +4,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const slug = params.slug;
+    const { slug } = await params;
     const session = await auth();
 
     if (!session?.user?.id) {
@@ -52,7 +52,7 @@ export async function GET(
   } catch (error) {
     console.error("Error claiming landing page:", error);
     // Redirect ke halaman error umum atau kembali ke landing page dengan error
-    const slug = params.slug; // Coba dapatkan slug lagi untuk redirect
+    const { slug } = await params; // Coba dapatkan slug lagi untuk redirect
     const redirectUrl = slug ? `/p/${slug}?error=ClaimFailed` : '/?error=ClaimFailed';
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   }

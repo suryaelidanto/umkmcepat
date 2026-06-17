@@ -6,9 +6,9 @@ import { baseLandingPageSchemaForOmit as landingPageSchema } from '@/lib/zod-sch
 import { NextResponse } from 'next/server';
 
 // PUT /api/landing/[slug] - Update an existing landing page via token
-export async function PUT(request: Request, { params }: { params: { slug: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   try {
-    const slug = params.slug;
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
 
@@ -148,7 +148,7 @@ export async function PUT(request: Request, { params }: { params: { slug: string
     );
 
   } catch (error) {
-    console.error(`Error updating landing page [${params.slug}]:`, error);
+    console.error(`Error updating landing page [${slug}]:`, error);
     let message = 'Terjadi kesalahan saat menyimpan perubahan.';
     if (error instanceof Error) {
       // Don't expose sensitive internal messages directly

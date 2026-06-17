@@ -10,10 +10,10 @@ export function Header() {
       <div className="container flex h-14 max-w-screen-2xl items-center mx-auto px-2 sm:px-6 lg:px-8">
         <div className="mr-4 flex">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <Image src="/logo.svg" alt="Tokko Logo" width={24} height={24} />
+            <Image src="/logo.svg" alt="UMKM Cepat Logo" width={24} height={24} />
             {/* Ensure text is hidden by default and shown on sm+ */}
             <span className="font-bold hidden sm:inline-block">
-              tokko.online
+              umkmcepat.online
             </span>
           </Link>
           {/* Optional: Add navigation links here */}

@@ -6,9 +6,10 @@ import { z } from 'zod'; // Import Zod
 
 export async function GET(
   request: Request,
-  { params: { id: pageId } }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: pageId } = await params;
     const session = await auth();
     const userId = session?.user?.id;
 
@@ -59,7 +60,7 @@ export async function GET(
     }, { status: 200 });
 
   } catch (error) {
-    console.error(`Error fetching page ${pageId}:`, error);
+    console.error("Error fetching page:", error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -149,10 +150,10 @@ const updateContentSchema = z.object({
 // PATCH /api/my-pages/[id] - Update specific aiContent field
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const pageId = params.id;
+    const { id: pageId } = await params;
     const session = await auth();
     const userId = session?.user?.id;
 
@@ -230,7 +231,7 @@ export async function PATCH(
     );
 
   } catch (error) {
-    console.error(`Error PATCH updating content for page ${params.id}:`, error); // Added PATCH marker
+    console.error("Error PATCH updating content for page:", error); // Added PATCH marker
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Validation Error', errors: error.errors }, { status: 400 });
     }
@@ -245,9 +246,10 @@ export async function PATCH(
 // PUT /api/my-pages/[id] - Update page data
 export async function PUT(
   request: Request,
-  { params: { id: pageId } }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: pageId } = await params;
     const session = await auth();
     const userId = session?.user?.id;
 
@@ -309,9 +311,10 @@ export async function PUT(
 // DELETE /api/my-pages/[id]
 export async function DELETE(
   request: Request,
-  { params: { id: pageId } }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: pageId } = await params;
     const session = await auth();
     const userId = session?.user?.id;
 
@@ -344,7 +347,7 @@ export async function DELETE(
     return NextResponse.json({ message: 'Halaman berhasil dihapus' }, { status: 200 });
 
   } catch (error) {
-    console.error(`Error deleting page ${pageId}:`, error);
+    console.error("Error deleting page:", error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 } 
