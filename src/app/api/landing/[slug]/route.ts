@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { generateLandingPageContent } from '@/lib/ai';
-import { deleteImagesFromCloudinary, fileToBuffer, uploadImageToCloudinary } from '@/lib/cloudinary';
 import { prisma } from '@/lib/prisma';
+import { buildImageKey, fileToBuffer, storage } from '@/lib/storage';
 import { generateRandomString, slugify } from '@/lib/utils';
 import { baseLandingPageSchemaForOmit as landingPageSchema } from '@/lib/zod-schemas';
 
@@ -67,8 +67,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
         try {
           const buffer = await fileToBuffer(file);
           const uniqueFileName = `${slugify(namaUsaha)}-${generateRandomString(4)}-${Date.now()}`;
-          const { secure_url, public_id } = await uploadImageToCloudinary(buffer, uniqueFileName);
-          updatedImageData.push({ url: secure_url, publicId: public_id });
+          const key = buildImageKey(uniqueFileName, file.type);
+          const uploadResult = await storage.upload({ buffer, key, contentType: file.type });
+          updatedImageData.push({ url: uploadResult.url, publicId: uploadResult.key });
         } catch (uploadError) {
           console.error("Image upload failed during update:", uploadError);
           return NextResponse.json({ message: 'Gagal mengupload gambar baru.' }, { status: 500 });
@@ -132,11 +133,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
       },
     });
 
-    // 7. Delete old images from Cloudinary if new ones were uploaded
+    // 7. Delete old images from the configured storage provider if new ones were uploaded
     if (deleteOldImages && landingPage.imagePublicIds && landingPage.imagePublicIds.length > 0) {
-      // Run deletion in background, don't wait for it
-      deleteImagesFromCloudinary(landingPage.imagePublicIds).catch(err => {
-        console.error("Failed to delete old Cloudinary images in background:", err);
+      storage.delete(landingPage.imagePublicIds).catch(err => {
+        console.error("Failed to delete old storage objects in background:", err);
       });
     }
 
@@ -153,9 +153,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
     let message = 'Terjadi kesalahan saat menyimpan perubahan.';
     if (error instanceof Error) {
       // Don't expose sensitive internal messages directly
-      if (error.message.includes("Cloudinary")) {
+      if (error.message.includes("storage") || error.message.includes("Storage") || error.message.includes("S3")) {
         message = "Gagal mengupload gambar baru. Coba lagi.";
-      } else if (error.message.includes("OpenAI") || error.message.includes("konten AI")) {
+      } else if (error.message.includes("AI") || error.message.includes("konten AI")) {
         message = "Gagal memperbarui konten AI. Coba lagi nanti.";
       } // Add other specific checks if needed
       // Log full error server-side

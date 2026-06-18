@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 
 import { generateLandingPageContent } from '@/lib/ai';
 import { auth } from '@/lib/auth'; // Import auth untuk cek sesi
-import { fileToBuffer, uploadImageToCloudinary } from '@/lib/cloudinary';
 import { prisma } from '@/lib/prisma';
 // Import the base schema for omit
 import { checkRateLimit } from '@/lib/rate-limit'; // Import rate limit checker
+import { buildImageKey, fileToBuffer, storage } from '@/lib/storage';
 import { generateRandomString, slugify } from '@/lib/utils';
 
 // Import the base schema to apply refinement after omit
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Handle Image Uploads to Cloudinary
+    // Handle image uploads through the configured storage provider
     const imageFiles = formData.getAll('images') as File[];
     const uploadedImageData: { url: string; publicId: string }[] = [];
 
@@ -139,9 +139,9 @@ export async function POST(request: Request) {
         try {
           const buffer = await fileToBuffer(file);
           const uniqueFileName = `${slugify(namaUsaha)}-${generateRandomString(4)}-${Date.now()}`;
-          // Get both url and publicId
-          const { secure_url, public_id } = await uploadImageToCloudinary(buffer, uniqueFileName);
-          uploadedImageData.push({ url: secure_url, publicId: public_id });
+          const key = buildImageKey(uniqueFileName, file.type);
+          const uploadResult = await storage.upload({ buffer, key, contentType: file.type });
+          uploadedImageData.push({ url: uploadResult.url, publicId: uploadResult.key });
         } catch (uploadError) {
           console.error("Image upload failed:", uploadError);
           return NextResponse.json({ message: 'Gagal mengupload salah satu gambar.' }, { status: 500 });
@@ -247,9 +247,9 @@ export async function POST(request: Request) {
     let message = 'Terjadi kesalahan saat membuat halaman.';
     if (error instanceof Error) {
       // Don't expose sensitive internal messages directly
-      if (error.message.includes("Cloudinary")) {
+      if (error.message.includes("storage") || error.message.includes("Storage") || error.message.includes("S3")) {
         message = "Gagal mengupload gambar. Coba lagi.";
-      } else if (error.message.includes("OpenAI") || error.message.includes("konten AI")) {
+      } else if (error.message.includes("AI") || error.message.includes("konten AI")) {
         message = "Gagal menghasilkan konten AI. Coba lagi nanti.";
       } else if (error.message.includes("slug unik")) {
         message = "Gagal membuat alamat unik untuk halaman Anda. Coba nama usaha yang sedikit berbeda.";

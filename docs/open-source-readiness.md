@@ -11,7 +11,7 @@
 ## Integrations intentionally not tested by default
 
 - AI generation with OpenAI
-- Cloudinary uploads
+- Storage provider uploads
 - Upstash-backed rate limits
 - Auth provider login flows
 - Payment/domain-provider flows if added later

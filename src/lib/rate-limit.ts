@@ -1,74 +1,66 @@
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis"; // Import Upstash Redis client
 import { NextResponse } from "next/server";
 
-// Check if Upstash Redis environment variables are set
-if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-    console.warn("Upstash Redis environment variables not configured. Rate limiting will be disabled.");
-    // Optionally throw an error in production?
-    // throw new Error("Missing Upstash Redis configuration for rate limiting.");
+import { getConfiguredProvider } from "@/lib/config";
+
+type RateLimitType = "global" | "ai";
+
+type Bucket = {
+  count: number;
+  resetAt: number;
+};
+
+const buckets = new Map<string, Bucket>();
+
+const limits: Record<RateLimitType, { limit: number; windowMs: number }> = {
+  global: { limit: 30, windowMs: 60_000 },
+  ai: { limit: 5, windowMs: 600_000 },
+};
+
+function getClientIp(request: Request): string {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "127.0.0.1";
 }
 
-// Initialize Upstash Redis client only if variables are set
-const redisClient = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-    ? new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      })
-    : null;
+export async function checkRateLimit(request: Request, type: RateLimitType = "global") {
+  const provider = getConfiguredProvider("rateLimit");
 
-// Create a Ratelimit instance using Upstash Redis client (if available)
-// Global limiter (more generous)
-const globalLimiter = redisClient ? new Ratelimit({
-    redis: redisClient,
-    limiter: Ratelimit.slidingWindow(30, "60 s"), // 30 requests per 60 seconds (1 minute)
-    analytics: true,
-    prefix: "@upstash/ratelimit/umkmcepat/global", // Updated prefix
-}) : null;
+  if (provider === "none") {
+    return null;
+  }
 
-// AI specific limiter (stricter)
-const aiLimiter = redisClient ? new Ratelimit({
-    redis: redisClient,
-    limiter: Ratelimit.slidingWindow(5, "600 s"), // 5 requests per 600 seconds (10 minutes)
-    analytics: true,
-    prefix: "@upstash/ratelimit/umkmcepat/ai",
-}) : null;
+  if (provider !== "memory") {
+    throw new Error(`Rate limit provider '${provider}' is registered but not implemented yet.`);
+  }
 
-// Helper function to apply rate limiting
-export async function checkRateLimit(request: Request, type: 'global' | 'ai' = 'global') { // Default to global
-    // If Redis client or ratelimiter couldn't be initialized, disable rate limiting
-    const ratelimit = type === 'ai' ? aiLimiter : globalLimiter; // Use updated names
-    if (!ratelimit) {
-        // console.log("Rate limiting is disabled due to missing Redis config.");
-        return null; 
+  const now = Date.now();
+  const config = limits[type];
+  const key = `${type}:${getClientIp(request)}`;
+  const bucket = buckets.get(key);
+
+  if (!bucket || bucket.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + config.windowMs });
+    return null;
+  }
+
+  bucket.count += 1;
+
+  if (bucket.count <= config.limit) {
+    return null;
+  }
+
+  const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
+
+  return NextResponse.json(
+    { message: `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.` },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": `${retryAfter}`,
+        "X-RateLimit-Limit": `${config.limit}`,
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": `${bucket.resetAt}`,
+      },
     }
-
-    const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
-
-    try {
-        const { success, limit, remaining, reset } = await ratelimit.limit(ip);
-
-        if (!success) {
-            const resetDate = new Date(reset);
-            const retryAfter = Math.ceil((resetDate.getTime() - Date.now()) / 1000);
-            console.warn(`Rate limit exceeded for IP ${ip} on ${type} limit. Remaining: ${remaining}. Resets in ${retryAfter}s.`);
-            return NextResponse.json(
-                { message: `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.` },
-                { 
-                    status: 429,
-                    headers: {
-                        'Retry-After': `${retryAfter}`,
-                        'X-RateLimit-Limit': limit.toString(),
-                        'X-RateLimit-Remaining': remaining.toString(),
-                        'X-RateLimit-Reset': reset.toString(),
-                    }
-                }
-            );
-        }
-        return null; // Success
-    } catch (error) {
-        console.error("Error checking Upstash rate limit:", error);
-        // Fail open in case of Redis error during check
-        return null; 
-    }
-} 
+  );
+}

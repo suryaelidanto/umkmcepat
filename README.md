@@ -13,9 +13,9 @@ Early-stage Next.js SaaS codebase prepared for open-source collaboration. Some l
 - Prisma
 - NextAuth
 - Tailwind CSS
-- Upstash Redis rate limiting
-- Cloudinary uploads
-- OpenAI integration
+- Configurable memory rate limiting
+- Configurable storage provider: local or S3-compatible providers such as Cloudflare R2
+- Configurable AI provider architecture with OpenRouter as the current runtime provider
 - Vitest for unit tests
 - ESLint + Husky + lint-staged for quality gates
 
@@ -39,15 +39,20 @@ Useful env vars:
 | Name | Purpose | Required for |
 | --- | --- | --- |
 | `DATABASE_URL` | Prisma database connection | DB-backed app flows |
-| `AUTH_SECRET` | NextAuth signing secret | Auth |
-| `AUTH_URL` | Local auth URL | Auth |
-| `OPENAI_API_KEY` | AI generation | AI features |
-| `CLOUDINARY_CLOUD_NAME` | Cloudinary account | Image upload |
-| `CLOUDINARY_API_KEY` | Cloudinary API key | Image upload |
-| `CLOUDINARY_API_SECRET` | Cloudinary API secret | Image upload |
-| `UPSTASH_REDIS_REST_URL` | Redis REST endpoint | Rate limiting |
-| `UPSTASH_REDIS_REST_TOKEN` | Redis REST token | Rate limiting |
-| `SENTRY_AUTH_TOKEN` | Sentry release upload | Sentry deploys only |
+| `NEXTAUTH_SECRET` | NextAuth signing secret | Auth |
+| `NEXTAUTH_URL` | Local auth URL | Auth |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | Auth |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Auth |
+| `AI_PROVIDER` | AI provider selection | AI features |
+| `AI_MODEL` | AI model name | AI features |
+| `OPENROUTER_API_KEY` | OpenRouter API key | AI features |
+| `STORAGE_PROVIDER` | Storage provider selection | Uploads |
+| `S3_ENDPOINT` | S3-compatible endpoint for R2/S3/MinIO | Cloud uploads |
+| `S3_BUCKET` | S3-compatible bucket | Cloud uploads |
+| `S3_ACCESS_KEY_ID` | S3-compatible access key | Cloud uploads |
+| `S3_SECRET_ACCESS_KEY` | S3-compatible secret key | Cloud uploads |
+| `S3_PUBLIC_BASE_URL` | Public base URL for uploaded files | Cloud uploads |
+| `RATE_LIMIT_PROVIDER` | Rate limit provider selection | Rate limiting |
 
 ## Development
 
@@ -63,6 +68,9 @@ Developer docs:
 - `DEV.md` — local development guide and quality checks
 - `AGENTS.md` — rules for AI agents and automated contributors
 - `docs/open-source-readiness.md` — security and open-source readiness notes
+- `docs/provider-architecture.md` — provider choices, config strategy, and adapter rules
+- `docs/providers.md` — supported provider names and env examples
+- `docs/local-development.md` — Docker Compose local infrastructure setup
 
 ## Quality checks
 
@@ -95,7 +103,7 @@ npm run prepare
 - `.env.example` contains placeholders only.
 - Never paste real credentials into issues, pull requests, docs, or chat logs.
 - Before opening a PR, run a local secret scan or at minimum search tracked files for keys/tokens.
-- Live AI, payment, domain, database, Cloudinary, Upstash, and Sentry credentials must stay outside the repo.
+- Live AI, payment, domain, database, storage, and monitoring credentials must stay outside the repo.
 
 ## Testing scope
 

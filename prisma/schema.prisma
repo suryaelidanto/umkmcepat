@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL") // Make sure this is set in your .env file (e.g., from Neon)
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -10,27 +10,27 @@ generator client {
 model LandingPage {
   id             String   @id @default(cuid())
   slug           String   @unique
-  namaUsaha      String   @db.VarChar(100) // Limit length for better indexing
-  kategori       String   @db.VarChar(50)  // Limit length for better indexing
-  aiContent      Json? // Store structured AI content (headline, body, cta, colors, etc.)
-  harga          String? // TODO: Consider removing if replaced by pricingInfo
-  whatsapp       String? // Store formatted WhatsApp number
-  images         String[] // Array of image URLs from Cloudinary
-  imagePublicIds String[] // Array of Cloudinary public IDs corresponding to images
-  userId         String? // Foreign key to User model if claimed
+  namaUsaha      String   @db.VarChar(100) 
+  kategori       String   @db.VarChar(50)  
+  aiContent      Json? 
+  harga          String? 
+  whatsapp       String? 
+  images         String[] 
+  imagePublicIds String[] 
+  userId         String? 
   User           User?    @relation(fields: [userId], references: [id])
   isClaimed      Boolean  @default(false)
-  tweaksLeft     Int      @default(5) // Number of AI tweaks remaining
+  tweaksLeft     Int      @default(5) 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // === NEW OPTIONAL FIELDS ===
-  testimonials Json?    // Changed to Json to store array of objects
-  address      String? @db.VarChar(255) // Limit address length
-  socialLinks  Json?    // Store social links as JSON
+  
+  testimonials Json?    
+  address      String? @db.VarChar(255) 
+  socialLinks  Json?    
 
-  // === NEW COLOR THEME FIELD ===
-  colorTheme   Json?    // Store generated color theme JSON
+  
+  colorTheme   Json?    
 
   @@index([userId])
   @@index([slug])
@@ -41,7 +41,7 @@ model LandingPage {
   @@index([isClaimed])
 }
 
-// NextAuth.js (Auth.js v5) Models
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -82,7 +82,7 @@ model User {
   image         String?       @db.Text
   accounts      Account[]
   sessions      Session[]
-  landingPages  LandingPage[] // Relation back to LandingPage
+  landingPages  LandingPage[] 
 
   @@index([email])
   @@index([name])

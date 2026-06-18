@@ -340,7 +340,7 @@ export async function DELETE(
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 }); // Pengguna bukan pemilik
     }
 
-    // 5. Hapus halaman (TODO: Pertimbangkan hapus gambar Cloudinary juga)
+    // 5. Hapus halaman (TODO: Pertimbangkan hapus file storage terkait juga)
     await prisma.landingPage.delete({
       where: { id: pageId },
     });
