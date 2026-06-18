@@ -4,7 +4,7 @@
   "private": false,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npm run lint && npm run typecheck && next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "postinstall": "prisma generate && prisma migrate deploy",
@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepare": "husky",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "verify": "npm run test && npm run build",
     "commitlint": "commitlint --from HEAD~1 --to HEAD --verbose"
   },
   "dependencies": {
