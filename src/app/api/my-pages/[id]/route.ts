@@ -26,9 +26,9 @@ export async function GET(
       select: {
         id: true,
         slug: true,
-        namaUsaha: true,
-        kategori: true,
-        whatsapp: true,
+        businessName: true,
+        category: true,
+        whatsappNumber: true,
         aiContent: true,
         images: true,
         userId: true,
@@ -292,9 +292,9 @@ export async function PUT(
     const updatedPage = await prisma.landingPage.update({
       where: { id: pageId },
       data: {
-        namaUsaha: validatedData.namaUsaha,
-        kategori: validatedData.kategori,
-        whatsapp: validatedData.whatsapp,
+        businessName: validatedData.businessName,
+        category: validatedData.category,
+        whatsappNumber: validatedData.whatsappNumber,
         address: validatedData.address,
         // Tambahkan field lain dari validatedData jika ada
       },

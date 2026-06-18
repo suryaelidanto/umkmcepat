@@ -138,9 +138,9 @@ async function createTextCompletion(systemPrompt: string, userMessage: string, t
 }
 
 export async function generateLandingPageContent(
-  namaUsaha: string,
-  kategori: string,
-  deskripsi_user?: string,
+  businessName: string,
+  category: string,
+  userDescription?: string,
   hasWhatsApp?: boolean
 ): Promise<AiGeneratedContent> {
   const systemPrompt = `
@@ -164,9 +164,9 @@ export async function generateLandingPageContent(
   `;
 
   const userMessage = `
-    Business Name: ${namaUsaha}
-    Category: ${kategori}
-    User Description (Optional): ${deskripsi_user || "-"}
+    Business Name: ${businessName}
+    Category: ${category}
+    User Description (Optional): ${userDescription || "-"}
     Has WhatsApp Number: ${hasWhatsApp ? "Yes" : "No"}
   `;
 
@@ -228,8 +228,8 @@ export async function tweakLandingPageContent(
 }
 
 export async function generateBusinessDescription(
-  namaUsaha: string,
-  kategori: string
+  businessName: string,
+  category: string
 ): Promise<string> {
   const systemPrompt = `
     Anda adalah copywriter AI yang ahli membuat deskripsi singkat maksimal 3-4 kalimat atau sekitar 400 karakter untuk landing page UMKM Indonesia.
@@ -239,8 +239,8 @@ export async function generateBusinessDescription(
   `;
 
   const userMessage = `
-    Nama Usaha: ${namaUsaha}
-    Kategori Usaha: ${kategori}
+    Business Name: ${businessName}
+    Business Category: ${category}
     Buatkan deskripsi landing page yang menarik.
   `;
 
@@ -260,8 +260,8 @@ export async function generateBusinessDescription(
 }
 
 export async function generateColorTheme(
-  namaUsaha: string,
-  kategori: string
+  businessName: string,
+  category: string
 ): Promise<ColorThemeJson> {
   const systemPrompt = `
     You are a UI color theme generator specializing in accessible and appealing themes for Indonesian SMEs (UMKM) based on shadcn/ui conventions.
@@ -272,8 +272,8 @@ export async function generateColorTheme(
   `;
 
   const userMessage = `
-    Business Name: ${namaUsaha}
-    Category: ${kategori}
+    Business Name: ${businessName}
+    Category: ${category}
   `;
 
   try {

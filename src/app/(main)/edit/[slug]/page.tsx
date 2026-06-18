@@ -25,10 +25,10 @@ async function verifyTokenAndGetData(slug: string, token?: string | string[]) {
         where: { slug },
         select: {
             id: true,
-            namaUsaha: true,
-            kategori: true,
+            businessName: true,
+            category: true,
             aiContent: true, // Need aiContent to potentially get description
-            whatsapp: true,
+            whatsappNumber: true,
             images: true,
             isClaimed: true,
         },
@@ -44,10 +44,10 @@ async function verifyTokenAndGetData(slug: string, token?: string | string[]) {
 
     // Token is valid, return data needed for the form
     const aiContent = (landingPage.aiContent || {}) as unknown as AiGeneratedContent;
-    const deskripsi_user_or_ai = aiContent.description || '';
+    const userDescription_or_ai = aiContent.description || '';
 
-    // Ensure kategori is one of the allowed enum values or handle 'Lainnya'
-    const standardKategori = [
+    // Ensure category is one of the allowed enum values or handle 'Lainnya'
+    const standardCategory = [
         'Makanan & Minuman',
         'Fashion',
         'Jasa Digital',
@@ -56,18 +56,18 @@ async function verifyTokenAndGetData(slug: string, token?: string | string[]) {
         'Edukasi',
         'Lainnya'
     ];
-    const isStandardKategori = standardKategori.includes(landingPage.kategori);
-    const kategoriForForm = isStandardKategori ? landingPage.kategori as LandingPageSchema['kategori'] : 'Lainnya';
-    const kategoriLainnyaForForm = !isStandardKategori ? landingPage.kategori : ''; // Use DB value if not standard
+    const isStandardCategory = standardCategory.includes(landingPage.category);
+    const categoryForForm = isStandardCategory ? landingPage.category as LandingPageSchema['category'] : 'Lainnya';
+    const otherCategoryForForm = !isStandardCategory ? landingPage.category : ''; // Use DB value if not standard
 
     return {
         success: true,
         initialData: {
-            namaUsaha: landingPage.namaUsaha,
-            kategori: kategoriForForm,
-            kategoriLainnya: kategoriLainnyaForForm, // Pass the custom category name
-            deskripsi_user: deskripsi_user_or_ai,
-            whatsapp: landingPage.whatsapp || '',
+            businessName: landingPage.businessName,
+            category: categoryForForm,
+            otherCategory: otherCategoryForForm, // Pass the custom category name
+            userDescription: userDescription_or_ai,
+            whatsappNumber: landingPage.whatsappNumber || '',
         },
         existingImageUrls: landingPage.images,
         slug: slug,

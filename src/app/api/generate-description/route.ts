@@ -5,8 +5,8 @@ import { generateBusinessDescription } from '@/lib/ai';
 import { checkRateLimit } from '@/lib/rate-limit'; // Import rate limiter
 
 const schema = z.object({
-  namaUsaha: z.string().min(3, { message: 'Nama usaha diperlukan' }),
-  kategori: z.string().min(1, { message: 'Kategori diperlukan' }),
+  businessName: z.string().min(3, { message: 'Nama usaha diperlukan' }),
+  category: z.string().min(1, { message: 'Kategori diperlukan' }),
 });
 
 export async function POST(request: Request) {
@@ -25,10 +25,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const { namaUsaha, kategori } = validation.data;
+    const { businessName, category } = validation.data;
 
     // Call the AI function
-    const generatedDescription = await generateBusinessDescription(namaUsaha, kategori);
+    const generatedDescription = await generateBusinessDescription(businessName, category);
 
     return NextResponse.json({ description: generatedDescription }, { status: 200 });
 

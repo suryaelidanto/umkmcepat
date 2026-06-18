@@ -38,9 +38,9 @@ import type { AiGeneratedContent, ColorThemeJson } from "@/lib/ai"; // Add AiGen
 type PageData = {
   id: string;
   slug: string;
-  namaUsaha: string;
-  kategori: string;
-  whatsapp: string | null;
+  businessName: string;
+  category: string;
+  whatsappNumber: string | null;
   // Update aiContent to include optional titles
   aiContent: AiGeneratedContent & {
       featuresTitle?: string;
@@ -257,7 +257,7 @@ const SocialIcon = ({
       return <Linkedin className={className} />;
     case "website":
       return <Globe className={className} />;
-    case "whatsapp":
+    case "whatsappNumber":
       return <Phone className={className} />;
     case "telegram":
       return <Send className={className} />;
@@ -329,7 +329,7 @@ export function LandingPageDisplay({
   // --- Construct Share URL ---
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://umkmcepat.online'; // Get base URL
   const pageUrl = `${baseUrl}/p/${pageData.slug}`;
-  const pageTitle = pageData.aiContent?.headline || pageData.namaUsaha;
+  const pageTitle = pageData.aiContent?.headline || pageData.businessName;
 
   return (
     <div className="relative overflow-x-hidden" style={themeStyle}>
@@ -344,7 +344,7 @@ export function LandingPageDisplay({
         {/* Ensure only necessary props are passed down */}
         <LandingPageRenderer
           data={pageData.aiContent}
-          namaUsaha={pageData.namaUsaha}
+          businessName={pageData.businessName}
           isOwner={isOwner} 
           handleSaveContent={handleSaveContent}
         />
@@ -386,7 +386,7 @@ export function LandingPageDisplay({
                 >
                   <Image
                     src={imgUrl}
-                    alt={`${pageData.namaUsaha} - Gambar ${index + 1}`}
+                    alt={`${pageData.businessName} - Gambar ${index + 1}`}
                     fill
                     sizes="(max-width: 768px) 50vw, 33vw"
                     className="object-cover transition-transform duration-300 hover:scale-105"

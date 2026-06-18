@@ -20,7 +20,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
     // 1. Verify Token and Page Status again before update
     const landingPage = await prisma.landingPage.findUnique({
       where: { slug },
-      select: { id: true, isClaimed: true, images: true, imagePublicIds: true },
+      select: { id: true, isClaimed: true, images: true, imageKeys: true },
     });
 
     if (!landingPage) {
@@ -33,11 +33,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
     // 2. Process FormData
     const formData = await request.formData();
     const rawData = {
-      namaUsaha: formData.get('namaUsaha'),
-      kategori: formData.get('kategori'),
-      kategoriLainnya: formData.get('kategoriLainnya'),
-      deskripsi_user: formData.get('deskripsi_user'),
-      whatsapp: formData.get('whatsapp'),
+      businessName: formData.get('businessName'),
+      category: formData.get('category'),
+      otherCategory: formData.get('otherCategory'),
+      userDescription: formData.get('userDescription'),
+      whatsappNumber: formData.get('whatsappNumber'),
     };
 
     // 3. Validate Text Fields
@@ -48,9 +48,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
         { status: 400 }
       );
     }
-    const { namaUsaha, kategori, deskripsi_user, whatsapp } = validationResult.data;
-    // Use kategoriLainnya if kategori is 'Lainnya'
-    const finalKategori = kategori === 'Lainnya' ? (formData.get('kategoriLainnya') as string || 'Lainnya') : kategori;
+    const { businessName, category, userDescription, whatsappNumber } = validationResult.data;
+    // Use otherCategory if category is 'Lainnya'
+    const finalCategory = category === 'Lainnya' ? (formData.get('otherCategory') as string || 'Lainnya') : category;
 
     // 4. Handle Image Uploads (if new images provided)
     const imageFiles = formData.getAll('images') as File[];
@@ -66,7 +66,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
       for (const file of imageFiles) {
         try {
           const buffer = await fileToBuffer(file);
-          const uniqueFileName = `${slugify(namaUsaha)}-${generateRandomString(4)}-${Date.now()}`;
+          const uniqueFileName = `${slugify(businessName)}-${generateRandomString(4)}-${Date.now()}`;
           const key = buildImageKey(uniqueFileName, file.type);
           const uploadResult = await storage.upload({ buffer, key, contentType: file.type });
           updatedImageData.push({ url: uploadResult.url, publicId: uploadResult.key });
@@ -79,20 +79,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
       // No new images uploaded, keep existing ones
       updatedImageData = landingPage.images.map((url, index) => ({
         url: url,
-        publicId: landingPage.imagePublicIds?.[index] || '' // Try to map existing public IDs
+        publicId: landingPage.imageKeys?.[index] || '' // Try to map existing public IDs
       }));
     }
 
     // 5. Generate AI Content (based on updated data)
-    const hasWhatsApp = !!whatsapp && whatsapp.length > 5;
+    const hasWhatsApp = !!whatsappNumber && whatsappNumber.length > 5;
     const aiContent = await generateLandingPageContent(
-      namaUsaha,
-      finalKategori,
-      deskripsi_user || undefined,
+      businessName,
+      finalCategory,
+      userDescription || undefined,
       hasWhatsApp
     );
     if (aiContent.whatsappCTA && hasWhatsApp) {
-      aiContent.whatsappNumber = whatsapp;
+      aiContent.whatsappNumber = whatsappNumber;
     } else {
       delete aiContent.whatsappNumber;
     }
@@ -117,13 +117,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
     await prisma.landingPage.update({
       where: { id: landingPage.id },
       data: {
-        namaUsaha: namaUsaha,
-        kategori: finalKategori,
-        whatsapp: whatsapp || null,
+        businessName: businessName,
+        category: finalCategory,
+        whatsappNumber: whatsappNumber || null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         aiContent: aiContent as any,
         images: updatedImageData.map(img => img.url),
-        imagePublicIds: updatedImageData.map(img => img.publicId),
+        imageKeys: updatedImageData.map(img => img.publicId),
         // Update optional fields (use null to clear if empty string/not provided)
         address: address || null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,8 +134,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
     });
 
     // 7. Delete old images from the configured storage provider if new ones were uploaded
-    if (deleteOldImages && landingPage.imagePublicIds && landingPage.imagePublicIds.length > 0) {
-      storage.delete(landingPage.imagePublicIds).catch(err => {
+    if (deleteOldImages && landingPage.imageKeys && landingPage.imageKeys.length > 0) {
+      storage.delete(landingPage.imageKeys).catch(err => {
         console.error("Failed to delete old storage objects in background:", err);
       });
     }

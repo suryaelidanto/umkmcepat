@@ -19,7 +19,7 @@ export async function GET() {
       select: {
         id: true,
         slug: true,
-        namaUsaha: true,
+        businessName: true,
         createdAt: true,
         // Tambahkan field lain jika perlu ditampilkan di list
       },

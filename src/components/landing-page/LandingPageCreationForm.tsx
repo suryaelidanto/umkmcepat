@@ -32,14 +32,14 @@ const baseSchema =
 
 const creationFormSchema = baseSchema
   .pick({
-    namaUsaha: true,
-    kategori: true,
-    deskripsi_user: true,
-    whatsapp: true,
+    businessName: true,
+    category: true,
+    userDescription: true,
+    whatsappNumber: true,
     // images are handled separately
   })
   .extend({
-    kategoriLainnya: z.string().optional(), // Add this for conditional logic
+    otherCategory: z.string().optional(), // Add this for conditional logic
     images: z
       .custom<FileList | null>(
         (val) => val instanceof FileList || val === null,
@@ -65,24 +65,24 @@ export function LandingPageCreationForm() {
   } = useForm<CreationFormInput>({
     resolver: zodResolver(creationFormSchema),
     defaultValues: {
-      namaUsaha: "",
-      kategori: undefined,
-      deskripsi_user: "",
-      whatsapp: "",
-      kategoriLainnya: "",
+      businessName: "",
+      category: undefined,
+      userDescription: "",
+      whatsappNumber: "",
+      otherCategory: "",
       images: null,
     },
   });
 
-  const selectedKategori = watch("kategori");
+  const selectedCategory = watch("category");
 
   // Show/hide 'Kategori Lainnya' input based on selection
   React.useEffect(() => {
-    setShowKategoriLainnya(selectedKategori === "Lainnya");
-    if (selectedKategori !== "Lainnya") {
-      setValue("kategoriLainnya", ""); // Clear the value if another category is selected
+    setShowKategoriLainnya(selectedCategory === "Lainnya");
+    if (selectedCategory !== "Lainnya") {
+      setValue("otherCategory", ""); // Clear the value if another category is selected
     }
-  }, [selectedKategori, setValue]);
+  }, [selectedCategory, setValue]);
 
   const onSubmit: SubmitHandler<CreationFormInput> = async (data) => {
     setIsSubmitting(true);
@@ -91,16 +91,16 @@ export function LandingPageCreationForm() {
     );
 
     const formData = new FormData();
-    formData.append("namaUsaha", data.namaUsaha);
-    formData.append("kategori", data.kategori);
-    if (data.kategori === "Lainnya" && data.kategoriLainnya) {
-      formData.append("kategoriLainnya", data.kategoriLainnya);
+    formData.append("businessName", data.businessName);
+    formData.append("category", data.category);
+    if (data.category === "Lainnya" && data.otherCategory) {
+      formData.append("otherCategory", data.otherCategory);
     }
-    if (data.deskripsi_user) {
-      formData.append("deskripsi_user", data.deskripsi_user);
+    if (data.userDescription) {
+      formData.append("userDescription", data.userDescription);
     }
-    if (data.whatsapp) {
-      formData.append("whatsapp", data.whatsapp);
+    if (data.whatsappNumber) {
+      formData.append("whatsappNumber", data.whatsappNumber);
     }
     if (selectedFiles) {
       for (let i = 0; i < selectedFiles.length; i++) {
@@ -178,60 +178,60 @@ export function LandingPageCreationForm() {
       className="space-y-6 w-full max-w-2xl bg-card p-8 rounded-lg shadow-md border"
     >
       <div className="space-y-2">
-        <Label htmlFor="namaUsaha">
-          Nama Usaha/Produk <span className="text-red-500">*</span>
+        <Label htmlFor="businessName">
+          Business Name/Produk <span className="text-red-500">*</span>
         </Label>
         <Input
-          id="namaUsaha"
+          id="businessName"
           placeholder="Contoh: Kopi Kenangan Senja"
-          {...register("namaUsaha")}
+          {...register("businessName")}
         />
-        {errors.namaUsaha && (
-          <p className="text-sm text-red-600">{errors.namaUsaha.message}</p>
+        {errors.businessName && (
+          <p className="text-sm text-red-600">{errors.businessName.message}</p>
         )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="kategori">
-            Kategori Usaha <span className="text-red-500">*</span>
+          <Label htmlFor="category">
+            Business Category <span className="text-red-500">*</span>
           </Label>
           <Select
             onValueChange={(value) =>
-              setValue("kategori", value as CreationFormInput["kategori"])
+              setValue("category", value as CreationFormInput["category"])
             }
-            value={selectedKategori}
+            value={selectedCategory}
           >
-            <SelectTrigger id="kategori">
-              <SelectValue placeholder="Pilih kategori..." />
+            <SelectTrigger id="category">
+              <SelectValue placeholder="Pilih category..." />
             </SelectTrigger>
             <SelectContent>
-              {KATEGORI_USAHA.map((kategori) => (
-                <SelectItem key={kategori} value={kategori}>
-                  {kategori}
+              {KATEGORI_USAHA.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
                 </SelectItem>
               ))}
               <SelectItem value="Lainnya">Lainnya...</SelectItem>
             </SelectContent>
           </Select>
-          {errors.kategori && (
-            <p className="text-sm text-red-600">{errors.kategori.message}</p>
+          {errors.category && (
+            <p className="text-sm text-red-600">{errors.category.message}</p>
           )}
         </div>
 
         {showKategoriLainnya && (
           <div className="space-y-2">
-            <Label htmlFor="kategoriLainnya">
+            <Label htmlFor="otherCategory">
               Sebutkan Kategori Lainnya <span className="text-red-500">*</span>
             </Label>
             <Input
-              id="kategoriLainnya"
+              id="otherCategory"
               placeholder="Contoh: Jasa Desain Grafis"
-              {...register("kategoriLainnya")}
+              {...register("otherCategory")}
             />
-            {errors.kategoriLainnya && (
+            {errors.otherCategory && (
               <p className="text-sm text-red-600">
-                {errors.kategoriLainnya.message}
+                {errors.otherCategory.message}
               </p>
             )}
           </div>
@@ -239,35 +239,35 @@ export function LandingPageCreationForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="deskripsi_user">Deskripsi Singkat (Opsional)</Label>
+        <Label htmlFor="userDescription">Deskripsi Singkat (Opsional)</Label>
         <Textarea
-          id="deskripsi_user"
+          id="userDescription"
           placeholder="Jelaskan sedikit tentang usaha/produk Anda (misal: Keunggulan, target pasar). AI akan menggunakan ini."
-          {...register("deskripsi_user")}
+          {...register("userDescription")}
           rows={3}
         />
         <p className="text-xs text-muted-foreground">Maksimal 500 karakter.</p>
-        {errors.deskripsi_user && (
+        {errors.userDescription && (
           <p className="text-sm text-red-600">
-            {errors.deskripsi_user.message}
+            {errors.userDescription.message}
           </p>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="whatsapp">Nomor WhatsApp (Opsional)</Label>
+        <Label htmlFor="whatsappNumber">Nomor WhatsApp (Opsional)</Label>
         <Input
-          id="whatsapp"
+          id="whatsappNumber"
           type="tel"
           placeholder="Contoh: 6281234567890"
-          {...register("whatsapp")}
+          {...register("whatsappNumber")}
         />
         <p className="text-xs text-muted-foreground">
           Awali dengan kode negara (misal: 62). Jika diisi, AI bisa menambahkan
           tombol chat WhatsApp.
         </p>
-        {errors.whatsapp && (
-          <p className="text-sm text-red-600">{errors.whatsapp.message}</p>
+        {errors.whatsappNumber && (
+          <p className="text-sm text-red-600">{errors.whatsappNumber.message}</p>
         )}
       </div>
 

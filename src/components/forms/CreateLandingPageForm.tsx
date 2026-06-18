@@ -97,11 +97,11 @@ export function CreateLandingPageForm({
   const form = useForm<LandingPageSchema>({
     resolver: zodResolver(landingPageSchema),
     defaultValues: {
-      namaUsaha: initialData.namaUsaha || "",
-      kategori: initialData.kategori || undefined,
-      kategoriLainnya: initialData.kategoriLainnya || "",
-      deskripsi_user: initialData.deskripsi_user || "",
-      whatsapp: initialData.whatsapp || "",
+      businessName: initialData.businessName || "",
+      category: initialData.category || undefined,
+      otherCategory: initialData.otherCategory || "",
+      userDescription: initialData.userDescription || "",
+      whatsappNumber: initialData.whatsappNumber || "",
       images: undefined, // File input always starts empty
       testimonials: initialData.testimonials || [], // Initialize as empty array
       address: initialData.address || "",
@@ -129,7 +129,7 @@ export function CreateLandingPageForm({
     name: "socialLinks",
   });
 
-  const selectedKategori = form.watch("kategori");
+  const selectedCategory = form.watch("category");
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -172,13 +172,13 @@ export function CreateLandingPageForm({
 
   // Function to handle AI Color Generation
   const handleGenerateColors = async () => {
-    const namaUsaha = form.getValues("namaUsaha");
-    const kategori = form.getValues("kategori");
+    const businessName = form.getValues("businessName");
+    const category = form.getValues("category");
 
-    if (!namaUsaha || !kategori) {
+    if (!businessName || !category) {
       toast.warning("Input Diperlukan", {
         description:
-          "Masukkan Nama Usaha dan Kategori terlebih dahulu untuk generate warna.",
+          "Masukkan Business Name dan Kategori terlebih dahulu untuk generate warna.",
       });
       return;
     }
@@ -193,7 +193,7 @@ export function CreateLandingPageForm({
       const response = await fetch("/api/ai/generate-colors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ namaUsaha, kategori }),
+        body: JSON.stringify({ businessName, category }),
       });
 
       const result = await response.json();
@@ -380,12 +380,12 @@ export function CreateLandingPageForm({
   const handleGenerateDescription = async () => {
     if (isGeneratingDesc) {return;}
 
-    const namaUsaha = form.getValues("namaUsaha");
-    const kategori = form.getValues("kategori");
+    const businessName = form.getValues("businessName");
+    const category = form.getValues("category");
 
-    if (!namaUsaha || !kategori) {
+    if (!businessName || !category) {
       toast.error(
-        "Isi Nama Usaha dan Kategori terlebih dahulu untuk generate deskripsi."
+        "Isi Business Name dan Kategori terlebih dahulu untuk generate deskripsi."
       );
       return;
     }
@@ -397,7 +397,7 @@ export function CreateLandingPageForm({
       const response = await fetch("/api/generate-description", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ namaUsaha, kategori }),
+        body: JSON.stringify({ businessName, category }),
       });
 
       const result = await response.json();
@@ -406,7 +406,7 @@ export function CreateLandingPageForm({
         throw new Error(result.message || "Gagal menghubungi AI.");
       }
 
-      form.setValue("deskripsi_user", result.description, {
+      form.setValue("userDescription", result.description, {
         shouldValidate: true,
       });
       toast.success("Deskripsi berhasil dibuat oleh AI!", {
@@ -435,19 +435,19 @@ export function CreateLandingPageForm({
           <CardTitle>Informasi Utama</CardTitle>
         </CardHeader> */}
         <CardContent className="space-y-6 p-0">
-          {/* Nama Usaha */}
+          {/* Business Name */}
           <div>
-            <Label htmlFor="namaUsaha">Nama Usaha / Toko / Brand</Label>
+            <Label htmlFor="businessName">Business Name / Toko / Brand</Label>
             <Input
-              id="namaUsaha"
+              id="businessName"
               placeholder="Contoh: Kedai Kopi Senja"
-              {...form.register("namaUsaha")}
+              {...form.register("businessName")}
               className="mt-1.5"
               disabled={isPending}
             />
-            {form.formState.errors.namaUsaha && (
+            {form.formState.errors.businessName && (
               <p className="text-sm text-red-600">
-                {form.formState.errors.namaUsaha.message}
+                {form.formState.errors.businessName.message}
               </p>
             )}
           </div>
@@ -455,20 +455,20 @@ export function CreateLandingPageForm({
           {/* Kategori & Kategori Lainnya (Grid) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
             <div>
-              <Label htmlFor="kategori">Kategori Usaha</Label>
+              <Label htmlFor="category">Business Category</Label>
               <Select
                 onValueChange={(value: string) =>
                   form.setValue(
-                    "kategori",
-                    value as LandingPageSchema["kategori"],
+                    "category",
+                    value as LandingPageSchema["category"],
                     { shouldValidate: true }
                   )
                 }
-                defaultValue={form.getValues("kategori")}
+                defaultValue={form.getValues("category")}
                 disabled={isPending}
               >
-                <SelectTrigger id="kategori" className="mt-1.5">
-                  <SelectValue placeholder="Pilih kategori" />
+                <SelectTrigger id="category" className="mt-1.5">
+                  <SelectValue placeholder="Pilih category" />
                 </SelectTrigger>
                 <SelectContent>
                   {KATEGORI_OPTIONS.map((option) => (
@@ -478,26 +478,26 @@ export function CreateLandingPageForm({
                   ))}
                 </SelectContent>
               </Select>
-              {form.formState.errors.kategori && (
+              {form.formState.errors.category && (
                 <p className="text-sm text-red-600">
-                  {form.formState.errors.kategori.message}
+                  {form.formState.errors.category.message}
                 </p>
               )}
             </div>
 
-            {selectedKategori === "Lainnya" && (
+            {selectedCategory === "Lainnya" && (
               <div>
-                <Label htmlFor="kategoriLainnya">Nama Kategori Lainnya</Label>
+                <Label htmlFor="otherCategory">Nama Kategori Lainnya</Label>
                 <Input
-                  id="kategoriLainnya"
+                  id="otherCategory"
                   placeholder="Contoh: Servis Elektronik"
-                  {...form.register("kategoriLainnya")}
+                  {...form.register("otherCategory")}
                   className="mt-1.5"
                   disabled={isPending}
                 />
-                {form.formState.errors.kategoriLainnya && (
+                {form.formState.errors.otherCategory && (
                   <p className="text-sm text-red-600">
-                    {form.formState.errors.kategoriLainnya.message}
+                    {form.formState.errors.otherCategory.message}
                   </p>
                 )}
               </div>
@@ -506,7 +506,7 @@ export function CreateLandingPageForm({
 
           {/* Deskripsi User (Opsional) */}
           <div className="flex items-center justify-between mb-1.5">
-            <Label htmlFor="deskripsi_user">Deskripsi Singkat (Opsional)</Label>
+            <Label htmlFor="userDescription">Deskripsi Singkat (Opsional)</Label>
             <Button
               type="button"
               variant="outline"
@@ -524,9 +524,9 @@ export function CreateLandingPageForm({
             </Button>
           </div>
           <Textarea
-            id="deskripsi_user"
+            id="userDescription"
             placeholder="Jelaskan produk/jasa unggulanmu. AI akan gunakan info ini untuk membuat konten yang lebih baik."
-            {...form.register("deskripsi_user")}
+            {...form.register("userDescription")}
             className="mt-1.5"
             rows={3}
             disabled={isPending}
@@ -534,9 +534,9 @@ export function CreateLandingPageForm({
           <p className="text-xs text-muted-foreground mt-1.5">
             Maks. 2000 karakter.
           </p>
-          {form.formState.errors.deskripsi_user && (
+          {form.formState.errors.userDescription && (
             <p className="text-sm text-red-600">
-              {form.formState.errors.deskripsi_user.message}
+              {form.formState.errors.userDescription.message}
             </p>
           )}
         </CardContent>
@@ -617,11 +617,11 @@ export function CreateLandingPageForm({
       </div>
       {/* Nomor WhatsApp (Opsional) */}
       <div>
-        <Label htmlFor="whatsapp">Nomor WhatsApp (Opsional)</Label>
+        <Label htmlFor="whatsappNumber">Nomor WhatsApp (Opsional)</Label>
         <Input
-          id="whatsapp"
+          id="whatsappNumber"
           placeholder="Contoh: 6281234567890"
-          {...form.register("whatsapp")}
+          {...form.register("whatsappNumber")}
           className="mt-1.5"
           type="tel"
           disabled={isPending}
@@ -629,9 +629,9 @@ export function CreateLandingPageForm({
         <p className="text-xs text-muted-foreground mt-1.5">
           Jika diisi, AI bisa menambahkan tombol chat WA.
         </p>
-        {form.formState.errors.whatsapp && (
+        {form.formState.errors.whatsappNumber && (
           <p className="text-sm text-red-600">
-            {form.formState.errors.whatsapp.message}
+            {form.formState.errors.whatsappNumber.message}
           </p>
         )}
       </div>
@@ -848,8 +848,8 @@ export function CreateLandingPageForm({
                 onClick={handleGenerateColors}
                 disabled={
                   isGeneratingColors ||
-                  !form.watch("namaUsaha") ||
-                  !form.watch("kategori")
+                  !form.watch("businessName") ||
+                  !form.watch("category")
                 }
               >
                 {isGeneratingColors ? (

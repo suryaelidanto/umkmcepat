@@ -16,7 +16,7 @@ interface LandingPageRendererProps {
       featuresTitle?: string;
       // Add other title fields if needed within Renderer scope
   };
-  namaUsaha: string;
+  businessName: string;
   isOwner: boolean;
   // pageId: string; // Removed
   // slug: string; // Removed
@@ -88,7 +88,7 @@ const CtaSectionContent: React.FC<{
 
 export function LandingPageRenderer({
   data,
-  namaUsaha,
+  businessName,
   isOwner,
   // pageId, // Removed
   // slug, // Removed
@@ -98,8 +98,8 @@ export function LandingPageRenderer({
 
   // Destructure content safely, providing defaults
   const {
-    headline = `Selamat Datang di ${namaUsaha}`,
-    subheadline = `Temukan penawaran terbaik dari ${namaUsaha}`,
+    headline = `Selamat Datang di ${businessName}`,
+    subheadline = `Temukan penawaran terbaik dari ${businessName}`,
     description = "Kami menyediakan produk/layanan berkualitas untuk Anda.",
     featuresTitle = "Fitur Utama", // Use default if not in data
     features = [

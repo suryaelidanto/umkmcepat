@@ -22,13 +22,13 @@ export const SOCIAL_PLATFORMS = [
 
 // Base schema without refinement
 const baseLandingPageSchema = z.object({
-  namaUsaha: z.string().min(3, { message: 'Nama usaha minimal 3 karakter' }).max(50, { message: 'Nama usaha maksimal 50 karakter' }),
-  kategori: z.enum([
+  businessName: z.string().min(3, { message: 'Nama usaha minimal 3 karakter' }).max(50, { message: 'Nama usaha maksimal 50 karakter' }),
+  category: z.enum([
     ...KATEGORI_USAHA,
     'Lainnya'
-  ], { errorMap: () => ({ message: 'Pilih kategori usaha yang valid' }) }),
-  kategoriLainnya: z.string().nullish(), // Allow string, null, or undefined
-  deskripsi_user: z.string().max(2000, { message: 'Deskripsi maksimal 2000 karakter' }).optional().nullable(),
+  ], { errorMap: () => ({ message: 'Pilih category usaha yang valid' }) }),
+  otherCategory: z.string().nullish(), // Allow string, null, or undefined
+  userDescription: z.string().max(2000, { message: 'Deskripsi maksimal 2000 karakter' }).optional().nullable(),
   images: z
     .custom<FileList | undefined>() // Allow undefined initially
     .refine((files) => files === undefined || files.length === 0 || files.length <= 3, 'Maksimal 3 gambar.')
@@ -47,7 +47,7 @@ const baseLandingPageSchema = z.object({
       '.jpg, .jpeg, .png, dan .webp saja yang diterima.'
     )
     .optional(),
-  whatsapp: z.string()
+  whatsappNumber: z.string()
     .optional()
     .nullable()
     .refine((val) => {
@@ -85,14 +85,14 @@ const baseLandingPageSchema = z.object({
 
 // Apply refinement to the base schema
 export const landingPageSchema = baseLandingPageSchema.refine((data) => {
-  // If kategori is 'Lainnya', kategoriLainnya must be provided
-  if (data.kategori === 'Lainnya') {
-    return !!data.kategoriLainnya && data.kategoriLainnya.trim().length > 0;
+  // If category is 'Lainnya', otherCategory must be provided
+  if (data.category === 'Lainnya') {
+    return !!data.otherCategory && data.otherCategory.trim().length > 0;
   }
   return true;
 }, {
-  message: 'Nama kategori harus diisi jika memilih \'Lainnya\'',
-  path: ['kategoriLainnya'], // Point error to the relevant field
+  message: 'Nama category harus diisi jika memilih \'Lainnya\'',
+  path: ['otherCategory'], // Point error to the relevant field
 });
 
 export type LandingPageSchema = z.infer<typeof landingPageSchema>;

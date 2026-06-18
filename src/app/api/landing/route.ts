@@ -74,11 +74,11 @@ export async function POST(request: Request) {
     // Extract basic fields AND optional color theme
     const colorThemeJsonString = formData.get('colorThemeJson') as string | null;
     const rawData = {
-      namaUsaha: formData.get('namaUsaha'),
-      kategori: formData.get('kategori'),
-      kategoriLainnya: formData.get('kategoriLainnya'),
-      deskripsi_user: formData.get('deskripsi_user'),
-      whatsapp: formData.get('whatsapp'),
+      businessName: formData.get('businessName'),
+      category: formData.get('category'),
+      otherCategory: formData.get('otherCategory'),
+      userDescription: formData.get('userDescription'),
+      whatsappNumber: formData.get('whatsappNumber'),
       colorThemeJson: colorThemeJsonString, // Sertakan untuk validasi Zod
       // Images handled later
     };
@@ -87,13 +87,13 @@ export async function POST(request: Request) {
     const validationSchemaWithColor = baseLandingPageSchemaForOmit
       .omit({ images: true })
       .refine((data) => {
-        if (data.kategori === 'Lainnya') {
-          return !!data.kategoriLainnya && data.kategoriLainnya.trim().length > 0;
+        if (data.category === 'Lainnya') {
+          return !!data.otherCategory && data.otherCategory.trim().length > 0;
         }
         return true;
       }, {
-        message: 'Nama kategori harus diisi jika memilih \'Lainnya\'',
-        path: ['kategoriLainnya'],
+        message: 'Nama category harus diisi jika memilih \'Lainnya\'',
+        path: ['otherCategory'],
       });
 
     // Gunakan skema baru untuk validasi
@@ -108,8 +108,8 @@ export async function POST(request: Request) {
     }
 
     // Ambil data yang sudah divalidasi (termasuk colorThemeJson jika ada)
-    const { namaUsaha, kategori, deskripsi_user, whatsapp, colorThemeJson } = validationResult.data;
-    const finalKategori = kategori === 'Lainnya' ? formData.get('kategoriLainnya') as string : kategori;
+    const { businessName, category, userDescription, whatsappNumber, colorThemeJson } = validationResult.data;
+    const finalCategory = category === 'Lainnya' ? formData.get('otherCategory') as string : category;
 
     // Tentukan tema warna yang akan disimpan
     let resolvedTheme: ColorThemeJson = defaultColorTheme;
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
       for (const file of imageFiles) {
         try {
           const buffer = await fileToBuffer(file);
-          const uniqueFileName = `${slugify(namaUsaha)}-${generateRandomString(4)}-${Date.now()}`;
+          const uniqueFileName = `${slugify(businessName)}-${generateRandomString(4)}-${Date.now()}`;
           const key = buildImageKey(uniqueFileName, file.type);
           const uploadResult = await storage.upload({ buffer, key, contentType: file.type });
           uploadedImageData.push({ url: uploadResult.url, publicId: uploadResult.key });
@@ -150,11 +150,11 @@ export async function POST(request: Request) {
     }
 
     // Generate unique slug
-    let pageSlug = slugify(namaUsaha);
+    let pageSlug = slugify(businessName);
     let existingPage = await prisma.landingPage.findUnique({ where: { slug: pageSlug } });
     let attempts = 0;
     while (existingPage && attempts < 5) {
-      pageSlug = `${slugify(namaUsaha)}-${generateRandomString(6)}`;
+      pageSlug = `${slugify(businessName)}-${generateRandomString(6)}`;
       existingPage = await prisma.landingPage.findUnique({ where: { slug: pageSlug } });
       attempts++;
     }
@@ -164,18 +164,18 @@ export async function POST(request: Request) {
 
     // Generate AI Content
     console.time("AI Generation"); // Start timing AI
-    const hasWhatsApp = !!whatsapp && whatsapp.length > 5;
+    const hasWhatsApp = !!whatsappNumber && whatsappNumber.length > 5;
     const aiContent = await generateLandingPageContent(
-      namaUsaha,
-      finalKategori,
-      deskripsi_user || undefined,
+      businessName,
+      finalCategory,
+      userDescription || undefined,
       hasWhatsApp
     );
     console.timeEnd("AI Generation"); // End timing AI
 
     // If AI provides whatsappNumber, ensure it matches user input if CTA is true
     if (aiContent.whatsappCTA && hasWhatsApp) {
-      aiContent.whatsappNumber = whatsapp; // Use user-provided number
+      aiContent.whatsappNumber = whatsappNumber; // Use user-provided number
     } else if (aiContent.whatsappCTA && !hasWhatsApp) {
       aiContent.whatsappCTA = false; // Correct AI if it hallucinated WA CTA
       delete aiContent.whatsappNumber;
@@ -213,13 +213,13 @@ export async function POST(request: Request) {
     const newLandingPage = await prisma.landingPage.create({
       data: {
         slug: pageSlug,
-        namaUsaha: namaUsaha,
-        kategori: finalKategori,
-        whatsapp: whatsapp || null,
+        businessName: businessName,
+        category: finalCategory,
+        whatsappNumber: whatsappNumber || null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         aiContent: aiContent as any,
         images: uploadedImageData.map(img => img.url),
-        imagePublicIds: uploadedImageData.map(img => img.publicId),
+        imageKeys: uploadedImageData.map(img => img.publicId),
         userId: userId,
         isClaimed: !!userId,
         tweaksLeft: 5,

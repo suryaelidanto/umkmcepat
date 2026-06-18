@@ -51,7 +51,7 @@ import {
 interface MyPageData {
   id: string;
   slug: string;
-  namaUsaha: string;
+  businessName: string;
   createdAt: string; // Atau Date jika dikonversi
 }
 
@@ -242,7 +242,7 @@ export default function MyPagesDashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Nama Usaha</TableHead>
+                        <TableHead>Business Name</TableHead>
                         <TableHead>Link Publik</TableHead>
                         <TableHead>Tanggal Dibuat</TableHead>
                         <TableHead className="text-right">Aksi</TableHead>
@@ -254,7 +254,7 @@ export default function MyPagesDashboard() {
                         return (
                           <TableRow key={page.id}>
                             <TableCell className="font-medium">
-                              {page.namaUsaha}
+                              {page.businessName}
                             </TableCell>
                             <TableCell>
                               <Link
@@ -324,7 +324,7 @@ export default function MyPagesDashboard() {
                 return (
                   <Card key={page.id}>
                     <CardHeader>
-                      <CardTitle>{page.namaUsaha}</CardTitle>
+                      <CardTitle>{page.businessName}</CardTitle>
                       <CardDescription>
                         Dibuat:{" "}
                         {format(
@@ -402,7 +402,7 @@ export default function MyPagesDashboard() {
           <AlertDialogTitle>Konfirmasi Penghapusan</AlertDialogTitle>
           <AlertDialogDescription>
             Apakah Anda yakin ingin menghapus halaman &quot;
-            {pageToDelete?.namaUsaha}&quot;? Tindakan ini tidak dapat
+            {pageToDelete?.businessName}&quot;? Tindakan ini tidak dapat
             dibatalkan.
           </AlertDialogDescription>
         </AlertDialogHeader>

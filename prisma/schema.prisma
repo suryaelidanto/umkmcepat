@@ -10,37 +10,32 @@ generator client {
 model LandingPage {
   id             String   @id @default(cuid())
   slug           String   @unique
-  namaUsaha      String   @db.VarChar(100) 
-  kategori       String   @db.VarChar(50)  
-  aiContent      Json? 
-  harga          String? 
-  whatsapp       String? 
-  images         String[] 
-  imagePublicIds String[] 
-  userId         String? 
-  User           User?    @relation(fields: [userId], references: [id])
+  businessName   String   @db.VarChar(100)
+  category       String   @db.VarChar(50)
+  aiContent      Json?
+  price          String?
+  whatsappNumber String?
+  images         String[]
+  imageKeys      String[]
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   isClaimed      Boolean  @default(false)
-  tweaksLeft     Int      @default(5) 
+  tweaksLeft     Int      @default(5)
+  testimonials   Json?
+  address        String?  @db.VarChar(255)
+  socialLinks    Json?
+  colorTheme     Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  
-  testimonials Json?    
-  address      String? @db.VarChar(255) 
-  socialLinks  Json?    
-
-  
-  colorTheme   Json?    
-
   @@index([userId])
   @@index([slug])
-  @@index([namaUsaha])
-  @@index([kategori])
+  @@index([businessName])
+  @@index([category])
   @@index([createdAt])
   @@index([updatedAt])
   @@index([isClaimed])
 }
-
 
 model Account {
   id                String  @id @default(cuid())
@@ -52,7 +47,7 @@ model Account {
   access_token      String? @db.Text
   expires_at        Int?
   token_type        String? @db.VarChar(50)
-  scope             String? @db.VarChar(100)
+  scope             String? @db.Text
   id_token          String? @db.Text
   session_state     String? @db.VarChar(100)
 
@@ -82,7 +77,7 @@ model User {
   image         String?       @db.Text
   accounts      Account[]
   sessions      Session[]
-  landingPages  LandingPage[] 
+  landingPages  LandingPage[]
 
   @@index([email])
   @@index([name])

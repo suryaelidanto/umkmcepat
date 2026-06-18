@@ -6,8 +6,8 @@ import { checkRateLimit } from '@/lib/rate-limit'; // Assuming you want rate lim
 
 // Input validation schema
 const inputSchema = z.object({
-  namaUsaha: z.string().min(1, { message: 'Nama usaha diperlukan' }).max(50),
-  kategori: z.string().min(1, { message: 'Kategori diperlukan' }),
+  businessName: z.string().min(1, { message: 'Nama usaha diperlukan' }).max(50),
+  category: z.string().min(1, { message: 'Kategori diperlukan' }),
 });
 
 export async function POST(request: Request) {
@@ -26,9 +26,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const { namaUsaha, kategori } = validationResult.data;
+    const { businessName, category } = validationResult.data;
 
-    const colorTheme = await generateColorTheme(namaUsaha, kategori);
+    const colorTheme = await generateColorTheme(businessName, category);
 
     return NextResponse.json(colorTheme, { status: 200 });
 

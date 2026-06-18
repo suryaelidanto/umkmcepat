@@ -26,9 +26,9 @@ async function getLandingPageData(slug: string) {
     select: {
       id: true,
       slug: true,
-      namaUsaha: true,
-      kategori: true,
-      whatsapp: true,
+      businessName: true,
+      category: true,
+      whatsappNumber: true,
       aiContent: true,
       images: true,
       userId: true,
@@ -69,9 +69,9 @@ async function getLandingPageData(slug: string) {
     typeof aiContent === "object" &&
     aiContent !== null &&
     aiContent.whatsappCTA &&
-    landingPage.whatsapp
+    landingPage.whatsappNumber
   ) {
-    aiContent.whatsappNumber = landingPage.whatsapp;
+    aiContent.whatsappNumber = landingPage.whatsappNumber;
   }
 
   return {
@@ -100,9 +100,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const pageData = await getLandingPageData(slug); 
 
   const aiContent = pageData.aiContent;
-  const title = aiContent?.headline || pageData.namaUsaha;
+  const title = aiContent?.headline || pageData.businessName;
   const description =
-    aiContent?.subheadline || `Lihat penawaran dari ${pageData.namaUsaha}`;
+    aiContent?.subheadline || `Lihat penawaran dari ${pageData.businessName}`;
   const imageUrl = pageData.images?.[0];
 
   return {

@@ -47,9 +47,9 @@ interface EditPageData
 
 // Skema Zod untuk validasi form update (harus cocok dengan API PUT)
 const updateLandingPageSchema = z.object({
-  namaUsaha: z.string().min(3, "Nama usaha minimal 3 karakter").max(100),
-  kategori: z.string().min(1, "Kategori wajib diisi"),
-  whatsapp: z.string().optional().nullable(),
+  businessName: z.string().min(3, "Nama usaha minimal 3 karakter").max(100),
+  category: z.string().min(1, "Kategori wajib diisi"),
+  whatsappNumber: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
 });
 
@@ -113,9 +113,9 @@ export default function EditLandingPage() {
   const form = useForm<UpdateLandingPageFormData>({
     resolver: zodResolver(updateLandingPageSchema),
     defaultValues: {
-      namaUsaha: "",
-      kategori: "",
-      whatsapp: "",
+      businessName: "",
+      category: "",
+      whatsappNumber: "",
       address: "",
     },
   });
@@ -124,9 +124,9 @@ export default function EditLandingPage() {
   React.useEffect(() => {
     if (pageData) {
       form.reset({
-        namaUsaha: pageData.namaUsaha,
-        kategori: pageData.kategori,
-        whatsapp: pageData.whatsapp || "",
+        businessName: pageData.businessName,
+        category: pageData.category,
+        whatsappNumber: pageData.whatsappNumber || "",
         address: pageData.address || "",
       });
     }
@@ -199,51 +199,51 @@ export default function EditLandingPage() {
 
       <h1 className="text-3xl font-bold mb-2">Ubah Informasi Halaman</h1>
       <p className="text-muted-foreground mb-6">
-        Ubah detail dasar untuk halaman &ldquo;{pageData.namaUsaha}&rdquo;.
+        Ubah detail dasar untuk halaman &ldquo;{pageData.businessName}&rdquo;.
       </p>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Informasi Dasar</CardTitle>
-            <CardDescription>Nama usaha, kategori, dan kontak.</CardDescription>
+            <CardDescription>Nama usaha, category, dan kontak.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Nama Usaha */}
+            {/* Business Name */}
             <div>
-              <Label htmlFor="namaUsaha">Nama Usaha</Label>
-              <Input id="namaUsaha" {...form.register("namaUsaha")} />
-              {form.formState.errors.namaUsaha && (
+              <Label htmlFor="businessName">Business Name</Label>
+              <Input id="businessName" {...form.register("businessName")} />
+              {form.formState.errors.businessName && (
                 <p className="text-sm text-red-600 mt-1">
-                  {form.formState.errors.namaUsaha.message}
+                  {form.formState.errors.businessName.message}
                 </p>
               )}
             </div>
 
             {/* Kategori */}
             <div>
-              <Label htmlFor="kategori">Kategori</Label>
-              {/* TODO: Ganti dengan Select jika kategori sudah baku */}
-              <Input id="kategori" {...form.register("kategori")} />
-              {form.formState.errors.kategori && (
+              <Label htmlFor="category">Kategori</Label>
+              {/* TODO: Ganti dengan Select jika category sudah baku */}
+              <Input id="category" {...form.register("category")} />
+              {form.formState.errors.category && (
                 <p className="text-sm text-red-600 mt-1">
-                  {form.formState.errors.kategori.message}
+                  {form.formState.errors.category.message}
                 </p>
               )}
             </div>
 
             {/* WhatsApp */}
             <div>
-              <Label htmlFor="whatsapp">Nomor WhatsApp (Opsional)</Label>
+              <Label htmlFor="whatsappNumber">Nomor WhatsApp (Opsional)</Label>
               <Input
-                id="whatsapp"
+                id="whatsappNumber"
                 type="tel"
                 placeholder="+628123..."
-                {...form.register("whatsapp")}
+                {...form.register("whatsappNumber")}
               />
-              {form.formState.errors.whatsapp && (
+              {form.formState.errors.whatsappNumber && (
                 <p className="text-sm text-red-600 mt-1">
-                  {form.formState.errors.whatsapp.message}
+                  {form.formState.errors.whatsappNumber.message}
                 </p>
               )}
             </div>
