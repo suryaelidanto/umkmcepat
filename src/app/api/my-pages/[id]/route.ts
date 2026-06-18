@@ -1,9 +1,12 @@
+
 import { NextResponse } from 'next/server';
 import { z } from 'zod'; // Import Zod
 
 import { AiGeneratedContent, ColorThemeJson } from '@/lib/ai'; // Import types
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+
+import type { Prisma } from '@prisma/client';
 
 export async function GET(
   request: Request,
@@ -53,10 +56,8 @@ export async function GET(
     return NextResponse.json({
       ...page,
       aiContent: page.aiContent as unknown as AiGeneratedContent, // Assert via unknown
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      testimonials: page.testimonials as unknown as any[], // Assert via unknown
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      socialLinks: page.socialLinks as unknown as any[], // Assert via unknown
+      testimonials: page.testimonials as unknown as { name: string; comment: string }[],
+      socialLinks: page.socialLinks as unknown as { platform: string; url: string }[],
       colorTheme: page.colorTheme as unknown as ColorThemeJson | null, // Assert via unknown
     }, { status: 200 });
 
@@ -68,15 +69,13 @@ export async function GET(
 
 // Helper function to update nested fields in an object
 function updateNestedField(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  obj: any, path: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  value: any): boolean {
+  obj: Record<string, unknown> | AiGeneratedContent, path: string,
+  value: unknown): boolean {
   if (!obj || typeof obj !== 'object') {
     return false; // Cannot update non-object or null/undefined
   }
   const keys = path.split('.');
-  let current = obj;
+  let current = obj as Record<string, unknown>;
 
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i];
@@ -89,14 +88,14 @@ function updateNestedField(
         console.error(`Invalid array path: ${path}. Key: ${arrayKey}, Index: ${index}`);
         return false; // Path doesn't exist or is not an array
       }
-      current = current[arrayKey][index];
+      current = (current[arrayKey] as Record<string, unknown>[])[index];
     } else {
       // If the key doesn't exist or is not an object, create it (important for adding new fields like titles)
       if (!current[key] || typeof current[key] !== 'object') {
         // console.warn(`Creating object path segment: ${key} in ${path}`); // Optional warning
         current[key] = {};
       }
-      current = current[key];
+      current = current[key] as Record<string, unknown>;
     }
 
     // This check might be too strict if we are creating paths
@@ -220,8 +219,7 @@ export async function PATCH(
     const updatedPage = await prisma.landingPage.update({
       where: { id: pageId },
       data: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        aiContent: currentAiContent as any, // Prisma expects JsonValue
+        aiContent: currentAiContent as unknown as Prisma.InputJsonValue,
       },
       select: { id: true } // Only select necessary fields for response
     });

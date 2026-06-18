@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
 import { generateLandingPageContent } from '@/lib/ai';
@@ -5,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { buildImageKey, fileToBuffer, storage } from '@/lib/storage';
 import { generateRandomString, slugify } from '@/lib/utils';
 import { baseLandingPageSchemaForOmit as landingPageSchema } from '@/lib/zod-schemas';
+
 
 // PUT /api/landing/[slug] - Update an existing landing page via token
 export async function PUT(request: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -120,16 +122,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
         businessName: businessName,
         category: finalCategory,
         whatsappNumber: whatsappNumber || null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        aiContent: aiContent as any,
+        aiContent: aiContent as unknown as Prisma.InputJsonValue,
         images: updatedImageData.map(img => img.url),
         imageKeys: updatedImageData.map(img => img.publicId),
         // Update optional fields (use null to clear if empty string/not provided)
         address: address || null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        testimonials: testimonials.length > 0 ? testimonials as any : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        socialLinks: socialLinks.length > 0 ? socialLinks as any : null,
+        testimonials: testimonials.length > 0 ? testimonials as unknown as Prisma.InputJsonValue : Prisma.DbNull,
+        socialLinks: socialLinks.length > 0 ? socialLinks as unknown as Prisma.InputJsonValue : Prisma.DbNull,
       },
     });
 
@@ -140,7 +139,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
       });
     }
 
-    console.log(`Landing Page ${slug} updated successfully via token.`);
 
     // Return success response
     return NextResponse.json(

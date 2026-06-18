@@ -44,7 +44,7 @@ export async function GET(
                 isClaimed: true,
             },
         });
-        console.log(`Landing page ${slug} claimed by user ${userId}`);
+
     }
 
     // Redirect kembali ke halaman landing page setelah klaim berhasil

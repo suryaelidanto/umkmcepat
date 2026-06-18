@@ -1,7 +1,5 @@
 "use client";
 
-import { InlineEditText } from "@/components/landing-page/InlineEditText"; // Import InlineEditText
-
 import { motion } from "framer-motion";
 import {
   Facebook,
@@ -26,6 +24,7 @@ import Lightbox from "yet-another-react-lightbox";
 
 import "yet-another-react-lightbox/styles.css";
 import { ShareButtons } from "@/components/common/ShareButtons"; // Import ShareButtons
+import { InlineEditText } from "@/components/landing-page/InlineEditText"; // Import InlineEditText
 import { LandingPageRenderer } from "@/components/landing-page/LandingPageRenderer";
 import { StickyCTA } from "@/components/landing-page/StickyCTA";
 import { Separator } from "@/components/ui/separator";

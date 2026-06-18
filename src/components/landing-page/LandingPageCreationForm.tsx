@@ -50,6 +50,10 @@ const creationFormSchema = baseSchema
 
 type CreationFormInput = z.infer<typeof creationFormSchema>;
 
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.";
+}
 export function LandingPageCreationForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -145,13 +149,12 @@ export function LandingPageCreationForm() {
         throw new Error("Respons API tidak valid setelah pembuatan halaman.");
       }
     } catch (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      error: any
+      error: unknown
     ) {
       console.error("Form Submission Error:", error);
       toast.error("Gagal Membuat Halaman", {
         id: toastId,
-        description: error.message || "Terjadi kesalahan yang tidak diketahui.",
+        description: getErrorMessage(error),
       });
     } finally {
       setIsSubmitting(false);

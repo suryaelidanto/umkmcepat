@@ -66,6 +66,10 @@ interface CreateLandingPageFormProps {
   isEditMode?: boolean;
 }
 
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.";
+}
 export function CreateLandingPageForm({
   initialData = {},
   existingImageUrls = [], // Initialize existingImageUrls
@@ -414,13 +418,12 @@ export function CreateLandingPageForm({
         description: "Anda masih bisa mengeditnya jika perlu.",
       });
     } catch (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      error: any
+      error: unknown
     ) {
       console.error("Description generation error:", error);
       toast.error("Gagal Generate Deskripsi", {
         id: genToastId,
-        description: error.message || "Terjadi kesalahan.",
+        description: getErrorMessage(error),
       });
     } finally {
       setIsGeneratingDesc(false);
@@ -747,12 +750,10 @@ export function CreateLandingPageForm({
                           onValueChange={(value) =>
                             form.setValue(
                               `socialLinks.${index}.platform`,
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              value as any
+                              value as (typeof SOCIAL_PLATFORMS)[number]
                             )
                           }
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          defaultValue={(field as any).platform}
+                          defaultValue={form.getValues(`socialLinks.${index}.platform`)}
                           disabled={isPending}
                         >
                           <SelectTrigger>

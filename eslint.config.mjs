@@ -30,7 +30,7 @@ const eslintConfig = [
       "unused-imports": unusedImports,
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": "off",
       "unused-imports/no-unused-imports": "error",
       "unused-imports/no-unused-vars": [
@@ -43,14 +43,14 @@ const eslintConfig = [
         },
       ],
       "import/order": [
-        "warn",
+        "error",
         {
           groups: ["builtin", "external", "internal", ["parent", "sibling", "index"], "type"],
           "newlines-between": "always",
           alphabetize: { order: "asc", caseInsensitive: true },
         },
       ],
-      "no-console": ["warn", { allow: ["warn", "error"] }],
+      "no-console": ["error", { allow: ["warn", "error"] }],
       "prefer-const": "error",
       "eqeqeq": ["error", "always", { null: "ignore" }],
       "curly": ["error", "all"],

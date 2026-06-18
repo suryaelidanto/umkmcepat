@@ -7,6 +7,8 @@ import { TweakDialog } from '@/components/landing-page/TweakDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+import type { Session } from 'next-auth';
+
 interface PageData {
   id: string;
   slug: string;
@@ -17,14 +19,13 @@ interface PageData {
 
 interface LandingPageClientContentProps {
   pageData: PageData;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  session: any;
+  session: Session | null;
 }
 
 export function LandingPageClientContent({ pageData, session }: LandingPageClientContentProps) {
   const { id, slug, userId, tweaksLeft } = pageData;
   const isLoggedIn = !!session?.user;
-  const isOwner = isLoggedIn && session.user.id === userId;
+  const isOwner = session?.user?.id === userId;
 
   const shouldShowControls = isLoggedIn && (!userId || isOwner);
 

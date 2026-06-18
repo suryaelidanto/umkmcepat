@@ -9,7 +9,6 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const rateLimitResponse = await checkRateLimit(request, 'global'); // Use 'global' type
     if (rateLimitResponse) {
-      console.log(`Global rate limit hit on path ${request.nextUrl.pathname}`);
       return rateLimitResponse; // Return the 429 response if limit exceeded
     }
   }

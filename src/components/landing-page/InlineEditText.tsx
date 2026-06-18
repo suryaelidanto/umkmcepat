@@ -152,8 +152,7 @@ export function InlineEditText({
     "border-none bg-transparent focus:ring-0 focus:outline-none p-0 m-0 w-full";
 
   const commonInputProps = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ref: inputRef as any,
+    ref: inputRef,
     value: currentValue,
     onChange: (
       e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>

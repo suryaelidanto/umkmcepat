@@ -151,7 +151,6 @@ export default function EditLandingPage() {
 
   // Handle form submission
   const onSubmit = (data: UpdateLandingPageFormData) => {
-    console.log("Submitting data:", data);
     updateMutation.mutate({ pageId, data });
   };
 

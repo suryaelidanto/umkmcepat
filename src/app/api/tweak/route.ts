@@ -1,9 +1,13 @@
+
+
 import { NextResponse } from 'next/server';
 
 import { AiGeneratedContent, tweakLandingPageContent } from '@/lib/ai';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { tweakSchema } from '@/lib/zod-schemas';
+
+import type { Prisma } from '@prisma/client';
 
 export async function POST(request: Request) {
     try {
@@ -49,8 +53,7 @@ export async function POST(request: Request) {
         const updatedPage = await prisma.landingPage.update({
             where: { id: landingPage.id },
             data: {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                aiContent: newAiContent as any,
+                aiContent: newAiContent as unknown as Prisma.InputJsonValue,
                 tweaksLeft: {
                     decrement: 1,
                 },
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
             select: { aiContent: true, tweaksLeft: true }, // Return updated content and remaining tweaks
         });
 
-        console.log(`User ${userId} tweaked page ${slug}. ${updatedPage.tweaksLeft} tweaks left.`);
+
 
         return NextResponse.json(
             { 

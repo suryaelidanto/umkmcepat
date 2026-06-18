@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "postinstall": "prisma generate && prisma migrate deploy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -72,7 +72,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
+      "eslint --fix --max-warnings=0",
       "vitest related --run --passWithNoTests"
     ],
     "*.{json,md,css}": [

@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 
 import { generateLandingPageContent } from '@/lib/ai';
@@ -7,11 +8,11 @@ import { prisma } from '@/lib/prisma';
 import { checkRateLimit } from '@/lib/rate-limit'; // Import rate limit checker
 import { buildImageKey, fileToBuffer, storage } from '@/lib/storage';
 import { generateRandomString, slugify } from '@/lib/utils';
-
 // Import the base schema to apply refinement after omit
 import { baseLandingPageSchemaForOmit } from '@/lib/zod-schemas';
 
 import type { ColorThemeJson } from '@/lib/ai'; // Import types
+import type { Prisma } from '@prisma/client';
 
 
 // Define types for testimonials and social links
@@ -163,7 +164,6 @@ export async function POST(request: Request) {
     }
 
     // Generate AI Content
-    console.time("AI Generation"); // Start timing AI
     const hasWhatsApp = !!whatsappNumber && whatsappNumber.length > 5;
     const aiContent = await generateLandingPageContent(
       businessName,
@@ -171,7 +171,6 @@ export async function POST(request: Request) {
       userDescription || undefined,
       hasWhatsApp
     );
-    console.timeEnd("AI Generation"); // End timing AI
 
     // If AI provides whatsappNumber, ensure it matches user input if CTA is true
     if (aiContent.whatsappCTA && hasWhatsApp) {
@@ -205,36 +204,27 @@ export async function POST(request: Request) {
       // Handle error
     }
 
-    // Add logging to check the userId value before saving
-    console.log(`Attempting to create LandingPage with userId: ${userId ?? 'null'}`);
 
     // Save to Database
-    console.time("Database Write"); // Start timing DB write
-    const newLandingPage = await prisma.landingPage.create({
+    await prisma.landingPage.create({
       data: {
         slug: pageSlug,
         businessName: businessName,
         category: finalCategory,
         whatsappNumber: whatsappNumber || null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        aiContent: aiContent as any,
+        aiContent: aiContent as unknown as Prisma.InputJsonValue,
         images: uploadedImageData.map(img => img.url),
         imageKeys: uploadedImageData.map(img => img.publicId),
         userId: userId,
         isClaimed: !!userId,
         tweaksLeft: 5,
         address: address || null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        testimonials: testimonials as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        socialLinks: socialLinks as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        colorTheme: resolvedTheme as any,
+        testimonials: testimonials as unknown as Prisma.InputJsonValue,
+        socialLinks: socialLinks as unknown as Prisma.InputJsonValue,
+        colorTheme: resolvedTheme as unknown as Prisma.InputJsonValue,
       },
     });
-    console.timeEnd("Database Write"); // End timing DB write
 
-    console.log("New Landing Page Created:", newLandingPage.id, "Slug:", pageSlug, "UserID:", userId);
 
     // Return slug ONLY (tanpa edit token)
     return NextResponse.json(

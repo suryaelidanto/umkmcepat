@@ -55,7 +55,6 @@ export async function POST(request: Request) {
       },
     });
 
-    console.log(`User ${userId} claimed page ${slug}`);
     return NextResponse.json({ message: 'Halaman berhasil diklaim!' }, { status: 200 });
 
   } catch (error) {
