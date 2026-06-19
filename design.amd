@@ -1,0 +1,79 @@
+# UMKM Cepat Design AMD
+
+## Source read
+Reference: lovable.dev homepage. Use as inspiration only; do not copy brand, copy, exact layout, assets, or proprietary implementation.
+
+## Design intent
+UMKM Cepat should feel like a friendly AI builder for Indonesian small businesses: fast, optimistic, clear, lightweight, product-led.
+
+## Visual language
+- Base: warm off-white canvas, not pure white.
+- Ink: near-black charcoal for high readability.
+- Accent: single coral/rose gradient with subtle violet edge.
+- Material: soft cards, thin neutral borders, large radius, low shadows.
+- Motion feel: calm launch/product builder energy; no heavy neon cyber look.
+- Layout: centered high-impact hero with interactive prompt surface, then airy product proof sections.
+
+## Tokens
+- Page bg: `#fbfaf8`
+- Ink: `#171412`
+- Muted ink: `rgba(23,20,18,.62)`
+- Border: `rgba(23,20,18,.10)`
+- Surface: `rgba(255,255,255,.72)`
+- Accent coral: `#ff6b5f`
+- Accent rose: `#f0437d`
+- Accent violet: `#7c3aed`
+- Soft amber: `#ffcf7a`
+- Radius: cards `28px`, buttons/input `999px`, small chips `999px`
+- Shadow: soft rose/charcoal tinted, never hard black
+
+## Typography
+- Use existing `font-sans`.
+- Headlines: large, tight, confident; no generic AI-purple headline.
+- Body: short, readable, max 65ch.
+- Copy language: Indonesian, direct, UMKM-friendly.
+
+## Components
+### Header
+- Translucent off-white glass.
+- Compact logo + nav anchors.
+- Pill CTA.
+- No heavy dark bar.
+
+### Hero
+- Large centered headline.
+- Subheadline concise.
+- Prompt composer card as product metaphor.
+- CTA inside/near composer.
+- Decorative gradient orbs behind hero, clipped/subtle.
+
+### Proof chips
+- 3 short trust/value chips below hero.
+- Use one icon family only.
+
+### Feature section
+- Bento-like cards, mixed sizes when useful.
+- Cards show product benefits, not generic SaaS bullets.
+
+### Workflow
+- Three steps; visual timeline/cards.
+- Emphasize no technical setup.
+
+### Open-source/provider note
+- Clear but secondary.
+- Communicate flexible providers without overwhelming main audience.
+
+### Footer
+- Light, quiet, consistent with header.
+- Brand, nav, social/support links.
+
+## Anti-copy constraints
+- Do not reuse Lovable headline wording.
+- Do not copy exact hero composer DOM/classes.
+- Do not use Lovable logo/imagery/templates.
+- Preserve UMKM Cepat brand and domain `umkmcepat.com`.
+
+## Quality bar
+- Accessible contrast and focus-visible rings.
+- Mobile-first; no horizontal overflow.
+- `lint`, `typecheck`, `test`, `build` all pass.
