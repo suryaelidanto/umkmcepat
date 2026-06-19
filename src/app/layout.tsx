@@ -1,7 +1,6 @@
 import { Inter } from "next/font/google";
-import { SessionProvider } from "next-auth/react";
 
-import QueryProvider from "@/components/providers/QueryProvider";
+import { AppProviders } from "@/components/providers/AppProviders";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
@@ -26,9 +25,7 @@ export default function RootLayout({
   // const session = await auth();
 
   return (
-    <SessionProvider>
-      <QueryProvider>
-        <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
           <head>
             <link
               rel="icon"
@@ -45,11 +42,9 @@ export default function RootLayout({
             )}
           >
             {/* REMOVED wrapper div, Header, main wrapper, Footer */}
-            {children} { /* Render children directly */}
+            <AppProviders>{children}</AppProviders>
             <Toaster richColors position="bottom-right" />
           </body>
         </html>
-      </QueryProvider>
-    </SessionProvider>
   );
 }

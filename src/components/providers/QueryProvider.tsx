@@ -16,11 +16,13 @@ const queryClient = new QueryClient({
 });
 
 export default function QueryProvider({ children }: { children: React.ReactNode }) {
+  const showDevtools = process.env.NEXT_PUBLIC_ENABLE_QUERY_DEVTOOLS === "true";
+
   return (
     // Provide the client to your App
     <QueryClientProvider client={queryClient}>
       {children}
-      <ReactQueryDevtools initialIsOpen={false} />
+      {showDevtools ? <ReactQueryDevtools initialIsOpen={false} /> : null}
     </QueryClientProvider>
   );
 } 

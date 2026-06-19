@@ -1,79 +1,68 @@
 # UMKM Cepat Design AMD
 
-## Source read
-Reference: lovable.dev homepage. Use as inspiration only; do not copy brand, copy, exact layout, assets, or proprietary implementation.
+## Reference read
+Reference: lovable.dev. Use as aesthetic reference, not a direct clone. Do not copy proprietary assets, copy, logo, exact DOM, or hosted fonts without license.
 
-## Design intent
-UMKM Cepat should feel like a friendly AI builder for Indonesian small businesses: fast, optimistic, clear, lightweight, product-led.
+Observed direction:
+- Huge centered headline.
+- Very sparse hero.
+- Light canvas.
+- Product composer/input as the main UI metaphor.
+- Minimal chrome.
+- Below hero: company/template/proof areas with lots of whitespace.
+- Few visible icons. Avoid icon confetti.
 
-## Visual language
-- Base: warm off-white canvas, not pure white.
-- Ink: near-black charcoal for high readability.
-- Accent: single coral/rose gradient with subtle violet edge.
-- Material: soft cards, thin neutral borders, large radius, low shadows.
-- Motion feel: calm launch/product builder energy; no heavy neon cyber look.
-- Layout: centered high-impact hero with interactive prompt surface, then airy product proof sections.
+## Current design decision
+Closer to Lovable essence:
+- Light page only.
+- No decorative gradient blobs.
+- No rocket logo in landing shell.
+- No generic AI pills.
+- No three-icon-card AI-slop section.
+- Typography carries the page.
+- Product composer + template preview grid provide visual interest.
 
 ## Tokens
-- Page bg: `#fbfaf8`
-- Ink: `#171412`
-- Muted ink: `rgba(23,20,18,.62)`
-- Border: `rgba(23,20,18,.10)`
-- Surface: `rgba(255,255,255,.72)`
-- Accent coral: `#ff6b5f`
-- Accent rose: `#f0437d`
-- Accent violet: `#7c3aed`
-- Soft amber: `#ffcf7a`
-- Radius: cards `28px`, buttons/input `999px`, small chips `999px`
-- Shadow: soft rose/charcoal tinted, never hard black
+- Background: `#f7f7f3`
+- Surface: `#ffffff`
+- Ink: `#111111`
+- Muted: `rgba(17,17,17,.56)`
+- Border: `rgba(17,17,17,.12)`
+- Accent: `#ff5a3d`
+- Accent dark: `#e6452d`
+- Radius: composer/cards `24px`, controls `14px`, nav CTA `999px`
+- Shadow: soft neutral only, no colored glow
 
 ## Typography
-- Use existing `font-sans`.
-- Headlines: large, tight, confident; no generic AI-purple headline.
-- Body: short, readable, max 65ch.
-- Copy language: Indonesian, direct, UMKM-friendly.
+- Use existing sans stack for licensing safety.
+- Lovable uses a custom Camera variable font; do not vendor it unless licensed.
+- Match feeling through scale, tracking, whitespace.
+- H1: very large, tight, max 2 lines desktop where possible.
+- Body: short. No long explainers in hero.
 
-## Components
-### Header
-- Translucent off-white glass.
-- Compact logo + nav anchors.
-- Pill CTA.
-- No heavy dark bar.
+## Layout
+1. Header: text wordmark only, center nav, right CTA/auth.
+2. Hero: centered headline, one subtext, composer.
+3. Logo/trust strip: simple muted text marks, no icons.
+4. Template grid: large visual empty placeholders to stand in for unavailable demo assets.
+5. How it works: 3 clean numbered columns, no icon cards.
+6. Open source: quiet final band with Github link.
+7. Footer: quiet text/nav links.
 
-### Hero
-- Large centered headline.
-- Subheadline concise.
-- Prompt composer card as product metaphor.
-- CTA inside/near composer.
-- Decorative gradient orbs behind hero, clipped/subtle.
+## Copy
+- Indonesian.
+- Direct, product-led.
+- Avoid buzzwords and dense provider wording above fold.
 
-### Proof chips
-- 3 short trust/value chips below hero.
-- Use one icon family only.
+## Explicit bans
+- No rocket logo in header/footer/hero.
+- No background gradient blobs.
+- No icon cards.
+- No generic pills scattered through page.
+- No dark section flip.
+- No em dashes.
+- No fake precise metrics.
 
-### Feature section
-- Bento-like cards, mixed sizes when useful.
-- Cards show product benefits, not generic SaaS bullets.
-
-### Workflow
-- Three steps; visual timeline/cards.
-- Emphasize no technical setup.
-
-### Open-source/provider note
-- Clear but secondary.
-- Communicate flexible providers without overwhelming main audience.
-
-### Footer
-- Light, quiet, consistent with header.
-- Brand, nav, social/support links.
-
-## Anti-copy constraints
-- Do not reuse Lovable headline wording.
-- Do not copy exact hero composer DOM/classes.
-- Do not use Lovable logo/imagery/templates.
-- Preserve UMKM Cepat brand and domain `umkmcepat.com`.
-
-## Quality bar
-- Accessible contrast and focus-visible rings.
-- Mobile-first; no horizontal overflow.
-- `lint`, `typecheck`, `test`, `build` all pass.
+## Quality gate
+- `lint`, `typecheck`, `test`, `build` pass.
+- CSS asset verified on dev server.
