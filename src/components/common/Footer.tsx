@@ -20,11 +20,11 @@ export function Footer() {
 
           <Button variant="outline" size="sm" asChild>
             <Link
-              href="http://support.umkmcepat.online/"
+              href="http://support.umkmcepat.com/"
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Coffee className="h-4 w-4 mr-1.5" /> Bantu UMKM Cepat.Online Tetap Gratis
+              <Coffee className="h-4 w-4 mr-1.5" /> Bantu UMKM Cepat Tetap Gratis
             </Link>
           </Button>
         </div>

@@ -326,7 +326,7 @@ export function LandingPageDisplay({
   const contactTitle = pageData.aiContent?.contactTitle || "Hubungi Kami";
 
   // --- Construct Share URL ---
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://umkmcepat.online'; // Get base URL
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://umkmcepat.com'; // Get base URL
   const pageUrl = `${baseUrl}/p/${pageData.slug}`;
   const pageTitle = pageData.aiContent?.headline || pageData.businessName;
 
@@ -517,12 +517,12 @@ export function LandingPageDisplay({
         <p className="text-xs text-muted-foreground">
           Dibuat dengan {" "}
           <Link
-            href="https://umkmcepat.online"
+            href="https://umkmcepat.com"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium hover:underline text-primary/80"
           >
-            umkmcepat.online
+            umkmcepat.com
           </Link>
         </p>
       </footer>

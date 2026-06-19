@@ -13,7 +13,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "umkmcepat.online - AI Landing Page Generator untuk UMKM",
+  title: "umkmcepat.com - AI Landing Page Generator untuk UMKM",
   description:
     "Buat landing page promosi instan dengan AI. Mudah, cepat, tanpa login.",
 };

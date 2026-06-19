@@ -19,7 +19,7 @@ export default function HomePage() {
         <span className="text-primary">Instan</span> dengan AI
       </h1>
       <p className="mt-6 text-lg leading-8 text-slate-600">
-        umkmcepat.online membantu UMKM dan siapa saja membuat halaman promosi
+        umkmcepat.com membantu UMKM dan siapa saja membuat halaman promosi
         produk/jasa yang efektif dalam hitungan detik. Tanpa login, tanpa ribet,
         cukup jelaskan usahamu.
       </p>

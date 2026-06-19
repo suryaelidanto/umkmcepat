@@ -106,14 +106,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const imageUrl = pageData.images?.[0];
 
   return {
-    title: `${title} | umkmcepat.online`,
+    title: `${title} | umkmcepat.com`,
     description: description,
     openGraph: {
       title: title,
       description: description,
       images: imageUrl ? [{ url: imageUrl }] : [],
       url: `/p/${slug}`,
-      siteName: "umkmcepat.online",
+      siteName: "umkmcepat.com",
       type: "website",
     },
     twitter: {

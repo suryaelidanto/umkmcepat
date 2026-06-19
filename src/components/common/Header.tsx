@@ -14,7 +14,7 @@ export function Header() {
             <Image src="/logo.svg" alt="UMKM Cepat Logo" width={24} height={24} />
             {/* Ensure text is hidden by default and shown on sm+ */}
             <span className="font-bold hidden sm:inline-block">
-              umkmcepat.online
+              umkmcepat.com
             </span>
           </Link>
           {/* Optional: Add navigation links here */}
