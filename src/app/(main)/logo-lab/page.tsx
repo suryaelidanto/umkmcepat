@@ -11,12 +11,6 @@ type LogoSpec = {
   svg: string;
 };
 
-type LogoSpec = {
-  id: number;
-  name: string;
-  svg: string;
-};
-
 const logos: LogoSpec[] = [
   { id: 1, name: "Monogram Gerbang 001", svg: `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 128 128" role="img" aria-label="Monogram Gerbang 001"><rect width="128" height="128" rx="32" fill="#fcfbf8"/><g><path d="M34 92V44c0-12 9-22 22-22h16c13 0 22 10 22 22v48" fill="none" stroke="#1c1c1c" stroke-width="9" stroke-linecap="round"/><path d="M49 92V55c0-8 6-14 15-14s15 6 15 14v37" fill="none" stroke="#f59e0b" stroke-width="8" stroke-linecap="round"/><circle cx="104" cy="24" r="5" fill="#f59e0b"/></g></svg>` },
   { id: 2, name: "Etalase Kilat 002", svg: `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 128 128" role="img" aria-label="Etalase Kilat 002"><rect width="128" height="128" rx="32" fill="#fff7ed"/><g><rect x="28" y="40" width="72" height="50" rx="16" fill="#3b2417"/><path d="M38 40l8-16h36l8 16" fill="#f97316"/><path d="M58 54l-10 18h14l-6 18 24-28H66l8-18-16 10Z" fill="#fff7ed"/><path d="M20 104h18" stroke="#f97316" stroke-width="6" stroke-linecap="round"/></g></svg>` },
