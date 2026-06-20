@@ -51,3 +51,5 @@ next-env.d.ts
 # Dev/runtime logs
 *.log
 *.err.log
+# Local dev process files
+*.pid
