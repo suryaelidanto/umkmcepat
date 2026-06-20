@@ -67,6 +67,19 @@ chore: update dependencies
 
 Commit messages are checked by Husky + commitlint.
 
+## Repository cleanliness
+
+- Treat this as an open-source project that many developers will clone and maintain.
+- Keep the repository clean, understandable, and free of one-off automation leftovers.
+- Delete temporary scripts, scratch files, debug helpers, generated throwaway files, local logs, browser artifacts, and experiment outputs before handoff.
+- Do not leave ad-hoc files in `scripts/`, `src/`, docs, or project root unless they are intended to be maintained long term and documented.
+- If a helper script is kept, it must have a durable purpose, a clear name, and be referenced from `package.json`, docs, or another maintained workflow.
+- Prefer one ignored log file for automation, such as `.dev.log`; do not create many numbered or tool-specific log files.
+- Never commit `.agent/`, `.pi/`, `.next/`, local logs, temporary screenshots, cache directories, or local-only artifacts.
+- Before committing, inspect `git status --short --untracked-files=all` and remove or ignore accidental files.
+- Keep `.gitignore` updated when a new local-only artifact class appears.
+- Always ask: would this file make sense to a new open-source contributor six months from now? If not, remove it or document it.
+
 ## Quality bar
 
 - Add or update tests for behavior changes.
