@@ -2,13 +2,11 @@ import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  devIndicators: false,
+  devIndicators: {
+    position: "bottom-left",
+  },
   eslint: {
     ignoreDuringBuilds: true,
-  },
-  webpack: (config) => {
-    config.cache = false;
-    return config;
   },
   images: {
     remotePatterns: [
@@ -22,7 +20,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+const sentryOptions = {
   org: "umkmcepatonline",
   project: "javascript-nextjs",
   silent: !process.env.CI,
@@ -34,4 +32,8 @@ export default withSentryConfig(nextConfig, {
       removeDebugLogging: true,
     },
   },
-});
+};
+
+export default process.env.NODE_ENV === "production" && process.env.SENTRY_DSN
+  ? withSentryConfig(nextConfig, sentryOptions)
+  : nextConfig;
