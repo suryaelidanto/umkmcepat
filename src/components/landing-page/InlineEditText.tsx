@@ -236,7 +236,7 @@ export function InlineEditText({
       return (
         <Tag
           className={cn(
-            "cursor-pointer relative group border border-transparent hover:bg-surface-muted/50 focus:bg-surface-muted/50 focus:outline-none focus:ring-1 focus:ring-primary p-1 -m-1 rounded transition-colors duration-150 ease-in-out min-h-[1em] w-full block", // Make block to allow click anywhere
+            "cursor-pointer relative group border border-transparent hover:bg-surface-muted/50 focus:bg-surface-muted/50 focus:outline-none focus:ring-1 focus:ring-action-primary p-1 -m-1 rounded-radius-sm transition-colors duration-150 ease-in-out min-h-[1em] w-full block", // Make block to allow click anywhere
             className
           )}
           onClick={() => setIsEditing(true)}

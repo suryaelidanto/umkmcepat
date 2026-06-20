@@ -3,21 +3,23 @@
   "version": "0.1.0",
   "private": false,
   "scripts": {
-    "dev": "node scripts/next-dev.mjs",
-    "build": "npm run lint && npm run typecheck && next build",
+    "dev": "next dev -p 3000",
+    "build": "npm run lint && npm run typecheck && npm run check:design && next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
-    "postinstall": "prisma generate && prisma migrate deploy",
+    "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepare": "husky",
     "verify": "npm run test && npm run build",
     "commitlint": "commitlint --from HEAD~1 --to HEAD --verbose",
-    "dev:clean": "node scripts/clean-next-cache.mjs && node scripts/next-dev.mjs",
-    "dev:docker": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up app",
-    "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up app",
-    "docker:prod": "docker compose -f docker-compose.prod.yml up -d --build"
+    "dev:clean": "node scripts/clean-next-cache.mjs && next dev -p 3000",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up -d --build",
+    "check:design": "node scripts/check-design-system.mjs",
+    "db:up": "docker compose up -d postgres",
+    "db:migrate": "prisma migrate deploy",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
@@ -82,5 +84,9 @@
     "*.{json,md,css}": [
       "prettier --check --ignore-unknown"
     ]
+  },
+  "engines": {
+    "node": ">=22 <23",
+    "npm": ">=10"
   }
 }

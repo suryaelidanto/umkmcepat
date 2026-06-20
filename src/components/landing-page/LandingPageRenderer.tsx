@@ -54,7 +54,7 @@ const CtaSectionContent: React.FC<{
                }}
                onCancel={() => setIsEditingCta(false)} 
                className="inline-block text-lg" 
-               inputClassName="text-lg px-2 py-1 border border-primary rounded bg-surface-warm-white text-foreground focus:ring-1 focus:ring-primary"
+               inputClassName="text-lg px-2 py-1 border border-action-primary rounded-radius-lg bg-surface-warm-white text-foreground-primary focus:ring-1 focus:ring-action-primary"
                placeholder="Teks Tombol Aksi"
                hideControls={true}
             />
@@ -63,13 +63,13 @@ const CtaSectionContent: React.FC<{
         return (
             <Button
                 size="lg"
-                className="cursor-pointer w-full max-w-xs lovable-shadow-subtle bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-spacing-10 py-spacing-7 relative group"
+                className="cursor-pointer w-full max-w-xs lovable-shadow-subtle bg-action-primary text-surface-warm-white hover:bg-action-primary/90 text-lg px-spacing-10 py-spacing-7 relative group"
                 onClick={!isOwner && whatsappCTA && whatsappNumber ? handleCTAClick : undefined}
             >
                 <span 
                     className={cn(
                         "relative", 
-                        isOwner && "cursor-pointer group-hover:bg-primary/80 p-1 -m-1 rounded transition-colors"
+                        isOwner && "cursor-pointer group-hover:bg-surface-warm-white/10 p-1 -m-1 rounded-radius-sm transition-colors"
                     )}
                     onClick={(e) => {
                         if (isOwner) {
@@ -79,7 +79,7 @@ const CtaSectionContent: React.FC<{
                     }}
                 >
                     {ctaText || (whatsappCTA ? "Hubungi via WhatsApp" : "Lihat Penawaran")}
-                     {isOwner && <Edit className="h-3 w-3 absolute top-0.5 right-0.5 text-primary-foreground/70 opacity-0 group-hover:opacity-100 transition-opacity" />} 
+                     {isOwner && <Edit className="h-3 w-3 absolute top-0.5 right-0.5 text-surface-warm-white/70 opacity-0 group-hover:opacity-100 transition-opacity" />} 
                 </span>
             </Button>
         );
@@ -111,7 +111,6 @@ export function LandingPageRenderer({
     whatsappCTA = false,
     whatsappNumber,
     layoutStyle = "standard",
-    font = "Inter", // Assuming Inter corresponds to a CSS class like .font-inter
   } = data || {};
 
   // --- API Call Handler REMOVED (Now passed as prop) ---
@@ -144,7 +143,7 @@ export function LandingPageRenderer({
   const textAlignClass = layoutStyle === 'minimal' ? "text-center" : "text-left";
 
   // Apply font class - ensure this class exists in your global CSS
-  const fontClass = font === 'Poppins' ? "font-poppins" : "font-inter";
+  const fontClass = "font-sans";
 
   return (
     <motion.div
@@ -161,8 +160,8 @@ export function LandingPageRenderer({
            isOwner={isOwner}
            fieldKey="headline"
            onSave={handleSaveContent} // Use passed prop
-           className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4 text-foreground"
-           inputClassName="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight"
+           className="type-display-large mb-spacing-7 text-foreground-primary"
+           inputClassName="type-display-large"
            placeholder="Judul Utama Halaman Anda"
          />
          <InlineEditText
@@ -178,7 +177,7 @@ export function LandingPageRenderer({
       </motion.header>
 
       {/* Description Section */}
-      <motion.section className="mb-12 md:mb-16 text-lg leading-relaxed text-foreground" variants={itemVariants}>
+      <motion.section className="mb-spacing-12 md:mb-spacing-14 type-body-large text-foreground-primary" variants={itemVariants}>
          <InlineEditText
             as="textarea"
             initialValue={description}
@@ -200,17 +199,17 @@ export function LandingPageRenderer({
               isOwner={isOwner}
               fieldKey="featuresTitle" // Use the new field key
               onSave={handleSaveContent} // Use passed prop
-              className="text-2xl md:text-3xl font-semibold mb-6 md:mb-8 text-foreground"
-              inputClassName="text-2xl md:text-3xl font-semibold"
+              className="type-heading-lg mb-spacing-10 text-foreground-primary"
+              inputClassName="type-heading-lg"
               placeholder="Judul Bagian Fitur"
             />
-           {/* <h2 className="text-2xl md:text-3xl font-semibold mb-6 md:mb-8 text-foreground">Fitur Utama</h2> */}
+           {/* <h2 className="type-heading-lg mb-spacing-10 text-foreground-primary">Fitur Utama</h2> */}
 
           <ul className="space-y-4">
             {features.map((feature, index) => (
               <li key={index} className="flex items-start">
                 <div className="flex-shrink-0">
-                  <Check className="h-6 w-6 text-primary mr-3 mt-1" />
+                  <Check className="h-6 w-6 text-action-primary mr-3 mt-1" />
                 </div>
                  <InlineEditText
                     as="span"
@@ -218,7 +217,7 @@ export function LandingPageRenderer({
                     isOwner={isOwner}
                     fieldKey={`features[${index}]`}
                     onSave={handleSaveContent} // Use passed prop
-                    className="flex-grow text-foreground"
+                    className="flex-grow text-foreground-primary"
                     inputClassName="text-base"
                     placeholder="Deskripsi fitur..."
                   />
@@ -276,7 +275,7 @@ export function LandingPageRenderer({
 //                }}
 //                onCancel={() => setIsEditingCta(false)}
 //                className="inline-block text-lg"
-//                inputClassName="text-lg px-2 py-1 border border-primary rounded bg-surface-warm-white text-foreground focus:ring-1 focus:ring-primary"
+//                inputClassName="text-lg px-2 py-1 border border-action-primary rounded-radius-lg bg-surface-warm-white text-foreground-primary focus:ring-1 focus:ring-action-primary"
 //                placeholder="Teks Tombol Aksi"
 //                hideControls={true}
 //             />
@@ -285,13 +284,13 @@ export function LandingPageRenderer({
 //         return (
 //             <Button
 //                 size="lg"
-//                 className="w-full max-w-xs lovable-shadow-subtle bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-spacing-10 py-spacing-7 relative group"
+//                 className="w-full max-w-xs lovable-shadow-subtle bg-action-primary text-surface-warm-white hover:bg-action-primary/90 text-lg px-spacing-10 py-spacing-7 relative group"
 //                 onClick={!isOwner ? handleCTAClick : undefined} // Only trigger main click if not owner
 //             >
 //                 <span
 //                     className={cn(
 //                         "relative",
-//                         isOwner && "cursor-pointer group-hover:bg-primary/80 p-1 -m-1 rounded transition-colors"
+//                         isOwner && "cursor-pointer group-hover:bg-surface-warm-white/10 p-1 -m-1 rounded-radius-sm transition-colors"
 //                     )}
 //                     onClick={(e) => {
 //                         if (isOwner) {
@@ -301,7 +300,7 @@ export function LandingPageRenderer({
 //                     }}
 //                 >
 //                     {ctaText}
-//                      {isOwner && <Edit className="h-3 w-3 absolute top-0.5 right-0.5 text-primary-foreground/70 opacity-0 group-hover:opacity-100 transition-opacity" />}
+//                      {isOwner && <Edit className="h-3 w-3 absolute top-0.5 right-0.5 text-surface-warm-white/70 opacity-0 group-hover:opacity-100 transition-opacity" />}
 //                 </span>
 //             </Button>
 //         );

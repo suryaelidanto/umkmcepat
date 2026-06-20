@@ -1,10 +1,27 @@
 # Local Development
 
-Run local infrastructure with Docker Compose. On this Windows workspace, Docker is expected to run from WSL.
+UMKM Cepat uses a hybrid local development setup:
 
-## Postgres
+- Next.js app runs locally with `npm run dev` for reliable hot reload.
+- Postgres runs in Docker via WSL so Windows does not need a manual PostgreSQL install.
+- Production still uses full Docker.
 
-From the repo root in WSL:
+## Requirements
+
+- Node.js 22 (`.nvmrc` is provided)
+- npm 10+
+- WSL Docker for infrastructure containers
+
+## Install
+
+```bash
+npm install
+cp .env.example .env
+```
+
+## Start Postgres in Docker
+
+From WSL or any shell that can access WSL Docker:
 
 ```bash
 cd /mnt/d/Code/Side/umkmcepat
@@ -20,14 +37,30 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/umkmcepat?schema=pub
 Apply Prisma migrations:
 
 ```bash
-npx prisma migrate deploy
+npm run db:migrate
 ```
 
-If the local Docker volume already had tables before migrations existed, baseline once:
+If a local Docker volume already had tables before migrations existed, baseline once:
 
 ```bash
 npx prisma migrate resolve --applied 20260620131000_init
-npx prisma migrate deploy
+npm run db:migrate
+```
+
+## Start Next.js locally
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+`npm run dev` is intentionally local, not Dockerized, because hot reload from a Windows drive through WSL bind mounts is slower and less reliable.
+
+If `.next` gets stale or the app shows 500 errors for missing manifest files:
+
+```bash
+npm run dev:clean
 ```
 
 ## Optional Redis
@@ -38,37 +71,9 @@ Redis is reserved for future queue/rate-limit work.
 docker compose --profile redis up -d redis
 ```
 
-## App without Docker
-
-```bash
-npm install
-cp .env.example .env
-npm run dev
-```
-
-`npm run dev` starts Next with polling enabled by default, kills stale dev servers on ports `3000` and `3001`, cleans stale `.next` cache, and pins Next to port `3000`. This is more reliable for this repo on a Windows drive.
-
-If you need to skip the automatic cleanup for a special debugging session:
-
-```bash
-SKIP_DEV_PORT_KILL=true SKIP_NEXT_CLEAN=true npm run dev
-```
-
-Open `http://localhost:3000`.
-
-## App with Docker hot reload
-
-From WSL repo path:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up app
-```
-
-The dev Docker setup uses bind mounts for source files and container-only volumes for `/app/node_modules` and `/app/.next`. Polling is enabled for Windows-drive compatibility.
-
 ## Logs
 
-Local dev logs should use a single ignored file when the app is started by automation:
+Local automation should write to a single ignored file when needed:
 
 ```bash
 npm run dev > .dev.log 2>&1

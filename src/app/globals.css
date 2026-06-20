@@ -5,9 +5,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-camera-plain-variable);
-  --font-mono: var(--font-geist-mono);
-  --font-camera-plain-variable: "Camera Plain Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plus-jakarta-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-plus-jakarta-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --color-surface-base: #eceae4;
   --color-foreground-primary: #1c1c1c;
   --color-surface-warm-white: #fcfbf8;
@@ -80,42 +80,42 @@
   --color-text-secondary: #5f5f5d;
   --color-action-primary: #1c1c1c;
 
-  --font-display-hero-family: "Camera Plain Variable";
+  --font-display-hero-family: "Plus Jakarta Sans";
   --font-display-hero-size: 60px;
   --font-display-hero-weight: 480;
   --font-display-hero-line-height: 60px;
-  --font-display-large-family: "Camera Plain Variable";
+  --font-display-large-family: "Plus Jakarta Sans";
   --font-display-large-size: 60px;
   --font-display-large-weight: 600;
   --font-display-large-line-height: 66px;
   --font-display-large-letter-spacing: -1.5px;
-  --font-heading-xl-family: "Camera Plain Variable";
+  --font-heading-xl-family: "Plus Jakarta Sans";
   --font-heading-xl-size: 48px;
   --font-heading-xl-weight: 600;
   --font-heading-xl-line-height: 52.8px;
   --font-heading-xl-letter-spacing: -1.2px;
-  --font-heading-lg-family: "Camera Plain Variable";
+  --font-heading-lg-family: "Plus Jakarta Sans";
   --font-heading-lg-size: 36px;
   --font-heading-lg-weight: 600;
   --font-heading-lg-line-height: 39.6px;
   --font-heading-lg-letter-spacing: -0.9px;
-  --font-body-base-family: "Camera Plain Variable";
+  --font-body-base-family: "Plus Jakarta Sans";
   --font-body-base-size: 16px;
   --font-body-base-weight: 400;
   --font-body-base-line-height: 24px;
-  --font-body-small-family: "Camera Plain Variable";
+  --font-body-small-family: "Plus Jakarta Sans";
   --font-body-small-size: 14px;
   --font-body-small-weight: 400;
   --font-body-small-line-height: 21px;
-  --font-body-medium-family: "Camera Plain Variable";
+  --font-body-medium-family: "Plus Jakarta Sans";
   --font-body-medium-size: 15px;
   --font-body-medium-weight: 400;
   --font-body-medium-line-height: 24px;
-  --font-label-emphasis-family: "Camera Plain Variable";
+  --font-label-emphasis-family: "Plus Jakarta Sans";
   --font-label-emphasis-size: 14px;
   --font-label-emphasis-weight: 480;
   --font-label-emphasis-line-height: 21px;
-  --font-body-large-family: "Camera Plain Variable";
+  --font-body-large-family: "Plus Jakarta Sans";
   --font-body-large-size: 18px;
   --font-body-large-weight: 400;
   --font-body-large-line-height: 24.75px;
@@ -181,37 +181,38 @@
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --background: #eceae4;
+  --foreground: #1c1c1c;
+  --card: #fcfbf8;
+  --card-foreground: #1c1c1c;
+  --popover: #fcfbf8;
+  --popover-foreground: #1c1c1c;
+  --primary: #1c1c1c;
+  --primary-foreground: #fcfbf8;
+  --secondary: #f7f4ed;
+  --secondary-foreground: #1c1c1c;
+  --muted: #f7f4ed;
+  --muted-foreground: #5f5f5d;
+  --accent: #eceae4;
+  --accent-foreground: #1c1c1c;
+  --destructive: #9f1d1d;
+  --destructive-foreground: #fcfbf8;
+  --border: #d8d5cc;
+  --input: #d8d5cc;
+  --ring: #1c1c1c;
+  --chart-1: #ff7a59;
+  --chart-2: #ee4f9b;
+  --chart-3: #7867ff;
+  --chart-4: #2f8cff;
+  --chart-5: #f7a441;
+  --sidebar: #eceae4;
+  --sidebar-foreground: #1c1c1c;
+  --sidebar-primary: #1c1c1c;
+  --sidebar-primary-foreground: #fcfbf8;
+  --sidebar-accent: #f7f4ed;
+  --sidebar-accent-foreground: #1c1c1c;
+  --sidebar-border: #d8d5cc;
+  --sidebar-ring: #1c1c1c;
 }
 
 @layer base {
@@ -220,7 +221,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "Camera Plain Variable", ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
     font-size: 16px;
     line-height: 24px;
   }
@@ -244,5 +245,64 @@
   .lovable-shadow-subtle {
     box-shadow: 0 0 0 2px rgba(28, 28, 28, 0.08);
   }
+
+  .type-display-hero {
+    font-size: clamp(3.6rem, 9.4vw, 8.25rem);
+    font-weight: 480;
+    line-height: 0.86;
+    letter-spacing: -0.075em;
+  }
+
+  .type-display-large {
+    font-size: 60px;
+    font-weight: 600;
+    line-height: 66px;
+    letter-spacing: -1.5px;
+  }
+
+  .type-heading-xl {
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 52.8px;
+    letter-spacing: -1.2px;
+  }
+
+  .type-heading-lg {
+    font-size: 36px;
+    font-weight: 600;
+    line-height: 39.6px;
+    letter-spacing: -0.9px;
+  }
+
+  .type-body-large {
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 24.75px;
+  }
+
+  .type-body-base {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+  }
+
+  .type-body-medium {
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 24px;
+  }
+
+  .type-body-small {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 21px;
+  }
+
+  .type-label-emphasis {
+    font-size: 14px;
+    font-weight: 480;
+    line-height: 21px;
+  }
 }
+
 

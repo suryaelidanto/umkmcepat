@@ -56,7 +56,11 @@ Useful env vars:
 
 ## Development
 
+Run Postgres in Docker, then run the Next.js dev server locally for reliable hot reload:
+
 ```bash
+docker compose up -d postgres
+npm run db:migrate
 npm run dev
 ```
 

@@ -71,14 +71,14 @@ export default function Page() {
           align-items: center;
           gap: 16px;
           padding: 16px;
-          font-family: "Camera Plain Variable", ui-sans-serif, system-ui, sans-serif; background: #eceae4; color: #1c1c1c;
+          font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif; background: #eceae4; color: #1c1c1c;
         }
 
         h1 {
           padding: 0px 4px;
           border-radius: 8px;
           background-color: #fcfbf8;
-          font-family: "Camera Plain Variable", ui-sans-serif, system-ui, sans-serif;
+          font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
           font-size: 20px;
           line-height: 1.2;
         }

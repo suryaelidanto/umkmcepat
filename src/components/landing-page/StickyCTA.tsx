@@ -40,7 +40,7 @@ StickyCTAProps) {
         {whatsappCTA && whatsappNumber ? (
           <Button
             size="lg"
-            className="cursor-pointer w-full max-w-sm lovable-shadow-subtle bg-primary text-primary-foreground hover:bg-primary/90"
+            className="cursor-pointer w-full max-w-sm lovable-shadow-subtle bg-action-primary text-surface-warm-white hover:bg-action-primary/90"
             onClick={handleCTAClick}
             // Removed inline style, use shadcn classes
           >
@@ -50,7 +50,7 @@ StickyCTAProps) {
         ) : (
           <Button
             size="lg"
-            className="w-full max-w-sm lovable-shadow-subtle bg-primary text-primary-foreground hover:bg-primary/90"
+            className="w-full max-w-sm lovable-shadow-subtle bg-action-primary text-surface-warm-white hover:bg-action-primary/90"
             // Use default primary button style if not WhatsApp
           >
             {ctaText || "Lihat Penawaran"} {/* Fallback text */}

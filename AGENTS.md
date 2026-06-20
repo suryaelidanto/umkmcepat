@@ -4,6 +4,8 @@ Guidance for AI agents and automated contributors working on UMKM Cepat.
 
 ## Read first
 
+If work touches design, UI, styling, layout, typography, colors, or components, read `DESIGN.md` first and keep changes consistent with it.
+
 Before editing code, read these files:
 
 - `README.md` — project overview, setup, scripts, security basics
