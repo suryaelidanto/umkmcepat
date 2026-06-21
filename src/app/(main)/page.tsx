@@ -13,10 +13,10 @@ export default function HomePage() {
 
         <div className="mx-auto flex w-full max-w-5xl flex-col items-center text-center">
           <h1 className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white">
-            Buat landing page UMKM dengan AI
+            Usahamu layak punya website. 100% gratis.
           </h1>
           <p className="mt-spacing-7 max-w-2xl text-balance text-lg leading-7 text-surface-warm-white/72 sm:text-xl">
-            Ceritakan usahamu. UMKM Cepat menyusun halaman promosi yang rapi, siap diedit, dan mudah dibagikan.
+            Ceritakan usahamu, lalu biarkan AI menyusunnya jadi halaman online yang profesional dan siap kamu bagikan.
           </p>
 
           <form
