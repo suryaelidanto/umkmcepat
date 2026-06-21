@@ -1,12 +1,12 @@
 # Providers
 
-Provider selection is controlled by `.env.local`. The canonical list of supported provider names lives in `src/lib/provider-registry.ts`.
+Provider selection is controlled by `.env`. The canonical list of supported provider names lives in `src/lib/provider-registry.ts`.
 
 ## Current defaults
 
 | Capability | Env | Current default |
 | --- | --- | --- |
-| AI | `AI_PROVIDER` | `openrouter` |
+| AI | `AI_PROVIDER` | `9router` |
 | Storage | `STORAGE_PROVIDER` | `local` |
 | Rate limit | `RATE_LIMIT_PROVIDER` | `memory` |
 | Queue | `QUEUE_PROVIDER` | `none` |
@@ -15,15 +15,14 @@ Provider selection is controlled by `.env.local`. The canonical list of supporte
 
 ## AI
 
-Current implemented runtime provider: `openrouter`.
+Current implemented runtime provider: `9router`.
 
 ```env
-AI_PROVIDER="openrouter"
-AI_MODEL="google/gemini-2.0-flash-001"
-OPENROUTER_API_KEY=""
-OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
-OPENROUTER_SITE_URL="http://localhost:3000"
-OPENROUTER_APP_NAME="UMKM Cepat"
+AI_PROVIDER="9router"
+AI_MODEL="cmc/deepseek/deepseek-v4-pro"
+NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
+NINE_ROUTER_API_KEY=""
+NINE_ROUTER_MODEL="cmc/deepseek/deepseek-v4-pro"
 ```
 
 Registered future provider names: `openai`, `anthropic`, `gemini`.

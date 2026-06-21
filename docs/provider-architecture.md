@@ -20,7 +20,7 @@ The goal is simple development now, without locking the project into one vendor 
 | Capability | Current default | Future-compatible path |
 | --- | --- | --- |
 | Database | PostgreSQL via Prisma | Any PostgreSQL host via `DATABASE_URL` |
-| AI | OpenRouter | OpenAI, Anthropic, Gemini, or OpenAI-compatible APIs |
+| AI | 9Router Docker gateway | OpenAI, Anthropic, Gemini, or OpenAI-compatible APIs behind adapter |
 | Object storage | Cloudflare R2 | AWS S3, MinIO, local storage via storage adapter |
 | Auth | Auth.js / NextAuth with Google | GitHub, Microsoft, email, or other Auth.js providers |
 | Rate limit | Current/simple implementation | Redis-backed limiter later |
@@ -59,13 +59,13 @@ src/lib/queue/
 Provider selection should be explicit:
 
 ```env
-AI_PROVIDER="openrouter"
+AI_PROVIDER="9router"
 STORAGE_PROVIDER="r2"
 RATE_LIMIT_PROVIDER="memory"
 QUEUE_PROVIDER="none"
 ```
 
-Provider credentials stay in `.env.local` or deployment secrets. Never commit real values.
+Provider credentials stay in `.env` locally or deployment secrets. Never commit real values.
 
 ## Development priority
 

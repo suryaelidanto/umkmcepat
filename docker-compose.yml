@@ -17,6 +17,22 @@ services:
       timeout: 5s
       retries: 5
 
+  9router:
+    image: decolua/9router:latest
+    container_name: umkmcepat-9router
+    restart: unless-stopped
+    profiles:
+      - ai
+    environment:
+      DATA_DIR: /app/data
+      PORT: 20128
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_BASE_URL: http://localhost:20129
+    ports:
+      - "20129:20128"
+    volumes:
+      - nine_router_data:/app/data
+
   redis:
     image: redis:7-alpine
     container_name: umkmcepat-redis
@@ -30,4 +46,5 @@ services:
 
 volumes:
   postgres_data:
+  nine_router_data:
   redis_data:

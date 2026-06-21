@@ -1,8 +1,8 @@
 export const PROVIDER_REGISTRY = {
   ai: {
     env: "AI_PROVIDER",
-    default: "openrouter",
-    values: ["openrouter", "openai", "anthropic", "gemini"],
+    default: "9router",
+    values: ["9router", "openai", "anthropic", "gemini"],
   },
   storage: {
     env: "STORAGE_PROVIDER",

@@ -15,7 +15,7 @@ Early-stage Next.js SaaS codebase prepared for open-source collaboration. Some l
 - Tailwind CSS
 - Configurable memory rate limiting
 - Configurable storage provider: local or S3-compatible providers such as Cloudflare R2
-- Configurable AI provider architecture with OpenRouter as the current runtime provider
+- Configurable AI provider architecture with 9Router as the current runtime gateway
 - Vitest for unit tests
 - ESLint + Husky + lint-staged for quality gates
 
@@ -45,7 +45,8 @@ Useful env vars:
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Auth |
 | `AI_PROVIDER` | AI provider selection | AI features |
 | `AI_MODEL` | AI model name | AI features |
-| `OPENROUTER_API_KEY` | OpenRouter API key | AI features |
+| `NINE_ROUTER_API_KEY` | 9Router API key | AI features |
+| `NINE_ROUTER_BASE_URL` | 9Router OpenAI-compatible endpoint | AI features |
 | `STORAGE_PROVIDER` | Storage provider selection | Uploads |
 | `S3_ENDPOINT` | S3-compatible endpoint for R2/S3/MinIO | Cloud uploads |
 | `S3_BUCKET` | S3-compatible bucket | Cloud uploads |

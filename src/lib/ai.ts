@@ -57,23 +57,23 @@ export interface ColorThemeJson {
 
 type JsonSchemaName = "landing page content" | "tweaked landing page content" | "color theme";
 
-const AI_MODEL = getEnv("AI_MODEL", getEnv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001"));
+const AI_MODEL = getEnv(
+  "AI_MODEL",
+  getEnv("NINE_ROUTER_MODEL", "cmc/deepseek/deepseek-v4-pro")
+);
 
 function createAiClient() {
   const provider = getConfiguredProvider("ai");
 
-  if (provider !== "openrouter") {
-    throw new Error(`AI provider '${provider}' is registered but not implemented yet.`);
+  if (provider === "9router") {
+    return new OpenAI({
+      apiKey: requireEnv("NINE_ROUTER_API_KEY", { feature: "9Router AI gateway" }),
+      baseURL: getEnv("NINE_ROUTER_BASE_URL", "http://localhost:20129/v1"),
+    });
   }
 
-  return new OpenAI({
-    apiKey: requireEnv("OPENROUTER_API_KEY", { feature: "OpenRouter AI" }),
-    baseURL: getEnv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-    defaultHeaders: {
-      "HTTP-Referer": getEnv("OPENROUTER_SITE_URL", getEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")),
-      "X-Title": getEnv("OPENROUTER_APP_NAME", "UMKM Cepat"),
-    },
-  });
+
+  throw new Error(`AI provider '${provider}' is registered but not implemented yet.`);
 }
 
 function parseJson<T>(content: string, schemaName: JsonSchemaName): T {
