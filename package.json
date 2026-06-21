@@ -19,7 +19,8 @@
     "check:design": "node scripts/check-design-system.mjs",
     "db:up": "docker compose up -d postgres",
     "db:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "9router:local": "node scripts/local-9router-proxy.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",

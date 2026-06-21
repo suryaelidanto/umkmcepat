@@ -15,9 +15,9 @@ Frontend must never call 9Router directly.
 9Router listens inside Docker on `20128`, but this project exposes it on host port `20129` to avoid conflicts with a personal local 9Router.
 
 ```text
-Host/dashboard: http://localhost:20129/dashboard
-Host API:       http://localhost:20129/v1
-Docker API:     http://9router:20128/v1
+Local dashboard: http://localhost:20129/dashboard
+Local API:       http://localhost:20129/v1
+Docker API:      http://9router:20128/v1
 ```
 
 ## Local development
@@ -27,6 +27,7 @@ Start project infra:
 ```bash
 docker compose up -d postgres
 docker compose --profile ai up -d 9router
+npm run 9router:local
 ```
 
 Open dashboard:
@@ -34,6 +35,8 @@ Open dashboard:
 ```text
 http://localhost:20129/dashboard
 ```
+
+`npm run 9router:local` keeps `localhost:20129` stable for local WSL Docker development. The 9Router container itself is still Docker-only and runs in the background.
 
 Add Command Code provider/API key:
 
