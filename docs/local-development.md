@@ -2,15 +2,18 @@
 
 UMKM Cepat uses a hybrid local development setup:
 
-- Next.js app runs locally with `npm run dev` for reliable hot reload.
-- Postgres runs in Docker via WSL so Windows does not need a manual PostgreSQL install.
+- Next.js runs locally with `npm run dev` for reliable hot reload.
+- Postgres runs in Docker.
+- 9Router runs in Docker for AI gateway work.
 - Production still uses full Docker.
 
 ## Requirements
 
 - Node.js 22 (`.nvmrc` is provided)
 - npm 10+
-- WSL Docker for infrastructure containers
+- Docker with Compose
+
+Docker can be Docker Desktop, WSL Docker, native Linux Docker, Colima, or another compatible local runtime.
 
 ## Install
 
@@ -19,12 +22,11 @@ npm install
 cp .env.example .env
 ```
 
-## Start Postgres in Docker
+Fill `.env` with local placeholders and private credentials.
 
-From WSL or any shell that can access WSL Docker:
+## Start Postgres
 
 ```bash
-cd /mnt/d/Code/Side/umkmcepat
 docker compose up -d postgres
 ```
 
@@ -40,24 +42,48 @@ Apply Prisma migrations:
 npm run db:migrate
 ```
 
-If a local Docker volume already had tables before migrations existed, baseline once:
+If a reused local Docker volume already had tables before migrations existed, baseline once:
 
 ```bash
 npx prisma migrate resolve --applied 20260620131000_init
 npm run db:migrate
 ```
 
-## Start Next.js locally
+## Start 9Router
+
+```bash
+docker compose --profile ai up -d 9router
+```
+
+For local Docker runtimes where published container ports do not reliably appear at `localhost`, keep the localhost helper running in another terminal:
+
+```bash
+npm run 9router:local
+```
+
+Open the 9Router dashboard:
+
+```text
+http://localhost:20129/dashboard
+```
+
+See `docs/9router.md` for provider/API key setup.
+
+## Start Next.js
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open:
 
-`npm run dev` is intentionally local, not Dockerized, because hot reload from a Windows drive through WSL bind mounts is slower and less reliable.
+```text
+http://localhost:3000
+```
 
-If `.next` gets stale or the app shows 500 errors for missing manifest files:
+`npm run dev` intentionally runs outside Docker because local bind-mounted Next.js hot reload can be slower or stale on some host filesystems.
+
+If `.next` gets stale or the app shows missing manifest/chunk errors:
 
 ```bash
 npm run dev:clean
@@ -73,10 +99,11 @@ docker compose --profile redis up -d redis
 
 ## Logs
 
-Local automation should write to a single ignored file when needed:
+Local automation should write to ignored logs when needed:
 
 ```bash
 npm run dev > .dev.log 2>&1
+npm run 9router:local > .9router-local.log 2>&1
 ```
 
 `.gitignore` ignores local logs and browser/factory artifacts.

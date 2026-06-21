@@ -2,32 +2,66 @@
 
 Simple local workflow for UMKM Cepat.
 
+## Requirements
+
+- Node.js 22 (`.nvmrc` is provided)
+- npm 10+
+- Docker with Compose for infrastructure containers
+
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env.local
+cp .env.example .env
 npm run prepare
 ```
 
-Fill `.env.local` with local values. Do not commit it.
+Fill `.env` with local values and never commit real secrets.
 
-## Run locally
+## Start infrastructure
+
+```bash
+docker compose up -d postgres
+docker compose --profile ai up -d 9router
+npm run 9router:local
+npm run db:migrate
+```
+
+`npm run 9router:local` is only for local environments where Docker port publishing does not reliably serve `http://localhost:20129`.
+
+## Run the app
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open:
+
+```text
+http://localhost:3000
+```
+
+9Router dashboard:
+
+```text
+http://localhost:20129/dashboard
+```
 
 ## Useful scripts
 
 ```bash
-npm run lint       # ESLint
-npm run typecheck  # TypeScript
-npm run test       # Vitest
-npm run build      # Production build
-npm run verify     # All checks
+npm run dev            # local Next.js dev server on port 3000
+npm run dev:clean      # remove Next cache, then start dev server
+npm run 9router:local  # local localhost proxy for 9Router when needed
+npm run db:up          # start Postgres container
+npm run db:migrate     # apply Prisma migrations
+npm run db:studio      # open Prisma Studio
+npm run lint           # ESLint
+npm run typecheck      # TypeScript
+npm run test           # Vitest
+npm run build          # production build
+npm run verify         # tests + production build
+npm run docker:prod    # production-style Docker Compose
 ```
 
 ## Git hooks
@@ -68,7 +102,7 @@ Open a PR into `dev`.
 src/app          Next.js routes and API routes
 src/components   Shared UI and feature components
 src/lib          Shared utilities, services, schemas
-prisma           Database schema
+prisma           Database schema and migrations
 docs             Project documentation
 .agents          Agent skills/instructions
 ```
@@ -85,7 +119,7 @@ docs             Project documentation
 Before pushing public work:
 
 ```bash
-git status --short
+git status --short --untracked-files=all
 git grep -n -I -E "sk-|BEGIN .*PRIVATE|DATABASE_URL=|AUTH_SECRET=|API_KEY=|TOKEN=" -- . ':(exclude)package-lock.json'
 ```
 

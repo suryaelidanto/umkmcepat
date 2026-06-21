@@ -12,17 +12,23 @@ Frontend must never call 9Router directly.
 
 ## Ports
 
-9Router listens inside Docker on `20128`, but this project exposes it on host port `20129` to avoid conflicts with a personal local 9Router.
+9Router listens inside the container on `20128`.
+
+Local development uses:
 
 ```text
-Local dashboard: http://localhost:20129/dashboard
-Local API:       http://localhost:20129/v1
-Docker API:      http://9router:20128/v1
+Browser/dashboard: http://localhost:20129/dashboard
+App API base:      http://localhost:20129/v1
+Docker API base:   http://9router:20128/v1
 ```
+
+The local Compose file publishes the container on host port `20130`, and `npm run 9router:local` exposes the stable developer URL `http://localhost:20129`.
+
+Production Compose publishes `20129:20128` directly unless a reverse proxy replaces it.
 
 ## Local development
 
-Start project infra:
+Start project infrastructure:
 
 ```bash
 docker compose up -d postgres
@@ -30,15 +36,23 @@ docker compose --profile ai up -d 9router
 npm run 9router:local
 ```
 
-Open dashboard:
+Open the dashboard:
 
 ```text
 http://localhost:20129/dashboard
 ```
 
-`npm run 9router:local` keeps `localhost:20129` stable for local WSL Docker development. The 9Router container itself is still Docker-only and runs in the background.
+Default dashboard password:
 
-Add Command Code provider/API key:
+```text
+123456
+```
+
+Change the dashboard password when 9Router asks you to.
+
+## Command Code provider
+
+Add your Command Code provider/API key in 9Router:
 
 ```text
 Providers → Command Code → Get API Key → paste key → save/test
@@ -62,7 +76,9 @@ The Command Code key usually starts with:
 user_
 ```
 
-Then create/copy a 9Router API key from the 9Router dashboard and put it in `.env`:
+## App API key
+
+Create or copy a 9Router API key from the dashboard and put it in `.env`:
 
 ```env
 AI_PROVIDER="9router"
@@ -88,13 +104,13 @@ cmc/deepseek/deepseek-v4-pro
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Inside production compose, the app calls:
+Inside production Compose, the app calls 9Router on the Docker network:
 
 ```env
 NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 ```
 
-Public dashboard/API port remains:
+Public dashboard/API port:
 
 ```text
 20129
@@ -106,5 +122,6 @@ Public dashboard/API port remains:
 
 - Do not expose Command Code keys to the browser.
 - Do not put provider keys in frontend env vars.
-- Keep `NINE_ROUTER_API_KEY` in `.env` only.
+- Keep `NINE_ROUTER_API_KEY` in `.env` or deployment secrets only.
 - 9Router stores provider configuration in its Docker volume.
+- Put the production dashboard behind a firewall, VPN, or reverse proxy auth when exposed publicly.

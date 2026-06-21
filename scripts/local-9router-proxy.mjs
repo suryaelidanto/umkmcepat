@@ -2,28 +2,33 @@ import { spawnSync } from "node:child_process";
 import http from "node:http";
 import net from "node:net";
 
-const listenPort = 20129;
-const targetPort = 20130;
+const listenPort = Number(process.env.NINE_ROUTER_LOCAL_PROXY_PORT || 20129);
+const targetPort = Number(process.env.NINE_ROUTER_LOCAL_TARGET_PORT || 20130);
 
-function targetHost() {
+function detectWslIp() {
+  if (process.platform !== "win32") {
+    return null;
+  }
+
   const result = spawnSync("wsl.exe", ["-e", "sh", "-lc", "hostname -I | awk '{print $1}'"], {
     encoding: "utf8",
     windowsHide: true,
   });
-  const ip = result.stdout.trim();
-  if (!ip) {
-    throw new Error("WSL IP unavailable");
-  }
-  return ip;
+
+  return result.stdout.trim() || null;
 }
 
-const server = http.createServer((req, res) => {
-  let host;
-  try {
-    host = targetHost();
-  } catch {
+function targetHosts() {
+  const configured = process.env.NINE_ROUTER_LOCAL_TARGET_HOST;
+  const hosts = [configured, "127.0.0.1", detectWslIp()].filter(Boolean);
+  return [...new Set(hosts)];
+}
+
+function proxyHttp(req, res, hosts, index = 0) {
+  const host = hosts[index];
+  if (!host) {
     res.writeHead(502, { "content-type": "text/plain; charset=utf-8" });
-    res.end("WSL is not reachable.\n");
+    res.end("9Router is not reachable. Start it with: docker compose --profile ai up -d 9router\n");
     return;
   }
 
@@ -35,19 +40,13 @@ const server = http.createServer((req, res) => {
     }
   );
 
-  upstream.on("error", () => {
-    res.writeHead(502, { "content-type": "text/plain; charset=utf-8" });
-    res.end("9Router is not reachable. Start it with: docker compose --profile ai up -d 9router\n");
-  });
-
+  upstream.on("error", () => proxyHttp(req, res, hosts, index + 1));
   req.pipe(upstream);
-});
+}
 
-server.on("upgrade", (req, socket, head) => {
-  let host;
-  try {
-    host = targetHost();
-  } catch {
+function proxyUpgrade(req, socket, head, hosts, index = 0) {
+  const host = hosts[index];
+  if (!host) {
     socket.destroy();
     return;
   }
@@ -63,7 +62,15 @@ server.on("upgrade", (req, socket, head) => {
     socket.pipe(upstream);
   });
 
-  upstream.on("error", () => socket.destroy());
+  upstream.on("error", () => proxyUpgrade(req, socket, head, hosts, index + 1));
+}
+
+const server = http.createServer((req, res) => {
+  proxyHttp(req, res, targetHosts());
+});
+
+server.on("upgrade", (req, socket, head) => {
+  proxyUpgrade(req, socket, head, targetHosts());
 });
 
 server.listen(listenPort, () => {

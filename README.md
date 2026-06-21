@@ -21,9 +21,9 @@ Early-stage Next.js SaaS codebase prepared for open-source collaboration. Some l
 
 ## Requirements
 
-- Node.js 20+
-- npm
-- Database compatible with the Prisma schema for full local app usage
+- Node.js 22 (`.nvmrc` is provided)
+- npm 10+
+- Docker with Compose for local infrastructure containers
 
 ## Setup
 
@@ -57,15 +57,17 @@ Useful env vars:
 
 ## Development
 
-Run Postgres in Docker, then run the Next.js dev server locally for reliable hot reload:
+Run infrastructure in Docker, then run the Next.js dev server locally for reliable hot reload:
 
 ```bash
 docker compose up -d postgres
+docker compose --profile ai up -d 9router
+npm run 9router:local
 npm run db:migrate
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000`; open 9Router at `http://localhost:20129/dashboard`.
 
 Developer docs:
 
@@ -77,6 +79,7 @@ Developer docs:
 - `docs/providers.md` — supported provider names and env examples
 - `docs/local-development.md` — Docker Compose local infrastructure setup
 - `docs/docker-deployment.md` — Dockerfile and VPS-style Docker deployment notes
+- `docs/9router.md` — 9Router AI gateway setup
 
 ## Quality checks
 
