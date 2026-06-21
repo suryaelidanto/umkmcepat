@@ -1,4 +1,4 @@
-import { ArrowUp, Mic, Plus } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -32,27 +32,15 @@ export default function HomePage() {
               placeholder="Tulis usahamu di sini... contoh: Saya jual sambal rumahan, butuh landing page hangat dengan tombol WhatsApp."
               className="h-36 w-full resize-none bg-transparent px-spacing-9 py-spacing-9 text-base leading-7 text-surface-warm-white outline-none placeholder:text-surface-warm-white/42 sm:text-lg"
             />
-            <div className="flex items-center justify-between px-spacing-7 pb-spacing-7">
-              <button
-                type="button"
-                className="flex size-9 items-center justify-center rounded-full border border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/60 transition hover:bg-surface-warm-white/10 hover:text-surface-warm-white"
-                aria-label="Tambah konteks"
+            <div className="flex items-center justify-end px-spacing-7 pb-spacing-7">
+              <Button
+                type="submit"
+                size="icon"
+                className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
+                aria-label="Buat halaman"
               >
-                <Plus className="size-4" />
-              </button>
-
-              <div className="flex items-center gap-spacing-5 text-sm font-[480] text-surface-warm-white/58">
-                <span className="hidden sm:inline">Buat halaman</span>
-                <Mic className="size-4" aria-hidden="true" />
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
-                  aria-label="Buat halaman"
-                >
-                  <ArrowUp className="size-4" />
-                </Button>
-              </div>
+                <ArrowUp className="size-4" />
+              </Button>
             </div>
           </form>
 

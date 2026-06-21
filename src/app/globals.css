@@ -226,6 +226,25 @@
     line-height: 24px;
   }
 
+  button,
+  [role="button"],
+  a,
+  summary,
+  select,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"],
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+
   ::selection {
     background: #1c1c1c;
     color: #fcfbf8;
