@@ -2,7 +2,7 @@
 
 UMKM Cepat is an open-source AI builder for Indonesian small businesses.
 
-It helps sellers turn plain Indonesian prompts into useful digital experiences for their business — simple to start, easy to iterate, and owned by the people who build with it.
+It helps sellers turn plain Indonesian prompts into useful digital experiences for their business. Simple to start, easy to iterate, and owned by the people who build with it.
 
 ## Why this exists
 
