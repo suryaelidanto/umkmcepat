@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAvailableAiModels, getDefaultAiModel } from "@/lib/ai-models";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { validateProjectRequest } from "@/lib/projects/input";
 import { getProjectTitle } from "@/lib/projects/workspace";
 
 type NewProjectPageProps = {
@@ -19,7 +20,15 @@ export default async function NewProjectPage({
   }
 
   const resolvedSearchParams = await searchParams;
-  const prompt = resolvedSearchParams?.prompt?.trim() || "";
+  const promptValidation = validateProjectRequest(
+    resolvedSearchParams?.prompt || "",
+  );
+
+  if (!promptValidation.ok) {
+    redirect("/");
+  }
+
+  const prompt = promptValidation.value;
   const availableModels = getAvailableAiModels();
   const model = getDefaultAiModel(availableModels);
 

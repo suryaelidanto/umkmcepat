@@ -13,10 +13,27 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+const siteUrl = "https://umkmcepat.com";
+const siteDescription =
+  "AI Website Builder untuk UMKM. Buat website dan alat digital dari kebutuhan usahamu, cepat, rapi, dan siap dipakai.";
+
 export const metadata: Metadata = {
   title: "UMKM Cepat - AI Website Builder untuk UMKM",
-  description:
-    "Buat website promosi untuk UMKM dari kebutuhan usahamu dalam bahasa Indonesia.",
+  description: siteDescription,
+  openGraph: {
+    title: "UMKM Cepat - AI Website Builder untuk UMKM",
+    description: siteDescription,
+    url: siteUrl,
+    siteName: "UMKM Cepat",
+    images: [
+      {
+        url: `${siteUrl}/logo.svg`,
+        alt: "Logo UMKM Cepat",
+      },
+    ],
+    locale: "id_ID",
+    type: "website",
+  },
   icons: {
     icon: [
       { url: "/logo.svg", type: "image/svg+xml" },
@@ -25,6 +42,14 @@ export const metadata: Metadata = {
     shortcut: "/logo.svg",
     apple: "/logo.svg",
   },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "UMKM Cepat",
+  url: siteUrl,
+  description: siteDescription,
 };
 
 export default function RootLayout({
@@ -41,6 +66,10 @@ export default function RootLayout({
           plusJakartaSans.variable,
         )}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <AppProviders>{children}</AppProviders>
         <Toaster richColors position="bottom-right" />
       </body>

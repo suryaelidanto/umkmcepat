@@ -3,7 +3,7 @@
 import { ArrowUp, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState, useTransition } from "react";
 
 import {
   ModeSelect,
@@ -22,6 +22,10 @@ import {
   parseProjectDraft,
   PROJECT_DRAFT_STORAGE_KEY,
 } from "@/lib/projects/draft";
+import {
+  PROJECT_REQUEST_MAX_LENGTH,
+  validateProjectRequest,
+} from "@/lib/projects/input";
 import { getNewProjectPath } from "@/lib/projects/workspace";
 
 export function HomePromptForm() {
@@ -31,6 +35,8 @@ export function HomePromptForm() {
   const [mode, setMode] = useState<WorkspaceMode>("discuss");
   const [loginOpen, setLoginOpen] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
   const hasAutoContinued = useRef(false);
 
   useEffect(() => {
@@ -91,10 +97,37 @@ export function HomePromptForm() {
     );
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function moderateRequest(value: string) {
+    const response = await fetch("/api/projects/moderate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: value }),
+    });
+    const result = (await response.json()) as {
+      allowed?: boolean;
+      message?: string;
+    };
 
-    const path = getNewProjectPath(prompt, mode);
+    if (!response.ok || !result.allowed) {
+      setErrorMessage(
+        result.message || "AI belum bisa memeriksa chat ini. Coba lagi nanti.",
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage("");
+
+    const validation = validateProjectRequest(prompt);
+
+    if (!validation.ok) {
+      setErrorMessage(validation.message);
+      return;
+    }
 
     if (status !== "authenticated") {
       saveDraft(true);
@@ -102,44 +135,62 @@ export function HomePromptForm() {
       return;
     }
 
+    setIsContinuing(true);
+
+    if (!(await moderateRequest(validation.value))) {
+      setIsContinuing(false);
+      return;
+    }
+
+    const path = getNewProjectPath(validation.value, mode);
     window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
-    router.push(path);
+    startTransition(() => {
+      router.push(path);
+    });
   }
+
+  const isLoading = isContinuing || isPending;
 
   return (
     <>
       <form
         onSubmit={handleSubmit}
-        className="mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)]"
+        className="mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)] transition-all duration-300"
       >
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website
         </label>
-        <textarea
-          id="hero-prompt"
-          name="business-story"
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
-          disabled={isContinuing}
-          className="h-36 w-full resize-none bg-transparent px-spacing-9 py-spacing-9 text-base leading-7 text-surface-warm-white outline-none placeholder:text-surface-warm-white/42 disabled:opacity-70 sm:text-lg"
-        />
+        <div className="relative">
+          <textarea
+            id="hero-prompt"
+            name="business-story"
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
+            maxLength={PROJECT_REQUEST_MAX_LENGTH}
+            disabled={isLoading}
+            className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-13 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/42 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
+          />
+          <span className="pointer-events-none absolute bottom-spacing-4 right-spacing-7 rounded-full bg-[#232321]/85 px-spacing-4 py-spacing-2 text-sm tabular-nums text-surface-warm-white/52 backdrop-blur-sm">
+            {prompt.length.toLocaleString("id-ID")}/1.200
+          </span>
+        </div>
         <div className="flex items-center justify-between gap-spacing-5 px-spacing-7 pb-spacing-7">
-          <ModeSelect value={mode} onChange={setMode} />
+          <ModeSelect value={mode} onChange={setMode} disabled={isLoading} />
           <div className="flex items-center gap-spacing-4">
-            {isContinuing ? (
+            {isLoading ? (
               <span className="hidden text-sm text-surface-warm-white/58 sm:inline">
-                Melanjutkan...
+                Menyiapkan...
               </span>
             ) : null}
             <Button
               type="submit"
               size="icon"
-              disabled={isContinuing}
-              className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
+              disabled={isLoading || !prompt.trim()}
+              className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
               aria-label="Buat halaman"
             >
-              {isContinuing ? (
+              {isLoading ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <ArrowUp className="size-4" />
@@ -147,9 +198,13 @@ export function HomePromptForm() {
             </Button>
           </div>
         </div>
-        {isContinuing ? (
-          <p className="px-spacing-7 pb-spacing-7 text-sm text-surface-warm-white/58">
-            Chat kamu sudah tersimpan. AI sedang menyiapkan website kamu.
+        {isContinuing || errorMessage ? (
+          <p
+            className={`px-spacing-7 pb-spacing-7 text-sm ${errorMessage ? "text-red-200" : "text-surface-warm-white/56"}`}
+          >
+            {isContinuing
+              ? "Chat kamu sudah tersimpan. AI sedang menyiapkan website kamu."
+              : errorMessage}
           </p>
         ) : null}
       </form>

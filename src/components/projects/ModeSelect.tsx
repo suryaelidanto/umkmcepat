@@ -16,13 +16,13 @@ const options: ModeOption[] = [
   {
     value: "discuss",
     label: "Diskusi",
-    description: "AI bantu rapikan idemu dulu",
+    description: "Tanya AI dulu agar kebutuhanmu jelas",
     Icon: MessagesSquare,
   },
   {
     value: "build",
     label: "Buat",
-    description: "AI langsung buatkan website",
+    description: "AI mulai buat website dari kebutuhanmu",
     Icon: Hammer,
   },
 ];
@@ -30,9 +30,11 @@ const options: ModeOption[] = [
 export function ModeSelect({
   value,
   onChange,
+  disabled,
 }: {
   value: WorkspaceMode;
   onChange: (mode: WorkspaceMode) => void;
+  disabled?: boolean;
 }) {
   const listboxId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -65,6 +67,7 @@ export function ModeSelect({
       <button
         ref={buttonRef}
         type="button"
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
@@ -76,18 +79,13 @@ export function ModeSelect({
             setOpen(false);
           }
         }}
-        className="grid min-h-10 w-40 grid-cols-[22px_1fr_16px] items-center gap-spacing-4 rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white/8 px-spacing-4 py-spacing-3 text-sm text-surface-warm-white outline-none transition hover:bg-surface-warm-white/12 focus-visible:ring-2 focus-visible:ring-surface-warm-white/70 active:translate-y-px sm:min-h-12 sm:w-56 sm:grid-cols-[24px_1fr_18px]"
+        className="grid min-h-10 w-fit grid-cols-[22px_auto_16px] items-center gap-spacing-4 rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white/8 px-spacing-4 py-spacing-3 text-sm text-surface-warm-white outline-none transition hover:bg-surface-warm-white/12 focus-visible:ring-2 focus-visible:ring-surface-warm-white/70 active:translate-y-px disabled:pointer-events-none disabled:opacity-60 sm:min-h-11 sm:grid-cols-[24px_auto_18px]"
       >
         <span className="flex size-6 items-center justify-center rounded-radius-md bg-surface-warm-white/12 text-surface-warm-white sm:size-7">
           <SelectedIcon className="size-4" aria-hidden="true" />
         </span>
-        <span className="min-w-0 text-left">
-          <span className="block font-semibold leading-5">
-            {selected.label}
-          </span>
-          <span className="hidden truncate text-xs leading-4 text-surface-warm-white/54 sm:block">
-            {selected.description}
-          </span>
+        <span className="whitespace-nowrap text-left font-semibold leading-5">
+          {selected.label}
         </span>
         <span
           aria-hidden="true"
