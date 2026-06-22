@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
-import { Button } from "@/components/ui/button";
 import { getAvailableAiModels } from "@/lib/ai-models";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -9,14 +8,14 @@ import { prisma } from "@/lib/prisma";
 export default async function HomePage() {
   const session = await auth();
   const projects = session?.user?.id
-    ? await prisma.landingPage.findMany({
+    ? await prisma.project.findMany({
         where: { userId: session.user.id },
         orderBy: { updatedAt: "desc" },
         take: 6,
         select: {
           id: true,
-          businessName: true,
-          category: true,
+          title: true,
+          model: true,
           updatedAt: true,
         },
       })
@@ -54,23 +53,14 @@ export default async function HomePage() {
       {session?.user ? (
         <section className="bg-[#151515] px-4 pb-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
           <div className="mx-auto max-w-5xl rounded-[28px] border border-surface-warm-white/10 bg-[#1f1f1d] p-spacing-7 text-left shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:p-spacing-9">
-            <div className="flex flex-col gap-spacing-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-2xl font-semibold tracking-[-0.04em]">
-                  Proyek kamu
-                </h2>
-                <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/62">
-                  Semua pekerjaan dimulai dari prompt. Detail dan preview ada di
-                  workspace proyek.
-                </p>
-              </div>
-              <Button
-                asChild
-                variant="outline"
-                className="border-surface-warm-white/14 bg-surface-warm-white/6 text-surface-warm-white hover:bg-surface-warm-white/12 hover:text-surface-warm-white"
-              >
-                <Link href="/projects/demo">Buka demo</Link>
-              </Button>
+            <div>
+              <h2 className="text-2xl font-semibold tracking-[-0.04em]">
+                Proyek kamu
+              </h2>
+              <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/62">
+                Semua pekerjaan dimulai dari prompt. Detail dan preview ada di
+                workspace proyek.
+              </p>
             </div>
 
             {projects.length ? (
@@ -82,10 +72,10 @@ export default async function HomePage() {
                     className="rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/6 p-spacing-7 outline-none transition hover:bg-surface-warm-white/10 focus-visible:ring-2 focus-visible:ring-surface-warm-white"
                   >
                     <p className="text-sm text-surface-warm-white/50">
-                      {project.category}
+                      {project.model.split("/").at(-1)}
                     </p>
                     <h3 className="mt-spacing-3 text-lg font-semibold tracking-[-0.03em]">
-                      {project.businessName}
+                      {project.title}
                     </h3>
                     <p className="mt-spacing-5 text-sm text-surface-warm-white/48">
                       Diubah {project.updatedAt.toLocaleDateString("id-ID")}

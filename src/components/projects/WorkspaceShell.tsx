@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 type WorkspaceShellProps = {
   initialModel?: string;
   initialPrompt?: string;
+  projectTitle?: string;
 };
 
 const progress = [
@@ -20,12 +21,13 @@ const progress = [
 export function WorkspaceShell({
   initialModel = "DeepSeek Pro",
   initialPrompt = "",
+  projectTitle = "Proyek baru",
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "ask">("build");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const prompt =
     initialPrompt.trim() ||
-    "Saya jual sambal rumahan, ingin landing page hangat dengan tombol WhatsApp.";
+    "Saya jual sambal rumahan, ingin website hangat dengan tombol WhatsApp.";
 
   const previewTitle = useMemo(() => {
     if (/sambal|makanan|kuliner/i.test(prompt)) {
@@ -46,10 +48,10 @@ export function WorkspaceShell({
           <div className="flex items-center justify-between gap-spacing-7">
             <div>
               <p className="text-sm text-surface-warm-white/54">
-                Proyek demo · {initialModel.split("/").at(-1)}
+                {projectTitle} · {initialModel.split("/").at(-1)}
               </p>
               <h1 className="mt-1 text-xl font-semibold tracking-[-0.04em]">
-                Buat landing page
+                Buat website
               </h1>
             </div>
             <div className="flex rounded-full border border-surface-warm-white/10 bg-surface-warm-white/6 p-1 text-sm">
@@ -76,7 +78,7 @@ export function WorkspaceShell({
             </div>
             <div className="rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-7 py-spacing-6 text-sm leading-6 text-surface-warm-white/76">
               {mode === "build"
-                ? "Siap. Saya akan buat struktur landing page yang fokus ke pembeli, CTA jelas, dan nyaman dibuka dari HP."
+                ? "Siap. Saya akan buat struktur website yang fokus ke pembeli, CTA jelas, dan nyaman dibuka dari HP."
                 : "Silakan tanya tentang copy, desain, atau strategi halaman ini. Mode Tanya tidak mengubah preview."}
             </div>
 
@@ -158,9 +160,7 @@ export function WorkspaceShell({
             >
               <div className="grid gap-spacing-10 p-spacing-10 md:grid-cols-[1.1fr_0.9fr] md:p-spacing-12">
                 <div>
-                  <p className="text-sm text-text-secondary">
-                    Preview landing page
-                  </p>
+                  <p className="text-sm text-text-secondary">Preview website</p>
                   <h2 className="mt-spacing-7 text-[clamp(2.4rem,5vw,4.6rem)] font-semibold leading-[0.95] tracking-[-0.06em]">
                     {previewTitle}
                   </h2>

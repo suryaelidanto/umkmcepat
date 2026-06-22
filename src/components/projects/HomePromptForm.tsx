@@ -6,7 +6,7 @@ import { signIn, useSession } from "next-auth/react";
 import { FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { getWorkspacePath } from "@/lib/projects/workspace";
+import { getNewProjectPath } from "@/lib/projects/workspace";
 
 type HomePromptFormProps = {
   models: string[];
@@ -25,7 +25,7 @@ export function HomePromptForm({ models }: HomePromptFormProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const path = getWorkspacePath(prompt, model);
+    const path = getNewProjectPath(prompt, model);
 
     if (status !== "authenticated") {
       if (prompt.trim()) {
@@ -44,14 +44,14 @@ export function HomePromptForm({ models }: HomePromptFormProps) {
       className="mt-spacing-12 w-full max-w-3xl overflow-hidden rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)]"
     >
       <label htmlFor="hero-prompt" className="sr-only">
-        Ceritakan usaha yang ingin dibuatkan landing page
+        Ceritakan usaha yang ingin dibuatkan website
       </label>
       <textarea
         id="hero-prompt"
         name="prompt"
         value={prompt}
         onChange={(event) => setPrompt(event.target.value)}
-        placeholder="Tulis usahamu di sini... contoh: Saya jual sambal rumahan, butuh landing page hangat dengan tombol WhatsApp."
+        placeholder="Tulis usahamu di sini... contoh: Saya jual sambal rumahan, butuh website hangat dengan tombol WhatsApp."
         className="h-36 w-full resize-none bg-transparent px-spacing-9 py-spacing-9 text-base leading-7 text-surface-warm-white outline-none placeholder:text-surface-warm-white/42 sm:text-lg"
       />
       <div className="flex items-center justify-between gap-spacing-5 px-spacing-7 pb-spacing-7">

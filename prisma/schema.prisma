@@ -78,9 +78,25 @@ model User {
   accounts      Account[]
   sessions      Session[]
   landingPages  LandingPage[]
+  projects      Project[]
 
   @@index([email])
   @@index([name])
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  title     String   @db.VarChar(120)
+  prompt    String   @db.Text
+  model     String   @db.VarChar(160)
+  status    String   @default("draft") @db.VarChar(32)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([updatedAt])
 }
 
 model VerificationToken {

@@ -20,7 +20,7 @@ export function Footer() {
               <span>UMKM Cepat</span>
             </Link>
             <p className="mt-2 max-w-md text-sm leading-6 text-surface-warm-white/62">
-              Buat landing page promosi untuk usaha kecil dengan bantuan AI.
+              Buat website promosi untuk usaha kecil dengan bantuan AI.
             </p>
           </div>
 

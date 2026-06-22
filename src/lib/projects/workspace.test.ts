@@ -1,23 +1,35 @@
 import { describe, expect, it } from "vitest";
 
-import { getWorkspacePath } from "./workspace";
+import { getNewProjectPath, getProjectTitle } from "./workspace";
 
-describe("getWorkspacePath", () => {
-  it("keeps first prompt on the workspace URL", () => {
-    expect(getWorkspacePath("Saya jual sambal rumahan")).toBe(
-      "/projects/demo?prompt=Saya+jual+sambal+rumahan",
+describe("getNewProjectPath", () => {
+  it("keeps first prompt on the new project URL", () => {
+    expect(getNewProjectPath("Saya jual sambal rumahan")).toBe(
+      "/projects/new?prompt=Saya+jual+sambal+rumahan",
     );
   });
 
-  it("falls back to the demo workspace without an empty query", () => {
-    expect(getWorkspacePath("   ")).toBe("/projects/demo");
+  it("falls back to the new project URL without an empty query", () => {
+    expect(getNewProjectPath("   ")).toBe("/projects/new");
   });
 
-  it("keeps selected model on the workspace URL", () => {
+  it("keeps selected model on the new project URL", () => {
     expect(
-      getWorkspacePath("Usaha laundry", "cmc/deepseek/deepseek-v4-flash"),
+      getNewProjectPath("Usaha laundry", "cmc/deepseek/deepseek-v4-flash"),
     ).toBe(
-      "/projects/demo?prompt=Usaha+laundry&model=cmc%2Fdeepseek%2Fdeepseek-v4-flash",
+      "/projects/new?prompt=Usaha+laundry&model=cmc%2Fdeepseek%2Fdeepseek-v4-flash",
     );
+  });
+});
+
+describe("getProjectTitle", () => {
+  it("uses a concise prompt-derived title", () => {
+    expect(getProjectTitle("  Toko kopi susu rumahan  ")).toBe(
+      "Toko kopi susu rumahan",
+    );
+  });
+
+  it("falls back when prompt is empty", () => {
+    expect(getProjectTitle("   ")).toBe("Proyek baru");
   });
 });
