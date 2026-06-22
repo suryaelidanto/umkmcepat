@@ -28,7 +28,7 @@ Rules for AI agents and automated contributors.
 
 ## Language
 
-- Developer-facing docs, comments, logs, errors, PRs, and commits use English.
+- Developer-facing docs, code names, comments, logs, errors, PRs, and commits use English.
 - End-user product UI copy uses Indonesian unless an i18n layer is introduced.
 - New repeated user-facing strings should be easy to move into i18n later.
 
@@ -36,10 +36,13 @@ Rules for AI agents and automated contributors.
 
 - Keep changes small, focused, and easy to review.
 - Prefer deleting/reusing code over adding abstractions.
+- Extract reusable code only after a second real use case appears.
 - Prefer standard platform tools over custom scripts.
+- Do not add code comments unless they explain non-obvious constraints, security decisions, or platform quirks.
 - Do not add dependencies unless existing code or platform features are insufficient.
 - Keep provider-specific SDKs behind internal adapters in `src/lib`.
 - Use TDD for behavior changes: one failing behavior test, minimal implementation, repeat.
+- Do not require one test file per source file. Test behavior boundaries and non-trivial logic.
 
 ## UI bar
 

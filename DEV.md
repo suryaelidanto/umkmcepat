@@ -6,10 +6,12 @@ This file is the maintainer and agent workflow for UMKM Cepat. For contributor o
 
 - Keep changes small and reviewable.
 - Prefer deletion and reuse over new abstractions.
+- Extract reusable code only after a second real use case appears.
 - Use boring platform features before adding dependencies.
 - Keep provider-specific code behind internal adapters.
-- Keep developer-facing text in English.
+- Keep developer-facing text, code names, comments, logs, errors, docs, and commits in English.
 - Keep end-user UI copy in Indonesian unless an i18n layer is introduced.
+- Do not add code comments unless they explain non-obvious constraints, security decisions, or platform quirks. Prefer self-explanatory names.
 - Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, or generated junk.
 
 ## Package manager
@@ -100,7 +102,7 @@ For behavior changes:
 5. Repeat.
 6. Run `bun run check`.
 
-Tests should verify public behavior, not private implementation details.
+Tests should verify public behavior, not private implementation details. Do not create one test file per source file by default; test behavior boundaries and non-trivial logic.
 
 ## UI workflow
 

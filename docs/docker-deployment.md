@@ -87,11 +87,7 @@ GOOGLE_CLIENT_SECRET="replace"
 AI_PROVIDER="9router"
 NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 NINE_ROUTER_API_KEY="replace-with-9router-api-key"
-STORAGE_PROVIDER="local"
-UPLOAD_DIR="public/uploads"
-PUBLIC_UPLOAD_BASE_URL="/uploads"
 RATE_LIMIT_PROVIDER="memory"
-QUEUE_PROVIDER="none"
 POSTGRES_USER="postgres"
 POSTGRES_PASSWORD="replace-with-strong-db-password"
 POSTGRES_DB="umkmcepat"
@@ -110,6 +106,4 @@ http://headroom:8787
 - `Dockerfile` uses `bun install --frozen-lockfile --ignore-scripts` so install-time scripts do not require a live DB during image build.
 - Prisma client is generated during image build.
 - Migrations run at container startup.
-- Local uploads are persisted in the `uploads` Docker volume.
-- For serious production, prefer S3/R2 object storage over local uploads.
 - If local dev returns 500 errors with missing `.next` manifest files, stop the dev server, remove `.next`, then run `bun run dev` again.

@@ -7,20 +7,6 @@ import {
   type ProviderValue,
 } from "@/lib/provider-registry";
 
-type RequiredEnvOptions = {
-  feature: string;
-};
-
-export function requireEnv(name: string, options: RequiredEnvOptions): string {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`${options.feature} is not configured. Missing ${name}.`);
-  }
-
-  return value;
-}
-
 export function getEnv(name: string, fallback = ""): string {
   return process.env[name] || fallback;
 }

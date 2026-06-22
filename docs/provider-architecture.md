@@ -1,8 +1,6 @@
 # Provider Architecture
 
-UMKM Cepat uses one default provider per capability, but each provider must be replaceable through configuration and a small internal adapter boundary.
-
-The goal is simple development now, without locking the project into one vendor later.
+UMKM Cepat keeps vendor-specific code behind small internal boundaries. Add a provider only when the product needs it.
 
 ## Principles
 
@@ -12,29 +10,24 @@ The goal is simple development now, without locking the project into one vendor 
 - Provider choice should come from environment variables or config.
 - Missing optional provider config should fail clearly, not silently.
 - Runtime mocks are not used for real product behavior. Tests may use mocks.
-- Prefer boring, popular, standard infrastructure.
-- Prefer standard protocols when possible: PostgreSQL, S3-compatible storage, Redis.
+- Prefer boring infrastructure and standard protocols.
 
 ## Current default choices
 
-| Capability     | Current default                | Future-compatible path                               |
-| -------------- | ------------------------------ | ---------------------------------------------------- |
-| Database       | PostgreSQL via Prisma          | Any PostgreSQL host via `DATABASE_URL`               |
-| AI             | 9Router Docker gateway         | Other OpenAI-compatible APIs behind adapter          |
-| Object storage | Local uploads                  | R2, S3, or MinIO through the S3-compatible adapter   |
-| Auth           | Auth.js / NextAuth with Google | GitHub, Microsoft, email, or other Auth.js providers |
-| Rate limit     | Memory                         | Redis-backed limiter later                           |
-| Queue          | None for now                   | BullMQ + Redis when real background jobs exist       |
-| Payment        | None for now                   | Midtrans, Xendit, Stripe later                       |
-| Monitoring     | Optional Sentry                | Any observability provider later                     |
+| Capability | Current default                | Future-compatible path                               |
+| ---------- | ------------------------------ | ---------------------------------------------------- |
+| Database   | PostgreSQL via Prisma          | Any PostgreSQL host via `DATABASE_URL`               |
+| AI         | 9Router Docker gateway         | Other OpenAI-compatible APIs behind adapter          |
+| Auth       | Auth.js / NextAuth with Google | GitHub, Microsoft, email, or other Auth.js providers |
+| Rate limit | Memory                         | Redis-backed limiter later                           |
+| Monitoring | Optional Sentry                | Any observability provider later                     |
 
 ## Adapter rule
 
 Allowed in routes/components/business logic:
 
 ```ts
-import { generateLandingPageContent } from "@/lib/ai";
-import { storage } from "@/lib/storage";
+import { checkRateLimit } from "@/lib/rate-limit";
 ```
 
 Avoid outside adapter files:
@@ -42,14 +35,12 @@ Avoid outside adapter files:
 ```ts
 import OpenAI from "openai";
 import { VendorStorageClient } from "vendor-storage-sdk";
-import { S3Client } from "@aws-sdk/client-s3";
 ```
 
 Provider SDKs should live behind internal modules such as:
 
 ```text
 src/lib/ai.ts
-src/lib/storage/
 src/lib/rate-limit.ts
 ```
 
@@ -59,9 +50,7 @@ Provider selection should be explicit:
 
 ```env
 AI_PROVIDER="9router"
-STORAGE_PROVIDER="r2"
 RATE_LIMIT_PROVIDER="memory"
-QUEUE_PROVIDER="none"
 ```
 
 Provider credentials stay in `.env` locally or deployment secrets. Never commit real values.
@@ -70,13 +59,11 @@ Provider credentials stay in `.env` locally or deployment secrets. Never commit 
 
 Current implementation priority:
 
-1. Document provider choices and required env vars.
-2. Move AI provider logic behind an internal AI boundary.
-3. Keep storage access behind the storage boundary.
-4. Keep Prisma/PostgreSQL as-is.
-5. Keep Auth.js/Google as-is.
-6. Simplify or isolate rate limiting.
-7. Add BullMQ only when there is a real queue use case.
+1. Keep Prisma/PostgreSQL as-is.
+2. Keep Auth.js/Google as-is.
+3. Keep AI access behind an internal AI boundary when generation becomes real.
+4. Simplify or isolate rate limiting.
+5. Add storage, queues, or payments only when product flow requires them.
 
 ## Provider migration checklist
 

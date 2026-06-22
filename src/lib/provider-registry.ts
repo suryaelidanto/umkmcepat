@@ -4,30 +4,10 @@ export const PROVIDER_REGISTRY = {
     default: "9router",
     values: ["9router", "openai", "anthropic", "gemini"],
   },
-  storage: {
-    env: "STORAGE_PROVIDER",
-    default: "local",
-    values: ["local", "r2", "s3", "minio"],
-  },
   rateLimit: {
     env: "RATE_LIMIT_PROVIDER",
     default: "memory",
     values: ["memory", "redis", "none"],
-  },
-  queue: {
-    env: "QUEUE_PROVIDER",
-    default: "none",
-    values: ["none", "bullmq"],
-  },
-  auth: {
-    env: "AUTH_PROVIDER",
-    default: "google",
-    values: ["google", "github", "microsoft", "email"],
-  },
-  payment: {
-    env: "PAYMENT_PROVIDER",
-    default: "none",
-    values: ["none", "midtrans", "xendit", "stripe"],
   },
 } as const;
 
