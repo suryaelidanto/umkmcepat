@@ -8,9 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 type WorkspaceShellProps = {
-  initialModel?: string;
   initialPrompt?: string;
-  projectTitle?: string;
 };
 
 const progress = [
@@ -20,11 +18,7 @@ const progress = [
   "Menyiapkan visual dan CTA WhatsApp",
 ];
 
-export function WorkspaceShell({
-  initialModel = "DeepSeek Pro",
-  initialPrompt = "",
-  projectTitle = "Proyek baru",
-}: WorkspaceShellProps) {
+export function WorkspaceShell({ initialPrompt = "" }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const prompt =
@@ -66,7 +60,7 @@ export function WorkspaceShell({
           <div className="flex items-center justify-between gap-spacing-7">
             <div>
               <p className="text-sm text-surface-warm-white/54">
-                {projectTitle} · {initialModel.split("/").at(-1)}
+                Website usahamu
               </p>
               <h1 className="mt-1 text-xl font-semibold tracking-[-0.04em]">
                 Buat website
@@ -116,12 +110,12 @@ export function WorkspaceShell({
               )}
               {status === "submitted" || status === "streaming" ? (
                 <p className="mt-spacing-4 text-xs text-surface-warm-white/46">
-                  AI sedang menyusun respons...
+                  AI sedang menyiapkan jawaban...
                 </p>
               ) : null}
               {error ? (
                 <p className="mt-spacing-4 text-xs text-[#ffb4a6]">
-                  AI belum bisa merespons. Coba lagi nanti.
+                  AI belum bisa menjawab. Coba lagi nanti.
                 </p>
               ) : null}
             </div>

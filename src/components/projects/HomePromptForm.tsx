@@ -117,7 +117,7 @@ export function HomePromptForm() {
         </label>
         <textarea
           id="hero-prompt"
-          name="prompt"
+          name="business-story"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder="Tulis usahamu di sini... contoh: Saya jual sambal rumahan, butuh website hangat dengan tombol WhatsApp."
@@ -149,7 +149,7 @@ export function HomePromptForm() {
         </div>
         {isContinuing ? (
           <p className="px-spacing-7 pb-spacing-7 text-sm text-surface-warm-white/58">
-            Prompt kamu dipulihkan. Kami sedang menyiapkan proyekmu.
+            Cerita usahamu sudah tersimpan. AI sedang menyiapkan website kamu.
           </p>
         ) : null}
       </form>
@@ -159,8 +159,8 @@ export function HomePromptForm() {
           <DialogHeader>
             <DialogTitle>Masuk dulu untuk lanjut</DialogTitle>
             <DialogDescription>
-              Prompt kamu sudah disimpan. Setelah masuk, kami lanjutkan otomatis
-              tanpa perlu mengetik ulang.
+              Cerita usahamu sudah disimpan. Setelah masuk, AI akan lanjut
+              otomatis tanpa perlu mengetik ulang.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col-reverse gap-spacing-4 sm:flex-row sm:justify-end">

@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   if (!session?.user?.id) {
     return Response.json(
-      { message: "Masuk dulu untuk memakai AI." },
+      { message: "Masuk dulu untuk melanjutkan." },
       { status: 401 },
     );
   }

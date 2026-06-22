@@ -36,11 +36,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   return (
     <>
       <ClearProjectDraft />
-      <WorkspaceShell
-        projectTitle={project.title}
-        initialModel={project.model}
-        initialPrompt={project.prompt}
-      />
+      <WorkspaceShell initialPrompt={project.prompt} />
     </>
   );
 }

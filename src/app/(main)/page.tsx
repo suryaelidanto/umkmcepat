@@ -15,7 +15,6 @@ export default async function HomePage() {
         select: {
           id: true,
           title: true,
-          model: true,
           updatedAt: true,
         },
       })
@@ -57,8 +56,8 @@ export default async function HomePage() {
           </h1>
           <p className="mt-spacing-7 max-w-2xl text-balance text-lg leading-7 text-surface-warm-white/72 sm:text-xl">
             {session?.user
-              ? "Mulai dari prompt baru, atau lanjutkan proyek yang sudah kamu buat."
-              : "Ceritakan usahamu, lalu biarkan AI menyusunnya jadi halaman online yang profesional dan siap kamu bagikan."}
+              ? "Ceritakan rencana baru, atau lanjutkan website yang sudah kamu buat."
+              : "Ceritakan usahamu, lalu AI bantu susun jadi halaman online yang profesional dan siap kamu bagikan."}
           </p>
 
           <HomePromptForm />
@@ -92,8 +91,8 @@ export default async function HomePage() {
                     Belum ada proyek
                   </h3>
                   <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/58">
-                    Tulis prompt pertama kamu di atas. Workspace baru akan
-                    muncul di sini.
+                    Ceritakan usahamu di atas. Website barumu akan muncul di
+                    sini.
                   </p>
                 </div>
               )}

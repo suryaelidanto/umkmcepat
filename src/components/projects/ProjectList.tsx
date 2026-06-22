@@ -17,7 +17,6 @@ import {
 type Project = {
   id: string;
   title: string;
-  model: string;
   updatedAt: Date;
 };
 
@@ -25,10 +24,6 @@ type ProjectListProps = {
   projects: Project[];
   deleteProject: (formData: FormData) => Promise<void>;
 };
-
-function getModelName(model: string) {
-  return model.split("/").at(-1)?.replace(/-/g, " ") || model;
-}
 
 export function ProjectList({ projects, deleteProject }: ProjectListProps) {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -68,8 +63,8 @@ export function ProjectList({ projects, deleteProject }: ProjectListProps) {
             <div className="flex h-full flex-col gap-spacing-9">
               <div className="flex items-start justify-between gap-spacing-5">
                 <div className="min-w-0">
-                  <p className="max-w-full truncate text-sm capitalize text-surface-warm-white/52">
-                    {getModelName(project.model)}
+                  <p className="max-w-full truncate text-sm text-surface-warm-white/52">
+                    Terakhir dikerjakan
                   </p>
                   <h3 className="mt-spacing-4 line-clamp-2 text-xl font-semibold leading-tight tracking-[-0.04em] text-surface-warm-white">
                     <Link

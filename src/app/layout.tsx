@@ -14,9 +14,9 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "UMKM Cepat - AI Builder untuk UMKM",
+  title: "UMKM Cepat - AI Website untuk UMKM",
   description:
-    "Buat website promosi untuk UMKM dari prompt sederhana berbahasa Indonesia.",
+    "Buat website promosi untuk UMKM dari cerita usahamu dalam bahasa Indonesia.",
   icons: {
     icon: [
       { url: "/logo.svg", type: "image/svg+xml" },
