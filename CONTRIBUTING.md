@@ -3,7 +3,7 @@
 How do I start contributing?
 
 <details>
-<summary>Let AI agent set everything up</summary>
+<summary>I want an AI agent to set everything up for me</summary>
 
 Copy this into your AI coding assistant (Codex, Claude, Cursor, etc.):
 
@@ -191,7 +191,7 @@ Start now. Do not ask what OS they use. Detect it. Do not ask what they want fir
 </details>
 
 <details>
-<summary>Set it up manually</summary>
+<summary>I want to set it up manually</summary>
 
 ## Requirements
 
