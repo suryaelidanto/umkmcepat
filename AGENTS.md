@@ -1,84 +1,77 @@
 # AGENTS.md
 
-Guidance for AI agents and automated contributors working on UMKM Cepat.
+Rules for AI agents and automated contributors.
 
 ## Read first
 
-- Read `README.md`, `CONTRIBUTING.md`, `DEV.md`, `.env.example`, and `package.json` before editing code.
-- Read `docs/open-source-readiness.md`, `docs/provider-architecture.md`, `docs/providers.md`, `docs/local-development.md`, and `docs/docker-deployment.md` before setup, infra, provider, or deployment work.
-- Read `docs/9router.md` before AI gateway, model, 9Router, or Command Code work.
-- Read `DESIGN.md` before UI, styling, layout, typography, color, or component work.
-- Follow linked docs when a touched doc points to a more specific workflow.
+- Read `README.md`, `CONTRIBUTING.md`, `DEV.md`, `.env.example`, and `package.json` before code changes.
+- Read `DESIGN.md` before UI, styling, layout, typography, colors, or components.
+- Read `docs/9router.md` before AI gateway or model work.
+- Read `docs/provider-architecture.md` and `docs/providers.md` before provider/config changes.
+- Read `docs/observability.md` before Sentry/monitoring changes.
 
-## Local runtime map
+## Language
 
-- Run the Next.js dev server locally with `npm run dev`, not in Docker.
-- Run Postgres in Docker with `docker compose up -d postgres`.
-- Run 9Router in Docker with `docker compose --profile ai up -d 9router`.
-- Use `http://localhost:3000` for the app and `http://localhost:20129` for the local 9Router dashboard.
-- Use full Docker only for production-style deployment via `docker-compose.prod.yml`.
+- Developer-facing docs, comments, logs, errors, PRs, and commits use English.
+- End-user product UI copy uses Indonesian unless an i18n layer is introduced.
+- New repeated user-facing strings should be easy to move into i18n later.
 
-## Environment and Docker checks
-
-- Do not assume Docker Desktop, native Docker, WSL Docker, Colima, or any specific Docker host.
-- Check host OS and Docker availability before running container commands.
-- On Windows, check Docker Desktop first, then WSL Docker with `wsl -l -v` if Desktop is unavailable.
-- On Linux, use native Docker and Docker Compose when available.
-- On macOS, use Docker Desktop, Colima, or the configured local Docker runtime.
-- If Docker is unavailable, say so clearly and do not invent container status.
-- Distinguish app runtime from infra runtime before diagnosing ports or hot reload.
-
-## Core rules
+## Engineering bar
 
 - Keep changes small, focused, and easy to review.
-- Reuse existing code, components, utilities, and docs before adding new ones.
-- Prefer simple readable code over clever abstractions.
-- Keep provider-specific code behind internal adapters.
-- Keep provider choices configurable through env vars or documented config.
-- Never commit secrets, real tokens, private keys, private URLs, or local credentials.
-- Do not edit `.env`, production secrets, or private credential files unless explicitly asked.
-- Do not run destructive commands unless explicitly requested.
-- Do not bypass lint, tests, typecheck, hooks, or security checks.
-- Document tradeoffs when uncertain instead of guessing silently.
+- Prefer deleting/reusing code over adding abstractions.
+- Prefer standard platform tools over custom scripts.
+- Do not add dependencies unless existing code or platform features are insufficient.
+- Keep provider-specific SDKs behind internal adapters in `src/lib`.
+- Use TDD for behavior changes: one failing behavior test, minimal implementation, repeat.
 
-## Required checks
+## UI bar
 
-- Run `npm run check` before handoff.
-- Run `npm run build` after meaningful code, config, provider, or Docker changes.
+- Follow `DESIGN.md` and existing tokens/components.
+- Use shadcn/ui-style owned components in `src/components/ui`.
+- For new shadcn primitives, use `npx shadcn@latest add ...`; do not paste raw component source manually.
+- Use browser verification for UI work when available, and cite artifact paths.
 
-## Commit rules
+## Quality gate
 
-- Use Conventional Commits for every commit.
-- Keep commit scope focused on one logical change.
-- Let Husky and commitlint run normally.
-- Branch from `dev` for normal work.
-- Open PRs into `dev` first unless maintainers say otherwise.
-- Push to `main` only when explicitly requested.
+Before handoff, run:
+
+```bash
+npm run check
+```
+
+Run this after meaningful code, config, provider, or deployment changes:
+
+```bash
+npm run build
+```
+
+`npm run check` covers Prettier, ESLint with zero warnings, TypeScript, Vitest, and Knip.
+
+## Security
+
+- Never commit `.env`, secrets, OAuth credentials, API keys, private keys, Sentry tokens, or private customer data.
+- Use `.env.example` for placeholders only.
+- Do not print secret values in logs, docs, chat, commits, or PRs.
+- Before pushing sensitive changes, grep tracked files for obvious secret patterns.
+
+## Docker/runtime
+
+- Do not assume Docker is available. Check it first when needed.
+- App runs with `npm run dev`.
+- Postgres runs with `docker compose up -d postgres`.
+- 9Router runs with `docker compose --profile ai up -d 9router`.
+- If Docker is unavailable, report that clearly instead of inventing status.
 
 ## Repository cleanliness
 
-- Keep the repo clean for future open-source contributors.
-- Delete temporary scripts, scratch files, debug helpers, local logs, screenshots, browser artifacts, and experiment outputs before handoff.
-- Avoid ad-hoc project scripts. Prefer standard npm, Next.js, Prisma, Docker, ESLint, Prettier, and Vitest commands.
-- Prefer one ignored log file such as `.dev.log` or `.9router.log` when automation needs logs.
-- Never commit `.agent/`, `.browser/`, `.pi/`, `.next/`, local logs, cache dirs, or local-only artifacts.
-- Run `git status --short --untracked-files=all` before committing or handoff.
-- Update `.gitignore` when a new local-only artifact class appears.
-- Remove any file that would not make sense to a new contributor six months from now.
+- Do not leave temporary scripts, scratch files, logs, pid files, screenshots, browser artifacts, or generated junk.
+- Keep `.browser/`, `.pi/`, `.next/`, logs, and pid files untracked.
+- Inspect `git status --short --untracked-files=all` before handoff.
 
-## Quality bar
+## Git
 
-- Add or update tests for behavior changes.
-- Keep UI accessible, responsive, and consistent with `DESIGN.md`.
-- Keep reusable logic in `src/lib` or shared components.
-- Avoid unused dependencies, unused exports, and one-implementation abstractions.
-- Do not import provider SDKs directly in routes or components unless creating the adapter.
-- Update docs when setup, scripts, env vars, providers, or workflows change.
-- Explain skipped live integrations clearly and never fake E2E success.
-
-## Security bar
-
-- Never print or paste secret values in chat, logs, docs, commits, issues, or PRs.
-- Use `.env.example` for placeholders only.
-- Run a secret scan or tracked-file grep before public/security-sensitive changes.
-- Treat AI, auth, payment, domain, database, storage, and monitoring credentials as private.
+- Branch from `dev` for normal work.
+- Use Conventional Commits.
+- Open PRs into `dev` first unless maintainers say otherwise.
+- Push `main` only when explicitly requested.

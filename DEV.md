@@ -1,126 +1,180 @@
-# Development Guide
+# Development SOP
 
-Simple local workflow for UMKM Cepat.
+This file is the maintainer and agent workflow for UMKM Cepat. For contributor onboarding, start with `CONTRIBUTING.md`.
 
-## Requirements
+## Core principles
 
-- Node.js 22 (`.nvmrc` is provided)
-- npm 10+
-- Docker with Compose for infrastructure containers
+- Keep changes small and reviewable.
+- Prefer deletion and reuse over new abstractions.
+- Use boring platform features before adding dependencies.
+- Keep provider-specific code behind internal adapters.
+- Keep developer-facing text in English.
+- Keep end-user UI copy in Indonesian unless an i18n layer is introduced.
+- Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, or generated junk.
 
-## Setup
+## Local runtime
 
-```bash
-npm install
-cp .env.example .env
-npm run prepare
-```
-
-Fill `.env` with local values and never commit real secrets.
-
-## Start infrastructure
-
-```bash
-docker compose up -d postgres
-docker compose --profile ai up -d 9router
-npm run db:migrate
-```
-
-## Run the app
+Run the app locally, not inside Docker:
 
 ```bash
 npm run dev
 ```
 
+Run infrastructure in Docker:
+
+```bash
+docker compose up -d postgres
+docker compose --profile ai up -d 9router
+```
+
+Apply database migrations:
+
+```bash
+npm run db:migrate
+```
+
 Open:
 
 ```text
-http://localhost:3000
+App:      http://localhost:3000
+9Router: http://localhost:20129
 ```
 
-9Router dashboard:
+If Docker is missing, install/start Docker Desktop or Docker Engine. If `.next` gets stale, stop the dev server, remove `.next`, then restart `npm run dev`.
+
+## Environment
+
+Use:
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Important local defaults:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/umkmcepat?schema=public"
+AI_PROVIDER="9router"
+AI_MODELS="cmc/deepseek/deepseek-v4-pro,cmc/deepseek/deepseek-v4-flash,cmc/moonshotai/Kimi-K2.6"
+NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
+```
+
+`AI_MODELS` is comma-separated. The first model is the default.
+
+## Quality gate
+
+Run this before handoff or PR:
+
+```bash
+npm run check
+```
+
+This runs:
+
+1. Prettier
+2. ESLint with `--max-warnings=0`
+3. TypeScript
+4. Vitest
+5. Knip unused-code/dependency checks
+
+Run build after meaningful code, config, provider, or deployment changes:
+
+```bash
+npm run build
+```
+
+The pre-commit hook runs `npm run check`. CI runs `npm run check` and `npm run build`.
+
+## TDD workflow
+
+For behavior changes:
+
+1. Add one behavior test.
+2. Watch it fail.
+3. Implement the smallest change.
+4. Run the targeted test.
+5. Repeat.
+6. Run `npm run check`.
+
+Tests should verify public behavior, not private implementation details.
+
+## UI workflow
+
+For UI, styling, layout, typography, colors, or components:
+
+1. Read `DESIGN.md`.
+2. Reuse `src/components/ui` and existing design tokens first.
+3. Keep visible product copy Indonesian.
+4. Keep developer/internal text English.
+5. Verify in browser with `abk inspect` or `abk review` when available.
+6. Include artifact paths in handoff when browser review was used.
+
+## shadcn/ui
+
+Config lives in `components.json`. Components are owned source files under `src/components/ui`.
+
+Add components with the official CLI:
+
+```bash
+npx shadcn@latest add button card input
+```
+
+Preview/diff before replacing existing primitives:
+
+```bash
+npx shadcn@latest add button --dry-run
+npx shadcn@latest add button --diff
+```
+
+Optional AI assistant skill:
+
+```bash
+npx skills add shadcn/ui
+```
+
+Do not paste raw component source from external pages.
+
+## Providers
+
+- AI runtime: 9Router through `src/lib/ai.ts`
+- Storage: `src/lib/storage`
+- Rate limit: `src/lib/rate-limit.ts`
+- Provider names: `src/lib/provider-registry.ts`
+
+Routes/components should import internal services, not vendor SDKs directly.
+
+## Observability
+
+Sentry is optional locally. See `docs/observability.md`.
+
+Never commit Sentry auth tokens. Use deployment secrets for source-map upload credentials.
+
+## Local artifacts
+
+Ignored local files include:
 
 ```text
-http://localhost:20129/dashboard
+*.log
+*.pid
+.browser/
+.pi/
+.next/
 ```
 
-## Useful scripts
+Delete local logs and pid files before handoff if they are no longer needed.
 
-```bash
-npm run dev            # local Next.js dev server on port 3000
-npm run db:up          # start Postgres container
-npm run db:migrate     # apply Prisma migrations
-npm run db:studio      # open Prisma Studio
-npm run check          # format, lint, typecheck, tests, dead-code checks
-npm run build          # production build
-npm run docker:prod    # production-style Docker Compose
-```
+## Final handoff checklist
 
-## Git hooks
-
-Husky runs:
-
-- `pre-commit`: lint-staged checks staged files
-- `commit-msg`: Conventional Commit validation
-
-If hooks are missing:
-
-```bash
-npm run prepare
-```
-
-## Branch flow
-
-```bash
-git checkout dev
-git pull origin dev
-git checkout -b feat/short-name
-```
-
-After work:
-
-```bash
-npm run check && npm run build
-git add .
-git commit -m "feat: describe the change"
-git push origin feat/short-name
-```
-
-Open a PR into `dev`.
-
-## Project structure
-
-```text
-src/app          Next.js routes and API routes
-src/components   Shared UI and feature components
-src/lib          Shared utilities, services, schemas
-prisma           Database schema and migrations
-docs             Project documentation
-.agents          Agent skills/instructions
-```
-
-## Testing approach
-
-- Unit test pure logic first.
-- Mock external services.
-- Avoid default tests that require paid APIs or production credentials.
-- Live AI, payment, domain, upload, and production deploy flows need maintainer-approved credentials or sandbox accounts.
-
-## Security checklist
-
-Before pushing public work:
-
-```bash
-git status --short --untracked-files=all
-git grep -n -I -E "sk-|BEGIN .*PRIVATE|DATABASE_URL=|AUTH_SECRET=|API_KEY=|TOKEN=" -- . ':(exclude)package-lock.json'
-```
-
-Do not print or paste secret values in PRs, issues, commits, docs, or chat logs.
-
-## Dependency hygiene
-
-- Prefer existing dependencies.
-- Remove unused packages.
-- Keep security updates focused.
-- Avoid major upgrades mixed with feature work.
-- Run `npm audit` when touching dependencies.
+- `git status --short --untracked-files=all` inspected
+- no accidental local artifacts
+- no secrets in tracked files
+- `npm run check` passed
+- `npm run build` passed when required
+- browser evidence collected for UI changes
+- docs updated for setup/env/workflow changes

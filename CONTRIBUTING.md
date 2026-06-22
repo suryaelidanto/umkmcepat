@@ -2,98 +2,263 @@
 
 Thanks for helping build UMKM Cepat.
 
-## Workflow
+This project is optimized for a simple contributor flow: install the standard tools, copy the env file, start local infrastructure, run the app, run the quality gate, then open a small PR.
 
-1. Fork or clone the repo.
-2. Create a branch from `dev`.
-3. Make a small focused change.
-4. Add or update tests/docs when needed.
-5. Run checks.
-6. Open a pull request into `dev`.
+## Language policy
 
-## Branch names
+- Developer-facing docs, code comments, commit messages, PRs, logs, and internal errors use English.
+- End-user UI copy for Indonesian UMKM uses Indonesian.
+- New user-facing strings should be easy to move into an i18n layer later. Do not scatter repeated copy across many files.
 
-Use short descriptive names:
+## 1. Install tools
 
-```text
-feat/catalog-checkout
-fix/landing-page-image
-chore/update-deps
-docs/setup-guide
+<details>
+<summary>Windows</summary>
+
+Install:
+
+- Git: https://git-scm.com/download/win
+- Node.js 22: https://nodejs.org/en/download
+- Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
+- GitHub CLI: https://cli.github.com/
+
+Use PowerShell or Git Bash.
+
+Verify:
+
+```powershell
+git --version
+node --version
+npm --version
+docker version
+docker compose version
 ```
 
-## Commit messages
+If `docker` is not found, start Docker Desktop first.
 
-Use Conventional Commits:
+</details>
 
-```text
-feat: add product catalog form
-fix: handle missing auth session
-docs: clarify local setup
-chore: update dependencies
-refactor: simplify landing page renderer
-test: add slug utility tests
+<details>
+<summary>macOS</summary>
+
+Install:
+
+- Git: https://git-scm.com/download/mac
+- Node.js 22: https://nodejs.org/en/download
+- Docker Desktop: https://docs.docker.com/desktop/setup/install/mac-install/
+- GitHub CLI: https://cli.github.com/
+
+Verify:
+
+```bash
+git --version
+node --version
+npm --version
+docker version
+docker compose version
 ```
 
-Allowed common types:
+</details>
 
-- `feat`
-- `fix`
-- `docs`
-- `chore`
-- `refactor`
-- `test`
-- `style`
-- `perf`
-- `build`
-- `ci`
-- `revert`
+<details>
+<summary>Linux</summary>
 
-Husky + commitlint checks this automatically.
+Install:
 
-## Required checks
+- Git: https://git-scm.com/download/linux
+- Node.js 22: https://nodejs.org/en/download
+- Docker Engine: https://docs.docker.com/engine/install/
+- GitHub CLI: https://cli.github.com/
 
-Before opening a PR:
+Verify:
+
+```bash
+git --version
+node --version
+npm --version
+docker version
+docker compose version
+```
+
+If Docker needs sudo on your machine, either use `sudo docker ...` consistently or configure Docker rootless/group access using Docker's official docs.
+
+</details>
+
+Expected Node/npm:
+
+```text
+Node.js >= 22 < 23
+npm >= 10
+```
+
+## 2. Clone and install
+
+```bash
+git clone https://github.com/suryaelidanto/umkmcepat.git
+cd umkmcepat
+npm install
+```
+
+Create local env:
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Do not commit `.env`.
+
+## 3. Start local services
+
+Start PostgreSQL:
+
+```bash
+docker compose up -d postgres
+npm run db:migrate
+```
+
+Start 9Router when working on AI flows:
+
+```bash
+docker compose --profile ai up -d 9router
+docker compose ps 9router
+```
+
+Open 9Router:
+
+```text
+http://localhost:20129
+```
+
+Default password:
+
+```text
+123456
+```
+
+Then configure the provider and API key using [docs/9router.md](docs/9router.md).
+
+## 4. Start the app
+
+```bash
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+## 5. Optional integrations
+
+### Google OAuth
+
+Required only for real login flows.
+
+Create credentials at:
+
+```text
+https://console.cloud.google.com/apis/credentials
+```
+
+Local callback URL:
+
+```text
+http://localhost:3000/api/auth/callback/google
+```
+
+Set in `.env`:
+
+```env
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+```
+
+### Sentry
+
+Sentry is optional locally. See [docs/observability.md](docs/observability.md).
+
+## 6. Quality gate
+
+Run before every PR:
 
 ```bash
 npm run check
 npm run build
 ```
 
-`npm run check` is strict: formatting, ESLint, TypeScript, tests, and unused-code/dependency checks must pass.
+`npm run check` fails on:
 
-## Pull request checklist
+- Prettier formatting issues
+- ESLint warnings or errors
+- TypeScript errors
+- test failures
+- unused files, exports, or dependencies from Knip
 
-- Clear title and short description.
-- Linked issue if available.
-- Screenshots for UI changes.
-- Tests added/updated for behavior changes.
-- Docs updated for setup/workflow/env changes.
-- No secrets, credentials, tokens, or local-only files.
-- No unrelated formatting or dependency churn.
+The pre-commit hook also runs:
 
-## Code quality
+```bash
+npm run check
+```
 
-- Prefer simple readable code.
-- Reuse existing components and utilities.
-- Keep functions small and named clearly.
-- Avoid unused dependencies.
-- Avoid broad rewrites unless discussed first.
-- Do not fake passing tests or live integrations.
+## 7. Branch and commit
 
-## Security
+Create branches from `dev`:
 
-Never commit:
+```bash
+git checkout dev
+git pull origin dev
+git checkout -b feat/short-name
+```
 
-- `.env` or `.env.local`
-- API keys or tokens
-- private keys
-- real database URLs
-- production credentials
-- personal/private customer data
+Use Conventional Commits:
 
-Use `.env.example` for placeholders only.
+```text
+feat: add project workspace shell
+fix: handle missing auth session
+docs: clarify 9router setup
+chore: update dependencies
+```
 
-## Dependency changes
+Open PRs into `dev` first unless maintainers say otherwise.
 
-Dependency updates should be intentional. Explain why a dependency is added, removed, or upgraded. Security patches are welcome, but avoid unrelated major upgrades in the same PR.
+## 8. UI and shadcn/ui
+
+This project uses shadcn/ui-style owned components under `src/components/ui` with config in `components.json`.
+
+Use the official CLI for new primitives:
+
+```bash
+npx shadcn@latest add button card input
+```
+
+Preview before changing existing primitives:
+
+```bash
+npx shadcn@latest add button --dry-run
+npx shadcn@latest add button --diff
+```
+
+For AI assistants, the official shadcn skill is useful:
+
+```bash
+npx skills add shadcn/ui
+```
+
+Do not copy raw component source from the internet manually. Use the CLI or follow existing local component patterns.
+
+## 9. Pull request checklist
+
+- Small focused change
+- Tests added or updated for behavior changes
+- UI checked in browser when UI changes
+- `npm run check` passes
+- `npm run build` passes for meaningful code/config changes
+- No secrets or local artifacts committed
+- Docs updated when setup, env vars, scripts, providers, or workflows change
