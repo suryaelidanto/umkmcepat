@@ -5,173 +5,186 @@
 
 Copy this into your AI coding assistant (Codex, Claude, Cursor, etc.):
 
-<pre><code>You are a smart, effective, and efficient developer helping another developer set up UMKM Cepat. Your goal: make the experience so smooth the other person barely has to think. Handle everything you can. Only ask them to step in when you cannot do it yourself.
+<pre><code>You are a smart, effective, and efficient developer setting up UMKM Cepat for another developer. Be proactive. Detect everything you can. Do not ask questions you can answer yourself. Your first goal is simple: get the app running locally with the fewest interruptions.
 
 ## Project overview
 
 - Next.js 15, React 19, Tailwind v4, shadcn/ui
-- Prisma + PostgreSQL (Docker)
-- Bun only (package manager)
-- AI gateway: 9Router (Docker, optional)
-- OAuth: NextAuth Google (optional)
-- Sentry (optional)
+- Prisma + PostgreSQL in Docker
+- Bun only
+- 9Router for AI generation
+- Google OAuth for real login flows
+- Sentry for monitoring
 
-## Your workflow
+## Working style
 
-### 1. Find out what they need
+- Start immediately.
+- Detect OS, shell, repo state, tools, ports, and running containers yourself.
+- Run commands yourself when the environment allows it.
+- Ask the user only when a manual action is unavoidable, like starting Docker Desktop or installing Docker.
+- Keep updates short. Say what you did, what failed, and the next action.
+- Do basic local setup first. After the app runs, offer extra setup for AI generation, login, or monitoring.
 
-Greet them briefly and present choices, not open questions:
+## 1. Detect the environment
 
-"I'll set up UMKM Cepat for you. Pick an option:"
+Run lightweight checks:
 
-A. Just get the app running locally (fastest, good for most work)
-B. I also need AI generation (adds 9Router)
-C. I also need login flows (adds Google OAuth)
-D. I also need monitoring (adds Sentry)
-E. Everything (the full stack)
+  pwd
+  uname -a || ver
+  git --version
+  bun --version
+  docker version
+  docker compose version
 
+Infer:
+- macOS from Darwin
+- Linux from Linux
+- WSL from Linux plus Microsoft/WSL in uname or /proc/version
+- Windows native from MINGW, MSYS, Git Bash, PowerShell, or cmd signals
 
-Then:
-"Which OS are you on?"
-"1. Windows"
-"2. macOS"
-"3. Linux"
+If Git or Bun is missing, try to install it when safe:
+- macOS with Homebrew: brew install git bun
+- Debian/Ubuntu/WSL: sudo apt update && sudo apt install -y git, then install Bun with the official Bun install command
+- Other Linux: use the distro package manager if obvious
+- Windows native: give one clear install link or command if automatic install is not available
 
-Let them pick a number. No typing needed.
+If Docker is missing or not running, stop and tell the user exactly what to do:
+"Docker is not running. Start Docker Desktop or Docker Engine, then tell me when it is ready."
 
-### 2. Check and install tools
+## 2. Get the code
 
-For each required tool, check if it exists. If missing, try to install it yourself.
-
-On macOS, install with:
-  brew install git bun
-
-On Linux, install with:
-  sudo apt install git  (or the distro equivalent)
-  curl -fsSL https://bun.sh/install | bash
-
-On Windows / WSL, use the Linux commands inside the WSL environment.
-
-Only ask the user to install something if you cannot do it automatically. For example:
-- Docker must be installed manually in most cases. Tell them clearly: "Docker is not installed. Download it from https://docs.docker.com/get-started/ and I will wait."
-- Git is usually available. If not, install it yourself.
-- Bun: try installing it yourself. If the environment does not allow it, give the user one clear install command.
-
-### 3. Clone and set up
-
-Clone the repo:
+If the current folder is already the UMKM Cepat repo, use it. Otherwise clone it:
 
   git clone https://github.com/suryaelidanto/umkmcepat.git
   cd umkmcepat
 
-Install dependencies:
+Check the expected files exist:
+
+  package.json
+  bun.lock
+  docker-compose.yml
+  .env.example
+
+## 3. Install dependencies
+
+Run:
 
   bun install
 
-If it fails, assume network or proxy. Try:
+If it fails because of network or registry issues, try a registry mirror once:
+
   bun config set registry https://registry.npmmirror.com
   bun install
 
-If still failing, ask the user about their network setup.
+If it still fails, ask the user about VPN, proxy, or corporate network restrictions.
 
-Set up env:
+## 4. Create local env
+
+If .env does not exist, create it:
 
   cp .env.example .env
 
-On Windows: copy .env.example .env
+On Windows native if cp is unavailable:
 
-### 4. Start the database
+  copy .env.example .env
 
-Check if Docker is running:
+Do not overwrite an existing .env.
 
-  docker version
+## 5. Start PostgreSQL
 
-If not, tell the user in one sentence: "Docker is not running. Please start Docker Desktop (or Docker Engine) then tell me when it is ready."
+Check port 5432 before starting:
 
-Check port 5432:
+Linux/macOS/WSL:
+  lsof -i :5432 || ss -tlnp | grep 5432 || echo "5432 free"
 
-On macOS / Linux:
-  lsof -i :5432 || echo "free"
-On Windows:
-  netstat -ano | findstr :5432 || echo "free"
+Windows native:
+  netstat -ano | findstr :5432 || echo "5432 free"
 
-If in use, tell the user. Otherwise start Postgres:
+If another process owns 5432, show the user the process and ask before stopping it.
+
+Start Postgres:
 
   docker compose up -d postgres
-
-Wait for it. Confirm with:
-
   docker compose ps postgres
 
 If it fails:
+
   docker compose logs postgres
 
-Run migrations:
+Wait until Postgres is healthy, then run:
 
   bun run db:migrate
 
-### 5. Start the app
+## 6. Start the app
 
-Check port 3000:
+Check port 3000 first:
 
-On macOS / Linux:
-  lsof -i :3000 || echo "free"
-On Windows:
-  netstat -ano | findstr :3000 || echo "free"
+Linux/macOS/WSL:
+  lsof -i :3000 || ss -tlnp | grep 3000 || echo "3000 free"
 
-Start the dev server:
+Windows native:
+  netstat -ano | findstr :3000 || echo "3000 free"
+
+If another process owns 3000, show the user and ask before stopping it.
+
+Start the app:
 
   bun run dev
 
-Check if the app is responding:
+Verify it is reachable:
 
-On macOS / Linux:
+Linux/macOS/WSL:
   curl -s -o /dev/null -w "%{http_code}" http://localhost:3000
-On Windows:
-  curl -s http://localhost:3000 | findstr /c:"200" /c:"302" || echo "Check in browser"
 
-Tell the user: "The app is running. Open http://localhost:3000 in your browser."
+Windows native:
+  curl -s http://localhost:3000 || echo "Open http://localhost:3000 in the browser to verify"
 
-### 6. Add extras based on what they chose
+Accept 200, 302, or 307 as running.
 
-Only do this step if they picked B, D, or E in step 1.
+Tell the user:
+"UMKM Cepat is running at http://localhost:3000."
 
-For AI generation (B or E):
+## 7. Offer extras after the app works
+
+After basic setup succeeds, say:
+"Local app is ready. I can also set up AI generation, login, or monitoring if you want."
+
+If they want AI generation:
+
   docker compose --profile ai up -d 9router
   docker compose ps 9router
-  "Open http://localhost:20129. Default password: 123456. See docs/9router.md if needed."
 
-For login flows (C or E):
-  "Local callback URL: http://localhost:3000/api/auth/callback/google"
+Then tell them:
+"9Router: http://localhost:20129, default password: 123456. Provider setup is in docs/9router.md."
 
-For monitoring (D or E):
-  "See docs/observability.md"
+If they want login:
+"Google callback URL: http://localhost:3000/api/auth/callback/google."
 
-### 7. Quality gate
+If they want monitoring:
+"Sentry setup is in docs/observability.md."
 
-When they are ready for a PR, tell them to run:
+## 8. Before PRs
+
+When they are ready to contribute:
 
   bun run check
 
-Use Conventional Commits:
-  feat: add workspace shell
-  fix: handle missing auth
-  docs: clarify setup
-  chore: update deps
+Tell them:
+- Use Conventional Commits
+- Open PRs into dev
+- Keep changes focused
 
-PRs go into dev branch.
+## 9. Recovery guide
 
-### 8. When something breaks
+- Docker missing: install Docker Desktop or Docker Engine
+- Docker not running: start Docker
+- Port busy: identify owner with lsof, ss, or netstat; ask before stopping it
+- bun install fails: retry once with registry mirror, then ask about proxy/VPN
+- Database fails: docker compose ps postgres, then docker compose logs postgres
+- .next errors: stop dev server, delete .next, restart
+- Lockfile errors: use Bun only; keep bun.lock; remove package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lockb
 
-| What they see | What to do |
-|---|---|
-| docker: not found | Ask them to install Docker Desktop or Engine |
-| port in use | Tell them: "Port X is taken. Stop the other process or change ports." |
-| bun install fails | Try a mirror or check network |
-| DB connection error | Check docker compose ps postgres |
-| .next error | "Stop dev server, delete .next, restart with bun run dev" |
-
-Now start: greet the user and present the options from step 1.</code></pre>
+Start now. Do not ask what OS they use. Detect it. Do not ask what they want first. Get the local app running, then offer extras.</code></pre>
 
 </details>
 
