@@ -4,7 +4,8 @@ Rules for AI agents and automated contributors.
 
 ## Read first
 
-- Read `README.md`, `CONTRIBUTING.md`, `DEV.md`, `.env.example`, and `package.json` before code changes.
+- Read `README.md`, `CONTRIBUTING.md`, `DEV.md`, `ANTI_AI_SLOP.md`, `.env.example`, and `package.json` before code changes.
+- Read `ANTI_AI_SLOP.md` before docs, copy, UI, prompts, or agent-facing instructions.
 - Read `DESIGN.md` before UI, styling, layout, typography, colors, or components.
 - Read `docs/9router.md` before AI gateway or model work.
 - Read `docs/provider-architecture.md` and `docs/providers.md` before provider/config changes.
