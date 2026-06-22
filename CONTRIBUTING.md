@@ -1,6 +1,6 @@
 # Contributing
 
-How do I start contributing?
+Choose your setup path:
 
 <details>
 <summary>I want an AI agent to set everything up for me</summary>
