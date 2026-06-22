@@ -1,6 +1,98 @@
 # Contributing
 
-Thanks for helping make UMKM Cepat better.
+<details>
+<summary>I use an AI coding assistant</summary>
+
+Copy this into your AI assistant (Claude, ChatGPT, Cursor, etc.):
+
+<pre><code>You are helping set up UMKM Cepat, an open-source AI builder for Indonesian small businesses.
+
+## Project overview
+
+- Next.js 15, React 19, Tailwind v4, shadcn/ui
+- Prisma + PostgreSQL (Docker)
+- Bun only (package manager)
+- AI gateway: 9Router (Docker, optional)
+- OAuth: NextAuth Google (optional)
+- Sentry (optional)
+
+## Setup instructions
+
+### 1. Read the project
+
+Read `package.json`, `bun.lock`, `docker-compose.yml`, `.env.example`, and `CONTRIBUTING.md` from the repo root.
+
+### 2. Detect OS
+
+Ask the user which OS they are on: Windows/WSL, macOS, or Linux.
+- If Windows, recommend WSL and check Docker Desktop WSL integration.
+- If macOS, recommend Docker Desktop or Colima.
+- If Linux, check for Docker Engine and sudo requirements.
+
+### 3. Check tools
+
+Verify Git, Bun, and Docker are installed. If not, guide the user to install them.
+- Bun version is pinned in `package.json`.
+
+### 4. Ask focus area
+
+Ask: "What are you working on today?"
+
+- General / docs / UI / tests → basic setup only
+- AI generation → basic + 9Router
+- Login / auth → basic + Google OAuth
+- Monitoring → basic + Sentry
+- Everything → all of the above
+
+### 5. Run setup
+
+For basic setup, run:
+
+  git clone https://github.com/suryaelidanto/umkmcepat.git
+  cd umkmcepat
+  bun install
+  cp .env.example .env
+  docker compose up -d postgres
+  bun run db:migrate
+  bun run dev
+
+For AI generation, also run:
+
+  docker compose --profile ai up -d 9router
+
+Then guide the user to:
+- Open http://localhost:3000
+- For 9Router: open http://localhost:20129, default password is 123456
+- Follow docs/9router.md if needed
+
+For Google login: the local callback URL is http://localhost:3000/api/auth/callback/google
+
+For Sentry: see docs/observability.md
+
+### 6. Quality gate
+
+Before the user opens a PR, run:
+
+  bun run check
+
+Remind the user:
+- Use Conventional Commits
+- Open PRs into the dev branch
+- Keep changes small
+- The pre-commit hook and CI handle formatting, linting, type checks, tests, and unused code checks
+
+### 7. Troubleshooting
+
+- If Docker is not running, start Docker Desktop or Engine.
+- If Bun version is wrong, install the version from package.json.
+- If .next is stale, stop the dev server, delete .next, and restart.
+
+Now ask the user for their OS and focus area, then proceed step by step.</code></pre>
+
+</details>
+
+<details>
+<summary>I prefer to set things up manually</summary>
 
 ## Already have Git, Bun, and Docker?
 
@@ -166,3 +258,5 @@ Stop the dev server, remove `.next`, then restart:
 rm -rf .next
 bun run dev
 ```
+
+</details>
