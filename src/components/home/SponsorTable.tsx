@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 
 type Sponsor = {
-  name: string;
-  href: string;
-  source: string;
+  donorName: string;
+  brandName: string;
+  brandUrl?: string;
+  brandDomain?: string;
   date: string;
   support: string;
   value: string;
@@ -29,7 +30,8 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
         <thead className="bg-surface-warm-white/[0.055] text-left text-surface-warm-white/50">
           <tr>
             <th className="px-spacing-5 py-spacing-4 font-medium">Tanggal</th>
-            <th className="px-spacing-5 py-spacing-4 font-medium">Sponsor</th>
+            <th className="px-spacing-5 py-spacing-4 font-medium">Donatur</th>
+            <th className="px-spacing-5 py-spacing-4 font-medium">Sumber</th>
             <th className="px-spacing-5 py-spacing-4 font-medium">Dukungan</th>
             <th className="px-spacing-5 py-spacing-4 text-right font-medium">
               Nilai
@@ -38,22 +40,35 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
         </thead>
         <tbody className="divide-y divide-surface-warm-white/10">
           {visibleSponsors.map((sponsor) => (
-            <tr key={`${sponsor.name}-${sponsor.date}`}>
+            <tr key={`${sponsor.donorName}-${sponsor.date}`}>
               <td className="px-spacing-5 py-spacing-5 text-surface-warm-white/58">
                 {sponsor.date}
               </td>
               <td className="px-spacing-5 py-spacing-5">
-                <a
-                  href={sponsor.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-semibold text-surface-warm-white underline decoration-surface-warm-white/24 underline-offset-4 transition hover:decoration-surface-warm-white"
-                >
-                  {sponsor.name}
-                </a>
-                <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
-                  {sponsor.source}
+                <p className="font-semibold text-surface-warm-white">
+                  {sponsor.donorName}
                 </p>
+              </td>
+              <td className="px-spacing-5 py-spacing-5">
+                {sponsor.brandUrl ? (
+                  <a
+                    href={sponsor.brandUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-surface-warm-white underline decoration-surface-warm-white/24 underline-offset-4 transition hover:decoration-surface-warm-white"
+                  >
+                    {sponsor.brandName}
+                  </a>
+                ) : (
+                  <span className="font-semibold text-surface-warm-white">
+                    {sponsor.brandName}
+                  </span>
+                )}
+                {sponsor.brandDomain ? (
+                  <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
+                    {sponsor.brandDomain}
+                  </p>
+                ) : null}
               </td>
               <td className="px-spacing-5 py-spacing-5 text-surface-warm-white/70">
                 {sponsor.support}

@@ -23,9 +23,9 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold">Data yang dikirim ke AI</h2>
             <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/62">
-              Teks yang kamu tulis dapat dikirim ke penyedia AI melalui 9Router
-              untuk memeriksa keamanan dan membuat hasil website. Jangan tulis
-              password, data kartu, dokumen pribadi, atau rahasia usaha.
+              Teks yang kamu tulis dapat dikirim ke penyedia AI untuk memeriksa
+              keamanan dan membuat hasil website. Jangan tulis password, data
+              kartu, dokumen pribadi, atau rahasia usaha.
             </p>
           </section>
 
@@ -47,10 +47,12 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">Menghapus data</h2>
+            <h2 className="text-xl font-semibold">Prinsip kami</h2>
             <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/62">
-              Kamu bisa menghapus proyek dari aplikasi. Jika butuh bantuan untuk
-              menghapus data akun, hubungi maintainer melalui repositori GitHub.
+              Kami ingin layanan ini berguna untuk usaha kecil tanpa merugikan
+              pengguna atau pengelola layanan. Karena itu, kami mengambil data
+              seperlunya, menjaga akses sewajarnya, dan membatasi penggunaan
+              yang membahayakan orang lain.
             </p>
           </section>
         </div>

@@ -43,7 +43,7 @@ export function Footer() {
               rel="noopener noreferrer"
               className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
             >
-              GitHub
+              Github
             </Link>
           </nav>
         </div>

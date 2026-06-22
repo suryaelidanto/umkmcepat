@@ -6,7 +6,7 @@ export default function TermsPage() {
           Ketentuan penggunaan
         </h1>
         <p className="mt-spacing-5 text-sm leading-6 text-surface-warm-white/62 sm:text-base">
-          UMKM Cepat membantu kamu membuat draft website atau alat digital untuk
+          UMKM Cepat membantu kamu membuat website atau alat digital untuk
           usaha. Gunakan dengan wajar, jujur, dan tidak merugikan orang lain.
         </p>
 
@@ -54,6 +54,16 @@ export default function TermsPage() {
               Fitur dapat berubah karena produk masih aktif dikembangkan. Jika
               ada perubahan penting, kami akan berusaha membuatnya jelas di
               produk atau repositori.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold">Masukan dan kontribusi</h2>
+            <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/62">
+              UMKM Cepat adalah proyek open source. Kamu bisa membuat issue,
+              mengusulkan fitur, atau mengirim pull request lewat Github.
+              Maintainer akan meninjau dan menerima perubahan yang masuk akal
+              untuk produk dan pengguna.
             </p>
           </section>
         </div>
