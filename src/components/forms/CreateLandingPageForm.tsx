@@ -43,7 +43,6 @@ import {
 
 // import { createLandingPageAction } from '@/app/_actions/landingPageActions'; // Example if using Server Action
 
-
 // Define type for a single social link item based on Zod schema
 // type SocialLinkItem = { platform: typeof SOCIAL_PLATFORMS[number]; url: string }; // Keep commented out for now
 
@@ -66,9 +65,10 @@ interface CreateLandingPageFormProps {
   isEditMode?: boolean;
 }
 
-
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.";
+  return error instanceof Error
+    ? error.message
+    : "Terjadi kesalahan yang tidak diketahui.";
 }
 export function CreateLandingPageForm({
   initialData = {},
@@ -140,7 +140,7 @@ export function CreateLandingPageForm({
     if (files && files.length > 0) {
       setSelectedFiles(files);
       const previews = Array.from(files).map((file) =>
-        URL.createObjectURL(file)
+        URL.createObjectURL(file),
       );
       setImagePreviews(previews);
       form.setValue("images", files, { shouldValidate: true }); // Update RHF state
@@ -154,7 +154,7 @@ export function CreateLandingPageForm({
   const handleRemoveImage = (indexToRemove: number) => {
     // Create new arrays/FileList excluding the item at indexToRemove
     const remainingPreviews = imagePreviews.filter(
-      (_, index) => index !== indexToRemove
+      (_, index) => index !== indexToRemove,
     );
     let remainingFiles: FileList | null = null;
 
@@ -230,8 +230,8 @@ export function CreateLandingPageForm({
     toast.dismiss();
     // Clear any existing redirect timer before starting a new one
     if (redirectTimerRef.current) {
-        clearTimeout(redirectTimerRef.current);
-        redirectTimerRef.current = null;
+      clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = null;
     }
 
     startTransition(async () => {
@@ -287,7 +287,7 @@ export function CreateLandingPageForm({
             {
               method: "PUT",
               body: formData,
-            }
+            },
           );
 
           const result = await response.json();
@@ -295,7 +295,8 @@ export function CreateLandingPageForm({
           if (!response.ok) {
             console.error("API Update Error:", result);
             throw new Error(
-              result.message || `Gagal menyimpan perubahan (${response.status})`
+              result.message ||
+                `Gagal menyimpan perubahan (${response.status})`,
             );
           }
 
@@ -322,52 +323,51 @@ export function CreateLandingPageForm({
             throw new Error(result.message || "Gagal membuat landing page.");
           }
 
-          // --- Success Handling with Button and Countdown --- 
+          // --- Success Handling with Button and Countdown ---
           const newSlug = result.slug;
           if (!newSlug) {
-               console.error("Slug not found in API response after creation.");
-               toast.error("Gagal Mendapatkan Alamat Halaman", {
-                   description: "Tidak dapat memproses hasil pembuatan halaman."
-               });
-               return; // Stop if slug is missing
+            console.error("Slug not found in API response after creation.");
+            toast.error("Gagal Mendapatkan Alamat Halaman", {
+              description: "Tidak dapat memproses hasil pembuatan halaman.",
+            });
+            return; // Stop if slug is missing
           }
 
           const redirectUrl = `/p/${newSlug}`;
 
           // Set timeout for automatic redirect
           redirectTimerRef.current = setTimeout(() => {
-              router.push(redirectUrl);
-              redirectTimerRef.current = null; // Clear ref after execution
+            router.push(redirectUrl);
+            redirectTimerRef.current = null; // Clear ref after execution
           }, 5000); // 5 seconds
 
           // Show toast with action button
           toast.success("🎉 Landing Page Berhasil Dibuat!", {
-              description:
-                "Klik tombol atau tunggu 5 detik untuk melihat halaman.",
-              duration: 5500, // Keep toast visible slightly longer than redirect
-              action: {
-                label: "Lihat Halaman",
-                onClick: () => {
-                  // Clear the automatic redirect timer
-                  if (redirectTimerRef.current) {
-                     clearTimeout(redirectTimerRef.current);
-                     redirectTimerRef.current = null;
-                  }
-                  // Redirect immediately
-                  router.push(redirectUrl);
-                  // Optionally dismiss the toast explicitly if needed
-                  // toast.dismiss(); 
-                },
+            description:
+              "Klik tombol atau tunggu 5 detik untuk melihat halaman.",
+            duration: 5500, // Keep toast visible slightly longer than redirect
+            action: {
+              label: "Lihat Halaman",
+              onClick: () => {
+                // Clear the automatic redirect timer
+                if (redirectTimerRef.current) {
+                  clearTimeout(redirectTimerRef.current);
+                  redirectTimerRef.current = null;
+                }
+                // Redirect immediately
+                router.push(redirectUrl);
+                // Optionally dismiss the toast explicitly if needed
+                // toast.dismiss();
               },
+            },
           });
           // No return here, let the timer run unless button is clicked
         }
-
       } catch (error) {
         // Clear timer on error as well
         if (redirectTimerRef.current) {
-            clearTimeout(redirectTimerRef.current);
-            redirectTimerRef.current = null;
+          clearTimeout(redirectTimerRef.current);
+          redirectTimerRef.current = null;
         }
         console.error("Form submission error:", error);
         const errorMessage =
@@ -382,14 +382,16 @@ export function CreateLandingPageForm({
 
   // === Handler for AI Description Generation ===
   const handleGenerateDescription = async () => {
-    if (isGeneratingDesc) {return;}
+    if (isGeneratingDesc) {
+      return;
+    }
 
     const businessName = form.getValues("businessName");
     const category = form.getValues("category");
 
     if (!businessName || !category) {
       toast.error(
-        "Isi Business Name dan Kategori terlebih dahulu untuk generate deskripsi."
+        "Isi Business Name dan Kategori terlebih dahulu untuk generate deskripsi.",
       );
       return;
     }
@@ -417,9 +419,7 @@ export function CreateLandingPageForm({
         id: genToastId,
         description: "Anda masih bisa mengeditnya jika perlu.",
       });
-    } catch (
-      error: unknown
-    ) {
+    } catch (error: unknown) {
       console.error("Description generation error:", error);
       toast.error("Gagal Generate Deskripsi", {
         id: genToastId,
@@ -464,7 +464,7 @@ export function CreateLandingPageForm({
                   form.setValue(
                     "category",
                     value as LandingPageSchema["category"],
-                    { shouldValidate: true }
+                    { shouldValidate: true },
                   )
                 }
                 defaultValue={form.getValues("category")}
@@ -509,7 +509,9 @@ export function CreateLandingPageForm({
 
           {/* Deskripsi User (Opsional) */}
           <div className="flex items-center justify-between mb-1.5">
-            <Label htmlFor="userDescription">Deskripsi Singkat (Opsional)</Label>
+            <Label htmlFor="userDescription">
+              Deskripsi Singkat (Opsional)
+            </Label>
             <Button
               type="button"
               variant="outline"
@@ -554,7 +556,9 @@ export function CreateLandingPageForm({
               "flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-radius-lg cursor-pointer",
               "bg-surface-muted/50 hover:bg-surface-muted/80 transition-colors",
               isPending ? "cursor-not-allowed opacity-60" : "",
-              form.formState.errors.images ? "border-red-500" : "border-foreground-primary/10"
+              form.formState.errors.images
+                ? "border-red-500"
+                : "border-foreground-primary/10",
             )}
           >
             <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
@@ -660,7 +664,7 @@ export function CreateLandingPageForm({
                       <Input
                         placeholder="Nama Pelanggan"
                         {...form.register(
-                          `testimonials.${index}.name` as const
+                          `testimonials.${index}.name` as const,
                         )}
                         disabled={isPending}
                       />
@@ -675,7 +679,7 @@ export function CreateLandingPageForm({
                       <Textarea
                         placeholder="Komentar Testimoni"
                         {...form.register(
-                          `testimonials.${index}.comment` as const
+                          `testimonials.${index}.comment` as const,
                         )}
                         rows={2}
                         disabled={isPending}
@@ -750,10 +754,12 @@ export function CreateLandingPageForm({
                           onValueChange={(value) =>
                             form.setValue(
                               `socialLinks.${index}.platform`,
-                              value as (typeof SOCIAL_PLATFORMS)[number]
+                              value as (typeof SOCIAL_PLATFORMS)[number],
                             )
                           }
-                          defaultValue={form.getValues(`socialLinks.${index}.platform`)}
+                          defaultValue={form.getValues(
+                            `socialLinks.${index}.platform`,
+                          )}
                           disabled={isPending}
                         >
                           <SelectTrigger>
@@ -781,7 +787,7 @@ export function CreateLandingPageForm({
                         <Input
                           placeholder="URL Lengkap (contoh: https://...)"
                           {...form.register(
-                            `socialLinks.${index}.url` as const
+                            `socialLinks.${index}.url` as const,
                           )}
                           disabled={isPending}
                         />

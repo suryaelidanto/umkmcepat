@@ -4,14 +4,14 @@ Provider selection is controlled by `.env`. The canonical list of supported prov
 
 ## Current defaults
 
-| Capability | Env | Current default |
-| --- | --- | --- |
-| AI | `AI_PROVIDER` | `9router` |
-| Storage | `STORAGE_PROVIDER` | `local` |
-| Rate limit | `RATE_LIMIT_PROVIDER` | `memory` |
-| Queue | `QUEUE_PROVIDER` | `none` |
-| Auth | `AUTH_PROVIDER` | `google` |
-| Payment | `PAYMENT_PROVIDER` | `none` |
+| Capability | Env                   | Current default |
+| ---------- | --------------------- | --------------- |
+| AI         | `AI_PROVIDER`         | `9router`       |
+| Storage    | `STORAGE_PROVIDER`    | `local`         |
+| Rate limit | `RATE_LIMIT_PROVIDER` | `memory`        |
+| Queue      | `QUEUE_PROVIDER`      | `none`          |
+| Auth       | `AUTH_PROVIDER`       | `google`        |
+| Payment    | `PAYMENT_PROVIDER`    | `none`          |
 
 ## AI
 
@@ -19,10 +19,8 @@ Current implemented runtime provider: `9router`.
 
 ```env
 AI_PROVIDER="9router"
-AI_MODEL="cmc/deepseek/deepseek-v4-pro"
 NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
 NINE_ROUTER_API_KEY=""
-NINE_ROUTER_MODEL="cmc/deepseek/deepseek-v4-pro"
 ```
 
 Registered future provider names: `openai`, `anthropic`, `gemini`.

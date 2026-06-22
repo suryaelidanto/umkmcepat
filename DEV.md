@@ -23,11 +23,8 @@ Fill `.env` with local values and never commit real secrets.
 ```bash
 docker compose up -d postgres
 docker compose --profile ai up -d 9router
-npm run 9router:local
 npm run db:migrate
 ```
-
-`npm run 9router:local` is only for local environments where Docker port publishing does not reliably serve `http://localhost:20129`.
 
 ## Run the app
 
@@ -51,16 +48,11 @@ http://localhost:20129/dashboard
 
 ```bash
 npm run dev            # local Next.js dev server on port 3000
-npm run dev:clean      # remove Next cache, then start dev server
-npm run 9router:local  # local localhost proxy for 9Router when needed
 npm run db:up          # start Postgres container
 npm run db:migrate     # apply Prisma migrations
 npm run db:studio      # open Prisma Studio
-npm run lint           # ESLint
-npm run typecheck      # TypeScript
-npm run test           # Vitest
+npm run check          # format, lint, typecheck, tests, dead-code checks
 npm run build          # production build
-npm run verify         # tests + production build
 npm run docker:prod    # production-style Docker Compose
 ```
 
@@ -88,7 +80,7 @@ git checkout -b feat/short-name
 After work:
 
 ```bash
-npm run verify
+npm run check && npm run build
 git add .
 git commit -m "feat: describe the change"
 git push origin feat/short-name

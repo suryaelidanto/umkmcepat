@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { AuthButton } from "@/components/common/AuthButton";
 
 export function Header() {
   return (
@@ -12,16 +12,20 @@ export function Header() {
           className="flex items-center gap-2 justify-self-start whitespace-nowrap rounded-radius-md text-base font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#151515] sm:text-lg"
           aria-label="UMKM Cepat beranda"
         >
-          <Image src="/brand/umkmcepat-logo.svg" alt="Logo UMKM Cepat" width={32} height={32} priority />
+          <Image
+            src="/brand/umkmcepat-logo.svg"
+            alt="Logo UMKM Cepat"
+            width={32}
+            height={32}
+            priority
+          />
           <span>UMKM Cepat</span>
         </Link>
 
         <div aria-hidden="true" />
 
         <div className="flex items-center justify-end gap-2">
-          <Button asChild variant="outline" size="sm" className="rounded-radius-lg border-surface-warm-white/16 bg-surface-warm-white/8 px-spacing-8 text-surface-warm-white hover:bg-surface-warm-white/14 focus-visible:ring-2 focus-visible:ring-surface-warm-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#151515]">
-            <Link href="/create">Mulai</Link>
-          </Button>
+          <AuthButton />
         </div>
       </div>
     </header>

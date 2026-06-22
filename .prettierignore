@@ -1,0 +1,13 @@
+node_modules
+.next
+.browser
+.pi
+.agent
+.agents
+coverage
+dist
+build
+public/uploads
+*.log
+package-lock.json
+skills-lock.json

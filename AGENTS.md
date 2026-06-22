@@ -15,7 +15,6 @@ Guidance for AI agents and automated contributors working on UMKM Cepat.
 - Run the Next.js dev server locally with `npm run dev`, not in Docker.
 - Run Postgres in Docker with `docker compose up -d postgres`.
 - Run 9Router in Docker with `docker compose --profile ai up -d 9router`.
-- Run `npm run 9router:local` only when local Docker networking does not make `http://localhost:20129` reliable.
 - Use `http://localhost:3000` for the app and `http://localhost:20129` for the local 9Router dashboard.
 - Use full Docker only for production-style deployment via `docker-compose.prod.yml`.
 
@@ -32,7 +31,7 @@ Guidance for AI agents and automated contributors working on UMKM Cepat.
 ## Core rules
 
 - Keep changes small, focused, and easy to review.
-- Reuse existing code, components, utilities, scripts, and docs before adding new ones.
+- Reuse existing code, components, utilities, and docs before adding new ones.
 - Prefer simple readable code over clever abstractions.
 - Keep provider-specific code behind internal adapters.
 - Keep provider choices configurable through env vars or documented config.
@@ -44,11 +43,8 @@ Guidance for AI agents and automated contributors working on UMKM Cepat.
 
 ## Required checks
 
-- Run `npm run lint` before handoff.
-- Run `npm run typecheck` before handoff.
-- Run `npm run test` before handoff.
+- Run `npm run check` before handoff.
 - Run `npm run build` after meaningful code, config, provider, or Docker changes.
-- Use `npm run verify` when the combined check is appropriate.
 
 ## Commit rules
 
@@ -63,8 +59,8 @@ Guidance for AI agents and automated contributors working on UMKM Cepat.
 
 - Keep the repo clean for future open-source contributors.
 - Delete temporary scripts, scratch files, debug helpers, local logs, screenshots, browser artifacts, and experiment outputs before handoff.
-- Keep a script only when it has a durable purpose and is referenced by `package.json` or docs.
-- Prefer one ignored log file such as `.dev.log` or `.9router-local.log` when automation needs logs.
+- Avoid ad-hoc project scripts. Prefer standard npm, Next.js, Prisma, Docker, ESLint, Prettier, and Vitest commands.
+- Prefer one ignored log file such as `.dev.log` or `.9router.log` when automation needs logs.
 - Never commit `.agent/`, `.browser/`, `.pi/`, `.next/`, local logs, cache dirs, or local-only artifacts.
 - Run `git status --short --untracked-files=all` before committing or handoff.
 - Update `.gitignore` when a new local-only artifact class appears.

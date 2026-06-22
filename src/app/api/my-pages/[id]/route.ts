@@ -1,16 +1,15 @@
+import { NextResponse } from "next/server";
+import { z } from "zod"; // Import Zod
 
-import { NextResponse } from 'next/server';
-import { z } from 'zod'; // Import Zod
+import { AiGeneratedContent, ColorThemeJson } from "@/lib/ai"; // Import types
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-import { AiGeneratedContent, ColorThemeJson } from '@/lib/ai'; // Import types
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from "@prisma/client";
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: pageId } = await params;
@@ -19,7 +18,7 @@ export async function GET(
 
     // 1. Cek autentikasi
     if (!userId) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     // 2. Cari halaman berdasarkan ID
@@ -39,42 +38,58 @@ export async function GET(
         address: true,
         socialLinks: true,
         colorTheme: true,
-      }
+      },
     });
 
     // 3. Jika halaman tidak ditemukan
     if (!page) {
-      return NextResponse.json({ message: 'Halaman tidak ditemukan' }, { status: 404 });
+      return NextResponse.json(
+        { message: "Halaman tidak ditemukan" },
+        { status: 404 },
+      );
     }
 
     // 4. Verifikasi kepemilikan
     if (page.userId !== userId) {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
     // 5. Kembalikan data halaman (dengan type assertion via unknown)
-    return NextResponse.json({
-      ...page,
-      aiContent: page.aiContent as unknown as AiGeneratedContent, // Assert via unknown
-      testimonials: page.testimonials as unknown as { name: string; comment: string }[],
-      socialLinks: page.socialLinks as unknown as { platform: string; url: string }[],
-      colorTheme: page.colorTheme as unknown as ColorThemeJson | null, // Assert via unknown
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        ...page,
+        aiContent: page.aiContent as unknown as AiGeneratedContent, // Assert via unknown
+        testimonials: page.testimonials as unknown as {
+          name: string;
+          comment: string;
+        }[],
+        socialLinks: page.socialLinks as unknown as {
+          platform: string;
+          url: string;
+        }[],
+        colorTheme: page.colorTheme as unknown as ColorThemeJson | null, // Assert via unknown
+      },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("Error fetching page:", error);
-    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
 // Helper function to update nested fields in an object
 function updateNestedField(
-  obj: Record<string, unknown> | AiGeneratedContent, path: string,
-  value: unknown): boolean {
-  if (!obj || typeof obj !== 'object') {
+  obj: Record<string, unknown> | AiGeneratedContent,
+  path: string,
+  value: unknown,
+): boolean {
+  if (!obj || typeof obj !== "object") {
     return false; // Cannot update non-object or null/undefined
   }
-  const keys = path.split('.');
+  const keys = path.split(".");
   let current = obj as Record<string, unknown>;
 
   for (let i = 0; i < keys.length - 1; i++) {
@@ -84,14 +99,20 @@ function updateNestedField(
     if (match) {
       const arrayKey = match[1];
       const index = parseInt(match[2], 10);
-      if (!current[arrayKey] || !Array.isArray(current[arrayKey]) || index >= current[arrayKey].length) {
-        console.error(`Invalid array path: ${path}. Key: ${arrayKey}, Index: ${index}`);
+      if (
+        !current[arrayKey] ||
+        !Array.isArray(current[arrayKey]) ||
+        index >= current[arrayKey].length
+      ) {
+        console.error(
+          `Invalid array path: ${path}. Key: ${arrayKey}, Index: ${index}`,
+        );
         return false; // Path doesn't exist or is not an array
       }
       current = (current[arrayKey] as Record<string, unknown>[])[index];
     } else {
       // If the key doesn't exist or is not an object, create it (important for adding new fields like titles)
-      if (!current[key] || typeof current[key] !== 'object') {
+      if (!current[key] || typeof current[key] !== "object") {
         // console.warn(`Creating object path segment: ${key} in ${path}`); // Optional warning
         current[key] = {};
       }
@@ -112,16 +133,27 @@ function updateNestedField(
     const arrayKey = lastKeyMatch[1];
     const index = parseInt(lastKeyMatch[2], 10);
     // Ensure the array exists and the index is valid before setting
-    if (!current[arrayKey] || !Array.isArray(current[arrayKey]) || index > current[arrayKey].length) { // Allow adding at the end
-      console.error(`Invalid final array path: ${path}. Key: ${arrayKey}, Index: ${index}`);
+    if (
+      !current[arrayKey] ||
+      !Array.isArray(current[arrayKey]) ||
+      index > current[arrayKey].length
+    ) {
+      // Allow adding at the end
+      console.error(
+        `Invalid final array path: ${path}. Key: ${arrayKey}, Index: ${index}`,
+      );
       // If you want to allow creating/expanding arrays, add logic here
       // For now, assume the array and index must roughly exist
       if (!current[arrayKey] || !Array.isArray(current[arrayKey])) {
-        console.error(`Target array ${arrayKey} does not exist or is not an array.`);
+        console.error(
+          `Target array ${arrayKey} does not exist or is not an array.`,
+        );
         return false;
       }
       if (index > current[arrayKey].length) {
-        console.error(`Index ${index} is out of bounds for array ${arrayKey} (length ${current[arrayKey].length}).`);
+        console.error(
+          `Index ${index} is out of bounds for array ${arrayKey} (length ${current[arrayKey].length}).`,
+        );
         return false;
       }
       // If index === current[arrayKey].length, it's like a push
@@ -131,8 +163,10 @@ function updateNestedField(
     }
   } else {
     // Ensure the target for the final key exists and is an object before assigning
-    if (typeof current !== 'object' || current === null) {
-      console.error(`Cannot set property '${lastKey}' on non-object at path: ${path}`);
+    if (typeof current !== "object" || current === null) {
+      console.error(
+        `Cannot set property '${lastKey}' on non-object at path: ${path}`,
+      );
       return false;
     }
     current[lastKey] = value;
@@ -150,7 +184,7 @@ const updateContentSchema = z.object({
 // PATCH /api/my-pages/[id] - Update specific aiContent field
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: pageId } = await params;
@@ -172,7 +206,7 @@ export async function PATCH(
           message: "Invalid request body",
           errors: validationResult.error.flatten().fieldErrors,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -187,7 +221,7 @@ export async function PATCH(
     if (!page) {
       return NextResponse.json(
         { message: "Landing page not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -198,21 +232,36 @@ export async function PATCH(
     // 4. Update the specific field in aiContent JSON
     // Make sure aiContent is treated as an object, initialize if null/invalid JSON
     let currentAiContent: AiGeneratedContent;
-    if (page.aiContent && typeof page.aiContent === 'object' && !Array.isArray(page.aiContent)) {
+    if (
+      page.aiContent &&
+      typeof page.aiContent === "object" &&
+      !Array.isArray(page.aiContent)
+    ) {
       // Use type assertion via unknown for safety
       currentAiContent = page.aiContent as unknown as AiGeneratedContent;
     } else {
-      console.warn(`Invalid or missing aiContent for page ${pageId}, initializing.`);
+      console.warn(
+        `Invalid or missing aiContent for page ${pageId}, initializing.`,
+      );
       // Assert empty object as the correct type
       currentAiContent = {} as AiGeneratedContent;
     }
 
     // Use the helper function to update the nested field
-    const updateSuccessful = updateNestedField(currentAiContent, fieldKey, newValue);
+    const updateSuccessful = updateNestedField(
+      currentAiContent,
+      fieldKey,
+      newValue,
+    );
 
     if (!updateSuccessful) {
-      console.error(`Failed to update fieldKey "${fieldKey}" for page ${pageId}. Path might be invalid or structure unexpected.`);
-      return NextResponse.json({ message: `Invalid field key or path: ${fieldKey}` }, { status: 400 });
+      console.error(
+        `Failed to update fieldKey "${fieldKey}" for page ${pageId}. Path might be invalid or structure unexpected.`,
+      );
+      return NextResponse.json(
+        { message: `Invalid field key or path: ${fieldKey}` },
+        { status: 400 },
+      );
     }
 
     // 5. Save the updated aiContent back to the database
@@ -221,22 +270,24 @@ export async function PATCH(
       data: {
         aiContent: currentAiContent as unknown as Prisma.InputJsonValue,
       },
-      select: { id: true } // Only select necessary fields for response
+      select: { id: true }, // Only select necessary fields for response
     });
 
     return NextResponse.json(
       { message: "Content updated successfully", pageId: updatedPage.id },
-      { status: 200 }
+      { status: 200 },
     );
-
   } catch (error) {
     console.error("Error PATCH updating content for page:", error); // Added PATCH marker
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: 'Validation Error', errors: error.errors }, { status: 400 });
+      return NextResponse.json(
+        { message: "Validation Error", errors: error.errors },
+        { status: 400 },
+      );
     }
     return NextResponse.json(
       { message: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -310,7 +361,7 @@ export async function PUT(
 // DELETE /api/my-pages/[id]
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: pageId } = await params;
@@ -319,7 +370,7 @@ export async function DELETE(
 
     // 1. Cek autentikasi
     if (!userId) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     // 2. Cari halaman berdasarkan ID
@@ -330,12 +381,15 @@ export async function DELETE(
 
     // 3. Jika halaman tidak ditemukan
     if (!page) {
-      return NextResponse.json({ message: 'Halaman tidak ditemukan' }, { status: 404 });
+      return NextResponse.json(
+        { message: "Halaman tidak ditemukan" },
+        { status: 404 },
+      );
     }
 
     // 4. Verifikasi kepemilikan
     if (page.userId !== userId) {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 }); // Pengguna bukan pemilik
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 }); // Pengguna bukan pemilik
     }
 
     // 5. Hapus halaman (TODO: Pertimbangkan hapus file storage terkait juga)
@@ -343,10 +397,15 @@ export async function DELETE(
       where: { id: pageId },
     });
 
-    return NextResponse.json({ message: 'Halaman berhasil dihapus' }, { status: 200 });
-
+    return NextResponse.json(
+      { message: "Halaman berhasil dihapus" },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("Error deleting page:", error);
-    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 },
+    );
   }
-} 
+}

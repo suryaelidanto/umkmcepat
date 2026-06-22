@@ -17,16 +17,16 @@ The goal is simple development now, without locking the project into one vendor 
 
 ## Current default choices
 
-| Capability | Current default | Future-compatible path |
-| --- | --- | --- |
-| Database | PostgreSQL via Prisma | Any PostgreSQL host via `DATABASE_URL` |
-| AI | 9Router Docker gateway | OpenAI, Anthropic, Gemini, or OpenAI-compatible APIs behind adapter |
-| Object storage | Cloudflare R2 | AWS S3, MinIO, local storage via storage adapter |
-| Auth | Auth.js / NextAuth with Google | GitHub, Microsoft, email, or other Auth.js providers |
-| Rate limit | Current/simple implementation | Redis-backed limiter later |
-| Queue | None for now | BullMQ + Redis when real background jobs exist |
-| Payment | None for now | Midtrans, Xendit, Stripe later |
-| Monitoring | Optional Sentry | Any observability provider later |
+| Capability     | Current default                | Future-compatible path                                              |
+| -------------- | ------------------------------ | ------------------------------------------------------------------- |
+| Database       | PostgreSQL via Prisma          | Any PostgreSQL host via `DATABASE_URL`                              |
+| AI             | 9Router Docker gateway         | OpenAI, Anthropic, Gemini, or OpenAI-compatible APIs behind adapter |
+| Object storage | Cloudflare R2                  | AWS S3, MinIO, local storage via storage adapter                    |
+| Auth           | Auth.js / NextAuth with Google | GitHub, Microsoft, email, or other Auth.js providers                |
+| Rate limit     | Current/simple implementation  | Redis-backed limiter later                                          |
+| Queue          | None for now                   | BullMQ + Redis when real background jobs exist                      |
+| Payment        | None for now                   | Midtrans, Xendit, Stripe later                                      |
+| Monitoring     | Optional Sentry                | Any observability provider later                                    |
 
 ## Adapter rule
 

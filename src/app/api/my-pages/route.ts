@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
@@ -9,7 +9,7 @@ export async function GET() {
     const userId = session?.user?.id;
 
     if (!userId) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const userPages = await prisma.landingPage.findMany({
@@ -24,14 +24,16 @@ export async function GET() {
         // Tambahkan field lain jika perlu ditampilkan di list
       },
       orderBy: {
-        createdAt: 'desc', // Tampilkan yang terbaru dulu
+        createdAt: "desc", // Tampilkan yang terbaru dulu
       },
     });
 
     return NextResponse.json(userPages, { status: 200 });
-
   } catch (error) {
     console.error("Error fetching user pages:", error);
-    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 },
+    );
   }
-} 
+}

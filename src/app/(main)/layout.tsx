@@ -1,6 +1,6 @@
 "use client"; // Jadikan Client Component
 
-import React from 'react';
+import React from "react";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
@@ -27,4 +27,4 @@ export default function MainLayout({
       <Footer />
     </div>
   );
-} 
+}

@@ -27,16 +27,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AiGeneratedContent, ColorThemeJson } from "@/lib/ai";
 
 // Tipe data lengkap untuk halaman edit
-interface EditPageData
-  extends Omit<
-    LandingPage,
-    | "aiContent"
-    | "testimonials"
-    | "socialLinks"
-    | "colorTheme"
-    | "createdAt"
-    | "updatedAt"
-  > {
+interface EditPageData extends Omit<
+  LandingPage,
+  | "aiContent"
+  | "testimonials"
+  | "socialLinks"
+  | "colorTheme"
+  | "createdAt"
+  | "updatedAt"
+> {
   aiContent: AiGeneratedContent;
   testimonials: { name: string; comment: string }[];
   socialLinks: { platform: string; url: string }[];
@@ -176,8 +175,8 @@ export default function EditLandingPage() {
             {error?.message === "Unauthorized"
               ? "Anda harus login sebagai pemilik halaman untuk mengedit."
               : error?.message === "Not Found"
-              ? "Halaman yang ingin Anda edit tidak ditemukan."
-              : error?.message || "Gagal memuat data halaman."}
+                ? "Halaman yang ingin Anda edit tidak ditemukan."
+                : error?.message || "Gagal memuat data halaman."}
             <Button asChild variant="link" className="p-0 h-auto ml-1">
               <Link href="/my-pages">Kembali ke Halaman Saya</Link>
             </Button>

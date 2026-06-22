@@ -1,6 +1,4 @@
-import { ArrowUp } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
+import { HomePromptForm } from "@/components/projects/HomePromptForm";
 
 export default function HomePage() {
   return (
@@ -16,34 +14,11 @@ export default function HomePage() {
             Usahamu layak punya website. 100% gratis.
           </h1>
           <p className="mt-spacing-7 max-w-2xl text-balance text-lg leading-7 text-surface-warm-white/72 sm:text-xl">
-            Ceritakan usahamu, lalu biarkan AI menyusunnya jadi halaman online yang profesional dan siap kamu bagikan.
+            Ceritakan usahamu, lalu biarkan AI menyusunnya jadi halaman online
+            yang profesional dan siap kamu bagikan.
           </p>
 
-          <form
-            action="/create"
-            className="mt-spacing-12 w-full max-w-3xl overflow-hidden rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)]"
-          >
-            <label htmlFor="hero-prompt" className="sr-only">
-              Ceritakan usaha yang ingin dibuatkan landing page
-            </label>
-            <textarea
-              id="hero-prompt"
-              name="prompt"
-              placeholder="Tulis usahamu di sini... contoh: Saya jual sambal rumahan, butuh landing page hangat dengan tombol WhatsApp."
-              className="h-36 w-full resize-none bg-transparent px-spacing-9 py-spacing-9 text-base leading-7 text-surface-warm-white outline-none placeholder:text-surface-warm-white/42 sm:text-lg"
-            />
-            <div className="flex items-center justify-end px-spacing-7 pb-spacing-7">
-              <Button
-                type="submit"
-                size="icon"
-                className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
-                aria-label="Buat halaman"
-              >
-                <ArrowUp className="size-4" />
-              </Button>
-            </div>
-          </form>
-
+          <HomePromptForm />
         </div>
       </section>
     </div>

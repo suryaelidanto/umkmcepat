@@ -127,7 +127,7 @@ export function InlineEditText({
   };
 
   const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     if (e.key === "Enter" && !(as === "textarea" && e.shiftKey)) {
       e.preventDefault();
@@ -155,7 +155,7 @@ export function InlineEditText({
     ref: inputRef,
     value: currentValue,
     onChange: (
-      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     ) => {
       setCurrentValue(e.target.value);
     },
@@ -237,7 +237,7 @@ export function InlineEditText({
         <Tag
           className={cn(
             "cursor-pointer relative group border border-transparent hover:bg-surface-muted/50 focus:bg-surface-muted/50 focus:outline-none focus:ring-1 focus:ring-action-primary p-1 -m-1 rounded-radius-sm transition-colors duration-150 ease-in-out min-h-[1em] w-full block", // Make block to allow click anywhere
-            className
+            className,
           )}
           onClick={() => setIsEditing(true)}
           onFocus={() => setIsEditing(true)}

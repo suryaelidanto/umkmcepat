@@ -25,13 +25,18 @@ export function getEnv(name: string, fallback = ""): string {
   return process.env[name] || fallback;
 }
 
-export function getConfiguredProvider<T extends ProviderCapability>(capability: T): ProviderValue<T> {
+export function getConfiguredProvider<T extends ProviderCapability>(
+  capability: T,
+): ProviderValue<T> {
   const envName = getProviderEnvName(capability);
-  const rawValue = getEnv(envName, getDefaultProvider(capability)).toLowerCase();
+  const rawValue = getEnv(
+    envName,
+    getDefaultProvider(capability),
+  ).toLowerCase();
 
   if (!isProviderValue(capability, rawValue)) {
     throw new Error(
-      `Invalid ${envName} '${rawValue}'. Supported values: ${formatProviderOptions(capability)}.`
+      `Invalid ${envName} '${rawValue}'. Supported values: ${formatProviderOptions(capability)}.`,
     );
   }
 

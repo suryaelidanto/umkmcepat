@@ -29,7 +29,7 @@ services:
       HOSTNAME: 0.0.0.0
       NEXT_PUBLIC_BASE_URL: http://localhost:20129
     ports:
-      - "20130:20128"
+      - "20129:20128"
     volumes:
       - nine_router_data:/app/data
 

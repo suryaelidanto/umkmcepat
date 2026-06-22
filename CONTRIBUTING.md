@@ -56,17 +56,11 @@ Husky + commitlint checks this automatically.
 Before opening a PR:
 
 ```bash
-npm run lint
-npm run typecheck
-npm run test
+npm run check
 npm run build
 ```
 
-Or:
-
-```bash
-npm run verify
-```
+`npm run check` is strict: formatting, ESLint, TypeScript, tests, and unused-code/dependency checks must pass.
 
 ## Pull request checklist
 

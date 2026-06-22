@@ -17,12 +17,17 @@ const limits: Record<RateLimitType, { limit: number; windowMs: number }> = {
 };
 
 function getClientIp(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip") ||
-    "127.0.0.1";
+    "127.0.0.1"
+  );
 }
 
-export async function checkRateLimit(request: Request, type: RateLimitType = "global") {
+export async function checkRateLimit(
+  request: Request,
+  type: RateLimitType = "global",
+) {
   const provider = getConfiguredProvider("rateLimit");
 
   if (provider === "none") {
@@ -30,7 +35,9 @@ export async function checkRateLimit(request: Request, type: RateLimitType = "gl
   }
 
   if (provider !== "memory") {
-    throw new Error(`Rate limit provider '${provider}' is registered but not implemented yet.`);
+    throw new Error(
+      `Rate limit provider '${provider}' is registered but not implemented yet.`,
+    );
   }
 
   const now = Date.now();
@@ -52,7 +59,9 @@ export async function checkRateLimit(request: Request, type: RateLimitType = "gl
   const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
 
   return NextResponse.json(
-    { message: `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.` },
+    {
+      message: `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.`,
+    },
     {
       status: 429,
       headers: {
@@ -61,6 +70,6 @@ export async function checkRateLimit(request: Request, type: RateLimitType = "gl
         "X-RateLimit-Remaining": "0",
         "X-RateLimit-Reset": `${bucket.resetAt}`,
       },
-    }
+    },
   );
 }

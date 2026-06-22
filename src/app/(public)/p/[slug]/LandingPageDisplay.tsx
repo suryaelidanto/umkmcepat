@@ -12,7 +12,7 @@ import {
   Quote,
   Send,
   Twitter,
-  Youtube
+  Youtube,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -42,10 +42,10 @@ type PageData = {
   whatsappNumber: string | null;
   // Update aiContent to include optional titles
   aiContent: AiGeneratedContent & {
-      featuresTitle?: string;
-      galleryTitle?: string;
-      testimonialsTitle?: string;
-      contactTitle?: string;
+    featuresTitle?: string;
+    galleryTitle?: string;
+    testimonialsTitle?: string;
+    contactTitle?: string;
   };
   images: string[] | null;
   userId: string | null;
@@ -276,7 +276,7 @@ export function LandingPageDisplay({
 
   // Check if current user is the owner (with safe check for session.user)
   const isLoggedIn = !!session?.user;
-  const isOwner = isLoggedIn && session?.user?.id === pageData.userId; // Added optional chaining ?. 
+  const isOwner = isLoggedIn && session?.user?.id === pageData.userId; // Added optional chaining ?.
 
   // --- API Call Handler for Saving Inline Edits (Moved Here) ---
   const handleSaveContent = async (fieldKey: string, newValue: string) => {
@@ -296,7 +296,10 @@ export function LandingPageDisplay({
       // queryClient.invalidateQueries({ queryKey: ['landingPageData', pageData.slug] });
     } catch (error) {
       console.error("Failed to save content:", error);
-      toast.error("Gagal menyimpan", { description: error instanceof Error ? error.message : "Kesalahan server" });
+      toast.error("Gagal menyimpan", {
+        description:
+          error instanceof Error ? error.message : "Kesalahan server",
+      });
       // Re-throw error for InlineEditText to handle its state
       throw error;
     }
@@ -322,11 +325,12 @@ export function LandingPageDisplay({
 
   // Get section titles from aiContent, with defaults
   const galleryTitle = pageData.aiContent?.galleryTitle || "Galeri";
-  const testimonialsTitle = pageData.aiContent?.testimonialsTitle || "Apa Kata Pelanggan Kami?";
+  const testimonialsTitle =
+    pageData.aiContent?.testimonialsTitle || "Apa Kata Pelanggan Kami?";
   const contactTitle = pageData.aiContent?.contactTitle || "Hubungi Kami";
 
   // --- Construct Share URL ---
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://umkmcepat.com'; // Get base URL
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://umkmcepat.com"; // Get base URL
   const pageUrl = `${baseUrl}/p/${pageData.slug}`;
   const pageTitle = pageData.aiContent?.headline || pageData.businessName;
 
@@ -344,7 +348,7 @@ export function LandingPageDisplay({
         <LandingPageRenderer
           data={pageData.aiContent}
           businessName={pageData.businessName}
-          isOwner={isOwner} 
+          isOwner={isOwner}
           handleSaveContent={handleSaveContent}
         />
 
@@ -515,7 +519,7 @@ export function LandingPageDisplay({
       {/* --- Watermark Section (Always shows now) --- */}
       <footer className="text-center py-spacing-9 border-t border-foreground-primary/10 mt-spacing-14">
         <p className="text-xs text-text-secondary">
-          Dibuat dengan {" "}
+          Dibuat dengan{" "}
           <Link
             href="https://umkmcepat.com"
             target="_blank"
@@ -536,4 +540,4 @@ export function LandingPageDisplay({
       />
     </div>
   );
-} 
+}

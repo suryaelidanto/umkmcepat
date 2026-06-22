@@ -10,9 +10,6 @@ import { LandingPageDisplay } from "./LandingPageDisplay";
 import type { ColorThemeJson } from "@/lib/ai";
 import type { Metadata } from "next";
 
-
-
-
 // Tipe Props tetap sama
 type Props = {
   params: Promise<{ slug: string }>;
@@ -61,8 +58,8 @@ async function getLandingPageData(slug: string) {
     : [];
 
   // Type assertion for colorTheme (safer way)
-  const colorThemeTyped = landingPage.colorTheme 
-    ? landingPage.colorTheme as unknown as ColorThemeJson 
+  const colorThemeTyped = landingPage.colorTheme
+    ? (landingPage.colorTheme as unknown as ColorThemeJson)
     : null;
 
   if (
@@ -97,7 +94,7 @@ export default async function PublicLandingPage({ params }: Props) {
 // Fungsi generateMetadata tetap di sini (Server Side)
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const pageData = await getLandingPageData(slug); 
+  const pageData = await getLandingPageData(slug);
 
   const aiContent = pageData.aiContent;
   const title = aiContent?.headline || pageData.businessName;
@@ -123,4 +120,4 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images: imageUrl ? [imageUrl] : [],
     },
   };
-} 
+}

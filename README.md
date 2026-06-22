@@ -1,143 +1,208 @@
 # UMKM Cepat
 
-AI-assisted website and commerce builder for Indonesian UMKM. The app helps small businesses create landing pages, catalogs, and online selling flows faster.
+AI landing-page builder for Indonesian UMKM. The product goal is simple: open the app, describe the business, generate a clean landing page, then publish/share it.
 
-## Status
+## Stack
 
-Early-stage Next.js SaaS codebase prepared for open-source collaboration. Some live integrations require private credentials and are intentionally not exercised in default tests.
-
-## Tech stack
-
-- Next.js 15 / React 19
+- Next.js 15 + React 19
 - TypeScript
-- Prisma
-- NextAuth
 - Tailwind CSS
-- Configurable memory rate limiting
-- Configurable storage provider: local or S3-compatible providers such as Cloudflare R2
-- Configurable AI provider architecture with 9Router as the current runtime gateway
-- Vitest for unit tests
-- ESLint + Husky + lint-staged for quality gates
+- Prisma + PostgreSQL
+- NextAuth Google OAuth
+- 9Router as the AI gateway
+- Vitest, ESLint, Prettier, Knip
 
-## Requirements
+## Install prerequisites
 
-- Node.js 22 (`.nvmrc` is provided)
-- npm 10+
-- Docker with Compose for local infrastructure containers
+| Tool                    | Windows                                                        | macOS                                                      | Linux                                   |
+| ----------------------- | -------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |
+| Git                     | https://git-scm.com/download/win                               | https://git-scm.com/download/mac                           | https://git-scm.com/download/linux      |
+| Node.js 22              | https://nodejs.org/en/download                                 | https://nodejs.org/en/download                             | https://nodejs.org/en/download          |
+| Docker Desktop / Engine | https://docs.docker.com/desktop/setup/install/windows-install/ | https://docs.docker.com/desktop/setup/install/mac-install/ | https://docs.docker.com/engine/install/ |
+| GitHub CLI              | https://cli.github.com/                                        | https://cli.github.com/                                    | https://cli.github.com/                 |
 
-## Setup
+Check versions:
+
+```bash
+git --version
+node --version
+npm --version
+docker version
+docker compose version
+```
+
+Expected:
+
+```text
+Node.js >= 22 < 23
+npm >= 10
+```
+
+## Run locally
+
+1. Install dependencies.
 
 ```bash
 npm install
+```
+
+2. Create local env.
+
+```bash
 cp .env.example .env
 ```
 
-Fill `.env` with local values. Do not commit real secrets.
+Windows PowerShell:
 
-Useful env vars:
+```powershell
+Copy-Item .env.example .env
+```
 
-| Name | Purpose | Required for |
-| --- | --- | --- |
-| `DATABASE_URL` | Prisma database connection | DB-backed app flows |
-| `NEXTAUTH_SECRET` | NextAuth signing secret | Auth |
-| `NEXTAUTH_URL` | Local auth URL | Auth |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | Auth |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Auth |
-| `AI_PROVIDER` | AI provider selection | AI features |
-| `AI_MODEL` | AI model name | AI features |
-| `NINE_ROUTER_API_KEY` | 9Router API key | AI features |
-| `NINE_ROUTER_BASE_URL` | 9Router OpenAI-compatible endpoint | AI features |
-| `STORAGE_PROVIDER` | Storage provider selection | Uploads |
-| `S3_ENDPOINT` | S3-compatible endpoint for R2/S3/MinIO | Cloud uploads |
-| `S3_BUCKET` | S3-compatible bucket | Cloud uploads |
-| `S3_ACCESS_KEY_ID` | S3-compatible access key | Cloud uploads |
-| `S3_SECRET_ACCESS_KEY` | S3-compatible secret key | Cloud uploads |
-| `S3_PUBLIC_BASE_URL` | Public base URL for uploaded files | Cloud uploads |
-| `RATE_LIMIT_PROVIDER` | Rate limit provider selection | Rate limiting |
-
-## Development
-
-Run infrastructure in Docker, then run the Next.js dev server locally for reliable hot reload:
+3. Start Postgres.
 
 ```bash
 docker compose up -d postgres
-docker compose --profile ai up -d 9router
-npm run 9router:local
+```
+
+4. Apply migrations.
+
+```bash
 npm run db:migrate
+```
+
+5. Start 9Router for AI work.
+
+```bash
+docker compose --profile ai up -d 9router
+```
+
+6. Open 9Router dashboard.
+
+```text
+http://localhost:20129
+```
+
+Default password:
+
+```text
+123456
+```
+
+7. Configure 9Router.
+
+- Open Providers.
+- Add Command Code provider.
+- Paste your Command Code API key.
+- Save/test provider.
+- Create/copy a 9Router API key.
+- Put the key in `.env` as `NINE_ROUTER_API_KEY`.
+
+8. Start the app.
+
+```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`; open 9Router at `http://localhost:20129/dashboard`.
+Open:
 
-Developer docs:
-
-- `CONTRIBUTING.md` — contribution workflow, branches, commits, PR checklist
-- `DEV.md` — local development guide and quality checks
-- `AGENTS.md` — rules for AI agents and automated contributors
-- `docs/open-source-readiness.md` — security and open-source readiness notes
-- `docs/provider-architecture.md` — provider choices, config strategy, and adapter rules
-- `docs/providers.md` — supported provider names and env examples
-- `docs/local-development.md` — Docker Compose local infrastructure setup
-- `docs/docker-deployment.md` — Dockerfile and VPS-style Docker deployment notes
-- `docs/9router.md` — 9Router AI gateway setup
-
-## Quality checks
-
-```bash
-npm run lint
-npm run typecheck
-npm run test
-npm run build
+```text
+http://localhost:3000
 ```
 
-Combined verification:
+## Environment
 
-```bash
-npm run verify
+Important `.env` values:
+
+```env
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/umkmcepat?schema=public"
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="replace-with-local-random-secret"
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+AI_PROVIDER="9router"
+AI_MODELS="cmc/deepseek/deepseek-v4-pro,cmc/deepseek/deepseek-v4-flash,cmc/moonshotai/Kimi-K2.6"
+NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
+NINE_ROUTER_API_KEY=""
 ```
 
-## Git hooks
+Google OAuth is only needed for login flows. Create credentials at:
 
-Husky runs `lint-staged` before commits. Current staged TypeScript/JavaScript files are linted with autofix. JSON, Markdown, and CSS files are checked with Prettier when Prettier is installed/configured by contributors.
-
-If hooks are not installed after cloning:
-
-```bash
-npm run prepare
+```text
+https://console.cloud.google.com/apis/credentials
 ```
 
-## Security and secrets
+Local callback URL:
 
-- `.env*` files are ignored by git.
-- `.env.example` contains placeholders only.
-- Never paste real credentials into issues, pull requests, docs, or chat logs.
-- Before opening a PR, run a local secret scan or at minimum search tracked files for keys/tokens.
-- Live AI, payment, domain, database, storage, and monitoring credentials must stay outside the repo.
+```text
+http://localhost:3000/api/auth/callback/google
+```
 
-## Testing scope
+## AI models
 
-Default tests avoid paid/live external services. Add unit tests for pure logic and mocked integration tests for API behavior. Real AI generation, payment, domain registration, and production-like flows should be tested only with approved credentials and safe sandbox accounts.
+Model list. The first item is the default:
+
+```text
+cmc/deepseek/deepseek-v4-pro
+cmc/deepseek/deepseek-v4-flash
+cmc/moonshotai/Kimi-K2.6
+```
+
+Set one or more models with `AI_MODELS`. Use commas to separate multiple models. The first model is used by default.
+
+## Daily commands
+
+```bash
+npm run dev          # start Next.js
+npm run check        # format, lint, typecheck, tests, dead-code/dependency checks
+npm run build        # production build
+npm run db:up        # start local Postgres
+npm run db:migrate   # apply Prisma migrations
+npm run db:studio    # open Prisma Studio
+```
+
+## Quality gate
+
+`npm run check` is strict and fails on:
+
+- Prettier formatting issues
+- ESLint warnings/errors
+- TypeScript errors
+- test failures
+- unused files, exports, or dependencies via Knip
+
+GitHub Actions runs `npm run check` and `npm run build` on `dev`, `main`, and PRs into either branch.
 
 ## Contributing
 
-Please read `CONTRIBUTING.md` before opening a PR.
+1. Branch from `dev`.
+2. Keep changes small.
+3. Add/update tests for behavior changes.
+4. Run:
 
-Quick rules:
+```bash
+npm run check
+npm run build
+```
 
-1. Create a branch from `dev`.
-2. Use Conventional Commits.
-3. Keep changes focused and documented.
-4. Add or update tests for behavior changes.
-5. Run `npm run verify` before opening a PR.
-6. Do not commit secrets or local-only generated files.
+5. Commit with Conventional Commits.
+6. Open PR into `dev`.
 
-## Support the project
+## Security
 
-Donation and sponsorship links are coming soon.
+- Do not commit `.env` or secrets.
+- Do not expose provider keys to frontend code.
+- Keep 9Router/Command Code keys in `.env` or deployment secrets.
+- Use `.env.example` for placeholders only.
 
-Any money received for UMKM Cepat will be reinvested into development, servers, AI credits, documentation, contributor support, and ecosystem growth so the project can keep improving for Indonesian UMKM.
+## Docs
 
-See `SPONSORS.md` for details.
+- `DEV.md` - local workflow
+- `CONTRIBUTING.md` - contribution rules
+- `docs/9router.md` - AI gateway setup
+- `docs/providers.md` - supported provider env values
+- `docs/local-development.md` - Docker/local infrastructure
+- `docs/docker-deployment.md` - production Docker notes
 
 ## License
 

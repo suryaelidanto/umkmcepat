@@ -15,7 +15,11 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function QueryProvider({ children }: { children: React.ReactNode }) {
+export default function QueryProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const showDevtools = process.env.NEXT_PUBLIC_ENABLE_QUERY_DEVTOOLS === "true";
 
   return (
@@ -25,4 +29,4 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
       {showDevtools ? <ReactQueryDevtools initialIsOpen={false} /> : null}
     </QueryClientProvider>
   );
-} 
+}

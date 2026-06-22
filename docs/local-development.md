@@ -55,12 +55,6 @@ npm run db:migrate
 docker compose --profile ai up -d 9router
 ```
 
-For local Docker runtimes where published container ports do not reliably appear at `localhost`, keep the localhost helper running in another terminal:
-
-```bash
-npm run 9router:local
-```
-
 Open the 9Router dashboard:
 
 ```text
@@ -83,11 +77,7 @@ http://localhost:3000
 
 `npm run dev` intentionally runs outside Docker because local bind-mounted Next.js hot reload can be slower or stale on some host filesystems.
 
-If `.next` gets stale or the app shows missing manifest/chunk errors:
-
-```bash
-npm run dev:clean
-```
+If `.next` gets stale or the app shows missing manifest/chunk errors, stop the dev server, remove `.next`, then run `npm run dev` again.
 
 ## Optional Redis
 
@@ -103,7 +93,7 @@ Local automation should write to ignored logs when needed:
 
 ```bash
 npm run dev > .dev.log 2>&1
-npm run 9router:local > .9router-local.log 2>&1
+docker compose --profile ai logs -f 9router > .9router.log 2>&1
 ```
 
 `.gitignore` ignores local logs and browser/factory artifacts.

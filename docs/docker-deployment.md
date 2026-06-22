@@ -62,10 +62,8 @@ NEXTAUTH_SECRET="replace-with-strong-secret"
 GOOGLE_CLIENT_ID="replace"
 GOOGLE_CLIENT_SECRET="replace"
 AI_PROVIDER="9router"
-AI_MODEL="cmc/deepseek/deepseek-v4-pro"
 NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 NINE_ROUTER_API_KEY="replace-with-9router-api-key"
-NINE_ROUTER_MODEL="cmc/deepseek/deepseek-v4-pro"
 STORAGE_PROVIDER="local"
 UPLOAD_DIR="public/uploads"
 PUBLIC_UPLOAD_BASE_URL="/uploads"
@@ -85,4 +83,4 @@ For VPS, change `POSTGRES_PASSWORD` and do not expose port `5432` publicly unles
 - Migrations run at container startup.
 - Local uploads are persisted in the `uploads` Docker volume.
 - For serious production, prefer S3/R2 object storage over local uploads.
-- If local dev returns 500 errors with missing `.next` manifest files, stop the dev server and run `npm run dev:clean`.
+- If local dev returns 500 errors with missing `.next` manifest files, stop the dev server, remove `.next`, then run `npm run dev` again.

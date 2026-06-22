@@ -6,8 +6,11 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-plus-jakarta-sans);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-plus-jakarta-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  --font-plus-jakarta-sans:
+    "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --color-surface-base: #eceae4;
   --color-foreground-primary: #1c1c1c;
   --color-surface-warm-white: #fcfbf8;
@@ -221,7 +224,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
+    font-family:
+      var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
     font-size: 16px;
     line-height: 24px;
   }
@@ -254,10 +258,26 @@
 @layer utilities {
   .lovable-aurora {
     background:
-      radial-gradient(circle at 18% 18%, rgba(255, 122, 89, 0.72), transparent 28%),
-      radial-gradient(circle at 42% 8%, rgba(238, 79, 155, 0.68), transparent 30%),
-      radial-gradient(circle at 72% 18%, rgba(120, 103, 255, 0.62), transparent 32%),
-      radial-gradient(circle at 82% 64%, rgba(247, 164, 65, 0.58), transparent 30%),
+      radial-gradient(
+        circle at 18% 18%,
+        rgba(255, 122, 89, 0.72),
+        transparent 28%
+      ),
+      radial-gradient(
+        circle at 42% 8%,
+        rgba(238, 79, 155, 0.68),
+        transparent 30%
+      ),
+      radial-gradient(
+        circle at 72% 18%,
+        rgba(120, 103, 255, 0.62),
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at 82% 64%,
+        rgba(247, 164, 65, 0.58),
+        transparent 30%
+      ),
       linear-gradient(180deg, #fcfbf8 0%, #eceae4 100%);
   }
 
@@ -323,5 +343,3 @@
     line-height: 21px;
   }
 }
-
-

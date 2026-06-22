@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "src/app/**/{page,layout,route,loading,error,global-error,not-found}.{ts,tsx}",
+    "src/**/*.test.ts",
+    ".husky/pre-commit",
+    ".husky/commit-msg"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "*.{ts,js,mjs,cjs}"],
+  "ignoreDependencies": ["eslint-config-next", "tailwindcss"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreIssues": {
+    "src/components/ui/**": ["exports"],
+    "src/lib/provider-registry.ts": ["exports"],
+    "src/lib/storage/index.ts": ["exports"],
+    "src/lib/zod-schemas.ts": ["exports", "types"]
+  }
+}

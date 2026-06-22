@@ -1,7 +1,7 @@
-import { AlertTriangle } from 'lucide-react';
-import Link from 'next/link';
+import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
 
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
@@ -11,7 +11,8 @@ export default function NotFound() {
         404 - Halaman Tidak Ditemukan
       </h1>
       <p className="mt-4 text-lg leading-8 text-slate-600 max-w-md">
-        Maaf, halaman yang Anda cari tidak dapat ditemukan. Mungkin URL salah ketik atau halaman tersebut sudah tidak ada.
+        Maaf, halaman yang Anda cari tidak dapat ditemukan. Mungkin URL salah
+        ketik atau halaman tersebut sudah tidak ada.
       </p>
       <div className="mt-10 flex items-center justify-center gap-x-6">
         <Button asChild size="lg">
@@ -23,4 +24,4 @@ export default function NotFound() {
       </div>
     </div>
   );
-} 
+}

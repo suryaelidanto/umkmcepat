@@ -1,64 +1,51 @@
 # 9Router AI gateway
 
-UMKM Cepat routes AI calls through a project-owned 9Router Docker container.
-
-Flow:
+UMKM Cepat sends AI requests through 9Router. The browser never calls AI providers directly.
 
 ```text
-Frontend → UMKM Cepat backend → 9Router → Command Code/provider
+UMKM Cepat backend -> 9Router -> Command Code/provider -> model
 ```
 
-Frontend must never call 9Router directly.
-
-## Ports
-
-9Router listens inside the container on `20128`.
-
-Local development uses:
-
-```text
-Browser/dashboard: http://localhost:20129/dashboard
-App API base:      http://localhost:20129/v1
-Docker API base:   http://9router:20128/v1
-```
-
-The local Compose file publishes the container on host port `20130`, and `npm run 9router:local` exposes the stable developer URL `http://localhost:20129`.
-
-Production Compose publishes `20129:20128` directly unless a reverse proxy replaces it.
-
-## Local development
-
-Start project infrastructure:
+## Start locally
 
 ```bash
-docker compose up -d postgres
 docker compose --profile ai up -d 9router
-npm run 9router:local
 ```
 
-Open the dashboard:
+Open:
 
 ```text
-http://localhost:20129/dashboard
+http://localhost:20129
 ```
 
-Default dashboard password:
+Default password:
 
 ```text
 123456
 ```
 
-Change the dashboard password when 9Router asks you to.
+Change it when prompted.
 
-## Command Code provider
+## Configure provider
 
-Add your Command Code provider/API key in 9Router:
+1. Open 9Router dashboard.
+2. Go to Providers.
+3. Add Command Code provider.
+4. Paste your Command Code API key.
+5. Save and test.
+6. Create or copy a 9Router API key.
+7. Put it in `.env`:
 
-```text
-Providers → Command Code → Get API Key → paste key → save/test
+```env
+AI_PROVIDER="9router"
+AI_MODELS="cmc/deepseek/deepseek-v4-pro,cmc/deepseek/deepseek-v4-flash,cmc/moonshotai/Kimi-K2.6"
+NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
+NINE_ROUTER_API_KEY="paste-9router-api-key-here"
 ```
 
-Command Code key source:
+## Command Code key
+
+Use either source:
 
 ```text
 ~/.commandcode/auth.json
@@ -67,61 +54,50 @@ Command Code key source:
 or:
 
 ```text
-commandcode.ai/studio
+https://commandcode.ai/studio
 ```
 
-The Command Code key usually starts with:
+The key usually starts with:
 
 ```text
 user_
 ```
 
-## App API key
+## Models
 
-Create or copy a 9Router API key from the dashboard and put it in `.env`:
-
-```env
-AI_PROVIDER="9router"
-AI_MODEL="cmc/deepseek/deepseek-v4-pro"
-NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
-NINE_ROUTER_API_KEY="paste-9router-api-key-here"
-NINE_ROUTER_MODEL="cmc/deepseek/deepseek-v4-pro"
-```
-
-## Model
-
-Use one model only:
+Recommended local list:
 
 ```text
 cmc/deepseek/deepseek-v4-pro
+cmc/deepseek/deepseek-v4-flash
+cmc/moonshotai/Kimi-K2.6
 ```
 
-## Production
+`AI_MODELS` is a comma-separated model picker list. The first model is used by default.
 
-`docker-compose.prod.yml` includes 9Router:
+## Ports
 
-```bash
-docker compose -f docker-compose.prod.yml up -d --build
+Local Compose publishes:
+
+```text
+host:20129 -> container:20128
 ```
 
-Inside production Compose, the app calls 9Router on the Docker network:
+Use this locally:
+
+```env
+NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
+```
+
+Production Compose can call the service by Docker DNS:
 
 ```env
 NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 ```
 
-Public dashboard/API port:
+## Security
 
-```text
-20129
-```
-
-9Router data persists in the `nine_router_data` Docker volume.
-
-## Security notes
-
-- Do not expose Command Code keys to the browser.
-- Do not put provider keys in frontend env vars.
-- Keep `NINE_ROUTER_API_KEY` in `.env` or deployment secrets only.
-- 9Router stores provider configuration in its Docker volume.
-- Put the production dashboard behind a firewall, VPN, or reverse proxy auth when exposed publicly.
+- Keep provider keys out of frontend env vars.
+- Keep `NINE_ROUTER_API_KEY` in `.env` or deployment secrets.
+- Do not commit `.env`.
+- Protect the production dashboard with firewall, VPN, or reverse proxy auth.

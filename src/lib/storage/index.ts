@@ -15,7 +15,9 @@ export function createStorageProvider(): StorageProvider {
     return createS3StorageProvider();
   }
 
-  throw new Error(`Storage provider '${provider}' is registered but not implemented yet.`);
+  throw new Error(
+    `Storage provider '${provider}' is registered but not implemented yet.`,
+  );
 }
 
 export const storage = createStorageProvider();

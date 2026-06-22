@@ -38,17 +38,17 @@ export default function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-          <body
-            suppressHydrationWarning={true}
-            className={cn(
-              "min-h-screen bg-surface-warm-white font-sans antialiased",
-              plusJakartaSans.variable
-            )}
-          >
-            {/* REMOVED wrapper div, Header, main wrapper, Footer */}
-            <AppProviders>{children}</AppProviders>
-            <Toaster richColors position="bottom-right" />
-          </body>
-        </html>
+      <body
+        suppressHydrationWarning={true}
+        className={cn(
+          "min-h-screen bg-surface-warm-white font-sans antialiased",
+          plusJakartaSans.variable,
+        )}
+      >
+        {/* REMOVED wrapper div, Header, main wrapper, Footer */}
+        <AppProviders>{children}</AppProviders>
+        <Toaster richColors position="bottom-right" />
+      </body>
+    </html>
   );
 }

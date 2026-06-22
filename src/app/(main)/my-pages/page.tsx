@@ -269,7 +269,7 @@ export default function MyPagesDashboard() {
                               {format(
                                 new Date(page.createdAt),
                                 "dd MMMM yyyy, HH:mm",
-                                { locale: localeId }
+                                { locale: localeId },
                               )}
                             </TableCell>
                             <TableCell className="text-right space-x-1">
@@ -330,7 +330,7 @@ export default function MyPagesDashboard() {
                         {format(
                           new Date(page.createdAt),
                           "dd MMM yyyy, HH:mm",
-                          { locale: localeId }
+                          { locale: localeId },
                         )}
                       </CardDescription>
                     </CardHeader>

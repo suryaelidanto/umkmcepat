@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 
+import { getDefaultAiModel } from "@/lib/ai-models";
 import { getConfiguredProvider, getEnv, requireEnv } from "@/lib/config";
 
 // Define the expected structure of the AI-generated JSON
@@ -55,25 +56,28 @@ export interface ColorThemeJson {
   "on-error"?: string;
 }
 
-type JsonSchemaName = "landing page content" | "tweaked landing page content" | "color theme";
+type JsonSchemaName =
+  | "landing page content"
+  | "tweaked landing page content"
+  | "color theme";
 
-const AI_MODEL = getEnv(
-  "AI_MODEL",
-  getEnv("NINE_ROUTER_MODEL", "cmc/deepseek/deepseek-v4-pro")
-);
+const AI_MODEL = getDefaultAiModel();
 
 function createAiClient() {
   const provider = getConfiguredProvider("ai");
 
   if (provider === "9router") {
     return new OpenAI({
-      apiKey: requireEnv("NINE_ROUTER_API_KEY", { feature: "9Router AI gateway" }),
+      apiKey: requireEnv("NINE_ROUTER_API_KEY", {
+        feature: "9Router AI gateway",
+      }),
       baseURL: getEnv("NINE_ROUTER_BASE_URL", "http://localhost:20129/v1"),
     });
   }
 
-
-  throw new Error(`AI provider '${provider}' is registered but not implemented yet.`);
+  throw new Error(
+    `AI provider '${provider}' is registered but not implemented yet.`,
+  );
 }
 
 function parseJson<T>(content: string, schemaName: JsonSchemaName): T {
@@ -94,7 +98,9 @@ function validateContent(content: AiGeneratedContent): AiGeneratedContent {
     !content.primaryColor ||
     !content.ctaText
   ) {
-    throw new Error("Generated landing page content is missing required fields.");
+    throw new Error(
+      "Generated landing page content is missing required fields.",
+    );
   }
 
   if (!content.whatsappCTA && content.whatsappNumber) {
@@ -104,7 +110,11 @@ function validateContent(content: AiGeneratedContent): AiGeneratedContent {
   return content;
 }
 
-async function createJsonCompletion(systemPrompt: string, userMessage: string | undefined, temperature: number) {
+async function createJsonCompletion(
+  systemPrompt: string,
+  userMessage: string | undefined,
+  temperature: number,
+) {
   const client = createAiClient();
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -123,7 +133,12 @@ async function createJsonCompletion(systemPrompt: string, userMessage: string | 
   });
 }
 
-async function createTextCompletion(systemPrompt: string, userMessage: string, temperature: number, maxTokens: number) {
+async function createTextCompletion(
+  systemPrompt: string,
+  userMessage: string,
+  temperature: number,
+  maxTokens: number,
+) {
   const client = createAiClient();
 
   return client.chat.completions.create({
@@ -141,7 +156,7 @@ export async function generateLandingPageContent(
   businessName: string,
   category: string,
   userDescription?: string,
-  hasWhatsApp?: boolean
+  hasWhatsApp?: boolean,
 ): Promise<AiGeneratedContent> {
   const systemPrompt = `
     You are an expert landing page copywriter and designer for Indonesian SMEs (UMKM).
@@ -178,7 +193,9 @@ export async function generateLandingPageContent(
       throw new Error("AI response content is empty.");
     }
 
-    const parsedContent = validateContent(parseJson<AiGeneratedContent>(content, "landing page content"));
+    const parsedContent = validateContent(
+      parseJson<AiGeneratedContent>(content, "landing page content"),
+    );
 
     if (parsedContent.whatsappCTA && !hasWhatsApp) {
       parsedContent.whatsappCTA = false;
@@ -194,7 +211,7 @@ export async function generateLandingPageContent(
 
 export async function tweakLandingPageContent(
   currentContent: AiGeneratedContent,
-  userInstruction: string
+  userInstruction: string,
 ): Promise<AiGeneratedContent> {
   const systemPrompt = `
     You are an expert landing page editor.
@@ -214,9 +231,15 @@ export async function tweakLandingPageContent(
       throw new Error("AI tweak response content is empty.");
     }
 
-    const parsedContent = validateContent(parseJson<AiGeneratedContent>(content, "tweaked landing page content"));
+    const parsedContent = validateContent(
+      parseJson<AiGeneratedContent>(content, "tweaked landing page content"),
+    );
 
-    if (parsedContent.whatsappCTA && !parsedContent.whatsappNumber && currentContent.whatsappNumber) {
+    if (
+      parsedContent.whatsappCTA &&
+      !parsedContent.whatsappNumber &&
+      currentContent.whatsappNumber
+    ) {
       parsedContent.whatsappNumber = currentContent.whatsappNumber;
     }
 
@@ -229,7 +252,7 @@ export async function tweakLandingPageContent(
 
 export async function generateBusinessDescription(
   businessName: string,
-  category: string
+  category: string,
 ): Promise<string> {
   const systemPrompt = `
     Anda adalah copywriter AI yang ahli membuat deskripsi singkat maksimal 3-4 kalimat atau sekitar 400 karakter untuk landing page UMKM Indonesia.
@@ -245,7 +268,12 @@ export async function generateBusinessDescription(
   `;
 
   try {
-    const response = await createTextCompletion(systemPrompt, userMessage, 0.8, 150);
+    const response = await createTextCompletion(
+      systemPrompt,
+      userMessage,
+      0.8,
+      150,
+    );
     const description = response.choices[0]?.message?.content?.trim();
 
     if (!description) {
@@ -261,7 +289,7 @@ export async function generateBusinessDescription(
 
 export async function generateColorTheme(
   businessName: string,
-  category: string
+  category: string,
 ): Promise<ColorThemeJson> {
   const systemPrompt = `
     You are a UI color theme generator for a Lovable-inspired UMKM builder.
@@ -284,15 +312,22 @@ export async function generateColorTheme(
       throw new Error("AI color theme response content is empty.");
     }
 
-    const parsedTheme = parseJson<Partial<ColorThemeJson>>(content, "color theme");
+    const parsedTheme = parseJson<Partial<ColorThemeJson>>(
+      content,
+      "color theme",
+    );
     return normalizeColorTheme(parsedTheme);
   } catch (error) {
     console.error("Error generating color theme:", error);
-    throw new Error(`Gagal menghasilkan tema warna AI: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Gagal menghasilkan tema warna AI: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
-function normalizeColorTheme(parsedTheme: Partial<ColorThemeJson>): ColorThemeJson {
+function normalizeColorTheme(
+  parsedTheme: Partial<ColorThemeJson>,
+): ColorThemeJson {
   const requiredKeys: Array<keyof ColorThemeJson> = [
     "primary",
     "on-primary",
@@ -326,7 +361,8 @@ function normalizeColorTheme(parsedTheme: Partial<ColorThemeJson>): ColorThemeJs
   ];
 
   const finalTheme = {} as ColorThemeJson;
-  const colorRegex = /^\s*(#(?:[0-9a-fA-F]{3}){1,2}|\d{1,3}(?:\.\d+)?\s+\d{1,3}(?:\.\d+)?%\s+\d{1,3}(?:\.\d+)?%)\s*$/;
+  const colorRegex =
+    /^\s*(#(?:[0-9a-fA-F]{3}){1,2}|\d{1,3}(?:\.\d+)?\s+\d{1,3}(?:\.\d+)?%\s+\d{1,3}(?:\.\d+)?%)\s*$/;
 
   for (const key of requiredKeys) {
     const value = parsedTheme[key];
@@ -352,7 +388,7 @@ function normalizeColorTheme(parsedTheme: Partial<ColorThemeJson>): ColorThemeJs
 function getThemeFallback(
   key: keyof ColorThemeJson,
   finalTheme: Partial<ColorThemeJson>,
-  parsedTheme: Partial<ColorThemeJson>
+  parsedTheme: Partial<ColorThemeJson>,
 ): string {
   const fallbacks: Partial<Record<keyof ColorThemeJson, string>> = {
     primary: "#1c1c1c",
@@ -369,7 +405,8 @@ function getThemeFallback(
     success: "#1c1c1c",
     error: "#9f1d1d",
     card: finalTheme.surface || finalTheme.background || "#fcfbf8",
-    "on-card": finalTheme["on-surface"] || finalTheme["on-background"] || "#1c1c1c",
+    "on-card":
+      finalTheme["on-surface"] || finalTheme["on-background"] || "#1c1c1c",
     popover: finalTheme.card || "#fcfbf8",
     "on-popover": finalTheme["on-card"] || "#1c1c1c",
     destructive: finalTheme.error || "#9f1d1d",
@@ -381,7 +418,8 @@ function getThemeFallback(
     secondary_foreground: finalTheme["on-secondary"] || "#1c1c1c",
     muted_foreground: "#5f5f5d",
     accent_foreground: finalTheme["on-primary"] || "#fcfbf8",
-    destructive_foreground: parsedTheme["on-error"] || finalTheme["on-destructive"] || "#fcfbf8",
+    destructive_foreground:
+      parsedTheme["on-error"] || finalTheme["on-destructive"] || "#fcfbf8",
     card_foreground: finalTheme["on-card"] || "#1c1c1c",
     popover_foreground: finalTheme["on-popover"] || "#1c1c1c",
   };

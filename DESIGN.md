@@ -90,6 +90,7 @@ spacing:
 Target visual: Lovable-style AI builder.
 
 Core traits:
+
 - Full-bleed aurora gradient hero: pink, magenta, blue, orange.
 - Warm neutral surfaces: `#eceae4`, `#fcfbf8`, `#f7f4ed`.
 - Plus Jakarta Sans everywhere.
@@ -134,7 +135,8 @@ Core traits:
   --radius-radius-2xl: 24px;
   --radius-radius-3xl: 28px;
 
-  --font-plus-jakarta-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-plus-jakarta-sans:
+    "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 }
 ```
 
@@ -163,7 +165,7 @@ Core traits:
 - Component states must be consistent: hover uses subtle warm surface shifts, focus uses near-black ring, disabled lowers opacity, errors use destructive only for actual errors.
 - Accessibility is part of the system: preserve keyboard focus, readable contrast, semantic landmarks, clear labels, and reduced visual noise.
 - Content standards matter: keep UMKM copy warm, clear, concise, useful, and non-generic. Do not imitate Lovable copy.
-- Drift guard: run `npm run check:design` after design/styling changes. Any exception must be intentional and documented here.
+- Drift guard: keep design changes aligned with this file, then verify with lint, typecheck, tests, and browser review.
 
 ## Component state rules
 
