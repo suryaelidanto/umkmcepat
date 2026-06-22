@@ -34,6 +34,8 @@ Production should use full Docker for the app and infrastructure:
 Docker Compose:
   app container:      Next.js production server
   postgres container: database, unless using managed Postgres
+  9router container:  AI gateway dashboard/API
+  headroom container: context compression proxy for 9Router
   uploads volume:     local upload persistence, unless using S3/R2
 ```
 
@@ -75,6 +77,12 @@ POSTGRES_DB="umkmcepat"
 ```
 
 For VPS, change `POSTGRES_PASSWORD` and do not expose port `5432` publicly unless remote DB access is intentional and protected.
+
+If Headroom compression is enabled in 9Router, use this Docker-internal proxy URL:
+
+```text
+http://headroom:8787
+```
 
 ## Notes
 

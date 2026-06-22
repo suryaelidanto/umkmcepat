@@ -26,6 +26,8 @@ services:
     image: decolua/9router:latest
     container_name: umkmcepat-9router
     restart: unless-stopped
+    depends_on:
+      - headroom
     environment:
       DATA_DIR: /app/data
       PORT: 20128
@@ -35,6 +37,17 @@ services:
       - "20129:20128"
     volumes:
       - nine_router_data:/app/data
+
+  headroom:
+    build:
+      context: .
+      dockerfile: Dockerfile.headroom
+    container_name: umkmcepat-headroom
+    restart: unless-stopped
+    environment:
+      HEADROOM_TELEMETRY: off
+    ports:
+      - "8787:8787"
 
   postgres:
     image: postgres:16-alpine

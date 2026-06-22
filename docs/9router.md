@@ -3,14 +3,14 @@
 UMKM Cepat sends AI requests through 9Router. The browser never calls AI providers directly.
 
 ```text
-UMKM Cepat backend -> 9Router -> Command Code/provider -> model
+UMKM Cepat backend -> 9Router -> Headroom (optional compression) -> provider -> model
 ```
 
 ## Start locally
 
 ```bash
 docker compose --profile ai up -d
-docker compose ps 9router
+docker compose ps 9router headroom
 ```
 
 Open:
@@ -27,7 +27,27 @@ Default password:
 
 Change it when prompted.
 
-If `docker` is not found, install/start Docker Desktop or Docker Engine first. If `20129` is busy, stop the other service using that port before starting 9Router.
+Headroom starts with the AI profile too.
+
+Use this proxy URL in the project 9Router container's Compress context setup:
+
+```text
+http://headroom:8787
+```
+
+If you are configuring a native 9Router process on your host, use:
+
+```text
+http://localhost:8787
+```
+
+Health check:
+
+```text
+http://localhost:8787/health
+```
+
+If `docker` is not found, install/start Docker Desktop or Docker Engine first. If `20129` or `8787` is busy, stop the other service using that port before starting 9Router.
 
 ## Configure provider
 
@@ -83,7 +103,8 @@ cmc/moonshotai/Kimi-K2.6
 Local Compose publishes:
 
 ```text
-host:20129 -> container:20128
+9Router:  host:20129 -> container:20128
+Headroom: host:8787  -> container:8787
 ```
 
 Use this locally:

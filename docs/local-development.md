@@ -48,7 +48,7 @@ bunx prisma migrate resolve --applied 20260620131000_init
 bun run db:migrate
 ```
 
-## Start 9Router
+## Start AI gateway
 
 ```bash
 docker compose --profile ai up -d
@@ -60,7 +60,13 @@ Open the 9Router dashboard:
 http://localhost:20129/dashboard
 ```
 
-See `docs/9router.md` for provider/API key setup.
+The AI profile also starts Headroom for context compression:
+
+```text
+http://localhost:8787/health
+```
+
+See `docs/9router.md` for provider/API key and Headroom setup.
 
 ## Start Next.js
 
