@@ -32,9 +32,6 @@ export default async function HomePage() {
         <div className="absolute inset-x-0 bottom-0 -z-10 h-44 bg-gradient-to-t from-[#ff5e27] via-[#ff1f80]/70 to-transparent" />
 
         <div className="mx-auto flex min-h-[calc(100dvh-12rem)] w-full max-w-5xl flex-col items-center justify-center text-center">
-          <p className="mb-spacing-5 rounded-full border border-surface-warm-white/10 bg-surface-warm-white/8 px-spacing-6 py-spacing-3 text-sm text-surface-warm-white/72">
-            {session?.user ? "Dashboard proyek" : "AI builder untuk UMKM"}
-          </p>
           <h1 className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white">
             {session?.user
               ? "Mau bikin apa hari ini?"
