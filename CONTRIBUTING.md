@@ -2,11 +2,11 @@
 
 Thanks for helping build UMKM Cepat.
 
-You can code manually or with an AI agent. Either way, use the same setup, keep changes small, and let the repo guardrails do the boring checks.
+This guide gets you from a fresh machine to a running local app. The repo handles formatting, linting, type checks, tests, commit format, and CI checks for you.
 
 ## Fast path
 
-After your tools are installed:
+After installing the tools for your OS:
 
 ```bash
 git clone https://github.com/suryaelidanto/umkmcepat.git
@@ -26,7 +26,7 @@ http://localhost:3000
 
 ## 1. Pick your environment
 
-Use one shell consistently for the repo. Do not mix Windows native `node_modules` with WSL `node_modules`.
+Use one shell consistently for this repo. Do not mix Windows native `node_modules` with WSL `node_modules`.
 
 The Bun version is pinned in `package.json`.
 
@@ -41,9 +41,9 @@ Install:
 - Git inside WSL: https://git-scm.com/download/linux
 - Bun inside WSL: https://bun.com/docs/installation
 - Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
-- GitHub CLI inside WSL, if you use GitHub from the terminal: https://cli.github.com/
+- GitHub CLI if you use GitHub from the terminal: https://cli.github.com/
 
-Verify inside WSL:
+Check the tools inside WSL:
 
 ```bash
 git --version
@@ -66,9 +66,9 @@ Install:
 - Git for Windows: https://git-scm.com/download/win
 - Bun for Windows: https://bun.com/docs/installation
 - Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
-- GitHub CLI, if you use GitHub from the terminal: https://cli.github.com/
+- GitHub CLI if you use GitHub from the terminal: https://cli.github.com/
 
-Verify in Git Bash:
+Check the tools in Git Bash:
 
 ```bash
 git --version
@@ -77,7 +77,7 @@ docker version
 docker compose version
 ```
 
-If you use PowerShell for one-off commands, the env copy command is:
+If you use PowerShell for one-off commands, copy the env file with:
 
 ```powershell
 Copy-Item .env.example .env
@@ -93,10 +93,10 @@ Install:
 - Git: https://git-scm.com/download/mac
 - Bun: https://bun.com/docs/installation
 - Docker Desktop: https://docs.docker.com/desktop/setup/install/mac-install/
-- Colima, if you prefer a lighter local Docker runtime: https://github.com/abiosoft/colima
-- GitHub CLI, if you use GitHub from the terminal: https://cli.github.com/
+- Colima if you prefer a lighter local Docker runtime: https://github.com/abiosoft/colima
+- GitHub CLI if you use GitHub from the terminal: https://cli.github.com/
 
-Verify:
+Check the tools:
 
 ```bash
 git --version
@@ -115,9 +115,9 @@ Install:
 - Git: https://git-scm.com/download/linux
 - Bun: https://bun.com/docs/installation
 - Docker Engine: https://docs.docker.com/engine/install/
-- GitHub CLI, if you use GitHub from the terminal: https://cli.github.com/
+- GitHub CLI if you use GitHub from the terminal: https://cli.github.com/
 
-Verify:
+Check the tools:
 
 ```bash
 git --version
@@ -146,7 +146,7 @@ This repo uses Bun only. The canonical lockfile is `bun.lock`.
 cp .env.example .env
 ```
 
-The placeholders are enough for basic local development. Add real credentials only when testing integrations that need them.
+The placeholders are enough for basic local development. Add real credentials only when you work on integrations that need them.
 
 ## 4. Start the database
 
@@ -169,13 +169,13 @@ http://localhost:3000
 
 ## 6. Quality gate
 
-Run before opening a PR:
+Run this before opening a PR:
 
 ```bash
 bun run check
 ```
 
-This runs formatting, linting, TypeScript, tests, and unused-code checks. The pre-commit hook runs it too.
+It checks formatting, linting, TypeScript, tests, and unused code. The pre-commit hook runs it too.
 
 CI also runs:
 
@@ -183,7 +183,7 @@ CI also runs:
 bun run build
 ```
 
-Run build locally when touching build, Docker, deployment, Next config, or before a release.
+Run build locally when you touch build, Docker, deployment, Next config, or before a release.
 
 ## 7. Branches and commits
 
@@ -231,7 +231,7 @@ Use existing local component patterns before adding new primitives.
 
 ### AI generation
 
-Needed when working on prompt generation, model selection, or generated output:
+Set this up when you work on prompt generation, model selection, or generated output:
 
 ```bash
 docker compose --profile ai up -d 9router
@@ -253,7 +253,7 @@ Then follow [docs/9router.md](docs/9router.md).
 
 ### Google login
 
-Needed when testing real sign-in flows. Use this local callback URL:
+Set this up when you test real sign-in flows. Use this local callback URL:
 
 ```text
 http://localhost:3000/api/auth/callback/google
@@ -261,7 +261,7 @@ http://localhost:3000/api/auth/callback/google
 
 ### Observability
 
-Needed when working on Sentry or monitoring. See [docs/observability.md](docs/observability.md).
+Set this up when you work on Sentry or monitoring. See [docs/observability.md](docs/observability.md).
 
 ## Troubleshooting
 
