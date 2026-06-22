@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 
+import { CommunitySection } from "@/components/home/CommunitySection";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { auth } from "@/lib/auth";
@@ -63,6 +64,8 @@ export default async function HomePage() {
           <HomePromptForm />
         </div>
       </section>
+
+      {!session?.user ? <CommunitySection /> : null}
 
       {session?.user ? (
         <section className="bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 sm:px-spacing-9 lg:px-spacing-10">
