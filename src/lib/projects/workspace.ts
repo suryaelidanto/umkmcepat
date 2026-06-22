@@ -1,16 +1,20 @@
 const NEW_PROJECT_PATH = "/projects/new";
 
-export function getNewProjectPath(prompt: string, model?: string) {
+export type WorkspaceMode = "discuss" | "build";
+
+export function getNewProjectPath(
+  prompt: string,
+  mode: WorkspaceMode = "discuss",
+) {
   const params = new URLSearchParams();
   const trimmedPrompt = prompt.trim();
-  const trimmedModel = model?.trim();
 
   if (trimmedPrompt) {
     params.set("prompt", trimmedPrompt);
   }
 
-  if (trimmedModel) {
-    params.set("model", trimmedModel);
+  if (mode === "build") {
+    params.set("mode", mode);
   }
 
   const query = params.toString();

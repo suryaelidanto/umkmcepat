@@ -23,7 +23,7 @@ export function WorkspaceShell({
   initialPrompt = "",
   projectTitle = "Proyek baru",
 }: WorkspaceShellProps) {
-  const [mode, setMode] = useState<"build" | "ask">("build");
+  const [mode, setMode] = useState<"build" | "discuss">("discuss");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const prompt =
     initialPrompt.trim() ||
@@ -64,10 +64,10 @@ export function WorkspaceShell({
               </button>
               <button
                 type="button"
-                onClick={() => setMode("ask")}
-                className={`rounded-full px-spacing-7 py-spacing-3 transition ${mode === "ask" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/62 hover:text-surface-warm-white"}`}
+                onClick={() => setMode("discuss")}
+                className={`rounded-full px-spacing-7 py-spacing-3 transition ${mode === "discuss" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/62 hover:text-surface-warm-white"}`}
               >
-                Tanya
+                Diskusi
               </button>
             </div>
           </div>
@@ -79,7 +79,7 @@ export function WorkspaceShell({
             <div className="rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-7 py-spacing-6 text-sm leading-6 text-surface-warm-white/76">
               {mode === "build"
                 ? "Siap. Saya akan buat struktur website yang fokus ke pembeli, CTA jelas, dan nyaman dibuka dari HP."
-                : "Silakan tanya tentang copy, desain, atau strategi halaman ini. Mode Tanya tidak mengubah preview."}
+                : "Kita bahas dulu kebutuhan usahamu. Saya akan bantu susun tujuan, isi, dan arahan website sebelum dibuat."}
             </div>
 
             <div className="rounded-radius-2xl border border-surface-warm-white/10 bg-[#171716] p-spacing-7">
@@ -111,7 +111,7 @@ export function WorkspaceShell({
               placeholder={
                 mode === "build"
                   ? "Minta perubahan, contoh: buat lebih premium..."
-                  : "Tanya sesuatu tentang halaman ini..."
+                  : "Ceritakan usaha, pembeli, atau tujuan websitemu..."
               }
               className="w-full resize-none bg-transparent px-spacing-4 py-spacing-4 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38"
             />

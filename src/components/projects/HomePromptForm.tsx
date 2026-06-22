@@ -5,27 +5,23 @@ import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { FormEvent, useState } from "react";
 
+import {
+  ModeSelect,
+  type WorkspaceMode,
+} from "@/components/projects/ModeSelect";
 import { Button } from "@/components/ui/button";
 import { getNewProjectPath } from "@/lib/projects/workspace";
 
-type HomePromptFormProps = {
-  models: string[];
-};
-
-function formatModelLabel(model: string) {
-  return model.split("/").at(-1)?.replace(/-/g, " ") || model;
-}
-
-export function HomePromptForm({ models }: HomePromptFormProps) {
+export function HomePromptForm() {
   const router = useRouter();
   const { status } = useSession();
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState(models[0] || "");
+  const [mode, setMode] = useState<WorkspaceMode>("discuss");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const path = getNewProjectPath(prompt, model);
+    const path = getNewProjectPath(prompt, mode);
 
     if (status !== "authenticated") {
       if (prompt.trim()) {
@@ -41,7 +37,7 @@ export function HomePromptForm({ models }: HomePromptFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-spacing-12 w-full max-w-3xl overflow-hidden rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)]"
+      className="mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)]"
     >
       <label htmlFor="hero-prompt" className="sr-only">
         Ceritakan usaha yang ingin dibuatkan website
@@ -55,25 +51,7 @@ export function HomePromptForm({ models }: HomePromptFormProps) {
         className="h-36 w-full resize-none bg-transparent px-spacing-9 py-spacing-9 text-base leading-7 text-surface-warm-white outline-none placeholder:text-surface-warm-white/42 sm:text-lg"
       />
       <div className="flex items-center justify-between gap-spacing-5 px-spacing-7 pb-spacing-7">
-        <label className="sr-only" htmlFor="hero-model">
-          Model AI
-        </label>
-        <select
-          id="hero-model"
-          value={model}
-          onChange={(event) => setModel(event.target.value)}
-          className="max-w-[220px] rounded-full border border-surface-warm-white/10 bg-surface-warm-white/5 px-spacing-6 py-spacing-3 text-sm text-surface-warm-white/72 outline-none transition hover:bg-surface-warm-white/10 focus-visible:ring-2 focus-visible:ring-surface-warm-white"
-        >
-          {models.map((option) => (
-            <option
-              key={option}
-              value={option}
-              className="bg-[#232321] text-surface-warm-white"
-            >
-              {formatModelLabel(option)}
-            </option>
-          ))}
-        </select>
+        <ModeSelect value={mode} onChange={setMode} />
         <Button
           type="submit"
           size="icon"
