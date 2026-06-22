@@ -45,6 +45,15 @@ Deploy on a VPS:
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
+Production Compose binds public-facing services to localhost only:
+
+```text
+app:     127.0.0.1:3000
+9Router: 127.0.0.1:20129
+```
+
+Put Cloudflare Tunnel, Cloudflare Access, Nginx, Caddy, or another reverse proxy in front of them. Postgres and Headroom are internal-only.
+
 The app image runs:
 
 ```bash
@@ -76,7 +85,7 @@ POSTGRES_PASSWORD="replace-with-strong-db-password"
 POSTGRES_DB="umkmcepat"
 ```
 
-For VPS, change `POSTGRES_PASSWORD` and do not expose port `5432` publicly unless remote DB access is intentional and protected.
+For VPS, change `POSTGRES_PASSWORD`. Do not expose Postgres or Headroom publicly.
 
 If Headroom compression is enabled in 9Router, use this Docker-internal proxy URL:
 

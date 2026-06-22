@@ -18,7 +18,7 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL:-http://9router:20128/v1}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - uploads:/app/public/uploads
 
@@ -34,7 +34,7 @@ services:
       HOSTNAME: 0.0.0.0
       NEXT_PUBLIC_BASE_URL: ${NINE_ROUTER_PUBLIC_URL:-http://localhost:20129}
     ports:
-      - "20129:20128"
+      - "127.0.0.1:20129:20128"
     volumes:
       - nine_router_data:/app/data
 
@@ -46,8 +46,6 @@ services:
     restart: unless-stopped
     environment:
       HEADROOM_TELEMETRY: off
-    ports:
-      - "8787:8787"
 
   postgres:
     image: postgres:16-alpine
