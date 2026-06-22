@@ -14,13 +14,13 @@ UMKM Cepat keeps vendor-specific code behind small internal boundaries. Add a pr
 
 ## Current default choices
 
-| Capability | Current default                | Future-compatible path                               |
-| ---------- | ------------------------------ | ---------------------------------------------------- |
-| Database   | PostgreSQL via Prisma          | Any PostgreSQL host via `DATABASE_URL`               |
-| AI         | 9Router Docker gateway         | Other OpenAI-compatible APIs behind adapter          |
-| Auth       | Auth.js / NextAuth with Google | GitHub, Microsoft, email, or other Auth.js providers |
-| Rate limit | Memory                         | Redis-backed limiter later                           |
-| Monitoring | Optional Sentry                | Any observability provider later                     |
+| Capability | Current default                 | Future-compatible path                               |
+| ---------- | ------------------------------- | ---------------------------------------------------- |
+| Database   | PostgreSQL via Prisma           | Any PostgreSQL host via `DATABASE_URL`               |
+| AI         | Vercel AI SDK + 9Router gateway | Other AI SDK providers behind `src/lib/ai.ts`        |
+| Auth       | Auth.js / NextAuth with Google  | GitHub, Microsoft, email, or other Auth.js providers |
+| Rate limit | Memory                          | Redis-backed limiter later                           |
+| Monitoring | Optional Sentry                 | Any observability provider later                     |
 
 ## Adapter rule
 
@@ -61,7 +61,7 @@ Current implementation priority:
 
 1. Keep Prisma/PostgreSQL as-is.
 2. Keep Auth.js/Google as-is.
-3. Keep AI access behind an internal AI boundary when generation becomes real.
+3. Keep AI access behind the Vercel AI SDK and `src/lib/ai.ts`.
 4. Simplify or isolate rate limiting.
 5. Add storage, queues, or payments only when product flow requires them.
 
@@ -69,7 +69,7 @@ Current implementation priority:
 
 When changing or adding a provider:
 
-- Add or update the adapter only.
+- Add or update the AI SDK adapter only.
 - Keep public interfaces stable.
 - Update `.env.example` when env changes.
 - Update the matching provider doc only.

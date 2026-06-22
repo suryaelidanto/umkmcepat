@@ -1,9 +1,9 @@
 # 9Router AI gateway
 
-UMKM Cepat sends AI requests through 9Router. The browser never calls AI providers directly.
+UMKM Cepat sends AI requests through the Vercel AI SDK, with 9Router as the OpenAI-compatible backend. The browser never calls AI providers directly.
 
 ```text
-UMKM Cepat backend -> 9Router -> Headroom (optional compression) -> provider -> model
+UMKM Cepat UI -> UMKM Cepat API -> Vercel AI SDK -> 9Router -> Headroom (optional compression) -> provider -> model
 ```
 
 ## Start locally
@@ -96,7 +96,7 @@ cmc/deepseek/deepseek-v4-flash
 cmc/moonshotai/Kimi-K2.6
 ```
 
-`AI_MODELS` is a comma-separated model picker list. The first model is used by default.
+`AI_MODELS` is comma-separated. The first model is used by `src/lib/ai.ts` as the default AI SDK model.
 
 ## Ports
 

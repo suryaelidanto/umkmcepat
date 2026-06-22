@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { ClearProjectDraft } from "@/components/projects/ClearProjectDraft";
 import { WorkspaceShell } from "@/components/projects/WorkspaceShell";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -33,10 +34,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
 
   return (
-    <WorkspaceShell
-      projectTitle={project.title}
-      initialModel={project.model}
-      initialPrompt={project.prompt}
-    />
+    <>
+      <ClearProjectDraft />
+      <WorkspaceShell
+        projectTitle={project.title}
+        initialModel={project.model}
+        initialPrompt={project.prompt}
+      />
+    </>
   );
 }

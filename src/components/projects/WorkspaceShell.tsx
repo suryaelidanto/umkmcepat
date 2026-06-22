@@ -1,7 +1,9 @@
 "use client";
 
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { ArrowUp, Code2, Globe2, Monitor, Smartphone } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -28,6 +30,22 @@ export function WorkspaceShell({
   const prompt =
     initialPrompt.trim() ||
     "Saya jual sambal rumahan, ingin website hangat dengan tombol WhatsApp.";
+
+  const hasStartedChat = useRef(false);
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/projects/preview",
+    }),
+  });
+
+  useEffect(() => {
+    if (hasStartedChat.current) {
+      return;
+    }
+
+    hasStartedChat.current = true;
+    sendMessage({ text: prompt });
+  }, [prompt, sendMessage]);
 
   const previewTitle = useMemo(() => {
     if (/sambal|makanan|kuliner/i.test(prompt)) {
@@ -77,9 +95,35 @@ export function WorkspaceShell({
               {prompt}
             </div>
             <div className="rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-7 py-spacing-6 text-sm leading-6 text-surface-warm-white/76">
-              {mode === "build"
-                ? "Siap. Saya akan buat struktur website yang fokus ke pembeli, CTA jelas, dan nyaman dibuka dari HP."
-                : "Kita bahas dulu kebutuhan usahamu. Saya akan bantu susun tujuan, isi, dan arahan website sebelum dibuat."}
+              {messages.length ? (
+                <div className="space-y-spacing-4">
+                  {messages
+                    .filter((message) => message.role === "assistant")
+                    .map((message) => (
+                      <div key={message.id} className="whitespace-pre-wrap">
+                        {message.parts.map((part, index) =>
+                          part.type === "text" ? (
+                            <span key={index}>{part.text}</span>
+                          ) : null,
+                        )}
+                      </div>
+                    ))}
+                </div>
+              ) : mode === "build" ? (
+                "Siap. Saya akan buat struktur website yang fokus ke pembeli, CTA jelas, dan nyaman dibuka dari HP."
+              ) : (
+                "Kita bahas dulu kebutuhan usahamu. Saya akan bantu susun tujuan, isi, dan arahan website sebelum dibuat."
+              )}
+              {status === "submitted" || status === "streaming" ? (
+                <p className="mt-spacing-4 text-xs text-surface-warm-white/46">
+                  AI sedang menyusun respons...
+                </p>
+              ) : null}
+              {error ? (
+                <p className="mt-spacing-4 text-xs text-[#ffb4a6]">
+                  AI belum bisa merespons. Coba lagi nanti.
+                </p>
+              ) : null}
             </div>
 
             <div className="rounded-radius-2xl border border-surface-warm-white/10 bg-[#171716] p-spacing-7">

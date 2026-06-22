@@ -12,7 +12,7 @@ Provider selection is controlled by `.env`. Registered provider names live in `s
 
 ## AI
 
-Current runtime provider: `9router`.
+Current runtime provider: Vercel AI SDK using `9router` as the OpenAI-compatible backend.
 
 ```env
 AI_PROVIDER="9router"
@@ -21,7 +21,7 @@ NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
 NINE_ROUTER_API_KEY=""
 ```
 
-`AI_MODELS` is comma-separated. The first model is the default.
+`AI_MODELS` is comma-separated. The first model is the default. All AI calls, streaming, tool calling, and structured output must go through the Vercel AI SDK boundary in `src/lib/ai.ts`.
 
 Registered future provider names: `openai`, `anthropic`, `gemini`.
 

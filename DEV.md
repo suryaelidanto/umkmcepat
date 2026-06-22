@@ -149,12 +149,13 @@ Do not paste raw component source from external pages.
 
 ## Providers
 
-- AI runtime: 9Router through `src/lib/ai.ts`
+- AI runtime: Vercel AI SDK through `src/lib/ai.ts`, backed by 9Router's OpenAI-compatible endpoint.
+- AI UI streaming: `@ai-sdk/react` hooks such as `useChat`; routes should return AI SDK stream responses.
 - Storage: `src/lib/storage`
 - Rate limit: `src/lib/rate-limit.ts`
 - Provider names: `src/lib/provider-registry.ts`
 
-Routes/components should import internal services, not vendor SDKs directly.
+All AI calls, streaming, tool calling, structured output, and agent work must go through the AI SDK. Do not call provider SDKs or `fetch` provider APIs directly from routes or components. Keep provider wiring inside `src/lib/ai.ts`; routes/components import internal services or AI SDK UI hooks only.
 
 ## Observability
 

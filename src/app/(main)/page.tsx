@@ -1,6 +1,13 @@
+<<<<<<< HEAD
 import dynamic from "next/dynamic";
 import Link from "next/link";
 
+=======
+import { revalidatePath } from "next/cache";
+
+import { HomePromptForm } from "@/components/projects/HomePromptForm";
+import { ProjectList } from "@/components/projects/ProjectList";
+>>>>>>> b72121294c739fee59c06ef7fa64b131e8177ccd
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -32,6 +39,26 @@ export default async function HomePage() {
       })
     : [];
 
+  async function deleteProject(formData: FormData) {
+    "use server";
+
+    const session = await auth();
+    const projectId = formData.get("projectId");
+
+    if (!session?.user?.id || typeof projectId !== "string") {
+      throw new Error("Unauthorized");
+    }
+
+    await prisma.project.deleteMany({
+      where: {
+        id: projectId,
+        userId: session.user.id,
+      },
+    });
+
+    revalidatePath("/");
+  }
+
   return (
     <div className="bg-[#151515] text-surface-warm-white">
       <section className="relative isolate overflow-hidden px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
@@ -57,49 +84,38 @@ export default async function HomePage() {
       </section>
 
       {session?.user ? (
-        <section className="bg-[#151515] px-4 pb-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
-          <div className="mx-auto max-w-5xl rounded-[28px] border border-surface-warm-white/10 bg-[#1f1f1d] p-spacing-7 text-left shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:p-spacing-9">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-[-0.04em]">
-                Proyek kamu
-              </h2>
-              <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/62">
-                Semua pekerjaan dimulai dari prompt. Detail dan preview ada di
-                workspace proyek.
-              </p>
-            </div>
-
-            {projects.length ? (
-              <div className="mt-spacing-8 grid gap-spacing-5 md:grid-cols-2">
-                {projects.map((project) => (
-                  <Link
-                    key={project.id}
-                    href={`/projects/${project.id}`}
-                    className="rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/6 p-spacing-7 outline-none transition hover:bg-surface-warm-white/10 focus-visible:ring-2 focus-visible:ring-surface-warm-white"
-                  >
-                    <p className="text-sm text-surface-warm-white/50">
-                      {project.model.split("/").at(-1)}
-                    </p>
-                    <h3 className="mt-spacing-3 text-lg font-semibold tracking-[-0.03em]">
-                      {project.title}
-                    </h3>
-                    <p className="mt-spacing-5 text-sm text-surface-warm-white/48">
-                      Diubah {project.updatedAt.toLocaleDateString("id-ID")}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-spacing-8 rounded-radius-2xl border border-dashed border-surface-warm-white/14 bg-surface-warm-white/5 p-spacing-8 text-center">
-                <h3 className="text-lg font-semibold tracking-[-0.03em]">
-                  Belum ada proyek
-                </h3>
-                <p className="mx-auto mt-spacing-3 max-w-md text-sm leading-6 text-surface-warm-white/58">
-                  Tulis prompt pertama kamu di atas. Workspace akan dibuat dari
-                  sana.
+        <section className="bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 sm:px-spacing-9 lg:px-spacing-10">
+          <div className="mx-auto max-w-6xl text-left">
+            <div className="rounded-[32px] border border-surface-warm-white/10 bg-[#1f1f1d] p-spacing-7 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-spacing-10">
+              <div className="max-w-xl">
+                <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
+                  Proyek kamu
+                </h2>
+                <p className="mt-spacing-4 text-sm leading-6 text-surface-warm-white/62 sm:text-base">
+                  Lanjutkan website yang sudah dibuat, atau bersihkan proyek
+                  lama yang tidak dipakai.
                 </p>
               </div>
-            )}
+
+              {projects.length ? (
+                <div className="mt-spacing-10">
+                  <ProjectList
+                    projects={projects}
+                    deleteProject={deleteProject}
+                  />
+                </div>
+              ) : (
+                <div className="mt-spacing-10 rounded-[26px] border border-dashed border-surface-warm-white/16 bg-surface-warm-white/[0.06] p-spacing-10 text-center">
+                  <h3 className="text-xl font-semibold tracking-[-0.04em]">
+                    Belum ada proyek
+                  </h3>
+                  <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/58">
+                    Tulis prompt pertama kamu di atas. Workspace baru akan
+                    muncul di sini.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       ) : null}
