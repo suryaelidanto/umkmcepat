@@ -9,8 +9,8 @@ UMKM Cepat backend -> 9Router -> Headroom (optional compression) -> provider -> 
 ## Start locally
 
 ```bash
-docker compose --profile ai up -d
-docker compose ps 9router headroom
+bun run infra:ai
+bun run infra:ps
 ```
 
 Open:

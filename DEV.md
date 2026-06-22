@@ -29,8 +29,15 @@ bun run dev
 Run infrastructure in Docker:
 
 ```bash
-docker compose up -d
-docker compose --profile ai up -d
+bun run infra
+bun run infra:ai
+```
+
+Inspect infrastructure:
+
+```bash
+bun run infra:ps
+bun run infra:logs
 ```
 
 Apply database migrations:

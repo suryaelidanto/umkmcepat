@@ -282,8 +282,7 @@ git clone https://github.com/suryaelidanto/umkmcepat.git
 cd umkmcepat
 bun install
 cp .env.example .env
-docker compose up -d
-bun run db:migrate
+bun run setup:local
 bun run dev
 ```
 
@@ -300,7 +299,7 @@ This gives you a working local app. Continue only with the sections your change 
 ### AI generation
 
 ```bash
-docker compose --profile ai up -d
+bun run infra:ai
 ```
 
 Open:
