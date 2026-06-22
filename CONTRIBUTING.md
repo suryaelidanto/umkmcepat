@@ -1,7 +1,7 @@
 # Contributing
 
 <details>
-<summary>I use an AI coding assistant</summary>
+<summary>Let an AI agent set everything up</summary>
 
 Copy this into your AI coding assistant (Codex, Claude, Cursor, etc.):
 
@@ -189,11 +189,74 @@ Start now. Do not ask what OS they use. Detect it. Do not ask what they want fir
 </details>
 
 <details>
-<summary>I prefer to set things up manually</summary>
+<summary>Set it up manually</summary>
 
-## Already have Git, Bun, and Docker?
+## Requirements
 
-Run this:
+Install these first:
+
+- Git
+- Bun
+- Docker with Compose
+
+Bun is the only supported package manager. The pinned version is in `package.json`.
+
+<details>
+<summary>Windows</summary>
+
+Use either WSL or Git Bash.
+
+WSL setup:
+
+- WSL Ubuntu: https://learn.microsoft.com/windows/wsl/install
+- Bun inside Ubuntu: https://bun.com/docs/installation
+- Git inside Ubuntu: https://git-scm.com/download/linux
+- Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
+
+Native setup:
+
+- Git for Windows: https://git-scm.com/download/win
+- Bun for Windows: https://bun.com/docs/installation
+- Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
+
+</details>
+
+<details>
+<summary>macOS</summary>
+
+Install:
+
+- Bun: https://bun.com/docs/installation
+- Git: https://git-scm.com/download/mac
+- Docker Desktop: https://docs.docker.com/desktop/setup/install/mac-install/
+
+Colima also works: https://github.com/abiosoft/colima
+
+</details>
+
+<details>
+<summary>Linux</summary>
+
+Install:
+
+- Bun: https://bun.com/docs/installation
+- Git: https://git-scm.com/download/linux
+- Docker Engine: https://docs.docker.com/engine/install/
+
+If Docker requires sudo, use `sudo docker ...` consistently or configure Docker group/rootless access.
+
+</details>
+
+Check tools:
+
+```bash
+git --version
+bun --version
+docker version
+docker compose version
+```
+
+## Local setup
 
 ```bash
 git clone https://github.com/suryaelidanto/umkmcepat.git
@@ -211,66 +274,11 @@ Open:
 http://localhost:3000
 ```
 
-This gives you a working local app. Only use the sections below when your change needs them.
+This gives you a working local app. Continue only with the sections your change needs.
 
-## Need the tools?
+## Feature setup
 
-<details>
-<summary>Windows</summary>
-
-WSL is the smoothest path.
-
-Install:
-
-- WSL Ubuntu: https://learn.microsoft.com/windows/wsl/install
-- Bun inside Ubuntu: https://bun.com/docs/installation
-- Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
-- Git inside Ubuntu: https://git-scm.com/download/linux
-
-Then run the setup commands inside Ubuntu.
-
-If you prefer native Windows, use Git Bash with Bun for Windows and Docker Desktop.
-
-</details>
-
-<details>
-<summary>macOS</summary>
-
-Install:
-
-- Bun: https://bun.com/docs/installation
-- Git: https://git-scm.com/download/mac
-- Docker Desktop: https://docs.docker.com/desktop/setup/install/mac-install/
-
-Colima also works if you prefer it: https://github.com/abiosoft/colima
-
-</details>
-
-<details>
-<summary>Linux</summary>
-
-Install:
-
-- Bun: https://bun.com/docs/installation
-- Git: https://git-scm.com/download/linux
-- Docker Engine: https://docs.docker.com/engine/install/
-
-If Docker needs sudo on your machine, use `sudo docker ...` consistently or configure Docker group/rootless access using Docker's docs.
-
-</details>
-
-Quick check:
-
-```bash
-git --version
-bun --version
-docker version
-docker compose version
-```
-
-## Working on AI generation?
-
-Start 9Router too:
+### AI generation
 
 ```bash
 docker compose --profile ai up -d 9router
@@ -290,7 +298,7 @@ Default password:
 
 Then follow [docs/9router.md](docs/9router.md).
 
-## Working on login, Sentry, or UI components?
+### Login, Sentry, and UI components
 
 - Google login callback: `http://localhost:3000/api/auth/callback/google`
 - Sentry setup: [docs/observability.md](docs/observability.md)
