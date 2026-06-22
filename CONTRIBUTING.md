@@ -22,10 +22,36 @@ Copy this into your AI coding assistant (Codex, Claude, Cursor, etc.):
 
 - Start immediately.
 - Detect OS, shell, repo state, tools, ports, and running containers yourself.
-- Run commands yourself when the environment allows it.
-- Ask the user only when a manual action is unavoidable, like starting Docker Desktop or installing Docker.
+- Run safe read-only checks without asking.
+- Run normal project setup commands when they only affect this repo or this repo's Docker Compose project.
+- Ask before any destructive, global, or user-data-changing action.
 - Keep updates short. Say what you did, what failed, and the next action.
 - Do basic local setup first. After the app runs, offer extra setup for AI generation, login, or monitoring.
+
+## Safety rules
+
+You are allowed to be proactive, but you must not risk the user's machine or data.
+
+Never run without explicit approval:
+
+- `rm -rf`, `del /s`, `Remove-Item -Recurse`, disk cleanup, or broad delete commands
+- commands that overwrite `.env`, database volumes, uploads, user files, shell profiles, SSH config, Git config, or package-manager config
+- `docker compose down -v`, `docker volume rm`, `docker system prune`, or deleting containers/volumes not created by this repo
+- stopping/killing processes you did not start
+- changing global registry, proxy, DNS, firewall, PATH, shell, or OS settings
+- printing secrets, tokens, OAuth client secrets, private keys, or full `.env` contents
+
+Allowed without asking:
+
+- read-only detection commands
+- `git status`, `git diff`, `git log`
+- `bun install` inside this repo
+- creating `.env` from `.env.example` only when `.env` does not exist
+- `docker compose up -d` for this repo
+- `docker compose logs` for this repo, after redacting obvious secrets if present
+- `bun run db:migrate` only against this repo's configured development database
+
+If a safe command fails, diagnose with read-only checks first. Ask before changing global settings or deleting caches.
 
 ## 1. Detect the environment
 
@@ -44,11 +70,7 @@ Infer:
 - WSL from Linux plus Microsoft/WSL in uname or /proc/version
 - Windows native from MINGW, MSYS, Git Bash, PowerShell, or cmd signals
 
-If Git or Bun is missing, try to install it when safe:
-- macOS with Homebrew: brew install git bun
-- Debian/Ubuntu/WSL: sudo apt update && sudo apt install -y git, then install Bun with the official Bun install command
-- Other Linux: use the distro package manager if obvious
-- Windows native: give one clear install link or command if automatic install is not available
+If Git, Bun, or Docker is missing, do not install system packages automatically. Tell the user the exact missing tool and one clear install path. If they approve automatic installation, use the platform's normal installer.
 
 If Docker is missing or not running, stop and tell the user exactly what to do:
 "Docker is not running. Start Docker Desktop or Docker Engine, then tell me when it is ready."
@@ -73,12 +95,7 @@ Run:
 
   bun install
 
-If it fails because of network or registry issues, try a registry mirror once:
-
-  bun config set registry https://registry.npmmirror.com
-  bun install
-
-If it still fails, ask the user about VPN, proxy, or corporate network restrictions.
+If it fails because of network or registry issues, do not change global registry settings automatically. Ask the user about VPN, proxy, corporate network restrictions, or whether they want to use a temporary registry override for this install only.
 
 ## 4. Create local env
 
@@ -181,10 +198,10 @@ Tell them:
 - Docker missing: install Docker Desktop or Docker Engine
 - Docker not running: start Docker
 - Port busy: identify owner with lsof, ss, or netstat; ask before stopping it
-- bun install fails: retry once with registry mirror, then ask about proxy/VPN
+- bun install fails: ask about proxy/VPN or a temporary registry override; do not change global registry automatically
 - Database fails: docker compose ps postgres, then docker compose logs postgres
-- .next errors: stop dev server, delete .next, restart
-- Lockfile errors: use Bun only; keep bun.lock; remove package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lockb
+- .next errors: stop the dev server you started, ask before deleting `.next`, then restart
+- Lockfile errors: use Bun only; keep bun.lock; ask before removing package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lockb
 
 Start now. Do not ask what OS they use. Detect it. Do not ask what they want first. Get the local app running, then offer extras.</code></pre>
 
