@@ -12,6 +12,10 @@ This file is the maintainer and agent workflow for UMKM Cepat. For contributor o
 - Keep end-user UI copy in Indonesian unless an i18n layer is introduced.
 - Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, or generated junk.
 
+## Package manager
+
+Use Bun only. The version is pinned in `package.json`, and `bun.lock` is the canonical lockfile.
+
 ## Local runtime
 
 Run the app locally, not inside Docker:
@@ -50,12 +54,6 @@ Use:
 cp .env.example .env
 ```
 
-Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
 Important local defaults:
 
 ```env
@@ -83,7 +81,7 @@ This runs:
 4. Vitest
 5. Knip unused-code/dependency checks
 
-Run build after meaningful code, config, provider, or deployment changes:
+Do not run build during normal development unless explicitly requested or touching build/deployment behavior:
 
 ```bash
 bun run build
@@ -132,7 +130,7 @@ bunx shadcn@latest add button --dry-run
 bunx shadcn@latest add button --diff
 ```
 
-Optional AI assistant skill:
+Agent helper, when available:
 
 ```bash
 bunx skills add shadcn/ui
