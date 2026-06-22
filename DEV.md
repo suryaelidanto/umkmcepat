@@ -157,7 +157,9 @@ Never commit Sentry auth tokens. Use deployment secrets for source-map upload cr
 
 ## Local artifacts
 
-Ignored local files include:
+Run local services in the foreground by default. Temporary logs or pid files created during debugging are local artifacts and must never be committed.
+
+Ignored local paths include:
 
 ```text
 *.log
@@ -167,7 +169,7 @@ Ignored local files include:
 .next/
 ```
 
-Delete local logs and pid files before handoff if they are no longer needed.
+Delete stale local artifacts before handoff.
 
 ## Final handoff checklist
 

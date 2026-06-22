@@ -89,11 +89,4 @@ docker compose --profile redis up -d redis
 
 ## Logs
 
-Local automation should write to ignored logs when needed:
-
-```bash
-npm run dev > .dev.log 2>&1
-docker compose --profile ai logs -f 9router > .9router.log 2>&1
-```
-
-`.gitignore` ignores local logs and browser/factory artifacts.
+Run local services in the foreground by default. Developers may redirect logs temporarily for debugging, but log files are local artifacts and must never be committed.

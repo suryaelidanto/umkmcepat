@@ -34,7 +34,7 @@ NEXT_PUBLIC_SENTRY_DSN="https://example.ingest.sentry.io/project-id"
 If source maps are uploaded during production builds, set the auth token only in CI/deployment secrets:
 
 ```env
-SENTRY_AUTH_TOKEN="sntrys_..."
+SENTRY_AUTH_TOKEN="set-in-deployment-secrets"
 ```
 
 Never commit `SENTRY_AUTH_TOKEN`.
