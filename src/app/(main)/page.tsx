@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { Button } from "@/components/ui/button";
+import { getAvailableAiModels } from "@/lib/ai-models";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -20,6 +21,8 @@ export default async function HomePage() {
         },
       })
     : [];
+
+  const models = getAvailableAiModels();
 
   return (
     <div className="bg-[#151515] text-surface-warm-white">
@@ -44,7 +47,7 @@ export default async function HomePage() {
               : "Ceritakan usahamu, lalu biarkan AI menyusunnya jadi halaman online yang profesional dan siap kamu bagikan."}
           </p>
 
-          <HomePromptForm />
+          <HomePromptForm models={models} />
         </div>
       </section>
 

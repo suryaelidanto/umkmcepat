@@ -8,17 +8,19 @@ import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getWorkspacePath } from "@/lib/projects/workspace";
 
-const modelOptions = [
-  { value: "cmc/deepseek/deepseek-v4-pro", label: "DeepSeek Pro" },
-  { value: "cmc/deepseek/deepseek-v4-flash", label: "DeepSeek Flash" },
-  { value: "cmc/moonshotai/Kimi-K2.6", label: "Kimi K2.6" },
-];
+type HomePromptFormProps = {
+  models: string[];
+};
 
-export function HomePromptForm() {
+function formatModelLabel(model: string) {
+  return model.split("/").at(-1)?.replace(/-/g, " ") || model;
+}
+
+export function HomePromptForm({ models }: HomePromptFormProps) {
   const router = useRouter();
   const { status } = useSession();
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState(modelOptions[0].value);
+  const [model, setModel] = useState(models[0] || "");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,13 +64,13 @@ export function HomePromptForm() {
           onChange={(event) => setModel(event.target.value)}
           className="max-w-[220px] rounded-full border border-surface-warm-white/10 bg-surface-warm-white/5 px-spacing-6 py-spacing-3 text-sm text-surface-warm-white/72 outline-none transition hover:bg-surface-warm-white/10 focus-visible:ring-2 focus-visible:ring-surface-warm-white"
         >
-          {modelOptions.map((option) => (
+          {models.map((option) => (
             <option
-              key={option.value}
-              value={option.value}
+              key={option}
+              value={option}
               className="bg-[#232321] text-surface-warm-white"
             >
-              {option.label}
+              {formatModelLabel(option)}
             </option>
           ))}
         </select>
