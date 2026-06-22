@@ -9,7 +9,7 @@ UMKM Cepat uses a hybrid local development setup:
 
 ## Requirements
 
-- Bun 1.3.9
+- Bun version pinned in `package.json`
 - Docker with Compose
 
 Docker can be Docker Desktop, WSL Docker, native Linux Docker, Colima, or another compatible local runtime.

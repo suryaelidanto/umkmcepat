@@ -28,6 +28,8 @@ http://localhost:3000
 
 Use one shell consistently for the repo. Do not mix Windows native `node_modules` with WSL `node_modules`.
 
+The Bun version is pinned in `package.json`.
+
 <details>
 <summary>Windows with WSL, recommended</summary>
 
@@ -39,7 +41,7 @@ Install:
 - Git inside WSL: https://git-scm.com/download/linux
 - Bun inside WSL: https://bun.com/docs/installation
 - Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
-- GitHub CLI inside WSL, optional: https://cli.github.com/
+- GitHub CLI inside WSL, if you use GitHub from the terminal: https://cli.github.com/
 
 Verify inside WSL:
 
@@ -48,12 +50,6 @@ git --version
 bun --version
 docker version
 docker compose version
-```
-
-Expected:
-
-```text
-bun 1.3.9
 ```
 
 If Docker is not found inside WSL, enable Docker Desktop WSL integration for your Ubuntu distro.
@@ -70,7 +66,7 @@ Install:
 - Git for Windows: https://git-scm.com/download/win
 - Bun for Windows: https://bun.com/docs/installation
 - Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
-- GitHub CLI, optional: https://cli.github.com/
+- GitHub CLI, if you use GitHub from the terminal: https://cli.github.com/
 
 Verify in Git Bash:
 
@@ -79,12 +75,6 @@ git --version
 bun --version
 docker version
 docker compose version
-```
-
-Expected:
-
-```text
-bun 1.3.9
 ```
 
 If you use PowerShell for one-off commands, the env copy command is:
@@ -102,8 +92,9 @@ Install:
 
 - Git: https://git-scm.com/download/mac
 - Bun: https://bun.com/docs/installation
-- Docker Desktop or Colima
-- GitHub CLI, optional: https://cli.github.com/
+- Docker Desktop: https://docs.docker.com/desktop/setup/install/mac-install/
+- Colima, if you prefer a lighter local Docker runtime: https://github.com/abiosoft/colima
+- GitHub CLI, if you use GitHub from the terminal: https://cli.github.com/
 
 Verify:
 
@@ -112,12 +103,6 @@ git --version
 bun --version
 docker version
 docker compose version
-```
-
-Expected:
-
-```text
-bun 1.3.9
 ```
 
 </details>
@@ -130,7 +115,7 @@ Install:
 - Git: https://git-scm.com/download/linux
 - Bun: https://bun.com/docs/installation
 - Docker Engine: https://docs.docker.com/engine/install/
-- GitHub CLI, optional: https://cli.github.com/
+- GitHub CLI, if you use GitHub from the terminal: https://cli.github.com/
 
 Verify:
 
@@ -139,12 +124,6 @@ git --version
 bun --version
 docker version
 docker compose version
-```
-
-Expected:
-
-```text
-bun 1.3.9
 ```
 
 If Docker needs sudo, either use `sudo docker ...` consistently or configure Docker rootless/group access using Docker's official docs.
@@ -188,39 +167,7 @@ Open:
 http://localhost:3000
 ```
 
-## 6. Optional AI gateway
-
-Only needed for AI generation flows:
-
-```bash
-docker compose --profile ai up -d 9router
-```
-
-Open:
-
-```text
-http://localhost:20129
-```
-
-Default password:
-
-```text
-123456
-```
-
-Then follow [docs/9router.md](docs/9router.md).
-
-## 7. Optional integrations
-
-Google OAuth is only needed for real login flows. Use this local callback URL:
-
-```text
-http://localhost:3000/api/auth/callback/google
-```
-
-Sentry is optional locally. See [docs/observability.md](docs/observability.md).
-
-## 8. Quality gate
+## 6. Quality gate
 
 Run before opening a PR:
 
@@ -238,7 +185,7 @@ bun run build
 
 Run build locally when touching build, Docker, deployment, Next config, or before a release.
 
-## 9. Branches and commits
+## 7. Branches and commits
 
 Create branches from `dev`:
 
@@ -261,7 +208,7 @@ chore: update dependencies
 
 Open PRs into `dev` first unless maintainers say otherwise.
 
-## 10. UI components
+## 8. UI components
 
 This project uses shadcn/ui-style owned components under `src/components/ui`.
 
@@ -280,20 +227,50 @@ bunx shadcn@latest add button --diff
 
 Use existing local component patterns before adding new primitives.
 
+## Feature-specific setup
+
+### AI generation
+
+Needed when working on prompt generation, model selection, or generated output:
+
+```bash
+docker compose --profile ai up -d 9router
+```
+
+Open:
+
+```text
+http://localhost:20129
+```
+
+Default password:
+
+```text
+123456
+```
+
+Then follow [docs/9router.md](docs/9router.md).
+
+### Google login
+
+Needed when testing real sign-in flows. Use this local callback URL:
+
+```text
+http://localhost:3000/api/auth/callback/google
+```
+
+### Observability
+
+Needed when working on Sentry or monitoring. See [docs/observability.md](docs/observability.md).
+
 ## Troubleshooting
 
 ### Bun version mismatch
 
-Install or upgrade Bun, then verify:
+Check the pinned Bun version in `package.json`, then install or upgrade Bun:
 
 ```bash
 bun --version
-```
-
-Expected:
-
-```text
-1.3.9
 ```
 
 ### Docker is not running
