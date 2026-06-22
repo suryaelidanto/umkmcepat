@@ -22,7 +22,7 @@ Open:
 http://localhost:3000
 ```
 
-That is enough for most work.
+This gives you a working local app. Only use the sections below when your change needs them.
 
 ## Need the tools?
 
