@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getProjectTitle } from "@/lib/projects/workspace";
 
 type NewProjectPageProps = {
-  searchParams?: Promise<{ model?: string; prompt?: string }>;
+  searchParams?: Promise<{ mode?: string; prompt?: string }>;
 };
 
 export default async function NewProjectPage({
@@ -21,8 +21,7 @@ export default async function NewProjectPage({
   const resolvedSearchParams = await searchParams;
   const prompt = resolvedSearchParams?.prompt?.trim() || "";
   const availableModels = getAvailableAiModels();
-  const requestedModel = resolvedSearchParams?.model?.trim();
-  const model = requestedModel || getDefaultAiModel(availableModels);
+  const model = getDefaultAiModel(availableModels);
 
   const project = await prisma.project.create({
     data: {

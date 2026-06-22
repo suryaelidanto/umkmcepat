@@ -13,11 +13,9 @@ describe("getNewProjectPath", () => {
     expect(getNewProjectPath("   ")).toBe("/projects/new");
   });
 
-  it("keeps selected model on the new project URL", () => {
-    expect(
-      getNewProjectPath("Usaha laundry", "cmc/deepseek/deepseek-v4-flash"),
-    ).toBe(
-      "/projects/new?prompt=Usaha+laundry&model=cmc%2Fdeepseek%2Fdeepseek-v4-flash",
+  it("keeps build mode on the new project URL", () => {
+    expect(getNewProjectPath("Usaha laundry", "build")).toBe(
+      "/projects/new?prompt=Usaha+laundry&mode=build",
     );
   });
 });
