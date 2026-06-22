@@ -31,14 +31,7 @@ UMKM Cepat focuses on making creation easier:
 
 Want to run the project locally or help build it?
 
-Start here:
-
-- [CONTRIBUTING.md](CONTRIBUTING.md) - setup, OS-specific install notes, PR workflow
-- [DEV.md](DEV.md) - development SOP, quality commands, local troubleshooting
-- [docs/9router.md](docs/9router.md) - AI gateway setup
-- [docs/observability.md](docs/observability.md) - optional Sentry setup
-
-Before opening a PR, run the quality gate from [CONTRIBUTING.md](CONTRIBUTING.md).
+Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

@@ -19,9 +19,12 @@ Current implemented runtime provider: `9router`.
 
 ```env
 AI_PROVIDER="9router"
+AI_MODELS="cmc/deepseek/deepseek-v4-pro,cmc/deepseek/deepseek-v4-flash,cmc/moonshotai/Kimi-K2.6"
 NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
 NINE_ROUTER_API_KEY=""
 ```
+
+`AI_MODELS` is comma-separated. The first model is the default.
 
 Registered future provider names: `openai`, `anthropic`, `gemini`.
 

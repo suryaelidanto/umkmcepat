@@ -17,16 +17,16 @@ The goal is simple development now, without locking the project into one vendor 
 
 ## Current default choices
 
-| Capability     | Current default                | Future-compatible path                                              |
-| -------------- | ------------------------------ | ------------------------------------------------------------------- |
-| Database       | PostgreSQL via Prisma          | Any PostgreSQL host via `DATABASE_URL`                              |
-| AI             | 9Router Docker gateway         | OpenAI, Anthropic, Gemini, or OpenAI-compatible APIs behind adapter |
-| Object storage | Cloudflare R2                  | AWS S3, MinIO, local storage via storage adapter                    |
-| Auth           | Auth.js / NextAuth with Google | GitHub, Microsoft, email, or other Auth.js providers                |
-| Rate limit     | Current/simple implementation  | Redis-backed limiter later                                          |
-| Queue          | None for now                   | BullMQ + Redis when real background jobs exist                      |
-| Payment        | None for now                   | Midtrans, Xendit, Stripe later                                      |
-| Monitoring     | Optional Sentry                | Any observability provider later                                    |
+| Capability     | Current default                | Future-compatible path                               |
+| -------------- | ------------------------------ | ---------------------------------------------------- |
+| Database       | PostgreSQL via Prisma          | Any PostgreSQL host via `DATABASE_URL`               |
+| AI             | 9Router Docker gateway         | Other OpenAI-compatible APIs behind adapter          |
+| Object storage | Local uploads                  | R2, S3, or MinIO through the S3-compatible adapter   |
+| Auth           | Auth.js / NextAuth with Google | GitHub, Microsoft, email, or other Auth.js providers |
+| Rate limit     | Memory                         | Redis-backed limiter later                           |
+| Queue          | None for now                   | BullMQ + Redis when real background jobs exist       |
+| Payment        | None for now                   | Midtrans, Xendit, Stripe later                       |
+| Monitoring     | Optional Sentry                | Any observability provider later                     |
 
 ## Adapter rule
 
@@ -48,10 +48,9 @@ import { S3Client } from "@aws-sdk/client-s3";
 Provider SDKs should live behind internal modules such as:
 
 ```text
-src/lib/ai/
+src/lib/ai.ts
 src/lib/storage/
-src/lib/rate-limit/
-src/lib/queue/
+src/lib/rate-limit.ts
 ```
 
 ## Environment-driven configuration
@@ -85,8 +84,8 @@ When changing or adding a provider:
 
 - Add or update the adapter only.
 - Keep public interfaces stable.
-- Update `.env.example`.
-- Update docs.
+- Update `.env.example` when env changes.
+- Update the matching provider doc only.
 - Add tests for provider-independent behavior.
-- Run `bun run verify`.
+- Run `bun run check`.
 - Do not mix provider migration with unrelated product changes.

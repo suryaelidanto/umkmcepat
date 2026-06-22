@@ -18,6 +18,14 @@ Rules for AI agents and automated contributors.
 - Follow `DEV.md` for maintainer and agent SOP.
 - Prefer repo guardrails over personal habits.
 
+## Docs policy
+
+- Do not update every doc "just in case".
+- Update the smallest doc set that matches the changed behavior, setup, env, provider, deployment, monitoring, or UI rule.
+- If a doc is stale, fix it in the same change or delete it when it no longer has a clear owner.
+- Keep `README.md` product-facing and timeless. Put setup in `CONTRIBUTING.md`, maintainer SOP in `DEV.md`, and topic details in `docs/`.
+- Prefer one canonical doc plus links over duplicated instructions.
+
 ## Language
 
 - Developer-facing docs, comments, logs, errors, PRs, and commits use English.
