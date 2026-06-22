@@ -16,10 +16,6 @@ UMKM Cepat focuses on:
 - configurable AI providers through 9Router
 - clean, contributor-friendly engineering
 
-## Current status
-
-This project is early-stage. The foundation is being shaped for public collaboration, strong design quality, and reliable local development.
-
 ## Tech overview
 
 - Next.js 15 and React 19
