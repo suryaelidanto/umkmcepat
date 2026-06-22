@@ -1,20 +1,21 @@
 # UMKM Cepat
 
-UMKM Cepat is an open-source AI landing-page builder for Indonesian small businesses.
+UMKM Cepat is an open-source AI builder for Indonesian small businesses.
 
-The goal is simple: help a seller describe their business in plain Indonesian, generate a professional landing page, and share it with customers through a clear call to action such as WhatsApp.
+It helps sellers turn plain Indonesian prompts into useful digital experiences for their business — simple to start, easy to iterate, and owned by the people who build with it.
 
 ## Why this exists
 
-Many Indonesian UMKM need a simple online page for products, services, promos, and contact links, but most website builders are too slow, too complex, or too expensive for early-stage sellers.
+Many Indonesian UMKM need better digital tools, but building them often requires time, budget, and technical support they do not have.
 
-UMKM Cepat focuses on:
+UMKM Cepat focuses on making creation easier:
 
-- a chat-first creation flow
-- mobile-friendly landing pages
+- prompt-first building flow
+- practical business-focused output
+- mobile-friendly user experiences
 - Indonesian user-facing copy
+- open-source, export-friendly foundations
 - configurable AI providers through 9Router
-- clean, contributor-friendly engineering
 
 ## Tech overview
 
