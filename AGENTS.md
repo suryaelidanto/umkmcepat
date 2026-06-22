@@ -11,6 +11,13 @@ Rules for AI agents and automated contributors.
 - Read `docs/provider-architecture.md` and `docs/providers.md` before provider/config changes.
 - Read `docs/observability.md` before Sentry/monitoring changes.
 
+## Operating mode
+
+- Work like a project engineer, not a one-off script runner.
+- Follow `CONTRIBUTING.md` for contributor workflow.
+- Follow `DEV.md` for maintainer and agent SOP.
+- Prefer repo guardrails over personal habits.
+
 ## Language
 
 - Developer-facing docs, comments, logs, errors, PRs, and commits use English.
