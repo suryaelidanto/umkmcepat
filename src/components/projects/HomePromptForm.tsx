@@ -145,7 +145,6 @@ export function HomePromptForm() {
     const path = getNewProjectPath(trimmedPrompt, mode);
 
     if (status !== "authenticated") {
-    if (status !== "authenticated") {
       saveDraft(true);
       setLoginOpen(true);
       return;
@@ -179,19 +178,23 @@ export function HomePromptForm() {
             </div>
           </div>
         ) : (
-        <textarea
-          id="hero-prompt"
-          name="prompt"
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          placeholder="Tulis usahamu di sini... contoh: Saya jual sambal rumahan, butuh website hangat dengan tombol WhatsApp."
-          disabled={isContinuing || isLoading}
-          className="h-36 w-full resize-none bg-transparent px-spacing-9 py-spacing-9 text-base leading-7 text-surface-warm-white outline-none placeholder:text-surface-warm-white/42 disabled:opacity-70 sm:text-lg"
-        />
+          <textarea
+            id="hero-prompt"
+            name="prompt"
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            placeholder="Tulis usahamu di sini... contoh: Saya jual sambal rumahan, butuh website hangat dengan tombol WhatsApp."
+            disabled={isContinuing || isLoading}
+            className="h-36 w-full resize-none bg-transparent px-spacing-9 py-spacing-9 text-base leading-7 text-surface-warm-white outline-none placeholder:text-surface-warm-white/42 disabled:opacity-70 sm:text-lg"
+          />
         )}
 
         <div className="flex items-center justify-between gap-spacing-5 px-spacing-7 pb-spacing-7">
-          <ModeSelect value={mode} onChange={setMode} disabled={isContinuing || isLoading} />
+          <ModeSelect
+            value={mode}
+            onChange={setMode}
+            disabled={isContinuing || isLoading}
+          />
           <div className="flex items-center gap-spacing-4">
             {isContinuing ? (
               <span className="hidden text-sm text-surface-warm-white/58 sm:inline">

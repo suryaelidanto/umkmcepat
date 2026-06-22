@@ -30,9 +30,11 @@ const options: ModeOption[] = [
 export function ModeSelect({
   value,
   onChange,
+  disabled,
 }: {
   value: WorkspaceMode;
   onChange: (mode: WorkspaceMode) => void;
+  disabled?: boolean;
 }) {
   const listboxId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -65,6 +67,7 @@ export function ModeSelect({
       <button
         ref={buttonRef}
         type="button"
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}

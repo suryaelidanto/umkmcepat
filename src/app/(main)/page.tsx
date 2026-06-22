@@ -1,13 +1,7 @@
-<<<<<<< HEAD
-import dynamic from "next/dynamic";
-import Link from "next/link";
-
-=======
 import { revalidatePath } from "next/cache";
+import dynamic from "next/dynamic";
 
-import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
->>>>>>> b72121294c739fee59c06ef7fa64b131e8177ccd
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
