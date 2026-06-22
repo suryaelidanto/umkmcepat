@@ -1,7 +1,9 @@
 # Contributing
 
+How do I start contributing?
+
 <details>
-<summary>Let an AI agent set everything up</summary>
+<summary>Let AI agent set everything up</summary>
 
 Copy this into your AI coding assistant (Codex, Claude, Cursor, etc.):
 
