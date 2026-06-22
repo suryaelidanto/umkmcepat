@@ -20,18 +20,32 @@ export function Footer() {
               <span>UMKM Cepat</span>
             </Link>
             <p className="mt-2 max-w-md text-sm leading-6 text-surface-warm-white/62">
-              Buat website promosi untuk usaha kecil dengan bantuan AI.
+              Buat website dan alat digital untuk usaha kecil dengan bantuan AI.
             </p>
           </div>
 
-          <Link
-            href="https://github.com/suryaelidanto/umkmcepat"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-surface-warm-white/62 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
-          >
-            Github
-          </Link>
+          <nav className="flex flex-wrap gap-spacing-5 text-sm text-surface-warm-white/62">
+            <Link
+              href="/terms"
+              className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+            >
+              Ketentuan
+            </Link>
+            <Link
+              href="/privacy"
+              className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+            >
+              Privasi
+            </Link>
+            <Link
+              href="https://github.com/suryaelidanto/umkmcepat"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+            >
+              GitHub
+            </Link>
+          </nav>
         </div>
 
         <p className="text-sm text-surface-warm-white/50">

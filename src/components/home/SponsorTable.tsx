@@ -66,31 +66,33 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
         </tbody>
       </table>
 
-      <div className="flex flex-col gap-spacing-4 border-t border-surface-warm-white/10 bg-[#151515] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/52 sm:flex-row sm:items-center sm:justify-between">
-        <span>
-          {start}-{end} dari {sponsors.length} sponsor
-        </span>
-        <div className="flex gap-spacing-3">
-          <button
-            type="button"
-            disabled={page === 1}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-            className="rounded-radius-lg border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-surface-warm-white/8 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Sebelumnya
-          </button>
-          <button
-            type="button"
-            disabled={page === pageCount}
-            onClick={() =>
-              setPage((current) => Math.min(pageCount, current + 1))
-            }
-            className="rounded-radius-lg border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-surface-warm-white/8 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Berikutnya
-          </button>
+      {pageCount > 1 ? (
+        <div className="flex flex-col gap-spacing-4 border-t border-surface-warm-white/10 bg-[#151515] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/52 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            {start}-{end} dari {sponsors.length} sponsor
+          </span>
+          <div className="flex gap-spacing-3">
+            <button
+              type="button"
+              disabled={page === 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              className="rounded-radius-lg border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-surface-warm-white/8 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Sebelumnya
+            </button>
+            <button
+              type="button"
+              disabled={page === pageCount}
+              onClick={() =>
+                setPage((current) => Math.min(pageCount, current + 1))
+              }
+              className="rounded-radius-lg border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-surface-warm-white/8 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Berikutnya
+            </button>
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

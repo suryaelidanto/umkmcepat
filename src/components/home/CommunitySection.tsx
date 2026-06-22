@@ -107,6 +107,34 @@ async function getTopContributors(): Promise<ContributorCard[]> {
   }
 }
 
+const faqs = [
+  {
+    question: "Apakah UMKM Cepat benar-benar gratis?",
+    answer:
+      "Iya. Tujuan awalnya membantu usaha kecil mulai punya website tanpa biaya pembuatan.",
+  },
+  {
+    question: "Website saya dibuat oleh AI saja?",
+    answer:
+      "AI membantu menyusun draft awal. Kamu tetap bisa mengubah isi, arah, dan hasil akhirnya.",
+  },
+  {
+    question: "Apa data usaha saya aman?",
+    answer:
+      "Kami hanya meminta informasi yang kamu tulis untuk membuat website. Jangan masukkan password, nomor kartu, atau data rahasia.",
+  },
+  {
+    question: "Kenapa ada daftar kontributor?",
+    answer:
+      "Supaya kamu bisa melihat proyek ini aktif dirawat oleh developer nyata, bukan halaman yang dibiarkan begitu saja.",
+  },
+  {
+    question: "Kalau hasilnya belum cocok bagaimana?",
+    answer:
+      "Mulai dari mode Diskusi. Jelaskan usahamu, lalu arahkan AI sampai hasilnya mendekati kebutuhanmu.",
+  },
+];
+
 function ContributionChart({
   weeks,
   maxCommits,
@@ -184,10 +212,10 @@ export async function CommunitySection() {
           <div className="flex flex-col gap-spacing-5 text-left sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
-                Top contributor
+                Top kontributor proyek
               </h2>
               <p className="mt-spacing-3 text-sm text-surface-warm-white/58">
-                Data aktivitas dari GitHub.
+                Aktivitas GitHub ini menunjukkan UMKM Cepat masih dirawat.
               </p>
             </div>
             <div className="flex flex-wrap gap-spacing-3">
@@ -253,6 +281,27 @@ export async function CommunitySection() {
                   />
                 </article>
               ))}
+              {contributors.length < 3 ? (
+                <a
+                  href={REPOSITORY_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-h-64 flex-col justify-between rounded-[30px] border border-dashed border-surface-warm-white/14 bg-surface-warm-white/[0.035] p-spacing-6 text-left transition hover:bg-surface-warm-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
+                >
+                  <div>
+                    <p className="text-lg font-semibold text-surface-warm-white">
+                      Ikut bantu proyek ini
+                    </p>
+                    <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/56">
+                      Lihat repo, buka issue, atau kirim pull request kalau ada
+                      yang ingin kamu rapikan.
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-surface-warm-white underline decoration-surface-warm-white/24 underline-offset-4">
+                    Buka GitHub
+                  </span>
+                </a>
+              ) : null}
             </div>
           ) : (
             <div className="mt-spacing-8 rounded-[28px] border border-dashed border-surface-warm-white/14 bg-[#1f1f1d] p-spacing-7 text-sm leading-6 text-surface-warm-white/58">
@@ -269,7 +318,7 @@ export async function CommunitySection() {
                 Sponsor
               </h2>
               <p className="mt-spacing-3 text-sm text-surface-warm-white/58">
-                Dukungan yang membantu UMKM Cepat jalan.
+                Terima kasih sudah bantu UMKM Cepat tetap 100% gratis.
               </p>
             </div>
             <button
@@ -282,6 +331,27 @@ export async function CommunitySection() {
           </div>
 
           <SponsorTable sponsors={sponsors} />
+        </div>
+
+        <div className="text-left">
+          <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
+            Pertanyaan yang sering muncul
+          </h2>
+          <div className="mt-spacing-8 grid gap-spacing-4 md:grid-cols-2">
+            {faqs.map((faq) => (
+              <div
+                key={faq.question}
+                className="rounded-[24px] border border-surface-warm-white/10 bg-[#1f1f1d] p-spacing-6"
+              >
+                <h3 className="text-base font-semibold text-surface-warm-white">
+                  {faq.question}
+                </h3>
+                <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/58">
+                  {faq.answer}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
