@@ -10,6 +10,7 @@ UMKM Cepat backend -> 9Router -> Command Code/provider -> model
 
 ```bash
 docker compose --profile ai up -d 9router
+docker compose ps 9router
 ```
 
 Open:
@@ -25,6 +26,8 @@ Default password:
 ```
 
 Change it when prompted.
+
+If `docker` is not found, install/start Docker Desktop or Docker Engine first. If `20129` is busy, stop the other service using that port before starting 9Router.
 
 ## Configure provider
 

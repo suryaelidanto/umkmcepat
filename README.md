@@ -74,6 +74,7 @@ npm run db:migrate
 
 ```bash
 docker compose --profile ai up -d 9router
+docker compose ps 9router
 ```
 
 6. Open 9Router dashboard.
@@ -87,6 +88,8 @@ Default password:
 ```text
 123456
 ```
+
+If `docker` is not found, install/start Docker Desktop or Docker Engine first. If port `20129` is already used, stop the other local 9Router/container before starting this project.
 
 7. Configure 9Router.
 
@@ -153,12 +156,13 @@ Set one or more models with `AI_MODELS`. Use commas to separate multiple models.
 ## Daily commands
 
 ```bash
-npm run dev          # start Next.js
-npm run check        # format, lint, typecheck, tests, dead-code/dependency checks
-npm run build        # production build
-npm run db:up        # start local Postgres
-npm run db:migrate   # apply Prisma migrations
-npm run db:studio    # open Prisma Studio
+npm run dev                         # start Next.js
+docker compose up -d postgres       # start local Postgres
+docker compose --profile ai up -d 9router # start local 9Router
+npm run db:migrate                  # apply Prisma migrations
+npm run db:studio                   # open Prisma Studio
+npm run check                       # format, lint, typecheck, tests, dead-code checks
+npm run build                       # production build
 ```
 
 ## Quality gate
