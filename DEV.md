@@ -17,7 +17,7 @@ This file is the maintainer and agent workflow for UMKM Cepat. For contributor o
 Run the app locally, not inside Docker:
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 Run infrastructure in Docker:
@@ -30,7 +30,7 @@ docker compose --profile ai up -d 9router
 Apply database migrations:
 
 ```bash
-npm run db:migrate
+bun run db:migrate
 ```
 
 Open:
@@ -40,7 +40,7 @@ App:      http://localhost:3000
 9Router: http://localhost:20129
 ```
 
-If Docker is missing, install/start Docker Desktop or Docker Engine. If `.next` gets stale, stop the dev server, remove `.next`, then restart `npm run dev`.
+If Docker is missing, install/start Docker Desktop or Docker Engine. If `.next` gets stale, stop the dev server, remove `.next`, then restart `bun run dev`.
 
 ## Environment
 
@@ -72,7 +72,7 @@ NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
 Run this before handoff or PR:
 
 ```bash
-npm run check
+bun run check
 ```
 
 This runs:
@@ -86,10 +86,10 @@ This runs:
 Run build after meaningful code, config, provider, or deployment changes:
 
 ```bash
-npm run build
+bun run build
 ```
 
-The pre-commit hook runs `npm run check`. CI runs `npm run check` and `npm run build`.
+The pre-commit hook runs `bun run check`. CI runs `bun run check` and `bun run build`.
 
 ## TDD workflow
 
@@ -100,7 +100,7 @@ For behavior changes:
 3. Implement the smallest change.
 4. Run the targeted test.
 5. Repeat.
-6. Run `npm run check`.
+6. Run `bun run check`.
 
 Tests should verify public behavior, not private implementation details.
 
@@ -122,20 +122,20 @@ Config lives in `components.json`. Components are owned source files under `src/
 Add components with the official CLI:
 
 ```bash
-npx shadcn@latest add button card input
+bunx shadcn@latest add button card input
 ```
 
 Preview/diff before replacing existing primitives:
 
 ```bash
-npx shadcn@latest add button --dry-run
-npx shadcn@latest add button --diff
+bunx shadcn@latest add button --dry-run
+bunx shadcn@latest add button --diff
 ```
 
 Optional AI assistant skill:
 
 ```bash
-npx skills add shadcn/ui
+bunx skills add shadcn/ui
 ```
 
 Do not paste raw component source from external pages.
@@ -176,7 +176,7 @@ Delete stale local artifacts before handoff.
 - `git status --short --untracked-files=all` inspected
 - no accidental local artifacts
 - no secrets in tracked files
-- `npm run check` passed
-- `npm run build` passed when required
+- `bun run check` passed
+- `bun run build` passed when required
 - browser evidence collected for UI changes
 - docs updated for setup/env/workflow changes

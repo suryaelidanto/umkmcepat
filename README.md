@@ -46,8 +46,8 @@ Start here:
 Before opening a PR, run:
 
 ```bash
-npm run check
-npm run build
+bun run check
+bun run build
 ```
 
 ## Security

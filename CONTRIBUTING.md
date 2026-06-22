@@ -29,7 +29,7 @@ Verify:
 ```powershell
 git --version
 node --version
-npm --version
+bun --version
 docker version
 docker compose version
 ```
@@ -53,7 +53,7 @@ Verify:
 ```bash
 git --version
 node --version
-npm --version
+bun --version
 docker version
 docker compose version
 ```
@@ -75,7 +75,7 @@ Verify:
 ```bash
 git --version
 node --version
-npm --version
+bun --version
 docker version
 docker compose version
 ```
@@ -84,11 +84,11 @@ If Docker needs sudo on your machine, either use `sudo docker ...` consistently 
 
 </details>
 
-Expected Node/npm:
+Expected Bun:
 
 ```text
 Node.js >= 22 < 23
-npm >= 10
+bun = 1.3.9
 ```
 
 ## 2. Clone and install
@@ -96,7 +96,7 @@ npm >= 10
 ```bash
 git clone https://github.com/suryaelidanto/umkmcepat.git
 cd umkmcepat
-npm install
+bun install
 ```
 
 Create local env:
@@ -119,7 +119,7 @@ Start PostgreSQL:
 
 ```bash
 docker compose up -d postgres
-npm run db:migrate
+bun run db:migrate
 ```
 
 Start 9Router when working on AI flows:
@@ -146,7 +146,7 @@ Then configure the provider and API key using [docs/9router.md](docs/9router.md)
 ## 4. Start the app
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 Open:
@@ -189,11 +189,11 @@ Sentry is optional locally. See [docs/observability.md](docs/observability.md).
 Run before every PR:
 
 ```bash
-npm run check
-npm run build
+bun run check
+bun run build
 ```
 
-`npm run check` fails on:
+`bun run check` fails on:
 
 - Prettier formatting issues
 - ESLint warnings or errors
@@ -204,7 +204,7 @@ npm run build
 The pre-commit hook also runs:
 
 ```bash
-npm run check
+bun run check
 ```
 
 ## 7. Branch and commit
@@ -235,20 +235,20 @@ This project uses shadcn/ui-style owned components under `src/components/ui` wit
 Use the official CLI for new primitives:
 
 ```bash
-npx shadcn@latest add button card input
+bunx shadcn@latest add button card input
 ```
 
 Preview before changing existing primitives:
 
 ```bash
-npx shadcn@latest add button --dry-run
-npx shadcn@latest add button --diff
+bunx shadcn@latest add button --dry-run
+bunx shadcn@latest add button --diff
 ```
 
 For AI assistants, the official shadcn skill is useful:
 
 ```bash
-npx skills add shadcn/ui
+bunx skills add shadcn/ui
 ```
 
 Do not copy raw component source from the internet manually. Use the CLI or follow existing local component patterns.
@@ -258,7 +258,7 @@ Do not copy raw component source from the internet manually. Use the CLI or foll
 - Small focused change
 - Tests added or updated for behavior changes
 - UI checked in browser when UI changes
-- `npm run check` passes
-- `npm run build` passes for meaningful code/config changes
+- `bun run check` passes
+- `bun run build` passes for meaningful code/config changes
 - No secrets or local artifacts committed
 - Docs updated when setup, env vars, scripts, providers, or workflows change

@@ -29,7 +29,7 @@ Rules for AI agents and automated contributors.
 
 - Follow `DESIGN.md` and existing tokens/components.
 - Use shadcn/ui-style owned components in `src/components/ui`.
-- For new shadcn primitives, use `npx shadcn@latest add ...`; do not paste raw component source manually.
+- For new shadcn primitives, use `bunx shadcn@latest add ...`; do not paste raw component source manually.
 - Use browser verification for UI work when available, and cite artifact paths.
 
 ## Quality gate
@@ -37,12 +37,12 @@ Rules for AI agents and automated contributors.
 Before handoff, run:
 
 ```bash
-npm run check
+bun run check
 ```
 
-Do not run `npm run build` during normal development unless explicitly requested or the change touches build/deployment behavior. It is slower, writes `.next/`, and can interfere with a running dev server. CI still runs build for protected branches.
+Do not run `bun run build` during normal development unless explicitly requested or the change touches build/deployment behavior. It is slower, writes `.next/`, and can interfere with a running dev server. CI still runs build for protected branches.
 
-`npm run check` covers Prettier, ESLint with zero warnings, TypeScript, Vitest, and Knip. Treat it as the default local quality gate.
+`bun run check` covers Prettier, ESLint with zero warnings, TypeScript, Vitest, and Knip. Treat it as the default local quality gate.
 
 ## Security
 
@@ -54,7 +54,7 @@ Do not run `npm run build` during normal development unless explicitly requested
 ## Docker/runtime
 
 - Do not assume Docker is available. Check it first when needed.
-- App runs with `npm run dev`.
+- App runs with `bun run dev`.
 - Postgres runs with `docker compose up -d postgres`.
 - 9Router runs with `docker compose --profile ai up -d 9router`.
 - If Docker is unavailable, report that clearly instead of inventing status.

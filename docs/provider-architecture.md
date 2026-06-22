@@ -88,5 +88,5 @@ When changing or adding a provider:
 - Update `.env.example`.
 - Update docs.
 - Add tests for provider-independent behavior.
-- Run `npm run verify`.
+- Run `bun run verify`.
 - Do not mix provider migration with unrelated product changes.

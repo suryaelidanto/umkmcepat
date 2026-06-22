@@ -1,19 +1,19 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-alpine AS deps
+FROM oven/bun:1.3.9-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --ignore-scripts
 
-FROM node:22-alpine AS builder
+FROM oven/bun:1.3.9-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
-RUN npm run build
+RUN bunx prisma generate
+RUN bun run build
 
-FROM node:22-alpine AS runner
+FROM oven/bun:1.3.9-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -22,7 +22,7 @@ RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/package-lock.json ./package-lock.json
+COPY --from=builder /app/bun.lock ./bun.lock
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
@@ -34,4 +34,4 @@ RUN mkdir -p public/uploads && chown -R nextjs:nodejs /app
 USER nextjs
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node_modules/.bin/next start"]
+CMD ["sh", "-c", "bunx prisma migrate deploy && bun run start"]

@@ -135,7 +135,7 @@ export function LandingPageRenderer({
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.15, ease: "easeOut" },
+      transition: { staggerChildren: 0.15, ease: [0, 0, 0.2, 1] as const },
     },
   };
 

@@ -9,5 +9,5 @@ dist
 build
 public/uploads
 *.log
-package-lock.json
+bun.lock
 skills-lock.json

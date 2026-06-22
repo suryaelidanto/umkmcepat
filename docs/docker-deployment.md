@@ -7,7 +7,7 @@ UMKM Cepat uses different runtime strategies for development and production.
 Use local Node.js for the Next.js dev server and Docker only for infrastructure:
 
 ```text
-Host/local Node.js: npm run dev
+Host/local Node.js: bun run dev
 WSL Docker:        postgres container
 ```
 
@@ -17,13 +17,13 @@ Start local infrastructure:
 
 ```bash
 docker compose up -d postgres
-npm run db:migrate
+bun run db:migrate
 ```
 
 Start the app locally:
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 ## Production architecture
@@ -46,7 +46,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 The app image runs:
 
 ```bash
-npx prisma migrate deploy && next start
+bunx prisma migrate deploy && next start
 ```
 
 So migrations are applied before the production server starts.
@@ -78,9 +78,9 @@ For VPS, change `POSTGRES_PASSWORD` and do not expose port `5432` publicly unles
 
 ## Notes
 
-- `Dockerfile` uses `npm ci --ignore-scripts` so install-time scripts do not require a live DB during image build.
+- `Dockerfile` uses `bun install --frozen-lockfile --ignore-scripts` so install-time scripts do not require a live DB during image build.
 - Prisma client is generated during image build.
 - Migrations run at container startup.
 - Local uploads are persisted in the `uploads` Docker volume.
 - For serious production, prefer S3/R2 object storage over local uploads.
-- If local dev returns 500 errors with missing `.next` manifest files, stop the dev server, remove `.next`, then run `npm run dev` again.
+- If local dev returns 500 errors with missing `.next` manifest files, stop the dev server, remove `.next`, then run `bun run dev` again.
