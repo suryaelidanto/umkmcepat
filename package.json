@@ -6,7 +6,7 @@
     "dev": "next dev -p 3000",
     "start": "next start",
     "build": "next build",
-    "check": "bun run format && bun run lint && bun run typecheck && bun run test && bun run knip",
+    "check": "bun run check:locks && bun run format && bun run lint && bun run typecheck && bun run test && bun run knip",
     "format": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\" --ignore-path .prettierignore",
     "lint": "eslint . --max-warnings=0",
     "knip": "knip",
@@ -17,7 +17,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "prepare": "husky",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "check:locks": "bun -e \"import { existsSync } from 'node:fs'; const bad = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb'].filter(existsSync); if (!existsSync('bun.lock') || bad.length) { console.error('Use Bun only. Lockfile: bun.lock. Remove: ' + (bad.join(', ') || 'missing bun.lock')); process.exit(1); }\""
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
