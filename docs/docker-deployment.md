@@ -54,6 +54,18 @@ app:     127.0.0.1:3000
 
 Put Cloudflare Tunnel, Cloudflare Access, Nginx, Caddy, or another reverse proxy in front of them. Postgres and Headroom are internal-only.
 
+## Planned ingress
+
+The preferred production ingress is Cloudflare Tunnel from the VPS, with Cloudflare Access protecting the 9Router dashboard.
+
+```text
+umkmcepat.com          -> cloudflared on VPS -> http://localhost:3000
+www.umkmcepat.com      -> cloudflared on VPS -> http://localhost:3000
+9router.umkmcepat.com  -> Cloudflare Access -> cloudflared on VPS -> http://localhost:20129
+```
+
+This keeps app and admin ports bound to localhost on the VPS. The VPS does not need to expose `3000`, `20129`, `8787`, or `5432` publicly.
+
 The app image runs:
 
 ```bash
