@@ -2,39 +2,96 @@
 
 Thanks for helping build UMKM Cepat.
 
-This project is optimized for a simple contributor flow: install the standard tools, copy the env file, start local infrastructure, run the app, run the quality gate, then open a small PR.
+You can code manually or with an AI agent. Either way, use the same setup, keep changes small, and let the repo guardrails do the boring checks.
 
-## Language policy
+## Fast path
 
-- Developer-facing docs, code comments, commit messages, PRs, logs, and internal errors use English.
-- End-user UI copy for Indonesian UMKM uses Indonesian.
-- New user-facing strings should be easy to move into an i18n layer later. Do not scatter repeated copy across many files.
+After your tools are installed:
 
-## 1. Install tools
+```bash
+git clone https://github.com/suryaelidanto/umkmcepat.git
+cd umkmcepat
+bun install
+cp .env.example .env
+docker compose up -d postgres
+bun run db:migrate
+bun run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+## 1. Pick your environment
+
+Use one shell consistently for the repo. Do not mix Windows native `node_modules` with WSL `node_modules`.
 
 <details>
-<summary>Windows</summary>
+<summary>Windows with WSL, recommended</summary>
+
+Use Ubuntu on WSL for app commands. Use Docker Desktop with WSL integration enabled.
 
 Install:
 
-- Git: https://git-scm.com/download/win
-- Node.js 22: https://nodejs.org/en/download
+- WSL Ubuntu: https://learn.microsoft.com/windows/wsl/install
+- Git inside WSL: https://git-scm.com/download/linux
+- Bun inside WSL: https://bun.com/docs/installation
 - Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
-- GitHub CLI: https://cli.github.com/
+- GitHub CLI inside WSL, optional: https://cli.github.com/
 
-Use PowerShell or Git Bash.
+Verify inside WSL:
 
-Verify:
-
-```powershell
+```bash
 git --version
-node --version
 bun --version
 docker version
 docker compose version
 ```
 
-If `docker` is not found, start Docker Desktop first.
+Expected:
+
+```text
+bun 1.3.9
+```
+
+If Docker is not found inside WSL, enable Docker Desktop WSL integration for your Ubuntu distro.
+
+</details>
+
+<details>
+<summary>Windows native with Git Bash</summary>
+
+Use Git Bash for repo commands.
+
+Install:
+
+- Git for Windows: https://git-scm.com/download/win
+- Bun for Windows: https://bun.com/docs/installation
+- Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
+- GitHub CLI, optional: https://cli.github.com/
+
+Verify in Git Bash:
+
+```bash
+git --version
+bun --version
+docker version
+docker compose version
+```
+
+Expected:
+
+```text
+bun 1.3.9
+```
+
+If you use PowerShell for one-off commands, the env copy command is:
+
+```powershell
+Copy-Item .env.example .env
+```
 
 </details>
 
@@ -44,18 +101,23 @@ If `docker` is not found, start Docker Desktop first.
 Install:
 
 - Git: https://git-scm.com/download/mac
-- Node.js 22: https://nodejs.org/en/download
-- Docker Desktop: https://docs.docker.com/desktop/setup/install/mac-install/
-- GitHub CLI: https://cli.github.com/
+- Bun: https://bun.com/docs/installation
+- Docker Desktop or Colima
+- GitHub CLI, optional: https://cli.github.com/
 
 Verify:
 
 ```bash
 git --version
-node --version
 bun --version
 docker version
 docker compose version
+```
+
+Expected:
+
+```text
+bun 1.3.9
 ```
 
 </details>
@@ -66,30 +128,28 @@ docker compose version
 Install:
 
 - Git: https://git-scm.com/download/linux
-- Node.js 22: https://nodejs.org/en/download
+- Bun: https://bun.com/docs/installation
 - Docker Engine: https://docs.docker.com/engine/install/
-- GitHub CLI: https://cli.github.com/
+- GitHub CLI, optional: https://cli.github.com/
 
 Verify:
 
 ```bash
 git --version
-node --version
 bun --version
 docker version
 docker compose version
 ```
 
-If Docker needs sudo on your machine, either use `sudo docker ...` consistently or configure Docker rootless/group access using Docker's official docs.
-
-</details>
-
-Expected Bun:
+Expected:
 
 ```text
-Node.js >= 22 < 23
-bun = 1.3.9
+bun 1.3.9
 ```
+
+If Docker needs sudo, either use `sudo docker ...` consistently or configure Docker rootless/group access using Docker's official docs.
+
+</details>
 
 ## 2. Clone and install
 
@@ -99,51 +159,24 @@ cd umkmcepat
 bun install
 ```
 
-Create local env:
+This repo uses Bun only. The canonical lockfile is `bun.lock`.
+
+## 3. Configure env
 
 ```bash
 cp .env.example .env
 ```
 
-Windows PowerShell:
+The placeholders are enough for basic local development. Add real credentials only when testing integrations that need them.
 
-```powershell
-Copy-Item .env.example .env
-```
-
-Do not commit `.env`.
-
-## 3. Start local services
-
-Start PostgreSQL:
+## 4. Start the database
 
 ```bash
 docker compose up -d postgres
 bun run db:migrate
 ```
 
-Start 9Router when working on AI flows:
-
-```bash
-docker compose --profile ai up -d 9router
-docker compose ps 9router
-```
-
-Open 9Router:
-
-```text
-http://localhost:20129
-```
-
-Default password:
-
-```text
-123456
-```
-
-Then configure the provider and API key using [docs/9router.md](docs/9router.md).
-
-## 4. Start the app
+## 5. Start the app
 
 ```bash
 bun run dev
@@ -155,59 +188,57 @@ Open:
 http://localhost:3000
 ```
 
-## 5. Optional integrations
+## 6. Optional AI gateway
 
-### Google OAuth
+Only needed for AI generation flows:
 
-Required only for real login flows.
-
-Create credentials at:
-
-```text
-https://console.cloud.google.com/apis/credentials
+```bash
+docker compose --profile ai up -d 9router
 ```
 
-Local callback URL:
+Open:
+
+```text
+http://localhost:20129
+```
+
+Default password:
+
+```text
+123456
+```
+
+Then follow [docs/9router.md](docs/9router.md).
+
+## 7. Optional integrations
+
+Google OAuth is only needed for real login flows. Use this local callback URL:
 
 ```text
 http://localhost:3000/api/auth/callback/google
 ```
 
-Set in `.env`:
-
-```env
-GOOGLE_CLIENT_ID=""
-GOOGLE_CLIENT_SECRET=""
-```
-
-### Sentry
-
 Sentry is optional locally. See [docs/observability.md](docs/observability.md).
 
-## 6. Quality gate
+## 8. Quality gate
 
-Run before every PR:
+Run before opening a PR:
 
 ```bash
 bun run check
+```
+
+This runs formatting, linting, TypeScript, tests, and unused-code checks. The pre-commit hook runs it too.
+
+CI also runs:
+
+```bash
 bun run build
 ```
 
-`bun run check` fails on:
+Run build locally when touching build, Docker, deployment, Next config, or before a release.
 
-- Prettier formatting issues
-- ESLint warnings or errors
-- TypeScript errors
-- test failures
-- unused files, exports, or dependencies from Knip
-
-The pre-commit hook also runs:
-
-```bash
-bun run check
-```
-
-## 7. Branch and commit
+## 9. Branches and commits
 
 Create branches from `dev`:
 
@@ -217,22 +248,24 @@ git pull origin dev
 git checkout -b feat/short-name
 ```
 
-Use Conventional Commits:
+Use Conventional Commits. The commit hook checks this.
+
+Good:
 
 ```text
 feat: add project workspace shell
 fix: handle missing auth session
-docs: clarify 9router setup
+docs: clarify setup
 chore: update dependencies
 ```
 
 Open PRs into `dev` first unless maintainers say otherwise.
 
-## 8. UI and shadcn/ui
+## 10. UI components
 
-This project uses shadcn/ui-style owned components under `src/components/ui` with config in `components.json`.
+This project uses shadcn/ui-style owned components under `src/components/ui`.
 
-Use the official CLI for new primitives:
+Add new primitives with the official CLI:
 
 ```bash
 bunx shadcn@latest add button card input
@@ -245,20 +278,38 @@ bunx shadcn@latest add button --dry-run
 bunx shadcn@latest add button --diff
 ```
 
-For AI assistants, the official shadcn skill is useful:
+Use existing local component patterns before adding new primitives.
+
+## Troubleshooting
+
+### Bun version mismatch
+
+Install or upgrade Bun, then verify:
 
 ```bash
-bunx skills add shadcn/ui
+bun --version
 ```
 
-Do not copy raw component source from the internet manually. Use the CLI or follow existing local component patterns.
+Expected:
 
-## 9. Pull request checklist
+```text
+1.3.9
+```
 
-- Small focused change
-- Tests added or updated for behavior changes
-- UI checked in browser when UI changes
-- `bun run check` passes
-- `bun run build` passes for meaningful code/config changes
-- No secrets or local artifacts committed
-- Docs updated when setup, env vars, scripts, providers, or workflows change
+### Docker is not running
+
+Start Docker Desktop or Docker Engine, then retry:
+
+```bash
+docker version
+docker compose version
+```
+
+### Stale Next.js build output
+
+Stop the dev server, remove `.next`, then restart:
+
+```bash
+rm -rf .next
+bun run dev
+```
