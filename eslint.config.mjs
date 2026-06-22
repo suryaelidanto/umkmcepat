@@ -14,7 +14,9 @@ const compat = new FlatCompat({
 const eslintConfig = [
   {
     ignores: [
+      ".browser/**",
       ".next/**",
+      ".pi/**",
       "node_modules/**",
       "coverage/**",
       "dist/**",
