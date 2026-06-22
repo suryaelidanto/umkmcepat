@@ -5,7 +5,7 @@ import {
   isProviderValue,
   type ProviderCapability,
   type ProviderValue,
-} from "@/lib/provider-registry";
+} from "./provider-registry";
 
 export function getEnv(name: string, fallback = ""): string {
   return process.env[name] || fallback;
