@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { authMock } = vi.hoisted(() => ({
-  authMock: vi.fn<() => Promise<unknown>>(async () => null),
-}));
+const { authMock, projectFindFirstMock, queryRawMock, executeRawMock } =
+  vi.hoisted(() => ({
+    authMock: vi.fn<() => Promise<unknown>>(async () => null),
+    projectFindFirstMock: vi.fn(async () => ({ id: "project_1" })),
+    queryRawMock: vi.fn(async () => [{ chatMessages: [] }]),
+    executeRawMock: vi.fn(async () => 1),
+  }));
 
 vi.mock("@/lib/auth", () => ({
   auth: authMock,
@@ -16,10 +20,37 @@ vi.mock("@/lib/ai", () => ({
   getAiModel: vi.fn(() => "test-model"),
 }));
 
+vi.mock("@/lib/projects/chat-memory", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../../../lib/projects/chat-memory")
+  >("../../../../lib/projects/chat-memory");
+
+  return actual;
+});
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    $queryRaw: queryRawMock,
+    $executeRaw: executeRawMock,
+    project: {
+      findFirst: projectFindFirstMock,
+    },
+  },
+}));
+
 vi.mock("ai", () => ({
   convertToModelMessages: vi.fn(async (messages) => messages),
+  validateUIMessages: vi.fn(async ({ messages }) => messages),
   streamText: vi.fn(() => ({
-    toUIMessageStreamResponse: () => new Response("stream"),
+    consumeStream: vi.fn(),
+    toUIMessageStreamResponse: ({
+      onFinish,
+    }: {
+      onFinish: (input: unknown) => void;
+    }) => {
+      void onFinish({ messages: [{ id: "m1", role: "user", parts: [] }] });
+      return new Response("stream");
+    },
   })),
 }));
 
@@ -32,14 +63,17 @@ describe("project preview AI route", () => {
     const response = await POST(
       new Request("http://localhost/api/projects/preview", {
         method: "POST",
-        body: JSON.stringify({ messages: [{ role: "user", parts: [] }] }),
+        body: JSON.stringify({
+          projectId: "project_1",
+          message: { id: "m1", role: "user", parts: [] },
+        }),
       }),
     );
 
     expect(response.status).toBe(401);
   });
 
-  it("streams through the AI SDK for authenticated users", async () => {
+  it("streams through the AI SDK for authenticated users and saves memory", async () => {
     authMock.mockResolvedValueOnce({
       user: { id: "user_1" },
       expires: new Date().toISOString(),
@@ -50,14 +84,23 @@ describe("project preview AI route", () => {
         method: "POST",
         body: JSON.stringify({
           mode: "build",
-          messages: [
-            { role: "user", parts: [{ type: "text", text: "Bakso" }] },
-          ],
+          projectId: "project_1",
+          message: {
+            id: "m1",
+            role: "user",
+            parts: [{ type: "text", text: "Bakso" }],
+          },
         }),
       }),
     );
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("stream");
+    expect(projectFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "project_1", userId: "user_1" },
+      }),
+    );
+    expect(executeRawMock).toHaveBeenCalled();
   });
 });

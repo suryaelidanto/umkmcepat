@@ -3,7 +3,14 @@
 import { ArrowUp, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
-import { FormEvent, useEffect, useRef, useState, useTransition } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 
 import {
   ModeSelect,
@@ -26,7 +33,6 @@ import {
   PROJECT_REQUEST_MAX_LENGTH,
   validateProjectRequest,
 } from "@/lib/projects/input";
-import { getNewProjectPath } from "@/lib/projects/workspace";
 
 export function HomePromptForm() {
   const router = useRouter();
@@ -52,6 +58,53 @@ export function HomePromptForm() {
     setMode(draft.mode);
   }, []);
 
+  function saveDraft(continueAfterLogin = false) {
+    const draft = createProjectDraft(
+      prompt,
+      mode,
+      Date.now(),
+      continueAfterLogin,
+    );
+
+    if (!draft) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      PROJECT_DRAFT_STORAGE_KEY,
+      JSON.stringify(draft),
+    );
+  }
+
+  const createProject = useCallback(
+    async (value: string, selectedMode: WorkspaceMode) => {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: value, mode: selectedMode }),
+      });
+      const result = (await response.json()) as {
+        path?: string;
+        message?: string;
+      };
+
+      if (!response.ok || !result.path) {
+        setErrorMessage(
+          result.message ||
+            "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
+        );
+        setIsContinuing(false);
+        return;
+      }
+
+      window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
+      startTransition(() => {
+        router.push(result.path || "/");
+      });
+    },
+    [router, startTransition],
+  );
+
   useEffect(() => {
     const draft = parseProjectDraft(
       window.localStorage.getItem(PROJECT_DRAFT_STORAGE_KEY),
@@ -72,51 +125,8 @@ export function HomePromptForm() {
       JSON.stringify({ ...draft, continueAfterLogin: false }),
     );
 
-    const timeout = window.setTimeout(() => {
-      router.push(getNewProjectPath(draft.prompt, draft.mode));
-    }, 850);
-
-    return () => window.clearTimeout(timeout);
-  }, [router, status]);
-
-  function saveDraft(continueAfterLogin = false) {
-    const draft = createProjectDraft(
-      prompt,
-      mode,
-      Date.now(),
-      continueAfterLogin,
-    );
-
-    if (!draft) {
-      return;
-    }
-
-    window.localStorage.setItem(
-      PROJECT_DRAFT_STORAGE_KEY,
-      JSON.stringify(draft),
-    );
-  }
-
-  async function moderateRequest(value: string) {
-    const response = await fetch("/api/projects/moderate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: value }),
-    });
-    const result = (await response.json()) as {
-      allowed?: boolean;
-      message?: string;
-    };
-
-    if (!response.ok || !result.allowed) {
-      setErrorMessage(
-        result.message || "AI belum bisa memeriksa chat ini. Coba lagi nanti.",
-      );
-      return false;
-    }
-
-    return true;
-  }
+    void createProject(draft.prompt, draft.mode);
+  }, [createProject, status]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -137,16 +147,7 @@ export function HomePromptForm() {
 
     setIsContinuing(true);
 
-    if (!(await moderateRequest(validation.value))) {
-      setIsContinuing(false);
-      return;
-    }
-
-    const path = getNewProjectPath(validation.value, mode);
-    window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
-    startTransition(() => {
-      router.push(path);
-    });
+    await createProject(validation.value, mode);
   }
 
   const isLoading = isContinuing || isPending;

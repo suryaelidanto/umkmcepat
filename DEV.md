@@ -147,15 +147,25 @@ bunx skills add shadcn/ui
 
 Do not paste raw component source from external pages.
 
+## Project architecture
+
+Read `docs/project-architecture.md` before changing project, workspace, renderer, publishing, multi-tenant, or user-generated app behavior.
+
+Core rule:
+
+```text
+one platform app, many project schemas, one shared renderer
+```
+
+Do not add per-user Next.js apps, per-project containers, arbitrary user server code, or generated source files as the primary runtime model.
+
 ## Providers
 
-- AI runtime: Vercel AI SDK through `src/lib/ai.ts`, backed by 9Router's OpenAI-compatible endpoint.
-- AI UI streaming: `@ai-sdk/react` hooks such as `useChat`; routes should return AI SDK stream responses.
-- Storage: `src/lib/storage`
-- Rate limit: `src/lib/rate-limit.ts`
-- Provider names: `src/lib/provider-registry.ts`
+- AI gateway: 9Router.
+- Rate limit: `src/lib/rate-limit.ts`.
+- Provider names: `src/lib/provider-registry.ts`.
 
-All AI calls, streaming, tool calling, structured output, and agent work must go through the AI SDK. Do not call provider SDKs or `fetch` provider APIs directly from routes or components. Keep provider wiring inside `src/lib/ai.ts`; routes/components import internal services or AI SDK UI hooks only.
+AI runtime code should live behind an internal service boundary before routes/components depend on it. Do not call provider SDKs or provider APIs directly from components.
 
 ## Observability
 

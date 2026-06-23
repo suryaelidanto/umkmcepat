@@ -1,57 +1,195 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import { ArrowUp, Code2, Globe2, Monitor, Smartphone } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import {
+  ArrowUp,
+  CheckCircle2,
+  Code2,
+  Globe2,
+  Loader2,
+  Monitor,
+  Smartphone,
+} from "lucide-react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import { ProjectSitePreview } from "@/components/projects/renderer/ProjectSitePreview";
 import { Button } from "@/components/ui/button";
+import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 type WorkspaceShellProps = {
+  projectId: string;
   initialPrompt?: string;
+  initialStatus: string;
+  initialMessages: UIMessage[];
+  siteSchema: ProjectSiteSchema;
 };
 
-const progress = [
-  "Memahami usaha dan calon pembeli",
-  "Menyusun isi halaman",
-  "Menulis kalimat yang mudah dipahami",
-  "Menyiapkan tombol WhatsApp",
-];
+type BuildProgress = {
+  label: string;
+  detail: string;
+};
 
-export function WorkspaceShell({ initialPrompt = "" }: WorkspaceShellProps) {
-  const [mode, setMode] = useState<"build" | "discuss">("discuss");
+export function WorkspaceShell({
+  projectId,
+  initialPrompt = "",
+  initialStatus,
+  initialMessages,
+  siteSchema: initialSiteSchema,
+}: WorkspaceShellProps) {
+  const [mode, setMode] = useState<"build" | "discuss">(
+    initialStatus === "discussing" ? "discuss" : "build",
+  );
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
-  const prompt =
-    initialPrompt.trim() ||
-    "Saya jual sambal rumahan, ingin website hangat dengan tombol WhatsApp.";
-
+  const [message, setMessage] = useState("");
+  const [siteSchema, setSiteSchema] = useState(initialSiteSchema);
+  const [buildStatus, setBuildStatus] = useState(initialStatus);
+  const [buildProgress, setBuildProgress] = useState<BuildProgress[]>([]);
+  const [buildError, setBuildError] = useState("");
+  const prompt = initialPrompt.trim();
   const hasStartedChat = useRef(false);
+  const hasStartedBuild = useRef(false);
+  const modeRef = useRef(mode);
   const { messages, sendMessage, status, error } = useChat({
+    id: projectId,
+    messages: initialMessages,
     transport: new DefaultChatTransport({
       api: "/api/projects/preview",
+      prepareSendMessagesRequest({ messages }) {
+        return {
+          body: {
+            message: messages[messages.length - 1],
+            mode: modeRef.current,
+            projectId,
+          },
+        };
+      },
     }),
   });
 
   useEffect(() => {
-    if (hasStartedChat.current) {
+    modeRef.current = mode;
+  }, [mode]);
+
+  const startBuild = useCallback(async () => {
+    if (buildStatus === "building") {
+      return;
+    }
+
+    setBuildError("");
+    setBuildStatus("building");
+    setBuildProgress([]);
+
+    const response = await fetch(`/api/projects/${projectId}/generate`, {
+      method: "POST",
+    });
+
+    if (!response.ok || !response.body) {
+      const result = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      setBuildStatus("draft");
+      setBuildError(result?.message || "AI belum bisa membangun website ini.");
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
+
+      for (const rawEvent of events) {
+        const eventName = rawEvent.match(/^event: (.+)$/m)?.[1];
+        const dataText = rawEvent.match(/^data: (.+)$/m)?.[1];
+
+        if (!eventName || !dataText) {
+          continue;
+        }
+
+        const data = JSON.parse(dataText) as
+          | ProjectSiteSchema
+          | BuildProgress
+          | {
+              message?: string;
+            };
+
+        if (eventName === "progress") {
+          setBuildProgress((items) => [...items, data as BuildProgress]);
+        }
+
+        if (eventName === "schema" || eventName === "done") {
+          setSiteSchema(data as ProjectSiteSchema);
+        }
+
+        if (eventName === "done") {
+          setBuildStatus("ready");
+        }
+
+        if (eventName === "error") {
+          setBuildStatus("draft");
+          setBuildError(
+            (data as { message?: string }).message ||
+              "AI belum bisa membangun website ini.",
+          );
+        }
+      }
+    }
+  }, [buildStatus, projectId]);
+
+  useEffect(() => {
+    if (
+      hasStartedBuild.current ||
+      initialStatus === "ready" ||
+      initialStatus === "discussing"
+    ) {
+      return;
+    }
+
+    hasStartedBuild.current = true;
+    void startBuild();
+  }, [initialStatus, startBuild]);
+
+  useEffect(() => {
+    if (hasStartedChat.current || !prompt) {
       return;
     }
 
     hasStartedChat.current = true;
-    sendMessage({ text: prompt });
-  }, [prompt, sendMessage]);
+    sendMessage({ text: prompt }, { body: { mode } });
+  }, [mode, prompt, sendMessage]);
 
-  const previewTitle = useMemo(() => {
-    if (/sambal|makanan|kuliner/i.test(prompt)) {
-      return "Sambal Rumahan Ibu Rani";
+  function switchMode(nextMode: "build" | "discuss") {
+    setMode(nextMode);
+
+    if (nextMode === "build" && buildStatus === "discussing") {
+      void startBuild();
+    }
+  }
+
+  function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const text = message.trim();
+
+    if (!text || status === "submitted" || status === "streaming") {
+      return;
     }
 
-    if (/laundry|cuci/i.test(prompt)) {
-      return "Laundry Kilat Harian";
-    }
+    setMessage("");
+    sendMessage({ text }, { body: { mode } });
+  }
 
-    return "Website UMKM Kamu";
-  }, [prompt]);
+  const isResponding = status === "submitted" || status === "streaming";
+  const isBuilding = buildStatus === "building";
 
   return (
     <div className="min-h-[calc(100dvh-4rem)] bg-[#151515] text-surface-warm-white">
@@ -69,14 +207,14 @@ export function WorkspaceShell({ initialPrompt = "" }: WorkspaceShellProps) {
             <div className="flex rounded-full border border-surface-warm-white/10 bg-surface-warm-white/6 p-1 text-sm">
               <button
                 type="button"
-                onClick={() => setMode("build")}
+                onClick={() => switchMode("build")}
                 className={`rounded-full px-spacing-7 py-spacing-3 transition ${mode === "build" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/62 hover:text-surface-warm-white"}`}
               >
                 Buat
               </button>
               <button
                 type="button"
-                onClick={() => setMode("discuss")}
+                onClick={() => switchMode("discuss")}
                 className={`rounded-full px-spacing-7 py-spacing-3 transition ${mode === "discuss" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/62 hover:text-surface-warm-white"}`}
               >
                 Diskusi
@@ -88,6 +226,7 @@ export function WorkspaceShell({ initialPrompt = "" }: WorkspaceShellProps) {
             <div className="rounded-radius-2xl bg-surface-warm-white px-spacing-7 py-spacing-6 text-sm leading-6 text-foreground-primary">
               {prompt}
             </div>
+
             <div className="rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-7 py-spacing-6 text-sm leading-6 text-surface-warm-white/76">
               {messages.length ? (
                 <div className="space-y-spacing-4">
@@ -103,12 +242,10 @@ export function WorkspaceShell({ initialPrompt = "" }: WorkspaceShellProps) {
                       </div>
                     ))}
                 </div>
-              ) : mode === "build" ? (
-                "Siap. AI akan buat website yang jelas, mudah dipahami pelanggan, dan nyaman dibuka dari HP."
               ) : (
-                "Kita bahas dulu kebutuhan usahamu. AI akan bantu merapikan isi dan arahan website sebelum dibuat."
+                "AI sedang membaca brief dan menyiapkan struktur website."
               )}
-              {status === "submitted" || status === "streaming" ? (
+              {isResponding ? (
                 <p className="mt-spacing-4 text-xs text-surface-warm-white/46">
                   AI sedang menyiapkan jawaban...
                 </p>
@@ -121,43 +258,83 @@ export function WorkspaceShell({ initialPrompt = "" }: WorkspaceShellProps) {
             </div>
 
             <div className="rounded-radius-2xl border border-surface-warm-white/10 bg-[#171716] p-spacing-7">
-              <div className="flex items-center gap-spacing-5 text-sm font-medium">
-                <Code2 className="size-4" aria-hidden="true" />
-                Sedang dikerjakan
+              <div className="flex items-center justify-between gap-spacing-5 text-sm font-medium">
+                <div className="flex items-center gap-spacing-5">
+                  <Code2 className="size-4" aria-hidden="true" />
+                  Proses build
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void startBuild()}
+                  disabled={isBuilding}
+                  className="h-8 border-surface-warm-white/16 bg-transparent text-xs text-surface-warm-white hover:bg-surface-warm-white/10"
+                >
+                  {isBuilding ? "Membangun..." : "Generate ulang"}
+                </Button>
               </div>
               <ul className="mt-spacing-6 space-y-spacing-5 text-sm text-surface-warm-white/64">
-                {progress.map((item) => (
-                  <li key={item} className="flex gap-spacing-5">
-                    <span
-                      className="mt-2 size-1.5 rounded-full bg-[#ff5e27]"
-                      aria-hidden="true"
-                    />
-                    <span>{item}</span>
+                {buildProgress.length ? (
+                  buildProgress.map((item, index) => (
+                    <li
+                      key={`${item.label}-${index}`}
+                      className="flex gap-spacing-5"
+                    >
+                      {index === buildProgress.length - 1 && isBuilding ? (
+                        <Loader2 className="mt-0.5 size-4 animate-spin text-[#ff5e27]" />
+                      ) : (
+                        <CheckCircle2 className="mt-0.5 size-4 text-[#ff5e27]" />
+                      )}
+                      <span>
+                        <span className="block text-surface-warm-white">
+                          {item.label}
+                        </span>
+                        <span>{item.detail}</span>
+                      </span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="flex gap-spacing-5">
+                    <Loader2 className="mt-0.5 size-4 animate-spin text-[#ff5e27]" />
+                    <span>Menunggu AI memulai build...</span>
                   </li>
-                ))}
+                )}
               </ul>
+              {buildError ? (
+                <p className="mt-spacing-5 text-sm text-[#ffb4a6]">
+                  {buildError}
+                </p>
+              ) : null}
             </div>
           </div>
 
-          <form className="mt-spacing-7 rounded-[24px] border border-surface-warm-white/10 bg-[#232321] p-spacing-5">
+          <form
+            onSubmit={handleMessageSubmit}
+            className="mt-spacing-7 rounded-[24px] border border-surface-warm-white/10 bg-[#232321] p-spacing-5"
+          >
             <label htmlFor="workspace-message" className="sr-only">
               Pesan untuk AI
             </label>
             <textarea
               id="workspace-message"
               rows={3}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              disabled={isResponding}
               placeholder={
                 mode === "build"
                   ? "Minta perubahan, contoh: buat lebih premium..."
                   : "Tulis kebutuhan usaha, pelanggan, atau tujuan websitemu..."
               }
-              className="w-full resize-none bg-transparent px-spacing-4 py-spacing-4 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38"
+              className="w-full resize-none bg-transparent px-spacing-4 py-spacing-4 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38 disabled:opacity-60"
             />
             <div className="flex justify-end">
               <Button
-                type="button"
+                type="submit"
                 size="icon"
-                className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
+                disabled={!message.trim() || isResponding}
+                className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
                 aria-label="Kirim pesan"
               >
                 <ArrowUp className="size-4" />
@@ -170,7 +347,7 @@ export function WorkspaceShell({ initialPrompt = "" }: WorkspaceShellProps) {
           <div className="mb-spacing-5 flex flex-wrap items-center justify-between gap-spacing-5 rounded-[22px] bg-surface-warm-white px-spacing-5 py-spacing-4">
             <div className="flex items-center gap-spacing-4 text-sm font-medium">
               <Globe2 className="size-4" aria-hidden="true" />
-              Tampilan website
+              Preview website
             </div>
             <div className="flex rounded-full bg-surface-muted p-1 text-sm">
               <button
@@ -192,47 +369,33 @@ export function WorkspaceShell({ initialPrompt = "" }: WorkspaceShellProps) {
             </div>
           </div>
 
-          <div className="flex min-h-[640px] items-start justify-center overflow-auto rounded-[24px] bg-[#d8d3c8] p-spacing-5">
-            <div
-              className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-5xl"} w-full overflow-hidden rounded-[24px] bg-surface-warm-white shadow-[0_18px_48px_rgba(28,28,28,0.16)]`}
-            >
-              <div className="grid gap-spacing-10 p-spacing-10 md:grid-cols-[1.1fr_0.9fr] md:p-spacing-12">
+          <div className="flex min-h-[760px] items-start justify-center overflow-auto rounded-[24px] bg-[#d8d3c8] p-spacing-5">
+            {buildStatus === "discussing" ? (
+              <div className="grid min-h-[520px] w-full max-w-3xl place-items-center rounded-[28px] bg-surface-warm-white p-spacing-10 text-center shadow-[0_18px_48px_rgba(28,28,28,0.12)]">
                 <div>
-                  <p className="text-sm text-text-secondary">
-                    Tampilan website
+                  <p className="text-sm font-medium uppercase tracking-[0.16em] text-text-secondary">
+                    Mode diskusi
                   </p>
-                  <h2 className="mt-spacing-7 text-[clamp(2.4rem,5vw,4.6rem)] font-semibold leading-[0.95] tracking-[-0.06em]">
-                    {previewTitle}
+                  <h2 className="mt-spacing-6 text-5xl font-semibold leading-none tracking-[-0.06em] text-foreground-primary">
+                    Belum membuat website.
                   </h2>
-                  <p className="mt-spacing-7 max-w-xl text-lg leading-8 text-text-secondary">
-                    Halaman website untuk menjelaskan usaha, membangun rasa
-                    percaya, dan mengarahkan pelanggan ke WhatsApp.
+                  <p className="mx-auto mt-spacing-7 max-w-lg text-lg leading-8 text-text-secondary">
+                    AI hanya membantu merapikan kebutuhan usaha. Kalau arahnya
+                    sudah jelas, pilih mode Buat untuk mulai membangun preview
+                    website.
                   </p>
-                  <Button className="mt-spacing-9 rounded-radius-lg bg-foreground-primary px-spacing-10 text-surface-warm-white hover:bg-foreground-primary/90">
-                    Pesan via WhatsApp
+                  <Button
+                    type="button"
+                    onClick={() => switchMode("build")}
+                    className="mt-spacing-9 rounded-radius-lg bg-foreground-primary px-spacing-9 text-surface-warm-white hover:bg-foreground-primary/90"
+                  >
+                    Mulai buat website
                   </Button>
                 </div>
-                <div className="min-h-72 rounded-[28px] bg-[radial-gradient(circle_at_30%_20%,rgba(255,94,39,0.9),transparent_32%),radial-gradient(circle_at_72%_34%,rgba(255,31,128,0.76),transparent_30%),linear-gradient(135deg,#1c1c1c,#455ee8)]" />
               </div>
-              <div className="grid gap-spacing-5 border-t border-foreground-primary/10 p-spacing-10 md:grid-cols-3">
-                {["Tulisan jelas", "Tampilan rapi", "Arah pesan jelas"].map(
-                  (item) => (
-                    <div
-                      key={item}
-                      className="rounded-radius-xl bg-surface-muted p-spacing-7"
-                    >
-                      <h3 className="font-semibold tracking-[-0.03em]">
-                        {item}
-                      </h3>
-                      <p className="mt-spacing-4 text-sm leading-6 text-text-secondary">
-                        Disusun agar pelanggan cepat paham dan mudah menghubungi
-                        kamu.
-                      </p>
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
+            ) : (
+              <ProjectSitePreview siteSchema={siteSchema} viewport={viewport} />
+            )}
           </div>
         </section>
       </div>

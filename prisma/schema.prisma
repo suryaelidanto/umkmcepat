@@ -90,6 +90,8 @@ model Project {
   prompt    String   @db.Text
   model     String   @db.VarChar(160)
   status    String   @default("draft") @db.VarChar(32)
+  siteSchema Json?
+  chatMessages Json?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
