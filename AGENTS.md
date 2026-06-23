@@ -7,6 +7,7 @@ Rules for AI agents and automated contributors.
 - Read `README.md`, `CONTRIBUTING.md`, `DEV.md`, `ANTI_AI_SLOP.md`, `.env.example`, and `package.json` before code changes.
 - Read `ANTI_AI_SLOP.md` before docs, copy, UI, prompts, or agent-facing instructions.
 - Read `DESIGN.md` before UI, styling, layout, typography, colors, or components.
+- Read `docs/project-architecture.md` before project, workspace, renderer, publishing, multi-tenant, or user-generated app work.
 - Read `docs/9router.md` before AI gateway or model work.
 - Read `docs/provider-architecture.md` and `docs/providers.md` before provider/config changes.
 - Read `docs/observability.md` before Sentry/monitoring changes.
@@ -14,6 +15,12 @@ Rules for AI agents and automated contributors.
 ## Operating mode
 
 - Work like a project engineer, not a one-off script runner.
+- Work as the supervising senior engineer/PM by default: keep the helicopter view, define the plan/interfaces/risks, then delegate focused execution to subagents.
+- Use pi-subagents as the default execution mindset for coding work: parent agent orchestrates, child agents investigate/plan/implement/review.
+- Prefer this loop for non-trivial work: `scout` for codebase context → `planner` for implementation plan → ask user before production-critical edits → `worker` for implementation → fresh `reviewer` for review → parent synthesizes and applies only correct, minimal, in-scope fixes.
+- Use parallel subagents when safe and useful, especially for independent review angles: correctness, tests, security, unnecessary complexity, UI/accessibility.
+- Keep parent-agent responsibility: do not blindly accept subagent output; verify scope, architecture fit, repo rules, and final quality gate.
+- Skip subagents only for trivial one-line fixes, pure explanations, quick file reads, or when the user explicitly says no subagents.
 - Follow `CONTRIBUTING.md` for contributor workflow.
 - Follow `DEV.md` for maintainer and agent SOP.
 - Prefer repo guardrails over personal habits.
