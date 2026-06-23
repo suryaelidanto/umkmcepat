@@ -59,7 +59,7 @@ const faqs = [
   {
     question: "Apakah UMKM Cepat benar-benar gratis?",
     answer:
-      "Iya. Tujuan awalnya membantu usaha kecil mulai punya website tanpa biaya pembuatan.",
+      "Iya. Tujuan awalnya membantu usaha kecil mulai punya website tanpa biaya development.",
   },
   {
     question: "Website saya dibuat oleh AI saja?",
@@ -72,14 +72,14 @@ const faqs = [
       "Kami hanya meminta informasi yang kamu tulis untuk membuat website. Jangan masukkan password, nomor kartu, atau data rahasia.",
   },
   {
-    question: "Kenapa ada daftar kontributor?",
+    question: "Siapa yang mengembangkan UMKM Cepat?",
     answer:
-      "Supaya kamu bisa melihat proyek ini aktif dirawat oleh developer nyata, bukan halaman yang dibiarkan begitu saja.",
+      "UMKM Cepat dikembangkan sebagai proyek open source. Daftar kontributor membantu kamu melihat siapa saja yang ikut merawat produk ini.",
   },
   {
-    question: "Kalau hasilnya belum cocok bagaimana?",
+    question: "Bagaimana agar hasilnya lebih cocok?",
     answer:
-      "Mulai dari mode Diskusi. Jelaskan usahamu, lalu arahkan AI sampai hasilnya mendekati kebutuhanmu.",
+      "Mulai dari mode Diskusi. Ceritakan jenis usaha, pelanggan, layanan, dan gaya website yang kamu mau.",
   },
 ];
 
