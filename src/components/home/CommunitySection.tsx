@@ -48,7 +48,6 @@ const sponsors = [
     donorName: "Ogya",
     brandName: "Zenhosta",
     brandUrl: "https://zenhosta.com/",
-    brandDomain: "zenhosta.com",
     date: "17 Juni 2026",
     support: "Domain",
     value: "Rp250.000",

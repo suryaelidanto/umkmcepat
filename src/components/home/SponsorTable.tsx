@@ -6,7 +6,6 @@ type Sponsor = {
   donorName: string;
   brandName: string;
   brandUrl?: string;
-  brandDomain?: string;
   date: string;
   support: string;
   value: string;
@@ -64,11 +63,6 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
                     {sponsor.brandName}
                   </span>
                 )}
-                {sponsor.brandDomain ? (
-                  <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
-                    {sponsor.brandDomain}
-                  </p>
-                ) : null}
               </td>
               <td className="px-spacing-5 py-spacing-5 text-surface-warm-white/70">
                 {sponsor.support}
