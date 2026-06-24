@@ -16,17 +16,15 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import {
-  FormEvent,
-  PointerEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ProjectSitePreview } from "@/components/projects/renderer/ProjectSitePreview";
 import { Button } from "@/components/ui/button";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
@@ -65,7 +63,6 @@ export function WorkspaceShell({
   const [draftTitle, setDraftTitle] = useState(initialTitle);
   const [siteSchema, setSiteSchema] = useState(initialSiteSchema);
   const [buildStatus, setBuildStatus] = useState(initialStatus);
-  const [chatWidth, setChatWidth] = useState(560);
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [previewCollapsed, setPreviewCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<BuildTab>("preview");
@@ -418,254 +415,228 @@ export function WorkspaceShell({
     setChatCollapsed(false);
   }
 
-  const chatPanelClass = [
-    showChatPanel ? "flex" : "hidden",
-    "min-h-0 min-w-0 flex-col bg-[#1b1b19] p-spacing-5 transition-[width,opacity] duration-300 ease-out",
-    showSplitLayout
-      ? "w-[var(--chat-width)] shrink-0 border-l border-surface-warm-white/10"
-      : "w-full",
-  ].join(" ");
-
-  const previewPanelClass = [
-    showSplitLayout ? "flex-1" : "w-full",
-    "min-h-0 min-w-0 p-spacing-5 transition-[width,opacity] duration-300 ease-out lg:p-spacing-7",
-  ].join(" ");
-
-  function handleDividerPointerDown(event: PointerEvent<HTMLDivElement>) {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const startX = event.clientX;
-    const startWidth = chatWidth;
-
-    function move(pointerEvent: globalThis.PointerEvent) {
-      const next = startWidth - (pointerEvent.clientX - startX);
-      setChatWidth(Math.min(720, Math.max(420, next)));
-    }
-
-    function up() {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    }
-
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  }
+  const chatPanelClass =
+    "flex h-full min-h-0 min-w-0 flex-col bg-[#1b1b19] p-spacing-5";
+  const previewPanelClass = "h-full min-h-0 min-w-0 p-spacing-5 lg:p-spacing-7";
 
   return (
     <div className="h-dvh overflow-hidden bg-[#10100f] text-surface-warm-white">
-      <div
-        className="flex h-full min-h-0 gap-0 overflow-hidden"
-        style={{
-          ["--chat-width" as string]: showChatPanel ? `${chatWidth}px` : "0px",
-        }}
+      <ResizablePanelGroup
+        orientation="horizontal"
+        className="h-full min-h-0 overflow-hidden"
       >
         {showPreviewPanel ? (
-          <section className={previewPanelClass}>
-            <div className="flex h-full min-h-0 flex-col rounded-[32px] border border-surface-warm-white/10 bg-[#ebe8df] p-spacing-4 text-foreground-primary shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
-              <WorkspaceTopBar
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                viewport={viewport}
-                setViewport={setViewport}
-                chatCollapsed={chatCollapsed}
-                openChatPanel={openChatPanel}
-                closePreviewPanel={closePreviewPanel}
-              />
-              <div className="mt-spacing-4 flex-1 overflow-auto rounded-[24px] bg-[#d8d3c8] p-spacing-5">
-                {activeTab === "preview" ? (
-                  sourceStatus === "passed" ? (
-                    <GeneratedPreviewFrame
-                      projectId={projectId}
-                      viewport={viewport}
-                    />
-                  ) : buildStatus === "ready" ? (
-                    <div className="flex justify-center">
-                      <ProjectSitePreview
-                        siteSchema={siteSchema}
+          <ResizablePanel defaultSize={showSplitLayout ? 68 : 100} minSize={35}>
+            <section className={previewPanelClass}>
+              <div className="flex h-full min-h-0 flex-col rounded-[32px] border border-surface-warm-white/10 bg-[#ebe8df] p-spacing-4 text-foreground-primary shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+                <WorkspaceTopBar
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  viewport={viewport}
+                  setViewport={setViewport}
+                  chatCollapsed={chatCollapsed}
+                  openChatPanel={openChatPanel}
+                  closePreviewPanel={closePreviewPanel}
+                />
+                <div className="mt-spacing-4 flex-1 overflow-auto rounded-[24px] bg-[#d8d3c8] p-spacing-5">
+                  {activeTab === "preview" ? (
+                    sourceStatus === "passed" ? (
+                      <GeneratedPreviewFrame
+                        projectId={projectId}
                         viewport={viewport}
                       />
-                    </div>
-                  ) : (
-                    <EmptyPreviewState />
-                  )
-                ) : null}
+                    ) : buildStatus === "ready" ? (
+                      <div className="flex justify-center">
+                        <ProjectSitePreview
+                          siteSchema={siteSchema}
+                          viewport={viewport}
+                        />
+                      </div>
+                    ) : (
+                      <EmptyPreviewState />
+                    )
+                  ) : null}
 
-                {activeTab === "code" ? (
-                  <CodeView
-                    projectId={projectId}
-                    files={sourceFiles}
-                    buildLog={sourceLog}
-                    buildStatus={sourceStatus}
-                  />
-                ) : null}
+                  {activeTab === "code" ? (
+                    <CodeView
+                      projectId={projectId}
+                      files={sourceFiles}
+                      buildLog={sourceLog}
+                      buildStatus={sourceStatus}
+                    />
+                  ) : null}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </ResizablePanel>
         ) : null}
 
         {showSplitLayout ? (
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            onPointerDown={handleDividerPointerDown}
-            className="hidden cursor-col-resize bg-transparent transition hover:bg-surface-warm-white/8 lg:order-2 lg:block"
+          <ResizableHandle
+            withHandle
+            className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16"
           />
         ) : null}
 
-        <aside className={chatPanelClass}>
-          <div className="flex items-start justify-between gap-spacing-5 px-spacing-1">
-            <div className="min-w-0 flex-1">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-spacing-2 text-xs text-surface-warm-white/46 hover:text-surface-warm-white"
-              >
-                <ArrowLeft className="size-3.5" />
-                Dashboard
-              </Link>
-              <div className="mt-spacing-3 flex items-center gap-spacing-2">
-                {isRenaming ? (
-                  <input
-                    value={draftTitle}
-                    onChange={(event) => setDraftTitle(event.target.value)}
-                    onBlur={() => void saveProjectTitle()}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        void saveProjectTitle();
-                      }
+        {showChatPanel ? (
+          <ResizablePanel defaultSize={showSplitLayout ? 32 : 100} minSize={24}>
+            <aside className={chatPanelClass}>
+              <div className="flex items-start justify-between gap-spacing-5 px-spacing-1">
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href="/"
+                    className="inline-flex items-center gap-spacing-2 text-xs text-surface-warm-white/46 hover:text-surface-warm-white"
+                  >
+                    <ArrowLeft className="size-3.5" />
+                    Dashboard
+                  </Link>
+                  <div className="mt-spacing-3 flex items-center gap-spacing-2">
+                    {isRenaming ? (
+                      <input
+                        value={draftTitle}
+                        onChange={(event) => setDraftTitle(event.target.value)}
+                        onBlur={() => void saveProjectTitle()}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            void saveProjectTitle();
+                          }
 
-                      if (event.key === "Escape") {
-                        setDraftTitle(projectTitle);
-                        setIsRenaming(false);
-                      }
-                    }}
-                    autoFocus
-                    className="min-w-0 flex-1 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/8 px-spacing-3 py-spacing-2 text-base font-semibold text-surface-warm-white outline-none focus:border-surface-warm-white/30"
-                  />
-                ) : (
-                  <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
-                    {projectTitle}
-                  </h1>
-                )}
-                {isRenaming ? (
-                  <button
-                    type="button"
-                    onClick={() => void saveProjectTitle()}
-                    className="rounded-full p-spacing-2 text-[#8ce99a] hover:bg-surface-warm-white/8"
-                    aria-label="Simpan nama proyek"
-                  >
-                    <Check className="size-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsRenaming(true)}
-                    className="rounded-full p-spacing-2 text-surface-warm-white/44 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-                    aria-label="Ubah nama proyek"
-                  >
-                    <Pencil className="size-3.5" />
-                  </button>
-                )}
+                          if (event.key === "Escape") {
+                            setDraftTitle(projectTitle);
+                            setIsRenaming(false);
+                          }
+                        }}
+                        autoFocus
+                        className="min-w-0 flex-1 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/8 px-spacing-3 py-spacing-2 text-base font-semibold text-surface-warm-white outline-none focus:border-surface-warm-white/30"
+                      />
+                    ) : (
+                      <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
+                        {projectTitle}
+                      </h1>
+                    )}
+                    {isRenaming ? (
+                      <button
+                        type="button"
+                        onClick={() => void saveProjectTitle()}
+                        className="rounded-full p-spacing-2 text-[#8ce99a] hover:bg-surface-warm-white/8"
+                        aria-label="Simpan nama proyek"
+                      >
+                        <Check className="size-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsRenaming(true)}
+                        className="rounded-full p-spacing-2 text-surface-warm-white/44 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                        aria-label="Ubah nama proyek"
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-spacing-2">
+                  {!showPreviewPanel ? (
+                    <button
+                      type="button"
+                      onClick={openPreviewPanel}
+                      className="hidden rounded-full border border-surface-warm-white/10 px-spacing-4 py-spacing-3 text-xs text-surface-warm-white/62 hover:text-surface-warm-white lg:block"
+                    >
+                      Preview
+                    </button>
+                  ) : null}
+                  {showPreviewPanel ? (
+                    <button
+                      type="button"
+                      onClick={closeChatPanel}
+                      className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:text-surface-warm-white lg:block"
+                      aria-label="Tutup chat"
+                    >
+                      <PanelRightClose className="size-4" />
+                    </button>
+                  ) : null}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-spacing-2">
-              {!showPreviewPanel ? (
-                <button
-                  type="button"
-                  onClick={openPreviewPanel}
-                  className="hidden rounded-full border border-surface-warm-white/10 px-spacing-4 py-spacing-3 text-xs text-surface-warm-white/62 hover:text-surface-warm-white lg:block"
-                >
-                  Preview
-                </button>
-              ) : null}
-              {showPreviewPanel ? (
-                <button
-                  type="button"
-                  onClick={closeChatPanel}
-                  className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:text-surface-warm-white lg:block"
-                  aria-label="Tutup chat"
-                >
-                  <PanelRightClose className="size-4" />
-                </button>
-              ) : null}
-            </div>
-          </div>
 
-          <div
-            ref={chatScrollRef}
-            className="mt-spacing-5 min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
-          >
-            {hasMoreChat ? (
               <div
-                ref={olderChatSentinelRef}
-                className="py-spacing-3 text-center"
+                ref={chatScrollRef}
+                className="mt-spacing-5 min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
               >
-                {isLoadingOlderChat ? (
-                  <span className="text-xs text-surface-warm-white/42">
-                    Memuat chat lama...
-                  </span>
+                {hasMoreChat ? (
+                  <div
+                    ref={olderChatSentinelRef}
+                    className="py-spacing-3 text-center"
+                  >
+                    {isLoadingOlderChat ? (
+                      <span className="text-xs text-surface-warm-white/42">
+                        Memuat chat lama...
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+                <ChatMessages messages={visibleMessages} />
+
+                {!isProcessing && canStartBuild ? (
+                  <BuildStartCard onBuild={() => void startBuild()} />
+                ) : null}
+
+                {isResponding ? (
+                  <p className="text-sm text-surface-warm-white/46">
+                    AI sedang menyiapkan jawaban...
+                  </p>
+                ) : null}
+                {error ? (
+                  <p className="text-sm text-[#ffb4a6]">
+                    AI belum bisa menjawab. Coba lagi nanti.
+                  </p>
                 ) : null}
               </div>
-            ) : null}
-            <ChatMessages messages={visibleMessages} />
 
-            {!isProcessing && canStartBuild ? (
-              <BuildStartCard onBuild={() => void startBuild()} />
-            ) : null}
-
-            {isResponding ? (
-              <p className="text-sm text-surface-warm-white/46">
-                AI sedang menyiapkan jawaban...
-              </p>
-            ) : null}
-            {error ? (
-              <p className="text-sm text-[#ffb4a6]">
-                AI belum bisa menjawab. Coba lagi nanti.
-              </p>
-            ) : null}
-          </div>
-
-          <div className="mt-spacing-5">
-            {isProcessing ? (
-              <ProcessingControl
-                mode={isBuilding ? "Buat" : "Diskusi"}
-                onStop={stopCurrentJob}
-              />
-            ) : (
-              <form
-                onSubmit={handleMessageSubmit}
-                className="mt-spacing-3 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
-              >
-                <label htmlFor="workspace-message" className="sr-only">
-                  Pesan untuk AI
-                </label>
-                <textarea
-                  id="workspace-message"
-                  rows={3}
-                  value={message}
-                  onChange={(event) => setMessage(event.target.value)}
-                  placeholder={
-                    mode === "build"
-                      ? "Minta perubahan, contoh: buat lebih premium..."
-                      : "Jawab pilihan atau tulis kebutuhanmu..."
-                  }
-                  className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                />
-                <div className="flex items-center justify-between gap-spacing-4">
-                  <ModePill mode="Diskusi" tone="idle" />
-                  <Button
-                    type="submit"
-                    size="icon"
-                    disabled={!message.trim()}
-                    className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                    aria-label="Kirim pesan"
+              <div className="mt-spacing-5">
+                {isProcessing ? (
+                  <ProcessingControl
+                    mode={isBuilding ? "Buat" : "Diskusi"}
+                    onStop={stopCurrentJob}
+                  />
+                ) : (
+                  <form
+                    onSubmit={handleMessageSubmit}
+                    className="mt-spacing-3 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
                   >
-                    <ArrowUp className="size-4" />
-                  </Button>
-                </div>
-              </form>
-            )}
-          </div>
-        </aside>
-      </div>
+                    <label htmlFor="workspace-message" className="sr-only">
+                      Pesan untuk AI
+                    </label>
+                    <textarea
+                      id="workspace-message"
+                      rows={3}
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                      placeholder={
+                        mode === "build"
+                          ? "Minta perubahan, contoh: buat lebih premium..."
+                          : "Jawab pilihan atau tulis kebutuhanmu..."
+                      }
+                      className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                    />
+                    <div className="flex items-center justify-between gap-spacing-4">
+                      <ModePill mode="Diskusi" tone="idle" />
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={!message.trim()}
+                        className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                        aria-label="Kirim pesan"
+                      >
+                        <ArrowUp className="size-4" />
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </aside>
+          </ResizablePanel>
+        ) : null}
+      </ResizablePanelGroup>
     </div>
   );
 }
