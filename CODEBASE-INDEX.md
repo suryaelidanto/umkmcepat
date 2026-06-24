@@ -43,10 +43,10 @@ User projects are data and artifacts, not separate apps/processes/containers. Do
 WorkspaceShell chat
   -> POST /api/projects/preview
   -> validate incoming UI messages
-  -> update brief from latest answer
   -> build hidden memory context from chatSummary, memoryFacts, and recent messages
-  -> stream AI response
-  -> save chatMessages, brief, workspaceCard JSONB
+  -> generate strict DiscussionTurn JSON (assistantMessage + briefPatch + optional workspaceCard)
+  -> stream assistantMessage to UI
+  -> merge briefPatch and save chatMessages, brief, workspaceCard JSONB
   -> auto-compact older messages into chatSummary/memoryFacts when thresholds are reached
 ```
 
@@ -83,9 +83,10 @@ Preview
 - `src/lib/ai.ts` — 9Router AI SDK adapter
 - `src/lib/rate-limit.ts` — memory/none rate limiter
 - `src/lib/projects/brief.ts` — brief model and build prompt
-- `src/lib/projects/brief-flow.ts` — next workspace card and brief updates
+- `src/lib/projects/brief-flow.ts` — workspace card parsing, pending card, and manual card regeneration fallback
 - `src/lib/projects/chat-memory.ts` — chat parsing, paging, hidden memory context
 - `src/lib/projects/chat-compaction.ts` — AI-backed summary/facts compaction for long project chats
+- `src/lib/projects/discussion-turn.ts` — strict AI discussion contract separating assistant text from UI question/build cards
 - `src/lib/projects/site-schema.ts` — safe generated website schema and parser
 - `src/lib/projects/site-generation.ts` — AI generation system prompt
 - `src/lib/projects/generated-source.ts` — generated Vite files, temp build, dist collection
@@ -144,6 +145,7 @@ Keep newest first. Only record context useful for future agents, not every tiny 
 
 ### 2026-06-25
 
+- Added strict `DiscussionTurn` chat contract so one AI turn returns assistant text, brief patch, and optional UI card without duplicating options in the chat transcript.
 - Added hidden chat memory: `chatSummary`, `memoryFacts`, and `lastCompactedMessageCount` keep long workspace conversations continuous while UI chat history stays raw/paginated.
 - Added optional local Graphify workflow: `bun run setup:agent` builds ignored `graphify-out/` artifacts for AI-agent codebase discovery and reuse checks.
 - Added `.graphifyignore` so the default graph is code-first and does not require LLM/API-backed docs or media extraction.

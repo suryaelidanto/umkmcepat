@@ -49,52 +49,52 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/projects/brief-flow", async () => {
-  const actual = await vi.importActual<
-    typeof import("../../../../lib/projects/brief-flow")
-  >("../../../../lib/projects/brief-flow");
-
-  return {
-    ...actual,
-    generateNextWorkspaceCard: vi.fn(async () => ({
+vi.mock("@/lib/projects/discussion-turn", () => ({
+  createFallbackDiscussionTurn: vi.fn(() => ({
+    assistantMessage: "Saya bantu rapikan brief dulu.",
+    briefPatch: {},
+    intent: "answer_only",
+    workspaceCard: { type: "none" },
+  })),
+  generateDiscussionTurn: vi.fn(async () => ({
+    assistantMessage: "Saya bantu rapikan brief dulu.",
+    briefPatch: { offer: "Bakso" },
+    intent: "ask_question",
+    workspaceCard: {
       type: "questions",
       questions: [
         {
-          id: "offer",
-          question: "Bakso apa yang paling mau ditonjolkan?",
+          id: "targetCustomer",
+          question: "Pelanggan utama bakso ini siapa?",
+          recommendedOptionLabel: "Pekerja sekitar",
           options: [
-            { label: "Bakso urat", description: "Menu klasik paling laris." },
-            { label: "Bakso mercon", description: "Untuk pencinta pedas." },
+            { label: "Pekerja sekitar", description: "Fokus makan siang." },
+            { label: "Keluarga", description: "Fokus makan bersama." },
+            { label: "Anak sekolah", description: "Fokus harga hemat." },
           ],
         },
       ],
-    })),
-  };
-});
+    },
+  })),
+}));
 
 vi.mock("ai", () => ({
-  convertToModelMessages: vi.fn(async (messages) => messages),
-  generateObject: vi.fn(async () => ({
-    object: {
-      decisions: [],
-      facts: [],
-      preferences: [],
-      summary: "Ringkasan test",
-    },
-  })),
-  jsonSchema: vi.fn((schema) => schema),
+  createUIMessageStream: vi.fn(({ execute, onFinish }) => {
+    void execute({
+      writer: {
+        merge: vi.fn(),
+        onError: undefined,
+        write: vi.fn(),
+      },
+    });
+    void onFinish?.({
+      messages: [{ id: "m1", role: "user", parts: [] }],
+      responseMessage: { id: "a1", role: "assistant", parts: [] },
+    });
+    return new ReadableStream();
+  }),
+  createUIMessageStreamResponse: vi.fn(() => new Response("stream")),
   validateUIMessages: vi.fn(async ({ messages }) => messages),
-  streamText: vi.fn(() => ({
-    consumeStream: vi.fn(),
-    toUIMessageStreamResponse: ({
-      onFinish,
-    }: {
-      onFinish: (input: unknown) => void;
-    }) => {
-      void onFinish({ messages: [{ id: "m1", role: "user", parts: [] }] });
-      return new Response("stream");
-    },
-  })),
 }));
 
 import { POST } from "./route";

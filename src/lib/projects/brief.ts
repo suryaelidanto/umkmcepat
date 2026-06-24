@@ -20,12 +20,27 @@ export type BriefQuestion = {
     | "stylePreference"
   >;
   question: string;
+  recommendedOptionLabel?: string;
+  whyThisQuestionMatters?: string;
   options: Array<{ label: string; description: string }>;
 };
 
 export type WorkspaceCard =
+  | { type: "none" }
   | { type: "questions"; questions: BriefQuestion[] }
   | { type: "build_recommendation"; title: string; summary: string[] };
+
+export type ProjectBriefPatch = Partial<
+  Pick<
+    ProjectBrief,
+    | "businessName"
+    | "businessType"
+    | "offer"
+    | "targetCustomer"
+    | "contactOrCta"
+    | "stylePreference"
+  >
+> & { notes?: string[] };
 
 const REQUIRED_FIELDS: Array<BriefQuestion["id"]> = [
   "businessType",
@@ -68,6 +83,33 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
       ? input.notes.filter(isString).slice(-12)
       : [],
   };
+}
+
+export function mergeProjectBriefPatch(
+  brief: ProjectBrief,
+  patch: ProjectBriefPatch,
+): ProjectBrief {
+  const next = { ...brief, notes: [...brief.notes] };
+
+  for (const field of REQUIRED_FIELDS) {
+    const value = stringValue(patch[field]);
+
+    if (value) {
+      next[field] = value;
+    }
+  }
+
+  const businessName = stringValue(patch.businessName);
+
+  if (businessName) {
+    next.businessName = businessName;
+  }
+
+  if (Array.isArray(patch.notes)) {
+    next.notes = [...next.notes, ...patch.notes.filter(isString)].slice(-24);
+  }
+
+  return next;
 }
 
 export function getMissingBriefFields(brief: ProjectBrief) {

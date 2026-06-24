@@ -367,28 +367,33 @@ export function WorkspaceShell({
     previousLiveMessageCount.current = messages.length;
   }, [messages.length]);
 
-  const refreshWorkspaceCard = useCallback(async () => {
-    setIsRefreshingCard(true);
-    setCardError(false);
+  const refreshWorkspaceCard = useCallback(
+    async (regenerate = false) => {
+      setIsRefreshingCard(true);
+      setCardError(false);
 
-    try {
-      const response = await fetch(`/api/projects/${projectId}/brief-card`);
-      const result = (await response.json().catch(() => null)) as {
-        workspaceCard?: WorkspaceCard;
-      } | null;
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/brief-card${regenerate ? "?regenerate=1" : ""}`,
+        );
+        const result = (await response.json().catch(() => null)) as {
+          workspaceCard?: WorkspaceCard;
+        } | null;
 
-      if (!response.ok || !result?.workspaceCard) {
+        if (!response.ok || !result?.workspaceCard) {
+          setCardError(true);
+          return;
+        }
+
+        setWorkspaceCard(result.workspaceCard);
+      } catch {
         setCardError(true);
-        return;
+      } finally {
+        setIsRefreshingCard(false);
       }
-
-      setWorkspaceCard(result.workspaceCard);
-    } catch {
-      setCardError(true);
-    } finally {
-      setIsRefreshingCard(false);
-    }
-  }, [projectId]);
+    },
+    [projectId],
+  );
 
   useEffect(() => {
     if (isProcessing) {
@@ -641,7 +646,7 @@ export function WorkspaceShell({
                   hasError={cardError}
                   isRefreshing={isRefreshingCard}
                   onCancel={() => setQuestionMode(false)}
-                  onRefresh={() => void refreshWorkspaceCard()}
+                  onRefresh={() => void refreshWorkspaceCard(true)}
                   onSubmit={submitChatText}
                 />
               ) : (
@@ -982,6 +987,11 @@ function QuestionStepperComposer({
           <h2 className="mt-spacing-1 text-sm font-semibold text-surface-warm-white">
             {question.question}
           </h2>
+          {question.whyThisQuestionMatters ? (
+            <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/54">
+              {question.whyThisQuestionMatters}
+            </p>
+          ) : null}
         </div>
         <button
           type="button"
@@ -996,6 +1006,8 @@ function QuestionStepperComposer({
         <div className="mt-spacing-4 grid gap-spacing-2 sm:grid-cols-2">
           {question.options.map((option) => {
             const isSelected = selectedAnswer === option.label;
+            const isRecommended =
+              question.recommendedOptionLabel === option.label;
 
             return (
               <button
@@ -1013,8 +1025,13 @@ function QuestionStepperComposer({
                     : "border-surface-warm-white/10 bg-[#242421] hover:border-surface-warm-white/24 hover:bg-surface-warm-white/8"
                 }`}
               >
-                <span className="block text-sm font-semibold text-surface-warm-white">
+                <span className="flex items-center gap-spacing-2 text-sm font-semibold text-surface-warm-white">
                   {option.label}
+                  {isRecommended ? (
+                    <span className="rounded-full bg-[#8ce99a]/14 px-spacing-2 py-0.5 text-[10px] font-semibold text-[#b8f7c1]">
+                      Rekomendasi
+                    </span>
+                  ) : null}
                 </span>
                 <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/54">
                   {option.description}
@@ -1078,6 +1095,10 @@ function WorkspaceCardView({
   onBuild: () => void;
   onRefresh: () => void;
 }) {
+  if (card.type === "none") {
+    return null;
+  }
+
   if (card.type === "build_recommendation") {
     return (
       <div className="rounded-[22px] border border-[#8ce99a]/30 bg-[#8ce99a]/10 p-spacing-5">

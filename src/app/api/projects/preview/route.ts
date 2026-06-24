@@ -1,19 +1,16 @@
 import {
-  convertToModelMessages,
-  streamText,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
   type UIMessage,
   validateUIMessages,
 } from "ai";
 
-import { getAiModel } from "@/lib/ai";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseProjectBrief } from "@/lib/projects/brief";
 import {
-  createPendingWorkspaceCard,
-  generateNextWorkspaceCard,
-  updateBriefFromAnswer,
-} from "@/lib/projects/brief-flow";
+  mergeProjectBriefPatch,
+  parseProjectBrief,
+} from "@/lib/projects/brief";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   buildProjectChatContext,
@@ -21,21 +18,13 @@ import {
   parseProjectChatSummary,
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
+import {
+  createFallbackDiscussionTurn,
+  generateDiscussionTurn,
+} from "@/lib/projects/discussion-turn";
 import { checkRateLimit } from "@/lib/rate-limit";
 
-export const maxDuration = 30;
-
-const systemPrompt = `Kamu konsultan website UMKM Indonesia.
-Tulis dalam bahasa Indonesia yang jelas dan praktis.
-Jangan tampilkan chain-of-thought internal.
-Ingat konteks chat sebelumnya dalam proyek ini.
-Untuk mode Diskusi, jangan membuat website. Utamakan memperjelas brief sampai sekitar 80% jelas sebelum menyarankan build.
-Boleh tanya satu pertanyaan atau beberapa pertanyaan sekaligus kalau memang dibutuhkan. Kalau memberi opsi, format jelas sebagai A/B/C/D/Lainnya.
-Jangan mengulang pertanyaan yang sudah terjawab dari konteks chat.
-Kalau user mengulang permintaan build tanpa menjawab, jangan membuat contoh website, jangan menulis kode, dan jangan mengganti topik. Ulangi pertanyaan yang masih wajib dengan lebih ringkas.
-Jangan pernah mengirim HTML/CSS/JS mentah di chat. Platform ini yang akan membangun preview.
-Kalau brief sudah cukup jelas, tampilkan rencana singkat dan sarankan user klik tombol build.
-Untuk mode Buat, bantu user memberi arahan perubahan website yang spesifik, bukan membuat kode.`;
+export const maxDuration = 60;
 
 type PreviewRequest = {
   message?: UIMessage;
@@ -121,13 +110,7 @@ export async function POST(request: Request) {
     .filter((part) => part.type === "text")
     .map((part) => part.text)
     .join(" ");
-  const updatedBrief = updateBriefFromAnswer(
-    parseProjectBrief(chatRow?.brief, project.prompt),
-    latestUserText,
-  );
-  const workspaceCard = await generateNextWorkspaceCard(updatedBrief).catch(
-    () => createPendingWorkspaceCard(updatedBrief),
-  );
+  const currentBrief = parseProjectBrief(chatRow?.brief, project.prompt);
 
   if (!incoming.length) {
     return Response.json(
@@ -144,17 +127,28 @@ export async function POST(request: Request) {
     messages,
     summary: chatSummary,
   });
+  const turn = await generateDiscussionTurn({
+    brief: currentBrief,
+    chatContext,
+    latestUserText,
+    messages: chatContext.messages,
+    mode,
+  }).catch(() => createFallbackDiscussionTurn(currentBrief));
+  const updatedBrief = mergeProjectBriefPatch(currentBrief, turn.briefPatch);
+  const workspaceCard = turn.workspaceCard;
 
-  const result = streamText({
-    model: getAiModel(),
-    system: `${systemPrompt}\n\nMode aktif: ${mode === "build" ? "Buat" : "Diskusi"}.\n\nKonteks memori tersembunyi:\n${chatContext.systemContext}\n\nBrief saat ini:\n${JSON.stringify(updatedBrief)}\n\nKartu berikutnya:\n${JSON.stringify(workspaceCard)}\n\nIkuti kartu berikutnya. Jangan membuat kartu berbeda.`,
-    messages: await convertToModelMessages(chatContext.messages),
-  });
-
-  result.consumeStream();
-
-  return result.toUIMessageStreamResponse({
+  const stream = createUIMessageStream({
     originalMessages: messages,
+    execute({ writer }) {
+      const textId = crypto.randomUUID();
+      writer.write({ type: "text-start", id: textId });
+      writer.write({
+        type: "text-delta",
+        id: textId,
+        delta: turn.assistantMessage,
+      });
+      writer.write({ type: "text-end", id: textId });
+    },
     onFinish: async ({ messages }) => {
       await prisma.$executeRaw`
         UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(updatedBrief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
@@ -173,4 +167,6 @@ export async function POST(request: Request) {
       }
     },
   });
+
+  return createUIMessageStreamResponse({ stream });
 }

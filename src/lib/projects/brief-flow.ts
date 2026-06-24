@@ -60,26 +60,75 @@ const workspaceCardJsonSchema = {
   },
 };
 
-export function updateBriefFromAnswer(
+export function parseWorkspaceCard(
+  value: unknown,
   brief: ProjectBrief,
-  text: string,
-): ProjectBrief {
-  const answer = text.trim();
-
-  if (!answer) {
-    return brief;
+): WorkspaceCard {
+  if (!value || typeof value !== "object") {
+    return createPendingWorkspaceCard(brief);
   }
 
-  const next = { ...brief, notes: [...brief.notes] };
-  const target = getMissingBriefFields(next)[0];
+  const card = value as Partial<WorkspaceCard>;
 
-  if (target) {
-    next[target] = answer;
-  } else {
-    next.notes = [...next.notes, answer].slice(-12);
+  if (card.type === "none") {
+    return { type: "none" };
   }
 
-  return next;
+  if (card.type === "build_recommendation") {
+    const input = card as Partial<
+      Extract<WorkspaceCard, { type: "build_recommendation" }>
+    >;
+    return {
+      type: "build_recommendation",
+      title: stringValue(input.title) || "Brief sudah cukup jelas",
+      summary: Array.isArray(input.summary)
+        ? input.summary.filter(isString).slice(0, 7)
+        : [],
+    };
+  }
+
+  if (card.type === "questions") {
+    const input = card as Partial<
+      Extract<WorkspaceCard, { type: "questions" }>
+    >;
+    const questions = Array.isArray(input.questions)
+      ? input.questions
+          .map((question) => ({
+            id: question.id,
+            question: stringValue(question.question),
+            recommendedOptionLabel: stringValue(
+              question.recommendedOptionLabel,
+            ),
+            whyThisQuestionMatters: stringValue(
+              question.whyThisQuestionMatters,
+            ),
+            options: Array.isArray(question.options)
+              ? question.options
+                  .filter(
+                    (option) =>
+                      option &&
+                      typeof option === "object" &&
+                      typeof option.label === "string" &&
+                      typeof option.description === "string",
+                  )
+                  .map((option) => ({
+                    label: option.label.trim(),
+                    description: option.description.trim(),
+                  }))
+                  .filter((option) => option.label && option.description)
+                  .slice(0, 5)
+              : [],
+          }))
+          .filter((question) => question.id && question.question)
+          .slice(0, 2)
+      : [];
+
+    if (questions.length) {
+      return { type: "questions", questions };
+    }
+  }
+
+  return createPendingWorkspaceCard(brief);
 }
 
 export function createPendingWorkspaceCard(brief: ProjectBrief): WorkspaceCard {
@@ -139,6 +188,10 @@ function normalizeWorkspaceCard(
     return buildRecommendationCard(brief, card.title, card.summary);
   }
 
+  if (card.type !== "questions") {
+    throw new Error("Kartu AI harus berisi pertanyaan atau rekomendasi build.");
+  }
+
   const missing = new Set(getMissingBriefFields(brief));
   const questions = card.questions
     .filter((question) => missing.has(question.id))
@@ -161,6 +214,14 @@ function normalizeWorkspaceCard(
   }
 
   return { type: "questions", questions };
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function buildRecommendationCard(
