@@ -427,69 +427,6 @@ export function WorkspaceShell({
         orientation="horizontal"
         className="h-full min-h-0 overflow-hidden"
       >
-        {showPreviewPanel ? (
-          <ResizablePanel
-            defaultSize={showSplitLayout ? 68 : 100}
-            minSize={8}
-            collapsible
-            collapsedSize={0}
-            onResize={(size) => {
-              if (Number(size) <= 8 && showChatPanel) {
-                setPreviewCollapsed(true);
-              }
-            }}
-          >
-            <section className={previewPanelClass}>
-              <div className="flex h-full min-h-0 flex-col bg-[#10100f] text-surface-warm-white">
-                <WorkspaceTopBar
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  viewport={viewport}
-                  setViewport={setViewport}
-                  chatCollapsed={chatCollapsed}
-                  openChatPanel={openChatPanel}
-                  closePreviewPanel={closePreviewPanel}
-                />
-                <div className="min-h-0 flex-1 overflow-auto bg-[#10100f]">
-                  {activeTab === "preview" ? (
-                    sourceStatus === "passed" ? (
-                      <GeneratedPreviewFrame
-                        projectId={projectId}
-                        viewport={viewport}
-                      />
-                    ) : buildStatus === "ready" ? (
-                      <div className="flex justify-center">
-                        <ProjectSitePreview
-                          siteSchema={siteSchema}
-                          viewport={viewport}
-                        />
-                      </div>
-                    ) : (
-                      <EmptyPreviewState />
-                    )
-                  ) : null}
-
-                  {activeTab === "code" ? (
-                    <CodeView
-                      projectId={projectId}
-                      files={sourceFiles}
-                      buildLog={sourceLog}
-                      buildStatus={sourceStatus}
-                    />
-                  ) : null}
-                </div>
-              </div>
-            </section>
-          </ResizablePanel>
-        ) : null}
-
-        {showSplitLayout ? (
-          <ResizableHandle
-            withHandle
-            className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16"
-          />
-        ) : null}
-
         {showChatPanel ? (
           <ResizablePanel
             defaultSize={showSplitLayout ? 32 : 100}
@@ -565,7 +502,7 @@ export function WorkspaceShell({
                       className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white lg:block"
                       aria-label="Buka preview"
                     >
-                      <PanelLeftOpen className="size-4" />
+                      <PanelRightOpen className="size-4" />
                     </button>
                   ) : null}
                   {showPreviewPanel ? (
@@ -575,7 +512,7 @@ export function WorkspaceShell({
                       className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white lg:block"
                       aria-label="Tutup chat"
                     >
-                      <PanelRightClose className="size-4" />
+                      <PanelLeftClose className="size-4" />
                     </button>
                   ) : null}
                 </div>
@@ -659,6 +596,68 @@ export function WorkspaceShell({
             </aside>
           </ResizablePanel>
         ) : null}
+        {showSplitLayout ? (
+          <ResizableHandle
+            withHandle
+            className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16"
+          />
+        ) : null}
+
+        {showPreviewPanel ? (
+          <ResizablePanel
+            defaultSize={showSplitLayout ? 68 : 100}
+            minSize={8}
+            collapsible
+            collapsedSize={0}
+            onResize={(size) => {
+              if (Number(size) <= 8 && showChatPanel) {
+                setPreviewCollapsed(true);
+              }
+            }}
+          >
+            <section className={previewPanelClass}>
+              <div className="flex h-full min-h-0 flex-col bg-[#10100f] text-surface-warm-white">
+                <WorkspaceTopBar
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  viewport={viewport}
+                  setViewport={setViewport}
+                  chatCollapsed={chatCollapsed}
+                  openChatPanel={openChatPanel}
+                  closePreviewPanel={closePreviewPanel}
+                />
+                <div className="min-h-0 flex-1 overflow-auto bg-[#10100f]">
+                  {activeTab === "preview" ? (
+                    sourceStatus === "passed" ? (
+                      <GeneratedPreviewFrame
+                        projectId={projectId}
+                        viewport={viewport}
+                      />
+                    ) : buildStatus === "ready" ? (
+                      <div className="flex justify-center">
+                        <ProjectSitePreview
+                          siteSchema={siteSchema}
+                          viewport={viewport}
+                        />
+                      </div>
+                    ) : (
+                      <EmptyPreviewState />
+                    )
+                  ) : null}
+
+                  {activeTab === "code" ? (
+                    <CodeView
+                      projectId={projectId}
+                      files={sourceFiles}
+                      buildLog={sourceLog}
+                      buildStatus={sourceStatus}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          </ResizablePanel>
+        ) : null}
       </ResizablePanelGroup>
     </div>
   );
@@ -691,7 +690,7 @@ function WorkspaceTopBar({
             className="rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
             aria-label="Buka chat"
           >
-            <PanelRightOpen className="size-4" />
+            <PanelLeftOpen className="size-4" />
           </button>
         ) : null}
         <div className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs">
@@ -719,7 +718,7 @@ function WorkspaceTopBar({
           className="rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
           aria-label="Tutup preview"
         >
-          <PanelLeftClose className="size-4" />
+          <PanelRightClose className="size-4" />
         </button>
         <div className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs">
           <button
