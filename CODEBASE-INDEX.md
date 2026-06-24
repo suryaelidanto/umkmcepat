@@ -35,7 +35,7 @@ User projects are data and artifacts, not separate apps/processes/containers. Do
 ```text
 /projects/[id]
   -> auth + ownership check by userId
-  -> load Project, chatMessages, brief, workspaceCard
+  -> load Project, chatMessages, hidden chat memory, brief, workspaceCard
   -> WorkspaceShell client UI
 ```
 
@@ -44,8 +44,10 @@ WorkspaceShell chat
   -> POST /api/projects/preview
   -> validate incoming UI messages
   -> update brief from latest answer
+  -> build hidden memory context from chatSummary, memoryFacts, and recent messages
   -> stream AI response
   -> save chatMessages, brief, workspaceCard JSONB
+  -> auto-compact older messages into chatSummary/memoryFacts when thresholds are reached
 ```
 
 ```text
@@ -72,6 +74,7 @@ Preview
 - `AGENTS.md` — agent rules
 - `CHANGELOG.md` — daily general one-line change log for reporting/history
 - `DEV.md` — maintainer workflow and quality gate
+- `docs/graphify.md` — optional local code graph workflow for AI-agent users
 - `docs/project-architecture.md` — project/workspace/renderer/publishing constraints
 - `docs/9router.md` — local AI gateway setup
 - `docs/provider-architecture.md` and `docs/providers.md` — provider boundaries
@@ -81,7 +84,8 @@ Preview
 - `src/lib/rate-limit.ts` — memory/none rate limiter
 - `src/lib/projects/brief.ts` — brief model and build prompt
 - `src/lib/projects/brief-flow.ts` — next workspace card and brief updates
-- `src/lib/projects/chat-memory.ts` — chat parsing/paging/context
+- `src/lib/projects/chat-memory.ts` — chat parsing, paging, hidden memory context
+- `src/lib/projects/chat-compaction.ts` — AI-backed summary/facts compaction for long project chats
 - `src/lib/projects/site-schema.ts` — safe generated website schema and parser
 - `src/lib/projects/site-generation.ts` — AI generation system prompt
 - `src/lib/projects/generated-source.ts` — generated Vite files, temp build, dist collection
@@ -99,7 +103,7 @@ Preview
 - identity: `id`, `userId`
 - prompt/title/model/status
 - generated schema/artifacts: `siteSchema`, `sourceFiles`, `distFiles`, `buildStatus`, `buildLog`, `builtAt`
-- discussion state: `chatMessages`, `brief`, `workspaceCard`
+- discussion state: `chatMessages`, `chatSummary`, `memoryFacts`, `lastCompactedMessageCount`, `brief`, `workspaceCard`
 - timestamps
 
 Indexes currently matter most for:
@@ -131,12 +135,18 @@ JSONB fields are intentionally not indexed yet. Add JSON indexes only after a re
 
 - `buildGeneratedProject()` runs `bun install` and `bun run build` per build. Simple but slow; optimize only when build time hurts real usage.
 - Rate limiting is process-local memory. Fine for local/MVP; use Redis only when multi-instance/prod pressure appears.
-- Large JSONB project fields (`chatMessages`, `sourceFiles`, `distFiles`) can grow. Split to version/artifact tables or object storage only when row size or query patterns demand it.
+- Large JSONB project fields (`chatMessages`, `chatSummary`, `memoryFacts`, `sourceFiles`, `distFiles`) can grow. Split to version/artifact tables or object storage only when row size or query patterns demand it.
 - Some routes use `$queryRaw` for JSON fields. Keep parameterized. Replace only if Prisma typing improves or queries get repeated enough to justify helper extraction.
 
 ## Change log
 
 Keep newest first. Only record context useful for future agents, not every tiny edit.
+
+### 2026-06-25
+
+- Added hidden chat memory: `chatSummary`, `memoryFacts`, and `lastCompactedMessageCount` keep long workspace conversations continuous while UI chat history stays raw/paginated.
+- Added optional local Graphify workflow: `bun run setup:agent` builds ignored `graphify-out/` artifacts for AI-agent codebase discovery and reuse checks.
+- Added `.graphifyignore` so the default graph is code-first and does not require LLM/API-backed docs or media extraction.
 
 ### 2026-06-24
 

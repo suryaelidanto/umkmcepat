@@ -3,8 +3,20 @@ import { describe, expect, it, vi } from "vitest";
 const { authMock, projectFindFirstMock, queryRawMock, executeRawMock } =
   vi.hoisted(() => ({
     authMock: vi.fn<() => Promise<unknown>>(async () => null),
-    projectFindFirstMock: vi.fn(async () => ({ id: "project_1" })),
-    queryRawMock: vi.fn(async () => [{ chatMessages: [], brief: null }]),
+    projectFindFirstMock: vi.fn(async () => ({
+      id: "project_1",
+      prompt: "Saya jual bakso",
+      status: "discussing",
+    })),
+    queryRawMock: vi.fn(async () => [
+      {
+        brief: null,
+        chatMessages: [],
+        chatSummary: null,
+        lastCompactedMessageCount: 0,
+        memoryFacts: null,
+      },
+    ]),
     executeRawMock: vi.fn(async () => 1),
   }));
 
@@ -62,6 +74,15 @@ vi.mock("@/lib/projects/brief-flow", async () => {
 
 vi.mock("ai", () => ({
   convertToModelMessages: vi.fn(async (messages) => messages),
+  generateObject: vi.fn(async () => ({
+    object: {
+      decisions: [],
+      facts: [],
+      preferences: [],
+      summary: "Ringkasan test",
+    },
+  })),
+  jsonSchema: vi.fn((schema) => schema),
   validateUIMessages: vi.fn(async ({ messages }) => messages),
   streamText: vi.fn(() => ({
     consumeStream: vi.fn(),

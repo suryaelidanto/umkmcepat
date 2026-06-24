@@ -13,9 +13,12 @@ import {
   generateNextWorkspaceCard,
   updateBriefFromAnswer,
 } from "@/lib/projects/brief-flow";
+import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
-  getProjectChatContext,
+  buildProjectChatContext,
   parseProjectChatMessages,
+  parseProjectChatSummary,
+  parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -87,11 +90,30 @@ export async function POST(request: Request) {
   }
 
   const [chatRow] = await prisma.$queryRaw<
-    [{ chatMessages: unknown; brief: unknown }]
+    [
+      {
+        brief: unknown;
+        chatMessages: unknown;
+        chatSummary: unknown;
+        lastCompactedMessageCount: unknown;
+        memoryFacts: unknown;
+      },
+    ]
   >`
-    SELECT "chatMessages", "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
+    SELECT "chatMessages", "chatSummary", "memoryFacts", "lastCompactedMessageCount", "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
   `;
   const storedMessages = parseProjectChatMessages(chatRow?.chatMessages);
+  const parsedChatSummary = parseProjectChatSummary(chatRow?.chatSummary);
+  const chatSummary = {
+    ...parsedChatSummary,
+    compactedMessageCount: Math.max(
+      parsedChatSummary.compactedMessageCount,
+      typeof chatRow?.lastCompactedMessageCount === "number"
+        ? chatRow.lastCompactedMessageCount
+        : 0,
+    ),
+  };
+  const memoryFacts = parseProjectMemoryFacts(chatRow?.memoryFacts);
   const incoming = body.message ? [body.message] : (body.messages ?? []);
   const latestUserText = incoming
     .flatMap((message) => message.parts)
@@ -114,12 +136,16 @@ export async function POST(request: Request) {
   const messages = await validateUIMessages({
     messages: [...storedMessages, ...incoming],
   });
-  const contextMessages = getProjectChatContext(messages);
+  const chatContext = buildProjectChatContext({
+    memoryFacts,
+    messages,
+    summary: chatSummary,
+  });
 
   const result = streamText({
     model: getAiModel(),
-    system: `${systemPrompt}\n\nMode aktif: ${mode === "build" ? "Buat" : "Diskusi"}.\n\nBrief saat ini:\n${JSON.stringify(updatedBrief)}\n\nKartu berikutnya:\n${JSON.stringify(workspaceCard)}\n\nIkuti kartu berikutnya. Jangan membuat kartu berbeda.`,
-    messages: await convertToModelMessages(contextMessages),
+    system: `${systemPrompt}\n\nMode aktif: ${mode === "build" ? "Buat" : "Diskusi"}.\n\nKonteks memori tersembunyi:\n${chatContext.systemContext}\n\nBrief saat ini:\n${JSON.stringify(updatedBrief)}\n\nKartu berikutnya:\n${JSON.stringify(workspaceCard)}\n\nIkuti kartu berikutnya. Jangan membuat kartu berbeda.`,
+    messages: await convertToModelMessages(chatContext.messages),
   });
 
   result.consumeStream();
@@ -130,6 +156,18 @@ export async function POST(request: Request) {
       await prisma.$executeRaw`
         UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(updatedBrief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
       `;
+
+      const compaction = await maybeCompactProjectChat({
+        memoryFacts,
+        messages,
+        summary: chatSummary,
+      }).catch(() => null);
+
+      if (compaction) {
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "chatSummary" = ${JSON.stringify(compaction.summary)}::jsonb, "memoryFacts" = ${JSON.stringify(compaction.memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compaction.compactedMessageCount} WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+      }
     },
   });
 }

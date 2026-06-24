@@ -85,24 +85,27 @@ model User {
 }
 
 model Project {
-  id        String   @id @default(cuid())
-  title     String   @db.VarChar(120)
-  prompt    String   @db.Text
-  model     String   @db.VarChar(160)
-  status    String   @default("draft") @db.VarChar(32)
-  siteSchema Json?
-  chatMessages Json?
-  brief Json?
-  workspaceCard Json?
-  sourceFiles Json?
-  distFiles Json?
-  buildStatus String @default("not_started") @db.VarChar(32)
-  buildLog String? @db.Text
-  builtAt DateTime?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                        String    @id @default(cuid())
+  title                     String    @db.VarChar(120)
+  prompt                    String    @db.Text
+  model                     String    @db.VarChar(160)
+  status                    String    @default("draft") @db.VarChar(32)
+  siteSchema                Json?
+  chatMessages              Json?
+  chatSummary               Json?
+  memoryFacts               Json?
+  lastCompactedMessageCount Int       @default(0)
+  brief                     Json?
+  workspaceCard             Json?
+  sourceFiles               Json?
+  distFiles                 Json?
+  buildStatus               String    @default("not_started") @db.VarChar(32)
+  buildLog                  String?   @db.Text
+  builtAt                   DateTime?
+  userId                    String
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
   @@index([userId])
   @@index([updatedAt])
