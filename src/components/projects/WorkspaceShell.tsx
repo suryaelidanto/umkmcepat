@@ -11,7 +11,6 @@ import {
   Code2,
   FileCode2,
   Globe2,
-  ListChecks,
   Loader2,
   Monitor,
   PanelRightClose,
@@ -23,7 +22,6 @@ import {
   PointerEvent,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -46,157 +44,6 @@ type BuildProgress = {
   detail: string;
 };
 
-type BriefField = "goal" | "audience" | "style" | "features";
-
-type BriefState = Partial<Record<BriefField, string>>;
-
-type GuidedOption = {
-  field: BriefField;
-  id: string;
-  label: string;
-  description: string;
-  recommended?: boolean;
-};
-
-const briefLabels: Record<BriefField, string> = {
-  goal: "Tujuan",
-  audience: "Target",
-  style: "Style",
-  features: "Fitur",
-};
-
-const guidedQuestions: Array<{
-  field: BriefField;
-  question: string;
-  options: GuidedOption[];
-}> = [
-  {
-    field: "goal",
-    question: "Fokus utama websitenya apa?",
-    options: [
-      {
-        field: "goal",
-        id: "catalog",
-        label: "Katalog + WhatsApp",
-        description: "Tampilkan produk, lalu arahkan pelanggan untuk chat.",
-        recommended: true,
-      },
-      {
-        field: "goal",
-        id: "brand",
-        label: "Branding toko",
-        description: "Bikin usaha terlihat lebih dipercaya dan rapi.",
-      },
-      {
-        field: "goal",
-        id: "campaign",
-        label: "Promo/campaign",
-        description: "Fokus ke penawaran atau launch produk tertentu.",
-      },
-      {
-        field: "goal",
-        id: "other",
-        label: "Lainnya",
-        description: "Saya mau jelaskan sendiri lewat chat.",
-      },
-    ],
-  },
-  {
-    field: "audience",
-    question: "Siapa pelanggan utama yang paling ingin ditarik?",
-    options: [
-      {
-        field: "audience",
-        id: "young",
-        label: "Anak muda / mahasiswa",
-        description: "Copy lebih santai, visual lebih berani.",
-        recommended: true,
-      },
-      {
-        field: "audience",
-        id: "family",
-        label: "Keluarga / umum",
-        description: "Nada ramah, jelas, dan mudah dipercaya.",
-      },
-      {
-        field: "audience",
-        id: "premium",
-        label: "Pembeli premium",
-        description: "Tampilan lebih kurasi, tenang, dan detail.",
-      },
-      {
-        field: "audience",
-        id: "other",
-        label: "Lainnya",
-        description: "Saya tulis targetnya sendiri.",
-      },
-    ],
-  },
-  {
-    field: "style",
-    question: "Arah visualnya paling cocok yang mana?",
-    options: [
-      {
-        field: "style",
-        id: "clean",
-        label: "Clean modern",
-        description: "Rapi, ringan, mudah dibaca.",
-      },
-      {
-        field: "style",
-        id: "street",
-        label: "Bold streetwear",
-        description: "Lebih tajam, kontras, cocok fashion/barang second.",
-        recommended: true,
-      },
-      {
-        field: "style",
-        id: "warm",
-        label: "Lokal hangat",
-        description: "Terasa dekat, sederhana, dan human.",
-      },
-      {
-        field: "style",
-        id: "other",
-        label: "Lainnya",
-        description: "Saya punya referensi sendiri.",
-      },
-    ],
-  },
-  {
-    field: "features",
-    question: "Fitur frontend apa yang paling penting dulu?",
-    options: [
-      {
-        field: "features",
-        id: "filter",
-        label: "Katalog + filter",
-        description:
-          "Produk bisa difilter ukuran, kategori, kondisi, atau harga.",
-        recommended: true,
-      },
-      {
-        field: "features",
-        id: "gallery",
-        label: "Galeri + testimoni",
-        description: "Fokus bukti visual dan kepercayaan.",
-      },
-      {
-        field: "features",
-        id: "simple",
-        label: "Hero sederhana",
-        description: "Satu halaman fokus, tidak terlalu banyak section.",
-      },
-      {
-        field: "features",
-        id: "other",
-        label: "Lainnya",
-        description: "Saya jelaskan fitur sendiri.",
-      },
-    ],
-  },
-];
-
 type BuildTab = "preview" | "timeline" | "changes" | "code";
 
 export function WorkspaceShell({
@@ -217,7 +64,6 @@ export function WorkspaceShell({
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [buildDetailsOpen, setBuildDetailsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<BuildTab>("preview");
-  const [brief, setBrief] = useState<BriefState>({});
   const [sourceFiles, setSourceFiles] = useState<GeneratedProjectFile[]>([]);
   const [sourceStatus, setSourceStatus] = useState("not_started");
   const [sourceLog, setSourceLog] = useState("");
@@ -360,14 +206,6 @@ export function WorkspaceShell({
     sendMessage({ text: prompt }, { body: { mode } });
   }, [mode, prompt, sendMessage]);
 
-  const readiness = useMemo(() => {
-    const completed = (Object.keys(brief) as BriefField[]).filter(
-      (field) => brief[field],
-    );
-    return Math.min(100, Math.round(((1 + completed.length) / 5) * 100));
-  }, [brief]);
-
-  const nextQuestion = guidedQuestions.find(({ field }) => !brief[field]);
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
   const chatDisabled = isResponding;
@@ -408,23 +246,6 @@ export function WorkspaceShell({
     setBuildStatus("draft");
     setMode("discuss");
     setBuildError("Proses dihentikan.");
-  }
-
-  function handleOption(option: GuidedOption) {
-    if (option.id === "other") {
-      setMessage(
-        `Untuk ${briefLabels[option.field].toLowerCase()}, saya mau: `,
-      );
-      return;
-    }
-
-    setBrief((current) => ({ ...current, [option.field]: option.label }));
-    sendMessage(
-      {
-        text: `Saya pilih ${option.label} untuk ${briefLabels[option.field].toLowerCase()}.`,
-      },
-      { body: { mode: "discuss" } },
-    );
   }
 
   function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
@@ -561,26 +382,10 @@ export function WorkspaceShell({
             </div>
 
             {!isBuilding ? (
-              <BriefReadinessCard
-                readiness={readiness}
-                brief={brief}
-                onBuild={() => void startBuild()}
-              />
+              <AiDiscussionNotice onBuild={() => void startBuild()} />
             ) : null}
 
             <ChatMessages messages={messages} />
-
-            {!isBuilding && nextQuestion ? (
-              <GuidedQuestionCard
-                question={nextQuestion.question}
-                options={nextQuestion.options}
-                onSelect={handleOption}
-              />
-            ) : null}
-
-            {!isBuilding && !nextQuestion ? (
-              <BuildReadyCard onBuild={() => void startBuild()} />
-            ) : null}
 
             {isResponding ? (
               <p className="text-sm text-surface-warm-white/46">
@@ -811,118 +616,29 @@ function DiscussPreview({ onStartBuild }: { onStartBuild: () => void }) {
   );
 }
 
-function BriefReadinessCard({
-  readiness,
-  brief,
-  onBuild,
-}: {
-  readiness: number;
-  brief: BriefState;
-  onBuild: () => void;
-}) {
-  const fields = Object.keys(briefLabels) as BriefField[];
-  const ready = readiness >= 80;
-
+function AiDiscussionNotice({ onBuild }: { onBuild: () => void }) {
   return (
     <div className="rounded-[22px] border border-surface-warm-white/10 bg-surface-warm-white/6 p-spacing-5">
-      <div className="flex items-center justify-between gap-spacing-4">
-        <div className="flex items-center gap-spacing-3 text-sm font-semibold">
-          <ListChecks className="size-4" />
-          Brief {readiness}% siap
+      <div className="flex items-start justify-between gap-spacing-4">
+        <div>
+          <p className="text-sm font-semibold text-surface-warm-white">
+            AI yang menentukan pertanyaan berikutnya.
+          </p>
+          <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/58">
+            Jawab lewat chat. Kalau brief belum jelas, AI akan tanya lagi. Kalau
+            sudah siap, AI akan menawarkan untuk mulai build.
+          </p>
         </div>
-        {ready ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={onBuild}
-            className="h-8 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
-          >
-            Mulai build
-          </Button>
-        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onBuild}
+          className="shrink-0 border-surface-warm-white/16 bg-transparent text-xs text-surface-warm-white hover:bg-surface-warm-white/10"
+        >
+          Build pakai asumsi
+        </Button>
       </div>
-      <div className="mt-spacing-4 h-1.5 overflow-hidden rounded-full bg-surface-warm-white/10">
-        <div
-          className="h-full rounded-full bg-[#ff5e27] transition-all"
-          style={{ width: `${readiness}%` }}
-        />
-      </div>
-      <ul className="mt-spacing-4 grid gap-spacing-3 text-sm text-surface-warm-white/62">
-        {fields.map((field) => (
-          <li key={field} className="flex items-center gap-spacing-3">
-            <CheckCircle2
-              className={`size-4 ${brief[field] ? "text-[#ff5e27]" : "text-surface-warm-white/22"}`}
-            />
-            <span className="text-surface-warm-white/84">
-              {briefLabels[field]}:
-            </span>
-            <span>{brief[field] || "belum jelas"}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function GuidedQuestionCard({
-  question,
-  options,
-  onSelect,
-}: {
-  question: string;
-  options: GuidedOption[];
-  onSelect: (option: GuidedOption) => void;
-}) {
-  return (
-    <div className="rounded-[24px] border border-[#ff5e27]/28 bg-[#ff5e27]/8 p-spacing-5">
-      <p className="text-sm font-semibold text-surface-warm-white">
-        {question}
-      </p>
-      <div className="mt-spacing-4 grid gap-spacing-3">
-        {options.map((option, index) => (
-          <button
-            key={option.id}
-            type="button"
-            onClick={() => onSelect(option)}
-            className="rounded-[18px] border border-surface-warm-white/10 bg-surface-warm-white/7 p-spacing-4 text-left text-sm transition hover:bg-surface-warm-white/12"
-          >
-            <span className="flex items-center justify-between gap-spacing-4 font-semibold text-surface-warm-white">
-              <span>
-                {String.fromCharCode(65 + index)}. {option.label}
-              </span>
-              {option.recommended ? (
-                <span className="rounded-full bg-[#ff5e27] px-spacing-3 py-1 text-xs text-white">
-                  Saran
-                </span>
-              ) : null}
-            </span>
-            <span className="mt-spacing-2 block leading-5 text-surface-warm-white/58">
-              {option.description}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BuildReadyCard({ onBuild }: { onBuild: () => void }) {
-  return (
-    <div className="rounded-[24px] border border-[#8fd879]/30 bg-[#8fd879]/10 p-spacing-5">
-      <p className="text-sm font-semibold text-surface-warm-white">
-        Brief sudah cukup siap.
-      </p>
-      <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/62">
-        AI sudah punya arah dasar. Kamu bisa mulai build sekarang atau lanjut
-        diskusi kalau masih mau mengubah detail.
-      </p>
-      <Button
-        type="button"
-        onClick={onBuild}
-        className="mt-spacing-4 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
-      >
-        Mulai build
-      </Button>
     </div>
   );
 }
@@ -935,7 +651,8 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
   if (!assistantMessages.length) {
     return (
       <div className="rounded-[22px] border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-6 py-spacing-5 text-sm leading-6 text-surface-warm-white/70">
-        AI siap bantu merapikan brief. Pilih opsi di bawah atau tulis bebas.
+        AI siap bantu merapikan brief. Tulis jawabanmu, lalu AI akan menentukan
+        pertanyaan berikutnya.
       </div>
     );
   }
