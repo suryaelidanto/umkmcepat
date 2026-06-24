@@ -437,7 +437,7 @@ export function WorkspaceShell({
           <div className="flex items-start justify-between gap-spacing-5 px-spacing-1">
             <div className="min-w-0 flex-1">
               <Link
-                href="/projects"
+                href="/"
                 className="inline-flex items-center gap-spacing-2 text-xs text-surface-warm-white/46 hover:text-surface-warm-white"
               >
                 <ArrowLeft className="size-3.5" />
