@@ -68,6 +68,7 @@ export function parseGeneratedProjectFiles(
 export function assertSafeProjectFilePath(filePath: string) {
   if (
     !filePath ||
+    /^[A-Za-z]:[\\/]/.test(filePath) ||
     path.isAbsolute(filePath) ||
     filePath.includes("\\") ||
     filePath.split("/").some((part) => part === "..") ||
