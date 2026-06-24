@@ -199,13 +199,9 @@ export function HomePromptForm() {
             </Button>
           </div>
         </div>
-        {isContinuing || errorMessage ? (
-          <p
-            className={`px-spacing-7 pb-spacing-7 text-sm ${errorMessage ? "text-red-200" : "text-surface-warm-white/56"}`}
-          >
-            {isContinuing
-              ? "Chat kamu sudah tersimpan. AI sedang menyiapkan website kamu."
-              : errorMessage}
+        {errorMessage ? (
+          <p className="px-spacing-7 pb-spacing-7 text-sm text-red-200">
+            {errorMessage}
           </p>
         ) : null}
       </form>
