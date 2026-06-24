@@ -4,7 +4,7 @@ const { authMock, projectFindFirstMock, queryRawMock, executeRawMock } =
   vi.hoisted(() => ({
     authMock: vi.fn<() => Promise<unknown>>(async () => null),
     projectFindFirstMock: vi.fn(async () => ({ id: "project_1" })),
-    queryRawMock: vi.fn(async () => [{ chatMessages: [] }]),
+    queryRawMock: vi.fn(async () => [{ chatMessages: [], brief: null }]),
     executeRawMock: vi.fn(async () => 1),
   }));
 
@@ -37,6 +37,28 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
+vi.mock("@/lib/projects/brief-flow", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../../../lib/projects/brief-flow")
+  >("../../../../lib/projects/brief-flow");
+
+  return {
+    ...actual,
+    generateNextWorkspaceCard: vi.fn(async () => ({
+      type: "questions",
+      questions: [
+        {
+          id: "offer",
+          question: "Bakso apa yang paling mau ditonjolkan?",
+          options: [
+            { label: "Bakso urat", description: "Menu klasik paling laris." },
+            { label: "Bakso mercon", description: "Untuk pencinta pedas." },
+          ],
+        },
+      ],
+    })),
+  };
+});
 
 vi.mock("ai", () => ({
   convertToModelMessages: vi.fn(async (messages) => messages),

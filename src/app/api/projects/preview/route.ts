@@ -10,7 +10,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseProjectBrief } from "@/lib/projects/brief";
 import {
-  getNextWorkspaceCard,
+  generateNextWorkspaceCard,
   updateBriefFromAnswer,
 } from "@/lib/projects/brief-flow";
 import {
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     parseProjectBrief(chatRow?.brief, project.prompt),
     latestUserText,
   );
-  const workspaceCard = getNextWorkspaceCard(updatedBrief);
+  const workspaceCard = await generateNextWorkspaceCard(updatedBrief);
 
   if (!incoming.length) {
     return Response.json(

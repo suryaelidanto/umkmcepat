@@ -913,23 +913,29 @@ function WorkspaceCardView({
           <p className="text-sm font-semibold text-surface-warm-white">
             {question.question}
           </p>
-          <div className="mt-spacing-3 grid gap-spacing-2 sm:grid-cols-2">
-            {question.options.map((option) => (
-              <button
-                key={option.label}
-                type="button"
-                onClick={() => onAnswer(option.label)}
-                className="rounded-radius-lg border border-surface-warm-white/10 bg-[#242421] px-spacing-4 py-spacing-3 text-left transition hover:border-surface-warm-white/24 hover:bg-surface-warm-white/8"
-              >
-                <span className="block text-sm font-semibold text-surface-warm-white">
-                  {option.label}
-                </span>
-                <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/54">
-                  {option.description}
-                </span>
-              </button>
-            ))}
-          </div>
+          {question.options.length ? (
+            <div className="mt-spacing-3 grid gap-spacing-2 sm:grid-cols-2">
+              {question.options.map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => onAnswer(option.label)}
+                  className="rounded-radius-lg border border-surface-warm-white/10 bg-[#242421] px-spacing-4 py-spacing-3 text-left transition hover:border-surface-warm-white/24 hover:bg-surface-warm-white/8"
+                >
+                  <span className="block text-sm font-semibold text-surface-warm-white">
+                    {option.label}
+                  </span>
+                  <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/54">
+                    {option.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-spacing-2 text-xs leading-5 text-surface-warm-white/54">
+              Jawab bebas di chat. AI gagal menyiapkan opsi yang cukup spesifik.
+            </p>
+          )}
         </div>
       ))}
     </div>
