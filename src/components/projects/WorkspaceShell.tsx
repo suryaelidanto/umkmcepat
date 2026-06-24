@@ -72,7 +72,7 @@ export function WorkspaceShell({
   const hasStartedBuild = useRef(false);
   const modeRef = useRef(mode);
   const buildAbortRef = useRef<AbortController | null>(null);
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, sendMessage, status, error, stop } = useChat({
     id: projectId,
     messages: initialMessages,
     transport: new DefaultChatTransport({
@@ -208,7 +208,17 @@ export function WorkspaceShell({
 
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
-  const chatDisabled = isResponding;
+  const isProcessing = isResponding || isBuilding;
+  const latestAssistantText = [...messages]
+    .reverse()
+    .find((item) => item.role === "assistant")
+    ?.parts.filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join(" ");
+  const canStartBuild =
+    /mulai\s+(build|buat)|siap\s+(di)?(build|buat)|brief\s+sudah\s+(cukup\s+)?jelas/i.test(
+      latestAssistantText || "",
+    );
 
   useEffect(() => {
     if (activeTab !== "code" && buildStatus !== "ready") {
@@ -239,7 +249,12 @@ export function WorkspaceShell({
     };
   }, [activeTab, buildStatus, projectId]);
 
-  function stopBuild() {
+  function stopCurrentJob() {
+    if (isResponding) {
+      stop();
+      return;
+    }
+
     buildAbortRef.current?.abort();
     buildAbortRef.current = null;
     void fetch(`/api/projects/${projectId}/stop`, { method: "POST" });
@@ -252,7 +267,7 @@ export function WorkspaceShell({
     event.preventDefault();
     const text = message.trim();
 
-    if (!text || chatDisabled) {
+    if (!text || isProcessing) {
       return;
     }
 
@@ -299,20 +314,20 @@ export function WorkspaceShell({
             />
             <div className="mt-spacing-4 flex-1 overflow-auto rounded-[24px] bg-[#d8d3c8] p-spacing-5">
               {activeTab === "preview" ? (
-                buildStatus === "discussing" ? (
-                  <DiscussPreview onStartBuild={() => void startBuild()} />
-                ) : sourceStatus === "passed" ? (
+                sourceStatus === "passed" ? (
                   <GeneratedPreviewFrame
                     projectId={projectId}
                     viewport={viewport}
                   />
-                ) : (
+                ) : buildStatus === "ready" ? (
                   <div className="flex justify-center">
                     <ProjectSitePreview
                       siteSchema={siteSchema}
                       viewport={viewport}
                     />
                   </div>
+                ) : (
+                  <EmptyPreviewState />
                 )
               ) : null}
 
@@ -372,20 +387,18 @@ export function WorkspaceShell({
             </button>
           </div>
 
-          <div className="mt-spacing-6 rounded-full border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-5 py-spacing-3 text-sm text-surface-warm-white/66">
-            AI sedang mode {isBuilding ? "Buat" : "Diskusi"}
-          </div>
-
           <div className="mt-spacing-6 flex-1 space-y-spacing-5 overflow-y-auto pr-1">
             <div className="rounded-[22px] bg-surface-warm-white px-spacing-6 py-spacing-5 text-sm leading-6 text-foreground-primary">
               {prompt}
             </div>
 
-            {!isBuilding ? (
-              <AiDiscussionNotice onBuild={() => void startBuild()} />
-            ) : null}
+            {!isBuilding ? <AiDiscussionNotice /> : null}
 
             <ChatMessages messages={messages} />
+
+            {!isProcessing && canStartBuild ? (
+              <BuildStartCard onBuild={() => void startBuild()} />
+            ) : null}
 
             {isResponding ? (
               <p className="text-sm text-surface-warm-white/46">
@@ -407,20 +420,11 @@ export function WorkspaceShell({
               buildProgress={buildProgress}
               buildError={buildError}
             />
-            {isBuilding ? (
-              <div className="mt-spacing-4 rounded-[26px] border border-[#ff5e27]/30 bg-[#ff5e27]/10 p-spacing-5">
-                <p className="text-sm text-surface-warm-white/72">
-                  AI sedang membangun. Input ditutup sementara supaya proses
-                  tidak bentrok.
-                </p>
-                <Button
-                  type="button"
-                  onClick={stopBuild}
-                  className="mt-spacing-4 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
-                >
-                  Stop proses
-                </Button>
-              </div>
+            {isProcessing ? (
+              <ProcessingControl
+                mode={isBuilding ? "Buat" : "Diskusi"}
+                onStop={stopCurrentJob}
+              />
             ) : (
               <form
                 onSubmit={handleMessageSubmit}
@@ -434,7 +438,6 @@ export function WorkspaceShell({
                   rows={3}
                   value={message}
                   onChange={(event) => setMessage(event.target.value)}
-                  disabled={chatDisabled}
                   placeholder={
                     mode === "build"
                       ? "Minta perubahan, contoh: buat lebih premium..."
@@ -443,14 +446,11 @@ export function WorkspaceShell({
                   className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                 />
                 <div className="flex items-center justify-between gap-spacing-4">
-                  <span className="text-xs text-surface-warm-white/42">
-                    Diskusi dulu. AI akan menawarkan build saat brief cukup
-                    jelas.
-                  </span>
+                  <ModePill mode="Diskusi" tone="idle" />
                   <Button
                     type="submit"
                     size="icon"
-                    disabled={!message.trim() || chatDisabled}
+                    disabled={!message.trim()}
                     className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
                     aria-label="Kirim pesan"
                   >
@@ -590,53 +590,114 @@ function GeneratedPreviewFrame({
   );
 }
 
-function DiscussPreview({ onStartBuild }: { onStartBuild: () => void }) {
+function EmptyPreviewState() {
   return (
     <div className="grid min-h-[620px] place-items-center rounded-[28px] bg-surface-warm-white p-spacing-10 text-center shadow-[0_18px_48px_rgba(28,28,28,0.12)]">
       <div>
         <p className="text-sm font-medium uppercase tracking-[0.16em] text-text-secondary">
-          Mode diskusi
+          Belum ada preview
         </p>
         <h2 className="mt-spacing-6 text-6xl font-semibold leading-none tracking-[-0.07em] text-foreground-primary">
-          Website belum dibuat.
+          AI masih merapikan brief.
         </h2>
         <p className="mx-auto mt-spacing-7 max-w-xl text-lg leading-8 text-text-secondary">
-          Jawab beberapa pilihan di chat kanan supaya AI tahu arah usaha, target
-          pelanggan, style, dan fitur. Setelah brief siap, mulai build.
+          Preview akan muncul setelah AI yakin kebutuhan usaha sudah cukup jelas
+          dan proses build selesai.
         </p>
+        <div className="mx-auto mt-spacing-9 grid max-w-2xl gap-spacing-3 text-left text-sm text-text-secondary sm:grid-cols-3">
+          <div className="rounded-[20px] bg-surface-muted p-spacing-5">
+            1. Jawab pertanyaan AI.
+          </div>
+          <div className="rounded-[20px] bg-surface-muted p-spacing-5">
+            2. AI susun brief.
+          </div>
+          <div className="rounded-[20px] bg-surface-muted p-spacing-5">
+            3. Build dimulai saat siap.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AiDiscussionNotice() {
+  return (
+    <div className="rounded-[22px] border border-surface-warm-white/10 bg-surface-warm-white/6 p-spacing-5">
+      <p className="text-sm font-semibold text-surface-warm-white">
+        AI yang menentukan pertanyaan berikutnya.
+      </p>
+      <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/58">
+        Jawab lewat chat. Kalau brief belum jelas, AI akan tanya lagi. Kalau
+        sudah siap, AI akan mulai proses build dari brief yang sudah terkunci.
+      </p>
+    </div>
+  );
+}
+
+function ModePill({
+  mode,
+  tone,
+}: {
+  mode: "Diskusi" | "Buat";
+  tone: "idle" | "busy";
+}) {
+  return (
+    <span className="inline-flex items-center gap-spacing-2 rounded-full border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/60">
+      <span
+        className={`size-2 rounded-full ${tone === "busy" ? "animate-pulse bg-[#ff9b5f]" : "bg-[#8ce99a]"}`}
+      />
+      Mode: {mode}
+    </span>
+  );
+}
+
+function ProcessingControl({
+  mode,
+  onStop,
+}: {
+  mode: "Diskusi" | "Buat";
+  onStop: () => void;
+}) {
+  return (
+    <div className="mt-spacing-4 rounded-[26px] border border-[#ff9b5f]/30 bg-[#ff9b5f]/10 p-spacing-5">
+      <div className="flex items-center justify-between gap-spacing-4">
+        <div>
+          <ModePill mode={mode} tone="busy" />
+          <p className="mt-spacing-3 text-sm text-surface-warm-white/72">
+            AI sedang bekerja. Input ditutup sementara supaya alur tidak
+            bentrok.
+          </p>
+        </div>
         <Button
           type="button"
-          onClick={onStartBuild}
-          className="mt-spacing-9 rounded-radius-lg bg-foreground-primary px-spacing-9 text-surface-warm-white hover:bg-foreground-primary/90"
+          onClick={onStop}
+          className="shrink-0 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
         >
-          Build dengan asumsi sekarang
+          Stop proses
         </Button>
       </div>
     </div>
   );
 }
 
-function AiDiscussionNotice({ onBuild }: { onBuild: () => void }) {
+function BuildStartCard({ onBuild }: { onBuild: () => void }) {
   return (
-    <div className="rounded-[22px] border border-surface-warm-white/10 bg-surface-warm-white/6 p-spacing-5">
-      <div className="flex items-start justify-between gap-spacing-4">
+    <div className="rounded-[22px] border border-[#8ce99a]/30 bg-[#8ce99a]/10 p-spacing-5">
+      <div className="flex items-center justify-between gap-spacing-4">
         <div>
           <p className="text-sm font-semibold text-surface-warm-white">
-            AI yang menentukan pertanyaan berikutnya.
+            Brief sudah cukup jelas.
           </p>
-          <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/58">
-            Jawab lewat chat. Kalau brief belum jelas, AI akan tanya lagi. Kalau
-            sudah siap, AI akan menawarkan untuk mulai build.
+          <p className="mt-spacing-2 text-sm text-surface-warm-white/62">
+            Mulai build dari jawaban yang sudah terkumpul.
           </p>
         </div>
         <Button
           type="button"
-          variant="outline"
-          size="sm"
           onClick={onBuild}
-          className="shrink-0 border-surface-warm-white/16 bg-transparent text-xs text-surface-warm-white hover:bg-surface-warm-white/10"
+          className="shrink-0 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
         >
-          Build pakai asumsi
+          Mulai build
         </Button>
       </div>
     </div>
