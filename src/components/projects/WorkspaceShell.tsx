@@ -223,8 +223,6 @@ export function WorkspaceShell({
   const hasPreview = sourceStatus === "passed" || buildStatus === "ready";
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
-  const showSplitLayout = showPreviewPanel && showChatPanel;
-
   useEffect(() => {
     if (hasPreview && !hasAutoOpenedPreview.current) {
       hasAutoOpenedPreview.current = true;
@@ -451,7 +449,7 @@ export function WorkspaceShell({
     }
 
     setPreviewCollapsed(true);
-    chatPanelRef.current?.resize("100%");
+    chatPanelRef.current?.resize(100);
     previewPanelRef.current?.collapse();
   }
 
@@ -462,19 +460,21 @@ export function WorkspaceShell({
 
     setChatCollapsed(true);
     chatPanelRef.current?.collapse();
-    previewPanelRef.current?.resize("100%");
+    previewPanelRef.current?.resize(100);
   }
 
   function openPreviewPanel() {
+    setChatCollapsed(false);
     setPreviewCollapsed(false);
-    chatPanelRef.current?.resize("32%");
-    previewPanelRef.current?.resize("68%");
+    chatPanelRef.current?.resize(32);
+    previewPanelRef.current?.resize(68);
   }
 
   function openChatPanel() {
     setChatCollapsed(false);
-    chatPanelRef.current?.resize("32%");
-    previewPanelRef.current?.resize("68%");
+    setPreviewCollapsed(false);
+    chatPanelRef.current?.resize(32);
+    previewPanelRef.current?.resize(68);
   }
 
   const chatPanelClass =
@@ -486,8 +486,15 @@ export function WorkspaceShell({
       <ResizablePanelGroup
         orientation="horizontal"
         className="h-full min-h-0 overflow-hidden"
+        onLayoutChanged={(layout) => {
+          const chatSize = Number(layout.chat ?? 0);
+          const previewSize = Number(layout.preview ?? 0);
+          setChatCollapsed(chatSize <= 1);
+          setPreviewCollapsed(previewSize <= 1);
+        }}
       >
         <ResizablePanel
+          id="chat"
           panelRef={chatPanelRef}
           defaultSize={100}
           minSize={8}
@@ -664,14 +671,13 @@ export function WorkspaceShell({
             </div>
           </aside>
         </ResizablePanel>
-        {showSplitLayout ? (
-          <ResizableHandle
-            withHandle
-            className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16"
-          />
-        ) : null}
+        <ResizableHandle
+          withHandle
+          className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16"
+        />
 
         <ResizablePanel
+          id="preview"
           panelRef={previewPanelRef}
           defaultSize={0}
           minSize={8}
