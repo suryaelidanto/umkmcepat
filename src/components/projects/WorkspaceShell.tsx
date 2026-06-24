@@ -503,7 +503,7 @@ export function WorkspaceShell({
         ) : null}
 
         <aside
-          className={`${showChatPanel ? "flex" : "hidden"} min-h-0 min-w-0 flex-col bg-[#1b1b19] p-spacing-5 ${showPreviewPanel ? "border-l border-surface-warm-white/10 lg:order-3 lg:flex" : "mx-auto w-full max-w-3xl"}`}
+          className={`${showChatPanel ? "flex" : "hidden"} min-h-0 min-w-0 flex-col bg-[#1b1b19] p-spacing-5 ${showPreviewPanel ? "border-l border-surface-warm-white/10 lg:order-3 lg:flex" : "w-full"}`}
         >
           <div className="flex items-start justify-between gap-spacing-5 px-spacing-1">
             <div className="min-w-0 flex-1">
