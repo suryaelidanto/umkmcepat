@@ -7,6 +7,7 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 ### 2026-06-25
 
 - Polished the workspace busy and question composer states so AI work feels like a native status flow instead of a generic warning card.
+- Tightened discussion mode so unclear briefs produce UI choices by default, with per-question custom answers when presets do not fit.
 - Added a strict discussion-turn contract so AI chat text, brief updates, and UI option cards are produced as one coherent response without duplicate option text.
 - Added hidden project chat memory with summary/facts compaction so long workspace conversations stay continuous without exposing context internals.
 - Added an optional local Graphify workflow so AI-agent users can generate and query a codebase graph without committing generated artifacts.

@@ -135,32 +135,44 @@ export async function generateDiscussionTurn({
   mode: "build" | "discuss";
 }): Promise<DiscussionTurn> {
   const missingFields = getMissingBriefFields(brief);
-  const result = await generateObject({
-    model: getAiModel(),
-    temperature: 0.35,
-    schema: jsonSchema<AiDiscussionTurn>(discussionTurnJsonSchema as never),
-    system: `Kamu konsultan website profesional untuk UMKM Indonesia.
+  let repairNote = "";
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const result = await generateObject({
+        model: getAiModel(),
+        temperature: attempt === 1 ? 0.35 : 0.2,
+        schema: jsonSchema<AiDiscussionTurn>(discussionTurnJsonSchema as never),
+        system: `Kamu konsultan website profesional untuk UMKM Indonesia.
 Gunakan gaya interview seperti skill grilling: tajam, satu keputusan per langkah, helpful, tidak bertele-tele.
 Jangan tampilkan chain-of-thought.
 Mode aktif: ${mode === "build" ? "Buat" : "Diskusi"}.
 
 Aturan diskusi:
-- Kamu bisa answer_only, ask_question, atau ready_to_build.
-- Sekitar 80% turn diskusi sebaiknya ask_question dengan UI card, kecuali user hanya minta penjelasan singkat.
+- Jika mode Diskusi dan masih ada field yang belum jelas, intent WAJIB ask_question dengan questionCard. Jangan answer_only untuk kasus ini.
 - Jika ask_question, tanya SATU keputusan saja. Jangan tanya banyak cabang sekaligus.
 - Jika ask_question, assistantMessage hanya konteks/saran singkat dan mengarahkan user memilih kartu. Jangan mengulang questionCard.question. Jangan menulis daftar opsi di assistantMessage.
-- questionCard.options wajib spesifik untuk bisnis user, bukan template umum.
+- questionCard.options wajib 3-5 opsi spesifik untuk bisnis user, bukan template umum.
 - Selalu beri recommendedOptionLabel yang cocok untuk user.
+- Jika user punya kebutuhan detail/khusus, tetap beri opsi paling relevan dan biarkan UI menyediakan jawaban bebas.
 - Jika code/system bisa menjawab, jangan tanyakan ke user.
 - Jangan menyarankan build sebelum brief cukup jelas sekitar 80%.
 - User-facing copy harus bahasa Indonesia.
 
 Konteks tersembunyi:
 ${chatContext.systemContext}`,
-    prompt: `Brief saat ini:\n${JSON.stringify(brief)}\n\nField yang belum jelas:\n${missingFields.join(", ") || "tidak ada"}\n\nPesan user terbaru:\n${latestUserText}\n\nRecent transcript:\n${formatMessages(messages)}\n\nReturn JSON sesuai schema.`,
-  });
+        prompt: `Brief saat ini:\n${JSON.stringify(brief)}\n\nField yang belum jelas:\n${missingFields.join(", ") || "tidak ada"}\n\nPesan user terbaru:\n${latestUserText}\n\nRecent transcript:\n${formatMessages(messages)}\n\nReturn JSON sesuai schema.\n${repairNote}`,
+      });
 
-  return normalizeDiscussionTurn(result.object, brief);
+      return normalizeDiscussionTurn(result.object, brief);
+    } catch (error) {
+      repairNote = `\nPercobaan sebelumnya gagal validasi: ${(error as Error).message}. Buat ulang JSON yang valid. Jika masih ada field belum jelas, wajib ask_question dengan 3-5 options.`;
+    }
+  }
+
+  throw new Error(
+    "AI gagal membuat discussion turn valid setelah 3 percobaan.",
+  );
 }
 
 export function createFallbackDiscussionTurn(
@@ -180,7 +192,7 @@ export function createFallbackDiscussionTurn(
     assistantMessage:
       "Saya sudah membaca kebutuhanmu. Saya akan bantu kunci satu keputusan dulu supaya arah websitenya jelas.",
     briefPatch: {},
-    intent: "answer_only",
+    intent: "ask_question",
     workspaceCard: { type: "none" },
   };
 }
@@ -255,6 +267,10 @@ function normalizeDiscussionTurn(
         ],
       },
     };
+  }
+
+  if (getMissingBriefFields(brief).length > 0) {
+    throw new Error("Diskusi belum jelas wajib menghasilkan questionCard.");
   }
 
   return {

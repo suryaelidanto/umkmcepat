@@ -86,7 +86,6 @@ export function WorkspaceShell({
     useState<WorkspaceCard>(initialWorkspaceCard);
   const [isRefreshingCard, setIsRefreshingCard] = useState(false);
   const [cardError, setCardError] = useState(false);
-  const [questionMode, setQuestionMode] = useState(true);
   const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
   const [chatCursor, setChatCursor] = useState<number | null>(
     initialChatCursor,
@@ -225,8 +224,7 @@ export function WorkspaceShell({
   const isBuilding = buildStatus === "building";
   const isProcessing = isResponding || isBuilding;
   const visibleMessages = [...olderMessages, ...messages];
-  const hasActiveQuestionCard =
-    workspaceCard.type === "questions" && questionMode;
+  const hasActiveQuestionCard = workspaceCard.type === "questions";
   const hasPreview = sourceStatus === "passed" || buildStatus === "ready";
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
@@ -403,12 +401,6 @@ export function WorkspaceShell({
     void refreshWorkspaceCard();
   }, [isProcessing, messages.length, refreshWorkspaceCard]);
 
-  useEffect(() => {
-    if (workspaceCard.type === "questions") {
-      setQuestionMode(true);
-    }
-  }, [workspaceCard]);
-
   async function saveProjectTitle() {
     const title = draftTitle.trim();
 
@@ -444,7 +436,6 @@ export function WorkspaceShell({
       }
 
       setMessage("");
-      setQuestionMode(true);
       sendMessage({ text: trimmed }, { body: { mode } });
     },
     [isProcessing, mode, sendMessage],
@@ -645,7 +636,6 @@ export function WorkspaceShell({
                   card={workspaceCard}
                   hasError={cardError}
                   isRefreshing={isRefreshingCard}
-                  onCancel={() => setQuestionMode(false)}
                   onRefresh={() => void refreshWorkspaceCard(true)}
                   onSubmit={submitChatText}
                 />
@@ -947,19 +937,19 @@ function QuestionStepperComposer({
   card,
   hasError,
   isRefreshing,
-  onCancel,
   onRefresh,
   onSubmit,
 }: {
   card: Extract<WorkspaceCard, { type: "questions" }>;
   hasError: boolean;
   isRefreshing: boolean;
-  onCancel: () => void;
   onRefresh: () => void;
   onSubmit: (answer: string) => void;
 }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [customAnswer, setCustomAnswer] = useState("");
+  const [customAnswerOpen, setCustomAnswerOpen] = useState(false);
   const question = card.questions[Math.min(step, card.questions.length - 1)];
   const selectedAnswer = question ? answers[question.id] : "";
   const isLastStep = step >= card.questions.length - 1;
@@ -968,10 +958,35 @@ function QuestionStepperComposer({
   useEffect(() => {
     setStep(0);
     setAnswers({});
+    setCustomAnswer("");
+    setCustomAnswerOpen(false);
   }, [card]);
+
+  useEffect(() => {
+    setCustomAnswer("");
+    setCustomAnswerOpen(false);
+  }, [question?.id]);
 
   if (!question) {
     return null;
+  }
+
+  function chooseAnswer(answer: string) {
+    setAnswers((value) => ({
+      ...value,
+      [question.id]: answer,
+    }));
+  }
+
+  function useCustomAnswer() {
+    const answer = customAnswer.trim();
+
+    if (!answer) {
+      return;
+    }
+
+    chooseAnswer(answer);
+    setCustomAnswerOpen(false);
   }
 
   function continueStep() {
@@ -996,27 +1011,18 @@ function QuestionStepperComposer({
   return (
     <div className="mt-spacing-3 overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#242421] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
       <div className="border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
-        <div className="flex items-start justify-between gap-spacing-4">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-surface-warm-white/44">
-              Keputusan {step + 1} dari {card.questions.length}
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-surface-warm-white/44">
+            Keputusan {step + 1} dari {card.questions.length}
+          </p>
+          <h2 className="mt-spacing-1 max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
+            {question.question}
+          </h2>
+          {question.whyThisQuestionMatters ? (
+            <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/52">
+              {question.whyThisQuestionMatters}
             </p>
-            <h2 className="mt-spacing-1 max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
-              {question.question}
-            </h2>
-            {question.whyThisQuestionMatters ? (
-              <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/52">
-                {question.whyThisQuestionMatters}
-              </p>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="shrink-0 rounded-full border border-surface-warm-white/10 px-spacing-3 py-spacing-1.5 text-xs text-surface-warm-white/58 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-          >
-            Tulis sendiri
-          </button>
+          ) : null}
         </div>
         <div className="mt-spacing-4 grid grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-spacing-2">
           {card.questions.map((item) => (
@@ -1039,12 +1045,7 @@ function QuestionStepperComposer({
               <button
                 key={option.label}
                 type="button"
-                onClick={() =>
-                  setAnswers((value) => ({
-                    ...value,
-                    [question.id]: option.label,
-                  }))
-                }
+                onClick={() => chooseAnswer(option.label)}
                 className={`rounded-[16px] border px-spacing-4 py-spacing-3 text-left transition ${
                   isSelected
                     ? "border-[#8ce99a]/55 bg-[#8ce99a]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
@@ -1065,6 +1066,70 @@ function QuestionStepperComposer({
               </button>
             );
           })}
+          <div
+            className={`rounded-[16px] border px-spacing-4 py-spacing-3 transition sm:col-span-2 ${
+              customAnswerOpen
+                ? "border-surface-warm-white/18 bg-[#1f1f1d]"
+                : "border-dashed border-surface-warm-white/14 bg-transparent"
+            }`}
+          >
+            {customAnswerOpen ? (
+              <div className="space-y-spacing-3">
+                <label
+                  htmlFor={`custom-answer-${question.id}`}
+                  className="text-xs font-medium text-surface-warm-white/58"
+                >
+                  Jawaban sendiri untuk keputusan ini
+                </label>
+                <textarea
+                  id={`custom-answer-${question.id}`}
+                  rows={3}
+                  value={customAnswer}
+                  onChange={(event) => setCustomAnswer(event.target.value)}
+                  placeholder="Tulis jawabanmu sendiri..."
+                  className="w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
+                />
+                <div className="flex items-center justify-end gap-spacing-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomAnswerOpen(false);
+                      setCustomAnswer("");
+                    }}
+                    className="rounded-full px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
+                  >
+                    Batal
+                  </button>
+                  <Button
+                    type="button"
+                    disabled={!customAnswer.trim()}
+                    onClick={useCustomAnswer}
+                    className="h-9 rounded-full bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                  >
+                    Pakai jawaban ini
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCustomAnswerOpen(true)}
+                className="flex w-full items-center justify-between gap-spacing-4 text-left"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-surface-warm-white/84">
+                    Jawaban sendiri
+                  </span>
+                  <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/46">
+                    Pakai ini kalau pilihan AI belum pas untuk keputusan ini.
+                  </span>
+                </span>
+                <span className="rounded-full border border-surface-warm-white/10 px-spacing-3 py-spacing-1 text-xs text-surface-warm-white/56">
+                  Tulis
+                </span>
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-spacing-3 p-spacing-4 text-xs leading-5 text-surface-warm-white/54">

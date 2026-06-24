@@ -11,6 +11,10 @@ import {
   mergeProjectBriefPatch,
   parseProjectBrief,
 } from "@/lib/projects/brief";
+import {
+  createPendingWorkspaceCard,
+  generateNextWorkspaceCard,
+} from "@/lib/projects/brief-flow";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   buildProjectChatContext,
@@ -133,7 +137,21 @@ export async function POST(request: Request) {
     latestUserText,
     messages: chatContext.messages,
     mode,
-  }).catch(() => createFallbackDiscussionTurn(currentBrief));
+  }).catch(async () => {
+    const fallbackTurn = createFallbackDiscussionTurn(currentBrief);
+    const fallbackCard = await generateNextWorkspaceCard(currentBrief).catch(
+      () => createPendingWorkspaceCard(currentBrief),
+    );
+
+    return {
+      ...fallbackTurn,
+      intent:
+        fallbackCard.type === "questions"
+          ? ("ask_question" as const)
+          : fallbackTurn.intent,
+      workspaceCard: fallbackCard,
+    };
+  });
   const updatedBrief = mergeProjectBriefPatch(currentBrief, turn.briefPatch);
   const workspaceCard = turn.workspaceCard;
 
