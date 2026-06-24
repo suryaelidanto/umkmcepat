@@ -1,6 +1,9 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createGeneratedProjectFiles } from "@/lib/projects/generated-source";
+import {
+  createGeneratedProjectFiles,
+  parseGeneratedProjectFiles,
+} from "@/lib/projects/generated-source";
 import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
 
 export async function GET(
@@ -29,6 +32,18 @@ export async function GET(
     );
   }
 
+  const [sourceRow] = await prisma.$queryRaw<
+    [
+      {
+        sourceFiles: unknown;
+        buildStatus: string | null;
+        buildLog: string | null;
+      },
+    ]
+  >`
+    SELECT "sourceFiles", "buildStatus", "buildLog" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
+  `;
+  const storedFiles = parseGeneratedProjectFiles(sourceRow?.sourceFiles);
   const siteSchema = parseProjectSiteSchema(
     (project as { siteSchema?: unknown }).siteSchema,
     project.prompt,
@@ -36,6 +51,10 @@ export async function GET(
 
   return Response.json({
     projectId: project.id,
-    files: createGeneratedProjectFiles(project.id, siteSchema),
+    buildLog: sourceRow?.buildLog ?? "",
+    buildStatus: sourceRow?.buildStatus ?? "not_started",
+    files: storedFiles.length
+      ? storedFiles
+      : createGeneratedProjectFiles(project.id, siteSchema),
   });
 }

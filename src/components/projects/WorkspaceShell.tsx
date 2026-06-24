@@ -30,7 +30,7 @@ import {
 
 import { ProjectSitePreview } from "@/components/projects/renderer/ProjectSitePreview";
 import { Button } from "@/components/ui/button";
-import { createGeneratedProjectFiles } from "@/lib/projects/generated-source";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 type WorkspaceShellProps = {
@@ -220,6 +220,9 @@ export function WorkspaceShell({
   const [buildDetailsOpen, setBuildDetailsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<BuildTab>("preview");
   const [brief, setBrief] = useState<BriefState>({});
+  const [sourceFiles, setSourceFiles] = useState<GeneratedProjectFile[]>([]);
+  const [sourceStatus, setSourceStatus] = useState("not_started");
+  const [sourceLog, setSourceLog] = useState("");
   const prompt = initialPrompt.trim();
   const hasStartedChat = useRef(false);
   const hasStartedBuild = useRef(false);
@@ -350,14 +353,39 @@ export function WorkspaceShell({
     return Math.min(100, Math.round(((1 + completed.length) / 5) * 100));
   }, [brief]);
 
-  const generatedFiles = useMemo(
-    () => createGeneratedProjectFiles(projectId, siteSchema),
-    [projectId, siteSchema],
-  );
   const nextQuestion = guidedQuestions.find(({ field }) => !brief[field]);
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
   const chatDisabled = isResponding;
+
+  useEffect(() => {
+    if (activeTab !== "code" && buildStatus !== "ready") {
+      return;
+    }
+
+    let ignore = false;
+
+    async function loadSource() {
+      const response = await fetch(`/api/projects/${projectId}/source`);
+      const result = (await response.json()) as {
+        buildLog?: string;
+        buildStatus?: string;
+        files?: GeneratedProjectFile[];
+      };
+
+      if (!ignore && response.ok) {
+        setSourceFiles(result.files ?? []);
+        setSourceStatus(result.buildStatus ?? "not_started");
+        setSourceLog(result.buildLog ?? "");
+      }
+    }
+
+    void loadSource();
+
+    return () => {
+      ignore = true;
+    };
+  }, [activeTab, buildStatus, projectId]);
 
   function switchMode(nextMode: "build" | "discuss") {
     setMode(nextMode);
@@ -463,7 +491,12 @@ export function WorkspaceShell({
               ) : null}
 
               {activeTab === "code" ? (
-                <CodeView projectId={projectId} files={generatedFiles} />
+                <CodeView
+                  projectId={projectId}
+                  files={sourceFiles}
+                  buildLog={sourceLog}
+                  buildStatus={sourceStatus}
+                />
               ) : null}
             </div>
           </div>
@@ -1045,9 +1078,13 @@ function TimelineView({
 function CodeView({
   projectId,
   files,
+  buildLog,
+  buildStatus,
 }: {
   projectId: string;
-  files: ReturnType<typeof createGeneratedProjectFiles>;
+  files: GeneratedProjectFile[];
+  buildLog: string;
+  buildStatus: string;
 }) {
   const [selectedPath, setSelectedPath] = useState(files[0]?.path || "");
   const selectedFile =
@@ -1062,6 +1099,9 @@ function CodeView({
               Source
             </p>
             <h2 className="mt-1 text-lg font-semibold">Generated project</h2>
+            <p className="mt-1 text-xs text-surface-warm-white/42">
+              Build: {buildStatus}
+            </p>
           </div>
         </div>
         <a
@@ -1072,6 +1112,16 @@ function CodeView({
         >
           Export JSON
         </a>
+        {buildLog ? (
+          <details className="mt-spacing-5 rounded-radius-lg border border-surface-warm-white/10 p-spacing-4 text-xs text-surface-warm-white/58">
+            <summary className="cursor-pointer text-surface-warm-white/78">
+              Build log
+            </summary>
+            <pre className="mt-spacing-3 max-h-44 overflow-auto whitespace-pre-wrap">
+              {buildLog}
+            </pre>
+          </details>
+        ) : null}
         <div className="mt-spacing-6 grid gap-spacing-2">
           {files.map((file) => (
             <button

@@ -3,6 +3,10 @@ import { jsonSchema, Output, streamText } from "ai";
 import { getAiModel } from "@/lib/ai";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  buildGeneratedProject,
+  createGeneratedProjectFiles,
+} from "@/lib/projects/generated-source";
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
 import {
   parseProjectSiteSchema,
@@ -129,17 +133,38 @@ export async function POST(request: Request, { params }: RouteProps) {
         }
 
         const finalSchema = parseProjectSiteSchema(latest, project.prompt);
+        const sourceFiles = createGeneratedProjectFiles(
+          project.id,
+          finalSchema,
+        );
+        send("progress", {
+          label: "Membuat source frontend",
+          detail: `${sourceFiles.length} file Vite React disiapkan untuk project ini.`,
+        });
+        const buildResult = await buildGeneratedProject(sourceFiles);
+        send("progress", {
+          label: buildResult.ok
+            ? "Build frontend berhasil"
+            : "Build frontend gagal",
+          detail: buildResult.ok
+            ? "Source project berhasil divalidasi dengan bun run build."
+            : "Source tetap disimpan, tapi build log perlu dicek di tab Code.",
+        });
         await prisma.project.update({
           where: { id: project.id },
           data: {
             status: "ready",
             siteSchema: finalSchema,
+            sourceFiles,
+            buildStatus: buildResult.ok ? "passed" : "failed",
+            buildLog: buildResult.log,
+            builtAt: new Date(),
           } as Parameters<typeof prisma.project.update>[0]["data"],
         });
 
         send("progress", {
           label: "Website siap direview",
-          detail: "Preview kanan sudah memakai schema final dari AI.",
+          detail: "Preview, changes, dan source frontend sudah siap dicek.",
         });
         send("done", finalSchema);
       } catch {
