@@ -119,8 +119,7 @@ For UI, styling, layout, typography, colors, or components:
 2. Reuse `src/components/ui` and existing design tokens first.
 3. Keep visible product copy Indonesian.
 4. Keep developer/internal text English.
-5. Verify in browser with `abk inspect` or `abk review` when available.
-6. Include artifact paths in handoff when browser review was used.
+5. Include artifact paths in handoff when browser review was used.
 
 ## shadcn/ui
 

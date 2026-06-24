@@ -4,7 +4,7 @@ Rules for AI agents and automated contributors.
 
 ## Read first
 
-- Read `README.md`, `CONTRIBUTING.md`, `DEV.md`, `ANTI_AI_SLOP.md`, `.env.example`, and `package.json` before code changes.
+- Read `README.md`, `CONTRIBUTING.md`, `DEV.md`, `ANTI_AI_SLOP.md`, `.env.example`, `package.json`, and `CODEBASE-INDEX.md` before code changes.
 - Read `ANTI_AI_SLOP.md` before docs, copy, UI, prompts, or agent-facing instructions.
 - Read `DESIGN.md` before UI, styling, layout, typography, colors, or components.
 - Read `docs/project-architecture.md` before project, workspace, renderer, publishing, multi-tenant, or user-generated app work.
@@ -32,6 +32,9 @@ Rules for AI agents and automated contributors.
 - If a doc is stale, fix it in the same change or delete it when it no longer has a clear owner.
 - Keep `README.md` product-facing and timeless. Put setup in `CONTRIBUTING.md`, maintainer SOP in `DEV.md`, and topic details in `docs/`.
 - Prefer one canonical doc plus links over duplicated instructions.
+- Keep `CODEBASE-INDEX.md` current when meaningful context changes: product flow, architecture, routes, DB/indexing, provider boundaries, security assumptions, or tradeoffs.
+- Always update the `CODEBASE-INDEX.md` change log for meaningful changes future fresh-context agents must know; skip only trivial copy, formatting, or no-behavior edits.
+- Always update `CHANGELOG.md` for meaningful user-visible or workflow-relevant changes. Keep it daily, general, and one-line-per-change so it stays useful for quick reporting.
 
 ## Language
 

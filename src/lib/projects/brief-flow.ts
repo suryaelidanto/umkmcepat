@@ -1,3 +1,6 @@
+import { generateObject, jsonSchema } from "ai";
+
+import { getAiModel } from "@/lib/ai";
 import {
   type BriefQuestion,
   type ProjectBrief,
@@ -6,86 +9,55 @@ import {
   isBriefReady,
 } from "@/lib/projects/brief";
 
-const questionBank: Record<BriefQuestion["id"], BriefQuestion> = {
-  businessType: {
-    id: "businessType",
-    question: "Usaha kamu paling dekat dengan kategori apa?",
-    options: [
-      { label: "Fashion", description: "Baju, thrift, aksesoris, sepatu." },
-      { label: "Kuliner", description: "Makanan, minuman, katering, kue." },
-      { label: "Jasa", description: "Laundry, bengkel, desain, konsultasi." },
-      { label: "Toko produk", description: "Produk fisik non-fashion." },
-    ],
-  },
-  offer: {
-    id: "offer",
-    question: "Apa produk atau jasa utama yang mau ditampilkan?",
-    options: [
-      {
-        label: "Katalog produk",
-        description: "Banyak produk dengan detail singkat.",
+const workspaceCardJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["type"],
+  properties: {
+    type: { enum: ["questions", "build_recommendation"] },
+    questions: {
+      type: "array",
+      minItems: 1,
+      maxItems: 3,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "question", "options"],
+        properties: {
+          id: {
+            enum: [
+              "businessType",
+              "offer",
+              "targetCustomer",
+              "contactOrCta",
+              "stylePreference",
+            ],
+          },
+          question: { type: "string", minLength: 8, maxLength: 160 },
+          options: {
+            type: "array",
+            minItems: 3,
+            maxItems: 5,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["label", "description"],
+              properties: {
+                label: { type: "string", minLength: 2, maxLength: 48 },
+                description: { type: "string", minLength: 4, maxLength: 96 },
+              },
+            },
+          },
+        },
       },
-      {
-        label: "Layanan utama",
-        description: "Beberapa layanan dengan penjelasan.",
-      },
-      {
-        label: "Menu dan harga",
-        description: "Daftar menu, paket, atau price list.",
-      },
-      {
-        label: "Portofolio",
-        description: "Galeri hasil kerja atau contoh proyek.",
-      },
-    ],
-  },
-  targetCustomer: {
-    id: "targetCustomer",
-    question: "Siapa target pelanggan utamanya?",
-    options: [
-      {
-        label: "Anak muda",
-        description: "Bahasa santai, visual lebih berani.",
-      },
-      { label: "Keluarga", description: "Ramah, jelas, mudah dipercaya." },
-      { label: "Pekerja kantor", description: "Rapi, praktis, profesional." },
-      {
-        label: "Pembeli premium",
-        description: "Lebih kurasi, tenang, dan elegan.",
-      },
-    ],
-  },
-  contactOrCta: {
-    id: "contactOrCta",
-    question: "Aksi utama yang kamu mau dari pengunjung apa?",
-    options: [
-      {
-        label: "Chat WA",
-        description: "Pengunjung langsung diarahkan ke WhatsApp.",
-      },
-      { label: "DM Instagram", description: "Cocok kalau jualan aktif di IG." },
-      { label: "Lihat katalog", description: "Fokus browsing produk dulu." },
-      { label: "Booking", description: "Untuk jasa atau reservasi." },
-    ],
-  },
-  stylePreference: {
-    id: "stylePreference",
-    question: "Arah tampilan yang paling cocok?",
-    options: [
-      { label: "Clean modern", description: "Rapi, terang, mudah dibaca." },
-      {
-        label: "Bold gelap",
-        description: "Kontras, kuat, cocok fashion/thrift.",
-      },
-      {
-        label: "Hangat lokal",
-        description: "Dekat, ramah, tidak terlalu formal.",
-      },
-      {
-        label: "Premium",
-        description: "Lebih minimal, tenang, dan percaya diri.",
-      },
-    ],
+    },
+    title: { type: "string", minLength: 4, maxLength: 80 },
+    summary: {
+      type: "array",
+      minItems: 3,
+      maxItems: 7,
+      items: { type: "string", minLength: 2, maxLength: 120 },
+    },
   },
 };
 
@@ -100,75 +72,117 @@ export function updateBriefFromAnswer(
   }
 
   const next = { ...brief, notes: [...brief.notes] };
-  const missing = getMissingBriefFields(next);
-  const target = missing[0];
+  const target = getMissingBriefFields(next)[0];
 
   if (target) {
-    next[target] = normalizeAnswerForField(target, answer);
+    next[target] = answer;
   } else {
     next.notes = [...next.notes, answer].slice(-12);
   }
 
-  inferFromText(next, answer);
   return next;
+}
+
+export async function generateNextWorkspaceCard(
+  brief: ProjectBrief,
+): Promise<WorkspaceCard> {
+  if (isBriefReady(brief)) {
+    return buildRecommendationCard(brief);
+  }
+
+  const missingFields = getMissingBriefFields(brief);
+
+  try {
+    const result = await generateObject({
+      model: getAiModel(),
+      temperature: 0.4,
+      schema: jsonSchema<WorkspaceCard>(workspaceCardJsonSchema as never),
+      system:
+        "Kamu product strategist UMKM Indonesia. Buat kartu UI JSON saja. Tidak boleh template umum. Semua opsi harus spesifik dari brief user. Bahasa Indonesia. Jangan pakai markdown.",
+      prompt: `Brief saat ini:\n${JSON.stringify(brief)}\n\nField yang masih kosong: ${missingFields.join(", ")}\n\nTugas:\n- Jika masih ada field kosong, return type=questions.\n- Tanyakan maksimal 2 field terpenting.\n- id pertanyaan wajib salah satu field kosong.\n- Setiap opsi harus custom sesuai bisnis user, bukan kategori generik.\n- Untuk bakso, contoh opsi harus relevan seperti bakso urat, menu pedas, cabang, delivery, keluarga, pekerja sekitar, dll sesuai konteks.\n- Kalau brief sudah cukup, return type=build_recommendation.`,
+    });
+
+    return normalizeWorkspaceCard(result.object, brief);
+  } catch {
+    return getNextWorkspaceCard(brief);
+  }
 }
 
 export function getNextWorkspaceCard(brief: ProjectBrief): WorkspaceCard {
   if (isBriefReady(brief)) {
-    return {
-      type: "build_recommendation",
-      title: "Brief sudah cukup jelas",
-      summary: [
-        brief.businessType,
-        brief.offer,
-        brief.targetCustomer,
-        brief.contactOrCta,
-        brief.stylePreference,
-      ].filter(Boolean),
-    };
+    return buildRecommendationCard(brief);
   }
 
   return {
     type: "questions",
     questions: getMissingBriefFields(brief)
       .slice(0, 2)
-      .map((field) => questionBank[field]),
+      .map((field) => ({
+        id: field,
+        question: fallbackQuestion(field),
+        options: [],
+      })),
   };
 }
 
-function normalizeAnswerForField(field: BriefQuestion["id"], answer: string) {
-  const option = questionBank[field].options.find((item) =>
-    answer.toLowerCase().includes(item.label.toLowerCase()),
-  );
-  return option?.label || answer;
+function normalizeWorkspaceCard(
+  card: WorkspaceCard,
+  brief: ProjectBrief,
+): WorkspaceCard {
+  if (card.type === "build_recommendation") {
+    return buildRecommendationCard(brief, card.title, card.summary);
+  }
+
+  const missing = new Set(getMissingBriefFields(brief));
+  const questions = card.questions
+    .filter((question) => missing.has(question.id))
+    .slice(0, 2)
+    .map((question) => ({
+      ...question,
+      question: question.question.trim(),
+      options: question.options
+        .filter((option) => option.label.trim())
+        .slice(0, 5)
+        .map((option) => ({
+          label: option.label.trim(),
+          description: option.description.trim(),
+        })),
+    }))
+    .filter((question) => question.question && question.options.length >= 2);
+
+  return questions.length
+    ? { type: "questions", questions }
+    : getNextWorkspaceCard(brief);
 }
 
-function inferFromText(brief: ProjectBrief, text: string) {
-  const value = text.toLowerCase();
+function buildRecommendationCard(
+  brief: ProjectBrief,
+  title = "Brief sudah cukup jelas",
+  summary?: string[],
+): WorkspaceCard {
+  return {
+    type: "build_recommendation",
+    title,
+    summary:
+      summary?.filter(Boolean).slice(0, 7) ||
+      [
+        brief.businessType,
+        brief.offer,
+        brief.targetCustomer,
+        brief.contactOrCta,
+        brief.stylePreference,
+      ].filter(Boolean),
+  };
+}
 
-  if (!brief.businessType) {
-    if (/baju|thrift|fashion|sepatu|jaket|kaos/.test(value)) {
-      brief.businessType = "Fashion";
-    } else if (/makan|minum|kue|kopi|bakso|ayam|kuliner/.test(value)) {
-      brief.businessType = "Kuliner";
-    } else if (/laundry|cuci|service|jasa|bengkel/.test(value)) {
-      brief.businessType = "Jasa";
-    }
-  }
-
-  if (!brief.contactOrCta) {
-    if (/wa|whatsapp/.test(value)) {
-      brief.contactOrCta = "Chat WA";
-    } else if (/instagram|ig|dm/.test(value)) {
-      brief.contactOrCta = "DM Instagram";
-    }
-  }
-
-  if (!brief.stylePreference) {
-    if (/gelap|dark|hitam|bold/.test(value)) {
-      brief.stylePreference = "Bold gelap";
-    } else if (/modern|clean|minimal/.test(value)) {
-      brief.stylePreference = "Clean modern";
-    }
-  }
+function fallbackQuestion(field: BriefQuestion["id"]) {
+  return (
+    {
+      businessType: "Jenis usaha ini paling tepat disebut apa?",
+      offer: "Apa produk atau layanan utama yang wajib tampil?",
+      targetCustomer: "Siapa pelanggan utama yang ingin dituju?",
+      contactOrCta: "Aksi utama pengunjung setelah melihat website apa?",
+      stylePreference: "Gaya visual website yang kamu inginkan seperti apa?",
+    } satisfies Record<BriefQuestion["id"], string>
+  )[field];
 }

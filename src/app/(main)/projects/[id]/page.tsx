@@ -47,10 +47,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     SELECT "chatMessages" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
   `;
 
-  const [briefRow] = await prisma.$queryRaw<
-    [{ brief: unknown; workspaceCard: unknown }]
-  >`
-    SELECT "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
+  const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
+    SELECT "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
   `;
   const initialBrief = parseProjectBrief(briefRow?.brief, project.prompt);
 
@@ -71,10 +69,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         initialMessages={initialChatPage.messages}
         initialChatCursor={initialChatPage.nextCursor}
         initialChatHasMore={initialChatPage.hasMore}
-        initialWorkspaceCard={
-          (briefRow?.workspaceCard as never) ||
-          getNextWorkspaceCard(initialBrief)
-        }
+        initialWorkspaceCard={getNextWorkspaceCard(initialBrief)}
         siteSchema={parseProjectSiteSchema(
           (project as { siteSchema?: unknown }).siteSchema,
           project.prompt,

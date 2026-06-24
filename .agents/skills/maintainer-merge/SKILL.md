@@ -107,13 +107,6 @@ Run:
 bun run check
 ```
 
-If UI changed and app is reachable, run browser verification:
-
-```bash
-abk inspect http://localhost:3000 --expect "UMKM Cepat"
-abk review http://localhost:3000 --profile umkmcepat-frontend
-```
-
 Completion: `bun run check` passes, or failures are reported with exact blocker and next fix.
 
 ## 6. Stop gate

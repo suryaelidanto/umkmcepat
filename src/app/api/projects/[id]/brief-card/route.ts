@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseProjectBrief } from "@/lib/projects/brief";
-import { getNextWorkspaceCard } from "@/lib/projects/brief-flow";
+import { generateNextWorkspaceCard } from "@/lib/projects/brief-flow";
 
 export async function GET(
   _: Request,
@@ -17,9 +17,10 @@ export async function GET(
   }
 
   const { id } = await params;
+  const userId = session.user.id;
   const project = await prisma.project.findFirst({
-    where: { id, userId: session.user.id },
-    select: { prompt: true, brief: true, workspaceCard: true },
+    where: { id, userId },
+    select: { prompt: true },
   });
 
   if (!project) {
@@ -29,9 +30,11 @@ export async function GET(
     );
   }
 
-  const brief = parseProjectBrief(project.brief, project.prompt);
-  return Response.json({
-    brief,
-    workspaceCard: project.workspaceCard || getNextWorkspaceCard(brief),
-  });
+  const [row] = await prisma.$queryRaw<[{ brief: unknown }]>`
+    SELECT "brief" FROM "Project" WHERE id = ${id} AND "userId" = ${userId}
+  `;
+  const brief = parseProjectBrief(row?.brief, project.prompt);
+  const workspaceCard = await generateNextWorkspaceCard(brief);
+
+  return Response.json({ brief, workspaceCard });
 }
