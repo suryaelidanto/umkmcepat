@@ -443,14 +443,14 @@ export function WorkspaceShell({
   return (
     <div className="h-dvh overflow-hidden bg-[#10100f] text-surface-warm-white">
       <div
-        className="grid h-full min-h-0 gap-0 lg:grid-cols-[var(--workspace-columns)]"
+        className="grid h-full min-h-0 gap-0 transition-[grid-template-columns] duration-300 ease-out"
         style={{
           ["--chat-width" as string]: showChatPanel ? `${chatWidth}px` : "0px",
-          ["--workspace-columns" as string]: workspaceColumns,
+          gridTemplateColumns: workspaceColumns,
         }}
       >
         {showPreviewPanel ? (
-          <section className="min-h-0 min-w-0 p-spacing-5 lg:order-1 lg:p-spacing-7">
+          <section className="min-h-0 min-w-0 p-spacing-5 transition-opacity duration-300 ease-out lg:order-1 lg:p-spacing-7">
             <div className="flex h-full min-h-0 flex-col rounded-[32px] border border-surface-warm-white/10 bg-[#ebe8df] p-spacing-4 text-foreground-primary shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
               <WorkspaceTopBar
                 activeTab={activeTab}
@@ -503,7 +503,7 @@ export function WorkspaceShell({
         ) : null}
 
         <aside
-          className={`${showChatPanel ? "flex" : "hidden"} min-h-0 min-w-0 flex-col bg-[#1b1b19] p-spacing-5 ${showPreviewPanel ? "border-l border-surface-warm-white/10 lg:order-3 lg:flex" : "w-full"}`}
+          className={`${showChatPanel ? "flex" : "hidden"} min-h-0 min-w-0 flex-col bg-[#1b1b19] p-spacing-5 transition-opacity duration-300 ease-out ${showPreviewPanel ? "border-l border-surface-warm-white/10 lg:order-3 lg:flex" : "w-full"}`}
         >
           <div className="flex items-start justify-between gap-spacing-5 px-spacing-1">
             <div className="min-w-0 flex-1">
