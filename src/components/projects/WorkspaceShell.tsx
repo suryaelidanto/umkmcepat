@@ -36,6 +36,8 @@ type WorkspaceShellProps = {
   initialPrompt?: string;
   initialStatus: string;
   initialMessages: UIMessage[];
+  initialChatCursor: number | null;
+  initialChatHasMore: boolean;
   siteSchema: ProjectSiteSchema;
 };
 
@@ -51,6 +53,8 @@ export function WorkspaceShell({
   initialPrompt = "",
   initialStatus,
   initialMessages,
+  initialChatCursor,
+  initialChatHasMore,
   siteSchema: initialSiteSchema,
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
@@ -67,11 +71,19 @@ export function WorkspaceShell({
   const [sourceFiles, setSourceFiles] = useState<GeneratedProjectFile[]>([]);
   const [sourceStatus, setSourceStatus] = useState("not_started");
   const [sourceLog, setSourceLog] = useState("");
+  const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
+  const [chatCursor, setChatCursor] = useState<number | null>(
+    initialChatCursor,
+  );
+  const [hasMoreChat, setHasMoreChat] = useState(initialChatHasMore);
+  const [isLoadingOlderChat, setIsLoadingOlderChat] = useState(false);
   const prompt = initialPrompt.trim();
   const hasStartedChat = useRef(false);
   const hasStartedBuild = useRef(false);
   const modeRef = useRef(mode);
   const buildAbortRef = useRef<AbortController | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const previousLiveMessageCount = useRef(initialMessages.length);
   const { messages, sendMessage, status, error, stop } = useChat({
     id: projectId,
     messages: initialMessages,
@@ -209,6 +221,7 @@ export function WorkspaceShell({
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
   const isProcessing = isResponding || isBuilding;
+  const visibleMessages = [...olderMessages, ...messages];
   const latestAssistantText = [...messages]
     .reverse()
     .find((item) => item.role === "assistant")
@@ -249,6 +262,32 @@ export function WorkspaceShell({
     };
   }, [activeTab, buildStatus, projectId]);
 
+  async function loadOlderChat() {
+    if (!hasMoreChat || isLoadingOlderChat || chatCursor === null) {
+      return;
+    }
+
+    setIsLoadingOlderChat(true);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/chat?before=${chatCursor}`,
+      );
+      const result = (await response.json()) as {
+        messages?: UIMessage[];
+        nextCursor?: number | null;
+        hasMore?: boolean;
+      };
+
+      if (response.ok) {
+        setOlderMessages((current) => [...(result.messages || []), ...current]);
+        setChatCursor(result.nextCursor ?? null);
+        setHasMoreChat(Boolean(result.hasMore));
+      }
+    } finally {
+      setIsLoadingOlderChat(false);
+    }
+  }
+
   function stopCurrentJob() {
     if (isResponding) {
       stop();
@@ -262,6 +301,26 @@ export function WorkspaceShell({
     setMode("discuss");
     setBuildError("Proses dihentikan.");
   }
+
+  useEffect(() => {
+    const element = chatScrollRef.current;
+
+    if (element) {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, []);
+
+  useEffect(() => {
+    const element = chatScrollRef.current;
+
+    if (!element || messages.length <= previousLiveMessageCount.current) {
+      previousLiveMessageCount.current = messages.length;
+      return;
+    }
+
+    element.scrollTop = element.scrollHeight;
+    previousLiveMessageCount.current = messages.length;
+  }, [messages.length]);
 
   function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -295,15 +354,15 @@ export function WorkspaceShell({
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-[#10100f] text-surface-warm-white">
+    <div className="h-[calc(100dvh-4rem)] overflow-hidden bg-[#10100f] text-surface-warm-white">
       <div
-        className="grid min-h-[calc(100dvh-4rem)] gap-0 lg:grid-cols-[minmax(0,1fr)_8px_var(--chat-width)]"
+        className="grid h-full min-h-0 gap-0 lg:grid-cols-[minmax(0,1fr)_8px_var(--chat-width)]"
         style={{
           ["--chat-width" as string]: chatCollapsed ? "0px" : `${chatWidth}px`,
         }}
       >
-        <section className="min-w-0 p-spacing-5 lg:p-spacing-7">
-          <div className="flex h-full min-h-[780px] flex-col rounded-[32px] border border-surface-warm-white/10 bg-[#ebe8df] p-spacing-4 text-foreground-primary shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+        <section className="min-h-0 min-w-0 p-spacing-5 lg:p-spacing-7">
+          <div className="flex h-full min-h-0 flex-col rounded-[32px] border border-surface-warm-white/10 bg-[#ebe8df] p-spacing-4 text-foreground-primary shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
             <WorkspaceTopBar
               activeTab={activeTab}
               setActiveTab={setActiveTab}
@@ -366,7 +425,7 @@ export function WorkspaceShell({
         />
 
         <aside
-          className={`${chatCollapsed ? "hidden" : "flex"} min-h-[720px] flex-col border-l border-surface-warm-white/10 bg-[#171715] p-spacing-5 lg:flex`}
+          className={`${chatCollapsed ? "hidden" : "flex"} min-h-0 flex-col border-l border-surface-warm-white/10 bg-[#171715] p-spacing-5 lg:flex`}
         >
           <div className="flex items-start justify-between gap-spacing-5">
             <div>
@@ -387,14 +446,27 @@ export function WorkspaceShell({
             </button>
           </div>
 
-          <div className="mt-spacing-6 flex-1 space-y-spacing-5 overflow-y-auto pr-1">
+          <div
+            ref={chatScrollRef}
+            className="mt-spacing-6 min-h-0 flex-1 space-y-spacing-4 overflow-y-auto pr-1"
+          >
+            {hasMoreChat ? (
+              <button
+                type="button"
+                onClick={() => void loadOlderChat()}
+                disabled={isLoadingOlderChat}
+                className="mx-auto block rounded-full border border-surface-warm-white/10 px-spacing-4 py-spacing-2 text-xs text-surface-warm-white/54 hover:text-surface-warm-white disabled:opacity-50"
+              >
+                {isLoadingOlderChat ? "Memuat..." : "Muat chat lama"}
+              </button>
+            ) : null}
             <div className="rounded-[22px] bg-surface-warm-white px-spacing-6 py-spacing-5 text-sm leading-6 text-foreground-primary">
               {prompt}
             </div>
 
             {!isBuilding ? <AiDiscussionNotice /> : null}
 
-            <ChatMessages messages={messages} />
+            <ChatMessages messages={visibleMessages} />
 
             {!isProcessing && canStartBuild ? (
               <BuildStartCard onBuild={() => void startBuild()} />
@@ -705,11 +777,7 @@ function BuildStartCard({ onBuild }: { onBuild: () => void }) {
 }
 
 function ChatMessages({ messages }: { messages: UIMessage[] }) {
-  const assistantMessages = messages.filter(
-    (message) => message.role === "assistant",
-  );
-
-  if (!assistantMessages.length) {
+  if (!messages.length) {
     return (
       <div className="rounded-[22px] border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-6 py-spacing-5 text-sm leading-6 text-surface-warm-white/70">
         AI siap bantu merapikan brief. Tulis jawabanmu, lalu AI akan menentukan
@@ -720,10 +788,10 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
 
   return (
     <div className="space-y-spacing-4">
-      {assistantMessages.map((message) => (
+      {messages.map((message) => (
         <div
           key={message.id}
-          className="rounded-[22px] border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-6 py-spacing-5 text-sm leading-6 text-surface-warm-white/76"
+          className={`rounded-[22px] px-spacing-5 py-spacing-4 text-sm leading-6 ${message.role === "user" ? "ml-auto max-w-[88%] bg-surface-warm-white text-foreground-primary" : "mr-auto max-w-[92%] border border-surface-warm-white/10 bg-surface-warm-white/6 text-surface-warm-white/76"}`}
         >
           {message.parts.map((part, index) =>
             part.type === "text" ? (

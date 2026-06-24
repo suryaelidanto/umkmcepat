@@ -4,7 +4,10 @@ import { ClearProjectDraft } from "@/components/projects/ClearProjectDraft";
 import { WorkspaceShell } from "@/components/projects/WorkspaceShell";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseProjectChatMessages } from "@/lib/projects/chat-memory";
+import {
+  getProjectChatPage,
+  parseProjectChatMessages,
+} from "@/lib/projects/chat-memory";
 import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
 
 type ProjectPageProps = {
@@ -42,6 +45,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     SELECT "chatMessages" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
   `;
 
+  const initialChatPage = getProjectChatPage(
+    parseProjectChatMessages(chatRow?.chatMessages),
+    null,
+  );
+
   return (
     <>
       <ClearProjectDraft />
@@ -49,7 +57,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         projectId={project.id}
         initialPrompt={project.prompt}
         initialStatus={project.status}
-        initialMessages={parseProjectChatMessages(chatRow?.chatMessages)}
+        initialMessages={initialChatPage.messages}
+        initialChatCursor={initialChatPage.nextCursor}
+        initialChatHasMore={initialChatPage.hasMore}
         siteSchema={parseProjectSiteSchema(
           (project as { siteSchema?: unknown }).siteSchema,
           project.prompt,

@@ -43,6 +43,7 @@ export async function POST(request: Request) {
     );
   }
 
+  const userId = session.user.id;
   const rateLimitResponse = await checkRateLimit(request, "ai");
 
   if (rateLimitResponse) {
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: body.projectId, userId: session.user.id },
+    where: { id: body.projectId, userId },
     select: { id: true, status: true },
   });
 
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
   }
 
   const [chatRow] = await prisma.$queryRaw<[{ chatMessages: unknown }]>`
-    SELECT "chatMessages" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
+    SELECT "chatMessages" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
   `;
   const storedMessages = parseProjectChatMessages(chatRow?.chatMessages);
   const incoming = body.message ? [body.message] : (body.messages ?? []);
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
     originalMessages: messages,
     onFinish: async ({ messages }) => {
       await prisma.$executeRaw`
-        UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb WHERE id = ${project.id}
+        UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
       `;
     },
   });
