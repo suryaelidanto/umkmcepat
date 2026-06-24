@@ -18,7 +18,14 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { type PanelImperativeHandle } from "react-resizable-panels";
 
 import { ProjectSitePreview } from "@/components/projects/renderer/ProjectSitePreview";
@@ -443,6 +450,15 @@ export function WorkspaceShell({
     submitChatText(message);
   }
 
+  function handleMessageKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || !event.ctrlKey) {
+      return;
+    }
+
+    event.preventDefault();
+    submitChatText(message);
+  }
+
   function closePreviewPanel() {
     if (!showChatPanel) {
       return;
@@ -641,6 +657,7 @@ export function WorkspaceShell({
                     rows={3}
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
+                    onKeyDown={handleMessageKeyDown}
                     placeholder={
                       mode === "build"
                         ? "Minta perubahan, contoh: buat lebih premium..."

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import {
   FormEvent,
+  KeyboardEvent,
   useCallback,
   useEffect,
   useRef,
@@ -122,8 +123,15 @@ export function HomePromptForm() {
     void createProject(draft.prompt);
   }, [createProject, status]);
 
+  const isLoading = isContinuing || isPending;
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isLoading) {
+      return;
+    }
+
     setErrorMessage("");
 
     const validation = validateProjectRequest(prompt);
@@ -144,7 +152,14 @@ export function HomePromptForm() {
     await createProject(validation.value);
   }
 
-  const isLoading = isContinuing || isPending;
+  function handlePromptKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || !event.ctrlKey) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
 
   return (
     <>
@@ -161,6 +176,7 @@ export function HomePromptForm() {
             name="business-story"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
+            onKeyDown={handlePromptKeyDown}
             placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
             maxLength={PROJECT_REQUEST_MAX_LENGTH}
             disabled={isLoading}
