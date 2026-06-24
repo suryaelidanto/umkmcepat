@@ -384,7 +384,7 @@ export function WorkspaceShell({
   }
 
   return (
-    <div className="h-[calc(100dvh-4rem)] overflow-hidden bg-[#10100f] text-surface-warm-white">
+    <div className="h-dvh overflow-hidden bg-[#10100f] text-surface-warm-white">
       <div
         className="grid h-full min-h-0 gap-0 lg:grid-cols-[var(--chat-width)_8px_minmax(0,1fr)]"
         style={{
