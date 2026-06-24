@@ -3,10 +3,8 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import {
+  ArrowLeft,
   ArrowUp,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   Clock3,
   Code2,
   FileCode2,
@@ -15,8 +13,10 @@ import {
   Monitor,
   PanelRightClose,
   PanelRightOpen,
+  Pencil,
   Smartphone,
 } from "lucide-react";
+import Link from "next/link";
 import {
   FormEvent,
   PointerEvent,
@@ -33,6 +33,7 @@ import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 type WorkspaceShellProps = {
   projectId: string;
+  initialTitle: string;
   initialPrompt?: string;
   initialStatus: string;
   initialMessages: UIMessage[];
@@ -50,6 +51,7 @@ type BuildTab = "preview" | "timeline" | "changes" | "code";
 
 export function WorkspaceShell({
   projectId,
+  initialTitle,
   initialPrompt = "",
   initialStatus,
   initialMessages,
@@ -60,13 +62,15 @@ export function WorkspaceShell({
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [message, setMessage] = useState("");
+  const [projectTitle, setProjectTitle] = useState(initialTitle);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(initialTitle);
   const [siteSchema, setSiteSchema] = useState(initialSiteSchema);
   const [buildStatus, setBuildStatus] = useState(initialStatus);
   const [buildProgress, setBuildProgress] = useState<BuildProgress[]>([]);
   const [buildError, setBuildError] = useState("");
   const [chatWidth, setChatWidth] = useState(560);
   const [chatCollapsed, setChatCollapsed] = useState(false);
-  const [buildDetailsOpen, setBuildDetailsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<BuildTab>("preview");
   const [sourceFiles, setSourceFiles] = useState<GeneratedProjectFile[]>([]);
   const [sourceStatus, setSourceStatus] = useState("not_started");
@@ -322,6 +326,32 @@ export function WorkspaceShell({
     previousLiveMessageCount.current = messages.length;
   }, [messages.length]);
 
+  async function saveProjectTitle() {
+    const title = draftTitle.trim();
+
+    if (!title || title === projectTitle) {
+      setIsRenaming(false);
+      setDraftTitle(projectTitle);
+      return;
+    }
+
+    const response = await fetch(`/api/projects/${projectId}/title`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    const result = (await response.json().catch(() => null)) as {
+      title?: string;
+    } | null;
+
+    if (response.ok && result?.title) {
+      setProjectTitle(result.title);
+      setDraftTitle(result.title);
+    }
+
+    setIsRenaming(false);
+  }
+
   function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = message.trim();
@@ -428,13 +458,47 @@ export function WorkspaceShell({
           className={`${chatCollapsed ? "hidden" : "flex"} min-h-0 min-w-0 flex-col border-r border-surface-warm-white/10 bg-[#1b1b19] p-spacing-5 lg:order-1 lg:flex`}
         >
           <div className="flex items-start justify-between gap-spacing-5 px-spacing-1">
-            <div>
-              <p className="text-sm text-surface-warm-white/54">
-                Website usahamu
-              </p>
-              <h1 className="mt-1 text-xl font-semibold tracking-[-0.04em]">
-                {mode === "build" ? "Buat website" : "Diskusi brief"}
-              </h1>
+            <div className="min-w-0 flex-1">
+              <Link
+                href="/projects"
+                className="inline-flex items-center gap-spacing-2 text-xs text-surface-warm-white/46 hover:text-surface-warm-white"
+              >
+                <ArrowLeft className="size-3.5" />
+                Dashboard
+              </Link>
+              <div className="mt-spacing-3 flex items-center gap-spacing-2">
+                {isRenaming ? (
+                  <input
+                    value={draftTitle}
+                    onChange={(event) => setDraftTitle(event.target.value)}
+                    onBlur={() => void saveProjectTitle()}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void saveProjectTitle();
+                      }
+
+                      if (event.key === "Escape") {
+                        setDraftTitle(projectTitle);
+                        setIsRenaming(false);
+                      }
+                    }}
+                    autoFocus
+                    className="min-w-0 flex-1 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/8 px-spacing-3 py-spacing-2 text-base font-semibold text-surface-warm-white outline-none focus:border-surface-warm-white/30"
+                  />
+                ) : (
+                  <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
+                    {projectTitle}
+                  </h1>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsRenaming(true)}
+                  className="rounded-full p-spacing-2 text-surface-warm-white/44 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                  aria-label="Ubah nama proyek"
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+              </div>
             </div>
             <button
               type="button"
@@ -460,8 +524,6 @@ export function WorkspaceShell({
                 {isLoadingOlderChat ? "Memuat..." : "Muat chat lama"}
               </button>
             ) : null}
-            {!isBuilding ? <AiDiscussionNotice /> : null}
-
             <ChatMessages messages={visibleMessages} />
 
             {!isProcessing && canStartBuild ? (
@@ -481,13 +543,6 @@ export function WorkspaceShell({
           </div>
 
           <div className="mt-spacing-5">
-            <BuildStatusDisclosure
-              open={buildDetailsOpen}
-              setOpen={setBuildDetailsOpen}
-              isBuilding={isBuilding}
-              buildProgress={buildProgress}
-              buildError={buildError}
-            />
             {isProcessing ? (
               <ProcessingControl
                 mode={isBuilding ? "Buat" : "Diskusi"}
@@ -688,20 +743,6 @@ function EmptyPreviewState() {
   );
 }
 
-function AiDiscussionNotice() {
-  return (
-    <div className="rounded-[22px] border border-surface-warm-white/10 bg-surface-warm-white/6 p-spacing-5">
-      <p className="text-sm font-semibold text-surface-warm-white">
-        AI yang menentukan pertanyaan berikutnya.
-      </p>
-      <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/58">
-        Jawab lewat chat. Kalau brief belum jelas, AI akan tanya lagi. Kalau
-        sudah siap, AI akan mulai proses build dari brief yang sudah terkunci.
-      </p>
-    </div>
-  );
-}
-
 function ModePill({
   mode,
   tone,
@@ -784,9 +825,9 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
 
   return (
     <div className="space-y-spacing-7">
-      {messages.map((message) => (
+      {messages.map((message, messageIndex) => (
         <div
-          key={message.id}
+          key={message.id || `${message.role}-${messageIndex}`}
           className={`flex max-w-full text-sm leading-6 ${message.role === "user" ? "justify-end" : "justify-start"}`}
         >
           <div
@@ -857,73 +898,6 @@ function formatInlineMarkdown(text: string) {
     ) : (
       <span key={index}>{part}</span>
     ),
-  );
-}
-
-function BuildStatusDisclosure({
-  open,
-  setOpen,
-  isBuilding,
-  buildProgress,
-  buildError,
-}: {
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  isBuilding: boolean;
-  buildProgress: BuildProgress[];
-  buildError: string;
-}) {
-  return (
-    <div className="rounded-[20px] border border-surface-warm-white/10 bg-surface-warm-white/6">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between gap-spacing-4 px-spacing-5 py-spacing-4 text-left text-sm"
-      >
-        <span className="flex items-center gap-spacing-3 font-medium">
-          {isBuilding ? (
-            <Loader2 className="size-4 animate-spin text-[#ff5e27]" />
-          ) : (
-            <Code2 className="size-4 text-surface-warm-white/62" />
-          )}
-          {isBuilding ? "AI sedang membangun" : "Detail proses"}
-        </span>
-        {open ? (
-          <ChevronDown className="size-4" />
-        ) : (
-          <ChevronRight className="size-4" />
-        )}
-      </button>
-      {open ? (
-        <div className="border-t border-surface-warm-white/10 px-spacing-5 py-spacing-4">
-          {buildProgress.length ? (
-            <ul className="space-y-spacing-4 text-sm text-surface-warm-white/64">
-              {buildProgress.slice(-4).map((item, index) => (
-                <li
-                  key={`${item.label}-${index}`}
-                  className="flex gap-spacing-3"
-                >
-                  <CheckCircle2 className="mt-0.5 size-4 text-[#ff5e27]" />
-                  <span>
-                    <span className="block text-surface-warm-white">
-                      {item.label}
-                    </span>
-                    <span>{item.detail}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-surface-warm-white/54">
-              Belum ada proses build aktif.
-            </p>
-          )}
-          {buildError ? (
-            <p className="mt-spacing-4 text-sm text-[#ffb4a6]">{buildError}</p>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
   );
 }
 

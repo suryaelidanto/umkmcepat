@@ -48,6 +48,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const initialChatPage = getProjectChatPage(
     parseProjectChatMessages(chatRow?.chatMessages),
     null,
+    6,
   );
 
   return (
@@ -55,6 +56,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       <ClearProjectDraft />
       <WorkspaceShell
         projectId={project.id}
+        initialTitle={project.title}
         initialPrompt={project.prompt}
         initialStatus={project.status}
         initialMessages={initialChatPage.messages}
