@@ -214,6 +214,7 @@ export function WorkspaceShell({
     /mulai\s+(build|buat)|siap\s+(di)?(build|buat)|brief\s+sudah\s+(cukup\s+)?jelas/i.test(
       latestAssistantText || "",
     );
+  const hasPreview = sourceStatus === "passed" || buildStatus === "ready";
 
   useEffect(() => {
     if (activeTab !== "code" && buildStatus !== "ready") {
@@ -363,61 +364,65 @@ export function WorkspaceShell({
   return (
     <div className="h-dvh overflow-hidden bg-[#10100f] text-surface-warm-white">
       <div
-        className="grid h-full min-h-0 gap-0 lg:grid-cols-[var(--chat-width)_8px_minmax(0,1fr)]"
+        className={`grid h-full min-h-0 gap-0 ${hasPreview ? "lg:grid-cols-[var(--chat-width)_8px_minmax(0,1fr)]" : "lg:grid-cols-1"}`}
         style={{
           ["--chat-width" as string]: chatCollapsed ? "0px" : `${chatWidth}px`,
         }}
       >
-        <section className="min-h-0 min-w-0 p-spacing-5 lg:order-3 lg:p-spacing-7">
-          <div className="flex h-full min-h-0 flex-col rounded-[32px] border border-surface-warm-white/10 bg-[#ebe8df] p-spacing-4 text-foreground-primary shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
-            <WorkspaceTopBar
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              viewport={viewport}
-              setViewport={setViewport}
-              chatCollapsed={chatCollapsed}
-              setChatCollapsed={setChatCollapsed}
-            />
-            <div className="mt-spacing-4 flex-1 overflow-auto rounded-[24px] bg-[#d8d3c8] p-spacing-5">
-              {activeTab === "preview" ? (
-                sourceStatus === "passed" ? (
-                  <GeneratedPreviewFrame
-                    projectId={projectId}
-                    viewport={viewport}
-                  />
-                ) : buildStatus === "ready" ? (
-                  <div className="flex justify-center">
-                    <ProjectSitePreview
-                      siteSchema={siteSchema}
+        {hasPreview ? (
+          <section className="min-h-0 min-w-0 p-spacing-5 lg:order-3 lg:p-spacing-7">
+            <div className="flex h-full min-h-0 flex-col rounded-[32px] border border-surface-warm-white/10 bg-[#ebe8df] p-spacing-4 text-foreground-primary shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+              <WorkspaceTopBar
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                viewport={viewport}
+                setViewport={setViewport}
+                chatCollapsed={chatCollapsed}
+                setChatCollapsed={setChatCollapsed}
+              />
+              <div className="mt-spacing-4 flex-1 overflow-auto rounded-[24px] bg-[#d8d3c8] p-spacing-5">
+                {activeTab === "preview" ? (
+                  sourceStatus === "passed" ? (
+                    <GeneratedPreviewFrame
+                      projectId={projectId}
                       viewport={viewport}
                     />
-                  </div>
-                ) : (
-                  <EmptyPreviewState />
-                )
-              ) : null}
+                  ) : buildStatus === "ready" ? (
+                    <div className="flex justify-center">
+                      <ProjectSitePreview
+                        siteSchema={siteSchema}
+                        viewport={viewport}
+                      />
+                    </div>
+                  ) : (
+                    <EmptyPreviewState />
+                  )
+                ) : null}
 
-              {activeTab === "code" ? (
-                <CodeView
-                  projectId={projectId}
-                  files={sourceFiles}
-                  buildLog={sourceLog}
-                  buildStatus={sourceStatus}
-                />
-              ) : null}
+                {activeTab === "code" ? (
+                  <CodeView
+                    projectId={projectId}
+                    files={sourceFiles}
+                    buildLog={sourceLog}
+                    buildStatus={sourceStatus}
+                  />
+                ) : null}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          onPointerDown={handleDividerPointerDown}
-          className="hidden cursor-col-resize bg-transparent transition hover:bg-surface-warm-white/8 lg:order-2 lg:block"
-        />
+        {hasPreview ? (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            onPointerDown={handleDividerPointerDown}
+            className="hidden cursor-col-resize bg-transparent transition hover:bg-surface-warm-white/8 lg:order-2 lg:block"
+          />
+        ) : null}
 
         <aside
-          className={`${chatCollapsed ? "hidden" : "flex"} min-h-0 min-w-0 flex-col border-r border-surface-warm-white/10 bg-[#1b1b19] p-spacing-5 lg:order-1 lg:flex`}
+          className={`${chatCollapsed && hasPreview ? "hidden" : "flex"} min-h-0 min-w-0 flex-col bg-[#1b1b19] p-spacing-5 ${hasPreview ? "border-r border-surface-warm-white/10 lg:order-1 lg:flex" : "mx-auto w-full max-w-3xl"}`}
         >
           <div className="flex items-start justify-between gap-spacing-5 px-spacing-1">
             <div className="min-w-0 flex-1">
@@ -473,14 +478,16 @@ export function WorkspaceShell({
                 )}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setChatCollapsed(true)}
-              className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:text-surface-warm-white lg:block"
-              aria-label="Tutup chat"
-            >
-              <PanelRightClose className="size-4" />
-            </button>
+            {hasPreview ? (
+              <button
+                type="button"
+                onClick={() => setChatCollapsed(true)}
+                className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:text-surface-warm-white lg:block"
+                aria-label="Tutup chat"
+              >
+                <PanelRightClose className="size-4" />
+              </button>
+            ) : null}
           </div>
 
           <div
