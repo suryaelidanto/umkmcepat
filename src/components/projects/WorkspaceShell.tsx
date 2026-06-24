@@ -79,6 +79,7 @@ export function WorkspaceShell({
     useState<WorkspaceCard>(initialWorkspaceCard);
   const [isRefreshingCard, setIsRefreshingCard] = useState(false);
   const [cardError, setCardError] = useState(false);
+  const [questionMode, setQuestionMode] = useState(true);
   const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
   const [chatCursor, setChatCursor] = useState<number | null>(
     initialChatCursor,
@@ -217,6 +218,8 @@ export function WorkspaceShell({
   const isBuilding = buildStatus === "building";
   const isProcessing = isResponding || isBuilding;
   const visibleMessages = [...olderMessages, ...messages];
+  const hasActiveQuestionCard =
+    workspaceCard.type === "questions" && questionMode;
   const hasPreview = sourceStatus === "passed" || buildStatus === "ready";
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
@@ -390,6 +393,12 @@ export function WorkspaceShell({
     void refreshWorkspaceCard();
   }, [isProcessing, messages.length, refreshWorkspaceCard]);
 
+  useEffect(() => {
+    if (workspaceCard.type === "questions") {
+      setQuestionMode(true);
+    }
+  }, [workspaceCard]);
+
   async function saveProjectTitle() {
     const title = draftTitle.trim();
 
@@ -416,16 +425,24 @@ export function WorkspaceShell({
     setIsRenaming(false);
   }
 
+  const submitChatText = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+
+      if (!trimmed || isProcessing) {
+        return;
+      }
+
+      setMessage("");
+      setQuestionMode(true);
+      sendMessage({ text: trimmed }, { body: { mode } });
+    },
+    [isProcessing, mode, sendMessage],
+  );
+
   function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const text = message.trim();
-
-    if (!text || isProcessing) {
-      return;
-    }
-
-    setMessage("");
-    sendMessage({ text }, { body: { mode } });
+    submitChatText(message);
   }
 
   function closePreviewPanel() {
@@ -476,11 +493,6 @@ export function WorkspaceShell({
           minSize={8}
           collapsible
           collapsedSize={0}
-          onResize={(size) => {
-            if (Number(size.asPercentage) <= 8 && showPreviewPanel) {
-              setChatCollapsed(true);
-            }
-          }}
         >
           <aside className={chatPanelClass}>
             <div className="flex min-w-0 items-start justify-between gap-spacing-5 px-spacing-1">
@@ -575,16 +587,15 @@ export function WorkspaceShell({
               ) : null}
               <ChatMessages messages={visibleMessages} />
 
-              {!isProcessing ? (
+              {!isProcessing &&
+              workspaceCard.type === "build_recommendation" ? (
                 <WorkspaceCardView
                   card={workspaceCard}
                   onBuild={() => void startBuild()}
                   onRefresh={() => void refreshWorkspaceCard()}
                   isRefreshing={isRefreshingCard}
                   hasError={cardError}
-                  onAnswer={(answer) => {
-                    setMessage(answer);
-                  }}
+                  onAnswer={submitChatText}
                 />
               ) : null}
 
@@ -605,6 +616,16 @@ export function WorkspaceShell({
                 <ProcessingControl
                   mode={isBuilding ? "Buat" : "Diskusi"}
                   onStop={stopCurrentJob}
+                />
+              ) : hasActiveQuestionCard &&
+                workspaceCard.type === "questions" ? (
+                <QuestionStepperComposer
+                  card={workspaceCard}
+                  hasError={cardError}
+                  isRefreshing={isRefreshingCard}
+                  onCancel={() => setQuestionMode(false)}
+                  onRefresh={() => void refreshWorkspaceCard()}
+                  onSubmit={submitChatText}
                 />
               ) : (
                 <form
@@ -656,11 +677,6 @@ export function WorkspaceShell({
           minSize={8}
           collapsible
           collapsedSize={0}
-          onResize={(size) => {
-            if (Number(size.asPercentage) <= 8 && showChatPanel) {
-              setPreviewCollapsed(true);
-            }
-          }}
         >
           <section className={previewPanelClass}>
             <div className="flex h-full min-h-0 flex-col bg-[#10100f] text-surface-warm-white">
@@ -883,6 +899,147 @@ function ProcessingControl({
           className="shrink-0 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
         >
           Stop proses
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function QuestionStepperComposer({
+  card,
+  hasError,
+  isRefreshing,
+  onCancel,
+  onRefresh,
+  onSubmit,
+}: {
+  card: Extract<WorkspaceCard, { type: "questions" }>;
+  hasError: boolean;
+  isRefreshing: boolean;
+  onCancel: () => void;
+  onRefresh: () => void;
+  onSubmit: (answer: string) => void;
+}) {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const question = card.questions[Math.min(step, card.questions.length - 1)];
+  const selectedAnswer = question ? answers[question.id] : "";
+  const isLastStep = step >= card.questions.length - 1;
+  const canContinue = Boolean(selectedAnswer);
+
+  useEffect(() => {
+    setStep(0);
+    setAnswers({});
+  }, [card]);
+
+  if (!question) {
+    return null;
+  }
+
+  function continueStep() {
+    if (!canContinue) {
+      return;
+    }
+
+    if (!isLastStep) {
+      setStep((value) => value + 1);
+      return;
+    }
+
+    const text = card.questions
+      .map(
+        (item, index) =>
+          `${index + 1}. ${item.question}\nJawaban: ${answers[item.id]}`,
+      )
+      .join("\n\n");
+    onSubmit(text);
+  }
+
+  return (
+    <div className="mt-spacing-3 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+      <div className="flex items-start justify-between gap-spacing-4 px-spacing-1">
+        <div>
+          <p className="text-xs font-medium text-surface-warm-white/46">
+            Pertanyaan {step + 1} dari {card.questions.length}
+          </p>
+          <h2 className="mt-spacing-1 text-sm font-semibold text-surface-warm-white">
+            {question.question}
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-full border border-surface-warm-white/10 px-spacing-3 py-spacing-1.5 text-xs text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+        >
+          Tulis sendiri
+        </button>
+      </div>
+
+      {question.options.length ? (
+        <div className="mt-spacing-4 grid gap-spacing-2 sm:grid-cols-2">
+          {question.options.map((option) => {
+            const isSelected = selectedAnswer === option.label;
+
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() =>
+                  setAnswers((value) => ({
+                    ...value,
+                    [question.id]: option.label,
+                  }))
+                }
+                className={`rounded-radius-lg border px-spacing-4 py-spacing-3 text-left transition ${
+                  isSelected
+                    ? "border-surface-warm-white/44 bg-surface-warm-white/12"
+                    : "border-surface-warm-white/10 bg-[#242421] hover:border-surface-warm-white/24 hover:bg-surface-warm-white/8"
+                }`}
+              >
+                <span className="block text-sm font-semibold text-surface-warm-white">
+                  {option.label}
+                </span>
+                <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/54">
+                  {option.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-spacing-4 flex flex-wrap items-center gap-spacing-3 text-xs leading-5 text-surface-warm-white/54">
+          <span>
+            {hasError ? "Opsi belum siap." : "Menyiapkan opsi pilihan..."}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isRefreshing}
+            onClick={onRefresh}
+            className="h-8 rounded-full border-surface-warm-white/12 bg-transparent text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+          >
+            {isRefreshing ? "Menyiapkan..." : "Generate opsi"}
+          </Button>
+        </div>
+      )}
+
+      <div className="mt-spacing-4 flex items-center justify-between gap-spacing-3 px-spacing-1">
+        <button
+          type="button"
+          disabled={step === 0}
+          onClick={() => setStep((value) => Math.max(0, value - 1))}
+          className="rounded-full px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8 disabled:opacity-30"
+        >
+          Kembali
+        </button>
+        <Button
+          type="button"
+          disabled={!canContinue}
+          onClick={continueStep}
+          className="rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+        >
+          {isLastStep ? "Kirim jawaban" : "Lanjut"}
         </Button>
       </div>
     </div>
