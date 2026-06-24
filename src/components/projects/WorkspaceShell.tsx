@@ -221,10 +221,10 @@ export function WorkspaceShell({
   const hasPreview = sourceStatus === "passed" || buildStatus === "ready";
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
-  const layoutClass =
+  const workspaceColumns =
     showPreviewPanel && showChatPanel
-      ? "lg:grid-cols-[minmax(0,1fr)_8px_var(--chat-width)]"
-      : "lg:grid-cols-1";
+      ? "minmax(0, 1fr) 8px var(--chat-width)"
+      : "minmax(0, 1fr)";
 
   useEffect(() => {
     if (hasPreview && !hasAutoOpenedPreview.current) {
@@ -443,9 +443,10 @@ export function WorkspaceShell({
   return (
     <div className="h-dvh overflow-hidden bg-[#10100f] text-surface-warm-white">
       <div
-        className={`grid h-full min-h-0 gap-0 ${layoutClass}`}
+        className="grid h-full min-h-0 gap-0 lg:grid-cols-[var(--workspace-columns)]"
         style={{
           ["--chat-width" as string]: showChatPanel ? `${chatWidth}px` : "0px",
+          ["--workspace-columns" as string]: workspaceColumns,
         }}
       >
         {showPreviewPanel ? (
