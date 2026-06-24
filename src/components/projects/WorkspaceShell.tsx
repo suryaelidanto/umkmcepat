@@ -889,11 +889,11 @@ function ModePill({
   tone: "idle" | "busy";
 }) {
   return (
-    <span className="inline-flex items-center gap-spacing-2 rounded-full border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/60">
+    <span className="inline-flex items-center gap-spacing-2 rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.055] px-spacing-3 py-spacing-2 text-xs font-medium text-surface-warm-white/58">
       <span
-        className={`size-2 rounded-full ${tone === "busy" ? "animate-pulse bg-[#ff9b5f]" : "bg-[#8ce99a]"}`}
+        className={`size-1.5 rounded-full ${tone === "busy" ? "animate-pulse bg-surface-warm-white/70" : "bg-[#8ce99a]"}`}
       />
-      Mode: {mode}
+      Mode {mode}
     </span>
   );
 }
@@ -905,22 +905,38 @@ function ProcessingControl({
   mode: "Diskusi" | "Buat";
   onStop: () => void;
 }) {
+  const title = mode === "Buat" ? "Membangun preview" : "Menyusun jawaban";
+  const detail =
+    mode === "Buat"
+      ? "AI sedang menyiapkan source dan preview proyek."
+      : "Input ditutup sebentar supaya urutan diskusi tetap rapi.";
+
   return (
-    <div className="mt-spacing-4 rounded-[26px] border border-[#ff9b5f]/30 bg-[#ff9b5f]/10 p-spacing-5">
-      <div className="flex items-center justify-between gap-spacing-4">
-        <div>
-          <ModePill mode={mode} tone="busy" />
-          <p className="mt-spacing-3 text-sm text-surface-warm-white/72">
-            AI sedang bekerja. Input ditutup sementara supaya alur tidak
-            bentrok.
-          </p>
+    <div className="mt-spacing-3 overflow-hidden rounded-[22px] border border-surface-warm-white/10 bg-[#242421] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="flex items-center justify-between gap-spacing-4 px-spacing-5 py-spacing-4">
+        <div className="flex min-w-0 items-center gap-spacing-4">
+          <div className="grid size-10 shrink-0 place-items-center rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.045]">
+            <span className="size-4 rounded-full border-2 border-surface-warm-white/18 border-t-surface-warm-white/78 animate-spin" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-spacing-2">
+              <p className="text-sm font-semibold text-surface-warm-white">
+                {title}
+              </p>
+              <ModePill mode={mode} tone="busy" />
+            </div>
+            <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/50">
+              {detail}
+            </p>
+          </div>
         </div>
         <Button
           type="button"
+          variant="outline"
           onClick={onStop}
-          className="shrink-0 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
+          className="h-9 shrink-0 rounded-full border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/82 hover:bg-surface-warm-white/8"
         >
-          Stop proses
+          Hentikan
         </Button>
       </div>
     </div>
@@ -978,32 +994,42 @@ function QuestionStepperComposer({
   }
 
   return (
-    <div className="mt-spacing-3 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
-      <div className="flex items-start justify-between gap-spacing-4 px-spacing-1">
-        <div>
-          <p className="text-xs font-medium text-surface-warm-white/46">
-            Pertanyaan {step + 1} dari {card.questions.length}
-          </p>
-          <h2 className="mt-spacing-1 text-sm font-semibold text-surface-warm-white">
-            {question.question}
-          </h2>
-          {question.whyThisQuestionMatters ? (
-            <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/54">
-              {question.whyThisQuestionMatters}
+    <div className="mt-spacing-3 overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#242421] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
+        <div className="flex items-start justify-between gap-spacing-4">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-surface-warm-white/44">
+              Keputusan {step + 1} dari {card.questions.length}
             </p>
-          ) : null}
+            <h2 className="mt-spacing-1 max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
+              {question.question}
+            </h2>
+            {question.whyThisQuestionMatters ? (
+              <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/52">
+                {question.whyThisQuestionMatters}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="shrink-0 rounded-full border border-surface-warm-white/10 px-spacing-3 py-spacing-1.5 text-xs text-surface-warm-white/58 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          >
+            Tulis sendiri
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-full border border-surface-warm-white/10 px-spacing-3 py-spacing-1.5 text-xs text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-        >
-          Tulis sendiri
-        </button>
+        <div className="mt-spacing-4 grid grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-spacing-2">
+          {card.questions.map((item) => (
+            <div
+              key={item.id}
+              className={`h-1 rounded-full ${item.id === question.id ? "bg-surface-warm-white/72" : answers[item.id] ? "bg-[#8ce99a]/70" : "bg-surface-warm-white/10"}`}
+            />
+          ))}
+        </div>
       </div>
 
       {question.options.length ? (
-        <div className="mt-spacing-4 grid gap-spacing-2 sm:grid-cols-2">
+        <div className="grid gap-spacing-2 p-spacing-4 sm:grid-cols-2">
           {question.options.map((option) => {
             const isSelected = selectedAnswer === option.label;
             const isRecommended =
@@ -1019,17 +1045,17 @@ function QuestionStepperComposer({
                     [question.id]: option.label,
                   }))
                 }
-                className={`rounded-radius-lg border px-spacing-4 py-spacing-3 text-left transition ${
+                className={`rounded-[16px] border px-spacing-4 py-spacing-3 text-left transition ${
                   isSelected
-                    ? "border-surface-warm-white/44 bg-surface-warm-white/12"
-                    : "border-surface-warm-white/10 bg-[#242421] hover:border-surface-warm-white/24 hover:bg-surface-warm-white/8"
+                    ? "border-[#8ce99a]/55 bg-[#8ce99a]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                    : "border-surface-warm-white/10 bg-[#1f1f1d] hover:border-surface-warm-white/24 hover:bg-surface-warm-white/[0.055]"
                 }`}
               >
                 <span className="flex items-center gap-spacing-2 text-sm font-semibold text-surface-warm-white">
                   {option.label}
                   {isRecommended ? (
-                    <span className="rounded-full bg-[#8ce99a]/14 px-spacing-2 py-0.5 text-[10px] font-semibold text-[#b8f7c1]">
-                      Rekomendasi
+                    <span className="rounded-full border border-[#8ce99a]/22 bg-[#8ce99a]/10 px-spacing-2 py-0.5 text-[10px] font-semibold text-[#c7f8cf]">
+                      Saran AI
                     </span>
                   ) : null}
                 </span>
@@ -1041,7 +1067,7 @@ function QuestionStepperComposer({
           })}
         </div>
       ) : (
-        <div className="mt-spacing-4 flex flex-wrap items-center gap-spacing-3 text-xs leading-5 text-surface-warm-white/54">
+        <div className="flex flex-wrap items-center gap-spacing-3 p-spacing-4 text-xs leading-5 text-surface-warm-white/54">
           <span>
             {hasError ? "Opsi belum siap." : "Menyiapkan opsi pilihan..."}
           </span>
@@ -1058,7 +1084,7 @@ function QuestionStepperComposer({
         </div>
       )}
 
-      <div className="mt-spacing-4 flex items-center justify-between gap-spacing-3 px-spacing-1">
+      <div className="flex items-center justify-between gap-spacing-3 border-t border-surface-warm-white/8 px-spacing-5 py-spacing-4">
         <button
           type="button"
           disabled={step === 0}
