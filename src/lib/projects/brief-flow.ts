@@ -2,7 +2,6 @@ import { generateObject, jsonSchema } from "ai";
 
 import { getAiModel } from "@/lib/ai";
 import {
-  type BriefQuestion,
   type ProjectBrief,
   type WorkspaceCard,
   getMissingBriefFields,
@@ -91,38 +90,28 @@ export async function generateNextWorkspaceCard(
   }
 
   const missingFields = getMissingBriefFields(brief);
+  let repairNote = "";
 
-  try {
-    const result = await generateObject({
-      model: getAiModel(),
-      temperature: 0.4,
-      schema: jsonSchema<WorkspaceCard>(workspaceCardJsonSchema as never),
-      system:
-        "Kamu product strategist UMKM Indonesia. Buat kartu UI JSON saja. Tidak boleh template umum. Semua opsi harus spesifik dari brief user. Bahasa Indonesia. Jangan pakai markdown.",
-      prompt: `Brief saat ini:\n${JSON.stringify(brief)}\n\nField yang masih kosong: ${missingFields.join(", ")}\n\nTugas:\n- Jika masih ada field kosong, return type=questions.\n- Tanyakan maksimal 2 field terpenting.\n- id pertanyaan wajib salah satu field kosong.\n- Setiap opsi harus custom sesuai bisnis user, bukan kategori generik.\n- Untuk bakso, contoh opsi harus relevan seperti bakso urat, menu pedas, cabang, delivery, keluarga, pekerja sekitar, dll sesuai konteks.\n- Kalau brief sudah cukup, return type=build_recommendation.`,
-    });
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const result = await generateObject({
+        model: getAiModel(),
+        temperature: attempt === 1 ? 0.35 : 0.2,
+        schema: jsonSchema<WorkspaceCard>(workspaceCardJsonSchema as never),
+        system:
+          "Kamu product strategist UMKM Indonesia. Return HANYA structured JSON sesuai schema. Jangan markdown. Jangan template umum. Jangan opsi kosong. Semua pertanyaan dan opsi harus spesifik dari konteks user.",
+        prompt: `Brief saat ini:\n${JSON.stringify(brief)}\n\nField yang masih kosong: ${missingFields.join(", ")}\n\nKontrak wajib:\n- Jika masih ada field kosong, return type=questions.\n- Buat 1-2 pertanyaan saja.\n- id pertanyaan wajib salah satu field kosong.\n- Setiap question.options wajib 3-5 item.\n- Setiap option.label wajib spesifik dan bisa langsung dipilih user.\n- Setiap option.description wajib menjelaskan konsekuensi pilihan untuk website.\n- Opsi harus dibuat just-in-time dari bisnis user, bukan preset kategori umum.\n- Jangan pakai opsi generic seperti "Katalog produk", "Layanan utama", "Anak muda", "Keluarga" kecuali user sendiri menyebut itu.\n- Untuk usaha sate, opsi harus relevan dengan sate: menu sate ayam/kambing/taichan, paket makan, catering/acara, lokasi/jam buka, delivery, target pelanggan sekitar, keluarga, kantor, acara, dll sesuai konteks.\n- Untuk usaha lain, sesuaikan setara spesifiknya.\n- Kalau brief sudah cukup, return type=build_recommendation.\n${repairNote}`,
+      });
 
-    return normalizeWorkspaceCard(result.object, brief);
-  } catch {
-    return getNextWorkspaceCard(brief);
-  }
-}
-
-export function getNextWorkspaceCard(brief: ProjectBrief): WorkspaceCard {
-  if (isBriefReady(brief)) {
-    return buildRecommendationCard(brief);
+      return normalizeWorkspaceCard(result.object, brief);
+    } catch (error) {
+      repairNote = `\nPercobaan sebelumnya gagal validasi: ${(error as Error).message}. Buat ulang JSON yang valid dan lengkap.`;
+    }
   }
 
-  return {
-    type: "questions",
-    questions: getMissingBriefFields(brief)
-      .slice(0, 2)
-      .map((field) => ({
-        id: field,
-        question: fallbackQuestion(field),
-        options: [],
-      })),
-  };
+  throw new Error(
+    "AI gagal membuat kartu opsi yang valid setelah 3 percobaan.",
+  );
 }
 
 function normalizeWorkspaceCard(
@@ -148,11 +137,13 @@ function normalizeWorkspaceCard(
           description: option.description.trim(),
         })),
     }))
-    .filter((question) => question.question && question.options.length >= 2);
+    .filter((question) => question.question && question.options.length >= 3);
 
-  return questions.length
-    ? { type: "questions", questions }
-    : getNextWorkspaceCard(brief);
+  if (!questions.length) {
+    throw new Error("Kartu AI tidak punya pertanyaan dengan minimal 3 opsi.");
+  }
+
+  return { type: "questions", questions };
 }
 
 function buildRecommendationCard(
@@ -173,16 +164,4 @@ function buildRecommendationCard(
         brief.stylePreference,
       ].filter(Boolean),
   };
-}
-
-function fallbackQuestion(field: BriefQuestion["id"]) {
-  return (
-    {
-      businessType: "Jenis usaha ini paling tepat disebut apa?",
-      offer: "Apa produk atau layanan utama yang wajib tampil?",
-      targetCustomer: "Siapa pelanggan utama yang ingin dituju?",
-      contactOrCta: "Aksi utama pengunjung setelah melihat website apa?",
-      stylePreference: "Gaya visual website yang kamu inginkan seperti apa?",
-    } satisfies Record<BriefQuestion["id"], string>
-  )[field];
 }

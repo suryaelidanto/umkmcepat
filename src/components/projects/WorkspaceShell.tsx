@@ -77,6 +77,8 @@ export function WorkspaceShell({
   const [sourceLog, setSourceLog] = useState("");
   const [workspaceCard, setWorkspaceCard] =
     useState<WorkspaceCard>(initialWorkspaceCard);
+  const [isRefreshingCard, setIsRefreshingCard] = useState(false);
+  const [cardError, setCardError] = useState(false);
   const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
   const [chatCursor, setChatCursor] = useState<number | null>(
     initialChatCursor,
@@ -357,30 +359,36 @@ export function WorkspaceShell({
     previousLiveMessageCount.current = messages.length;
   }, [messages.length]);
 
-  useEffect(() => {
-    if (isProcessing) {
-      return;
-    }
+  const refreshWorkspaceCard = useCallback(async () => {
+    setIsRefreshingCard(true);
+    setCardError(false);
 
-    let ignore = false;
-
-    async function loadWorkspaceCard() {
+    try {
       const response = await fetch(`/api/projects/${projectId}/brief-card`);
       const result = (await response.json().catch(() => null)) as {
         workspaceCard?: WorkspaceCard;
       } | null;
 
-      if (!ignore && response.ok && result?.workspaceCard) {
-        setWorkspaceCard(result.workspaceCard);
+      if (!response.ok || !result?.workspaceCard) {
+        setCardError(true);
+        return;
       }
+
+      setWorkspaceCard(result.workspaceCard);
+    } catch {
+      setCardError(true);
+    } finally {
+      setIsRefreshingCard(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (isProcessing) {
+      return;
     }
 
-    void loadWorkspaceCard();
-
-    return () => {
-      ignore = true;
-    };
-  }, [isProcessing, messages.length, projectId]);
+    void refreshWorkspaceCard();
+  }, [isProcessing, messages.length, refreshWorkspaceCard]);
 
   async function saveProjectTitle() {
     const title = draftTitle.trim();
@@ -571,6 +579,9 @@ export function WorkspaceShell({
                 <WorkspaceCardView
                   card={workspaceCard}
                   onBuild={() => void startBuild()}
+                  onRefresh={() => void refreshWorkspaceCard()}
+                  isRefreshing={isRefreshingCard}
+                  hasError={cardError}
                   onAnswer={(answer) => {
                     setMessage(answer);
                   }}
@@ -880,12 +891,18 @@ function ProcessingControl({
 
 function WorkspaceCardView({
   card,
+  hasError,
+  isRefreshing,
   onAnswer,
   onBuild,
+  onRefresh,
 }: {
   card: WorkspaceCard;
+  hasError: boolean;
+  isRefreshing: boolean;
   onAnswer: (answer: string) => void;
   onBuild: () => void;
+  onRefresh: () => void;
 }) {
   if (card.type === "build_recommendation") {
     return (
@@ -937,9 +954,23 @@ function WorkspaceCardView({
               ))}
             </div>
           ) : (
-            <p className="mt-spacing-2 text-xs leading-5 text-surface-warm-white/54">
-              Jawab bebas di chat. AI gagal menyiapkan opsi yang cukup spesifik.
-            </p>
+            <div className="mt-spacing-3 flex flex-wrap items-center gap-spacing-3 text-xs leading-5 text-surface-warm-white/54">
+              <span>
+                {hasError
+                  ? "Opsi belum siap. Coba generate ulang."
+                  : "Menyiapkan opsi pilihan..."}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isRefreshing}
+                onClick={onRefresh}
+                className="h-8 rounded-full border-surface-warm-white/12 bg-transparent text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+              >
+                {isRefreshing ? "Menyiapkan..." : "Generate opsi"}
+              </Button>
+            </div>
           )}
         </div>
       ))}
