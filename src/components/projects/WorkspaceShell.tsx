@@ -64,7 +64,7 @@ export function WorkspaceShell({
   const [buildStatus, setBuildStatus] = useState(initialStatus);
   const [buildProgress, setBuildProgress] = useState<BuildProgress[]>([]);
   const [buildError, setBuildError] = useState("");
-  const [chatWidth, setChatWidth] = useState(440);
+  const [chatWidth, setChatWidth] = useState(560);
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [buildDetailsOpen, setBuildDetailsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<BuildTab>("preview");
@@ -340,8 +340,8 @@ export function WorkspaceShell({
     const startWidth = chatWidth;
 
     function move(pointerEvent: globalThis.PointerEvent) {
-      const next = startWidth - (pointerEvent.clientX - startX);
-      setChatWidth(Math.min(620, Math.max(340, next)));
+      const next = startWidth + (pointerEvent.clientX - startX);
+      setChatWidth(Math.min(720, Math.max(420, next)));
     }
 
     function up() {
@@ -356,12 +356,12 @@ export function WorkspaceShell({
   return (
     <div className="h-[calc(100dvh-4rem)] overflow-hidden bg-[#10100f] text-surface-warm-white">
       <div
-        className="grid h-full min-h-0 gap-0 lg:grid-cols-[minmax(0,1fr)_8px_var(--chat-width)]"
+        className="grid h-full min-h-0 gap-0 lg:grid-cols-[var(--chat-width)_8px_minmax(0,1fr)]"
         style={{
           ["--chat-width" as string]: chatCollapsed ? "0px" : `${chatWidth}px`,
         }}
       >
-        <section className="min-h-0 min-w-0 p-spacing-5 lg:p-spacing-7">
+        <section className="min-h-0 min-w-0 p-spacing-5 lg:order-3 lg:p-spacing-7">
           <div className="flex h-full min-h-0 flex-col rounded-[32px] border border-surface-warm-white/10 bg-[#ebe8df] p-spacing-4 text-foreground-primary shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
             <WorkspaceTopBar
               activeTab={activeTab}
@@ -421,13 +421,13 @@ export function WorkspaceShell({
           role="separator"
           aria-orientation="vertical"
           onPointerDown={handleDividerPointerDown}
-          className="hidden cursor-col-resize bg-transparent transition hover:bg-surface-warm-white/8 lg:block"
+          className="hidden cursor-col-resize bg-transparent transition hover:bg-surface-warm-white/8 lg:order-2 lg:block"
         />
 
         <aside
-          className={`${chatCollapsed ? "hidden" : "flex"} min-h-0 flex-col border-l border-surface-warm-white/10 bg-[#171715] p-spacing-5 lg:flex`}
+          className={`${chatCollapsed ? "hidden" : "flex"} min-h-0 min-w-0 flex-col border-r border-surface-warm-white/10 bg-[#1b1b19] p-spacing-5 lg:order-1 lg:flex`}
         >
-          <div className="flex items-start justify-between gap-spacing-5">
+          <div className="flex items-start justify-between gap-spacing-5 px-spacing-1">
             <div>
               <p className="text-sm text-surface-warm-white/54">
                 Website usahamu
@@ -448,7 +448,7 @@ export function WorkspaceShell({
 
           <div
             ref={chatScrollRef}
-            className="mt-spacing-6 min-h-0 flex-1 space-y-spacing-4 overflow-y-auto pr-1"
+            className="mt-spacing-5 min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
           >
             {hasMoreChat ? (
               <button
@@ -460,10 +460,6 @@ export function WorkspaceShell({
                 {isLoadingOlderChat ? "Memuat..." : "Muat chat lama"}
               </button>
             ) : null}
-            <div className="rounded-[22px] bg-surface-warm-white px-spacing-6 py-spacing-5 text-sm leading-6 text-foreground-primary">
-              {prompt}
-            </div>
-
             {!isBuilding ? <AiDiscussionNotice /> : null}
 
             <ChatMessages messages={visibleMessages} />
@@ -500,7 +496,7 @@ export function WorkspaceShell({
             ) : (
               <form
                 onSubmit={handleMessageSubmit}
-                className="mt-spacing-4 rounded-[26px] border border-surface-warm-white/10 bg-[#232321] p-spacing-5 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                className="mt-spacing-3 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
               >
                 <label htmlFor="workspace-message" className="sr-only">
                   Pesan untuk AI
@@ -787,17 +783,21 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
   }
 
   return (
-    <div className="space-y-spacing-4">
+    <div className="space-y-spacing-7">
       {messages.map((message) => (
         <div
           key={message.id}
-          className={`rounded-[22px] px-spacing-5 py-spacing-4 text-sm leading-6 ${message.role === "user" ? "ml-auto max-w-[88%] bg-surface-warm-white text-foreground-primary" : "mr-auto max-w-[92%] border border-surface-warm-white/10 bg-surface-warm-white/6 text-surface-warm-white/76"}`}
+          className={`flex max-w-full text-sm leading-6 ${message.role === "user" ? "justify-end" : "justify-start"}`}
         >
-          {message.parts.map((part, index) =>
-            part.type === "text" ? (
-              <MessageText key={index} text={part.text} />
-            ) : null,
-          )}
+          <div
+            className={`max-w-[86%] overflow-hidden break-words rounded-[18px] px-spacing-5 py-spacing-3 ${message.role === "user" ? "border border-surface-warm-white/12 bg-[#30302c] text-surface-warm-white/86" : "border border-surface-warm-white/10 bg-[#242421] text-surface-warm-white/78"}`}
+          >
+            {message.parts.map((part, index) =>
+              part.type === "text" ? (
+                <MessageText key={index} text={part.text} />
+              ) : null,
+            )}
+          </div>
         </div>
       ))}
     </div>
@@ -815,7 +815,10 @@ function MessageText({ text }: { text: string }) {
 
         if (listMatch) {
           return (
-            <p key={index} className="pl-spacing-4 text-surface-warm-white/72">
+            <p
+              key={index}
+              className="break-words pl-spacing-4 text-surface-warm-white/72"
+            >
               <span className="text-[#ffb38d]">{listMatch[1]}</span>{" "}
               {formatInlineMarkdown(listMatch[2])}
             </p>
@@ -824,13 +827,20 @@ function MessageText({ text }: { text: string }) {
 
         if (trimmed.startsWith("###")) {
           return (
-            <p key={index} className="font-semibold text-surface-warm-white">
+            <p
+              key={index}
+              className="break-words font-semibold text-surface-warm-white"
+            >
               {formatInlineMarkdown(trimmed.replace(/^#+\s*/, ""))}
             </p>
           );
         }
 
-        return <p key={index}>{formatInlineMarkdown(trimmed)}</p>;
+        return (
+          <p key={index} className="break-words">
+            {formatInlineMarkdown(trimmed)}
+          </p>
+        );
       })}
     </div>
   );
