@@ -1,10 +1,12 @@
 export type ProjectMarkShape = {
   color: string;
+  kind: "circle" | "rect";
   size: number;
   x: number;
   y: number;
   radius: number;
   rotate: number;
+  opacity: number;
 };
 
 export type ProjectMark = {
@@ -12,8 +14,8 @@ export type ProjectMark = {
   shapes: ProjectMarkShape[];
 };
 
-const PROJECT_MARK_BACKGROUNDS = ["#2a2a27", "#242421", "#30302c"];
-const PROJECT_MARK_COLORS = ["#fcfbf8", "#b7b0a5", "#5f5f5d", "#3a3935"];
+const PROJECT_MARK_BACKGROUNDS = ["#23231f", "#282823", "#1f211f"];
+const PROJECT_MARK_COLORS = ["#fcfbf8", "#c8c0b2", "#7a746b", "#3b3933"];
 
 export function createProjectMark(seed: string): ProjectMark {
   const hash = hashSeed(seed);
@@ -24,15 +26,17 @@ export function createProjectMark(seed: string): ProjectMark {
     background,
     shapes: [0, 1, 2].map((index) => {
       const value = hashSeed(`${seed}:${index}`);
-      const size = 112 + (value % 128);
+      const size = 150 + (value % 190);
 
       return {
         color: PROJECT_MARK_COLORS[(value >> 3) % PROJECT_MARK_COLORS.length],
+        kind: (value >> 5) % 3 === 0 ? "circle" : "rect",
         size,
-        x: 36 + ((value >> 7) % 412),
-        y: 28 + ((value >> 13) % 212),
-        radius: [18, 48, 999][(value >> 19) % 3],
-        rotate: ((value >> 23) % 50) - 25,
+        x: -40 + ((value >> 8) % 500),
+        y: -48 + ((value >> 14) % 310),
+        radius: [28, 72, 999][(value >> 20) % 3],
+        rotate: ((value >> 24) % 42) - 21,
+        opacity: [0.18, 0.34, 0.58][index],
       };
     }),
   };

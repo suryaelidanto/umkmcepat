@@ -67,28 +67,46 @@ export function ProjectList({ projects, deleteProject }: ProjectListProps) {
 
   return (
     <>
-      <div className="grid gap-spacing-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-start">
+      <div className="space-y-spacing-8">
         <FeaturedProject
           project={latestProject}
           onDelete={setSelectedProject}
         />
 
-        <div className="rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/[0.06]">
-          <div className="flex items-center justify-between gap-spacing-5 border-b border-surface-warm-white/10 px-spacing-7 py-spacing-6">
+        <section className="rounded-radius-3xl border border-surface-warm-white/10 bg-surface-warm-white/[0.045] px-spacing-6 py-spacing-6 sm:px-spacing-8 sm:py-spacing-7">
+          <div className="flex flex-wrap items-end justify-between gap-spacing-5 pb-spacing-5">
             <div>
-              <h3 className="text-base font-semibold tracking-[-0.03em] text-surface-warm-white">
+              <h3 className="text-lg font-semibold tracking-[-0.04em] text-surface-warm-white">
                 Website lain
               </h3>
-              <p className="mt-spacing-1 text-sm text-surface-warm-white/58">
+              <p className="mt-spacing-1 text-sm text-surface-warm-white/56">
                 {otherProjects.length
                   ? `${otherProjects.length} website tersimpan`
                   : "Belum ada website lain"}
               </p>
             </div>
+
+            {hiddenProjectCount ? (
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className="rounded-radius-lg px-spacing-4 py-spacing-2 text-sm font-medium text-surface-warm-white/76 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+              >
+                Lihat lainnya
+              </button>
+            ) : showAll && otherProjects.length > 5 ? (
+              <button
+                type="button"
+                onClick={() => setShowAll(false)}
+                className="rounded-radius-lg px-spacing-4 py-spacing-2 text-sm font-medium text-surface-warm-white/76 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+              >
+                Ringkas daftar
+              </button>
+            ) : null}
           </div>
 
           {visibleOtherProjects.length ? (
-            <div className="divide-y divide-surface-warm-white/10">
+            <div className="grid gap-spacing-3">
               {visibleOtherProjects.map((project) => (
                 <ProjectRow
                   key={project.id}
@@ -98,33 +116,11 @@ export function ProjectList({ projects, deleteProject }: ProjectListProps) {
               ))}
             </div>
           ) : (
-            <p className="px-spacing-7 py-spacing-8 text-sm leading-6 text-surface-warm-white/58">
+            <p className="rounded-radius-2xl border border-dashed border-surface-warm-white/10 px-spacing-6 py-spacing-8 text-sm leading-6 text-surface-warm-white/56">
               Website berikutnya yang kamu buat akan muncul di sini.
             </p>
           )}
-
-          {hiddenProjectCount ? (
-            <div className="border-t border-surface-warm-white/10 px-spacing-7 py-spacing-6">
-              <button
-                type="button"
-                onClick={() => setShowAll(true)}
-                className="text-sm font-medium text-surface-warm-white underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
-              >
-                Lihat lainnya
-              </button>
-            </div>
-          ) : showAll && otherProjects.length > 5 ? (
-            <div className="border-t border-surface-warm-white/10 px-spacing-7 py-spacing-6">
-              <button
-                type="button"
-                onClick={() => setShowAll(false)}
-                className="text-sm font-medium text-surface-warm-white underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
-              >
-                Ringkas daftar
-              </button>
-            </div>
-          ) : null}
-        </div>
+        </section>
       </div>
 
       <Dialog
@@ -174,17 +170,17 @@ function FeaturedProject({
   onDelete: (project: Project) => void;
 }) {
   return (
-    <article className="overflow-hidden rounded-radius-3xl border border-surface-warm-white/10 bg-surface-warm-white/[0.06]">
-      <div className="grid gap-0 md:grid-cols-[0.92fr_1.08fr]">
-        <ProjectMark seed={project.id} className="min-h-56 md:min-h-full" />
-        <div className="flex min-h-72 flex-col p-spacing-8 sm:p-spacing-10">
+    <article className="overflow-hidden rounded-radius-3xl border border-surface-warm-white/10 bg-surface-warm-white/[0.055]">
+      <div className="grid min-h-[21rem] gap-0 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1fr)]">
+        <ProjectMark seed={project.id} className="min-h-52 lg:min-h-full" />
+        <div className="flex min-h-72 flex-col p-spacing-8 sm:p-spacing-10 lg:p-spacing-11">
           <p className="text-sm text-surface-warm-white/58">
             Terakhir dikerjakan
           </p>
-          <h3 className="mt-spacing-4 text-3xl font-semibold leading-tight tracking-[-0.055em] text-surface-warm-white sm:text-4xl">
+          <h3 className="mt-spacing-5 max-w-2xl text-balance text-[clamp(2rem,4vw,4.2rem)] font-semibold leading-[0.98] tracking-[-0.065em] text-surface-warm-white">
             <Link
               href={`/projects/${project.id}`}
-              className="rounded-radius-sm outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+              className="rounded-radius-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-surface-warm-white"
             >
               {project.title}
             </Link>
@@ -204,7 +200,7 @@ function FeaturedProject({
             <button
               type="button"
               onClick={() => onDelete(project)}
-              className="rounded-radius-lg px-spacing-5 py-spacing-3 text-sm font-medium text-surface-warm-white/58 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+              className="rounded-radius-lg px-spacing-5 py-spacing-3 text-sm font-medium text-surface-warm-white/46 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
             >
               Hapus
             </button>
@@ -223,7 +219,7 @@ function ProjectRow({
   onDelete: (project: Project) => void;
 }) {
   return (
-    <div className="grid grid-cols-[56px_1fr] gap-spacing-5 px-spacing-7 py-spacing-5 sm:grid-cols-[64px_1fr_auto] sm:items-center">
+    <div className="group grid grid-cols-[52px_1fr] gap-spacing-5 rounded-radius-2xl px-spacing-4 py-spacing-4 transition-colors hover:bg-surface-warm-white/[0.055] sm:grid-cols-[60px_1fr_auto] sm:items-center sm:px-spacing-5">
       <ProjectMark
         seed={project.id}
         className="h-14 rounded-radius-xl sm:h-16"
@@ -231,11 +227,11 @@ function ProjectRow({
       <div className="min-w-0">
         <Link
           href={`/projects/${project.id}`}
-          className="line-clamp-1 text-base font-semibold tracking-[-0.03em] text-surface-warm-white outline-none hover:underline focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+          className="line-clamp-1 text-base font-semibold tracking-[-0.035em] text-surface-warm-white outline-none hover:underline focus-visible:ring-2 focus-visible:ring-surface-warm-white"
         >
           {project.title}
         </Link>
-        <p className="mt-spacing-2 text-sm text-surface-warm-white/58">
+        <p className="mt-spacing-2 text-sm text-surface-warm-white/54">
           {getProjectStatusLabel(project)} / Diubah{" "}
           {formatDate(project.updatedAt)}
         </p>
@@ -252,7 +248,7 @@ function ProjectRow({
         <button
           type="button"
           onClick={() => onDelete(project)}
-          className="rounded-radius-lg px-spacing-4 py-spacing-2 text-sm font-medium text-surface-warm-white/58 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+          className="rounded-radius-lg px-spacing-4 py-spacing-2 text-sm font-medium text-surface-warm-white/40 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
         >
           Hapus
         </button>
@@ -272,24 +268,40 @@ function ProjectMark({
 
   return (
     <div
-      className={`overflow-hidden bg-surface-warm-white/[0.06] ${className}`}
+      className={`relative overflow-hidden bg-surface-warm-white/[0.05] ${className}`}
       aria-hidden="true"
     >
       <svg className="h-full w-full" viewBox="0 0 600 400" role="img">
         <rect width="600" height="400" fill={mark.background} />
-        {mark.shapes.map((shape, index) => (
-          <rect
-            key={`${shape.x}-${shape.y}-${index}`}
-            width={shape.size}
-            height={shape.size}
-            x={shape.x}
-            y={shape.y}
-            rx={shape.radius}
-            fill={shape.color}
-            opacity={index === 0 ? 0.92 : 0.72}
-            transform={`rotate(${shape.rotate} ${shape.x + shape.size / 2} ${shape.y + shape.size / 2})`}
-          />
-        ))}
+        <path
+          d="M0 314 C120 270 185 336 305 292 C420 250 488 276 600 220 L600 400 L0 400 Z"
+          fill="#fcfbf8"
+          opacity="0.035"
+        />
+        {mark.shapes.map((shape, index) =>
+          shape.kind === "circle" ? (
+            <circle
+              key={`${shape.x}-${shape.y}-${index}`}
+              cx={shape.x + shape.size / 2}
+              cy={shape.y + shape.size / 2}
+              r={shape.size / 2}
+              fill={shape.color}
+              opacity={shape.opacity}
+            />
+          ) : (
+            <rect
+              key={`${shape.x}-${shape.y}-${index}`}
+              width={shape.size}
+              height={shape.size}
+              x={shape.x}
+              y={shape.y}
+              rx={shape.radius}
+              fill={shape.color}
+              opacity={shape.opacity}
+              transform={`rotate(${shape.rotate} ${shape.x + shape.size / 2} ${shape.y + shape.size / 2})`}
+            />
+          ),
+        )}
       </svg>
     </div>
   );
