@@ -80,14 +80,14 @@ export default async function HomePage() {
       {!session?.user ? <CommunitySection /> : null}
 
       {session?.user ? (
-        <section className="bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
+        <section className="bg-surface-base px-4 pb-spacing-15 pt-spacing-12 text-foreground-primary sm:px-spacing-9 lg:px-spacing-10">
           <div className="mx-auto max-w-6xl text-left">
-            <div className="rounded-radius-3xl border border-surface-warm-white/10 bg-[#1f1f1d] p-spacing-7 sm:p-spacing-10">
+            <div className="rounded-radius-3xl border border-[#d8d5cc] bg-surface-muted p-spacing-7 sm:p-spacing-10">
               <div className="max-w-2xl">
                 <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
                   Website kamu
                 </h2>
-                <p className="mt-spacing-4 text-sm leading-6 text-surface-warm-white/62 sm:text-base">
+                <p className="mt-spacing-4 text-sm leading-6 text-text-secondary sm:text-base">
                   Lanjutkan website terakhir atau buka arsip pekerjaanmu.
                 </p>
               </div>
@@ -100,11 +100,11 @@ export default async function HomePage() {
                   />
                 </div>
               ) : (
-                <div className="mt-spacing-10 rounded-radius-2xl border border-dashed border-surface-warm-white/16 bg-surface-warm-white/[0.06] p-spacing-10 text-center">
+                <div className="mt-spacing-10 rounded-radius-2xl border border-dashed border-[#d8d5cc] bg-surface-warm-white p-spacing-10 text-center">
                   <h3 className="text-xl font-semibold tracking-[-0.04em]">
                     Belum ada website
                   </h3>
-                  <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/58">
+                  <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-text-secondary">
                     Tulis kebutuhan usahamu di atas. Website barumu akan muncul
                     di sini.
                   </p>
