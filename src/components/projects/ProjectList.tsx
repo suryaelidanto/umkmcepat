@@ -19,9 +19,6 @@ type Project = {
   id: string;
   title: string;
   updatedAt: Date;
-  status: string;
-  buildStatus: string;
-  builtAt: Date | null;
 };
 
 type ProjectListProps = {
@@ -185,11 +182,9 @@ function FeaturedProject({
               {project.title}
             </Link>
           </h3>
-          <div className="mt-spacing-7 flex flex-wrap items-center gap-spacing-4 text-sm text-surface-warm-white/58">
-            <span>{getProjectStatusLabel(project)}</span>
-            <span aria-hidden="true">/</span>
-            <span>Diubah {formatDate(project.updatedAt)}</span>
-          </div>
+          <p className="mt-spacing-7 text-sm text-surface-warm-white/58">
+            Diubah {formatDate(project.updatedAt)}
+          </p>
           <div className="mt-auto flex flex-wrap items-center gap-spacing-4 pt-spacing-10">
             <Button
               asChild
@@ -232,8 +227,7 @@ function ProjectRow({
           {project.title}
         </Link>
         <p className="mt-spacing-2 text-sm text-surface-warm-white/54">
-          {getProjectStatusLabel(project)} / Diubah{" "}
-          {formatDate(project.updatedAt)}
+          Diubah {formatDate(project.updatedAt)}
         </p>
       </div>
       <div className="col-start-2 flex items-center gap-spacing-3 sm:col-start-auto">
@@ -305,22 +299,6 @@ function ProjectMark({
       </svg>
     </div>
   );
-}
-
-function getProjectStatusLabel(project: Project) {
-  if (project.buildStatus === "failed") {
-    return "Build gagal";
-  }
-
-  if (project.builtAt || project.buildStatus === "built") {
-    return "Sudah dibuat";
-  }
-
-  if (project.buildStatus === "building" || project.status === "building") {
-    return "Sedang dibuat";
-  }
-
-  return "Draft";
 }
 
 function formatDate(date: Date) {

@@ -18,9 +18,6 @@ export default async function HomePage() {
             id: true,
             title: true,
             updatedAt: true,
-            status: true,
-            buildStatus: true,
-            builtAt: true,
           },
         }),
         prisma.user.findUnique({
