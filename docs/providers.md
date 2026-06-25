@@ -8,8 +8,19 @@ Provider selection is controlled by `.env`. Registered provider names live in `s
 | ---------- | ------------------------- | --------------- |
 | AI         | `AI_PROVIDER`             | `9router`       |
 | Rate limit | `RATE_LIMIT_PROVIDER`     | `memory`        |
-| Auth       | Google OAuth              | Google          |
+| Auth       | Google OAuth + Turnstile  | Google          |
 | Storage    | `OBJECT_STORAGE_PROVIDER` | `local`         |
+
+## Auth
+
+Google OAuth is the login provider. The login modal can use Cloudflare Turnstile before starting OAuth.
+
+```env
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=""
+TURNSTILE_SECRET_KEY=""
+```
+
+Leave both empty in local development to use the dev check. Set both in production if Turnstile should be enforced.
 
 ## AI
 

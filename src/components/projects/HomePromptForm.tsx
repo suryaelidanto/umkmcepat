@@ -2,7 +2,7 @@
 
 import { ArrowUp, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import {
   FormEvent,
   KeyboardEvent,
@@ -13,14 +13,8 @@ import {
   useTransition,
 } from "react";
 
+import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   createProjectDraft,
   parseProjectDraft,
@@ -220,32 +214,12 @@ export function HomePromptForm() {
         ) : null}
       </form>
 
-      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Masuk dulu untuk lanjut</DialogTitle>
-            <DialogDescription>
-              Chat kamu sudah disimpan. Setelah masuk, AI akan lanjut otomatis
-              tanpa perlu mengetik ulang.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col-reverse gap-spacing-4 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setLoginOpen(false)}
-            >
-              Nanti dulu
-            </Button>
-            <Button
-              type="button"
-              onClick={() => signIn("google", { callbackUrl: "/" })}
-            >
-              Masuk dengan Google
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <LoginConsentDialog
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        title="Masuk dulu untuk lanjut"
+        description="Chat kamu sudah disimpan. Setelah masuk, AI akan lanjut otomatis tanpa perlu mengetik ulang."
+      />
     </>
   );
 }

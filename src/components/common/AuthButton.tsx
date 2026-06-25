@@ -2,13 +2,15 @@
 
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import { Button } from "@/components/ui/button";
 
 export function AuthButton() {
   const { data: session, status } = useSession();
+  const [loginOpen, setLoginOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,15 +52,18 @@ export function AuthButton() {
 
   if (!session?.user) {
     return (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => signIn("google", { callbackUrl: "/" })}
-        className="rounded-radius-lg border-surface-warm-white/16 bg-surface-warm-white/8 px-spacing-8 text-surface-warm-white hover:bg-surface-warm-white/14 focus-visible:ring-2 focus-visible:ring-surface-warm-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#151515]"
-      >
-        Masuk
-      </Button>
+      <>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setLoginOpen(true)}
+          className="rounded-radius-lg border-surface-warm-white/16 bg-surface-warm-white/8 px-spacing-8 text-surface-warm-white hover:bg-surface-warm-white/14 focus-visible:ring-2 focus-visible:ring-surface-warm-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#151515]"
+        >
+          Masuk
+        </Button>
+        <LoginConsentDialog open={loginOpen} onOpenChange={setLoginOpen} />
+      </>
     );
   }
 

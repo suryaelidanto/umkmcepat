@@ -25,6 +25,14 @@ User projects are data and artifacts, not separate apps/processes/containers. Do
 ## Main runtime flow
 
 ```text
+Login
+  -> shared LoginConsentDialog
+  -> dev check when Turnstile env is empty locally, Cloudflare Turnstile when configured
+  -> user agrees to canonical /terms and /privacy links
+  -> Google OAuth
+```
+
+```text
 / prompt
   -> POST /api/projects
   -> auth + global/AI rate limit + moderation + input validation
@@ -90,6 +98,7 @@ Preview
 - `docs/provider-architecture.md` and `docs/providers.md` — provider boundaries
 - `prisma/schema.prisma` — DB models and indexes
 - `src/lib/auth.ts` — NextAuth config
+- `src/lib/turnstile.ts` — Cloudflare Turnstile verification helper with local dev fallback
 - `src/lib/ai.ts` — 9Router AI SDK adapter
 - `src/lib/rate-limit.ts` — memory/none rate limiter
 - `src/lib/object-storage.ts` — env-driven object storage adapter, local filesystem by default
@@ -103,6 +112,7 @@ Preview
 - `src/lib/projects/site-generation.ts` — AI generation system prompt
 - `src/lib/projects/generated-source.ts` — generated Vite files, temp build, dist collection
 - `src/app/(main)/profile/page.tsx` — signed-in profile page for editing display name and avatar
+- `src/app/api/auth/turnstile/route.ts` — login pre-check verification endpoint
 - `src/app/api/profile/route.ts` — authenticated profile update endpoint
 - `src/app/api/profile/avatar/route.ts` — private uploaded avatar serving endpoint
 - `src/app/api/projects/route.ts` — project creation
@@ -164,6 +174,8 @@ Keep newest first. Only record context useful for future agents, not every tiny 
 ### 2026-06-25
 
 - Redesigned the signed-in homepage project list as one recent-work area with local deterministic abstract project marks instead of fake preview images.
+- Added login consent gate with Turnstile support and canonical Terms/Privacy agreement before Google OAuth.
+- Added a Terms availability/funding clause for free/subsidized service continuity.
 - Added local-first object storage for uploaded profile avatars, with env placeholders for future Cloudflare R2.
 - Added `/profile`, `PATCH /api/profile`, and private avatar serving so signed-in users can edit their display name/avatar for account UI and homepage greeting.
 - Added deterministic workspace-card answer mapping so selected/custom UI answers update the structured brief before the next AI turn.

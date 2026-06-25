@@ -14,14 +14,14 @@ UMKM Cepat keeps vendor-specific code behind small internal boundaries. Add a pr
 
 ## Current default choices
 
-| Capability | Current default                 | Future-compatible path                               |
-| ---------- | ------------------------------- | ---------------------------------------------------- |
-| Database   | PostgreSQL via Prisma           | Any PostgreSQL host via `DATABASE_URL`               |
-| AI         | Vercel AI SDK + 9Router gateway | Other AI SDK providers behind `src/lib/ai.ts`        |
-| Auth       | Auth.js / NextAuth with Google  | GitHub, Microsoft, email, or other Auth.js providers |
-| Rate limit | Memory                          | Redis-backed limiter later                           |
-| Monitoring | Optional Sentry                 | Any observability provider later                     |
-| Storage    | Local filesystem                | Cloudflare R2/S3-compatible storage behind adapter   |
+| Capability | Current default                                     | Future-compatible path                               |
+| ---------- | --------------------------------------------------- | ---------------------------------------------------- |
+| Database   | PostgreSQL via Prisma                               | Any PostgreSQL host via `DATABASE_URL`               |
+| AI         | Vercel AI SDK + 9Router gateway                     | Other AI SDK providers behind `src/lib/ai.ts`        |
+| Auth       | Auth.js / NextAuth with Google + optional Turnstile | GitHub, Microsoft, email, or other Auth.js providers |
+| Rate limit | Memory                                              | Redis-backed limiter later                           |
+| Monitoring | Optional Sentry                                     | Any observability provider later                     |
+| Storage    | Local filesystem                                    | Cloudflare R2/S3-compatible storage behind adapter   |
 
 ## Adapter rule
 
@@ -54,6 +54,8 @@ Provider selection should be explicit:
 AI_PROVIDER="9router"
 RATE_LIMIT_PROVIDER="memory"
 OBJECT_STORAGE_PROVIDER="local"
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=""
+TURNSTILE_SECRET_KEY=""
 ```
 
 Provider credentials stay in `.env` locally or deployment secrets. Never commit real values.

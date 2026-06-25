@@ -58,6 +58,18 @@ export default function TermsPage() {
           </section>
 
           <section>
+            <h2 className="text-xl font-semibold">
+              Ketersediaan dan dukungan biaya
+            </h2>
+            <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/62">
+              UMKM Cepat tidak dijamin selalu tersedia atau terus berjalan.
+              Layanan gratis ini bergantung pada biaya server, kuota AI, dan
+              dukungan sponsor atau donasi; jika layanan ini membantu bisnismu,
+              dukunganmu bisa ikut menjaga UMKM Cepat tetap hidup.
+            </p>
+          </section>
+
+          <section>
             <h2 className="text-xl font-semibold">Masukan dan kontribusi</h2>
             <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/62">
               UMKM Cepat adalah proyek open source. Kamu bisa membuat issue,
