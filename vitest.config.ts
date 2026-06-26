@@ -9,6 +9,9 @@ const storybookConfigDir = path
   .replace(/\\/g, "/");
 
 export default defineConfig({
+  optimizeDeps: {
+    include: ["react-resizable-panels"],
+  },
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
   },

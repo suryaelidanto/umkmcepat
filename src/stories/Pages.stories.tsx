@@ -1,3 +1,4 @@
+import PrivacyPage from "@/app/(main)/privacy/page";
 import TermsPage from "@/app/(main)/terms/page";
 import { Footer } from "@/components/common/Footer";
 import { SponsorTable } from "@/components/home/SponsorTable";
@@ -15,6 +16,10 @@ type Story = StoryObj<typeof meta>;
 
 export const Terms: Story = {
   render: () => <TermsPage />,
+};
+
+export const Privacy: Story = {
+  render: () => <PrivacyPage />,
 };
 
 export const FooterLinks: Story = {
