@@ -11,6 +11,7 @@ const meta = {
     onOpenChange: () => undefined,
     open: true,
     title: "Masuk dulu untuk lanjut",
+    turnstileSiteKey: "",
   },
   component: LoginConsentDialog,
   parameters: {
@@ -23,26 +24,23 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const DevCheck: Story = {};
+export const TermsGate: Story = {};
 
 export const HeaderLogin: Story = {
   args: {
-    description:
-      "Masuk dengan Google untuk menyimpan proyek dan melanjutkan pembuatan website.",
+    description: undefined,
     title: "Masuk ke UMKM Cepat",
   },
 };
 
-export const EnablesGoogleAfterChecks: Story = {
+export const EnablesGoogleAfterConsent: Story = {
   play: async ({ userEvent }) => {
     const googleButton = screen.getByRole("button", {
       name: "Masuk dengan Google",
     });
     await expect(googleButton).toBeDisabled();
 
-    const checkboxes = screen.getAllByRole("checkbox");
-    await userEvent.click(checkboxes[0]);
-    await userEvent.click(checkboxes[1]);
+    await userEvent.click(screen.getByRole("checkbox"));
 
     await expect(googleButton).toBeEnabled();
   },

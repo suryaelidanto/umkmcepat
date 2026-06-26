@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
+import { LegalDocumentContent } from "@/components/legal/LegalDocumentContent";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,9 +20,15 @@ declare global {
       render: (
         element: HTMLElement,
         options: {
+          appearance?: "always" | "execute" | "interaction-only";
           callback: (token: string) => void;
+          "error-callback"?: () => void;
+          execution?: "execute" | "render";
+          "expired-callback"?: () => void;
           sitekey: string;
+          size?: "compact" | "flexible" | "normal";
           theme?: "auto" | "dark" | "light";
+          "timeout-callback"?: () => void;
         },
       ) => string;
       reset: (widgetId: string) => void;
@@ -30,31 +36,37 @@ declare global {
   }
 }
 
-const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+const defaultTurnstileSiteKey =
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 export function LoginConsentDialog({
-  description = "Masuk dengan Google untuk menyimpan proyek dan melanjutkan pembuatan website.",
+  description,
   onOpenChange,
   open,
   title = "Masuk ke UMKM Cepat",
+  turnstileSiteKey = defaultTurnstileSiteKey,
 }: {
   description?: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   title?: string;
+  turnstileSiteKey?: string;
 }) {
+  const [activeLegalDocument, setActiveLegalDocument] = useState<
+    "privacy" | "terms" | null
+  >(null);
   const [agrees, setAgrees] = useState(false);
-  const [devHumanCheck, setDevHumanCheck] = useState(false);
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
-  const turnstileRef = useRef<HTMLDivElement>(null);
+  const [turnstileElement, setTurnstileElement] =
+    useState<HTMLDivElement | null>(null);
   const widgetIdRef = useRef("");
   const hasTurnstile = Boolean(turnstileSiteKey);
-  const canContinue = agrees && (hasTurnstile ? turnstileToken : devHumanCheck);
+  const canContinue = agrees && (hasTurnstile ? turnstileToken : true);
 
   useEffect(() => {
-    if (!open || !hasTurnstile || !turnstileRef.current) {
+    if (!open || !hasTurnstile || !turnstileElement) {
       return;
     }
 
@@ -68,19 +80,49 @@ export function LoginConsentDialog({
         return;
       }
 
-      if (cancelled || !window.turnstile || !turnstileRef.current) {
+      if (cancelled || !window.turnstile) {
         return;
       }
 
       if (widgetIdRef.current) {
         window.turnstile.remove(widgetIdRef.current);
+        widgetIdRef.current = "";
       }
 
-      widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
-        callback: setTurnstileToken,
+      const element = turnstileElement;
+
+      if (!element) {
+        return;
+      }
+
+      element.replaceChildren();
+
+      const widgetId = window.turnstile.render(element, {
+        appearance: "always",
+        callback: (token) => {
+          setError("");
+          setTurnstileToken(token);
+        },
+        "error-callback": () => {
+          setError(
+            "Turnstile gagal tampil. Cek domain widget, koneksi, atau blocker browser.",
+          );
+          setTurnstileToken("");
+        },
+        execution: "render",
+        "expired-callback": () => setTurnstileToken(""),
         sitekey: turnstileSiteKey,
+        size: "normal",
         theme: "dark",
+        "timeout-callback": () => setTurnstileToken(""),
       });
+
+      if (!widgetId) {
+        setError("Turnstile gagal dimuat. Coba muat ulang halaman.");
+        return;
+      }
+
+      widgetIdRef.current = widgetId;
     }
 
     void renderTurnstile();
@@ -93,14 +135,14 @@ export function LoginConsentDialog({
         widgetIdRef.current = "";
       }
     };
-  }, [hasTurnstile, open]);
+  }, [hasTurnstile, open, turnstileElement, turnstileSiteKey]);
 
   function close(nextOpen: boolean) {
     onOpenChange(nextOpen);
 
     if (!nextOpen) {
       setAgrees(false);
-      setDevHumanCheck(false);
+      setActiveLegalDocument(null);
       setError("");
       setIsVerifying(false);
       setTurnstileToken("");
@@ -134,80 +176,116 @@ export function LoginConsentDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent>
+      <DialogContent className={activeLegalDocument ? "max-w-2xl" : undefined}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
+          ) : null}
         </DialogHeader>
 
-        <div className="space-y-spacing-4">
+        <div className="space-y-spacing-5">
           {hasTurnstile ? (
-            <div className="rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/[0.055] p-spacing-5">
-              <div ref={turnstileRef} />
+            <div className="space-y-spacing-3">
+              <p className="text-xs font-medium text-surface-warm-white/54">
+                Verifikasi keamanan
+              </p>
+              <div className="flex justify-center rounded-radius-xl border border-surface-warm-white/10 bg-[#1d1d1b] px-spacing-4 py-spacing-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <div
+                  ref={setTurnstileElement}
+                  className="min-h-[65px] w-[300px] max-w-full overflow-hidden rounded-radius-md [&_iframe]:rounded-radius-md"
+                />
+              </div>
             </div>
-          ) : (
-            <label className="flex gap-spacing-4 rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/[0.055] p-spacing-5 text-sm leading-6 text-surface-warm-white/78">
+          ) : null}
+
+          <div className="space-y-spacing-3">
+            <p className="text-xs font-medium text-surface-warm-white/54">
+              Persetujuan
+            </p>
+            <label className="flex gap-spacing-4 rounded-radius-xl border border-surface-warm-white/10 bg-surface-warm-white/[0.055] p-spacing-5 text-sm leading-6 text-surface-warm-white/78 transition hover:bg-surface-warm-white/[0.075]">
               <input
                 type="checkbox"
-                checked={devHumanCheck}
-                onChange={(event) => setDevHumanCheck(event.target.checked)}
+                checked={agrees}
+                onChange={(event) => setAgrees(event.target.checked)}
                 className="mt-1 size-4 accent-surface-warm-white"
               />
               <span>
-                Saya bukan bot spam dan tidak akan menyalahgunakan layanan.
+                Saya setuju dengan{" "}
+                <button
+                  type="button"
+                  className="font-medium underline underline-offset-4 hover:text-surface-warm-white"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setActiveLegalDocument("terms");
+                  }}
+                >
+                  Ketentuan penggunaan
+                </button>{" "}
+                dan{" "}
+                <button
+                  type="button"
+                  className="font-medium underline underline-offset-4 hover:text-surface-warm-white"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setActiveLegalDocument("privacy");
+                  }}
+                >
+                  Kebijakan privasi
+                </button>
+                .
               </span>
             </label>
-          )}
-
-          <label className="flex gap-spacing-4 rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/[0.055] p-spacing-5 text-sm leading-6 text-surface-warm-white/78">
-            <input
-              type="checkbox"
-              checked={agrees}
-              onChange={(event) => setAgrees(event.target.checked)}
-              className="mt-1 size-4 accent-surface-warm-white"
-            />
-            <span>
-              Saya setuju dengan{" "}
-              <Link
-                href="/terms"
-                className="font-medium underline underline-offset-4"
-              >
-                Ketentuan penggunaan
-              </Link>{" "}
-              dan{" "}
-              <Link
-                href="/privacy"
-                className="font-medium underline underline-offset-4"
-              >
-                Kebijakan privasi
-              </Link>
-              .
-            </span>
-          </label>
+          </div>
         </div>
+
+        {activeLegalDocument ? (
+          <div className="max-h-[42vh] overflow-y-auto rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/[0.045] p-spacing-6">
+            <LegalDocumentContent compact documentKey={activeLegalDocument} />
+          </div>
+        ) : null}
 
         {error ? <p className="text-sm text-[#ffb4a8]">{error}</p> : null}
 
-        <div className="flex flex-col-reverse gap-spacing-4 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            className="border-surface-warm-white/14 bg-transparent text-surface-warm-white/78 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-            onClick={() => close(false)}
-          >
-            Nanti dulu
-          </Button>
-          <Button
-            type="button"
-            className="bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
-            disabled={!canContinue || isVerifying}
-            onClick={continueWithGoogle}
-          >
-            {isVerifying ? "Memeriksa..." : "Masuk dengan Google"}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          className="h-12 w-full gap-spacing-4 bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
+          disabled={!canContinue || isVerifying}
+          onClick={continueWithGoogle}
+        >
+          <GoogleLogoIcon />
+          {isVerifying ? "Memeriksa..." : "Masuk dengan Google"}
+        </Button>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function GoogleLogoIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-5"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <path
+        d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.38 12 5.38z"
+        fill="#EA4335"
+      />
+    </svg>
   );
 }
 
