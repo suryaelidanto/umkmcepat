@@ -218,25 +218,6 @@ export function LoginConsentDialog({
               .
             </span>
           </label>
-
-          {hasTurnstile ? (
-            <div className="rounded-radius-xl border border-surface-warm-white/10 bg-[#1d1d1b] p-spacing-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <div className="mb-spacing-3 flex items-center justify-between gap-spacing-4 text-xs text-surface-warm-white/54">
-                <span>Verifikasi keamanan</span>
-                {turnstileToken ? (
-                  <span className="text-[#86efac]">Berhasil</span>
-                ) : (
-                  <span>Wajib</span>
-                )}
-              </div>
-              <div className="flex justify-center">
-                <div
-                  ref={setTurnstileElement}
-                  className="min-h-[65px] w-[300px] max-w-full overflow-hidden rounded-radius-md [&_iframe]:rounded-radius-md"
-                />
-              </div>
-            </div>
-          ) : null}
         </div>
 
         {activeLegalDocument ? (
@@ -256,6 +237,15 @@ export function LoginConsentDialog({
           <GoogleLogoIcon />
           {isVerifying ? "Memeriksa..." : "Masuk dengan Google"}
         </Button>
+
+        {hasTurnstile ? (
+          <div className="flex justify-center">
+            <div
+              ref={setTurnstileElement}
+              className="min-h-[65px] w-[300px] max-w-full overflow-hidden rounded-radius-md [&_iframe]:rounded-radius-md"
+            />
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
