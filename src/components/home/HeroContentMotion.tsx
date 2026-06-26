@@ -15,7 +15,7 @@ export function HeroContentMotion({ children }: { children: React.ReactNode }) {
       variants={{
         hidden: {},
         show: {
-          transition: { delayChildren: 0.08, staggerChildren: 0.09 },
+          transition: { delayChildren: 0.12, staggerChildren: 0.12 },
         },
       }}
     >
@@ -24,21 +24,28 @@ export function HeroContentMotion({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function HeroMotionItem({ children }: { children: React.ReactNode }) {
+export function HeroMotionItem({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   const reduceMotion = useReducedMotion();
 
   return (
     <motion.div
-      className="contents"
+      className={className}
       variants={
         reduceMotion
           ? undefined
           : {
-              hidden: { opacity: 0, y: 18 },
+              hidden: { opacity: 0, y: 24, filter: "blur(10px)" },
               show: {
                 opacity: 1,
                 y: 0,
-                transition: { duration: 0.72, ease: [0.22, 1, 0.36, 1] },
+                filter: "blur(0px)",
+                transition: { duration: 0.85, ease: [0.22, 1, 0.36, 1] },
               },
             }
       }

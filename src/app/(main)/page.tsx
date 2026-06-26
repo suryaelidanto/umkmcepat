@@ -76,7 +76,7 @@ export default async function HomePage() {
             </p>
           </HeroMotionItem>
 
-          <HeroMotionItem>
+          <HeroMotionItem className="w-full">
             <HomePromptForm />
           </HeroMotionItem>
         </HeroContentMotion>
