@@ -1,10 +1,6 @@
 import {
-  EmptyPreviewState,
-  ModePill,
-  ProcessingControl,
   QuestionStepperComposer,
   WorkspaceCardView,
-  WorkspaceTopBar,
 } from "@/components/projects/WorkspacePrimitives";
 
 import type { WorkspaceCard } from "@/lib/projects/brief";
@@ -16,84 +12,11 @@ const meta = {
     layout: "fullscreen",
   },
   tags: ["autodocs"],
-  title: "Workspace/Real Components",
+  title: "Organisms/Workspace Decision Cards",
 } satisfies Meta;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
-
-export const TopBarPreview: Story = {
-  render: () => (
-    <DarkCanvas>
-      <WorkspaceTopBar
-        activeTab="preview"
-        setActiveTab={() => undefined}
-        viewport="desktop"
-        setViewport={() => undefined}
-        chatCollapsed={false}
-        openChatPanel={() => undefined}
-        closeChatPanel={() => undefined}
-      />
-    </DarkCanvas>
-  ),
-};
-
-export const TopBarCodeMobile: Story = {
-  render: () => (
-    <DarkCanvas>
-      <WorkspaceTopBar
-        activeTab="code"
-        setActiveTab={() => undefined}
-        viewport="mobile"
-        setViewport={() => undefined}
-        chatCollapsed
-        openChatPanel={() => undefined}
-        closeChatPanel={() => undefined}
-      />
-    </DarkCanvas>
-  ),
-};
-
-export const ModePills: Story = {
-  render: () => (
-    <DarkCanvas>
-      <div className="flex gap-spacing-4 p-spacing-6">
-        <ModePill mode="Diskusi" tone="idle" />
-        <ModePill mode="Diskusi" tone="busy" />
-        <ModePill mode="Buat" tone="idle" />
-        <ModePill mode="Buat" tone="busy" />
-      </div>
-    </DarkCanvas>
-  ),
-};
-
-export const ProcessingDiscuss: Story = {
-  render: () => (
-    <DarkCanvas>
-      <div className="max-w-3xl p-spacing-6">
-        <ProcessingControl mode="Diskusi" onStop={() => undefined} />
-      </div>
-    </DarkCanvas>
-  ),
-};
-
-export const ProcessingBuild: Story = {
-  render: () => (
-    <DarkCanvas>
-      <div className="max-w-3xl p-spacing-6">
-        <ProcessingControl mode="Buat" onStop={() => undefined} />
-      </div>
-    </DarkCanvas>
-  ),
-};
-
-export const EmptyPreview: Story = {
-  render: () => (
-    <div className="h-[32rem] bg-[#10100f]">
-      <EmptyPreviewState />
-    </div>
-  ),
-};
 
 export const QuestionStepper: Story = {
   render: () => (

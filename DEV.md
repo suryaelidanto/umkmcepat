@@ -136,8 +136,8 @@ For UI, styling, layout, typography, colors, or components:
 
 1. Read `DESIGN.md`.
 2. Reuse `src/components/ui` and existing design tokens first.
-3. Check Storybook for existing approved component states before changing reusable UI.
-4. Add or update a Storybook story when adding a reusable component or meaningful visual state.
+3. Check Storybook foundations, atoms, molecules, and organisms before changing reusable UI.
+4. Add or update a Storybook story when adding a reusable component or meaningful visual state; avoid page-level stories unless the page is a reusable template.
 5. Keep visible product copy Indonesian.
 6. Keep developer/internal text English.
 7. Include artifact paths in handoff when browser review was used.

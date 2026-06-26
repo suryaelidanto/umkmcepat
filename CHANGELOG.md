@@ -7,7 +7,7 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 ### 2026-06-25
 
 - Redesigned the signed-in homepage project list with a calmer recent-work layout and local abstract project marks.
-- Expanded Storybook into a grouped design-system catalog with MDX guidance, component tests, viewports, autodocs, and optional Chromatic wiring.
+- Simplified Storybook into an atomic design-system catalog with foundations, reusable atoms/molecules/organisms, component tests, and optional Chromatic wiring.
 - Added login consent with Cloudflare Turnstile support and canonical Terms/Privacy agreement before Google sign-in.
 - Added a Terms clause clarifying service availability, subsidy limits, and funding dependence.
 - Added local-first object storage for profile avatars, with env placeholders for future Cloudflare R2.
