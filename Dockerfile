@@ -29,7 +29,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.ts ./next.config.ts
 
-RUN mkdir -p public/uploads && chown -R nextjs:nodejs /app
+RUN mkdir -p .data/uploads && chown -R nextjs:nodejs /app
 
 USER nextjs
 EXPOSE 3000

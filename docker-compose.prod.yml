@@ -17,10 +17,12 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL:-http://9router:20128/v1}
+      OBJECT_STORAGE_PROVIDER: ${OBJECT_STORAGE_PROVIDER:-local}
+      LOCAL_UPLOAD_DIR: ${LOCAL_UPLOAD_DIR:-.data/uploads}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
-      - uploads:/app/public/uploads
+      - uploads:/app/.data/uploads
 
   9router:
     image: decolua/9router:latest

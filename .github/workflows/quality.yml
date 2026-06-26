@@ -41,9 +41,9 @@ jobs:
       AI_MODELS: cmc/deepseek/deepseek-v4-pro,cmc/deepseek/deepseek-v4-flash,cmc/moonshotai/Kimi-K2.6
       NINE_ROUTER_BASE_URL: http://localhost:20129/v1
       NINE_ROUTER_API_KEY: test
-      STORAGE_PROVIDER: local
+      OBJECT_STORAGE_PROVIDER: local
+      LOCAL_UPLOAD_DIR: .data/uploads
       RATE_LIMIT_PROVIDER: memory
-      QUEUE_PROVIDER: none
       CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
 
     steps:

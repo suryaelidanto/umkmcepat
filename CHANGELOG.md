@@ -4,6 +4,11 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 
 ## 2026-06
 
+### 2026-06-26
+
+- Added a docs-as-part-of-the-change rule so future behavior/setup/env/architecture/provider/storage/deployment/UI/product-flow changes update canonical docs or explicitly state no doc change is needed.
+- Simplified project docs around `PRINCIPLES.md`, two active topic docs, slim agent/dev onboarding, removed stale manual index docs, and aligned Docker/CI storage env names.
+
 ### 2026-06-25
 
 - Redesigned the signed-in homepage project list with a calmer recent-work layout and local abstract project marks.

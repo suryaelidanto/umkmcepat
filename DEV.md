@@ -1,121 +1,96 @@
 # Development SOP
 
-This file is the maintainer and agent workflow for UMKM Cepat. For contributor onboarding, start with `CONTRIBUTING.md`.
+Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIPLES.md`. For contributor onboarding, start with `CONTRIBUTING.md`.
 
-## Core principles
+## Core rules
 
 - Keep changes small and reviewable.
-- Prefer deletion and reuse over new abstractions.
-- Extract reusable code only after a second real use case appears.
-- Use boring platform features before adding dependencies.
-- Keep provider-specific code behind internal adapters.
-- Keep developer-facing text, code names, comments, logs, errors, docs, and commits in English.
+- Keep developer-facing docs, code names, comments, logs, errors, and commits in English.
 - Keep end-user UI copy in Indonesian unless an i18n layer is introduced.
-- Do not add code comments unless they explain non-obvious constraints, security decisions, or platform quirks. Prefer self-explanatory names.
-- Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, or generated junk.
-
-## Package manager
-
-Use Bun only. The version is pinned in `package.json`, and `bun.lock` is the canonical lockfile.
+- Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, uploads, or generated junk.
 
 ## Local runtime
 
-Run the app locally, not inside Docker:
+Use Bun only. The version is pinned in `package.json`, and `bun.lock` is canonical.
 
 ```bash
-bun run dev
-```
-
-Run infrastructure in Docker:
-
-```bash
+bun install
+cp .env.example .env
 bun run infra
-bun run infra:ai
-```
-
-Inspect infrastructure:
-
-```bash
-bun run infra:ps
-bun run infra:logs
-```
-
-Apply database migrations:
-
-```bash
 bun run db:migrate
+bun run dev
 ```
 
 Open:
 
 ```text
-App:      http://localhost:3000
+App: http://localhost:3000
+```
+
+Optional AI gateway:
+
+```bash
+bun run infra:ai
+```
+
+```text
 9Router: http://localhost:20129
+```
+
+Useful infrastructure commands:
+
+```bash
+bun run infra:ps
+bun run infra:logs
+bun run infra:down
 ```
 
 If Docker is missing, install/start Docker Desktop or Docker Engine. If `.next` gets stale, stop the dev server, remove `.next`, then restart `bun run dev`.
 
 ## Environment
 
-Use:
-
-```bash
-cp .env.example .env
-```
-
-Important local defaults:
+`.env.example` is the canonical placeholder list. Important local defaults:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/umkmcepat?schema=public"
 AI_PROVIDER="9router"
-AI_MODELS="cmc/deepseek/deepseek-v4-pro,cmc/deepseek/deepseek-v4-flash,cmc/moonshotai/Kimi-K2.6"
 NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
+OBJECT_STORAGE_PROVIDER="local"
+LOCAL_UPLOAD_DIR=".data/uploads"
+RATE_LIMIT_PROVIDER="memory"
 ```
 
-`AI_MODELS` is comma-separated. The first model is the default.
+Set Google OAuth, Turnstile, Sentry, Chromatic, and AI provider secrets only in `.env` or deployment secrets.
 
-## Optional agent context
+## Graphify
 
-Graphify is recommended for contributors using AI agents on non-trivial work. It builds a local code graph without adding project dependencies.
-
-Install it once per machine:
+Graphify is recommended for non-trivial discovery and reuse checks. It is user-local, not a project dependency.
 
 ```bash
 uv tool install graphifyy
-```
-
-Build or refresh the local graph:
-
-```bash
 bun run setup:agent
 bun run graph:update
 ```
 
-Output stays local under `graphify-out/` and is ignored by git. See `docs/graphify.md` for query examples and guardrails.
+Then read the source files Graphify returns. Do not treat Graphify output as a replacement for source or canonical docs.
 
 ## Quality gate
 
-Run this before handoff or PR:
+Run before handoff or PR:
 
 ```bash
 bun run check
 ```
 
-This runs:
+This runs lockfile guard, Prettier, ESLint, TypeScript, Vitest, and Knip.
 
-1. Prettier
-2. ESLint with `--max-warnings=0`
-3. TypeScript
-4. Vitest
-5. Knip unused-code/dependency checks
-
-Do not run build during normal development unless explicitly requested or touching build/deployment behavior:
+Do not run build during normal development unless requested or touching build/deployment behavior:
 
 ```bash
 bun run build
 ```
 
-The pre-commit hook runs `bun run check`. CI runs `bun run check` and `bun run build`.
+CI runs `bun run check`, `bun run build`, Storybook build/tests, and optional Chromatic.
 
 ## TDD workflow
 
@@ -125,43 +100,33 @@ For behavior changes:
 2. Watch it fail.
 3. Implement the smallest change.
 4. Run the targeted test.
-5. Repeat.
-6. Run `bun run check`.
+5. Run `bun run check`.
 
-Tests should verify public behavior, not private implementation details. Do not create one test file per source file by default; test behavior boundaries and non-trivial logic.
+Test behavior boundaries and non-trivial logic, not private implementation details.
 
 ## UI workflow
 
 For UI, styling, layout, typography, colors, or components:
 
 1. Read `DESIGN.md`.
-2. Reuse `src/components/ui` and existing design tokens first.
-3. Check Storybook foundations, atoms, molecules, and organisms before changing reusable UI.
-4. Add or update a Storybook story when adding a reusable component or meaningful visual state; avoid page-level stories unless the page is a reusable template.
+2. Reuse `src/components/ui`, design tokens, and existing stories first.
+3. Check Storybook foundations, atoms, molecules, and organisms.
+4. Add or update a Storybook story for new reusable UI or meaningful repeated visual states.
 5. Keep visible product copy Indonesian.
-6. Keep developer/internal text English.
-7. Include artifact paths in handoff when browser review was used.
 
-Run Storybook for design-system review:
+Storybook:
 
 ```bash
 bun run storybook
+bun run storybook:build
+bun run test:storybook
 ```
-
-Open:
 
 ```text
 Storybook: http://localhost:6006
 ```
 
-Run Storybook checks:
-
-```bash
-bun run storybook:build
-bun run test:storybook
-```
-
-Chromatic visual baselines are optional and require `CHROMATIC_PROJECT_TOKEN`:
+Chromatic requires `CHROMATIC_PROJECT_TOKEN`:
 
 ```bash
 bun run chromatic
@@ -169,78 +134,37 @@ bun run chromatic
 
 ## shadcn/ui
 
-Config lives in `components.json`. Components are owned source files under `src/components/ui`.
-
-Add components with the official CLI:
+Config lives in `components.json`. Owned primitives live under `src/components/ui`.
 
 ```bash
 bunx shadcn@latest add button card input
-```
-
-Preview/diff before replacing existing primitives:
-
-```bash
 bunx shadcn@latest add button --dry-run
 bunx shadcn@latest add button --diff
 ```
 
-Agent helper, when available:
-
-```bash
-bunx skills add shadcn/ui
-```
-
 Do not paste raw component source from external pages.
 
-## Project architecture
+## Architecture docs
 
-Read `docs/project-architecture.md` before changing project, workspace, renderer, publishing, multi-tenant, or user-generated app behavior.
+Read the relevant doc before touching that area:
 
-Core rule:
+- Architecture/provider/storage/auth/AI gateway changes: `docs/architecture.md`
+- Docker/VPS/deployment/monitoring changes: `docs/deployment.md`
 
-```text
-one platform app, many project schemas, one shared renderer
-```
-
-Do not add per-user Next.js apps, per-project containers, arbitrary user server code, or generated source files as the primary runtime model.
-
-## Providers
-
-- AI gateway: 9Router.
-- Rate limit: `src/lib/rate-limit.ts`.
-- Provider names: `src/lib/provider-registry.ts`.
-
-AI runtime code should live behind an internal service boundary before routes/components depend on it. Do not call provider SDKs or provider APIs directly from components.
-
-## Observability
-
-Sentry is optional locally. See `docs/observability.md`.
-
-Never commit Sentry auth tokens. Use deployment secrets for source-map upload credentials.
-
-## Local artifacts
-
-Run local services in the foreground by default. Temporary logs or pid files created during debugging are local artifacts and must never be committed.
-
-Ignored local paths include:
+Core architecture rule:
 
 ```text
-*.log
-*.pid
-.browser/
-.pi/
-.next/
+one platform app, many project rows, one shared renderer
 ```
 
-Delete stale local artifacts before handoff.
+Do not add per-user apps, per-project containers, arbitrary user backend code, or generated source files as the primary platform runtime.
 
 ## Final handoff checklist
 
-- `git status --short --untracked-files=all` inspected
-- no accidental local artifacts
-- `graphify-out/` remains untracked when generated
-- no secrets in tracked files
-- `bun run check` passed
-- `bun run build` passed when required
-- browser evidence collected for UI changes
-- docs updated for setup/env/workflow changes
+- `git status --short --untracked-files=all` inspected.
+- No accidental local artifacts.
+- No secrets in tracked files.
+- Relevant docs updated, or handoff states why docs did not need changes.
+- `bun run check` passed.
+- `bun run build` passed only when required.
+- Browser/UI evidence included when browser review was used.
