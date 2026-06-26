@@ -24,7 +24,7 @@ export const Colors: Story = {
               className="h-28 rounded-radius-xl border border-foreground-primary/10"
               style={{ backgroundColor: color.value }}
             />
-            <h3 className="mt-spacing-4 text-sm font-semibold">{color.name}</h3>
+            <h2 className="mt-spacing-4 text-sm font-semibold">{color.name}</h2>
             <p className="mt-spacing-1 text-sm text-text-secondary">
               {color.value}
             </p>
@@ -83,7 +83,7 @@ export const SpacingAndRadius: Story = {
     >
       <div className="grid gap-spacing-6 lg:grid-cols-2">
         <section className="rounded-radius-3xl bg-surface-warm-white p-spacing-9 text-foreground-primary">
-          <h3 className="text-lg font-semibold">Spacing scale</h3>
+          <h2 className="text-lg font-semibold">Spacing scale</h2>
           <div className="mt-spacing-6 space-y-spacing-4">
             {spacing.map((item) => (
               <div
@@ -101,7 +101,7 @@ export const SpacingAndRadius: Story = {
           </div>
         </section>
         <section className="rounded-radius-3xl bg-surface-warm-white p-spacing-9 text-foreground-primary">
-          <h3 className="text-lg font-semibold">Radius scale</h3>
+          <h2 className="text-lg font-semibold">Radius scale</h2>
           <div className="mt-spacing-6 grid gap-spacing-4 sm:grid-cols-2">
             {radii.map((item) => (
               <div key={item.name}>
@@ -129,9 +129,9 @@ export const Surfaces: Story = {
       <div className="grid gap-spacing-6 lg:grid-cols-2">
         <section className="rounded-radius-3xl bg-surface-warm-white p-spacing-9 text-foreground-primary">
           <p className="text-sm text-text-secondary">Light surface</p>
-          <h3 className="mt-spacing-3 text-3xl font-semibold tracking-[-0.05em]">
+          <h2 className="mt-spacing-3 text-3xl font-semibold tracking-[-0.05em]">
             Warm card, low border, no heavy shadow.
-          </h3>
+          </h2>
           <div className="mt-spacing-6 rounded-radius-2xl border border-foreground-primary/10 bg-surface-muted p-spacing-6 text-sm text-text-secondary">
             Muted nested surface.
           </div>
@@ -140,9 +140,9 @@ export const Surfaces: Story = {
           <p className="text-sm text-surface-warm-white/52">
             Dark product surface
           </p>
-          <h3 className="mt-spacing-3 text-3xl font-semibold tracking-[-0.05em]">
+          <h2 className="mt-spacing-3 text-3xl font-semibold tracking-[-0.05em]">
             Workspace and dashboard areas stay warm-dark.
-          </h3>
+          </h2>
           <div className="mt-spacing-6 rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/[0.055] p-spacing-6 text-sm text-surface-warm-white/58">
             Nested dark card uses opacity, not new palette.
           </div>

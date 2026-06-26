@@ -32,7 +32,7 @@ const mockSiteSchema = {
   subheadline:
     "Bantu pelanggan kantor memilih menu, cek area antar, dan pesan tanpa bolak-balik chat panjang.",
   theme: {
-    accent: "#ee4f9b",
+    accent: "#b01868",
     background: "#fcfbf8",
     foreground: "#1c1c1c",
     muted: "#5f5f5d",

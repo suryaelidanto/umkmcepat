@@ -4,6 +4,7 @@ import "../src/app/globals.css";
 
 const preview: Preview = {
   parameters: {
+    a11y: { test: "error" },
     backgrounds: {
       default: "Dark workspace",
       options: {

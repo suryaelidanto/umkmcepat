@@ -306,7 +306,7 @@ export function QuestionStepperComposer({
   return (
     <div className="mt-spacing-3 overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#242421] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
       <div className="border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
-        <p className="text-xs font-medium text-surface-warm-white/44">
+        <p className="text-xs font-medium text-surface-warm-white/56">
           Keputusan {step + 1} dari {card.questions.length}
         </p>
         <h2 className="mt-spacing-1 max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
@@ -404,7 +404,7 @@ export function QuestionStepperComposer({
                   <span className="block text-sm font-semibold text-surface-warm-white/84">
                     Jawaban sendiri
                   </span>
-                  <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/46">
+                  <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/58">
                     {customAnswerSelected
                       ? selectedAnswer
                       : "Pakai ini kalau pilihan AI belum pas untuk keputusan ini."}

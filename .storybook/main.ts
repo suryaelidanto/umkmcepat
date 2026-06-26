@@ -13,6 +13,21 @@ const config: StorybookConfig = {
   },
   staticDirs: ["../public"],
   stories: ["../src/**/*.mdx", "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
+  viteFinal: async (config) => {
+    config.build = {
+      ...config.build,
+      chunkSizeWarningLimit: 1400,
+      rolldownOptions: {
+        ...config.build?.rolldownOptions,
+        checks: {
+          ...config.build?.rolldownOptions?.checks,
+          pluginTimings: false,
+        },
+      },
+    };
+
+    return config;
+  },
 };
 
 export default config;

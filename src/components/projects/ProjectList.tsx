@@ -195,7 +195,7 @@ function FeaturedProject({
             <button
               type="button"
               onClick={() => onDelete(project)}
-              className="rounded-radius-lg px-spacing-5 py-spacing-3 text-sm font-medium text-surface-warm-white/46 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+              className="rounded-radius-lg px-spacing-5 py-spacing-3 text-sm font-medium text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
             >
               Hapus
             </button>
@@ -242,7 +242,7 @@ function ProjectRow({
         <button
           type="button"
           onClick={() => onDelete(project)}
-          className="rounded-radius-lg px-spacing-4 py-spacing-2 text-sm font-medium text-surface-warm-white/40 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+          className="rounded-radius-lg px-spacing-4 py-spacing-2 text-sm font-medium text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
         >
           Hapus
         </button>

@@ -16,6 +16,11 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "src") },
   },
   test: {
+    coverage: {
+      watermarks: {
+        statements: [0, 40],
+      },
+    },
     projects: [
       {
         extends: true,
@@ -31,6 +36,7 @@ export default defineConfig({
         test: {
           name: `storybook:${storybookConfigDir}`,
           browser: {
+            api: { port: 0 },
             enabled: true,
             headless: true,
             instances: [{ browser: "chromium" }],

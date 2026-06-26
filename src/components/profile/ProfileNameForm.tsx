@@ -130,6 +130,7 @@ export function ProfileNameForm({
           </div>
           <input
             ref={fileInputRef}
+            aria-label="Unggah foto profil"
             type="file"
             accept="image/png,image/jpeg,image/webp"
             className="sr-only"

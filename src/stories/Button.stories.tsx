@@ -24,6 +24,13 @@ const meta = {
     },
   },
   component: Button,
+  decorators: [
+    (Story) => (
+      <div className="rounded-radius-2xl bg-[#151515] p-spacing-8">
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
     backgrounds: { default: "Dark workspace" },
     layout: "centered",
@@ -60,7 +67,11 @@ export const Outline: Story = {
 };
 
 export const Destructive: Story = {
-  args: { children: "Hapus", variant: "destructive" },
+  args: {
+    children: "Hapus",
+    className: "bg-[#9f1d1d] text-surface-warm-white hover:bg-[#8b1717]",
+    variant: "destructive",
+  },
 };
 
 export const Disabled: Story = {
