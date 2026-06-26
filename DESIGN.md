@@ -155,6 +155,7 @@ Core traits:
 ## Design principles and governance
 
 - Design system is source of truth. Do not create page-specific visual language unless it is added here first.
+- Any new reusable UI or repeated visual pattern must be added to Storybook first or in the same change.
 - Reuse tokens and UI primitives before adding custom classes. Prefer `surface-*`, `foreground-primary`, `text-secondary`, `action-primary`, `spacing-*`, and `radius-*` tokens.
 - Keep visual hierarchy intentional: one dominant headline, clear supporting text, grouped sections, generous warm whitespace, and one primary action per area.
 - Typography must follow named roles: display hero, display large, heading XL, heading LG, body large, body base, body medium, body small, label emphasis.

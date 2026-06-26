@@ -7,6 +7,7 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 ### 2026-06-25
 
 - Redesigned the signed-in homepage project list with a calmer recent-work layout and local abstract project marks.
+- Added a design governance rule requiring new reusable or repeated UI patterns to land in Storybook with the change.
 - Added shared avatar/surface primitives and wired profile/legal/account UI to the atomic Storybook catalog.
 - Simplified Storybook into an atomic design-system catalog with foundations, reusable atoms/molecules/organisms, component tests, and optional Chromatic wiring.
 - Added login consent with Cloudflare Turnstile support and canonical Terms/Privacy agreement before Google sign-in.
