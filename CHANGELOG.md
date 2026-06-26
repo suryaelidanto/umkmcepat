@@ -6,6 +6,7 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 
 ### 2026-06-26
 
+- Made Storybook and shared dialog/login-consent surfaces dark-first to match the current product chrome.
 - Added a docs-as-part-of-the-change rule so future behavior/setup/env/architecture/provider/storage/deployment/UI/product-flow changes update canonical docs or explicitly state no doc change is needed.
 - Simplified project docs around `PRINCIPLES.md`, two active topic docs, slim agent/dev onboarding, removed stale manual index docs, and aligned Docker/CI storage env names.
 

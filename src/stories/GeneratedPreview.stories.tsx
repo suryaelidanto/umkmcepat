@@ -48,8 +48,7 @@ const mockSiteSchema = {
 const meta = {
   component: ProjectSitePreview,
   parameters: { layout: "fullscreen" },
-  tags: ["autodocs"],
-  title: "Organisms/Generated Preview",
+  title: "Product UI/Generated Preview",
 } satisfies Meta<typeof ProjectSitePreview>;
 
 export default meta;

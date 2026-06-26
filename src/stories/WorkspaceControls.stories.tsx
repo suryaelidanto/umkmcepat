@@ -12,8 +12,7 @@ const meta = {
     backgrounds: { default: "Dark workspace" },
     layout: "fullscreen",
   },
-  tags: ["autodocs"],
-  title: "Molecules/Workspace Controls",
+  title: "Product UI/Workspace Controls",
 } satisfies Meta;
 
 export default meta;

@@ -162,6 +162,7 @@ Core traits:
 - Avoid AI slop: no random gradients, arbitrary brand colors, excessive shadows, inconsistent radii, mixed font families, or generic card clutter.
 - Styling belongs to components/renderers, not AI output. AI may generate content; UI code owns layout, spacing, color, and type.
 - Prefer explicit design tokens over legacy shadcn aliases in product UI. If aliases are used, they must map back to this system.
+- Product surfaces default to dark warm-neutral chrome (`#151515`, `#232321`) for workspace/account/modal UI; light warm surfaces are allowed only when the surrounding product context is intentionally light.
 - Dark mode must not introduce a separate visual brand. If enabled, it must still use this warm-neutral system or be disabled.
 - Component states must be consistent: hover uses subtle warm surface shifts, focus uses near-black ring, disabled lowers opacity, errors use destructive only for actual errors.
 - Accessibility is part of the system: preserve keyboard focus, readable contrast, semantic landmarks, clear labels, and reduced visual noise.

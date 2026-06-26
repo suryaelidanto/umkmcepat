@@ -13,9 +13,11 @@ const meta = {
     title: "Masuk dulu untuk lanjut",
   },
   component: LoginConsentDialog,
-  parameters: { layout: "centered" },
-  tags: ["autodocs"],
-  title: "Molecules/Login Consent Dialog",
+  parameters: {
+    backgrounds: { default: "Dark workspace" },
+    layout: "centered",
+  },
+  title: "Product UI/Login Consent",
 } satisfies Meta<typeof LoginConsentDialog>;
 
 export default meta;

@@ -13,9 +13,11 @@ import {
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 const meta = {
-  parameters: { layout: "centered" },
-  tags: ["autodocs"],
-  title: "Molecules/Dialog",
+  parameters: {
+    backgrounds: { default: "Dark workspace" },
+    layout: "centered",
+  },
+  title: "Core UI/Dialog",
 } satisfies Meta;
 
 export default meta;
@@ -42,8 +44,15 @@ export const DeleteConfirmation: Story = {
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-end gap-spacing-4">
-          <Button variant="outline">Batal</Button>
-          <Button className="bg-[#9f1d1d] hover:bg-[#8b1717]">Hapus</Button>
+          <Button
+            variant="outline"
+            className="border-surface-warm-white/14 bg-transparent text-surface-warm-white/78 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          >
+            Batal
+          </Button>
+          <Button className="bg-[#9f1d1d] text-surface-warm-white hover:bg-[#8b1717]">
+            Hapus
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -55,7 +64,12 @@ function DialogDemo() {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Buka dialog</Button>
+      <Button
+        className="bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
+        onClick={() => setOpen(true)}
+      >
+        Buka dialog
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
@@ -65,10 +79,16 @@ function DialogDemo() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-spacing-4">
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              variant="outline"
+              className="border-surface-warm-white/14 bg-transparent text-surface-warm-white/78 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+              onClick={() => setOpen(false)}
+            >
               Tutup
             </Button>
-            <Button>Lihat preview</Button>
+            <Button className="bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86">
+              Lihat preview
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

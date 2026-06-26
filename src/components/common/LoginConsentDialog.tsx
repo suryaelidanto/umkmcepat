@@ -79,7 +79,7 @@ export function LoginConsentDialog({
       widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
         callback: setTurnstileToken,
         sitekey: turnstileSiteKey,
-        theme: "light",
+        theme: "dark",
       });
     }
 
@@ -142,16 +142,16 @@ export function LoginConsentDialog({
 
         <div className="space-y-spacing-4">
           {hasTurnstile ? (
-            <div className="rounded-radius-lg border border-foreground-primary/10 bg-surface-muted p-spacing-5">
+            <div className="rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/[0.055] p-spacing-5">
               <div ref={turnstileRef} />
             </div>
           ) : (
-            <label className="flex gap-spacing-4 rounded-radius-lg border border-foreground-primary/10 bg-surface-muted p-spacing-5 text-sm leading-6 text-foreground-primary">
+            <label className="flex gap-spacing-4 rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/[0.055] p-spacing-5 text-sm leading-6 text-surface-warm-white/78">
               <input
                 type="checkbox"
                 checked={devHumanCheck}
                 onChange={(event) => setDevHumanCheck(event.target.checked)}
-                className="mt-1 size-4 accent-foreground-primary"
+                className="mt-1 size-4 accent-surface-warm-white"
               />
               <span>
                 Saya bukan bot spam dan tidak akan menyalahgunakan layanan.
@@ -159,12 +159,12 @@ export function LoginConsentDialog({
             </label>
           )}
 
-          <label className="flex gap-spacing-4 rounded-radius-lg border border-foreground-primary/10 bg-surface-muted p-spacing-5 text-sm leading-6 text-foreground-primary">
+          <label className="flex gap-spacing-4 rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/[0.055] p-spacing-5 text-sm leading-6 text-surface-warm-white/78">
             <input
               type="checkbox"
               checked={agrees}
               onChange={(event) => setAgrees(event.target.checked)}
-              className="mt-1 size-4 accent-foreground-primary"
+              className="mt-1 size-4 accent-surface-warm-white"
             />
             <span>
               Saya setuju dengan{" "}
@@ -186,14 +186,20 @@ export function LoginConsentDialog({
           </label>
         </div>
 
-        {error ? <p className="text-sm text-[#9f1d1d]">{error}</p> : null}
+        {error ? <p className="text-sm text-[#ffb4a8]">{error}</p> : null}
 
         <div className="flex flex-col-reverse gap-spacing-4 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => close(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="border-surface-warm-white/14 bg-transparent text-surface-warm-white/78 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+            onClick={() => close(false)}
+          >
             Nanti dulu
           </Button>
           <Button
             type="button"
+            className="bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
             disabled={!canContinue || isVerifying}
             onClick={continueWithGoogle}
           >

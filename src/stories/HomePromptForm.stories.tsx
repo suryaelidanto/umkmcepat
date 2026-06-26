@@ -21,8 +21,7 @@ const meta = {
     backgrounds: { default: "Dark workspace" },
     layout: "fullscreen",
   },
-  tags: ["autodocs"],
-  title: "Organisms/Home Prompt Form",
+  title: "Product UI/Home Prompt",
 } satisfies Meta<typeof HomePromptForm>;
 
 export default meta;

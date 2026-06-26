@@ -4,9 +4,9 @@ import { Meta, Title, Subtitle } from "@storybook/addon-docs/blocks";
 
 <Title>UMKM Cepat Storybook</Title>
 
-<Subtitle>Approved UI catalog for humans and AI agents.</Subtitle>
+<Subtitle>Small UI review board for humans and AI agents.</Subtitle>
 
-UMKM Cepat uses Storybook as the live design-system catalog. Use this before changing UI so new work follows the same typography, spacing, color, radius, and interaction patterns.
+UMKM Cepat uses Storybook to review reusable UI and catch visual drift. It is not a product showcase and not a mirror of every page.
 
 ## Agent workflow
 
@@ -18,10 +18,10 @@ UMKM Cepat uses Storybook as the live design-system catalog. Use this before cha
 
 ## What belongs here
 
-- Reusable primitives: buttons, dialogs, form controls.
-- Product UI states: login, profile, project list, workspace cards, generated preview.
-- Important responsive variants.
-- Loading, disabled, empty, destructive, and error states.
+- `Foundations`: palette, typography, spacing, radius, and surface rules.
+- `Core UI`: reusable primitives that other screens compose.
+- `Product UI`: real product components and important states.
+- Responsive, loading, disabled, empty, destructive, and error states when they affect review.
 
 ## What does not belong here
 
@@ -45,8 +45,7 @@ Create `*.stories.tsx` near the component or under `src/stories`.
 ```tsx
 const meta = {
   component: Button,
-  tags: ["autodocs"],
-  title: "Atoms/Button",
+  title: "Core UI/Button",
 } satisfies Meta<typeof Button>;
 ```
 

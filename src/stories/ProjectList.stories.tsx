@@ -31,8 +31,7 @@ const meta = {
     backgrounds: { default: "Dark workspace" },
     layout: "fullscreen",
   },
-  tags: ["autodocs"],
-  title: "Organisms/Project List",
+  title: "Product UI/Project List",
 } satisfies Meta<typeof ProjectList>;
 
 export default meta;

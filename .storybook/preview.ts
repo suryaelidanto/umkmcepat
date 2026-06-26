@@ -5,7 +5,7 @@ import "../src/app/globals.css";
 const preview: Preview = {
   parameters: {
     backgrounds: {
-      default: "Warm base",
+      default: "Dark workspace",
       options: {
         "Dark workspace": { name: "Dark workspace", value: "#151515" },
         "Warm base": { name: "Warm base", value: "#eceae4" },
@@ -27,16 +27,7 @@ const preview: Preview = {
     },
     options: {
       storySort: {
-        order: [
-          "Guide",
-          "Foundations",
-          "Atoms",
-          "Molecules",
-          "Organisms",
-          "Workspace",
-          "Pages",
-          "UMKM Cepat",
-        ],
+        order: ["Guide", "Foundations", "Core UI", "Product UI"],
       },
     },
     viewport: {
@@ -59,7 +50,6 @@ const preview: Preview = {
       },
     },
   },
-  tags: ["autodocs"],
 };
 
 export default preview;

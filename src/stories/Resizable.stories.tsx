@@ -8,8 +8,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 const meta = {
   parameters: { layout: "fullscreen" },
-  tags: ["autodocs"],
-  title: "Atoms/Resizable Panels",
+  title: "Core UI/Resizable Panels",
 } satisfies Meta;
 
 export default meta;
@@ -24,15 +23,15 @@ export const Horizontal: Story = {
       >
         <ResizablePanel defaultSize={38} minSize={24}>
           <Panel
-            title="Diskusi"
-            body="Panel kiri untuk chat, brief, dan kartu pertanyaan."
+            title="Panel kiri"
+            body="Demo content only. Use this story to check resize behavior and handle visibility."
           />
         </ResizablePanel>
         <ResizableHandle withHandle className="bg-surface-warm-white/10" />
         <ResizablePanel defaultSize={62} minSize={36}>
           <Panel
-            title="Preview"
-            body="Panel kanan untuk preview, source, dan status build."
+            title="Panel kanan"
+            body="Real product content belongs in Product UI stories; this story isolates the layout primitive."
           />
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -42,22 +41,22 @@ export const Horizontal: Story = {
 
 export const Vertical: Story = {
   render: () => (
-    <main className="h-screen bg-surface-base p-spacing-8 text-foreground-primary">
+    <main className="h-screen bg-[#151515] p-spacing-8 text-surface-warm-white">
       <ResizablePanelGroup
         orientation="vertical"
-        className="min-h-[32rem] overflow-hidden rounded-radius-3xl border border-foreground-primary/10 bg-surface-warm-white"
+        className="min-h-[32rem] overflow-hidden rounded-radius-3xl border border-surface-warm-white/10 bg-[#1f1f1d]"
       >
         <ResizablePanel defaultSize={58} minSize={32}>
           <Panel
-            title="Konten"
-            body="Area utama mengikuti sistem radius dan border yang sama."
+            title="Panel atas"
+            body="Demo content only. The goal is to make resize behavior easy to review."
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={42} minSize={24}>
           <Panel
-            title="Detail"
-            body="Cocok untuk state detail tanpa membuat splitter custom."
+            title="Panel bawah"
+            body="Use this for primitive-level review, not product copy review."
           />
         </ResizablePanel>
       </ResizablePanelGroup>

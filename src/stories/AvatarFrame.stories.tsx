@@ -8,8 +8,7 @@ const meta = {
     backgrounds: { default: "Dark workspace" },
     layout: "centered",
   },
-  tags: ["autodocs"],
-  title: "Atoms/Avatar Frame",
+  title: "Core UI/Avatar Frame",
 } satisfies Meta<typeof AvatarFrame>;
 
 export default meta;

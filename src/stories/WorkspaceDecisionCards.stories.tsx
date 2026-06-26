@@ -11,8 +11,7 @@ const meta = {
     backgrounds: { default: "Dark workspace" },
     layout: "fullscreen",
   },
-  tags: ["autodocs"],
-  title: "Organisms/Workspace Decision Cards",
+  title: "Product UI/Workspace Decision Cards",
 } satisfies Meta;
 
 export default meta;

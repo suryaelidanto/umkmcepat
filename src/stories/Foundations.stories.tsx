@@ -2,8 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 const meta = {
   parameters: { layout: "fullscreen" },
-  tags: ["autodocs"],
-  title: "Foundations/Tokens",
+  title: "Foundations/Design System",
 } satisfies Meta;
 
 export default meta;
@@ -19,7 +18,7 @@ export const Colors: Story = {
         {colors.map((color) => (
           <article
             key={color.name}
-            className="rounded-radius-2xl border border-foreground-primary/10 bg-surface-warm-white p-spacing-5"
+            className="rounded-radius-2xl border border-foreground-primary/10 bg-surface-warm-white p-spacing-5 text-foreground-primary"
           >
             <div
               className="h-28 rounded-radius-xl border border-foreground-primary/10"
@@ -45,7 +44,7 @@ export const Typography: Story = {
       title="Typography"
       subtitle="Plus Jakarta Sans. Tight display tracking, readable body copy."
     >
-      <div className="space-y-spacing-7 rounded-radius-3xl bg-surface-warm-white p-spacing-9">
+      <div className="space-y-spacing-7 rounded-radius-3xl bg-surface-warm-white p-spacing-9 text-foreground-primary">
         <TextSample
           label="Display"
           className="text-[60px] font-[480] leading-[60px] tracking-[-0.055em]"
@@ -83,7 +82,7 @@ export const SpacingAndRadius: Story = {
       subtitle="Spacing token + radius token. Use these shapes consistently."
     >
       <div className="grid gap-spacing-6 lg:grid-cols-2">
-        <section className="rounded-radius-3xl bg-surface-warm-white p-spacing-9">
+        <section className="rounded-radius-3xl bg-surface-warm-white p-spacing-9 text-foreground-primary">
           <h3 className="text-lg font-semibold">Spacing scale</h3>
           <div className="mt-spacing-6 space-y-spacing-4">
             {spacing.map((item) => (
@@ -101,7 +100,7 @@ export const SpacingAndRadius: Story = {
             ))}
           </div>
         </section>
-        <section className="rounded-radius-3xl bg-surface-warm-white p-spacing-9">
+        <section className="rounded-radius-3xl bg-surface-warm-white p-spacing-9 text-foreground-primary">
           <h3 className="text-lg font-semibold">Radius scale</h3>
           <div className="mt-spacing-6 grid gap-spacing-4 sm:grid-cols-2">
             {radii.map((item) => (
@@ -163,14 +162,16 @@ function FoundationCanvas({
   title: string;
 }) {
   return (
-    <main className="min-h-screen bg-surface-base p-spacing-8 text-foreground-primary sm:p-spacing-12">
+    <main className="min-h-screen bg-[#151515] p-spacing-8 text-surface-warm-white sm:p-spacing-12">
       <div className="mx-auto max-w-7xl space-y-spacing-8">
         <header>
-          <p className="text-sm font-medium text-text-secondary">Foundations</p>
+          <p className="text-sm font-medium text-surface-warm-white/52">
+            Foundations
+          </p>
           <h1 className="mt-spacing-4 text-5xl font-semibold tracking-[-0.06em]">
             {title}
           </h1>
-          <p className="mt-spacing-4 max-w-2xl text-lg leading-7 text-text-secondary">
+          <p className="mt-spacing-4 max-w-2xl text-lg leading-7 text-surface-warm-white/58">
             {subtitle}
           </p>
         </header>

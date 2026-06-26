@@ -24,22 +24,39 @@ const meta = {
     },
   },
   component: Button,
-  parameters: { layout: "centered" },
-  tags: ["autodocs"],
-  title: "Atoms/Button",
+  parameters: {
+    backgrounds: { default: "Dark workspace" },
+    layout: "centered",
+  },
+  title: "Core UI/Button",
 } satisfies Meta<typeof Button>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Primary: Story = {};
+export const Primary: Story = {
+  args: {
+    className:
+      "bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86",
+  },
+};
 
 export const Secondary: Story = {
-  args: { children: "Lihat contoh", variant: "secondary" },
+  args: {
+    children: "Lihat contoh",
+    className:
+      "bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/14",
+    variant: "secondary",
+  },
 };
 
 export const Outline: Story = {
-  args: { children: "Nanti dulu", variant: "outline" },
+  args: {
+    children: "Nanti dulu",
+    className:
+      "border-surface-warm-white/14 bg-transparent text-surface-warm-white/78 hover:bg-surface-warm-white/8 hover:text-surface-warm-white",
+    variant: "outline",
+  },
 };
 
 export const Destructive: Story = {
@@ -47,7 +64,12 @@ export const Destructive: Story = {
 };
 
 export const Disabled: Story = {
-  args: { children: "Menunggu", disabled: true },
+  args: {
+    children: "Menunggu",
+    className:
+      "bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86",
+    disabled: true,
+  },
   play: async ({ args, canvas }) => {
     const button = canvas.getByRole("button", { name: "Menunggu" });
     await expect(button).toBeDisabled();

@@ -21,8 +21,7 @@ const meta = {
     backgrounds: { default: "Dark workspace" },
     layout: "fullscreen",
   },
-  tags: ["autodocs"],
-  title: "Organisms/Profile Name Form",
+  title: "Product UI/Profile Form",
 } satisfies Meta<typeof ProfileNameForm>;
 
 export default meta;

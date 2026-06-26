@@ -7,8 +7,7 @@ const meta = {
     backgrounds: { default: "Dark workspace" },
     layout: "fullscreen",
   },
-  tags: ["autodocs"],
-  title: "Atoms/Surface",
+  title: "Core UI/Surface",
 } satisfies Meta;
 
 export default meta;

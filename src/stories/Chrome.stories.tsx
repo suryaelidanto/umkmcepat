@@ -19,8 +19,7 @@ const meta = {
     backgrounds: { default: "Dark workspace" },
     layout: "fullscreen",
   },
-  tags: ["autodocs"],
-  title: "Organisms/App Chrome",
+  title: "Product UI/App Chrome",
 } satisfies Meta;
 
 export default meta;
