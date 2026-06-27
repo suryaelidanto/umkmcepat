@@ -23,6 +23,7 @@ import {
 import { type PanelImperativeHandle } from "react-resizable-panels";
 
 import {
+  BuildProgressPanel,
   EmptyPreviewState,
   GeneratedPreviewFrame,
   ModePill,
@@ -30,6 +31,7 @@ import {
   QuestionStepperComposer,
   WorkspaceCardView,
   WorkspaceTopBar,
+  type BuildProgressStep,
   type BuildTab,
   type WorkspaceAnswerPayload,
 } from "@/components/projects/WorkspacePrimitives";
@@ -92,6 +94,8 @@ export function WorkspaceShell({
   const [sourceFiles, setSourceFiles] = useState<GeneratedProjectFile[]>([]);
   const [sourceStatus, setSourceStatus] = useState("not_started");
   const [sourceLog, setSourceLog] = useState("");
+  const [buildProgress, setBuildProgress] = useState<BuildProgressStep[]>([]);
+  const [buildStartedAt, setBuildStartedAt] = useState<number | null>(null);
   const [workspaceCard, setWorkspaceCard] =
     useState<WorkspaceCard>(initialWorkspaceCard);
   const [isRefreshingCard, setIsRefreshingCard] = useState(false);
@@ -142,6 +146,9 @@ export function WorkspaceShell({
 
     setMode("build");
     setBuildStatus("building");
+    setSourceStatus("not_started");
+    setBuildProgress([]);
+    setBuildStartedAt(Date.now());
     setActiveTab("preview");
 
     const abortController = new AbortController();
@@ -155,6 +162,13 @@ export function WorkspaceShell({
 
       if (!response.ok || !response.body) {
         setBuildStatus("draft");
+        setBuildProgress((current) =>
+          addBuildProgressStep(current, {
+            detail: "Server belum bisa memulai proses build. Coba ulangi.",
+            label: "Build belum mulai",
+            status: "error",
+          }),
+        );
         return;
       }
 
@@ -183,7 +197,19 @@ export function WorkspaceShell({
 
           const data = JSON.parse(dataText) as
             | ProjectSiteSchema
-            | { message?: string };
+            | { detail?: string; label?: string; message?: string };
+
+          if (eventName === "progress" && "label" in data && data.label) {
+            const label = data.label;
+
+            setBuildProgress((current) =>
+              addBuildProgressStep(current, {
+                detail: data.detail || "",
+                label,
+                status: "active",
+              }),
+            );
+          }
 
           if (eventName === "schema" || eventName === "done") {
             setSiteSchema(data as ProjectSiteSchema);
@@ -192,16 +218,32 @@ export function WorkspaceShell({
 
           if (eventName === "done") {
             setBuildStatus("ready");
+            setBuildProgress((current) => completeBuildProgress(current));
           }
 
           if (eventName === "error") {
             setBuildStatus("draft");
+            setBuildProgress((current) =>
+              addBuildProgressStep(current, {
+                detail:
+                  "Build berhenti sebelum preview final siap. Coba ulangi build.",
+                label: "Build belum selesai",
+                status: "error",
+              }),
+            );
           }
         }
       }
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
         setBuildStatus("draft");
+        setBuildProgress((current) =>
+          addBuildProgressStep(current, {
+            detail: "Koneksi build terputus. Coba jalankan build lagi.",
+            label: "Build terputus",
+            status: "error",
+          }),
+        );
       }
     } finally {
       buildAbortRef.current = null;
@@ -632,6 +674,14 @@ export function WorkspaceShell({
                 />
               ) : null}
 
+              {isBuilding || buildProgress.length ? (
+                <BuildProgressPanel
+                  elapsedFrom={buildStartedAt}
+                  isBuilding={isBuilding}
+                  steps={buildProgress}
+                />
+              ) : null}
+
               {isResponding ? (
                 <p className="text-sm text-surface-warm-white/46">
                   AI sedang menyiapkan jawaban...
@@ -727,7 +777,21 @@ export function WorkspaceShell({
                   />
                   <div className="min-h-0 flex-1 overflow-auto bg-[#10100f]">
                     {activeTab === "preview" ? (
-                      sourceStatus === "passed" ? (
+                      isBuilding ? (
+                        <div className="space-y-spacing-6 p-spacing-6">
+                          <BuildProgressPanel
+                            elapsedFrom={buildStartedAt}
+                            isBuilding={isBuilding}
+                            steps={buildProgress}
+                          />
+                          <div className="flex justify-center opacity-90">
+                            <ProjectSitePreview
+                              siteSchema={siteSchema}
+                              viewport={viewport}
+                            />
+                          </div>
+                        </div>
+                      ) : sourceStatus === "passed" ? (
                         <GeneratedPreviewFrame
                           projectId={projectId}
                           viewport={viewport}
@@ -760,6 +824,33 @@ export function WorkspaceShell({
         ) : null}
       </ResizablePanelGroup>
     </div>
+  );
+}
+
+function addBuildProgressStep(
+  current: BuildProgressStep[],
+  next: BuildProgressStep,
+) {
+  const previous = current[current.length - 1];
+
+  if (previous?.label === next.label) {
+    return [
+      ...current.slice(0, -1),
+      { ...next, status: next.status || previous.status },
+    ];
+  }
+
+  return [
+    ...current.map((step) =>
+      step.status === "active" ? { ...step, status: "done" as const } : step,
+    ),
+    next,
+  ].slice(-8);
+}
+
+function completeBuildProgress(current: BuildProgressStep[]) {
+  return current.map((step) =>
+    step.status === "active" ? { ...step, status: "done" as const } : step,
   );
 }
 

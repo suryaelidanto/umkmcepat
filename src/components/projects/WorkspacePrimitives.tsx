@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Check,
   Code2,
   Globe2,
   Monitor,
@@ -8,6 +9,7 @@ import {
   PanelLeftOpen,
   Smartphone,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,12 @@ export type WorkspaceAnswerPayload = {
   question: string;
   questionId: BriefQuestion["id"];
   source: "custom" | "option";
+};
+
+export type BuildProgressStep = {
+  detail: string;
+  label: string;
+  status?: "active" | "done" | "error";
 };
 
 export function WorkspaceTopBar({
@@ -168,6 +176,100 @@ export function ModePill({
       />
       Mode {mode}
     </span>
+  );
+}
+
+export function BuildProgressPanel({
+  elapsedFrom,
+  isBuilding,
+  steps,
+}: {
+  elapsedFrom: number | null;
+  isBuilding: boolean;
+  steps: BuildProgressStep[];
+}) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!isBuilding) {
+      return;
+    }
+
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+
+    return () => window.clearInterval(interval);
+  }, [isBuilding]);
+
+  const elapsedSeconds = elapsedFrom
+    ? Math.max(0, Math.floor((now - elapsedFrom) / 1000))
+    : 0;
+  const visibleSteps = steps.length
+    ? steps
+    : [
+        {
+          detail: "AI sedang membuka sesi build dan menyiapkan konteks proyek.",
+          label: "Memulai build",
+          status: "active" as const,
+        },
+      ];
+
+  return (
+    <div className="overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#20201d] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
+        <div>
+          <p className="text-sm font-semibold text-surface-warm-white">
+            {isBuilding ? "Build sedang berjalan" : "Riwayat build terakhir"}
+          </p>
+          <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
+            {isBuilding
+              ? "Preview akan bergerak mengikuti hasil yang sudah berhasil dibaca."
+              : "Langkah build terakhir sudah selesai."}
+          </p>
+        </div>
+        <div className="rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.055] px-spacing-3 py-spacing-2 text-xs tabular-nums text-surface-warm-white/68">
+          {elapsedSeconds}s
+        </div>
+      </div>
+
+      <div className="space-y-spacing-3 p-spacing-5">
+        <AnimatePresence initial={false}>
+          {visibleSteps.map((step, index) => {
+            const status = step.status || "active";
+            const isActive = status === "active";
+            const isError = status === "error";
+
+            return (
+              <motion.div
+                key={`${step.label}-${index}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="flex gap-spacing-4 rounded-[18px] border border-surface-warm-white/8 bg-surface-warm-white/[0.035] p-spacing-4"
+              >
+                <div
+                  className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border ${isError ? "border-[#ffb4a6]/40 bg-[#ffb4a6]/10 text-[#ffb4a6]" : isActive ? "border-surface-warm-white/18 bg-surface-warm-white/10 text-surface-warm-white" : "border-[#8ce99a]/30 bg-[#8ce99a]/10 text-[#8ce99a]"}`}
+                >
+                  {isActive ? (
+                    <span className="size-3 animate-pulse rounded-full bg-current" />
+                  ) : (
+                    <Check className="size-4" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-surface-warm-white">
+                    {step.label}
+                  </p>
+                  <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/54">
+                    {step.detail}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
 
