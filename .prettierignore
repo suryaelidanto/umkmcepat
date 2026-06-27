@@ -4,6 +4,9 @@ node_modules
 .pi
 .agent
 .agents
+graphify-out
+.lighthouseci
+.lighthouse-auth
 coverage
 dist
 build

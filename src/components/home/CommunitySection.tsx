@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { SponsorTable } from "@/components/home/SponsorTable";
 
 type GithubStatsContributor = {
@@ -155,7 +156,7 @@ async function getTopContributors(): Promise<ContributorCard[]> {
 
         return {
           login: contributor.author.login,
-          avatarUrl: contributor.author.avatar_url,
+          avatarUrl: `${contributor.author.avatar_url}&s=104`,
           profileUrl: contributor.author.html_url,
           totalCommits: contributor.total,
           recentCommits,
@@ -258,157 +259,163 @@ export async function CommunitySection() {
   return (
     <section className="bg-[#151515] px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
       <div className="mx-auto max-w-6xl space-y-spacing-14">
-        <div>
-          <div className="flex flex-col gap-spacing-5 text-left sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
-                Top kontributor proyek
-              </h2>
-              <p className="mt-spacing-3 text-sm text-surface-warm-white/58">
-                Dikerjakan terbuka di Github, jadi perkembangannya bisa ikut
-                dilihat.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-spacing-3">
-              <a
-                href={ALL_CONTRIBUTORS_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex w-fit items-center justify-center rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white/8 px-spacing-6 py-spacing-4 text-sm font-semibold text-surface-warm-white transition hover:bg-surface-warm-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
-              >
-                Lihat semua kontributor
-              </a>
-              <a
-                href={REPOSITORY_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex w-fit items-center justify-center rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white px-spacing-6 py-spacing-4 text-sm font-semibold text-foreground-primary transition hover:bg-surface-warm-white/86 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
-              >
-                Buka Github
-              </a>
-            </div>
-          </div>
-
-          {contributors.length ? (
-            <div className="mt-spacing-8 grid gap-spacing-5 md:grid-cols-3">
-              {contributors.map((contributor, index) => (
-                <article
-                  key={contributor.login}
-                  className="group rounded-[30px] border border-surface-warm-white/12 bg-[#242422] p-spacing-6 text-left shadow-[0_24px_80px_rgba(0,0,0,0.14)] transition hover:bg-[#282826]"
+        <ScrollReveal>
+          <div>
+            <div className="flex flex-col gap-spacing-5 text-left sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
+                  Top kontributor proyek
+                </h2>
+                <p className="mt-spacing-3 text-sm text-surface-warm-white/58">
+                  Dikerjakan terbuka di Github, jadi perkembangannya bisa ikut
+                  dilihat.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-spacing-3">
+                <a
+                  href={ALL_CONTRIBUTORS_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex w-fit items-center justify-center rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white/8 px-spacing-6 py-spacing-4 text-sm font-semibold text-surface-warm-white transition hover:bg-surface-warm-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
                 >
-                  <div className="flex items-start justify-between gap-spacing-5">
-                    <div className="flex min-w-0 items-center gap-spacing-4">
-                      <Image
-                        src={contributor.avatarUrl}
-                        alt={`Foto profil ${contributor.login}`}
-                        width={52}
-                        height={52}
-                        className="size-[52px] rounded-full border border-surface-warm-white/12 bg-surface-warm-white/10"
-                        unoptimized
-                      />
-                      <div className="min-w-0">
-                        <a
-                          href={contributor.profileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="truncate text-lg font-semibold text-[#58a6ff] transition hover:underline"
-                        >
-                          {contributor.login}
-                        </a>
-                        <p className="mt-spacing-1 text-xs text-surface-warm-white/58">
-                          <span>{contributor.recentCommits} commits</span>
-                          <span className="ml-spacing-3 text-[#58a6ff]">
-                            {formatCompact(contributor.recentAdditions)} ++
-                          </span>
-                          <span className="ml-spacing-3 text-[#ff4d4f]">
-                            {formatCompact(contributor.recentDeletions)} --
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <span className="rounded-full border border-surface-warm-white/10 bg-[#151515] px-spacing-3 py-spacing-2 text-xs font-semibold text-surface-warm-white/72">
-                      #{index + 1}
-                    </span>
-                  </div>
-
-                  <ContributionChart
-                    weeks={contributor.weeks}
-                    maxCommits={maxCommits}
-                  />
-                </article>
-              ))}
-              {contributors.length < 3 ? (
+                  Lihat semua kontributor
+                </a>
                 <a
                   href={REPOSITORY_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex min-h-64 flex-col justify-between rounded-[30px] border border-dashed border-surface-warm-white/14 bg-surface-warm-white/[0.035] p-spacing-6 text-left transition hover:bg-surface-warm-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
+                  className="inline-flex w-fit items-center justify-center rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white px-spacing-6 py-spacing-4 text-sm font-semibold text-foreground-primary transition hover:bg-surface-warm-white/86 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
                 >
-                  <div>
-                    <p className="text-lg font-semibold text-surface-warm-white">
-                      Ikut bantu proyek ini
-                    </p>
-                    <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/56">
-                      Lihat repo, buka issue, atau kirim pull request kalau ada
-                      yang ingin kamu rapikan.
-                    </p>
-                  </div>
-                  <span className="text-sm font-semibold text-surface-warm-white underline decoration-surface-warm-white/24 underline-offset-4">
-                    Buka Github
-                  </span>
+                  Buka Github
                 </a>
-              ) : null}
+              </div>
             </div>
-          ) : (
-            <div className="mt-spacing-8 rounded-[28px] border border-dashed border-surface-warm-white/14 bg-[#1f1f1d] p-spacing-7 text-sm leading-6 text-surface-warm-white/58">
-              Data kontributor belum bisa dibaca. Tambahkan GITHUB_TOKEN di env
-              server untuk menaikkan batas akses Github API.
-            </div>
-          )}
-        </div>
 
-        <div className="text-left">
-          <div className="flex flex-col gap-spacing-5 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
-                Sponsor
-              </h2>
-              <p className="mt-spacing-3 text-sm text-surface-warm-white/58">
-                Terima kasih sudah bantu UMKM Cepat tetap 100% gratis.
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled
-              className="w-fit rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white/8 px-spacing-6 py-spacing-4 text-sm font-semibold text-surface-warm-white/44"
-            >
-              Ikut sponsor
-            </button>
+            {contributors.length ? (
+              <div className="mt-spacing-8 grid gap-spacing-5 md:grid-cols-3">
+                {contributors.map((contributor, index) => (
+                  <article
+                    key={contributor.login}
+                    className="group rounded-[30px] border border-surface-warm-white/12 bg-[#242422] p-spacing-6 text-left shadow-[0_24px_80px_rgba(0,0,0,0.14)] transition hover:bg-[#282826]"
+                  >
+                    <div className="flex items-start justify-between gap-spacing-5">
+                      <div className="flex min-w-0 items-center gap-spacing-4">
+                        <Image
+                          src={contributor.avatarUrl}
+                          alt={`Foto profil ${contributor.login}`}
+                          width={52}
+                          height={52}
+                          className="size-[52px] rounded-full border border-surface-warm-white/12 bg-surface-warm-white/10"
+                          unoptimized
+                        />
+                        <div className="min-w-0">
+                          <a
+                            href={contributor.profileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="truncate text-lg font-semibold text-[#58a6ff] transition hover:underline"
+                          >
+                            {contributor.login}
+                          </a>
+                          <p className="mt-spacing-1 text-xs text-surface-warm-white/58">
+                            <span>{contributor.recentCommits} commits</span>
+                            <span className="ml-spacing-3 text-[#58a6ff]">
+                              {formatCompact(contributor.recentAdditions)} ++
+                            </span>
+                            <span className="ml-spacing-3 text-[#ff4d4f]">
+                              {formatCompact(contributor.recentDeletions)} --
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <span className="rounded-full border border-surface-warm-white/10 bg-[#151515] px-spacing-3 py-spacing-2 text-xs font-semibold text-surface-warm-white/72">
+                        #{index + 1}
+                      </span>
+                    </div>
+
+                    <ContributionChart
+                      weeks={contributor.weeks}
+                      maxCommits={maxCommits}
+                    />
+                  </article>
+                ))}
+                {contributors.length < 3 ? (
+                  <a
+                    href={REPOSITORY_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-h-64 flex-col justify-between rounded-[30px] border border-dashed border-surface-warm-white/14 bg-surface-warm-white/[0.035] p-spacing-6 text-left transition hover:bg-surface-warm-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
+                  >
+                    <div>
+                      <p className="text-lg font-semibold text-surface-warm-white">
+                        Ikut bantu proyek ini
+                      </p>
+                      <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/56">
+                        Lihat repo, buka issue, atau kirim pull request kalau
+                        ada yang ingin kamu rapikan.
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold text-surface-warm-white underline decoration-surface-warm-white/24 underline-offset-4">
+                      Buka Github
+                    </span>
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-spacing-8 rounded-[28px] border border-dashed border-surface-warm-white/14 bg-[#1f1f1d] p-spacing-7 text-sm leading-6 text-surface-warm-white/58">
+                Data kontributor belum bisa dibaca. Tambahkan GITHUB_TOKEN di
+                env server untuk menaikkan batas akses Github API.
+              </div>
+            )}
           </div>
+        </ScrollReveal>
 
-          <SponsorTable sponsors={sponsors} />
-        </div>
-
-        <div className="text-left">
-          <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
-            Pertanyaan yang sering muncul
-          </h2>
-          <div className="mt-spacing-8 divide-y divide-surface-warm-white/10 overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#1f1f1d]">
-            {faqs.map((faq) => (
-              <details key={faq.question} className="group">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-spacing-6 px-spacing-6 py-spacing-5 text-base font-semibold text-surface-warm-white outline-none transition hover:bg-surface-warm-white/[0.04] focus-visible:bg-surface-warm-white/[0.04] [&::-webkit-details-marker]:hidden">
-                  {faq.question}
-                  <span className="grid size-7 shrink-0 place-items-center rounded-full border border-surface-warm-white/12 text-surface-warm-white/62 transition group-open:rotate-45">
-                    +
-                  </span>
-                </summary>
-                <p className="px-spacing-6 pb-spacing-6 text-sm leading-6 text-surface-warm-white/58">
-                  {faq.answer}
+        <ScrollReveal>
+          <div className="text-left">
+            <div className="flex flex-col gap-spacing-5 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
+                  Sponsor
+                </h2>
+                <p className="mt-spacing-3 text-sm text-surface-warm-white/58">
+                  Terima kasih sudah bantu UMKM Cepat tetap 100% gratis.
                 </p>
-              </details>
-            ))}
+              </div>
+              <button
+                type="button"
+                disabled
+                className="w-fit rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white/8 px-spacing-6 py-spacing-4 text-sm font-semibold text-surface-warm-white/44"
+              >
+                Ikut sponsor
+              </button>
+            </div>
+
+            <SponsorTable sponsors={sponsors} />
           </div>
-        </div>
+        </ScrollReveal>
+
+        <ScrollReveal>
+          <div className="text-left">
+            <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
+              Pertanyaan yang sering muncul
+            </h2>
+            <div className="mt-spacing-8 divide-y divide-surface-warm-white/10 overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#1f1f1d]">
+              {faqs.map((faq) => (
+                <details key={faq.question} className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-spacing-6 px-spacing-6 py-spacing-5 text-base font-semibold text-surface-warm-white outline-none transition hover:bg-surface-warm-white/[0.04] focus-visible:bg-surface-warm-white/[0.04] [&::-webkit-details-marker]:hidden">
+                    {faq.question}
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full border border-surface-warm-white/12 text-surface-warm-white/62 transition group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+                  <p className="px-spacing-6 pb-spacing-6 text-sm leading-6 text-surface-warm-white/58">
+                    {faq.answer}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </ScrollReveal>
       </div>
     </section>
   );

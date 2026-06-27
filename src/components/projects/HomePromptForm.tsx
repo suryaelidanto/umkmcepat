@@ -2,9 +2,10 @@
 
 import { ArrowUp, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import {
   FormEvent,
+  KeyboardEvent,
   useCallback,
   useEffect,
   useRef,
@@ -12,14 +13,8 @@ import {
   useTransition,
 } from "react";
 
+import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   createProjectDraft,
   parseProjectDraft,
@@ -122,8 +117,15 @@ export function HomePromptForm() {
     void createProject(draft.prompt);
   }, [createProject, status]);
 
+  const isLoading = isContinuing || isPending;
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isLoading) {
+      return;
+    }
+
     setErrorMessage("");
 
     const validation = validateProjectRequest(prompt);
@@ -144,13 +146,24 @@ export function HomePromptForm() {
     await createProject(validation.value);
   }
 
-  const isLoading = isContinuing || isPending;
+  function handlePromptKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
 
   return (
     <>
       <form
         onSubmit={handleSubmit}
-        className="mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)] transition-all duration-300"
+        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)] transition-all duration-300"
       >
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website
@@ -161,6 +174,7 @@ export function HomePromptForm() {
             name="business-story"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
+            onKeyDown={handlePromptKeyDown}
             placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
             maxLength={PROJECT_REQUEST_MAX_LENGTH}
             disabled={isLoading}
@@ -200,32 +214,12 @@ export function HomePromptForm() {
         ) : null}
       </form>
 
-      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Masuk dulu untuk lanjut</DialogTitle>
-            <DialogDescription>
-              Chat kamu sudah disimpan. Setelah masuk, AI akan lanjut otomatis
-              tanpa perlu mengetik ulang.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col-reverse gap-spacing-4 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setLoginOpen(false)}
-            >
-              Nanti dulu
-            </Button>
-            <Button
-              type="button"
-              onClick={() => signIn("google", { callbackUrl: "/" })}
-            >
-              Masuk dengan Google
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <LoginConsentDialog
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        title="Masuk dulu untuk lanjut"
+        description="Chat kamu sudah disimpan. Setelah masuk, AI akan lanjut otomatis tanpa perlu mengetik ulang."
+      />
     </>
   );
 }

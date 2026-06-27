@@ -18,6 +18,21 @@ Check with the user that these seams match their expectations.
 
 3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
 
+When saving a PRD in this repo, include a short metadata block before `## Problem Statement` so future humans and agents can decide whether to read it:
+
+```md
+Status: proposed | active | shipped | historical | superseded
+Created: YYYY-MM-DD
+Updated: YYYY-MM-DD
+Owner: <name or handle>
+Scope: <short product/technical area>
+Read when: <when this PRD is relevant>
+Do not read for: <when this PRD is noise>
+Current truth: source code + relevant canonical docs
+```
+
+Do not maintain a long changelog inside the PRD. If status changes matter, add a tiny `## Status History` section with dated one-line entries.
+
 <prd-template>
 
 ## Problem Statement

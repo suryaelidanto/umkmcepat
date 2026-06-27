@@ -1,43 +1,44 @@
 import {
-  convertToModelMessages,
-  streamText,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
   type UIMessage,
   validateUIMessages,
 } from "ai";
 
-import { getAiModel } from "@/lib/ai";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseProjectBrief } from "@/lib/projects/brief";
 import {
+  mergeProjectBriefPatch,
+  parseProjectBrief,
+} from "@/lib/projects/brief";
+import {
+  createPendingWorkspaceCard,
   generateNextWorkspaceCard,
-  updateBriefFromAnswer,
+  parseWorkspaceCard,
 } from "@/lib/projects/brief-flow";
+import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
-  getProjectChatContext,
+  buildProjectChatContext,
+  getTextFromUIMessage,
   parseProjectChatMessages,
+  parseProjectChatSummary,
+  parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
+import {
+  createFallbackDiscussionTurn,
+  generateDiscussionTurn,
+} from "@/lib/projects/discussion-turn";
+import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
 
-export const maxDuration = 30;
-
-const systemPrompt = `Kamu konsultan website UMKM Indonesia.
-Tulis dalam bahasa Indonesia yang jelas dan praktis.
-Jangan tampilkan chain-of-thought internal.
-Ingat konteks chat sebelumnya dalam proyek ini.
-Untuk mode Diskusi, jangan membuat website. Utamakan memperjelas brief sampai sekitar 80% jelas sebelum menyarankan build.
-Boleh tanya satu pertanyaan atau beberapa pertanyaan sekaligus kalau memang dibutuhkan. Kalau memberi opsi, format jelas sebagai A/B/C/D/Lainnya.
-Jangan mengulang pertanyaan yang sudah terjawab dari konteks chat.
-Kalau user mengulang permintaan build tanpa menjawab, jangan membuat contoh website, jangan menulis kode, dan jangan mengganti topik. Ulangi pertanyaan yang masih wajib dengan lebih ringkas.
-Jangan pernah mengirim HTML/CSS/JS mentah di chat. Platform ini yang akan membangun preview.
-Kalau brief sudah cukup jelas, tampilkan rencana singkat dan sarankan user klik tombol build.
-Untuk mode Buat, bantu user memberi arahan perubahan website yang spesifik, bukan membuat kode.`;
+export const maxDuration = 60;
 
 type PreviewRequest = {
   message?: UIMessage;
   messages?: UIMessage[];
   mode?: "discuss" | "build";
   projectId?: string;
+  workspaceAnswers?: unknown;
 };
 
 export async function POST(request: Request) {
@@ -87,22 +88,72 @@ export async function POST(request: Request) {
   }
 
   const [chatRow] = await prisma.$queryRaw<
-    [{ chatMessages: unknown; brief: unknown }]
+    [
+      {
+        brief: unknown;
+        chatMessages: unknown;
+        chatSummary: unknown;
+        lastCompactedMessageCount: unknown;
+        memoryFacts: unknown;
+        workspaceCard: unknown;
+      },
+    ]
   >`
-    SELECT "chatMessages", "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
+    SELECT "chatMessages", "chatSummary", "memoryFacts", "lastCompactedMessageCount", "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
   `;
   const storedMessages = parseProjectChatMessages(chatRow?.chatMessages);
+  const parsedChatSummary = parseProjectChatSummary(chatRow?.chatSummary);
+  const chatSummary = {
+    ...parsedChatSummary,
+    compactedMessageCount: Math.max(
+      parsedChatSummary.compactedMessageCount,
+      typeof chatRow?.lastCompactedMessageCount === "number"
+        ? chatRow.lastCompactedMessageCount
+        : 0,
+    ),
+  };
+  const memoryFacts = parseProjectMemoryFacts(chatRow?.memoryFacts);
   const incoming = body.message ? [body.message] : (body.messages ?? []);
   const latestUserText = incoming
     .flatMap((message) => message.parts)
     .filter((part) => part.type === "text")
     .map((part) => part.text)
     .join(" ");
-  const updatedBrief = updateBriefFromAnswer(
-    parseProjectBrief(chatRow?.brief, project.prompt),
-    latestUserText,
+  const currentBrief = parseProjectBrief(chatRow?.brief, project.prompt);
+  const storedWorkspaceCard = parseWorkspaceCard(
+    chatRow?.workspaceCard,
+    currentBrief,
   );
-  const workspaceCard = await generateNextWorkspaceCard(updatedBrief);
+  let workspaceAnswerPatch = buildBriefPatchFromWorkspaceAnswers({
+    card: storedWorkspaceCard,
+    fallbackText: latestUserText,
+    workspaceAnswers: body.workspaceAnswers,
+  });
+
+  if (!hasBriefPatchValue(workspaceAnswerPatch)) {
+    const recentStoredAnswerTexts = storedMessages
+      .filter((message) => message.role === "user")
+      .slice(-6)
+      .reverse()
+      .map(getTextFromUIMessage)
+      .filter((text) => /Jawaban:/i.test(text));
+
+    for (const text of recentStoredAnswerTexts) {
+      workspaceAnswerPatch = buildBriefPatchFromWorkspaceAnswers({
+        card: storedWorkspaceCard,
+        fallbackText: text,
+        workspaceAnswers: undefined,
+      });
+
+      if (hasBriefPatchValue(workspaceAnswerPatch)) {
+        break;
+      }
+    }
+  }
+  const effectiveBrief = mergeProjectBriefPatch(
+    currentBrief,
+    workspaceAnswerPatch,
+  );
 
   if (!incoming.length) {
     return Response.json(
@@ -114,22 +165,71 @@ export async function POST(request: Request) {
   const messages = await validateUIMessages({
     messages: [...storedMessages, ...incoming],
   });
-  const contextMessages = getProjectChatContext(messages);
-
-  const result = streamText({
-    model: getAiModel(),
-    system: `${systemPrompt}\n\nMode aktif: ${mode === "build" ? "Buat" : "Diskusi"}.\n\nBrief saat ini:\n${JSON.stringify(updatedBrief)}\n\nKartu berikutnya:\n${JSON.stringify(workspaceCard)}\n\nIkuti kartu berikutnya. Jangan membuat kartu berbeda.`,
-    messages: await convertToModelMessages(contextMessages),
+  const chatContext = buildProjectChatContext({
+    memoryFacts,
+    messages,
+    summary: chatSummary,
   });
+  const turn = await generateDiscussionTurn({
+    brief: effectiveBrief,
+    chatContext,
+    latestUserText,
+    messages: chatContext.messages,
+    mode,
+  }).catch(async () => {
+    const fallbackTurn = createFallbackDiscussionTurn(effectiveBrief);
+    const fallbackCard = await generateNextWorkspaceCard(effectiveBrief).catch(
+      () => createPendingWorkspaceCard(effectiveBrief),
+    );
 
-  result.consumeStream();
+    return {
+      ...fallbackTurn,
+      intent:
+        fallbackCard.type === "questions"
+          ? ("ask_question" as const)
+          : fallbackTurn.intent,
+      workspaceCard: fallbackCard,
+    };
+  });
+  const updatedBrief = mergeProjectBriefPatch(effectiveBrief, turn.briefPatch);
+  const workspaceCard = turn.workspaceCard;
 
-  return result.toUIMessageStreamResponse({
+  const stream = createUIMessageStream({
     originalMessages: messages,
+    execute({ writer }) {
+      const textId = crypto.randomUUID();
+      writer.write({ type: "text-start", id: textId });
+      writer.write({
+        type: "text-delta",
+        id: textId,
+        delta: turn.assistantMessage,
+      });
+      writer.write({ type: "text-end", id: textId });
+    },
     onFinish: async ({ messages }) => {
       await prisma.$executeRaw`
         UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(updatedBrief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
       `;
+
+      const compaction = await maybeCompactProjectChat({
+        memoryFacts,
+        messages,
+        summary: chatSummary,
+      }).catch(() => null);
+
+      if (compaction) {
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "chatSummary" = ${JSON.stringify(compaction.summary)}::jsonb, "memoryFacts" = ${JSON.stringify(compaction.memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compaction.compactedMessageCount} WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+      }
     },
   });
+
+  return createUIMessageStreamResponse({ stream });
+}
+
+function hasBriefPatchValue(patch: object) {
+  return Object.values(patch).some((value) =>
+    Array.isArray(value) ? value.length > 0 : Boolean(value),
+  );
 }

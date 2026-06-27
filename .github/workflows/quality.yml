@@ -41,9 +41,10 @@ jobs:
       AI_MODELS: cmc/deepseek/deepseek-v4-pro,cmc/deepseek/deepseek-v4-flash,cmc/moonshotai/Kimi-K2.6
       NINE_ROUTER_BASE_URL: http://localhost:20129/v1
       NINE_ROUTER_API_KEY: test
-      STORAGE_PROVIDER: local
+      OBJECT_STORAGE_PROVIDER: local
+      LOCAL_UPLOAD_DIR: .data/uploads
       RATE_LIMIT_PROVIDER: memory
-      QUEUE_PROVIDER: none
+      CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
 
     steps:
       - name: Checkout
@@ -62,6 +63,16 @@ jobs:
 
       - name: Check
         run: bun run check
+
+      - name: Storybook build
+        run: bun run storybook:build
+
+      - name: Storybook component tests
+        run: bun run test:storybook
+
+      - name: Chromatic visual tests
+        if: ${{ env.CHROMATIC_PROJECT_TOKEN != '' }}
+        run: bun run chromatic
 
       - name: Build
         run: bun run build

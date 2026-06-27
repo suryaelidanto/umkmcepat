@@ -5,7 +5,7 @@ import { WorkspaceShell } from "@/components/projects/WorkspaceShell";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseProjectBrief } from "@/lib/projects/brief";
-import { generateNextWorkspaceCard } from "@/lib/projects/brief-flow";
+import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
 import {
   getProjectChatPage,
   parseProjectChatMessages,
@@ -47,12 +47,17 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     SELECT "chatMessages" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
   `;
 
-  const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
-    SELECT "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
+  const [briefRow] = await prisma.$queryRaw<
+    [{ brief: unknown; workspaceCard: unknown }]
+  >`
+    SELECT "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
   `;
   const initialBrief = parseProjectBrief(briefRow?.brief, project.prompt);
 
-  const initialWorkspaceCard = await generateNextWorkspaceCard(initialBrief);
+  const initialWorkspaceCard = parseWorkspaceCard(
+    briefRow?.workspaceCard,
+    initialBrief,
+  );
 
   const initialChatPage = getProjectChatPage(
     parseProjectChatMessages(chatRow?.chatMessages),

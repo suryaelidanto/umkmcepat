@@ -5,7 +5,7 @@ import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createInitialBrief } from "@/lib/projects/brief";
-import { generateNextWorkspaceCard } from "@/lib/projects/brief-flow";
+import { createPendingWorkspaceCard } from "@/lib/projects/brief-flow";
 import { validateProjectRequest } from "@/lib/projects/input";
 import { createFallbackProjectSiteSchema } from "@/lib/projects/site-schema";
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
   const siteSchema = createFallbackProjectSiteSchema(validation.value);
   const brief = createInitialBrief(validation.value);
-  const workspaceCard = await generateNextWorkspaceCard(brief);
+  const workspaceCard = createPendingWorkspaceCard(brief);
   const project = await prisma.project.create({
     data: {
       title: getProjectTitle(validation.value),

@@ -1,10 +1,14 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseProjectBrief } from "@/lib/projects/brief";
-import { generateNextWorkspaceCard } from "@/lib/projects/brief-flow";
+import {
+  createPendingWorkspaceCard,
+  generateNextWorkspaceCard,
+  parseWorkspaceCard,
+} from "@/lib/projects/brief-flow";
 
 export async function GET(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
@@ -30,11 +34,29 @@ export async function GET(
     );
   }
 
-  const [row] = await prisma.$queryRaw<[{ brief: unknown }]>`
-    SELECT "brief" FROM "Project" WHERE id = ${id} AND "userId" = ${userId}
+  const [row] = await prisma.$queryRaw<
+    [{ brief: unknown; workspaceCard: unknown }]
+  >`
+    SELECT "brief", "workspaceCard" FROM "Project" WHERE id = ${id} AND "userId" = ${userId}
   `;
   const brief = parseProjectBrief(row?.brief, project.prompt);
-  const workspaceCard = await generateNextWorkspaceCard(brief);
+  const shouldRegenerate =
+    new URL(request.url).searchParams.get("regenerate") === "1";
 
-  return Response.json({ brief, workspaceCard });
+  if (shouldRegenerate) {
+    const workspaceCard = await generateNextWorkspaceCard(brief).catch(() =>
+      createPendingWorkspaceCard(brief),
+    );
+
+    await prisma.$executeRaw`
+      UPDATE "Project" SET "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb WHERE id = ${id} AND "userId" = ${userId}
+    `;
+
+    return Response.json({ brief, workspaceCard });
+  }
+
+  return Response.json({
+    brief,
+    workspaceCard: parseWorkspaceCard(row?.workspaceCard, brief),
+  });
 }

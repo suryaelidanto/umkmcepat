@@ -4,10 +4,15 @@
     "src/app/**/{page,layout,route,loading,error,global-error,not-found}.{ts,tsx}",
     "src/**/*.test.ts",
     ".husky/pre-commit",
-    ".husky/commit-msg"
+    ".husky/commit-msg",
+    "lighthouserc.mobile.cjs",
+    "lighthouserc.desktop.cjs",
+    "lighthouserc.auth.mobile.cjs",
+    "lighthouserc.auth.desktop.cjs"
   ],
   "project": ["src/**/*.{ts,tsx}", "*.{ts,js,mjs,cjs}"],
-  "ignoreDependencies": ["eslint-config-next", "tailwindcss"],
+  "ignoreBinaries": ["graphify", "netstat"],
+  "ignoreDependencies": ["@lhci/cli", "eslint-config-next", "tailwindcss"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     "src/components/ui/**": ["exports"],

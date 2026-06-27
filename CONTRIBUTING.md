@@ -1,279 +1,14 @@
 # Contributing
 
-Choose your setup path:
-
-<details>
-<summary>I want an AI agent to set everything up for me</summary>
-
-Copy this into your AI coding assistant (Codex, Claude, Cursor, etc.):
-
-<pre><code>You are a smart, effective, and efficient developer setting up UMKM Cepat for another developer. Be proactive. Detect everything you can. Do not ask questions you can answer yourself. Your first goal is simple: get the app running locally with the fewest interruptions.
-
-## Project overview
-
-- Next.js 15, React 19, Tailwind v4, shadcn/ui
-- Prisma + PostgreSQL in Docker
-- Bun only
-- 9Router for AI generation
-- Google OAuth for real login flows
-- Sentry for monitoring
-
-## Working style
-
-- Start immediately.
-- Detect OS, shell, repo state, tools, ports, and running containers yourself.
-- Run safe read-only checks without asking.
-- Run normal project setup commands when they only affect this repo or this repo's Docker Compose project.
-- Ask before any destructive, global, or user-data-changing action.
-- Keep updates short. Say what you did, what failed, and the next action.
-- Do basic local setup first. After the app runs, offer extra setup for AI generation, login, or monitoring.
-
-## Safety rules
-
-You are allowed to be proactive, but you must not risk the user's machine or data.
-
-Never run without explicit approval:
-
-- `rm -rf`, `del /s`, `Remove-Item -Recurse`, disk cleanup, or broad delete commands
-- commands that overwrite `.env`, database volumes, uploads, user files, shell profiles, SSH config, Git config, or package-manager config
-- `docker compose down -v`, `docker volume rm`, `docker system prune`, or deleting containers/volumes not created by this repo
-- stopping/killing processes you did not start
-- changing global registry, proxy, DNS, firewall, PATH, shell, or OS settings
-- printing secrets, tokens, OAuth client secrets, private keys, or full `.env` contents
-
-Allowed without asking:
-
-- read-only detection commands
-- `git status`, `git diff`, `git log`
-- `bun install` inside this repo
-- creating `.env` from `.env.example` only when `.env` does not exist
-- `docker compose up -d` for this repo
-- `docker compose logs` for this repo, after redacting obvious secrets if present
-- `bun run db:migrate` only against this repo's configured development database
-
-If a safe command fails, diagnose with read-only checks first. Ask before changing global settings or deleting caches.
-
-## 1. Detect the environment
-
-Run lightweight checks:
-
-  pwd
-  uname -a || ver
-  git --version
-  bun --version
-  docker version
-  docker compose version
-
-Infer:
-- macOS from Darwin
-- Linux from Linux
-- WSL from Linux plus Microsoft/WSL in uname or /proc/version
-- Windows native from MINGW, MSYS, Git Bash, PowerShell, or cmd signals
-
-If Git, Bun, or Docker is missing, do not install system packages automatically. Tell the user the exact missing tool and one clear install path. If they approve automatic installation, use the platform's normal installer.
-
-If Docker is missing or not running, stop and tell the user exactly what to do:
-"Docker is not running. Start Docker Desktop or Docker Engine, then tell me when it is ready."
-
-## 2. Get the code
-
-If the current folder is already the UMKM Cepat repo, use it. Otherwise clone it:
-
-  git clone https://github.com/suryaelidanto/umkmcepat.git
-  cd umkmcepat
-
-Check the expected files exist:
-
-  package.json
-  bun.lock
-  docker-compose.yml
-  .env.example
-
-## 3. Install dependencies
-
-Run:
-
-  bun install
-
-If it fails because of network or registry issues, do not change global registry settings automatically. Ask the user about VPN, proxy, corporate network restrictions, or whether they want to use a temporary registry override for this install only.
-
-## 4. Create local env
-
-If .env does not exist, create it:
-
-  cp .env.example .env
-
-On Windows native if cp is unavailable:
-
-  copy .env.example .env
-
-Do not overwrite an existing .env.
-
-## 5. Start PostgreSQL
-
-Check port 5432 before starting:
-
-Linux/macOS/WSL:
-  lsof -i :5432 || ss -tlnp | grep 5432 || echo "5432 free"
-
-Windows native:
-  netstat -ano | findstr :5432 || echo "5432 free"
-
-If another process owns 5432, show the user the process and ask before stopping it.
-
-Start Postgres:
-
-  docker compose up -d
-  docker compose ps postgres
-
-If it fails:
-
-  docker compose logs postgres
-
-Wait until Postgres is healthy, then run:
-
-  bun run db:migrate
-
-## 6. Start the app
-
-Check port 3000 first:
-
-Linux/macOS/WSL:
-  lsof -i :3000 || ss -tlnp | grep 3000 || echo "3000 free"
-
-Windows native:
-  netstat -ano | findstr :3000 || echo "3000 free"
-
-If another process owns 3000, show the user and ask before stopping it.
-
-Start the app:
-
-  bun run dev
-
-Verify it is reachable:
-
-Linux/macOS/WSL:
-  curl -s -o /dev/null -w "%{http_code}" http://localhost:3000
-
-Windows native:
-  curl -s http://localhost:3000 || echo "Open http://localhost:3000 in the browser to verify"
-
-Accept 200, 302, or 307 as running.
-
-Tell the user:
-"UMKM Cepat is running at http://localhost:3000."
-
-## 7. Offer extras after the app works
-
-After basic setup succeeds, say:
-"Local app is ready. I can also set up AI generation, login, or monitoring if you want."
-
-If they want AI generation:
-
-  docker compose --profile ai up -d
-  docker compose ps 9router
-
-Then tell them:
-"9Router: http://localhost:20129, default password: 123456. Provider setup is in docs/9router.md."
-
-If they want login:
-"Google callback URL: http://localhost:3000/api/auth/callback/google."
-
-If they want monitoring:
-"Sentry setup is in docs/observability.md."
-
-## 8. Before PRs
-
-When they are ready to contribute:
-
-  bun run check
-
-Tell them:
-- Use Conventional Commits
-- Open PRs into dev
-- Keep changes focused
-
-## 9. Recovery guide
-
-- Docker missing: install Docker Desktop or Docker Engine
-- Docker not running: start Docker
-- Port busy: identify owner with lsof, ss, or netstat; ask before stopping it
-- bun install fails: ask about proxy/VPN or a temporary registry override; do not change global registry automatically
-- Database fails: docker compose ps postgres, then docker compose logs postgres
-- .next errors: stop the dev server you started, ask before deleting `.next`, then restart
-- Lockfile errors: use Bun only; keep bun.lock; ask before removing package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lockb
-
-Start now. Do not ask what OS they use. Detect it. Do not ask what they want first. Get the local app running, then offer extras.</code></pre>
-
-</details>
-
-<details>
-<summary>I want to set it up manually</summary>
+Thanks for helping UMKM Cepat. Keep changes focused, useful, and easy to review.
 
 ## Requirements
 
-Install these first:
-
 - Git
-- Bun
+- Bun, pinned in `package.json`
 - Docker with Compose
 
-Bun is the only supported package manager. The pinned version is in `package.json`.
-
-<details>
-<summary>Windows</summary>
-
-Use either WSL or Git Bash.
-
-WSL setup:
-
-- WSL Ubuntu: https://learn.microsoft.com/windows/wsl/install
-- Bun inside Ubuntu: https://bun.com/docs/installation
-- Git inside Ubuntu: https://git-scm.com/download/linux
-- Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
-
-Native setup:
-
-- Git for Windows: https://git-scm.com/download/win
-- Bun for Windows: https://bun.com/docs/installation
-- Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/
-
-</details>
-
-<details>
-<summary>macOS</summary>
-
-Install:
-
-- Bun: https://bun.com/docs/installation
-- Git: https://git-scm.com/download/mac
-- Docker Desktop: https://docs.docker.com/desktop/setup/install/mac-install/
-
-Colima also works: https://github.com/abiosoft/colima
-
-</details>
-
-<details>
-<summary>Linux</summary>
-
-Install:
-
-- Bun: https://bun.com/docs/installation
-- Git: https://git-scm.com/download/linux
-- Docker Engine: https://docs.docker.com/engine/install/
-
-If Docker requires sudo, use `sudo docker ...` consistently or configure Docker group/rootless access.
-
-</details>
-
-Check tools:
-
-```bash
-git --version
-bun --version
-docker version
-docker compose version
-```
+Bun is the only supported package manager.
 
 ## Local setup
 
@@ -282,7 +17,8 @@ git clone https://github.com/suryaelidanto/umkmcepat.git
 cd umkmcepat
 bun install
 cp .env.example .env
-bun run setup:local
+bun run infra
+bun run db:migrate
 bun run dev
 ```
 
@@ -292,52 +28,31 @@ Open:
 http://localhost:3000
 ```
 
-This gives you a working local app. Continue only with the sections your change needs.
-
-## Feature setup
-
-### AI generation
+Optional AI gateway:
 
 ```bash
 bun run infra:ai
 ```
 
-Open:
-
 ```text
-http://localhost:20129
+9Router: http://localhost:20129
+Default password: 123456
 ```
 
-Default password:
+See `docs/architecture.md` for provider setup.
 
-```text
-123456
-```
+## Optional agent code map
 
-Then follow [docs/9router.md](docs/9router.md).
-
-### Login, Sentry, and UI components
-
-- Google login callback: `http://localhost:3000/api/auth/callback/google`
-- Sentry setup: [docs/observability.md](docs/observability.md)
-- UI components live in `src/components/ui`
-
-Add shadcn/ui primitives with:
+For non-trivial AI-assisted work, install Graphify outside the project and generate the local graph:
 
 ```bash
-bunx shadcn@latest add button card input
+uv tool install graphifyy
+bun run setup:agent
 ```
 
-Preview existing primitive changes with:
-
-```bash
-bunx shadcn@latest add button --dry-run
-bunx shadcn@latest add button --diff
-```
+`graphify-out/` is ignored by git and must not be committed.
 
 ## Before opening a PR
-
-Run:
 
 ```bash
 bun run check
@@ -354,32 +69,16 @@ chore: update dependencies
 
 Open PRs into `dev` first unless maintainers say otherwise.
 
-## Troubleshooting
+## Where to read next
 
-### Docker is not running
+- `PRINCIPLES.md` — quality bar and operating taste.
+- `DEV.md` — maintainer workflow, commands, Storybook, Graphify, checks.
+- `DESIGN.md` — visual system and UI rules.
+- `docs/architecture.md` — project/workspace/renderer/provider/storage/auth/AI constraints.
+- `docs/deployment.md` — Docker, VPS, storage persistence, and Sentry setup.
 
-Start Docker, then retry:
+## Safety
 
-```bash
-docker version
-docker compose version
-```
-
-### Bun version mismatch
-
-The Bun version is pinned in `package.json`.
-
-```bash
-bun --version
-```
-
-### Stale Next.js output
-
-Stop the dev server, remove `.next`, then restart:
-
-```bash
-rm -rf .next
-bun run dev
-```
-
-</details>
+- Do not commit `.env`, secrets, OAuth credentials, provider keys, private data, local uploads, logs, screenshots, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, `storybook-static/`, or coverage artifacts.
+- Ask before destructive local operations such as deleting Docker volumes, local uploads, or user files.
+- If Docker is missing or stopped, start Docker Desktop or Docker Engine before running infrastructure commands.

@@ -20,20 +20,37 @@ export type BriefQuestion = {
     | "stylePreference"
   >;
   question: string;
+  recommendedOptionLabel?: string;
+  whyThisQuestionMatters?: string;
   options: Array<{ label: string; description: string }>;
 };
 
 export type WorkspaceCard =
+  | { type: "none" }
   | { type: "questions"; questions: BriefQuestion[] }
   | { type: "build_recommendation"; title: string; summary: string[] };
 
-const REQUIRED_FIELDS: Array<BriefQuestion["id"]> = [
+export type ProjectBriefPatch = Partial<
+  Pick<
+    ProjectBrief,
+    | "businessName"
+    | "businessType"
+    | "offer"
+    | "targetCustomer"
+    | "contactOrCta"
+    | "stylePreference"
+  >
+> & { notes?: string[] };
+
+export const REQUIRED_BRIEF_FIELDS = [
   "businessType",
   "offer",
   "targetCustomer",
   "contactOrCta",
   "stylePreference",
-];
+] as const satisfies Array<BriefQuestion["id"]>;
+
+const REQUIRED_FIELDS: Array<BriefQuestion["id"]> = [...REQUIRED_BRIEF_FIELDS];
 
 export function createInitialBrief(prompt = ""): ProjectBrief {
   return {
@@ -70,8 +87,44 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
   };
 }
 
+export function mergeProjectBriefPatch(
+  brief: ProjectBrief,
+  patch: ProjectBriefPatch,
+): ProjectBrief {
+  const next = { ...brief, notes: [...brief.notes] };
+
+  for (const field of REQUIRED_FIELDS) {
+    const value = stringValue(patch[field]);
+
+    if (value) {
+      next[field] = value;
+    }
+  }
+
+  const businessName = stringValue(patch.businessName);
+
+  if (businessName) {
+    next.businessName = businessName;
+  }
+
+  if (Array.isArray(patch.notes)) {
+    next.notes = [...next.notes, ...patch.notes.filter(isString)].slice(-24);
+  }
+
+  return next;
+}
+
 export function getMissingBriefFields(brief: ProjectBrief) {
   return REQUIRED_FIELDS.filter((field) => !brief[field]);
+}
+
+export function isBriefQuestionId(
+  value: unknown,
+): value is BriefQuestion["id"] {
+  return (
+    typeof value === "string" &&
+    REQUIRED_FIELDS.includes(value as BriefQuestion["id"])
+  );
 }
 
 export function isBriefReady(brief: ProjectBrief) {

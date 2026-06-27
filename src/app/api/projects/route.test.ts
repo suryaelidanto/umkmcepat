@@ -45,16 +45,13 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { project: { create: prismaProjectCreateMock } },
 }));
 vi.mock("@/lib/projects/brief-flow", () => ({
-  generateNextWorkspaceCard: vi.fn(async () => ({
+  createPendingWorkspaceCard: vi.fn(() => ({
     type: "questions",
     questions: [
       {
         id: "offer",
         question: "Apa menu utama yang mau ditonjolkan?",
-        options: [
-          { label: "Bakso urat", description: "Fokus menu andalan." },
-          { label: "Bakso isi", description: "Tampilkan varian unik." },
-        ],
+        options: [],
       },
     ],
   })),

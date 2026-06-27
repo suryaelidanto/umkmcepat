@@ -1,0 +1,52 @@
+import { Meta, Title, Subtitle } from "@storybook/addon-docs/blocks";
+
+<Meta title="Guide/Get started" />
+
+<Title>UMKM Cepat Storybook</Title>
+
+<Subtitle>Small UI review board for humans and AI agents.</Subtitle>
+
+UMKM Cepat uses Storybook to review reusable UI and catch visual drift. It is not a product showcase and not a mirror of every page.
+
+## Agent workflow
+
+1. Read `DESIGN.md`.
+2. Open the closest Storybook story.
+3. Reuse existing primitives and product patterns.
+4. Add or update a story when adding a reusable component or visual state.
+5. Run `bun run check`, `bun run storybook:build`, and `bun run test:storybook`.
+
+## What belongs here
+
+- `Foundations`: palette, typography, spacing, radius, and surface rules.
+- `Core UI`: reusable primitives that other screens compose.
+- `Product UI`: real product components and important states.
+- Responsive, loading, disabled, empty, destructive, and error states when they affect review.
+
+## What does not belong here
+
+- One-off decoration.
+- Server-only logic.
+- Fake dashboard art that does not exist in the product.
+- Components created only because “maybe later”.
+
+## Visual rules
+
+- Plus Jakarta Sans everywhere.
+- Warm neutral base: `#eceae4`, `#fcfbf8`, `#f7f4ed`.
+- Primary action: `#1c1c1c`.
+- Product dark surfaces use `#151515` with warm-white text and low-opacity borders.
+- Depth comes from borders and restrained surfaces, not heavy shadows.
+
+## Adding a story
+
+Create `*.stories.tsx` near the component or under `src/stories`.
+
+```tsx
+const meta = {
+  component: Button,
+  title: "Core UI/Button",
+} satisfies Meta<typeof Button>;
+```
+
+Use stories as examples and tests. If the component has behavior, add a `play` function.

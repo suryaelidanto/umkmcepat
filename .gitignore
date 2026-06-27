@@ -47,9 +47,21 @@ next-env.d.ts
 # Local automation/browser artifacts
 .browser/
 .pi/
+graphify-out/
+
+# Local object storage uploads
+/.data/
+/uploads/
 
 # Dev/runtime logs
 *.log
 *.err.log
 # Local dev process files
 *.pid
+
+# Storybook build output
+/storybook-static/
+
+# Lighthouse local reports/session state
+/.lighthouseci/
+/.lighthouse-auth/

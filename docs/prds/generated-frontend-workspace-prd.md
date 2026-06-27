@@ -1,5 +1,19 @@
 # PRD: Guided Discussion and Generated Frontend Workspace
 
+Status: historical
+Created: 2026-06-24
+Updated: 2026-06-26
+Owner: Surya
+Scope: project workspace, guided discussion, generated frontend source/build/preview
+Read when: changing workspace generation, generated source, preview, export, publish, or AI build loop behavior
+Do not read for: routine UI cleanup, auth/profile, provider config, deployment, or unrelated docs work
+Current truth: source code + `docs/architecture.md` + `DEV.md`
+
+## Status History
+
+- 2026-06-26: Marked historical after partial implementation shipped and docs were simplified.
+- 2026-06-24: Drafted as direction for guided discussion and generated frontend workspace.
+
 ## Problem Statement
 
 UMKM Cepat currently proves that an authenticated user can create a project, discuss needs with AI, stream a schema, and render a preview. That is useful, but it still feels too much like a prototype: the generated result is generic, the preview is constrained by a simple schema renderer, the chat output is not a polished guided product experience, and users who want a truly custom website or frontend app will quickly hit the ceiling.
