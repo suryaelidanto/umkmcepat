@@ -21,7 +21,16 @@ bun run lighthouse:mobile
 bun run lighthouse:desktop
 ```
 
-Reports are written to `.lighthouseci/` and ignored by Git.
+Authenticated pages use an ignored local cookie file:
+
+```bash
+mkdir -p .lighthouse-auth
+# Fill .lighthouse-auth/cookies.txt from DevTools Application > Cookies.
+# One auth cookie per line: name=value
+bun run lighthouse:auth
+```
+
+Reports are written to `.lighthouseci/` and ignored by Git. Auth cookies are read from `.lighthouse-auth/cookies.txt` and ignored by Git.
 
 ## Current scope
 
@@ -31,7 +40,7 @@ The local audit covers public pages:
 - `/terms`
 - `/privacy`
 
-Authenticated pages such as `/profile`, `/projects/new`, and project workspaces redirect without a valid session. Audit those later with a dedicated Puppeteer login script or a local auth fixture; do not weaken auth just for Lighthouse.
+Authenticated audit covers `/profile` when `.lighthouse-auth/cookies.txt` exists. To include one project workspace, set `LIGHTHOUSE_AUTH_PROJECT_URL` to a local project URL before running `bun run lighthouse:auth`. `/projects/new` currently redirects after auth and is not a meaningful Lighthouse target.
 
 ## Thresholds
 
@@ -72,7 +81,8 @@ Raise mobile performance to 95 only after it is stable across repeated local run
 5. Fix deterministic issues first: accessibility, best practices, SEO metadata, console errors.
 6. Fix performance issues that improve real UX: LCP, TBT, CLS, images, fonts, bundle weight, cache hints.
 7. Re-run the failing target (`bun run lighthouse:mobile` or `bun run lighthouse:desktop`) until thresholds pass.
-8. Finish with `bun run check` and a clean `git status`.
+8. For authenticated pages, create `.lighthouse-auth/cookies.txt` manually from DevTools cookies. Include only Auth.js/NextAuth session cookies, one `name=value` per line. Never commit `.lighthouse-auth/`.
+9. Finish with `bun run check` and a clean `git status`.
 
 Do not weaken thresholds to make a bad run pass. Only adjust thresholds after repeated evidence that Lighthouse variance, not product quality, is the blocker.
 

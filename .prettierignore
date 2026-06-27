@@ -6,6 +6,7 @@ node_modules
 .agents
 graphify-out
 .lighthouseci
+.lighthouse-auth
 coverage
 dist
 build

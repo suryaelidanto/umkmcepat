@@ -7,7 +7,13 @@ const configs =
     ? ["lighthouserc.mobile.cjs"]
     : target === "desktop"
       ? ["lighthouserc.desktop.cjs"]
-      : ["lighthouserc.mobile.cjs", "lighthouserc.desktop.cjs"];
+      : target === "auth-mobile"
+        ? ["lighthouserc.auth.mobile.cjs"]
+        : target === "auth-desktop"
+          ? ["lighthouserc.auth.desktop.cjs"]
+          : target === "auth"
+            ? ["lighthouserc.auth.mobile.cjs", "lighthouserc.auth.desktop.cjs"]
+            : ["lighthouserc.mobile.cjs", "lighthouserc.desktop.cjs"];
 
 const env = {
   ...process.env,

@@ -62,5 +62,6 @@ graphify-out/
 # Storybook build output
 /storybook-static/
 
-# Lighthouse local reports
+# Lighthouse local reports/session state
 /.lighthouseci/
+/.lighthouse-auth/
