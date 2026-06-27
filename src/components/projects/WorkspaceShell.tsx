@@ -404,12 +404,12 @@ export function WorkspaceShell({
   );
 
   useEffect(() => {
-    if (isProcessing) {
-      return;
-    }
+    const latestWorkspaceCard = getLatestWorkspaceCardFromMessages(messages);
 
-    void refreshWorkspaceCard();
-  }, [isProcessing, messages.length, refreshWorkspaceCard]);
+    if (latestWorkspaceCard) {
+      setWorkspaceCard(latestWorkspaceCard);
+    }
+  }, [messages]);
 
   async function saveProjectTitle() {
     const title = draftTitle.trim();
@@ -761,6 +761,27 @@ export function WorkspaceShell({
       </ResizablePanelGroup>
     </div>
   );
+}
+
+function getLatestWorkspaceCardFromMessages(messages: UIMessage[]) {
+  for (const message of [...messages].reverse()) {
+    for (const part of [...message.parts].reverse()) {
+      if (
+        part.type !== "tool-setWorkspaceUi" ||
+        part.state !== "output-available"
+      ) {
+        continue;
+      }
+
+      const output = part.output as { workspaceCard?: WorkspaceCard } | null;
+
+      if (output?.workspaceCard) {
+        return output.workspaceCard;
+      }
+    }
+  }
+
+  return null;
 }
 
 function ChatMessages({ messages }: { messages: UIMessage[] }) {

@@ -107,7 +107,7 @@ describe("discussion turn", () => {
         messages: [],
         mode: "discuss",
       }),
-    ).rejects.toThrow("AI gagal membuat discussion turn valid");
+    ).rejects.toThrow("AI failed to create a valid discussion turn");
     expect(generateObjectMock).toHaveBeenCalledTimes(3);
   });
 

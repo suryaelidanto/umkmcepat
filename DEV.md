@@ -5,8 +5,8 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 ## Core rules
 
 - Keep changes small and reviewable.
-- Keep developer-facing docs, code names, comments, logs, errors, and commits in English.
-- Keep end-user UI copy in Indonesian unless an i18n layer is introduced.
+- Keep every developer-facing or internal-facing surface in English: docs, system prompts, agent prompts, code names, comments, logs, errors, test names, commits, scripts, and internal tooling copy.
+- Keep only consumer-facing product UI copy in Indonesian unless an i18n layer is introduced.
 - Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, uploads, or generated junk.
 
 ## Local runtime
@@ -112,7 +112,7 @@ For UI, styling, layout, typography, colors, or components:
 2. Reuse `src/components/ui`, design tokens, and existing stories first.
 3. Check Storybook foundations, atoms, molecules, and organisms.
 4. Add or update a Storybook story for new reusable UI or meaningful repeated visual states.
-5. Keep visible product copy Indonesian.
+5. Keep visible product copy Indonesian; keep Storybook/developer chrome and internal prompts English.
 
 Storybook:
 
@@ -160,7 +160,7 @@ Do not paste raw component source from external pages.
 
 Read the relevant doc before touching that area:
 
-- Architecture/provider/storage/auth/AI gateway changes: `docs/architecture.md`
+- Project/runtime/provider/storage/auth/AI gateway changes: `docs/architecture.md`
 - Docker/VPS/deployment/monitoring changes: `docs/deployment.md`
 
 Core architecture rule:

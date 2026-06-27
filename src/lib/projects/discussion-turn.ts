@@ -144,35 +144,35 @@ export async function generateDiscussionTurn({
         model: getAiModel(),
         temperature: attempt === 1 ? 0.35 : 0.2,
         schema: jsonSchema<AiDiscussionTurn>(discussionTurnJsonSchema as never),
-        system: `Kamu konsultan website profesional untuk UMKM Indonesia.
-Gunakan gaya interview seperti skill grilling: tajam, satu keputusan per langkah, helpful, tidak bertele-tele.
-Jangan tampilkan chain-of-thought.
-Mode aktif: ${mode === "build" ? "Buat" : "Diskusi"}.
+        system: `You are a professional website consultant for Indonesian small businesses.
+Use an interview style inspired by grilling: sharp, one decision per step, helpful, concise.
+Do not reveal chain-of-thought.
+Active mode: ${mode === "build" ? "Build" : "Discuss"}.
 
-Aturan diskusi:
-- Jika mode Diskusi dan masih ada field yang belum jelas, intent WAJIB ask_question dengan questionCard. Jangan answer_only untuk kasus ini.
-- Jika ask_question, tanya SATU keputusan saja. Jangan tanya banyak cabang sekaligus.
-- Jika ask_question, assistantMessage hanya konteks/saran singkat dan mengarahkan user memilih kartu. Jangan mengulang questionCard.question. Jangan menulis daftar opsi di assistantMessage.
-- questionCard.options wajib 3-5 opsi spesifik untuk bisnis user, bukan template umum.
-- Selalu beri recommendedOptionLabel yang cocok untuk user.
-- Jika user punya kebutuhan detail/khusus, tetap beri opsi paling relevan dan biarkan UI menyediakan jawaban bebas.
-- Jika code/system bisa menjawab, jangan tanyakan ke user.
-- Jangan menyarankan build sebelum brief cukup jelas sekitar 80%.
-- User-facing copy harus bahasa Indonesia.
+Discussion rules:
+- If Discuss mode still has unclear fields, intent MUST be ask_question with questionCard. Do not return answer_only in this case.
+- If ask_question, ask exactly ONE decision. Do not ask multiple branches at once.
+- If ask_question, assistantMessage should only give short context and direct the user to choose from the card. Do not repeat questionCard.question. Do not write the option list in assistantMessage.
+- questionCard.options must contain 3-5 business-specific options, not generic templates.
+- Always provide a recommendedOptionLabel that fits the user.
+- If the user has detailed/special requirements, still provide the most relevant options and let the UI provide free-text fallback.
+- If code/system can answer, do not ask the user.
+- Do not recommend build before the brief is roughly 80% clear.
+- User-facing copy must be Indonesian.
 
-Konteks tersembunyi:
+Hidden context:
 ${chatContext.systemContext}`,
-        prompt: `Brief saat ini:\n${JSON.stringify(brief)}\n\nField yang belum jelas:\n${missingFields.join(", ") || "tidak ada"}\n\nPesan user terbaru:\n${latestUserText}\n\nRecent transcript:\n${formatMessages(messages)}\n\nReturn JSON sesuai schema.\n${repairNote}`,
+        prompt: `Current brief:\n${JSON.stringify(brief)}\n\nUnclear fields:\n${missingFields.join(", ") || "none"}\n\nLatest user message:\n${latestUserText}\n\nRecent transcript:\n${formatMessages(messages)}\n\nReturn schema-valid JSON.\n${repairNote}`,
       });
 
       return normalizeDiscussionTurn(result.object, brief);
     } catch (error) {
-      repairNote = `\nPercobaan sebelumnya gagal validasi: ${(error as Error).message}. Buat ulang JSON yang valid. Jika masih ada field belum jelas, wajib ask_question dengan 3-5 options.`;
+      repairNote = `\nPrevious attempt failed validation: ${(error as Error).message}. Regenerate valid JSON. If any field is still unclear, return ask_question with 3-5 options.`;
     }
   }
 
   throw new Error(
-    "AI gagal membuat discussion turn valid setelah 3 percobaan.",
+    "AI failed to create a valid discussion turn after 3 attempts.",
   );
 }
 
@@ -205,7 +205,7 @@ function normalizeDiscussionTurn(
   const assistantMessage = turn.assistantMessage.trim();
 
   if (!assistantMessage) {
-    throw new Error("Discussion turn tidak punya assistantMessage.");
+    throw new Error("Discussion turn is missing assistantMessage.");
   }
 
   if (turn.intent === "ready_to_build") {
@@ -223,7 +223,7 @@ function normalizeDiscussionTurn(
 
   if (turn.intent === "ask_question") {
     if (!turn.questionCard) {
-      throw new Error("ask_question wajib punya questionCard.");
+      throw new Error("ask_question requires questionCard.");
     }
 
     const effectiveBrief = mergeProjectBriefPatch(brief, turn.briefPatch || {});
@@ -231,14 +231,14 @@ function normalizeDiscussionTurn(
 
     if (!missingFields.has(turn.questionCard.id)) {
       throw new Error(
-        "questionCard.id harus field yang masih belum jelas setelah briefPatch.",
+        "questionCard.id must target a field that remains unclear after briefPatch.",
       );
     }
 
     const options = normalizeOptions(turn.questionCard.options);
 
     if (options.length < 3) {
-      throw new Error("questionCard wajib punya minimal 3 opsi valid.");
+      throw new Error("questionCard requires at least 3 valid options.");
     }
 
     const recommendedOptionLabel =
@@ -248,9 +248,7 @@ function normalizeDiscussionTurn(
       !recommendedOptionLabel ||
       !options.some((option) => option.label === recommendedOptionLabel)
     ) {
-      throw new Error(
-        "recommendedOptionLabel harus cocok dengan salah satu opsi.",
-      );
+      throw new Error("recommendedOptionLabel must match one of the options.");
     }
 
     return {
@@ -274,7 +272,7 @@ function normalizeDiscussionTurn(
   }
 
   if (getMissingBriefFields(brief).length > 0) {
-    throw new Error("Diskusi belum jelas wajib menghasilkan questionCard.");
+    throw new Error("Unclear discussion must produce questionCard.");
   }
 
   return {

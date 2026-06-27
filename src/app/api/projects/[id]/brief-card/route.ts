@@ -2,7 +2,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseProjectBrief } from "@/lib/projects/brief";
 import {
-  createPendingWorkspaceCard,
   generateNextWorkspaceCard,
   parseWorkspaceCard,
 } from "@/lib/projects/brief-flow";
@@ -44,9 +43,7 @@ export async function GET(
     new URL(request.url).searchParams.get("regenerate") === "1";
 
   if (shouldRegenerate) {
-    const workspaceCard = await generateNextWorkspaceCard(brief).catch(() =>
-      createPendingWorkspaceCard(brief),
-    );
+    const workspaceCard = generateNextWorkspaceCard(brief);
 
     await prisma.$executeRaw`
       UPDATE "Project" SET "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb WHERE id = ${id} AND "userId" = ${userId}
