@@ -4,18 +4,16 @@ import { type WorkspaceCard } from "@/lib/projects/brief";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 
 const businessTypeCard: WorkspaceCard = {
-  type: "questions",
-  questions: [
-    {
-      id: "businessType",
-      question: "Apa jenis usaha Anda?",
-      options: [
-        { label: "Warung Bakso", description: "Fokus bakso." },
-        { label: "Kedai Mie Ayam", description: "Fokus mie ayam." },
-        { label: "Rumah Makan", description: "Fokus menu luas." },
-      ],
-    },
-  ],
+  type: "question",
+  question: {
+    id: "businessType",
+    question: "Apa jenis usaha Anda?",
+    options: [
+      { label: "Warung Bakso", description: "Fokus bakso." },
+      { label: "Kedai Mie Ayam", description: "Fokus mie ayam." },
+      { label: "Rumah Makan", description: "Fokus menu luas." },
+    ],
+  },
 };
 
 describe("buildBriefPatchFromWorkspaceAnswers", () => {
@@ -76,18 +74,16 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
   it("does not map an old answer to a different active field", () => {
     const patch = buildBriefPatchFromWorkspaceAnswers({
       card: {
-        type: "questions",
-        questions: [
-          {
-            id: "targetCustomer",
-            question: "Siapa target pelanggan utama?",
-            options: [
-              { label: "Karyawan kantor", description: "Fokus makan siang." },
-              { label: "Keluarga", description: "Fokus makan bersama." },
-              { label: "Mahasiswa", description: "Fokus harga hemat." },
-            ],
-          },
-        ],
+        type: "question",
+        question: {
+          id: "targetCustomer",
+          question: "Siapa target pelanggan utama?",
+          options: [
+            { label: "Karyawan kantor", description: "Fokus makan siang." },
+            { label: "Keluarga", description: "Fokus makan bersama." },
+            { label: "Mahasiswa", description: "Fokus harga hemat." },
+          ],
+        },
       },
       fallbackText:
         "1. Apa jenis bisnis kamu saat ini?\nJawaban: aku ada toko bakso sih",

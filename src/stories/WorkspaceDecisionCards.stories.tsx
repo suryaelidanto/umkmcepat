@@ -1,9 +1,7 @@
-import {
-  QuestionStepperComposer,
-  WorkspaceCardView,
-} from "@/components/projects/WorkspacePrimitives";
+import { QuestionComposer } from "@/components/projects/WorkspacePrimitives";
+import { WorkspaceCardView } from "@/components/projects/WorkspacePrimitives";
 
-import type { WorkspaceCard } from "@/lib/projects/brief";
+import type { BriefQuestion, WorkspaceCard } from "@/lib/projects/brief";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 const meta = {
@@ -17,31 +15,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const QuestionStepper: Story = {
+export const SingleQuestion: Story = {
   render: () => (
     <DarkCanvas>
       <div className="max-w-3xl p-spacing-6">
-        <QuestionStepperComposer
-          card={questionsCard}
-          hasError={false}
-          isRefreshing={false}
-          onRefresh={() => undefined}
-          onSubmit={() => undefined}
-        />
-      </div>
-    </DarkCanvas>
-  ),
-};
-
-export const QuestionStepperEmptyOptions: Story = {
-  render: () => (
-    <DarkCanvas>
-      <div className="max-w-3xl p-spacing-6">
-        <QuestionStepperComposer
-          card={emptyOptionsCard}
-          hasError
-          isRefreshing={false}
-          onRefresh={() => undefined}
+        <QuestionComposer
+          question={targetQuestion}
           onSubmit={() => undefined}
         />
       </div>
@@ -55,11 +34,7 @@ export const BuildRecommendation: Story = {
       <div className="max-w-3xl p-spacing-6">
         <WorkspaceCardView
           card={buildRecommendationCard}
-          hasError={false}
-          isRefreshing={false}
-          onAnswer={() => undefined}
           onBuild={() => undefined}
-          onRefresh={() => undefined}
         />
       </div>
     </DarkCanvas>
@@ -74,59 +49,27 @@ function DarkCanvas({ children }: { children: React.ReactNode }) {
   );
 }
 
-const questionsCard = {
-  type: "questions",
-  questions: [
+const targetQuestion: BriefQuestion = {
+  id: "targetCustomer",
+  options: [
     {
-      id: "targetCustomer",
-      options: [
-        {
-          description: "Cocok kalau produk dijual dekat area kantor atau ruko.",
-          label: "Pekerja kantor sekitar",
-        },
-        {
-          description: "Cocok untuk harga terjangkau dan pesan cepat.",
-          label: "Mahasiswa",
-        },
-      ],
-      question: "Siapa pembeli utama yang ingin kamu kejar?",
-      recommendedOptionLabel: "Pekerja kantor sekitar",
-      whyThisQuestionMatters:
-        "Target pembeli menentukan headline, CTA, dan bukti sosial.",
+      description: "Cocok kalau produk dijual dekat area kantor atau ruko.",
+      label: "Pekerja kantor sekitar",
     },
     {
-      id: "contactOrCta",
-      options: [
-        {
-          description: "Paling cepat untuk UMKM yang menerima pesanan manual.",
-          label: "WhatsApp",
-        },
-        {
-          description: "Cocok kalau pelanggan perlu melihat lokasi dulu.",
-          label: "Google Maps",
-        },
-      ],
-      question: "Aksi utama pelanggan setelah membuka website apa?",
-      recommendedOptionLabel: "WhatsApp",
-      whyThisQuestionMatters:
-        "CTA utama menentukan struktur halaman dan tombol penting.",
+      description: "Cocok untuk harga terjangkau dan pesan cepat.",
+      label: "Mahasiswa",
+    },
+    {
+      description: "Cocok kalau pesanan biasanya untuk keluarga.",
+      label: "Keluarga",
     },
   ],
-} satisfies Extract<WorkspaceCard, { type: "questions" }>;
-
-const emptyOptionsCard = {
-  type: "questions",
-  questions: [
-    {
-      id: "offer",
-      options: [],
-      question: "Penawaran utama apa yang paling ingin ditonjolkan?",
-      recommendedOptionLabel: "",
-      whyThisQuestionMatters:
-        "Offer utama menentukan bagian hero dan prioritas konten.",
-    },
-  ],
-} satisfies Extract<WorkspaceCard, { type: "questions" }>;
+  question: "Siapa pembeli utama yang ingin kamu kejar?",
+  recommendedOptionLabel: "Pekerja kantor sekitar",
+  whyThisQuestionMatters:
+    "Target pembeli menentukan headline, CTA, dan bukti sosial.",
+};
 
 const buildRecommendationCard = {
   type: "build_recommendation",

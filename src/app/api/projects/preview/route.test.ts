@@ -3,31 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   authMock,
   executeRawMock,
-  generateDiscussionTurnMock,
   projectFindFirstMock,
   queryRawMock,
+  streamTextMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
-  generateDiscussionTurnMock: vi.fn(async () => ({
-    assistantMessage: "Saya bantu rapikan brief dulu.",
-    briefPatch: { offer: "Bakso" },
-    intent: "ask_question",
-    workspaceCard: {
-      type: "questions",
-      questions: [
-        {
-          id: "targetCustomer",
-          question: "Pelanggan utama bakso ini siapa?",
-          recommendedOptionLabel: "Pekerja sekitar",
-          options: [
-            { label: "Pekerja sekitar", description: "Fokus makan siang." },
-            { label: "Keluarga", description: "Fokus makan bersama." },
-            { label: "Anak sekolah", description: "Fokus harga hemat." },
-          ],
-        },
-      ],
-    },
-  })),
   projectFindFirstMock: vi.fn(async () => ({
     id: "project_1",
     prompt: "Saya jual bakso",
@@ -44,6 +24,36 @@ const {
     },
   ]),
   executeRawMock: vi.fn(async () => 1),
+  streamTextMock: vi.fn(({ tools }) => {
+    void tools.setWorkspaceUi.execute({
+      briefPatch: { offer: "Bakso" },
+      workspaceCard: {
+        type: "questions",
+        questions: [
+          {
+            id: "targetCustomer",
+            question: "Pelanggan utama bakso ini siapa?",
+            options: [
+              { label: "Pekerja sekitar", description: "Fokus makan siang." },
+              { label: "Keluarga", description: "Fokus makan bersama." },
+              { label: "Anak sekolah", description: "Fokus harga hemat." },
+            ],
+          },
+        ],
+      },
+    });
+
+    return {
+      toUIMessageStreamResponse: ({
+        onFinish,
+      }: {
+        onFinish: (input: { messages: unknown[] }) => void;
+      }) => {
+        void onFinish({ messages: [{ id: "m1", role: "user", parts: [] }] });
+        return new Response("stream");
+      },
+    };
+  }),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -75,32 +85,13 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/projects/discussion-turn", () => ({
-  createFallbackDiscussionTurn: vi.fn(() => ({
-    assistantMessage: "Saya bantu rapikan brief dulu.",
-    briefPatch: {},
-    intent: "answer_only",
-    workspaceCard: { type: "none" },
-  })),
-  generateDiscussionTurn: generateDiscussionTurnMock,
-}));
 
 vi.mock("ai", () => ({
-  createUIMessageStream: vi.fn(({ execute, onFinish }) => {
-    void execute({
-      writer: {
-        merge: vi.fn(),
-        onError: undefined,
-        write: vi.fn(),
-      },
-    });
-    void onFinish?.({
-      messages: [{ id: "m1", role: "user", parts: [] }],
-      responseMessage: { id: "a1", role: "assistant", parts: [] },
-    });
-    return new ReadableStream();
-  }),
-  createUIMessageStreamResponse: vi.fn(() => new Response("stream")),
+  convertToModelMessages: vi.fn(async (messages) => messages),
+  jsonSchema: vi.fn((schema) => schema),
+  stepCountIs: vi.fn((count) => ({ count })),
+  streamText: streamTextMock,
+  tool: vi.fn((definition) => definition),
   validateUIMessages: vi.fn(async ({ messages }) => messages),
 }));
 
@@ -110,9 +101,9 @@ describe("project preview AI route", () => {
   beforeEach(() => {
     authMock.mockResolvedValue(null);
     executeRawMock.mockClear();
-    generateDiscussionTurnMock.mockClear();
     projectFindFirstMock.mockClear();
     queryRawMock.mockClear();
+    streamTextMock.mockClear();
   });
 
   it("requires login before streaming AI", async () => {
@@ -131,7 +122,7 @@ describe("project preview AI route", () => {
     expect(response.status).toBe(401);
   });
 
-  it("patches structured workspace answers before generating the next turn", async () => {
+  it("patches structured workspace answers before streaming the next turn", async () => {
     authMock.mockResolvedValueOnce({
       user: { id: "user_1" },
       expires: new Date().toISOString(),
@@ -189,11 +180,11 @@ describe("project preview AI route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(generateDiscussionTurnMock).toHaveBeenCalledWith(
+    expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        brief: expect.objectContaining({
-          businessType: "aku ada toko bakso sih",
-        }),
+        system: expect.stringContaining(
+          '"businessType":"aku ada toko bakso sih"',
+        ),
       }),
     );
   });
@@ -254,16 +245,16 @@ describe("project preview AI route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(generateDiscussionTurnMock).toHaveBeenCalledWith(
+    expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        brief: expect.objectContaining({
-          businessType: "aku ada toko bakso sih",
-        }),
+        system: expect.stringContaining(
+          '"businessType":"aku ada toko bakso sih"',
+        ),
       }),
     );
   });
 
-  it("streams through the AI SDK for authenticated users and saves memory", async () => {
+  it("streams through one AI SDK call and saves memory", async () => {
     authMock.mockResolvedValueOnce({
       user: { id: "user_1" },
       expires: new Date().toISOString(),
@@ -286,11 +277,55 @@ describe("project preview AI route", () => {
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("stream");
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
     expect(projectFindFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "project_1", userId: "user_1" },
       }),
     );
     expect(executeRawMock).toHaveBeenCalled();
+  });
+
+  it("persists the answer and advances the card before the AI stream (no stuck/repeat on failure)", async () => {
+    authMock.mockResolvedValueOnce({
+      user: { id: "user_1" },
+      expires: new Date().toISOString(),
+    });
+
+    const callOrder: string[] = [];
+    executeRawMock.mockImplementation(async () => {
+      callOrder.push("executeRaw");
+      return 1;
+    });
+    streamTextMock.mockImplementationOnce(() => {
+      callOrder.push("streamText");
+      return {
+        toUIMessageStreamResponse: () => new Response("stream"),
+      };
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/projects/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          mode: "discuss",
+          projectId: "project_1",
+          message: {
+            id: "m1",
+            role: "user",
+            parts: [{ type: "text", text: "Bakso" }],
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    // Phase 1 (deterministic persist) must run before the AI stream starts, so
+    // a mid-stream failure can never lose the answer or re-ask the question.
+    expect(callOrder[0]).toBe("executeRaw");
+    expect(callOrder).toContain("streamText");
+    expect(callOrder.indexOf("executeRaw")).toBeLessThan(
+      callOrder.indexOf("streamText"),
+    );
   });
 });

@@ -11,4 +11,11 @@ describe("createProjectMark", () => {
       createProjectMark("project-b"),
     );
   });
+
+  it("keeps from, to, and glow colors distinct", () => {
+    for (const seed of ["a", "angkringan", "x", "laundry-kilat", "z9"]) {
+      const mark = createProjectMark(seed);
+      expect(new Set([mark.from, mark.to, mark.glowColor]).size).toBe(3);
+    }
+  });
 });

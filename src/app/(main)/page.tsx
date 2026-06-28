@@ -10,6 +10,7 @@ import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { PROJECT_PAGE_SIZE } from "@/lib/projects/pagination";
 
 export default async function HomePage() {
   const session = await auth();
@@ -18,7 +19,7 @@ export default async function HomePage() {
         prisma.project.findMany({
           where: { userId: session.user.id },
           orderBy: { updatedAt: "desc" },
-          take: 24,
+          take: 1 + PROJECT_PAGE_SIZE + 1,
           select: {
             id: true,
             title: true,
@@ -32,6 +33,12 @@ export default async function HomePage() {
       ])
     : [[], null];
   const greetingName = getGreetingName(user?.name || session?.user?.name);
+  const [featured, ...rest] = projects;
+  const hasMore = rest.length > PROJECT_PAGE_SIZE;
+  const initialOthers = hasMore ? rest.slice(0, PROJECT_PAGE_SIZE) : rest;
+  const initialNextCursor = hasMore
+    ? initialOthers[initialOthers.length - 1].id
+    : null;
 
   async function deleteProject(formData: FormData) {
     "use server";
@@ -97,10 +104,12 @@ export default async function HomePage() {
                 </p>
               </div>
 
-              {projects.length ? (
+              {featured ? (
                 <div className="mt-spacing-10">
                   <ProjectList
-                    projects={projects}
+                    featured={featured}
+                    initialOthers={initialOthers}
+                    initialNextCursor={initialNextCursor}
                     deleteProject={deleteProject}
                   />
                 </div>

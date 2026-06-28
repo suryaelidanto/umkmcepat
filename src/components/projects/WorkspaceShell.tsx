@@ -23,13 +23,15 @@ import {
 import { type PanelImperativeHandle } from "react-resizable-panels";
 
 import {
+  BuildProgressPanel,
   EmptyPreviewState,
   GeneratedPreviewFrame,
   ModePill,
   ProcessingControl,
-  QuestionStepperComposer,
+  QuestionComposer,
   WorkspaceCardView,
   WorkspaceTopBar,
+  type BuildProgressStep,
   type BuildTab,
   type WorkspaceAnswerPayload,
 } from "@/components/projects/WorkspacePrimitives";
@@ -91,11 +93,10 @@ export function WorkspaceShell({
   const [activeTab, setActiveTab] = useState<BuildTab>("preview");
   const [sourceFiles, setSourceFiles] = useState<GeneratedProjectFile[]>([]);
   const [sourceStatus, setSourceStatus] = useState("not_started");
-  const [sourceLog, setSourceLog] = useState("");
+  const [buildProgress, setBuildProgress] = useState<BuildProgressStep[]>([]);
+  const [buildStartedAt, setBuildStartedAt] = useState<number | null>(null);
   const [workspaceCard, setWorkspaceCard] =
     useState<WorkspaceCard>(initialWorkspaceCard);
-  const [isRefreshingCard, setIsRefreshingCard] = useState(false);
-  const [cardError, setCardError] = useState(false);
   const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
   const [chatCursor, setChatCursor] = useState<number | null>(
     initialChatCursor,
@@ -114,22 +115,25 @@ export function WorkspaceShell({
   const hasAutoOpenedPreview = useRef(false);
   const previousLiveMessageCount = useRef(initialMessages.length);
   const previousScrollHeight = useRef<number | null>(null);
-  const { messages, sendMessage, status, error, stop } = useChat({
-    id: projectId,
-    messages: initialMessages,
-    transport: new DefaultChatTransport({
-      api: "/api/projects/preview",
-      prepareSendMessagesRequest({ messages }) {
-        return {
-          body: {
-            message: messages[messages.length - 1],
-            mode: modeRef.current,
-            projectId,
-          },
-        };
-      },
-    }),
-  });
+  const autoRetriedTurn = useRef<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const { messages, sendMessage, status, error, stop, regenerate, clearError } =
+    useChat({
+      id: projectId,
+      messages: initialMessages,
+      transport: new DefaultChatTransport({
+        api: "/api/projects/preview",
+        prepareSendMessagesRequest({ messages }) {
+          return {
+            body: {
+              message: messages[messages.length - 1],
+              mode: modeRef.current,
+              projectId,
+            },
+          };
+        },
+      }),
+    });
 
   useEffect(() => {
     modeRef.current = mode;
@@ -142,6 +146,9 @@ export function WorkspaceShell({
 
     setMode("build");
     setBuildStatus("building");
+    setSourceStatus("not_started");
+    setBuildProgress([]);
+    setBuildStartedAt(Date.now());
     setActiveTab("preview");
 
     const abortController = new AbortController();
@@ -155,6 +162,13 @@ export function WorkspaceShell({
 
       if (!response.ok || !response.body) {
         setBuildStatus("draft");
+        setBuildProgress((current) =>
+          addBuildProgressStep(current, {
+            detail: "Server belum bisa memulai proses build. Coba ulangi.",
+            label: "Build belum mulai",
+            status: "error",
+          }),
+        );
         return;
       }
 
@@ -183,7 +197,19 @@ export function WorkspaceShell({
 
           const data = JSON.parse(dataText) as
             | ProjectSiteSchema
-            | { message?: string };
+            | { detail?: string; label?: string; message?: string };
+
+          if (eventName === "progress" && "label" in data && data.label) {
+            const label = data.label;
+
+            setBuildProgress((current) =>
+              addBuildProgressStep(current, {
+                detail: data.detail || "",
+                label,
+                status: "active",
+              }),
+            );
+          }
 
           if (eventName === "schema" || eventName === "done") {
             setSiteSchema(data as ProjectSiteSchema);
@@ -192,16 +218,32 @@ export function WorkspaceShell({
 
           if (eventName === "done") {
             setBuildStatus("ready");
+            setBuildProgress((current) => completeBuildProgress(current));
           }
 
           if (eventName === "error") {
             setBuildStatus("draft");
+            setBuildProgress((current) =>
+              addBuildProgressStep(current, {
+                detail:
+                  "Build berhenti sebelum preview final siap. Coba ulangi build.",
+                label: "Build belum selesai",
+                status: "error",
+              }),
+            );
           }
         }
       }
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
         setBuildStatus("draft");
+        setBuildProgress((current) =>
+          addBuildProgressStep(current, {
+            detail: "Koneksi build terputus. Coba jalankan build lagi.",
+            label: "Build terputus",
+            status: "error",
+          }),
+        );
       }
     } finally {
       buildAbortRef.current = null;
@@ -234,7 +276,7 @@ export function WorkspaceShell({
   const isBuilding = buildStatus === "building";
   const isProcessing = isResponding || isBuilding;
   const visibleMessages = [...olderMessages, ...messages];
-  const hasActiveQuestionCard = workspaceCard.type === "questions";
+  const hasActiveQuestionCard = workspaceCard.type === "question";
   const hasPreview = sourceStatus === "passed" || buildStatus === "ready";
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
@@ -255,7 +297,6 @@ export function WorkspaceShell({
     async function loadSource() {
       const response = await fetch(`/api/projects/${projectId}/source`);
       const result = (await response.json()) as {
-        buildLog?: string;
         buildStatus?: string;
         files?: GeneratedProjectFile[];
       };
@@ -263,7 +304,6 @@ export function WorkspaceShell({
       if (!ignore && response.ok) {
         setSourceFiles(result.files ?? []);
         setSourceStatus(result.buildStatus ?? "not_started");
-        setSourceLog(result.buildLog ?? "");
       }
     }
 
@@ -375,41 +415,18 @@ export function WorkspaceShell({
     previousLiveMessageCount.current = messages.length;
   }, [messages.length]);
 
-  const refreshWorkspaceCard = useCallback(
-    async (regenerate = false) => {
-      setIsRefreshingCard(true);
-      setCardError(false);
-
-      try {
-        const response = await fetch(
-          `/api/projects/${projectId}/brief-card${regenerate ? "?regenerate=1" : ""}`,
-        );
-        const result = (await response.json().catch(() => null)) as {
-          workspaceCard?: WorkspaceCard;
-        } | null;
-
-        if (!response.ok || !result?.workspaceCard) {
-          setCardError(true);
-          return;
-        }
-
-        setWorkspaceCard(result.workspaceCard);
-      } catch {
-        setCardError(true);
-      } finally {
-        setIsRefreshingCard(false);
-      }
-    },
-    [projectId],
-  );
-
   useEffect(() => {
-    if (isProcessing) {
-      return;
+    const workspaceUpdate = getLatestWorkspaceUpdateFromMessages(messages);
+
+    if (workspaceUpdate?.workspaceCard) {
+      setWorkspaceCard(workspaceUpdate.workspaceCard);
     }
 
-    void refreshWorkspaceCard();
-  }, [isProcessing, messages.length, refreshWorkspaceCard]);
+    if (workspaceUpdate?.projectTitle) {
+      setProjectTitle(workspaceUpdate.projectTitle);
+      setDraftTitle(workspaceUpdate.projectTitle);
+    }
+  }, [messages]);
 
   async function saveProjectTitle() {
     const title = draftTitle.trim();
@@ -419,6 +436,9 @@ export function WorkspaceShell({
       setDraftTitle(projectTitle);
       return;
     }
+
+    setProjectTitle(title);
+    setDraftTitle(title);
 
     const response = await fetch(`/api/projects/${projectId}/title`, {
       method: "PATCH",
@@ -432,6 +452,9 @@ export function WorkspaceShell({
     if (response.ok && result?.title) {
       setProjectTitle(result.title);
       setDraftTitle(result.title);
+    } else {
+      setProjectTitle(projectTitle);
+      setDraftTitle(projectTitle);
     }
 
     setIsRenaming(false);
@@ -474,6 +497,46 @@ export function WorkspaceShell({
     event.preventDefault();
     submitChatText(message);
   }
+
+  const retryLastTurn = useCallback(async () => {
+    if (status === "streaming" || status === "submitted" || isRetrying) {
+      return;
+    }
+
+    setIsRetrying(true);
+    clearError();
+    try {
+      // Re-run the last turn server-side. The user's answer was already
+      // persisted before the failed stream, so this never loses input and the
+      // existing AI rate limit still applies (no abuse via spam retries).
+      await regenerate();
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [clearError, isRetrying, regenerate, status]);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    // Anchor the guard to the last user message id, which stays stable across
+    // regenerate(). This guarantees at most one silent auto-retry per user
+    // turn even if a failed stream leaves a transient assistant message.
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === "user");
+    const turnKey = lastUserMessage?.id ?? `${messages.length}`;
+
+    // Hybrid recovery: one silent auto-retry per failed turn, then fall back to
+    // the manual button. Guarded by a per-turn ref so it can never loop.
+    if (autoRetriedTurn.current === turnKey) {
+      return;
+    }
+
+    autoRetriedTurn.current = turnKey;
+    void retryLastTurn();
+  }, [error, messages, retryLastTurn]);
 
   function closePreviewPanel() {
     if (!showChatPanel) {
@@ -625,10 +688,14 @@ export function WorkspaceShell({
                 <WorkspaceCardView
                   card={workspaceCard}
                   onBuild={() => void startBuild()}
-                  onRefresh={() => void refreshWorkspaceCard()}
-                  isRefreshing={isRefreshingCard}
-                  hasError={cardError}
-                  onAnswer={submitChatText}
+                />
+              ) : null}
+
+              {isBuilding || buildProgress.length ? (
+                <BuildProgressPanel
+                  elapsedFrom={buildStartedAt}
+                  isBuilding={isBuilding}
+                  steps={buildProgress}
                 />
               ) : null}
 
@@ -638,9 +705,22 @@ export function WorkspaceShell({
                 </p>
               ) : null}
               {error ? (
-                <p className="text-sm text-[#ffb4a6]">
-                  AI belum bisa menjawab. Coba lagi nanti.
-                </p>
+                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                  <p className="text-sm font-medium text-[#ffb4a6]">
+                    {isRetrying
+                      ? "AI sempat terputus. Mencoba menyambung ulang..."
+                      : "AI sempat terputus. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi tanpa kehilangan progres."}
+                  </p>
+                  {!isRetrying ? (
+                    <Button
+                      type="button"
+                      onClick={() => void retryLastTurn()}
+                      className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                    >
+                      Coba lagi
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
 
@@ -650,13 +730,9 @@ export function WorkspaceShell({
                   mode={isBuilding ? "Buat" : "Diskusi"}
                   onStop={stopCurrentJob}
                 />
-              ) : hasActiveQuestionCard &&
-                workspaceCard.type === "questions" ? (
-                <QuestionStepperComposer
-                  card={workspaceCard}
-                  hasError={cardError}
-                  isRefreshing={isRefreshingCard}
-                  onRefresh={() => void refreshWorkspaceCard(true)}
+              ) : hasActiveQuestionCard && workspaceCard.type === "question" ? (
+                <QuestionComposer
+                  question={workspaceCard.question}
                   onSubmit={(answer, workspaceAnswers) =>
                     submitChatText(answer, { workspaceAnswers })
                   }
@@ -725,9 +801,23 @@ export function WorkspaceShell({
                     openChatPanel={openChatPanel}
                     closeChatPanel={closeChatPanel}
                   />
-                  <div className="min-h-0 flex-1 overflow-auto bg-[#10100f]">
+                  <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
                     {activeTab === "preview" ? (
-                      sourceStatus === "passed" ? (
+                      isBuilding ? (
+                        <div className="space-y-spacing-6 p-spacing-6">
+                          <BuildProgressPanel
+                            elapsedFrom={buildStartedAt}
+                            isBuilding={isBuilding}
+                            steps={buildProgress}
+                          />
+                          <div className="flex justify-center opacity-90">
+                            <ProjectSitePreview
+                              siteSchema={siteSchema}
+                              viewport={viewport}
+                            />
+                          </div>
+                        </div>
+                      ) : sourceStatus === "passed" ? (
                         <GeneratedPreviewFrame
                           projectId={projectId}
                           viewport={viewport}
@@ -746,9 +836,7 @@ export function WorkspaceShell({
 
                     {activeTab === "code" ? (
                       <CodeView
-                        projectId={projectId}
                         files={sourceFiles}
-                        buildLog={sourceLog}
                         buildStatus={sourceStatus}
                       />
                     ) : null}
@@ -761,6 +849,57 @@ export function WorkspaceShell({
       </ResizablePanelGroup>
     </div>
   );
+}
+
+function addBuildProgressStep(
+  current: BuildProgressStep[],
+  next: BuildProgressStep,
+) {
+  const previous = current[current.length - 1];
+
+  if (previous?.label === next.label) {
+    return [
+      ...current.slice(0, -1),
+      { ...next, status: next.status || previous.status },
+    ];
+  }
+
+  return [
+    ...current.map((step) =>
+      step.status === "active" ? { ...step, status: "done" as const } : step,
+    ),
+    next,
+  ].slice(-8);
+}
+
+function completeBuildProgress(current: BuildProgressStep[]) {
+  return current.map((step) =>
+    step.status === "active" ? { ...step, status: "done" as const } : step,
+  );
+}
+
+function getLatestWorkspaceUpdateFromMessages(messages: UIMessage[]) {
+  for (const message of [...messages].reverse()) {
+    for (const part of [...message.parts].reverse()) {
+      if (
+        part.type !== "tool-setWorkspaceUi" ||
+        part.state !== "output-available"
+      ) {
+        continue;
+      }
+
+      const output = part.output as {
+        projectTitle?: string;
+        workspaceCard?: WorkspaceCard;
+      } | null;
+
+      if (output?.workspaceCard || output?.projectTitle) {
+        return output;
+      }
+    }
+  }
+
+  return null;
 }
 
 function ChatMessages({ messages }: { messages: UIMessage[] }) {
@@ -796,7 +935,9 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
 }
 
 function MessageText({ text }: { text: string }) {
-  const lines = text.split("\n").filter((line) => line.trim());
+  const lines = stripDecorativeSymbols(text)
+    .split("\n")
+    .filter((line) => line.trim());
 
   return (
     <div className="space-y-spacing-4">
@@ -834,6 +975,13 @@ function MessageText({ text }: { text: string }) {
         );
       })}
     </div>
+  );
+}
+
+function stripDecorativeSymbols(text: string) {
+  return text.replace(
+    /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu,
+    "",
   );
 }
 
@@ -875,84 +1023,194 @@ function getEditorLanguage(path = "") {
   return "plaintext";
 }
 
-function CodeView({
-  projectId,
+type FileTreeNode = {
+  children: Map<string, FileTreeNode>;
+  path: string;
+  type: "directory" | "file";
+};
+
+function FileTree({
   files,
-  buildLog,
+  onSelect,
+  selectedPath,
+}: {
+  files: GeneratedProjectFile[];
+  onSelect: (path: string) => void;
+  selectedPath: string;
+}) {
+  const root = buildFileTree(files);
+
+  if (!files.length) {
+    return (
+      <p className="px-spacing-4 py-spacing-3 text-sm text-surface-warm-white/42">
+        Source belum tersedia.
+      </p>
+    );
+  }
+
+  return (
+    <div className="select-none">
+      {Array.from(root.children.entries()).map(([name, node]) => (
+        <FileTreeItem
+          key={node.path || name}
+          name={name}
+          node={node}
+          onSelect={onSelect}
+          selectedPath={selectedPath}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FileTreeItem({
+  name,
+  node,
+  onSelect,
+  selectedPath,
+}: {
+  name: string;
+  node: FileTreeNode;
+  onSelect: (path: string) => void;
+  selectedPath: string;
+}) {
+  if (node.type === "file") {
+    const selected = node.path === selectedPath;
+
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect(node.path)}
+        className={`block w-full truncate px-spacing-4 py-spacing-1.5 text-left text-sm transition ${selected ? "bg-surface-warm-white/12 text-surface-warm-white" : "text-surface-warm-white/62 hover:bg-surface-warm-white/7 hover:text-surface-warm-white"}`}
+        title={node.path}
+      >
+        <span className="pl-spacing-6">{name}</span>
+      </button>
+    );
+  }
+
+  return (
+    <details open className="group">
+      <summary className="cursor-default list-none px-spacing-4 py-spacing-1.5 text-sm font-medium text-surface-warm-white/72 [&::-webkit-details-marker]:hidden">
+        <span className="mr-spacing-2 inline-block text-surface-warm-white/38 group-open:rotate-90">
+          ›
+        </span>
+        {name}
+      </summary>
+      <div className="border-l border-surface-warm-white/8 pl-spacing-3 ml-spacing-5">
+        {Array.from(node.children.entries()).map(([childName, child]) => (
+          <FileTreeItem
+            key={child.path || `${node.path}/${childName}`}
+            name={childName}
+            node={child}
+            onSelect={onSelect}
+            selectedPath={selectedPath}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function buildFileTree(files: GeneratedProjectFile[]) {
+  const root: FileTreeNode = {
+    children: new Map(),
+    path: "",
+    type: "directory",
+  };
+
+  for (const file of files) {
+    const parts = file.path.split("/").filter(Boolean);
+    let current = root;
+
+    parts.forEach((part, index) => {
+      const path = parts.slice(0, index + 1).join("/");
+      const type = index === parts.length - 1 ? "file" : "directory";
+      const existing = current.children.get(part);
+
+      if (existing) {
+        current = existing;
+        return;
+      }
+
+      const next: FileTreeNode = { children: new Map(), path, type };
+      current.children.set(part, next);
+      current = next;
+    });
+  }
+
+  return root;
+}
+
+function CodeView({
+  files,
   buildStatus,
 }: {
-  projectId: string;
   files: GeneratedProjectFile[];
-  buildLog: string;
   buildStatus: string;
 }) {
   const [selectedPath, setSelectedPath] = useState(files[0]?.path || "");
   const selectedFile =
     files.find((file) => file.path === selectedPath) ?? files[0];
 
+  useEffect(() => {
+    if (!selectedPath && files[0]?.path) {
+      setSelectedPath(files[0].path);
+    }
+  }, [files, selectedPath]);
+
   return (
-    <div className="grid h-full min-h-[680px] overflow-hidden border border-surface-warm-white/10 bg-[#10100f] text-surface-warm-white md:grid-cols-[280px_1fr]">
-      <aside className="min-h-0 overflow-y-auto border-r border-surface-warm-white/10 p-spacing-5">
-        <div className="flex items-center justify-between gap-spacing-4">
-          <div>
-            <p className="text-xs text-surface-warm-white/42">Source</p>
-            <h2 className="mt-1 text-lg font-semibold">Code</h2>
-            <p className="mt-1 text-xs text-surface-warm-white/42">
-              Build: {buildStatus}
-            </p>
-          </div>
+    <div className="grid h-full min-h-0 overflow-hidden border-t border-surface-warm-white/10 bg-[#10100f] text-surface-warm-white md:grid-cols-[280px_1fr]">
+      <aside className="min-h-0 overflow-y-auto border-r border-surface-warm-white/10 bg-[#181816] py-spacing-3">
+        <div className="border-b border-surface-warm-white/8 px-spacing-4 pb-spacing-3">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-surface-warm-white/34">
+            Explorer
+          </p>
+          <p className="mt-spacing-2 text-xs text-surface-warm-white/44">
+            Build: {buildStatus}
+          </p>
         </div>
-        <a
-          href={`/api/projects/${projectId}/source`}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-spacing-5 inline-flex rounded-full border border-surface-warm-white/12 px-spacing-5 py-spacing-3 text-xs text-surface-warm-white/76 hover:bg-surface-warm-white/8"
-        >
-          Export JSON
-        </a>
-        {buildLog ? (
-          <details className="mt-spacing-5 rounded-radius-lg border border-surface-warm-white/10 p-spacing-4 text-xs text-surface-warm-white/58">
-            <summary className="cursor-pointer text-surface-warm-white/78">
-              Build log
-            </summary>
-            <pre className="mt-spacing-3 max-h-44 overflow-auto whitespace-pre-wrap">
-              {buildLog}
-            </pre>
-          </details>
-        ) : null}
-        <div className="mt-spacing-6 grid gap-spacing-2">
-          {files.map((file) => (
-            <button
-              key={file.path}
-              type="button"
-              onClick={() => setSelectedPath(file.path)}
-              className={`rounded-radius-lg px-spacing-4 py-spacing-3 text-left text-sm transition ${selectedFile?.path === file.path ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
-            >
-              {file.path}
-            </button>
-          ))}
+        <div className="py-spacing-3 text-sm">
+          <FileTree
+            files={files}
+            selectedPath={selectedFile?.path || ""}
+            onSelect={setSelectedPath}
+          />
         </div>
       </aside>
-      <section className="min-h-0 min-w-0">
-        <div className="border-b border-surface-warm-white/10 px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/54">
+      <section className="flex min-h-0 min-w-0 flex-col">
+        <div className="border-b border-surface-warm-white/10 bg-[#111110] px-spacing-5 py-spacing-3 text-sm text-surface-warm-white/58">
           {selectedFile?.path || "Belum ada file"}
         </div>
-        <MonacoEditor
-          height="640px"
-          language={getEditorLanguage(selectedFile?.path)}
-          value={selectedFile?.content || ""}
-          theme="vs-dark"
-          options={{
-            readOnly: true,
-            minimap: { enabled: false },
-            fontSize: 13,
-            lineHeight: 22,
-            padding: { top: 16, bottom: 16 },
-            scrollBeyondLastLine: false,
-            wordWrap: "on",
-            automaticLayout: true,
-          }}
-        />
+        <div className="min-h-0 flex-1">
+          <MonacoEditor
+            height="100%"
+            language={getEditorLanguage(selectedFile?.path)}
+            value={selectedFile?.content || ""}
+            theme="vs-dark"
+            options={{
+              readOnly: true,
+              domReadOnly: true,
+              minimap: { enabled: false },
+              fontSize: 13,
+              lineHeight: 22,
+              padding: { top: 16, bottom: 16 },
+              scrollBeyondLastLine: false,
+              wordWrap: "on",
+              automaticLayout: true,
+              contextmenu: false,
+              glyphMargin: false,
+              folding: true,
+              links: false,
+              overviewRulerLanes: 0,
+              renderLineHighlight: "line",
+              scrollbar: {
+                verticalScrollbarSize: 10,
+                horizontalScrollbarSize: 10,
+              },
+            }}
+          />
+        </div>
       </section>
     </div>
   );

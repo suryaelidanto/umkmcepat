@@ -1,44 +1,37 @@
-export type ProjectMarkShape = {
-  color: string;
-  kind: "circle" | "rect";
-  size: number;
-  x: number;
-  y: number;
-  radius: number;
-  rotate: number;
-  opacity: number;
-};
-
 export type ProjectMark = {
-  background: string;
-  shapes: ProjectMarkShape[];
+  base: string;
+  from: string;
+  to: string;
+  angle: number;
+  glowColor: string;
+  glowX: number;
+  glowY: number;
 };
 
-const PROJECT_MARK_BACKGROUNDS = ["#23231f", "#282823", "#1f211f"];
-const PROJECT_MARK_COLORS = ["#fcfbf8", "#c8c0b2", "#7a746b", "#3b3933"];
+// Warm-neutral dark bases keep marks aligned with the product chrome.
+const MARK_BASES = ["#201f1d", "#23221f", "#1d1e1c"];
+// Brand aurora palette (matches --chart-1..5 in globals.css).
+const AURORA = ["#ff7a59", "#ee4f9b", "#7867ff", "#2f8cff", "#f7a441"];
 
+// Deterministic branded mesh-gradient mark. Continuous angle + glow position
+// give each project a unique, memorable composition without random slop.
 export function createProjectMark(seed: string): ProjectMark {
   const hash = hashSeed(seed);
-  const background =
-    PROJECT_MARK_BACKGROUNDS[hash % PROJECT_MARK_BACKGROUNDS.length];
+  const base = MARK_BASES[hash % MARK_BASES.length];
+  // Pick 3 distinct aurora colors by removing each choice from a shrinking pool.
+  const pool = [...AURORA];
+  const from = pool.splice((hash >> 2) % pool.length, 1)[0];
+  const to = pool.splice((hash >> 7) % pool.length, 1)[0];
+  const glowColor = pool.splice((hash >> 11) % pool.length, 1)[0];
 
   return {
-    background,
-    shapes: [0, 1, 2].map((index) => {
-      const value = hashSeed(`${seed}:${index}`);
-      const size = 150 + (value % 190);
-
-      return {
-        color: PROJECT_MARK_COLORS[(value >> 3) % PROJECT_MARK_COLORS.length],
-        kind: (value >> 5) % 3 === 0 ? "circle" : "rect",
-        size,
-        x: -40 + ((value >> 8) % 500),
-        y: -48 + ((value >> 14) % 310),
-        radius: [28, 72, 999][(value >> 20) % 3],
-        rotate: ((value >> 24) % 42) - 21,
-        opacity: [0.18, 0.34, 0.58][index],
-      };
-    }),
+    base,
+    from,
+    to,
+    glowColor,
+    angle: hash % 360,
+    glowX: 14 + ((hash >> 13) % 72),
+    glowY: 14 + ((hash >> 19) % 72),
   };
 }
 

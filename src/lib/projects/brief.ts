@@ -25,9 +25,12 @@ export type BriefQuestion = {
   options: Array<{ label: string; description: string }>;
 };
 
+// One question per turn (relentless interview style). The card never batches
+// questions: the AI asks a single decision, the user answers, then the next
+// turn asks the next one.
 export type WorkspaceCard =
   | { type: "none" }
-  | { type: "questions"; questions: BriefQuestion[] }
+  | { type: "question"; question: BriefQuestion }
   | { type: "build_recommendation"; title: string; summary: string[] };
 
 export type ProjectBriefPatch = Partial<

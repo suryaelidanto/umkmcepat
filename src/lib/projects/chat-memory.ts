@@ -77,18 +77,18 @@ export function buildProjectChatContext({
   const recentMessages = getProjectChatContext(messages);
   const systemContext = [
     summary.text
-      ? `Ringkasan chat lama yang tidak terlihat user:\n${summary.text}`
-      : "Ringkasan chat lama: belum ada.",
+      ? `Hidden previous chat summary:\n${summary.text}`
+      : "Hidden previous chat summary: none.",
     memoryFacts.facts.length
-      ? `Fakta penting:\n${formatBullets(memoryFacts.facts)}`
-      : "Fakta penting: belum ada.",
+      ? `Important facts:\n${formatBullets(memoryFacts.facts)}`
+      : "Important facts: none.",
     memoryFacts.decisions.length
-      ? `Keputusan yang sudah disepakati:\n${formatBullets(memoryFacts.decisions)}`
-      : "Keputusan yang sudah disepakati: belum ada.",
+      ? `Agreed decisions:\n${formatBullets(memoryFacts.decisions)}`
+      : "Agreed decisions: none.",
     memoryFacts.preferences.length
-      ? `Preferensi user:\n${formatBullets(memoryFacts.preferences)}`
-      : "Preferensi user: belum ada.",
-    "Gunakan konteks tersembunyi ini untuk menjaga percakapan tetap nyambung. Jangan menyebut ringkasan/fakta internal ini ke user kecuali relevan secara natural.",
+      ? `User preferences:\n${formatBullets(memoryFacts.preferences)}`
+      : "User preferences: none.",
+    "Use this hidden context to keep the conversation coherent. Do not mention internal summaries/facts to the user unless naturally relevant.",
   ].join("\n\n");
 
   return { messages: recentMessages, systemContext };

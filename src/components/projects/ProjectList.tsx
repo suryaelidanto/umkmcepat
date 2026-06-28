@@ -18,26 +18,58 @@ import { createProjectMark } from "./project-mark";
 type Project = {
   id: string;
   title: string;
-  updatedAt: Date;
+  updatedAt: Date | string;
 };
 
 type ProjectListProps = {
-  projects: Project[];
+  featured: Project;
+  initialOthers: Project[];
+  initialNextCursor: string | null;
   deleteProject: (formData: FormData) => Promise<void>;
 };
 
-export function ProjectList({ projects, deleteProject }: ProjectListProps) {
+export function ProjectList({
+  featured,
+  initialOthers,
+  initialNextCursor,
+  deleteProject,
+}: ProjectListProps) {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [showAll, setShowAll] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const [latestProject, ...otherProjects] = projects;
-  const visibleOtherProjects = showAll
-    ? otherProjects
-    : otherProjects.slice(0, 5);
-  const hiddenProjectCount = Math.max(
-    otherProjects.length - visibleOtherProjects.length,
-    0,
+  const [others, setOthers] = useState<Project[]>(initialOthers);
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    initialNextCursor,
   );
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  async function loadMore() {
+    if (!nextCursor || isLoadingMore) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects?cursor=${encodeURIComponent(nextCursor)}`,
+      );
+
+      if (!response.ok) {
+        throw new Error("failed");
+      }
+
+      const data = (await response.json()) as {
+        projects: Project[];
+        nextCursor: string | null;
+      };
+      setOthers((current) => [...current, ...data.projects]);
+      setNextCursor(data.nextCursor);
+    } catch {
+      toast.error("Gagal memuat website lain. Coba lagi.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
 
   function handleDelete() {
     if (!selectedProject) {
@@ -50,6 +82,9 @@ export function ProjectList({ projects, deleteProject }: ProjectListProps) {
     startTransition(async () => {
       try {
         await deleteProject(formData);
+        setOthers((current) =>
+          current.filter((project) => project.id !== selectedProject.id),
+        );
         toast.success("Website dihapus.");
         setSelectedProject(null);
       } catch {
@@ -58,17 +93,10 @@ export function ProjectList({ projects, deleteProject }: ProjectListProps) {
     });
   }
 
-  if (!latestProject) {
-    return null;
-  }
-
   return (
     <>
       <div className="space-y-spacing-8">
-        <FeaturedProject
-          project={latestProject}
-          onDelete={setSelectedProject}
-        />
+        <FeaturedProject project={featured} onDelete={setSelectedProject} />
 
         <section className="rounded-radius-3xl border border-surface-warm-white/10 bg-surface-warm-white/[0.045] px-spacing-6 py-spacing-6 sm:px-spacing-8 sm:py-spacing-7">
           <div className="flex flex-wrap items-end justify-between gap-spacing-5 pb-spacing-5">
@@ -77,34 +105,16 @@ export function ProjectList({ projects, deleteProject }: ProjectListProps) {
                 Website lain
               </h3>
               <p className="mt-spacing-1 text-sm text-surface-warm-white/56">
-                {otherProjects.length
-                  ? `${otherProjects.length} website tersimpan`
+                {others.length
+                  ? `${others.length} website tersimpan`
                   : "Belum ada website lain"}
               </p>
             </div>
-
-            {hiddenProjectCount ? (
-              <button
-                type="button"
-                onClick={() => setShowAll(true)}
-                className="rounded-radius-lg px-spacing-4 py-spacing-2 text-sm font-medium text-surface-warm-white/76 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
-              >
-                Lihat lainnya
-              </button>
-            ) : showAll && otherProjects.length > 5 ? (
-              <button
-                type="button"
-                onClick={() => setShowAll(false)}
-                className="rounded-radius-lg px-spacing-4 py-spacing-2 text-sm font-medium text-surface-warm-white/76 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
-              >
-                Ringkas daftar
-              </button>
-            ) : null}
           </div>
 
-          {visibleOtherProjects.length ? (
+          {others.length ? (
             <div className="grid gap-spacing-3">
-              {visibleOtherProjects.map((project) => (
+              {others.map((project) => (
                 <ProjectRow
                   key={project.id}
                   project={project}
@@ -117,6 +127,20 @@ export function ProjectList({ projects, deleteProject }: ProjectListProps) {
               Website berikutnya yang kamu buat akan muncul di sini.
             </p>
           )}
+
+          {nextCursor ? (
+            <div className="mt-spacing-6 flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="rounded-radius-lg border-surface-warm-white/14 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12"
+              >
+                {isLoadingMore ? "Memuat..." : "Muat lebih banyak"}
+              </Button>
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -168,8 +192,8 @@ function FeaturedProject({
 }) {
   return (
     <article className="overflow-hidden rounded-radius-3xl border border-surface-warm-white/10 bg-surface-warm-white/[0.055]">
-      <div className="grid min-h-[21rem] gap-0 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1fr)]">
-        <ProjectMark seed={project.id} className="min-h-52 lg:min-h-full" />
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)]">
+        <ProjectMark seed={project.id} className="min-h-44 lg:min-h-full" />
         <div className="flex min-h-72 flex-col p-spacing-8 sm:p-spacing-10 lg:p-spacing-11">
           <p className="text-sm text-surface-warm-white/58">
             Terakhir dikerjakan
@@ -192,13 +216,14 @@ function FeaturedProject({
             >
               <Link href={`/projects/${project.id}`}>Buka</Link>
             </Button>
-            <button
+            <Button
               type="button"
+              variant="destructive"
               onClick={() => onDelete(project)}
-              className="rounded-radius-lg px-spacing-5 py-spacing-3 text-sm font-medium text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+              className="rounded-radius-lg bg-[#9f1d1d] text-surface-warm-white hover:bg-[#8b1717]"
             >
               Hapus
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -239,13 +264,15 @@ function ProjectRow({
         >
           <Link href={`/projects/${project.id}`}>Buka</Link>
         </Button>
-        <button
+        <Button
           type="button"
+          variant="destructive"
+          size="sm"
           onClick={() => onDelete(project)}
-          className="rounded-radius-lg px-spacing-4 py-spacing-2 text-sm font-medium text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+          className="rounded-radius-lg bg-[#9f1d1d] text-surface-warm-white hover:bg-[#8b1717]"
         >
           Hapus
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -262,49 +289,35 @@ function ProjectMark({
 
   return (
     <div
-      className={`relative overflow-hidden bg-surface-warm-white/[0.05] ${className}`}
+      className={`relative overflow-hidden ${className}`}
+      style={{ backgroundColor: mark.base }}
       aria-hidden="true"
     >
-      <svg className="h-full w-full" viewBox="0 0 600 400" role="img">
-        <rect width="600" height="400" fill={mark.background} />
-        <path
-          d="M0 314 C120 270 185 336 305 292 C420 250 488 276 600 220 L600 400 L0 400 Z"
-          fill="#fcfbf8"
-          opacity="0.035"
-        />
-        {mark.shapes.map((shape, index) =>
-          shape.kind === "circle" ? (
-            <circle
-              key={`${shape.x}-${shape.y}-${index}`}
-              cx={shape.x + shape.size / 2}
-              cy={shape.y + shape.size / 2}
-              r={shape.size / 2}
-              fill={shape.color}
-              opacity={shape.opacity}
-            />
-          ) : (
-            <rect
-              key={`${shape.x}-${shape.y}-${index}`}
-              width={shape.size}
-              height={shape.size}
-              x={shape.x}
-              y={shape.y}
-              rx={shape.radius}
-              fill={shape.color}
-              opacity={shape.opacity}
-              transform={`rotate(${shape.rotate} ${shape.x + shape.size / 2} ${shape.y + shape.size / 2})`}
-            />
-          ),
-        )}
-      </svg>
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: `linear-gradient(${mark.angle}deg, ${mark.from} 0%, ${mark.to} 100%)`,
+          opacity: 0.4,
+        }}
+      />
+      <div
+        className="absolute aspect-square w-2/3 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
+        style={{
+          left: `${mark.glowX}%`,
+          top: `${mark.glowY}%`,
+          backgroundColor: mark.glowColor,
+          opacity: 0.45,
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10" />
     </div>
   );
 }
 
-function formatDate(date: Date) {
+function formatDate(date: Date | string) {
   return new Intl.DateTimeFormat("id-ID", {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(date);
+  }).format(new Date(date));
 }

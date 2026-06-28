@@ -21,21 +21,22 @@ export function buildBriefPatchFromWorkspaceAnswers({
   fallbackText: string;
   workspaceAnswers: unknown;
 }): ProjectBriefPatch {
-  if (card.type !== "questions") {
+  if (card.type !== "question") {
     return {};
   }
 
+  const questions = [card.question];
   const answers = parseWorkspaceAnswers(workspaceAnswers);
   const normalizedAnswers = answers.length
     ? answers
-    : parseFormattedWorkspaceAnswers(fallbackText, card.questions);
+    : parseFormattedWorkspaceAnswers(fallbackText, questions);
 
   if (!normalizedAnswers.length) {
     return {};
   }
 
   const activeQuestions = new Map(
-    card.questions.map((question) => [question.id, question]),
+    questions.map((question) => [question.id, question]),
   );
   const patch: ProjectBriefPatch = {};
 
@@ -90,7 +91,7 @@ function parseWorkspaceAnswers(value: unknown): WorkspaceAnswerPayload[] {
     });
   }
 
-  return answers.slice(0, 3);
+  return answers.slice(0, 1);
 }
 
 function parseFormattedWorkspaceAnswers(

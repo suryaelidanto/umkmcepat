@@ -27,6 +27,10 @@ prompt -> guided AI discussion -> structured brief -> generated frontend source/
 Core rules:
 
 - AI clarifies before building when ambiguity changes output quality.
+- Discussion turns use one streaming AI call: chat text streams as normal while structured workspace UI is returned through a schema-validated AI SDK tool call.
+- Workspace cards are never parsed from chat text. If the tool output is missing or invalid, the server falls back to a deterministic valid card.
+- Build generation streams server-sent progress events to the workspace; the client must render those events as visible build steps instead of hiding progress behind a generic spinner.
+- Opening a project or creating the first project draft must not trigger a separate AI card-generation call.
 - User projects are data and artifacts, not separate production services.
 - Generated source/build artifacts may exist for preview, inspection, repair, export, and future publishing.
 - The platform must not execute arbitrary user backend code.
