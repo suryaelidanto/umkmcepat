@@ -371,7 +371,7 @@ export function QuestionComposer({
   return (
     <div className="mt-spacing-3 overflow-hidden border-y border-surface-warm-white/10 bg-[#1d1d1a] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
       <div className="border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/38">
+        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/56">
           Satu keputusan dulu
         </p>
         <h2 className="mt-spacing-1 max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
@@ -509,7 +509,7 @@ export function WorkspaceCardView({
       <div className="border-y border-surface-warm-white/10 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
         <div className="flex items-start justify-between gap-spacing-5">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/38">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/56">
               Rancangan build
             </p>
             <h2 className="mt-spacing-2 text-base font-semibold leading-6 text-surface-warm-white">

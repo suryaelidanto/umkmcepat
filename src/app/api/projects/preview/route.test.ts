@@ -285,4 +285,47 @@ describe("project preview AI route", () => {
     );
     expect(executeRawMock).toHaveBeenCalled();
   });
+
+  it("persists the answer and advances the card before the AI stream (no stuck/repeat on failure)", async () => {
+    authMock.mockResolvedValueOnce({
+      user: { id: "user_1" },
+      expires: new Date().toISOString(),
+    });
+
+    const callOrder: string[] = [];
+    executeRawMock.mockImplementation(async () => {
+      callOrder.push("executeRaw");
+      return 1;
+    });
+    streamTextMock.mockImplementationOnce(() => {
+      callOrder.push("streamText");
+      return {
+        toUIMessageStreamResponse: () => new Response("stream"),
+      };
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/projects/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          mode: "discuss",
+          projectId: "project_1",
+          message: {
+            id: "m1",
+            role: "user",
+            parts: [{ type: "text", text: "Bakso" }],
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    // Phase 1 (deterministic persist) must run before the AI stream starts, so
+    // a mid-stream failure can never lose the answer or re-ask the question.
+    expect(callOrder[0]).toBe("executeRaw");
+    expect(callOrder).toContain("streamText");
+    expect(callOrder.indexOf("executeRaw")).toBeLessThan(
+      callOrder.indexOf("streamText"),
+    );
+  });
 });

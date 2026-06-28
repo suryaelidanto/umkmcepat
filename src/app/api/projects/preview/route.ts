@@ -14,6 +14,7 @@ import {
   parseProjectBrief,
 } from "@/lib/projects/brief";
 import {
+  createFallbackWorkspaceCard,
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
   workspaceTurnToolInputSchema,
@@ -160,6 +161,16 @@ export async function POST(request: Request) {
     );
   }
 
+  // Phase 1 (deterministic, before the AI stream): persist the user's answer
+  // into the brief and advance the stored card to the next missing field.
+  // The user's answer is server-owned and must never be lost, so even if the
+  // AI turn fails mid-stream the brief still moves forward and the card never
+  // sticks on an already-answered question.
+  const fallbackCard = createFallbackWorkspaceCard(effectiveBrief);
+  await prisma.$executeRaw`
+    UPDATE "Project" SET "brief" = ${JSON.stringify(effectiveBrief)}::jsonb, "workspaceCard" = ${JSON.stringify(fallbackCard)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
+  `;
+
   const workspaceTools = {
     setWorkspaceUi: tool({
       description:
@@ -196,6 +207,11 @@ export async function POST(request: Request) {
     }),
     tools: workspaceTools,
     temperature: 0.35,
+    onError({ error }) {
+      // Surface the verbatim cause server-side; the client only sees a generic
+      // recoverable error, never the raw provider message.
+      console.error("[preview-chat] stream error", error);
+    },
   });
 
   return result.toUIMessageStreamResponse({

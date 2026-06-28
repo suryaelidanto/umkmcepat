@@ -115,22 +115,25 @@ export function WorkspaceShell({
   const hasAutoOpenedPreview = useRef(false);
   const previousLiveMessageCount = useRef(initialMessages.length);
   const previousScrollHeight = useRef<number | null>(null);
-  const { messages, sendMessage, status, error, stop } = useChat({
-    id: projectId,
-    messages: initialMessages,
-    transport: new DefaultChatTransport({
-      api: "/api/projects/preview",
-      prepareSendMessagesRequest({ messages }) {
-        return {
-          body: {
-            message: messages[messages.length - 1],
-            mode: modeRef.current,
-            projectId,
-          },
-        };
-      },
-    }),
-  });
+  const autoRetriedTurn = useRef<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const { messages, sendMessage, status, error, stop, regenerate, clearError } =
+    useChat({
+      id: projectId,
+      messages: initialMessages,
+      transport: new DefaultChatTransport({
+        api: "/api/projects/preview",
+        prepareSendMessagesRequest({ messages }) {
+          return {
+            body: {
+              message: messages[messages.length - 1],
+              mode: modeRef.current,
+              projectId,
+            },
+          };
+        },
+      }),
+    });
 
   useEffect(() => {
     modeRef.current = mode;
@@ -495,6 +498,46 @@ export function WorkspaceShell({
     submitChatText(message);
   }
 
+  const retryLastTurn = useCallback(async () => {
+    if (status === "streaming" || status === "submitted" || isRetrying) {
+      return;
+    }
+
+    setIsRetrying(true);
+    clearError();
+    try {
+      // Re-run the last turn server-side. The user's answer was already
+      // persisted before the failed stream, so this never loses input and the
+      // existing AI rate limit still applies (no abuse via spam retries).
+      await regenerate();
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [clearError, isRetrying, regenerate, status]);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    // Anchor the guard to the last user message id, which stays stable across
+    // regenerate(). This guarantees at most one silent auto-retry per user
+    // turn even if a failed stream leaves a transient assistant message.
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === "user");
+    const turnKey = lastUserMessage?.id ?? `${messages.length}`;
+
+    // Hybrid recovery: one silent auto-retry per failed turn, then fall back to
+    // the manual button. Guarded by a per-turn ref so it can never loop.
+    if (autoRetriedTurn.current === turnKey) {
+      return;
+    }
+
+    autoRetriedTurn.current = turnKey;
+    void retryLastTurn();
+  }, [error, messages, retryLastTurn]);
+
   function closePreviewPanel() {
     if (!showChatPanel) {
       return;
@@ -662,9 +705,22 @@ export function WorkspaceShell({
                 </p>
               ) : null}
               {error ? (
-                <p className="text-sm text-[#ffb4a6]">
-                  AI belum bisa menjawab. Coba lagi nanti.
-                </p>
+                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                  <p className="text-sm font-medium text-[#ffb4a6]">
+                    {isRetrying
+                      ? "AI sempat terputus. Mencoba menyambung ulang..."
+                      : "AI sempat terputus. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi tanpa kehilangan progres."}
+                  </p>
+                  {!isRetrying ? (
+                    <Button
+                      type="button"
+                      onClick={() => void retryLastTurn()}
+                      className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                    >
+                      Coba lagi
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
 
