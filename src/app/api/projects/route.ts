@@ -7,9 +7,37 @@ import { prisma } from "@/lib/prisma";
 import { createInitialBrief } from "@/lib/projects/brief";
 import { createPendingWorkspaceCard } from "@/lib/projects/brief-flow";
 import { validateProjectRequest } from "@/lib/projects/input";
+import { PROJECT_PAGE_SIZE } from "@/lib/projects/pagination";
 import { createFallbackProjectSiteSchema } from "@/lib/projects/site-schema";
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
+
+export async function GET(request: Request) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { message: "Masuk dulu untuk melanjutkan." },
+      { status: 401 },
+    );
+  }
+
+  const cursor = new URL(request.url).searchParams.get("cursor");
+  const projects = await prisma.project.findMany({
+    where: { userId: session.user.id },
+    orderBy: { updatedAt: "desc" },
+    take: PROJECT_PAGE_SIZE + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    select: { id: true, title: true, updatedAt: true },
+  });
+  const hasMore = projects.length > PROJECT_PAGE_SIZE;
+  const items = hasMore ? projects.slice(0, PROJECT_PAGE_SIZE) : projects;
+
+  return NextResponse.json({
+    projects: items,
+    nextCursor: hasMore ? items[items.length - 1].id : null,
+  });
+}
 
 export async function POST(request: Request) {
   const session = await auth();
