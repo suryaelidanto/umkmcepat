@@ -1,6 +1,6 @@
 ---
 name: codebase-index
-description: Build a holistic repo atlas: refresh Graphify, read canonical docs, inspect reusable surfaces, then stop.
+description: "Build a holistic repo atlas: refresh Graphify, read canonical docs, inspect reusable surfaces, then stop."
 disable-model-invocation: true
 ---
 
