@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: RouteProps) {
   }
 
   const userId = session.user.id;
-  const rateLimitResponse = await checkRateLimit(request, "ai");
+  const rateLimitResponse = await checkRateLimit(request, "build", userId);
 
   if (rateLimitResponse) {
     return rateLimitResponse;

@@ -325,23 +325,33 @@ export function QuestionComposer({
     workspaceAnswers?: WorkspaceAnswerPayload[],
   ) => void;
 }) {
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
   const [source, setSource] = useState<"custom" | "option">("option");
   const [customAnswer, setCustomAnswer] = useState("");
   const [customAnswerOpen, setCustomAnswerOpen] = useState(false);
-  const customAnswerSelected = Boolean(selected) && source === "custom";
-  const canSubmit = Boolean(selected);
+  const isMultiple = question.selectionMode === "multiple";
+  const answer = selected.join(", ");
+  const customAnswerSelected = Boolean(selected.length) && source === "custom";
+  const canSubmit = selected.length > 0;
 
   useEffect(() => {
-    setSelected("");
+    setSelected([]);
     setSource("option");
     setCustomAnswer("");
     setCustomAnswerOpen(false);
   }, [question.id]);
 
   function chooseAnswer(answer: string, nextSource: "custom" | "option") {
-    setSelected(answer);
     setSource(nextSource);
+    setSelected((current) => {
+      if (nextSource === "custom" || !isMultiple) {
+        return [answer];
+      }
+
+      return current.includes(answer)
+        ? current.filter((item) => item !== answer)
+        : [...current, answer];
+    });
   }
 
   function useCustomAnswer() {
@@ -358,9 +368,9 @@ export function QuestionComposer({
       return;
     }
 
-    onSubmit(`${question.question}\nJawaban: ${selected}`, [
+    onSubmit(`${question.question}\nJawaban: ${answer}`, [
       {
-        answer: selected,
+        answer,
         question: question.question,
         questionId: question.id,
         source,
@@ -372,7 +382,7 @@ export function QuestionComposer({
     <div className="mt-spacing-3 overflow-hidden border-y border-surface-warm-white/10 bg-[#1d1d1a] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
       <div className="border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/56">
-          Satu keputusan dulu
+          {isMultiple ? "Pilih satu atau lebih" : "Satu keputusan dulu"}
         </p>
         <h2 className="mt-spacing-1 max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
           {question.question}
@@ -386,7 +396,8 @@ export function QuestionComposer({
 
       <div className="divide-y divide-surface-warm-white/8">
         {question.options.map((option) => {
-          const isSelected = selected === option.label && source === "option";
+          const isSelected =
+            selected.includes(option.label) && source === "option";
           const isRecommended =
             question.recommendedOptionLabel === option.label;
           return (
@@ -467,7 +478,7 @@ export function QuestionComposer({
                 </span>
                 <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/58">
                   {customAnswerSelected
-                    ? selected
+                    ? answer
                     : "Pakai ini kalau pilihan AI belum pas untuk keputusan ini."}
                 </span>
               </span>

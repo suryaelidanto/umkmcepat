@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   }
 
   const userId = session.user.id;
-  const rateLimitResponse = await checkRateLimit(request, "ai");
+  const rateLimitResponse = await checkRateLimit(request, "ai", userId);
 
   if (rateLimitResponse) {
     return rateLimitResponse;
@@ -274,6 +274,8 @@ Mandatory tool contract:
 - In Discuss mode, call setWorkspaceUi exactly once on every turn.
 - The tool is the hidden channel for brief updates and the interactive UI. Do not explain tool/JSON internals to the user.
 - While interviewing, set workspaceCard.type to "question" with a single question and 3-5 specific options.
+- Set question.selectionMode to "single" when the user should pick one path. Set it to "multiple" only when several options can be true together, such as products, channels, sections, or customer segments.
+- Do not use "multiple" as the default; if one choice gives a cleaner next decision, use "single".
 - Only when the confidence gate passes (or the user forces build), set workspaceCard.type to "build_recommendation".
 - question.id must be one missing brief field: businessType, offer, targetCustomer, contactOrCta, stylePreference. Capture deeper details in briefPatch.notes.
 - Options must be specific to the user's business, not generic templates.

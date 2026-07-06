@@ -117,12 +117,17 @@ export function WorkspaceShell({
   const previousScrollHeight = useRef<number | null>(null);
   const autoRetriedTurn = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState<{
+    message: string;
+    retryAfter: number;
+  } | null>(null);
   const { messages, sendMessage, status, error, stop, regenerate, clearError } =
     useChat({
       id: projectId,
       messages: initialMessages,
       transport: new DefaultChatTransport({
         api: "/api/projects/preview",
+        fetch: rateLimitAwareFetch,
         prepareSendMessagesRequest({ messages }) {
           return {
             body: {
@@ -467,17 +472,18 @@ export function WorkspaceShell({
     ) => {
       const trimmed = text.trim();
 
-      if (!trimmed || isProcessing) {
+      if (!trimmed || isProcessing || rateLimitError) {
         return;
       }
 
+      setRateLimitError(null);
       setMessage("");
       sendMessage(
         { text: trimmed },
         { body: { mode, workspaceAnswers: options.workspaceAnswers } },
       );
     },
-    [isProcessing, mode, sendMessage],
+    [isProcessing, mode, rateLimitError, sendMessage],
   );
 
   function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
@@ -509,7 +515,11 @@ export function WorkspaceShell({
       // Re-run the last turn server-side. The user's answer was already
       // persisted before the failed stream, so this never loses input and the
       // existing AI rate limit still applies (no abuse via spam retries).
-      await regenerate();
+      await regenerate().catch((error) => {
+        if (!captureRateLimitError(error, setRateLimitError)) {
+          throw error;
+        }
+      });
     } finally {
       setIsRetrying(false);
     }
@@ -517,6 +527,10 @@ export function WorkspaceShell({
 
   useEffect(() => {
     if (!error) {
+      return;
+    }
+
+    if (captureRateLimitError(error, setRateLimitError)) {
       return;
     }
 
@@ -704,7 +718,13 @@ export function WorkspaceShell({
                   AI sedang menyiapkan jawaban...
                 </p>
               ) : null}
-              {error ? (
+              {rateLimitError ? (
+                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                  <p className="text-sm font-medium text-[#ffb4a6]">
+                    {rateLimitError.message}
+                  </p>
+                </div>
+              ) : error ? (
                 <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                   <p className="text-sm font-medium text-[#ffb4a6]">
                     {isRetrying
@@ -730,6 +750,10 @@ export function WorkspaceShell({
                   mode={isBuilding ? "Buat" : "Diskusi"}
                   onStop={stopCurrentJob}
                 />
+              ) : rateLimitError ? (
+                <div className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62">
+                  Tunggu sebentar sebelum mengirim jawaban berikutnya.
+                </div>
               ) : hasActiveQuestionCard && workspaceCard.type === "question" ? (
                 <QuestionComposer
                   question={workspaceCard.question}
@@ -983,6 +1007,54 @@ function stripDecorativeSymbols(text: string) {
     /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu,
     "",
   );
+}
+
+type RateLimitChatError = Error & {
+  retryAfter?: number;
+  status?: number;
+};
+
+async function rateLimitAwareFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) {
+  const response = await fetch(input, init);
+
+  if (response.status !== 429) {
+    return response;
+  }
+
+  const body = (await response.json().catch(() => null)) as {
+    message?: string;
+    retryAfter?: number;
+  } | null;
+  const retryAfter =
+    (body?.retryAfter ?? Number(response.headers.get("Retry-After"))) || 60;
+  const error = new Error(
+    body?.message ||
+      `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.`,
+  ) as RateLimitChatError;
+
+  error.status = 429;
+  error.retryAfter = retryAfter;
+  throw error;
+}
+
+function captureRateLimitError(
+  error: unknown,
+  setRateLimitError: (value: { message: string; retryAfter: number }) => void,
+) {
+  const candidate = error as RateLimitChatError;
+
+  if (candidate?.status !== 429) {
+    return false;
+  }
+
+  setRateLimitError({
+    message: candidate.message,
+    retryAfter: candidate.retryAfter ?? 60,
+  });
+  return true;
 }
 
 function formatInlineMarkdown(text: string) {

@@ -95,6 +95,60 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("keeps a valid multiple-choice question mode", () => {
+    const brief = createInitialBrief("jualan hampers lebaran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "offer",
+            question: "Produk apa saja yang mau ditonjolkan?",
+            selectionMode: "multiple",
+            options: [
+              { label: "Hampers kue kering", description: "Untuk keluarga." },
+              { label: "Hampers kopi", description: "Untuk kantor." },
+              { label: "Hampers custom", description: "Untuk pesanan khusus." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.selectionMode).toBe("multiple");
+    }
+  });
+
+  it("defaults invalid question mode to single-choice", () => {
+    const brief = createInitialBrief("jualan hampers lebaran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "offer",
+            question: "Produk apa yang paling utama?",
+            selectionMode: "many" as never,
+            options: [
+              { label: "Hampers kue kering", description: "Untuk keluarga." },
+              { label: "Hampers kopi", description: "Untuk kantor." },
+              { label: "Hampers custom", description: "Untuk pesanan khusus." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.selectionMode).toBe("single");
+    }
+  });
+
   it("accepts a build recommendation with a flexible summary", () => {
     const brief = parseProjectBrief(
       {

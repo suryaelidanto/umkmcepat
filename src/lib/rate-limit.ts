@@ -1,19 +1,74 @@
 import { NextResponse } from "next/server";
 
-import { getConfiguredProvider } from "@/lib/config";
+import { getConfiguredProvider, getEnv } from "@/lib/config";
 
-type RateLimitType = "global" | "ai";
+type RateLimitType = "global" | "ai" | "build";
+type RateLimitSubject = "ip" | "user";
 
 type Bucket = {
   count: number;
   resetAt: number;
 };
 
+type RateLimitConfig = {
+  limit: number;
+  windowMs: number;
+};
+
 const buckets = new Map<string, Bucket>();
 
-const limits: Record<RateLimitType, { limit: number; windowMs: number }> = {
-  global: { limit: 30, windowMs: 60_000 },
-  ai: { limit: 5, windowMs: 600_000 },
+const defaults: Record<
+  RateLimitType,
+  Record<RateLimitSubject, RateLimitConfig>
+> = {
+  global: {
+    ip: { limit: 300, windowMs: 60_000 },
+    user: { limit: 300, windowMs: 60_000 },
+  },
+  ai: {
+    ip: { limit: 20, windowMs: 600_000 },
+    user: { limit: 60, windowMs: 600_000 },
+  },
+  build: {
+    ip: { limit: 5, windowMs: 3_600_000 },
+    user: { limit: 10, windowMs: 3_600_000 },
+  },
+};
+
+const envNames: Record<
+  RateLimitType,
+  Record<RateLimitSubject, { requests: string; windowSeconds: string }>
+> = {
+  global: {
+    ip: {
+      requests: "RATE_LIMIT_GLOBAL_IP_REQUESTS",
+      windowSeconds: "RATE_LIMIT_GLOBAL_IP_WINDOW_SECONDS",
+    },
+    user: {
+      requests: "RATE_LIMIT_GLOBAL_USER_REQUESTS",
+      windowSeconds: "RATE_LIMIT_GLOBAL_USER_WINDOW_SECONDS",
+    },
+  },
+  ai: {
+    ip: {
+      requests: "RATE_LIMIT_AI_IP_REQUESTS",
+      windowSeconds: "RATE_LIMIT_AI_IP_WINDOW_SECONDS",
+    },
+    user: {
+      requests: "RATE_LIMIT_AI_USER_REQUESTS",
+      windowSeconds: "RATE_LIMIT_AI_USER_WINDOW_SECONDS",
+    },
+  },
+  build: {
+    ip: {
+      requests: "RATE_LIMIT_BUILD_IP_REQUESTS",
+      windowSeconds: "RATE_LIMIT_BUILD_IP_WINDOW_SECONDS",
+    },
+    user: {
+      requests: "RATE_LIMIT_BUILD_USER_REQUESTS",
+      windowSeconds: "RATE_LIMIT_BUILD_USER_WINDOW_SECONDS",
+    },
+  },
 };
 
 function getClientIp(request: Request): string {
@@ -24,9 +79,25 @@ function getClientIp(request: Request): string {
   );
 }
 
+export function getRateLimitConfig(
+  type: RateLimitType,
+  subject: RateLimitSubject,
+): RateLimitConfig {
+  const fallback = defaults[type][subject];
+  const names = envNames[type][subject];
+  const limit = readPositiveInt(names.requests, fallback.limit);
+  const windowSeconds = readPositiveInt(
+    names.windowSeconds,
+    fallback.windowMs / 1000,
+  );
+
+  return { limit, windowMs: windowSeconds * 1000 };
+}
+
 export async function checkRateLimit(
   request: Request,
   type: RateLimitType = "global",
+  userId?: string,
 ) {
   const provider = getConfiguredProvider("rateLimit");
 
@@ -40,9 +111,11 @@ export async function checkRateLimit(
     );
   }
 
+  const subject: RateLimitSubject = userId ? "user" : "ip";
+  const subjectId = userId || getClientIp(request);
+  const config = getRateLimitConfig(type, subject);
   const now = Date.now();
-  const config = limits[type];
-  const key = `${type}:${getClientIp(request)}`;
+  const key = `${type}:${subject}:${subjectId}`;
   const bucket = buckets.get(key);
 
   if (!bucket || bucket.resetAt <= now) {
@@ -60,7 +133,9 @@ export async function checkRateLimit(
 
   return NextResponse.json(
     {
+      code: "rate_limited",
       message: `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.`,
+      retryAfter,
     },
     {
       status: 429,
@@ -72,4 +147,20 @@ export async function checkRateLimit(
       },
     },
   );
+}
+
+function readPositiveInt(name: string, fallback: number) {
+  const value = getEnv(name);
+
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+
+  return parsed;
 }

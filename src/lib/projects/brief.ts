@@ -21,6 +21,7 @@ export type BriefQuestion = {
   >;
   question: string;
   recommendedOptionLabel?: string;
+  selectionMode?: "single" | "multiple";
   whyThisQuestionMatters?: string;
   options: Array<{ label: string; description: string }>;
 };

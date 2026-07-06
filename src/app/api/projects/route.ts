@@ -49,7 +49,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const rateLimitResponse = await checkRateLimit(request, "ai");
+  const rateLimitResponse = await checkRateLimit(
+    request,
+    "ai",
+    session.user.id,
+  );
 
   if (rateLimitResponse) {
     return rateLimitResponse;

@@ -64,6 +64,12 @@ export const workspaceTurnToolInputSchema = jsonSchema<WorkspaceTurnToolInput>({
             id: { type: "string" },
             question: { type: "string" },
             recommendedOptionLabel: { type: "string" },
+            selectionMode: {
+              type: "string",
+              description:
+                "Use 'single' when the user should pick one path; use 'multiple' only when several options can be true at the same time.",
+              enum: ["single", "multiple"],
+            },
             whyThisQuestionMatters: { type: "string" },
             options: {
               type: "array",
@@ -258,6 +264,8 @@ function normalizeQuestion(
     )
       ? recommendedOptionLabel
       : undefined,
+    selectionMode:
+      candidate.selectionMode === "multiple" ? "multiple" : "single",
     whyThisQuestionMatters:
       cleanText(candidate.whyThisQuestionMatters, 180) || undefined,
   };
@@ -273,6 +281,7 @@ function buildFallbackQuestion(
   return {
     id,
     question: `Apa ${label} yang paling tepat untuk ${business}?`,
+    selectionMode: "single",
     options: fallbackOptions(id),
   };
 }

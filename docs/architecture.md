@@ -77,14 +77,14 @@ AI may configure these modules. The platform executes them. Arbitrary user backe
 
 Provider selection is explicit, env-driven, and behind internal adapters.
 
-| Capability | Env                       | Current default           | Boundary                    |
-| ---------- | ------------------------- | ------------------------- | --------------------------- |
-| Database   | `DATABASE_URL`            | PostgreSQL via Prisma     | `prisma/schema.prisma`      |
-| AI         | `AI_PROVIDER`             | 9Router via Vercel AI SDK | `src/lib/ai.ts`             |
-| Auth       | Google OAuth + Turnstile  | Google                    | `src/lib/auth.ts`, Auth.js  |
-| Rate limit | `RATE_LIMIT_PROVIDER`     | `memory`                  | `src/lib/rate-limit.ts`     |
-| Storage    | `OBJECT_STORAGE_PROVIDER` | `local`                   | `src/lib/object-storage.ts` |
-| Monitoring | Sentry env                | disabled unless env set   | Sentry config files         |
+| Capability | Env                                   | Current default           | Boundary                    |
+| ---------- | ------------------------------------- | ------------------------- | --------------------------- |
+| Database   | `DATABASE_URL`                        | PostgreSQL via Prisma     | `prisma/schema.prisma`      |
+| AI         | `AI_PROVIDER`                         | 9Router via Vercel AI SDK | `src/lib/ai.ts`             |
+| Auth       | Google OAuth + Turnstile              | Google                    | `src/lib/auth.ts`, Auth.js  |
+| Rate limit | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`     |
+| Storage    | `OBJECT_STORAGE_PROVIDER`             | `local`                   | `src/lib/object-storage.ts` |
+| Monitoring | Sentry env                            | disabled unless env set   | Sentry config files         |
 
 Rules:
 
@@ -93,6 +93,27 @@ Rules:
 - Missing optional provider config fails clearly.
 - Runtime mocks are not used for real product behavior.
 - Add providers only when the product needs them.
+
+## Rate limits
+
+The in-memory rate limiter is configurable through env so production can tune abuse protection without code changes.
+
+Default limits:
+
+```env
+RATE_LIMIT_GLOBAL_IP_REQUESTS="300"
+RATE_LIMIT_GLOBAL_IP_WINDOW_SECONDS="60"
+RATE_LIMIT_AI_USER_REQUESTS="60"
+RATE_LIMIT_AI_USER_WINDOW_SECONDS="600"
+RATE_LIMIT_AI_IP_REQUESTS="20"
+RATE_LIMIT_AI_IP_WINDOW_SECONDS="600"
+RATE_LIMIT_BUILD_USER_REQUESTS="10"
+RATE_LIMIT_BUILD_USER_WINDOW_SECONDS="3600"
+RATE_LIMIT_BUILD_IP_REQUESTS="5"
+RATE_LIMIT_BUILD_IP_WINDOW_SECONDS="3600"
+```
+
+Logged-in AI and build requests use per-user buckets. Anonymous/fallback requests use per-IP buckets. Build limits are stricter than chat because generated project builds are more expensive.
 
 ## AI gateway
 

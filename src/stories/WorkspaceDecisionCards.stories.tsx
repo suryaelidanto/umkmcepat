@@ -28,6 +28,19 @@ export const SingleQuestion: Story = {
   ),
 };
 
+export const MultipleQuestion: Story = {
+  render: () => (
+    <DarkCanvas>
+      <div className="max-w-3xl p-spacing-6">
+        <QuestionComposer
+          question={multipleQuestion}
+          onSubmit={() => undefined}
+        />
+      </div>
+    </DarkCanvas>
+  ),
+};
+
 export const BuildRecommendation: Story = {
   render: () => (
     <DarkCanvas>
@@ -69,6 +82,29 @@ const targetQuestion: BriefQuestion = {
   recommendedOptionLabel: "Pekerja kantor sekitar",
   whyThisQuestionMatters:
     "Target pembeli menentukan headline, CTA, dan bukti sosial.",
+};
+
+const multipleQuestion: BriefQuestion = {
+  id: "offer",
+  options: [
+    {
+      description: "Produk utama untuk pembeli yang mencari hadiah siap kirim.",
+      label: "Hampers kue kering",
+    },
+    {
+      description: "Pilihan yang cocok untuk kantor atau komunitas.",
+      label: "Paket kopi lokal",
+    },
+    {
+      description: "Untuk pelanggan yang ingin isi dan kartu ucapan berbeda.",
+      label: "Hampers custom",
+    },
+  ],
+  question: "Produk apa saja yang perlu muncul di website?",
+  recommendedOptionLabel: "Hampers kue kering",
+  selectionMode: "multiple",
+  whyThisQuestionMatters:
+    "Kalau produk bisa digabung, website perlu menonjolkan beberapa pilihan sekaligus.",
 };
 
 const buildRecommendationCard = {
