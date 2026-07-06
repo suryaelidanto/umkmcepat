@@ -16,6 +16,8 @@ const BRIEF_FIELD_LABELS: Record<BriefQuestion["id"], string> = {
   contactOrCta: "aksi utama pengunjung",
   stylePreference: "arah visual website",
 };
+const OPTION_LABEL_MAX_LENGTH = 120;
+const OPTION_DESCRIPTION_MAX_LENGTH = 180;
 
 export type WorkspaceTurnToolInput = {
   briefPatch?: Partial<Pick<ProjectBrief, BriefQuestion["id"]>> & {
@@ -239,8 +241,11 @@ function normalizeQuestion(
             Boolean(option) && typeof option === "object",
         )
         .map((option) => ({
-          label: cleanText(option.label, 48),
-          description: cleanText(option.description, 96),
+          label: cleanText(option.label, OPTION_LABEL_MAX_LENGTH),
+          description: cleanText(
+            option.description,
+            OPTION_DESCRIPTION_MAX_LENGTH,
+          ),
         }))
         .filter((option) => option.label && option.description)
         .slice(0, 5)
@@ -252,7 +257,7 @@ function normalizeQuestion(
 
   const recommendedOptionLabel = cleanText(
     candidate.recommendedOptionLabel,
-    48,
+    OPTION_LABEL_MAX_LENGTH,
   );
 
   return {
@@ -373,11 +378,28 @@ function getBriefPatchFields(): BriefQuestion["id"][] {
 }
 
 function cleanText(value: unknown, maxLength: number) {
-  return typeof value === "string"
-    ? value
-        .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
-        .trim()
-        .replace(/\s+/g, " ")
-        .slice(0, maxLength)
-    : "";
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const text = value
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  const clipped = text.slice(0, maxLength);
+  const lastSpace = clipped.lastIndexOf(" ");
+
+  if (lastSpace >= Math.floor(maxLength * 0.72)) {
+    return clipped
+      .slice(0, lastSpace)
+      .replace(/[([{,;:]+$/g, "")
+      .trim();
+  }
+
+  return clipped.trim();
 }

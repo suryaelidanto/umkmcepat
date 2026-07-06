@@ -122,6 +122,57 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("preserves realistic long option labels instead of cutting them at 48 characters", () => {
+    const brief = parseProjectBrief(
+      { businessType: "Warung fisik dan pesanan online" },
+      "jualan angkringan",
+    );
+    const longLabel =
+      "Menu klasik: nasi kucing, sate usus, gorengan, wedang jahe";
+    const longDescription =
+      "Paket standar angkringan yang paling dikenal, harga terjangkau, menu sederhana, dan mudah dipahami pelanggan baru.";
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "offer",
+            question: "Menu andalan apa yang Anda jual di angkringan?",
+            options: [
+              {
+                description: longDescription,
+                label: longLabel,
+              },
+              {
+                description:
+                  "Selain menu ringan khas angkringan, ada juga menu yang lebih mengenyangkan.",
+                label:
+                  "Kombinasi klasik + menu berat (nasi goreng, mie goreng)",
+              },
+              {
+                description:
+                  "Menu angkringan tradisional dipadukan dengan racikan kopi susu dan minuman modern.",
+                label: "Klasik + kopi kekinian",
+              },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.options[0]).toEqual({
+        description: longDescription,
+        label: longLabel,
+      });
+      expect(turn.workspaceCard.question.options[1].label).toBe(
+        "Kombinasi klasik + menu berat (nasi goreng, mie goreng)",
+      );
+    }
+  });
+
   it("defaults invalid question mode to single-choice", () => {
     const brief = createInitialBrief("jualan hampers lebaran");
     const turn = normalizeWorkspaceTurn(

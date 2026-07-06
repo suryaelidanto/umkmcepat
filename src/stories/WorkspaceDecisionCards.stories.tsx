@@ -41,6 +41,19 @@ export const MultipleQuestion: Story = {
   ),
 };
 
+export const LongOptionLabels: Story = {
+  render: () => (
+    <DarkCanvas>
+      <div className="max-w-5xl p-spacing-6">
+        <QuestionComposer
+          question={longOptionsQuestion}
+          onSubmit={() => undefined}
+        />
+      </div>
+    </DarkCanvas>
+  ),
+};
+
 export const BuildRecommendation: Story = {
   render: () => (
     <DarkCanvas>
@@ -105,6 +118,32 @@ const multipleQuestion: BriefQuestion = {
   selectionMode: "multiple",
   whyThisQuestionMatters:
     "Kalau produk bisa digabung, website perlu menonjolkan beberapa pilihan sekaligus.",
+};
+
+const longOptionsQuestion: BriefQuestion = {
+  id: "offer",
+  options: [
+    {
+      description:
+        "Paket standar angkringan yang paling dikenal. Harga terjangkau, menu sederhana, dan mudah dipahami pelanggan baru.",
+      label: "Menu klasik: nasi kucing, sate usus, gorengan, wedang jahe",
+    },
+    {
+      description:
+        "Selain menu ringan khas angkringan, ada juga menu yang lebih mengenyangkan untuk pelanggan yang datang malam.",
+      label: "Kombinasi klasik + menu berat (nasi goreng, mie goreng)",
+    },
+    {
+      description:
+        "Menu angkringan tradisional dipadukan dengan racikan kopi susu, americano, dan minuman modern.",
+      label: "Klasik + kopi kekinian",
+    },
+  ],
+  question: "Menu andalan apa yang Anda jual di angkringan?",
+  recommendedOptionLabel:
+    "Menu klasik: nasi kucing, sate usus, gorengan, wedang jahe",
+  whyThisQuestionMatters:
+    "Jenis dan jumlah menu menentukan struktur halaman katalog serta bagaimana pengunjung menjelajah sebelum memesan.",
 };
 
 const buildRecommendationCard = {

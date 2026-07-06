@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
+import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
 
 export type BuildTab = "preview" | "code";
 
@@ -451,7 +452,7 @@ export function ProcessingControl({
   const detail =
     mode === "Buat"
       ? "AI sedang menyiapkan source dan preview proyek."
-      : "Input ditutup sebentar supaya urutan diskusi tetap rapi.";
+      : "AI sedang menyiapkan jawaban.";
 
   return (
     <div className="mt-spacing-3 overflow-hidden rounded-[22px] border border-surface-warm-white/10 bg-[#242421] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
@@ -500,7 +501,7 @@ export function QuestionComposer({
   const [customAnswer, setCustomAnswer] = useState("");
   const [customAnswerOpen, setCustomAnswerOpen] = useState(false);
   const isMultiple = question.selectionMode === "multiple";
-  const answer = selected.join(", ");
+  const answer = formatWorkspaceAnswerSelection(question, selected, source);
   const customAnswerSelected = Boolean(selected.length) && source === "custom";
   const canSubmit = selected.length > 0;
 
@@ -575,13 +576,13 @@ export function QuestionComposer({
               key={option.label}
               type="button"
               onClick={() => chooseAnswer(option.label, "option")}
-              className={`group grid w-full grid-cols-[1fr_auto] items-start gap-spacing-4 px-spacing-5 py-spacing-4 text-left transition ${isSelected ? "bg-surface-warm-white/[0.075]" : "hover:bg-surface-warm-white/[0.045]"}`}
+              className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 px-spacing-5 py-spacing-4 text-left transition ${isSelected ? "bg-surface-warm-white/[0.075]" : "hover:bg-surface-warm-white/[0.045]"}`}
             >
-              <span>
-                <span className="block text-sm font-semibold text-surface-warm-white">
+              <span className="min-w-0">
+                <span className="block whitespace-normal break-words text-sm font-semibold text-surface-warm-white [overflow-wrap:anywhere]">
                   {option.label}
                 </span>
-                <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/54">
+                <span className="mt-spacing-1 block whitespace-normal break-words text-xs leading-5 text-surface-warm-white/54 [overflow-wrap:anywhere]">
                   {option.description}
                 </span>
                 {isRecommended ? (
@@ -591,7 +592,7 @@ export function QuestionComposer({
                 ) : null}
               </span>
               <span
-                className={`mt-1 size-3 border ${isSelected ? "border-[#8ce99a] bg-[#8ce99a]" : "border-surface-warm-white/22 group-hover:border-surface-warm-white/44"}`}
+                className={`mt-1 size-3 shrink-0 border ${isSelected ? "border-[#8ce99a] bg-[#8ce99a]" : "border-surface-warm-white/22 group-hover:border-surface-warm-white/44"}`}
               />
             </button>
           );
@@ -642,17 +643,17 @@ export function QuestionComposer({
               onClick={() => setCustomAnswerOpen(true)}
               className="flex w-full items-center justify-between gap-spacing-4 text-left"
             >
-              <span>
+              <span className="min-w-0">
                 <span className="block text-sm font-semibold text-surface-warm-white/84">
                   Jawaban sendiri
                 </span>
-                <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/58">
+                <span className="mt-spacing-1 block break-words text-xs leading-5 text-surface-warm-white/58 [overflow-wrap:anywhere]">
                   {customAnswerSelected
                     ? answer
                     : "Pakai ini kalau pilihan AI belum pas untuk keputusan ini."}
                 </span>
               </span>
-              <span className="border-b border-surface-warm-white/20 pb-0.5 text-xs text-surface-warm-white/56">
+              <span className="shrink-0 border-b border-surface-warm-white/20 pb-0.5 text-xs text-surface-warm-white/56">
                 Tulis
               </span>
             </button>
