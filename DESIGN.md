@@ -148,7 +148,7 @@ Core traits:
 - Use `#f7f4ed` for muted sections/footer.
 - Use `#5f5f5d` for secondary text only.
 - Replace heavy shadows with border/outline: `0 0 0 2px` max.
-- Radius map: inputs/buttons `12px`, cards `16–28px`, subtle chips `6–8px`.
+- Radius map: inputs/buttons `12px`, cards `16-28px`, subtle chips `6-8px`.
 - Mobile breakpoint priority: `<=600px`, vertical stacking.
 - Plus Jakarta Sans is loaded via `next/font/google` under the SIL Open Font License. Keep this legal open-source font path unless a future licensed replacement is explicitly approved.
 
@@ -175,6 +175,6 @@ Core traits:
 - Button primary: `action-primary` background, `surface-warm-white` text, `12px` radius, no heavy shadow.
 - Button secondary/outline: warm white or muted surface, near-black text, low-contrast border.
 - Inputs/textareas/selects: warm white surface, subtle border, `12px` radius, near-black focus ring.
-- Cards/dialogs/dropdowns: warm white surface, `16–28px` radius, subtle border/outline depth only.
+- Cards/dialogs/dropdowns: warm white surface, `16-28px` radius, subtle border/outline depth only.
 - Error/destructive states: use `#9f1d1d` sparingly and only for destructive/error meaning.
 - Loading/skeleton states: use foreground opacity or muted warm surfaces, never cold gray systems.

@@ -4,11 +4,11 @@ Boot instructions for AI agents working on UMKM Cepat.
 
 ## Read first
 
-- `PRINCIPLES.md` — operating taste and quality bar.
-- `DEV.md` — local workflow, commands, quality gate.
-- `DESIGN.md` — required before UI, styling, layout, typography, colors, or components.
-- `docs/architecture.md` — required before project, workspace, renderer, publishing, provider, storage, auth, or AI gateway work.
-- `docs/deployment.md` — required before Docker, VPS, storage persistence, CI, or monitoring work.
+- `PRINCIPLES.md`: operating taste and quality bar.
+- `DEV.md`: local workflow, commands, quality gate.
+- `DESIGN.md`: required before UI, styling, layout, typography, colors, or components.
+- `docs/architecture.md`: required before project, workspace, renderer, publishing, provider, storage, auth, or AI gateway work.
+- `docs/deployment.md`: required before Docker, VPS, storage persistence, CI, or monitoring work.
 
 ## Commands
 
