@@ -6,6 +6,7 @@ import {
   HeroContentMotion,
   HeroMotionItem,
 } from "@/components/home/HeroContentMotion";
+import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { auth } from "@/lib/auth";
@@ -93,39 +94,41 @@ export default async function HomePage() {
 
       {session?.user ? (
         <section className="bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
-          <div className="mx-auto max-w-6xl text-left">
-            <div className="rounded-radius-3xl border border-surface-warm-white/10 bg-[#1f1f1d] p-spacing-7 sm:p-spacing-10">
-              <div className="max-w-2xl">
-                <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
-                  Website kamu
-                </h2>
-                <p className="mt-spacing-4 text-sm leading-6 text-surface-warm-white/62 sm:text-base">
-                  Lanjutkan website terakhir atau buka arsip pekerjaanmu.
-                </p>
-              </div>
-
-              {featured ? (
-                <div className="mt-spacing-10">
-                  <ProjectList
-                    featured={featured}
-                    initialOthers={initialOthers}
-                    initialNextCursor={initialNextCursor}
-                    deleteProject={deleteProject}
-                  />
-                </div>
-              ) : (
-                <div className="mt-spacing-10 rounded-radius-2xl border border-dashed border-surface-warm-white/16 bg-surface-warm-white/[0.06] p-spacing-10 text-center">
-                  <h3 className="text-xl font-semibold tracking-[-0.04em]">
-                    Belum ada website
-                  </h3>
-                  <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/58">
-                    Tulis kebutuhan usahamu di atas. Website barumu akan muncul
-                    di sini.
+          <ScrollReveal>
+            <div className="mx-auto max-w-6xl text-left">
+              <div className="rounded-radius-3xl border border-surface-warm-white/10 bg-[#1f1f1d] p-spacing-7 sm:p-spacing-10">
+                <div className="max-w-2xl">
+                  <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
+                    Website kamu
+                  </h2>
+                  <p className="mt-spacing-4 text-sm leading-6 text-surface-warm-white/62 sm:text-base">
+                    Lanjutkan website terakhir atau buka arsip pekerjaanmu.
                   </p>
                 </div>
-              )}
+
+                {featured ? (
+                  <div className="mt-spacing-10">
+                    <ProjectList
+                      featured={featured}
+                      initialOthers={initialOthers}
+                      initialNextCursor={initialNextCursor}
+                      deleteProject={deleteProject}
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-spacing-10 rounded-radius-2xl border border-dashed border-surface-warm-white/16 bg-surface-warm-white/[0.06] p-spacing-10 text-center">
+                    <h3 className="text-xl font-semibold tracking-[-0.04em]">
+                      Belum ada website
+                    </h3>
+                    <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/58">
+                      Tulis kebutuhan usahamu di atas. Website barumu akan
+                      muncul di sini.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </ScrollReveal>
         </section>
       ) : null}
     </div>
