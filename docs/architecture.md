@@ -67,6 +67,7 @@ The legacy build/preview fields remain as compatibility fallback data. The gener
 - Serve private preview artifacts with `noindex`.
 - Private preview responses must send sandbox-safe CORS headers because generated sites render inside an iframe without same-origin privileges. Both runtime proxy responses and legacy DB artifact responses set `Access-Control-Allow-Origin: *` and `Cross-Origin-Resource-Policy: cross-origin`.
 - Preview failures are first-class UI states. Runtime startup failure, build failure, and known runtime load errors must show an actionable preview panel instead of leaving a blank white iframe.
+- Generated frontend apps send a `umkmcepat-preview-ready` postMessage after React renders. The workspace iframe treats a missing ready signal as a script/runtime load issue and offers preview retry instead of leaving the canvas ambiguous.
 - Do not dynamically import generated/user files into the Next.js app.
 - Do not evaluate user JavaScript in the platform runtime.
 - Keep public publishing artifact-backed and cacheable when possible.

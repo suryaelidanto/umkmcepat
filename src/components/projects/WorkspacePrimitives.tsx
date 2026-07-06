@@ -11,7 +11,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
@@ -296,18 +296,55 @@ function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
 
 export function GeneratedPreviewFrame({
   onLoad,
+  onRetry,
   projectId,
   reloadKey,
   viewport,
 }: {
   onLoad?: () => void;
+  onRetry?: () => void;
   projectId: string;
   reloadKey?: number;
   viewport: "desktop" | "mobile";
 }) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [ready, setReady] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    setReady(false);
+    setTimedOut(false);
+
+    const timeout = window.setTimeout(() => {
+      setTimedOut(true);
+    }, 10_000);
+
+    function handleMessage(event: MessageEvent) {
+      if (event.source !== iframeRef.current?.contentWindow) {
+        return;
+      }
+
+      if (event.data?.type !== "umkmcepat-preview-ready") {
+        return;
+      }
+
+      setReady(true);
+      setTimedOut(false);
+      window.clearTimeout(timeout);
+    }
+
+    window.addEventListener("message", handleMessage);
+
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [projectId, reloadKey]);
+
   return (
-    <div className="flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
+    <div className="relative flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
       <iframe
+        ref={iframeRef}
         key={reloadKey}
         title="Generated website preview"
         src={`/api/projects/${projectId}/preview/`}
@@ -315,6 +352,15 @@ export function GeneratedPreviewFrame({
         sandbox="allow-scripts"
         className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} h-full w-full border-0 bg-white`}
       />
+      {timedOut && !ready ? (
+        <div className="absolute inset-0">
+          <PreviewIssueState
+            title="Preview belum bisa dikonfirmasi"
+            detail="Website belum mengirim tanda siap dari iframe. Coba muat ulang preview, atau build ulang jika masih kosong."
+            onRetry={onRetry}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

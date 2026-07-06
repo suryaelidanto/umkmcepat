@@ -1124,6 +1124,7 @@ export function WorkspaceShell({
                       ) : shouldRenderGeneratedPreview ? (
                         <GeneratedPreviewFrame
                           onLoad={() => void loadRuntimeState()}
+                          onRetry={retryPreviewRuntime}
                           projectId={projectId}
                           reloadKey={previewReloadKey}
                           viewport={viewport}

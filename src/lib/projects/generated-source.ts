@@ -330,16 +330,6 @@ function getProjectSiteVariant(schema: ProjectSiteSchema): ProjectSiteVariant {
     .join(" ")
     .toLowerCase();
 
-  if (
-    text.includes("angkringan") ||
-    text.includes("nasi kucing") ||
-    text.includes("hangat") ||
-    text.includes("tradisional") ||
-    text.includes("kayu")
-  ) {
-    return "warm";
-  }
-
   if (text.includes("laundry") || text.includes("bersih")) {
     return "clean";
   }
@@ -353,8 +343,25 @@ function getProjectSiteVariant(schema: ProjectSiteSchema): ProjectSiteVariant {
     return "technical";
   }
 
-  if (text.includes("toko") || text.includes("produk")) {
+  if (
+    text.includes("toko") ||
+    text.includes("produk") ||
+    text.includes("katalog") ||
+    text.includes("frozen") ||
+    text.includes("lauk") ||
+    text.includes("camilan")
+  ) {
     return "retail";
+  }
+
+  if (
+    text.includes("angkringan") ||
+    text.includes("nasi kucing") ||
+    text.includes("hangat") ||
+    text.includes("tradisional") ||
+    text.includes("kayu")
+  ) {
+    return "warm";
   }
 
   return "editorial";
@@ -371,13 +378,19 @@ function createAppSource(variant: ProjectSiteVariant) {
           ? "product-grid"
           : "menu-strip";
 
-  return `import { site } from "./data/site";
+  return `import { useEffect } from "react";
+
+import { site } from "./data/site";
 import "./styles.css";
 
 const shellClass = "${shellClass}";
 const showcaseClass = "${showcaseClass}";
 
 export default function App() {
+  useEffect(() => {
+    window.parent?.postMessage({ type: "umkmcepat-preview-ready" }, "*");
+  }, []);
+
   return (
     <main
       className={shellClass}
