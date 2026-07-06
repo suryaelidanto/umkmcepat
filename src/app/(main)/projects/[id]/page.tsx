@@ -10,7 +10,6 @@ import {
   getProjectChatPage,
   parseProjectChatMessages,
 } from "@/lib/projects/chat-memory";
-import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
 
 type ProjectPageProps = {
   params: Promise<{ id: string }>;
@@ -35,7 +34,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       prompt: true,
       status: true,
       model: true,
-      siteSchema: true,
     },
   });
 
@@ -77,10 +75,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         initialChatCursor={initialChatPage.nextCursor}
         initialChatHasMore={initialChatPage.hasMore}
         initialWorkspaceCard={initialWorkspaceCard}
-        siteSchema={parseProjectSiteSchema(
-          (project as { siteSchema?: unknown }).siteSchema,
-          project.prompt,
-        )}
       />
     </>
   );

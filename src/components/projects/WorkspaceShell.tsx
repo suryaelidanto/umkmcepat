@@ -45,7 +45,6 @@ import {
 } from "@/components/ui/resizable";
 import { type WorkspaceCard } from "@/lib/projects/brief";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
-import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 import {
   getBuildRecommendationHoldSignature,
   getWorkspacePreviewIssue,
@@ -60,14 +59,6 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
 });
 
-const ProjectSitePreview = dynamic(
-  () =>
-    import("@/components/projects/renderer/ProjectSitePreview").then(
-      (module) => module.ProjectSitePreview,
-    ),
-  { ssr: false },
-);
-
 type WorkspaceShellProps = {
   projectId: string;
   initialTitle: string;
@@ -77,7 +68,6 @@ type WorkspaceShellProps = {
   initialChatCursor: number | null;
   initialChatHasMore: boolean;
   initialWorkspaceCard: WorkspaceCard;
-  siteSchema: ProjectSiteSchema;
 };
 
 type RuntimeWorkspaceState = {
@@ -123,7 +113,6 @@ export function WorkspaceShell({
   initialChatCursor,
   initialChatHasMore,
   initialWorkspaceCard,
-  siteSchema: initialSiteSchema,
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
@@ -131,7 +120,6 @@ export function WorkspaceShell({
   const [projectTitle, setProjectTitle] = useState(initialTitle);
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftTitle, setDraftTitle] = useState(initialTitle);
-  const [siteSchema, setSiteSchema] = useState(initialSiteSchema);
   const [buildStatus, setBuildStatus] = useState(initialStatus);
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [previewCollapsed, setPreviewCollapsed] = useState(true);
@@ -342,9 +330,11 @@ export function WorkspaceShell({
             continue;
           }
 
-          const data = JSON.parse(dataText) as
-            | ProjectSiteSchema
-            | { detail?: string; label?: string; message?: string };
+          const data = JSON.parse(dataText) as {
+            detail?: string;
+            label?: string;
+            message?: string;
+          };
 
           if (eventName === "progress" && "label" in data && data.label) {
             const label = data.label;
@@ -359,7 +349,6 @@ export function WorkspaceShell({
           }
 
           if (eventName === "schema" || eventName === "done") {
-            setSiteSchema(data as ProjectSiteSchema);
             setActiveTab("preview");
           }
 
@@ -1102,16 +1091,12 @@ export function WorkspaceShell({
                   <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
                     {activeTab === "preview" ? (
                       isBuilding ? (
-                        <div className="space-y-spacing-6 p-spacing-6">
-                          <BuildProgressPanel
-                            elapsedFrom={buildStartedAt}
-                            isBuilding={isBuilding}
-                            steps={buildProgress}
-                          />
-                          <div className="flex justify-center opacity-90">
-                            <ProjectSitePreview
-                              siteSchema={siteSchema}
-                              viewport={viewport}
+                        <div className="grid min-h-full place-items-center p-spacing-6">
+                          <div className="w-full max-w-3xl">
+                            <BuildProgressPanel
+                              elapsedFrom={buildStartedAt}
+                              isBuilding={isBuilding}
+                              steps={buildProgress}
                             />
                           </div>
                         </div>
