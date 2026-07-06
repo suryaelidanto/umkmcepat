@@ -1,10 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 
-export const runtime = "nodejs";
-
-export async function POST(
+export async function GET(
   _: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -30,23 +27,19 @@ export async function POST(
     );
   }
 
-  await prisma.project.update({
-    where: { id: project.id },
-    data: { status: "stopping" },
-  });
-  const deployment = await prisma.projectDeployment.findFirst({
-    where: {
-      kind: "preview",
-      projectId: project.id,
-      status: { in: ["running", "starting"] },
-    },
+  const events = await prisma.runtimeEvent.findMany({
+    where: { projectId: project.id },
     orderBy: { createdAt: "desc" },
-    select: { id: true },
+    select: {
+      buildId: true,
+      createdAt: true,
+      deploymentId: true,
+      id: true,
+      message: true,
+      type: true,
+    },
+    take: 50,
   });
 
-  if (deployment) {
-    await getRuntimeSupervisor().stopDeployment(deployment.id);
-  }
-
-  return Response.json({ ok: true });
+  return Response.json({ events });
 }

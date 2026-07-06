@@ -8,6 +8,17 @@ import {
   buildGeneratedProject,
   createGeneratedProjectFiles,
 } from "@/lib/projects/generated-source";
+import {
+  writeProjectDistArtifact,
+  writeProjectSourceArtifact,
+} from "@/lib/projects/runtime-artifacts";
+import { createRuntimeEventData } from "@/lib/projects/runtime-events";
+import {
+  type ProjectBuildStatus,
+  type ProjectDeploymentKind,
+  type ProjectDeploymentStatus,
+  type ProjectSnapshotSourceType,
+} from "@/lib/projects/runtime-types";
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
 import {
   parseProjectSiteSchema,
@@ -17,6 +28,10 @@ import {
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 180;
+
+const GENERATED_SNAPSHOT_SOURCE_TYPE =
+  "generated" satisfies ProjectSnapshotSourceType;
+const PREVIEW_DEPLOYMENT_KIND = "preview" satisfies ProjectDeploymentKind;
 
 type RouteProps = {
   params: Promise<{ id: string }>;
@@ -64,6 +79,9 @@ export async function POST(request: Request, { params }: RouteProps) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      let runtimeBuildFinalized = false;
+      let runtimeBuildId: string | null = null;
+
       function send(event: string, data: unknown) {
         controller.enqueue(encoder.encode(encodeEvent(event, data)));
       }
@@ -150,6 +168,61 @@ export async function POST(request: Request, { params }: RouteProps) {
           label: "Membuat source frontend",
           detail: `${sourceFiles.length} file Vite React disiapkan untuk project ini.`,
         });
+        const snapshot = await prisma.projectSnapshot.create({
+          data: {
+            files: sourceFiles,
+            metadata: {
+              schemaVersion: finalSchema.version,
+              sourceFileCount: sourceFiles.length,
+              template: "vite-react-frontend-static-v1",
+            },
+            projectId: project.id,
+            sourceType: GENERATED_SNAPSHOT_SOURCE_TYPE,
+          },
+          select: { id: true },
+        });
+        const sourceRef = await writeProjectSourceArtifact({
+          artifactId: snapshot.id,
+          files: sourceFiles,
+        });
+        await prisma.projectSnapshot.update({
+          where: { id: snapshot.id },
+          data: { sourceRef },
+        });
+        await prisma.runtimeEvent.create({
+          data: createRuntimeEventData({
+            metadata: { sourceFileCount: sourceFiles.length, sourceRef },
+            projectId: project.id,
+            type: "snapshot.created",
+          }),
+        });
+        const build = await prisma.projectBuild.create({
+          data: {
+            projectId: project.id,
+            snapshotId: snapshot.id,
+            status: "queued" satisfies ProjectBuildStatus,
+          },
+          select: { id: true },
+        });
+        runtimeBuildId = build.id;
+        send("progress", {
+          label: "Build masuk antrean",
+          detail: "Worker build menyiapkan validasi source frontend.",
+        });
+        await prisma.projectBuild.update({
+          where: { id: build.id },
+          data: {
+            startedAt: new Date(),
+            status: "running" satisfies ProjectBuildStatus,
+          },
+        });
+        await prisma.runtimeEvent.create({
+          data: createRuntimeEventData({
+            buildId: build.id,
+            projectId: project.id,
+            type: "build.started",
+          }),
+        });
         const buildResult = await buildGeneratedProject(sourceFiles);
         send("progress", {
           label: buildResult.ok
@@ -165,6 +238,23 @@ export async function POST(request: Request, { params }: RouteProps) {
         });
 
         if (latestProject?.status === "stopping") {
+          await prisma.projectBuild.update({
+            where: { id: build.id },
+            data: {
+              finishedAt: new Date(),
+              logText: buildResult.log,
+              status: "canceled" satisfies ProjectBuildStatus,
+            },
+          });
+          runtimeBuildFinalized = true;
+          await prisma.runtimeEvent.create({
+            data: createRuntimeEventData({
+              buildId: build.id,
+              message: "Build was canceled after the user stopped the job.",
+              projectId: project.id,
+              type: "build.canceled",
+            }),
+          });
           await prisma.project.update({
             where: { id: project.id },
             data: { status: "draft", buildStatus: "stopped" } as Parameters<
@@ -175,6 +265,36 @@ export async function POST(request: Request, { params }: RouteProps) {
           return;
         }
 
+        const projectBuildStatus: ProjectBuildStatus = buildResult.ok
+          ? "succeeded"
+          : "failed";
+        const artifactRef = buildResult.ok
+          ? await writeProjectDistArtifact({
+              artifactId: build.id,
+              files: buildResult.distFiles,
+            })
+          : null;
+        await prisma.projectBuild.update({
+          where: { id: build.id },
+          data: {
+            artifactRef,
+            finishedAt: new Date(),
+            logText: buildResult.log,
+            status: projectBuildStatus,
+          },
+        });
+        runtimeBuildFinalized = true;
+        await prisma.runtimeEvent.create({
+          data: createRuntimeEventData({
+            buildId: build.id,
+            message: buildResult.ok
+              ? "Generated frontend build succeeded and dist artifact was stored."
+              : "Generated frontend build failed.",
+            metadata: artifactRef ? { artifactRef } : undefined,
+            projectId: project.id,
+            type: buildResult.ok ? "build.succeeded" : "build.failed",
+          }),
+        });
         await prisma.project.update({
           where: { id: project.id },
           data: {
@@ -187,6 +307,28 @@ export async function POST(request: Request, { params }: RouteProps) {
             builtAt: new Date(),
           } as Parameters<typeof prisma.project.update>[0]["data"],
         });
+        const deploymentStatus: ProjectDeploymentStatus = buildResult.ok
+          ? "created"
+          : "failed";
+        const deployment = await prisma.projectDeployment.create({
+          data: {
+            buildId: build.id,
+            kind: PREVIEW_DEPLOYMENT_KIND,
+            projectId: project.id,
+            publicPath: `/api/projects/${project.id}/preview`,
+            snapshotId: snapshot.id,
+            status: deploymentStatus,
+          },
+          select: { id: true },
+        });
+        await prisma.runtimeEvent.create({
+          data: createRuntimeEventData({
+            buildId: build.id,
+            deploymentId: deployment.id,
+            projectId: project.id,
+            type: buildResult.ok ? "deployment.created" : "deployment.failed",
+          }),
+        });
 
         send("progress", {
           label: "Website siap direview",
@@ -194,6 +336,28 @@ export async function POST(request: Request, { params }: RouteProps) {
         });
         send("done", finalSchema);
       } catch {
+        if (runtimeBuildId && !runtimeBuildFinalized) {
+          await prisma.projectBuild
+            .update({
+              where: { id: runtimeBuildId },
+              data: {
+                finishedAt: new Date(),
+                logText: "Build route failed before completion.",
+                status: "failed" satisfies ProjectBuildStatus,
+              },
+            })
+            .catch(() => undefined);
+          await prisma.runtimeEvent
+            .create({
+              data: createRuntimeEventData({
+                buildId: runtimeBuildId,
+                message: "Build route failed before completion.",
+                projectId: project.id,
+                type: "build.failed",
+              }),
+            })
+            .catch(() => undefined);
+        }
         await prisma.project.update({
           where: { id: project.id },
           data: { status: "draft" },

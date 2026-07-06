@@ -50,6 +50,52 @@ export const TopBarCodeMobile: Story = {
   ),
 };
 
+export const TopBarRuntimeRunning: Story = {
+  render: () => (
+    <DarkCanvas>
+      <WorkspaceTopBar
+        activeTab="preview"
+        setActiveTab={() => undefined}
+        viewport="desktop"
+        setViewport={() => undefined}
+        chatCollapsed={false}
+        openChatPanel={() => undefined}
+        closeChatPanel={() => undefined}
+        runtime={{
+          buildStatus: "succeeded",
+          canPublish: true,
+          deploymentStatus: "running",
+          onPublish: () => undefined,
+          onRetryPreview: () => undefined,
+        }}
+      />
+    </DarkCanvas>
+  ),
+};
+
+export const TopBarRuntimeStopped: Story = {
+  render: () => (
+    <DarkCanvas>
+      <WorkspaceTopBar
+        activeTab="preview"
+        setActiveTab={() => undefined}
+        viewport="desktop"
+        setViewport={() => undefined}
+        chatCollapsed={false}
+        openChatPanel={() => undefined}
+        closeChatPanel={() => undefined}
+        runtime={{
+          buildStatus: "succeeded",
+          canPublish: true,
+          deploymentStatus: "stopped",
+          onPublish: () => undefined,
+          onRetryPreview: () => undefined,
+        }}
+      />
+    </DarkCanvas>
+  ),
+};
+
 export const ModePills: Story = {
   render: () => (
     <DarkCanvas>

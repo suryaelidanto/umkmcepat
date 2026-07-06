@@ -2,10 +2,12 @@
 
 import {
   Code2,
+  ExternalLink,
   Globe2,
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
+  RefreshCw,
   Smartphone,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -29,6 +31,17 @@ export type BuildProgressStep = {
   status?: "active" | "done" | "error";
 };
 
+export type WorkspaceRuntimeControl = {
+  buildStatus?: string | null;
+  canPublish?: boolean;
+  deploymentStatus?: string | null;
+  errorMessage?: string | null;
+  isPublishing?: boolean;
+  onPublish?: () => void;
+  onRetryPreview?: () => void;
+  publishedPath?: string | null;
+};
+
 export function WorkspaceTopBar({
   activeTab,
   setActiveTab,
@@ -37,6 +50,7 @@ export function WorkspaceTopBar({
   chatCollapsed,
   openChatPanel,
   closeChatPanel,
+  runtime,
 }: {
   activeTab: BuildTab;
   setActiveTab: (tab: BuildTab) => void;
@@ -45,10 +59,11 @@ export function WorkspaceTopBar({
   chatCollapsed: boolean;
   openChatPanel: () => void;
   closeChatPanel: () => void;
+  runtime?: WorkspaceRuntimeControl;
 }) {
   return (
     <div className="flex h-14 items-center justify-between gap-spacing-4 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-4">
-      <div className="flex items-center gap-spacing-3">
+      <div className="flex min-w-0 items-center gap-spacing-3">
         <button
           type="button"
           onClick={chatCollapsed ? openChatPanel : closeChatPanel}
@@ -79,26 +94,30 @@ export function WorkspaceTopBar({
         </div>
       </div>
 
-      {activeTab === "preview" ? (
-        <div className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs">
-          <button
-            type="button"
-            onClick={() => setViewport("desktop")}
-            className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "desktop" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
-          >
-            <Monitor className="size-4" aria-hidden="true" />
-            Komputer
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewport("mobile")}
-            className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "mobile" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
-          >
-            <Smartphone className="size-4" aria-hidden="true" />
-            HP
-          </button>
-        </div>
-      ) : null}
+      <div className="flex min-w-0 shrink-0 items-center gap-spacing-3">
+        {runtime ? <RuntimeControl runtime={runtime} /> : null}
+
+        {activeTab === "preview" ? (
+          <div className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setViewport("desktop")}
+              className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "desktop" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+            >
+              <Monitor className="size-4" aria-hidden="true" />
+              Komputer
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewport("mobile")}
+              className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "mobile" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+            >
+              <Smartphone className="size-4" aria-hidden="true" />
+              HP
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -126,16 +145,167 @@ function TabButton({
   );
 }
 
+function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
+  const status = getRuntimeLabel(runtime);
+  const canRetry =
+    runtime.deploymentStatus === "failed" ||
+    runtime.deploymentStatus === "stopped";
+
+  return (
+    <div className="flex min-w-0 items-center gap-spacing-2">
+      <span
+        title={runtime.errorMessage || status.label}
+        className={`inline-flex max-w-[13rem] items-center gap-spacing-2 truncate rounded-radius-md border px-spacing-3 py-spacing-2 text-xs ${status.className}`}
+      >
+        <span className={`size-2 shrink-0 rounded-full ${status.dot}`} />
+        <span className="truncate">{status.label}</span>
+      </span>
+
+      {canRetry && runtime.onRetryPreview ? (
+        <button
+          type="button"
+          onClick={runtime.onRetryPreview}
+          className="rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          aria-label="Coba nyalakan preview lagi"
+          title="Coba nyalakan preview lagi"
+        >
+          <RefreshCw className="size-4" />
+        </button>
+      ) : null}
+
+      {runtime.publishedPath ? (
+        <a
+          href={runtime.publishedPath}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+        >
+          <ExternalLink className="size-4" />
+          Buka
+        </a>
+      ) : (
+        <button
+          type="button"
+          disabled={!runtime.canPublish || runtime.isPublishing}
+          onClick={runtime.onPublish}
+          className="inline-flex items-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Globe2 className="size-4" />
+          {runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
+  if (runtime.errorMessage) {
+    return {
+      className: "border-[#ffb4a6]/24 bg-[#ffb4a6]/10 text-[#ffb4a6]",
+      dot: "bg-[#ffb4a6]",
+      label: "Runtime gagal",
+    };
+  }
+
+  if (runtime.buildStatus === "queued") {
+    return {
+      className:
+        "border-surface-warm-white/10 bg-surface-warm-white/[0.055] text-surface-warm-white/68",
+      dot: "bg-surface-warm-white/52",
+      label: "Build antre",
+    };
+  }
+
+  if (runtime.buildStatus === "running" || runtime.buildStatus === "building") {
+    return {
+      className:
+        "border-surface-warm-white/14 bg-surface-warm-white/[0.075] text-surface-warm-white/78",
+      dot: "animate-pulse bg-surface-warm-white",
+      label: "Build berjalan",
+    };
+  }
+
+  if (runtime.buildStatus === "failed") {
+    return {
+      className: "border-[#ffb4a6]/24 bg-[#ffb4a6]/10 text-[#ffb4a6]",
+      dot: "bg-[#ffb4a6]",
+      label: "Build gagal",
+    };
+  }
+
+  if (runtime.buildStatus === "canceled" || runtime.buildStatus === "stopped") {
+    return {
+      className:
+        "border-surface-warm-white/10 bg-surface-warm-white/[0.045] text-surface-warm-white/58",
+      dot: "bg-surface-warm-white/42",
+      label: "Build dihentikan",
+    };
+  }
+
+  if (runtime.deploymentStatus === "starting") {
+    return {
+      className:
+        "border-surface-warm-white/14 bg-surface-warm-white/[0.075] text-surface-warm-white/78",
+      dot: "animate-pulse bg-surface-warm-white",
+      label: "Menyalakan preview",
+    };
+  }
+
+  if (runtime.deploymentStatus === "running") {
+    return {
+      className: "border-[#8ce99a]/24 bg-[#8ce99a]/10 text-[#c7f8cf]",
+      dot: "bg-[#8ce99a]",
+      label: "Preview aktif",
+    };
+  }
+
+  if (runtime.deploymentStatus === "stopped") {
+    return {
+      className:
+        "border-surface-warm-white/10 bg-surface-warm-white/[0.045] text-surface-warm-white/58",
+      dot: "bg-surface-warm-white/42",
+      label: "Preview tidur",
+    };
+  }
+
+  if (runtime.deploymentStatus === "failed") {
+    return {
+      className: "border-[#ffb4a6]/24 bg-[#ffb4a6]/10 text-[#ffb4a6]",
+      dot: "bg-[#ffb4a6]",
+      label: "Runtime gagal",
+    };
+  }
+
+  if (runtime.buildStatus === "succeeded" || runtime.buildStatus === "passed") {
+    return {
+      className:
+        "border-surface-warm-white/10 bg-surface-warm-white/[0.055] text-surface-warm-white/68",
+      dot: "bg-[#8ce99a]",
+      label: "Preview siap",
+    };
+  }
+
+  return {
+    className:
+      "border-surface-warm-white/10 bg-surface-warm-white/[0.04] text-surface-warm-white/52",
+    dot: "bg-surface-warm-white/32",
+    label: "Belum dibuild",
+  };
+}
+
 export function GeneratedPreviewFrame({
   projectId,
+  reloadKey,
   viewport,
 }: {
   projectId: string;
+  reloadKey?: number;
   viewport: "desktop" | "mobile";
 }) {
   return (
     <div className="flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
       <iframe
+        key={reloadKey}
         title="Generated website preview"
         src={`/api/projects/${projectId}/preview/`}
         sandbox="allow-scripts"

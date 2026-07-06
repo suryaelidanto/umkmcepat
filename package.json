@@ -30,6 +30,7 @@
     "lighthouse:mobile": "node scripts/run-lighthouse.mjs mobile",
     "lint": "eslint . --max-warnings=0",
     "prepare": "husky",
+    "runtime:idle-stop": "bun src/lib/projects/runtime-idle-runner.ts",
     "setup:agent": "bun run graph:index",
     "setup:local": "bun install && docker compose up -d && bun run db:migrate",
     "start": "next start",

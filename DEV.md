@@ -57,6 +57,10 @@ AI_PROVIDER="9router"
 NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
 OBJECT_STORAGE_PROVIDER="local"
 LOCAL_UPLOAD_DIR=".data/uploads"
+PROJECT_ARTIFACT_DIR=".data/project-artifacts"
+PROJECT_RUNTIME_DIR=".data/project-runtimes"
+PROJECT_RUNTIME_SUPERVISOR="local"
+PROJECT_RUNTIME_MAX_CONTAINERS="8"
 RATE_LIMIT_PROVIDER="memory"
 RATE_LIMIT_GLOBAL_IP_REQUESTS="300"
 RATE_LIMIT_GLOBAL_IP_WINDOW_SECONDS="60"
@@ -71,6 +75,16 @@ RATE_LIMIT_BUILD_IP_WINDOW_SECONDS="3600"
 ```
 
 Set Google OAuth, Turnstile, Sentry, Chromatic, and AI provider secrets only in `.env` or deployment secrets.
+
+Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep it mounted/persistent for local review sessions that need preview cold starts after restart.
+
+Idle runtime cleanup:
+
+```bash
+bun run runtime:idle-stop
+```
+
+Use this from cron/systemd/timer-equivalent in a single-node deployment until a dedicated worker owns the loop.
 
 ## Graphify
 
@@ -176,10 +190,10 @@ Read the relevant doc before touching that area:
 Core architecture rule:
 
 ```text
-one platform app, many project rows, one shared renderer
+one control-plane platform app, many project rows, supervised generated runtimes
 ```
 
-Do not add per-user apps, per-project containers, arbitrary user backend code, or generated source files as the primary platform runtime.
+Do not add per-user platform apps or import generated source files into the Next.js runtime. Per-project runtime containers are allowed only through the snapshot/build/deployment/runtime-supervisor architecture; the production web app must not own the Docker socket.
 
 ## Final handoff checklist
 

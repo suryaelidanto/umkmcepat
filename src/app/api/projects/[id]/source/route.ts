@@ -4,6 +4,7 @@ import {
   createGeneratedProjectFiles,
   parseGeneratedProjectFiles,
 } from "@/lib/projects/generated-source";
+import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
 import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
 
 export async function GET(
@@ -43,7 +44,24 @@ export async function GET(
   >`
     SELECT "sourceFiles", "buildStatus", "buildLog" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
   `;
-  const storedFiles = parseGeneratedProjectFiles(sourceRow?.sourceFiles);
+  const latestSnapshot = await prisma.projectSnapshot.findFirst({
+    where: { projectId: project.id },
+    orderBy: { createdAt: "desc" },
+    select: { files: true, sourceRef: true },
+  });
+  const latestBuild = await prisma.projectBuild.findFirst({
+    where: { projectId: project.id },
+    orderBy: { createdAt: "desc" },
+    select: { logText: true, status: true },
+  });
+  const artifactFiles = latestSnapshot?.sourceRef
+    ? await readProjectSourceArtifact(latestSnapshot.sourceRef).catch(() => [])
+    : [];
+  const storedFiles = artifactFiles.length
+    ? artifactFiles
+    : parseGeneratedProjectFiles(latestSnapshot?.files).length
+      ? parseGeneratedProjectFiles(latestSnapshot?.files)
+      : parseGeneratedProjectFiles(sourceRow?.sourceFiles);
   const siteSchema = parseProjectSiteSchema(
     (project as { siteSchema?: unknown }).siteSchema,
     project.prompt,
@@ -51,10 +69,32 @@ export async function GET(
 
   return Response.json({
     projectId: project.id,
-    buildLog: sourceRow?.buildLog ?? "",
-    buildStatus: sourceRow?.buildStatus ?? "not_started",
+    buildLog: latestBuild?.logText ?? sourceRow?.buildLog ?? "",
+    buildStatus: mapBuildStatusForWorkspace(
+      latestBuild?.status ?? sourceRow?.buildStatus,
+    ),
     files: storedFiles.length
       ? storedFiles
       : createGeneratedProjectFiles(project.id, siteSchema),
   });
+}
+
+function mapBuildStatusForWorkspace(status?: string | null) {
+  if (status === "succeeded") {
+    return "passed";
+  }
+
+  if (status === "failed") {
+    return "failed";
+  }
+
+  if (status === "running" || status === "queued") {
+    return "building";
+  }
+
+  if (status === "canceled") {
+    return "stopped";
+  }
+
+  return status ?? "not_started";
 }

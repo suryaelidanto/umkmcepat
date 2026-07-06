@@ -34,6 +34,7 @@ import {
   type BuildProgressStep,
   type BuildTab,
   type WorkspaceAnswerPayload,
+  type WorkspaceRuntimeControl,
 } from "@/components/projects/WorkspacePrimitives";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +70,34 @@ type WorkspaceShellProps = {
   siteSchema: ProjectSiteSchema;
 };
 
+type RuntimeWorkspaceState = {
+  build: {
+    artifactRef?: string | null;
+    finishedAt?: string | null;
+    id: string;
+    logText?: string | null;
+    startedAt?: string | null;
+    status: string;
+  } | null;
+  deployment: {
+    id: string;
+    lastRequestAt?: string | null;
+    publicPath?: string | null;
+    status: string;
+  } | null;
+  events: Array<{
+    id: string;
+    message?: string | null;
+    type: string;
+  }>;
+  publishedDeployment: {
+    id: string;
+    publicPath: string | null;
+    slug: string | null;
+    status: string;
+  } | null;
+};
+
 export function WorkspaceShell({
   projectId,
   initialTitle,
@@ -95,6 +124,12 @@ export function WorkspaceShell({
   const [sourceStatus, setSourceStatus] = useState("not_started");
   const [buildProgress, setBuildProgress] = useState<BuildProgressStep[]>([]);
   const [buildStartedAt, setBuildStartedAt] = useState<number | null>(null);
+  const [runtimeState, setRuntimeState] =
+    useState<RuntimeWorkspaceState | null>(null);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishedPath, setPublishedPath] = useState<string | null>(null);
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const [workspaceCard, setWorkspaceCard] =
     useState<WorkspaceCard>(initialWorkspaceCard);
   const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
@@ -143,6 +178,65 @@ export function WorkspaceShell({
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  const loadRuntimeState = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/runtime`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const result = (await response.json()) as RuntimeWorkspaceState;
+
+      setRuntimeState(result);
+
+      if (result.publishedDeployment?.publicPath) {
+        setPublishedPath(result.publishedDeployment.publicPath);
+      }
+    } catch {
+      setRuntimeError("Status runtime belum bisa dimuat.");
+    }
+  }, [projectId]);
+
+  const retryPreviewRuntime = useCallback(() => {
+    setRuntimeError(null);
+    setPreviewReloadKey((current) => current + 1);
+    void loadRuntimeState();
+  }, [loadRuntimeState]);
+
+  const publishProject = useCallback(async () => {
+    if (isPublishing) {
+      return;
+    }
+
+    setIsPublishing(true);
+    setRuntimeError(null);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/publish`, {
+        method: "POST",
+      });
+      const result = (await response.json().catch(() => null)) as {
+        message?: string;
+        path?: string;
+      } | null;
+
+      if (!response.ok || !result?.path) {
+        setRuntimeError(result?.message || "Website belum bisa diterbitkan.");
+        return;
+      }
+
+      setPublishedPath(result.path);
+      await loadRuntimeState();
+    } catch {
+      setRuntimeError("Website belum bisa diterbitkan.");
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [isPublishing, loadRuntimeState, projectId]);
 
   const startBuild = useCallback(async () => {
     if (buildStatus === "building") {
@@ -224,10 +318,12 @@ export function WorkspaceShell({
           if (eventName === "done") {
             setBuildStatus("ready");
             setBuildProgress((current) => completeBuildProgress(current));
+            void loadRuntimeState();
           }
 
           if (eventName === "error") {
             setBuildStatus("draft");
+            void loadRuntimeState();
             setBuildProgress((current) =>
               addBuildProgressStep(current, {
                 detail:
@@ -242,6 +338,7 @@ export function WorkspaceShell({
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
         setBuildStatus("draft");
+        void loadRuntimeState();
         setBuildProgress((current) =>
           addBuildProgressStep(current, {
             detail: "Koneksi build terputus. Coba jalankan build lagi.",
@@ -253,7 +350,7 @@ export function WorkspaceShell({
     } finally {
       buildAbortRef.current = null;
     }
-  }, [buildStatus, projectId]);
+  }, [buildStatus, loadRuntimeState, projectId]);
 
   useEffect(() => {
     if (
@@ -285,6 +382,35 @@ export function WorkspaceShell({
   const hasPreview = sourceStatus === "passed" || buildStatus === "ready";
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
+  const runtimeControl = createRuntimeControl({
+    buildStatus,
+    isPublishing,
+    onPublish: publishProject,
+    onRetryPreview: retryPreviewRuntime,
+    publishedPath,
+    runtimeError,
+    runtimeState,
+    sourceStatus,
+  });
+
+  useEffect(() => {
+    void loadRuntimeState();
+
+    if (
+      buildStatus !== "building" &&
+      runtimeState?.deployment?.status !== "starting" &&
+      runtimeState?.deployment?.status !== "running"
+    ) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadRuntimeState();
+    }, 7000);
+
+    return () => window.clearInterval(interval);
+  }, [buildStatus, loadRuntimeState, runtimeState?.deployment?.status]);
+
   useEffect(() => {
     if (hasPreview && !hasAutoOpenedPreview.current) {
       hasAutoOpenedPreview.current = true;
@@ -824,6 +950,7 @@ export function WorkspaceShell({
                     chatCollapsed={chatCollapsed}
                     openChatPanel={openChatPanel}
                     closeChatPanel={closeChatPanel}
+                    runtime={runtimeControl}
                   />
                   <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
                     {activeTab === "preview" ? (
@@ -844,6 +971,7 @@ export function WorkspaceShell({
                       ) : sourceStatus === "passed" ? (
                         <GeneratedPreviewFrame
                           projectId={projectId}
+                          reloadKey={previewReloadKey}
                           viewport={viewport}
                         />
                       ) : buildStatus === "ready" ? (
@@ -873,6 +1001,50 @@ export function WorkspaceShell({
       </ResizablePanelGroup>
     </div>
   );
+}
+
+function createRuntimeControl({
+  buildStatus,
+  isPublishing,
+  onPublish,
+  onRetryPreview,
+  publishedPath,
+  runtimeError,
+  runtimeState,
+  sourceStatus,
+}: {
+  buildStatus: string;
+  isPublishing: boolean;
+  onPublish: () => void;
+  onRetryPreview: () => void;
+  publishedPath: string | null;
+  runtimeError: string | null;
+  runtimeState: RuntimeWorkspaceState | null;
+  sourceStatus: string;
+}): WorkspaceRuntimeControl {
+  const runtimeBuildStatus =
+    runtimeState?.build?.status ||
+    (sourceStatus === "passed"
+      ? "succeeded"
+      : buildStatus === "building"
+        ? "running"
+        : buildStatus === "ready"
+          ? "succeeded"
+          : buildStatus);
+  const runtimePublishedPath =
+    publishedPath || runtimeState?.publishedDeployment?.publicPath || null;
+
+  return {
+    buildStatus: runtimeBuildStatus,
+    canPublish:
+      runtimeBuildStatus === "succeeded" || runtimeBuildStatus === "passed",
+    deploymentStatus: runtimeState?.deployment?.status ?? null,
+    errorMessage: runtimeError,
+    isPublishing,
+    onPublish,
+    onRetryPreview,
+    publishedPath: runtimePublishedPath,
+  };
 }
 
 function addBuildProgressStep(
