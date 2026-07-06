@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyPreviewSandboxHeaders,
   proxyDeploymentRequest,
+  rewritePreviewAssetUrls,
 } from "@/lib/projects/runtime-proxy";
 
 let server: Server | null = null;
@@ -83,6 +84,20 @@ describe("runtime proxy", () => {
 
     expect(response?.headers.has("X-Robots-Tag")).toBe(false);
     await expect(response?.text()).resolves.toBe("/");
+  });
+
+  it("rewrites generated HTML asset URLs for sandboxed private frames", () => {
+    const html =
+      '<script type="module" crossorigin src="./assets/app.js"></script><link rel="stylesheet" href="./assets/app.css">';
+    const result = rewritePreviewAssetUrls(html, {
+      deploymentId: "deployment_1",
+      projectId: "project_1",
+    });
+
+    expect(result).toContain("/api/projects/project_1/assets/app.js?");
+    expect(result).toContain("/api/projects/project_1/assets/app.css?");
+    expect(result).toContain("assetToken=");
+    expect(result).not.toContain("./assets/");
   });
 
   it("applies sandbox headers for legacy preview responses", () => {

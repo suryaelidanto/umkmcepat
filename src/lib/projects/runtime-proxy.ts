@@ -1,9 +1,16 @@
 import {
+  createPreviewAssetToken,
+  PREVIEW_ASSET_TOKEN_PARAM,
+} from "@/lib/projects/preview-asset-token";
+import {
   getRuntimeSupervisor,
   type RuntimeSupervisor,
 } from "@/lib/projects/runtime-supervisor";
 
 type ProxyDeploymentRequestInput = {
+  assetRewrite?: {
+    projectId: string;
+  };
   deploymentId: string;
   deploymentStatus: string;
   noindex?: boolean;
@@ -48,6 +55,26 @@ export async function proxyDeploymentRequest(
 
   applyPreviewSandboxHeaders(headers, { noindex: input.noindex ?? true });
 
+  if (
+    input.assetRewrite &&
+    runtimeResponse.status === 200 &&
+    headers.get("content-type")?.toLowerCase().includes("text/html")
+  ) {
+    headers.delete("content-length");
+
+    return new Response(
+      rewritePreviewAssetUrls(await runtimeResponse.text(), {
+        deploymentId: input.deploymentId,
+        projectId: input.assetRewrite.projectId,
+      }),
+      {
+        headers,
+        status: runtimeResponse.status,
+        statusText: runtimeResponse.statusText,
+      },
+    );
+  }
+
   return new Response(runtimeResponse.body, {
     headers,
     status: runtimeResponse.status,
@@ -73,4 +100,29 @@ export function applyPreviewSandboxHeaders(
 
 function encodeRuntimePath(pathSegments: string[]) {
   return pathSegments.map((segment) => encodeURIComponent(segment)).join("/");
+}
+
+export function rewritePreviewAssetUrls(
+  html: string,
+  {
+    deploymentId,
+    projectId,
+  }: {
+    deploymentId: string;
+    projectId: string;
+  },
+) {
+  const token = createPreviewAssetToken({ deploymentId, projectId });
+
+  return html.replace(
+    /\b(src|href)="\.\/assets\/([^"]+)"/g,
+    (_match, attribute: string, assetPath: string) => {
+      const encodedPath = assetPath
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+
+      return `${attribute}="/api/projects/${encodeURIComponent(projectId)}/assets/${encodedPath}?${PREVIEW_ASSET_TOKEN_PARAM}=${encodeURIComponent(token)}"`;
+    },
+  );
 }

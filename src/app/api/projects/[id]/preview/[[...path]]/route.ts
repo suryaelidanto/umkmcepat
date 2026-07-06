@@ -46,6 +46,7 @@ export async function GET(
 
   if (deployment?.build?.artifactRef) {
     const response = await proxyDeploymentRequest({
+      assetRewrite: { projectId: project.id },
       deploymentId: deployment.id,
       deploymentStatus: deployment.status,
       pathSegments: path,
