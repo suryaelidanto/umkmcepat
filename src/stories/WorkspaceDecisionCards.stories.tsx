@@ -61,6 +61,7 @@ export const BuildRecommendation: Story = {
         <WorkspaceCardView
           card={buildRecommendationCard}
           onBuild={() => undefined}
+          onDiscuss={() => undefined}
         />
       </div>
     </DarkCanvas>

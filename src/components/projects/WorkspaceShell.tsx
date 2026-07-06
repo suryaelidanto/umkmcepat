@@ -45,6 +45,11 @@ import {
 import { type WorkspaceCard } from "@/lib/projects/brief";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
+import {
+  getBuildRecommendationHoldSignature,
+  isBuildRecommendationHeld,
+  shouldRefreshWorkspaceAfterChatStatus,
+} from "@/lib/projects/workspace-sync";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -98,6 +103,12 @@ type RuntimeWorkspaceState = {
   } | null;
 };
 
+type WorkspaceStateResponse = {
+  projectId: string;
+  projectTitle: string;
+  workspaceCard: WorkspaceCard;
+};
+
 export function WorkspaceShell({
   projectId,
   initialTitle,
@@ -132,6 +143,10 @@ export function WorkspaceShell({
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const [workspaceCard, setWorkspaceCard] =
     useState<WorkspaceCard>(initialWorkspaceCard);
+  const [
+    heldBuildRecommendationSignature,
+    setHeldBuildRecommendationSignature,
+  ] = useState<string | null>(null);
   const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
   const [chatCursor, setChatCursor] = useState<number | null>(
     initialChatCursor,
@@ -139,6 +154,7 @@ export function WorkspaceShell({
   const [hasMoreChat, setHasMoreChat] = useState(initialChatHasMore);
   const [isLoadingOlderChat, setIsLoadingOlderChat] = useState(false);
   const prompt = initialPrompt.trim();
+  const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
   const hasStartedChat = useRef(false);
   const hasStartedBuild = useRef(false);
   const modeRef = useRef(mode);
@@ -174,10 +190,17 @@ export function WorkspaceShell({
         },
       }),
     });
+  const previousChatStatus = useRef(status);
 
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  useEffect(() => {
+    setHeldBuildRecommendationSignature(
+      window.localStorage.getItem(buildRecommendationStorageKey),
+    );
+  }, [buildRecommendationStorageKey]);
 
   const loadRuntimeState = useCallback(async () => {
     try {
@@ -199,6 +222,22 @@ export function WorkspaceShell({
     } catch {
       setRuntimeError("Status runtime belum bisa dimuat.");
     }
+  }, [projectId]);
+
+  const loadWorkspaceState = useCallback(async () => {
+    const response = await fetch(`/api/projects/${projectId}/workspace`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const result = (await response.json()) as WorkspaceStateResponse;
+
+    setWorkspaceCard(result.workspaceCard);
+    setProjectTitle(result.projectTitle);
+    setDraftTitle(result.projectTitle);
   }, [projectId]);
 
   const retryPreviewRuntime = useCallback(() => {
@@ -243,6 +282,8 @@ export function WorkspaceShell({
       return;
     }
 
+    window.localStorage.removeItem(buildRecommendationStorageKey);
+    setHeldBuildRecommendationSignature(null);
     setMode("build");
     setBuildStatus("building");
     setSourceStatus("not_started");
@@ -350,7 +391,7 @@ export function WorkspaceShell({
     } finally {
       buildAbortRef.current = null;
     }
-  }, [buildStatus, loadRuntimeState, projectId]);
+  }, [buildRecommendationStorageKey, buildStatus, loadRuntimeState, projectId]);
 
   useEffect(() => {
     if (
@@ -379,6 +420,12 @@ export function WorkspaceShell({
   const isProcessing = isResponding || isBuilding;
   const visibleMessages = [...olderMessages, ...messages];
   const hasActiveQuestionCard = workspaceCard.type === "question";
+  const buildRecommendationSignature =
+    getBuildRecommendationHoldSignature(workspaceCard);
+  const buildRecommendationHeld = isBuildRecommendationHeld(
+    workspaceCard,
+    heldBuildRecommendationSignature,
+  );
   const hasPreview = sourceStatus === "passed" || buildStatus === "ready";
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
@@ -559,6 +606,23 @@ export function WorkspaceShell({
     }
   }, [messages]);
 
+  useEffect(() => {
+    const previous = previousChatStatus.current;
+
+    previousChatStatus.current = status;
+
+    if (!shouldRefreshWorkspaceAfterChatStatus(previous, status)) {
+      return;
+    }
+
+    void loadWorkspaceState();
+    const timeout = window.setTimeout(() => {
+      void loadWorkspaceState();
+    }, 500);
+
+    return () => window.clearTimeout(timeout);
+  }, [loadWorkspaceState, status]);
+
   async function saveProjectTitle() {
     const title = draftTitle.trim();
 
@@ -611,6 +675,24 @@ export function WorkspaceShell({
     },
     [isProcessing, mode, rateLimitError, sendMessage],
   );
+
+  const holdBuildRecommendation = useCallback(() => {
+    if (!buildRecommendationSignature) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      buildRecommendationStorageKey,
+      buildRecommendationSignature,
+    );
+    setHeldBuildRecommendationSignature(buildRecommendationSignature);
+    setMode("discuss");
+  }, [buildRecommendationSignature, buildRecommendationStorageKey]);
+
+  const openBuildRecommendation = useCallback(() => {
+    window.localStorage.removeItem(buildRecommendationStorageKey);
+    setHeldBuildRecommendationSignature(null);
+  }, [buildRecommendationStorageKey]);
 
   function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -823,14 +905,6 @@ export function WorkspaceShell({
               ) : null}
               <ChatMessages messages={visibleMessages} />
 
-              {!isProcessing &&
-              workspaceCard.type === "build_recommendation" ? (
-                <WorkspaceCardView
-                  card={workspaceCard}
-                  onBuild={() => void startBuild()}
-                />
-              ) : null}
-
               {isBuilding || buildProgress.length ? (
                 <BuildProgressPanel
                   elapsedFrom={buildStartedAt}
@@ -887,40 +961,56 @@ export function WorkspaceShell({
                     submitChatText(answer, { workspaceAnswers })
                   }
                 />
+              ) : workspaceCard.type === "build_recommendation" &&
+                !buildRecommendationHeld ? (
+                <WorkspaceCardView
+                  card={workspaceCard}
+                  onBuild={() => void startBuild()}
+                  onDiscuss={holdBuildRecommendation}
+                />
               ) : (
-                <form
-                  onSubmit={handleMessageSubmit}
-                  className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
-                >
-                  <label htmlFor="workspace-message" className="sr-only">
-                    Pesan untuk AI
-                  </label>
-                  <textarea
-                    id="workspace-message"
-                    rows={3}
-                    value={message}
-                    onChange={(event) => setMessage(event.target.value)}
-                    onKeyDown={handleMessageKeyDown}
-                    placeholder={
-                      mode === "build"
-                        ? "Minta perubahan, contoh: buat lebih premium..."
-                        : "Jawab pilihan atau tulis kebutuhanmu..."
-                    }
-                    className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                  />
-                  <div className="flex items-center justify-between gap-spacing-4">
-                    <ModePill mode="Diskusi" tone="idle" />
-                    <Button
-                      type="submit"
-                      size="icon"
-                      disabled={!message.trim()}
-                      className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                      aria-label="Kirim pesan"
-                    >
-                      <ArrowUp className="size-4" />
-                    </Button>
-                  </div>
-                </form>
+                <>
+                  {workspaceCard.type === "build_recommendation" &&
+                  buildRecommendationHeld ? (
+                    <HeldBuildRecommendationNotice
+                      onBuild={() => void startBuild()}
+                      onOpen={openBuildRecommendation}
+                    />
+                  ) : null}
+                  <form
+                    onSubmit={handleMessageSubmit}
+                    className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                  >
+                    <label htmlFor="workspace-message" className="sr-only">
+                      Pesan untuk AI
+                    </label>
+                    <textarea
+                      id="workspace-message"
+                      rows={3}
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                      onKeyDown={handleMessageKeyDown}
+                      placeholder={
+                        mode === "build"
+                          ? "Minta perubahan, contoh: buat lebih premium..."
+                          : "Jawab pilihan atau tulis kebutuhanmu..."
+                      }
+                      className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                    />
+                    <div className="flex items-center justify-between gap-spacing-4">
+                      <ModePill mode="Diskusi" tone="idle" />
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={!message.trim()}
+                        className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                        aria-label="Kirim pesan"
+                      >
+                        <ArrowUp className="size-4" />
+                      </Button>
+                    </div>
+                  </form>
+                </>
               )}
             </div>
           </aside>
@@ -1126,6 +1216,46 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function HeldBuildRecommendationNotice({
+  onBuild,
+  onOpen,
+}: {
+  onBuild: () => void;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="rounded-[22px] border border-surface-warm-white/10 bg-[#1d1d1a] px-spacing-5 py-spacing-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+      <div className="flex flex-wrap items-center justify-between gap-spacing-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-surface-warm-white">
+            Rancangan build disimpan
+          </p>
+          <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/52">
+            Lanjutkan diskusi dulu, atau buka rancangan saat siap mulai build.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-spacing-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onOpen}
+            className="h-9 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+          >
+            Buka rancangan
+          </Button>
+          <Button
+            type="button"
+            onClick={onBuild}
+            className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+          >
+            Mulai build
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
