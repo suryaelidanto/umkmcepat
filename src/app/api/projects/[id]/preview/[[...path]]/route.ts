@@ -61,7 +61,7 @@ export async function GET(
     }
 
     return Response.json(
-      { message: "Runtime preview belum bisa dimulai." },
+      { message: "Tampilan website belum bisa dimulai." },
       { status: 503 },
     );
   }
@@ -77,7 +77,7 @@ export async function GET(
 
   if (!file) {
     return Response.json(
-      { message: "Preview belum tersedia." },
+      { message: "Tampilan website belum tersedia." },
       { status: 404 },
     );
   }

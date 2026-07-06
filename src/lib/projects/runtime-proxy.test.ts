@@ -43,6 +43,28 @@ describe("runtime proxy", () => {
     await expect(response?.text()).resolves.toBe("/assets/app.js?cache=0");
   });
 
+  it("restarts stale running deployments in the same request", async () => {
+    const target = await startTestServer();
+    const supervisor = {
+      getDeploymentStatus: vi.fn(async () => "stopped" as const),
+      resolveDeploymentTarget: vi.fn(async () => target),
+      startDeployment: vi.fn(async () => "running" as const),
+      stopDeployment: vi.fn(async () => "stopped" as const),
+    };
+    const response = await proxyDeploymentRequest({
+      deploymentId: "deployment_1",
+      deploymentStatus: "running",
+      pathSegments: [],
+      request: new Request("http://localhost/preview"),
+      supervisor,
+    });
+
+    expect(supervisor.getDeploymentStatus).toHaveBeenCalledWith("deployment_1");
+    expect(supervisor.startDeployment).toHaveBeenCalledWith("deployment_1");
+    expect(response?.status).toBe(200);
+    await expect(response?.text()).resolves.toBe("/");
+  });
+
   it("allows published routes to opt out of noindex", async () => {
     const target = await startTestServer();
     const response = await proxyDeploymentRequest({

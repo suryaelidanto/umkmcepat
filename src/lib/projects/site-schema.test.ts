@@ -74,6 +74,58 @@ describe("project site schema", () => {
     expect(getProjectSiteSchemaQualityIssues(schema)).toEqual([]);
   });
 
+  it("turns option labels with parenthetical descriptions into natural site copy", () => {
+    const schema = createProjectSiteSchemaFromBrief({
+      version: 1,
+      prompt: "buatkan saya website buat jualan angkringan",
+      businessName: "",
+      businessType: "Warung fisik yang juga ingin terima pesanan online",
+      offer:
+        "Menu klasik: nasi kucing, sate usus, gorengan, wedang jahe, teh poci. Harga terjangkau, menu sederhana khas angkringan.",
+      targetCustomer:
+        "Anak kos & mahasiswa (Cari makan murah, nongkrong santai, biasanya datang malam hari.)",
+      contactOrCta:
+        "WA + link Google Maps (Selain tombol WA, ada peta lokasi warung supaya yang mau datang langsung mudah menemukan.)",
+      stylePreference:
+        "Hangat & tradisional (Nuansa kayu, warna coklat-oranye, seperti lesehan angkringan yang akrab. Cocok untuk kesan nostalgia.)",
+      notes: [],
+    });
+    const allCopy = [
+      schema.headline,
+      schema.subheadline,
+      schema.audience,
+      ...schema.trustPoints,
+      ...schema.sections.flatMap((section) => [section.title, section.body]),
+    ].join(" ");
+
+    expect(schema.businessName).toBe("Angkringan Hangat");
+    expect(schema.headline).toBe(
+      "Angkringan hangat untuk anak kos dan mahasiswa",
+    );
+    expect(schema.audience).toBe("Anak kos dan mahasiswa");
+    expect(schema.trustPoints).toEqual(
+      expect.arrayContaining([
+        "WhatsApp dan Google Maps mudah ditemukan",
+        "Nuansa hangat dan tradisional",
+      ]),
+    );
+    expect(allCopy).not.toContain("(");
+    expect(allCopy).not.toContain("&");
+    expect(
+      getProjectSiteSchemaQualityIssues(schema, {
+        version: 1,
+        prompt: "buatkan saya website buat jualan angkringan",
+        businessName: "",
+        businessType: "Warung fisik yang juga ingin terima pesanan online",
+        offer: "Menu klasik: nasi kucing, sate usus, gorengan",
+        targetCustomer: "Anak kos dan mahasiswa",
+        contactOrCta: "WA + link Google Maps",
+        stylePreference: "Hangat dan tradisional",
+        notes: [],
+      }),
+    ).toEqual([]);
+  });
+
   it("flags generic fallback schema as unfit for a completed brief", () => {
     const fallback = createFallbackProjectSiteSchema(
       "Permintaan awal: buatkan saya website buat jualan angkringan Bid",

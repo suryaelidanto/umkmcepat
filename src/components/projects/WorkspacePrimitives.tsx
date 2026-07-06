@@ -83,14 +83,14 @@ export function WorkspaceTopBar({
             onClick={() => setActiveTab("preview")}
             icon={<Globe2 className="size-4" />}
           >
-            Preview
+            Tampilan
           </TabButton>
           <TabButton
             active={activeTab === "code"}
             onClick={() => setActiveTab("code")}
             icon={<Code2 className="size-4" />}
           >
-            Code
+            Kode
           </TabButton>
         </div>
       </div>
@@ -167,8 +167,8 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
           type="button"
           onClick={runtime.onRetryPreview}
           className="rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-          aria-label="Coba nyalakan preview lagi"
-          title="Coba nyalakan preview lagi"
+          aria-label="Muat ulang tampilan website"
+          title="Muat ulang tampilan website"
         >
           <RefreshCw className="size-4" />
         </button>
@@ -248,7 +248,7 @@ function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
       className:
         "border-surface-warm-white/14 bg-surface-warm-white/[0.075] text-surface-warm-white/78",
       dot: "animate-pulse bg-surface-warm-white",
-      label: "Menyalakan preview",
+      label: "Menyiapkan tampilan",
     };
   }
 
@@ -256,7 +256,7 @@ function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
     return {
       className: "border-[#8ce99a]/24 bg-[#8ce99a]/10 text-[#c7f8cf]",
       dot: "bg-[#8ce99a]",
-      label: "Preview aktif",
+      label: "Tampilan aktif",
     };
   }
 
@@ -265,7 +265,7 @@ function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
       className:
         "border-surface-warm-white/10 bg-surface-warm-white/[0.045] text-surface-warm-white/58",
       dot: "bg-surface-warm-white/42",
-      label: "Preview tidur",
+      label: "Tampilan belum aktif",
     };
   }
 
@@ -282,7 +282,7 @@ function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
       className:
         "border-surface-warm-white/10 bg-surface-warm-white/[0.055] text-surface-warm-white/68",
       dot: "bg-[#8ce99a]",
-      label: "Preview siap",
+      label: "Website siap",
     };
   }
 
@@ -346,7 +346,7 @@ export function GeneratedPreviewFrame({
       <iframe
         ref={iframeRef}
         key={reloadKey}
-        title="Generated website preview"
+        title="Tampilan website"
         src={`/api/projects/${projectId}/preview/`}
         onLoad={onLoad}
         sandbox="allow-scripts"
@@ -355,8 +355,8 @@ export function GeneratedPreviewFrame({
       {timedOut && !ready ? (
         <div className="absolute inset-0">
           <PreviewIssueState
-            title="Preview belum bisa dikonfirmasi"
-            detail="Website belum mengirim tanda siap dari iframe. Coba muat ulang preview, atau build ulang jika masih kosong."
+            title="Tampilan website belum siap"
+            detail="Website belum selesai dimuat. Coba muat ulang tampilan, atau build ulang kalau masih kosong."
             onRetry={onRetry}
           />
         </div>
@@ -392,7 +392,7 @@ export function PreviewIssueState({
             onClick={onRetry}
             className="mt-spacing-6 rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86"
           >
-            Coba nyalakan lagi
+            Muat ulang tampilan
           </Button>
         ) : null}
       </div>
@@ -405,11 +405,11 @@ export function EmptyPreviewState() {
     <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
       <div>
         <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white">
-          Belum ada preview
+          Belum ada tampilan website
         </h2>
         <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/50">
-          Preview akan muncul setelah brief cukup jelas dan proses build
-          selesai.
+          Tampilan website akan muncul setelah brief cukup jelas dan proses
+          build selesai.
         </p>
       </div>
     </div>
@@ -476,7 +476,7 @@ export function BuildProgressPanel({
           </p>
           <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
             {isBuilding
-              ? "Preview akan bergerak mengikuti hasil yang sudah berhasil dibaca."
+              ? "Tampilan website akan mengikuti hasil yang sudah berhasil dibaca."
               : "Langkah build terakhir sudah selesai."}
           </p>
         </div>
@@ -532,10 +532,10 @@ export function ProcessingControl({
   mode: "Diskusi" | "Buat";
   onStop: () => void;
 }) {
-  const title = mode === "Buat" ? "Membangun preview" : "Menyusun jawaban";
+  const title = mode === "Buat" ? "Membuat website" : "Menyusun jawaban";
   const detail =
     mode === "Buat"
-      ? "AI sedang menyiapkan source dan preview proyek."
+      ? "AI sedang menyiapkan file website dan tampilannya."
       : "AI sedang menyiapkan jawaban.";
 
   return (

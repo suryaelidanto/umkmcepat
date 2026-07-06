@@ -104,6 +104,7 @@ Current runtime implementation:
 - `RuntimeSupervisor` starts a local out-of-process static server from a dist artifact and records deployment events.
 - Private preview traffic goes through `/api/projects/[id]/preview/[[...path]]`, cold-starting stopped preview deployments when needed.
 - Published traffic goes through `/p/[slug]/[[...path]]`, cold-starting the published deployment when needed.
+- Proxy traffic must re-check a `running` deployment before forwarding. If the process is gone or stale, the same request should start it again instead of requiring a second refresh.
 - `bun run runtime:idle-stop` is the scale-to-zero worker entry for stopping idle preview deployments.
 - `PROJECT_RUNTIME_SUPERVISOR=noop` disables runtime starts for test/safe environments.
 

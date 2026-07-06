@@ -332,7 +332,7 @@ async function markDeploymentFailed(
 }
 
 function spawnRuntimeProcess(root: string, port: number) {
-  return spawn(
+  const child = spawn(
     process.execPath,
     [
       path.join(process.cwd(), "scripts", "runtime-static-server.mjs"),
@@ -342,6 +342,7 @@ function spawnRuntimeProcess(root: string, port: number) {
       String(port),
     ],
     {
+      detached: true,
       env: {
         ...process.env,
         NODE_ENV: "production",
@@ -350,6 +351,9 @@ function spawnRuntimeProcess(root: string, port: number) {
       windowsHide: true,
     },
   );
+
+  child.unref();
+  return child;
 }
 
 async function getAvailablePort() {

@@ -87,7 +87,7 @@ function DialogDemo() {
               Tutup
             </Button>
             <Button className="bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86">
-              Lihat preview
+              Lihat website
             </Button>
           </div>
         </DialogContent>

@@ -479,7 +479,7 @@ h1{max-width:820px;margin:0;font-size:76px;line-height:.96;letter-spacing:0}
 .lead{max-width:640px;margin:24px 0 0;font-size:21px;line-height:1.62;color:color-mix(in srgb,currentColor 68%,transparent)}
 .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}
 .primary,.secondary{display:inline-flex;min-height:48px;align-items:center;justify-content:center;border-radius:14px;padding:0 20px;text-decoration:none;font-weight:800}
-.primary{background:currentColor;color:white}
+.primary{background:#111312;color:#fff}
 .secondary{border:1px solid color-mix(in srgb,currentColor 18%,transparent)}
 .hero-card{display:flex;min-height:430px;flex-direction:column;justify-content:space-between;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:28px;padding:30px;background:color-mix(in srgb,white 72%,transparent)}
 .hero-card>span{color:color-mix(in srgb,currentColor 56%,transparent);font-size:14px}
@@ -489,7 +489,8 @@ h1{max-width:820px;margin:0;font-size:76px;line-height:.96;letter-spacing:0}
 .section-grid span{font-size:12px;font-weight:900}
 .section-grid h2{margin:14px 0 10px;font-size:24px;letter-spacing:0}
 .section-grid p{margin:0;line-height:1.72;color:color-mix(in srgb,currentColor 66%,transparent)}
-.closing{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 64px 72px;border-radius:28px;padding:34px;background:color-mix(in srgb,currentColor 92%,black);color:white}
+.closing{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 64px 72px;border-radius:28px;padding:34px;background:#111312;color:#fff}
+.closing .primary{background:#fff;color:#111312}
 .closing h2{max-width:680px;margin:0;font-size:36px;line-height:1.12;letter-spacing:0}
 @media(max-width:820px){.topbar,.hero,.section-grid{padding-left:22px;padding-right:22px}.topbar{align-items:flex-start;flex-direction:column}.hero{display:block;padding-top:42px}.hero-card{min-height:320px;margin-top:34px}.section-grid{grid-template-columns:1fr}.closing{align-items:flex-start;flex-direction:column;margin-left:22px;margin-right:22px}h1{font-size:46px}.lead{font-size:18px}.hero-card h2{font-size:28px}.closing h2{font-size:30px}}
 `;

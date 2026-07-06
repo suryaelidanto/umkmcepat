@@ -95,14 +95,14 @@ export function getWorkspacePreviewIssue({
   if (runtimeError) {
     return {
       detail: runtimeError,
-      title: "Preview belum bisa dimuat",
+      title: "Tampilan website belum bisa dimuat",
     };
   }
 
   if (buildStatus === "failed" || sourceStatus === "failed") {
     return {
       detail:
-        "Source website belum berhasil dibuild. Jalankan build ulang setelah brief siap.",
+        "File website belum berhasil dibuild. Jalankan build ulang setelah brief siap.",
       title: "Build website belum selesai",
     };
   }
@@ -110,8 +110,8 @@ export function getWorkspacePreviewIssue({
   if (deploymentStatus === "failed") {
     return {
       detail:
-        "Runtime preview gagal menyala. Coba nyalakan ulang preview atau build ulang jika masih gagal.",
-      title: "Runtime preview gagal",
+        "Tampilan website gagal dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal.",
+      title: "Tampilan website gagal dimuat",
     };
   }
 

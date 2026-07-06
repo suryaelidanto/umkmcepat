@@ -16,9 +16,13 @@ export async function proxyDeploymentRequest(
   input: ProxyDeploymentRequestInput,
 ) {
   const supervisor = input.supervisor ?? getRuntimeSupervisor();
-  const status =
+  const checkedStatus =
     input.deploymentStatus === "running"
       ? await supervisor.getDeploymentStatus(input.deploymentId)
+      : input.deploymentStatus;
+  const status =
+    checkedStatus === "running"
+      ? checkedStatus
       : await supervisor.startDeployment(input.deploymentId);
 
   if (status !== "running") {

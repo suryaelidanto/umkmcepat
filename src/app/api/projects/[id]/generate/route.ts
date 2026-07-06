@@ -166,7 +166,7 @@ export async function POST(request: Request, { params }: RouteProps) {
               sentSections = true;
               send("progress", {
                 label: "Menyusun bagian halaman",
-                detail: `${schema.sections.length} bagian siap dirender di preview.`,
+                detail: `${schema.sections.length} bagian siap ditampilkan di website.`,
               });
             }
 
@@ -226,8 +226,8 @@ export async function POST(request: Request, { params }: RouteProps) {
           finalSchema,
         );
         send("progress", {
-          label: "Membuat source frontend",
-          detail: `${sourceFiles.length} file Vite React disiapkan untuk project ini.`,
+          label: "Menyiapkan file website",
+          detail: `${sourceFiles.length} file website disiapkan untuk project ini.`,
         });
         const snapshot = await prisma.projectSnapshot.create({
           data: {
@@ -268,7 +268,7 @@ export async function POST(request: Request, { params }: RouteProps) {
         runtimeBuildId = build.id;
         send("progress", {
           label: "Build masuk antrean",
-          detail: "Worker build menyiapkan validasi source frontend.",
+          detail: "Worker build menyiapkan validasi file website.",
         });
         await prisma.projectBuild.update({
           where: { id: build.id },
@@ -287,11 +287,11 @@ export async function POST(request: Request, { params }: RouteProps) {
         const buildResult = await buildGeneratedProject(sourceFiles);
         send("progress", {
           label: buildResult.ok
-            ? "Build frontend berhasil"
-            : "Build frontend gagal",
+            ? "Build website berhasil"
+            : "Build website gagal",
           detail: buildResult.ok
-            ? "Source project berhasil divalidasi dengan bun run build."
-            : "Source tetap disimpan, tapi build log perlu dicek di tab Code.",
+            ? "File website berhasil divalidasi."
+            : "File website tetap disimpan, tapi build log perlu dicek di tab Kode.",
         });
         const latestProject = await prisma.project.findUnique({
           where: { id: project.id },
@@ -392,8 +392,8 @@ export async function POST(request: Request, { params }: RouteProps) {
         });
 
         send("progress", {
-          label: "Website siap direview",
-          detail: "Preview, changes, dan source frontend sudah siap dicek.",
+          label: "Website siap dicek",
+          detail: "Tampilan dan file website sudah siap dicek.",
         });
         send("done", finalSchema);
       } catch {

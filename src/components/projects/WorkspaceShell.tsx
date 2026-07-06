@@ -375,7 +375,7 @@ export function WorkspaceShell({
             setBuildProgress((current) =>
               addBuildProgressStep(current, {
                 detail:
-                  "Build berhenti sebelum preview final siap. Coba ulangi build.",
+                  "Build berhenti sebelum tampilan website siap. Coba ulangi build.",
                 label: "Build belum selesai",
                 status: "error",
               }),
@@ -905,7 +905,7 @@ export function WorkspaceShell({
                   }
                   className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white lg:block"
                   aria-label={
-                    showPreviewPanel ? "Tutup preview" : "Buka preview"
+                    showPreviewPanel ? "Tutup tampilan" : "Buka tampilan"
                   }
                 >
                   {showPreviewPanel ? (
@@ -1334,12 +1334,12 @@ function CompletedBuildNotice({
       <div className="flex flex-wrap items-center justify-between gap-spacing-4">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-surface-warm-white">
-            Preview siap direview
+            Website siap dicek
           </p>
           {!compact ? (
             <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/52">
-              Website sudah dibuild. Cek preview, lanjut edit lewat chat, atau
-              build ulang kalau arah brief berubah.
+              Website sudah dibuat. Cek tampilannya, lanjut edit lewat chat,
+              atau build ulang kalau arah brief berubah.
             </p>
           ) : null}
         </div>
@@ -1349,7 +1349,7 @@ function CompletedBuildNotice({
             onClick={onPreview}
             className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
           >
-            Lihat preview
+            Lihat website
           </Button>
           <Button
             type="button"

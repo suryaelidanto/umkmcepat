@@ -150,24 +150,30 @@ export function createProjectSiteSchemaFromBrief(
     80,
   );
   const offer = cleanText(brief.offer, domain.defaultOffer, 120);
-  const targetCustomer = cleanText(
+  const rawTargetCustomer = cleanText(
     brief.targetCustomer,
     "pelanggan sekitar yang butuh info cepat",
     140,
   );
-  const contactOrCta = cleanText(
+  const rawContactOrCta = cleanText(
     brief.contactOrCta,
     "hubungi usaha untuk pesan atau bertanya",
     140,
   );
-  const stylePreference = cleanText(
+  const rawStylePreference = cleanText(
     brief.stylePreference,
     "tampilan bersih dan mudah dipercaya",
     140,
   );
+  const targetCustomer = selectionLabel(rawTargetCustomer);
+  const targetCustomerDetail = selectionDetail(rawTargetCustomer);
+  const contactOrCta = selectionLabel(rawContactOrCta);
+  const contactDetail = selectionDetail(rawContactOrCta);
+  const stylePreference = selectionLabel(rawStylePreference);
+  const styleDetail = selectionDetail(rawStylePreference);
   const theme = themeForBrief(brief, domain.key);
-  const primaryCta = primaryCtaFor(contactOrCta);
-  const secondaryCta = contactOrCta.toLowerCase().includes("maps")
+  const primaryCta = primaryCtaFor(rawContactOrCta);
+  const secondaryCta = rawContactOrCta.toLowerCase().includes("maps")
     ? "Lihat lokasi"
     : "Lihat menu";
 
@@ -185,10 +191,13 @@ export function createProjectSiteSchemaFromBrief(
     trustPoints: buildTrustPoints(offer, contactOrCta, stylePreference),
     sections: buildBriefSections({
       contactOrCta,
+      contactDetail,
       domainLabel: domain.label,
       offer,
       stylePreference,
+      styleDetail,
       targetCustomer,
+      targetCustomerDetail,
     }),
   };
 }
@@ -544,7 +553,7 @@ function headlineForBrief(
   offer: string,
   targetCustomer: string,
 ) {
-  const shortTarget = clipPhrase(targetCustomer, 58);
+  const shortTarget = lowerFirstPhrase(clipPhrase(targetCustomer, 58));
 
   if (domainKey === "angkringan") {
     return `Angkringan hangat untuk ${shortTarget}`;
@@ -571,7 +580,9 @@ function subheadlineForBrief(
   stylePreference: string,
 ) {
   if (domainKey === "angkringan") {
-    return `Tampilkan menu, suasana, dan akses pesan lewat ${clipPhrase(contactOrCta, 64)} dengan nuansa ${clipPhrase(stylePreference, 64)}.`;
+    const stylePhrase = lowerFirstPhrase(stylePreference);
+
+    return `Tampilkan menu, suasana warung, dan akses pesan lewat ${clipPhrase(contactOrCta, 64)}. Nuansa ${clipPhrase(stylePhrase, 92)} membantu pelanggan merasa dekat sebelum datang atau pesan.`;
   }
 
   return `Website menonjolkan penawaran utama, alasan pelanggan percaya, dan langkah berikutnya lewat ${clipPhrase(contactOrCta, 72)}.`;
@@ -583,41 +594,58 @@ function buildTrustPoints(
   stylePreference: string,
 ) {
   return [
-    `${clipPhrase(offer, 42)} ditampilkan jelas`,
+    `${summarizeOffer(offer)} ditampilkan jelas`,
     `${clipPhrase(contactOrCta, 42)} mudah ditemukan`,
-    `Nuansa ${clipPhrase(stylePreference, 42)}`,
+    `Nuansa ${lowerFirstPhrase(clipPhrase(stylePreference, 42))}`,
   ];
 }
 
 function buildBriefSections({
   contactOrCta,
+  contactDetail,
   domainLabel,
   offer,
   stylePreference,
+  styleDetail,
   targetCustomer,
+  targetCustomerDetail,
 }: {
   contactOrCta: string;
+  contactDetail?: string;
   domainLabel: string;
   offer: string;
   stylePreference: string;
+  styleDetail?: string;
   targetCustomer: string;
+  targetCustomerDetail?: string;
 }): ProjectSiteSchema["sections"] {
+  const offerSentence = stripTrailingPunctuation(offer);
+  const targetContext = targetCustomerDetail
+    ? `${lowerFirstPhrase(targetCustomer)} yang ${stripTrailingPunctuation(lowerFirstPhrase(targetCustomerDetail))}`
+    : lowerFirstPhrase(targetCustomer);
+  const contactContext = contactDetail
+    ? `${contactOrCta} dibuat jelas. ${sentenceCase(stripTrailingPunctuation(contactDetail))}.`
+    : `${contactOrCta} dibuat jelas.`;
+  const styleContext = styleDetail
+    ? `${sentenceCase(stripTrailingPunctuation(styleDetail))}. `
+    : "";
+
   return [
     {
       title: "Penawaran utama",
-      body: `Sorot ${offer} sebagai alasan utama pelanggan membuka website ${domainLabel} ini.`,
+      body: `${offerSentence}. Tampilannya dibuat ringkas supaya pembeli cepat tahu pilihan utama sebelum pesan.`,
     },
     {
       title: "Untuk pembeli",
-      body: `Arahkan isi halaman untuk ${targetCustomer}, dari kebutuhan mereka sampai alasan memilih usaha ini.`,
+      body: `Konten diarahkan untuk ${targetContext}. Halaman menonjolkan menu, suasana, dan cara pesan yang mudah dipahami.`,
     },
     {
       title: "Pesan atau datang",
-      body: `Buat ${contactOrCta} terlihat jelas supaya pelanggan bisa langsung mengambil langkah berikutnya.`,
+      body: `${contactContext} Pelanggan bisa langsung pesan atau mencari lokasi tanpa bertanya berulang.`,
     },
     {
       title: "Kesan visual",
-      body: `Bangun tampilan ${stylePreference} agar website terasa sesuai dengan karakter usaha.`,
+      body: `Tampilan dibuat ${lowerFirstPhrase(stylePreference)}. ${styleContext}Kesan ini menjaga karakter ${domainLabel} yang akrab.`,
     },
   ];
 }
@@ -659,6 +687,56 @@ function clipPhrase(value: string, maxLength: number) {
   const lastSpace = clipped.lastIndexOf(" ");
 
   return clipped.slice(0, lastSpace > 16 ? lastSpace : maxLength).trim();
+}
+
+function selectionLabel(value: string) {
+  return normalizeDisplayPhrase(splitSelection(value).label || value);
+}
+
+function selectionDetail(value: string) {
+  return normalizeDisplayPhrase(splitSelection(value).detail);
+}
+
+function splitSelection(value: string) {
+  const match = value.match(/^(.+?)\s*\((.+)\)\s*$/);
+
+  if (!match) {
+    return { detail: "", label: value };
+  }
+
+  return {
+    detail: match[2],
+    label: match[1],
+  };
+}
+
+function normalizeDisplayPhrase(value: string) {
+  return value
+    .replace(/\s*&\s*/g, " dan ")
+    .replace(/\bWA\b/g, "WhatsApp")
+    .replace(/\s*\+\s*link\s+/gi, " dan ")
+    .replace(/\s*\+\s*/g, " dan ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function lowerFirstPhrase(value: string) {
+  return value ? `${value[0].toLowerCase()}${value.slice(1)}` : value;
+}
+
+function sentenceCase(value: string) {
+  return value ? `${value[0].toUpperCase()}${value.slice(1)}` : value;
+}
+
+function summarizeOffer(offer: string) {
+  const [label] = offer.split(":");
+  const summary = label && label.length >= 5 ? label : offer;
+
+  return clipPhrase(summary, 42);
+}
+
+function stripTrailingPunctuation(value: string) {
+  return value.trim().replace(/[.。!?]+$/g, "");
 }
 
 export const projectSiteJsonSchema: JSONSchema7 = {

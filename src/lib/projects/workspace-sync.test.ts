@@ -101,7 +101,7 @@ describe("workspace chat sync", () => {
     ).toBe(false);
   });
 
-  it("surfaces actionable preview issues for failed runtime states", () => {
+  it("surfaces actionable website view issues for failed runtime states", () => {
     expect(
       getWorkspacePreviewIssue({
         deploymentStatus: "failed",
@@ -110,8 +110,8 @@ describe("workspace chat sync", () => {
       }),
     ).toEqual({
       detail:
-        "Runtime preview gagal menyala. Coba nyalakan ulang preview atau build ulang jika masih gagal.",
-      title: "Runtime preview gagal",
+        "Tampilan website gagal dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal.",
+      title: "Tampilan website gagal dimuat",
     });
     expect(
       getWorkspacePreviewIssue({

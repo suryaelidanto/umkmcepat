@@ -142,8 +142,8 @@ export const PreviewIssue: Story = {
   render: () => (
     <div className="h-[32rem] bg-[#10100f]">
       <PreviewIssueState
-        title="Runtime preview gagal"
-        detail="Runtime preview gagal menyala. Coba nyalakan ulang preview atau build ulang jika masih gagal."
+        title="Tampilan website gagal dimuat"
+        detail="Tampilan website gagal dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal."
         onRetry={() => undefined}
       />
     </div>
