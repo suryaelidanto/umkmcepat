@@ -21,6 +21,9 @@ import {
 } from "@/lib/projects/runtime-types";
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
 import {
+  createProjectSiteSchemaFromBrief,
+  getProjectSiteSchemaCandidateIssues,
+  getProjectSiteSchemaQualityIssues,
   parseProjectSiteSchema,
   projectSiteJsonSchema,
   type ProjectSiteSchema,
@@ -39,6 +42,15 @@ type RouteProps = {
 
 function encodeEvent(event: string, data: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+function buildSchemaRepairPrompt(buildPrompt: string, issues: string[]) {
+  return `${buildPrompt}
+
+Hasil rancangan sebelumnya ditolak oleh quality gate: ${issues.join(", ")}.
+Perbaiki dengan schema lengkap dan spesifik untuk brief di atas.
+Jangan pakai copy generik seperti "Permintaan awal", "Produk dan layanan usaha", atau "Website usaha".
+Pastikan offer, target pelanggan, CTA, dan gaya visual brief muncul jelas di headline, sections, dan trustPoints.`;
 }
 
 export async function POST(request: Request, { params }: RouteProps) {
@@ -95,71 +107,120 @@ export async function POST(request: Request, { params }: RouteProps) {
         const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
           SELECT "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
         `;
-        const buildPrompt = briefToBuildPrompt(
-          parseProjectBrief(briefRow?.brief, project.prompt),
-        );
+        const brief = parseProjectBrief(briefRow?.brief, project.prompt);
+        const buildPrompt = briefToBuildPrompt(brief);
+        const fallbackSchema = createProjectSiteSchemaFromBrief(brief);
 
-        const result = streamText({
-          model: getAiModel(),
-          temperature: 0.35,
-          output: Output.object({
-            name: "ProjectSiteSchema",
-            description:
-              "A safe website schema for a polished small-business landing page. Output Indonesian copy only.",
-            schema: jsonSchema<ProjectSiteSchema>(projectSiteJsonSchema),
-          }),
-          system: projectSiteGenerationSystemPrompt,
-          prompt: buildPrompt,
-          onError() {
-            send("progress", {
-              label: "AI mengalami kendala",
-              detail: "UMKM Cepat akan memakai versi aman sementara.",
-            });
-          },
-        });
+        async function generateSiteSchema(prompt: string) {
+          const result = streamText({
+            model: getAiModel(),
+            temperature: 0.35,
+            output: Output.object({
+              name: "ProjectSiteSchema",
+              description:
+                "A safe website schema for a polished small-business landing page. Output Indonesian copy only.",
+              schema: jsonSchema<ProjectSiteSchema>(projectSiteJsonSchema),
+            }),
+            system: projectSiteGenerationSystemPrompt,
+            prompt,
+            onError() {
+              send("progress", {
+                label: "AI mengalami kendala",
+                detail:
+                  "UMKM Cepat akan memeriksa ulang hasil sebelum build dilanjutkan.",
+              });
+            },
+          });
 
-        let latest: unknown;
-        let sentCopy = false;
-        let sentDesign = false;
-        let sentSections = false;
+          let latest: unknown;
+          let sentCopy = false;
+          let sentDesign = false;
+          let sentSections = false;
 
-        for await (const partial of result.partialOutputStream) {
-          latest = partial;
-          const schema = parseProjectSiteSchema(partial, buildPrompt);
+          for await (const partial of result.partialOutputStream) {
+            latest = partial;
+            const schema = parseProjectSiteSchema(partial, fallbackSchema);
 
-          if (!sentCopy && schema.headline !== buildPrompt) {
-            sentCopy = true;
-            send("progress", {
-              label: "Menulis pesan utama",
-              detail: `Headline sementara: ${schema.headline}`,
-            });
+            if (!sentCopy && schema.headline !== fallbackSchema.headline) {
+              sentCopy = true;
+              send("progress", {
+                label: "Menulis pesan utama",
+                detail: `Headline sementara: ${schema.headline}`,
+              });
+            }
+
+            if (
+              !sentDesign &&
+              partial &&
+              typeof partial === "object" &&
+              "theme" in partial
+            ) {
+              sentDesign = true;
+              send("progress", {
+                label: "Memilih arah visual",
+                detail: "Warna, CTA, dan struktur halaman mulai disusun.",
+              });
+            }
+
+            if (!sentSections && schema.sections.length >= 4) {
+              sentSections = true;
+              send("progress", {
+                label: "Menyusun bagian halaman",
+                detail: `${schema.sections.length} bagian siap dirender di preview.`,
+              });
+            }
+
+            send("schema", schema);
           }
 
-          if (
-            !sentDesign &&
-            partial &&
-            typeof partial === "object" &&
-            "theme" in partial
-          ) {
-            sentDesign = true;
-            send("progress", {
-              label: "Memilih arah visual",
-              detail: "Warna, CTA, dan struktur halaman mulai disusun.",
-            });
-          }
+          const schema = parseProjectSiteSchema(latest, fallbackSchema);
+          const issues = [
+            ...getProjectSiteSchemaCandidateIssues(latest),
+            ...getProjectSiteSchemaQualityIssues(schema, brief),
+          ];
 
-          if (!sentSections && schema.sections.length >= 4) {
-            sentSections = true;
-            send("progress", {
-              label: "Menyusun bagian halaman",
-              detail: `${schema.sections.length} bagian siap dirender di preview.`,
-            });
-          }
-
-          send("schema", schema);
+          return { issues: [...new Set(issues)], schema };
         }
 
-        const finalSchema = parseProjectSiteSchema(latest, buildPrompt);
+        let schemaResult = await generateSiteSchema(buildPrompt);
+
+        if (schemaResult.issues.length) {
+          send("progress", {
+            label: "Memperbaiki rancangan website",
+            detail:
+              "Hasil pertama belum cukup spesifik, AI diminta memperbaiki sekali lagi.",
+          });
+          schemaResult = await generateSiteSchema(
+            buildSchemaRepairPrompt(buildPrompt, schemaResult.issues),
+          );
+        }
+
+        if (schemaResult.issues.length) {
+          const message = `AI site schema failed quality gate: ${schemaResult.issues.join(", ")}`;
+
+          await prisma.project.update({
+            where: { id: project.id },
+            data: {
+              status: "failed",
+              buildStatus: "failed",
+              buildLog: message,
+            } as Parameters<typeof prisma.project.update>[0]["data"],
+          });
+          await prisma.runtimeEvent.create({
+            data: createRuntimeEventData({
+              message,
+              projectId: project.id,
+              type: "build.failed",
+            }),
+          });
+          send("error", {
+            message:
+              "AI belum menghasilkan rancangan website yang cukup spesifik. Coba jawab lebih detail atau jalankan build ulang.",
+          });
+          return;
+        }
+
+        const finalSchema = schemaResult.schema;
         const sourceFiles = createGeneratedProjectFiles(
           project.id,
           finalSchema,
@@ -298,7 +359,7 @@ export async function POST(request: Request, { params }: RouteProps) {
         await prisma.project.update({
           where: { id: project.id },
           data: {
-            status: "ready",
+            status: buildResult.ok ? "ready" : "failed",
             siteSchema: finalSchema,
             sourceFiles,
             distFiles: buildResult.distFiles,
@@ -360,7 +421,7 @@ export async function POST(request: Request, { params }: RouteProps) {
         }
         await prisma.project.update({
           where: { id: project.id },
-          data: { status: "draft" },
+          data: { status: "failed", buildStatus: "failed" },
         });
         send("error", { message: "AI belum bisa membangun website ini." });
       } finally {

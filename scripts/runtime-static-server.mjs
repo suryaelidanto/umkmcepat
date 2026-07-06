@@ -34,8 +34,10 @@ const server = createServer(async (request, response) => {
   }
 
   response.writeHead(200, {
+    "Access-Control-Allow-Origin": "*",
     "Cache-Control": "no-store",
     "Content-Type": getContentType(filePath),
+    "Cross-Origin-Resource-Policy": "cross-origin",
   });
 
   if (request.method === "HEAD") {

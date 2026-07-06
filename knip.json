@@ -11,7 +11,14 @@
     "lighthouserc.auth.desktop.cjs"
   ],
   "project": ["src/**/*.{ts,tsx}", "*.{ts,js,mjs,cjs}"],
-  "ignoreBinaries": ["graphify", "netstat"],
+  "ignoreBinaries": [
+    "graphify",
+    "lsof",
+    "netstat",
+    "powershell.exe",
+    "ps",
+    "taskkill"
+  ],
   "ignoreDependencies": ["@lhci/cli", "eslint-config-next", "tailwindcss"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {

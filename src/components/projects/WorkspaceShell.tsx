@@ -27,6 +27,7 @@ import {
   EmptyPreviewState,
   GeneratedPreviewFrame,
   ModePill,
+  PreviewIssueState,
   ProcessingControl,
   QuestionComposer,
   WorkspaceCardView,
@@ -47,8 +48,12 @@ import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 import {
   getBuildRecommendationHoldSignature,
+  getWorkspacePreviewIssue,
   isBuildRecommendationHeld,
+  isWorkspaceBuildComplete,
+  shouldShowBuildRecommendationComposer,
   shouldRefreshWorkspaceAfterChatStatus,
+  shouldUseGeneratedPreviewFrame,
 } from "@/lib/projects/workspace-sync";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -147,6 +152,7 @@ export function WorkspaceShell({
     heldBuildRecommendationSignature,
     setHeldBuildRecommendationSignature,
   ] = useState<string | null>(null);
+  const [postBuildChatOpen, setPostBuildChatOpen] = useState(false);
   const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
   const [chatCursor, setChatCursor] = useState<number | null>(
     initialChatCursor,
@@ -284,6 +290,7 @@ export function WorkspaceShell({
 
     window.localStorage.removeItem(buildRecommendationStorageKey);
     setHeldBuildRecommendationSignature(null);
+    setPostBuildChatOpen(false);
     setMode("build");
     setBuildStatus("building");
     setSourceStatus("not_started");
@@ -301,7 +308,7 @@ export function WorkspaceShell({
       });
 
       if (!response.ok || !response.body) {
-        setBuildStatus("draft");
+        setBuildStatus("failed");
         setBuildProgress((current) =>
           addBuildProgressStep(current, {
             detail: "Server belum bisa memulai proses build. Coba ulangi.",
@@ -363,7 +370,7 @@ export function WorkspaceShell({
           }
 
           if (eventName === "error") {
-            setBuildStatus("draft");
+            setBuildStatus("failed");
             void loadRuntimeState();
             setBuildProgress((current) =>
               addBuildProgressStep(current, {
@@ -378,7 +385,7 @@ export function WorkspaceShell({
       }
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
-        setBuildStatus("draft");
+        setBuildStatus("failed");
         void loadRuntimeState();
         setBuildProgress((current) =>
           addBuildProgressStep(current, {
@@ -397,7 +404,8 @@ export function WorkspaceShell({
     if (
       hasStartedBuild.current ||
       initialStatus === "ready" ||
-      initialStatus === "discussing"
+      initialStatus === "discussing" ||
+      initialStatus === "failed"
     ) {
       return;
     }
@@ -426,7 +434,29 @@ export function WorkspaceShell({
     workspaceCard,
     heldBuildRecommendationSignature,
   );
-  const hasPreview = sourceStatus === "passed" || buildStatus === "ready";
+  const buildComplete = isWorkspaceBuildComplete({
+    buildStatus,
+    runtimeBuildStatus: runtimeState?.build?.status,
+    sourceStatus,
+  });
+  const showBuildRecommendationComposer = shouldShowBuildRecommendationComposer(
+    {
+      buildComplete,
+      card: workspaceCard,
+      held: buildRecommendationHeld,
+    },
+  );
+  const previewIssue = getWorkspacePreviewIssue({
+    buildStatus,
+    deploymentStatus: runtimeState?.deployment?.status,
+    runtimeError,
+    sourceStatus,
+  });
+  const shouldRenderGeneratedPreview = shouldUseGeneratedPreviewFrame({
+    buildComplete,
+    sourceStatus,
+  });
+  const hasPreview = shouldRenderGeneratedPreview;
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
   const runtimeControl = createRuntimeControl({
@@ -961,20 +991,47 @@ export function WorkspaceShell({
                     submitChatText(answer, { workspaceAnswers })
                   }
                 />
-              ) : workspaceCard.type === "build_recommendation" &&
-                !buildRecommendationHeld ? (
+              ) : showBuildRecommendationComposer ? (
                 <WorkspaceCardView
                   card={workspaceCard}
                   onBuild={() => void startBuild()}
                   onDiscuss={holdBuildRecommendation}
                 />
+              ) : workspaceCard.type === "build_recommendation" &&
+                buildComplete &&
+                !postBuildChatOpen ? (
+                <CompletedBuildNotice
+                  onDiscuss={() => {
+                    setMode("discuss");
+                    setPostBuildChatOpen(true);
+                  }}
+                  onPreview={() => {
+                    setActiveTab("preview");
+                    openPreviewPanel();
+                  }}
+                  onRebuild={() => void startBuild()}
+                />
               ) : (
                 <>
                   {workspaceCard.type === "build_recommendation" &&
-                  buildRecommendationHeld ? (
+                  buildRecommendationHeld &&
+                  !buildComplete ? (
                     <HeldBuildRecommendationNotice
                       onBuild={() => void startBuild()}
                       onOpen={openBuildRecommendation}
+                    />
+                  ) : null}
+                  {workspaceCard.type === "build_recommendation" &&
+                  buildComplete &&
+                  postBuildChatOpen ? (
+                    <CompletedBuildNotice
+                      compact
+                      onDiscuss={() => setPostBuildChatOpen(true)}
+                      onPreview={() => {
+                        setActiveTab("preview");
+                        openPreviewPanel();
+                      }}
+                      onRebuild={() => void startBuild()}
                     />
                   ) : null}
                   <form
@@ -1058,19 +1115,19 @@ export function WorkspaceShell({
                             />
                           </div>
                         </div>
-                      ) : sourceStatus === "passed" ? (
+                      ) : previewIssue ? (
+                        <PreviewIssueState
+                          detail={previewIssue.detail}
+                          title={previewIssue.title}
+                          onRetry={retryPreviewRuntime}
+                        />
+                      ) : shouldRenderGeneratedPreview ? (
                         <GeneratedPreviewFrame
+                          onLoad={() => void loadRuntimeState()}
                           projectId={projectId}
                           reloadKey={previewReloadKey}
                           viewport={viewport}
                         />
-                      ) : buildStatus === "ready" ? (
-                        <div className="flex justify-center">
-                          <ProjectSitePreview
-                            siteSchema={siteSchema}
-                            viewport={viewport}
-                          />
-                        </div>
                       ) : (
                         <EmptyPreviewState />
                       )
@@ -1253,6 +1310,61 @@ function HeldBuildRecommendationNotice({
             className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
           >
             Mulai build
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompletedBuildNotice({
+  compact = false,
+  onDiscuss,
+  onPreview,
+  onRebuild,
+}: {
+  compact?: boolean;
+  onDiscuss: () => void;
+  onPreview: () => void;
+  onRebuild: () => void;
+}) {
+  return (
+    <div className="rounded-[22px] border border-[#8ce99a]/18 bg-[#1d211c] px-spacing-5 py-spacing-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+      <div className="flex flex-wrap items-center justify-between gap-spacing-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-surface-warm-white">
+            Preview siap direview
+          </p>
+          {!compact ? (
+            <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/52">
+              Website sudah dibuild. Cek preview, lanjut edit lewat chat, atau
+              build ulang kalau arah brief berubah.
+            </p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-spacing-2">
+          <Button
+            type="button"
+            onClick={onPreview}
+            className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+          >
+            Lihat preview
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onDiscuss}
+            className="h-9 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+          >
+            Edit lewat chat
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onRebuild}
+            className="h-9 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+          >
+            Build ulang
           </Button>
         </div>
       </div>

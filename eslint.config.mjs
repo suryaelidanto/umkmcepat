@@ -15,6 +15,7 @@ const eslintConfig = [
   {
     ignores: [
       ".browser/**",
+      ".data/**",
       ".next/**",
       ".pi/**",
       "graphify-out/**",

@@ -237,6 +237,8 @@ export function createGeneratedProjectFiles(
   projectId: string,
   schema: ProjectSiteSchema,
 ): GeneratedProjectFile[] {
+  const variant = getProjectSiteVariant(schema);
+
   return [
     {
       path: ".umkmcepat/project.json",
@@ -244,6 +246,7 @@ export function createGeneratedProjectFiles(
         schemaVersion: 1,
         projectId,
         template: "vite-react-frontend-static-v1",
+        variant,
       }),
     },
     {
@@ -284,7 +287,7 @@ export function createGeneratedProjectFiles(
     },
     {
       path: "src/App.tsx",
-      content: `import { site } from "./data/site";\nimport "./styles.css";\n\nexport default function App() {\n  return (\n    <main style={{ background: site.theme.background, color: site.theme.foreground }}>\n      <nav className="nav">\n        <strong>{site.businessName}</strong>\n        <span>{site.audience}</span>\n      </nav>\n      <section className="hero">\n        <div>\n          <p className="eyebrow" style={{ color: site.theme.accent }}>{site.eyebrow}</p>\n          <h1>{site.headline}</h1>\n          <p className="lead">{site.subheadline}</p>\n          <div className="actions">\n            <a className="primary" href="#contact">{site.primaryCta}</a>\n            <a className="secondary" href="#details">{site.secondaryCta}</a>\n          </div>\n        </div>\n        <aside className="offer">\n          <span>Penawaran utama</span>\n          <h2>{site.offer}</h2>\n          <ul>{site.trustPoints.map((point) => <li key={point}>{point}</li>)}</ul>\n        </aside>\n      </section>\n      <section id="details" className="sections">\n        {site.sections.map((section, index) => (\n          <article key={section.title}>\n            <span>{String(index + 1).padStart(2, "0")}</span>\n            <h2>{section.title}</h2>\n            <p>{section.body}</p>\n          </article>\n        ))}\n      </section>\n      <section id="contact" className="cta">\n        <h2>Siap bantu pelanggan mengambil langkah berikutnya.</h2>\n        <a className="primary" href="https://wa.me/">{site.primaryCta}</a>\n      </section>\n    </main>\n  );\n}\n`,
+      content: createAppSource(variant),
     },
     {
       path: "src/main.tsx",
@@ -296,7 +299,7 @@ export function createGeneratedProjectFiles(
     },
     {
       path: "src/styles.css",
-      content: `@import "tailwindcss";\n*{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,sans-serif}main{min-height:100dvh}.nav{display:flex;justify-content:space-between;padding:24px clamp(20px,5vw,72px);border-bottom:1px solid rgba(0,0,0,.1)}.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;padding:clamp(40px,8vw,112px) clamp(20px,5vw,72px)}.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-weight:700;font-size:13px}h1{max-width:850px;font-size:clamp(56px,9vw,120px);line-height:.86;letter-spacing:-.08em;margin:20px 0}h2{letter-spacing:-.05em}.lead{max-width:620px;font-size:22px;line-height:1.55;opacity:.72}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}.primary,.secondary{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;padding:14px 20px;text-decoration:none;font-weight:700}.primary{background:#111;color:white}.secondary{border:1px solid rgba(0,0,0,.16);color:inherit}.offer{border-radius:34px;padding:32px;min-height:420px;background:linear-gradient(145deg,rgba(255,255,255,.9),rgba(255,255,255,.48));box-shadow:inset 24px 0 80px rgba(255,94,39,.18),18px 18px 0 rgba(0,0,0,.78)}.offer h2{font-size:36px}.offer li{margin:10px 0}.sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:0 clamp(20px,5vw,72px) 72px}.sections article{border:1px solid rgba(0,0,0,.1);border-radius:24px;padding:28px;background:rgba(255,255,255,.55)}.sections span{font-size:12px;font-weight:800;color:#ff5e27}.sections p{line-height:1.7;opacity:.72}.cta{margin:0 clamp(20px,5vw,72px) 72px;border-radius:32px;padding:40px;background:#111;color:white}.cta h2{font-size:40px;max-width:720px}@media(max-width:760px){.nav,.hero{display:block}.offer{margin-top:36px;min-height:320px}.sections{grid-template-columns:1fr}h1{font-size:56px}}\n`,
+      content: createStyles(variant),
     },
     {
       path: "AGENTS.md",
@@ -304,4 +307,214 @@ export function createGeneratedProjectFiles(
         "# Generated UMKM Cepat project\n\nKeep this project static/frontend-only unless the owner explicitly enables backend features. Use Bun. Prefer Tailwind/CSS and React components. Do not add dependencies without a real need.\n",
     },
   ];
+}
+
+type ProjectSiteVariant =
+  | "clean"
+  | "editorial"
+  | "retail"
+  | "technical"
+  | "warm";
+
+function getProjectSiteVariant(schema: ProjectSiteSchema): ProjectSiteVariant {
+  const text = [
+    schema.businessName,
+    schema.eyebrow,
+    schema.headline,
+    schema.subheadline,
+    schema.audience,
+    schema.offer,
+    ...schema.trustPoints,
+    ...schema.sections.flatMap((section) => [section.title, section.body]),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    text.includes("angkringan") ||
+    text.includes("nasi kucing") ||
+    text.includes("hangat") ||
+    text.includes("tradisional") ||
+    text.includes("kayu")
+  ) {
+    return "warm";
+  }
+
+  if (text.includes("laundry") || text.includes("bersih")) {
+    return "clean";
+  }
+
+  if (
+    text.includes("bengkel") ||
+    text.includes("servis") ||
+    text.includes("motor") ||
+    text.includes("mobil")
+  ) {
+    return "technical";
+  }
+
+  if (text.includes("toko") || text.includes("produk")) {
+    return "retail";
+  }
+
+  return "editorial";
+}
+
+function createAppSource(variant: ProjectSiteVariant) {
+  const shellClass = `site-shell variant-${variant}`;
+  const showcaseClass =
+    variant === "clean"
+      ? "service-grid"
+      : variant === "technical"
+        ? "checklist-panel"
+        : variant === "retail"
+          ? "product-grid"
+          : "menu-strip";
+
+  return `import { site } from "./data/site";
+import "./styles.css";
+
+const shellClass = "${shellClass}";
+const showcaseClass = "${showcaseClass}";
+
+export default function App() {
+  return (
+    <main
+      className={shellClass}
+      style={{ background: site.theme.background, color: site.theme.foreground }}
+    >
+      <nav className="topbar" aria-label="Navigasi utama">
+        <strong>{site.businessName}</strong>
+        <a href="#contact">{site.primaryCta}</a>
+      </nav>
+
+      <section className="hero">
+        <div className="hero-copy">
+          <p className="eyebrow" style={{ color: site.theme.accent }}>
+            {site.eyebrow}
+          </p>
+          <h1>{site.headline}</h1>
+          <p className="lead">{site.subheadline}</p>
+          <div className="actions">
+            <a className="primary" href="#contact">
+              {site.primaryCta}
+            </a>
+            <a className="secondary" href="#details">
+              {site.secondaryCta}
+            </a>
+          </div>
+        </div>
+
+        <aside className="hero-card" aria-label="Ringkasan penawaran">
+          <span>Penawaran utama</span>
+          <h2>{site.offer}</h2>
+          <div className={showcaseClass}>
+            {site.trustPoints.map((point) => (
+              <p key={point}>{point}</p>
+            ))}
+          </div>
+        </aside>
+      </section>
+
+      <section id="details" className="section-grid" aria-label="Detail usaha">
+        {site.sections.map((section, index) => (
+          <article key={section.title}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <h2>{section.title}</h2>
+            <p>{section.body}</p>
+          </article>
+        ))}
+      </section>
+
+      <section id="contact" className="closing">
+        <div>
+          <p className="eyebrow" style={{ color: site.theme.accent }}>
+            Untuk {site.audience}
+          </p>
+          <h2>Siap melayani lewat langkah yang jelas.</h2>
+        </div>
+        <a className="primary" href="https://wa.me/">
+          {site.primaryCta}
+        </a>
+      </section>
+    </main>
+  );
+}
+`;
+}
+
+function createStyles(variant: ProjectSiteVariant) {
+  return `${createBaseStyles()}
+${createVariantStyles(variant)}
+`;
+}
+
+function createBaseStyles() {
+  return `@import "tailwindcss";
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:#f7f4ed}
+a{color:inherit}
+.site-shell{min-height:100dvh;overflow-x:hidden}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 64px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)}
+.topbar strong{font-size:18px}
+.topbar a{border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:12px;padding:10px 14px;text-decoration:none;font-weight:700}
+.hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(320px,.95fr);gap:54px;align-items:stretch;padding:72px 64px 54px}
+.hero-copy{display:flex;min-width:0;flex-direction:column;justify-content:center}
+.eyebrow{margin:0 0 18px;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:800}
+h1{max-width:820px;margin:0;font-size:76px;line-height:.96;letter-spacing:0}
+.lead{max-width:640px;margin:24px 0 0;font-size:21px;line-height:1.62;color:color-mix(in srgb,currentColor 68%,transparent)}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}
+.primary,.secondary{display:inline-flex;min-height:48px;align-items:center;justify-content:center;border-radius:14px;padding:0 20px;text-decoration:none;font-weight:800}
+.primary{background:currentColor;color:white}
+.secondary{border:1px solid color-mix(in srgb,currentColor 18%,transparent)}
+.hero-card{display:flex;min-height:430px;flex-direction:column;justify-content:space-between;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:28px;padding:30px;background:color-mix(in srgb,white 72%,transparent)}
+.hero-card>span{color:color-mix(in srgb,currentColor 56%,transparent);font-size:14px}
+.hero-card h2{margin:14px 0 28px;font-size:34px;line-height:1.12;letter-spacing:0}
+.section-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:0 64px 64px}
+.section-grid article{border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:22px;padding:26px;background:color-mix(in srgb,white 58%,transparent)}
+.section-grid span{font-size:12px;font-weight:900}
+.section-grid h2{margin:14px 0 10px;font-size:24px;letter-spacing:0}
+.section-grid p{margin:0;line-height:1.72;color:color-mix(in srgb,currentColor 66%,transparent)}
+.closing{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 64px 72px;border-radius:28px;padding:34px;background:color-mix(in srgb,currentColor 92%,black);color:white}
+.closing h2{max-width:680px;margin:0;font-size:36px;line-height:1.12;letter-spacing:0}
+@media(max-width:820px){.topbar,.hero,.section-grid{padding-left:22px;padding-right:22px}.topbar{align-items:flex-start;flex-direction:column}.hero{display:block;padding-top:42px}.hero-card{min-height:320px;margin-top:34px}.section-grid{grid-template-columns:1fr}.closing{align-items:flex-start;flex-direction:column;margin-left:22px;margin-right:22px}h1{font-size:46px}.lead{font-size:18px}.hero-card h2{font-size:28px}.closing h2{font-size:30px}}
+`;
+}
+
+function createVariantStyles(variant: ProjectSiteVariant) {
+  if (variant === "warm") {
+    return `.variant-warm .hero-card{box-shadow:14px 14px 0 color-mix(in srgb,currentColor 82%,transparent);background:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,246,232,.9))}
+.menu-strip{display:grid;gap:10px}
+.menu-strip p{margin:0;border-left:4px solid currentColor;border-radius:14px;background:rgba(255,255,255,.56);padding:13px 14px;line-height:1.45}
+.variant-warm .section-grid span{color:#b7521b}`;
+  }
+
+  if (variant === "clean") {
+    return `.variant-clean .hero{align-items:center}
+.variant-clean .hero-card{background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(235,250,246,.92));box-shadow:0 18px 60px rgba(18,33,29,.12)}
+.service-grid{display:grid;grid-template-columns:1fr;gap:12px}
+.service-grid p{margin:0;border:1px solid rgba(31,143,122,.18);border-radius:16px;background:rgba(255,255,255,.72);padding:14px;line-height:1.45}
+.variant-clean .section-grid span{color:#1f8f7a}`;
+  }
+
+  if (variant === "technical") {
+    return `.variant-technical .hero-card{background:#f7f7f4;box-shadow:inset 0 0 0 8px rgba(0,0,0,.04)}
+.checklist-panel{display:grid;gap:12px}
+.checklist-panel p{margin:0;border-radius:12px;background:#151715;color:white;padding:14px;line-height:1.45}
+.variant-technical .section-grid span{color:#d3342f}`;
+  }
+
+  if (variant === "retail") {
+    return `.variant-retail .hero-card{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(250,247,238,.9))}
+.product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.product-grid p{margin:0;min-height:92px;border:1px solid rgba(0,0,0,.1);border-radius:18px;background:white;padding:14px;line-height:1.45}
+.variant-retail .section-grid span{color:#8d6b32}
+@media(max-width:520px){.product-grid{grid-template-columns:1fr}}`;
+  }
+
+  return `.variant-editorial .hero-card{background:rgba(255,255,255,.72);box-shadow:0 18px 60px rgba(0,0,0,.12)}
+.menu-strip{display:grid;gap:10px}
+.menu-strip p{margin:0;border-bottom:1px solid rgba(0,0,0,.12);padding:0 0 12px;line-height:1.45}
+.variant-editorial .section-grid span{color:#f05a28}`;
 }

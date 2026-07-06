@@ -43,7 +43,9 @@ Core rules:
 - Workspace cards are never parsed from chat text. If the tool output is missing or invalid, the server falls back to a deterministic valid card.
 - When a workspace card becomes a build recommendation, the client treats it as the primary composer decision instead of a chat-history message. The normal text composer stays hidden until the user explicitly continues discussion.
 - If the user continues discussion after a build recommendation, the client keeps a local hold keyed by that recommendation content. Refreshes preserve the discussion composer for the same recommendation, while changed recommendation content surfaces the build decision again.
+- After a generated build completes, the build recommendation is no longer shown as the primary composer. The client shows a review state with preview, chat-edit, and rebuild actions. The normal text composer only returns when the user chooses to keep editing through chat.
 - Build generation streams server-sent progress events to the workspace; the client must render those events as visible build steps instead of hiding progress behind a generic spinner.
+- Build generation must quality-gate AI site schema output before writing source. Generic fallback copy, missing required schema shape, or a schema that does not match the completed brief gets one repair attempt. If the repaired schema still fails, the build fails visibly instead of shipping a misleading template.
 - Opening a project or creating the first project draft must not trigger a separate AI card-generation call.
 - User projects start as data and artifacts. Projects that need live runtime behavior should become isolated deployments managed outside the web app process.
 - Generated source/build artifacts may exist for preview, inspection, repair, export, and future publishing.
@@ -63,6 +65,8 @@ The legacy build/preview fields remain as compatibility fallback data. The gener
 - Validate AI output before saving or rendering.
 - Check ownership on every private project route.
 - Serve private preview artifacts with `noindex`.
+- Private preview responses must send sandbox-safe CORS headers because generated sites render inside an iframe without same-origin privileges. Both runtime proxy responses and legacy DB artifact responses set `Access-Control-Allow-Origin: *` and `Cross-Origin-Resource-Policy: cross-origin`.
+- Preview failures are first-class UI states. Runtime startup failure, build failure, and known runtime load errors must show an actionable preview panel instead of leaving a blank white iframe.
 - Do not dynamically import generated/user files into the Next.js app.
 - Do not evaluate user JavaScript in the platform runtime.
 - Keep public publishing artifact-backed and cacheable when possible.

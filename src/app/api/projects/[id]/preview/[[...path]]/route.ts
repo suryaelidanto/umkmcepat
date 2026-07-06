@@ -1,7 +1,10 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
-import { proxyDeploymentRequest } from "@/lib/projects/runtime-proxy";
+import {
+  applyPreviewSandboxHeaders,
+  proxyDeploymentRequest,
+} from "@/lib/projects/runtime-proxy";
 
 export const runtime = "nodejs";
 
@@ -80,9 +83,8 @@ export async function GET(
   }
 
   return new Response(file.content, {
-    headers: {
-      "Content-Type": file.contentType,
-      "X-Robots-Tag": "noindex",
-    },
+    headers: applyPreviewSandboxHeaders(
+      new Headers({ "Content-Type": file.contentType }),
+    ),
   });
 }

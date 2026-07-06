@@ -21,6 +21,14 @@ bun run db:migrate
 bun run dev
 ```
 
+If port 3000 is already used by a repo-owned Next dev process, reset it safely:
+
+```bash
+bun run dev:reset
+```
+
+`dev:reset` only stops a listener whose command line is clearly owned by this repo. If another app owns port 3000, it prints that process information and exits so the owner can stop it manually.
+
 Open:
 
 ```text

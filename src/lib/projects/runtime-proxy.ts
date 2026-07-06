@@ -42,15 +42,29 @@ export async function proxyDeploymentRequest(
   const runtimeResponse = await fetch(runtimeUrl, { cache: "no-store" });
   const headers = new Headers(runtimeResponse.headers);
 
-  if (input.noindex ?? true) {
-    headers.set("X-Robots-Tag", "noindex");
-  }
+  applyPreviewSandboxHeaders(headers, { noindex: input.noindex ?? true });
 
   return new Response(runtimeResponse.body, {
     headers,
     status: runtimeResponse.status,
     statusText: runtimeResponse.statusText,
   });
+}
+
+export function applyPreviewSandboxHeaders(
+  headers: Headers,
+  { noindex = true }: { noindex?: boolean } = {},
+) {
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+
+  if (noindex) {
+    headers.set("X-Robots-Tag", "noindex");
+  } else {
+    headers.delete("X-Robots-Tag");
+  }
+
+  return headers;
 }
 
 function encodeRuntimePath(pathSegments: string[]) {

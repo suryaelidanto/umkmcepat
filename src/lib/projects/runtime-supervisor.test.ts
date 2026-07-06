@@ -95,6 +95,10 @@ describe("noop runtime supervisor", () => {
 
       const response = await fetch(`${deployment.internalUrl}/index.html`);
 
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      expect(response.headers.get("Cross-Origin-Resource-Policy")).toBe(
+        "cross-origin",
+      );
       await expect(response.text()).resolves.toContain("Runtime preview");
       await expect(
         supervisor.resolveDeploymentTarget("deployment_1"),

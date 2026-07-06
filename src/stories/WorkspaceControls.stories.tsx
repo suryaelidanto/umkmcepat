@@ -1,6 +1,7 @@
 import {
   EmptyPreviewState,
   ModePill,
+  PreviewIssueState,
   ProcessingControl,
   WorkspaceTopBar,
 } from "@/components/projects/WorkspacePrimitives";
@@ -133,6 +134,18 @@ export const EmptyPreview: Story = {
   render: () => (
     <div className="h-[32rem] bg-[#10100f]">
       <EmptyPreviewState />
+    </div>
+  ),
+};
+
+export const PreviewIssue: Story = {
+  render: () => (
+    <div className="h-[32rem] bg-[#10100f]">
+      <PreviewIssueState
+        title="Runtime preview gagal"
+        detail="Runtime preview gagal menyala. Coba nyalakan ulang preview atau build ulang jika masih gagal."
+        onRetry={() => undefined}
+      />
     </div>
   ),
 };

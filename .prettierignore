@@ -5,6 +5,7 @@ node_modules
 .agent
 .agents
 graphify-out
+.data
 .lighthouseci
 .lighthouse-auth
 coverage

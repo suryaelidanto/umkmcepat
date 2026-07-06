@@ -2,7 +2,10 @@ import { createServer, type Server } from "node:http";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { proxyDeploymentRequest } from "@/lib/projects/runtime-proxy";
+import {
+  applyPreviewSandboxHeaders,
+  proxyDeploymentRequest,
+} from "@/lib/projects/runtime-proxy";
 
 let server: Server | null = null;
 
@@ -32,6 +35,10 @@ describe("runtime proxy", () => {
 
     expect(supervisor.startDeployment).toHaveBeenCalledWith("deployment_1");
     expect(response?.status).toBe(200);
+    expect(response?.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(response?.headers.get("Cross-Origin-Resource-Policy")).toBe(
+      "cross-origin",
+    );
     expect(response?.headers.get("X-Robots-Tag")).toBe("noindex");
     await expect(response?.text()).resolves.toBe("/assets/app.js?cache=0");
   });
@@ -54,6 +61,17 @@ describe("runtime proxy", () => {
 
     expect(response?.headers.has("X-Robots-Tag")).toBe(false);
     await expect(response?.text()).resolves.toBe("/");
+  });
+
+  it("applies sandbox headers for legacy preview responses", () => {
+    const headers = applyPreviewSandboxHeaders(
+      new Headers({ "Content-Type": "text/javascript; charset=utf-8" }),
+    );
+
+    expect(headers.get("Content-Type")).toBe("text/javascript; charset=utf-8");
+    expect(headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(headers.get("Cross-Origin-Resource-Policy")).toBe("cross-origin");
+    expect(headers.get("X-Robots-Tag")).toBe("noindex");
   });
 });
 

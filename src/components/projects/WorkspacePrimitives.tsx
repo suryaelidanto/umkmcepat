@@ -295,10 +295,12 @@ function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
 }
 
 export function GeneratedPreviewFrame({
+  onLoad,
   projectId,
   reloadKey,
   viewport,
 }: {
+  onLoad?: () => void;
   projectId: string;
   reloadKey?: number;
   viewport: "desktop" | "mobile";
@@ -309,9 +311,45 @@ export function GeneratedPreviewFrame({
         key={reloadKey}
         title="Generated website preview"
         src={`/api/projects/${projectId}/preview/`}
+        onLoad={onLoad}
         sandbox="allow-scripts"
         className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} h-full w-full border-0 bg-white`}
       />
+    </div>
+  );
+}
+
+export function PreviewIssueState({
+  detail,
+  onRetry,
+  title,
+}: {
+  detail: string;
+  onRetry?: () => void;
+  title: string;
+}) {
+  return (
+    <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
+      <div className="max-w-lg rounded-[24px] border border-[#ffb4a6]/20 bg-[#241d1a] px-spacing-7 py-spacing-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        <div className="mx-auto grid size-11 place-items-center rounded-full border border-[#ffb4a6]/28 bg-[#ffb4a6]/10 text-[#ffb4a6]">
+          <RefreshCw className="size-5" aria-hidden="true" />
+        </div>
+        <h2 className="mt-spacing-5 text-2xl font-semibold tracking-[-0.02em] text-surface-warm-white">
+          {title}
+        </h2>
+        <p className="mx-auto mt-spacing-3 max-w-md text-sm leading-6 text-surface-warm-white/58">
+          {detail}
+        </p>
+        {onRetry ? (
+          <Button
+            type="button"
+            onClick={onRetry}
+            className="mt-spacing-6 rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86"
+          >
+            Coba nyalakan lagi
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

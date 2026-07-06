@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import { type WorkspaceCard } from "@/lib/projects/brief";
 import {
   getBuildRecommendationHoldSignature,
+  getWorkspacePreviewIssue,
   isBuildRecommendationHeld,
+  isWorkspaceBuildComplete,
+  shouldShowBuildRecommendationComposer,
   shouldRefreshWorkspaceAfterChatStatus,
+  shouldUseGeneratedPreviewFrame,
 } from "@/lib/projects/workspace-sync";
 
 describe("workspace chat sync", () => {
@@ -44,5 +48,77 @@ describe("workspace chat sync", () => {
 
     expect(isBuildRecommendationHeld(card, signature)).toBe(true);
     expect(isBuildRecommendationHeld(changedCard, signature)).toBe(false);
+  });
+
+  it("does not show the build recommendation composer after a build has completed", () => {
+    const card: WorkspaceCard = {
+      type: "build_recommendation",
+      title: "Brief sudah siap dibuild",
+      summary: ["Warung fisik", "Menu klasik"],
+    };
+
+    expect(
+      isWorkspaceBuildComplete({
+        buildStatus: "ready",
+        runtimeBuildStatus: "succeeded",
+        sourceStatus: "passed",
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowBuildRecommendationComposer({
+        buildComplete: true,
+        card,
+        held: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowBuildRecommendationComposer({
+        buildComplete: false,
+        card,
+        held: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("uses the generated iframe after any successful build status", () => {
+    expect(
+      shouldUseGeneratedPreviewFrame({
+        buildComplete: true,
+        sourceStatus: "not_started",
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseGeneratedPreviewFrame({
+        buildComplete: false,
+        sourceStatus: "passed",
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseGeneratedPreviewFrame({
+        buildComplete: false,
+        sourceStatus: "not_started",
+      }),
+    ).toBe(false);
+  });
+
+  it("surfaces actionable preview issues for failed runtime states", () => {
+    expect(
+      getWorkspacePreviewIssue({
+        deploymentStatus: "failed",
+        buildStatus: "ready",
+        sourceStatus: "passed",
+      }),
+    ).toEqual({
+      detail:
+        "Runtime preview gagal menyala. Coba nyalakan ulang preview atau build ulang jika masih gagal.",
+      title: "Runtime preview gagal",
+    });
+    expect(
+      getWorkspacePreviewIssue({
+        deploymentStatus: "running",
+        buildStatus: "ready",
+        sourceStatus: "passed",
+      }),
+    ).toBeNull();
   });
 });
