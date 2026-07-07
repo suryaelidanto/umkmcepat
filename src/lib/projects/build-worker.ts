@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/dev-log";
 import {
   classifyBuildFailure,
   sanitizeBuildLog,
@@ -38,6 +39,12 @@ export function createLocalBuildWorker({
       buildId: string;
       files: GeneratedProjectFile[];
     }): Promise<BuildWorkerResult> {
+      devLog("build-worker", "start", {
+        activeBuilds,
+        buildId,
+        files: files.length,
+      });
+
       if (activeBuilds >= getBuildConcurrencyLimit()) {
         return failed(
           "Build worker concurrency limit reached.",
@@ -52,15 +59,25 @@ export function createLocalBuildWorker({
         const logText = sanitizeBuildLog(result.log);
 
         if (!result.ok) {
+          devLog("build-worker", "failed", {
+            buildId,
+            reason: classifyBuildFailure(logText),
+          });
           return failed(logText, classifyBuildFailure(logText));
         }
 
         try {
+          const artifactRef = await writeArtifact({
+            artifactId: buildId,
+            files: result.distFiles,
+          });
+          devLog("build-worker", "succeeded", {
+            artifactRef,
+            buildId,
+            distFiles: result.distFiles.length,
+          });
           return {
-            artifactRef: await writeArtifact({
-              artifactId: buildId,
-              files: result.distFiles,
-            }),
+            artifactRef,
             distFiles: result.distFiles,
             failureReason: null,
             logText,

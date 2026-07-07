@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import {
   runGeneratedAppAgentTools,
@@ -54,6 +55,7 @@ export async function POST(request: Request, { params }: RouteProps) {
   }
 
   const { id } = await params;
+  devLog("edit", "request", { projectId: id, userId: session.user.id });
   const project = await prisma.project.findFirst({
     where: { id, userId: session.user.id },
     select: {
@@ -63,6 +65,12 @@ export async function POST(request: Request, { params }: RouteProps) {
       siteSchema: true,
       status: true,
     },
+  });
+
+  devLog("edit", "project.loaded", {
+    buildStatus: project?.buildStatus,
+    projectId: id,
+    status: project?.status,
   });
 
   if (!project) {
@@ -143,6 +151,12 @@ export async function POST(request: Request, { params }: RouteProps) {
     ? requestedCommands
     : createSimpleEditCommands(baseFiles, instruction);
   const editResult = runGeneratedAppAgentTools({ commands, files: baseFiles });
+  devLog("edit", "tools.finished", {
+    ok: editResult.ok,
+    operations: editResult.operations.length,
+    projectId: project.id,
+    sideEffects: editResult.sideEffects.length,
+  });
 
   if (!editResult.ok) {
     return Response.json(
@@ -247,6 +261,10 @@ export async function POST(request: Request, { params }: RouteProps) {
   const buildResult = await createLocalBuildWorker().runBuild({
     buildId: build.id,
     files: editResult.files,
+  });
+  devLog("edit", "build.finished", {
+    projectId: project.id,
+    status: buildResult.status,
   });
   const buildStatus: ProjectBuildStatus = buildResult.status;
   const artifactRef = buildResult.artifactRef;

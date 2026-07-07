@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/dev-log";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
 import { validateGeneratedPackagePolicy } from "@/lib/projects/generated-package-policy";
 import {
@@ -78,6 +79,11 @@ export function runGeneratedAppAgentTools({
       id: `${operations.length + 1}`,
     };
     operations.push(next);
+    devLog("agent-tool", next.type, {
+      path: next.path,
+      state: next.state,
+      title: next.title,
+    });
     onOperation?.(next);
   }
 

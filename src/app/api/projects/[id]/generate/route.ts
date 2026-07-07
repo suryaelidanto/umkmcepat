@@ -2,6 +2,7 @@ import { jsonSchema, Output, streamText } from "ai";
 
 import { getAiModel } from "@/lib/ai";
 import { auth } from "@/lib/auth";
+import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
 import { generateCustomProjectFilesWithAgent } from "@/lib/projects/custom-source-generator";
@@ -71,9 +72,16 @@ export async function POST(request: Request, { params }: RouteProps) {
   }
 
   const { id } = await params;
+  devLog("generate", "request", { projectId: id, userId });
   const project = await prisma.project.findFirst({
     where: { id, userId },
     select: { buildStatus: true, id: true, prompt: true, status: true },
+  });
+
+  devLog("generate", "project.loaded", {
+    buildStatus: project?.buildStatus,
+    projectId: id,
+    status: project?.status,
   });
 
   if (!project) {
@@ -127,6 +135,10 @@ export async function POST(request: Request, { params }: RouteProps) {
           SELECT "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
         `;
         const brief = parseProjectBrief(briefRow?.brief, project.prompt);
+        devLog("generate", "brief.parsed", {
+          projectId: project.id,
+          promptLength: project.prompt.length,
+        });
         const buildPrompt = briefToBuildPrompt(brief);
         const fallbackSchema = createProjectSiteSchemaFromBrief(brief);
 
@@ -249,6 +261,16 @@ export async function POST(request: Request, { params }: RouteProps) {
           projectId: project.id,
           schema: finalSchema,
         });
+        devLog("generate", "source.generated", {
+          fallbackReason:
+            "fallbackReason" in sourceGeneration
+              ? sourceGeneration.fallbackReason
+              : undefined,
+          files: sourceGeneration.files.length,
+          mode: sourceGeneration.generationMode,
+          projectId: project.id,
+          touchedFiles: sourceGeneration.touchedFiles.length,
+        });
         const sourceFiles = sourceGeneration.files;
         send("progress", {
           label:
@@ -325,6 +347,10 @@ export async function POST(request: Request, { params }: RouteProps) {
           }),
         });
         const buildResult = await buildGeneratedProject(sourceFiles);
+        devLog("generate", "build.finished", {
+          ok: buildResult.ok,
+          projectId: project.id,
+        });
         send("progress", {
           label: buildResult.ok
             ? "Build website berhasil"
@@ -435,8 +461,13 @@ export async function POST(request: Request, { params }: RouteProps) {
           label: "Website siap dicek",
           detail: "Tampilan dan file website sudah siap dicek.",
         });
+        devLog("generate", "done", { projectId: project.id });
         send("done", finalSchema);
-      } catch {
+      } catch (error) {
+        devLog("generate", "error", {
+          error: error instanceof Error ? error.message : String(error),
+          projectId: project.id,
+        });
         if (runtimeBuildId && !runtimeBuildFinalized) {
           await prisma.projectBuild
             .update({

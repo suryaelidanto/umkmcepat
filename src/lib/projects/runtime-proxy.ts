@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/dev-log";
 import {
   createPreviewAssetToken,
   PREVIEW_ASSET_TOKEN_PARAM,
@@ -23,6 +24,11 @@ export async function proxyDeploymentRequest(
   input: ProxyDeploymentRequestInput,
 ) {
   const supervisor = input.supervisor ?? getRuntimeSupervisor();
+  devLog("runtime-proxy", "request", {
+    deploymentId: input.deploymentId,
+    path: input.pathSegments.join("/") || "index.html",
+    status: input.deploymentStatus,
+  });
   const checkedStatus =
     input.deploymentStatus === "running"
       ? await supervisor.getDeploymentStatus(input.deploymentId)
@@ -33,12 +39,19 @@ export async function proxyDeploymentRequest(
       : await supervisor.startDeployment(input.deploymentId);
 
   if (status !== "running") {
+    devLog("runtime-proxy", "not-running", {
+      deploymentId: input.deploymentId,
+      status,
+    });
     return null;
   }
 
   const target = await supervisor.resolveDeploymentTarget(input.deploymentId);
 
   if (!target) {
+    devLog("runtime-proxy", "missing-target", {
+      deploymentId: input.deploymentId,
+    });
     return null;
   }
 
@@ -51,6 +64,11 @@ export async function proxyDeploymentRequest(
   runtimeUrl.search = requestUrl.search;
 
   const runtimeResponse = await fetch(runtimeUrl, { cache: "no-store" });
+  devLog("runtime-proxy", "response", {
+    deploymentId: input.deploymentId,
+    path: runtimeUrl.pathname,
+    status: runtimeResponse.status,
+  });
   const headers = new Headers(runtimeResponse.headers);
 
   applyPreviewSandboxHeaders(headers, { noindex: input.noindex ?? true });

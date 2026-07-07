@@ -12,6 +12,7 @@
     "db:up": "docker compose up -d postgres",
     "dev": "next dev -p 3000",
     "dev:reset": "bun scripts/dev-reset.ts",
+    "dev:verbose": "bun scripts/dev-verbose.ts",
     "format": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\" --ignore-path .prettierignore",
     "graph:index": "graphify extract . --out . && graphify cluster-only . --no-label && graphify tree --label umkmcepat",
     "graph:tree": "graphify tree --label umkmcepat",
