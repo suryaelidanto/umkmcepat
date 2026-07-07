@@ -259,6 +259,34 @@ export function parseProjectSiteSchema(
   };
 }
 
+export function resolveProjectSiteSchemaCandidate({
+  brief,
+  fallbackSchema,
+  value,
+}: {
+  brief: ProjectBrief;
+  fallbackSchema: ProjectSiteSchema;
+  value: unknown;
+}) {
+  const candidateIssues = getProjectSiteSchemaCandidateIssues(value);
+  const schema = parseProjectSiteSchema(value, fallbackSchema);
+  const qualityIssues = getProjectSiteSchemaQualityIssues(schema, brief);
+
+  if (candidateIssues.length && !qualityIssues.length) {
+    return {
+      issues: [],
+      schema: fallbackSchema,
+      usedDeterministicFallback: true,
+    };
+  }
+
+  return {
+    issues: [...new Set([...candidateIssues, ...qualityIssues])],
+    schema,
+    usedDeterministicFallback: false,
+  };
+}
+
 export function getProjectSiteSchemaQualityIssues(
   schema: ProjectSiteSchema,
   brief?: ProjectBrief,
@@ -564,7 +592,7 @@ function headlineForBrief(
   }
 
   if (domainKey === "automotive") {
-    return `Bengkel siap bantu ${shortTarget}`;
+    return `Servis motor rapi tanpa tebak-tebakan untuk ${shortTarget}`;
   }
 
   if (domainKey === "food") {
@@ -585,6 +613,10 @@ function subheadlineForBrief(
     return `Tampilkan menu, suasana warung, dan akses pesan lewat ${clipPhrase(contactOrCta, 64)}. Nuansa ${clipPhrase(stylePhrase, 92)} membantu pelanggan merasa dekat sebelum datang atau pesan.`;
   }
 
+  if (domainKey === "automotive") {
+    return `Tampilkan layanan bengkel, estimasi langkah servis, dan jalur ${clipPhrase(contactOrCta, 72)} supaya pelanggan datang dengan keluhan yang jelas.`;
+  }
+
   return `Website menonjolkan penawaran utama, alasan pelanggan percaya, dan langkah berikutnya lewat ${clipPhrase(contactOrCta, 72)}.`;
 }
 
@@ -593,8 +625,10 @@ function buildTrustPoints(
   contactOrCta: string,
   stylePreference: string,
 ) {
+  const offerSummary = summarizeOffer(offer);
+
   return [
-    `${summarizeOffer(offer)} ditampilkan jelas`,
+    `${offerSummary} dijelaskan per kebutuhan pelanggan`,
     `${clipPhrase(contactOrCta, 42)} mudah ditemukan`,
     `Nuansa ${lowerFirstPhrase(clipPhrase(stylePreference, 42))}`,
   ];
@@ -629,6 +663,27 @@ function buildBriefSections({
   const styleContext = styleDetail
     ? `${sentenceCase(stripTrailingPunctuation(styleDetail))}. `
     : "";
+
+  if (domainLabel === "bengkel") {
+    return [
+      {
+        title: "Layanan servis",
+        body: `${offerSentence}. Tiap layanan dibuat mudah dipahami agar pelanggan tahu apakah perlu datang untuk cek ringan, kelistrikan, ban, atau komponen lain.`,
+      },
+      {
+        title: "Untuk pengendara",
+        body: `Konten diarahkan untuk ${targetContext}. Halaman membantu mereka menjelaskan keluhan motor sebelum datang ke bengkel.`,
+      },
+      {
+        title: "Booking dan konsultasi",
+        body: `${contactContext} Pelanggan bisa tanya estimasi awal, jam ramai, atau kesiapan spare part tanpa bolak-balik.`,
+      },
+      {
+        title: "Kesan bengkel",
+        body: `Tampilan dibuat ${lowerFirstPhrase(stylePreference)}. ${styleContext}Kesan ini membangun rasa rapi, teknis, dan dapat dipercaya.`,
+      },
+    ];
+  }
 
   return [
     {

@@ -49,6 +49,51 @@ export function isWorkspaceBuildComplete({
   );
 }
 
+export type WorkspaceComposerState =
+  | "question"
+  | "build_recommendation"
+  | "held_build_recommendation"
+  | "build_failed_with_last_good"
+  | "post_build_review"
+  | "post_build_chat"
+  | "free_chat";
+
+export function getWorkspaceComposerState({
+  buildComplete,
+  card,
+  hasFailedLatestAttemptWithLastGood = false,
+  held,
+  postBuildChatOpen,
+}: {
+  buildComplete: boolean;
+  card: WorkspaceCard;
+  hasFailedLatestAttemptWithLastGood?: boolean;
+  held: boolean;
+  postBuildChatOpen: boolean;
+}): WorkspaceComposerState {
+  if (card.type === "build_recommendation" && buildComplete) {
+    if (hasFailedLatestAttemptWithLastGood && !postBuildChatOpen) {
+      return "build_failed_with_last_good";
+    }
+
+    return postBuildChatOpen ? "post_build_chat" : "post_build_review";
+  }
+
+  if (card.type === "build_recommendation" && held) {
+    return "held_build_recommendation";
+  }
+
+  if (card.type === "build_recommendation") {
+    return "build_recommendation";
+  }
+
+  if (card.type === "question") {
+    return "question";
+  }
+
+  return "free_chat";
+}
+
 export function shouldShowBuildRecommendationComposer({
   buildComplete,
   card,
@@ -58,7 +103,14 @@ export function shouldShowBuildRecommendationComposer({
   card: WorkspaceCard;
   held: boolean;
 }) {
-  return card.type === "build_recommendation" && !held && !buildComplete;
+  return (
+    getWorkspaceComposerState({
+      buildComplete,
+      card,
+      held,
+      postBuildChatOpen: false,
+    }) === "build_recommendation"
+  );
 }
 
 export function shouldUseGeneratedPreviewFrame({
@@ -84,22 +136,61 @@ export type WorkspacePreviewIssue = {
 export function getWorkspacePreviewIssue({
   buildStatus,
   deploymentStatus,
+  runtimeBuildStatus,
   runtimeError,
+  runtimeUserFacingState,
   sourceStatus,
 }: {
   buildStatus?: string | null;
   deploymentStatus?: string | null;
+  runtimeBuildStatus?: string | null;
   runtimeError?: string | null;
+  runtimeUserFacingState?: string | null;
   sourceStatus?: string | null;
 }): WorkspacePreviewIssue | null {
   if (runtimeError) {
     return {
-      detail: runtimeError,
+      detail: getSafePreviewIssueDetail(
+        runtimeError,
+        "Tampilan website belum bisa dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal.",
+      ),
       title: "Tampilan website belum bisa dimuat",
     };
   }
 
-  if (buildStatus === "failed" || sourceStatus === "failed") {
+  if (runtimeUserFacingState === "building") {
+    return {
+      detail: "Tampilan website akan muncul setelah build selesai.",
+      title: "Build website sedang berjalan",
+    };
+  }
+
+  if (
+    runtimeUserFacingState === "preview_starting" ||
+    deploymentStatus === "starting"
+  ) {
+    return {
+      detail: "Tampilan website sedang disiapkan. Tunggu sebentar.",
+      title: "Tampilan sedang disiapkan",
+    };
+  }
+
+  if (runtimeUserFacingState === "build_failed_without_last_good") {
+    return {
+      detail:
+        "Build website belum berhasil dan belum ada tampilan sebelumnya. Coba build ulang setelah brief siap.",
+      title: "Build website belum selesai",
+    };
+  }
+
+  const hasLastGoodPreview = [runtimeBuildStatus, sourceStatus].some((status) =>
+    ["passed", "ready", "succeeded"].includes(status ?? ""),
+  );
+
+  if (
+    !hasLastGoodPreview &&
+    (buildStatus === "failed" || sourceStatus === "failed")
+  ) {
     return {
       detail:
         "File website belum berhasil dibuild. Jalankan build ulang setelah brief siap.",
@@ -107,7 +198,10 @@ export function getWorkspacePreviewIssue({
     };
   }
 
-  if (deploymentStatus === "failed") {
+  if (
+    runtimeUserFacingState === "preview_failed" ||
+    deploymentStatus === "failed"
+  ) {
     return {
       detail:
         "Tampilan website gagal dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal.",
@@ -116,4 +210,24 @@ export function getWorkspacePreviewIssue({
   }
 
   return null;
+}
+
+function getSafePreviewIssueDetail(value: string, fallback: string) {
+  const detail = value.trim().replace(/\s+/g, " ");
+
+  if (!detail) {
+    return fallback;
+  }
+
+  if (
+    detail.length > 240 ||
+    /\b(error|stack|webpack|module|prisma|syntaxerror|typeerror|referenceerror)\b/i.test(
+      detail,
+    ) ||
+    /(?:^|\s)at\s+\S+/i.test(detail)
+  ) {
+    return fallback;
+  }
+
+  return detail;
 }

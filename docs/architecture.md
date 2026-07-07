@@ -49,6 +49,7 @@ Core rules:
 - Opening a project or creating the first project draft must not trigger a separate AI card-generation call.
 - User projects start as data and artifacts. Projects that need live runtime behavior should become isolated deployments managed outside the web app process.
 - Generated source/build artifacts may exist for preview, inspection, repair, export, and future publishing.
+- Generated source edits go through the constrained agent tool runner. The runner exposes structured read, list, search, write, replace, and check operations, enforces project file boundaries, records side effects, and blocks success when app checks are missing or policy checks fail.
 - The platform must not execute arbitrary user backend code.
 - One bad project must not break the platform or another project.
 

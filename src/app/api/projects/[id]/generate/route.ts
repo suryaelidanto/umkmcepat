@@ -7,6 +7,7 @@ import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
 import {
   buildGeneratedProject,
   createGeneratedProjectFiles,
+  createGeneratedSourceSnapshotMetadata,
 } from "@/lib/projects/generated-source";
 import {
   writeProjectDistArtifact,
@@ -22,9 +23,8 @@ import {
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
 import {
   createProjectSiteSchemaFromBrief,
-  getProjectSiteSchemaCandidateIssues,
-  getProjectSiteSchemaQualityIssues,
   parseProjectSiteSchema,
+  resolveProjectSiteSchemaCandidate,
   projectSiteJsonSchema,
   type ProjectSiteSchema,
 } from "@/lib/projects/site-schema";
@@ -173,13 +173,11 @@ export async function POST(request: Request, { params }: RouteProps) {
             send("schema", schema);
           }
 
-          const schema = parseProjectSiteSchema(latest, fallbackSchema);
-          const issues = [
-            ...getProjectSiteSchemaCandidateIssues(latest),
-            ...getProjectSiteSchemaQualityIssues(schema, brief),
-          ];
-
-          return { issues: [...new Set(issues)], schema };
+          return resolveProjectSiteSchemaCandidate({
+            brief,
+            fallbackSchema,
+            value: latest,
+          });
         }
 
         let schemaResult = await generateSiteSchema(buildPrompt);
@@ -232,11 +230,10 @@ export async function POST(request: Request, { params }: RouteProps) {
         const snapshot = await prisma.projectSnapshot.create({
           data: {
             files: sourceFiles,
-            metadata: {
-              schemaVersion: finalSchema.version,
-              sourceFileCount: sourceFiles.length,
-              template: "vite-react-frontend-static-v1",
-            },
+            metadata: createGeneratedSourceSnapshotMetadata(
+              sourceFiles,
+              finalSchema,
+            ),
             projectId: project.id,
             sourceType: GENERATED_SNAPSHOT_SOURCE_TYPE,
           },

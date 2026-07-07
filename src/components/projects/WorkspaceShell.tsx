@@ -47,10 +47,10 @@ import { type WorkspaceCard } from "@/lib/projects/brief";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
 import {
   getBuildRecommendationHoldSignature,
+  getWorkspaceComposerState,
   getWorkspacePreviewIssue,
   isBuildRecommendationHeld,
   isWorkspaceBuildComplete,
-  shouldShowBuildRecommendationComposer,
   shouldRefreshWorkspaceAfterChatStatus,
   shouldUseGeneratedPreviewFrame,
 } from "@/lib/projects/workspace-sync";
@@ -71,6 +71,12 @@ type WorkspaceShellProps = {
 };
 
 type RuntimeWorkspaceState = {
+  activePreviewDeployment?: {
+    id: string;
+    lastRequestAt?: string | null;
+    publicPath?: string | null;
+    status: string;
+  } | null;
   build: {
     artifactRef?: string | null;
     finishedAt?: string | null;
@@ -96,6 +102,23 @@ type RuntimeWorkspaceState = {
     slug: string | null;
     status: string;
   } | null;
+  canPreview?: boolean;
+  canPublish?: boolean;
+  canRetry?: boolean;
+  latestAttempt?: {
+    id: string;
+    status: string;
+  } | null;
+  latestFailedAttempt?: {
+    id: string;
+    status: string;
+  } | null;
+  latestSuccessfulBuild?: {
+    id: string;
+    status: string;
+  } | null;
+  message?: string | null;
+  userFacingState?: string | null;
 };
 
 type WorkspaceStateResponse = {
@@ -162,6 +185,7 @@ export function WorkspaceShell({
   const previousScrollHeight = useRef<number | null>(null);
   const autoRetriedTurn = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isEditingPreview, setIsEditingPreview] = useState(false);
   const [rateLimitError, setRateLimitError] = useState<{
     message: string;
     retryAfter: number;
@@ -414,9 +438,8 @@ export function WorkspaceShell({
 
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
-  const isProcessing = isResponding || isBuilding;
+  const isProcessing = isResponding || isBuilding || isEditingPreview;
   const visibleMessages = [...olderMessages, ...messages];
-  const hasActiveQuestionCard = workspaceCard.type === "question";
   const buildRecommendationSignature =
     getBuildRecommendationHoldSignature(workspaceCard);
   const buildRecommendationHeld = isBuildRecommendationHeld(
@@ -428,17 +451,22 @@ export function WorkspaceShell({
     runtimeBuildStatus: runtimeState?.build?.status,
     sourceStatus,
   });
-  const showBuildRecommendationComposer = shouldShowBuildRecommendationComposer(
-    {
-      buildComplete,
-      card: workspaceCard,
-      held: buildRecommendationHeld,
-    },
-  );
+  const hasFailedLatestAttemptWithLastGood =
+    runtimeState?.userFacingState === "ready_with_failed_latest_attempt" &&
+    Boolean(runtimeState.build || runtimeState.deployment);
+  const composerState = getWorkspaceComposerState({
+    buildComplete,
+    card: workspaceCard,
+    hasFailedLatestAttemptWithLastGood,
+    held: buildRecommendationHeld,
+    postBuildChatOpen,
+  });
   const previewIssue = getWorkspacePreviewIssue({
     buildStatus,
     deploymentStatus: runtimeState?.deployment?.status,
+    runtimeBuildStatus: runtimeState?.build?.status,
     runtimeError,
+    runtimeUserFacingState: runtimeState?.userFacingState,
     sourceStatus,
   });
   const shouldRenderGeneratedPreview = shouldUseGeneratedPreviewFrame({
@@ -687,12 +715,81 @@ export function WorkspaceShell({
 
       setRateLimitError(null);
       setMessage("");
+
+      if (composerState === "post_build_chat") {
+        setIsEditingPreview(true);
+        setBuildStatus("building");
+        setBuildProgress((current) =>
+          addBuildProgressStep(current, {
+            detail:
+              "AI menerapkan perubahan ke source preview terakhir yang berhasil.",
+            label: "Mengedit website",
+            status: "active",
+          }),
+        );
+        void fetch(`/api/projects/${projectId}/edit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ instruction: trimmed }),
+        })
+          .then(async (response) => {
+            const result = (await response.json().catch(() => null)) as {
+              buildStatus?: string;
+              message?: string;
+            } | null;
+
+            if (!response.ok || result?.buildStatus !== "succeeded") {
+              setBuildStatus("failed");
+              setBuildProgress((current) =>
+                addBuildProgressStep(current, {
+                  detail:
+                    result?.message ||
+                    "Edit belum berhasil dibuild. Tampilan terakhir tetap aman.",
+                  label: "Edit belum selesai",
+                  status: "error",
+                }),
+              );
+              return;
+            }
+
+            setBuildStatus("ready");
+            setBuildProgress((current) => completeBuildProgress(current));
+            setActiveTab("preview");
+            setChatCollapsed(false);
+            setPreviewCollapsed(false);
+            chatPanelRef.current?.resize("32%");
+            previewPanelRef.current?.resize("68%");
+            setPreviewReloadKey((current) => current + 1);
+            void loadRuntimeState();
+          })
+          .catch(() => {
+            setBuildStatus("failed");
+            setBuildProgress((current) =>
+              addBuildProgressStep(current, {
+                detail: "Koneksi edit terputus. Tampilan terakhir tetap aman.",
+                label: "Edit terputus",
+                status: "error",
+              }),
+            );
+          })
+          .finally(() => setIsEditingPreview(false));
+        return;
+      }
+
       sendMessage(
         { text: trimmed },
         { body: { mode, workspaceAnswers: options.workspaceAnswers } },
       );
     },
-    [isProcessing, mode, rateLimitError, sendMessage],
+    [
+      composerState,
+      isProcessing,
+      loadRuntimeState,
+      mode,
+      projectId,
+      rateLimitError,
+      sendMessage,
+    ],
   );
 
   const holdBuildRecommendation = useCallback(() => {
@@ -799,12 +896,12 @@ export function WorkspaceShell({
     previewPanelRef.current?.resize("100%");
   }
 
-  function openPreviewPanel() {
+  const openPreviewPanel = useCallback(() => {
     setChatCollapsed(false);
     setPreviewCollapsed(false);
     chatPanelRef.current?.resize("32%");
     previewPanelRef.current?.resize("68%");
-  }
+  }, []);
 
   function openChatPanel() {
     setChatCollapsed(false);
@@ -973,54 +1070,68 @@ export function WorkspaceShell({
                 <div className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62">
                   Tunggu sebentar sebelum mengirim jawaban berikutnya.
                 </div>
-              ) : hasActiveQuestionCard && workspaceCard.type === "question" ? (
+              ) : composerState === "question" &&
+                workspaceCard.type === "question" ? (
                 <QuestionComposer
                   question={workspaceCard.question}
                   onSubmit={(answer, workspaceAnswers) =>
                     submitChatText(answer, { workspaceAnswers })
                   }
                 />
-              ) : showBuildRecommendationComposer ? (
+              ) : composerState === "build_recommendation" ? (
                 <WorkspaceCardView
                   card={workspaceCard}
                   onBuild={() => void startBuild()}
                   onDiscuss={holdBuildRecommendation}
                 />
-              ) : workspaceCard.type === "build_recommendation" &&
-                buildComplete &&
-                !postBuildChatOpen ? (
+              ) : composerState === "post_build_review" ||
+                composerState === "build_failed_with_last_good" ? (
                 <CompletedBuildNotice
+                  canPublish={runtimeControl.canPublish}
+                  isPublishing={runtimeControl.isPublishing}
                   onDiscuss={() => {
                     setMode("discuss");
                     setPostBuildChatOpen(true);
                   }}
+                  onPublish={runtimeControl.onPublish}
                   onPreview={() => {
                     setActiveTab("preview");
                     openPreviewPanel();
                   }}
                   onRebuild={() => void startBuild()}
+                  publishedPath={runtimeControl.publishedPath}
+                  variant={
+                    composerState === "build_failed_with_last_good"
+                      ? "recovery"
+                      : "ready"
+                  }
                 />
               ) : (
                 <>
-                  {workspaceCard.type === "build_recommendation" &&
-                  buildRecommendationHeld &&
-                  !buildComplete ? (
+                  {composerState === "held_build_recommendation" ? (
                     <HeldBuildRecommendationNotice
                       onBuild={() => void startBuild()}
                       onOpen={openBuildRecommendation}
                     />
                   ) : null}
-                  {workspaceCard.type === "build_recommendation" &&
-                  buildComplete &&
-                  postBuildChatOpen ? (
+                  {composerState === "post_build_chat" ? (
                     <CompletedBuildNotice
                       compact
+                      canPublish={runtimeControl.canPublish}
+                      isPublishing={runtimeControl.isPublishing}
                       onDiscuss={() => setPostBuildChatOpen(true)}
+                      onPublish={runtimeControl.onPublish}
                       onPreview={() => {
                         setActiveTab("preview");
                         openPreviewPanel();
                       }}
                       onRebuild={() => void startBuild()}
+                      publishedPath={runtimeControl.publishedPath}
+                      variant={
+                        hasFailedLatestAttemptWithLastGood
+                          ? "recovery"
+                          : "ready"
+                      }
                     />
                   ) : null}
                   <form
@@ -1304,27 +1415,49 @@ function HeldBuildRecommendationNotice({
 }
 
 function CompletedBuildNotice({
+  canPublish = false,
   compact = false,
+  isPublishing = false,
   onDiscuss,
+  onPublish,
   onPreview,
   onRebuild,
+  publishedPath,
+  variant = "ready",
 }: {
+  canPublish?: boolean;
   compact?: boolean;
+  isPublishing?: boolean;
   onDiscuss: () => void;
+  onPublish?: () => void;
   onPreview: () => void;
   onRebuild: () => void;
+  publishedPath?: string | null;
+  variant?: "ready" | "recovery";
 }) {
+  const isRecovery = variant === "recovery";
+  const canShowPublishAction = Boolean(
+    publishedPath || (canPublish && onPublish),
+  );
+
   return (
-    <div className="rounded-[22px] border border-[#8ce99a]/18 bg-[#1d211c] px-spacing-5 py-spacing-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+    <div
+      className={`rounded-[22px] border px-spacing-5 py-spacing-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] ${
+        isRecovery
+          ? "border-[#f6d365]/18 bg-[#242015]"
+          : "border-[#8ce99a]/18 bg-[#1d211c]"
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-spacing-4">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-surface-warm-white">
-            Website siap dicek
+            {isRecovery ? "Website terakhir masih aman" : "Website siap dicek"}
           </p>
           {!compact ? (
             <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/52">
-              Website sudah dibuat. Cek tampilannya, lanjut edit lewat chat,
-              atau build ulang kalau arah brief berubah.
+              {isRecovery
+                ? "Build terbaru gagal, tapi tampilan terakhir yang berhasil tetap bisa dicek. Kamu bisa edit lewat chat atau coba build ulang."
+                : "Website sudah dibuat. Cek tampilannya, lanjut edit lewat chat, atau build ulang kalau arah brief berubah."}
             </p>
           ) : null}
         </div>
@@ -1352,6 +1485,28 @@ function CompletedBuildNotice({
           >
             Build ulang
           </Button>
+          {canShowPublishAction ? (
+            publishedPath ? (
+              <a
+                href={publishedPath}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 items-center rounded-[12px] border border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+              >
+                Buka terbitan
+              </a>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onPublish}
+                disabled={!canPublish || isPublishing}
+                className="h-9 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8 disabled:opacity-45"
+              >
+                {isPublishing ? "Menerbitkan..." : "Terbitkan"}
+              </Button>
+            )
+          ) : null}
         </div>
       </div>
     </div>

@@ -3,6 +3,9 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
+import { validateGeneratedPackagePolicy } from "@/lib/projects/generated-package-policy";
+
 import { type ProjectSiteSchema } from "./site-schema";
 
 export type GeneratedProjectFile = {
@@ -84,6 +87,33 @@ export function assertSafeProjectFilePath(filePath: string) {
 export async function buildGeneratedProject(
   files: GeneratedProjectFile[],
 ): Promise<BuildGeneratedProjectResult> {
+  const manifestResult = validateGeneratedAppManifest(files);
+
+  if (!manifestResult.ok) {
+    return {
+      distFiles: [],
+      ok: false,
+      log: `Generated app manifest failed preflight:\n${manifestResult.issues
+        .map((issue) => `- ${issue}`)
+        .join("\n")}`,
+    };
+  }
+
+  const packagePolicyResult = validateGeneratedPackagePolicy(
+    files,
+    manifestResult.manifest.runtimeProfile,
+  );
+
+  if (!packagePolicyResult.ok) {
+    return {
+      distFiles: [],
+      ok: false,
+      log: `Generated app package policy failed preflight:\n${packagePolicyResult.issues
+        .map((issue) => `- ${issue}`)
+        .join("\n")}`,
+    };
+  }
+
   const root = await mkdir(path.join(tmpdir(), "umkmcepat-build-"), {
     recursive: true,
   }).then(() => path.join(tmpdir(), `umkmcepat-build-${crypto.randomUUID()}`));
@@ -243,9 +273,16 @@ export function createGeneratedProjectFiles(
     {
       path: ".umkmcepat/project.json",
       content: json({
-        schemaVersion: 1,
+        buildCommand: "bun run build",
+        capabilities: getProjectCapabilities(schema),
+        outputDirectory: "dist",
+        packageManager: "bun",
         projectId,
-        template: "vite-react-frontend-static-v1",
+        routes: [{ path: "/", title: schema.businessName || "Beranda" }],
+        runtimeProfile: "static-react-v1",
+        schemaVersion: "1",
+        templateId: "vite-react-frontend-static",
+        templateVersion: "1.0.0",
         variant,
       }),
     },
@@ -309,12 +346,74 @@ export function createGeneratedProjectFiles(
   ];
 }
 
+export function createGeneratedSourceSnapshotMetadata(
+  files: GeneratedProjectFile[],
+  schema: ProjectSiteSchema,
+) {
+  const manifestResult = validateGeneratedAppManifest(files);
+  const manifest = manifestResult.ok ? manifestResult.manifest : null;
+
+  return {
+    manifest,
+    manifestIssues: manifestResult.ok ? [] : manifestResult.issues,
+    origin: {
+      generator: "site-schema",
+      sourceType: "generated",
+    },
+    schemaVersion: schema.version,
+    sourceFileCount: files.length,
+    summary: {
+      businessName: schema.businessName,
+      capabilities: manifest?.capabilities ?? [],
+      routeCount: manifest?.routes.length ?? 0,
+      runtimeProfile: manifest?.runtimeProfile ?? null,
+      templateId: manifest?.templateId ?? null,
+    },
+    template: manifest?.templateId ?? "vite-react-frontend-static-v1",
+  };
+}
+
+function getProjectCapabilities(schema: ProjectSiteSchema) {
+  const text = [
+    schema.businessName,
+    schema.primaryCta,
+    schema.secondaryCta,
+    schema.offer,
+    ...schema.trustPoints,
+    ...schema.sections.flatMap((section) => [section.title, section.body]),
+  ]
+    .join(" ")
+    .toLowerCase();
+  const capabilities = new Set(["lead_intent", "static_content"]);
+
+  if (/\b(wa|whatsapp)\b/i.test(text)) {
+    capabilities.add("whatsapp_cta");
+  }
+
+  if (/(alamat|lokasi|maps|map|google maps)/i.test(text)) {
+    capabilities.add("location");
+  }
+
+  if (/(harga|katalog|menu|paket|produk|layanan)/i.test(text)) {
+    capabilities.add("catalog");
+  }
+
+  if (/(payment link|link pembayaran|bayar)/i.test(text)) {
+    capabilities.add("payment_link_placeholder");
+  }
+
+  return [...capabilities].sort();
+}
+
 type ProjectSiteVariant =
-  | "clean"
-  | "editorial"
-  | "retail"
-  | "technical"
-  | "warm";
+  | "angkringan"
+  | "automotive"
+  | "barber"
+  | "coffee"
+  | "fashion"
+  | "home-food"
+  | "laundry"
+  | "tutoring";
 
 function getProjectSiteVariant(schema: ProjectSiteSchema): ProjectSiteVariant {
   const text = [
@@ -330,53 +429,78 @@ function getProjectSiteVariant(schema: ProjectSiteSchema): ProjectSiteVariant {
     .join(" ")
     .toLowerCase();
 
-  if (text.includes("laundry") || text.includes("bersih")) {
-    return "clean";
+  if (text.includes("angkringan") || text.includes("nasi kucing")) {
+    return "angkringan";
+  }
+
+  if (text.includes("laundry") || text.includes("cuci setrika")) {
+    return "laundry";
+  }
+
+  if (
+    text.includes("coffee") ||
+    text.includes("kopi") ||
+    text.includes("espresso") ||
+    text.includes("manual brew")
+  ) {
+    return "coffee";
+  }
+
+  if (
+    text.includes("barber") ||
+    text.includes("pangkas") ||
+    text.includes("haircut") ||
+    text.includes("shave")
+  ) {
+    return "barber";
   }
 
   if (
     text.includes("bengkel") ||
-    text.includes("servis") ||
     text.includes("motor") ||
-    text.includes("mobil")
+    text.includes("mobil") ||
+    text.includes("servis") ||
+    text.includes("aki") ||
+    text.includes("velg")
   ) {
-    return "technical";
+    return "automotive";
   }
 
   if (
-    text.includes("toko") ||
-    text.includes("produk") ||
-    text.includes("katalog") ||
-    text.includes("frozen") ||
-    text.includes("lauk") ||
-    text.includes("camilan")
+    text.includes("fashion") ||
+    text.includes("outfit") ||
+    text.includes("koleksi") ||
+    text.includes("lookbook")
   ) {
-    return "retail";
+    return "fashion";
   }
 
   if (
-    text.includes("angkringan") ||
-    text.includes("nasi kucing") ||
-    text.includes("hangat") ||
-    text.includes("tradisional") ||
-    text.includes("kayu")
+    text.includes("les") ||
+    text.includes("tutoring") ||
+    text.includes("murid") ||
+    text.includes("ujian")
   ) {
-    return "warm";
+    return "tutoring";
   }
 
-  return "editorial";
+  if (
+    text.includes("makanan rumahan") ||
+    text.includes("nasi box") ||
+    text.includes("katering") ||
+    text.includes("pre order") ||
+    text.includes("lauk")
+  ) {
+    return "home-food";
+  }
+
+  return "angkringan";
 }
 
 function createAppSource(variant: ProjectSiteVariant) {
+  const config = getVariantConfig(variant);
   const shellClass = `site-shell variant-${variant}`;
-  const showcaseClass =
-    variant === "clean"
-      ? "service-grid"
-      : variant === "technical"
-        ? "checklist-panel"
-        : variant === "retail"
-          ? "product-grid"
-          : "menu-strip";
+  const showcaseClass = config.showcaseClass;
 
   return `import { useEffect } from "react";
 
@@ -385,6 +509,8 @@ import "./styles.css";
 
 const shellClass = "${shellClass}";
 const showcaseClass = "${showcaseClass}";
+const variantLabel = "${config.label}";
+const closingTitle = "${config.closingTitle}";
 
 export default function App() {
   useEffect(() => {
@@ -419,7 +545,7 @@ export default function App() {
         </div>
 
         <aside className="hero-card" aria-label="Ringkasan penawaran">
-          <span>Penawaran utama</span>
+          <span>{variantLabel}</span>
           <h2>{site.offer}</h2>
           <div className={showcaseClass}>
             {site.trustPoints.map((point) => (
@@ -444,9 +570,9 @@ export default function App() {
           <p className="eyebrow" style={{ color: site.theme.accent }}>
             Untuk {site.audience}
           </p>
-          <h2>Siap melayani lewat langkah yang jelas.</h2>
+          <h2>{closingTitle}</h2>
         </div>
-        <a className="primary" href="https://wa.me/">
+        <a className="primary" href="#contact">
           {site.primaryCta}
         </a>
       </section>
@@ -496,39 +622,131 @@ h1{max-width:820px;margin:0;font-size:76px;line-height:.96;letter-spacing:0}
 `;
 }
 
+function getVariantConfig(variant: ProjectSiteVariant) {
+  const configs: Record<
+    ProjectSiteVariant,
+    { closingTitle: string; label: string; showcaseClass: string }
+  > = {
+    angkringan: {
+      closingTitle: "Datang malam ini atau tanya menu yang masih hangat.",
+      label: "Menu malam favorit",
+      showcaseClass: "night-menu",
+    },
+    automotive: {
+      closingTitle:
+        "Booking servis, cek estimasi, atau tanya keluhan motor sebelum datang.",
+      label: "Layanan bengkel",
+      showcaseClass: "garage-board",
+    },
+    barber: {
+      closingTitle: "Pilih jam potong, datang rapi tanpa antre panjang.",
+      label: "Layanan grooming",
+      showcaseClass: "cut-list",
+    },
+    coffee: {
+      closingTitle: "Cek menu dan mampir untuk kerja atau ngobrol santai.",
+      label: "Racikan dan suasana",
+      showcaseClass: "brew-board",
+    },
+    fashion: {
+      closingTitle: "Tanya stok, ukuran, dan padanan sebelum pesan.",
+      label: "Lookbook pilihan",
+      showcaseClass: "lookbook-grid",
+    },
+    "home-food": {
+      closingTitle: "Pesan menu rumahan hari ini sebelum kuota habis.",
+      label: "Menu harian",
+      showcaseClass: "daily-menu",
+    },
+    laundry: {
+      closingTitle: "Atur pickup cucian dan dapatkan estimasi yang jelas.",
+      label: "Layanan laundry",
+      showcaseClass: "service-grid",
+    },
+    tutoring: {
+      closingTitle: "Diskusikan kebutuhan belajar anak dan jadwal yang cocok.",
+      label: "Rencana belajar",
+      showcaseClass: "learning-path",
+    },
+  };
+
+  return configs[variant];
+}
+
 function createVariantStyles(variant: ProjectSiteVariant) {
-  if (variant === "warm") {
-    return `.variant-warm .hero-card{box-shadow:14px 14px 0 color-mix(in srgb,currentColor 82%,transparent);background:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,246,232,.9))}
-.menu-strip{display:grid;gap:10px}
-.menu-strip p{margin:0;border-left:4px solid currentColor;border-radius:14px;background:rgba(255,255,255,.56);padding:13px 14px;line-height:1.45}
-.variant-warm .section-grid span{color:#b7521b}`;
+  if (variant === "angkringan") {
+    return `.variant-angkringan .hero-card{box-shadow:14px 14px 0 color-mix(in srgb,currentColor 82%,transparent);background:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,246,232,.9))}
+.night-menu{display:grid;gap:10px}
+.night-menu p{margin:0;border-left:4px solid currentColor;border-radius:14px;background:rgba(255,255,255,.56);padding:13px 14px;line-height:1.45}
+.variant-angkringan .section-grid span{color:#b7521b}`;
   }
 
-  if (variant === "clean") {
-    return `.variant-clean .hero{align-items:center}
-.variant-clean .hero-card{background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(235,250,246,.92));box-shadow:0 18px 60px rgba(18,33,29,.12)}
+  if (variant === "laundry") {
+    return `.variant-laundry .hero{align-items:center}
+.variant-laundry .hero-card{background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(235,250,246,.92));box-shadow:0 18px 60px rgba(18,33,29,.12)}
 .service-grid{display:grid;grid-template-columns:1fr;gap:12px}
 .service-grid p{margin:0;border:1px solid rgba(31,143,122,.18);border-radius:16px;background:rgba(255,255,255,.72);padding:14px;line-height:1.45}
-.variant-clean .section-grid span{color:#1f8f7a}`;
+.variant-laundry .section-grid span{color:#1f8f7a}`;
   }
 
-  if (variant === "technical") {
-    return `.variant-technical .hero-card{background:#f7f7f4;box-shadow:inset 0 0 0 8px rgba(0,0,0,.04)}
-.checklist-panel{display:grid;gap:12px}
-.checklist-panel p{margin:0;border-radius:12px;background:#151715;color:white;padding:14px;line-height:1.45}
-.variant-technical .section-grid span{color:#d3342f}`;
+  if (variant === "coffee") {
+    return `.variant-coffee .hero{grid-template-columns:minmax(0,.9fr) minmax(360px,1.1fr)}
+.variant-coffee .hero-card{background:radial-gradient(circle at top right,rgba(148,92,52,.22),transparent 42%),#fff8ef;box-shadow:0 24px 70px rgba(73,44,24,.16)}
+.brew-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.brew-board p{margin:0;border-radius:999px;background:#3b2418;color:#fff7ed;padding:12px 14px;line-height:1.35;text-align:center}
+.variant-coffee .section-grid article:first-child{grid-column:span 2}
+.variant-coffee .section-grid span{color:#8a4b24}
+@media(max-width:820px){.variant-coffee .section-grid article:first-child{grid-column:auto}}`;
   }
 
-  if (variant === "retail") {
-    return `.variant-retail .hero-card{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(250,247,238,.9))}
-.product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.product-grid p{margin:0;min-height:92px;border:1px solid rgba(0,0,0,.1);border-radius:18px;background:white;padding:14px;line-height:1.45}
-.variant-retail .section-grid span{color:#8d6b32}
-@media(max-width:520px){.product-grid{grid-template-columns:1fr}}`;
+  if (variant === "automotive") {
+    return `.variant-automotive{background:#101211!important;color:#f7f7f2!important}
+.variant-automotive .topbar,.variant-automotive .hero-card,.variant-automotive .section-grid article{border-color:rgba(247,247,242,.14)}
+.variant-automotive .hero{grid-template-columns:minmax(0,.88fr) minmax(420px,1.12fr)}
+.variant-automotive .hero-card{background:linear-gradient(145deg,#1b1f1d,#111312);box-shadow:16px 16px 0 rgba(211,52,47,.72)}
+.garage-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.garage-board p{margin:0;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.07);padding:14px;line-height:1.45;font-weight:750}
+.variant-automotive .section-grid article{background:rgba(255,255,255,.055)}
+.variant-automotive .section-grid span{color:#ff6b62}
+.variant-automotive .primary{background:#d3342f;color:#fff}
+@media(max-width:820px){.variant-automotive .hero{display:block}.garage-board{grid-template-columns:1fr}}`;
   }
 
-  return `.variant-editorial .hero-card{background:rgba(255,255,255,.72);box-shadow:0 18px 60px rgba(0,0,0,.12)}
-.menu-strip{display:grid;gap:10px}
-.menu-strip p{margin:0;border-bottom:1px solid rgba(0,0,0,.12);padding:0 0 12px;line-height:1.45}
-.variant-editorial .section-grid span{color:#f05a28}`;
+  if (variant === "barber") {
+    return `.variant-barber{background:#111312!important;color:#f8f3ea!important}
+.variant-barber .topbar,.variant-barber .hero-card,.variant-barber .section-grid article{border-color:rgba(248,243,234,.16)}
+.variant-barber .hero-card{background:#1c1f1d;box-shadow:inset 0 0 0 8px rgba(255,255,255,.04)}
+.cut-list{display:grid;gap:12px;counter-reset:cuts}
+.cut-list p{counter-increment:cuts;margin:0;border-radius:12px;background:#f8f3ea;color:#111312;padding:14px;line-height:1.45;font-weight:800}
+.cut-list p:before{content:counter(cuts) ". ";color:#9b1c1c}
+.variant-barber .section-grid article{background:rgba(255,255,255,.06)}
+.variant-barber .section-grid span{color:#ffcf6f}`;
+  }
+
+  if (variant === "fashion") {
+    return `.variant-fashion .hero{grid-template-columns:minmax(0,1fr) minmax(380px,.9fr)}
+.variant-fashion .hero-card{background:linear-gradient(135deg,#fff,#f3eee7);border-radius:44px 12px 44px 12px}
+.lookbook-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.lookbook-grid p{margin:0;min-height:96px;border:1px solid rgba(0,0,0,.1);border-radius:24px 24px 6px 24px;background:white;padding:14px;line-height:1.45}
+.variant-fashion .section-grid{grid-template-columns:1.2fr .8fr}
+.variant-fashion .section-grid span{color:#a05a7a}
+@media(max-width:820px){.variant-fashion .section-grid{grid-template-columns:1fr}}`;
+  }
+
+  if (variant === "tutoring") {
+    return `.variant-tutoring .hero-card{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(239,244,255,.94));box-shadow:0 18px 60px rgba(31,51,91,.12)}
+.learning-path{display:grid;gap:0;border:1px solid rgba(31,51,91,.14);border-radius:20px;overflow:hidden}
+.learning-path p{margin:0;background:white;padding:15px 16px;line-height:1.45;border-bottom:1px solid rgba(31,51,91,.1)}
+.learning-path p:last-child{border-bottom:0}
+.variant-tutoring .section-grid article{background:#fbfcff}
+.variant-tutoring .section-grid span{color:#3155a4}`;
+  }
+
+  return `.variant-home-food .hero-card{background:radial-gradient(circle at top left,rgba(255,126,74,.22),transparent 40%),#fffaf2;box-shadow:0 18px 55px rgba(116,64,29,.14)}
+.daily-menu{display:grid;grid-template-columns:1fr;gap:12px}
+.daily-menu p{margin:0;border:1px dashed rgba(116,64,29,.32);border-radius:18px;background:rgba(255,255,255,.76);padding:14px 16px;line-height:1.45}
+.variant-home-food .section-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.variant-home-food .section-grid article{background:#fffaf2}
+.variant-home-food .section-grid span{color:#c65b2c}
+@media(max-width:820px){.variant-home-food .section-grid{grid-template-columns:1fr}}`;
 }

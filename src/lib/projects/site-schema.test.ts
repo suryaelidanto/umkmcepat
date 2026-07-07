@@ -6,6 +6,7 @@ import {
   getProjectSiteSchemaCandidateIssues,
   getProjectSiteSchemaQualityIssues,
   parseProjectSiteSchema,
+  resolveProjectSiteSchemaCandidate,
 } from "./site-schema";
 
 describe("project site schema", () => {
@@ -167,5 +168,57 @@ describe("project site schema", () => {
         "missing_theme",
       ]),
     );
+  });
+  it("uses deterministic brief schema when AI structured output is empty but fallback is specific", () => {
+    const brief = {
+      version: 1 as const,
+      prompt: "buatkan website bengkel motor",
+      businessName: "Website Bengkel Motor",
+      businessType: "Bengkel servis motor harian",
+      offer:
+        "Ganti ban dan velg, perbaikan kelistrikan, aki, lampu, klakson, ECU",
+      targetCustomer:
+        "Pengendara harian, pekerja kantoran, mahasiswa, dan ibu-ibu pengguna motor",
+      contactOrCta: "Booking servis dan konsultasi lewat WhatsApp",
+      stylePreference: "Modern bersih, rapi, jelas, dan mudah dipercaya",
+      notes: [],
+    };
+    const fallbackSchema = createProjectSiteSchemaFromBrief(brief);
+
+    const result = resolveProjectSiteSchemaCandidate({
+      brief,
+      fallbackSchema,
+      value: {},
+    });
+
+    expect(result.issues).toEqual([]);
+    expect(result.schema).toBe(fallbackSchema);
+    expect(result.usedDeterministicFallback).toBe(true);
+  });
+  it("creates specific automotive copy instead of menu-style fallback sections", () => {
+    const schema = createProjectSiteSchemaFromBrief({
+      version: 1,
+      prompt: "buatkan website bengkel motor",
+      businessName: "Website Bengkel Motor",
+      businessType: "Bengkel servis motor harian",
+      offer:
+        "Ganti ban dan velg, perbaikan kelistrikan, aki, lampu, klakson, ECU",
+      targetCustomer: "Pengendara harian dan pekerja sekitar",
+      contactOrCta: "Booking servis lewat WhatsApp",
+      stylePreference: "Modern bersih dan teknis",
+      notes: [],
+    });
+    const allCopy = [
+      schema.headline,
+      schema.subheadline,
+      ...schema.trustPoints,
+      ...schema.sections.flatMap((section) => [section.title, section.body]),
+    ].join(" ");
+
+    expect(schema.headline.toLowerCase()).toContain("servis motor");
+    expect(allCopy.toLowerCase()).toContain("kelistrikan");
+    expect(allCopy.toLowerCase()).toContain("booking");
+    expect(allCopy.toLowerCase()).not.toContain("menu malam");
+    expect(allCopy.toLowerCase()).not.toContain("datang malam");
   });
 });

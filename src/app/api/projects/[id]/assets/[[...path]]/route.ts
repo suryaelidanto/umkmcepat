@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
 import {
   PREVIEW_ASSET_TOKEN_PARAM,
@@ -18,16 +19,32 @@ export async function GET(
 ) {
   const { id, path = [] } = await params;
   const assetPath = ["assets", ...path];
-  const deployment = await prisma.projectDeployment.findFirst({
+  const deployments = await prisma.projectDeployment.findMany({
     where: { kind: "preview", projectId: id },
     orderBy: { createdAt: "desc" },
+    take: 20,
     select: {
-      build: { select: { artifactRef: true } },
+      build: {
+        select: {
+          artifactRef: true,
+          createdAt: true,
+          id: true,
+          snapshotId: true,
+          status: true,
+          updatedAt: true,
+        },
+      },
+      buildId: true,
+      createdAt: true,
       id: true,
+      kind: true,
       projectId: true,
+      snapshotId: true,
       status: true,
+      updatedAt: true,
     },
   });
+  const deployment = selectActivePreviewDeployment(deployments);
   const requestUrl = new URL(request.url);
   const assetToken = requestUrl.searchParams.get(PREVIEW_ASSET_TOKEN_PARAM);
 

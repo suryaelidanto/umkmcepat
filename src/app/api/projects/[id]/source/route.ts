@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import {
   createGeneratedProjectFiles,
   parseGeneratedProjectFiles,
@@ -44,23 +45,86 @@ export async function GET(
   >`
     SELECT "sourceFiles", "buildStatus", "buildLog" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
   `;
-  const latestSnapshot = await prisma.projectSnapshot.findFirst({
+  const deployments = await prisma.projectDeployment.findMany({
+    where: { kind: "preview", projectId: project.id },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: {
+      build: {
+        select: {
+          artifactRef: true,
+          createdAt: true,
+          id: true,
+          logText: true,
+          snapshotId: true,
+          status: true,
+          updatedAt: true,
+        },
+      },
+      buildId: true,
+      createdAt: true,
+      id: true,
+      kind: true,
+      snapshot: {
+        select: {
+          createdAt: true,
+          files: true,
+          id: true,
+          metadata: true,
+          sourceRef: true,
+          sourceType: true,
+        },
+      },
+      snapshotId: true,
+      status: true,
+      updatedAt: true,
+    },
+  });
+  const latestAttempt = await prisma.projectBuild.findFirst({
     where: { projectId: project.id },
     orderBy: { createdAt: "desc" },
-    select: { files: true, sourceRef: true },
+    select: {
+      id: true,
+      logText: true,
+      snapshot: {
+        select: {
+          createdAt: true,
+          files: true,
+          id: true,
+          metadata: true,
+          sourceRef: true,
+          sourceType: true,
+        },
+      },
+      snapshotId: true,
+      status: true,
+    },
   });
-  const latestBuild = await prisma.projectBuild.findFirst({
-    where: { projectId: project.id },
-    orderBy: { createdAt: "desc" },
-    select: { logText: true, status: true },
-  });
-  const artifactFiles = latestSnapshot?.sourceRef
-    ? await readProjectSourceArtifact(latestSnapshot.sourceRef).catch(() => [])
+  const activeDeployment = selectActivePreviewDeployment(deployments);
+  const activeSnapshot = activeDeployment?.snapshot;
+  const activeBuild = activeDeployment?.build;
+  const fallbackSnapshot = activeDeployment
+    ? null
+    : await prisma.projectSnapshot.findFirst({
+        where: { projectId: project.id },
+        orderBy: { createdAt: "desc" },
+        select: {
+          createdAt: true,
+          files: true,
+          id: true,
+          metadata: true,
+          sourceRef: true,
+          sourceType: true,
+        },
+      });
+  const snapshot = activeSnapshot ?? fallbackSnapshot;
+  const artifactFiles = snapshot?.sourceRef
+    ? await readProjectSourceArtifact(snapshot.sourceRef).catch(() => [])
     : [];
   const storedFiles = artifactFiles.length
     ? artifactFiles
-    : parseGeneratedProjectFiles(latestSnapshot?.files).length
-      ? parseGeneratedProjectFiles(latestSnapshot?.files)
+    : parseGeneratedProjectFiles(snapshot?.files).length
+      ? parseGeneratedProjectFiles(snapshot?.files)
       : parseGeneratedProjectFiles(sourceRow?.sourceFiles);
   const siteSchema = parseProjectSiteSchema(
     (project as { siteSchema?: unknown }).siteSchema,
@@ -69,14 +133,56 @@ export async function GET(
 
   return Response.json({
     projectId: project.id,
-    buildLog: latestBuild?.logText ?? sourceRow?.buildLog ?? "",
+    buildLog: activeBuild?.logText ?? sourceRow?.buildLog ?? "",
     buildStatus: mapBuildStatusForWorkspace(
-      latestBuild?.status ?? sourceRow?.buildStatus,
+      activeBuild?.status ?? sourceRow?.buildStatus,
     ),
+    currentPreviewSource: snapshot
+      ? createSourceSummary(snapshot, activeBuild ?? null)
+      : null,
     files: storedFiles.length
       ? storedFiles
       : createGeneratedProjectFiles(project.id, siteSchema),
+    latestAttempt: latestAttempt ? createBuildSummary(latestAttempt) : null,
+    latestAttemptSource: latestAttempt?.snapshot
+      ? createSourceSummary(latestAttempt.snapshot, latestAttempt)
+      : null,
   });
+}
+
+function createBuildSummary(build: {
+  id: string;
+  logText?: string | null;
+  snapshotId?: string | null;
+  status: string;
+}) {
+  return {
+    buildId: build.id,
+    logText: build.logText ?? null,
+    snapshotId: build.snapshotId ?? null,
+    status: build.status,
+  };
+}
+
+function createSourceSummary(
+  snapshot: {
+    createdAt?: Date | string | null;
+    id: string;
+    metadata?: unknown;
+    sourceRef?: string | null;
+    sourceType?: string | null;
+  },
+  build: { id: string; status: string } | null,
+) {
+  return {
+    buildId: build?.id ?? null,
+    buildStatus: build?.status ?? null,
+    createdAt: snapshot.createdAt ?? null,
+    metadata: snapshot.metadata ?? null,
+    snapshotId: snapshot.id,
+    sourceRef: snapshot.sourceRef ?? null,
+    sourceType: snapshot.sourceType ?? null,
+  };
 }
 
 function mapBuildStatusForWorkspace(status?: string | null) {

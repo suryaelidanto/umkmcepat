@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { selectActivePublishedDeployment } from "@/lib/projects/deployment-resolution";
 import { proxyDeploymentRequest } from "@/lib/projects/runtime-proxy";
 
 export const runtime = "nodejs";
@@ -8,15 +9,31 @@ export async function GET(
   { params }: { params: Promise<{ path?: string[]; slug: string }> },
 ) {
   const { path = [], slug } = await params;
-  const deployment = await prisma.projectDeployment.findFirst({
+  const deployments = await prisma.projectDeployment.findMany({
     where: { kind: "published", slug },
     orderBy: { updatedAt: "desc" },
+    take: 20,
     select: {
-      build: { select: { artifactRef: true } },
+      build: {
+        select: {
+          artifactRef: true,
+          createdAt: true,
+          id: true,
+          snapshotId: true,
+          status: true,
+          updatedAt: true,
+        },
+      },
+      buildId: true,
+      createdAt: true,
       id: true,
+      kind: true,
+      snapshotId: true,
       status: true,
+      updatedAt: true,
     },
   });
+  const deployment = selectActivePublishedDeployment(deployments);
 
   if (!deployment?.build?.artifactRef) {
     return Response.json(

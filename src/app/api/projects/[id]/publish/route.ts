@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selectLatestSuccessfulBuild } from "@/lib/projects/deployment-resolution";
 import { createRuntimeEventData } from "@/lib/projects/runtime-events";
 
 export const runtime = "nodejs";
@@ -30,15 +31,22 @@ export async function POST(
     );
   }
 
-  const build = await prisma.projectBuild.findFirst({
+  const builds = await prisma.projectBuild.findMany({
     where: {
-      artifactRef: { not: null },
       projectId: project.id,
-      status: "succeeded",
     },
     orderBy: { createdAt: "desc" },
-    select: { id: true, snapshotId: true },
+    take: 20,
+    select: {
+      artifactRef: true,
+      createdAt: true,
+      id: true,
+      snapshotId: true,
+      status: true,
+      updatedAt: true,
+    },
   });
+  const build = selectLatestSuccessfulBuild(builds);
 
   if (!build) {
     return Response.json(
