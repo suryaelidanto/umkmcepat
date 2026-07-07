@@ -33,14 +33,14 @@ describe("generated app agent tool runner", () => {
     const result = runGeneratedAppAgentTools({
       commands: [
         { type: "list_files" },
-        { path: "src/data/site.ts", type: "read_file" },
+        { path: "src/content/site.ts", type: "read_file" },
         {
           query: "Menu kopi",
           type: "search_files",
         },
         {
           find: "Menu kopi dan lokasi",
-          path: "src/data/site.ts",
+          path: "src/content/site.ts",
           replace: "Menu kopi, suasana tempat, dan lokasi",
           type: "replace_in_file",
         },
@@ -52,13 +52,13 @@ describe("generated app agent tool runner", () => {
     expect(result.ok).toBe(true);
     expect(result.sideEffects).toContainEqual(
       expect.objectContaining({
-        path: "src/data/site.ts",
+        path: "src/content/site.ts",
         type: "replace_in_file",
       }),
     );
     expect(result.outputs).toContainEqual(
       expect.objectContaining({
-        paths: expect.arrayContaining(["src/data/site.ts"]),
+        paths: expect.arrayContaining(["src/content/site.ts"]),
         type: "list_files",
       }),
     );
@@ -70,11 +70,11 @@ describe("generated app agent tool runner", () => {
     );
     expect(result.outputs).toContainEqual(
       expect.objectContaining({
-        paths: expect.arrayContaining(["src/data/site.ts"]),
+        paths: expect.arrayContaining(["src/content/site.ts"]),
         type: "search_files",
       }),
     );
-    expect(readFileContent(result.files, "src/data/site.ts")).toContain(
+    expect(readFileContent(result.files, "src/content/site.ts")).toContain(
       "Menu kopi, suasana tempat, dan lokasi",
     );
     expect(result.check?.ok).toBe(true);
@@ -119,7 +119,7 @@ describe("generated app agent tool runner", () => {
 
     expect(result.ok).toBe(false);
     expect(result.check?.issues).toContain(
-      "Package is not allowed for static-react-v1: express",
+      "Package is not allowed for vite-react-tanstack-v1: express",
     );
     expect(result.sideEffects).toContainEqual(
       expect.objectContaining({ path: "package.json", type: "write_file" }),
@@ -131,7 +131,7 @@ describe("generated app agent tool runner", () => {
       commands: [
         {
           find: "Menu kopi dan lokasi",
-          path: "src/data/site.ts",
+          path: "src/content/site.ts",
           replace: "Menu kopi premium",
           type: "replace_in_file",
         },
@@ -151,7 +151,7 @@ describe("generated app agent tool runner", () => {
       commands: [
         {
           find: "not present in this file",
-          path: "src/data/site.ts",
+          path: "src/content/site.ts",
           replace: "new text",
           type: "replace_in_file",
         },
@@ -163,7 +163,7 @@ describe("generated app agent tool runner", () => {
     expect(result.ok).toBe(false);
     expect(result.outputs).toContainEqual(
       expect.objectContaining({
-        error: "Replacement target not found in src/data/site.ts.",
+        error: "Replacement target not found in src/content/site.ts.",
         type: "replace_in_file",
       }),
     );

@@ -4,9 +4,9 @@ import { getAiModel } from "@/lib/ai";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
+import { generateCustomProjectFilesWithAgent } from "@/lib/projects/custom-source-generator";
 import {
   buildGeneratedProject,
-  createGeneratedProjectFiles,
   createGeneratedSourceSnapshotMetadata,
 } from "@/lib/projects/generated-source";
 import {
@@ -219,13 +219,24 @@ export async function POST(request: Request, { params }: RouteProps) {
         }
 
         const finalSchema = schemaResult.schema;
-        const sourceFiles = createGeneratedProjectFiles(
-          project.id,
-          finalSchema,
-        );
         send("progress", {
-          label: "Menyiapkan file website",
-          detail: `${sourceFiles.length} file website disiapkan untuk project ini.`,
+          label: "Menyiapkan starter React",
+          detail: "Vite React TypeScript dan TanStack Router disiapkan.",
+        });
+        const sourceGeneration = await generateCustomProjectFilesWithAgent({
+          projectId: project.id,
+          schema: finalSchema,
+        });
+        const sourceFiles = sourceGeneration.files;
+        send("progress", {
+          label:
+            sourceGeneration.generationMode === "agent-custom"
+              ? "AI menulis file website"
+              : "AI memakai fallback aman",
+          detail:
+            sourceGeneration.generationMode === "agent-custom"
+              ? `${sourceGeneration.touchedFiles.length} file dibuat atau diubah agent.`
+              : `Fallback dipakai: ${sourceGeneration.fallbackReason}`,
         });
         const snapshot = await prisma.projectSnapshot.create({
           data: {
@@ -233,6 +244,7 @@ export async function POST(request: Request, { params }: RouteProps) {
             metadata: createGeneratedSourceSnapshotMetadata(
               sourceFiles,
               finalSchema,
+              sourceGeneration,
             ),
             projectId: project.id,
             sourceType: GENERATED_SNAPSHOT_SOURCE_TYPE,

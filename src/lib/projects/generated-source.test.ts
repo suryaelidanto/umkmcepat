@@ -127,13 +127,13 @@ describe("generated project source", () => {
 
     const outputs = fixtures.map((fixture) => {
       const files = createFiles(`project_${fixture.key}`, fixture.input);
-      const app = readGeneratedFile(files, "src/App.tsx");
+      const app = readGeneratedFile(files, "src/routes/index.tsx");
       const css = readGeneratedFile(files, "src/styles.css");
       const manifest = validateGeneratedAppManifest(files);
 
       expect(app).toContain(`variant-${fixture.variant}`);
-      expect(css).toContain(fixture.marker);
-      expect(app).toContain("umkmcepat-preview-ready");
+      expect(css).toContain(`variant-${fixture.variant}`);
+      expect(app).toContain("usePreviewReady");
       expect(app).not.toMatch(/checkout|payment|login|register|api\//i);
       expect(css).not.toMatch(/checkout|payment|login|register|api\//i);
       expect(manifest.ok).toBe(true);
@@ -156,11 +156,11 @@ describe("generated project source", () => {
       stylePreference: "Modern bersih dan teknis",
     });
 
-    expect(readGeneratedFile(files, "src/App.tsx")).toContain(
+    expect(readGeneratedFile(files, "src/routes/index.tsx")).toContain(
       "variant-automotive",
     );
     expect(readGeneratedFile(files, "src/styles.css")).toContain(
-      ".garage-board",
+      "variant-automotive",
     );
   });
   it("adds a preview-ready signal after the generated React app renders", () => {
@@ -173,14 +173,14 @@ describe("generated project source", () => {
         contactOrCta: "Booking lewat WhatsApp",
         stylePreference: "Bersih dan profesional",
       }),
-      "src/App.tsx",
+      "src/lib/preview-ready.ts",
     );
 
     expect(app).toContain("useEffect");
     expect(app).toContain("umkmcepat-preview-ready");
   });
 
-  it("generates a valid app manifest for the static React profile", () => {
+  it("generates a valid app manifest for the Vite TanStack profile", () => {
     const files = createFiles("project_manifest", {
       prompt: "buatkan website coffee shop",
       businessType: "Coffee shop kecil",
@@ -198,9 +198,9 @@ describe("generated project source", () => {
       outputDirectory: "dist",
       packageManager: "bun",
       projectId: "project_manifest",
-      runtimeProfile: "static-react-v1",
+      runtimeProfile: "vite-react-tanstack-v1",
       schemaVersion: "1",
-      templateId: "vite-react-frontend-static",
+      templateId: "vite-react-tanstack-starter",
       templateVersion: "1.0.0",
     });
   });
@@ -222,7 +222,7 @@ describe("generated project source", () => {
     expect(createGeneratedSourceSnapshotMetadata(files, schema)).toMatchObject({
       manifest: {
         projectId: "project_snapshot",
-        runtimeProfile: "static-react-v1",
+        runtimeProfile: "vite-react-tanstack-v1",
         schemaVersion: "1",
       },
       origin: {
@@ -232,7 +232,7 @@ describe("generated project source", () => {
       sourceFileCount: files.length,
       summary: {
         businessName: schema.businessName,
-        runtimeProfile: "static-react-v1",
+        runtimeProfile: "vite-react-tanstack-v1",
       },
     });
   });
@@ -282,7 +282,7 @@ describe("generated project source", () => {
       "Generated app package policy failed preflight",
     );
     expect(result.log).toContain(
-      "Package is not allowed for static-react-v1: express",
+      "Package is not allowed for vite-react-tanstack-v1: express",
     );
   });
 });

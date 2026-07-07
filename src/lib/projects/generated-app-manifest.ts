@@ -2,7 +2,10 @@ import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
 
 export const GENERATED_APP_MANIFEST_PATH = ".umkmcepat/project.json";
 
-const SUPPORTED_RUNTIME_PROFILES = new Set(["static-react-v1"]);
+const SUPPORTED_RUNTIME_PROFILES = new Set([
+  "static-react-v1",
+  "vite-react-tanstack-v1",
+]);
 const SUPPORTED_CAPABILITIES = new Set([
   "catalog",
   "lead_intent",
@@ -19,7 +22,7 @@ export type GeneratedAppManifest = {
   packageManager: "bun";
   projectId: string;
   routes: Array<{ path: string; title: string }>;
-  runtimeProfile: "static-react-v1";
+  runtimeProfile: "static-react-v1" | "vite-react-tanstack-v1";
   schemaVersion: "1";
   templateId: string;
   templateVersion: string;

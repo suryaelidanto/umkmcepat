@@ -263,11 +263,178 @@ function getContentType(filePath: string) {
   return "text/plain; charset=utf-8";
 }
 
+export function createGeneratedViteTanStackStarterFiles(
+  projectId: string,
+  schema: ProjectSiteSchema,
+): GeneratedProjectFile[] {
+  return [
+    {
+      path: ".umkmcepat/project.json",
+      content: json({
+        buildCommand: "bun run build",
+        capabilities: getProjectCapabilities(schema),
+        generationMode: "agent-starter",
+        outputDirectory: "dist",
+        packageManager: "bun",
+        projectId,
+        routes: [{ path: "/", title: "Beranda" }],
+        runtimeProfile: "vite-react-tanstack-v1",
+        schemaVersion: "1",
+        templateId: "vite-react-tanstack-starter",
+        templateVersion: "1.0.0",
+      }),
+    },
+    {
+      path: "package.json",
+      content: json({
+        name: toPackageName(schema.businessName),
+        private: true,
+        version: "0.0.0",
+        type: "module",
+        scripts: {
+          dev: "vite",
+          build: "tsc -b && vite build",
+          lint: "eslint .",
+          preview: "vite preview",
+        },
+        dependencies: {
+          "@tanstack/react-query": "^5.101.2",
+          "@tanstack/react-router": "^1.170.17",
+          clsx: "^2.1.1",
+          "lucide-react": "^0.575.0",
+          react: "^19.2.7",
+          "react-dom": "^19.2.7",
+        },
+        devDependencies: {
+          "@eslint/js": "^10.0.1",
+          "@types/node": "^24.13.2",
+          "@types/react": "^19.2.17",
+          "@types/react-dom": "^19.2.3",
+          "@vitejs/plugin-react": "^6.0.3",
+          eslint: "^10.6.0",
+          "eslint-plugin-react-hooks": "^7.1.1",
+          "eslint-plugin-react-refresh": "^0.5.3",
+          globals: "^17.7.0",
+          typescript: "~6.0.2",
+          "typescript-eslint": "^8.62.0",
+          vite: "^8.1.1",
+        },
+      }),
+    },
+    {
+      path: "vite.config.ts",
+      content: `import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  base: './',\n  plugins: [react()],\n})\n`,
+    },
+    {
+      path: "tsconfig.json",
+      content: json({
+        files: [],
+        references: [
+          { path: "./tsconfig.app.json" },
+          { path: "./tsconfig.node.json" },
+        ],
+      }),
+    },
+    {
+      path: "tsconfig.app.json",
+      content: json({
+        compilerOptions: {
+          tsBuildInfoFile: "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+          target: "es2023",
+          lib: ["ES2023", "DOM"],
+          module: "esnext",
+          types: ["vite/client"],
+          allowArbitraryExtensions: true,
+          skipLibCheck: true,
+          moduleResolution: "bundler",
+          allowImportingTsExtensions: true,
+          verbatimModuleSyntax: true,
+          moduleDetection: "force",
+          noEmit: true,
+          jsx: "react-jsx",
+          noUnusedLocals: true,
+          noUnusedParameters: true,
+          erasableSyntaxOnly: true,
+          noFallthroughCasesInSwitch: true,
+        },
+        include: ["src"],
+      }),
+    },
+    {
+      path: "tsconfig.node.json",
+      content: json({
+        compilerOptions: {
+          tsBuildInfoFile: "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+          target: "es2023",
+          lib: ["ES2023"],
+          types: ["node"],
+          skipLibCheck: true,
+          module: "nodenext",
+          allowImportingTsExtensions: true,
+          verbatimModuleSyntax: true,
+          moduleDetection: "force",
+          noEmit: true,
+        },
+        include: ["vite.config.ts"],
+      }),
+    },
+    {
+      path: "eslint.config.js",
+      content: `import js from '@eslint/js'\nimport globals from 'globals'\nimport reactHooks from 'eslint-plugin-react-hooks'\nimport reactRefresh from 'eslint-plugin-react-refresh'\nimport tseslint from 'typescript-eslint'\nimport { defineConfig, globalIgnores } from 'eslint/config'\n\nexport default defineConfig([\n  globalIgnores(['dist']),\n  {\n    files: ['**/*.{ts,tsx}'],\n    extends: [\n      js.configs.recommended,\n      tseslint.configs.recommended,\n      reactHooks.configs.flat.recommended,\n      reactRefresh.configs.vite,\n    ],\n    languageOptions: {\n      globals: globals.browser,\n    },\n  },\n])\n`,
+    },
+    {
+      path: "index.html",
+      content: `<div id="root"></div><script type="module" src="/src/main.tsx"></script>\n`,
+    },
+    {
+      path: "src/main.tsx",
+      content: `import { RouterProvider } from "@tanstack/react-router";\nimport { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\n\nimport { router } from "./router";\nimport "./styles.css";\n\ncreateRoot(document.getElementById("root")!).render(\n  <StrictMode>\n    <RouterProvider router={router} />\n  </StrictMode>,\n);\n`,
+    },
+    {
+      path: "src/router.tsx",
+      content: `import { createRoute, createRouter } from "@tanstack/react-router";\n\nimport { rootRoute } from "./routes/__root";\nimport { HomeRouteComponent } from "./routes/index";\n\nconst indexRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/",\n  component: HomeRouteComponent,\n});\n\nconst routeTree = rootRoute.addChildren([indexRoute]);\n\nexport const router = createRouter({ routeTree });\n\ndeclare module "@tanstack/react-router" {\n  interface Register {\n    router: typeof router;\n  }\n}\n`,
+    },
+    {
+      path: "src/routes/__root.tsx",
+      content: `import { createRootRoute, Outlet } from "@tanstack/react-router";\n\nexport const rootRoute = createRootRoute({\n  component: () => <Outlet />,\n});\n`,
+    },
+    {
+      path: "src/routes/index.tsx",
+      content: `import { site } from "../content/site";\nimport { usePreviewReady } from "../lib/preview-ready";\n\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  const starterMessage = "Replace this starter route with a custom UMKM app.";\n\n  return (\n    <main className="starter-shell">\n      <p>{site.businessName}</p>\n      <h1>{starterMessage}</h1>\n    </main>\n  );\n}\n`,
+    },
+    {
+      path: "src/content/site.ts",
+      content: `export const site = ${json(schema)} as const;\n`,
+    },
+    {
+      path: "src/lib/preview-ready.ts",
+      content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "umkmcepat-preview-ready" }, "*");\n  }, []);\n}\n`,
+    },
+    {
+      path: "src/styles.css",
+      content: `:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#111827;background:#f9fafb}*{box-sizing:border-box}body{margin:0}.starter-shell{min-height:100dvh;display:grid;place-content:center;padding:40px;text-align:center}.starter-shell h1{max-width:720px;font-size:clamp(32px,5vw,64px);line-height:1}\n`,
+    },
+    {
+      path: "AGENTS.md",
+      content:
+        "# Generated UMKM Cepat Vite starter\n\nThis is the initial Vite React TypeScript ESLint + TanStack Router starter. Replace placeholder routes with business-specific static frontend files. Keep user-facing copy Indonesian. No backend, auth, checkout, payment processing, databases, browser automation, native packages, or extra dependencies unless the platform explicitly supports them. Always keep the preview-ready helper wired after React renders.\n",
+    },
+  ];
+}
+
 export function createGeneratedProjectFiles(
   projectId: string,
   schema: ProjectSiteSchema,
 ): GeneratedProjectFile[] {
+  return createGeneratedViteTanStackProjectFiles(projectId, schema);
+}
+
+export function createGeneratedViteTanStackProjectFiles(
+  projectId: string,
+  schema: ProjectSiteSchema,
+): GeneratedProjectFile[] {
   const variant = getProjectSiteVariant(schema);
+  const routeModule = getBusinessRouteModule(variant);
 
   return [
     {
@@ -275,13 +442,14 @@ export function createGeneratedProjectFiles(
       content: json({
         buildCommand: "bun run build",
         capabilities: getProjectCapabilities(schema),
+        generationMode: "agent-custom-starter",
         outputDirectory: "dist",
         packageManager: "bun",
         projectId,
-        routes: [{ path: "/", title: schema.businessName || "Beranda" }],
-        runtimeProfile: "static-react-v1",
+        routes: routeModule.routes,
+        runtimeProfile: "vite-react-tanstack-v1",
         schemaVersion: "1",
-        templateId: "vite-react-frontend-static",
+        templateId: "vite-react-tanstack-starter",
         templateVersion: "1.0.0",
         variant,
       }),
@@ -289,66 +457,304 @@ export function createGeneratedProjectFiles(
     {
       path: "package.json",
       content: json({
-        name:
-          schema.businessName
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, "") || "umkm-website",
+        name: toPackageName(schema.businessName),
         private: true,
         type: "module",
         scripts: {
           dev: "vite dev",
-          build: "vite build",
+          build: "tsc -b && vite build",
           preview: "vite preview",
+          lint: "eslint .",
+          check: "tsc -b && eslint . && vite build",
         },
         dependencies: {
-          "@vitejs/plugin-react": "5.2.0",
-          vite: "8.0.16",
-          typescript: "5.8.3",
-          react: "19.2.0",
-          "react-dom": "19.2.0",
-          tailwindcss: "4.2.1",
-          "@tailwindcss/vite": "4.2.1",
-          "lucide-react": "0.575.0",
+          "@tanstack/react-query": "^5.101.2",
+          "@tanstack/react-router": "^1.170.17",
+          clsx: "^2.1.1",
+          "lucide-react": "^0.575.0",
+          react: "^19.2.7",
+          "react-dom": "^19.2.7",
         },
-        devDependencies: {},
+        devDependencies: {
+          "@eslint/js": "^10.0.1",
+          "@types/node": "^24.13.2",
+          "@types/react": "^19.2.17",
+          "@types/react-dom": "^19.2.3",
+          "@vitejs/plugin-react": "^6.0.3",
+          eslint: "^10.6.0",
+          "eslint-plugin-react-hooks": "^7.1.1",
+          "eslint-plugin-react-refresh": "^0.5.3",
+          globals: "^17.7.0",
+          typescript: "~6.0.2",
+          "typescript-eslint": "^8.62.0",
+          vite: "^8.1.1",
+        },
       }),
     },
     {
       path: "vite.config.ts",
-      content: `import { defineConfig } from "vite";\nimport react from "@vitejs/plugin-react";\nimport tailwindcss from "@tailwindcss/vite";\n\nexport default defineConfig({ base: "./", plugins: [react(), tailwindcss()] });\n`,
+      content: `import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  base: './',\n  plugins: [react()],\n})\n`,
     },
     {
-      path: "src/data/site.ts",
-      content: `export const site = ${json(schema)} as const;\n`,
+      path: "tsconfig.json",
+      content: json({
+        files: [],
+        references: [
+          { path: "./tsconfig.app.json" },
+          { path: "./tsconfig.node.json" },
+        ],
+      }),
     },
     {
-      path: "src/App.tsx",
-      content: createAppSource(variant),
+      path: "tsconfig.app.json",
+      content: json({
+        compilerOptions: {
+          tsBuildInfoFile: "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+          target: "es2023",
+          lib: ["ES2023", "DOM"],
+          module: "esnext",
+          types: ["vite/client"],
+          allowArbitraryExtensions: true,
+          skipLibCheck: true,
+          moduleResolution: "bundler",
+          allowImportingTsExtensions: true,
+          verbatimModuleSyntax: true,
+          moduleDetection: "force",
+          noEmit: true,
+          jsx: "react-jsx",
+          noUnusedLocals: true,
+          noUnusedParameters: true,
+          erasableSyntaxOnly: true,
+          noFallthroughCasesInSwitch: true,
+        },
+        include: ["src"],
+      }),
     },
     {
-      path: "src/main.tsx",
-      content: `import { createRoot } from "react-dom/client";\nimport App from "./App";\n\ncreateRoot(document.getElementById("root")!).render(<App />);\n`,
+      path: "tsconfig.node.json",
+      content: json({
+        compilerOptions: {
+          tsBuildInfoFile: "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+          target: "es2023",
+          lib: ["ES2023"],
+          types: ["node"],
+          skipLibCheck: true,
+          module: "nodenext",
+          allowImportingTsExtensions: true,
+          verbatimModuleSyntax: true,
+          moduleDetection: "force",
+          noEmit: true,
+        },
+        include: ["vite.config.ts"],
+      }),
+    },
+    {
+      path: "eslint.config.js",
+      content: `import js from '@eslint/js'\nimport globals from 'globals'\nimport reactHooks from 'eslint-plugin-react-hooks'\nimport reactRefresh from 'eslint-plugin-react-refresh'\nimport tseslint from 'typescript-eslint'\nimport { defineConfig, globalIgnores } from 'eslint/config'\n\nexport default defineConfig([\n  globalIgnores(['dist']),\n  {\n    files: ['**/*.{ts,tsx}'],\n    extends: [\n      js.configs.recommended,\n      tseslint.configs.recommended,\n      reactHooks.configs.flat.recommended,\n      reactRefresh.configs.vite,\n    ],\n    languageOptions: {\n      globals: globals.browser,\n    },\n  },\n])\n`,
     },
     {
       path: "index.html",
       content: `<div id="root"></div><script type="module" src="/src/main.tsx"></script>\n`,
     },
     {
+      path: "src/main.tsx",
+      content: `import { RouterProvider } from "@tanstack/react-router";\nimport { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\n\nimport { router } from "./router";\nimport "./styles.css";\n\ncreateRoot(document.getElementById("root")!).render(\n  <StrictMode>\n    <RouterProvider router={router} />\n  </StrictMode>,\n);\n`,
+    },
+    {
+      path: "src/router.tsx",
+      content: `import { createRoute, createRouter } from "@tanstack/react-router";\n\nimport { rootRoute } from "./routes/__root";\nimport { HomeRouteComponent } from "./routes/index";\n${routeModule.imports}\n\nconst indexRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/",\n  component: HomeRouteComponent,\n});\n${routeModule.routeDefinitions}\n\nconst routeTree = rootRoute.addChildren([indexRoute${routeModule.routeNames.length ? `, ${routeModule.routeNames.join(", ")}` : ""}]);\n\nexport const router = createRouter({ routeTree });\n\ndeclare module "@tanstack/react-router" {\n  interface Register {\n    router: typeof router;\n  }\n}\n`,
+    },
+    {
+      path: "src/routes/__root.tsx",
+      content: `import { createRootRoute, Outlet } from "@tanstack/react-router";\n\nexport const rootRoute = createRootRoute({\n  component: () => <Outlet />,\n});\n`,
+    },
+    {
+      path: "src/routes/index.tsx",
+      content: createHomeRouteSource(schema, variant, routeModule),
+    },
+    ...routeModule.files,
+    {
+      path: "src/content/site.ts",
+      content: `export const site = ${json(schema)} as const;\n`,
+    },
+    {
+      path: `src/content/${variant}.ts`,
+      content: createBusinessContentSource(schema, variant),
+    },
+    {
+      path: "src/lib/preview-ready.ts",
+      content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "umkmcepat-preview-ready" }, "*");\n  }, []);\n}\n`,
+    },
+    {
       path: "src/styles.css",
-      content: createStyles(variant),
+      content: createCustomProjectStyles(variant, schema),
     },
     {
       path: "AGENTS.md",
       content:
-        "# Generated UMKM Cepat project\n\nKeep this project static/frontend-only unless the owner explicitly enables backend features. Use Bun. Prefer Tailwind/CSS and React components. Do not add dependencies without a real need.\n",
+        "# Generated UMKM Cepat Vite app\n\nThis is a static React + Vite + TypeScript + TanStack Router project generated from a UMKM brief. Keep user-facing copy in Indonesian. Do not add backend, auth, checkout, payment processing, databases, native packages, browser automation, or extra dependencies unless the platform explicitly supports them. Prefer custom CSS and small React components. Always keep the preview-ready helper wired after React renders.\n",
     },
   ];
+}
+
+type BusinessRouteModule = {
+  files: GeneratedProjectFile[];
+  imports: string;
+  routeDefinitions: string;
+  routeNames: string[];
+  routes: Array<{ path: string; title: string }>;
+};
+
+function toPackageName(value: string) {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "generated-umkm-app"
+  );
+}
+
+function getBusinessRouteModule(
+  variant: ProjectSiteVariant,
+): BusinessRouteModule {
+  const routeTitle =
+    variant === "automotive"
+      ? "Layanan Bengkel"
+      : variant === "coffee"
+        ? "Menu"
+        : variant === "fashion"
+          ? "Koleksi"
+          : variant === "tutoring"
+            ? "Program"
+            : variant === "laundry"
+              ? "Layanan Laundry"
+              : variant === "home-food"
+                ? "Menu Harian"
+                : "Detail";
+  const routePath =
+    variant === "automotive"
+      ? "/layanan"
+      : variant === "tutoring"
+        ? "/program"
+        : variant === "fashion"
+          ? "/koleksi"
+          : "/menu";
+  const componentName = `${toPascalCase(variant)}DetailRoute`;
+
+  return {
+    imports: `import { ${componentName} } from "./routes/${variant}-detail";`,
+    routeDefinitions: `const ${variant.replace(/-/g, "")}DetailRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "${routePath}",\n  component: ${componentName},\n});`,
+    routeNames: [`${variant.replace(/-/g, "")}DetailRoute`],
+    routes: [
+      { path: "/", title: "Beranda" },
+      { path: routePath, title: routeTitle },
+    ],
+    files: [
+      {
+        path: `src/routes/${variant}-detail.tsx`,
+        content: createDetailRouteSource(variant, routeTitle),
+      },
+      {
+        path: `src/components/${variant}/Showcase.tsx`,
+        content: createShowcaseComponentSource(variant),
+      },
+    ],
+  };
+}
+
+function toPascalCase(value: string) {
+  return value
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean)
+    .map((part) => `${part[0].toUpperCase()}${part.slice(1)}`)
+    .join("");
+}
+
+function createHomeRouteSource(
+  schema: ProjectSiteSchema,
+  variant: ProjectSiteVariant,
+  routeModule: BusinessRouteModule,
+) {
+  const componentName = `${toPascalCase(variant)}Showcase`;
+  const detailPath = routeModule.routes[1]?.path ?? "/";
+
+  return `import { Link } from "@tanstack/react-router";\nimport { ArrowRight, MessageCircle } from "lucide-react";\n\nimport { ${componentName} } from "../components/${variant}/Showcase";\nimport { ${variant.replace(/-/g, "")}Highlights, ${variant.replace(/-/g, "")}Steps } from "../content/${variant}";\nimport { site } from "../content/site";\nimport { usePreviewReady } from "../lib/preview-ready";\n\nexport function HomeRouteComponent() {\n  usePreviewReady();\n\n  return (\n    <main className="site-shell variant-${variant}">\n      <nav className="topbar" aria-label="Navigasi utama">\n        <strong>${escapeTsx(schema.businessName)}</strong>\n        <div>\n          <Link to="${detailPath}">Detail</Link>\n          <a href="#contact">{site.primaryCta}</a>\n        </div>\n      </nav>\n\n      <section className="hero">\n        <div className="hero-copy">\n          <p className="eyebrow">{site.eyebrow}</p>\n          <h1>{site.headline}</h1>\n          <p className="lead">{site.subheadline}</p>\n          <div className="actions">\n            <a className="primary" href="#contact"><MessageCircle size={18} />{site.primaryCta}</a>\n            <Link className="secondary" to="${detailPath}">Lihat detail <ArrowRight size={18} /></Link>\n          </div>\n        </div>\n        <${componentName} />\n      </section>\n\n      <section className="insight-grid" aria-label="Ringkasan kebutuhan">\n        {${variant.replace(/-/g, "")}Highlights.map((item) => (\n          <article key={item.title}>\n            <span>{item.kicker}</span>\n            <h2>{item.title}</h2>\n            <p>{item.body}</p>\n          </article>\n        ))}\n      </section>\n\n      <section className="process-strip" aria-label="Langkah berikutnya">\n        {${variant.replace(/-/g, "")}Steps.map((step) => (\n          <div key={step}>{step}</div>\n        ))}\n      </section>\n\n      <section id="contact" className="closing">\n        <div>\n          <p className="eyebrow">Untuk {site.audience}</p>\n          <h2>{site.secondaryCta} atau langsung hubungi kami.</h2>\n        </div>\n        <a className="primary" href="#contact">{site.primaryCta}</a>\n      </section>\n    </main>\n  );\n}\n`;
+}
+
+function createDetailRouteSource(
+  variant: ProjectSiteVariant,
+  routeTitle: string,
+) {
+  const exportName = `${toPascalCase(variant)}DetailRoute`;
+  const contentName = `${variant.replace(/-/g, "")}Highlights`;
+
+  return `import { Link } from "@tanstack/react-router";\n\nimport { ${contentName} } from "../content/${variant}";\nimport { site } from "../content/site";\n\nexport function ${exportName}() {\n  return (\n    <main className="detail-page variant-${variant}">\n      <Link className="back-link" to="/">Kembali</Link>\n      <p className="eyebrow">${routeTitle}</p>\n      <h1>{site.offer}</h1>\n      <div className="detail-list">\n        {${contentName}.map((item) => (\n          <article key={item.title}>\n            <span>{item.kicker}</span>\n            <h2>{item.title}</h2>\n            <p>{item.body}</p>\n          </article>\n        ))}\n      </div>\n    </main>\n  );\n}\n`;
+}
+
+function createShowcaseComponentSource(variant: ProjectSiteVariant) {
+  const exportName = `${toPascalCase(variant)}Showcase`;
+  const contentName = `${variant.replace(/-/g, "")}Highlights`;
+
+  return `import { ${contentName} } from "../../content/${variant}";\nimport { site } from "../../content/site";\n\nexport function ${exportName}() {\n  return (\n    <aside className="showcase-card" aria-label="Sorotan utama">\n      <span>{site.offer}</span>\n      <div className="showcase-list">\n        {${contentName}.slice(0, 3).map((item) => (\n          <p key={item.title}>{item.title}</p>\n        ))}\n      </div>\n    </aside>\n  );\n}\n`;
+}
+
+function createBusinessContentSource(
+  schema: ProjectSiteSchema,
+  variant: ProjectSiteVariant,
+) {
+  const name = variant.replace(/-/g, "");
+  const highlights = schema.sections.map((section, index) => ({
+    body: section.body,
+    kicker: `${String(index + 1).padStart(2, "0")}`,
+    title: section.title,
+  }));
+  const steps = schema.trustPoints.length
+    ? schema.trustPoints
+    : ["Info jelas", "Mudah dihubungi", "Siap dibuka dari HP"];
+
+  return `export const ${name}Highlights = ${json(highlights)} as const;\n\nexport const ${name}Steps = ${json(steps)} as const;\n`;
+}
+
+function createCustomProjectStyles(
+  variant: ProjectSiteVariant,
+  schema: ProjectSiteSchema,
+) {
+  return `:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:${schema.theme.foreground};background:${schema.theme.background}}\n*{box-sizing:border-box}\nbody{margin:0;min-width:320px;background:${schema.theme.background}}\na{color:inherit;text-decoration:none}\n.site-shell,.detail-page{min-height:100dvh;overflow-x:hidden}\n.topbar{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px clamp(20px,5vw,72px);border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent);background:color-mix(in srgb,${schema.theme.background} 88%,white 12%)}\n.topbar div{display:flex;align-items:center;gap:12px}.topbar a,.back-link{border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:999px;padding:10px 14px;font-weight:750}.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,.9fr);align-items:center;gap:56px;padding:72px clamp(20px,5vw,72px) 48px}.eyebrow{margin:0 0 16px;color:${schema.theme.accent};font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}h1{max-width:780px;margin:0;font-size:clamp(44px,7vw,84px);line-height:.95;letter-spacing:-.055em}.lead{max-width:650px;margin:24px 0 0;color:${schema.theme.muted};font-size:20px;line-height:1.7}.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}.primary,.secondary{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;border-radius:16px;padding:0 18px;font-weight:850}.primary{background:${schema.theme.foreground};color:${schema.theme.background}}.secondary{border:1px solid color-mix(in srgb,currentColor 16%,transparent)}.showcase-card{border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:32px;padding:30px;background:color-mix(in srgb,white 70%,${schema.theme.background} 30%);box-shadow:16px 16px 0 color-mix(in srgb,${schema.theme.accent} 42%,transparent)}.showcase-card>span{display:block;color:${schema.theme.muted};font-size:14px;line-height:1.5}.showcase-list{display:grid;gap:12px;margin-top:26px}.showcase-list p{margin:0;border-radius:18px;background:color-mix(in srgb,white 72%,${schema.theme.background} 28%);padding:16px;line-height:1.45}.insight-grid,.detail-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:0 clamp(20px,5vw,72px) 48px}.insight-grid article,.detail-list article{border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:24px;padding:26px;background:color-mix(in srgb,white 58%,${schema.theme.background} 42%)}.insight-grid span,.detail-list span{color:${schema.theme.accent};font-size:12px;font-weight:900}.insight-grid h2,.detail-list h2{margin:14px 0 10px;font-size:24px}.insight-grid p,.detail-list p{margin:0;color:${schema.theme.muted};line-height:1.72}.process-strip{display:flex;flex-wrap:wrap;gap:12px;padding:0 clamp(20px,5vw,72px) 48px}.process-strip div{border-radius:999px;background:color-mix(in srgb,${schema.theme.accent} 13%,transparent);padding:12px 16px;font-weight:750}.closing{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 clamp(20px,5vw,72px) 72px;border-radius:30px;padding:34px;background:${schema.theme.foreground};color:${schema.theme.background}}.closing .eyebrow{color:color-mix(in srgb,${schema.theme.accent} 65%,white 35%)}.closing h2{max-width:760px;margin:0;font-size:clamp(30px,4vw,48px);line-height:1.06}.detail-page{padding:48px clamp(20px,5vw,72px)}.detail-page h1{margin:28px 0 36px}.detail-page .detail-list{padding:0;grid-template-columns:repeat(2,minmax(0,1fr))}${createVariantAccentStyles(variant, schema)}@media(max-width:820px){.topbar{align-items:flex-start;flex-direction:column}.hero{display:block;padding-top:42px}.showcase-card{margin-top:34px}.insight-grid,.detail-list,.detail-page .detail-list{grid-template-columns:1fr}.closing{align-items:flex-start;flex-direction:column}}\n`;
+}
+
+function createVariantAccentStyles(
+  variant: ProjectSiteVariant,
+  schema: ProjectSiteSchema,
+) {
+  if (variant === "automotive") {
+    return `.variant-automotive{background:#101211;color:#f7f7f2}.variant-automotive .showcase-card,.variant-automotive .insight-grid article,.variant-automotive .detail-list article{background:#181c1a;border-color:rgba(255,255,255,.12)}.variant-automotive .showcase-card{box-shadow:18px 18px 0 #d3342f}.variant-automotive .primary{background:#d3342f;color:#fff}`;
+  }
+
+  if (variant === "fashion") {
+    return `.variant-fashion .showcase-card{border-radius:44px 12px 44px 12px}.variant-fashion .insight-grid{grid-template-columns:1.2fr .8fr}`;
+  }
+
+  if (variant === "coffee") {
+    return `.variant-coffee .showcase-list{grid-template-columns:repeat(2,minmax(0,1fr))}.variant-coffee .showcase-list p{border-radius:999px;text-align:center}`;
+  }
+
+  return `.variant-${variant} .showcase-card{outline:2px solid color-mix(in srgb,${schema.theme.accent} 18%,transparent)}`;
+}
+
+function escapeTsx(value: string) {
+  return value.replace(/[{}<>]/g, "");
 }
 
 export function createGeneratedSourceSnapshotMetadata(
   files: GeneratedProjectFile[],
   schema: ProjectSiteSchema,
+  generation?: {
+    fallbackReason?: string;
+    generationMode?: "agent-custom" | "deterministic-fallback";
+    repairAttempts?: number;
+    summary?: string;
+    touchedFiles?: string[];
+  },
 ) {
   const manifestResult = validateGeneratedAppManifest(files);
   const manifest = manifestResult.ok ? manifestResult.manifest : null;
@@ -356,8 +762,20 @@ export function createGeneratedSourceSnapshotMetadata(
   return {
     manifest,
     manifestIssues: manifestResult.ok ? [] : manifestResult.issues,
+    generation: generation
+      ? {
+          fallbackReason: generation.fallbackReason,
+          mode: generation.generationMode,
+          repairAttempts: generation.repairAttempts ?? 0,
+          summary: generation.summary,
+          touchedFiles: generation.touchedFiles ?? [],
+        }
+      : undefined,
     origin: {
-      generator: "site-schema",
+      generator:
+        generation?.generationMode === "agent-custom"
+          ? "agent-custom"
+          : "site-schema",
       sourceType: "generated",
     },
     schemaVersion: schema.version,
@@ -497,7 +915,7 @@ function getProjectSiteVariant(schema: ProjectSiteSchema): ProjectSiteVariant {
   return "angkringan";
 }
 
-function createAppSource(variant: ProjectSiteVariant) {
+function _createAppSource(variant: ProjectSiteVariant) {
   const config = getVariantConfig(variant);
   const shellClass = `site-shell variant-${variant}`;
   const showcaseClass = config.showcaseClass;
@@ -582,7 +1000,7 @@ export default function App() {
 `;
 }
 
-function createStyles(variant: ProjectSiteVariant) {
+function _createStyles(variant: ProjectSiteVariant) {
   return `${createBaseStyles()}
 ${createVariantStyles(variant)}
 `;

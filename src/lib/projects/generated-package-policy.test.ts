@@ -14,7 +14,7 @@ function packageFile(packageJson: unknown) {
 }
 
 describe("generated package policy", () => {
-  it("allows the generated static React base dependencies", () => {
+  it("allows the generated Vite TanStack base dependencies", () => {
     const files = createGeneratedProjectFiles(
       "project_policy",
       createProjectSiteSchemaFromBrief({
@@ -30,24 +30,26 @@ describe("generated package policy", () => {
       }),
     );
 
-    expect(validateGeneratedPackagePolicy(files, "static-react-v1")).toEqual({
+    expect(
+      validateGeneratedPackagePolicy(files, "vite-react-tanstack-v1"),
+    ).toEqual({
       issues: [],
       ok: true,
     });
   });
 
-  it("blocks server frameworks for the static React profile", () => {
+  it("blocks server frameworks for the Vite TanStack profile", () => {
     const result = validateGeneratedPackagePolicy(
       packageFile({
         dependencies: { express: "5.0.0", react: "19.2.0" },
         scripts: { build: "vite build" },
       }),
-      "static-react-v1",
+      "vite-react-tanstack-v1",
     );
 
     expect(result.ok).toBe(false);
     expect(result.issues).toContain(
-      "Package is not allowed for static-react-v1: express",
+      "Package is not allowed for vite-react-tanstack-v1: express",
     );
   });
 
@@ -61,18 +63,18 @@ describe("generated package policy", () => {
         },
         scripts: { build: "vite build" },
       }),
-      "static-react-v1",
+      "vite-react-tanstack-v1",
     );
 
     expect(result.ok).toBe(false);
     expect(result.issues).toContain(
-      "Package is not allowed for static-react-v1: @playwright/test",
+      "Package is not allowed for vite-react-tanstack-v1: @playwright/test",
     );
     expect(result.issues).toContain(
-      "Package is not allowed for static-react-v1: fluent-ffmpeg",
+      "Package is not allowed for vite-react-tanstack-v1: fluent-ffmpeg",
     );
     expect(result.issues).toContain(
-      "Package is not allowed for static-react-v1: sharp",
+      "Package is not allowed for vite-react-tanstack-v1: sharp",
     );
   });
 
@@ -82,12 +84,12 @@ describe("generated package policy", () => {
         dependencies: { "@unknown/ui": "1.0.0" },
         scripts: { build: "vite build" },
       }),
-      "static-react-v1",
+      "vite-react-tanstack-v1",
     );
 
     expect(result.ok).toBe(false);
     expect(result.issues).toContain(
-      "Package is not allowed for static-react-v1: @unknown/ui",
+      "Package is not allowed for vite-react-tanstack-v1: @unknown/ui",
     );
   });
 
@@ -97,7 +99,7 @@ describe("generated package policy", () => {
         dependencies: { react: "19.2.0" },
         scripts: { build: "vite build", postinstall: "node setup.js" },
       }),
-      "static-react-v1",
+      "vite-react-tanstack-v1",
     );
 
     expect(result.ok).toBe(false);

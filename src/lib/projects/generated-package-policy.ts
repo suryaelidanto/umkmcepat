@@ -1,15 +1,37 @@
 import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
 
-const ALLOWED_STATIC_REACT_PACKAGES = new Set([
-  "@tailwindcss/vite",
-  "@vitejs/plugin-react",
-  "lucide-react",
-  "react",
-  "react-dom",
-  "tailwindcss",
-  "typescript",
-  "vite",
-]);
+const ALLOWED_PACKAGES_BY_PROFILE: Record<string, Set<string>> = {
+  "static-react-v1": new Set([
+    "@tailwindcss/vite",
+    "@vitejs/plugin-react",
+    "lucide-react",
+    "react",
+    "react-dom",
+    "tailwindcss",
+    "typescript",
+    "vite",
+  ]),
+  "vite-react-tanstack-v1": new Set([
+    "@eslint/js",
+    "@tanstack/react-query",
+    "@tanstack/react-router",
+    "@types/node",
+    "@types/react",
+    "@types/react-dom",
+    "@vitejs/plugin-react",
+    "clsx",
+    "eslint",
+    "eslint-plugin-react-hooks",
+    "eslint-plugin-react-refresh",
+    "globals",
+    "lucide-react",
+    "react",
+    "react-dom",
+    "typescript",
+    "typescript-eslint",
+    "vite",
+  ]),
+};
 
 const BLOCKED_LIFECYCLE_SCRIPTS = new Set([
   "install",
@@ -26,7 +48,7 @@ export function validateGeneratedPackagePolicy(
   files: GeneratedProjectFile[],
   runtimeProfile: string,
 ): GeneratedPackagePolicyResult {
-  if (runtimeProfile !== "static-react-v1") {
+  if (!ALLOWED_PACKAGES_BY_PROFILE[runtimeProfile]) {
     return invalid([
       `Package policy does not support runtime profile: ${runtimeProfile}`,
     ]);
@@ -78,7 +100,7 @@ function getDependencyIssues(value: unknown, runtimeProfile: string) {
   }
 
   return Object.keys(value).flatMap((packageName) =>
-    ALLOWED_STATIC_REACT_PACKAGES.has(packageName)
+    ALLOWED_PACKAGES_BY_PROFILE[runtimeProfile].has(packageName)
       ? []
       : [`Package is not allowed for ${runtimeProfile}: ${packageName}`],
   );
