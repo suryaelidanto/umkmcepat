@@ -438,7 +438,7 @@ export function createGeneratedViteTanStackStarterFiles(
     },
     {
       path: "src/router.tsx",
-      content: `import { createRoute, createRouter } from "@tanstack/react-router";\n\nimport { rootRoute } from "./routes/__root";\nimport { HomeRouteComponent } from "./routes/index";\n\nconst indexRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/",\n  component: HomeRouteComponent,\n});\n\nconst routeTree = rootRoute.addChildren([indexRoute]);\n\nexport const router = createRouter({ routeTree });\n\ndeclare module "@tanstack/react-router" {\n  interface Register {\n    router: typeof router;\n  }\n}\n`,
+      content: `import { createHashHistory, createRoute, createRouter } from "@tanstack/react-router";\n\nimport { rootRoute } from "./routes/__root";\nimport { HomeRouteComponent } from "./routes/index";\n\nconst indexRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/",\n  component: HomeRouteComponent,\n});\n\nconst routeTree = rootRoute.addChildren([indexRoute]);\nconst history = createHashHistory();\n\nexport const router = createRouter({ history, routeTree });\n\ndeclare module "@tanstack/react-router" {\n  interface Register {\n    router: typeof router;\n  }\n}\n`,
     },
     {
       path: "src/routes/__root.tsx",
@@ -608,7 +608,7 @@ export function createGeneratedViteTanStackProjectFiles(
     },
     {
       path: "src/router.tsx",
-      content: `import { createRoute, createRouter } from "@tanstack/react-router";\n\nimport { rootRoute } from "./routes/__root";\nimport { HomeRouteComponent } from "./routes/index";\n${routeModule.imports}\n\nconst indexRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/",\n  component: HomeRouteComponent,\n});\n${routeModule.routeDefinitions}\n\nconst routeTree = rootRoute.addChildren([indexRoute${routeModule.routeNames.length ? `, ${routeModule.routeNames.join(", ")}` : ""}]);\n\nexport const router = createRouter({ routeTree });\n\ndeclare module "@tanstack/react-router" {\n  interface Register {\n    router: typeof router;\n  }\n}\n`,
+      content: `import { createHashHistory, createRoute, createRouter } from "@tanstack/react-router";\n\nimport { rootRoute } from "./routes/__root";\nimport { HomeRouteComponent } from "./routes/index";\n${routeModule.imports}\n\nconst indexRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/",\n  component: HomeRouteComponent,\n});\n${routeModule.routeDefinitions}\n\nconst routeTree = rootRoute.addChildren([indexRoute${routeModule.routeNames.length ? `, ${routeModule.routeNames.join(", ")}` : ""}]);\nconst history = createHashHistory();\n\nexport const router = createRouter({ history, routeTree });\n\ndeclare module "@tanstack/react-router" {\n  interface Register {\n    router: typeof router;\n  }\n}\n`,
     },
     {
       path: "src/routes/__root.tsx",

@@ -187,6 +187,24 @@ describe("generated project source", () => {
     expect(app).toContain("umkmcepat-preview-ready");
   });
 
+  it("uses hash history so preview proxy paths do not become app routes", () => {
+    const files = createFiles("project_hash_history", {
+      prompt: "buatkan website bengkel motor",
+      businessType: "Bengkel motor",
+      offer: "Servis motor harian",
+      targetCustomer: "Pengendara harian",
+      contactOrCta: "Booking WhatsApp",
+      stylePreference: "Teknis",
+    });
+
+    expect(readGeneratedFile(files, "src/router.tsx")).toContain(
+      "createHashHistory",
+    );
+    expect(readGeneratedFile(files, "src/router.tsx")).toContain(
+      "createRouter({ history, routeTree })",
+    );
+  });
+
   it("generates a valid app manifest for the Vite TanStack profile", () => {
     const files = createFiles("project_manifest", {
       prompt: "buatkan website coffee shop",
