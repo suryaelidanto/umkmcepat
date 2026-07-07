@@ -588,18 +588,16 @@ export function QuestionComposer({
   const modeTone = isMultiple
     ? {
         accent: "#8fd3ff",
-        header: "border-[#8fd3ff]/18 bg-[#10202b]",
-        label: "Bisa pilih beberapa",
-        option: "border-[#8fd3ff]/14 hover:bg-[#8fd3ff]/8",
-        selected: "border-[#8fd3ff]/32 bg-[#8fd3ff]/12",
+        helper: "Pilih beberapa yang berlaku.",
+        option: "border-surface-warm-white/8 hover:bg-[#8fd3ff]/[0.055]",
+        selected: "border-[#8fd3ff]/24 bg-[#8fd3ff]/10",
       }
     : {
         accent: "#8ce99a",
-        header: "border-[#8ce99a]/16 bg-[#172116]",
-        label: "Pilih satu jawaban",
+        helper: "Pilih satu arah utama.",
         option:
           "border-surface-warm-white/8 hover:bg-surface-warm-white/[0.045]",
-        selected: "border-[#8ce99a]/28 bg-[#8ce99a]/10",
+        selected: "border-[#8ce99a]/24 bg-[#8ce99a]/10",
       };
   const answer = formatWorkspaceAnswerSelection(question, selected, source);
   const customAnswerSelected = Boolean(selected.length) && source === "custom";
@@ -651,29 +649,13 @@ export function QuestionComposer({
 
   return (
     <div className="mt-spacing-3 overflow-hidden border-y border-surface-warm-white/10 bg-[#1d1d1a] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
-      <div className={`border-b px-spacing-5 py-spacing-4 ${modeTone.header}`}>
-        <div className="flex flex-wrap items-center gap-spacing-2">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/58">
-            {modeTone.label}
-          </p>
-          <span
-            className="rounded-full border px-spacing-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
-            style={{
-              borderColor: `${modeTone.accent}55`,
-              color: modeTone.accent,
-            }}
-          >
-            {isMultiple ? "Multiple select" : "Single select"}
-          </span>
-        </div>
-        <h2 className="mt-spacing-1 max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
+      <div className="border-b border-surface-warm-white/8 bg-[#20201d] px-spacing-5 py-spacing-4">
+        <h2 className="max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
           {question.question}
         </h2>
-        {question.whyThisQuestionMatters ? (
-          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/52">
-            {question.whyThisQuestionMatters}
-          </p>
-        ) : null}
+        <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/50">
+          {question.whyThisQuestionMatters || modeTone.helper}
+        </p>
       </div>
 
       <div className="divide-y divide-surface-warm-white/8">
