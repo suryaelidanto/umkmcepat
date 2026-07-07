@@ -200,7 +200,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("keeps a discussion option card instead of forcing build when required fields are filled", () => {
+  it("shows a review card instead of a fake question when required fields are filled", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Dropship sepatu",
@@ -213,9 +213,11 @@ describe("normalizeWorkspaceTurn", () => {
     );
     const turn = normalizeWorkspaceTurn(undefined, brief);
 
-    expect(turn.workspaceCard.type).toBe("question");
-    if (turn.workspaceCard.type === "question") {
-      expect(turn.workspaceCard.question.question).toContain("detail tambahan");
+    expect(turn.workspaceCard.type).toBe("brief_review");
+    if (turn.workspaceCard.type === "brief_review") {
+      expect(
+        turn.workspaceCard.actions.map((action) => action.label),
+      ).toContain("Mulai build");
     }
   });
 
@@ -251,6 +253,39 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("question");
     if (turn.workspaceCard.type === "question") {
       expect(turn.workspaceCard.question.id).toBe("stylePreference");
+    }
+  });
+
+  it("accepts a brief review card with natural next actions", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Laundry kiloan",
+        offer: "Cuci setrika dan antar jemput",
+        targetCustomer: "Warga Depok",
+        contactOrCta: "WhatsApp",
+        stylePreference: "Bersih segar",
+      },
+      "laundry depok",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "brief_review",
+          title: "Arah website laundry",
+          summary: ["Laundry kiloan Depok", "CTA WhatsApp"],
+          actions: [
+            { label: "Mulai build", prompt: "Mulai build sekarang." },
+            { label: "Ubah harga", prompt: "Saya mau ubah harga dulu." },
+          ],
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("brief_review");
+    if (turn.workspaceCard.type === "brief_review") {
+      expect(turn.workspaceCard.title).toBe("Arah website laundry");
+      expect(turn.workspaceCard.actions[0].label).toBe("Mulai build");
     }
   });
 

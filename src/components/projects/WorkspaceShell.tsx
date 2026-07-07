@@ -1095,9 +1095,11 @@ export function WorkspaceShell({
                     submitChatText(answer, { workspaceAnswers })
                   }
                 />
-              ) : composerState === "build_recommendation" ? (
+              ) : composerState === "build_recommendation" ||
+                composerState === "brief_review" ? (
                 <WorkspaceCardView
                   card={workspaceCard}
+                  onAction={submitChatText}
                   onBuild={() => void startBuild()}
                   onDiscuss={holdBuildRecommendation}
                 />

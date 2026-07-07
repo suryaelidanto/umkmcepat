@@ -91,6 +91,16 @@ export const workspaceTurnToolInputSchema = jsonSchema<WorkspaceTurnToolInput>({
             "Flexible implementation spec shaped by the user's real needs. Avoid fixed template labels.",
           items: { type: "string" },
         },
+        actions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string" },
+              prompt: { type: "string" },
+            },
+          },
+        },
       },
     },
   },
@@ -146,30 +156,7 @@ export function createFallbackWorkspaceCard(
   const nextField = getMissingBriefFields(brief)[0];
 
   if (!nextField) {
-    return {
-      type: "question",
-      question: buildFallbackQuestion("stylePreference", brief, {
-        question:
-          "Apa detail tambahan paling penting sebelum website ini dibuild?",
-        options: [
-          {
-            label: "Tampilan sudah pas",
-            description:
-              "Lanjutkan dengan arah visual dan isi yang sudah dibahas.",
-          },
-          {
-            label: "Perkuat penawaran",
-            description:
-              "Tambahkan detail promo, paket, harga, atau keunggulan utama.",
-          },
-          {
-            label: "Perjelas alur pelanggan",
-            description:
-              "Rapikan cara pengunjung melihat info lalu menghubungi usaha.",
-          },
-        ],
-      }),
-    };
+    return buildBriefReviewCard(brief);
   }
 
   return {
@@ -212,6 +199,27 @@ function normalizeWorkspaceCard(
     // Backward compatibility: older stored cards used a questions[] array.
     questions?: unknown;
   };
+
+  if (value.type === "brief_review") {
+    return buildBriefReviewCard(
+      brief,
+      typeof value.title === "string" ? value.title : undefined,
+      Array.isArray(value.summary)
+        ? (value.summary as unknown[]).filter(
+            (item): item is string => typeof item === "string",
+          )
+        : undefined,
+      Array.isArray(value.actions)
+        ? (value.actions as unknown[]).filter(
+            (item): item is { label: string; prompt: string } =>
+              Boolean(item) &&
+              typeof item === "object" &&
+              typeof (item as { label?: unknown }).label === "string" &&
+              typeof (item as { prompt?: unknown }).prompt === "string",
+          )
+        : undefined,
+    );
+  }
 
   if (value.type === "build_recommendation") {
     const summary = Array.isArray(value.summary)
@@ -360,6 +368,26 @@ function fallbackOptions(id: BriefQuestion["id"]) {
   ];
 }
 
+function buildBriefReviewCard(
+  brief: ProjectBrief,
+  title = "Rancangan sementara",
+  summary?: string[],
+  actions?: Array<{ label: string; prompt: string }>,
+): WorkspaceCard {
+  return {
+    actions: (actions?.length ? actions : defaultReviewActions())
+      .map((action) => ({
+        label: cleanText(action.label, 60),
+        prompt: cleanText(action.prompt, 160),
+      }))
+      .filter((action) => action.label && action.prompt)
+      .slice(0, 4),
+    summary: buildCardSummary(brief, summary),
+    title: cleanText(title, 80) || "Rancangan sementara",
+    type: "brief_review",
+  };
+}
+
 function buildRecommendationCard(
   brief: ProjectBrief,
   title = "Brief sudah siap dibuild",
@@ -368,19 +396,45 @@ function buildRecommendationCard(
   return {
     type: "build_recommendation",
     title: cleanText(title, 80) || "Brief sudah siap dibuild",
-    summary:
-      summary
-        ?.map((item) => cleanText(item, 120))
-        .filter(Boolean)
-        .slice(0, 7) ||
-      [
-        brief.businessType,
-        brief.offer,
-        brief.targetCustomer,
-        brief.contactOrCta,
-        brief.stylePreference,
-      ].filter(Boolean),
+    summary: buildCardSummary(brief, summary),
   };
+}
+
+function buildCardSummary(brief: ProjectBrief, summary?: string[]) {
+  return (
+    summary
+      ?.map((item) => cleanText(item, 120))
+      .filter(Boolean)
+      .slice(0, 7) ||
+    [
+      brief.businessType,
+      brief.offer,
+      brief.targetCustomer,
+      brief.contactOrCta,
+      brief.stylePreference,
+    ].filter(Boolean)
+  );
+}
+
+function defaultReviewActions() {
+  return [
+    {
+      label: "Mulai build",
+      prompt: "Brief sudah cukup. Mulai build website sekarang.",
+    },
+    {
+      label: "Ubah penawaran",
+      prompt: "Saya mau mengubah penawaran utama dulu.",
+    },
+    {
+      label: "Ubah tampilan",
+      prompt: "Saya mau mengubah arah visual website dulu.",
+    },
+    {
+      label: "Tambah info penting",
+      prompt: "Saya mau menambahkan detail penting sebelum build.",
+    },
+  ];
 }
 
 function getBriefPatchFields(): BriefQuestion["id"][] {
