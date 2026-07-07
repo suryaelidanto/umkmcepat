@@ -134,6 +134,35 @@ describe("generated app agent tool runner", () => {
     );
   });
 
+  it("caps operation trace and file outputs", () => {
+    const files = createFixtureFiles();
+    const manyListCommands = Array.from({ length: 90 }, () => ({
+      type: "list_files" as const,
+    }));
+
+    const traced = runGeneratedAppAgentTools({
+      commands: [...manyListCommands, { type: "check_app" }],
+      files,
+    });
+
+    expect(traced.operations).toHaveLength(80);
+
+    const largeRead = runGeneratedAppAgentTools({
+      commands: [
+        {
+          content: "x".repeat(25_000),
+          path: "src/content/large.ts",
+          type: "write_file",
+        },
+        { path: "src/content/large.ts", type: "read_file" },
+        { type: "check_app" },
+      ],
+      files,
+    });
+
+    expect(largeRead.outputs[1]?.result).toContain("[truncated]");
+  });
+
   it("rejects writes outside the generated project source boundary", () => {
     const result = runGeneratedAppAgentTools({
       commands: [

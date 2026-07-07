@@ -99,11 +99,27 @@ function getDependencyIssues(value: unknown, runtimeProfile: string) {
     return ["Package dependencies must be objects."];
   }
 
-  return Object.keys(value).flatMap((packageName) =>
-    ALLOWED_PACKAGES_BY_PROFILE[runtimeProfile].has(packageName)
-      ? []
-      : [`Package is not allowed for ${runtimeProfile}: ${packageName}`],
-  );
+  return Object.entries(value).flatMap(([packageName, specifier]) => {
+    if (!ALLOWED_PACKAGES_BY_PROFILE[runtimeProfile].has(packageName)) {
+      return [`Package is not allowed for ${runtimeProfile}: ${packageName}`];
+    }
+
+    if (typeof specifier !== "string") {
+      return [`Package version must be a string: ${packageName}`];
+    }
+
+    if (!isAllowedPackageSpecifier(specifier)) {
+      return [
+        `Package version is not allowed for ${packageName}: ${specifier}`,
+      ];
+    }
+
+    return [];
+  });
+}
+
+function isAllowedPackageSpecifier(value: string) {
+  return /^(\^|~)?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(value);
 }
 
 function getScriptIssues(value: unknown) {

@@ -93,6 +93,25 @@ describe("generated package policy", () => {
     );
   });
 
+  it("rejects unsafe package specifiers", () => {
+    const result = validateGeneratedPackagePolicy(
+      packageFile({
+        dependencies: { react: "file:./vendor/react" },
+        devDependencies: { vite: "git+https://example.com/vite.git" },
+        scripts: { build: "vite build" },
+      }),
+      "vite-react-tanstack-v1",
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toContain(
+      "Package version is not allowed for react: file:./vendor/react",
+    );
+    expect(result.issues).toContain(
+      "Package version is not allowed for vite: git+https://example.com/vite.git",
+    );
+  });
+
   it("rejects install lifecycle scripts", () => {
     const result = validateGeneratedPackagePolicy(
       packageFile({

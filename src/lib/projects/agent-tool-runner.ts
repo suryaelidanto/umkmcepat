@@ -23,6 +23,12 @@ export type GeneratedAppAgentToolSideEffect = {
   type: GeneratedAppAgentToolCommand["type"];
 };
 
+const MAX_OPERATION_TRACE = 80;
+const MAX_OPERATION_DETAIL_LENGTH = 500;
+const MAX_LIST_PATHS = 200;
+const MAX_READ_CHARS = 20_000;
+const MAX_SEARCH_PATHS = 100;
+
 export type GeneratedAppAgentToolOutput = {
   error?: string;
   paths?: string[];
@@ -62,7 +68,15 @@ export function runGeneratedAppAgentTools({
   const sideEffects: GeneratedAppAgentToolSideEffect[] = [];
 
   function emit(operation: Omit<GeneratedAppAgentOperation, "id">) {
-    const next = { ...operation, id: `${operations.length + 1}` };
+    if (operations.length >= MAX_OPERATION_TRACE) {
+      return;
+    }
+
+    const next = {
+      ...operation,
+      detail: truncate(operation.detail, MAX_OPERATION_DETAIL_LENGTH),
+      id: `${operations.length + 1}`,
+    };
     operations.push(next);
     onOperation?.(next);
   }
@@ -83,14 +97,18 @@ export function runGeneratedAppAgentTools({
       }
 
       const pathPrefix = safePathPrefix.pathPrefix;
-      const paths = currentFiles
+      const allPaths = currentFiles
         .map((file) => file.path)
         .filter((filePath) =>
           pathPrefix ? filePath.startsWith(pathPrefix) : true,
         )
         .sort();
+      const paths = allPaths.slice(0, MAX_LIST_PATHS);
       emit({
-        detail: `${paths.length} file ditemukan.`,
+        detail:
+          allPaths.length > paths.length
+            ? `${paths.length} dari ${allPaths.length} file ditampilkan.`
+            : `${paths.length} file ditemukan.`,
         path: pathPrefix || undefined,
         state: "succeeded",
         title: "Membaca struktur file",
@@ -128,10 +146,13 @@ export function runGeneratedAppAgentTools({
         continue;
       }
 
-      const result = sliceLines(
-        content,
-        command.startLineOneIndexed,
-        command.endLineOneIndexedInclusive,
+      const result = truncate(
+        sliceLines(
+          content,
+          command.startLineOneIndexed,
+          command.endLineOneIndexedInclusive,
+        ),
+        MAX_READ_CHARS,
       );
       emit({
         detail: lineReadDetail(content, result),
@@ -155,15 +176,19 @@ export function runGeneratedAppAgentTools({
       }
 
       const pathPrefix = safePathPrefix.pathPrefix;
-      const paths = currentFiles
+      const allPaths = currentFiles
         .filter((file) =>
           pathPrefix ? file.path.startsWith(pathPrefix) : true,
         )
         .filter((file) => file.content.includes(command.query))
         .map((file) => file.path)
         .sort();
+      const paths = allPaths.slice(0, MAX_SEARCH_PATHS);
       emit({
-        detail: `${paths.length} file cocok dengan pencarian.`,
+        detail:
+          allPaths.length > paths.length
+            ? `${paths.length} dari ${allPaths.length} hasil pencarian ditampilkan.`
+            : `${paths.length} file cocok dengan pencarian.`,
         path: pathPrefix || undefined,
         state: "succeeded",
         title: "Mencari file",
@@ -420,6 +445,12 @@ function sliceLines(value: string, start?: number, end?: number) {
   return endIndex >= lines.length && hasTrailingNewline
     ? `${result}\n`
     : result;
+}
+
+function truncate(value: string, maxLength: number) {
+  return value.length > maxLength
+    ? `${value.slice(0, maxLength)}\n[truncated]`
+    : value;
 }
 
 function lineReadDetail(fullContent: string, result: string) {

@@ -27,6 +27,40 @@ export type BuildGeneratedProjectResult = {
 
 const MAX_LOG_LENGTH = 20_000;
 const BUILD_TIMEOUT_MS = 180_000;
+const BLOCKED_GENERATED_PATHS = new Set([
+  ".env",
+  ".env.local",
+  ".env.production",
+  "bun.lock",
+  "bun.lockb",
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "yarn.lock",
+]);
+const BLOCKED_WINDOWS_BASENAMES = new Set([
+  "aux",
+  "com1",
+  "com2",
+  "com3",
+  "com4",
+  "com5",
+  "com6",
+  "com7",
+  "com8",
+  "com9",
+  "con",
+  "lpt1",
+  "lpt2",
+  "lpt3",
+  "lpt4",
+  "lpt5",
+  "lpt6",
+  "lpt7",
+  "lpt8",
+  "lpt9",
+  "nul",
+  "prn",
+]);
 
 function json(value: unknown) {
   return JSON.stringify(value, null, 2);
@@ -75,13 +109,25 @@ export function assertSafeProjectFilePath(filePath: string) {
     path.isAbsolute(filePath) ||
     filePath.includes("\\") ||
     filePath.split("/").some((part) => part === "..") ||
-    filePath === ".env" ||
+    BLOCKED_GENERATED_PATHS.has(filePath) ||
     filePath.startsWith(".env.") ||
+    (filePath.startsWith(".") && !filePath.startsWith(".umkmcepat/")) ||
+    (filePath.includes("/.") && !filePath.startsWith(".umkmcepat/")) ||
     filePath.includes("/node_modules/") ||
-    filePath.startsWith("node_modules/")
+    filePath.startsWith("node_modules/") ||
+    filePath.startsWith(".data/") ||
+    filePath.startsWith(".next/") ||
+    filePath.startsWith(".pi/") ||
+    filePath.startsWith(".browser/") ||
+    filePath.split("/").some(isBlockedWindowsPathPart)
   ) {
     throw new Error(`Unsafe generated file path: ${filePath}`);
   }
+}
+
+function isBlockedWindowsPathPart(part: string) {
+  const basename = part.split(".")[0]?.toLowerCase() ?? "";
+  return BLOCKED_WINDOWS_BASENAMES.has(basename);
 }
 
 export async function buildGeneratedProject(

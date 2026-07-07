@@ -56,7 +56,13 @@ export async function POST(request: Request, { params }: RouteProps) {
   const { id } = await params;
   const project = await prisma.project.findFirst({
     where: { id, userId: session.user.id },
-    select: { id: true, prompt: true, siteSchema: true },
+    select: {
+      buildStatus: true,
+      id: true,
+      prompt: true,
+      siteSchema: true,
+      status: true,
+    },
   });
 
   if (!project) {
@@ -136,10 +142,7 @@ export async function POST(request: Request, { params }: RouteProps) {
   const commands = requestedCommands.length
     ? requestedCommands
     : createSimpleEditCommands(baseFiles, instruction);
-  const editResult = runGeneratedAppAgentTools({
-    commands,
-    files: baseFiles,
-  });
+  const editResult = runGeneratedAppAgentTools({ commands, files: baseFiles });
 
   if (!editResult.ok) {
     return Response.json(
@@ -148,6 +151,30 @@ export async function POST(request: Request, { params }: RouteProps) {
         outputs: editResult.outputs,
       },
       { status: 400 },
+    );
+  }
+
+  if (project.status === "building" || project.buildStatus === "running") {
+    return Response.json(
+      { message: "Build masih berjalan untuk proyek ini." },
+      { status: 409 },
+    );
+  }
+
+  const claimedProject = await prisma.project.updateMany({
+    where: {
+      buildStatus: { not: "running" },
+      id: project.id,
+      status: { not: "building" },
+      userId: session.user.id,
+    },
+    data: { buildStatus: "running", status: "building" },
+  });
+
+  if (claimedProject.count !== 1) {
+    return Response.json(
+      { message: "Build masih berjalan untuk proyek ini." },
+      { status: 409 },
     );
   }
 
@@ -161,6 +188,13 @@ export async function POST(request: Request, { params }: RouteProps) {
           generator: "agent-tool-runner",
           parentSnapshotId: activeSnapshot.id,
           sourceType: "edited",
+        },
+        generation: {
+          mode: "agent-edit",
+          operationTrace: editResult.operations,
+          touchedFiles: editResult.sideEffects
+            .map((effect) => effect.path)
+            .filter((path): path is string => Boolean(path)),
         },
         sideEffects: editResult.sideEffects,
       },
@@ -275,6 +309,14 @@ export async function POST(request: Request, { params }: RouteProps) {
         distFiles: buildResult.distFiles,
         sourceFiles: editResult.files,
         status: "ready",
+      } as Parameters<typeof prisma.project.update>[0]["data"],
+    });
+  } else {
+    await prisma.project.update({
+      where: { id: project.id },
+      data: {
+        buildLog: buildResult.logText,
+        buildStatus: "failed",
       } as Parameters<typeof prisma.project.update>[0]["data"],
     });
   }

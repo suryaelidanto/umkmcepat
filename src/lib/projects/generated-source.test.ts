@@ -28,6 +28,13 @@ describe("generated project source", () => {
     expect(() => assertSafeProjectFilePath("C:/secret.ts")).toThrow();
     expect(() => assertSafeProjectFilePath("node_modules/x.js")).toThrow();
     expect(() => assertSafeProjectFilePath(".env")).toThrow();
+    expect(() => assertSafeProjectFilePath(".env.production")).toThrow();
+    expect(() => assertSafeProjectFilePath("src/.secret.ts")).toThrow();
+    expect(() => assertSafeProjectFilePath("CON")).toThrow();
+    expect(() => assertSafeProjectFilePath("bun.lock")).toThrow();
+    expect(() =>
+      assertSafeProjectFilePath(".umkmcepat/project.json"),
+    ).not.toThrow();
   });
 
   it("generates seven beta fixture variants with distinct structure and safe static content", () => {

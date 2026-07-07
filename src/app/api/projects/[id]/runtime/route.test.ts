@@ -30,6 +30,9 @@ vi.mock("@/lib/projects/runtime-supervisor", () => ({
     getDeploymentStatus: getDeploymentStatusMock,
   }),
 }));
+vi.mock("@/lib/projects/stale-builds", () => ({
+  markStaleProjectBuilds: vi.fn(async () => 0),
+}));
 
 import { GET } from "./route";
 

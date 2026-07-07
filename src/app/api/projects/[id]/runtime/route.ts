@@ -8,6 +8,7 @@ import {
   selectLatestSuccessfulBuild,
 } from "@/lib/projects/deployment-resolution";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
+import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,8 @@ export async function GET(
       { status: 404 },
     );
   }
+
+  await markStaleProjectBuilds(project.id);
 
   const [builds, previewDeployments, publishedDeployments, events] =
     await Promise.all([

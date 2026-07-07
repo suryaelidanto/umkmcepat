@@ -9,6 +9,7 @@ const {
   prismaProjectDeploymentFindManyMock,
   prismaProjectFindFirstMock,
   prismaProjectSnapshotCreateMock,
+  prismaProjectUpdateManyMock,
   prismaProjectSnapshotUpdateMock,
   prismaProjectUpdateMock,
   prismaRuntimeEventCreateMock,
@@ -23,6 +24,7 @@ const {
   prismaProjectDeploymentFindManyMock: vi.fn(),
   prismaProjectFindFirstMock: vi.fn(),
   prismaProjectSnapshotCreateMock: vi.fn(),
+  prismaProjectUpdateManyMock: vi.fn(),
   prismaProjectSnapshotUpdateMock: vi.fn(),
   prismaProjectUpdateMock: vi.fn(),
   prismaRuntimeEventCreateMock: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock("@/lib/prisma", () => ({
     project: {
       findFirst: prismaProjectFindFirstMock,
       update: prismaProjectUpdateMock,
+      updateMany: prismaProjectUpdateManyMock,
     },
     projectBuild: {
       create: prismaProjectBuildCreateMock,
@@ -170,6 +173,7 @@ describe("project edit route", () => {
         updatedAt: older,
       },
     ]);
+    prismaProjectUpdateManyMock.mockResolvedValue({ count: 1 });
     prismaProjectSnapshotCreateMock.mockResolvedValue({ id: "snapshot_edit" });
     writeProjectSourceArtifactMock.mockResolvedValue(
       "project-artifact:local:source:snapshot_edit",
@@ -261,7 +265,10 @@ describe("project edit route", () => {
         data: expect.objectContaining({ status: "failed" }),
       }),
     );
-    expect(prismaProjectUpdateMock).not.toHaveBeenCalled();
+    expect(prismaProjectUpdateMock).toHaveBeenCalledWith({
+      data: { buildLog: "compile failed", buildStatus: "failed" },
+      where: { id: "project_1" },
+    });
   });
 
   it("rejects unsafe edit tools before creating a snapshot", async () => {

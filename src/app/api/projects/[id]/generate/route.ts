@@ -73,7 +73,7 @@ export async function POST(request: Request, { params }: RouteProps) {
   const { id } = await params;
   const project = await prisma.project.findFirst({
     where: { id, userId },
-    select: { id: true, prompt: true },
+    select: { buildStatus: true, id: true, prompt: true, status: true },
   });
 
   if (!project) {
@@ -83,10 +83,29 @@ export async function POST(request: Request, { params }: RouteProps) {
     );
   }
 
-  await prisma.project.update({
-    where: { id: project.id },
-    data: { status: "building" },
+  if (project.status === "building" || project.buildStatus === "running") {
+    return Response.json(
+      { message: "Build masih berjalan untuk proyek ini." },
+      { status: 409 },
+    );
+  }
+
+  const claimedProject = await prisma.project.updateMany({
+    where: {
+      buildStatus: { not: "running" },
+      id: project.id,
+      status: { not: "building" },
+      userId,
+    },
+    data: { buildStatus: "running", status: "building" },
   });
+
+  if (claimedProject.count !== 1) {
+    return Response.json(
+      { message: "Build masih berjalan untuk proyek ini." },
+      { status: 409 },
+    );
+  }
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
