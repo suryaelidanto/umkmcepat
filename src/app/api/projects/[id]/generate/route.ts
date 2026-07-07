@@ -224,6 +224,9 @@ export async function POST(request: Request, { params }: RouteProps) {
           detail: "Vite React TypeScript dan TanStack Router disiapkan.",
         });
         const sourceGeneration = await generateCustomProjectFilesWithAgent({
+          onOperation(operation) {
+            send("operation", operation);
+          },
           projectId: project.id,
           schema: finalSchema,
         });
@@ -238,6 +241,15 @@ export async function POST(request: Request, { params }: RouteProps) {
               ? `${sourceGeneration.touchedFiles.length} file dibuat atau diubah agent.`
               : `Fallback dipakai: ${sourceGeneration.fallbackReason}`,
         });
+        if (sourceGeneration.repairAttempts > 0) {
+          send("operation", {
+            detail: `${sourceGeneration.repairAttempts} percobaan perbaikan build dilakukan.`,
+            id: `repair-${sourceGeneration.repairAttempts}`,
+            state: "succeeded",
+            title: "AI memperbaiki build",
+            type: "check_app",
+          });
+        }
         const snapshot = await prisma.projectSnapshot.create({
           data: {
             files: sourceFiles,

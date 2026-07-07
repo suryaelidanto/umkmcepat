@@ -358,6 +358,10 @@ export function WorkspaceShell({
             detail?: string;
             label?: string;
             message?: string;
+            path?: string;
+            state?: "failed" | "succeeded";
+            title?: string;
+            type?: string;
           };
 
           if (eventName === "progress" && "label" in data && data.label) {
@@ -368,6 +372,19 @@ export function WorkspaceShell({
                 detail: data.detail || "",
                 label,
                 status: "active",
+              }),
+            );
+          }
+
+          if (eventName === "operation" && data.title) {
+            const title = data.title;
+            setBuildProgress((current) =>
+              addBuildProgressStep(current, {
+                detail: data.path
+                  ? `${data.path} — ${data.detail || "Operasi selesai."}`
+                  : (data.detail ?? "Operasi selesai."),
+                label: title,
+                status: data.state === "failed" ? "error" : "done",
               }),
             );
           }

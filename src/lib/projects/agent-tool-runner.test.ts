@@ -39,9 +39,9 @@ describe("generated app agent tool runner", () => {
           type: "search_files",
         },
         {
-          find: "Menu kopi dan lokasi",
+          find: '"offer": "Menu kopi dan lokasi",',
           path: "src/content/site.ts",
-          replace: "Menu kopi, suasana tempat, dan lokasi",
+          replace: '"offer": "Menu kopi, suasana tempat, dan lokasi",',
           type: "replace_in_file",
         },
         { type: "check_app" },
@@ -75,9 +75,63 @@ describe("generated app agent tool runner", () => {
       }),
     );
     expect(readFileContent(result.files, "src/content/site.ts")).toContain(
-      "Menu kopi, suasana tempat, dan lokasi",
+      '"offer": "Menu kopi, suasana tempat, dan lokasi",',
     );
     expect(result.check?.ok).toBe(true);
+    expect(result.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "src/content/site.ts",
+          title: "Membaca file",
+        }),
+        expect.objectContaining({
+          path: "src/content/site.ts",
+          title: "Mengedit file",
+        }),
+        expect.objectContaining({ title: "Mengecek app" }),
+      ]),
+    );
+  });
+
+  it("supports bounded line reads and rejects non-unique replacements", () => {
+    const lineRead = runGeneratedAppAgentTools({
+      commands: [
+        {
+          endLineOneIndexedInclusive: 2,
+          path: "src/content/site.ts",
+          startLineOneIndexed: 1,
+          type: "read_file",
+        },
+        { type: "check_app" },
+      ],
+      files: createFixtureFiles(),
+    });
+
+    expect(lineRead.outputs[0]?.result?.split("\n").length).toBe(2);
+    expect(lineRead.operations[0]).toEqual(
+      expect.objectContaining({ detail: expect.stringContaining("2 dari") }),
+    );
+
+    const duplicateReplace = runGeneratedAppAgentTools({
+      commands: [
+        {
+          find: "Menu kopi dan lokasi",
+          path: "src/content/site.ts",
+          replace: "Menu kopi premium",
+          type: "replace_in_file",
+        },
+        { type: "check_app" },
+      ],
+      files: createFixtureFiles(),
+    });
+
+    expect(duplicateReplace.ok).toBe(false);
+    expect(duplicateReplace.outputs).toContainEqual(
+      expect.objectContaining({
+        error: expect.stringContaining("must be unique"),
+        type: "replace_in_file",
+      }),
+    );
   });
 
   it("rejects writes outside the generated project source boundary", () => {
@@ -130,9 +184,9 @@ describe("generated app agent tool runner", () => {
     const result = runGeneratedAppAgentTools({
       commands: [
         {
-          find: "Menu kopi dan lokasi",
+          find: '"offer": "Menu kopi dan lokasi",',
           path: "src/content/site.ts",
-          replace: "Menu kopi premium",
+          replace: '"offer": "Menu kopi premium",',
           type: "replace_in_file",
         },
       ],

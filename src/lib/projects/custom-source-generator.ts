@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getAiModel } from "@/lib/ai";
 import {
   runGeneratedAppAgentTools,
+  type GeneratedAppAgentOperation,
   type GeneratedAppAgentToolCommand,
 } from "@/lib/projects/agent-tool-runner";
 import {
@@ -18,6 +19,7 @@ export type CustomGeneratedSourceResult =
   | {
       files: GeneratedProjectFile[];
       generationMode: "agent-custom";
+      operationTrace: GeneratedAppAgentOperation[];
       repairAttempts: number;
       summary: string;
       touchedFiles: string[];
@@ -26,15 +28,18 @@ export type CustomGeneratedSourceResult =
       fallbackReason: string;
       files: GeneratedProjectFile[];
       generationMode: "deterministic-fallback";
+      operationTrace: GeneratedAppAgentOperation[];
       repairAttempts: number;
       summary: string;
       touchedFiles: string[];
     };
 
 export async function generateCustomProjectFilesWithAgent({
+  onOperation,
   projectId,
   schema,
 }: {
+  onOperation?: (operation: GeneratedAppAgentOperation) => void;
   projectId: string;
   schema: ProjectSiteSchema;
 }): Promise<CustomGeneratedSourceResult> {
@@ -44,10 +49,19 @@ export async function generateCustomProjectFilesWithAgent({
   );
   const fallbackFiles = createGeneratedProjectFiles(projectId, schema);
   let files = starterFiles;
+  const operationTrace: GeneratedAppAgentOperation[] = [];
   const touchedFiles = new Set<string>();
 
   const runCommand = (command: GeneratedAppAgentToolCommand) => {
-    const result = runGeneratedAppAgentTools({ commands: [command], files });
+    const result = runGeneratedAppAgentTools({
+      commands: [command],
+      files,
+      onOperation(operation) {
+        const traced = { ...operation, id: `${operationTrace.length + 1}` };
+        operationTrace.push(traced);
+        onOperation?.(traced);
+      },
+    });
     files = result.files;
 
     for (const effect of result.sideEffects) {
@@ -109,6 +123,7 @@ export async function generateCustomProjectFilesWithAgent({
     return {
       files,
       generationMode: "agent-custom",
+      operationTrace,
       repairAttempts,
       summary: result.text || "AI coding agent generated custom source files.",
       touchedFiles: [...touchedFiles].sort(),
@@ -134,8 +149,18 @@ function createAgentTools(
     }),
     read_file: tool({
       description: "Read one generated project file.",
-      inputSchema: z.object({ path: z.string() }),
-      execute: ({ path }) => runCommand({ path, type: "read_file" }),
+      inputSchema: z.object({
+        endLineOneIndexedInclusive: z.number().int().min(1).optional(),
+        path: z.string(),
+        startLineOneIndexed: z.number().int().min(1).optional(),
+      }),
+      execute: ({ endLineOneIndexedInclusive, path, startLineOneIndexed }) =>
+        runCommand({
+          endLineOneIndexedInclusive,
+          path,
+          startLineOneIndexed,
+          type: "read_file",
+        }),
     }),
     search_files: tool({
       description: "Search generated project files by exact text.",
@@ -231,6 +256,7 @@ function fallback(
     fallbackReason,
     files,
     generationMode: "deterministic-fallback",
+    operationTrace: [],
     repairAttempts,
     summary:
       "AI coding agent did not produce valid custom source; deterministic source was used.",
@@ -246,7 +272,7 @@ ${JSON.stringify(schema, null, 2)}
 
 Required steps:
 1. list_files
-2. read the router, index route, content, style files
+2. read the router, index route, content, style files; use line ranges for large files
 3. edit/create multiple files so the app feels specific to this business
 4. keep static frontend only
 5. run check_app after all writes

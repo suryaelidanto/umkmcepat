@@ -751,6 +751,13 @@ export function createGeneratedSourceSnapshotMetadata(
   generation?: {
     fallbackReason?: string;
     generationMode?: "agent-custom" | "deterministic-fallback";
+    operationTrace?: Array<{
+      detail: string;
+      path?: string;
+      state: string;
+      title: string;
+      type: string;
+    }>;
     repairAttempts?: number;
     summary?: string;
     touchedFiles?: string[];
@@ -766,6 +773,7 @@ export function createGeneratedSourceSnapshotMetadata(
       ? {
           fallbackReason: generation.fallbackReason,
           mode: generation.generationMode,
+          operationTrace: generation.operationTrace ?? [],
           repairAttempts: generation.repairAttempts ?? 0,
           summary: generation.summary,
           touchedFiles: generation.touchedFiles ?? [],

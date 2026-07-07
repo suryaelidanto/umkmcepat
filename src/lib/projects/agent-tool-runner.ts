@@ -8,15 +8,15 @@ import {
 export type GeneratedAppAgentToolCommand =
   | { type: "check_app" }
   | { pathPrefix?: string; type: "list_files" }
-  | { path: string; type: "read_file" }
+  | {
+      endLineOneIndexedInclusive?: number;
+      path: string;
+      startLineOneIndexed?: number;
+      type: "read_file";
+    }
   | { query: string; pathPrefix?: string; type: "search_files" }
   | { content: string; path: string; type: "write_file" }
-  | {
-      find: string;
-      path: string;
-      replace: string;
-      type: "replace_in_file";
-    };
+  | { find: string; path: string; replace: string; type: "replace_in_file" };
 
 export type GeneratedAppAgentToolSideEffect = {
   path?: string;
@@ -35,19 +35,37 @@ export type GeneratedAppAgentCheckResult = {
   ok: boolean;
 };
 
+export type GeneratedAppAgentOperation = {
+  detail: string;
+  id: string;
+  path?: string;
+  state: "failed" | "succeeded";
+  title: string;
+  type: GeneratedAppAgentToolCommand["type"];
+};
+
 export function runGeneratedAppAgentTools({
   commands,
   files,
+  onOperation,
 }: {
   commands: GeneratedAppAgentToolCommand[];
   files: GeneratedProjectFile[];
+  onOperation?: (operation: GeneratedAppAgentOperation) => void;
 }) {
   let currentFiles = normalizeFiles(files);
   let check: GeneratedAppAgentCheckResult | null = null;
   let changedSinceLastCheck = false;
   let hasToolError = false;
+  const operations: GeneratedAppAgentOperation[] = [];
   const outputs: GeneratedAppAgentToolOutput[] = [];
   const sideEffects: GeneratedAppAgentToolSideEffect[] = [];
+
+  function emit(operation: Omit<GeneratedAppAgentOperation, "id">) {
+    const next = { ...operation, id: `${operations.length + 1}` };
+    operations.push(next);
+    onOperation?.(next);
+  }
 
   for (const command of commands) {
     if (command.type === "list_files") {
@@ -55,20 +73,30 @@ export function runGeneratedAppAgentTools({
 
       if (!safePathPrefix.ok) {
         hasToolError = true;
+        emitFailed(
+          "Gagal membaca struktur file",
+          safePathPrefix.error,
+          command.type,
+        );
         outputs.push({ error: safePathPrefix.error, type: command.type });
         continue;
       }
 
       const pathPrefix = safePathPrefix.pathPrefix;
-      outputs.push({
-        paths: currentFiles
-          .map((file) => file.path)
-          .filter((filePath) =>
-            pathPrefix ? filePath.startsWith(pathPrefix) : true,
-          )
-          .sort(),
+      const paths = currentFiles
+        .map((file) => file.path)
+        .filter((filePath) =>
+          pathPrefix ? filePath.startsWith(pathPrefix) : true,
+        )
+        .sort();
+      emit({
+        detail: `${paths.length} file ditemukan.`,
+        path: pathPrefix || undefined,
+        state: "succeeded",
+        title: "Membaca struktur file",
         type: command.type,
       });
+      outputs.push({ paths, type: command.type });
       continue;
     }
 
@@ -77,15 +105,42 @@ export function runGeneratedAppAgentTools({
 
       if (!safePath.ok) {
         hasToolError = true;
+        emitFailed(
+          "Gagal membaca file",
+          safePath.error,
+          command.type,
+          command.path,
+        );
         outputs.push({ error: safePath.error, type: command.type });
         continue;
       }
 
       const filePath = safePath.path;
-      outputs.push({
-        result: currentFiles.find((file) => file.path === filePath)?.content,
+      const content = currentFiles.find(
+        (file) => file.path === filePath,
+      )?.content;
+
+      if (content == null) {
+        hasToolError = true;
+        const error = `File not found: ${filePath}`;
+        emitFailed("Gagal membaca file", error, command.type, filePath);
+        outputs.push({ error, type: command.type });
+        continue;
+      }
+
+      const result = sliceLines(
+        content,
+        command.startLineOneIndexed,
+        command.endLineOneIndexedInclusive,
+      );
+      emit({
+        detail: lineReadDetail(content, result),
+        path: filePath,
+        state: "succeeded",
+        title: "Membaca file",
         type: command.type,
       });
+      outputs.push({ result, type: command.type });
       continue;
     }
 
@@ -94,21 +149,27 @@ export function runGeneratedAppAgentTools({
 
       if (!safePathPrefix.ok) {
         hasToolError = true;
+        emitFailed("Gagal mencari file", safePathPrefix.error, command.type);
         outputs.push({ error: safePathPrefix.error, type: command.type });
         continue;
       }
 
       const pathPrefix = safePathPrefix.pathPrefix;
-      outputs.push({
-        paths: currentFiles
-          .filter((file) =>
-            pathPrefix ? file.path.startsWith(pathPrefix) : true,
-          )
-          .filter((file) => file.content.includes(command.query))
-          .map((file) => file.path)
-          .sort(),
+      const paths = currentFiles
+        .filter((file) =>
+          pathPrefix ? file.path.startsWith(pathPrefix) : true,
+        )
+        .filter((file) => file.content.includes(command.query))
+        .map((file) => file.path)
+        .sort();
+      emit({
+        detail: `${paths.length} file cocok dengan pencarian.`,
+        path: pathPrefix || undefined,
+        state: "succeeded",
+        title: "Mencari file",
         type: command.type,
       });
+      outputs.push({ paths, type: command.type });
       continue;
     }
 
@@ -117,6 +178,12 @@ export function runGeneratedAppAgentTools({
 
       if (!safePath.ok) {
         hasToolError = true;
+        emitFailed(
+          "Gagal menulis file",
+          safePath.error,
+          command.type,
+          command.path,
+        );
         outputs.push({ error: safePath.error, type: command.type });
         continue;
       }
@@ -128,6 +195,13 @@ export function runGeneratedAppAgentTools({
       });
       changedSinceLastCheck = true;
       sideEffects.push({ path: filePath, type: command.type });
+      emit({
+        detail: "File dibuat atau ditimpa oleh agent.",
+        path: filePath,
+        state: "succeeded",
+        title: "Menulis file",
+        type: command.type,
+      });
       outputs.push({ result: "written", type: command.type });
       continue;
     }
@@ -137,6 +211,12 @@ export function runGeneratedAppAgentTools({
 
       if (!safePath.ok) {
         hasToolError = true;
+        emitFailed(
+          "Gagal mengedit file",
+          safePath.error,
+          command.type,
+          command.path,
+        );
         outputs.push({ error: safePath.error, type: command.type });
         continue;
       }
@@ -146,37 +226,46 @@ export function runGeneratedAppAgentTools({
 
       if (!file) {
         hasToolError = true;
-        outputs.push({
-          error: `File not found: ${filePath}`,
-          type: command.type,
-        });
+        const error = `File not found: ${filePath}`;
+        emitFailed("Gagal mengedit file", error, command.type, filePath);
+        outputs.push({ error, type: command.type });
         continue;
       }
 
       if (!command.find) {
         hasToolError = true;
-        outputs.push({
-          error: "Replacement target cannot be empty.",
-          type: command.type,
-        });
+        const error = "Replacement target cannot be empty.";
+        emitFailed("Gagal mengedit file", error, command.type, filePath);
+        outputs.push({ error, type: command.type });
         continue;
       }
 
-      if (!file.content.includes(command.find)) {
+      const matchCount = countOccurrences(file.content, command.find);
+
+      if (matchCount !== 1) {
         hasToolError = true;
-        outputs.push({
-          error: `Replacement target not found in ${filePath}.`,
-          type: command.type,
-        });
+        const error =
+          matchCount === 0
+            ? `Replacement target not found in ${filePath}.`
+            : `Replacement target must be unique in ${filePath}; found ${matchCount} matches.`;
+        emitFailed("Gagal mengedit file", error, command.type, filePath);
+        outputs.push({ error, type: command.type });
         continue;
       }
 
       currentFiles = upsertFile(currentFiles, {
-        content: file.content.replaceAll(command.find, command.replace),
+        content: file.content.replace(command.find, command.replace),
         path: filePath,
       });
       changedSinceLastCheck = true;
       sideEffects.push({ path: filePath, type: command.type });
+      emit({
+        detail: "Perubahan presisi diterapkan ke satu lokasi.",
+        path: filePath,
+        state: "succeeded",
+        title: "Mengedit file",
+        type: command.type,
+      });
       outputs.push({ result: "replaced", type: command.type });
       continue;
     }
@@ -184,6 +273,14 @@ export function runGeneratedAppAgentTools({
     check = checkGeneratedApp(currentFiles);
     changedSinceLastCheck = false;
     sideEffects.push({ type: command.type });
+    emit({
+      detail: check.ok
+        ? "Manifest dan package policy valid."
+        : check.issues.join("\n"),
+      state: check.ok ? "succeeded" : "failed",
+      title: check.ok ? "Mengecek app" : "Check app gagal",
+      type: command.type,
+    });
     outputs.push({
       result: check.ok ? "passed" : check.issues.join("\n"),
       type: command.type,
@@ -191,19 +288,26 @@ export function runGeneratedAppAgentTools({
   }
 
   if (changedSinceLastCheck) {
-    check = {
-      issues: ["App check must run after source changes."],
-      ok: false,
-    };
+    check = { issues: ["App check must run after source changes."], ok: false };
   }
 
   return {
     check,
     files: currentFiles,
     ok: check?.ok === true && !hasToolError,
+    operations,
     outputs,
     sideEffects,
   };
+
+  function emitFailed(
+    title: string,
+    detail: string,
+    type: GeneratedAppAgentToolCommand["type"],
+    path?: string,
+  ) {
+    emit({ detail, path, state: "failed", title, type });
+  }
 }
 
 function checkGeneratedApp(
@@ -260,23 +364,68 @@ function getSafeOptionalPathPrefix(
     return { ok: true, pathPrefix: "" };
   }
 
-  const safePath = getSafeCommandPath(
-    pathPrefix.endsWith("/") ? `${pathPrefix}index` : pathPrefix,
-  );
-
-  return safePath.ok
-    ? { ok: true, pathPrefix }
-    : { error: safePath.error, ok: false };
+  try {
+    const sentinelPath = pathPrefix.endsWith("/")
+      ? `${pathPrefix}index`
+      : pathPrefix;
+    assertAgentPath(sentinelPath);
+    return { ok: true, pathPrefix };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Generated path prefix is unsafe.",
+      ok: false,
+    };
+  }
 }
 
-function upsertFile(files: GeneratedProjectFile[], next: GeneratedProjectFile) {
-  const found = files.some((file) => file.path === next.path);
+function upsertFile(
+  files: GeneratedProjectFile[],
+  nextFile: GeneratedProjectFile,
+) {
+  const withoutExisting = files.filter((file) => file.path !== nextFile.path);
+  return [...withoutExisting, nextFile].sort((a, b) =>
+    a.path.localeCompare(b.path),
+  );
+}
 
-  if (!found) {
-    return [...files, next].sort((left, right) =>
-      left.path.localeCompare(right.path),
-    );
+function countOccurrences(value: string, needle: string) {
+  if (!needle) {
+    return 0;
   }
 
-  return files.map((file) => (file.path === next.path ? next : file));
+  let count = 0;
+  let index = value.indexOf(needle);
+
+  while (index !== -1) {
+    count += 1;
+    index = value.indexOf(needle, index + needle.length);
+  }
+
+  return count;
+}
+
+function sliceLines(value: string, start?: number, end?: number) {
+  if (start == null && end == null) {
+    return value;
+  }
+
+  const hasTrailingNewline = value.endsWith("\n");
+  const lines = (hasTrailingNewline ? value.slice(0, -1) : value).split("\n");
+  const startIndex = Math.max(0, (start ?? 1) - 1);
+  const endIndex = Math.min(lines.length, end ?? lines.length);
+  const result = lines.slice(startIndex, endIndex).join("\n");
+  return endIndex >= lines.length && hasTrailingNewline
+    ? `${result}\n`
+    : result;
+}
+
+function lineReadDetail(fullContent: string, result: string) {
+  const totalLines = fullContent ? fullContent.split("\n").length : 0;
+  const readLines = result ? result.split("\n").length : 0;
+  return readLines === totalLines
+    ? `${totalLines} baris dibaca.`
+    : `${readLines} dari ${totalLines} baris dibaca.`;
 }

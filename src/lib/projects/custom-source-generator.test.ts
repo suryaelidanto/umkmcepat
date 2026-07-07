@@ -80,6 +80,13 @@ describe("custom generated source agent", () => {
     expect(result.touchedFiles).toContain(
       "src/components/automotive/ServiceMatrix.tsx",
     );
+    expect(result.operationTrace).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ title: "Membaca struktur file" }),
+        expect.objectContaining({ title: "Menulis file" }),
+        expect.objectContaining({ title: "Mengecek app" }),
+      ]),
+    );
     expect(
       result.files.find((file) => file.path === "src/routes/index.tsx")
         ?.content,
