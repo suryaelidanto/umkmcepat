@@ -200,7 +200,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("does not force a build card just because required brief fields are filled", () => {
+  it("keeps a discussion option card instead of forcing build when required fields are filled", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Dropship sepatu",
@@ -213,7 +213,10 @@ describe("normalizeWorkspaceTurn", () => {
     );
     const turn = normalizeWorkspaceTurn(undefined, brief);
 
-    expect(turn.workspaceCard.type).toBe("none");
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.question).toContain("detail tambahan");
+    }
   });
 
   it("keeps an explicit AI question even when that field was just patched", () => {

@@ -585,6 +585,22 @@ export function QuestionComposer({
   const [customAnswer, setCustomAnswer] = useState("");
   const [customAnswerOpen, setCustomAnswerOpen] = useState(false);
   const isMultiple = question.selectionMode === "multiple";
+  const modeTone = isMultiple
+    ? {
+        accent: "#8fd3ff",
+        header: "border-[#8fd3ff]/18 bg-[#10202b]",
+        label: "Bisa pilih beberapa",
+        option: "border-[#8fd3ff]/14 hover:bg-[#8fd3ff]/8",
+        selected: "border-[#8fd3ff]/32 bg-[#8fd3ff]/12",
+      }
+    : {
+        accent: "#8ce99a",
+        header: "border-[#8ce99a]/16 bg-[#172116]",
+        label: "Pilih satu jawaban",
+        option:
+          "border-surface-warm-white/8 hover:bg-surface-warm-white/[0.045]",
+        selected: "border-[#8ce99a]/28 bg-[#8ce99a]/10",
+      };
   const answer = formatWorkspaceAnswerSelection(question, selected, source);
   const customAnswerSelected = Boolean(selected.length) && source === "custom";
   const canSubmit = selected.length > 0;
@@ -635,10 +651,21 @@ export function QuestionComposer({
 
   return (
     <div className="mt-spacing-3 overflow-hidden border-y border-surface-warm-white/10 bg-[#1d1d1a] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
-      <div className="border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/56">
-          {isMultiple ? "Pilih satu atau lebih" : "Satu keputusan dulu"}
-        </p>
+      <div className={`border-b px-spacing-5 py-spacing-4 ${modeTone.header}`}>
+        <div className="flex flex-wrap items-center gap-spacing-2">
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/58">
+            {modeTone.label}
+          </p>
+          <span
+            className="rounded-full border px-spacing-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+            style={{
+              borderColor: `${modeTone.accent}55`,
+              color: modeTone.accent,
+            }}
+          >
+            {isMultiple ? "Multiple select" : "Single select"}
+          </span>
+        </div>
         <h2 className="mt-spacing-1 max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
           {question.question}
         </h2>
@@ -660,7 +687,7 @@ export function QuestionComposer({
               key={option.label}
               type="button"
               onClick={() => chooseAnswer(option.label, "option")}
-              className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 px-spacing-5 py-spacing-4 text-left transition ${isSelected ? "bg-surface-warm-white/[0.075]" : "hover:bg-surface-warm-white/[0.045]"}`}
+              className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 border-b px-spacing-5 py-spacing-4 text-left transition last:border-b-0 ${isSelected ? modeTone.selected : modeTone.option}`}
             >
               <span className="min-w-0">
                 <span className="block whitespace-normal break-words text-sm font-semibold text-surface-warm-white [overflow-wrap:anywhere]">
@@ -676,8 +703,22 @@ export function QuestionComposer({
                 ) : null}
               </span>
               <span
-                className={`mt-1 size-3 shrink-0 border ${isSelected ? "border-[#8ce99a] bg-[#8ce99a]" : "border-surface-warm-white/22 group-hover:border-surface-warm-white/44"}`}
-              />
+                className={`mt-1 grid size-4 shrink-0 place-items-center border transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? "text-[#10100f]" : "border-surface-warm-white/24 group-hover:border-surface-warm-white/48"}`}
+                style={
+                  isSelected
+                    ? {
+                        backgroundColor: modeTone.accent,
+                        borderColor: modeTone.accent,
+                      }
+                    : undefined
+                }
+              >
+                {isSelected ? (
+                  <span className="text-[10px] leading-none">
+                    {isMultiple ? "✓" : "•"}
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}

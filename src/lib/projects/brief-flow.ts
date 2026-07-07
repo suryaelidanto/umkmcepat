@@ -146,7 +146,30 @@ export function createFallbackWorkspaceCard(
   const nextField = getMissingBriefFields(brief)[0];
 
   if (!nextField) {
-    return { type: "none" };
+    return {
+      type: "question",
+      question: buildFallbackQuestion("stylePreference", brief, {
+        question:
+          "Apa detail tambahan paling penting sebelum website ini dibuild?",
+        options: [
+          {
+            label: "Tampilan sudah pas",
+            description:
+              "Lanjutkan dengan arah visual dan isi yang sudah dibahas.",
+          },
+          {
+            label: "Perkuat penawaran",
+            description:
+              "Tambahkan detail promo, paket, harga, atau keunggulan utama.",
+          },
+          {
+            label: "Perjelas alur pelanggan",
+            description:
+              "Rapikan cara pengunjung melihat info lalu menghubungi usaha.",
+          },
+        ],
+      }),
+    };
   }
 
   return {
@@ -270,15 +293,17 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
 function buildFallbackQuestion(
   id: BriefQuestion["id"],
   brief: ProjectBrief,
+  override?: Pick<BriefQuestion, "options" | "question">,
 ): BriefQuestion {
   const business = brief.businessType || brief.prompt || "usaha kamu";
   const label = BRIEF_FIELD_LABELS[id];
 
   return {
     id,
-    question: `Apa ${label} yang paling tepat untuk ${business}?`,
+    question:
+      override?.question || `Apa ${label} yang paling tepat untuk ${business}?`,
     selectionMode: "single",
-    options: fallbackOptions(id),
+    options: override?.options || fallbackOptions(id),
   };
 }
 
