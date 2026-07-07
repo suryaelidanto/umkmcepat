@@ -17,6 +17,7 @@ import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 export type CustomGeneratedSourceResult =
   | {
+      buildSpec: string;
       files: GeneratedProjectFile[];
       generationMode: "agent-custom";
       operationTrace: GeneratedAppAgentOperation[];
@@ -25,6 +26,7 @@ export type CustomGeneratedSourceResult =
       touchedFiles: string[];
     }
   | {
+      buildSpec: string;
       fallbackReason: string;
       files: GeneratedProjectFile[];
       generationMode: "deterministic-fallback";
@@ -35,10 +37,12 @@ export type CustomGeneratedSourceResult =
     };
 
 export async function generateCustomProjectFilesWithAgent({
+  implementationBrief,
   onOperation,
   projectId,
   schema,
 }: {
+  implementationBrief?: string;
   onOperation?: (operation: GeneratedAppAgentOperation) => void;
   projectId: string;
   schema: ProjectSiteSchema;
@@ -48,6 +52,7 @@ export async function generateCustomProjectFilesWithAgent({
     schema,
   );
   const fallbackFiles = createGeneratedProjectFiles(projectId, schema);
+  const appSpec = buildGeneratedAppBuildSpec(schema, implementationBrief);
   let files = starterFiles;
   const operationTrace: GeneratedAppAgentOperation[] = [];
   const touchedFiles = new Set<string>();
@@ -81,11 +86,15 @@ export async function generateCustomProjectFilesWithAgent({
       tools: createAgentTools(runCommand),
     });
 
-    const result = await agent.generate({ prompt: buildAgentPrompt(schema) });
+    const result = await agent.generate({ prompt: buildAgentPrompt(appSpec) });
     let quality = checkAgentSourceQuality(files, touchedFiles);
 
     if (!quality.ok) {
-      return fallback(fallbackFiles, quality.issues.join(", "), 0);
+      return fallback(fallbackFiles, quality.issues.join(", "), 0, {
+        buildSpec: appSpec,
+        operationTrace,
+        touchedFiles,
+      });
     }
 
     let repairAttempts = 0;
@@ -96,7 +105,7 @@ export async function generateCustomProjectFilesWithAgent({
       if (!build.ok) {
         repairAttempts = 1;
         await agent.generate({
-          prompt: `${buildAgentPrompt(schema)}\n\nPrevious build failed. Repair the source using this build log, then run check_app.\n\n${build.log.slice(-6000)}`,
+          prompt: `${buildAgentPrompt(appSpec)}\n\nPrevious build failed. Repair the source using this build log, then run check_app.\n\n${build.log.slice(-6000)}`,
         });
         quality = checkAgentSourceQuality(files, touchedFiles);
 
@@ -105,6 +114,7 @@ export async function generateCustomProjectFilesWithAgent({
             fallbackFiles,
             `repair failed: ${quality.issues.join(", ")}`,
             repairAttempts,
+            { buildSpec: appSpec, operationTrace, touchedFiles },
           );
         }
 
@@ -115,12 +125,14 @@ export async function generateCustomProjectFilesWithAgent({
             fallbackFiles,
             `repair build failed: ${repairedBuild.log.slice(-1000)}`,
             repairAttempts,
+            { buildSpec: appSpec, operationTrace, touchedFiles },
           );
         }
       }
     }
 
     return {
+      buildSpec: appSpec,
       files,
       generationMode: "agent-custom",
       operationTrace,
@@ -133,6 +145,7 @@ export async function generateCustomProjectFilesWithAgent({
       fallbackFiles,
       error instanceof Error ? error.message : "agent failed",
       0,
+      { buildSpec: appSpec, operationTrace, touchedFiles },
     );
   }
 }
@@ -218,8 +231,26 @@ function checkAgentSourceQuality(
     issues.push("missing route files");
   }
 
-  if (!files.some((file) => file.path.startsWith("src/components/"))) {
-    issues.push("missing component files");
+  const routeEdited = [...touchedFiles].some((path) =>
+    path.startsWith("src/routes/"),
+  );
+  const presentationEdited = [...touchedFiles].some(
+    (path) => path.startsWith("src/components/") || path === "src/styles.css",
+  );
+  const contentEdited = [...touchedFiles].some((path) =>
+    path.startsWith("src/content/"),
+  );
+
+  if (!routeEdited) {
+    issues.push("agent did not edit route files");
+  }
+
+  if (!presentationEdited) {
+    issues.push("agent did not edit presentation files");
+  }
+
+  if (!contentEdited) {
+    issues.push("agent did not edit content files");
   }
 
   if (!files.some((file) => file.path.startsWith("src/content/"))) {
@@ -251,32 +282,67 @@ function fallback(
   files: GeneratedProjectFile[],
   fallbackReason: string,
   repairAttempts: number,
+  trace?: {
+    buildSpec: string;
+    operationTrace: GeneratedAppAgentOperation[];
+    touchedFiles: Set<string>;
+  },
 ): CustomGeneratedSourceResult {
   return {
+    buildSpec: trace?.buildSpec ?? "",
     fallbackReason,
     files,
     generationMode: "deterministic-fallback",
-    operationTrace: [],
+    operationTrace: trace?.operationTrace ?? [],
     repairAttempts,
     summary:
       "AI coding agent did not produce valid custom source; deterministic source was used.",
-    touchedFiles: [],
+    touchedFiles: trace ? [...trace.touchedFiles].sort() : [],
   };
 }
 
-function buildAgentPrompt(schema: ProjectSiteSchema) {
+function buildAgentPrompt(implementationBrief: string) {
   return `Build a custom generated UMKM Cepat app from the starter files.
 
-Business schema:
-${JSON.stringify(schema, null, 2)}
+Implementation brief:
+${implementationBrief}
 
 Required steps:
 1. list_files
 2. read the router, index route, content, style files; use line ranges for large files
-3. edit/create multiple files so the app feels specific to this business
-4. keep static frontend only
-5. run check_app after all writes
-6. final answer: concise summary and touched files`;
+3. create at least one component under src/components/custom/ unless a better domain folder already exists
+4. edit route, content, and CSS files so the app feels designed, not pasted answers
+5. keep static frontend only
+6. run check_app after all writes
+7. final answer: concise summary and touched files`;
+}
+
+export function buildGeneratedAppBuildSpec(
+  schema: ProjectSiteSchema,
+  conversationBrief = "",
+) {
+  return [
+    `Business: ${schema.businessName}`,
+    `Audience: ${schema.audience}`,
+    `Offer: ${schema.offer}`,
+    `Primary CTA: ${schema.primaryCta}`,
+    `Secondary CTA: ${schema.secondaryCta}`,
+    `Visual direction: background ${schema.theme.background}; foreground ${schema.theme.foreground}; muted ${schema.theme.muted}; accent ${schema.theme.accent}`,
+    conversationBrief ? `Conversation summary:\n${conversationBrief}` : "",
+    "Build intent:",
+    "- Turn the conversation into a polished landing page, not a transcript.",
+    "- Invent layout, hierarchy, cards, sections, and proof points that fit the business.",
+    "- Rewrite user answers into customer-facing Indonesian marketing copy.",
+    "- Make the first screen immediately communicate what is rented/sold, for whom, and how to order.",
+    "- Use business-specific visual metaphors; avoid generic white cards copied from the schema.",
+    "Required source shape:",
+    "- Route owns composition only.",
+    "- Content module owns structured copy/data.",
+    "- CSS owns visual identity.",
+    "- At least one component owns a visual/interactive-looking section.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function buildGeneratedAppAgentInstructions(schema: ProjectSiteSchema) {
@@ -287,12 +353,14 @@ Rules:
 - Keep all paths inside the generated project.
 - Static frontend only: no backend, API routes, DB, auth, payment, checkout, fake persistence, browser automation, or native deps.
 - User-facing copy must be Indonesian.
-- Do not dump raw brief answers; rewrite into polished customer copy.
+- Do not dump raw brief answers; transform them into a designed landing page with hierarchy, sections, proof, and CTA flow.
+- Create React components; do not keep everything in one route file.
 - Prefer custom CSS, React components, content modules, and routes.
 - Make structure specific to this business: ${schema.businessName} / ${schema.offer} / ${schema.audience}.
 - Do not add packages unless already allowed by package policy.
 - Keep preview readiness working.
-- You must edit or create multiple files.
+- You must edit route, content, and styling files.
+- You should create at least one src/components/custom/*.tsx file for the main visual section.
 - You must call check_app after final write.
 - If unsure, make the smallest safe custom improvement.`;
 }

@@ -255,6 +255,7 @@ export async function POST(request: Request, { params }: RouteProps) {
           detail: "Vite React TypeScript dan TanStack Router disiapkan.",
         });
         const sourceGeneration = await generateCustomProjectFilesWithAgent({
+          implementationBrief: buildPrompt,
           onOperation(operation) {
             send("operation", operation);
           },
@@ -262,6 +263,7 @@ export async function POST(request: Request, { params }: RouteProps) {
           schema: finalSchema,
         });
         devLog("generate", "source.generated", {
+          buildSpecLength: sourceGeneration.buildSpec.length,
           fallbackReason:
             "fallbackReason" in sourceGeneration
               ? sourceGeneration.fallbackReason

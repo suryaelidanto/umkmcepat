@@ -795,6 +795,7 @@ export function createGeneratedSourceSnapshotMetadata(
   files: GeneratedProjectFile[],
   schema: ProjectSiteSchema,
   generation?: {
+    buildSpec?: string;
     fallbackReason?: string;
     generationMode?: "agent-custom" | "deterministic-fallback";
     operationTrace?: Array<{
@@ -817,6 +818,7 @@ export function createGeneratedSourceSnapshotMetadata(
     manifestIssues: manifestResult.ok ? [] : manifestResult.issues,
     generation: generation
       ? {
+          buildSpec: generation.buildSpec,
           fallbackReason: generation.fallbackReason,
           mode: generation.generationMode,
           operationTrace: generation.operationTrace ?? [],
