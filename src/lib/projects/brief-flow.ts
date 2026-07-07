@@ -6,7 +6,6 @@ import {
   type WorkspaceCard,
   getMissingBriefFields,
   isBriefQuestionId,
-  isBriefReady,
 } from "@/lib/projects/brief";
 
 const BRIEF_FIELD_LABELS: Record<BriefQuestion["id"], string> = {
@@ -144,14 +143,10 @@ export function normalizeWorkspaceTurn(
 export function createFallbackWorkspaceCard(
   brief: ProjectBrief,
 ): WorkspaceCard {
-  if (isBriefReady(brief)) {
-    return buildRecommendationCard(brief);
-  }
-
   const nextField = getMissingBriefFields(brief)[0];
 
   if (!nextField) {
-    return buildRecommendationCard(brief);
+    return { type: "none" };
   }
 
   return {
@@ -211,25 +206,21 @@ function normalizeWorkspaceCard(
   const rawQuestion =
     value.question ??
     (Array.isArray(value.questions) ? value.questions[0] : undefined);
-  const question = normalizeQuestion(rawQuestion, brief);
+  const question = normalizeQuestion(rawQuestion);
 
   return question
     ? { type: "question", question }
     : createFallbackWorkspaceCard(brief);
 }
 
-function normalizeQuestion(
-  raw: unknown,
-  brief: ProjectBrief,
-): BriefQuestion | null {
+function normalizeQuestion(raw: unknown): BriefQuestion | null {
   if (!raw || typeof raw !== "object") {
     return null;
   }
 
   const candidate = raw as Partial<BriefQuestion>;
-  const missing = new Set(getMissingBriefFields(brief));
 
-  if (!isBriefQuestionId(candidate.id) || !missing.has(candidate.id)) {
+  if (!isBriefQuestionId(candidate.id)) {
     return null;
   }
 

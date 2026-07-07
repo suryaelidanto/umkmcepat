@@ -200,6 +200,57 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("does not force a build card just because required brief fields are filled", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Dropship sepatu",
+        offer: "Semua jenis sepatu",
+        targetCustomer: "Anak muda",
+        contactOrCta: "WhatsApp katalog",
+        stylePreference: "Masih perlu dipilih",
+      },
+      "dropship sepatu",
+    );
+    const turn = normalizeWorkspaceTurn(undefined, brief);
+
+    expect(turn.workspaceCard.type).toBe("none");
+  });
+
+  it("keeps an explicit AI question even when that field was just patched", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Dropship sepatu",
+        offer: "Sneakers dan sepatu casual",
+        targetCustomer: "Anak muda",
+        contactOrCta: "WhatsApp katalog",
+      },
+      "dropship sepatu",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        briefPatch: { stylePreference: "Enerjik dan playful" },
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "stylePreference",
+            question: "Mau vibe visual yang lebih neon atau clean minimalis?",
+            options: [
+              { label: "Neon streetwear", description: "Cerah dan berani." },
+              { label: "Clean minimalis", description: "Rapi dan premium." },
+              { label: "Sporty katalog", description: "Fokus produk." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("stylePreference");
+    }
+  });
+
   it("accepts a build recommendation with a flexible summary", () => {
     const brief = parseProjectBrief(
       {
