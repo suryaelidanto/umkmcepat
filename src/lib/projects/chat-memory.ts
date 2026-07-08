@@ -29,7 +29,10 @@ export function parseProjectChatMessages(value: unknown): UIMessage[] {
     return [];
   }
 
-  return value.filter(isUiMessage).slice(-MAX_STORED_MESSAGES);
+  return value
+    .map(sanitizeStoredUiMessage)
+    .filter(isUiMessage)
+    .slice(-MAX_STORED_MESSAGES);
 }
 
 export function getProjectChatContext(messages: UIMessage[]) {
@@ -135,6 +138,40 @@ export function getTextFromUIMessage(message: UIMessage) {
     .map((part) => part.text.trim())
     .filter(Boolean)
     .join("\n");
+}
+
+function sanitizeStoredUiMessage(value: unknown): unknown {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const message = value as Partial<UIMessage>;
+
+  if (!Array.isArray(message.parts)) {
+    return value;
+  }
+
+  const parts = message.parts.filter((part) => {
+    if (message.role === "assistant") {
+      const state = (part as { state?: unknown }).state;
+
+      if (part.type === "reasoning" || part.type === "step-start") {
+        return false;
+      }
+
+      if (part.type === "text") {
+        return !state || state === "done";
+      }
+
+      if (part.type.startsWith("tool-")) {
+        return state === "output-available";
+      }
+    }
+
+    return true;
+  });
+
+  return { ...message, parts };
 }
 
 function isUiMessage(value: unknown): value is UIMessage {
