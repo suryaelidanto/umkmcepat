@@ -872,7 +872,7 @@ export function QuestionComposer({
           <button
             type="button"
             onClick={onClose}
-            className="text-xs text-surface-warm-white/44 hover:text-surface-warm-white/70"
+            className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
           >
             Tulis bebas
           </button>

@@ -1365,7 +1365,7 @@ export function WorkspaceShell({
                           setQuestionComposerMode("options");
                           setMessage("");
                         }}
-                        className="text-xs text-surface-warm-white/50 hover:text-surface-warm-white/78"
+                        className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
                       >
                         Lihat pilihan
                       </button>
