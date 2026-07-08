@@ -209,7 +209,9 @@ export function WorkspaceShell({
     message: string;
     retryAfter: number;
   } | null>(null);
-  const [showQuestionSideNote, setShowQuestionSideNote] = useState(false);
+  const [questionComposerMode, setQuestionComposerMode] = useState<
+    "options" | "free"
+  >("options");
   const {
     messages,
     sendMessage,
@@ -766,7 +768,7 @@ export function WorkspaceShell({
   }, [messages.length]);
 
   useEffect(() => {
-    setShowQuestionSideNote(false);
+    setQuestionComposerMode("options");
     setMessage("");
   }, [activeQuestionKey]);
 
@@ -1343,62 +1345,57 @@ export function WorkspaceShell({
                 </div>
               ) : composerState === "question" &&
                 workspaceCard.type === "question" ? (
-                <>
+                questionComposerMode === "options" ? (
                   <QuestionComposer
                     question={workspaceCard.question}
+                    onClose={() => setQuestionComposerMode("free")}
                     onSubmit={(answer, workspaceAnswers) =>
                       submitChatText(answer, { workspaceAnswers })
                     }
                   />
-                  {showQuestionSideNote ? (
-                    <form
-                      onSubmit={handleMessageSubmit}
-                      className="mt-spacing-3 rounded-[20px] border border-surface-warm-white/8 bg-[#20201d] p-spacing-3"
-                    >
-                      <label htmlFor="workspace-message" className="sr-only">
-                        Tambahan untuk AI
-                      </label>
-                      <textarea
-                        id="workspace-message"
-                        rows={2}
-                        value={message}
-                        onChange={(event) => setMessage(event.target.value)}
-                        onKeyDown={handleMessageKeyDown}
-                        placeholder="Tulis tambahan..."
-                        className="max-h-28 w-full resize-none bg-transparent px-spacing-2 py-spacing-2 text-sm leading-6 text-surface-warm-white/82 outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/34 [&::-webkit-scrollbar]:hidden"
-                      />
-                      <div className="flex items-center justify-between gap-spacing-3 px-spacing-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowQuestionSideNote(false);
-                            setMessage("");
-                          }}
-                          className="text-xs text-surface-warm-white/44 hover:text-surface-warm-white/70"
-                        >
-                          Balik ke pilihan
-                        </button>
-                        <Button
-                          type="submit"
-                          size="icon"
-                          disabled={!message.trim()}
-                          className="size-8 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                          aria-label="Kirim tambahan"
-                        >
-                          <ArrowUp className="size-4" />
-                        </Button>
-                      </div>
-                    </form>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowQuestionSideNote(true)}
-                      className="mt-spacing-3 px-spacing-2 text-xs text-surface-warm-white/42 hover:text-surface-warm-white/70"
-                    >
-                      Tambah catatan
-                    </button>
-                  )}
-                </>
+                ) : (
+                  <form
+                    onSubmit={handleMessageSubmit}
+                    className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                  >
+                    <div className="mb-spacing-2 flex items-center justify-between gap-spacing-3 px-spacing-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuestionComposerMode("options");
+                          setMessage("");
+                        }}
+                        className="text-xs text-surface-warm-white/50 hover:text-surface-warm-white/78"
+                      >
+                        Lihat pilihan
+                      </button>
+                    </div>
+                    <label htmlFor="workspace-message" className="sr-only">
+                      Pesan untuk AI
+                    </label>
+                    <textarea
+                      id="workspace-message"
+                      rows={3}
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                      onKeyDown={handleMessageKeyDown}
+                      placeholder="Tulis bebas..."
+                      className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                    />
+                    <div className="flex items-center justify-between gap-spacing-4">
+                      <ModePill mode="Diskusi" tone="idle" />
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={!message.trim()}
+                        className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                        aria-label="Kirim pesan"
+                      >
+                        <ArrowUp className="size-4" />
+                      </Button>
+                    </div>
+                  </form>
+                )
               ) : composerState === "build_recommendation" ||
                 composerState === "brief_review" ? (
                 <WorkspaceCardView

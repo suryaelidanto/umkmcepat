@@ -638,9 +638,11 @@ export function ProcessingControl({
 
 export function QuestionComposer({
   question,
+  onClose,
   onSubmit,
 }: {
   question: BriefQuestion;
+  onClose?: () => void;
   onSubmit: (
     answer: string,
     workspaceAnswers?: WorkspaceAnswerPayload[],
@@ -865,7 +867,18 @@ export function QuestionComposer({
         ) : null}
       </div>
 
-      <div className="flex items-center justify-end border-t border-surface-warm-white/8 px-spacing-5 py-spacing-4">
+      <div className="flex items-center justify-between gap-spacing-3 border-t border-surface-warm-white/8 px-spacing-5 py-spacing-4">
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs text-surface-warm-white/44 hover:text-surface-warm-white/70"
+          >
+            Tulis bebas
+          </button>
+        ) : (
+          <span />
+        )}
         <Button
           type="button"
           disabled={!canSubmit}
