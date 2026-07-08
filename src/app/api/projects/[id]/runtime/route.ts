@@ -13,6 +13,12 @@ import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 
 export const runtime = "nodejs";
 
+const runtimeStateCache = new Map<
+  string,
+  { body: unknown; expiresAt: number }
+>();
+const RUNTIME_STATE_CACHE_TTL_MS = 15_000;
+
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -32,6 +38,14 @@ export async function GET(
     return await getRuntimeState(id, session.user.id);
   } catch (error) {
     if (isPrismaDatabaseUnavailable(error)) {
+      const cached = runtimeStateCache.get(id);
+
+      if (cached && cached.expiresAt > Date.now()) {
+        return Response.json(cached.body, {
+          headers: { "X-UMKM-Runtime-Cache": "stale" },
+        });
+      }
+
       return Response.json(
         {
           code: "database_unavailable",
@@ -162,7 +176,7 @@ async function getRuntimeState(id: string, userId: string) {
     latestSuccessfulBuildId: latestSuccessfulBuild?.id,
   });
 
-  return Response.json({
+  const body = {
     activePreviewDeployment: deployment
       ? {
           ...deployment,
@@ -187,7 +201,14 @@ async function getRuntimeState(id: string, userId: string) {
     message: getUserFacingRuntimeMessage(userFacingState),
     publishedDeployment,
     userFacingState,
+  };
+
+  runtimeStateCache.set(id, {
+    body,
+    expiresAt: Date.now() + RUNTIME_STATE_CACHE_TTL_MS,
   });
+
+  return Response.json(body);
 }
 
 function getUserFacingRuntimeState({

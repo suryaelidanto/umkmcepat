@@ -182,6 +182,56 @@ export async function POST(request: Request, { params }: RouteProps) {
     });
   }
 
+  const latestProjectState = await prisma.project.findFirst({
+    where: { id: project.id, userId: session.user.id },
+    select: { buildStatus: true, status: true },
+  });
+
+  if (
+    latestProjectState?.status === "building" ||
+    latestProjectState?.buildStatus === "running"
+  ) {
+    await updateProjectEditAttempt(attempt.id, {
+      status: "failed",
+      errorMessage: "Another build is already running.",
+    });
+
+    return Response.json(
+      {
+        attemptId: attempt.id,
+        code: "project_build_in_progress",
+        message: "Build masih berjalan untuk proyek ini.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const claimedProject = await prisma.project.updateMany({
+    where: {
+      buildStatus: { not: "running" },
+      id: project.id,
+      status: { not: "building" },
+      userId: session.user.id,
+    },
+    data: { buildStatus: "running", status: "building" },
+  });
+
+  if (claimedProject.count !== 1) {
+    await updateProjectEditAttempt(attempt.id, {
+      status: "failed",
+      errorMessage: "Another build is already running.",
+    });
+
+    return Response.json(
+      {
+        attemptId: attempt.id,
+        code: "project_build_in_progress",
+        message: "Build masih berjalan untuk proyek ini.",
+      },
+      { status: 409 },
+    );
+  }
+
   const editResult = requestedCommands.length
     ? runGeneratedAppAgentTools({
         commands: requestedCommands,
@@ -201,6 +251,7 @@ export async function POST(request: Request, { params }: RouteProps) {
       status: "failed",
       validationIssues: editResult.outputs,
     });
+    await restoreProjectReadyState(project.id, session.user.id);
 
     return Response.json(
       {
@@ -273,6 +324,7 @@ export async function POST(request: Request, { params }: RouteProps) {
       status: "failed",
       validationIssues: editValidation.blockingIssues,
     });
+    await restoreProjectReadyState(project.id, session.user.id);
 
     return Response.json(
       {
@@ -288,50 +340,10 @@ export async function POST(request: Request, { params }: RouteProps) {
 
   await markStaleProjectBuilds(project.id);
 
-  const latestProjectState = await prisma.project.findFirst({
-    where: { id: project.id, userId: session.user.id },
-    select: { buildStatus: true, status: true },
-  });
-
-  if (
-    latestProjectState?.status === "building" ||
-    latestProjectState?.buildStatus === "running"
-  ) {
-    return Response.json(
-      {
-        attemptId: attempt.id,
-        code: "project_build_in_progress",
-        message: "Build masih berjalan untuk proyek ini.",
-      },
-      { status: 409 },
-    );
-  }
-
   await updateProjectEditAttempt(attempt.id, {
     advisoryIssues: editValidation.advisoryIssues,
     status: "building",
   });
-
-  const claimedProject = await prisma.project.updateMany({
-    where: {
-      buildStatus: { not: "running" },
-      id: project.id,
-      status: { not: "building" },
-      userId: session.user.id,
-    },
-    data: { buildStatus: "running", status: "building" },
-  });
-
-  if (claimedProject.count !== 1) {
-    return Response.json(
-      {
-        attemptId: attempt.id,
-        code: "project_build_in_progress",
-        message: "Build masih berjalan untuk proyek ini.",
-      },
-      { status: 409 },
-    );
-  }
 
   const siteSchema = parseProjectSiteSchema(project.siteSchema, project.prompt);
   const snapshot = await prisma.projectSnapshot.create({
@@ -498,6 +510,13 @@ export async function POST(request: Request, { params }: RouteProps) {
     buildStatus,
     deploymentId: deployment.id,
     snapshotId: snapshot.id,
+  });
+}
+
+async function restoreProjectReadyState(projectId: string, userId: string) {
+  await prisma.project.updateMany({
+    where: { id: projectId, userId },
+    data: { buildStatus: "passed", status: "ready" },
   });
 }
 
