@@ -6,6 +6,7 @@ import {
   type GeneratedAppAgentToolCommand,
 } from "@/lib/projects/agent-tool-runner";
 import { createLocalBuildWorker } from "@/lib/projects/build-worker";
+import { parseProjectChatMessages } from "@/lib/projects/chat-memory";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { validateGeneratedEdit } from "@/lib/projects/edit-validation";
 import {
@@ -24,6 +25,7 @@ import {
 import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
 import { editGeneratedSourceWithAgent } from "@/lib/projects/source-edit-agent";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
+import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 180;
@@ -33,8 +35,11 @@ type RouteProps = {
 };
 
 type EditRequest = {
+  annotations?: unknown;
   commands?: GeneratedAppAgentToolCommand[];
   instruction?: string;
+  kind?: string;
+  summary?: string;
 };
 
 export async function POST(request: Request, { params }: RouteProps) {
@@ -63,6 +68,7 @@ export async function POST(request: Request, { params }: RouteProps) {
     where: { id, userId: session.user.id },
     select: {
       buildStatus: true,
+      chatMessages: true,
       id: true,
       prompt: true,
       siteSchema: true,
@@ -87,6 +93,10 @@ export async function POST(request: Request, { params }: RouteProps) {
   const requestedCommands = Array.isArray(body.commands) ? body.commands : [];
   const instruction =
     typeof body.instruction === "string" ? body.instruction.trim() : "";
+  const summary = typeof body.summary === "string" ? body.summary.trim() : "";
+  const annotations = sanitizeVisualAnnotations(body.annotations);
+  const kind =
+    body.kind === "visual_comment" ? "visual_comment" : "instruction";
 
   if (!requestedCommands.length && !instruction) {
     return Response.json(
@@ -150,6 +160,29 @@ export async function POST(request: Request, { params }: RouteProps) {
     );
   }
 
+  const attempt = await prisma.projectEditAttempt.create({
+    data: {
+      annotations: annotations.length ? annotations : undefined,
+      instruction,
+      kind,
+      parentSnapshotId: activeSnapshot.id,
+      projectId: project.id,
+      status: "editing",
+      summary: summary || undefined,
+      userId: session.user.id,
+    },
+    select: { id: true },
+  });
+
+  if (summary) {
+    await persistVisualSummaryMessage({
+      attemptId: attempt.id,
+      messages: project.chatMessages,
+      projectId: project.id,
+      summary,
+    });
+  }
+
   const editResult = requestedCommands.length
     ? runGeneratedAppAgentTools({
         commands: requestedCommands,
@@ -164,8 +197,18 @@ export async function POST(request: Request, { params }: RouteProps) {
   });
 
   if (!editResult.ok) {
+    await prisma.projectEditAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        errorMessage: "Edit agent failed.",
+        status: "failed",
+        validationIssues: editResult.outputs,
+      },
+    });
+
     return Response.json(
       {
+        attemptId: attempt.id,
         message: "Edit belum bisa diterapkan. Cek instruksi dan coba lagi.",
         outputs: editResult.outputs,
       },
@@ -176,25 +219,78 @@ export async function POST(request: Request, { params }: RouteProps) {
   const touchedFiles = editResult.sideEffects
     .map((effect) => effect.path)
     .filter((path): path is string => Boolean(path));
-  const editValidation = validateGeneratedEdit({
+  let editValidation = validateGeneratedEdit({
     baseFiles,
     instruction,
     nextFiles: editResult.files,
     touchedFiles,
   });
 
+  if (!editValidation.ok && !requestedCommands.length) {
+    await prisma.projectEditAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        status: "repairing",
+        validationIssues: editValidation.blockingIssues,
+      },
+    });
+
+    const repairResult = await editGeneratedSourceWithAgent({
+      files: editResult.files,
+      instruction: [
+        instruction,
+        "Previous edit did not make a meaningful rendered-source change.",
+        "Repair it now. Make concrete edits to rendered JSX/content/CSS. Run check_app.",
+        `Validation issues: ${editValidation.blockingIssues.join("; ")}`,
+      ].join("\n\n"),
+    });
+
+    if (repairResult.ok) {
+      editResult.files = repairResult.files;
+      editResult.operations = [
+        ...editResult.operations,
+        ...repairResult.operations,
+      ];
+      editResult.outputs = [...editResult.outputs, ...repairResult.outputs];
+      editResult.sideEffects = [
+        ...editResult.sideEffects,
+        ...repairResult.sideEffects,
+      ];
+      touchedFiles.push(
+        ...repairResult.sideEffects
+          .map((effect) => effect.path)
+          .filter((path): path is string => Boolean(path)),
+      );
+      editValidation = validateGeneratedEdit({
+        baseFiles,
+        instruction,
+        nextFiles: editResult.files,
+        touchedFiles,
+      });
+    }
+  }
+
   if (!editValidation.ok) {
     devLog("edit", "validation.failed", {
-      issues: editValidation.issues,
+      issues: editValidation.blockingIssues,
       projectId: project.id,
+    });
+    await prisma.projectEditAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        errorMessage: "Edit did not change rendered source.",
+        status: "failed",
+        validationIssues: editValidation.blockingIssues,
+      },
     });
 
     return Response.json(
       {
+        attemptId: attempt.id,
         code: "edit_validation_failed",
-        issues: editValidation.issues,
+        issues: editValidation.blockingIssues,
         message:
-          "AI belum berhasil menerapkan komentarmu dengan tepat. Komentarmu tetap aman, coba kirim lagi atau ubah catatannya sedikit.",
+          "AI belum berhasil mengubah bagian website yang terlihat. Komentarmu tetap tersimpan, coba kirim ulang.",
       },
       { status: 422 },
     );
@@ -213,12 +309,18 @@ export async function POST(request: Request, { params }: RouteProps) {
   ) {
     return Response.json(
       {
+        attemptId: attempt.id,
         code: "project_build_in_progress",
         message: "Build masih berjalan untuk proyek ini.",
       },
       { status: 409 },
     );
   }
+
+  await prisma.projectEditAttempt.update({
+    where: { id: attempt.id },
+    data: { advisoryIssues: editValidation.advisoryIssues, status: "building" },
+  });
 
   const claimedProject = await prisma.project.updateMany({
     where: {
@@ -233,6 +335,7 @@ export async function POST(request: Request, { params }: RouteProps) {
   if (claimedProject.count !== 1) {
     return Response.json(
       {
+        attemptId: attempt.id,
         code: "project_build_in_progress",
         message: "Build masih berjalan untuk proyek ini.",
       },
@@ -288,6 +391,10 @@ export async function POST(request: Request, { params }: RouteProps) {
       status: "queued" satisfies ProjectBuildStatus,
     },
     select: { id: true },
+  });
+  await prisma.projectEditAttempt.update({
+    where: { id: attempt.id },
+    data: { buildId: build.id, snapshotId: snapshot.id },
   });
   await prisma.projectBuild.update({
     where: { id: build.id },
@@ -376,6 +483,13 @@ export async function POST(request: Request, { params }: RouteProps) {
         status: "ready",
       } as Parameters<typeof prisma.project.update>[0]["data"],
     });
+    await prisma.projectEditAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        advisoryIssues: editValidation.advisoryIssues,
+        status: "succeeded",
+      },
+    });
   } else {
     await prisma.project.update({
       where: { id: project.id },
@@ -384,12 +498,55 @@ export async function POST(request: Request, { params }: RouteProps) {
         buildStatus: "failed",
       } as Parameters<typeof prisma.project.update>[0]["data"],
     });
+    await prisma.projectEditAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        advisoryIssues: editValidation.advisoryIssues,
+        errorMessage: buildResult.logText?.slice(-2000),
+        status: "failed",
+      },
+    });
   }
 
   return Response.json({
+    attemptId: attempt.id,
     buildId: build.id,
     buildStatus,
     deploymentId: deployment.id,
     snapshotId: snapshot.id,
+  });
+}
+
+async function persistVisualSummaryMessage({
+  attemptId,
+  messages,
+  projectId,
+  summary,
+}: {
+  attemptId: string;
+  messages: unknown;
+  projectId: string;
+  summary: string;
+}) {
+  const current = parseProjectChatMessages(messages);
+  const exists = current.some((message) => message.id === attemptId);
+
+  if (exists) {
+    return;
+  }
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      chatMessages: [
+        ...current,
+        {
+          id: attemptId,
+          metadata: undefined,
+          parts: [{ text: summary, type: "text" }],
+          role: "user",
+        },
+      ],
+    } as Parameters<typeof prisma.project.update>[0]["data"],
   });
 }

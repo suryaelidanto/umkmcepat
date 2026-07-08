@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createVisualAnnotationEditInstruction,
   createVisualAnnotationSummary,
+  sanitizeVisualAnnotations,
   type VisualAnnotationDraft,
 } from "./visual-annotations";
 
@@ -29,6 +30,20 @@ describe("visual annotations", () => {
         instruction: "Bikin keseluruhan lebih clean.",
       }),
     ).toContain("Aku kirim 1 komentar visual");
+  });
+
+  it("sanitizes malformed/oversized annotation payloads", () => {
+    const sanitized = sanitizeVisualAnnotations([
+      annotation,
+      { id: "bad" },
+      ...Array.from({ length: 25 }, (_, index) => ({
+        ...annotation,
+        id: `a${index}`,
+      })),
+    ]);
+
+    expect(sanitized).toHaveLength(20);
+    expect(sanitized[0]?.target.selectorPath).toBe("main > section.hero > h1");
   });
 
   it("creates an edit instruction with hidden target context", () => {

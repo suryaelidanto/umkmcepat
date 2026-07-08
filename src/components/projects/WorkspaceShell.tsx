@@ -179,6 +179,7 @@ export function WorkspaceShell({
   const [isLoadingOlderChat, setIsLoadingOlderChat] = useState(false);
   const prompt = initialPrompt.trim();
   const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
+  const visualAnnotationStorageKey = `umkmcepat:visual-comments:${projectId}`;
   const hasStartedChat = useRef(false);
   const hasStartedBuild = useRef(false);
   const modeRef = useRef(mode);
@@ -243,6 +244,43 @@ export function WorkspaceShell({
       window.localStorage.getItem(buildRecommendationStorageKey),
     );
   }, [buildRecommendationStorageKey]);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(visualAnnotationStorageKey);
+
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(raw) as {
+        annotations?: VisualAnnotationDraft[];
+        instruction?: string;
+      };
+
+      if (Array.isArray(draft.annotations)) {
+        setAnnotations(draft.annotations);
+      }
+
+      if (typeof draft.instruction === "string") {
+        setAnnotationInstruction(draft.instruction);
+      }
+    } catch {
+      window.localStorage.removeItem(visualAnnotationStorageKey);
+    }
+  }, [visualAnnotationStorageKey]);
+
+  useEffect(() => {
+    if (!annotations.length && !annotationInstruction.trim()) {
+      window.localStorage.removeItem(visualAnnotationStorageKey);
+      return;
+    }
+
+    window.localStorage.setItem(
+      visualAnnotationStorageKey,
+      JSON.stringify({ annotations, instruction: annotationInstruction }),
+    );
+  }, [annotationInstruction, annotations, visualAnnotationStorageKey]);
 
   const loadRuntimeState = useCallback(async () => {
     try {
@@ -804,7 +842,12 @@ export function WorkspaceShell({
       const response = await fetch(`/api/projects/${projectId}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instruction }),
+        body: JSON.stringify({
+          annotations,
+          instruction,
+          kind: "visual_comment",
+          summary,
+        }),
       });
       const result = (await response.json().catch(() => null)) as {
         buildStatus?: string;
@@ -826,6 +869,7 @@ export function WorkspaceShell({
 
       setAnnotations([]);
       setAnnotationInstruction("");
+      window.localStorage.removeItem(visualAnnotationStorageKey);
       setAnnotationMode(false);
       setBuildStatus("ready");
       setBuildProgress((current) => completeBuildProgress(current));

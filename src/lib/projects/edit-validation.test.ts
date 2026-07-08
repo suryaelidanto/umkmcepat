@@ -17,25 +17,10 @@ const baseFiles: GeneratedProjectFile[] = [
   { path: "package.json", content: "{}" },
 ];
 
-const visualInstruction = `Apply these visual comments to the generated website source.
-
-Visual comments:
-[
-  {
-    "label": "Bagian website — \"Bengkel\"",
-    "comment": "navbar warnanya jangan nabrak",
-    "target": {
-      "classes": "topbar",
-      "selectorPath": "main > nav.topbar",
-      "tag": "nav",
-      "text": "Bengkel",
-      "boundingBox": { "x": 0, "y": 0, "width": 100, "height": 40 }
-    }
-  }
-]`;
+const visualInstruction = "visual comment";
 
 describe("validateGeneratedEdit", () => {
-  it("rejects no-op CSS selectors", () => {
+  it("reports no-op CSS selectors as advisory, not hard failure", () => {
     const nextFiles = baseFiles.map((file) =>
       file.path === "src/styles.css"
         ? {
@@ -52,13 +37,17 @@ describe("validateGeneratedEdit", () => {
         nextFiles,
         touchedFiles: ["src/styles.css"],
       }),
-    ).toEqual({
-      issues: ["CSS selector .hero-card does not match generated source."],
-      ok: false,
+    ).toMatchObject({
+      advisoryIssues: [
+        "CSS selector .hero-card does not match generated source.",
+      ],
+      blockingIssues: [],
+      changedFiles: ["src/styles.css"],
+      ok: true,
     });
   });
 
-  it("rejects edits that do not touch rendered source", () => {
+  it("blocks edits that do not touch rendered source", () => {
     const nextFiles = [...baseFiles, { path: "AGENTS.md", content: "updated" }];
 
     expect(
@@ -67,8 +56,8 @@ describe("validateGeneratedEdit", () => {
         instruction: visualInstruction,
         nextFiles,
         touchedFiles: ["AGENTS.md"],
-      }).ok,
-    ).toBe(false);
+      }),
+    ).toMatchObject({ ok: false });
   });
 
   it("accepts relevant visual edits", () => {
@@ -88,6 +77,26 @@ describe("validateGeneratedEdit", () => {
         nextFiles,
         touchedFiles: ["src/styles.css"],
       }),
-    ).toEqual({ issues: [], ok: true });
+    ).toMatchObject({ advisoryIssues: [], blockingIssues: [], ok: true });
+  });
+
+  it("accepts parent/theme variable fixes without target tokens", () => {
+    const nextFiles = baseFiles.map((file) =>
+      file.path === "src/styles.css"
+        ? {
+            ...file,
+            content: `${file.content}\n:root{--nav-bg:#151515;--nav-fg:#f7f7f2}`,
+          }
+        : file,
+    );
+
+    expect(
+      validateGeneratedEdit({
+        baseFiles,
+        instruction: visualInstruction,
+        nextFiles,
+        touchedFiles: ["src/styles.css"],
+      }).ok,
+    ).toBe(true);
   });
 });

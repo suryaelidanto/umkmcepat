@@ -1,16 +1,17 @@
 import { type GeneratedProjectFile } from "./generated-source";
 
-export type EditValidationResult =
-  | { issues: string[]; ok: false }
-  | { issues: []; ok: true };
+export type EditValidationResult = {
+  advisoryIssues: string[];
+  blockingIssues: string[];
+  changedFiles: string[];
+  ok: boolean;
+};
 
 const RENDERED_SOURCE_PREFIXES = ["src/"];
 const NON_RENDERED_PATHS = new Set(["src/lib/preview-ready.ts"]);
-const MIN_RELEVANCE_TOKEN_LENGTH = 4;
 
 export function validateGeneratedEdit({
   baseFiles,
-  instruction,
   nextFiles,
   touchedFiles,
 }: {
@@ -19,33 +20,31 @@ export function validateGeneratedEdit({
   nextFiles: GeneratedProjectFile[];
   touchedFiles: string[];
 }): EditValidationResult {
-  const issues: string[] = [];
+  const blockingIssues: string[] = [];
+  const advisoryIssues: string[] = [];
   const changedFiles = getChangedFiles(baseFiles, nextFiles);
   const renderedChangedFiles = changedFiles.filter(isRenderedSourcePath);
 
   if (!renderedChangedFiles.length) {
-    issues.push("No rendered source files changed.");
+    blockingIssues.push("No rendered source files changed.");
   }
 
   const meaningfulTouchedFiles = touchedFiles.filter(isRenderedSourcePath);
 
   if (!meaningfulTouchedFiles.length) {
-    issues.push("No rendered source files were touched by the edit agent.");
+    blockingIssues.push(
+      "No rendered source files were touched by the edit agent.",
+    );
   }
 
-  const cssIssues = getNoopCssSelectorIssues(baseFiles, nextFiles);
-  issues.push(...cssIssues);
+  advisoryIssues.push(...getSuspiciousCssSelectorIssues(baseFiles, nextFiles));
 
-  if (isVisualAnnotationInstruction(instruction)) {
-    const relevanceIssues = getVisualInstructionRelevanceIssues({
-      changedFiles: renderedChangedFiles,
-      instruction,
-      nextFiles,
-    });
-    issues.push(...relevanceIssues);
-  }
-
-  return issues.length ? { issues, ok: false } : { issues: [], ok: true };
+  return {
+    advisoryIssues,
+    blockingIssues,
+    changedFiles,
+    ok: blockingIssues.length === 0,
+  };
 }
 
 export function getChangedFiles(
@@ -69,7 +68,7 @@ function isRenderedSourcePath(path: string) {
   );
 }
 
-function getNoopCssSelectorIssues(
+function getSuspiciousCssSelectorIssues(
   baseFiles: GeneratedProjectFile[],
   nextFiles: GeneratedProjectFile[],
 ) {
@@ -77,18 +76,20 @@ function getNoopCssSelectorIssues(
   const baseByPath = new Map(
     baseFiles.map((file) => [file.path, file.content]),
   );
-  const sourceText = nextFiles
-    .filter(
-      (file) => file.path.startsWith("src/") && !file.path.endsWith(".css"),
-    )
-    .map((file) => file.content)
-    .join("\n");
+  const sourceText = stripSourceNoise(
+    nextFiles
+      .filter(
+        (file) => file.path.startsWith("src/") && !file.path.endsWith(".css"),
+      )
+      .map((file) => file.content)
+      .join("\n"),
+  );
 
   for (const file of nextFiles.filter((item) => item.path.endsWith(".css"))) {
     const previous = baseByPath.get(file.path) ?? "";
     const addedCss = getAddedLines(previous, file.content).join("\n");
 
-    for (const selector of extractCssSelectors(addedCss)) {
+    for (const selector of extractSimpleCssSelectors(addedCss)) {
       if (!selectorHasSourceMatch(selector, sourceText)) {
         issues.push(
           `CSS selector ${selector} does not match generated source.`,
@@ -119,22 +120,28 @@ function getAddedLines(previous: string, next: string) {
   });
 }
 
-function extractCssSelectors(css: string) {
+function extractSimpleCssSelectors(css: string) {
   const selectors = new Set<string>();
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
-  const selectorPattern = /([^{}@][^{}]*)\{/g;
-  let match: RegExpExecArray | null;
 
-  while ((match = selectorPattern.exec(withoutComments))) {
-    for (const selector of match[1].split(",")) {
+  for (const line of withoutComments.split("\n")) {
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith("@") || !trimmed.includes("{")) {
+      continue;
+    }
+
+    const selectorText = trimmed.slice(0, trimmed.indexOf("{")).trim();
+
+    if (!selectorText || selectorText.includes("}")) {
+      continue;
+    }
+
+    for (const selector of selectorText.split(",")) {
       const normalized = selector.trim();
 
-      if (
-        normalized &&
-        !normalized.includes("from") &&
-        !normalized.includes("to")
-      ) {
-        selectors.add(normalized);
+      if (/^([.#]?[_a-zA-Z][-_a-zA-Z0-9]*)(:[\w-]+)?$/.test(normalized)) {
+        selectors.add(normalized.replace(/:[\w-]+$/, ""));
       }
     }
   }
@@ -143,114 +150,30 @@ function extractCssSelectors(css: string) {
 }
 
 function selectorHasSourceMatch(selector: string, sourceText: string) {
-  const simple = selector.replace(
-    /:(hover|focus|active|visited|disabled|before|after|focus-visible|focus-within)\b/g,
-    "",
-  );
-  const classNames = [...simple.matchAll(/\.([_a-zA-Z][-_a-zA-Z0-9]*)/g)].map(
-    (match) => match[1],
-  );
-  const ids = [...simple.matchAll(/#([_a-zA-Z][-_a-zA-Z0-9]*)/g)].map(
-    (match) => match[1],
-  );
+  const className = selector.match(/^\.([_a-zA-Z][-_a-zA-Z0-9]*)$/)?.[1];
 
-  if (classNames.length || ids.length) {
-    return [...classNames, ...ids].some((token) => sourceText.includes(token));
+  if (className) {
+    return new RegExp(
+      `\\bclassName\\s*=\\s*['\"][^'\"]*\\b${escapeRegExp(className)}\\b`,
+      "i",
+    ).test(sourceText);
   }
 
-  const tag = simple.match(/^([a-z][a-z0-9-]*)\b/i)?.[1];
-  return tag ? new RegExp(`<${tag}\\b`, "i").test(sourceText) : true;
-}
+  const id = selector.match(/^#([_a-zA-Z][-_a-zA-Z0-9]*)$/)?.[1];
 
-function isVisualAnnotationInstruction(instruction: string) {
-  return /Visual comments:/i.test(instruction);
-}
-
-function getVisualInstructionRelevanceIssues({
-  changedFiles,
-  instruction,
-  nextFiles,
-}: {
-  changedFiles: string[];
-  instruction: string;
-  nextFiles: GeneratedProjectFile[];
-}) {
-  const issues: string[] = [];
-  const tokens = extractRelevanceTokens(instruction);
-  const changedText = nextFiles
-    .filter((file) => changedFiles.includes(file.path))
-    .map((file) => file.content)
-    .join("\n")
-    .toLowerCase();
-
-  if (tokens.length && !tokens.some((token) => changedText.includes(token))) {
-    issues.push(
-      "Changed files do not reference the visual annotation targets.",
+  if (id) {
+    return new RegExp(`\\bid\\s*=\\s*['\"]${escapeRegExp(id)}['\"]`, "i").test(
+      sourceText,
     );
   }
 
-  return issues;
+  return new RegExp(`<${escapeRegExp(selector)}\\b`, "i").test(sourceText);
 }
 
-function extractRelevanceTokens(instruction: string) {
-  const tokens = new Set<string>();
-  const jsonStart = instruction.indexOf("[");
-  const jsonText = jsonStart >= 0 ? instruction.slice(jsonStart) : "";
-
-  try {
-    const parsed = JSON.parse(jsonText) as Array<{
-      label?: string;
-      selectedText?: string;
-      target?: { classes?: string; selectorPath?: string; text?: string };
-    }>;
-
-    for (const item of parsed) {
-      addWords(tokens, item.label);
-      addWords(tokens, item.selectedText);
-      addWords(tokens, item.target?.text);
-      addWords(tokens, item.target?.classes);
-      addWords(tokens, item.target?.selectorPath?.replace(/[.#>]/g, " "));
-    }
-  } catch {
-    addWords(tokens, instruction);
-  }
-
-  return [...tokens].filter(
-    (token) =>
-      token.length >= MIN_RELEVANCE_TOKEN_LENGTH &&
-      !STOP_WORDS.has(token) &&
-      !/^\d+$/.test(token),
-  );
+function stripSourceNoise(source: string) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
 }
 
-function addWords(tokens: Set<string>, value?: string) {
-  for (const token of (value ?? "")
-    .toLowerCase()
-    .match(/[a-z0-9_-]+|[\p{L}\p{N}_-]+/gu) ?? []) {
-    tokens.add(token);
-  }
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-
-const STOP_WORDS = new Set([
-  "bagian",
-  "website",
-  "warna",
-  "text",
-  "teks",
-  "ganti",
-  "jangan",
-  "dengan",
-  "yang",
-  "sama",
-  "jadi",
-  "coba",
-  "dong",
-  "untuk",
-  "visual",
-  "comments",
-  "comment",
-  "target",
-  "selectorpath",
-  "classes",
-  "label",
-]);

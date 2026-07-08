@@ -4,6 +4,8 @@ const {
   authMock,
   buildGeneratedProjectMock,
   prismaProjectBuildCreateMock,
+  prismaProjectEditAttemptCreateMock,
+  prismaProjectEditAttemptUpdateMock,
   prismaProjectBuildUpdateManyMock,
   prismaProjectBuildUpdateMock,
   prismaProjectDeploymentCreateMock,
@@ -20,6 +22,8 @@ const {
   authMock: vi.fn(),
   buildGeneratedProjectMock: vi.fn(),
   prismaProjectBuildCreateMock: vi.fn(),
+  prismaProjectEditAttemptCreateMock: vi.fn(),
+  prismaProjectEditAttemptUpdateMock: vi.fn(),
   prismaProjectBuildUpdateManyMock: vi.fn(),
   prismaProjectBuildUpdateMock: vi.fn(),
   prismaProjectDeploymentCreateMock: vi.fn(),
@@ -46,6 +50,10 @@ vi.mock("@/lib/prisma", () => ({
       create: prismaProjectBuildCreateMock,
       update: prismaProjectBuildUpdateMock,
       updateMany: prismaProjectBuildUpdateManyMock,
+    },
+    projectEditAttempt: {
+      create: prismaProjectEditAttemptCreateMock,
+      update: prismaProjectEditAttemptUpdateMock,
     },
     projectDeployment: {
       create: prismaProjectDeploymentCreateMock,
@@ -182,6 +190,8 @@ describe("project edit route", () => {
       },
     ]);
     prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
+    prismaProjectEditAttemptCreateMock.mockResolvedValue({ id: "attempt_1" });
+    prismaProjectEditAttemptUpdateMock.mockResolvedValue({});
     prismaProjectUpdateManyMock.mockResolvedValue({ count: 1 });
     prismaProjectSnapshotCreateMock.mockResolvedValue({ id: "snapshot_edit" });
     writeProjectSourceArtifactMock.mockResolvedValue(
@@ -250,7 +260,7 @@ describe("project edit route", () => {
     );
   });
 
-  it("rejects visual edits with no-op CSS selectors before creating a snapshot", async () => {
+  it("records visual edit attempts and treats no-op selectors as advisory", async () => {
     const response = await POST(
       request(
         [
@@ -268,9 +278,14 @@ describe("project edit route", () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(422);
-    expect(body.code).toBe("edit_validation_failed");
-    expect(prismaProjectSnapshotCreateMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(body.attemptId).toBe("attempt_1");
+    expect(prismaProjectEditAttemptCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ kind: "instruction" }),
+      }),
+    );
+    expect(prismaProjectSnapshotCreateMock).toHaveBeenCalled();
   });
 
   it("records a failed edit build without replacing project source or ready status", async () => {

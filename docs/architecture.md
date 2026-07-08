@@ -51,6 +51,7 @@ Core rules:
 - User projects start as data and artifacts. Projects that need live runtime behavior should become isolated deployments managed outside the web app process.
 - Generated source/build artifacts may exist for preview, inspection, repair, export, and future publishing.
 - Generated source edits go through the constrained agent tool runner. The runner exposes structured read, list, search, write, replace, and check operations, enforces project file boundaries, records side effects, emits operation trace events for the workspace timeline, and blocks success when app checks are missing or policy checks fail.
+- Visual/comment-driven edits create a durable `ProjectEditAttempt` before AI work starts. Attempts store the user-facing summary, hidden annotation payload, validation/advisory issues, and final status so failed or rejected edits remain auditable and user comments are not lost. Validation blocks only clear non-rendered/no-change edits; heuristic target/selector concerns are advisory and may trigger one repair pass instead of silently discarding the request.
 - The platform must not execute arbitrary user backend code.
 - One bad project must not break the platform or another project.
 

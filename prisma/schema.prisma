@@ -70,48 +70,50 @@ model Session {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  name          String?       @db.VarChar(100)
-  email         String?       @unique @db.VarChar(100)
-  emailVerified DateTime?
-  image         String?       @db.Text
-  accounts      Account[]
-  sessions      Session[]
+  id              String                  @id @default(cuid())
+  name            String?                 @db.VarChar(100)
+  email           String?                 @unique @db.VarChar(100)
+  emailVerified   DateTime?
+  image           String?                 @db.Text
+  accounts        Account[]
+  sessions        Session[]
   idempotencyKeys ProjectIdempotencyKey[]
-  landingPages     LandingPage[]
-  projects         Project[]
+  landingPages    LandingPage[]
+  projects        Project[]
+  editAttempts    ProjectEditAttempt[]
 
   @@index([email])
   @@index([name])
 }
 
 model Project {
-  id                        String              @id @default(cuid())
-  title                     String              @db.VarChar(120)
-  prompt                    String              @db.Text
-  model                     String              @db.VarChar(160)
-  status                    String              @default("draft") @db.VarChar(32)
+  id                        String                  @id @default(cuid())
+  title                     String                  @db.VarChar(120)
+  prompt                    String                  @db.Text
+  model                     String                  @db.VarChar(160)
+  status                    String                  @default("draft") @db.VarChar(32)
   siteSchema                Json?
   chatMessages              Json?
   chatSummary               Json?
   memoryFacts               Json?
-  lastCompactedMessageCount Int                 @default(0)
+  lastCompactedMessageCount Int                     @default(0)
   brief                     Json?
   workspaceCard             Json?
   sourceFiles               Json?
   distFiles                 Json?
-  buildStatus               String              @default("not_started") @db.VarChar(32)
-  buildLog                  String?             @db.Text
+  buildStatus               String                  @default("not_started") @db.VarChar(32)
+  buildLog                  String?                 @db.Text
   builtAt                   DateTime?
   userId                    String
-  user                      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   snapshots                 ProjectSnapshot[]
   builds                    ProjectBuild[]
   deployments               ProjectDeployment[]
   idempotencyKeys           ProjectIdempotencyKey[]
   runtimeEvents             RuntimeEvent[]
-  createdAt                 DateTime            @default(now())
-  updatedAt                 DateTime            @updatedAt
+  editAttempts              ProjectEditAttempt[]
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
 
   @@index([userId])
   @@index([updatedAt])
@@ -130,6 +132,31 @@ model ProjectIdempotencyKey {
   @@unique([userId, action, key])
   @@index([projectId])
   @@index([createdAt])
+}
+
+model ProjectEditAttempt {
+  id               String   @id @default(cuid())
+  projectId        String
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentSnapshotId String?
+  snapshotId       String?
+  buildId          String?
+  kind             String   @db.VarChar(32)
+  status           String   @default("received") @db.VarChar(32)
+  instruction      String   @db.Text
+  summary          String?  @db.Text
+  annotations      Json?
+  validationIssues Json?
+  advisoryIssues   Json?
+  errorMessage     String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([projectId, createdAt])
+  @@index([userId])
+  @@index([status])
 }
 
 model ProjectSnapshot {
