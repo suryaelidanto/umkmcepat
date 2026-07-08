@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getAvailableAiModels, getDefaultAiModel } from "./ai-models";
+import {
+  getAvailableAiModels,
+  getChatAiModel,
+  getDefaultAiModel,
+} from "./ai-models";
 
 describe("AI model config", () => {
   it("parses a comma-separated model list", () => {
@@ -18,5 +22,18 @@ describe("AI model config", () => {
 
   it("uses the first listed model as the default", () => {
     expect(getDefaultAiModel(["fast", "pro"])).toBe("fast");
+  });
+
+  it("uses a small/flash model for chat when no explicit chat model is set", () => {
+    const previous = process.env.AI_CHAT_MODEL;
+    delete process.env.AI_CHAT_MODEL;
+
+    try {
+      expect(getChatAiModel(["kimi", "pro", "deepseek-flash"])).toBe(
+        "deepseek-flash",
+      );
+    } finally {
+      process.env.AI_CHAT_MODEL = previous;
+    }
   });
 });

@@ -18,5 +18,13 @@ export function getDefaultAiModel(models = getAvailableAiModels()) {
 }
 
 export function getChatAiModel(models = getAvailableAiModels()) {
-  return process.env.AI_CHAT_MODEL?.trim() || models[1] || models[0];
+  const explicit = process.env.AI_CHAT_MODEL?.trim();
+
+  if (explicit) {
+    return explicit;
+  }
+
+  return (
+    models.find((model) => /flash|mini|lite|small/i.test(model)) || models[0]
+  );
 }
