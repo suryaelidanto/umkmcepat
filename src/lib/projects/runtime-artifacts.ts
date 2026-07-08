@@ -1,3 +1,4 @@
+import { createHmac, createHash } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -8,9 +9,12 @@ import {
   type GeneratedProjectFile,
 } from "@/lib/projects/generated-source";
 
-export const PROJECT_ARTIFACT_REF_PREFIX = "project-artifact:local:";
+const PROJECT_ARTIFACT_REF_PREFIX = "project-artifact:";
+const LOCAL_PROJECT_ARTIFACT_REF_PREFIX = `${PROJECT_ARTIFACT_REF_PREFIX}local:`;
+const R2_PROJECT_ARTIFACT_REF_PREFIX = `${PROJECT_ARTIFACT_REF_PREFIX}r2:`;
 
 export type ProjectArtifactKind = "dist" | "source";
+type ProjectArtifactProvider = "local" | "r2";
 
 type ProjectArtifactManifest = {
   files: Array<{
@@ -33,31 +37,54 @@ type WriteArtifactInput<
   kind: ProjectArtifactKind;
 };
 
+type ParsedProjectArtifactRef = {
+  artifactId: string;
+  kind: ProjectArtifactKind;
+  provider: ProjectArtifactProvider;
+};
+
+type R2Config = {
+  accessKeyId: string;
+  accountId: string;
+  bucket: string;
+  prefix: string;
+  secretAccessKey: string;
+};
+
 export function createProjectArtifactRef(
   kind: ProjectArtifactKind,
   artifactId: string,
+  provider = getProjectArtifactProvider(),
 ) {
   assertSafeArtifactId(artifactId);
-  return `${PROJECT_ARTIFACT_REF_PREFIX}${kind}:${artifactId}`;
+  return `${PROJECT_ARTIFACT_REF_PREFIX}${provider}:${kind}:${artifactId}`;
 }
 
-export function parseProjectArtifactRef(ref: string) {
-  if (!ref.startsWith(PROJECT_ARTIFACT_REF_PREFIX)) {
+export function parseProjectArtifactRef(
+  ref: string,
+): ParsedProjectArtifactRef | null {
+  const provider = ref.startsWith(LOCAL_PROJECT_ARTIFACT_REF_PREFIX)
+    ? "local"
+    : ref.startsWith(R2_PROJECT_ARTIFACT_REF_PREFIX)
+      ? "r2"
+      : null;
+
+  if (!provider) {
     return null;
   }
 
-  const [rawKind, artifactId] = ref
-    .slice(PROJECT_ARTIFACT_REF_PREFIX.length)
-    .split(":");
+  const prefix =
+    provider === "local"
+      ? LOCAL_PROJECT_ARTIFACT_REF_PREFIX
+      : R2_PROJECT_ARTIFACT_REF_PREFIX;
+  const [rawKind, artifactId] = ref.slice(prefix.length).split(":");
 
   if ((rawKind !== "dist" && rawKind !== "source") || !artifactId) {
     return null;
   }
 
   assertSafeArtifactId(artifactId);
-  const kind: ProjectArtifactKind = rawKind;
-
-  return { artifactId, kind };
+  return { artifactId, kind: rawKind, provider };
 }
 
 export async function writeProjectSourceArtifact(
@@ -128,11 +155,13 @@ export async function materializeProjectDistArtifact(
 async function writeProjectArtifactFiles<
   TFile extends GeneratedDistFile | GeneratedProjectFile,
 >(input: WriteArtifactInput<TFile>) {
-  const artifactRef = createProjectArtifactRef(input.kind, input.artifactId);
-  const artifactDir = resolveProjectArtifactDir(
+  validateArtifactFiles(input.files);
+
+  const provider = getProjectArtifactProvider();
+  const artifactRef = createProjectArtifactRef(
     input.kind,
     input.artifactId,
-    input.rootDir,
+    provider,
   );
   const manifest: ProjectArtifactManifest = {
     files: input.files.map((file) => ({
@@ -143,6 +172,23 @@ async function writeProjectArtifactFiles<
     schemaVersion: 1,
   };
 
+  if (provider === "r2") {
+    await writeR2ProjectArtifact(input, manifest);
+    return artifactRef;
+  }
+
+  await writeLocalProjectArtifact(input, manifest);
+  return artifactRef;
+}
+
+async function writeLocalProjectArtifact<
+  TFile extends GeneratedDistFile | GeneratedProjectFile,
+>(input: WriteArtifactInput<TFile>, manifest: ProjectArtifactManifest) {
+  const artifactDir = resolveProjectArtifactDir(
+    input.kind,
+    input.artifactId,
+    input.rootDir,
+  );
   const tempDir = `${artifactDir}.tmp-${crypto.randomUUID()}`;
   const tempFilesDir = path.join(tempDir, "files");
 
@@ -169,8 +215,28 @@ async function writeProjectArtifactFiles<
     await rm(tempDir, { force: true, recursive: true }).catch(() => undefined);
     throw error;
   }
+}
 
-  return artifactRef;
+async function writeR2ProjectArtifact<
+  TFile extends GeneratedDistFile | GeneratedProjectFile,
+>(input: WriteArtifactInput<TFile>, manifest: ProjectArtifactManifest) {
+  const config = getR2Config();
+
+  for (const file of input.files) {
+    await putR2Object(
+      config,
+      getR2ArtifactKey(input.kind, input.artifactId, `files/${file.path}`),
+      file.content,
+      "contentType" in file ? file.contentType : "text/plain; charset=utf-8",
+    );
+  }
+
+  await putR2Object(
+    config,
+    getR2ArtifactKey(input.kind, input.artifactId, "manifest.json"),
+    JSON.stringify(manifest, null, 2),
+    "application/json; charset=utf-8",
+  );
 }
 
 async function readProjectArtifactFiles(
@@ -186,6 +252,17 @@ async function readProjectArtifactFiles(
     return { files: [], kind: "source" };
   }
 
+  if (parsed.provider === "r2") {
+    return readR2ProjectArtifact(parsed);
+  }
+
+  return readLocalProjectArtifact(parsed, options);
+}
+
+async function readLocalProjectArtifact(
+  parsed: ParsedProjectArtifactRef,
+  options: ArtifactRootOptions,
+) {
   const artifactDir = resolveProjectArtifactDir(
     parsed.kind,
     parsed.artifactId,
@@ -208,6 +285,29 @@ async function readProjectArtifactFiles(
         path: file.path,
       };
     }),
+  );
+
+  return { files, kind: manifest.kind };
+}
+
+async function readR2ProjectArtifact(parsed: ParsedProjectArtifactRef) {
+  const config = getR2Config();
+  const manifest = parseManifest(
+    await getR2Object(
+      config,
+      getR2ArtifactKey(parsed.kind, parsed.artifactId, "manifest.json"),
+    ),
+    parsed.kind,
+  );
+  const files = await Promise.all(
+    manifest.files.map(async (file) => ({
+      content: await getR2Object(
+        config,
+        getR2ArtifactKey(parsed.kind, parsed.artifactId, `files/${file.path}`),
+      ),
+      contentType: file.contentType,
+      path: file.path,
+    })),
   );
 
   return { files, kind: manifest.kind };
@@ -245,6 +345,29 @@ function parseManifest(
   };
 }
 
+function validateArtifactFiles(
+  files: Array<GeneratedDistFile | GeneratedProjectFile>,
+) {
+  for (const file of files) {
+    assertSafeProjectFilePath(file.path);
+  }
+}
+
+function getProjectArtifactProvider(): ProjectArtifactProvider {
+  const provider = getEnv(
+    "PROJECT_ARTIFACT_STORAGE_PROVIDER",
+    "local",
+  ).toLowerCase();
+
+  if (provider === "local" || provider === "r2") {
+    return provider;
+  }
+
+  throw new Error(
+    `Invalid PROJECT_ARTIFACT_STORAGE_PROVIDER '${provider}'. Supported values: local, r2.`,
+  );
+}
+
 function resolveProjectArtifactDir(
   kind: ProjectArtifactKind,
   artifactId: string,
@@ -277,4 +400,149 @@ function assertSafeArtifactId(artifactId: string) {
   if (!/^[A-Za-z0-9_-]+$/.test(artifactId)) {
     throw new Error("Project artifact id is invalid.");
   }
+}
+
+function getR2Config(): R2Config {
+  return {
+    accessKeyId: requiredEnv("R2_ACCESS_KEY_ID"),
+    accountId: requiredEnv("R2_ACCOUNT_ID"),
+    bucket: requiredEnv("R2_BUCKET"),
+    prefix: normalizeR2Prefix(
+      getEnv("PROJECT_ARTIFACT_R2_PREFIX", "project-artifacts"),
+    ),
+    secretAccessKey: requiredEnv("R2_SECRET_ACCESS_KEY"),
+  };
+}
+
+function requiredEnv(name: string) {
+  const value = getEnv(name);
+
+  if (!value) {
+    throw new Error(`${name} is required for R2 project artifact storage.`);
+  }
+
+  return value;
+}
+
+function normalizeR2Prefix(value: string) {
+  return value.replace(/^\/+|\/+$/g, "") || "project-artifacts";
+}
+
+function getR2ArtifactKey(
+  kind: ProjectArtifactKind,
+  artifactId: string,
+  suffix: string,
+) {
+  assertSafeArtifactId(artifactId);
+  return `${getR2Config().prefix}/${kind}/${artifactId}/${suffix}`;
+}
+
+async function putR2Object(
+  config: R2Config,
+  key: string,
+  body: string,
+  contentType: string,
+) {
+  const response = await signedR2Fetch(config, key, {
+    body,
+    contentType,
+    method: "PUT",
+  });
+
+  if (!response.ok) {
+    throw new Error(`R2 project artifact write failed: ${response.status}`);
+  }
+}
+
+async function getR2Object(config: R2Config, key: string) {
+  const response = await signedR2Fetch(config, key, { method: "GET" });
+
+  if (!response.ok) {
+    throw new Error(`R2 project artifact read failed: ${response.status}`);
+  }
+
+  return response.text();
+}
+
+async function signedR2Fetch(
+  config: R2Config,
+  key: string,
+  input: { body?: string; contentType?: string; method: "GET" | "PUT" },
+) {
+  const encodedKey = key
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  const url = `https://${config.accountId}.r2.cloudflarestorage.com/${config.bucket}/${encodedKey}`;
+  const now = new Date();
+  const amzDate = toAmzDate(now);
+  const dateStamp = amzDate.slice(0, 8);
+  const payloadHash = sha256(input.body ?? "");
+  const host = `${config.accountId}.r2.cloudflarestorage.com`;
+  const headers: Record<string, string> = {
+    host,
+    "x-amz-content-sha256": payloadHash,
+    "x-amz-date": amzDate,
+  };
+
+  if (input.contentType) {
+    headers["content-type"] = input.contentType;
+  }
+
+  const signedHeaders = Object.keys(headers).sort().join(";");
+  const canonicalHeaders = Object.keys(headers)
+    .sort()
+    .map((name) => `${name}:${headers[name]}\n`)
+    .join("");
+  const canonicalRequest = [
+    input.method,
+    `/${config.bucket}/${encodedKey}`,
+    "",
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash,
+  ].join("\n");
+  const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    credentialScope,
+    sha256(canonicalRequest),
+  ].join("\n");
+  const signature = hmacHex(
+    getSignatureKey(config.secretAccessKey, dateStamp),
+    stringToSign,
+  );
+
+  return fetch(url, {
+    body: input.body,
+    headers: {
+      ...headers,
+      Authorization: `AWS4-HMAC-SHA256 Credential=${config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+    },
+    method: input.method,
+  });
+}
+
+function toAmzDate(date: Date) {
+  return date.toISOString().replace(/[:-]|\.\d{3}/g, "");
+}
+
+function sha256(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function hmac(key: Buffer | string, value: string) {
+  return createHmac("sha256", key).update(value).digest();
+}
+
+function hmacHex(key: Buffer, value: string) {
+  return createHmac("sha256", key).update(value).digest("hex");
+}
+
+function getSignatureKey(secret: string, dateStamp: string) {
+  const dateKey = hmac(`AWS4${secret}`, dateStamp);
+  const dateRegionKey = hmac(dateKey, "auto");
+  const dateRegionServiceKey = hmac(dateRegionKey, "s3");
+  return hmac(dateRegionServiceKey, "aws4_request");
 }

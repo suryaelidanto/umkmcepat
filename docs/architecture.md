@@ -103,7 +103,9 @@ The control plane owns project metadata and user workflows. Build workers and ru
 
 Current runtime implementation:
 
-- `PROJECT_ARTIFACT_DIR` stores local source/dist artifacts under `.data/project-artifacts` by default.
+- `PROJECT_ARTIFACT_STORAGE_PROVIDER` chooses canonical generated source/dist artifact storage: `local` by default, or `r2` for Cloudflare R2. New writes use the configured provider; reads use the provider embedded in each artifact ref, so existing `project-artifact:local:*` refs remain readable after switching.
+- `PROJECT_ARTIFACT_DIR` stores local source/dist artifacts under `.data/project-artifacts` by default when the artifact provider is `local`.
+- `PROJECT_ARTIFACT_R2_PREFIX` scopes generated source/dist artifact keys inside the R2 bucket when the artifact provider is `r2`.
 - `PROJECT_RUNTIME_DIR` stores materialized runtime files under `.data/project-runtimes` by default.
 - `PROJECT_BUILD_WORKSPACE_DIR` stores rebuildable local build workspaces under `.data/project-build-workspaces` by default. Build workspaces cache generated app `node_modules` and build metadata so repeat edits can skip dependency install when the package/profile signature is unchanged. Source snapshots and dist artifacts remain canonical; workspaces may be deleted and rebuilt.
 - `RuntimeSupervisor` starts a local out-of-process static server from a dist artifact and records deployment events.

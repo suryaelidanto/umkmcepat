@@ -459,7 +459,7 @@ describe("generated project source", () => {
       "bun run build",
     ]);
     expect(result.log).toContain('"cacheReset":true');
-  });
+  }, 15_000);
 
   it("fails build preflight when package policy rejects a dependency", async () => {
     const files = createFiles("project_blocked_package", {

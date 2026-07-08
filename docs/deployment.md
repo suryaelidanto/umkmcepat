@@ -89,7 +89,9 @@ NINE_ROUTER_API_KEY="replace-with-9router-api-key"
 RATE_LIMIT_PROVIDER="memory"
 OBJECT_STORAGE_PROVIDER="local"
 LOCAL_UPLOAD_DIR=".data/uploads"
+PROJECT_ARTIFACT_STORAGE_PROVIDER="local"
 PROJECT_ARTIFACT_DIR=".data/project-artifacts"
+PROJECT_ARTIFACT_R2_PREFIX="project-artifacts"
 PROJECT_RUNTIME_DIR=".data/project-runtimes"
 PROJECT_BUILD_WORKSPACE_DIR=".data/project-build-workspaces"
 PROJECT_RUNTIME_SUPERVISOR="local"
@@ -99,7 +101,7 @@ POSTGRES_PASSWORD="replace-with-strong-db-password"
 POSTGRES_DB="umkmcepat"
 ```
 
-If `OBJECT_STORAGE_PROVIDER="local"`, mount `LOCAL_UPLOAD_DIR` as a persistent volume. The current generated-runtime adapter also needs `PROJECT_ARTIFACT_DIR` and `PROJECT_RUNTIME_DIR` on persistent local storage for a single-node VPS. `PROJECT_BUILD_WORKSPACE_DIR` is a rebuildable cache for generated app workspaces; persisting it speeds repeat builds by keeping `node_modules`, but deleting it is safe because source snapshots and dist artifacts remain canonical. If a future deployment uses remote artifact storage, the local artifact/runtime volumes can become rebuildable caches.
+If `OBJECT_STORAGE_PROVIDER="local"`, mount `LOCAL_UPLOAD_DIR` as a persistent volume. Generated project source/dist artifacts are controlled separately by `PROJECT_ARTIFACT_STORAGE_PROVIDER`. With `local`, mount `PROJECT_ARTIFACT_DIR` persistently because source snapshots and dist artifacts are canonical. With `r2`, generated artifact writes go to Cloudflare R2 under `PROJECT_ARTIFACT_R2_PREFIX` using `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET`; existing local refs remain readable because artifact refs include their provider. `PROJECT_RUNTIME_DIR` stays local because it only materializes artifacts for the local runtime. `PROJECT_BUILD_WORKSPACE_DIR` is a rebuildable local cache for generated app workspaces; persisting it speeds repeat builds by keeping `node_modules`, but deleting it is safe because source snapshots and dist artifacts remain canonical.
 
 If Headroom compression is enabled in 9Router, use this Docker-internal proxy URL:
 
