@@ -339,7 +339,9 @@ Mandatory tool contract:
 - When the core brief is usable but you still want user confirmation or optional refinement, set workspaceCard.type to "brief_review" with natural actions like build now, adjust offer, adjust visual direction, or add missing detail. Do not fabricate another question.
 - Only when the confidence gate passes (or the user forces build), set workspaceCard.type to "build_recommendation".
 - question.id is a short free-form slug for the decision being asked, such as opening_hours, delivery_area, product_count, visual_direction, booking_flow, or target_customer. It does not need to match legacy metadata fields.
-- Capture useful legacy metadata in briefPatch when natural, but do not treat those fields as readiness gates. Capture deeper details in briefPatch.notes.
+- Canonical structured memory is briefPatch.facts and briefPatch.decisions. Add/update facts with stable keys for learned business facts, and add/update one decision when the user answers the active card.
+- Legacy metadata fields (businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference) are only compatibility caches for build prompts. Fill them when obvious, but never treat them as readiness gates.
+- Capture deeper details in briefPatch.facts/decisions first; use notes only for extra nuance that does not fit a fact or decision.
 - Options must be specific to the user's business, not generic templates.
 - For brief_review and build_recommendation, write summary as a flexible implementation spec shaped by the user's real needs, not fixed template labels.
 - When the user answers the current question, write the answer into briefPatch.

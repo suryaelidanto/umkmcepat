@@ -40,6 +40,7 @@ Core rules:
 
 - AI clarifies before building when ambiguity changes output quality.
 - Build readiness is confidence-driven, not a fixed field checklist. The AI records a 0-100 confidence score and unresolved open questions on the project brief. A normal build recommendation requires at least 95% confidence and no open questions; users may still explicitly force a build, which records the assumptions used.
+- Project brief memory is canonicalized as flexible `facts[]` and `decisions[]`. Legacy fields such as `businessName`, `businessType`, `offer`, `targetCustomer`, `contactOrCta`, and `stylePreference` remain compatibility caches for build prompts and older project data, not the product schema or readiness gate.
 - Discussion turns use one streaming AI call: chat text streams as normal while structured workspace UI is returned through a schema-validated AI SDK tool call.
 - Workspace cards are never parsed from chat text. If the tool output is missing or invalid, the server falls back to a deterministic valid card.
 - When a workspace card becomes a build recommendation, the client treats it as the primary composer decision instead of a chat-history message. The normal text composer stays hidden until the user explicitly continues discussion.

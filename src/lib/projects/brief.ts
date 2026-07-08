@@ -1,6 +1,20 @@
+export type ProjectFact = {
+  key: string;
+  label: string;
+  value: string;
+};
+
+export type ProjectDecision = {
+  answer: string;
+  id: string;
+  question: string;
+};
+
 export type ProjectBrief = {
   version: 1;
   prompt: string;
+  facts?: ProjectFact[];
+  decisions?: ProjectDecision[];
   businessName: string;
   businessType: string;
   offer: string;
@@ -61,6 +75,8 @@ export type ProjectBriefPatch = Partial<
 > & {
   confidence?: number;
   forcedBuild?: { assumed?: unknown };
+  decisions?: ProjectDecision[];
+  facts?: ProjectFact[];
   notes?: string[];
   openQuestions?: string[];
 };
@@ -84,6 +100,8 @@ export function createInitialBrief(prompt = ""): ProjectBrief {
   return {
     version: 1,
     prompt: prompt.trim(),
+    facts: [],
+    decisions: [],
     businessName: "",
     businessType: "",
     offer: "",
@@ -111,6 +129,8 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
     targetCustomer: stringValue(input.targetCustomer),
     contactOrCta: stringValue(input.contactOrCta),
     stylePreference: stringValue(input.stylePreference),
+    facts: normalizeFacts(input.facts),
+    decisions: normalizeDecisions(input.decisions),
     notes: Array.isArray(input.notes)
       ? input.notes.filter(isString).slice(-12)
       : [],
@@ -140,6 +160,14 @@ export function mergeProjectBriefPatch(
 
   if (businessName) {
     next.businessName = businessName;
+  }
+
+  if (Array.isArray(patch.facts)) {
+    next.facts = mergeFacts(next.facts ?? [], patch.facts);
+  }
+
+  if (Array.isArray(patch.decisions)) {
+    next.decisions = mergeDecisions(next.decisions ?? [], patch.decisions);
   }
 
   if (Array.isArray(patch.notes)) {
@@ -214,6 +242,12 @@ export function briefToBuildPrompt(brief: ProjectBrief) {
     `Target pelanggan: ${brief.targetCustomer}`,
     `Aksi utama: ${brief.contactOrCta}`,
     `Arah visual: ${brief.stylePreference}`,
+    brief.facts?.length
+      ? `Fakta terstruktur: ${brief.facts.map((fact) => `${fact.label}: ${fact.value}`).join("; ")}`
+      : "",
+    brief.decisions?.length
+      ? `Keputusan diskusi: ${brief.decisions.map((decision) => `${decision.question}: ${decision.answer}`).join("; ")}`
+      : "",
     brief.notes.length ? `Catatan tambahan: ${brief.notes.join("; ")}` : "",
     `Tingkat keyakinan: ${brief.confidence ?? 0}%`,
     brief.openQuestions?.length
@@ -225,6 +259,69 @@ export function briefToBuildPrompt(brief: ProjectBrief) {
   ].filter(Boolean);
 
   return lines.join("\n");
+}
+
+function normalizeFacts(value: unknown): ProjectFact[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const input = item as Partial<ProjectFact>;
+      return {
+        key: slugValue(input.key),
+        label: stringValue(input.label).slice(0, 80),
+        value: stringValue(input.value).slice(0, 280),
+      };
+    })
+    .filter((item) => item.key && item.label && item.value)
+    .slice(-40);
+}
+
+function normalizeDecisions(value: unknown): ProjectDecision[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const input = item as Partial<ProjectDecision>;
+      return {
+        id: slugValue(input.id),
+        question: stringValue(input.question).slice(0, 160),
+        answer: stringValue(input.answer).slice(0, 280),
+      };
+    })
+    .filter((item) => item.id && item.question && item.answer)
+    .slice(-40);
+}
+
+function mergeFacts(current: ProjectFact[], incoming: ProjectFact[]) {
+  const byKey = new Map(current.map((item) => [item.key, item]));
+  for (const item of normalizeFacts(incoming)) {
+    byKey.set(item.key, item);
+  }
+  return [...byKey.values()].slice(-40);
+}
+
+function mergeDecisions(
+  current: ProjectDecision[],
+  incoming: ProjectDecision[],
+) {
+  const byId = new Map(current.map((item) => [item.id, item]));
+  for (const item of normalizeDecisions(incoming)) {
+    byId.set(item.id, item);
+  }
+  return [...byId.values()].slice(-40);
+}
+
+function slugValue(value: unknown) {
+  return stringValue(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9_ -]+/g, "")
+    .replace(/[ -]+/g, "_")
+    .slice(0, 80);
 }
 
 function stringValue(value: unknown) {

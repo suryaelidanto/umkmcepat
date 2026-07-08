@@ -17,6 +17,8 @@ export type WorkspaceTurnToolInput = {
     businessType?: string;
     confidence?: number;
     contactOrCta?: string;
+    decisions?: Array<{ answer?: string; id?: string; question?: string }>;
+    facts?: Array<{ key?: string; label?: string; value?: string }>;
     forcedBuild?: { assumed?: unknown };
     notes?: string[];
     offer?: string;
@@ -57,6 +59,32 @@ export const workspaceTurnToolInputSchema = jsonSchema<WorkspaceTurnToolInput>({
           description:
             "Material unresolved decisions that should be asked before recommending build.",
           items: { type: "string" },
+        },
+        facts: {
+          type: "array",
+          description:
+            "Canonical facts learned from the user. Use stable keys like business_name, cuisine_type, opening_hours, address, whatsapp.",
+          items: {
+            type: "object",
+            properties: {
+              key: { type: "string" },
+              label: { type: "string" },
+              value: { type: "string" },
+            },
+          },
+        },
+        decisions: {
+          type: "array",
+          description:
+            "Canonical user decisions. Add one item when the user answers the current workspace question.",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              question: { type: "string" },
+              answer: { type: "string" },
+            },
+          },
         },
         forcedBuild: {
           type: "object",
@@ -150,6 +178,14 @@ export function applyBriefPatch(
     if (value) {
       next[field] = value;
     }
+  }
+
+  if (Array.isArray(patch.facts)) {
+    next.facts = mergeBriefFacts(next.facts ?? [], patch.facts);
+  }
+
+  if (Array.isArray(patch.decisions)) {
+    next.decisions = mergeBriefDecisions(next.decisions ?? [], patch.decisions);
   }
 
   if (Array.isArray(patch.notes)) {
@@ -440,6 +476,45 @@ const BRIEF_PATCH_FIELDS = [
 
 function getBriefPatchFields() {
   return BRIEF_PATCH_FIELDS;
+}
+
+function mergeBriefFacts(
+  current: NonNullable<ProjectBrief["facts"]>,
+  incoming: NonNullable<WorkspaceTurnToolInput["briefPatch"]>["facts"],
+) {
+  const byKey = new Map(current.map((item) => [item.key, item]));
+  for (const item of incoming ?? []) {
+    const key = cleanSlug(item.key);
+    const label = cleanText(item.label, 80);
+    const value = cleanText(item.value, 280);
+    if (key && label && value) {
+      byKey.set(key, { key, label, value });
+    }
+  }
+  return [...byKey.values()].slice(-40);
+}
+
+function mergeBriefDecisions(
+  current: NonNullable<ProjectBrief["decisions"]>,
+  incoming: NonNullable<WorkspaceTurnToolInput["briefPatch"]>["decisions"],
+) {
+  const byId = new Map(current.map((item) => [item.id, item]));
+  for (const item of incoming ?? []) {
+    const id = cleanSlug(item.id);
+    const question = cleanText(item.question, 160);
+    const answer = cleanText(item.answer, 280);
+    if (id && question && answer) {
+      byId.set(id, { id, question, answer });
+    }
+  }
+  return [...byId.values()].slice(-40);
+}
+
+function cleanSlug(value: unknown) {
+  return cleanText(value, 80)
+    .toLowerCase()
+    .replace(/[^a-z0-9_ -]+/g, "")
+    .replace(/[ -]+/g, "_");
 }
 
 function cleanText(value: unknown, maxLength: number) {

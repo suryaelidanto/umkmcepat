@@ -53,6 +53,15 @@ export function buildBriefPatchFromWorkspaceAnswers({
       continue;
     }
 
+    patch.decisions = [
+      ...(patch.decisions ?? []),
+      { id: answer.questionId, question: question.question, answer: value },
+    ];
+    patch.facts = [
+      ...(patch.facts ?? []),
+      { key: answer.questionId, label: question.question, value },
+    ];
+
     if (isLegacyBriefPatchField(answer.questionId)) {
       patch[answer.questionId] = value;
     } else {
