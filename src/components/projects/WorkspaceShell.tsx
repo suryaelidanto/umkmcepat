@@ -209,6 +209,7 @@ export function WorkspaceShell({
     message: string;
     retryAfter: number;
   } | null>(null);
+  const [showQuestionSideNote, setShowQuestionSideNote] = useState(false);
   const {
     messages,
     sendMessage,
@@ -571,6 +572,10 @@ export function WorkspaceShell({
     held: buildRecommendationHeld,
     postBuildChatOpen,
   });
+  const activeQuestionKey =
+    workspaceCard.type === "question"
+      ? workspaceCard.question.id
+      : workspaceCard.type;
   const previewIssue = getWorkspacePreviewIssue({
     buildStatus,
     deploymentStatus: runtimeState?.deployment?.status,
@@ -759,6 +764,11 @@ export function WorkspaceShell({
     element.scrollTop = element.scrollHeight;
     previousLiveMessageCount.current = messages.length;
   }, [messages.length]);
+
+  useEffect(() => {
+    setShowQuestionSideNote(false);
+    setMessage("");
+  }, [activeQuestionKey]);
 
   useEffect(() => {
     const workspaceUpdate = getLatestWorkspaceUpdateFromMessages(messages);
@@ -1340,37 +1350,54 @@ export function WorkspaceShell({
                       submitChatText(answer, { workspaceAnswers })
                     }
                   />
-                  <form
-                    onSubmit={handleMessageSubmit}
-                    className="mt-spacing-3 rounded-[20px] border border-surface-warm-white/8 bg-[#20201d] p-spacing-3"
-                  >
-                    <label htmlFor="workspace-message" className="sr-only">
-                      Catatan tambahan untuk AI
-                    </label>
-                    <textarea
-                      id="workspace-message"
-                      rows={1}
-                      value={message}
-                      onChange={(event) => setMessage(event.target.value)}
-                      onKeyDown={handleMessageKeyDown}
-                      placeholder="Catatan tambahan, koreksi, atau instruksi lain..."
-                      className="max-h-24 w-full resize-none bg-transparent px-spacing-2 py-spacing-2 text-sm leading-6 text-surface-warm-white/82 outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/34 [&::-webkit-scrollbar]:hidden"
-                    />
-                    <div className="flex items-center justify-between gap-spacing-3 px-spacing-1">
-                      <span className="text-[11px] text-surface-warm-white/38">
-                        Pertanyaan utama tetap dijawab lewat kartu di atas.
-                      </span>
-                      <Button
-                        type="submit"
-                        size="icon"
-                        disabled={!message.trim()}
-                        className="size-8 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                        aria-label="Kirim catatan"
-                      >
-                        <ArrowUp className="size-4" />
-                      </Button>
-                    </div>
-                  </form>
+                  {showQuestionSideNote ? (
+                    <form
+                      onSubmit={handleMessageSubmit}
+                      className="mt-spacing-3 rounded-[20px] border border-surface-warm-white/8 bg-[#20201d] p-spacing-3"
+                    >
+                      <label htmlFor="workspace-message" className="sr-only">
+                        Tambahan untuk AI
+                      </label>
+                      <textarea
+                        id="workspace-message"
+                        rows={2}
+                        value={message}
+                        onChange={(event) => setMessage(event.target.value)}
+                        onKeyDown={handleMessageKeyDown}
+                        placeholder="Tulis tambahan..."
+                        className="max-h-28 w-full resize-none bg-transparent px-spacing-2 py-spacing-2 text-sm leading-6 text-surface-warm-white/82 outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/34 [&::-webkit-scrollbar]:hidden"
+                      />
+                      <div className="flex items-center justify-between gap-spacing-3 px-spacing-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowQuestionSideNote(false);
+                            setMessage("");
+                          }}
+                          className="text-xs text-surface-warm-white/44 hover:text-surface-warm-white/70"
+                        >
+                          Balik ke pilihan
+                        </button>
+                        <Button
+                          type="submit"
+                          size="icon"
+                          disabled={!message.trim()}
+                          className="size-8 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                          aria-label="Kirim tambahan"
+                        >
+                          <ArrowUp className="size-4" />
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowQuestionSideNote(true)}
+                      className="mt-spacing-3 px-spacing-2 text-xs text-surface-warm-white/42 hover:text-surface-warm-white/70"
+                    >
+                      Tambah catatan
+                    </button>
+                  )}
                 </>
               ) : composerState === "build_recommendation" ||
                 composerState === "brief_review" ? (
