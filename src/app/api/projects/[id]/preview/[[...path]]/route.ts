@@ -4,6 +4,7 @@ import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolut
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
 import {
   applyPreviewSandboxHeaders,
+  injectPreviewAnnotationBridge,
   proxyDeploymentRequest,
 } from "@/lib/projects/runtime-proxy";
 
@@ -104,11 +105,16 @@ export async function GET(
     });
   }
 
-  return new Response(file.content, {
-    headers: applyPreviewSandboxHeaders(
-      new Headers({ "Content-Type": file.contentType }),
-    ),
-  });
+  return new Response(
+    file.contentType.toLowerCase().includes("text/html")
+      ? injectPreviewAnnotationBridge(file.content)
+      : file.content,
+    {
+      headers: applyPreviewSandboxHeaders(
+        new Headers({ "Content-Type": file.contentType }),
+      ),
+    },
+  );
 }
 
 function createPreviewIssueResponse({

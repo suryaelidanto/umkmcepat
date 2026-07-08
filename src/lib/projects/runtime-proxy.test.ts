@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyPreviewSandboxHeaders,
+  injectPreviewAnnotationBridge,
   proxyDeploymentRequest,
   rewritePreviewAssetUrls,
 } from "@/lib/projects/runtime-proxy";
@@ -11,6 +12,14 @@ import {
 let server: Server | null = null;
 
 describe("runtime proxy", () => {
+  it("injects the private preview annotation bridge once", () => {
+    const html = injectPreviewAnnotationBridge(
+      "<html><body><main></main></body></html>",
+    );
+
+    expect(html).toContain("data-umkm-annotation-bridge");
+    expect(injectPreviewAnnotationBridge(html)).toBe(html);
+  });
   afterEach(async () => {
     if (server) {
       await new Promise<void>((resolve) => server?.close(() => resolve()));

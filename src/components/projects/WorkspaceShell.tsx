@@ -47,6 +47,12 @@ import {
 import { type WorkspaceCard } from "@/lib/projects/brief";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
 import {
+  createVisualAnnotationEditInstruction,
+  createVisualAnnotationId,
+  createVisualAnnotationSummary,
+  type VisualAnnotationDraft,
+} from "@/lib/projects/visual-annotations";
+import {
   getBuildRecommendationHoldSignature,
   getWorkspaceComposerState,
   getWorkspacePreviewIssue,
@@ -187,28 +193,44 @@ export function WorkspaceShell({
   const autoRetriedTurn = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
+  const [annotationMode, setAnnotationMode] = useState(false);
+  const [annotationInstruction, setAnnotationInstruction] = useState("");
+  const [annotations, setAnnotations] = useState<VisualAnnotationDraft[]>([]);
+  const [pendingAnnotationTarget, setPendingAnnotationTarget] = useState<Omit<
+    VisualAnnotationDraft,
+    "comment" | "id"
+  > | null>(null);
+  const [pendingAnnotationComment, setPendingAnnotationComment] = useState("");
   const [rateLimitError, setRateLimitError] = useState<{
     message: string;
     retryAfter: number;
   } | null>(null);
-  const { messages, sendMessage, status, error, stop, regenerate, clearError } =
-    useChat({
-      id: projectId,
-      messages: initialMessages,
-      transport: new DefaultChatTransport({
-        api: "/api/projects/preview",
-        fetch: rateLimitAwareFetch,
-        prepareSendMessagesRequest({ messages }) {
-          return {
-            body: {
-              message: messages[messages.length - 1],
-              mode: modeRef.current,
-              projectId,
-            },
-          };
-        },
-      }),
-    });
+  const {
+    messages,
+    sendMessage,
+    setMessages,
+    status,
+    error,
+    stop,
+    regenerate,
+    clearError,
+  } = useChat({
+    id: projectId,
+    messages: initialMessages,
+    transport: new DefaultChatTransport({
+      api: "/api/projects/preview",
+      fetch: rateLimitAwareFetch,
+      prepareSendMessagesRequest({ messages }) {
+        return {
+          body: {
+            message: messages[messages.length - 1],
+            mode: modeRef.current,
+            projectId,
+          },
+        };
+      },
+    }),
+  });
   const previousChatStatus = useRef(status);
 
   useEffect(() => {
@@ -698,6 +720,123 @@ export function WorkspaceShell({
     return () => window.clearTimeout(timeout);
   }, [loadWorkspaceState, status]);
 
+  const handleAnnotationTarget = useCallback((target: unknown) => {
+    if (!target || typeof target !== "object") {
+      return;
+    }
+
+    const item = target as Partial<
+      Omit<VisualAnnotationDraft, "comment" | "id">
+    >;
+
+    if (!item.label || !item.target?.boundingBox) {
+      return;
+    }
+
+    setPendingAnnotationTarget({
+      label: String(item.label),
+      selectedText:
+        typeof item.selectedText === "string" ? item.selectedText : undefined,
+      target: item.target,
+    });
+    setPendingAnnotationComment("");
+  }, []);
+
+  function addPendingAnnotation() {
+    const comment = pendingAnnotationComment.trim();
+
+    if (!pendingAnnotationTarget || !comment) {
+      return;
+    }
+
+    setAnnotations((current) => [
+      ...current,
+      {
+        ...pendingAnnotationTarget,
+        comment,
+        id: createVisualAnnotationId(),
+      },
+    ]);
+    setPendingAnnotationTarget(null);
+    setPendingAnnotationComment("");
+  }
+
+  function removeAnnotation(id: string) {
+    setAnnotations((current) => current.filter((item) => item.id !== id));
+  }
+
+  async function sendVisualAnnotations() {
+    if (!annotations.length || isProcessing) {
+      return;
+    }
+
+    const summary = createVisualAnnotationSummary({
+      annotations,
+      instruction: annotationInstruction,
+    });
+    const instruction = createVisualAnnotationEditInstruction({
+      annotations,
+      instruction: annotationInstruction,
+    });
+
+    setIsEditingPreview(true);
+    setBuildStatus("building");
+    setBuildProgress((current) =>
+      addBuildProgressStep(current, {
+        detail: "AI menerapkan komentar visual ke source preview terakhir.",
+        label: "Merevisi dari komentar visual",
+        status: "active",
+      }),
+    );
+    setMessages((current) => [
+      ...current,
+      {
+        id: createVisualAnnotationId(),
+        metadata: undefined,
+        parts: [{ text: summary, type: "text" }],
+        role: "user",
+      },
+    ]);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction }),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        buildStatus?: string;
+        message?: string;
+      } | null;
+
+      if (!response.ok || result?.buildStatus !== "succeeded") {
+        setBuildStatus("failed");
+        setBuildProgress((current) =>
+          addBuildProgressStep(current, {
+            detail:
+              result?.message ||
+              "Komentar visual belum berhasil dibuild. Komentar tetap aman.",
+            label: "Revisi visual belum selesai",
+            status: "error",
+          }),
+        );
+        return;
+      }
+
+      setAnnotations([]);
+      setAnnotationInstruction("");
+      setAnnotationMode(false);
+      setBuildStatus("ready");
+      setBuildProgress((current) => completeBuildProgress(current));
+      setActiveTab("preview");
+      setPreviewCollapsed(false);
+      setPreviewReloadKey((current) => current + 1);
+      void loadRuntimeState();
+    } finally {
+      setIsEditingPreview(false);
+    }
+  }
+
   async function saveProjectTitle() {
     const title = draftTitle.trim();
 
@@ -1035,61 +1174,79 @@ export function WorkspaceShell({
               ref={chatScrollRef}
               className="mt-spacing-5 min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
             >
-              {hasMoreChat ? (
-                <div
-                  ref={olderChatSentinelRef}
-                  className="py-spacing-3 text-center"
-                >
-                  {isLoadingOlderChat ? (
-                    <span className="text-xs text-surface-warm-white/42">
-                      Memuat chat lama...
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
-              <ChatMessages messages={visibleMessages} />
-
-              {isBuilding || buildProgress.length ? (
-                <BuildProgressPanel
-                  elapsedFrom={buildStartedAt}
-                  isBuilding={isBuilding}
-                  steps={buildProgress}
+              {annotationMode ? (
+                <VisualAnnotationPanel
+                  annotations={annotations}
+                  instruction={annotationInstruction}
+                  isSending={isEditingPreview}
+                  onAddPending={addPendingAnnotation}
+                  onCancelPending={() => setPendingAnnotationTarget(null)}
+                  onInstructionChange={setAnnotationInstruction}
+                  onPendingCommentChange={setPendingAnnotationComment}
+                  onRemove={removeAnnotation}
+                  onSend={() => void sendVisualAnnotations()}
+                  pendingComment={pendingAnnotationComment}
+                  pendingTarget={pendingAnnotationTarget}
                 />
-              ) : null}
-
-              {isResponding ? (
-                <p className="text-sm text-surface-warm-white/46">
-                  AI sedang menyiapkan jawaban...
-                </p>
-              ) : null}
-              {rateLimitError ? (
-                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                  <p className="text-sm font-medium text-[#ffb4a6]">
-                    {rateLimitError.message}
-                  </p>
-                </div>
-              ) : error ? (
-                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                  <p className="text-sm font-medium text-[#ffb4a6]">
-                    {isRetrying
-                      ? "AI sempat terputus. Mencoba menyambung ulang..."
-                      : "AI sempat terputus. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi tanpa kehilangan progres."}
-                  </p>
-                  {!isRetrying ? (
-                    <Button
-                      type="button"
-                      onClick={() => void retryLastTurn()}
-                      className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+              ) : (
+                <>
+                  {hasMoreChat ? (
+                    <div
+                      ref={olderChatSentinelRef}
+                      className="py-spacing-3 text-center"
                     >
-                      Coba lagi
-                    </Button>
+                      {isLoadingOlderChat ? (
+                        <span className="text-xs text-surface-warm-white/42">
+                          Memuat chat lama...
+                        </span>
+                      ) : null}
+                    </div>
                   ) : null}
-                </div>
-              ) : null}
+                  <ChatMessages messages={visibleMessages} />
+
+                  {isBuilding || buildProgress.length ? (
+                    <BuildProgressPanel
+                      elapsedFrom={buildStartedAt}
+                      isBuilding={isBuilding}
+                      steps={buildProgress}
+                    />
+                  ) : null}
+
+                  {isResponding ? (
+                    <p className="text-sm text-surface-warm-white/46">
+                      AI sedang menyiapkan jawaban...
+                    </p>
+                  ) : null}
+                  {rateLimitError ? (
+                    <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                      <p className="text-sm font-medium text-[#ffb4a6]">
+                        {rateLimitError.message}
+                      </p>
+                    </div>
+                  ) : error ? (
+                    <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                      <p className="text-sm font-medium text-[#ffb4a6]">
+                        {isRetrying
+                          ? "AI sempat terputus. Mencoba menyambung ulang..."
+                          : "AI sempat terputus. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi tanpa kehilangan progres."}
+                      </p>
+                      {!isRetrying ? (
+                        <Button
+                          type="button"
+                          onClick={() => void retryLastTurn()}
+                          className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                        >
+                          Coba lagi
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
 
             <div className="mt-spacing-5">
-              {isProcessing ? (
+              {annotationMode ? null : isProcessing ? (
                 <ProcessingControl
                   mode={isBuilding ? "Buat" : "Diskusi"}
                   onStop={stopCurrentJob}
@@ -1195,6 +1352,13 @@ export function WorkspaceShell({
               <section className={previewPanelClass}>
                 <div className="flex h-full min-h-0 flex-col bg-[#10100f] text-surface-warm-white">
                   <WorkspaceTopBar
+                    annotationActive={annotationMode}
+                    annotationAvailable={shouldRenderGeneratedPreview}
+                    onToggleAnnotation={() => {
+                      setAnnotationMode((current) => !current);
+                      setActiveTab("preview");
+                      openChatPanel();
+                    }}
                     activeTab={activeTab}
                     setActiveTab={setActiveTab}
                     viewport={viewport}
@@ -1224,6 +1388,9 @@ export function WorkspaceShell({
                         />
                       ) : shouldRenderGeneratedPreview ? (
                         <GeneratedPreviewFrame
+                          annotationActive={annotationMode}
+                          annotationMarkers={annotations}
+                          onAnnotationTarget={handleAnnotationTarget}
                           onLoad={() => void loadRuntimeState()}
                           onRetry={retryPreviewRuntime}
                           projectId={projectId}
@@ -1414,6 +1581,142 @@ function HeldBuildRecommendationNotice({
             Mulai build
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function VisualAnnotationPanel({
+  annotations,
+  instruction,
+  isSending,
+  onAddPending,
+  onCancelPending,
+  onInstructionChange,
+  onPendingCommentChange,
+  onRemove,
+  onSend,
+  pendingComment,
+  pendingTarget,
+}: {
+  annotations: VisualAnnotationDraft[];
+  instruction: string;
+  isSending: boolean;
+  onAddPending: () => void;
+  onCancelPending: () => void;
+  onInstructionChange: (value: string) => void;
+  onPendingCommentChange: (value: string) => void;
+  onRemove: (id: string) => void;
+  onSend: () => void;
+  pendingComment: string;
+  pendingTarget: Omit<VisualAnnotationDraft, "comment" | "id"> | null;
+}) {
+  return (
+    <div className="space-y-spacing-5">
+      <div className="rounded-[22px] border border-[#8fd3ff]/18 bg-[#10202b] px-spacing-5 py-spacing-4">
+        <p className="text-sm font-semibold text-surface-warm-white">
+          Komentar visual
+        </p>
+        <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/58">
+          Klik bagian website atau pilih teks di tampilan, lalu tulis catatan.
+        </p>
+      </div>
+
+      {pendingTarget ? (
+        <div className="rounded-[22px] border border-surface-warm-white/12 bg-[#242421] p-spacing-4">
+          <p className="text-xs font-medium text-[#8fd3ff]">
+            {pendingTarget.label}
+          </p>
+          {pendingTarget.selectedText ? (
+            <p className="mt-spacing-2 rounded-[12px] bg-surface-warm-white/6 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/62">
+              Teks dipilih: {pendingTarget.selectedText}
+            </p>
+          ) : null}
+          <textarea
+            rows={3}
+            value={pendingComment}
+            onChange={(event) => onPendingCommentChange(event.target.value)}
+            placeholder="Tulis catatan untuk bagian ini..."
+            className="mt-spacing-3 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-[#8fd3ff]/45"
+          />
+          <div className="mt-spacing-3 flex justify-end gap-spacing-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancelPending}
+              className="h-9 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8"
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              disabled={!pendingComment.trim()}
+              onClick={onAddPending}
+              className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
+            >
+              Tambah komentar
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="space-y-spacing-3">
+        {annotations.length ? (
+          annotations.map((annotation, index) => (
+            <article
+              key={annotation.id}
+              className="rounded-[18px] border border-surface-warm-white/10 bg-surface-warm-white/[0.035] p-spacing-4"
+            >
+              <div className="flex items-start gap-spacing-3">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-warm-white text-xs font-bold text-foreground-primary">
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-semibold text-surface-warm-white">
+                    {annotation.label}
+                  </p>
+                  <p className="mt-spacing-1 break-words text-sm leading-6 text-surface-warm-white/64">
+                    {annotation.comment}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(annotation.id)}
+                  className="shrink-0 rounded-full px-spacing-2 py-spacing-1 text-xs text-surface-warm-white/42 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                >
+                  Hapus
+                </button>
+              </div>
+            </article>
+          ))
+        ) : (
+          <div className="rounded-[18px] border border-dashed border-surface-warm-white/12 px-spacing-5 py-spacing-6 text-sm leading-6 text-surface-warm-white/50">
+            Belum ada komentar. Klik bagian website di panel kanan untuk mulai.
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-[22px] border border-surface-warm-white/10 bg-[#20201d] p-spacing-4">
+        <label className="text-xs font-medium text-surface-warm-white/58">
+          Arahan tambahan opsional
+        </label>
+        <textarea
+          rows={3}
+          value={instruction}
+          onChange={(event) => onInstructionChange(event.target.value)}
+          placeholder="Contoh: bikin keseluruhan lebih clean dan premium..."
+          className="mt-spacing-2 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
+        />
+        <Button
+          type="button"
+          disabled={!annotations.length || isSending}
+          onClick={onSend}
+          className="mt-spacing-3 h-10 w-full rounded-[12px] bg-surface-warm-white text-sm text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
+        >
+          {isSending
+            ? "Mengirim ke AI..."
+            : `Kirim ${annotations.length || ""} komentar ke AI`}
+        </Button>
       </div>
     </div>
   );

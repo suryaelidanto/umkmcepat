@@ -4,6 +4,7 @@ import {
   Code2,
   ExternalLink,
   Globe2,
+  MessageSquarePlus,
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
@@ -51,6 +52,9 @@ export function WorkspaceTopBar({
   chatCollapsed,
   openChatPanel,
   closeChatPanel,
+  annotationActive = false,
+  annotationAvailable = false,
+  onToggleAnnotation,
   runtime,
 }: {
   activeTab: BuildTab;
@@ -60,6 +64,9 @@ export function WorkspaceTopBar({
   chatCollapsed: boolean;
   openChatPanel: () => void;
   closeChatPanel: () => void;
+  annotationActive?: boolean;
+  annotationAvailable?: boolean;
+  onToggleAnnotation?: () => void;
   runtime?: WorkspaceRuntimeControl;
 }) {
   return (
@@ -93,6 +100,16 @@ export function WorkspaceTopBar({
             Kode
           </TabButton>
         </div>
+        {annotationAvailable && activeTab === "preview" ? (
+          <button
+            type="button"
+            onClick={onToggleAnnotation}
+            className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+          >
+            <MessageSquarePlus className="size-4" />
+            {annotationActive ? "Komentar aktif" : "Komentar"}
+          </button>
+        ) : null}
       </div>
 
       <div className="flex min-w-0 shrink-0 items-center gap-spacing-3">
@@ -295,12 +312,23 @@ function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
 }
 
 export function GeneratedPreviewFrame({
+  annotationActive = false,
+  annotationMarkers = [],
+  onAnnotationTarget,
   onLoad,
   onRetry,
   projectId,
   reloadKey,
   viewport,
 }: {
+  annotationActive?: boolean;
+  annotationMarkers?: Array<{
+    id: string;
+    target: {
+      boundingBox: { height: number; width: number; x: number; y: number };
+    };
+  }>;
+  onAnnotationTarget?: (target: unknown) => void;
   onLoad?: () => void;
   onRetry?: () => void;
   projectId: string;
@@ -324,6 +352,11 @@ export function GeneratedPreviewFrame({
         return;
       }
 
+      if (event.data?.type === "umkmcepat-annotation-target") {
+        onAnnotationTarget?.(event.data.payload);
+        return;
+      }
+
       if (event.data?.type !== "umkmcepat-preview-ready") {
         return;
       }
@@ -339,7 +372,27 @@ export function GeneratedPreviewFrame({
       window.clearTimeout(timeout);
       window.removeEventListener("message", handleMessage);
     };
-  }, [projectId, reloadKey]);
+  }, [onAnnotationTarget, projectId, reloadKey]);
+
+  useEffect(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { active: annotationActive, type: "umkmcepat-annotation-mode" },
+      "*",
+    );
+  }, [annotationActive, ready, reloadKey]);
+
+  useEffect(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      {
+        annotations: annotationMarkers.map((annotation, index) => ({
+          ...annotation,
+          index: index + 1,
+        })),
+        type: "umkmcepat-annotation-markers",
+      },
+      "*",
+    );
+  }, [annotationMarkers, ready, reloadKey]);
 
   return (
     <div className="relative flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
