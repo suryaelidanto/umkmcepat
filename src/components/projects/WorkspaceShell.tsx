@@ -1333,12 +1333,45 @@ export function WorkspaceShell({
                 </div>
               ) : composerState === "question" &&
                 workspaceCard.type === "question" ? (
-                <QuestionComposer
-                  question={workspaceCard.question}
-                  onSubmit={(answer, workspaceAnswers) =>
-                    submitChatText(answer, { workspaceAnswers })
-                  }
-                />
+                <>
+                  <QuestionComposer
+                    question={workspaceCard.question}
+                    onSubmit={(answer, workspaceAnswers) =>
+                      submitChatText(answer, { workspaceAnswers })
+                    }
+                  />
+                  <form
+                    onSubmit={handleMessageSubmit}
+                    className="mt-spacing-3 rounded-[20px] border border-surface-warm-white/8 bg-[#20201d] p-spacing-3"
+                  >
+                    <label htmlFor="workspace-message" className="sr-only">
+                      Catatan tambahan untuk AI
+                    </label>
+                    <textarea
+                      id="workspace-message"
+                      rows={1}
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                      onKeyDown={handleMessageKeyDown}
+                      placeholder="Catatan tambahan, koreksi, atau instruksi lain..."
+                      className="max-h-24 w-full resize-none bg-transparent px-spacing-2 py-spacing-2 text-sm leading-6 text-surface-warm-white/82 outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/34 [&::-webkit-scrollbar]:hidden"
+                    />
+                    <div className="flex items-center justify-between gap-spacing-3 px-spacing-1">
+                      <span className="text-[11px] text-surface-warm-white/38">
+                        Pertanyaan utama tetap dijawab lewat kartu di atas.
+                      </span>
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={!message.trim()}
+                        className="size-8 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                        aria-label="Kirim catatan"
+                      >
+                        <ArrowUp className="size-4" />
+                      </Button>
+                    </div>
+                  </form>
+                </>
               ) : composerState === "build_recommendation" ||
                 composerState === "brief_review" ? (
                 <WorkspaceCardView

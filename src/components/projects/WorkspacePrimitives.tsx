@@ -807,7 +807,7 @@ export function QuestionComposer({
                   htmlFor={`custom-answer-${question.id}`}
                   className="text-xs font-medium text-surface-warm-white/58"
                 >
-                  Jawaban sendiri untuk keputusan ini
+                  Tulis jawabanmu
                 </label>
                 <textarea
                   id={`custom-answer-${question.id}`}
@@ -828,7 +828,7 @@ export function QuestionComposer({
                     }}
                     className="rounded-full px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
                   >
-                    Batal
+                    Kembali ke pilihan
                   </button>
                   <Button
                     type="button"
@@ -848,16 +848,16 @@ export function QuestionComposer({
               >
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-surface-warm-white/84">
-                    Jawaban sendiri
+                    Jawab manual
                   </span>
                   <span className="mt-spacing-1 block break-words text-xs leading-5 text-surface-warm-white/58 [overflow-wrap:anywhere]">
                     {customAnswerSelected
                       ? answer
-                      : "Pakai ini kalau pilihan AI belum pas untuk keputusan ini."}
+                      : "Pakai ini kalau pilihan di atas belum pas."}
                   </span>
                 </span>
                 <span className="shrink-0 border-b border-surface-warm-white/20 pb-0.5 text-xs text-surface-warm-white/56">
-                  {customAnswerSelected ? "Ganti" : "Tulis"}
+                  {customAnswerSelected ? "Ganti" : "Isi"}
                 </span>
               </button>
             )}
