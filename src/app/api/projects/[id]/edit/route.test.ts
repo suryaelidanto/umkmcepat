@@ -108,13 +108,18 @@ const baseFiles = [
       scripts: { build: "vite build" },
     }),
   },
-  { path: "src/App.tsx", content: "export default 'old headline';" },
+  {
+    path: "src/App.tsx",
+    content:
+      'export default function App(){return <main className="site-shell"><nav className="topbar">Bengkel</nav><h1>old headline</h1></main>}',
+  },
+  { path: "src/styles.css", content: ".topbar{background:#fff;color:#fff}" },
 ];
 
-function request(commands: unknown[]) {
+function request(commands: unknown[], instruction?: string) {
   return new Request("http://localhost/api/projects/project_1/edit", {
     method: "POST",
-    body: JSON.stringify({ commands }),
+    body: JSON.stringify({ commands, instruction }),
   });
 }
 
@@ -224,7 +229,11 @@ describe("project edit route", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           files: expect.arrayContaining([
-            { path: "src/App.tsx", content: "export default 'new headline';" },
+            {
+              path: "src/App.tsx",
+              content:
+                'export default function App(){return <main className="site-shell"><nav className="topbar">Bengkel</nav><h1>new headline</h1></main>}',
+            },
           ]),
           parentSnapshotId: "snapshot_success",
           sourceType: "edited",
@@ -239,6 +248,29 @@ describe("project edit route", () => {
         }),
       }),
     );
+  });
+
+  it("rejects visual edits with no-op CSS selectors before creating a snapshot", async () => {
+    const response = await POST(
+      request(
+        [
+          {
+            type: "write_file",
+            path: "src/styles.css",
+            content:
+              ".topbar{background:#fff;color:#fff}\n.hero-card{outline:2px solid red}",
+          },
+          { type: "check_app" },
+        ],
+        'Apply these visual comments to the generated website source.\n\nVisual comments:\n[{"label":"Bagian website — Bengkel","comment":"navbar warnanya jangan nabrak","target":{"classes":"topbar","selectorPath":"main > nav.topbar","tag":"nav","text":"Bengkel","boundingBox":{"x":0,"y":0,"width":100,"height":40}}}]',
+      ),
+      { params: Promise.resolve({ id: "project_1" }) },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("edit_validation_failed");
+    expect(prismaProjectSnapshotCreateMock).not.toHaveBeenCalled();
   });
 
   it("records a failed edit build without replacing project source or ready status", async () => {

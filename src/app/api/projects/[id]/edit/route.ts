@@ -7,6 +7,7 @@ import {
 } from "@/lib/projects/agent-tool-runner";
 import { createLocalBuildWorker } from "@/lib/projects/build-worker";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import { validateGeneratedEdit } from "@/lib/projects/edit-validation";
 import {
   createGeneratedSourceSnapshotMetadata,
   parseGeneratedProjectFiles,
@@ -21,6 +22,7 @@ import {
   type ProjectDeploymentStatus,
 } from "@/lib/projects/runtime-types";
 import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
+import { editGeneratedSourceWithAgent } from "@/lib/projects/source-edit-agent";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -148,10 +150,12 @@ export async function POST(request: Request, { params }: RouteProps) {
     );
   }
 
-  const commands = requestedCommands.length
-    ? requestedCommands
-    : createSimpleEditCommands(baseFiles, instruction);
-  const editResult = runGeneratedAppAgentTools({ commands, files: baseFiles });
+  const editResult = requestedCommands.length
+    ? runGeneratedAppAgentTools({
+        commands: requestedCommands,
+        files: baseFiles,
+      })
+    : await editGeneratedSourceWithAgent({ files: baseFiles, instruction });
   devLog("edit", "tools.finished", {
     ok: editResult.ok,
     operations: editResult.operations.length,
@@ -166,6 +170,33 @@ export async function POST(request: Request, { params }: RouteProps) {
         outputs: editResult.outputs,
       },
       { status: 400 },
+    );
+  }
+
+  const touchedFiles = editResult.sideEffects
+    .map((effect) => effect.path)
+    .filter((path): path is string => Boolean(path));
+  const editValidation = validateGeneratedEdit({
+    baseFiles,
+    instruction,
+    nextFiles: editResult.files,
+    touchedFiles,
+  });
+
+  if (!editValidation.ok) {
+    devLog("edit", "validation.failed", {
+      issues: editValidation.issues,
+      projectId: project.id,
+    });
+
+    return Response.json(
+      {
+        code: "edit_validation_failed",
+        issues: editValidation.issues,
+        message:
+          "AI belum berhasil menerapkan komentarmu dengan tepat. Komentarmu tetap aman, coba kirim lagi atau ubah catatannya sedikit.",
+      },
+      { status: 422 },
     );
   }
 
@@ -223,9 +254,8 @@ export async function POST(request: Request, { params }: RouteProps) {
         generation: {
           mode: "agent-edit",
           operationTrace: editResult.operations,
-          touchedFiles: editResult.sideEffects
-            .map((effect) => effect.path)
-            .filter((path): path is string => Boolean(path)),
+          editValidation,
+          touchedFiles,
         },
         sideEffects: editResult.sideEffects,
       },
@@ -362,48 +392,4 @@ export async function POST(request: Request, { params }: RouteProps) {
     deploymentId: deployment.id,
     snapshotId: snapshot.id,
   });
-}
-
-function createSimpleEditCommands(
-  files: { content: string; path: string }[],
-  instruction: string,
-): GeneratedAppAgentToolCommand[] {
-  const styles = files.find((file) => file.path === "src/styles.css");
-  const data = files.find((file) => file.path === "src/data/site.ts");
-  const wantsVisual =
-    /\b(warna|visual|desain|premium|elegan|modern|gelap|terang|layout|style)\b/i.test(
-      instruction,
-    );
-
-  if (wantsVisual && styles) {
-    return [
-      {
-        type: "write_file",
-        path: styles.path,
-        content: `${styles.content}\n/* User-requested visual edit */\n.site-shell{filter:saturate(1.06)}\n.hero-card{outline:2px solid color-mix(in srgb,currentColor 10%,transparent)}\n`,
-      },
-      { type: "check_app" },
-    ];
-  }
-
-  if (data) {
-    const headlineMatch = data.content.match(/"headline":\s*"([^"]+)"/);
-    const previous = headlineMatch?.[1];
-
-    if (previous) {
-      const next = `Update: ${instruction.replace(/\s+/g, " ").slice(0, 90)}`;
-
-      return [
-        {
-          type: "replace_in_file",
-          path: data.path,
-          find: `"headline": ${JSON.stringify(previous)}`,
-          replace: `"headline": ${JSON.stringify(next)}`,
-        },
-        { type: "check_app" },
-      ];
-    }
-  }
-
-  return [{ type: "check_app" }];
 }
