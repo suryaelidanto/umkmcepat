@@ -206,11 +206,10 @@ export async function POST(request: Request) {
       tools: workspaceTools,
     }),
     tools: workspaceTools,
+    maxRetries: 0,
     temperature: 0.35,
     onError({ error }) {
-      // Surface the verbatim cause server-side; the client only sees a generic
-      // recoverable error, never the raw provider message.
-      console.error("[preview-chat] stream error", error);
+      console.error("[preview-chat] stream error", getSafeAiErrorLog(error));
     },
   });
 
@@ -218,14 +217,15 @@ export async function POST(request: Request) {
     originalMessages: messages,
     onFinish: async ({ messages }) => {
       const title = workspaceTurn.projectTitle || project.title;
+      const safeMessages = parseProjectChatMessages(messages);
 
       await prisma.$executeRaw`
-        UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+        UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
       `;
 
       const compaction = await maybeCompactProjectChat({
         memoryFacts,
-        messages,
+        messages: safeMessages,
         summary: chatSummary,
       }).catch(() => null);
 
@@ -236,6 +236,24 @@ export async function POST(request: Request) {
       }
     },
   });
+}
+
+function getSafeAiErrorLog(error: unknown) {
+  const value = error as {
+    lastError?: {
+      statusCode?: number;
+      responseHeaders?: Record<string, string>;
+    };
+    reason?: string;
+  };
+  const statusCode = value.lastError?.statusCode;
+  const retryAfter = value.lastError?.responseHeaders?.["retry-after"];
+
+  return {
+    reason: value.reason || "unknown",
+    retryAfter,
+    statusCode,
+  };
 }
 
 function buildSystemPrompt({
