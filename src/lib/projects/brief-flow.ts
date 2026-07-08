@@ -5,7 +5,6 @@ import {
   type ProjectBrief,
   type WorkspaceCard,
   getBriefReadiness,
-  getMissingBriefFields,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
 
@@ -204,15 +203,30 @@ export function normalizeWorkspaceTurn(
 export function createFallbackWorkspaceCard(
   brief: ProjectBrief,
 ): WorkspaceCard {
-  const nextField = getMissingBriefFields(brief)[0];
-
-  if (!nextField) {
+  if ((brief.confidence ?? 0) >= 95) {
     return buildBriefReviewCard(brief);
   }
 
   return {
     type: "question",
-    question: buildFallbackQuestion(nextField, brief),
+    question: buildFallbackQuestion("next_detail", brief, {
+      question:
+        "Satu hal paling penting apa yang harus website ini bantu jelaskan dulu?",
+      options: [
+        {
+          label: "Menu atau layanan utama",
+          description: "Biar pengunjung langsung paham apa yang kamu tawarkan.",
+        },
+        {
+          label: "Cara pelanggan memesan",
+          description: "Biar alur kontak, booking, atau order jadi jelas.",
+        },
+        {
+          label: "Kesan yang ingin dibangun",
+          description: "Biar visual dan copy terasa pas, bukan template.",
+        },
+      ],
+    }),
   };
 }
 

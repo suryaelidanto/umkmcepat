@@ -16,3 +16,7 @@ export function getAvailableAiModels(rawModels = process.env.AI_MODELS) {
 export function getDefaultAiModel(models = getAvailableAiModels()) {
   return models[0];
 }
+
+export function getChatAiModel(models = getAvailableAiModels()) {
+  return process.env.AI_CHAT_MODEL?.trim() || models[1] || models[0];
+}

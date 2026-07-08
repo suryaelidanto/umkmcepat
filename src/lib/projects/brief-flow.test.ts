@@ -235,7 +235,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("shows a review card instead of a fake question when required fields are filled", () => {
+  it("keeps asking a safe free-form fallback question when confidence is low", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Dropship sepatu",
@@ -248,11 +248,9 @@ describe("normalizeWorkspaceTurn", () => {
     );
     const turn = normalizeWorkspaceTurn(undefined, brief);
 
-    expect(turn.workspaceCard.type).toBe("brief_review");
-    if (turn.workspaceCard.type === "brief_review") {
-      expect(
-        turn.workspaceCard.actions.map((action) => action.label),
-      ).not.toContain("Mulai build");
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("next_detail");
     }
   });
 

@@ -7,6 +7,7 @@ import {
 } from "ai";
 
 import { getAiModel } from "@/lib/ai";
+import { getChatAiModel } from "@/lib/ai-models";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -198,7 +199,7 @@ export async function POST(request: Request) {
   let workspaceTurn = normalizeWorkspaceTurn(undefined, effectiveBrief);
 
   const result = streamText({
-    model: getAiModel(),
+    model: getAiModel(getChatAiModel()),
     system: buildSystemPrompt({
       context: chatContext.systemContext,
       mode,
