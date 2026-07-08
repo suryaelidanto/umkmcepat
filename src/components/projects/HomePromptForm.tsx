@@ -55,12 +55,9 @@ export function HomePromptForm() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [moderationMessage, setModerationMessage] = useState("");
-  const [isCheckingPrompt, setIsCheckingPrompt] = useState(false);
   const [isPending, startTransition] = useTransition();
   const hasAutoContinued = useRef(false);
   const isSubmittingRef = useRef(false);
-  const moderationAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const draft = parseProjectDraft(
@@ -167,59 +164,6 @@ export function HomePromptForm() {
     void createProject(draft.prompt);
   }, [createProject, status]);
 
-  useEffect(() => {
-    const validation = validateProjectRequest(prompt);
-
-    moderationAbortRef.current?.abort();
-    setModerationMessage("");
-
-    if (!prompt.trim() || !validation.ok || prompt.trim().length < 8) {
-      setIsCheckingPrompt(false);
-      return;
-    }
-
-    const abortController = new AbortController();
-    moderationAbortRef.current = abortController;
-    const timeout = window.setTimeout(async () => {
-      setIsCheckingPrompt(true);
-      const clientTimeout = window.setTimeout(
-        () => abortController.abort(),
-        3500,
-      );
-
-      try {
-        const response = await fetch("/api/moderation/project-request", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: validation.value }),
-          signal: abortController.signal,
-        });
-        const result = (await response.json().catch(() => null)) as {
-          allowed?: boolean;
-          message?: string;
-        } | null;
-
-        if (!abortController.signal.aborted && result?.allowed === false) {
-          setModerationMessage(
-            result.message || "Permintaan ini belum bisa diproses.",
-          );
-        }
-      } catch {
-        if (!abortController.signal.aborted) {
-          setModerationMessage("");
-        }
-      } finally {
-        window.clearTimeout(clientTimeout);
-        setIsCheckingPrompt(false);
-      }
-    }, 650);
-
-    return () => {
-      window.clearTimeout(timeout);
-      abortController.abort();
-    };
-  }, [prompt]);
-
   const isLoading = isContinuing || isPending;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -236,12 +180,6 @@ export function HomePromptForm() {
 
     if (!validation.ok) {
       setErrorMessage(validation.message);
-      isSubmittingRef.current = false;
-      return;
-    }
-
-    if (moderationMessage) {
-      setErrorMessage(moderationMessage);
       isSubmittingRef.current = false;
       return;
     }
@@ -299,21 +237,19 @@ export function HomePromptForm() {
         <div className="flex items-center justify-between gap-spacing-5 px-spacing-7 pb-spacing-7">
           <div />
           <div className="flex items-center gap-spacing-4">
-            {isLoading || isCheckingPrompt ? (
+            {isLoading ? (
               <span className="hidden text-sm text-surface-warm-white/58 sm:inline">
-                {isLoading ? "Menyiapkan..." : "Mengecek..."}
+                Menyiapkan...
               </span>
             ) : null}
             <Button
               type="submit"
               size="icon"
-              disabled={
-                isLoading || Boolean(moderationMessage) || !prompt.trim()
-              }
+              disabled={isLoading || !prompt.trim()}
               className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
               aria-label="Buat halaman"
             >
-              {isLoading || isCheckingPrompt ? (
+              {isLoading ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <ArrowUp className="size-4" />
@@ -321,11 +257,6 @@ export function HomePromptForm() {
             </Button>
           </div>
         </div>
-        {moderationMessage ? (
-          <p className="px-spacing-7 pb-spacing-5 text-sm leading-6 text-[#ffb4a6]">
-            {moderationMessage}
-          </p>
-        ) : null}
         {errorMessage ? (
           <p className="px-spacing-7 pb-spacing-7 text-sm text-red-200">
             {errorMessage}
