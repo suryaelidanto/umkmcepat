@@ -17,6 +17,7 @@ import {
   KeyboardEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -1607,6 +1608,19 @@ function getEditorLanguage(path = "") {
   return "plaintext";
 }
 
+const ZIP_ENCODER = new TextEncoder();
+const ZIP_DOS_TIME = 0;
+const ZIP_DOS_DATE = 33;
+const CRC32_TABLE = Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+
+  for (let bit = 0; bit < 8; bit += 1) {
+    value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+  }
+
+  return value >>> 0;
+});
+
 type FileTreeNode = {
   children: Map<string, FileTreeNode>;
   path: string;
@@ -1634,7 +1648,7 @@ function FileTree({
 
   return (
     <div className="select-none">
-      {Array.from(root.children.entries()).map(([name, node]) => (
+      {sortFileTreeEntries(root.children).map(([name, node]) => (
         <FileTreeItem
           key={node.path || name}
           name={name}
@@ -1675,14 +1689,14 @@ function FileTreeItem({
 
   return (
     <details open className="group">
-      <summary className="cursor-default list-none px-spacing-4 py-spacing-1.5 text-sm font-medium text-surface-warm-white/72 [&::-webkit-details-marker]:hidden">
+      <summary className="cursor-pointer list-none px-spacing-4 py-spacing-1.5 text-sm font-medium text-surface-warm-white/72 hover:bg-surface-warm-white/7 hover:text-surface-warm-white [&::-webkit-details-marker]:hidden">
         <span className="mr-spacing-2 inline-block text-surface-warm-white/38 group-open:rotate-90">
           ›
         </span>
         {name}
       </summary>
       <div className="border-l border-surface-warm-white/8 pl-spacing-3 ml-spacing-5">
-        {Array.from(node.children.entries()).map(([childName, child]) => (
+        {sortFileTreeEntries(node.children).map(([childName, child]) => (
           <FileTreeItem
             key={child.path || `${node.path}/${childName}`}
             name={childName}
@@ -1694,6 +1708,130 @@ function FileTreeItem({
       </div>
     </details>
   );
+}
+
+function sortFileTreeEntries(children: Map<string, FileTreeNode>) {
+  return Array.from(children.entries()).sort(
+    ([nameA, nodeA], [nameB, nodeB]) => {
+      if (nodeA.type !== nodeB.type) {
+        return nodeA.type === "directory" ? -1 : 1;
+      }
+
+      return nameA.localeCompare(nameB, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    },
+  );
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function createZipBlob(files: GeneratedProjectFile[]) {
+  const localFileParts: Uint8Array[] = [];
+  const centralDirectoryParts: Uint8Array[] = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const name = ZIP_ENCODER.encode(file.path);
+    const content = ZIP_ENCODER.encode(file.content);
+    const crc = crc32(content);
+    const localHeader = createZipHeader(0x04034b50, name, content, crc, offset);
+    const centralHeader = createZipHeader(
+      0x02014b50,
+      name,
+      content,
+      crc,
+      offset,
+    );
+
+    localFileParts.push(localHeader, content);
+    centralDirectoryParts.push(centralHeader);
+    offset += localHeader.length + content.length;
+  }
+
+  const centralDirectorySize = centralDirectoryParts.reduce(
+    (size, part) => size + part.length,
+    0,
+  );
+  const end = new Uint8Array(22);
+  const view = new DataView(end.buffer);
+
+  view.setUint32(0, 0x06054b50, true);
+  view.setUint16(8, files.length, true);
+  view.setUint16(10, files.length, true);
+  view.setUint32(12, centralDirectorySize, true);
+  view.setUint32(16, offset, true);
+
+  return new Blob(
+    [...localFileParts, ...centralDirectoryParts, end].map(toBlobPart),
+    { type: "application/zip" },
+  );
+}
+
+function toBlobPart(part: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(part.length);
+
+  copy.set(part);
+  return copy.buffer;
+}
+
+function createZipHeader(
+  signature: number,
+  name: Uint8Array,
+  content: Uint8Array,
+  crc: number,
+  offset: number,
+) {
+  const isCentralDirectory = signature === 0x02014b50;
+  const header = new Uint8Array(isCentralDirectory ? 46 : 30);
+  const view = new DataView(header.buffer);
+
+  view.setUint32(0, signature, true);
+
+  if (isCentralDirectory) {
+    view.setUint16(4, 20, true);
+    view.setUint16(6, 20, true);
+    view.setUint16(12, ZIP_DOS_TIME, true);
+    view.setUint16(14, ZIP_DOS_DATE, true);
+    view.setUint32(16, crc, true);
+    view.setUint32(20, content.length, true);
+    view.setUint32(24, content.length, true);
+    view.setUint16(28, name.length, true);
+    view.setUint32(42, offset, true);
+  } else {
+    view.setUint16(4, 20, true);
+    view.setUint16(10, ZIP_DOS_TIME, true);
+    view.setUint16(12, ZIP_DOS_DATE, true);
+    view.setUint32(14, crc, true);
+    view.setUint32(18, content.length, true);
+    view.setUint32(22, content.length, true);
+    view.setUint16(26, name.length, true);
+  }
+
+  const fullHeader = new Uint8Array(header.length + name.length);
+  fullHeader.set(header);
+  fullHeader.set(name, header.length);
+
+  return fullHeader;
+}
+
+function crc32(bytes: Uint8Array) {
+  let crc = 0xffffffff;
+
+  for (const byte of bytes) {
+    crc = CRC32_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function buildFileTree(files: GeneratedProjectFile[]) {
@@ -1733,15 +1871,47 @@ function CodeView({
   files: GeneratedProjectFile[];
   buildStatus: string;
 }) {
-  const [selectedPath, setSelectedPath] = useState(files[0]?.path || "");
+  const sortedFiles = useMemo(
+    () =>
+      [...files].sort((a, b) =>
+        a.path.localeCompare(b.path, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      ),
+    [files],
+  );
+  const [selectedPath, setSelectedPath] = useState(sortedFiles[0]?.path || "");
   const selectedFile =
-    files.find((file) => file.path === selectedPath) ?? files[0];
+    sortedFiles.find((file) => file.path === selectedPath) ?? sortedFiles[0];
 
   useEffect(() => {
-    if (!selectedPath && files[0]?.path) {
-      setSelectedPath(files[0].path);
+    if (!selectedPath && sortedFiles[0]?.path) {
+      setSelectedPath(sortedFiles[0].path);
     }
-  }, [files, selectedPath]);
+  }, [selectedPath, sortedFiles]);
+
+  const exportCurrentFile = useCallback(() => {
+    if (!selectedFile) {
+      return;
+    }
+
+    downloadBlob(
+      new Blob([selectedFile.content], { type: "text/plain;charset=utf-8" }),
+      selectedFile.path.split("/").at(-1) || "generated-file.txt",
+    );
+  }, [selectedFile]);
+
+  const exportProjectZip = useCallback(() => {
+    if (!sortedFiles.length) {
+      return;
+    }
+
+    downloadBlob(
+      createZipBlob(sortedFiles),
+      `umkmcepat-generated-project-${new Date().toISOString().slice(0, 10)}.zip`,
+    );
+  }, [sortedFiles]);
 
   return (
     <div className="grid h-full min-h-0 overflow-hidden border-t border-surface-warm-white/10 bg-[#10100f] text-surface-warm-white md:grid-cols-[280px_1fr]">
@@ -1753,18 +1923,42 @@ function CodeView({
           <p className="mt-spacing-2 text-xs text-surface-warm-white/44">
             Build: {buildStatus}
           </p>
+          <Button
+            type="button"
+            size="sm"
+            onClick={exportProjectZip}
+            disabled={!sortedFiles.length}
+            className="mt-spacing-3 h-8 w-full justify-start rounded-radius-md bg-surface-warm-white text-xs text-foreground-primary hover:bg-surface-warm-white/90"
+          >
+            Export semua (.zip)
+          </Button>
         </div>
         <div className="py-spacing-3 text-sm">
           <FileTree
-            files={files}
+            files={sortedFiles}
             selectedPath={selectedFile?.path || ""}
             onSelect={setSelectedPath}
           />
         </div>
       </aside>
       <section className="flex min-h-0 min-w-0 flex-col">
-        <div className="border-b border-surface-warm-white/10 bg-[#111110] px-spacing-5 py-spacing-3 text-sm text-surface-warm-white/58">
-          {selectedFile?.path || "Belum ada file"}
+        <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/10 bg-[#111110] px-spacing-5 py-spacing-3 text-sm text-surface-warm-white/58">
+          <span
+            className="min-w-0 truncate"
+            title={selectedFile?.path || undefined}
+          >
+            {selectedFile?.path || "Belum ada file"}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={exportCurrentFile}
+            disabled={!selectedFile}
+            className="h-8 shrink-0 rounded-radius-md border-surface-warm-white/14 bg-transparent text-xs text-surface-warm-white hover:bg-surface-warm-white/8"
+          >
+            Export file ini
+          </Button>
         </div>
         <div className="min-h-0 flex-1">
           <MonacoEditor

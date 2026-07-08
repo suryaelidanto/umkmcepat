@@ -1,5 +1,7 @@
 # Generated Vite App Builder
 
+Description: Build or edit UMKM Cepat generated Vite apps safely inside generated project files only.
+
 Use when creating or editing UMKM Cepat generated apps.
 
 Rules:
