@@ -209,6 +209,10 @@ export async function POST(request: Request) {
       tools: workspaceTools,
     }),
     tools: workspaceTools,
+    toolChoice:
+      mode === "discuss"
+        ? { type: "tool", toolName: "setWorkspaceUi" }
+        : "auto",
     maxRetries: 0,
     temperature: 0.35,
     onError({ error }) {

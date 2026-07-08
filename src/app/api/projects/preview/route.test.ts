@@ -185,6 +185,7 @@ describe("project preview AI route", () => {
         system: expect.stringContaining(
           '"businessType":"aku ada toko bakso sih"',
         ),
+        toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
       }),
     );
   });
