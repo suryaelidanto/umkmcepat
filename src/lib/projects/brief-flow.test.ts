@@ -90,6 +90,33 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("accepts AI text questions without forcing fake options", () => {
+    const brief = createInitialBrief("butuh website restoran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "business_name",
+            answerMode: "text",
+            question: "Nama restorannya apa?",
+            placeholder: "Contoh: Dapur Sari Laut",
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.answerMode).toBe("text");
+      expect(turn.workspaceCard.question.options).toEqual([]);
+      expect(turn.workspaceCard.question.placeholder).toBe(
+        "Contoh: Dapur Sari Laut",
+      );
+    }
+  });
+
   it("accepts free-form AI question ids", () => {
     const brief = createInitialBrief("butuh app booking barbershop");
     const turn = normalizeWorkspaceTurn(

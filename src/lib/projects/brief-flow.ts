@@ -86,6 +86,12 @@ export const workspaceTurnToolInputSchema = jsonSchema<WorkspaceTurnToolInput>({
           properties: {
             id: { type: "string" },
             question: { type: "string" },
+            answerMode: {
+              type: "string",
+              description:
+                "Use 'text' for exact user-provided values like business name, WhatsApp number, address, opening hours, or menu names. Use 'choice' for decisions with useful options.",
+              enum: ["choice", "text"],
+            },
             recommendedOptionLabel: { type: "string" },
             selectionMode: {
               type: "string",
@@ -93,6 +99,7 @@ export const workspaceTurnToolInputSchema = jsonSchema<WorkspaceTurnToolInput>({
                 "Use 'single' when the user should pick one path; use 'multiple' only when several options can be true at the same time.",
               enum: ["single", "multiple"],
             },
+            placeholder: { type: "string" },
             whyThisQuestionMatters: { type: "string" },
             options: {
               type: "array",
@@ -313,7 +320,9 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
         .slice(0, 5)
     : [];
 
-  if (!question || options.length < 3) {
+  const answerMode = candidate.answerMode === "text" ? "text" : "choice";
+
+  if (!question || (answerMode === "choice" && options.length < 3)) {
     return null;
   }
 
@@ -325,14 +334,18 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
   return {
     id: candidate.id,
     question,
-    options,
+    answerMode,
+    options: answerMode === "text" ? [] : options,
     recommendedOptionLabel: options.some(
       (option) => option.label === recommendedOptionLabel,
     )
       ? recommendedOptionLabel
       : undefined,
+    placeholder: cleanText(candidate.placeholder, 100) || undefined,
     selectionMode:
-      candidate.selectionMode === "multiple" ? "multiple" : "single",
+      candidate.selectionMode === "multiple" && answerMode === "choice"
+        ? "multiple"
+        : "single",
     whyThisQuestionMatters:
       cleanText(candidate.whyThisQuestionMatters, 180) || undefined,
   };

@@ -22,7 +22,9 @@ export type BriefQuestion = {
   id: string;
   question: string;
   recommendedOptionLabel?: string;
+  answerMode?: "choice" | "text";
   selectionMode?: "single" | "multiple";
+  placeholder?: string;
   whyThisQuestionMatters?: string;
   options: Array<{ label: string; description: string }>;
 };

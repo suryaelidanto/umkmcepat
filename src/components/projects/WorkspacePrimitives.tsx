@@ -650,6 +650,7 @@ export function QuestionComposer({
   const [source, setSource] = useState<"custom" | "option">("option");
   const [customAnswer, setCustomAnswer] = useState("");
   const [customAnswerOpen, setCustomAnswerOpen] = useState(false);
+  const isTextQuestion = question.answerMode === "text";
   const isMultiple = question.selectionMode === "multiple";
   const modeTone = isMultiple
     ? {
@@ -665,9 +666,11 @@ export function QuestionComposer({
           "border-surface-warm-white/8 hover:bg-surface-warm-white/[0.045]",
         selected: "border-[#8ce99a]/24 bg-[#8ce99a]/10",
       };
-  const answer = formatWorkspaceAnswerSelection(question, selected, source);
+  const answer = isTextQuestion
+    ? customAnswer.trim()
+    : formatWorkspaceAnswerSelection(question, selected, source);
   const customAnswerSelected = Boolean(selected.length) && source === "custom";
-  const canSubmit = selected.length > 0;
+  const canSubmit = isTextQuestion ? Boolean(answer) : selected.length > 0;
 
   useEffect(() => {
     setSelected([]);
@@ -708,7 +711,7 @@ export function QuestionComposer({
         answer,
         question: question.question,
         questionId: question.id,
-        source,
+        source: isTextQuestion ? "custom" : source,
       },
     ]);
   }
@@ -720,118 +723,144 @@ export function QuestionComposer({
           {question.question}
         </h2>
         <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/50">
-          {question.whyThisQuestionMatters || modeTone.helper}
+          {question.whyThisQuestionMatters ||
+            (isTextQuestion
+              ? "Tulis jawabannya di kolom khusus ini."
+              : modeTone.helper)}
         </p>
       </div>
 
       <div className="divide-y divide-surface-warm-white/8">
-        {question.options.map((option) => {
-          const isSelected =
-            selected.includes(option.label) && source === "option";
-          const isRecommended =
-            question.recommendedOptionLabel === option.label;
-          return (
-            <button
-              key={option.label}
-              type="button"
-              onClick={() => chooseAnswer(option.label, "option")}
-              className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 border-b px-spacing-5 py-spacing-4 text-left transition last:border-b-0 ${isSelected ? modeTone.selected : modeTone.option}`}
-            >
-              <span className="min-w-0">
-                <span className="block whitespace-normal break-words text-sm font-semibold text-surface-warm-white [overflow-wrap:anywhere]">
-                  {option.label}
-                </span>
-                <span className="mt-spacing-1 block whitespace-normal break-words text-xs leading-5 text-surface-warm-white/54 [overflow-wrap:anywhere]">
-                  {option.description}
-                </span>
-                {isRecommended ? (
-                  <span className="mt-spacing-2 block text-[11px] font-medium text-[#c7f8cf]/82">
-                    Rekomendasi paling aman
-                  </span>
-                ) : null}
-              </span>
-              <span
-                className={`mt-1 grid size-4 shrink-0 place-items-center border transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? "text-[#10100f]" : "border-surface-warm-white/24 group-hover:border-surface-warm-white/48"}`}
-                style={
-                  isSelected
-                    ? {
-                        backgroundColor: modeTone.accent,
-                        borderColor: modeTone.accent,
-                      }
-                    : undefined
+        {isTextQuestion ? (
+          <div className="px-spacing-5 py-spacing-4">
+            <label htmlFor={`text-answer-${question.id}`} className="sr-only">
+              {question.question}
+            </label>
+            <input
+              id={`text-answer-${question.id}`}
+              value={customAnswer}
+              onChange={(event) => setCustomAnswer(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  submitAnswer();
                 }
+              }}
+              placeholder={question.placeholder || "Tulis jawabanmu di sini..."}
+              className="h-12 w-full rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 text-sm text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
+            />
+          </div>
+        ) : (
+          question.options.map((option) => {
+            const isSelected =
+              selected.includes(option.label) && source === "option";
+            const isRecommended =
+              question.recommendedOptionLabel === option.label;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => chooseAnswer(option.label, "option")}
+                className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 border-b px-spacing-5 py-spacing-4 text-left transition last:border-b-0 ${isSelected ? modeTone.selected : modeTone.option}`}
               >
-                {isSelected ? (
-                  <span className="text-[10px] leading-none">
-                    {isMultiple ? "✓" : "•"}
+                <span className="min-w-0">
+                  <span className="block whitespace-normal break-words text-sm font-semibold text-surface-warm-white [overflow-wrap:anywhere]">
+                    {option.label}
                   </span>
-                ) : null}
-              </span>
-            </button>
-          );
-        })}
-        <div
-          className={`px-spacing-5 py-spacing-4 transition ${customAnswerOpen || customAnswerSelected ? "bg-surface-warm-white/[0.075]" : "bg-transparent"}`}
-        >
-          {customAnswerOpen ? (
-            <div className="space-y-spacing-3">
-              <label
-                htmlFor={`custom-answer-${question.id}`}
-                className="text-xs font-medium text-surface-warm-white/58"
-              >
-                Jawaban sendiri untuk keputusan ini
-              </label>
-              <textarea
-                id={`custom-answer-${question.id}`}
-                rows={3}
-                value={customAnswer}
-                onChange={(event) => setCustomAnswer(event.target.value)}
-                placeholder="Tulis jawabanmu sendiri..."
-                className="w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
-              />
-              <div className="flex items-center justify-end gap-spacing-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomAnswerOpen(false);
-                    setCustomAnswer("");
-                  }}
-                  className="rounded-full px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
+                  <span className="mt-spacing-1 block whitespace-normal break-words text-xs leading-5 text-surface-warm-white/54 [overflow-wrap:anywhere]">
+                    {option.description}
+                  </span>
+                  {isRecommended ? (
+                    <span className="mt-spacing-2 block text-[11px] font-medium text-[#c7f8cf]/82">
+                      Rekomendasi paling aman
+                    </span>
+                  ) : null}
+                </span>
+                <span
+                  className={`mt-1 grid size-4 shrink-0 place-items-center border transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? "text-[#10100f]" : "border-surface-warm-white/24 group-hover:border-surface-warm-white/48"}`}
+                  style={
+                    isSelected
+                      ? {
+                          backgroundColor: modeTone.accent,
+                          borderColor: modeTone.accent,
+                        }
+                      : undefined
+                  }
                 >
-                  Batal
-                </button>
-                <Button
-                  type="button"
-                  disabled={!customAnswer.trim()}
-                  onClick={useCustomAnswer}
-                  className="h-9 rounded-full bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                  {isSelected ? (
+                    <span className="text-[10px] leading-none">
+                      {isMultiple ? "✓" : "•"}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            );
+          })
+        )}
+        {!isTextQuestion ? (
+          <div
+            className={`px-spacing-5 py-spacing-4 transition ${customAnswerOpen || customAnswerSelected ? "bg-surface-warm-white/[0.075]" : "bg-transparent"}`}
+          >
+            {customAnswerOpen ? (
+              <div className="space-y-spacing-3">
+                <label
+                  htmlFor={`custom-answer-${question.id}`}
+                  className="text-xs font-medium text-surface-warm-white/58"
                 >
-                  Pakai jawaban ini
-                </Button>
+                  Jawaban sendiri untuk keputusan ini
+                </label>
+                <textarea
+                  id={`custom-answer-${question.id}`}
+                  rows={3}
+                  value={customAnswer}
+                  onChange={(event) => setCustomAnswer(event.target.value)}
+                  placeholder="Tulis jawabanmu sendiri..."
+                  className="w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
+                />
+                <div className="flex items-center justify-end gap-spacing-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomAnswerOpen(false);
+                      setCustomAnswer("");
+                    }}
+                    className="rounded-full px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
+                  >
+                    Batal
+                  </button>
+                  <Button
+                    type="button"
+                    disabled={!customAnswer.trim()}
+                    onClick={useCustomAnswer}
+                    className="h-9 rounded-full bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                  >
+                    Pakai jawaban ini
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCustomAnswerOpen(true)}
-              className="flex w-full items-center justify-between gap-spacing-4 text-left"
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-surface-warm-white/84">
-                  Jawaban sendiri
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCustomAnswerOpen(true)}
+                className="flex w-full items-center justify-between gap-spacing-4 text-left"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-surface-warm-white/84">
+                    Jawaban sendiri
+                  </span>
+                  <span className="mt-spacing-1 block break-words text-xs leading-5 text-surface-warm-white/58 [overflow-wrap:anywhere]">
+                    {customAnswerSelected
+                      ? answer
+                      : "Pakai ini kalau pilihan AI belum pas untuk keputusan ini."}
+                  </span>
                 </span>
-                <span className="mt-spacing-1 block break-words text-xs leading-5 text-surface-warm-white/58 [overflow-wrap:anywhere]">
-                  {customAnswerSelected
-                    ? answer
-                    : "Pakai ini kalau pilihan AI belum pas untuk keputusan ini."}
+                <span className="shrink-0 border-b border-surface-warm-white/20 pb-0.5 text-xs text-surface-warm-white/56">
+                  Tulis
                 </span>
-              </span>
-              <span className="shrink-0 border-b border-surface-warm-white/20 pb-0.5 text-xs text-surface-warm-white/56">
-                Tulis
-              </span>
-            </button>
-          )}
-        </div>
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex items-center justify-end border-t border-surface-warm-white/8 px-spacing-5 py-spacing-4">
