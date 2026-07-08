@@ -148,7 +148,8 @@ function isUiMessage(value: unknown): value is UIMessage {
     (message.role === "user" ||
       message.role === "assistant" ||
       message.role === "system") &&
-    Array.isArray(message.parts)
+    Array.isArray(message.parts) &&
+    message.parts.length > 0
   );
 }
 

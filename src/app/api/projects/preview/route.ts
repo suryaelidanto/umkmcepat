@@ -186,7 +186,7 @@ export async function POST(request: Request) {
     }),
   };
   const messages = await validateUIMessages({
-    messages: [...storedMessages, ...incoming],
+    messages: parseProjectChatMessages([...storedMessages, ...incoming]),
   });
   const chatContext = buildProjectChatContext({
     memoryFacts,

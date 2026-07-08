@@ -17,6 +17,7 @@ describe("project chat memory", () => {
         null,
         { id: "m1", role: "user", parts: [{ type: "text", text: "Halo" }] },
         { id: "m2", role: "bad", parts: [] },
+        { id: "m3", role: "assistant", parts: [] },
       ]),
     ).toEqual([
       { id: "m1", role: "user", parts: [{ type: "text", text: "Halo" }] },
