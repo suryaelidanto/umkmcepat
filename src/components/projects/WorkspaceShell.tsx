@@ -1128,21 +1128,6 @@ export function WorkspaceShell({
                       onOpen={openBuildRecommendation}
                     />
                   ) : null}
-                  {composerState === "post_build_chat" ? (
-                    <CompletedBuildNotice
-                      compact
-                      onDiscuss={() => setPostBuildChatOpen(true)}
-                      onPreview={() => {
-                        setActiveTab("preview");
-                        openPreviewPanel();
-                      }}
-                      variant={
-                        hasFailedLatestAttemptWithLastGood
-                          ? "recovery"
-                          : "ready"
-                      }
-                    />
-                  ) : null}
                   <form
                     onSubmit={handleMessageSubmit}
                     className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
@@ -1424,12 +1409,10 @@ function HeldBuildRecommendationNotice({
 }
 
 function CompletedBuildNotice({
-  compact = false,
   onDiscuss,
   onPreview,
   variant = "ready",
 }: {
-  compact?: boolean;
   onDiscuss: () => void;
   onPreview: () => void;
   variant?: "ready" | "recovery";
@@ -1449,13 +1432,11 @@ function CompletedBuildNotice({
           <p className="text-sm font-semibold text-surface-warm-white">
             {isRecovery ? "Website terakhir masih aman" : "Website siap dicek"}
           </p>
-          {!compact ? (
-            <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/52">
-              {isRecovery
-                ? "Build terbaru gagal, tapi tampilan terakhir yang berhasil tetap aman. Kamu bisa cek hasil lama atau lanjut ngobrol dengan AI."
-                : "Cek hasilnya dulu. Kalau ada yang kurang pas, lanjut ngobrol dengan AI."}
-            </p>
-          ) : null}
+          <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/52">
+            {isRecovery
+              ? "Build terbaru gagal, tapi tampilan terakhir yang berhasil tetap aman. Kamu bisa cek hasil lama atau lanjut ngobrol dengan AI."
+              : "Cek hasilnya dulu. Kalau ada yang kurang pas, lanjut ngobrol dengan AI."}
+          </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-spacing-2">
           <Button
