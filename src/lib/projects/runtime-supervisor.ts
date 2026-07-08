@@ -55,6 +55,7 @@ const RUNTIME_START_TIMEOUT_MS = 5_000;
 
 declare global {
   var umkmRuntimeProcesses: Map<string, ChildProcess> | undefined;
+  var umkmRuntimeStartPromises: Map<string, Promise<RuntimeStatus>> | undefined;
 }
 
 export function createNoopRuntimeSupervisor(): RuntimeSupervisor {
@@ -86,8 +87,12 @@ export function createLocalProcessRuntimeSupervisor(
   const artifactRootDir = options.artifactRootDir;
   const processes =
     globalThis.umkmRuntimeProcesses ?? new Map<string, ChildProcess>();
+  const startPromises =
+    globalThis.umkmRuntimeStartPromises ??
+    new Map<string, Promise<RuntimeStatus>>();
 
   globalThis.umkmRuntimeProcesses = processes;
+  globalThis.umkmRuntimeStartPromises = startPromises;
 
   return {
     async getDeploymentStatus(deploymentId) {
@@ -127,106 +132,18 @@ export function createLocalProcessRuntimeSupervisor(
     },
 
     async startDeployment(deploymentId) {
-      const deployment = await findDeployment(runtimePrisma, deploymentId);
+      const existingStart = startPromises.get(deploymentId);
 
-      if (!deployment?.build?.artifactRef) {
-        if (deployment) {
-          await markDeploymentFailed(
-            runtimePrisma,
-            deployment,
-            "Deployment has no build artifact.",
-          );
-        }
-
-        return "failed";
+      if (existingStart) {
+        return existingStart;
       }
 
-      if (
-        deployment.status === "running" &&
-        deployment.internalUrl &&
-        (await isRuntimeReachable(deployment.internalUrl))
-      ) {
-        return "running";
-      }
-
-      const runtimeNode = await runtimePrisma.runtimeNode.upsert({
-        create: {
-          maxContainers: Number(
-            process.env.PROJECT_RUNTIME_MAX_CONTAINERS ||
-              DEFAULT_MAX_CONTAINERS,
-          ),
-          name: LOCAL_RUNTIME_NODE_NAME,
-          provider: LOCAL_RUNTIME_PROVIDER,
-          status: "active",
-        },
-        update: {
-          lastHeartbeatAt: new Date(),
-          status: "active",
-        },
-        where: { name: LOCAL_RUNTIME_NODE_NAME },
-      });
-      const materializedRoot = path.join(runtimeRootDir, deploymentId, "www");
-
-      await runtimePrisma.projectDeployment.update({
-        data: {
-          runtimeNodeId: runtimeNode.id,
-          status: "starting",
-          stoppedAt: null,
-        },
-        where: { id: deploymentId },
+      const startPromise = startDeploymentOnce(deploymentId).finally(() => {
+        startPromises.delete(deploymentId);
       });
 
-      try {
-        await materializeProjectDistArtifact(
-          deployment.build.artifactRef,
-          materializedRoot,
-          { rootDir: artifactRootDir },
-        );
-
-        const port = await getAvailablePort();
-        const internalUrl = `http://127.0.0.1:${port}`;
-        const child = spawnRuntimeProcess(materializedRoot, port);
-
-        processes.set(deploymentId, child);
-        child.once("exit", () => {
-          processes.delete(deploymentId);
-        });
-
-        if (!(await waitForRuntime(internalUrl))) {
-          child.kill();
-          throw new Error("Runtime process did not become reachable.");
-        }
-
-        await runtimePrisma.projectDeployment.update({
-          data: {
-            containerName: `local-process:${child.pid ?? "unknown"}`,
-            internalUrl,
-            runtimeNodeId: runtimeNode.id,
-            startedAt: new Date(),
-            status: "running",
-            stoppedAt: null,
-          },
-          where: { id: deploymentId },
-        });
-        await runtimePrisma.runtimeEvent.create({
-          data: createRuntimeEventData({
-            deploymentId,
-            message: "Local process runtime started.",
-            projectId: deployment.projectId,
-            runtimeNodeId: runtimeNode.id,
-            type: "deployment.started",
-          }),
-        });
-
-        return "running";
-      } catch (error) {
-        await markDeploymentFailed(
-          runtimePrisma,
-          deployment,
-          error instanceof Error ? error.message : "Runtime startup failed.",
-        );
-        return "failed";
-      }
+      startPromises.set(deploymentId, startPromise);
+      return startPromise;
     },
 
     async stopDeployment(deploymentId) {
@@ -249,6 +166,108 @@ export function createLocalProcessRuntimeSupervisor(
       return "stopped";
     },
   };
+
+  async function startDeploymentOnce(deploymentId: string) {
+    const deployment = await findDeployment(runtimePrisma, deploymentId);
+
+    if (!deployment?.build?.artifactRef) {
+      if (deployment) {
+        await markDeploymentFailed(
+          runtimePrisma,
+          deployment,
+          "Deployment has no build artifact.",
+        );
+      }
+
+      return "failed";
+    }
+
+    if (
+      deployment.status === "running" &&
+      deployment.internalUrl &&
+      (await isRuntimeReachable(deployment.internalUrl))
+    ) {
+      return "running";
+    }
+
+    const runtimeNode = await runtimePrisma.runtimeNode.upsert({
+      create: {
+        maxContainers: Number(
+          process.env.PROJECT_RUNTIME_MAX_CONTAINERS || DEFAULT_MAX_CONTAINERS,
+        ),
+        name: LOCAL_RUNTIME_NODE_NAME,
+        provider: LOCAL_RUNTIME_PROVIDER,
+        status: "active",
+      },
+      update: {
+        lastHeartbeatAt: new Date(),
+        status: "active",
+      },
+      where: { name: LOCAL_RUNTIME_NODE_NAME },
+    });
+    const materializedRoot = path.join(runtimeRootDir, deploymentId, "www");
+
+    await runtimePrisma.projectDeployment.update({
+      data: {
+        runtimeNodeId: runtimeNode.id,
+        status: "starting",
+        stoppedAt: null,
+      },
+      where: { id: deploymentId },
+    });
+
+    try {
+      await materializeProjectDistArtifact(
+        deployment.build.artifactRef,
+        materializedRoot,
+        { rootDir: artifactRootDir },
+      );
+
+      const port = await getAvailablePort();
+      const internalUrl = `http://127.0.0.1:${port}`;
+      const child = spawnRuntimeProcess(materializedRoot, port);
+
+      processes.set(deploymentId, child);
+      child.once("exit", () => {
+        processes.delete(deploymentId);
+      });
+
+      if (!(await waitForRuntime(internalUrl))) {
+        child.kill();
+        throw new Error("Runtime process did not become reachable.");
+      }
+
+      await runtimePrisma.projectDeployment.update({
+        data: {
+          containerName: `local-process:${child.pid ?? "unknown"}`,
+          internalUrl,
+          runtimeNodeId: runtimeNode.id,
+          startedAt: new Date(),
+          status: "running",
+          stoppedAt: null,
+        },
+        where: { id: deploymentId },
+      });
+      await runtimePrisma.runtimeEvent.create({
+        data: createRuntimeEventData({
+          deploymentId,
+          message: "Local process runtime started.",
+          projectId: deployment.projectId,
+          runtimeNodeId: runtimeNode.id,
+          type: "deployment.started",
+        }),
+      });
+
+      return "running";
+    } catch (error) {
+      await markDeploymentFailed(
+        runtimePrisma,
+        deployment,
+        error instanceof Error ? error.message : "Runtime startup failed.",
+      );
+      return "failed";
+    }
+  }
 }
 
 let runtimeSupervisor: RuntimeSupervisor | null = null;

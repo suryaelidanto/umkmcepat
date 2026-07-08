@@ -47,6 +47,7 @@ Core rules:
 - Build generation streams server-sent progress events to the workspace; the client must render those events as visible build steps instead of hiding progress behind a generic spinner.
 - Build generation must quality-gate AI site schema output before writing source. Generic fallback copy, missing required schema shape, or a schema that does not match the completed brief gets one repair attempt. If the repaired schema still fails, the build fails visibly instead of shipping a misleading template.
 - Opening a project or creating the first project draft must not trigger a separate AI card-generation call.
+- Project creation requests may carry an idempotency key scoped to the authenticated user and create action. Retries and double submits for the same draft should return the original project instead of creating duplicates.
 - User projects start as data and artifacts. Projects that need live runtime behavior should become isolated deployments managed outside the web app process.
 - Generated source/build artifacts may exist for preview, inspection, repair, export, and future publishing.
 - Generated source edits go through the constrained agent tool runner. The runner exposes structured read, list, search, write, replace, and check operations, enforces project file boundaries, records side effects, emits operation trace events for the workspace timeline, and blocks success when app checks are missing or policy checks fail.

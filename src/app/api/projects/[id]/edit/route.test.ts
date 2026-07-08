@@ -4,6 +4,7 @@ const {
   authMock,
   buildGeneratedProjectMock,
   prismaProjectBuildCreateMock,
+  prismaProjectBuildUpdateManyMock,
   prismaProjectBuildUpdateMock,
   prismaProjectDeploymentCreateMock,
   prismaProjectDeploymentFindManyMock,
@@ -19,6 +20,7 @@ const {
   authMock: vi.fn(),
   buildGeneratedProjectMock: vi.fn(),
   prismaProjectBuildCreateMock: vi.fn(),
+  prismaProjectBuildUpdateManyMock: vi.fn(),
   prismaProjectBuildUpdateMock: vi.fn(),
   prismaProjectDeploymentCreateMock: vi.fn(),
   prismaProjectDeploymentFindManyMock: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("@/lib/prisma", () => ({
     projectBuild: {
       create: prismaProjectBuildCreateMock,
       update: prismaProjectBuildUpdateMock,
+      updateMany: prismaProjectBuildUpdateManyMock,
     },
     projectDeployment: {
       create: prismaProjectDeploymentCreateMock,
@@ -173,6 +176,7 @@ describe("project edit route", () => {
         updatedAt: older,
       },
     ]);
+    prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
     prismaProjectUpdateManyMock.mockResolvedValue({ count: 1 });
     prismaProjectSnapshotCreateMock.mockResolvedValue({ id: "snapshot_edit" });
     writeProjectSourceArtifactMock.mockResolvedValue(

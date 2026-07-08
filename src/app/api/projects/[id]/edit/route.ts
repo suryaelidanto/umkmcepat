@@ -21,6 +21,7 @@ import {
   type ProjectDeploymentStatus,
 } from "@/lib/projects/runtime-types";
 import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
+import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 180;
@@ -168,9 +169,22 @@ export async function POST(request: Request, { params }: RouteProps) {
     );
   }
 
-  if (project.status === "building" || project.buildStatus === "running") {
+  await markStaleProjectBuilds(project.id);
+
+  const latestProjectState = await prisma.project.findFirst({
+    where: { id: project.id, userId: session.user.id },
+    select: { buildStatus: true, status: true },
+  });
+
+  if (
+    latestProjectState?.status === "building" ||
+    latestProjectState?.buildStatus === "running"
+  ) {
     return Response.json(
-      { message: "Build masih berjalan untuk proyek ini." },
+      {
+        code: "project_build_in_progress",
+        message: "Build masih berjalan untuk proyek ini.",
+      },
       { status: 409 },
     );
   }
@@ -187,7 +201,10 @@ export async function POST(request: Request, { params }: RouteProps) {
 
   if (claimedProject.count !== 1) {
     return Response.json(
-      { message: "Build masih berjalan untuk proyek ini." },
+      {
+        code: "project_build_in_progress",
+        message: "Build masih berjalan untuk proyek ini.",
+      },
       { status: 409 },
     );
   }

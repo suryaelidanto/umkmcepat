@@ -15,6 +15,7 @@ import {
 
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import { Button } from "@/components/ui/button";
+import { apiNetworkError, parseApiResponse } from "@/lib/api-client";
 import {
   createProjectDraft,
   parseProjectDraft,
@@ -25,6 +26,28 @@ import {
   validateProjectRequest,
 } from "@/lib/projects/input";
 
+function getProjectCreateIdempotencyKey(prompt: string) {
+  const draft = parseProjectDraft(
+    window.localStorage.getItem(PROJECT_DRAFT_STORAGE_KEY),
+  );
+
+  if (draft?.prompt === prompt.trim() && draft.idempotencyKey) {
+    return draft.idempotencyKey;
+  }
+
+  const idempotencyKey = crypto.randomUUID();
+  const nextDraft = createProjectDraft(prompt, "discuss");
+
+  if (nextDraft) {
+    window.localStorage.setItem(
+      PROJECT_DRAFT_STORAGE_KEY,
+      JSON.stringify({ ...nextDraft, idempotencyKey }),
+    );
+  }
+
+  return idempotencyKey;
+}
+
 export function HomePromptForm() {
   const router = useRouter();
   const { status } = useSession();
@@ -34,6 +57,7 @@ export function HomePromptForm() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const hasAutoContinued = useRef(false);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     const draft = parseProjectDraft(
@@ -55,6 +79,10 @@ export function HomePromptForm() {
       continueAfterLogin,
     );
 
+    if (draft) {
+      draft.idempotencyKey = getProjectCreateIdempotencyKey(draft.prompt);
+    }
+
     if (!draft) {
       return;
     }
@@ -67,28 +95,42 @@ export function HomePromptForm() {
 
   const createProject = useCallback(
     async (value: string) => {
+      const idempotencyKey = getProjectCreateIdempotencyKey(value);
       const response = await fetch("/api/projects", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: value }),
-      });
-      const result = (await response.json()) as {
-        path?: string;
-        message?: string;
-      };
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify({ idempotencyKey, prompt: value }),
+      }).catch((error: unknown) => apiNetworkError(error));
+      const result =
+        response instanceof Response
+          ? await parseApiResponse<{ path?: string }>(response)
+          : response;
 
-      if (!response.ok || !result.path) {
+      if (!result.ok) {
         setErrorMessage(
-          result.message ||
+          result.error.message ||
             "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
         );
         setIsContinuing(false);
+        isSubmittingRef.current = false;
+        return;
+      }
+
+      if (!result.data.path) {
+        setErrorMessage(
+          "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
+        );
+        setIsContinuing(false);
+        isSubmittingRef.current = false;
         return;
       }
 
       window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
       startTransition(() => {
-        router.push(result.path || "/");
+        router.push(result.data.path || "/");
       });
     },
     [router, startTransition],
@@ -111,7 +153,12 @@ export function HomePromptForm() {
     setIsContinuing(true);
     window.localStorage.setItem(
       PROJECT_DRAFT_STORAGE_KEY,
-      JSON.stringify({ ...draft, continueAfterLogin: false }),
+      JSON.stringify({
+        ...draft,
+        continueAfterLogin: false,
+        idempotencyKey:
+          draft.idempotencyKey || getProjectCreateIdempotencyKey(draft.prompt),
+      }),
     );
 
     void createProject(draft.prompt);
@@ -122,22 +169,25 @@ export function HomePromptForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isLoading) {
+    if (isLoading || isSubmittingRef.current) {
       return;
     }
 
+    isSubmittingRef.current = true;
     setErrorMessage("");
 
     const validation = validateProjectRequest(prompt);
 
     if (!validation.ok) {
       setErrorMessage(validation.message);
+      isSubmittingRef.current = false;
       return;
     }
 
     if (status !== "authenticated") {
       saveDraft(true);
       setLoginOpen(true);
+      isSubmittingRef.current = false;
       return;
     }
 
