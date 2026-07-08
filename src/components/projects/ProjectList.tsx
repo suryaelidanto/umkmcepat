@@ -29,12 +29,13 @@ type ProjectListProps = {
 };
 
 export function ProjectList({
-  featured,
+  featured: initialFeatured,
   initialOthers,
   initialNextCursor,
   deleteProject,
 }: ProjectListProps) {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [featured, setFeatured] = useState<Project | null>(initialFeatured);
   const [others, setOthers] = useState<Project[]>(initialOthers);
   const [nextCursor, setNextCursor] = useState<string | null>(
     initialNextCursor,
@@ -76,21 +77,48 @@ export function ProjectList({
       return;
     }
 
+    const targetId = selectedProject.id;
+    const isDeletingFeatured = featured?.id === targetId;
+    const promotedProject = isDeletingFeatured ? (others[0] ?? null) : null;
     const formData = new FormData();
-    formData.set("projectId", selectedProject.id);
+    formData.set("projectId", targetId);
 
     startTransition(async () => {
       try {
         await deleteProject(formData);
+
+        if (isDeletingFeatured) {
+          setFeatured(promotedProject);
+        }
+
         setOthers((current) =>
-          current.filter((project) => project.id !== selectedProject.id),
+          current.filter(
+            (project) =>
+              project.id !== targetId && project.id !== promotedProject?.id,
+          ),
         );
+
         toast.success("Website dihapus.");
         setSelectedProject(null);
       } catch {
         toast.error("Website belum berhasil dihapus.");
       }
     });
+  }
+
+  const totalCount = (featured ? 1 : 0) + others.length;
+
+  if (!featured) {
+    return (
+      <div className="rounded-radius-2xl border border-dashed border-surface-warm-white/16 bg-surface-warm-white/[0.06] p-spacing-10 text-center">
+        <h3 className="text-xl font-semibold tracking-[-0.04em]">
+          Belum ada website
+        </h3>
+        <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/58">
+          Tulis kebutuhan usahamu di atas. Website barumu akan muncul di sini.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -106,7 +134,7 @@ export function ProjectList({
               </h3>
               <p className="mt-spacing-1 text-sm text-surface-warm-white/56">
                 {others.length
-                  ? `${others.length} website tersimpan`
+                  ? `${totalCount} website tersimpan`
                   : "Belum ada website lain"}
               </p>
             </div>
@@ -128,7 +156,7 @@ export function ProjectList({
             </p>
           )}
 
-          {nextCursor ? (
+          {nextCursor && others.length > 0 ? (
             <div className="mt-spacing-6 flex justify-center">
               <Button
                 type="button"
