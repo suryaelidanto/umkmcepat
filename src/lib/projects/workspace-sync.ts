@@ -72,7 +72,7 @@ export function getWorkspaceComposerState({
   held: boolean;
   postBuildChatOpen: boolean;
 }): WorkspaceComposerState {
-  if (card.type === "build_recommendation" && buildComplete) {
+  if (buildComplete) {
     if (hasFailedLatestAttemptWithLastGood && !postBuildChatOpen) {
       return "build_failed_with_last_good";
     }

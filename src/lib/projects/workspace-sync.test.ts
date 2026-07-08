@@ -131,6 +131,24 @@ describe("workspace chat sync", () => {
     ).toBe("post_build_chat");
   });
 
+  it("hides stale review cards after the website has been built", () => {
+    const card: WorkspaceCard = {
+      actions: [{ label: "Build sekarang", prompt: "build" }],
+      summary: ["Agency", "CTA WA"],
+      title: "Ringkasan Brief",
+      type: "brief_review",
+    };
+
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card,
+        held: false,
+        postBuildChatOpen: false,
+      }),
+    ).toBe("post_build_review");
+  });
+
   it("uses the generated iframe after any successful build status", () => {
     expect(
       shouldUseGeneratedPreviewFrame({
