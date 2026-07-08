@@ -430,6 +430,7 @@ function defaultReviewActions() {
 }
 
 const BRIEF_PATCH_FIELDS = [
+  "businessName",
   "businessType",
   "offer",
   "targetCustomer",

@@ -1,5 +1,6 @@
 import {
   convertToModelMessages,
+  stepCountIs,
   streamText,
   tool,
   type UIMessage,
@@ -178,6 +179,12 @@ export async function POST(request: Request) {
       // failing the chat turn.
       execute: async (input: unknown) => {
         workspaceTurn = normalizeWorkspaceTurn(input, effectiveBrief);
+        const title = workspaceTurn.projectTitle || project.title;
+
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+
         return workspaceTurn;
       },
     }),
@@ -209,6 +216,7 @@ export async function POST(request: Request) {
       mode === "discuss"
         ? { type: "tool", toolName: "setWorkspaceUi" }
         : "auto",
+    stopWhen: stepCountIs(1),
     maxRetries: 0,
     temperature: 0.35,
     onError({ error }) {
