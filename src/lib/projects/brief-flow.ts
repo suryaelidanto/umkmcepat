@@ -358,7 +358,7 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
 
   const answerMode = candidate.answerMode === "text" ? "text" : "choice";
 
-  if (!question || (answerMode === "choice" && options.length < 3)) {
+  if (!question || (answerMode === "choice" && options.length < 2)) {
     return null;
   }
 

@@ -152,6 +152,32 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("accepts focused two-option AI questions", () => {
+    const brief = createInitialBrief("butuh website restoran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "menu_readiness",
+            answerMode: "choice",
+            question: "Menu kamu sudah siap?",
+            options: [
+              { label: "Sudah siap", description: "Menu tinggal dimasukkan." },
+              { label: "Belum", description: "Menu perlu disusun dulu." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.options).toHaveLength(2);
+    }
+  });
+
   it("keeps a valid multiple-choice question mode", () => {
     const brief = createInitialBrief("jualan hampers lebaran");
     const turn = normalizeWorkspaceTurn(

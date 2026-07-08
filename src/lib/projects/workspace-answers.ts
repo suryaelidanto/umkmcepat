@@ -203,7 +203,7 @@ function questionTextLooksLikeField(
     targetCustomer: /(target|pelanggan|pembeli|customer|siapa)/i,
   };
 
-  return patterns[field]?.test(questionText) ?? true;
+  return patterns[field]?.test(questionText) ?? false;
 }
 
 function normalizeAnswer(value: unknown) {

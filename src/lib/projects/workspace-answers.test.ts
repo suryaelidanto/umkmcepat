@@ -87,6 +87,27 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
     );
   });
 
+  it("does not map an old answer to a different free-form active question", () => {
+    const patch = buildBriefPatchFromWorkspaceAnswers({
+      card: {
+        type: "question",
+        question: {
+          id: "menu_readiness",
+          question: "Soal menu, kamu udah punya daftar menu?",
+          options: [
+            { label: "Sudah", description: "Menu sudah siap." },
+            { label: "Belum", description: "Menu belum siap." },
+          ],
+        },
+      },
+      fallbackText:
+        "1. Warung Joss buka setiap hari, atau ada hari libur?\nJawaban: Setiap hari",
+      workspaceAnswers: undefined,
+    });
+
+    expect(patch).toEqual({});
+  });
+
   it("does not map an old answer to a different active field", () => {
     const patch = buildBriefPatchFromWorkspaceAnswers({
       card: {
