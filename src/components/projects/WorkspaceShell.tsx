@@ -1621,7 +1621,7 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
 
         return (
           <div
-            key={message.id || `${message.role}-${messageIndex}`}
+            key={`${message.id || message.role}-${messageIndex}`}
             className={`flex max-w-full text-base leading-7 ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div

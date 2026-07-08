@@ -186,7 +186,9 @@ export async function POST(request: Request) {
     }),
   };
   const messages = await validateUIMessages({
-    messages: parseProjectChatMessages([...storedMessages, ...incoming]),
+    messages: dedupeUiMessages(
+      parseProjectChatMessages([...storedMessages, ...incoming]),
+    ),
   });
   const chatContext = buildProjectChatContext({
     memoryFacts,
@@ -217,7 +219,7 @@ export async function POST(request: Request) {
     originalMessages: messages,
     onFinish: async ({ messages }) => {
       const title = workspaceTurn.projectTitle || project.title;
-      const safeMessages = parseProjectChatMessages(messages);
+      const safeMessages = dedupeUiMessages(parseProjectChatMessages(messages));
 
       await prisma.$executeRaw`
         UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
@@ -235,6 +237,21 @@ export async function POST(request: Request) {
         `;
       }
     },
+  });
+}
+
+function dedupeUiMessages(messages: UIMessage[]) {
+  const seen = new Set<string>();
+  return messages.filter((message) => {
+    const text = getTextFromUIMessage(message);
+    const key = message.id || `${message.role}:${text}`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
   });
 }
 
