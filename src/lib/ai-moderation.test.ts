@@ -28,15 +28,15 @@ describe("moderateProjectRequest", () => {
   it("throws provider errors", async () => {
     generateTextMock.mockRejectedValueOnce(new Error("provider down"));
 
-    await expect(moderateProjectRequest("jual kopi")).rejects.toThrow(
-      "provider down",
-    );
+    await expect(
+      moderateProjectRequest("jual teh provider down"),
+    ).rejects.toThrow("provider down");
   });
 
   it("times out", async () => {
     generateTextMock.mockReturnValueOnce(new Promise(() => undefined) as never);
 
-    await expect(moderateProjectRequest("jual kopi", 1)).rejects.toThrow(
+    await expect(moderateProjectRequest("jual teh timeout", 1)).rejects.toThrow(
       "AI moderation timed out.",
     );
   });

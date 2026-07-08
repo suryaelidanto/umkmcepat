@@ -3,7 +3,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { getEnv } from "@/lib/config";
 
-export function getAiModel() {
+export function getAiModel(model = getDefaultAiModel()) {
   const baseURL = getEnv("NINE_ROUTER_BASE_URL");
   const apiKey = getEnv("NINE_ROUTER_API_KEY");
 
@@ -21,5 +21,5 @@ export function getAiModel() {
     apiKey,
     includeUsage: true,
     supportsStructuredOutputs: true,
-  })(getDefaultAiModel());
+  })(model);
 }

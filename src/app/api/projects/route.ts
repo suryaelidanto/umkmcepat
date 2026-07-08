@@ -96,16 +96,11 @@ export async function POST(request: Request) {
   }
 
   const moderation = await moderateProjectRequest(validation.value).catch(
-    () => null,
+    () => ({
+      allowed: false as const,
+      message: "Checker keamanan lagi lambat. Coba kirim lagi sebentar ya.",
+    }),
   );
-
-  if (!moderation) {
-    return apiError({
-      code: "project_create_ai_unavailable",
-      message: "AI sedang sibuk memeriksa permintaan. Coba lagi sebentar.",
-      status: 503,
-    });
-  }
 
   if (!moderation.allowed) {
     return NextResponse.json(
