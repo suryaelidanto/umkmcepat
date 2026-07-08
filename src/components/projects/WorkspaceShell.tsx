@@ -821,6 +821,7 @@ export function WorkspaceShell({
     });
 
     setIsEditingPreview(true);
+    setBuildStartedAt(Date.now());
     setBuildProgress((current) =>
       addBuildProgressStep(current, {
         detail: "AI menerapkan komentar visual ke source preview terakhir.",
@@ -931,6 +932,7 @@ export function WorkspaceShell({
 
       if (composerState === "post_build_chat") {
         setIsEditingPreview(true);
+        setBuildStartedAt(Date.now());
         setBuildProgress((current) =>
           addBuildProgressStep(current, {
             detail:

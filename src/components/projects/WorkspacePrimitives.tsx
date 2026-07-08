@@ -503,15 +503,21 @@ export function BuildProgressPanel({
 }) {
   const [now, setNow] = useState(() => Date.now());
 
+  const hasActiveStep = steps.some(
+    (step) => (step.status || "active") === "active",
+  );
+  const isRunning = isBuilding || hasActiveStep;
+
   useEffect(() => {
-    if (!isBuilding) {
+    if (!isRunning) {
       return;
     }
 
+    setNow(Date.now());
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
 
     return () => window.clearInterval(interval);
-  }, [isBuilding]);
+  }, [isRunning]);
 
   const elapsedSeconds = elapsedFrom
     ? Math.max(0, Math.floor((now - elapsedFrom) / 1000))
@@ -531,10 +537,10 @@ export function BuildProgressPanel({
       <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
         <div>
           <p className="text-sm font-semibold text-surface-warm-white">
-            {isBuilding ? "Build sedang berjalan" : "Riwayat build terakhir"}
+            {isRunning ? "Proses sedang berjalan" : "Riwayat build terakhir"}
           </p>
           <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
-            {isBuilding
+            {isRunning
               ? "Tampilan website akan mengikuti hasil yang sudah berhasil dibaca."
               : "Langkah build terakhir sudah selesai."}
           </p>
