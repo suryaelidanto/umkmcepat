@@ -523,10 +523,20 @@ export function WorkspaceShell({
   }, [buildStatus, loadRuntimeState, runtimeState?.deployment?.status]);
 
   useEffect(() => {
-    if (hasPreview && !hasAutoOpenedPreview.current) {
-      hasAutoOpenedPreview.current = true;
-      setPreviewCollapsed(false);
+    if (!hasPreview || hasAutoOpenedPreview.current) {
+      return;
     }
+
+    hasAutoOpenedPreview.current = true;
+    setChatCollapsed(false);
+    setPreviewCollapsed(false);
+
+    const frame = window.requestAnimationFrame(() => {
+      chatPanelRef.current?.resize(32);
+      previewPanelRef.current?.resize(68);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [hasPreview]);
 
   useEffect(() => {
@@ -941,7 +951,7 @@ export function WorkspaceShell({
           id="chat"
           panelRef={chatPanelRef}
           defaultSize={showPreviewPanel ? 32 : 100}
-          minSize={8}
+          minSize={28}
           collapsible
           collapsedSize={0}
         >
