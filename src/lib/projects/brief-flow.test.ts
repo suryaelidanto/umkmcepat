@@ -90,6 +90,47 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("does not mark the newly asked question as already answered", () => {
+    const brief = createInitialBrief("butuh website restoran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        briefPatch: {
+          facts: [
+            {
+              key: "photos_readiness",
+              label: "Foto galeri",
+              value: "Belum punya foto",
+            },
+          ],
+          decisions: [
+            {
+              id: "photos_readiness",
+              question:
+                "Untuk galeri foto di website, kamu udah punya fotonya?",
+              answer: "Belum punya foto",
+            },
+          ],
+        },
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "photos_readiness",
+            answerMode: "choice",
+            question: "Untuk galeri foto di website, kamu udah punya fotonya?",
+            options: [
+              { label: "Udah punya foto", description: "Foto siap dipajang." },
+              { label: "Belum", description: "Pakai placeholder dulu." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.brief.facts).toEqual([]);
+    expect(turn.brief.decisions).toEqual([]);
+  });
+
   it("accepts AI text questions without forcing fake options", () => {
     const brief = createInitialBrief("butuh website restoran");
     const turn = normalizeWorkspaceTurn(

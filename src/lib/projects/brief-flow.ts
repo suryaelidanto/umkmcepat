@@ -228,11 +228,12 @@ export function normalizeWorkspaceTurn(
   const value =
     input && typeof input === "object" ? (input as WorkspaceTurnToolInput) : {};
   const brief = applyBriefPatch(fallbackBrief, value.briefPatch);
+  const workspaceCard = normalizeWorkspaceCard(value.workspaceCard, brief);
 
   return {
-    brief,
+    brief: removeUnansweredActiveQuestionMemory(brief, workspaceCard),
     projectTitle: cleanText(value.projectTitle, 80),
-    workspaceCard: normalizeWorkspaceCard(value.workspaceCard, brief),
+    workspaceCard,
   };
 }
 
@@ -476,6 +477,23 @@ const BRIEF_PATCH_FIELDS = [
 
 function getBriefPatchFields() {
   return BRIEF_PATCH_FIELDS;
+}
+
+function removeUnansweredActiveQuestionMemory(
+  brief: ProjectBrief,
+  workspaceCard: WorkspaceCard,
+): ProjectBrief {
+  if (workspaceCard.type !== "question") {
+    return brief;
+  }
+
+  const activeId = workspaceCard.question.id;
+
+  return {
+    ...brief,
+    facts: brief.facts?.filter((fact) => fact.key !== activeId),
+    decisions: brief.decisions?.filter((decision) => decision.id !== activeId),
+  };
 }
 
 function mergeBriefFacts(

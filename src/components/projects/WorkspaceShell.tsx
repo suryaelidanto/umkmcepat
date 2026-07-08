@@ -809,13 +809,15 @@ export function WorkspaceShell({
 
     if (workspaceUpdate?.workspaceCard) {
       setWorkspaceCard(workspaceUpdate.workspaceCard);
+      clearError();
+      setRateLimitError(null);
     }
 
     if (workspaceUpdate?.projectTitle) {
       setProjectTitle(workspaceUpdate.projectTitle);
       setDraftTitle(workspaceUpdate.projectTitle);
     }
-  }, [messages]);
+  }, [clearError, messages]);
 
   useEffect(() => {
     const previous = previousChatStatus.current;
