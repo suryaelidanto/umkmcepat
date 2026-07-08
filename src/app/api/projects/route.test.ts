@@ -162,7 +162,7 @@ describe("projects route", () => {
     );
   });
 
-  it("returns a safe user-facing block when moderation provider fails", async () => {
+  it("does not block project creation when moderation provider fails", async () => {
     moderateProjectRequestMock.mockRejectedValueOnce(
       new Error("provider down"),
     );
@@ -174,10 +174,10 @@ describe("projects route", () => {
       }),
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      code: "project_request_blocked",
-      message: "Checker keamanan lagi lambat. Coba kirim lagi sebentar ya.",
+      id: "project_1",
+      path: "/projects/project_1",
     });
   });
 

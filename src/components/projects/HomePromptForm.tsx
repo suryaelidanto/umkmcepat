@@ -182,6 +182,10 @@ export function HomePromptForm() {
     moderationAbortRef.current = abortController;
     const timeout = window.setTimeout(async () => {
       setIsCheckingPrompt(true);
+      const clientTimeout = window.setTimeout(
+        () => abortController.abort(),
+        3500,
+      );
 
       try {
         const response = await fetch("/api/moderation/project-request", {
@@ -205,9 +209,8 @@ export function HomePromptForm() {
           setModerationMessage("");
         }
       } finally {
-        if (!abortController.signal.aborted) {
-          setIsCheckingPrompt(false);
-        }
+        window.clearTimeout(clientTimeout);
+        setIsCheckingPrompt(false);
       }
     }, 650);
 
@@ -305,10 +308,7 @@ export function HomePromptForm() {
               type="submit"
               size="icon"
               disabled={
-                isLoading ||
-                isCheckingPrompt ||
-                Boolean(moderationMessage) ||
-                !prompt.trim()
+                isLoading || Boolean(moderationMessage) || !prompt.trim()
               }
               className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
               aria-label="Buat halaman"

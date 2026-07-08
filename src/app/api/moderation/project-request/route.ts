@@ -1,5 +1,4 @@
 import { moderateProjectRequest } from "@/lib/ai-moderation";
-import { auth } from "@/lib/auth";
 import { validateProjectRequest } from "@/lib/projects/input";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -8,20 +7,7 @@ export const runtime = "nodejs";
 type ModerationBody = { prompt?: string };
 
 export async function POST(request: Request) {
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    return Response.json(
-      { message: "Masuk dulu untuk melanjutkan." },
-      { status: 401 },
-    );
-  }
-
-  const rateLimitResponse = await checkRateLimit(
-    request,
-    "ai",
-    session.user.id,
-  );
+  const rateLimitResponse = await checkRateLimit(request, "global");
 
   if (rateLimitResponse) {
     return rateLimitResponse;
