@@ -195,6 +195,7 @@ export function WorkspaceShell({
   const runtimeRetryAfterRef = useRef(0);
   const previousScrollHeight = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
+  const ignoreNextScrollRef = useRef(false);
   const autoRetriedTurn = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
@@ -746,7 +747,11 @@ export function WorkspaceShell({
       return;
     }
 
+    ignoreNextScrollRef.current = true;
     element.scrollTop = element.scrollHeight;
+    window.setTimeout(() => {
+      ignoreNextScrollRef.current = false;
+    }, 80);
   }, []);
 
   useEffect(() => {
@@ -785,11 +790,11 @@ export function WorkspaceShell({
     }
 
     const frame = requestAnimationFrame(scrollChatToBottom);
-    const interval = window.setInterval(scrollChatToBottom, 180);
+    const timeout = window.setTimeout(scrollChatToBottom, 120);
 
     return () => {
       cancelAnimationFrame(frame);
-      window.clearInterval(interval);
+      window.clearTimeout(timeout);
     };
   }, [isResponding, messages, scrollChatToBottom]);
 
@@ -1291,6 +1296,10 @@ export function WorkspaceShell({
             <div
               ref={chatScrollRef}
               onScroll={(event) => {
+                if (ignoreNextScrollRef.current) {
+                  return;
+                }
+
                 const element = event.currentTarget;
                 shouldStickToBottomRef.current =
                   element.scrollHeight -
