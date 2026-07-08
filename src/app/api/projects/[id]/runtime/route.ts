@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
 import {
   selectActivePreviewDeployment,
   selectActivePublishedDeployment,
@@ -26,8 +27,28 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  try {
+    return await getRuntimeState(id, session.user.id);
+  } catch (error) {
+    if (isPrismaDatabaseUnavailable(error)) {
+      return Response.json(
+        {
+          code: "database_unavailable",
+          message:
+            "Status website lagi nyambung ulang. Tampilan terakhir tetap aman.",
+        },
+        { status: 503, headers: { "Retry-After": "3" } },
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function getRuntimeState(id: string, userId: string) {
   const project = await prisma.project.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId },
     select: { id: true },
   });
 

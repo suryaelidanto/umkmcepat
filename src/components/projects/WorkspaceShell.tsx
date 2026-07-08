@@ -190,6 +190,8 @@ export function WorkspaceShell({
   const olderChatSentinelRef = useRef<HTMLDivElement | null>(null);
   const hasAutoOpenedPreview = useRef(false);
   const previousLiveMessageCount = useRef(initialMessages.length);
+  const runtimeRequestRef = useRef<Promise<void> | null>(null);
+  const runtimeRetryAfterRef = useRef(0);
   const previousScrollHeight = useRef<number | null>(null);
   const autoRetriedTurn = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -290,25 +292,47 @@ export function WorkspaceShell({
   }, [annotationInstruction, annotations, visualAnnotationStorageKey]);
 
   const loadRuntimeState = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/projects/${projectId}/runtime`, {
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        return;
-      }
-
-      const result = (await response.json()) as RuntimeWorkspaceState;
-
-      setRuntimeState(result);
-
-      if (result.publishedDeployment?.publicPath) {
-        setPublishedPath(result.publishedDeployment.publicPath);
-      }
-    } catch {
-      setRuntimeError("Status runtime belum bisa dimuat.");
+    if (runtimeRequestRef.current) {
+      return runtimeRequestRef.current;
     }
+
+    if (Date.now() < runtimeRetryAfterRef.current) {
+      return;
+    }
+
+    const request = (async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}/runtime`, {
+          cache: "no-store",
+        });
+
+        if (response.status === 503) {
+          const retryAfter = Number(response.headers.get("Retry-After") || "3");
+          runtimeRetryAfterRef.current = Date.now() + retryAfter * 1000;
+          return;
+        }
+
+        if (!response.ok) {
+          return;
+        }
+
+        const result = (await response.json()) as RuntimeWorkspaceState;
+
+        setRuntimeState(result);
+        setRuntimeError(null);
+
+        if (result.publishedDeployment?.publicPath) {
+          setPublishedPath(result.publishedDeployment.publicPath);
+        }
+      } catch {
+        runtimeRetryAfterRef.current = Date.now() + 3000;
+      } finally {
+        runtimeRequestRef.current = null;
+      }
+    })();
+
+    runtimeRequestRef.current = request;
+    return request;
   }, [projectId]);
 
   const loadWorkspaceState = useCallback(async () => {

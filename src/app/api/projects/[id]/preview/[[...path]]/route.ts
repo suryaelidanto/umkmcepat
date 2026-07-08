@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
 import {
@@ -24,8 +25,41 @@ export async function GET(
   }
 
   const { id, path = [] } = await params;
+
+  try {
+    return await getPreviewResponse({
+      id,
+      path,
+      request,
+      userId: session.user.id,
+    });
+  } catch (error) {
+    if (isPrismaDatabaseUnavailable(error)) {
+      return createPreviewIssueResponse({
+        detail:
+          "Tampilan website lagi nyambung ulang. Tampilan terakhir tetap aman, coba beberapa detik lagi.",
+        status: 503,
+        title: "Tampilan sedang disambungkan ulang",
+      });
+    }
+
+    throw error;
+  }
+}
+
+async function getPreviewResponse({
+  id,
+  path,
+  request,
+  userId,
+}: {
+  id: string;
+  path: string[];
+  request: Request;
+  userId: string;
+}) {
   const project = await prisma.project.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId },
     select: { id: true },
   });
 
@@ -88,7 +122,7 @@ export async function GET(
   }
 
   const [row] = await prisma.$queryRaw<[{ distFiles: unknown }]>`
-    SELECT "distFiles" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
+    SELECT "distFiles" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
   `;
   const distFiles = parseGeneratedDistFiles(row?.distFiles);
   const requestedPath = path.join("/") || "index.html";

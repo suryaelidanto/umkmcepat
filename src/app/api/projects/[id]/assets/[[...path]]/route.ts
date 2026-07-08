@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
 import {
@@ -18,6 +19,33 @@ export async function GET(
   { params }: { params: Promise<{ id: string; path?: string[] }> },
 ) {
   const { id, path = [] } = await params;
+
+  try {
+    return await getAssetResponse({ id, path, request });
+  } catch (error) {
+    if (isPrismaDatabaseUnavailable(error)) {
+      return sandboxJson(
+        {
+          code: "database_unavailable",
+          message: "Aset website lagi nyambung ulang.",
+        },
+        { status: 503, headers: { "Retry-After": "3" } },
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function getAssetResponse({
+  id,
+  path,
+  request,
+}: {
+  id: string;
+  path: string[];
+  request: Request;
+}) {
   const assetPath = ["assets", ...path];
   const deployments = await prisma.projectDeployment.findMany({
     where: { kind: "preview", projectId: id },
@@ -138,7 +166,10 @@ export async function GET(
   });
 }
 
-function sandboxJson(body: { message: string }, init: ResponseInit) {
+function sandboxJson(
+  body: { code?: string; message: string },
+  init: ResponseInit,
+) {
   return Response.json(body, {
     ...init,
     headers: applyPreviewSandboxHeaders(new Headers(init.headers)),
