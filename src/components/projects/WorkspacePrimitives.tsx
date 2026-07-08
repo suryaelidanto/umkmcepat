@@ -336,10 +336,12 @@ export function GeneratedPreviewFrame({
   viewport: "desktop" | "mobile";
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [ready, setReady] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
+    setLoaded(false);
     setReady(false);
     setTimedOut(false);
 
@@ -401,11 +403,15 @@ export function GeneratedPreviewFrame({
         key={reloadKey}
         title="Tampilan website"
         src={`/api/projects/${projectId}/preview/`}
-        onLoad={onLoad}
+        onLoad={() => {
+          setLoaded(true);
+          setTimedOut(false);
+          onLoad?.();
+        }}
         sandbox="allow-scripts"
         className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} h-full w-full border-0 bg-white`}
       />
-      {timedOut && !ready ? (
+      {timedOut && !ready && !loaded ? (
         <div className="absolute inset-0">
           <PreviewIssueState
             title="Tampilan website belum siap"
