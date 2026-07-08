@@ -890,21 +890,9 @@ export function WorkspaceCardView({
               <Button
                 key={action.label}
                 type="button"
-                variant={
-                  action.label.toLowerCase().includes("build")
-                    ? "default"
-                    : "outline"
-                }
-                onClick={() =>
-                  action.label.toLowerCase().includes("build")
-                    ? onBuild()
-                    : onAction?.(action.prompt)
-                }
-                className={
-                  action.label.toLowerCase().includes("build")
-                    ? "h-10 rounded-[12px] bg-surface-warm-white px-spacing-5 text-sm text-foreground-primary hover:bg-surface-warm-white/86"
-                    : "h-10 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-5 text-sm text-surface-warm-white/78 hover:bg-surface-warm-white/8"
-                }
+                variant="outline"
+                onClick={() => onAction?.(action.prompt)}
+                className="h-10 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-5 text-sm text-surface-warm-white/78 hover:bg-surface-warm-white/8"
               >
                 {action.label}
               </Button>

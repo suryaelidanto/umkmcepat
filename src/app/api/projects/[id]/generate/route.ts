@@ -4,12 +4,25 @@ import { getAiModel } from "@/lib/ai";
 import { auth } from "@/lib/auth";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
-import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
+import {
+  BRIEF_CONFIDENCE_THRESHOLD,
+  briefToBuildPrompt,
+  canBriefBuild,
+  parseProjectBrief,
+} from "@/lib/projects/brief";
 import { generateCustomProjectFilesWithAgent } from "@/lib/projects/custom-source-generator";
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
 } from "@/lib/projects/generated-source";
+import {
+  buildImplementationSpecPrompt,
+  createFallbackImplementationSpec,
+  implementationSpecJsonSchema,
+  implementationSpecToSiteSchema,
+  parseImplementationSpec,
+  type ImplementationSpec,
+} from "@/lib/projects/implementation-spec";
 import {
   writeProjectDistArtifact,
   writeProjectSourceArtifact,
@@ -22,13 +35,6 @@ import {
   type ProjectSnapshotSourceType,
 } from "@/lib/projects/runtime-types";
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
-import {
-  createProjectSiteSchemaFromBrief,
-  parseProjectSiteSchema,
-  resolveProjectSiteSchemaCandidate,
-  projectSiteJsonSchema,
-  type ProjectSiteSchema,
-} from "@/lib/projects/site-schema";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -46,14 +52,7 @@ function encodeEvent(event: string, data: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-function buildSchemaRepairPrompt(buildPrompt: string, issues: string[]) {
-  return `${buildPrompt}
-
-Hasil rancangan sebelumnya ditolak oleh quality gate: ${issues.join(", ")}.
-Perbaiki dengan schema lengkap dan spesifik untuk brief di atas.
-Jangan pakai copy generik seperti "Permintaan awal", "Produk dan layanan usaha", atau "Website usaha".
-Pastikan offer, target pelanggan, CTA, dan gaya visual brief muncul jelas di headline, sections, dan trustPoints.`;
-}
+type GenerateRequestBody = { force?: boolean };
 
 export async function POST(request: Request, { params }: RouteProps) {
   const session = await auth();
@@ -72,6 +71,8 @@ export async function POST(request: Request, { params }: RouteProps) {
     return rateLimitResponse;
   }
 
+  const body = (await request.json().catch(() => ({}))) as GenerateRequestBody;
+  const forceBuild = body.force === true;
   const { id } = await params;
   devLog("generate", "request", { projectId: id, userId });
   const project = await prisma.project.findFirst({
@@ -89,6 +90,23 @@ export async function POST(request: Request, { params }: RouteProps) {
     return Response.json(
       { message: "Proyek tidak ditemukan." },
       { status: 404 },
+    );
+  }
+
+  const [briefGateRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
+    SELECT "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
+  `;
+  const gateBrief = parseProjectBrief(briefGateRow?.brief, project.prompt);
+
+  if (!forceBuild && !canBriefBuild(gateBrief)) {
+    return Response.json(
+      {
+        code: "brief_confidence_too_low",
+        confidence: gateBrief.confidence,
+        message: `AI belum yakin ${BRIEF_CONFIDENCE_THRESHOLD}% bahwa kebutuhanmu sudah jelas. Lanjut diskusi dulu, atau paksa build kalau kamu memang mau.`,
+        openQuestions: gateBrief.openQuestions,
+      },
+      { status: 409 },
     );
   }
 
@@ -151,23 +169,32 @@ export async function POST(request: Request, { params }: RouteProps) {
         const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
           SELECT "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
         `;
-        const brief = parseProjectBrief(briefRow?.brief, project.prompt);
+        const brief = forceBuild
+          ? {
+              ...parseProjectBrief(briefRow?.brief, project.prompt),
+              forcedBuild: {
+                assumed: ["Build dipaksa sebelum AI mencapai keyakinan 95%."],
+              },
+            }
+          : parseProjectBrief(briefRow?.brief, project.prompt);
         devLog("generate", "brief.parsed", {
           projectId: project.id,
           promptLength: project.prompt.length,
         });
         const buildPrompt = briefToBuildPrompt(brief);
-        const fallbackSchema = createProjectSiteSchemaFromBrief(brief);
+        const fallbackSpec = createFallbackImplementationSpec(brief);
 
-        async function generateSiteSchema(prompt: string) {
+        async function generateImplementationSpec(prompt: string) {
           const result = streamText({
             model: getAiModel(),
             temperature: 0.35,
             output: Output.object({
-              name: "ProjectSiteSchema",
+              name: "ImplementationSpec",
               description:
-                "A safe website schema for a polished small-business landing page. Output Indonesian copy only.",
-              schema: jsonSchema<ProjectSiteSchema>(projectSiteJsonSchema),
+                "A flexible generated app implementation spec. Decide landing, marketing_site, or interactive_app from the conversation.",
+              schema: jsonSchema<ImplementationSpec>(
+                implementationSpecJsonSchema,
+              ),
             }),
             system: projectSiteGenerationSystemPrompt,
             prompt,
@@ -181,98 +208,56 @@ export async function POST(request: Request, { params }: RouteProps) {
           });
 
           let latest: unknown;
-          let sentCopy = false;
+          let sentKind = false;
+          let sentStructure = false;
           let sentDesign = false;
-          let sentSections = false;
 
           for await (const partial of result.partialOutputStream) {
             latest = partial;
-            const schema = parseProjectSiteSchema(partial, fallbackSchema);
+            const spec = parseImplementationSpec(partial, fallbackSpec);
 
-            if (!sentCopy && schema.headline !== fallbackSchema.headline) {
-              sentCopy = true;
+            if (!sentKind && spec.appKind) {
+              sentKind = true;
               send("progress", {
-                label: "Menulis pesan utama",
-                detail: `Headline sementara: ${schema.headline}`,
+                label: "Memilih jenis aplikasi",
+                detail: `AI memilih arah ${spec.appKind.replace(/_/g, " ")}.`,
               });
             }
 
-            if (
-              !sentDesign &&
-              partial &&
-              typeof partial === "object" &&
-              "theme" in partial
-            ) {
+            if (!sentStructure && spec.pages.length) {
+              sentStructure = true;
+              send("progress", {
+                label: "Menyusun struktur",
+                detail: `${spec.pages.length} halaman/flow dan ${spec.components.length} komponen dirancang.`,
+              });
+            }
+
+            if (!sentDesign && spec.style.direction) {
               sentDesign = true;
               send("progress", {
                 label: "Memilih arah visual",
-                detail: "Warna, CTA, dan struktur halaman mulai disusun.",
+                detail: spec.style.direction,
               });
             }
 
-            if (!sentSections && schema.sections.length >= 4) {
-              sentSections = true;
-              send("progress", {
-                label: "Menyusun bagian halaman",
-                detail: `${schema.sections.length} bagian siap ditampilkan di website.`,
-              });
-            }
-
-            send("schema", schema);
+            send("implementation_spec", spec);
+            send("schema", implementationSpecToSiteSchema(spec));
           }
 
-          return resolveProjectSiteSchemaCandidate({
-            brief,
-            fallbackSchema,
-            value: latest,
-          });
+          return parseImplementationSpec(latest, fallbackSpec);
         }
 
-        let schemaResult = await generateSiteSchema(buildPrompt);
-
-        if (schemaResult.issues.length) {
-          send("progress", {
-            label: "Memperbaiki rancangan website",
-            detail:
-              "Hasil pertama belum cukup spesifik, AI diminta memperbaiki sekali lagi.",
-          });
-          schemaResult = await generateSiteSchema(
-            buildSchemaRepairPrompt(buildPrompt, schemaResult.issues),
-          );
-        }
-
-        if (schemaResult.issues.length) {
-          const message = `AI site schema failed quality gate: ${schemaResult.issues.join(", ")}`;
-
-          await prisma.project.update({
-            where: { id: project.id },
-            data: {
-              status: "failed",
-              buildStatus: "failed",
-              buildLog: message,
-            } as Parameters<typeof prisma.project.update>[0]["data"],
-          });
-          await prisma.runtimeEvent.create({
-            data: createRuntimeEventData({
-              message,
-              projectId: project.id,
-              type: "build.failed",
-            }),
-          });
-          send("error", {
-            message:
-              "AI belum menghasilkan rancangan website yang cukup spesifik. Coba jawab lebih detail atau jalankan build ulang.",
-          });
-          return;
-        }
-
-        const finalSchema = schemaResult.schema;
+        const implementationSpec = await generateImplementationSpec(
+          buildImplementationSpecPrompt(brief),
+        );
+        const finalSchema = implementationSpecToSiteSchema(implementationSpec);
         send("progress", {
           label: "Menyiapkan starter React",
           detail: "Vite React TypeScript dan TanStack Router disiapkan.",
         });
         const sourceGeneration = await generateCustomProjectFilesWithAgent({
           implementationBrief: buildPrompt,
+          implementationSpec,
           onOperation(operation) {
             send("operation", operation);
           },

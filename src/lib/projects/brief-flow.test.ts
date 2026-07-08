@@ -95,6 +95,41 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("accepts free-form AI question ids", () => {
+    const brief = createInitialBrief("butuh app booking barbershop");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "booking_flow",
+            question: "Alur booking seperti apa yang paling pas?",
+            options: [
+              {
+                label: "WhatsApp dulu",
+                description: "Pelanggan chat sebelum pilih jam.",
+              },
+              {
+                label: "Pilih jadwal",
+                description: "Pelanggan lihat slot dan pilih waktu.",
+              },
+              {
+                label: "Datang langsung",
+                description: "Website fokus info jam ramai.",
+              },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("booking_flow");
+    }
+  });
+
   it("keeps a valid multiple-choice question mode", () => {
     const brief = createInitialBrief("jualan hampers lebaran");
     const turn = normalizeWorkspaceTurn(
@@ -217,7 +252,7 @@ describe("normalizeWorkspaceTurn", () => {
     if (turn.workspaceCard.type === "brief_review") {
       expect(
         turn.workspaceCard.actions.map((action) => action.label),
-      ).toContain("Mulai build");
+      ).not.toContain("Mulai build");
     }
   });
 
@@ -289,11 +324,13 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("accepts a build recommendation with a flexible summary", () => {
+  it("accepts a build recommendation with a flexible summary only when confidence is high", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Katering sekolah",
+        confidence: 95,
         offer: "Nasi kotak harian",
+        openQuestions: [],
         targetCustomer: "Anak sekolah",
         contactOrCta: "Pesan via WhatsApp",
         stylePreference: "Cerah dan ramah",

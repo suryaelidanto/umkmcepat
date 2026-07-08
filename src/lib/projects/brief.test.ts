@@ -24,7 +24,7 @@ describe("project brief", () => {
     ).toBe("Fashion");
   });
 
-  it("marks ready when required fields are filled", () => {
+  it("does not mark ready from legacy fields alone; confidence is the gate", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Fashion",
@@ -36,7 +36,28 @@ describe("project brief", () => {
       "buat web",
     );
 
-    expect(isBriefReady(brief)).toBe(true);
+    expect(isBriefReady(brief)).toBe(false);
     expect(briefToBuildPrompt(brief)).toContain("Bidang usaha: Fashion");
+  });
+
+  it("marks ready only when AI confidence reaches 95 and no open questions remain", () => {
+    expect(
+      isBriefReady(
+        parseProjectBrief({ confidence: 94, openQuestions: [] }, "buat web"),
+      ),
+    ).toBe(false);
+    expect(
+      isBriefReady(
+        parseProjectBrief(
+          { confidence: 95, openQuestions: ["Jam buka belum jelas"] },
+          "buat web",
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      isBriefReady(
+        parseProjectBrief({ confidence: 95, openQuestions: [] }, "buat web"),
+      ),
+    ).toBe(true);
   });
 });

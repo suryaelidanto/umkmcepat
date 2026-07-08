@@ -13,6 +13,7 @@ import {
   createGeneratedViteTanStackStarterFiles,
   type GeneratedProjectFile,
 } from "@/lib/projects/generated-source";
+import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 export type CustomGeneratedSourceResult =
@@ -40,9 +41,11 @@ export async function generateCustomProjectFilesWithAgent({
   implementationBrief,
   onOperation,
   projectId,
+  implementationSpec,
   schema,
 }: {
   implementationBrief?: string;
+  implementationSpec?: ImplementationSpec;
   onOperation?: (operation: GeneratedAppAgentOperation) => void;
   projectId: string;
   schema: ProjectSiteSchema;
@@ -52,7 +55,11 @@ export async function generateCustomProjectFilesWithAgent({
     schema,
   );
   const fallbackFiles = createGeneratedProjectFiles(projectId, schema);
-  const appSpec = buildGeneratedAppBuildSpec(schema, implementationBrief);
+  const appSpec = buildGeneratedAppBuildSpec({
+    conversationBrief: implementationBrief,
+    implementationSpec,
+    schema,
+  });
   let files = starterFiles;
   const operationTrace: GeneratedAppAgentOperation[] = [];
   const touchedFiles = new Set<string>();
@@ -81,7 +88,10 @@ export async function generateCustomProjectFilesWithAgent({
   try {
     const agent = new ToolLoopAgent({
       model: getAiModel(),
-      instructions: buildGeneratedAppAgentInstructions(schema),
+      instructions: buildGeneratedAppAgentInstructions(
+        schema,
+        implementationSpec,
+      ),
       stopWhen: stepCountIs(28),
       tools: createAgentTools(runCommand),
     });
@@ -318,34 +328,66 @@ Required steps:
 }
 
 export function buildGeneratedAppBuildSpec(
-  schema: ProjectSiteSchema,
-  conversationBrief = "",
+  input:
+    | ProjectSiteSchema
+    | {
+        conversationBrief?: string;
+        implementationSpec?: ImplementationSpec;
+        schema: ProjectSiteSchema;
+      },
+  legacyConversationBrief = "",
 ) {
+  const { conversationBrief, implementationSpec, schema } =
+    "schema" in input
+      ? {
+          conversationBrief: input.conversationBrief ?? "",
+          implementationSpec: input.implementationSpec,
+          schema: input.schema,
+        }
+      : {
+          conversationBrief: legacyConversationBrief,
+          implementationSpec: undefined,
+          schema: input,
+        };
   return [
-    `Business: ${schema.businessName}`,
-    `Audience: ${schema.audience}`,
-    `Offer: ${schema.offer}`,
-    `Primary CTA: ${schema.primaryCta}`,
-    `Secondary CTA: ${schema.secondaryCta}`,
-    `Visual direction: background ${schema.theme.background}; foreground ${schema.theme.foreground}; muted ${schema.theme.muted}; accent ${schema.theme.accent}`,
+    implementationSpec
+      ? `App kind: ${implementationSpec.appKind}`
+      : "App kind: landing fallback",
+    `Business: ${implementationSpec?.businessName || schema.businessName}`,
+    implementationSpec
+      ? `Pages: ${implementationSpec.pages.map((page) => `${page.slug} — ${page.title}: ${page.purpose}`).join(" | ")}`
+      : `Audience: ${schema.audience}`,
+    implementationSpec
+      ? `Components: ${implementationSpec.components.map((component) => `${component.name}: ${component.purpose}`).join(" | ")}`
+      : `Offer: ${schema.offer}`,
+    implementationSpec
+      ? `Features: ${implementationSpec.features.join(", ")}`
+      : `Primary CTA: ${schema.primaryCta}`,
+    `Visual direction: ${implementationSpec?.style.direction || `background ${schema.theme.background}; foreground ${schema.theme.foreground}; muted ${schema.theme.muted}; accent ${schema.theme.accent}`}`,
     conversationBrief ? `Conversation summary:\n${conversationBrief}` : "",
+    implementationSpec
+      ? `Structured content:\n${JSON.stringify(implementationSpec.content, null, 2)}`
+      : "",
     "Build intent:",
-    "- Turn the conversation into a polished landing page, not a transcript.",
-    "- Invent layout, hierarchy, cards, sections, and proof points that fit the business.",
-    "- Rewrite user answers into customer-facing Indonesian marketing copy.",
-    "- Make the first screen immediately communicate what is rented/sold, for whom, and how to order.",
-    "- Use business-specific visual metaphors; avoid generic white cards copied from the schema.",
+    "- Build the structure declared above. Do not force everything into one generic landing page.",
+    "- If appKind is interactive_app, create useful static frontend interactions only; no backend persistence.",
+    "- Invent layout, hierarchy, cards, flows, pages, and proof points that fit the business.",
+    "- Rewrite user answers into customer-facing Indonesian copy; the result must feel designed, not a transcript.",
+    "- Use business-specific visual metaphors; avoid generic white cards copied from a schema.",
     "Required source shape:",
-    "- Route owns composition only.",
+    "- Routes own composition only.",
     "- Content module owns structured copy/data.",
     "- CSS owns visual identity.",
-    "- At least one component owns a visual/interactive-looking section.",
+    "- Components own specific visual or interactive sections.",
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-function buildGeneratedAppAgentInstructions(schema: ProjectSiteSchema) {
+function buildGeneratedAppAgentInstructions(
+  schema: ProjectSiteSchema,
+  implementationSpec?: ImplementationSpec,
+) {
   return `You are an expert frontend coding agent inside a generated Vite React TypeScript TanStack Router project.
 
 Rules:
@@ -353,10 +395,10 @@ Rules:
 - Keep all paths inside the generated project.
 - Static frontend only: no backend, API routes, DB, auth, payment, checkout, fake persistence, browser automation, or native deps.
 - User-facing copy must be Indonesian.
-- Do not dump raw brief answers; transform them into a designed landing page with hierarchy, sections, proof, and CTA flow.
+- Do not dump raw brief answers; transform them into the app structure requested by the implementation spec.
 - Create React components; do not keep everything in one route file.
 - Prefer custom CSS, React components, content modules, and routes.
-- Make structure specific to this business: ${schema.businessName} / ${schema.offer} / ${schema.audience}.
+- Make structure specific to this business: ${implementationSpec?.businessName || schema.businessName} / ${implementationSpec?.appKind || "landing"} / ${(implementationSpec?.features || [schema.offer, schema.audience]).join(", ")}.
 - Do not add packages unless already allowed by package policy.
 - Keep preview readiness working.
 - You must edit route, content, and styling files.

@@ -53,7 +53,11 @@ export function buildBriefPatchFromWorkspaceAnswers({
       continue;
     }
 
-    patch[answer.questionId] = value;
+    if (isLegacyBriefPatchField(answer.questionId)) {
+      patch[answer.questionId] = value;
+    } else {
+      patch.notes = [...(patch.notes ?? []), `${question.question}: ${value}`];
+    }
   }
 
   return patch;
@@ -161,11 +165,28 @@ function parseFormattedWorkspaceAnswers(
   return answers.filter((answer) => answer.answer).slice(0, 3);
 }
 
+function isLegacyBriefPatchField(
+  value: string,
+): value is
+  | "businessType"
+  | "offer"
+  | "targetCustomer"
+  | "contactOrCta"
+  | "stylePreference" {
+  return [
+    "businessType",
+    "offer",
+    "targetCustomer",
+    "contactOrCta",
+    "stylePreference",
+  ].includes(value);
+}
+
 function questionTextLooksLikeField(
   questionText: string,
   field: BriefQuestion["id"],
 ) {
-  const patterns: Record<BriefQuestion["id"], RegExp> = {
+  const patterns: Record<string, RegExp> = {
     businessType: /(jenis|bidang).*(usaha|bisnis)|bisnis apa|usaha apa/i,
     contactOrCta: /(whatsapp|kontak|pesan|hubungi|order|aksi|cta)/i,
     offer: /(produk|jasa|menu|layanan|tawaran|jual)/i,
@@ -173,7 +194,7 @@ function questionTextLooksLikeField(
     targetCustomer: /(target|pelanggan|pembeli|customer|siapa)/i,
   };
 
-  return patterns[field].test(questionText);
+  return patterns[field]?.test(questionText) ?? true;
 }
 
 function normalizeAnswer(value: unknown) {

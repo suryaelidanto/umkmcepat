@@ -4,11 +4,12 @@ import {
   type BriefQuestion,
   type ProjectBrief,
   type WorkspaceCard,
+  getBriefReadiness,
   getMissingBriefFields,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
 
-const BRIEF_FIELD_LABELS: Record<BriefQuestion["id"], string> = {
+const BRIEF_FIELD_LABELS: Record<string, string> = {
   businessType: "jenis usaha",
   offer: "produk atau layanan utama",
   targetCustomer: "target pembeli",
@@ -19,8 +20,17 @@ const OPTION_LABEL_MAX_LENGTH = 120;
 const OPTION_DESCRIPTION_MAX_LENGTH = 180;
 
 export type WorkspaceTurnToolInput = {
-  briefPatch?: Partial<Pick<ProjectBrief, BriefQuestion["id"]>> & {
+  briefPatch?: {
+    businessName?: string;
+    businessType?: string;
+    confidence?: number;
+    contactOrCta?: string;
+    forcedBuild?: { assumed?: unknown };
     notes?: string[];
+    offer?: string;
+    openQuestions?: string[];
+    stylePreference?: string;
+    targetCustomer?: string;
   };
   projectTitle?: string;
   workspaceCard?: WorkspaceCard;
@@ -42,8 +52,28 @@ export const workspaceTurnToolInputSchema = jsonSchema<WorkspaceTurnToolInput>({
         offer: { type: "string" },
         targetCustomer: { type: "string" },
         contactOrCta: { type: "string" },
+        businessName: { type: "string" },
+        confidence: {
+          type: "number",
+          description:
+            "AI-owned readiness confidence from 0 to 100. Use 95+ only when the user need is genuinely build-ready.",
+        },
         stylePreference: { type: "string" },
         notes: { type: "array", items: { type: "string" } },
+        openQuestions: {
+          type: "array",
+          description:
+            "Material unresolved decisions that should be asked before recommending build.",
+          items: { type: "string" },
+        },
+        forcedBuild: {
+          type: "object",
+          description:
+            "Set only when the user explicitly forces build before confidence reaches 95.",
+          properties: {
+            assumed: { type: "array", items: { type: "string" } },
+          },
+        },
       },
     },
     projectTitle: {
@@ -128,6 +158,27 @@ export function applyBriefPatch(
       ...next.notes,
       ...patch.notes.map((note) => cleanText(note, 160)).filter(Boolean),
     ].slice(-12);
+  }
+
+  if (typeof patch.confidence === "number") {
+    next.confidence = Math.min(100, Math.max(0, Math.round(patch.confidence)));
+  }
+
+  if (Array.isArray(patch.openQuestions)) {
+    next.openQuestions = patch.openQuestions
+      .map((question) => cleanText(question, 160))
+      .filter(Boolean)
+      .slice(-12);
+  }
+
+  if (patch.forcedBuild && typeof patch.forcedBuild === "object") {
+    const assumed = Array.isArray(patch.forcedBuild.assumed)
+      ? patch.forcedBuild.assumed
+          .map((item) => cleanText(item, 160))
+          .filter(Boolean)
+          .slice(-12)
+      : [];
+    next.forcedBuild = assumed.length ? { assumed } : undefined;
   }
 
   return next;
@@ -222,6 +273,12 @@ function normalizeWorkspaceCard(
   }
 
   if (value.type === "build_recommendation") {
+    const readiness = getBriefReadiness(brief);
+
+    if (!readiness.ready && !brief.forcedBuild) {
+      return buildBriefReviewCard(brief);
+    }
+
     const summary = Array.isArray(value.summary)
       ? (value.summary as unknown[]).filter(
           (item): item is string => typeof item === "string",
@@ -412,6 +469,10 @@ function buildCardSummary(brief: ProjectBrief, summary?: string[]) {
       brief.targetCustomer,
       brief.contactOrCta,
       brief.stylePreference,
+      `Keyakinan AI: ${brief.confidence ?? 0}%`,
+      ...(brief.openQuestions ?? []).map(
+        (question) => `Masih perlu jelas: ${question}`,
+      ),
     ].filter(Boolean)
   );
 }
@@ -419,8 +480,13 @@ function buildCardSummary(brief: ProjectBrief, summary?: string[]) {
 function defaultReviewActions() {
   return [
     {
-      label: "Mulai build",
-      prompt: "Brief sudah cukup. Mulai build website sekarang.",
+      label: "Lanjut diskusi",
+      prompt: "Ayo lanjut diskusi sampai AI yakin 95% sebelum build.",
+    },
+    {
+      label: "Paksa build",
+      prompt:
+        "Saya mau paksa build sekarang walaupun AI belum 95% yakin. Tuliskan asumsi yang masih kamu pakai.",
     },
     {
       label: "Ubah penawaran",
@@ -437,14 +503,16 @@ function defaultReviewActions() {
   ];
 }
 
-function getBriefPatchFields(): BriefQuestion["id"][] {
-  return [
-    "businessType",
-    "offer",
-    "targetCustomer",
-    "contactOrCta",
-    "stylePreference",
-  ];
+const BRIEF_PATCH_FIELDS = [
+  "businessType",
+  "offer",
+  "targetCustomer",
+  "contactOrCta",
+  "stylePreference",
+] as const;
+
+function getBriefPatchFields() {
+  return BRIEF_PATCH_FIELDS;
 }
 
 function cleanText(value: unknown, maxLength: number) {

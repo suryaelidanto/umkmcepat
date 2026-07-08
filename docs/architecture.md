@@ -33,19 +33,20 @@ Rules:
 Current flow:
 
 ```text
-prompt -> guided AI discussion -> structured brief -> generated frontend source/build -> artifact-backed preview runtime -> optional public publish
+prompt -> guided AI discussion -> confidence-gated brief -> AI-decided implementation spec -> generated frontend source/build -> artifact-backed preview runtime -> optional public publish
 ```
 
 Core rules:
 
 - AI clarifies before building when ambiguity changes output quality.
+- Build readiness is confidence-driven, not a fixed field checklist. The AI records a 0-100 confidence score and unresolved open questions on the project brief. A normal build recommendation requires at least 95% confidence and no open questions; users may still explicitly force a build, which records the assumptions used.
 - Discussion turns use one streaming AI call: chat text streams as normal while structured workspace UI is returned through a schema-validated AI SDK tool call.
 - Workspace cards are never parsed from chat text. If the tool output is missing or invalid, the server falls back to a deterministic valid card.
 - When a workspace card becomes a build recommendation, the client treats it as the primary composer decision instead of a chat-history message. The normal text composer stays hidden until the user explicitly continues discussion.
 - If the user continues discussion after a build recommendation, the client keeps a local hold keyed by that recommendation content. Refreshes preserve the discussion composer for the same recommendation, while changed recommendation content surfaces the build decision again.
 - After a generated build completes, the build recommendation is no longer shown as the primary composer. The client shows a review state with preview, chat-edit, and rebuild actions. The normal text composer only returns when the user chooses to keep editing through chat.
 - Build generation streams server-sent progress events to the workspace; the client must render those events as visible build steps instead of hiding progress behind a generic spinner.
-- Build generation must quality-gate AI site schema output before writing source. Generic fallback copy, missing required schema shape, or a schema that does not match the completed brief gets one repair attempt. If the repaired schema still fails, the build fails visibly instead of shipping a misleading template.
+- Build generation asks AI for a flexible implementation spec before writing source. The spec lets AI choose landing, marketing site, or static interactive app shape, including pages, components, features, content, and visual direction. A landing page is one valid outcome, not the forced default. Legacy site schema remains a compatibility/fallback shape for starter metadata and deterministic fallback.
 - Opening a project or creating the first project draft must not trigger a separate AI card-generation call.
 - Project creation requests may carry an idempotency key scoped to the authenticated user and create action. Retries and double submits for the same draft should return the original project instead of creating duplicates.
 - User projects start as data and artifacts. Projects that need live runtime behavior should become isolated deployments managed outside the web app process.

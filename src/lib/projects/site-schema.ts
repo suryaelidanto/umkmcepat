@@ -1,5 +1,3 @@
-import { type JSONSchema7 } from "ai";
-
 import { type ProjectBrief } from "@/lib/projects/brief";
 
 export type ProjectSiteSchema = {
@@ -793,64 +791,3 @@ function summarizeOffer(offer: string) {
 function stripTrailingPunctuation(value: string) {
   return value.trim().replace(/[.。!?]+$/g, "");
 }
-
-export const projectSiteJsonSchema: JSONSchema7 = {
-  type: "object",
-  properties: {
-    version: { type: "number", enum: [1] },
-    businessName: { type: "string" },
-    eyebrow: { type: "string" },
-    headline: { type: "string" },
-    subheadline: { type: "string" },
-    primaryCta: { type: "string" },
-    secondaryCta: { type: "string" },
-    audience: { type: "string" },
-    offer: { type: "string" },
-    theme: {
-      type: "object",
-      properties: {
-        background: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
-        foreground: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
-        muted: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
-        accent: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
-      },
-      required: ["background", "foreground", "muted", "accent"],
-      additionalProperties: false,
-    },
-    trustPoints: {
-      type: "array",
-      minItems: 3,
-      maxItems: MAX_TRUST_POINTS,
-      items: { type: "string" },
-    },
-    sections: {
-      type: "array",
-      minItems: 4,
-      maxItems: MAX_SECTIONS,
-      items: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          body: { type: "string" },
-        },
-        required: ["title", "body"],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: [
-    "version",
-    "businessName",
-    "eyebrow",
-    "headline",
-    "subheadline",
-    "primaryCta",
-    "secondaryCta",
-    "audience",
-    "offer",
-    "theme",
-    "trustPoints",
-    "sections",
-  ],
-  additionalProperties: false,
-};
