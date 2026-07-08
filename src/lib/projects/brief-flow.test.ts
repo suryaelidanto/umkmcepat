@@ -8,7 +8,7 @@ describe("normalizeWorkspaceTurn", () => {
     const brief = createInitialBrief("jualan katering sekolah");
     const turn = normalizeWorkspaceTurn(undefined, brief);
 
-    expect(turn.workspaceCard.type).toBe("question");
+    expect(turn.workspaceCard.type).toBe("none");
     expect(turn.projectTitle).toBe("");
   });
 
@@ -40,7 +40,7 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("question");
   });
 
-  it("drops a malformed question and falls back to a valid single question", () => {
+  it("drops a malformed question without inventing a fallback question", () => {
     const brief = parseProjectBrief(
       { businessType: "Katering", targetCustomer: "Anak sekolah" },
       "jualan katering",
@@ -59,12 +59,7 @@ describe("normalizeWorkspaceTurn", () => {
       brief,
     );
 
-    expect(turn.workspaceCard.type).toBe("question");
-    if (turn.workspaceCard.type === "question") {
-      expect(turn.workspaceCard.question.options.length).toBeGreaterThanOrEqual(
-        3,
-      );
-    }
+    expect(turn.workspaceCard.type).toBe("none");
   });
 
   it("migrates a legacy questions[] card to a single question", () => {
@@ -235,7 +230,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("keeps asking a safe free-form fallback question when confidence is low", () => {
+  it("does not invent fallback questions when confidence is low", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Dropship sepatu",
@@ -248,10 +243,7 @@ describe("normalizeWorkspaceTurn", () => {
     );
     const turn = normalizeWorkspaceTurn(undefined, brief);
 
-    expect(turn.workspaceCard.type).toBe("question");
-    if (turn.workspaceCard.type === "question") {
-      expect(turn.workspaceCard.question.id).toBe("next_detail");
-    }
+    expect(turn.workspaceCard.type).toBe("none");
   });
 
   it("keeps an explicit AI question even when that field was just patched", () => {

@@ -8,13 +8,6 @@ import {
   isBriefQuestionId,
 } from "@/lib/projects/brief";
 
-const BRIEF_FIELD_LABELS: Record<string, string> = {
-  businessType: "jenis usaha",
-  offer: "produk atau layanan utama",
-  targetCustomer: "target pembeli",
-  contactOrCta: "aksi utama pengunjung",
-  stylePreference: "arah visual website",
-};
 const OPTION_LABEL_MAX_LENGTH = 120;
 const OPTION_DESCRIPTION_MAX_LENGTH = 180;
 
@@ -201,33 +194,9 @@ export function normalizeWorkspaceTurn(
 }
 
 export function createFallbackWorkspaceCard(
-  brief: ProjectBrief,
+  _brief: ProjectBrief,
 ): WorkspaceCard {
-  if ((brief.confidence ?? 0) >= 95) {
-    return buildBriefReviewCard(brief);
-  }
-
-  return {
-    type: "question",
-    question: buildFallbackQuestion("next_detail", brief, {
-      question:
-        "Satu hal paling penting apa yang harus website ini bantu jelaskan dulu?",
-      options: [
-        {
-          label: "Menu atau layanan utama",
-          description: "Biar pengunjung langsung paham apa yang kamu tawarkan.",
-        },
-        {
-          label: "Cara pelanggan memesan",
-          description: "Biar alur kontak, booking, atau order jadi jelas.",
-        },
-        {
-          label: "Kesan yang ingin dibangun",
-          description: "Biar visual dan copy terasa pas, bukan template.",
-        },
-      ],
-    }),
-  };
+  return { type: "none" };
 }
 
 export function createPendingWorkspaceCard(brief: ProjectBrief): WorkspaceCard {
@@ -367,76 +336,6 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     whyThisQuestionMatters:
       cleanText(candidate.whyThisQuestionMatters, 180) || undefined,
   };
-}
-
-function buildFallbackQuestion(
-  id: BriefQuestion["id"],
-  brief: ProjectBrief,
-  override?: Pick<BriefQuestion, "options" | "question">,
-): BriefQuestion {
-  const business = brief.businessType || brief.prompt || "usaha kamu";
-  const label = BRIEF_FIELD_LABELS[id];
-
-  return {
-    id,
-    question:
-      override?.question || `Apa ${label} yang paling tepat untuk ${business}?`,
-    selectionMode: "single",
-    options: override?.options || fallbackOptions(id),
-  };
-}
-
-function fallbackOptions(id: BriefQuestion["id"]) {
-  if (id === "contactOrCta") {
-    return [
-      {
-        label: "Pesan via WhatsApp",
-        description:
-          "Website diarahkan agar pengunjung cepat menghubungi kamu.",
-      },
-      {
-        label: "Lihat menu dulu",
-        description: "Website menonjolkan pilihan sebelum pengunjung memesan.",
-      },
-      {
-        label: "Datang ke lokasi",
-        description: "Website menonjolkan alamat, jam buka, dan rute.",
-      },
-    ];
-  }
-
-  if (id === "stylePreference") {
-    return [
-      {
-        label: "Modern bersih",
-        description: "Tampilan rapi, jelas, dan mudah dipercaya pembeli.",
-      },
-      {
-        label: "Hangat lokal",
-        description: "Tampilan terasa dekat, ramah, dan cocok untuk UMKM.",
-      },
-      {
-        label: "Bold premium",
-        description:
-          "Tampilan lebih kuat untuk produk yang ingin terlihat unggul.",
-      },
-    ];
-  }
-
-  return [
-    {
-      label: "Produk utama",
-      description: "Website fokus pada penawaran yang paling penting dijual.",
-    },
-    {
-      label: "Paket praktis",
-      description: "Website menonjolkan pilihan yang mudah dipahami pembeli.",
-    },
-    {
-      label: "Keunggulan usaha",
-      description: "Website menonjolkan alasan pembeli memilih usaha kamu.",
-    },
-  ];
 }
 
 function buildBriefReviewCard(
