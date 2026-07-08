@@ -4,8 +4,6 @@ const {
   authMock,
   buildGeneratedProjectMock,
   prismaProjectBuildCreateMock,
-  prismaProjectEditAttemptCreateMock,
-  prismaProjectEditAttemptUpdateMock,
   prismaProjectBuildUpdateManyMock,
   prismaProjectBuildUpdateMock,
   prismaProjectDeploymentCreateMock,
@@ -16,14 +14,13 @@ const {
   prismaProjectSnapshotUpdateMock,
   prismaProjectUpdateMock,
   prismaRuntimeEventCreateMock,
+  prismaExecuteRawMock,
   writeProjectDistArtifactMock,
   writeProjectSourceArtifactMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   buildGeneratedProjectMock: vi.fn(),
   prismaProjectBuildCreateMock: vi.fn(),
-  prismaProjectEditAttemptCreateMock: vi.fn(),
-  prismaProjectEditAttemptUpdateMock: vi.fn(),
   prismaProjectBuildUpdateManyMock: vi.fn(),
   prismaProjectBuildUpdateMock: vi.fn(),
   prismaProjectDeploymentCreateMock: vi.fn(),
@@ -34,6 +31,7 @@ const {
   prismaProjectSnapshotUpdateMock: vi.fn(),
   prismaProjectUpdateMock: vi.fn(),
   prismaRuntimeEventCreateMock: vi.fn(),
+  prismaExecuteRawMock: vi.fn(),
   writeProjectDistArtifactMock: vi.fn(),
   writeProjectSourceArtifactMock: vi.fn(),
 }));
@@ -41,6 +39,7 @@ const {
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $executeRaw: prismaExecuteRawMock,
     project: {
       findFirst: prismaProjectFindFirstMock,
       update: prismaProjectUpdateMock,
@@ -50,10 +49,6 @@ vi.mock("@/lib/prisma", () => ({
       create: prismaProjectBuildCreateMock,
       update: prismaProjectBuildUpdateMock,
       updateMany: prismaProjectBuildUpdateManyMock,
-    },
-    projectEditAttempt: {
-      create: prismaProjectEditAttemptCreateMock,
-      update: prismaProjectEditAttemptUpdateMock,
     },
     projectDeployment: {
       create: prismaProjectDeploymentCreateMock,
@@ -190,8 +185,7 @@ describe("project edit route", () => {
       },
     ]);
     prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
-    prismaProjectEditAttemptCreateMock.mockResolvedValue({ id: "attempt_1" });
-    prismaProjectEditAttemptUpdateMock.mockResolvedValue({});
+    prismaExecuteRawMock.mockResolvedValue(1);
     prismaProjectUpdateManyMock.mockResolvedValue({ count: 1 });
     prismaProjectSnapshotCreateMock.mockResolvedValue({ id: "snapshot_edit" });
     writeProjectSourceArtifactMock.mockResolvedValue(
@@ -279,12 +273,8 @@ describe("project edit route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.attemptId).toBe("attempt_1");
-    expect(prismaProjectEditAttemptCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ kind: "instruction" }),
-      }),
-    );
+    expect(body.attemptId).toMatch(/^edit_/);
+    expect(prismaExecuteRawMock).toHaveBeenCalled();
     expect(prismaProjectSnapshotCreateMock).toHaveBeenCalled();
   });
 

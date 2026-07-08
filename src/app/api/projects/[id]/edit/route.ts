@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { auth } from "@/lib/auth";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
@@ -160,18 +162,15 @@ export async function POST(request: Request, { params }: RouteProps) {
     );
   }
 
-  const attempt = await prisma.projectEditAttempt.create({
-    data: {
-      annotations: annotations.length ? annotations : undefined,
-      instruction,
-      kind,
-      parentSnapshotId: activeSnapshot.id,
-      projectId: project.id,
-      status: "editing",
-      summary: summary || undefined,
-      userId: session.user.id,
-    },
-    select: { id: true },
+  const attempt = await createProjectEditAttempt({
+    annotations: annotations.length ? annotations : undefined,
+    instruction,
+    kind,
+    parentSnapshotId: activeSnapshot.id,
+    projectId: project.id,
+    status: "editing",
+    summary: summary || undefined,
+    userId: session.user.id,
   });
 
   if (summary) {
@@ -197,13 +196,10 @@ export async function POST(request: Request, { params }: RouteProps) {
   });
 
   if (!editResult.ok) {
-    await prisma.projectEditAttempt.update({
-      where: { id: attempt.id },
-      data: {
-        errorMessage: "Edit agent failed.",
-        status: "failed",
-        validationIssues: editResult.outputs,
-      },
+    await updateProjectEditAttempt(attempt.id, {
+      errorMessage: "Edit agent failed.",
+      status: "failed",
+      validationIssues: editResult.outputs,
     });
 
     return Response.json(
@@ -227,12 +223,9 @@ export async function POST(request: Request, { params }: RouteProps) {
   });
 
   if (!editValidation.ok && !requestedCommands.length) {
-    await prisma.projectEditAttempt.update({
-      where: { id: attempt.id },
-      data: {
-        status: "repairing",
-        validationIssues: editValidation.blockingIssues,
-      },
+    await updateProjectEditAttempt(attempt.id, {
+      status: "repairing",
+      validationIssues: editValidation.blockingIssues,
     });
 
     const repairResult = await editGeneratedSourceWithAgent({
@@ -275,13 +268,10 @@ export async function POST(request: Request, { params }: RouteProps) {
       issues: editValidation.blockingIssues,
       projectId: project.id,
     });
-    await prisma.projectEditAttempt.update({
-      where: { id: attempt.id },
-      data: {
-        errorMessage: "Edit did not change rendered source.",
-        status: "failed",
-        validationIssues: editValidation.blockingIssues,
-      },
+    await updateProjectEditAttempt(attempt.id, {
+      errorMessage: "Edit did not change rendered source.",
+      status: "failed",
+      validationIssues: editValidation.blockingIssues,
     });
 
     return Response.json(
@@ -317,9 +307,9 @@ export async function POST(request: Request, { params }: RouteProps) {
     );
   }
 
-  await prisma.projectEditAttempt.update({
-    where: { id: attempt.id },
-    data: { advisoryIssues: editValidation.advisoryIssues, status: "building" },
+  await updateProjectEditAttempt(attempt.id, {
+    advisoryIssues: editValidation.advisoryIssues,
+    status: "building",
   });
 
   const claimedProject = await prisma.project.updateMany({
@@ -392,9 +382,9 @@ export async function POST(request: Request, { params }: RouteProps) {
     },
     select: { id: true },
   });
-  await prisma.projectEditAttempt.update({
-    where: { id: attempt.id },
-    data: { buildId: build.id, snapshotId: snapshot.id },
+  await updateProjectEditAttempt(attempt.id, {
+    buildId: build.id,
+    snapshotId: snapshot.id,
   });
   await prisma.projectBuild.update({
     where: { id: build.id },
@@ -483,12 +473,9 @@ export async function POST(request: Request, { params }: RouteProps) {
         status: "ready",
       } as Parameters<typeof prisma.project.update>[0]["data"],
     });
-    await prisma.projectEditAttempt.update({
-      where: { id: attempt.id },
-      data: {
-        advisoryIssues: editValidation.advisoryIssues,
-        status: "succeeded",
-      },
+    await updateProjectEditAttempt(attempt.id, {
+      advisoryIssues: editValidation.advisoryIssues,
+      status: "succeeded",
     });
   } else {
     await prisma.project.update({
@@ -498,13 +485,10 @@ export async function POST(request: Request, { params }: RouteProps) {
         buildStatus: "failed",
       } as Parameters<typeof prisma.project.update>[0]["data"],
     });
-    await prisma.projectEditAttempt.update({
-      where: { id: attempt.id },
-      data: {
-        advisoryIssues: editValidation.advisoryIssues,
-        errorMessage: buildResult.logText?.slice(-2000),
-        status: "failed",
-      },
+    await updateProjectEditAttempt(attempt.id, {
+      advisoryIssues: editValidation.advisoryIssues,
+      errorMessage: buildResult.logText?.slice(-2000),
+      status: "failed",
     });
   }
 
@@ -549,4 +533,76 @@ async function persistVisualSummaryMessage({
       ],
     } as Parameters<typeof prisma.project.update>[0]["data"],
   });
+}
+
+type EditAttemptCreateInput = {
+  annotations?: unknown;
+  instruction: string;
+  kind: string;
+  parentSnapshotId: string;
+  projectId: string;
+  status: string;
+  summary?: string;
+  userId: string;
+};
+
+type EditAttemptUpdateInput = Partial<{
+  advisoryIssues: unknown;
+  buildId: string;
+  errorMessage: string | null;
+  snapshotId: string;
+  status: string;
+  validationIssues: unknown;
+}>;
+
+async function createProjectEditAttempt(input: EditAttemptCreateInput) {
+  const id = `edit_${randomUUID().replace(/-/g, "")}`;
+
+  await prisma.$executeRaw`
+    INSERT INTO "ProjectEditAttempt" (
+      "id",
+      "projectId",
+      "userId",
+      "parentSnapshotId",
+      "kind",
+      "status",
+      "instruction",
+      "summary",
+      "annotations",
+      "createdAt",
+      "updatedAt"
+    ) VALUES (
+      ${id},
+      ${input.projectId},
+      ${input.userId},
+      ${input.parentSnapshotId},
+      ${input.kind},
+      ${input.status},
+      ${input.instruction},
+      ${input.summary ?? null},
+      ${input.annotations ? JSON.stringify(input.annotations) : null}::jsonb,
+      NOW(),
+      NOW()
+    )
+  `;
+
+  return { id };
+}
+
+async function updateProjectEditAttempt(
+  id: string,
+  input: EditAttemptUpdateInput,
+) {
+  await prisma.$executeRaw`
+    UPDATE "ProjectEditAttempt"
+    SET
+      "status" = COALESCE(${input.status ?? null}, "status"),
+      "snapshotId" = COALESCE(${input.snapshotId ?? null}, "snapshotId"),
+      "buildId" = COALESCE(${input.buildId ?? null}, "buildId"),
+      "validationIssues" = COALESCE(${input.validationIssues ? JSON.stringify(input.validationIssues) : null}::jsonb, "validationIssues"),
+      "advisoryIssues" = COALESCE(${input.advisoryIssues ? JSON.stringify(input.advisoryIssues) : null}::jsonb, "advisoryIssues"),
+      "errorMessage" = COALESCE(${input.errorMessage ?? null}, "errorMessage"),
+      "updatedAt" = NOW()
+    WHERE "id" = ${id}
+  `;
 }
