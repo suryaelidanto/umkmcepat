@@ -823,6 +823,8 @@ export function QuestionComposer({
                     onClick={() => {
                       setCustomAnswerOpen(false);
                       setCustomAnswer("");
+                      setSelected([]);
+                      setSource("option");
                     }}
                     className="rounded-full px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
                   >
@@ -855,7 +857,7 @@ export function QuestionComposer({
                   </span>
                 </span>
                 <span className="shrink-0 border-b border-surface-warm-white/20 pb-0.5 text-xs text-surface-warm-white/56">
-                  Tulis
+                  {customAnswerSelected ? "Ganti" : "Tulis"}
                 </span>
               </button>
             )}

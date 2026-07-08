@@ -15,7 +15,6 @@ import {
   parseProjectBrief,
 } from "@/lib/projects/brief";
 import {
-  createFallbackWorkspaceCard,
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
   workspaceTurnToolInputSchema,
@@ -162,14 +161,11 @@ export async function POST(request: Request) {
     );
   }
 
-  // Phase 1 (deterministic, before the AI stream): persist the user's answer
-  // into the brief and advance the stored card to the next missing field.
-  // The user's answer is server-owned and must never be lost, so even if the
-  // AI turn fails mid-stream the brief still moves forward and the card never
-  // sticks on an already-answered question.
-  const fallbackCard = createFallbackWorkspaceCard(effectiveBrief);
+  // Persist the user's answer before the AI stream, but keep the current
+  // workspaceCard until the AI writes the next one. Otherwise a refresh during
+  // streaming makes the mandatory UI question disappear.
   await prisma.$executeRaw`
-    UPDATE "Project" SET "brief" = ${JSON.stringify(effectiveBrief)}::jsonb, "workspaceCard" = ${JSON.stringify(fallbackCard)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
+    UPDATE "Project" SET "brief" = ${JSON.stringify(effectiveBrief)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
   `;
 
   const workspaceTools = {
