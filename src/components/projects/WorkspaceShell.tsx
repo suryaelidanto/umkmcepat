@@ -1578,24 +1578,80 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
 
   return (
     <div className="space-y-spacing-8">
-      {messages.map((message, messageIndex) => (
-        <div
-          key={message.id || `${message.role}-${messageIndex}`}
-          className={`flex max-w-full text-base leading-7 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-        >
+      {messages.map((message, messageIndex) => {
+        const textParts = message.parts.filter(
+          (
+            part,
+          ): part is Extract<
+            (typeof message.parts)[number],
+            { type: "text" }
+          > => part.type === "text" && Boolean(part.text.trim()),
+        );
+        const fallbackText = textParts.length
+          ? ""
+          : getToolOnlyAssistantFallback(message);
+
+        if (!textParts.length && !fallbackText) {
+          return null;
+        }
+
+        return (
           <div
-            className={`max-w-[88%] overflow-hidden break-words [overflow-wrap:anywhere] rounded-[22px] px-spacing-6 py-spacing-5 ${message.role === "user" ? "border border-surface-warm-white/12 bg-[#30302c] text-surface-warm-white/88" : "border border-surface-warm-white/10 bg-[#242421] text-surface-warm-white/80"}`}
+            key={message.id || `${message.role}-${messageIndex}`}
+            className={`flex max-w-full text-base leading-7 ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
-            {message.parts.map((part, index) =>
-              part.type === "text" ? (
-                <MessageText key={index} text={part.text} />
-              ) : null,
-            )}
+            <div
+              className={`max-w-[88%] overflow-hidden break-words [overflow-wrap:anywhere] rounded-[22px] px-spacing-6 py-spacing-5 ${message.role === "user" ? "border border-surface-warm-white/12 bg-[#30302c] text-surface-warm-white/88" : "border border-surface-warm-white/10 bg-[#242421] text-surface-warm-white/80"}`}
+            >
+              {textParts.length ? (
+                textParts.map((part, index) => (
+                  <MessageText key={index} text={part.text} />
+                ))
+              ) : (
+                <MessageText text={fallbackText} />
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
+}
+
+function getToolOnlyAssistantFallback(message: UIMessage) {
+  if (message.role !== "assistant") {
+    return "";
+  }
+
+  for (const part of [...message.parts].reverse()) {
+    if (
+      part.type !== "tool-setWorkspaceUi" ||
+      part.state !== "output-available"
+    ) {
+      continue;
+    }
+
+    const output = part.output as { workspaceCard?: WorkspaceCard } | null;
+    const card = output?.workspaceCard;
+
+    if (!card) {
+      continue;
+    }
+
+    if (card.type === "question") {
+      return card.question.question;
+    }
+
+    if (card.type === "brief_review") {
+      return "Oke, aku rangkum dulu biar kamu bisa cek sebelum websitenya dibuat.";
+    }
+
+    if (card.type === "build_recommendation") {
+      return "Brief sudah cukup. Aku siap mulai bikin websitenya kalau kamu setuju.";
+    }
+  }
+
+  return "";
 }
 
 function HeldBuildRecommendationNotice({
