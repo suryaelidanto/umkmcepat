@@ -170,16 +170,6 @@ export function getWorkspacePreviewIssue({
     };
   }
 
-  if (
-    runtimeUserFacingState === "preview_starting" ||
-    deploymentStatus === "starting"
-  ) {
-    return {
-      detail: "Tampilan website sedang disiapkan. Tunggu sebentar.",
-      title: "Tampilan sedang disiapkan",
-    };
-  }
-
   if (runtimeUserFacingState === "build_failed_without_last_good") {
     return {
       detail:

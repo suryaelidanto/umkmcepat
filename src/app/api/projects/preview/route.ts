@@ -174,7 +174,7 @@ export async function POST(request: Request) {
   const workspaceTools = {
     setWorkspaceUi: tool({
       description:
-        "Update the hidden UMKM Cepat workspace brief and interactive UI card. Call exactly once per turn. The platform validates and normalizes the input, so prefer sending your best attempt over staying silent.",
+        "Update the hidden UMKM Cepat workspace brief and interactive UI card. Before calling this tool, always write a short visible Indonesian chat response to the user. Call the tool exactly once per turn after that visible text.",
       inputSchema: workspaceTurnToolInputSchema,
       // The server is the single authority: normalize never throws, so a
       // malformed tool input degrades to a valid fallback card instead of
@@ -251,6 +251,10 @@ function buildSystemPrompt({
 Your job in Discuss mode is to interview the user until their needs are fully understood, then help build only when you are at least 95% confident or the user explicitly asks to build now.
 
 Write user-visible chat copy in natural, concise Indonesian.
+Critical streaming contract:
+- Always emit a visible assistant text response first, then call setWorkspaceUi.
+- Never answer with only a tool call. The user must see streamed text in the chat bubble every turn.
+- Keep the visible text short: acknowledge their answer, then introduce the next question/card in one or two sentences.
 Tone contract:
 - Treat the user like a friend building something together, not like a formal customer-service ticket.
 - Use "aku" for yourself and "kamu" for the user.

@@ -347,7 +347,8 @@ export function GeneratedPreviewFrame({
 
     const timeout = window.setTimeout(() => {
       setTimedOut(true);
-    }, 10_000);
+      onRetry?.();
+    }, 12_000);
 
     function handleMessage(event: MessageEvent) {
       if (event.source !== iframeRef.current?.contentWindow) {
@@ -374,7 +375,7 @@ export function GeneratedPreviewFrame({
       window.clearTimeout(timeout);
       window.removeEventListener("message", handleMessage);
     };
-  }, [onAnnotationTarget, projectId, reloadKey]);
+  }, [onAnnotationTarget, onRetry, projectId, reloadKey]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -402,7 +403,7 @@ export function GeneratedPreviewFrame({
         ref={iframeRef}
         key={reloadKey}
         title="Tampilan website"
-        src={`/api/projects/${projectId}/preview/`}
+        src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
         onLoad={() => {
           setLoaded(true);
           setTimedOut(false);

@@ -219,10 +219,7 @@ describe("workspace chat sync", () => {
       getWorkspacePreviewIssue({
         runtimeUserFacingState: "preview_starting",
       }),
-    ).toEqual({
-      detail: "Tampilan website sedang disiapkan. Tunggu sebentar.",
-      title: "Tampilan sedang disiapkan",
-    });
+    ).toBeNull();
     expect(
       getWorkspacePreviewIssue({
         runtimeUserFacingState: "build_failed_without_last_good",
