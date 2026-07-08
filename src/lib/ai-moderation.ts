@@ -15,15 +15,19 @@ export async function moderateProjectRequest(
   prompt: string,
   timeoutMs = AI_MODERATION_TIMEOUT_MS,
 ): Promise<ModerationResult> {
+  const abortController = new AbortController();
   const { text } = await withTimeout(
     generateText({
+      abortSignal: abortController.signal,
       model: getAiModel(),
       temperature: 0,
+      timeout: timeoutMs,
       system:
         "You are a strict safety classifier for UMKM Cepat, an AI website and app builder for small businesses. Reply with exactly ALLOW or BLOCK. Block requests involving gambling, pornography or sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, or impersonation of real brands, people, or government entities. Allow normal small-business websites, landing pages, catalogs, menus, booking, contact forms, ordering flows, and calls to action.",
       prompt,
     }),
     timeoutMs,
+    abortController,
   );
 
   return text.trim().toUpperCase().startsWith("ALLOW")
@@ -31,17 +35,21 @@ export async function moderateProjectRequest(
     : { allowed: false, message: BLOCK_MESSAGE };
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  abortController: AbortController,
+) {
   let timeout: ReturnType<typeof setTimeout> | undefined;
 
   try {
     return await Promise.race([
       promise,
       new Promise<never>((_, reject) => {
-        timeout = setTimeout(
-          () => reject(new Error("AI moderation timed out.")),
-          timeoutMs,
-        );
+        timeout = setTimeout(() => {
+          abortController.abort();
+          reject(new Error("AI moderation timed out."));
+        }, timeoutMs);
       }),
     ]);
   } finally {

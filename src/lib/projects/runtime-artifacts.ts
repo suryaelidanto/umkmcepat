@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { getEnv } from "@/lib/config";
@@ -134,7 +134,6 @@ async function writeProjectArtifactFiles<
     input.artifactId,
     input.rootDir,
   );
-  const filesDir = path.join(artifactDir, "files");
   const manifest: ProjectArtifactManifest = {
     files: input.files.map((file) => ({
       contentType: "contentType" in file ? file.contentType : undefined,
@@ -144,21 +143,32 @@ async function writeProjectArtifactFiles<
     schemaVersion: 1,
   };
 
-  await rm(artifactDir, { force: true, recursive: true });
-  await mkdir(filesDir, { recursive: true });
+  const tempDir = `${artifactDir}.tmp-${crypto.randomUUID()}`;
+  const tempFilesDir = path.join(tempDir, "files");
 
-  for (const file of input.files) {
-    const target = resolveSafeChildPath(filesDir, file.path);
+  await rm(tempDir, { force: true, recursive: true });
+  await mkdir(tempFilesDir, { recursive: true });
 
-    await mkdir(path.dirname(target), { recursive: true });
-    await writeFile(target, file.content, "utf8");
+  try {
+    for (const file of input.files) {
+      const target = resolveSafeChildPath(tempFilesDir, file.path);
+
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, file.content, "utf8");
+    }
+
+    await writeFile(
+      path.join(tempDir, "manifest.json"),
+      JSON.stringify(manifest, null, 2),
+      "utf8",
+    );
+
+    await rm(artifactDir, { force: true, recursive: true });
+    await rename(tempDir, artifactDir);
+  } catch (error) {
+    await rm(tempDir, { force: true, recursive: true }).catch(() => undefined);
+    throw error;
   }
-
-  await writeFile(
-    path.join(artifactDir, "manifest.json"),
-    JSON.stringify(manifest, null, 2),
-    "utf8",
-  );
 
   return artifactRef;
 }

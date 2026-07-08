@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -69,6 +69,23 @@ describe("project runtime artifacts", () => {
     await expect(
       readFile(path.join(runtimeRoot, "index.html"), "utf8"),
     ).resolves.toBe("<h1>Preview</h1>");
+  });
+
+  it("cleans temp artifacts after failed writes", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-artifacts-"));
+
+    await expect(
+      writeProjectSourceArtifact({
+        artifactId: "snapshot_1",
+        files: [
+          { content: "ok", path: "src/main.ts" },
+          { content: "secret", path: "../.env" },
+        ],
+        rootDir: tempDir,
+      }),
+    ).rejects.toThrow("Unsafe generated file path");
+
+    await expect(readdir(path.join(tempDir, "source"))).resolves.toEqual([]);
   });
 
   it("rejects unsafe generated artifact paths", async () => {
