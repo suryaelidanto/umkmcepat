@@ -1106,19 +1106,14 @@ export function WorkspaceShell({
               ) : composerState === "post_build_review" ||
                 composerState === "build_failed_with_last_good" ? (
                 <CompletedBuildNotice
-                  canPublish={runtimeControl.canPublish}
-                  isPublishing={runtimeControl.isPublishing}
                   onDiscuss={() => {
                     setMode("discuss");
                     setPostBuildChatOpen(true);
                   }}
-                  onPublish={runtimeControl.onPublish}
                   onPreview={() => {
                     setActiveTab("preview");
                     openPreviewPanel();
                   }}
-                  onRebuild={() => void startBuild()}
-                  publishedPath={runtimeControl.publishedPath}
                   variant={
                     composerState === "build_failed_with_last_good"
                       ? "recovery"
@@ -1136,16 +1131,11 @@ export function WorkspaceShell({
                   {composerState === "post_build_chat" ? (
                     <CompletedBuildNotice
                       compact
-                      canPublish={runtimeControl.canPublish}
-                      isPublishing={runtimeControl.isPublishing}
                       onDiscuss={() => setPostBuildChatOpen(true)}
-                      onPublish={runtimeControl.onPublish}
                       onPreview={() => {
                         setActiveTab("preview");
                         openPreviewPanel();
                       }}
-                      onRebuild={() => void startBuild()}
-                      publishedPath={runtimeControl.publishedPath}
                       variant={
                         hasFailedLatestAttemptWithLastGood
                           ? "recovery"
@@ -1434,30 +1424,17 @@ function HeldBuildRecommendationNotice({
 }
 
 function CompletedBuildNotice({
-  canPublish = false,
   compact = false,
-  isPublishing = false,
   onDiscuss,
-  onPublish,
   onPreview,
-  onRebuild,
-  publishedPath,
   variant = "ready",
 }: {
-  canPublish?: boolean;
   compact?: boolean;
-  isPublishing?: boolean;
   onDiscuss: () => void;
-  onPublish?: () => void;
   onPreview: () => void;
-  onRebuild: () => void;
-  publishedPath?: string | null;
   variant?: "ready" | "recovery";
 }) {
   const isRecovery = variant === "recovery";
-  const canShowPublishAction = Boolean(
-    publishedPath || (canPublish && onPublish),
-  );
 
   return (
     <div
@@ -1475,8 +1452,8 @@ function CompletedBuildNotice({
           {!compact ? (
             <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/52">
               {isRecovery
-                ? "Build terbaru gagal, tapi tampilan terakhir yang berhasil tetap bisa dicek. Kamu bisa edit lewat chat atau coba build ulang."
-                : "Website sudah dibuat. Cek tampilannya, lanjut edit lewat chat, atau build ulang kalau arah brief berubah."}
+                ? "Build terbaru gagal, tapi tampilan terakhir yang berhasil tetap aman. Kamu bisa cek hasil lama atau lanjut ngobrol dengan AI."
+                : "Cek hasilnya dulu. Kalau ada yang kurang pas, lanjut ngobrol dengan AI."}
             </p>
           ) : null}
         </div>
@@ -1494,38 +1471,8 @@ function CompletedBuildNotice({
             onClick={onDiscuss}
             className="h-9 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8"
           >
-            Edit lewat chat
+            Chat dengan AI
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onRebuild}
-            className="h-9 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8"
-          >
-            Build ulang
-          </Button>
-          {canShowPublishAction ? (
-            publishedPath ? (
-              <a
-                href={publishedPath}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-9 items-center rounded-[12px] border border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8"
-              >
-                Buka terbitan
-              </a>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onPublish}
-                disabled={!canPublish || isPublishing}
-                className="h-9 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/78 hover:bg-surface-warm-white/8 disabled:opacity-45"
-              >
-                {isPublishing ? "Menerbitkan..." : "Terbitkan"}
-              </Button>
-            )
-          ) : null}
         </div>
       </div>
     </div>
