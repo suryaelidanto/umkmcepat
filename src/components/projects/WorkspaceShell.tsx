@@ -193,6 +193,7 @@ export function WorkspaceShell({
   const autoRetriedTurn = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
+  const visualEditInFlightRef = useRef(false);
   const [annotationMode, setAnnotationMode] = useState(false);
   const [annotationInstruction, setAnnotationInstruction] = useState("");
   const [annotations, setAnnotations] = useState<VisualAnnotationDraft[]>([]);
@@ -766,9 +767,11 @@ export function WorkspaceShell({
   }
 
   async function sendVisualAnnotations() {
-    if (!annotations.length || isProcessing) {
+    if (!annotations.length || isProcessing || visualEditInFlightRef.current) {
       return;
     }
+
+    visualEditInFlightRef.current = true;
 
     const summary = createVisualAnnotationSummary({
       annotations,
@@ -780,7 +783,6 @@ export function WorkspaceShell({
     });
 
     setIsEditingPreview(true);
-    setBuildStatus("building");
     setBuildProgress((current) =>
       addBuildProgressStep(current, {
         detail: "AI menerapkan komentar visual ke source preview terakhir.",
@@ -810,7 +812,6 @@ export function WorkspaceShell({
       } | null;
 
       if (!response.ok || result?.buildStatus !== "succeeded") {
-        setBuildStatus("failed");
         setBuildProgress((current) =>
           addBuildProgressStep(current, {
             detail:
@@ -833,6 +834,7 @@ export function WorkspaceShell({
       setPreviewReloadKey((current) => current + 1);
       void loadRuntimeState();
     } finally {
+      visualEditInFlightRef.current = false;
       setIsEditingPreview(false);
     }
   }
@@ -885,7 +887,6 @@ export function WorkspaceShell({
 
       if (composerState === "post_build_chat") {
         setIsEditingPreview(true);
-        setBuildStatus("building");
         setBuildProgress((current) =>
           addBuildProgressStep(current, {
             detail:
@@ -906,7 +907,6 @@ export function WorkspaceShell({
             } | null;
 
             if (!response.ok || result?.buildStatus !== "succeeded") {
-              setBuildStatus("failed");
               setBuildProgress((current) =>
                 addBuildProgressStep(current, {
                   detail:
@@ -930,7 +930,6 @@ export function WorkspaceShell({
             void loadRuntimeState();
           })
           .catch(() => {
-            setBuildStatus("failed");
             setBuildProgress((current) =>
               addBuildProgressStep(current, {
                 detail: "Koneksi edit terputus. Tampilan terakhir tetap aman.",
