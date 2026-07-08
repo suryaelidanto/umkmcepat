@@ -6,6 +6,7 @@ import {
   HeroContentMotion,
   HeroMotionItem,
 } from "@/components/home/HeroContentMotion";
+import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
@@ -62,7 +63,8 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="bg-[#151515] text-surface-warm-white">
+    <div className="cursor-default bg-[#151515] text-surface-warm-white">
+      <ResetCursorOnMount />
       <section className="relative isolate overflow-hidden px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
         <HeroAuroraBackground />
 

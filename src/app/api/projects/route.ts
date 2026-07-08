@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -156,18 +158,17 @@ function getIdempotencyKey(request: Request, bodyKey?: string) {
 }
 
 async function findIdempotentProject(userId: string, key: string) {
-  const record = await prisma.projectIdempotencyKey.findUnique({
-    where: {
-      userId_action_key: {
-        action: CREATE_PROJECT_IDEMPOTENCY_ACTION,
-        key,
-        userId,
-      },
-    },
-    select: { project: { select: { id: true } } },
-  });
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT p."id"
+    FROM "ProjectIdempotencyKey" k
+    JOIN "Project" p ON p."id" = k."projectId"
+    WHERE k."userId" = ${userId}
+      AND k."action" = ${CREATE_PROJECT_IDEMPOTENCY_ACTION}
+      AND k."key" = ${key}
+    LIMIT 1
+  `;
 
-  return record?.project ?? null;
+  return rows[0] ?? null;
 }
 
 async function createProjectOnce({
@@ -203,6 +204,7 @@ async function createProjectOnce({
 
   try {
     return await prisma.$transaction(async (tx) => {
+      const idempotencyRecordId = `idem_${randomUUID().replace(/-/g, "")}`;
       const project = await tx.project.create({
         data: createProjectData({
           brief,
@@ -215,14 +217,23 @@ async function createProjectOnce({
         select: { id: true },
       });
 
-      await tx.projectIdempotencyKey.create({
-        data: {
-          action: CREATE_PROJECT_IDEMPOTENCY_ACTION,
-          key: idempotencyKey,
-          projectId: project.id,
-          userId: sessionUserId,
-        },
-      });
+      await tx.$executeRaw`
+        INSERT INTO "ProjectIdempotencyKey" (
+          "id",
+          "userId",
+          "projectId",
+          "action",
+          "key",
+          "createdAt"
+        ) VALUES (
+          ${idempotencyRecordId},
+          ${sessionUserId},
+          ${project.id},
+          ${CREATE_PROJECT_IDEMPOTENCY_ACTION},
+          ${idempotencyKey},
+          NOW()
+        )
+      `;
 
       return project;
     });

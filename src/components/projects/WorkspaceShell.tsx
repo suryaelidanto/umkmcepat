@@ -240,6 +240,13 @@ export function WorkspaceShell({
   }, [mode]);
 
   useEffect(() => {
+    return () => {
+      document.body.style.cursor = "";
+      document.documentElement.style.cursor = "";
+    };
+  }, []);
+
+  useEffect(() => {
     setHeldBuildRecommendationSignature(
       window.localStorage.getItem(buildRecommendationStorageKey),
     );

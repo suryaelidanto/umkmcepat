@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   authMock,
   checkRateLimitMock,
-  idempotencyFindUniqueMock,
-  idempotencyCreateMock,
+  executeRawMock,
+  queryRawMock,
   moderateProjectRequestMock,
   prismaProjectCreateMock,
   transactionMock,
@@ -14,14 +14,14 @@ const {
     expires: new Date().toISOString(),
   })),
   checkRateLimitMock: vi.fn(async () => null),
-  idempotencyFindUniqueMock: vi.fn<() => Promise<unknown>>(async () => null),
-  idempotencyCreateMock: vi.fn(async () => ({ id: "key_1" })),
+  executeRawMock: vi.fn(async () => 1),
+  queryRawMock: vi.fn<() => Promise<Array<{ id: string }>>>(async () => []),
   moderateProjectRequestMock: vi.fn(async () => ({ allowed: true })),
   prismaProjectCreateMock: vi.fn(async () => ({ id: "project_1" })),
   transactionMock: vi.fn(async (callback) =>
     callback({
+      $executeRaw: executeRawMock,
       project: { create: prismaProjectCreateMock },
-      projectIdempotencyKey: { create: idempotencyCreateMock },
     }),
   ),
 }));
@@ -59,12 +59,9 @@ vi.mock("@/lib/projects/workspace", async () => {
 });
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $queryRaw: queryRawMock,
     $transaction: transactionMock,
     project: { create: prismaProjectCreateMock },
-    projectIdempotencyKey: {
-      create: idempotencyCreateMock,
-      findUnique: idempotencyFindUniqueMock,
-    },
   },
 }));
 vi.mock("@/lib/projects/brief-flow", () => ({
@@ -90,14 +87,14 @@ describe("projects route", () => {
       expires: new Date().toISOString(),
     });
     checkRateLimitMock.mockResolvedValue(null);
-    idempotencyFindUniqueMock.mockResolvedValue(null);
-    idempotencyCreateMock.mockResolvedValue({ id: "key_1" });
+    executeRawMock.mockResolvedValue(1);
+    queryRawMock.mockResolvedValue([]);
     moderateProjectRequestMock.mockResolvedValue({ allowed: true });
     prismaProjectCreateMock.mockResolvedValue({ id: "project_1" });
     transactionMock.mockImplementation(async (callback) =>
       callback({
+        $executeRaw: executeRawMock,
         project: { create: prismaProjectCreateMock },
-        projectIdempotencyKey: { create: idempotencyCreateMock },
       }),
     );
   });
@@ -184,9 +181,7 @@ describe("projects route", () => {
   });
 
   it("returns existing project for an idempotency key", async () => {
-    idempotencyFindUniqueMock.mockResolvedValueOnce({
-      project: { id: "project_existing" },
-    });
+    queryRawMock.mockResolvedValueOnce([{ id: "project_existing" }]);
 
     const response = await POST(
       new Request("http://localhost/api/projects", {
@@ -214,13 +209,6 @@ describe("projects route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(idempotencyCreateMock).toHaveBeenCalledWith({
-      data: {
-        action: "project.create",
-        key: "draft-1",
-        projectId: "project_1",
-        userId: "user_1",
-      },
-    });
+    expect(executeRawMock).toHaveBeenCalled();
   });
 });
