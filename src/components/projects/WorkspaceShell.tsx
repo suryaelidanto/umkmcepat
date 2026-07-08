@@ -194,6 +194,7 @@ export function WorkspaceShell({
   const runtimeRequestRef = useRef<Promise<void> | null>(null);
   const runtimeRetryAfterRef = useRef(0);
   const previousScrollHeight = useRef<number | null>(null);
+  const shouldStickToBottomRef = useRef(true);
   const autoRetriedTurn = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
@@ -738,23 +739,25 @@ export function WorkspaceShell({
     }
   }, [olderMessages.length]);
 
+  const scrollChatToBottom = useCallback(() => {
+    const element = chatScrollRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    element.scrollTop = element.scrollHeight;
+  }, []);
+
   useEffect(() => {
-    const scrollToLatest = () => {
-      const element = chatScrollRef.current;
-
-      if (element) {
-        element.scrollTop = element.scrollHeight;
-      }
-    };
-
-    const frame = requestAnimationFrame(scrollToLatest);
-    const timeout = window.setTimeout(scrollToLatest, 120);
+    const frame = requestAnimationFrame(scrollChatToBottom);
+    const timeout = window.setTimeout(scrollChatToBottom, 120);
 
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, []);
+  }, [scrollChatToBottom]);
 
   useEffect(() => {
     const element = chatScrollRef.current;
@@ -764,14 +767,37 @@ export function WorkspaceShell({
       return;
     }
 
-    element.scrollTop = element.scrollHeight;
+    if (shouldStickToBottomRef.current) {
+      scrollChatToBottom();
+    }
+
     previousLiveMessageCount.current = messages.length;
-  }, [messages.length]);
+  }, [messages.length, scrollChatToBottom]);
 
   useEffect(() => {
     setQuestionComposerMode("options");
     setMessage("");
   }, [activeQuestionKey]);
+
+  useEffect(() => {
+    if (!isResponding || !shouldStickToBottomRef.current) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(scrollChatToBottom);
+    const interval = window.setInterval(scrollChatToBottom, 180);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearInterval(interval);
+    };
+  }, [isResponding, messages, scrollChatToBottom]);
+
+  useEffect(() => {
+    if (shouldStickToBottomRef.current) {
+      requestAnimationFrame(scrollChatToBottom);
+    }
+  }, [questionComposerMode, workspaceCard, scrollChatToBottom]);
 
   useEffect(() => {
     const workspaceUpdate = getLatestWorkspaceUpdateFromMessages(messages);
@@ -971,8 +997,10 @@ export function WorkspaceShell({
         return;
       }
 
+      shouldStickToBottomRef.current = true;
       setRateLimitError(null);
       setMessage("");
+      requestAnimationFrame(scrollChatToBottom);
 
       if (composerState === "post_build_chat") {
         setIsEditingPreview(true);
@@ -1044,6 +1072,7 @@ export function WorkspaceShell({
       mode,
       projectId,
       rateLimitError,
+      scrollChatToBottom,
       sendMessage,
     ],
   );
@@ -1261,6 +1290,14 @@ export function WorkspaceShell({
 
             <div
               ref={chatScrollRef}
+              onScroll={(event) => {
+                const element = event.currentTarget;
+                shouldStickToBottomRef.current =
+                  element.scrollHeight -
+                    element.scrollTop -
+                    element.clientHeight <
+                  120;
+              }}
               className="mt-spacing-5 min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
             >
               {annotationMode ? (
