@@ -105,6 +105,7 @@ Current runtime implementation:
 
 - `PROJECT_ARTIFACT_DIR` stores local source/dist artifacts under `.data/project-artifacts` by default.
 - `PROJECT_RUNTIME_DIR` stores materialized runtime files under `.data/project-runtimes` by default.
+- `PROJECT_BUILD_WORKSPACE_DIR` stores rebuildable local build workspaces under `.data/project-build-workspaces` by default. Build workspaces cache generated app `node_modules` and build metadata so repeat edits can skip dependency install when the package/profile signature is unchanged. Source snapshots and dist artifacts remain canonical; workspaces may be deleted and rebuilt.
 - `RuntimeSupervisor` starts a local out-of-process static server from a dist artifact and records deployment events.
 - Private preview traffic goes through `/api/projects/[id]/preview/[[...path]]`, cold-starting stopped preview deployments when needed.
 - Published traffic goes through `/p/[slug]/[[...path]]`, cold-starting the published deployment when needed.

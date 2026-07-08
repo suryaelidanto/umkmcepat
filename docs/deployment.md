@@ -91,6 +91,7 @@ OBJECT_STORAGE_PROVIDER="local"
 LOCAL_UPLOAD_DIR=".data/uploads"
 PROJECT_ARTIFACT_DIR=".data/project-artifacts"
 PROJECT_RUNTIME_DIR=".data/project-runtimes"
+PROJECT_BUILD_WORKSPACE_DIR=".data/project-build-workspaces"
 PROJECT_RUNTIME_SUPERVISOR="local"
 PROJECT_RUNTIME_MAX_CONTAINERS="8"
 POSTGRES_USER="postgres"
@@ -98,7 +99,7 @@ POSTGRES_PASSWORD="replace-with-strong-db-password"
 POSTGRES_DB="umkmcepat"
 ```
 
-If `OBJECT_STORAGE_PROVIDER="local"`, mount `LOCAL_UPLOAD_DIR` as a persistent volume. The current generated-runtime adapter also needs `PROJECT_ARTIFACT_DIR` and `PROJECT_RUNTIME_DIR` on persistent local storage for a single-node VPS. If a future deployment uses remote artifact storage, the local artifact/runtime volumes can become rebuildable caches.
+If `OBJECT_STORAGE_PROVIDER="local"`, mount `LOCAL_UPLOAD_DIR` as a persistent volume. The current generated-runtime adapter also needs `PROJECT_ARTIFACT_DIR` and `PROJECT_RUNTIME_DIR` on persistent local storage for a single-node VPS. `PROJECT_BUILD_WORKSPACE_DIR` is a rebuildable cache for generated app workspaces; persisting it speeds repeat builds by keeping `node_modules`, but deleting it is safe because source snapshots and dist artifacts remain canonical. If a future deployment uses remote artifact storage, the local artifact/runtime volumes can become rebuildable caches.
 
 If Headroom compression is enabled in 9Router, use this Docker-internal proxy URL:
 

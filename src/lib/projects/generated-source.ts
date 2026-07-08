@@ -1,6 +1,13 @@
 import { spawn } from "node:child_process";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
@@ -23,6 +30,22 @@ export type BuildGeneratedProjectResult = {
   distFiles: GeneratedDistFile[];
   ok: boolean;
   log: string;
+};
+
+type BuildCommandResult = Omit<BuildGeneratedProjectResult, "distFiles">;
+
+type BuildGeneratedProjectOptions = {
+  commandRunner?: (
+    command: string[],
+    cwd: string,
+  ) => Promise<BuildCommandResult>;
+  workspaceRoot?: string;
+};
+
+type BuildCacheMetadata = {
+  dependencySignature: string;
+  runtimeProfile: string;
+  schemaVersion: 1;
 };
 
 const MAX_LOG_LENGTH = 20_000;
@@ -132,6 +155,7 @@ function isBlockedWindowsPathPart(part: string) {
 
 export async function buildGeneratedProject(
   files: GeneratedProjectFile[],
+  options: BuildGeneratedProjectOptions = {},
 ): Promise<BuildGeneratedProjectResult> {
   const manifestResult = validateGeneratedAppManifest(files);
 
@@ -160,48 +184,113 @@ export async function buildGeneratedProject(
     };
   }
 
-  const root = await mkdir(path.join(tmpdir(), "umkmcepat-build-"), {
-    recursive: true,
-  }).then(() => path.join(tmpdir(), `umkmcepat-build-${crypto.randomUUID()}`));
-  await mkdir(root, { recursive: true });
+  return buildGeneratedProjectInWorkspace(
+    files,
+    manifestResult.manifest,
+    options,
+  );
+}
 
-  try {
-    for (const file of files) {
-      assertSafeProjectFilePath(file.path);
-      const target = path.resolve(root, file.path);
+async function buildGeneratedProjectInWorkspace(
+  files: GeneratedProjectFile[],
+  manifest: {
+    packageManager: "bun";
+    projectId: string;
+    runtimeProfile: string;
+    templateId: string;
+    templateVersion: string;
+  },
+  options: BuildGeneratedProjectOptions,
+): Promise<BuildGeneratedProjectResult> {
+  const startedAt = Date.now();
+  const commandRunner = options.commandRunner ?? runCommand;
+  const workspaceRoot = resolveBuildWorkspaceRoot(options.workspaceRoot);
+  const workspace = path.join(
+    workspaceRoot,
+    toSafeWorkspacePart(manifest.projectId),
+    toSafeWorkspacePart(manifest.runtimeProfile),
+  );
+  const metadataPath = path.join(workspace, ".umkmcepat", "build-cache.json");
+  const dependencySignature = createDependencySignature(files, manifest);
+  let cacheMetadata = await readBuildCacheMetadata(metadataPath);
+  let installSkipped = false;
+  let resetWorkspace =
+    cacheMetadata?.dependencySignature !== dependencySignature ||
+    cacheMetadata.runtimeProfile !== manifest.runtimeProfile ||
+    !(await pathExists(path.join(workspace, "node_modules")));
 
-      if (!target.startsWith(`${root}${path.sep}`)) {
-        throw new Error(`Unsafe generated file path: ${file.path}`);
+  async function attemptBuild(resetBeforeBuild: boolean) {
+    if (resetBeforeBuild) {
+      await rm(workspace, { force: true, recursive: true });
+      cacheMetadata = null;
+    }
+
+    await mkdir(workspace, { recursive: true });
+    await syncGeneratedProjectFiles(workspace, files);
+
+    const shouldInstall =
+      resetBeforeBuild ||
+      cacheMetadata?.dependencySignature !== dependencySignature ||
+      !(await pathExists(path.join(workspace, "node_modules")));
+    let installMs = 0;
+    let install: BuildCommandResult = { ok: true, log: "" };
+
+    installSkipped = !shouldInstall;
+
+    if (shouldInstall) {
+      const installStartedAt = Date.now();
+      install = await commandRunner(["bun", "install"], workspace);
+      installMs = Date.now() - installStartedAt;
+
+      if (!install.ok) {
+        return { ...install, distFiles: [] };
       }
 
-      await mkdir(path.dirname(target), { recursive: true });
-      await writeFile(target, file.content, "utf8");
+      await writeBuildCacheMetadata(metadataPath, {
+        dependencySignature,
+        runtimeProfile: manifest.runtimeProfile,
+        schemaVersion: 1,
+      });
     }
 
-    const install = await runCommand(["bun", "install"], root);
-
-    if (!install.ok) {
-      return { ...install, distFiles: [] };
-    }
-
-    const build = await runCommand(["bun", "run", "build"], root);
+    const buildStartedAt = Date.now();
+    const build = await commandRunner(["bun", "run", "build"], workspace);
+    const collectStartedAt = Date.now();
     const distFiles = build.ok
-      ? await collectDistFiles(path.join(root, "dist"))
+      ? await collectDistFiles(path.join(workspace, "dist"))
       : [];
-    return {
-      distFiles,
-      ok: build.ok,
-      log: [install.log, build.log].filter(Boolean).join("\n"),
-    };
-  } finally {
-    await rm(root, { force: true, recursive: true });
+    const log = [
+      createBuildTimingLog({
+        buildMs: collectStartedAt - buildStartedAt,
+        cacheReset: resetBeforeBuild,
+        collectMs: Date.now() - collectStartedAt,
+        installMs,
+        installSkipped,
+        totalMs: Date.now() - startedAt,
+      }),
+      install.log,
+      build.log,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    return { distFiles, ok: build.ok, log };
   }
+
+  let result = await attemptBuild(resetWorkspace);
+
+  if (!result.ok && !resetWorkspace) {
+    resetWorkspace = true;
+    result = await attemptBuild(true);
+  }
+
+  return result;
 }
 
 async function runCommand(
   command: string[],
   cwd: string,
-): Promise<BuildGeneratedProjectResult> {
+): Promise<BuildCommandResult> {
   return await new Promise((resolve) => {
     const child = spawn(command[0], command.slice(1), {
       cwd,
@@ -216,7 +305,6 @@ async function runCommand(
     const timeout = setTimeout(() => {
       child.kill();
       resolve({
-        distFiles: [],
         ok: false,
         log: truncateLog(`${output}\nBuild timed out.`),
       });
@@ -231,7 +319,6 @@ async function runCommand(
     child.on("error", (error) => {
       clearTimeout(timeout);
       resolve({
-        distFiles: [],
         ok: false,
         log: truncateLog(`${output}\n${error.message}`),
       });
@@ -239,12 +326,225 @@ async function runCommand(
     child.on("close", (code) => {
       clearTimeout(timeout);
       resolve({
-        distFiles: [],
         ok: code === 0,
         log: truncateLog(output.trim()),
       });
     });
   });
+}
+
+async function syncGeneratedProjectFiles(
+  root: string,
+  files: GeneratedProjectFile[],
+) {
+  const expectedFiles = new Map<string, string>();
+
+  for (const file of files) {
+    assertSafeProjectFilePath(file.path);
+    expectedFiles.set(file.path, file.content);
+  }
+
+  await removeStaleWorkspaceFiles(root, expectedFiles);
+
+  for (const [filePath, content] of expectedFiles) {
+    const target = resolveSafeBuildWorkspacePath(root, filePath);
+    const existing = await readFile(target, "utf8").catch(() => null);
+
+    if (existing === content) {
+      continue;
+    }
+
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, content, "utf8");
+  }
+}
+
+async function removeStaleWorkspaceFiles(
+  root: string,
+  expectedFiles: Map<string, string>,
+) {
+  const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
+
+  for (const entry of entries) {
+    if (entry.name === "node_modules") {
+      continue;
+    }
+
+    const absolute = path.join(root, entry.name);
+
+    if (entry.isDirectory()) {
+      if (entry.name === ".umkmcepat") {
+        await removeStaleWorkspaceFiles(absolute, expectedFiles);
+        continue;
+      }
+
+      await removeStaleWorkspaceFiles(absolute, expectedFiles);
+      await removeEmptyDirectory(absolute);
+      continue;
+    }
+
+    if (!entry.isFile()) {
+      await rm(absolute, { force: true, recursive: true });
+      continue;
+    }
+
+    const relative = path.relative(root, absolute).replace(/\\/g, "/");
+
+    if (relative === ".umkmcepat/build-cache.json") {
+      continue;
+    }
+
+    if (!expectedFiles.has(relative)) {
+      await rm(absolute, { force: true });
+    }
+  }
+}
+
+async function removeEmptyDirectory(directory: string) {
+  const entries = await readdir(directory).catch(() => ["not-empty"]);
+
+  if (!entries.length) {
+    await rm(directory, { force: true, recursive: true });
+  }
+}
+
+function resolveSafeBuildWorkspacePath(root: string, filePath: string) {
+  assertSafeProjectFilePath(filePath);
+  const resolvedRoot = path.resolve(root);
+  const target = path.resolve(resolvedRoot, filePath);
+
+  if (!target.startsWith(`${resolvedRoot}${path.sep}`)) {
+    throw new Error(`Unsafe generated file path: ${filePath}`);
+  }
+
+  return target;
+}
+
+function createDependencySignature(
+  files: GeneratedProjectFile[],
+  manifest: {
+    packageManager: "bun";
+    runtimeProfile: string;
+    templateId: string;
+    templateVersion: string;
+  },
+) {
+  const packageFile = files.find((file) => file.path === "package.json");
+  const packageJson = packageFile ? parseStableJson(packageFile.content) : null;
+
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        bunVersion: process.versions.bun || "unknown",
+        packageJson,
+        packageManager: manifest.packageManager,
+        runtimeProfile: manifest.runtimeProfile,
+        templateId: manifest.templateId,
+        templateVersion: manifest.templateVersion,
+      }),
+    )
+    .digest("hex");
+}
+
+function parseStableJson(value: string) {
+  try {
+    return sortJson(JSON.parse(value));
+  } catch {
+    return value;
+  }
+}
+
+function sortJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortJson);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+        .map(([key, item]) => [key, sortJson(item)]),
+    );
+  }
+
+  return value;
+}
+
+async function readBuildCacheMetadata(
+  metadataPath: string,
+): Promise<BuildCacheMetadata | null> {
+  const raw = await readFile(metadataPath, "utf8").catch(() => "");
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<BuildCacheMetadata>;
+
+    if (
+      parsed.schemaVersion === 1 &&
+      typeof parsed.dependencySignature === "string" &&
+      typeof parsed.runtimeProfile === "string"
+    ) {
+      return parsed as BuildCacheMetadata;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+async function writeBuildCacheMetadata(
+  metadataPath: string,
+  metadata: BuildCacheMetadata,
+) {
+  await mkdir(path.dirname(metadataPath), { recursive: true });
+  await writeFile(metadataPath, JSON.stringify(metadata, null, 2), "utf8");
+}
+
+function resolveBuildWorkspaceRoot(root?: string) {
+  return path.resolve(
+    root ||
+      process.env.PROJECT_BUILD_WORKSPACE_DIR ||
+      path.join(".data", "project-build-workspaces"),
+  );
+}
+
+function toSafeWorkspacePart(value: string) {
+  return value.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 120) || "unknown";
+}
+
+async function pathExists(target: string) {
+  return stat(target)
+    .then(() => true)
+    .catch(() => false);
+}
+
+function createBuildTimingLog({
+  buildMs,
+  cacheReset,
+  collectMs,
+  installMs,
+  installSkipped,
+  totalMs,
+}: {
+  buildMs: number;
+  cacheReset: boolean;
+  collectMs: number;
+  installMs: number;
+  installSkipped: boolean;
+  totalMs: number;
+}) {
+  return `[umkm:build] timings ${JSON.stringify({
+    buildMs,
+    cacheReset,
+    collectMs,
+    installMs,
+    installSkipped,
+    totalMs,
+  })}`;
 }
 
 function truncateLog(value: string) {

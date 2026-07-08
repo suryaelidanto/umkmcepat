@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import { validateGeneratedAppManifest } from "./generated-app-manifest";
 import {
@@ -7,8 +11,18 @@ import {
   createGeneratedProjectFiles,
   createGeneratedSourceSnapshotMetadata,
   parseGeneratedProjectFiles,
+  type GeneratedProjectFile,
 } from "./generated-source";
 import { createProjectSiteSchemaFromBrief } from "./site-schema";
+
+let tempDir = "";
+
+afterEach(async () => {
+  if (tempDir) {
+    await rm(tempDir, { force: true, recursive: true });
+    tempDir = "";
+  }
+});
 
 describe("generated project source", () => {
   it("keeps valid stored files only", () => {
@@ -279,6 +293,174 @@ describe("generated project source", () => {
     expect(result.log).toContain("Missing .umkmcepat/project.json manifest.");
   });
 
+  it("skips dependency install for repeat workspace builds with unchanged packages", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const files = buildableFiles("project_cached");
+    const commands: string[] = [];
+    const commandRunner = async (command: string[], cwd: string) => {
+      commands.push(command.join(" "));
+
+      if (command.join(" ") === "bun install") {
+        await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+      }
+
+      if (command.join(" ") === "bun run build") {
+        await writeDist(cwd, "cached");
+      }
+
+      return { ok: true, log: command.join(" ") };
+    };
+
+    await buildGeneratedProject(files, {
+      commandRunner,
+      workspaceRoot: tempDir,
+    });
+    const second = await buildGeneratedProject(
+      files.map((file) =>
+        file.path === "src/App.tsx"
+          ? { ...file, content: "export default 'changed';" }
+          : file,
+      ),
+      { commandRunner, workspaceRoot: tempDir },
+    );
+
+    expect(commands).toEqual(["bun install", "bun run build", "bun run build"]);
+    expect(second.log).toContain('"installSkipped":true');
+  });
+
+  it("reinstalls when the generated package changes", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const commands: string[] = [];
+    const commandRunner = async (command: string[], cwd: string) => {
+      commands.push(command.join(" "));
+
+      if (command.join(" ") === "bun install") {
+        await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+      }
+
+      if (command.join(" ") === "bun run build") {
+        await writeDist(cwd, "package-change");
+      }
+
+      return { ok: true, log: command.join(" ") };
+    };
+    const files = buildableFiles("project_package_change");
+
+    await buildGeneratedProject(files, {
+      commandRunner,
+      workspaceRoot: tempDir,
+    });
+    await buildGeneratedProject(
+      files.map((file) =>
+        file.path === "package.json"
+          ? {
+              ...file,
+              content: JSON.stringify({
+                ...JSON.parse(file.content),
+                devDependencies: {
+                  ...JSON.parse(file.content).devDependencies,
+                  globals: "^16.5.0",
+                },
+              }),
+            }
+          : file,
+      ),
+      { commandRunner, workspaceRoot: tempDir },
+    );
+
+    expect(commands).toEqual([
+      "bun install",
+      "bun run build",
+      "bun install",
+      "bun run build",
+    ]);
+  });
+
+  it("removes stale files from persistent build workspaces", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const files = buildableFiles("project_stale_files", [
+      { content: "export const stale = true;", path: "src/stale.ts" },
+    ]);
+    const commandRunner = async (command: string[], cwd: string) => {
+      if (command.join(" ") === "bun install") {
+        await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+      }
+
+      if (command.join(" ") === "bun run build") {
+        await writeDist(cwd, "stale");
+      }
+
+      return { ok: true, log: command.join(" ") };
+    };
+
+    await buildGeneratedProject(files, {
+      commandRunner,
+      workspaceRoot: tempDir,
+    });
+    await buildGeneratedProject(
+      files.filter((file) => file.path !== "src/stale.ts"),
+      { commandRunner, workspaceRoot: tempDir },
+    );
+
+    await expect(
+      readFile(
+        path.join(
+          tempDir,
+          "project_stale_files",
+          "vite-react-tanstack-v1",
+          "src",
+          "stale.ts",
+        ),
+        "utf8",
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("resets a warm workspace and retries once after a build failure", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const commands: string[] = [];
+    const files = buildableFiles("project_retry");
+    let buildAttempts = 0;
+    const commandRunner = async (command: string[], cwd: string) => {
+      commands.push(command.join(" "));
+
+      if (command.join(" ") === "bun install") {
+        await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+      }
+
+      if (command.join(" ") === "bun run build") {
+        buildAttempts += 1;
+
+        if (buildAttempts === 2) {
+          return { ok: false, log: "corrupt cache" };
+        }
+
+        await writeDist(cwd, "retry");
+      }
+
+      return { ok: true, log: command.join(" ") };
+    };
+
+    await buildGeneratedProject(files, {
+      commandRunner,
+      workspaceRoot: tempDir,
+    });
+    const result = await buildGeneratedProject(files, {
+      commandRunner,
+      workspaceRoot: tempDir,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(commands).toEqual([
+      "bun install",
+      "bun run build",
+      "bun run build",
+      "bun install",
+      "bun run build",
+    ]);
+    expect(result.log).toContain('"cacheReset":true');
+  });
+
   it("fails build preflight when package policy rejects a dependency", async () => {
     const files = createFiles("project_blocked_package", {
       prompt: "buat website barber shop",
@@ -311,6 +493,56 @@ describe("generated project source", () => {
     );
   });
 });
+
+async function writeDist(cwd: string, content: string) {
+  await mkdir(path.join(cwd, "dist"), { recursive: true });
+  await writeFile(path.join(cwd, "dist", "index.html"), content);
+}
+
+function buildableFiles(
+  projectId: string,
+  extraFiles: GeneratedProjectFile[] = [],
+): GeneratedProjectFile[] {
+  return [
+    {
+      path: ".umkmcepat/project.json",
+      content: JSON.stringify({
+        buildCommand: "bun run build",
+        capabilities: ["static_content"],
+        outputDirectory: "dist",
+        packageManager: "bun",
+        projectId,
+        routes: [{ path: "/", title: "Beranda" }],
+        runtimeProfile: "vite-react-tanstack-v1",
+        schemaVersion: "1",
+        templateId: "vite-react-tanstack-starter",
+        templateVersion: "1.0.0",
+      }),
+    },
+    {
+      path: "package.json",
+      content: JSON.stringify({
+        private: true,
+        scripts: { build: "vite build" },
+        dependencies: {
+          "@tanstack/react-query": "^5.101.2",
+          "@tanstack/react-router": "^1.170.17",
+          clsx: "^2.1.1",
+          "lucide-react": "^0.575.0",
+          react: "^19.2.7",
+          "react-dom": "^19.2.7",
+        },
+        devDependencies: {
+          "@vitejs/plugin-react": "^6.0.3",
+          typescript: "^5.9.3",
+          vite: "^7.2.7",
+        },
+      }),
+    },
+    { path: "src/App.tsx", content: "export default 'ok';" },
+    ...extraFiles,
+  ];
+}
 
 function createFiles(
   projectId: string,
