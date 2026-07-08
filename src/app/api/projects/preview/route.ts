@@ -169,6 +169,7 @@ export async function POST(request: Request) {
     UPDATE "Project" SET "brief" = ${JSON.stringify(effectiveBrief)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
   `;
 
+  let didWorkspaceToolUpdate = false;
   const workspaceTools = {
     setWorkspaceUi: tool({
       description:
@@ -179,6 +180,7 @@ export async function POST(request: Request) {
       // failing the chat turn.
       execute: async (input: unknown) => {
         workspaceTurn = normalizeWorkspaceTurn(input, effectiveBrief);
+        didWorkspaceToolUpdate = true;
         const title = workspaceTurn.projectTitle || project.title;
 
         await prisma.$executeRaw`
@@ -230,9 +232,15 @@ export async function POST(request: Request) {
       const title = workspaceTurn.projectTitle || project.title;
       const safeMessages = dedupeUiMessages(parseProjectChatMessages(messages));
 
-      await prisma.$executeRaw`
-        UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-      `;
+      if (didWorkspaceToolUpdate) {
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+      } else {
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+      }
 
       const compaction = await maybeCompactProjectChat({
         memoryFacts,

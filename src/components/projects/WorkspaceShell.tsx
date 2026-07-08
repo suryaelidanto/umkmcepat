@@ -1721,6 +1721,13 @@ function getLatestWorkspaceUpdateFromMessages(messages: UIMessage[]) {
         workspaceCard?: WorkspaceCard;
       } | null;
 
+      if (output?.workspaceCard?.type === "none") {
+        if (output.projectTitle) {
+          return { projectTitle: output.projectTitle };
+        }
+        continue;
+      }
+
       if (output?.workspaceCard || output?.projectTitle) {
         return output;
       }
