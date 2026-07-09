@@ -336,13 +336,11 @@ function ProjectPreviewThumb({
         src={`/api/projects/${project.id}/preview/?thumb=1`}
         sandbox="allow-scripts"
         loading="lazy"
+        scrolling="no"
         tabIndex={-1}
-        className="pointer-events-none h-[400%] w-[400%] origin-top-left scale-25 border-0 bg-white opacity-95 transition duration-300 group-hover:opacity-100"
+        className="pointer-events-none h-[400%] w-[400%] origin-top-left scale-25 overflow-hidden border-0 bg-white opacity-95 transition duration-300 group-hover:opacity-100"
       />
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-surface-warm-white/10" />
-      <div className="pointer-events-none absolute bottom-spacing-3 left-spacing-3 rounded-full border border-surface-warm-white/12 bg-[#151515]/82 px-spacing-3 py-spacing-2 text-xs font-medium text-surface-warm-white/78 backdrop-blur">
-        Preview
-      </div>
     </Link>
   );
 }
