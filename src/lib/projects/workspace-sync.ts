@@ -1,3 +1,5 @@
+import { type UIMessage } from "ai";
+
 import { type WorkspaceCard } from "@/lib/projects/brief";
 
 export type WorkspaceChatStatus =
@@ -97,6 +99,69 @@ export function getWorkspaceComposerState({
   }
 
   return "free_chat";
+}
+
+export function hasMissingWorkspaceUiTurn({
+  card,
+  messages,
+  mode,
+}: {
+  card: WorkspaceCard;
+  messages: UIMessage[];
+  mode: string;
+}) {
+  if (mode !== "discuss" || card.type !== "question") {
+    return false;
+  }
+
+  const latestUserIndex = findLastIndex(
+    messages,
+    (message) => message.role === "user",
+  );
+
+  if (latestUserIndex < 0) {
+    return false;
+  }
+
+  const latestUserText = getUiMessageText(messages[latestUserIndex]);
+  const answeredQuestion = latestUserText.split(/\nJawaban:/i)[0]?.trim();
+
+  if (!answeredQuestion || answeredQuestion !== card.question.question.trim()) {
+    return false;
+  }
+
+  const messagesAfterUser = messages.slice(latestUserIndex + 1);
+  const hasNewerWorkspaceTool = messagesAfterUser.some(hasWorkspaceUiTool);
+  const hasAssistantAfterUser = messagesAfterUser.some(
+    (message) => message.role === "assistant",
+  );
+
+  return hasAssistantAfterUser && !hasNewerWorkspaceTool;
+}
+
+function findLastIndex<T>(items: T[], predicate: (item: T) => boolean) {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (predicate(items[index])) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function getUiMessageText(message: UIMessage) {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n");
+}
+
+function hasWorkspaceUiTool(message: UIMessage) {
+  return message.parts.some(
+    (part) =>
+      part.type === "tool-setWorkspaceUi" &&
+      (part as { state?: unknown }).state === "output-available",
+  );
 }
 
 export function shouldShowBuildRecommendationComposer({

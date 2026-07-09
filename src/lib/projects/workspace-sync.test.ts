@@ -5,6 +5,7 @@ import {
   getBuildRecommendationHoldSignature,
   getWorkspacePreviewIssue,
   getWorkspaceComposerState,
+  hasMissingWorkspaceUiTurn,
   isBuildRecommendationHeld,
   isWorkspaceBuildComplete,
   shouldShowBuildRecommendationComposer,
@@ -33,6 +34,93 @@ describe("workspace chat sync", () => {
     expect(shouldRefreshWorkspaceAfterChatStatus("ready", "submitted")).toBe(
       false,
     );
+  });
+
+  it("does not show missing workspace UI when stored messages have the next tool card", () => {
+    const card: WorkspaceCard = {
+      type: "question",
+      question: {
+        id: "service_area",
+        answerMode: "text",
+        options: [],
+        question: "Area mana saja yang kamu layani?",
+        selectionMode: "single",
+      },
+    };
+
+    expect(
+      hasMissingWorkspaceUiTurn({
+        card,
+        mode: "discuss",
+        messages: [
+          {
+            id: "user_1",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: "Apa nama usaha nasi box kamu?\nJawaban: Dapur Surya Elidanto",
+              },
+            ],
+          },
+          {
+            id: "workspace-tool-1",
+            role: "assistant",
+            parts: [
+              {
+                type: "tool-setWorkspaceUi",
+                state: "output-available",
+                toolCallId: "workspace-tool-1",
+                input: {},
+                output: { workspaceCard: card },
+              },
+            ],
+          },
+          {
+            id: "transient_assistant",
+            role: "assistant",
+            parts: [{ type: "text", text: "Sebentar ya..." }],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("shows missing workspace UI only when the current answered card has no newer tool", () => {
+    const card: WorkspaceCard = {
+      type: "question",
+      question: {
+        id: "business_name",
+        answerMode: "text",
+        options: [],
+        question: "Apa nama usaha nasi box kamu?",
+        selectionMode: "single",
+      },
+    };
+
+    expect(
+      hasMissingWorkspaceUiTurn({
+        card,
+        mode: "discuss",
+        messages: [
+          {
+            id: "user_1",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: "Apa nama usaha nasi box kamu?\nJawaban: Dapur Surya Elidanto",
+              },
+            ],
+          },
+          {
+            id: "assistant_1",
+            role: "assistant",
+            parts: [{ type: "text", text: "Oke aku catat." }],
+          },
+        ],
+      }),
+    ).toBe(true);
   });
 
   it("holds a build recommendation only while the recommendation content matches", () => {

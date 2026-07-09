@@ -59,6 +59,7 @@ import {
   getBuildRecommendationHoldSignature,
   getWorkspaceComposerState,
   getWorkspacePreviewIssue,
+  hasMissingWorkspaceUiTurn,
   isBuildRecommendationHeld,
   isWorkspaceBuildComplete,
   shouldRefreshWorkspaceAfterChatStatus,
@@ -566,8 +567,9 @@ export function WorkspaceShell({
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
   const isProcessing = isResponding || isBuilding || isEditingPreview;
+  const allMessages = dedupeUiMessages([...olderMessages, ...messages]);
   const visibleMessages = filterDiscussionMessagesWithWorkspaceUi(
-    [...olderMessages, ...messages],
+    allMessages,
     mode === "discuss",
   );
   const buildRecommendationSignature =
@@ -610,10 +612,11 @@ export function WorkspaceShell({
   const hasPreview = shouldRenderGeneratedPreview;
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
-  const missingWorkspaceUiTurn =
-    mode === "discuss" &&
-    hasAssistantWithoutWorkspaceUi(messages) &&
-    isWorkspaceCardAnsweredByLatestUser(workspaceCard, messages);
+  const missingWorkspaceUiTurn = hasMissingWorkspaceUiTurn({
+    card: workspaceCard,
+    messages: allMessages,
+    mode,
+  });
   const runtimeControl = createRuntimeControl({
     buildStatus,
     isPublishing,
@@ -1844,47 +1847,23 @@ function completeBuildProgress(current: BuildProgressStep[]) {
   );
 }
 
-function isWorkspaceCardAnsweredByLatestUser(
-  card: WorkspaceCard,
-  messages: UIMessage[],
-) {
-  if (card.type !== "question") {
-    return false;
-  }
+function dedupeUiMessages(messages: UIMessage[]) {
+  const seen = new Set<string>();
 
-  const latestUserText = getUiMessageText(
-    [...messages].reverse().find((message) => message.role === "user"),
-  );
-  const answeredQuestion = latestUserText.split(/\nJawaban:/i)[0]?.trim();
-
-  return Boolean(
-    answeredQuestion && answeredQuestion === card.question.question.trim(),
-  );
-}
-
-function getUiMessageText(message: UIMessage | undefined) {
-  return (
-    message?.parts
+  return messages.filter((message) => {
+    const text = message.parts
       .filter((part) => part.type === "text")
       .map((part) => part.text)
-      .join("\n") ?? ""
-  );
-}
+      .join("\n");
+    const key = message.id || `${message.role}:${text}`;
 
-function hasAssistantWithoutWorkspaceUi(messages: UIMessage[]) {
-  const latest = [...messages]
-    .reverse()
-    .find((message) => message.role === "assistant");
+    if (seen.has(key)) {
+      return false;
+    }
 
-  if (!latest) {
-    return false;
-  }
-
-  return !latest.parts.some(
-    (part) =>
-      part.type === "tool-setWorkspaceUi" &&
-      (part as { state?: unknown }).state === "output-available",
-  );
+    seen.add(key);
+    return true;
+  });
 }
 
 function filterDiscussionMessagesWithWorkspaceUi(
