@@ -287,6 +287,58 @@ describe("project preview AI route", () => {
     expect(executeRawMock).toHaveBeenCalled();
   });
 
+  it("persists a provisional tool turn when the card advances before stream finish", async () => {
+    authMock.mockResolvedValueOnce({
+      user: { id: "user_1" },
+      expires: new Date().toISOString(),
+    });
+    streamTextMock.mockImplementationOnce(({ tools }) => {
+      void tools.setWorkspaceUi.execute({
+        briefPatch: { confidence: 40 },
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "whatsapp_number",
+            answerMode: "text",
+            question: "Nomor WhatsApp yang bisa dihubungi?",
+          },
+        },
+      });
+
+      return {
+        toUIMessageStreamResponse: () => new Response("stream"),
+      };
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/projects/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          mode: "discuss",
+          projectId: "project_1",
+          message: {
+            id: "answer_package_count",
+            role: "user",
+            parts: [{ type: "text", text: "Jawaban: 3-5 paket" }],
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      executeRawMock.mock.calls.some((call) =>
+        call.some((value: unknown) => {
+          const text = typeof value === "string" ? value : "";
+          return (
+            text.includes("tool-setWorkspaceUi") &&
+            text.includes("whatsapp_number")
+          );
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("persists the answer and advances the card before the AI stream (no stuck/repeat on failure)", async () => {
     authMock.mockResolvedValueOnce({
       user: { id: "user_1" },

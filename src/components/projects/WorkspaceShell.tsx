@@ -611,7 +611,9 @@ export function WorkspaceShell({
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
   const missingWorkspaceUiTurn =
-    mode === "discuss" && hasAssistantWithoutWorkspaceUi(messages);
+    mode === "discuss" &&
+    hasAssistantWithoutWorkspaceUi(messages) &&
+    isWorkspaceCardAnsweredByLatestUser(workspaceCard, messages);
   const runtimeControl = createRuntimeControl({
     buildStatus,
     isPublishing,
@@ -1839,6 +1841,33 @@ function addBuildProgressStep(
 function completeBuildProgress(current: BuildProgressStep[]) {
   return current.map((step) =>
     step.status === "active" ? { ...step, status: "done" as const } : step,
+  );
+}
+
+function isWorkspaceCardAnsweredByLatestUser(
+  card: WorkspaceCard,
+  messages: UIMessage[],
+) {
+  if (card.type !== "question") {
+    return false;
+  }
+
+  const latestUserText = getUiMessageText(
+    [...messages].reverse().find((message) => message.role === "user"),
+  );
+  const answeredQuestion = latestUserText.split(/\nJawaban:/i)[0]?.trim();
+
+  return Boolean(
+    answeredQuestion && answeredQuestion === card.question.question.trim(),
+  );
+}
+
+function getUiMessageText(message: UIMessage | undefined) {
+  return (
+    message?.parts
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n") ?? ""
   );
 }
 

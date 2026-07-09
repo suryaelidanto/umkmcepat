@@ -183,8 +183,13 @@ export async function POST(request: Request) {
         didWorkspaceToolUpdate = true;
         const title = workspaceTurn.projectTitle || project.title;
 
+        const provisionalMessages = dedupeUiMessages([
+          ...messages,
+          createProvisionalWorkspaceToolMessage(input, workspaceTurn),
+        ]);
+
         await prisma.$executeRaw`
-          UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(provisionalMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
         `;
 
         return workspaceTurn;
@@ -260,6 +265,29 @@ export async function POST(request: Request) {
       }
     },
   });
+}
+
+function createProvisionalWorkspaceToolMessage(
+  input: unknown,
+  output: {
+    brief: unknown;
+    projectTitle?: string;
+    workspaceCard: unknown;
+  },
+): UIMessage {
+  return {
+    id: `workspace-tool-${Date.now()}`,
+    role: "assistant",
+    parts: [
+      {
+        type: "tool-setWorkspaceUi",
+        toolCallId: `workspace-tool-${Date.now()}`,
+        state: "output-available",
+        input,
+        output,
+      },
+    ],
+  } as UIMessage;
 }
 
 function dropAssistantTurnsWithoutWorkspaceTool(messages: UIMessage[]) {
