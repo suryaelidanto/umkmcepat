@@ -23,6 +23,7 @@ export default async function HomePage() {
           orderBy: { updatedAt: "desc" },
           take: 1 + PROJECT_PAGE_SIZE + 1,
           select: {
+            buildStatus: true,
             id: true,
             title: true,
             updatedAt: true,

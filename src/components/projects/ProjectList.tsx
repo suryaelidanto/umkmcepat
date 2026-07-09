@@ -16,6 +16,7 @@ import {
 import { createProjectMark } from "./project-mark";
 
 type Project = {
+  buildStatus?: string | null;
   id: string;
   title: string;
   updatedAt: Date | string;
@@ -221,7 +222,10 @@ function FeaturedProject({
   return (
     <article className="overflow-hidden rounded-radius-3xl border border-surface-warm-white/10 bg-surface-warm-white/[0.055]">
       <div className="grid gap-0 lg:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)]">
-        <ProjectMark seed={project.id} className="min-h-44 lg:min-h-full" />
+        <ProjectPreviewThumb
+          project={project}
+          className="min-h-44 lg:min-h-full"
+        />
         <div className="flex min-h-72 flex-col p-spacing-8 sm:p-spacing-10 lg:p-spacing-11">
           <p className="text-sm text-surface-warm-white/58">
             Terakhir dikerjakan
@@ -268,8 +272,8 @@ function ProjectRow({
 }) {
   return (
     <div className="group grid grid-cols-[52px_1fr] gap-spacing-5 rounded-radius-2xl px-spacing-4 py-spacing-4 transition-colors hover:bg-surface-warm-white/[0.055] sm:grid-cols-[60px_1fr_auto] sm:items-center sm:px-spacing-5">
-      <ProjectMark
-        seed={project.id}
+      <ProjectPreviewThumb
+        project={project}
         className="h-14 rounded-radius-xl sm:h-16"
       />
       <div className="min-w-0">
@@ -303,6 +307,43 @@ function ProjectRow({
         </Button>
       </div>
     </div>
+  );
+}
+
+function ProjectPreviewThumb({
+  className = "",
+  project,
+}: {
+  className?: string;
+  project: Project;
+}) {
+  const canPreview = ["ready", "succeeded", "passed"].includes(
+    project.buildStatus ?? "",
+  );
+
+  if (!canPreview) {
+    return <ProjectMark seed={project.id} className={className} />;
+  }
+
+  return (
+    <Link
+      href={`/projects/${project.id}`}
+      className={`group relative block overflow-hidden bg-[#10100f] ${className}`}
+      aria-label={`Buka ${project.title}`}
+    >
+      <iframe
+        title={`Cuplikan ${project.title}`}
+        src={`/api/projects/${project.id}/preview/?thumb=1`}
+        sandbox="allow-scripts"
+        loading="lazy"
+        tabIndex={-1}
+        className="pointer-events-none h-[400%] w-[400%] origin-top-left scale-25 border-0 bg-white opacity-95 transition duration-300 group-hover:opacity-100"
+      />
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-surface-warm-white/10" />
+      <div className="pointer-events-none absolute bottom-spacing-3 left-spacing-3 rounded-full border border-surface-warm-white/12 bg-[#151515]/82 px-spacing-3 py-spacing-2 text-xs font-medium text-surface-warm-white/78 backdrop-blur">
+        Preview
+      </div>
+    </Link>
   );
 }
 

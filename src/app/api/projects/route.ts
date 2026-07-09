@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     orderBy: { updatedAt: "desc" },
     take: PROJECT_PAGE_SIZE + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    select: { id: true, title: true, updatedAt: true },
+    select: { buildStatus: true, id: true, title: true, updatedAt: true },
   });
   const hasMore = projects.length > PROJECT_PAGE_SIZE;
   const items = hasMore ? projects.slice(0, PROJECT_PAGE_SIZE) : projects;
