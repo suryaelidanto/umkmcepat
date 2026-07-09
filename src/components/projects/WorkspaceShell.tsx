@@ -1391,7 +1391,8 @@ export function WorkspaceShell({
                 <div className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62">
                   Tunggu sebentar sebelum mengirim jawaban berikutnya.
                 </div>
-              ) : composerState === "question" &&
+              ) : !missingWorkspaceUiTurn &&
+                composerState === "question" &&
                 workspaceCard.type === "question" ? (
                 <AnimatePresence mode="wait" initial={false}>
                   {questionComposerMode === "options" ? (
