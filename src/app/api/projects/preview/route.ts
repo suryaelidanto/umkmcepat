@@ -319,7 +319,13 @@ async function handleStructuredDiscussTurn({
     usage: result.usage,
   });
 
-  const output = parseStructuredDiscussOutput(result.text);
+  const output = await parseOrRepairStructuredDiscussOutput({
+    chatContext,
+    effectiveBrief,
+    modelName,
+    projectId: project.id,
+    rawText: result.text,
+  });
   const assistantText = output.assistantText.trim();
   const workspaceTurn = normalizeWorkspaceTurn(output, effectiveBrief);
   const assistantMessage: UIMessage = {
@@ -400,6 +406,60 @@ function buildStructuredDiscussPrompt({
     "Recent conversation JSON:",
     JSON.stringify(chatContext.messages),
   ].join("\n\n");
+}
+
+async function parseOrRepairStructuredDiscussOutput({
+  chatContext,
+  effectiveBrief,
+  modelName,
+  projectId,
+  rawText,
+}: {
+  chatContext: ReturnType<typeof buildProjectChatContext>;
+  effectiveBrief: ReturnType<typeof parseProjectBrief>;
+  modelName: string;
+  projectId: string;
+  rawText: string;
+}): Promise<WorkspaceDiscussOutput> {
+  try {
+    return parseStructuredDiscussOutput(rawText);
+  } catch (error) {
+    await writeAiRequestLog({
+      event: "discuss:repair-start",
+      error: error instanceof Error ? error.message : String(error),
+      model: modelName,
+      projectId,
+      rawTextPreview: rawText.slice(0, 2000),
+    });
+
+    const repair = await generateText({
+      model: getAiModel(modelName),
+      prompt: [
+        "Convert the raw assistant response into valid JSON only. No markdown. No prose outside JSON.",
+        'Schema: {"assistantText": string, "briefPatch": object, "workspaceCard": object, "projectTitle"?: string}',
+        "The JSON must preserve the raw assistant meaning and ask the next matching workspace question.",
+        "Current brief JSON:",
+        JSON.stringify(effectiveBrief),
+        "Recent conversation JSON:",
+        JSON.stringify(chatContext.messages),
+        "Raw assistant response:",
+        rawText,
+      ].join("\n\n"),
+      temperature: 0,
+      maxRetries: 0,
+    });
+
+    await writeAiRequestLog({
+      event: "discuss:repair-output",
+      finishReason: repair.finishReason,
+      model: modelName,
+      projectId,
+      textPreview: repair.text.slice(0, 2000),
+      usage: repair.usage,
+    });
+
+    return parseStructuredDiscussOutput(repair.text);
+  }
 }
 
 function parseStructuredDiscussOutput(text: string): WorkspaceDiscussOutput {
