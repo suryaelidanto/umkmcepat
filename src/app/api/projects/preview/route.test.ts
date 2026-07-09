@@ -364,7 +364,10 @@ describe("project preview AI route", () => {
     expect(executeRawMock.mock.calls.length).toBe(1);
 
     resolveTool();
-    await vi.advanceTimersByTimeAsync(1200);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(finishCompleted).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(3000);
     await vi.runAllTimersAsync();
 
     expect(finishCompleted).toBe(true);

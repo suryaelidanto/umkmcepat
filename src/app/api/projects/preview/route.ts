@@ -402,7 +402,7 @@ async function waitForWorkspaceToolSettled(
     return;
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 1200));
+  await new Promise((resolve) => setTimeout(resolve, 8000));
   await getPromise();
 }
 

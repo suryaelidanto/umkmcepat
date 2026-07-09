@@ -617,6 +617,11 @@ export function WorkspaceShell({
     messages: allMessages,
     mode,
   });
+  const hasAnsweredActiveQuestion = hasAnsweredActiveWorkspaceQuestion({
+    card: workspaceCard,
+    messages: allMessages,
+    mode,
+  });
   const runtimeControl = createRuntimeControl({
     buildStatus,
     isPublishing,
@@ -1419,6 +1424,7 @@ export function WorkspaceShell({
                   Tunggu sebentar sebelum mengirim jawaban berikutnya.
                 </div>
               ) : !missingWorkspaceUiTurn &&
+                !hasAnsweredActiveQuestion &&
                 composerState === "question" &&
                 workspaceCard.type === "question" ? (
                 <AnimatePresence mode="wait" initial={false}>
@@ -1912,6 +1918,40 @@ function filterDiscussionMessagesWithWorkspaceUi(
       );
     });
   });
+}
+
+function hasAnsweredActiveWorkspaceQuestion({
+  card,
+  messages,
+  mode,
+}: {
+  card: WorkspaceCard;
+  messages: UIMessage[];
+  mode: string;
+}) {
+  if (mode !== "discuss" || card.type !== "question") {
+    return false;
+  }
+
+  const latestUserMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "user");
+
+  if (!latestUserMessage) {
+    return false;
+  }
+
+  const text = getUiMessageText(latestUserMessage);
+  const answeredQuestion = text.split(/\nJawaban:/i)[0]?.trim();
+
+  return answeredQuestion === card.question.question.trim();
+}
+
+function getUiMessageText(message: UIMessage) {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n");
 }
 
 function getLatestWorkspaceUpdateFromMessages(messages: UIMessage[]) {
