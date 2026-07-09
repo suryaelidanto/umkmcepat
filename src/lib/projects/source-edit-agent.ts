@@ -15,9 +15,11 @@ import { type GeneratedProjectFile } from "./generated-source";
 export async function editGeneratedSourceWithAgent({
   files,
   instruction,
+  model,
 }: {
   files: GeneratedProjectFile[];
   instruction: string;
+  model?: string;
 }) {
   let currentFiles = files;
   const operationTrace: GeneratedAppAgentOperation[] = [];
@@ -38,7 +40,7 @@ export async function editGeneratedSourceWithAgent({
   };
 
   const agent = new ToolLoopAgent({
-    model: getAiModel(getEditAiModel()),
+    model: getAiModel(model || getEditAiModel()),
     instructions: EDIT_AGENT_INSTRUCTIONS,
     stopWhen: stepCountIs(18),
     tools: {

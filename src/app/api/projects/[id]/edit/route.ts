@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { getDefaultAiModel } from "@/lib/ai-models";
 import { auth } from "@/lib/auth";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
@@ -245,6 +246,29 @@ export async function POST(request: Request, { params }: RouteProps) {
     sideEffects: editResult.sideEffects.length,
   });
 
+  if (!editResult.ok && !requestedCommands.length) {
+    await updateProjectEditAttempt(attempt.id, { status: "repairing" });
+    const fallbackResult = await editGeneratedSourceWithAgent({
+      files: baseFiles,
+      instruction: [
+        instruction,
+        "The fast edit attempt failed. Retry carefully with the stronger default model.",
+        "Keep the edit minimal and run check_app.",
+      ].join("\n\n"),
+      model: getDefaultAiModel(),
+    });
+
+    if (fallbackResult.ok) {
+      editResult.files = fallbackResult.files;
+      editResult.operations = [
+        ...editResult.operations,
+        ...fallbackResult.operations,
+      ];
+      editResult.outputs = [...editResult.outputs, ...fallbackResult.outputs];
+      editResult.sideEffects = fallbackResult.sideEffects;
+    }
+  }
+
   if (!editResult.ok) {
     await updateProjectEditAttempt(attempt.id, {
       errorMessage: "Edit agent failed.",
@@ -281,6 +305,7 @@ export async function POST(request: Request, { params }: RouteProps) {
 
     const repairResult = await editGeneratedSourceWithAgent({
       files: editResult.files,
+      model: getDefaultAiModel(),
       instruction: [
         instruction,
         "Previous edit did not make a meaningful rendered-source change.",
