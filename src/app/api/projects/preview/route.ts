@@ -289,27 +289,32 @@ async function handleStructuredDiscussTurn({
   const modelName = getChatAiModel();
   let workspaceTurn = normalizeWorkspaceTurn(undefined, effectiveBrief);
   let didWorkspaceToolUpdate = false;
+  let workspaceToolPromise: Promise<void> | null = null;
   const workspaceTools = {
     setWorkspaceUi: tool({
       description:
         "Update the hidden UMKM Cepat workspace brief and interactive UI card. Before calling this tool, always write a short visible Indonesian chat response to the user. Call the tool exactly once per turn after that visible text.",
       inputSchema: workspaceTurnToolInputSchema,
       execute: async (input: unknown) => {
-        workspaceTurn = normalizeWorkspaceTurn(input, effectiveBrief);
-        didWorkspaceToolUpdate = true;
-        const title = workspaceTurn.projectTitle || project.title;
+        const nextWorkspaceTurn = normalizeWorkspaceTurn(input, effectiveBrief);
+        workspaceToolPromise = (async () => {
+          workspaceTurn = nextWorkspaceTurn;
+          didWorkspaceToolUpdate = true;
+          const title = workspaceTurn.projectTitle || project.title;
 
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
+          await prisma.$executeRaw`
+            UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+          `;
 
-        await writeAiRequestLog({
-          event: "discuss:tool-output",
-          model: modelName,
-          projectId: project.id,
-          workspaceCard: workspaceTurn.workspaceCard,
-        });
+          await writeAiRequestLog({
+            event: "discuss:tool-output",
+            model: modelName,
+            projectId: project.id,
+            workspaceCard: workspaceTurn.workspaceCard,
+          });
+        })();
 
+        await workspaceToolPromise;
         return workspaceTurn;
       },
     }),
@@ -349,6 +354,8 @@ async function handleStructuredDiscussTurn({
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
     onFinish: async ({ messages }) => {
+      await waitForWorkspaceToolSettled(() => workspaceToolPromise);
+
       const safeMessages = dedupeUiMessages(parseProjectChatMessages(messages));
       const title = workspaceTurn.projectTitle || project.title;
 
@@ -383,6 +390,20 @@ async function handleStructuredDiscussTurn({
       }
     },
   });
+}
+
+async function waitForWorkspaceToolSettled(
+  getPromise: () => Promise<void> | null,
+) {
+  const existingPromise = getPromise();
+
+  if (existingPromise) {
+    await existingPromise;
+    return;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  await getPromise();
 }
 
 function dedupeUiMessages(messages: UIMessage[]) {

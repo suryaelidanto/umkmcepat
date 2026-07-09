@@ -303,12 +303,14 @@ describe("project preview AI route", () => {
     );
   });
 
-  it("does not let an early finish overwrite a later discuss tool card", async () => {
+  it("waits for a delayed discuss tool before completing finish persistence", async () => {
+    vi.useFakeTimers();
     authed();
     let resolveTool!: () => void;
     const toolGate = new Promise<void>((resolve) => {
       resolveTool = resolve;
     });
+    let finishCompleted = false;
 
     streamTextMock.mockImplementationOnce(({ tools }) => {
       const toolPromise = (async () => {
@@ -331,9 +333,15 @@ describe("project preview AI route", () => {
         toUIMessageStreamResponse: ({
           onFinish,
         }: {
-          onFinish: (input: { messages: unknown[] }) => void;
+          onFinish: (input: { messages: unknown[] }) => void | Promise<void>;
         }) => {
-          void onFinish({ messages: [{ id: "m1", role: "user", parts: [] }] });
+          void Promise.resolve(
+            onFinish({
+              messages: [{ id: "m1", role: "user", parts: [] }],
+            }),
+          ).then(() => {
+            finishCompleted = true;
+          });
           void toolPromise;
           return new Response("stream");
         },
@@ -351,11 +359,16 @@ describe("project preview AI route", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(executeRawMock.mock.calls.length).toBe(2);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(finishCompleted).toBe(false);
+    expect(executeRawMock.mock.calls.length).toBe(1);
 
     resolveTool();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.advanceTimersByTimeAsync(1200);
+    await vi.runAllTimersAsync();
 
+    expect(finishCompleted).toBe(true);
     expect(executeRawMock.mock.calls.length).toBe(3);
+    vi.useRealTimers();
   });
 });
