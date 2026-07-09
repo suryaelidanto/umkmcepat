@@ -27,7 +27,7 @@ Verbose development mode:
 bun run dev:verbose
 ```
 
-Use verbose mode whenever debugging project generation, generated runtime previews, auth/session flow, storage/artifacts, build workers, or any bug that is not immediately obvious from the UI. It sets `UMKM_VERBOSE_DEV=1` and prints structured terminal lines like `[umkm:scope] event {"key":"value"}`. Keep normal `bun run dev` quiet; add new verbose logs through `src/lib/dev-log.ts` instead of raw `console.log`.
+Use verbose mode whenever debugging project generation, generated runtime previews, auth/session flow, storage/artifacts, build workers, AI request parsing, or any bug that is not immediately obvious from the UI. It sets `UMKM_VERBOSE_DEV=1` and prints structured terminal lines like `[umkm:scope] event {"key":"value"}`. AI request traces are also appended to `.data/tmp/ai-debug/requests.ndjson` while the local server is running. Keep normal `bun run dev` quiet; add new verbose logs through `src/lib/dev-log.ts` or `src/lib/ai-request-log.ts` instead of raw `console.log`.
 
 If port 3000 is already used by a repo-owned Next dev process, reset it safely:
 

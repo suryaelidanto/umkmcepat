@@ -158,6 +158,35 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("accepts AI question title and description aliases", () => {
+    const brief = createInitialBrief("butuh website laundry");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "business_name",
+            answerMode: "text",
+            title: "Nama laundry kamu apa?",
+            description: "Nama ini akan jadi judul utama website.",
+            placeholder: "Misal: Laundry Bekasi Fresh",
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.question).toBe(
+        "Nama laundry kamu apa?",
+      );
+      expect(turn.workspaceCard.question.whyThisQuestionMatters).toBe(
+        "Nama ini akan jadi judul utama website.",
+      );
+    }
+  });
+
   it("accepts free-form AI question ids", () => {
     const brief = createInitialBrief("butuh app booking barbershop");
     const turn = normalizeWorkspaceTurn(

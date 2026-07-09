@@ -339,7 +339,12 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     return null;
   }
 
-  const question = cleanText(candidate.question, 160);
+  const aliasedQuestion = candidate as Partial<BriefQuestion> & {
+    description?: unknown;
+    title?: unknown;
+  };
+  const question =
+    cleanText(candidate.question, 160) || cleanText(aliasedQuestion.title, 160);
   const options = Array.isArray(candidate.options)
     ? candidate.options
         .filter(
@@ -384,7 +389,9 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
         ? "multiple"
         : "single",
     whyThisQuestionMatters:
-      cleanText(candidate.whyThisQuestionMatters, 180) || undefined,
+      cleanText(candidate.whyThisQuestionMatters, 180) ||
+      cleanText(aliasedQuestion.description, 180) ||
+      undefined,
   };
 }
 

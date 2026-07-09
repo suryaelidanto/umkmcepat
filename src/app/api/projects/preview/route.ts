@@ -12,6 +12,7 @@ import {
 
 import { getAiModel } from "@/lib/ai";
 import { getChatAiModel } from "@/lib/ai-models";
+import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -288,14 +289,34 @@ async function handleStructuredDiscussTurn({
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
+  const modelName = getChatAiModel();
+  const prompt = buildStructuredDiscussPrompt({
+    chatContext,
+    effectiveBrief,
+  });
+
+  await writeAiRequestLog({
+    event: "discuss:start",
+    model: modelName,
+    projectId: project.id,
+    messageCount: messages.length,
+    briefConfidence: effectiveBrief.confidence,
+  });
+
   const result = await generateText({
-    model: getAiModel(getChatAiModel()),
-    prompt: buildStructuredDiscussPrompt({
-      chatContext,
-      effectiveBrief,
-    }),
+    model: getAiModel(modelName),
+    prompt,
     temperature: 0.2,
     maxRetries: 0,
+  });
+
+  await writeAiRequestLog({
+    event: "discuss:raw-output",
+    finishReason: result.finishReason,
+    model: modelName,
+    projectId: project.id,
+    textPreview: result.text.slice(0, 2000),
+    usage: result.usage,
   });
 
   const output = parseStructuredDiscussOutput(result.text);
@@ -317,6 +338,14 @@ async function handleStructuredDiscussTurn({
   } as UIMessage;
   const safeMessages = dedupeUiMessages([...messages, assistantMessage]);
   const title = workspaceTurn.projectTitle || project.title;
+
+  await writeAiRequestLog({
+    event: "discuss:parsed",
+    model: modelName,
+    projectId: project.id,
+    assistantTextPreview: assistantText.slice(0, 500),
+    workspaceCard: workspaceTurn.workspaceCard,
+  });
 
   await prisma.$executeRaw`
     UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
