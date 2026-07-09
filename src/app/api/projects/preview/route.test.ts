@@ -5,6 +5,7 @@ const {
   executeRawMock,
   projectFindFirstMock,
   queryRawMock,
+  generateObjectMock,
   streamTextMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
@@ -12,6 +13,7 @@ const {
     id: "project_1",
     prompt: "Saya jual bakso",
     status: "discussing",
+    title: "Website Bakso",
   })),
   queryRawMock: vi.fn(async () => [
     {
@@ -24,6 +26,26 @@ const {
     },
   ]),
   executeRawMock: vi.fn(async () => 1),
+  generateObjectMock: vi.fn(async () => ({
+    object: {
+      assistantText:
+        "Oke, aku catat. Sekarang pilih pelanggan utama bakso ini.",
+      briefPatch: { offer: "Bakso" },
+      workspaceCard: {
+        type: "question",
+        question: {
+          id: "targetCustomer",
+          question: "Pelanggan utama bakso ini siapa?",
+          answerMode: "choice",
+          options: [
+            { label: "Pekerja sekitar", description: "Fokus makan siang." },
+            { label: "Keluarga", description: "Fokus makan bersama." },
+            { label: "Anak sekolah", description: "Fokus harga hemat." },
+          ],
+        },
+      },
+    },
+  })),
   streamTextMock: vi.fn(({ tools }) => {
     void tools.setWorkspaceUi.execute({
       briefPatch: { offer: "Bakso" },
@@ -88,6 +110,17 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("ai", () => ({
   convertToModelMessages: vi.fn(async (messages) => messages),
+  createUIMessageStream: vi.fn(({ execute }) => {
+    const chunks: unknown[] = [];
+    void execute({ writer: { write: (chunk: unknown) => chunks.push(chunk) } });
+    return new ReadableStream({
+      start(controller) {
+        controller.close();
+      },
+    });
+  }),
+  createUIMessageStreamResponse: vi.fn(() => new Response("structured-stream")),
+  generateObject: generateObjectMock,
   jsonSchema: vi.fn((schema) => schema),
   stepCountIs: vi.fn((count) => ({ count })),
   streamText: streamTextMock,
@@ -180,14 +213,14 @@ describe("project preview AI route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(streamTextMock).toHaveBeenCalledWith(
+    expect(generateObjectMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining(
+        prompt: expect.stringContaining(
           '"businessType":"aku ada toko bakso sih"',
         ),
-        toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
       }),
     );
+    expect(streamTextMock).not.toHaveBeenCalled();
   });
 
   it("self-heals recent formatted answers from stored chat", async () => {
@@ -246,9 +279,9 @@ describe("project preview AI route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(streamTextMock).toHaveBeenCalledWith(
+    expect(generateObjectMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining(
+        prompt: expect.stringContaining(
           '"businessType":"aku ada toko bakso sih"',
         ),
       }),
@@ -287,27 +320,10 @@ describe("project preview AI route", () => {
     expect(executeRawMock).toHaveBeenCalled();
   });
 
-  it("persists a provisional tool turn when the card advances before stream finish", async () => {
+  it("persists structured discuss text and workspace card atomically", async () => {
     authMock.mockResolvedValueOnce({
       user: { id: "user_1" },
       expires: new Date().toISOString(),
-    });
-    streamTextMock.mockImplementationOnce(({ tools }) => {
-      void tools.setWorkspaceUi.execute({
-        briefPatch: { confidence: 40 },
-        workspaceCard: {
-          type: "question",
-          question: {
-            id: "whatsapp_number",
-            answerMode: "text",
-            question: "Nomor WhatsApp yang bisa dihubungi?",
-          },
-        },
-      });
-
-      return {
-        toUIMessageStreamResponse: () => new Response("stream"),
-      };
     });
 
     const response = await POST(
@@ -326,74 +342,20 @@ describe("project preview AI route", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(await response.text()).toBe("structured-stream");
     expect(
       executeRawMock.mock.calls.some((call) =>
         call.some((value: unknown) => {
           const text = typeof value === "string" ? value : "";
           return (
+            text.includes("Oke, aku catat. Sekarang pilih pelanggan utama") &&
             text.includes("tool-setWorkspaceUi") &&
-            text.includes("whatsapp_number") &&
-            text.includes("Berikutnya: Nomor WhatsApp yang bisa dihubungi?")
+            text.includes("targetCustomer")
           );
         }),
       ),
     ).toBe(true);
-  });
-
-  it("keeps text-only assistant turns so failures explain themselves", async () => {
-    authMock.mockResolvedValueOnce({
-      user: { id: "user_1" },
-      expires: new Date().toISOString(),
-    });
-    streamTextMock.mockImplementationOnce(() => ({
-      toUIMessageStreamResponse: ({
-        onFinish,
-      }: {
-        onFinish: (input: { messages: unknown[] }) => void;
-      }) => {
-        void onFinish({
-          messages: [
-            {
-              id: "answer_1",
-              role: "user",
-              parts: [{ type: "text", text: "Jawaban: Jakarta Timur" }],
-            },
-            {
-              id: "assistant_text_only",
-              role: "assistant",
-              parts: [{ type: "text", text: "Oke, aku catat Jakarta Timur." }],
-            },
-          ],
-        });
-        return new Response("stream");
-      },
-    }));
-
-    const response = await POST(
-      new Request("http://localhost/api/projects/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          mode: "discuss",
-          projectId: "project_1",
-          message: {
-            id: "answer_1",
-            role: "user",
-            parts: [{ type: "text", text: "Jawaban: Jakarta Timur" }],
-          },
-        }),
-      }),
-    );
-
-    expect(response.status).toBe(200);
-    expect(
-      executeRawMock.mock.calls.some((call) =>
-        call.some(
-          (value: unknown) =>
-            typeof value === "string" &&
-            value.includes("Oke, aku catat Jakarta Timur."),
-        ),
-      ),
-    ).toBe(true);
+    expect(streamTextMock).not.toHaveBeenCalled();
   });
 
   it("persists the answer and advances the card before the AI stream (no stuck/repeat on failure)", async () => {
@@ -407,10 +369,25 @@ describe("project preview AI route", () => {
       callOrder.push("executeRaw");
       return 1;
     });
-    streamTextMock.mockImplementationOnce(() => {
-      callOrder.push("streamText");
+    generateObjectMock.mockImplementationOnce(async () => {
+      callOrder.push("generateObject");
       return {
-        toUIMessageStreamResponse: () => new Response("stream"),
+        object: {
+          assistantText: "Oke, aku catat.",
+          briefPatch: { offer: "Bakso" },
+          workspaceCard: {
+            type: "question",
+            question: {
+              id: "targetCustomer",
+              question: "Pelanggan utama bakso ini siapa?",
+              answerMode: "choice",
+              options: [
+                { label: "Pekerja sekitar", description: "Fokus makan siang." },
+                { label: "Keluarga", description: "Fokus makan bersama." },
+              ],
+            },
+          },
+        },
       };
     });
 
@@ -430,12 +407,12 @@ describe("project preview AI route", () => {
     );
 
     expect(response.status).toBe(200);
-    // Phase 1 (deterministic persist) must run before the AI stream starts, so
-    // a mid-stream failure can never lose the answer or re-ask the question.
+    // Phase 1 (deterministic persist) must run before AI generation, so a
+    // provider failure can never lose the answer or re-ask the question.
     expect(callOrder[0]).toBe("executeRaw");
-    expect(callOrder).toContain("streamText");
+    expect(callOrder).toContain("generateObject");
     expect(callOrder.indexOf("executeRaw")).toBeLessThan(
-      callOrder.indexOf("streamText"),
+      callOrder.indexOf("generateObject"),
     );
   });
 });

@@ -1,5 +1,9 @@
 import {
   convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  generateObject,
+  jsonSchema,
   stepCountIs,
   streamText,
   tool,
@@ -101,9 +105,7 @@ export async function POST(request: Request) {
   >`
     SELECT "chatMessages", "chatSummary", "memoryFacts", "lastCompactedMessageCount", "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
   `;
-  const storedMessages = repairToolOnlyWorkspaceMessages(
-    parseProjectChatMessages(chatRow?.chatMessages),
-  );
+  const storedMessages = parseProjectChatMessages(chatRow?.chatMessages);
   const parsedChatSummary = parseProjectChatSummary(chatRow?.chatSummary);
   const chatSummary = {
     ...parsedChatSummary,
@@ -164,12 +166,34 @@ export async function POST(request: Request) {
     );
   }
 
-  // Persist the user's answer before the AI stream, but keep the current
-  // workspaceCard until the AI writes the next one. Otherwise a refresh during
-  // streaming makes the mandatory UI question disappear.
+  // Persist the user's answer before AI work. The discuss path below writes
+  // assistant text + workspace card atomically from one structured AI output.
   await prisma.$executeRaw`
     UPDATE "Project" SET "brief" = ${JSON.stringify(effectiveBrief)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
   `;
+
+  const messages = await validateUIMessages({
+    messages: dedupeUiMessages(
+      parseProjectChatMessages([...storedMessages, ...incoming]),
+    ),
+  });
+  const chatContext = buildProjectChatContext({
+    memoryFacts,
+    messages,
+    summary: chatSummary,
+  });
+
+  if (mode === "discuss") {
+    return handleStructuredDiscussTurn({
+      chatContext,
+      effectiveBrief,
+      memoryFacts,
+      messages,
+      project,
+      summary: chatSummary,
+      userId,
+    });
+  }
 
   let didWorkspaceToolUpdate = false;
   const workspaceTools = {
@@ -185,29 +209,14 @@ export async function POST(request: Request) {
         didWorkspaceToolUpdate = true;
         const title = workspaceTurn.projectTitle || project.title;
 
-        const provisionalMessages = dedupeUiMessages([
-          ...messages,
-          createProvisionalWorkspaceToolMessage(input, workspaceTurn),
-        ]);
-
         await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(provisionalMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+          UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
         `;
 
         return workspaceTurn;
       },
     }),
   };
-  const messages = await validateUIMessages({
-    messages: dedupeUiMessages(
-      parseProjectChatMessages([...storedMessages, ...incoming]),
-    ),
-  });
-  const chatContext = buildProjectChatContext({
-    memoryFacts,
-    messages,
-    summary: chatSummary,
-  });
   let workspaceTurn = normalizeWorkspaceTurn(undefined, effectiveBrief);
 
   const result = streamText({
@@ -221,10 +230,7 @@ export async function POST(request: Request) {
       tools: workspaceTools,
     }),
     tools: workspaceTools,
-    toolChoice:
-      mode === "discuss"
-        ? { type: "tool", toolName: "setWorkspaceUi" }
-        : "auto",
+    toolChoice: "auto",
     stopWhen: stepCountIs(1),
     maxRetries: 0,
     temperature: 0.35,
@@ -266,86 +272,114 @@ export async function POST(request: Request) {
   });
 }
 
-function createProvisionalWorkspaceToolMessage(
-  input: unknown,
-  output: {
-    brief: unknown;
-    projectTitle?: string;
-    workspaceCard: unknown;
-  },
-): UIMessage {
-  return {
-    id: `workspace-tool-${Date.now()}`,
+async function handleStructuredDiscussTurn({
+  chatContext,
+  effectiveBrief,
+  memoryFacts,
+  messages,
+  project,
+  summary,
+  userId,
+}: {
+  chatContext: ReturnType<typeof buildProjectChatContext>;
+  effectiveBrief: ReturnType<typeof parseProjectBrief>;
+  memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
+  messages: UIMessage[];
+  project: { id: string; prompt: string; status: string; title: string };
+  summary: ReturnType<typeof parseProjectChatSummary>;
+  userId: string;
+}) {
+  const turnSchema = getWorkspaceTurnJsonSchema();
+  const result = await generateObject({
+    model: getAiModel(getChatAiModel()),
+    schema: jsonSchema<WorkspaceDiscussOutput>({
+      type: "object",
+      properties: {
+        assistantText: {
+          type: "string",
+          description:
+            "Visible friendly Indonesian reply to the user before the UI card. Use aku/kamu.",
+        },
+        briefPatch: turnSchema.properties?.briefPatch,
+        projectTitle: { type: "string" },
+        workspaceCard: turnSchema.properties?.workspaceCard,
+      },
+      required: ["assistantText", "workspaceCard"],
+    } as never),
+    prompt: [
+      buildSystemPrompt({
+        context: chatContext.systemContext,
+        mode: "discuss",
+        brief: effectiveBrief,
+      }),
+      "\nRecent conversation JSON:",
+      JSON.stringify(chatContext.messages),
+      "\nReturn exactly one structured discussion turn. assistantText and workspaceCard must be coherent with each other.",
+    ].join("\n"),
+    temperature: 0.35,
+    maxRetries: 0,
+  });
+
+  const output = result.object;
+  const assistantText = output.assistantText.trim();
+  const workspaceTurn = normalizeWorkspaceTurn(output, effectiveBrief);
+  const assistantMessage: UIMessage = {
+    id: `assistant-${Date.now()}`,
     role: "assistant",
     parts: [
-      {
-        type: "text",
-        text: getProvisionalWorkspaceText(output.workspaceCard, output.brief),
-        state: "done",
-      },
+      { type: "text", text: assistantText, state: "done" },
       {
         type: "tool-setWorkspaceUi",
-        toolCallId: `workspace-tool-${Date.now()}`,
+        toolCallId: `workspace-${Date.now()}`,
         state: "output-available",
-        input,
-        output,
+        input: output,
+        output: workspaceTurn,
       },
     ],
   } as UIMessage;
-}
+  const safeMessages = dedupeUiMessages([...messages, assistantMessage]);
+  const title = workspaceTurn.projectTitle || project.title;
 
-function getProvisionalWorkspaceText(card: unknown, brief: unknown) {
-  const workspaceCard = parseWorkspaceCard(card, parseProjectBrief(brief));
+  await prisma.$executeRaw`
+    UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+  `;
 
-  if (workspaceCard.type === "question") {
-    return `Oke, aku catat. Berikutnya: ${workspaceCard.question.question}`;
+  const compaction = await maybeCompactProjectChat({
+    memoryFacts,
+    messages: safeMessages,
+    summary,
+  }).catch(() => null);
+
+  if (compaction) {
+    await prisma.$executeRaw`
+      UPDATE "Project" SET "chatSummary" = ${JSON.stringify(compaction.summary)}::jsonb, "memoryFacts" = ${JSON.stringify(compaction.memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compaction.compactedMessageCount} WHERE id = ${project.id} AND "userId" = ${userId}
+    `;
   }
 
-  if (workspaceCard.type === "brief_review") {
-    return "Oke, aku rangkum dulu biar kamu bisa cek sebelum websitenya dibuat.";
-  }
-
-  if (workspaceCard.type === "build_recommendation") {
-    return "Brief sudah cukup. Aku siap mulai bikin websitenya kalau kamu setuju.";
-  }
-
-  return "Oke, aku catat.";
-}
-
-function repairToolOnlyWorkspaceMessages(messages: UIMessage[]) {
-  return messages.map((message) => {
-    if (
-      message.role !== "assistant" ||
-      message.parts.some((part) => part.type === "text")
-    ) {
-      return message;
-    }
-
-    const toolPart = message.parts.find(
-      (part) =>
-        part.type === "tool-setWorkspaceUi" &&
-        (part as { state?: unknown }).state === "output-available",
-    ) as { output?: { brief?: unknown; workspaceCard?: unknown } } | undefined;
-
-    if (!toolPart?.output?.workspaceCard) {
-      return message;
-    }
-
-    return {
-      ...message,
-      parts: [
-        {
-          type: "text",
-          text: getProvisionalWorkspaceText(
-            toolPart.output.workspaceCard,
-            toolPart.output.brief,
-          ),
-          state: "done",
-        },
-        ...message.parts,
-      ],
-    } as UIMessage;
+  const stream = createUIMessageStream<UIMessage>({
+    originalMessages: messages,
+    execute: ({ writer }) => {
+      writer.write({ type: "start", messageId: assistantMessage.id });
+      writer.write({ type: "text-start", id: "text-0" });
+      writer.write({ type: "text-delta", id: "text-0", delta: assistantText });
+      writer.write({ type: "text-end", id: "text-0" });
+      writer.write({ type: "finish" });
+    },
   });
+
+  return createUIMessageStreamResponse({ stream });
+}
+
+type WorkspaceDiscussOutput = {
+  assistantText: string;
+} & Parameters<typeof normalizeWorkspaceTurn>[0];
+
+function getWorkspaceTurnJsonSchema() {
+  const schema = workspaceTurnToolInputSchema as unknown as {
+    jsonSchema?: { properties?: Record<string, unknown> };
+  };
+
+  return schema.jsonSchema ?? { properties: {} };
 }
 
 function dedupeUiMessages(messages: UIMessage[]) {
