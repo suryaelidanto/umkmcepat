@@ -340,6 +340,62 @@ describe("project preview AI route", () => {
     ).toBe(true);
   });
 
+  it("keeps text-only assistant turns so failures explain themselves", async () => {
+    authMock.mockResolvedValueOnce({
+      user: { id: "user_1" },
+      expires: new Date().toISOString(),
+    });
+    streamTextMock.mockImplementationOnce(() => ({
+      toUIMessageStreamResponse: ({
+        onFinish,
+      }: {
+        onFinish: (input: { messages: unknown[] }) => void;
+      }) => {
+        void onFinish({
+          messages: [
+            {
+              id: "answer_1",
+              role: "user",
+              parts: [{ type: "text", text: "Jawaban: Jakarta Timur" }],
+            },
+            {
+              id: "assistant_text_only",
+              role: "assistant",
+              parts: [{ type: "text", text: "Oke, aku catat Jakarta Timur." }],
+            },
+          ],
+        });
+        return new Response("stream");
+      },
+    }));
+
+    const response = await POST(
+      new Request("http://localhost/api/projects/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          mode: "discuss",
+          projectId: "project_1",
+          message: {
+            id: "answer_1",
+            role: "user",
+            parts: [{ type: "text", text: "Jawaban: Jakarta Timur" }],
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      executeRawMock.mock.calls.some((call) =>
+        call.some(
+          (value: unknown) =>
+            typeof value === "string" &&
+            value.includes("Oke, aku catat Jakarta Timur."),
+        ),
+      ),
+    ).toBe(true);
+  });
+
   it("persists the answer and advances the card before the AI stream (no stuck/repeat on failure)", async () => {
     authMock.mockResolvedValueOnce({
       user: { id: "user_1" },

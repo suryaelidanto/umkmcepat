@@ -101,7 +101,9 @@ export async function POST(request: Request) {
   >`
     SELECT "chatMessages", "chatSummary", "memoryFacts", "lastCompactedMessageCount", "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
   `;
-  const storedMessages = parseProjectChatMessages(chatRow?.chatMessages);
+  const storedMessages = repairToolOnlyWorkspaceMessages(
+    parseProjectChatMessages(chatRow?.chatMessages),
+  );
   const parsedChatSummary = parseProjectChatSummary(chatRow?.chatSummary);
   const chatSummary = {
     ...parsedChatSummary,
@@ -237,10 +239,7 @@ export async function POST(request: Request) {
       const safeMessages = dedupeUiMessages(parseProjectChatMessages(messages));
 
       const title = workspaceTurn.projectTitle || project.title;
-      const messagesToPersist =
-        didWorkspaceToolUpdate || mode !== "discuss"
-          ? safeMessages
-          : dropAssistantTurnsWithoutWorkspaceTool(safeMessages);
+      const messagesToPersist = safeMessages;
 
       if (didWorkspaceToolUpdate) {
         await prisma.$executeRaw`
@@ -313,17 +312,39 @@ function getProvisionalWorkspaceText(card: unknown, brief: unknown) {
   return "Oke, aku catat.";
 }
 
-function dropAssistantTurnsWithoutWorkspaceTool(messages: UIMessage[]) {
-  return messages.filter((message) => {
-    if (message.role !== "assistant") {
-      return true;
+function repairToolOnlyWorkspaceMessages(messages: UIMessage[]) {
+  return messages.map((message) => {
+    if (
+      message.role !== "assistant" ||
+      message.parts.some((part) => part.type === "text")
+    ) {
+      return message;
     }
 
-    return message.parts.some(
+    const toolPart = message.parts.find(
       (part) =>
         part.type === "tool-setWorkspaceUi" &&
         (part as { state?: unknown }).state === "output-available",
-    );
+    ) as { output?: { brief?: unknown; workspaceCard?: unknown } } | undefined;
+
+    if (!toolPart?.output?.workspaceCard) {
+      return message;
+    }
+
+    return {
+      ...message,
+      parts: [
+        {
+          type: "text",
+          text: getProvisionalWorkspaceText(
+            toolPart.output.workspaceCard,
+            toolPart.output.brief,
+          ),
+          state: "done",
+        },
+        ...message.parts,
+      ],
+    } as UIMessage;
   });
 }
 
