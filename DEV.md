@@ -51,6 +51,8 @@ MinIO console: http://localhost:9091
 
 For Langfuse traces, copy/create a Langfuse project key in `http://localhost:3001`, set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in `.env`, then restart `bun run dev`.
 
+Langfuse local Compose disables public signup (`AUTH_DISABLE_SIGNUP=true`); use the bootstrap admin account only. In production, keep Langfuse behind Cloudflare Access/reverse-proxy auth and never expose its backing Postgres, ClickHouse, Redis, or MinIO services.
+
 Useful infrastructure commands:
 
 ```bash

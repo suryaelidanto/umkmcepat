@@ -25,6 +25,8 @@ MinIO console: http://localhost:9091
 
 Create/copy Langfuse project API keys in Langfuse, then set `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` in `.env`. Local bootstrap env placeholders exist in `.env.example`; replace them before any shared environment.
 
+Langfuse local Compose disables public signup (`AUTH_DISABLE_SIGNUP=true`); use the bootstrap admin account only. In production, keep Langfuse behind Cloudflare Access/reverse-proxy auth and never expose its backing Postgres, ClickHouse, Redis, or MinIO services.
+
 Use local Node/Bun for the Next.js dev server because bind-mounted Docker dev can make `.next` and file watching stale on some host filesystems.
 
 If `.next` gets stale, stop the dev server, remove `.next`, then restart `bun run dev`.
