@@ -1,8 +1,20 @@
 import { LangfuseSpanProcessor } from "@langfuse/otel";
+import { trace } from "@opentelemetry/api";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 
-let spanProcessor: LangfuseSpanProcessor | null = null;
-let started = false;
+const globalForLangfuse = globalThis as typeof globalThis & {
+  __umkmLangfuse?: {
+    spanProcessor: LangfuseSpanProcessor | null;
+    started: boolean;
+    tracerProvider: NodeTracerProvider | null;
+  };
+};
+
+const state = (globalForLangfuse.__umkmLangfuse ??= {
+  spanProcessor: null,
+  started: false,
+  tracerProvider: null,
+});
 
 export function isLangfuseEnabled() {
   return Boolean(
@@ -13,20 +25,34 @@ export function isLangfuseEnabled() {
 }
 
 export function getLangfuseSpanProcessor() {
-  return spanProcessor;
+  return state.spanProcessor;
+}
+
+export function getAiTracer() {
+  if (!isLangfuseEnabled()) {
+    return undefined;
+  }
+
+  startLangfuseTracing();
+  return trace.getTracer("ai");
 }
 
 export async function flushLangfuseTraces() {
-  await spanProcessor?.forceFlush();
+  await state.spanProcessor?.forceFlush();
 }
 
-if (!started && isLangfuseEnabled()) {
-  started = true;
-  spanProcessor = new LangfuseSpanProcessor();
+export function startLangfuseTracing() {
+  if (state.started || !isLangfuseEnabled()) {
+    return;
+  }
 
-  const tracerProvider = new NodeTracerProvider({
-    spanProcessors: [spanProcessor],
+  state.started = true;
+  state.spanProcessor = new LangfuseSpanProcessor();
+  state.tracerProvider = new NodeTracerProvider({
+    spanProcessors: [state.spanProcessor],
   });
 
-  tracerProvider.register();
+  state.tracerProvider.register();
 }
+
+startLangfuseTracing();

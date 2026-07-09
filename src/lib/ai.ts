@@ -1,6 +1,7 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 import { getDefaultAiModel } from "@/lib/ai-models";
+import { getAiTracer, isLangfuseEnabled } from "@/lib/ai-observability";
 import { getEnv } from "@/lib/config";
 
 export function getAiTelemetry(
@@ -9,15 +10,12 @@ export function getAiTelemetry(
 ) {
   return {
     functionId,
-    isEnabled: Boolean(
-      process.env.LANGFUSE_PUBLIC_KEY &&
-      process.env.LANGFUSE_SECRET_KEY &&
-      process.env.LANGFUSE_BASE_URL,
-    ),
+    isEnabled: isLangfuseEnabled(),
     metadata: {
       aiGateway: "9router",
       ...metadata,
     },
+    tracer: getAiTracer(),
   };
 }
 
