@@ -52,11 +52,11 @@ export async function moderateProjectRequest(
   );
 
   const label = text.trim().toUpperCase();
-  const result: ModerationResult = label.startsWith("ALLOW")
-    ? { allowed: true }
-    : label.startsWith("BLOCK")
-      ? { allowed: false, message: BLOCK_MESSAGE }
-      : { allowed: false, message: CLARIFY_MESSAGE };
+  const result: ModerationResult = label.startsWith("BLOCK")
+    ? { allowed: false, message: BLOCK_MESSAGE }
+    : label.startsWith("CLARIFY")
+      ? { allowed: false, message: CLARIFY_MESSAGE }
+      : { allowed: true };
 
   moderationCache.set(key, {
     expiresAt: Date.now() + MODERATION_CACHE_TTL_MS,

@@ -21,11 +21,19 @@ describe("moderateProjectRequest", () => {
     });
   });
 
-  it("blocks non-ALLOW responses", async () => {
+  it("blocks BLOCK responses", async () => {
     generateTextMock.mockResolvedValueOnce({ text: "BLOCK" } as never);
 
     await expect(moderateProjectRequest("bad")).resolves.toMatchObject({
       allowed: false,
+    });
+  });
+
+  it("allows malformed moderation responses", async () => {
+    generateTextMock.mockResolvedValueOnce({ text: "" } as never);
+
+    await expect(moderateProjectRequest("jual teh kosong")).resolves.toEqual({
+      allowed: true,
     });
   });
 
