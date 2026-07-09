@@ -345,7 +345,6 @@ export function GeneratedPreviewFrame({
 
     const timeout = window.setTimeout(() => {
       setTimedOut(true);
-      onRetry?.();
     }, 12_000);
 
     function handleMessage(event: MessageEvent) {
@@ -358,7 +357,10 @@ export function GeneratedPreviewFrame({
         return;
       }
 
-      if (event.data?.type !== "umkmcepat-preview-ready") {
+      if (
+        event.data?.type !== "umkmcepat-preview-ready" &&
+        event.data?.type !== "generated-app-preview-ready"
+      ) {
         return;
       }
 
