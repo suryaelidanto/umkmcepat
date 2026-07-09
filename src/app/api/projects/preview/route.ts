@@ -267,14 +267,18 @@ export async function POST(request: Request) {
       }
 
       const title = workspaceTurn.projectTitle || project.title;
+      const messagesToPersist =
+        didWorkspaceToolUpdate || mode !== "discuss"
+          ? safeMessages
+          : dropAssistantTurnsWithoutWorkspaceTool(safeMessages);
 
       if (didWorkspaceToolUpdate) {
         await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messagesToPersist)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
         `;
       } else {
         await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
+          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messagesToPersist)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
         `;
       }
 
@@ -290,6 +294,20 @@ export async function POST(request: Request) {
         `;
       }
     },
+  });
+}
+
+function dropAssistantTurnsWithoutWorkspaceTool(messages: UIMessage[]) {
+  return messages.filter((message) => {
+    if (message.role !== "assistant") {
+      return true;
+    }
+
+    return message.parts.some(
+      (part) =>
+        part.type === "tool-setWorkspaceUi" &&
+        (part as { state?: unknown }).state === "output-available",
+    );
   });
 }
 
