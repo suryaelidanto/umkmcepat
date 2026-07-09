@@ -336,12 +336,10 @@ export function GeneratedPreviewFrame({
   viewport: "desktop" | "mobile";
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const [loaded, setLoaded] = useState(false);
   const [ready, setReady] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
-    setLoaded(false);
     setReady(false);
     setTimedOut(false);
 
@@ -405,14 +403,28 @@ export function GeneratedPreviewFrame({
         title="Tampilan website"
         src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
         onLoad={() => {
-          setLoaded(true);
           setTimedOut(false);
           onLoad?.();
         }}
         sandbox="allow-scripts"
         className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} h-full w-full border-0 bg-white`}
       />
-      {timedOut && !ready && !loaded ? (
+      {!ready && !timedOut ? (
+        <div className="absolute inset-0 grid place-items-center bg-[#10100f]">
+          <div className="flex flex-col items-center gap-spacing-4 text-center">
+            <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
+            <div>
+              <p className="text-sm font-medium text-surface-warm-white/78">
+                Menyiapkan tampilan website...
+              </p>
+              <p className="mt-spacing-1 text-xs text-surface-warm-white/42">
+                Preview akan muncul setelah website selesai render.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {timedOut && !ready ? (
         <div className="absolute inset-0">
           <PreviewIssueState
             title="Tampilan website belum siap"
