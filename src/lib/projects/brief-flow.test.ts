@@ -158,7 +158,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("accepts AI question title and description aliases", () => {
+  it("accepts AI question text/title and description/hint aliases", () => {
     const brief = createInitialBrief("butuh website laundry");
     const turn = normalizeWorkspaceTurn(
       {
@@ -167,8 +167,8 @@ describe("normalizeWorkspaceTurn", () => {
           question: {
             id: "business_name",
             answerMode: "text",
-            title: "Nama laundry kamu apa?",
-            description: "Nama ini akan jadi judul utama website.",
+            text: "Nama laundry kamu apa?",
+            hint: "Nama ini akan jadi judul utama website.",
             placeholder: "Misal: Laundry Bekasi Fresh",
           },
         },
