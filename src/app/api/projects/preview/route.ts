@@ -2,8 +2,7 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  generateObject,
-  jsonSchema,
+  generateText,
   stepCountIs,
   streamText,
   tool,
@@ -289,38 +288,17 @@ async function handleStructuredDiscussTurn({
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
-  const turnSchema = getWorkspaceTurnJsonSchema();
-  const result = await generateObject({
+  const result = await generateText({
     model: getAiModel(getChatAiModel()),
-    schema: jsonSchema<WorkspaceDiscussOutput>({
-      type: "object",
-      properties: {
-        assistantText: {
-          type: "string",
-          description:
-            "Visible friendly Indonesian reply to the user before the UI card. Use aku/kamu.",
-        },
-        briefPatch: turnSchema.properties?.briefPatch,
-        projectTitle: { type: "string" },
-        workspaceCard: turnSchema.properties?.workspaceCard,
-      },
-      required: ["assistantText", "workspaceCard"],
-    } as never),
-    prompt: [
-      buildSystemPrompt({
-        context: chatContext.systemContext,
-        mode: "discuss",
-        brief: effectiveBrief,
-      }),
-      "\nRecent conversation JSON:",
-      JSON.stringify(chatContext.messages),
-      "\nReturn exactly one structured discussion turn. assistantText and workspaceCard must be coherent with each other.",
-    ].join("\n"),
-    temperature: 0.35,
+    prompt: buildStructuredDiscussPrompt({
+      chatContext,
+      effectiveBrief,
+    }),
+    temperature: 0.2,
     maxRetries: 0,
   });
 
-  const output = result.object;
+  const output = parseStructuredDiscussOutput(result.text);
   const assistantText = output.assistantText.trim();
   const workspaceTurn = normalizeWorkspaceTurn(output, effectiveBrief);
   const assistantMessage: UIMessage = {
@@ -374,12 +352,43 @@ type WorkspaceDiscussOutput = {
   assistantText: string;
 } & Parameters<typeof normalizeWorkspaceTurn>[0];
 
-function getWorkspaceTurnJsonSchema() {
-  const schema = workspaceTurnToolInputSchema as unknown as {
-    jsonSchema?: { properties?: Record<string, unknown> };
-  };
+function buildStructuredDiscussPrompt({
+  chatContext,
+  effectiveBrief,
+}: {
+  chatContext: ReturnType<typeof buildProjectChatContext>;
+  effectiveBrief: ReturnType<typeof parseProjectBrief>;
+}) {
+  return [
+    buildSystemPrompt({
+      context: chatContext.systemContext,
+      mode: "discuss",
+      brief: effectiveBrief,
+    }),
+    "Return JSON only. No markdown. No prose outside JSON.",
+    'Schema: {"assistantText": string, "briefPatch": object, "workspaceCard": object, "projectTitle"?: string}',
+    "assistantText is the visible Indonesian chat reply. workspaceCard is the matching UI card.",
+    "Recent conversation JSON:",
+    JSON.stringify(chatContext.messages),
+  ].join("\n\n");
+}
 
-  return schema.jsonSchema ?? { properties: {} };
+function parseStructuredDiscussOutput(text: string): WorkspaceDiscussOutput {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1];
+  const candidate =
+    fenced ?? trimmed.slice(trimmed.indexOf("{"), trimmed.lastIndexOf("}") + 1);
+  const value = JSON.parse(candidate) as Partial<WorkspaceDiscussOutput>;
+
+  if (
+    !value ||
+    typeof value !== "object" ||
+    typeof value.assistantText !== "string"
+  ) {
+    throw new Error("Structured discuss output missing assistantText.");
+  }
+
+  return value as WorkspaceDiscussOutput;
 }
 
 function dedupeUiMessages(messages: UIMessage[]) {

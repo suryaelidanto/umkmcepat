@@ -5,7 +5,7 @@ const {
   executeRawMock,
   projectFindFirstMock,
   queryRawMock,
-  generateObjectMock,
+  generateTextMock,
   streamTextMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
@@ -26,8 +26,8 @@ const {
     },
   ]),
   executeRawMock: vi.fn(async () => 1),
-  generateObjectMock: vi.fn(async () => ({
-    object: {
+  generateTextMock: vi.fn(async () => ({
+    text: JSON.stringify({
       assistantText:
         "Oke, aku catat. Sekarang pilih pelanggan utama bakso ini.",
       briefPatch: { offer: "Bakso" },
@@ -44,7 +44,7 @@ const {
           ],
         },
       },
-    },
+    }),
   })),
   streamTextMock: vi.fn(({ tools }) => {
     void tools.setWorkspaceUi.execute({
@@ -120,7 +120,7 @@ vi.mock("ai", () => ({
     });
   }),
   createUIMessageStreamResponse: vi.fn(() => new Response("structured-stream")),
-  generateObject: generateObjectMock,
+  generateText: generateTextMock,
   jsonSchema: vi.fn((schema) => schema),
   stepCountIs: vi.fn((count) => ({ count })),
   streamText: streamTextMock,
@@ -213,7 +213,7 @@ describe("project preview AI route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(generateObjectMock).toHaveBeenCalledWith(
+    expect(generateTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining(
           '"businessType":"aku ada toko bakso sih"',
@@ -279,7 +279,7 @@ describe("project preview AI route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(generateObjectMock).toHaveBeenCalledWith(
+    expect(generateTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining(
           '"businessType":"aku ada toko bakso sih"',
@@ -369,10 +369,10 @@ describe("project preview AI route", () => {
       callOrder.push("executeRaw");
       return 1;
     });
-    generateObjectMock.mockImplementationOnce(async () => {
-      callOrder.push("generateObject");
+    generateTextMock.mockImplementationOnce(async () => {
+      callOrder.push("generateText");
       return {
-        object: {
+        text: JSON.stringify({
           assistantText: "Oke, aku catat.",
           briefPatch: { offer: "Bakso" },
           workspaceCard: {
@@ -387,7 +387,7 @@ describe("project preview AI route", () => {
               ],
             },
           },
-        },
+        }),
       };
     });
 
@@ -410,9 +410,9 @@ describe("project preview AI route", () => {
     // Phase 1 (deterministic persist) must run before AI generation, so a
     // provider failure can never lose the answer or re-ask the question.
     expect(callOrder[0]).toBe("executeRaw");
-    expect(callOrder).toContain("generateObject");
+    expect(callOrder).toContain("generateText");
     expect(callOrder.indexOf("executeRaw")).toBeLessThan(
-      callOrder.indexOf("generateObject"),
+      callOrder.indexOf("generateText"),
     );
   });
 });
