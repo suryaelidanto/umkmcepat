@@ -1,6 +1,7 @@
 import { generateObject, jsonSchema, type UIMessage } from "ai";
 
-import { getAiModel } from "@/lib/ai";
+import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import {
   createEmptyChatSummary,
   createEmptyMemoryFacts,
@@ -106,6 +107,10 @@ export async function maybeCompactProjectChat({
   const result = await generateObject({
     model: getAiModel(),
     temperature: 0.2,
+    timeout: getAiTimeoutMs("chatCompaction"),
+    experimental_telemetry: getAiTelemetry("project-chat-compaction", {
+      messageCount: messages.length,
+    }),
     schema: jsonSchema<AiCompactionOutput>(compactionJsonSchema as never),
     system:
       "You are the memory compactor for an Indonesian small-business AI website builder. Return only schema-valid JSON. Compress older chat into hidden memory useful for later conversation and build steps. Do not include secrets, tokens, or unnecessary sensitive data.",

@@ -22,11 +22,7 @@ bun run dev
 bun run check
 ```
 
-Optional AI gateway:
-
-```bash
-bun run infra:ai
-```
+`bun run infra` starts Postgres, 9Router, Headroom, and Langfuse. Use `bun run infra:minimal` only when you need Postgres without AI/observability services.
 
 Optional Storybook:
 

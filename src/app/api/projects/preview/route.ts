@@ -7,9 +7,10 @@ import {
   validateUIMessages,
 } from "ai";
 
-import { getAiModel } from "@/lib/ai";
+import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getChatAiModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
+import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -231,6 +232,14 @@ export async function POST(request: Request) {
     stopWhen: stepCountIs(1),
     maxRetries: 0,
     temperature: 0.35,
+    timeout: getAiTimeoutMs("discuss"),
+    experimental_telemetry: getAiTelemetry("project-chat-build-mode", {
+      mode,
+      model: getChatAiModel(),
+      projectId: project.id,
+      route: "api.projects.preview",
+      userId,
+    }),
     onError({ error }) {
       console.error("[preview-chat] stream error", getSafeAiErrorLog(error));
     },
@@ -343,6 +352,15 @@ async function handleStructuredDiscussTurn({
     stopWhen: stepCountIs(1),
     maxRetries: 0,
     temperature: 0.35,
+    timeout: getAiTimeoutMs("discuss"),
+    experimental_telemetry: getAiTelemetry("project-guided-discuss", {
+      briefConfidence: effectiveBrief.confidence,
+      mode: "discuss",
+      model: modelName,
+      projectId: project.id,
+      route: "api.projects.preview",
+      userId,
+    }),
     onError({ error }) {
       console.error(
         "[preview-chat] discuss stream error",
@@ -412,7 +430,9 @@ async function waitForWorkspaceToolSettled(
     return true;
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 30_000));
+  await new Promise((resolve) =>
+    setTimeout(resolve, getAiTimeoutMs("discussToolSettle")),
+  );
   const latePromise = getPromise();
 
   if (!latePromise) {

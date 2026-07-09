@@ -42,17 +42,14 @@ Open:
 
 ```text
 App: http://localhost:3000
-```
-
-Optional AI gateway:
-
-```bash
-bun run infra:ai
-```
-
-```text
 9Router: http://localhost:20129
+Langfuse: http://localhost:3001
+MinIO console: http://localhost:9091
 ```
+
+`bun run infra` starts Postgres plus the local AI/observability stack: 9Router, Headroom, Langfuse, and Langfuse dependencies. Use `bun run infra:minimal` only when you need Postgres without AI/observability.
+
+For Langfuse traces, copy/create a Langfuse project key in `http://localhost:3001`, set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in `.env`, then restart `bun run dev`.
 
 Useful infrastructure commands:
 

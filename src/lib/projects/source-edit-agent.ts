@@ -1,8 +1,9 @@
 import { stepCountIs, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
-import { getAiModel } from "@/lib/ai";
+import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getEditAiModel } from "@/lib/ai-models";
+import { withAiTimeout } from "@/lib/ai-timeouts";
 
 import {
   runGeneratedAppAgentTools,
@@ -42,6 +43,10 @@ export async function editGeneratedSourceWithAgent({
   const agent = new ToolLoopAgent({
     model: getAiModel(model || getEditAiModel()),
     instructions: EDIT_AGENT_INSTRUCTIONS,
+    experimental_telemetry: getAiTelemetry("project-source-edit-agent", {
+      fileCount: files.length,
+      model: model || getEditAiModel(),
+    }),
     stopWhen: stepCountIs(18),
     tools: {
       list_files: tool({
@@ -88,13 +93,16 @@ export async function editGeneratedSourceWithAgent({
     },
   });
 
-  await agent.generate({
-    prompt: [
-      "Edit the generated source to satisfy this user request.",
-      "Read files before editing. Make the smallest relevant source changes. Run check_app after edits.",
-      instruction,
-    ].join("\n\n"),
-  });
+  await withAiTimeout(
+    agent.generate({
+      prompt: [
+        "Edit the generated source to satisfy this user request.",
+        "Read files before editing. Make the smallest relevant source changes. Run check_app after edits.",
+        instruction,
+      ].join("\n\n"),
+    }),
+    model ? "editRepair" : "edit",
+  );
 
   const finalCheck = runGeneratedAppAgentTools({
     commands: [{ type: "check_app" }],

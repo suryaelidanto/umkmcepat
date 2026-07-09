@@ -150,15 +150,16 @@ AI may configure these modules. The platform executes them. Arbitrary user backe
 
 Provider selection is explicit, env-driven, and behind internal adapters.
 
-| Capability | Env                                   | Current default           | Boundary                     |
-| ---------- | ------------------------------------- | ------------------------- | ---------------------------- |
-| Database   | `DATABASE_URL`                        | PostgreSQL via Prisma     | `prisma/schema.prisma`       |
-| AI         | `AI_PROVIDER`                         | 9Router via Vercel AI SDK | `src/lib/ai.ts`              |
-| Auth       | Google OAuth + Turnstile              | Google                    | `src/lib/auth.ts`, Auth.js   |
-| Rate limit | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`      |
-| Storage    | `OBJECT_STORAGE_PROVIDER`             | `local`                   | `src/lib/object-storage.ts`  |
-| Runtime    | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*` |
-| Monitoring | Sentry env                            | disabled unless env set   | Sentry config files          |
+| Capability       | Env                                   | Current default           | Boundary                              |
+| ---------------- | ------------------------------------- | ------------------------- | ------------------------------------- |
+| Database         | `DATABASE_URL`                        | PostgreSQL via Prisma     | `prisma/schema.prisma`                |
+| AI               | `AI_PROVIDER`                         | 9Router via Vercel AI SDK | `src/lib/ai.ts`                       |
+| Auth             | Google OAuth + Turnstile              | Google                    | `src/lib/auth.ts`, Auth.js            |
+| Rate limit       | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`               |
+| Storage          | `OBJECT_STORAGE_PROVIDER`             | `local`                   | `src/lib/object-storage.ts`           |
+| Runtime          | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*`          |
+| Monitoring       | Sentry env                            | disabled unless env set   | Sentry config files                   |
+| AI observability | `LANGFUSE_*` env                      | disabled unless env set   | `instrumentation.ts`, `src/lib/ai.ts` |
 
 Rules:
 
@@ -197,17 +198,21 @@ AI requests go through Vercel AI SDK and 9Router:
 UMKM Cepat UI -> UMKM Cepat API -> Vercel AI SDK -> 9Router -> provider -> model
 ```
 
-Local AI gateway:
+Local AI/observability stack:
 
 ```bash
-bun run infra:ai
+bun run infra
 ```
 
 ```text
 9Router: http://localhost:20129
 Headroom: http://localhost:8787/health
-Default dashboard password: 123456
+Langfuse: http://localhost:3001
+MinIO console: http://localhost:9091
+Default 9Router dashboard password: 123456
 ```
+
+Use `bun run infra:minimal` only when you need Postgres without AI gateway or observability services.
 
 Local env:
 
@@ -226,6 +231,8 @@ NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 ```
 
 Keep provider keys out of frontend env vars and git. `AI_CHAT_MODEL` should stay on a stronger structured-output-capable model because user-facing discussion consumes AI-generated JSON for both the visible assistant reply and the next workspace card. Fast/cheap models are acceptable for edit/moderation defaults, not mandatory brief progression.
+
+Langfuse is the optional AI observability backend. When `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` are set, Next.js initializes OpenTelemetry at startup and AI SDK calls emit traces for moderation, guided discussion, implementation-spec generation, chat compaction, source generation, and source edits. Trace metadata must include route/function/project context where available, but must not include raw provider secrets.
 
 ## Storage
 

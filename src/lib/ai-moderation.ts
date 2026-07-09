@@ -1,7 +1,8 @@
 import { generateText } from "ai";
 
-import { getAiModel } from "@/lib/ai";
+import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
+import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
 import { getEnv } from "@/lib/config";
 
 export type ModerationResult =
@@ -13,7 +14,6 @@ const BLOCK_MESSAGE =
 const CLARIFY_MESSAGE =
   "Checker keamanan lagi lambat. Coba kirim lagi sebentar ya.";
 
-export const AI_MODERATION_TIMEOUT_MS = 2_500;
 const MODERATION_CACHE_TTL_MS = 30 * 60 * 1000;
 const moderationCache = new Map<
   string,
@@ -32,19 +32,23 @@ export async function moderateProjectRequest(
   }
 
   const abortController = new AbortController();
-  const { text } = await withTimeout(
+  const { text } = await withAiTimeout(
     generateText({
       abortSignal: abortController.signal,
       maxOutputTokens: 4,
       model: getAiModel(getModerationModel()),
       temperature: 0,
       timeout: timeoutMs,
+      experimental_telemetry: getAiTelemetry("project-moderation", {
+        model: getModerationModel(),
+      }),
       system:
         "You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when intent is unclear but potentially unsafe. ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action.",
       prompt: key,
     }),
-    timeoutMs,
+    "moderation",
     abortController,
+    timeoutMs,
   );
 
   const label = text.trim().toUpperCase();
@@ -67,37 +71,9 @@ export function getModerationModel() {
 }
 
 function getModerationTimeoutMs() {
-  const value = Number(getEnv("AI_MODERATION_TIMEOUT_MS", "2500"));
-
-  return Number.isFinite(value) && value > 0
-    ? Math.min(10_000, Math.round(value))
-    : AI_MODERATION_TIMEOUT_MS;
+  return getAiTimeoutMs("moderation");
 }
 
 function normalizePrompt(prompt: string) {
   return prompt.trim().replace(/\s+/g, " ").slice(0, 1_200);
-}
-
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  abortController: AbortController,
-) {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => {
-          abortController.abort();
-          reject(new Error("AI moderation timed out."));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-  }
 }

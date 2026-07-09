@@ -1,6 +1,7 @@
 import { jsonSchema, Output, streamText } from "ai";
 
-import { getAiModel } from "@/lib/ai";
+import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
@@ -130,10 +131,13 @@ export async function POST(request: Request, { params }: RouteProps) {
     );
   }
 
+  const projectId = project.id;
+  const projectPrompt = project.prompt;
+
   const claimedProject = await prisma.project.updateMany({
     where: {
       buildStatus: { not: "running" },
-      id: project.id,
+      id: projectId,
       status: { not: "building" },
       userId,
     },
@@ -167,19 +171,19 @@ export async function POST(request: Request, { params }: RouteProps) {
         });
 
         const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
-          SELECT "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
+          SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
         `;
         const brief = forceBuild
           ? {
-              ...parseProjectBrief(briefRow?.brief, project.prompt),
+              ...parseProjectBrief(briefRow?.brief, projectPrompt),
               forcedBuild: {
                 assumed: ["Build dipaksa sebelum AI mencapai keyakinan 95%."],
               },
             }
-          : parseProjectBrief(briefRow?.brief, project.prompt);
+          : parseProjectBrief(briefRow?.brief, projectPrompt);
         devLog("generate", "brief.parsed", {
-          projectId: project.id,
-          promptLength: project.prompt.length,
+          projectId,
+          promptLength: projectPrompt.length,
         });
         const buildPrompt = briefToBuildPrompt(brief);
         const fallbackSpec = createFallbackImplementationSpec(brief);
@@ -188,6 +192,7 @@ export async function POST(request: Request, { params }: RouteProps) {
           const result = streamText({
             model: getAiModel(),
             temperature: 0.35,
+            timeout: getAiTimeoutMs("buildSpec"),
             output: Output.object({
               name: "ImplementationSpec",
               description:
@@ -198,6 +203,14 @@ export async function POST(request: Request, { params }: RouteProps) {
             }),
             system: projectSiteGenerationSystemPrompt,
             prompt,
+            experimental_telemetry: getAiTelemetry(
+              "project-implementation-spec",
+              {
+                projectId,
+                route: "api.projects.generate",
+                userId,
+              },
+            ),
             onError() {
               send("progress", {
                 label: "AI mengalami kendala",
@@ -261,14 +274,14 @@ export async function POST(request: Request, { params }: RouteProps) {
           onOperation(operation) {
             send("operation", operation);
           },
-          projectId: project.id,
+          projectId: projectId,
           schema: finalSchema,
         });
         devLog("generate", "source.generated", {
           buildSpecLength: sourceGeneration.buildSpec.length,
           files: sourceGeneration.files.length,
           mode: sourceGeneration.generationMode,
-          projectId: project.id,
+          projectId: projectId,
           touchedFiles: sourceGeneration.touchedFiles.length,
         });
         const sourceFiles = sourceGeneration.files;
@@ -293,7 +306,7 @@ export async function POST(request: Request, { params }: RouteProps) {
               finalSchema,
               sourceGeneration,
             ),
-            projectId: project.id,
+            projectId: projectId,
             sourceType: GENERATED_SNAPSHOT_SOURCE_TYPE,
           },
           select: { id: true },
@@ -309,13 +322,13 @@ export async function POST(request: Request, { params }: RouteProps) {
         await prisma.runtimeEvent.create({
           data: createRuntimeEventData({
             metadata: { sourceFileCount: sourceFiles.length, sourceRef },
-            projectId: project.id,
+            projectId: projectId,
             type: "snapshot.created",
           }),
         });
         const build = await prisma.projectBuild.create({
           data: {
-            projectId: project.id,
+            projectId: projectId,
             snapshotId: snapshot.id,
             status: "queued" satisfies ProjectBuildStatus,
           },
@@ -336,14 +349,14 @@ export async function POST(request: Request, { params }: RouteProps) {
         await prisma.runtimeEvent.create({
           data: createRuntimeEventData({
             buildId: build.id,
-            projectId: project.id,
+            projectId: projectId,
             type: "build.started",
           }),
         });
         const buildResult = await buildGeneratedProject(sourceFiles);
         devLog("generate", "build.finished", {
           ok: buildResult.ok,
-          projectId: project.id,
+          projectId: projectId,
         });
         send("progress", {
           label: buildResult.ok
@@ -354,7 +367,7 @@ export async function POST(request: Request, { params }: RouteProps) {
             : "File website tetap disimpan, tapi build log perlu dicek di tab Kode.",
         });
         const latestProject = await prisma.project.findUnique({
-          where: { id: project.id },
+          where: { id: projectId },
           select: { status: true },
         });
 
@@ -372,12 +385,12 @@ export async function POST(request: Request, { params }: RouteProps) {
             data: createRuntimeEventData({
               buildId: build.id,
               message: "Build was canceled after the user stopped the job.",
-              projectId: project.id,
+              projectId: projectId,
               type: "build.canceled",
             }),
           });
           await prisma.project.update({
-            where: { id: project.id },
+            where: { id: projectId },
             data: { status: "draft", buildStatus: "stopped" } as Parameters<
               typeof prisma.project.update
             >[0]["data"],
@@ -412,12 +425,12 @@ export async function POST(request: Request, { params }: RouteProps) {
               ? "Generated frontend build succeeded and dist artifact was stored."
               : "Generated frontend build failed.",
             metadata: artifactRef ? { artifactRef } : undefined,
-            projectId: project.id,
+            projectId: projectId,
             type: buildResult.ok ? "build.succeeded" : "build.failed",
           }),
         });
         await prisma.project.update({
-          where: { id: project.id },
+          where: { id: projectId },
           data: {
             status: buildResult.ok ? "ready" : "failed",
             siteSchema: finalSchema,
@@ -435,8 +448,8 @@ export async function POST(request: Request, { params }: RouteProps) {
           data: {
             buildId: build.id,
             kind: PREVIEW_DEPLOYMENT_KIND,
-            projectId: project.id,
-            publicPath: `/api/projects/${project.id}/preview`,
+            projectId: projectId,
+            publicPath: `/api/projects/${projectId}/preview`,
             snapshotId: snapshot.id,
             status: deploymentStatus,
           },
@@ -446,7 +459,7 @@ export async function POST(request: Request, { params }: RouteProps) {
           data: createRuntimeEventData({
             buildId: build.id,
             deploymentId: deployment.id,
-            projectId: project.id,
+            projectId: projectId,
             type: buildResult.ok ? "deployment.created" : "deployment.failed",
           }),
         });
@@ -455,12 +468,12 @@ export async function POST(request: Request, { params }: RouteProps) {
           label: "Website siap dicek",
           detail: "Tampilan dan file website sudah siap dicek.",
         });
-        devLog("generate", "done", { projectId: project.id });
+        devLog("generate", "done", { projectId: projectId });
         send("done", finalSchema);
       } catch (error) {
         devLog("generate", "error", {
           error: error instanceof Error ? error.message : String(error),
-          projectId: project.id,
+          projectId: projectId,
         });
         if (runtimeBuildId && !runtimeBuildFinalized) {
           await prisma.projectBuild
@@ -478,14 +491,14 @@ export async function POST(request: Request, { params }: RouteProps) {
               data: createRuntimeEventData({
                 buildId: runtimeBuildId,
                 message: "Build route failed before completion.",
-                projectId: project.id,
+                projectId: projectId,
                 type: "build.failed",
               }),
             })
             .catch(() => undefined);
         }
         await prisma.project.update({
-          where: { id: project.id },
+          where: { id: projectId },
           data: { status: "failed", buildStatus: "failed" },
         });
         send("error", { message: "AI belum bisa membangun website ini." });

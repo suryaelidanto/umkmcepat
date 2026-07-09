@@ -16,17 +16,14 @@ bun run dev
 
 ```text
 App: http://localhost:3000
-```
-
-Optional AI gateway:
-
-```bash
-bun run infra:ai
-```
-
-```text
 9Router: http://localhost:20129
+Langfuse: http://localhost:3001
+MinIO console: http://localhost:9091
 ```
+
+`bun run infra` starts Postgres plus the local AI/observability stack: 9Router, Headroom, Langfuse, and Langfuse dependencies. Use `bun run infra:minimal` only when you need Postgres without AI/observability.
+
+Create/copy Langfuse project API keys in Langfuse, then set `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` in `.env`. Local bootstrap env placeholders exist in `.env.example`; replace them before any shared environment.
 
 Use local Node/Bun for the Next.js dev server because bind-mounted Docker dev can make `.next` and file watching stale on some host filesystems.
 
@@ -47,6 +44,7 @@ app container:      Next.js production server
 postgres container: database, unless using managed Postgres
 9router container:  AI gateway dashboard/API
 headroom container: optional context compression proxy
+langfuse stack:     optional AI trace storage/UI (web, worker, Postgres, ClickHouse, Redis, MinIO)
 uploads volume:     local upload persistence for OBJECT_STORAGE_PROVIDER=local
 ```
 
@@ -86,6 +84,9 @@ GOOGLE_CLIENT_SECRET="replace"
 AI_PROVIDER="9router"
 NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 NINE_ROUTER_API_KEY="replace-with-9router-api-key"
+LANGFUSE_BASE_URL="https://langfuse.example.com"
+LANGFUSE_PUBLIC_KEY="replace-with-langfuse-public-key"
+LANGFUSE_SECRET_KEY="replace-with-langfuse-secret-key"
 RATE_LIMIT_PROVIDER="memory"
 OBJECT_STORAGE_PROVIDER="local"
 LOCAL_UPLOAD_DIR=".data/uploads"
@@ -167,6 +168,8 @@ SENTRY_AUTH_TOKEN="set-in-deployment-secrets"
 ```
 
 Never commit `SENTRY_AUTH_TOKEN`, `.env.sentry-build-plugin`, or real DSNs/tokens.
+
+Langfuse is optional for AI tracing. In local development, `bun run infra` starts it with the rest of the AI stack; open `http://localhost:3001`. In production, prefer a protected Langfuse hostname (for example `langfuse.umkmcepat.com`) or Langfuse Cloud; do not expose ClickHouse, Redis, Postgres, or MinIO directly. Set only server-side `LANGFUSE_*` env vars on the app container.
 
 ## Notes
 

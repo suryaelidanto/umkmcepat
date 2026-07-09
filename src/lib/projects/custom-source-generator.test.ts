@@ -30,6 +30,7 @@ vi.mock("ai", () => {
 
 vi.mock("@/lib/ai", () => ({
   getAiModel: () => "test-model",
+  getAiTelemetry: () => ({ isEnabled: false }),
 }));
 
 function schema() {

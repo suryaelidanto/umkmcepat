@@ -1,7 +1,8 @@
 import { stepCountIs, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
-import { getAiModel } from "@/lib/ai";
+import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { withAiTimeout } from "@/lib/ai-timeouts";
 import {
   runGeneratedAppAgentTools,
   type GeneratedAppAgentOperation,
@@ -79,11 +80,20 @@ export async function generateCustomProjectFilesWithAgent({
         schema,
         implementationSpec,
       ),
+      experimental_telemetry: getAiTelemetry(
+        "project-source-generation-agent",
+        {
+          projectId,
+        },
+      ),
       stopWhen: stepCountIs(28),
       tools: createAgentTools(runCommand),
     });
 
-    const result = await agent.generate({ prompt: buildAgentPrompt(appSpec) });
+    const result = await withAiTimeout(
+      agent.generate({ prompt: buildAgentPrompt(appSpec) }),
+      "sourceGeneration",
+    );
     let quality = checkAgentSourceQuality(files, touchedFiles);
 
     if (!quality.ok) {
@@ -99,9 +109,12 @@ export async function generateCustomProjectFilesWithAgent({
 
       if (!build.ok) {
         repairAttempts = 1;
-        await agent.generate({
-          prompt: `${buildAgentPrompt(appSpec)}\n\nPrevious build failed. Repair the source using this build log, then run check_app.\n\n${build.log.slice(-6000)}`,
-        });
+        await withAiTimeout(
+          agent.generate({
+            prompt: `${buildAgentPrompt(appSpec)}\n\nPrevious build failed. Repair the source using this build log, then run check_app.\n\n${build.log.slice(-6000)}`,
+          }),
+          "editRepair",
+        );
         quality = checkAgentSourceQuality(files, touchedFiles);
 
         if (!quality.ok) {

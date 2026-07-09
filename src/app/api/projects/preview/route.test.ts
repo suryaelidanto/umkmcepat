@@ -60,7 +60,10 @@ vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(async () => null),
 }));
-vi.mock("@/lib/ai", () => ({ getAiModel: vi.fn(() => "test-model") }));
+vi.mock("@/lib/ai", () => ({
+  getAiModel: vi.fn(() => "test-model"),
+  getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
+}));
 vi.mock("@/lib/ai-request-log", () => ({
   writeAiRequestLog: vi.fn(async () => undefined),
 }));
