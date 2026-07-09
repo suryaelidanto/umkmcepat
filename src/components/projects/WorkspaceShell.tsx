@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Check,
+  Grip,
   PanelRightClose,
   PanelRightOpen,
   Pencil,
@@ -16,6 +17,7 @@ import Link from "next/link";
 import {
   FormEvent,
   KeyboardEvent,
+  PointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -216,6 +218,11 @@ export function WorkspaceShell({
   const [questionComposerMode, setQuestionComposerMode] = useState<
     "options" | "free"
   >("options");
+  const [progressWidgetOpen, setProgressWidgetOpen] = useState(true);
+  const [progressWidgetPosition, setProgressWidgetPosition] = useState({
+    x: 24,
+    y: 84,
+  });
   const {
     messages,
     sendMessage,
@@ -1651,6 +1658,118 @@ export function WorkspaceShell({
           </>
         ) : null}
       </ResizablePanelGroup>
+      {buildProgress.length ? (
+        <FloatingProgressWidget
+          open={progressWidgetOpen}
+          position={progressWidgetPosition}
+          setOpen={setProgressWidgetOpen}
+          setPosition={setProgressWidgetPosition}
+          startedAt={buildStartedAt}
+          steps={buildProgress}
+          working={isProcessing || isBuilding}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function FloatingProgressWidget({
+  open,
+  position,
+  setOpen,
+  setPosition,
+  startedAt,
+  steps,
+  working,
+}: {
+  open: boolean;
+  position: { x: number; y: number };
+  setOpen: (open: boolean) => void;
+  setPosition: (position: { x: number; y: number }) => void;
+  startedAt: number | null;
+  steps: BuildProgressStep[];
+  working: boolean;
+}) {
+  const dragStart = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const latest = steps.at(-1);
+
+  function startDrag(event: PointerEvent<HTMLButtonElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragStart.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      x: position.x,
+      y: position.y,
+    };
+  }
+
+  function moveDrag(event: PointerEvent<HTMLButtonElement>) {
+    const drag = dragStart.current;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    setPosition({
+      x: Math.max(12, drag.x + event.clientX - drag.startX),
+      y: Math.max(12, drag.y + event.clientY - drag.startY),
+    });
+  }
+
+  function stopDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (dragStart.current?.pointerId === event.pointerId) {
+      dragStart.current = null;
+    }
+  }
+
+  return (
+    <div
+      className="fixed z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-[22px] border border-surface-warm-white/12 bg-[#191916]/94 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur"
+      style={{ left: position.x, top: position.y }}
+    >
+      <div className="flex items-center justify-between gap-spacing-3 border-b border-surface-warm-white/8 px-spacing-4 py-spacing-3">
+        <button
+          type="button"
+          onPointerDown={startDrag}
+          onPointerMove={moveDrag}
+          onPointerUp={stopDrag}
+          onPointerCancel={stopDrag}
+          className="flex min-w-0 flex-1 cursor-grab items-center gap-spacing-3 text-left active:cursor-grabbing"
+          aria-label="Geser progress"
+        >
+          <Grip className="size-4 shrink-0 text-surface-warm-white/42" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">
+              {working ? "AI sedang bekerja" : "Progress terakhir"}
+            </span>
+            <span className="block truncate text-xs text-surface-warm-white/46">
+              {latest?.label || "Menyiapkan proses..."}
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="rounded-full border border-surface-warm-white/10 px-spacing-3 py-spacing-1.5 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8"
+        >
+          {open ? "Tutup" : "Lihat"}
+        </button>
+      </div>
+      {open ? (
+        <div className="max-h-80 overflow-y-auto px-spacing-4 py-spacing-4">
+          <BuildProgressPanel
+            elapsedFrom={startedAt}
+            isBuilding={working}
+            steps={steps}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
