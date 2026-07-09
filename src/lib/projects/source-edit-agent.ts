@@ -2,6 +2,7 @@ import { stepCountIs, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
 import { getAiModel } from "@/lib/ai";
+import { getEditAiModel } from "@/lib/ai-models";
 
 import {
   runGeneratedAppAgentTools,
@@ -37,7 +38,7 @@ export async function editGeneratedSourceWithAgent({
   };
 
   const agent = new ToolLoopAgent({
-    model: getAiModel(),
+    model: getAiModel(getEditAiModel()),
     instructions: EDIT_AGENT_INSTRUCTIONS,
     stopWhen: stepCountIs(18),
     tools: {

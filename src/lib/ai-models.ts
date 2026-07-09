@@ -24,6 +24,20 @@ export function getChatAiModel(models = getAvailableAiModels()) {
     return explicit;
   }
 
+  return getFastAiModel(models);
+}
+
+export function getEditAiModel(models = getAvailableAiModels()) {
+  const explicit = process.env.AI_EDIT_MODEL?.trim();
+
+  if (explicit) {
+    return explicit;
+  }
+
+  return getFastAiModel(models);
+}
+
+function getFastAiModel(models: string[]) {
   return (
     models.find((model) => /flash|mini|lite|small/i.test(model)) || models[0]
   );
