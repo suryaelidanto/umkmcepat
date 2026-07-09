@@ -212,6 +212,7 @@ export function WorkspaceShell({
     message: string;
     retryAfter: number;
   } | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const [questionComposerMode, setQuestionComposerMode] = useState<
     "options" | "free"
   >("options");
@@ -242,6 +243,10 @@ export function WorkspaceShell({
     }),
   });
   const previousChatStatus = useRef(status);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -1206,6 +1211,10 @@ export function WorkspaceShell({
     "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#1b1b19] p-spacing-5";
   const previewPanelClass = "h-full min-h-0 min-w-0";
 
+  if (!hydrated) {
+    return <WorkspaceInitialLoader />;
+  }
+
   return (
     <div className="h-dvh overflow-hidden bg-[#10100f] text-surface-warm-white">
       <ResizablePanelGroup
@@ -1642,6 +1651,19 @@ export function WorkspaceShell({
           </>
         ) : null}
       </ResizablePanelGroup>
+    </div>
+  );
+}
+
+function WorkspaceInitialLoader() {
+  return (
+    <div className="grid h-dvh place-items-center bg-[#10100f] text-surface-warm-white">
+      <div className="flex flex-col items-center gap-spacing-4">
+        <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
+        <p className="text-sm text-surface-warm-white/48">
+          Menyiapkan ruang kerja...
+        </p>
+      </div>
     </div>
   );
 }
