@@ -354,7 +354,17 @@ async function handleStructuredDiscussTurn({
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
     onFinish: async ({ messages }) => {
-      await waitForWorkspaceToolSettled(() => workspaceToolPromise);
+      const didToolSettle = await waitForWorkspaceToolSettled(
+        () => workspaceToolPromise,
+      );
+
+      if (!didToolSettle) {
+        await writeAiRequestLog({
+          event: "discuss:tool-wait-timeout",
+          model: modelName,
+          projectId: project.id,
+        });
+      }
 
       const safeMessages = dedupeUiMessages(parseProjectChatMessages(messages));
       const title = workspaceTurn.projectTitle || project.title;
@@ -399,11 +409,18 @@ async function waitForWorkspaceToolSettled(
 
   if (existingPromise) {
     await existingPromise;
-    return;
+    return true;
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 8000));
-  await getPromise();
+  await new Promise((resolve) => setTimeout(resolve, 30_000));
+  const latePromise = getPromise();
+
+  if (!latePromise) {
+    return false;
+  }
+
+  await latePromise;
+  return true;
 }
 
 function dedupeUiMessages(messages: UIMessage[]) {

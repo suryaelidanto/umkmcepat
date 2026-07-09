@@ -367,7 +367,7 @@ describe("project preview AI route", () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(finishCompleted).toBe(false);
 
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(25_000);
     await vi.runAllTimersAsync();
 
     expect(finishCompleted).toBe(true);
