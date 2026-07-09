@@ -18,6 +18,7 @@ const eslintConfig = [
       ".data/**",
       ".next/**",
       ".pi/**",
+      ".agents/**",
       "graphify-out/**",
       "node_modules/**",
       "coverage/**",

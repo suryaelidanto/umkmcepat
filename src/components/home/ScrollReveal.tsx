@@ -9,10 +9,8 @@ export function ScrollReveal({ children }: { children: React.ReactNode }) {
 
   return (
     <motion.div
-      initial={reduce ? false : { opacity: 0, y: 28, filter: "blur(8px)" }}
-      whileInView={
-        reduce ? undefined : { opacity: 1, y: 0, filter: "blur(0px)" }
-      }
+      initial={reduce ? false : { opacity: 0, y: 24 }}
+      whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.18 }}
       transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
     >

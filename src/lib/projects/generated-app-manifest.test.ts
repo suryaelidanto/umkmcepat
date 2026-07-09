@@ -40,13 +40,16 @@ describe("generated app manifest", () => {
     });
   });
 
-  it("requires the manifest file", () => {
-    const result = validateGeneratedAppManifest([]);
+  it("uses a default manifest when standalone source has no platform manifest", () => {
+    const result = validateGeneratedAppManifest([
+      {
+        content: JSON.stringify({ name: "standalone-site" }),
+        path: "package.json",
+      },
+    ]);
 
-    expect(result.ok).toBe(false);
-    expect(result.issues).toContain(
-      "Missing .umkmcepat/project.json manifest.",
-    );
+    expect(result.ok).toBe(true);
+    expect(result.manifest?.projectId).toBe("standalone-site");
   });
 
   it("rejects unsupported runtime profiles", () => {

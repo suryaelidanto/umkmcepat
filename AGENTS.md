@@ -6,6 +6,7 @@ Boot instructions for AI agents working on UMKM Cepat.
 
 - `PRINCIPLES.md`: operating taste and quality bar.
 - `DEV.md`: local workflow, commands, quality gate.
+- `PRODUCT.md`: required before product positioning, builder flow, generated-project UX, or design-system decisions.
 - `DESIGN.md`: required before UI, styling, layout, typography, colors, or components.
 - `docs/architecture.md`: required before project, workspace, renderer, publishing, provider, storage, auth, or AI gateway work.
 - `docs/deployment.md`: required before Docker, VPS, storage persistence, CI, or monitoring work.
@@ -43,6 +44,7 @@ bun run test:storybook
 - Keep changes small, focused, and easy to review.
 - Prefer deletion, reuse, platform features, and existing dependencies before adding code.
 - User-facing product UI copy uses Indonesian; developer-facing docs/code/logs/errors use English.
+- Follow `PRODUCT.md`, `DESIGN.md`, and `.agents/skills/impeccable` before frontend design work; do not introduce new visual language without updating the canonical design context.
 - New reusable UI or repeated visual patterns must be added to Storybook first or in the same change.
 - Use Graphify for non-trivial codebase discovery when available; do not add it as a project dependency.
 - Docs are part of the change: if behavior, setup, env, architecture, provider, storage, deployment, UI system, or product flow changes, update the canonical doc in the same diff or state why docs did not change.

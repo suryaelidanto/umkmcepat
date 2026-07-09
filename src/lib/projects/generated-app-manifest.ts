@@ -1,6 +1,6 @@
 import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
 
-export const GENERATED_APP_MANIFEST_PATH = ".umkmcepat/project.json";
+export const GENERATED_APP_MANIFEST_PATH = "generated-app.manifest.json";
 
 const SUPPORTED_RUNTIME_PROFILES = new Set([
   "static-react-v1",
@@ -40,7 +40,7 @@ export function validateGeneratedAppManifest(
   );
 
   if (!manifestFile) {
-    return invalid(["Missing .umkmcepat/project.json manifest."]);
+    return validateManifestValue(createDefaultGeneratedAppManifest(files));
   }
 
   let value: unknown;
@@ -51,6 +51,12 @@ export function validateGeneratedAppManifest(
     return invalid(["Manifest JSON is invalid."]);
   }
 
+  return validateManifestValue(value);
+}
+
+function validateManifestValue(
+  value: unknown,
+): GeneratedAppManifestValidationResult {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return invalid(["Manifest must be an object."]);
   }
@@ -166,6 +172,37 @@ function isSafeRoutePath(value: string) {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function createDefaultGeneratedAppManifest(
+  files: GeneratedProjectFile[],
+): GeneratedAppManifest {
+  const packageFile = files.find((file) => file.path === "package.json");
+  let packageName = "generated-app";
+
+  if (packageFile) {
+    try {
+      const value = JSON.parse(packageFile.content) as { name?: unknown };
+      if (typeof value.name === "string" && value.name.trim()) {
+        packageName = value.name.trim();
+      }
+    } catch {
+      // Package policy validation reports invalid package JSON later.
+    }
+  }
+
+  return {
+    buildCommand: "bun run build",
+    capabilities: ["static_content"],
+    outputDirectory: "dist",
+    packageManager: "bun",
+    projectId: packageName,
+    routes: [{ path: "/", title: "Beranda" }],
+    runtimeProfile: "vite-react-tanstack-v1",
+    schemaVersion: "1",
+    templateId: "vite-react-tanstack-starter",
+    templateVersion: "1.0.0",
+  };
 }
 
 function invalid(issues: string[]): GeneratedAppManifestValidationResult {

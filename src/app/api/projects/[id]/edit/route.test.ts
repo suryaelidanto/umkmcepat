@@ -90,7 +90,7 @@ const older = new Date("2026-07-07T01:00:00.000Z");
 const newer = new Date("2026-07-07T02:00:00.000Z");
 const baseFiles = [
   {
-    path: ".umkmcepat/project.json",
+    path: "generated-app.manifest.json",
     content: JSON.stringify({
       buildCommand: "bun run build",
       capabilities: ["static_content"],

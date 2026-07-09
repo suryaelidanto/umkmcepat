@@ -47,8 +47,11 @@ describe("generated project source", () => {
     expect(() => assertSafeProjectFilePath("CON")).toThrow();
     expect(() => assertSafeProjectFilePath("bun.lock")).toThrow();
     expect(() =>
-      assertSafeProjectFilePath(".umkmcepat/project.json"),
+      assertSafeProjectFilePath(".agents/skills/impeccable/SKILL.md"),
     ).not.toThrow();
+    expect(() =>
+      assertSafeProjectFilePath(".umkmcepat/project.json"),
+    ).toThrow();
   });
 
   it("generates seven beta fixture variants with distinct structure and safe static content", () => {
@@ -198,7 +201,7 @@ describe("generated project source", () => {
     );
 
     expect(app).toContain("useEffect");
-    expect(app).toContain("umkmcepat-preview-ready");
+    expect(app).toContain("generated-app-preview-ready");
   });
 
   it("uses hash history so preview proxy paths do not become app routes", () => {
@@ -219,7 +222,7 @@ describe("generated project source", () => {
     );
   });
 
-  it("generates a valid app manifest for the Vite TanStack profile", () => {
+  it("generates standalone design context without platform metadata", () => {
     const files = createFiles("project_manifest", {
       prompt: "buatkan website coffee shop",
       businessType: "Coffee shop kecil",
@@ -232,16 +235,17 @@ describe("generated project source", () => {
     const result = validateGeneratedAppManifest(files);
 
     expect(result.ok).toBe(true);
-    expect(result.manifest).toMatchObject({
-      buildCommand: "bun run build",
-      outputDirectory: "dist",
-      packageManager: "bun",
-      projectId: "project_manifest",
-      runtimeProfile: "vite-react-tanstack-v1",
-      schemaVersion: "1",
-      templateId: "vite-react-tanstack-starter",
-      templateVersion: "1.0.0",
-    });
+    expect(files.some((file) => file.path.startsWith(".umkmcepat/"))).toBe(
+      false,
+    );
+    expect(readGeneratedFile(files, "PRODUCT.md")).toContain("Register:");
+    expect(readGeneratedFile(files, "DESIGN.md")).toContain("version: alpha");
+    expect(
+      readGeneratedFile(files, ".agents/skills/impeccable/SKILL.md"),
+    ).toContain("name: impeccable");
+    expect(
+      readGeneratedFile(files, ".agents/skills/impeccable/reference/craft.md"),
+    ).toContain("craft");
   });
 
   it("creates snapshot metadata with manifest, origin, and summary", () => {
@@ -260,7 +264,6 @@ describe("generated project source", () => {
 
     expect(createGeneratedSourceSnapshotMetadata(files, schema)).toMatchObject({
       manifest: {
-        projectId: "project_snapshot",
         runtimeProfile: "vite-react-tanstack-v1",
         schemaVersion: "1",
       },
@@ -276,21 +279,29 @@ describe("generated project source", () => {
     });
   });
 
-  it("fails build preflight when the generated app manifest is missing", async () => {
-    const result = await buildGeneratedProject([
+  it("accepts standalone source without a platform manifest", async () => {
+    const result = await buildGeneratedProject(buildableFiles("standalone"), {
+      commandRunner: async (command, cwd) => {
+        if (command.join(" ") === "bun install") {
+          await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+        }
+
+        if (command.join(" ") === "bun run build") {
+          await writeDist(cwd, "<html>ok</html>");
+        }
+
+        return { log: command.join(" "), ok: true };
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.distFiles).toEqual([
       {
-        content: JSON.stringify({
-          private: true,
-          scripts: { build: "echo should-not-run" },
-        }),
-        path: "package.json",
+        content: "<html>ok</html>",
+        contentType: "text/html; charset=utf-8",
+        path: "index.html",
       },
     ]);
-
-    expect(result.ok).toBe(false);
-    expect(result.distFiles).toEqual([]);
-    expect(result.log).toContain("Generated app manifest failed preflight");
-    expect(result.log).toContain("Missing .umkmcepat/project.json manifest.");
   });
 
   it("skips dependency install for repeat workspace builds with unchanged packages", async () => {
@@ -505,7 +516,7 @@ function buildableFiles(
 ): GeneratedProjectFile[] {
   return [
     {
-      path: ".umkmcepat/project.json",
+      path: "generated-app.manifest.json",
       content: JSON.stringify({
         buildCommand: "bun run build",
         capabilities: ["static_content"],

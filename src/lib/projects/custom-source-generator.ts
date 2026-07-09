@@ -281,7 +281,7 @@ function checkAgentSourceQuality(
     issues.push("unsupported fake backend/auth/payment language detected");
   }
 
-  if (!sourceText.includes("umkmcepat-preview-ready")) {
+  if (!sourceText.includes("generated-app-preview-ready")) {
     issues.push("preview-ready signal missing");
   }
 
@@ -312,14 +312,14 @@ function fallback(
 }
 
 function buildAgentPrompt(implementationBrief: string) {
-  return `Build a custom generated UMKM Cepat app from the starter files.
+  return `Build a custom standalone generated app from the starter files.
 
 Implementation brief:
 ${implementationBrief}
 
 Required steps:
 1. list_files
-2. read the router, index route, content, style files; use line ranges for large files
+2. read PRODUCT.md, DESIGN.md, .agents/skills/impeccable/SKILL.md, router, index route, content, and style files; use line ranges for large files
 3. create at least one component under src/components/custom/ unless a better domain folder already exists
 4. edit route, content, and CSS files so the app feels designed, not pasted answers
 5. keep static frontend only
@@ -400,6 +400,7 @@ Rules:
 - Prefer custom CSS, React components, content modules, and routes.
 - Make structure specific to this business: ${implementationSpec?.businessName || schema.businessName} / ${implementationSpec?.appKind || "landing"} / ${(implementationSpec?.features || [schema.offer, schema.audience]).join(", ")}.
 - Do not add packages unless already allowed by package policy.
+- Follow PRODUCT.md, DESIGN.md, and .agents/skills/impeccable/SKILL.md. Do not run installers or CLIs.
 - Keep preview readiness working.
 - You must edit route, content, and styling files.
 - You should create at least one src/components/custom/*.tsx file for the main visual section.

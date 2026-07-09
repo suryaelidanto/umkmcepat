@@ -359,7 +359,43 @@ function checkGeneratedApp(
     return { issues: packagePolicyResult.issues, ok: false };
   }
 
+  const designIssues = getGeneratedDesignIssues(files);
+
+  if (designIssues.length) {
+    return { issues: designIssues, ok: false };
+  }
+
   return { issues: [], ok: true };
+}
+
+function getGeneratedDesignIssues(files: GeneratedProjectFile[]) {
+  const issues: string[] = [];
+  const paths = new Set(files.map((file) => file.path));
+  const sourceText = files
+    .filter((file) =>
+      /^(src\/|DESIGN\.md$|PRODUCT\.md$|AGENTS\.md$)/.test(file.path),
+    )
+    .map((file) => file.content)
+    .join("\n")
+    .toLowerCase();
+
+  if (/\.umkmcepat\//.test([...paths].join("\n"))) {
+    issues.push(
+      "Generated source must not include platform-branded .umkmcepat files.",
+    );
+  }
+
+  if (/gradient-?text|background-clip:\s*text|bg-clip-text/.test(sourceText)) {
+    issues.push("Generic gradient text is blocked by design policy.");
+  }
+
+  if (/h-screen\b/.test(sourceText)) {
+    issues.push(
+      "Use min-height: 100dvh instead of h-screen for viewport sections.",
+    );
+  }
+
+  return issues;
 }
 
 function normalizeFiles(files: GeneratedProjectFile[]) {

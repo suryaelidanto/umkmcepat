@@ -8,11 +8,10 @@ import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 
 const agentGenerate = vi.fn();
 
-vi.mock("ai", async () => {
-  const actual = await vi.importActual<typeof import("ai")>("ai");
-
+vi.mock("ai", () => {
   return {
-    ...actual,
+    stepCountIs: () => () => false,
+    tool: (config: unknown) => config,
     ToolLoopAgent: class ToolLoopAgent {
       tools: Record<string, { execute: (input: never) => unknown }>;
 
@@ -26,7 +25,6 @@ vi.mock("ai", async () => {
         return agentGenerate(this.tools, input);
       }
     },
-    stepCountIs: () => () => false,
   };
 });
 
@@ -50,6 +48,7 @@ function schema() {
 
 describe("custom generated source agent", () => {
   beforeEach(() => {
+    process.env.VITEST = "1";
     agentGenerate.mockReset();
   });
 

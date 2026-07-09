@@ -24,7 +24,7 @@ export function getChatAiModel(models = getAvailableAiModels()) {
     return explicit;
   }
 
-  return getFastAiModel(models);
+  return getDefaultAiModel(models);
 }
 
 export function getEditAiModel(models = getAvailableAiModels()) {

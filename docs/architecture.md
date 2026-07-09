@@ -214,6 +214,7 @@ Local env:
 ```env
 AI_PROVIDER="9router"
 AI_MODELS="cmc/deepseek/deepseek-v4-pro,cmc/deepseek/deepseek-v4-flash,cmc/moonshotai/Kimi-K2.6"
+AI_CHAT_MODEL="cmc/deepseek/deepseek-v4-pro"
 NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
 NINE_ROUTER_API_KEY=""
 ```
@@ -224,7 +225,7 @@ Production Compose can use Docker DNS:
 NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 ```
 
-Keep provider keys out of frontend env vars and git.
+Keep provider keys out of frontend env vars and git. `AI_CHAT_MODEL` should stay on a stronger structured-output-capable model because user-facing discussion consumes AI-generated JSON for both the visible assistant reply and the next workspace card. Fast/cheap models are acceptable for edit/moderation defaults, not mandatory brief progression.
 
 ## Storage
 

@@ -38,14 +38,12 @@ describe("AI model config", () => {
     }
   });
 
-  it("uses a small/flash model for chat when no explicit chat model is set", () => {
+  it("uses the default strong model for chat when no explicit chat model is set", () => {
     const previous = process.env.AI_CHAT_MODEL;
     delete process.env.AI_CHAT_MODEL;
 
     try {
-      expect(getChatAiModel(["kimi", "pro", "deepseek-flash"])).toBe(
-        "deepseek-flash",
-      );
+      expect(getChatAiModel(["pro", "deepseek-flash"])).toBe("pro");
     } finally {
       process.env.AI_CHAT_MODEL = previous;
     }

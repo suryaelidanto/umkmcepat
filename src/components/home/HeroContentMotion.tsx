@@ -5,8 +5,8 @@ import { motion, useReducedMotion } from "motion/react";
 import type React from "react";
 
 const item = {
-  hidden: { opacity: 0, y: 22, filter: "blur(10px)" },
-  show: { opacity: 1, y: 0, filter: "blur(0px)" },
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0 },
 };
 
 export function HeroContentMotion({ children }: { children: React.ReactNode }) {

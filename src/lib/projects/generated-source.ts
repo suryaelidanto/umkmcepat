@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import {
   mkdir,
   readdir,
@@ -134,8 +135,8 @@ export function assertSafeProjectFilePath(filePath: string) {
     filePath.split("/").some((part) => part === "..") ||
     BLOCKED_GENERATED_PATHS.has(filePath) ||
     filePath.startsWith(".env.") ||
-    (filePath.startsWith(".") && !filePath.startsWith(".umkmcepat/")) ||
-    (filePath.includes("/.") && !filePath.startsWith(".umkmcepat/")) ||
+    (filePath.startsWith(".") && !isAllowedGeneratedDotPath(filePath)) ||
+    (filePath.includes("/.") && !isAllowedGeneratedDotPath(filePath)) ||
     filePath.includes("/node_modules/") ||
     filePath.startsWith("node_modules/") ||
     filePath.startsWith(".data/") ||
@@ -146,6 +147,13 @@ export function assertSafeProjectFilePath(filePath: string) {
   ) {
     throw new Error(`Unsafe generated file path: ${filePath}`);
   }
+}
+
+function isAllowedGeneratedDotPath(filePath: string) {
+  return (
+    filePath === ".agents/skills/impeccable/SKILL.md" ||
+    /^\.agents\/skills\/impeccable\/reference\/[a-z0-9-]+\.md$/.test(filePath)
+  );
 }
 
 function isBlockedWindowsPathPart(part: string) {
@@ -210,7 +218,12 @@ async function buildGeneratedProjectInWorkspace(
     toSafeWorkspacePart(manifest.projectId),
     toSafeWorkspacePart(manifest.runtimeProfile),
   );
-  const metadataPath = path.join(workspace, ".umkmcepat", "build-cache.json");
+  const metadataPath = path.join(
+    workspace,
+    ".cache",
+    "generated-app",
+    "build-cache.json",
+  );
   const dependencySignature = createDependencySignature(files, manifest);
   let cacheMetadata = await readBuildCacheMetadata(metadataPath);
   let installSkipped = false;
@@ -373,11 +386,6 @@ async function removeStaleWorkspaceFiles(
     const absolute = path.join(root, entry.name);
 
     if (entry.isDirectory()) {
-      if (entry.name === ".umkmcepat") {
-        await removeStaleWorkspaceFiles(absolute, expectedFiles);
-        continue;
-      }
-
       await removeStaleWorkspaceFiles(absolute, expectedFiles);
       await removeEmptyDirectory(absolute);
       continue;
@@ -390,7 +398,7 @@ async function removeStaleWorkspaceFiles(
 
     const relative = path.relative(root, absolute).replace(/\\/g, "/");
 
-    if (relative === ".umkmcepat/build-cache.json") {
+    if (relative === ".cache/generated-app/build-cache.json") {
       continue;
     }
 
@@ -615,22 +623,6 @@ export function createGeneratedViteTanStackStarterFiles(
 ): GeneratedProjectFile[] {
   return [
     {
-      path: ".umkmcepat/project.json",
-      content: json({
-        buildCommand: "bun run build",
-        capabilities: getProjectCapabilities(schema),
-        generationMode: "agent-starter",
-        outputDirectory: "dist",
-        packageManager: "bun",
-        projectId,
-        routes: [{ path: "/", title: "Beranda" }],
-        runtimeProfile: "vite-react-tanstack-v1",
-        schemaVersion: "1",
-        templateId: "vite-react-tanstack-starter",
-        templateVersion: "1.0.0",
-      }),
-    },
-    {
       path: "package.json",
       content: json({
         name: toPackageName(schema.businessName),
@@ -754,16 +746,17 @@ export function createGeneratedViteTanStackStarterFiles(
     },
     {
       path: "src/lib/preview-ready.ts",
-      content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "umkmcepat-preview-ready" }, "*");\n  }, []);\n}\n`,
+      content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "generated-app-preview-ready" }, "*");\n  }, []);\n}\n`,
     },
     {
       path: "src/styles.css",
       content: `:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#111827;background:#f9fafb}*{box-sizing:border-box}body{margin:0}.starter-shell{min-height:100dvh;display:grid;place-content:center;padding:40px;text-align:center}.starter-shell h1{max-width:720px;font-size:clamp(32px,5vw,64px);line-height:1}\n`,
     },
+    ...createGeneratedDesignContextFiles(schema),
     {
       path: "AGENTS.md",
       content:
-        "# Generated UMKM Cepat Vite starter\n\nThis is the initial Vite React TypeScript ESLint + TanStack Router starter. Replace placeholder routes with business-specific static frontend files. Keep user-facing copy Indonesian. No backend, auth, checkout, payment processing, databases, browser automation, native packages, or extra dependencies unless the platform explicitly supports them. Always keep the preview-ready helper wired after React renders.\n",
+        "# Generated Vite starter\n\nThis is a standalone Vite React TypeScript ESLint + TanStack Router project generated from a business brief. Keep user-facing copy Indonesian. No backend, auth, checkout, payment processing, databases, browser automation, native packages, or extra dependencies unless explicitly supported. Follow PRODUCT.md, DESIGN.md, and .agents/skills/impeccable/SKILL.md before design edits. Always keep the preview-ready helper wired after React renders.\n",
     },
   ];
 }
@@ -783,23 +776,6 @@ export function createGeneratedViteTanStackProjectFiles(
   const routeModule = getBusinessRouteModule(variant);
 
   return [
-    {
-      path: ".umkmcepat/project.json",
-      content: json({
-        buildCommand: "bun run build",
-        capabilities: getProjectCapabilities(schema),
-        generationMode: "agent-custom-starter",
-        outputDirectory: "dist",
-        packageManager: "bun",
-        projectId,
-        routes: routeModule.routes,
-        runtimeProfile: "vite-react-tanstack-v1",
-        schemaVersion: "1",
-        templateId: "vite-react-tanstack-starter",
-        templateVersion: "1.0.0",
-        variant,
-      }),
-    },
     {
       path: "package.json",
       content: json({
@@ -929,16 +905,17 @@ export function createGeneratedViteTanStackProjectFiles(
     },
     {
       path: "src/lib/preview-ready.ts",
-      content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "umkmcepat-preview-ready" }, "*");\n  }, []);\n}\n`,
+      content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "generated-app-preview-ready" }, "*");\n  }, []);\n}\n`,
     },
     {
       path: "src/styles.css",
       content: createCustomProjectStyles(variant, schema),
     },
+    ...createGeneratedDesignContextFiles(schema),
     {
       path: "AGENTS.md",
       content:
-        "# Generated UMKM Cepat Vite app\n\nThis is a static React + Vite + TypeScript + TanStack Router project generated from a UMKM brief. Keep user-facing copy in Indonesian. Do not add backend, auth, checkout, payment processing, databases, native packages, browser automation, or extra dependencies unless the platform explicitly supports them. Prefer custom CSS and small React components. Always keep the preview-ready helper wired after React renders.\n",
+        "# Generated Vite app\n\nThis is a standalone static React + Vite + TypeScript + TanStack Router project generated from a business brief. Keep user-facing copy in Indonesian. Do not add backend, auth, checkout, payment processing, databases, native packages, browser automation, or extra dependencies unless explicitly supported. Follow PRODUCT.md, DESIGN.md, and .agents/skills/impeccable/SKILL.md before design edits. Prefer custom CSS and small React components. Always keep the preview-ready helper wired after React renders.\n",
     },
   ];
 }
@@ -951,14 +928,74 @@ type BusinessRouteModule = {
   routes: Array<{ path: string; title: string }>;
 };
 
+function createGeneratedDesignContextFiles(
+  schema: ProjectSiteSchema,
+): GeneratedProjectFile[] {
+  const productContext = `# Product Context\n\nRegister: brand surface.\nAudience: ${schema.audience}\nBusiness: ${schema.businessName}\nOffer: ${schema.offer}\nPrimary action: ${schema.primaryCta}\nVoice: clear, concrete, warm, and useful in Indonesian.\nAnti-references: generic AI SaaS gradients, vague productivity claims, fake awards, fake prices, fake checkout, fake login, nested card clutter.\n`;
+  const designContext = `---\nversion: alpha\nname: "${schema.businessName} generated app"\ncolors:\n  background: "${schema.theme.background}"\n  foreground: "${schema.theme.foreground}"\n  muted: "${schema.theme.muted}"\n  accent: "${schema.theme.accent}"\ntypography:\n  display:\n    fontFamily: ui-sans-serif, system-ui, sans-serif\n    fontSize: clamp(2.5rem, 7vw, 5.5rem)\n    fontWeight: 700\n    lineHeight: 0.95\n  body:\n    fontFamily: ui-sans-serif, system-ui, sans-serif\n    fontSize: 1rem\n    fontWeight: 400\n    lineHeight: 1.65\nrounded:\n  sm: 8px\n  md: 16px\n  lg: 28px\nspacing:\n  sm: 8px\n  md: 16px\n  lg: 32px\n  xl: 64px\n---\n\n## Overview\n\nCreate a standalone, business-specific Indonesian web experience. Design should serve the visitor's next action, not show off the generator.\n\n## Do's and Don'ts\n\n- Do use one coherent visual system, one accent color, clear hierarchy, responsive layout, and visible interaction states.\n- Do make the page feel specific to ${schema.businessName}: ${schema.offer}.\n- Do preserve contrast, keyboard focus, readable type, and mobile comfort.\n- Don't use generic purple-blue AI gradients, gradient text, nested card soup, fake dashboards, fake payment/auth, or invented claims.\n`;
+  return [
+    { path: "PRODUCT.md", content: productContext },
+    { path: "DESIGN.md", content: designContext },
+    ...readImpeccableSkillPresetFiles(),
+  ];
+}
+
+function readImpeccableSkillPresetFiles(): GeneratedProjectFile[] {
+  const root = path.join(process.cwd(), ".agents", "skills", "impeccable");
+  const skillPath = path.join(root, "SKILL.md");
+  const referenceRoot = path.join(root, "reference");
+
+  if (!existsSync(skillPath)) {
+    return [
+      {
+        path: ".agents/skills/impeccable/SKILL.md",
+        content:
+          "---\nname: impeccable\ndescription: Impeccable-inspired frontend design guardrails for generated standalone apps.\n---\n\n# Impeccable Design Guardrails\n\nRead PRODUCT.md and DESIGN.md before editing UI. Avoid generic AI slop, keep contrast high, use responsive layouts, preserve interaction states, and do not invent business claims.\n",
+      },
+    ];
+  }
+
+  const files: GeneratedProjectFile[] = [
+    {
+      path: ".agents/skills/impeccable/SKILL.md",
+      content: readFileSync(skillPath, "utf8"),
+    },
+  ];
+
+  if (existsSync(referenceRoot)) {
+    for (const entry of readdirSync(referenceRoot, { withFileTypes: true })) {
+      if (!entry.isFile() || !/^[a-z0-9-]+\.md$/.test(entry.name)) {
+        continue;
+      }
+
+      files.push({
+        path: `.agents/skills/impeccable/reference/${entry.name}`,
+        content: readFileSync(path.join(referenceRoot, entry.name), "utf8"),
+      });
+    }
+  }
+
+  return files.sort((a, b) => a.path.localeCompare(b.path));
+}
+
 function toPackageName(value: string) {
   return (
     value
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "generated-umkm-app"
+      .replace(/^-|-$/g, "") || "generated-app"
   );
 }
+
+type ProjectSiteVariant =
+  | "angkringan"
+  | "automotive"
+  | "barber"
+  | "coffee"
+  | "fashion"
+  | "home-food"
+  | "laundry"
+  | "tutoring";
 
 function getBusinessRouteModule(
   variant: ProjectSiteVariant,
@@ -1147,48 +1184,6 @@ export function createGeneratedSourceSnapshotMetadata(
   };
 }
 
-function getProjectCapabilities(schema: ProjectSiteSchema) {
-  const text = [
-    schema.businessName,
-    schema.primaryCta,
-    schema.secondaryCta,
-    schema.offer,
-    ...schema.trustPoints,
-    ...schema.sections.flatMap((section) => [section.title, section.body]),
-  ]
-    .join(" ")
-    .toLowerCase();
-  const capabilities = new Set(["lead_intent", "static_content"]);
-
-  if (/\b(wa|whatsapp)\b/i.test(text)) {
-    capabilities.add("whatsapp_cta");
-  }
-
-  if (/(alamat|lokasi|maps|map|google maps)/i.test(text)) {
-    capabilities.add("location");
-  }
-
-  if (/(harga|katalog|menu|paket|produk|layanan)/i.test(text)) {
-    capabilities.add("catalog");
-  }
-
-  if (/(payment link|link pembayaran|bayar)/i.test(text)) {
-    capabilities.add("payment_link_placeholder");
-  }
-
-  return [...capabilities].sort();
-}
-
-type ProjectSiteVariant =
-  | "angkringan"
-  | "automotive"
-  | "barber"
-  | "coffee"
-  | "fashion"
-  | "home-food"
-  | "laundry"
-  | "tutoring";
-
 function getProjectSiteVariant(schema: ProjectSiteSchema): ProjectSiteVariant {
   const text = [
     schema.businessName,
@@ -1288,7 +1283,7 @@ const closingTitle = "${config.closingTitle}";
 
 export default function App() {
   useEffect(() => {
-    window.parent?.postMessage({ type: "umkmcepat-preview-ready" }, "*");
+    window.parent?.postMessage({ type: "generated-app-preview-ready" }, "*");
   }, []);
 
   return (
