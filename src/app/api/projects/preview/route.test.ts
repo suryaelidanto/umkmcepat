@@ -332,7 +332,8 @@ describe("project preview AI route", () => {
           const text = typeof value === "string" ? value : "";
           return (
             text.includes("tool-setWorkspaceUi") &&
-            text.includes("whatsapp_number")
+            text.includes("whatsapp_number") &&
+            text.includes("Berikutnya: Nomor WhatsApp yang bisa dihubungi?")
           );
         }),
       ),

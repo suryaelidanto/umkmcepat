@@ -280,6 +280,11 @@ function createProvisionalWorkspaceToolMessage(
     role: "assistant",
     parts: [
       {
+        type: "text",
+        text: getProvisionalWorkspaceText(output.workspaceCard, output.brief),
+        state: "done",
+      },
+      {
         type: "tool-setWorkspaceUi",
         toolCallId: `workspace-tool-${Date.now()}`,
         state: "output-available",
@@ -288,6 +293,24 @@ function createProvisionalWorkspaceToolMessage(
       },
     ],
   } as UIMessage;
+}
+
+function getProvisionalWorkspaceText(card: unknown, brief: unknown) {
+  const workspaceCard = parseWorkspaceCard(card, parseProjectBrief(brief));
+
+  if (workspaceCard.type === "question") {
+    return `Oke, aku catat. Berikutnya: ${workspaceCard.question.question}`;
+  }
+
+  if (workspaceCard.type === "brief_review") {
+    return "Oke, aku rangkum dulu biar kamu bisa cek sebelum websitenya dibuat.";
+  }
+
+  if (workspaceCard.type === "build_recommendation") {
+    return "Brief sudah cukup. Aku siap mulai bikin websitenya kalau kamu setuju.";
+  }
+
+  return "Oke, aku catat.";
 }
 
 function dropAssistantTurnsWithoutWorkspaceTool(messages: UIMessage[]) {
