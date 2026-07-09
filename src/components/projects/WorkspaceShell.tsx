@@ -198,7 +198,6 @@ export function WorkspaceShell({
   const previousScrollHeight = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
   const ignoreNextScrollRef = useRef(false);
-  const autoRetriedTurn = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
@@ -567,7 +566,10 @@ export function WorkspaceShell({
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
   const isProcessing = isResponding || isBuilding || isEditingPreview;
-  const visibleMessages = [...olderMessages, ...messages];
+  const visibleMessages = filterDiscussionMessagesWithWorkspaceUi(
+    [...olderMessages, ...messages],
+    mode === "discuss",
+  );
   const buildRecommendationSignature =
     getBuildRecommendationHoldSignature(workspaceCard);
   const buildRecommendationHeld = isBuildRecommendationHeld(
@@ -608,6 +610,8 @@ export function WorkspaceShell({
   const hasPreview = shouldRenderGeneratedPreview;
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
+  const missingWorkspaceUiTurn =
+    mode === "discuss" && hasAssistantWithoutWorkspaceUi(messages);
   const runtimeControl = createRuntimeControl({
     buildStatus,
     isPublishing,
@@ -1154,31 +1158,10 @@ export function WorkspaceShell({
   }, [clearError, isRetrying, regenerate, status]);
 
   useEffect(() => {
-    if (!error) {
-      return;
+    if (error) {
+      captureRateLimitError(error, setRateLimitError);
     }
-
-    if (captureRateLimitError(error, setRateLimitError)) {
-      return;
-    }
-
-    // Anchor the guard to the last user message id, which stays stable across
-    // regenerate(). This guarantees at most one silent auto-retry per user
-    // turn even if a failed stream leaves a transient assistant message.
-    const lastUserMessage = [...messages]
-      .reverse()
-      .find((message) => message.role === "user");
-    const turnKey = lastUserMessage?.id ?? `${messages.length}`;
-
-    // Hybrid recovery: one silent auto-retry per failed turn, then fall back to
-    // the manual button. Guarded by a per-turn ref so it can never loop.
-    if (autoRetriedTurn.current === turnKey) {
-      return;
-    }
-
-    autoRetriedTurn.current = turnKey;
-    void retryLastTurn();
-  }, [error, messages, retryLastTurn]);
+  }, [error]);
 
   function closePreviewPanel() {
     if (!showChatPanel) {
@@ -1376,12 +1359,12 @@ export function WorkspaceShell({
                         {rateLimitError.message}
                       </p>
                     </div>
-                  ) : error ? (
+                  ) : error || missingWorkspaceUiTurn ? (
                     <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                       <p className="text-sm font-medium text-[#ffb4a6]">
                         {isRetrying
                           ? "AI sempat terputus. Mencoba menyambung ulang..."
-                          : "AI sempat terputus. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi tanpa kehilangan progres."}
+                          : "AI belum sempat menyiapkan pilihan. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi."}
                       </p>
                       {!isRetrying ? (
                         <Button
@@ -1856,6 +1839,43 @@ function completeBuildProgress(current: BuildProgressStep[]) {
   return current.map((step) =>
     step.status === "active" ? { ...step, status: "done" as const } : step,
   );
+}
+
+function hasAssistantWithoutWorkspaceUi(messages: UIMessage[]) {
+  const latest = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+
+  if (!latest) {
+    return false;
+  }
+
+  return !latest.parts.some(
+    (part) =>
+      part.type === "tool-setWorkspaceUi" &&
+      (part as { state?: unknown }).state === "output-available",
+  );
+}
+
+function filterDiscussionMessagesWithWorkspaceUi(
+  messages: UIMessage[],
+  enabled: boolean,
+) {
+  if (!enabled) {
+    return messages;
+  }
+
+  return messages.filter((message) => {
+    if (message.role !== "assistant") {
+      return true;
+    }
+
+    return message.parts.some(
+      (part) =>
+        part.type === "tool-setWorkspaceUi" &&
+        (part as { state?: unknown }).state === "output-available",
+    );
+  });
 }
 
 function getLatestWorkspaceUpdateFromMessages(messages: UIMessage[]) {

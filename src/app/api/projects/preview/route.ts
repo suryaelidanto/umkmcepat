@@ -1,6 +1,5 @@
 import {
   convertToModelMessages,
-  generateText,
   stepCountIs,
   streamText,
   tool,
@@ -204,29 +203,6 @@ export async function POST(request: Request) {
   });
   let workspaceTurn = normalizeWorkspaceTurn(undefined, effectiveBrief);
 
-  async function repairMissingWorkspaceToolCall({
-    messages,
-  }: {
-    messages: UIMessage[];
-  }) {
-    await generateText({
-      model: getAiModel(getChatAiModel()),
-      system: buildSystemPrompt({
-        context: chatContext.systemContext,
-        mode: "discuss",
-        brief: effectiveBrief,
-      }),
-      messages: await convertToModelMessages(messages.slice(-8), {
-        tools: workspaceTools,
-      }),
-      tools: workspaceTools,
-      toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
-      stopWhen: stepCountIs(1),
-      maxRetries: 0,
-      temperature: 0.2,
-    });
-  }
-
   const result = streamText({
     model: getAiModel(getChatAiModel()),
     system: buildSystemPrompt({
@@ -254,17 +230,6 @@ export async function POST(request: Request) {
     originalMessages: messages,
     onFinish: async ({ messages }) => {
       const safeMessages = dedupeUiMessages(parseProjectChatMessages(messages));
-
-      if (!didWorkspaceToolUpdate && mode === "discuss") {
-        await repairMissingWorkspaceToolCall({ messages: safeMessages }).catch(
-          (error) => {
-            console.error(
-              "[preview-chat] workspace repair failed",
-              getSafeAiErrorLog(error),
-            );
-          },
-        );
-      }
 
       const title = workspaceTurn.projectTitle || project.title;
       const messagesToPersist =
