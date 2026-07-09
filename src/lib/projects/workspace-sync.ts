@@ -101,6 +101,38 @@ export function getWorkspaceComposerState({
   return "free_chat";
 }
 
+export function hasAnsweredWorkspaceQuestion({
+  card,
+  messages,
+  mode,
+}: {
+  card: WorkspaceCard;
+  messages: UIMessage[];
+  mode: string;
+}) {
+  if (mode !== "discuss" || card.type !== "question") {
+    return false;
+  }
+
+  const latestUserIndex = findLastIndex(
+    messages,
+    (message) => message.role === "user",
+  );
+
+  if (latestUserIndex < 0) {
+    return false;
+  }
+
+  const latestUserText = getUiMessageText(messages[latestUserIndex]);
+  const answeredQuestion = latestUserText.split(/\nJawaban:/i)[0]?.trim();
+
+  if (!answeredQuestion || answeredQuestion !== card.question.question.trim()) {
+    return false;
+  }
+
+  return messages.slice(latestUserIndex + 1).some(hasAssistantContent);
+}
+
 export function hasMissingWorkspaceUiTurn({
   card,
   messages,
@@ -132,9 +164,7 @@ export function hasMissingWorkspaceUiTurn({
 
   const messagesAfterUser = messages.slice(latestUserIndex + 1);
   const hasNewerWorkspaceTool = messagesAfterUser.some(hasWorkspaceUiTool);
-  const hasAssistantAfterUser = messagesAfterUser.some(
-    (message) => message.role === "assistant",
-  );
+  const hasAssistantAfterUser = messagesAfterUser.some(hasAssistantContent);
 
   return hasAssistantAfterUser && !hasNewerWorkspaceTool;
 }
@@ -156,12 +186,35 @@ function getUiMessageText(message: UIMessage) {
     .join("\n");
 }
 
+function hasAssistantContent(message: UIMessage) {
+  if (message.role !== "assistant") {
+    return false;
+  }
+
+  return message.parts.some((part) => {
+    if (part.type === "text") {
+      return isUserVisibleAssistantText(part.text);
+    }
+
+    return isWorkspaceUiToolPart(part);
+  });
+}
+
 function hasWorkspaceUiTool(message: UIMessage) {
-  return message.parts.some(
-    (part) =>
-      part.type === "tool-setWorkspaceUi" &&
-      (part as { state?: unknown }).state === "output-available",
+  return message.parts.some(isWorkspaceUiToolPart);
+}
+
+function isWorkspaceUiToolPart(part: UIMessage["parts"][number]) {
+  return (
+    part.type === "tool-setWorkspaceUi" &&
+    (part as { state?: unknown }).state === "output-available"
   );
+}
+
+export function isUserVisibleAssistantText(text: string) {
+  const value = text.trim();
+
+  return Boolean(value) && !/^\[CommandCode error:/i.test(value);
 }
 
 export function shouldShowBuildRecommendationComposer({

@@ -31,6 +31,7 @@ import {
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
+import { isUserVisibleAssistantText } from "@/lib/projects/workspace-sync";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
@@ -248,7 +249,9 @@ export async function POST(request: Request) {
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
     onFinish: async ({ messages }) => {
-      const safeMessages = dedupeUiMessages(parseProjectChatMessages(messages));
+      const safeMessages = stripCommandCodeErrors(
+        dedupeUiMessages(parseProjectChatMessages(messages)),
+      );
 
       const title = workspaceTurn.projectTitle || project.title;
       const messagesToPersist = safeMessages;
@@ -384,7 +387,9 @@ async function handleStructuredDiscussTurn({
         });
       }
 
-      const safeMessages = dedupeUiMessages(parseProjectChatMessages(messages));
+      const safeMessages = stripCommandCodeErrors(
+        dedupeUiMessages(parseProjectChatMessages(messages)),
+      );
       const title = workspaceTurn.projectTitle || project.title;
 
       await writeAiRequestLog({
@@ -441,6 +446,24 @@ async function waitForWorkspaceToolSettled(
 
   await latePromise;
   return true;
+}
+
+function stripCommandCodeErrors(messages: UIMessage[]) {
+  return messages
+    .map((message) => {
+      if (message.role !== "assistant") {
+        return message;
+      }
+
+      return {
+        ...message,
+        parts: message.parts.filter(
+          (part) =>
+            part.type !== "text" || isUserVisibleAssistantText(part.text),
+        ),
+      } satisfies UIMessage;
+    })
+    .filter((message) => message.role !== "assistant" || message.parts.length);
 }
 
 function dedupeUiMessages(messages: UIMessage[]) {

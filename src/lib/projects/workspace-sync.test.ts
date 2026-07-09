@@ -5,12 +5,14 @@ import {
   getBuildRecommendationHoldSignature,
   getWorkspacePreviewIssue,
   getWorkspaceComposerState,
+  hasAnsweredWorkspaceQuestion,
   hasMissingWorkspaceUiTurn,
   isBuildRecommendationHeld,
   isWorkspaceBuildComplete,
   shouldShowBuildRecommendationComposer,
   shouldRefreshWorkspaceAfterChatStatus,
   shouldUseGeneratedPreviewFrame,
+  isUserVisibleAssistantText,
 } from "@/lib/projects/workspace-sync";
 
 describe("workspace chat sync", () => {
@@ -80,6 +82,100 @@ describe("workspace chat sync", () => {
             id: "transient_assistant",
             role: "assistant",
             parts: [{ type: "text", text: "Sebentar ya..." }],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps an unanswered persisted card active after duplicate previous answers", () => {
+    const card: WorkspaceCard = {
+      type: "question",
+      question: {
+        id: "next_section",
+        answerMode: "choice",
+        options: [],
+        question: "Selain paket, bagian apa lagi yang kamu mau?",
+        selectionMode: "multiple",
+      },
+    };
+
+    expect(
+      hasAnsweredWorkspaceQuestion({
+        card,
+        mode: "discuss",
+        messages: [
+          {
+            id: "user_1",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: "Turnamen masih jalan?\nJawaban: Masih jalan rutin",
+              },
+            ],
+          },
+          {
+            id: "user_2",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: "Turnamen masih jalan?\nJawaban: Masih jalan rutin",
+              },
+            ],
+          },
+          {
+            id: "assistant_1",
+            role: "assistant",
+            parts: [{ type: "text", text: "Oke, aku lanjut tanya." }],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores CommandCode transport errors as assistant content", () => {
+    const card: WorkspaceCard = {
+      type: "question",
+      question: {
+        id: "opening_hours",
+        answerMode: "text",
+        options: [],
+        question: "Neon Pad buka jam berapa?",
+        selectionMode: "single",
+      },
+    };
+
+    expect(
+      isUserVisibleAssistantText(
+        '[CommandCode error: {"type":"server_error"}]',
+      ),
+    ).toBe(false);
+    expect(
+      hasMissingWorkspaceUiTurn({
+        card,
+        mode: "discuss",
+        messages: [
+          {
+            id: "user_1",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: "Neon Pad buka jam berapa?\nJawaban: Senin-Jumat 8-5",
+              },
+            ],
+          },
+          {
+            id: "assistant_error",
+            role: "assistant",
+            parts: [
+              {
+                type: "text",
+                text: '[CommandCode error: {"type":"server_error"}]',
+              },
+            ],
           },
         ],
       }),
