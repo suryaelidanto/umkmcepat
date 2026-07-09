@@ -24,8 +24,8 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
   const end = Math.min(page * PAGE_SIZE, sponsors.length);
 
   return (
-    <div className="mt-spacing-8 overflow-hidden rounded-[22px] border border-surface-warm-white/10">
-      <table className="w-full text-sm">
+    <div className="mt-spacing-8 overflow-x-auto rounded-[22px] border border-surface-warm-white/10">
+      <table className="min-w-[760px] w-full text-sm">
         <thead className="bg-surface-warm-white/[0.055] text-left text-surface-warm-white/50">
           <tr>
             <th className="px-spacing-5 py-spacing-4 font-medium">Tanggal</th>

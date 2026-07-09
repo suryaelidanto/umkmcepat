@@ -47,6 +47,7 @@ next-env.d.ts
 # Local automation/browser artifacts
 .browser/
 .pi/
+.pi-subagents/
 graphify-out/
 
 # Local object storage uploads

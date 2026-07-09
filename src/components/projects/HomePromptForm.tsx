@@ -213,7 +213,7 @@ export function HomePromptForm() {
     <>
       <form
         onSubmit={handleSubmit}
-        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)] transition-all duration-300"
+        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/12 bg-[#232321] text-left ring-1 ring-surface-warm-white/6 transition-colors duration-200"
       >
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website
@@ -228,9 +228,9 @@ export function HomePromptForm() {
             placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
             maxLength={PROJECT_REQUEST_MAX_LENGTH}
             disabled={isLoading}
-            className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-13 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/42 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
+            className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-13 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/58 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
           />
-          <span className="pointer-events-none absolute bottom-spacing-4 right-spacing-7 rounded-full bg-[#232321]/85 px-spacing-4 py-spacing-2 text-sm tabular-nums text-surface-warm-white/52 backdrop-blur-sm">
+          <span className="pointer-events-none absolute bottom-spacing-4 right-spacing-7 rounded-full bg-[#232321] px-spacing-4 py-spacing-2 text-sm tabular-nums text-surface-warm-white/62 ring-1 ring-surface-warm-white/10">
             {prompt.length.toLocaleString("id-ID")}/1.200
           </span>
         </div>
@@ -246,7 +246,7 @@ export function HomePromptForm() {
               type="submit"
               size="icon"
               disabled={isLoading || !prompt.trim()}
-              className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+              className="size-11 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
               aria-label="Buat halaman"
             >
               {isLoading ? (

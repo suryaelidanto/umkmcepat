@@ -200,7 +200,7 @@ export function ProjectList({
               type="button"
               onClick={handleDelete}
               disabled={isPending}
-              className="bg-[#9f1d1d] text-surface-warm-white hover:bg-[#8b1717]"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isPending ? "Menghapus..." : "Hapus"}
             </Button>
@@ -248,7 +248,7 @@ function FeaturedProject({
               type="button"
               variant="destructive"
               onClick={() => onDelete(project)}
-              className="rounded-radius-lg bg-[#9f1d1d] text-surface-warm-white hover:bg-[#8b1717]"
+              className="rounded-radius-lg bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Hapus
             </Button>
@@ -283,12 +283,12 @@ function ProjectRow({
           Diubah {formatDate(project.updatedAt)}
         </p>
       </div>
-      <div className="col-start-2 flex items-center gap-spacing-3 sm:col-start-auto">
+      <div className="col-span-2 grid grid-cols-2 gap-spacing-3 sm:col-span-1 sm:col-start-auto sm:flex sm:items-center">
         <Button
           asChild
           variant="outline"
           size="sm"
-          className="rounded-radius-lg border-surface-warm-white/12 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12"
+          className="w-full rounded-radius-lg border-surface-warm-white/12 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12 sm:w-auto"
         >
           <Link href={`/projects/${project.id}`}>Buka</Link>
         </Button>
@@ -297,7 +297,7 @@ function ProjectRow({
           variant="destructive"
           size="sm"
           onClick={() => onDelete(project)}
-          className="rounded-radius-lg bg-[#9f1d1d] text-surface-warm-white hover:bg-[#8b1717]"
+          className="w-full rounded-radius-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:w-auto"
         >
           Hapus
         </Button>
@@ -329,12 +329,10 @@ function ProjectMark({
         }}
       />
       <div
-        className="absolute aspect-square w-2/3 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
+        className="absolute inset-0"
         style={{
-          left: `${mark.glowX}%`,
-          top: `${mark.glowY}%`,
-          backgroundColor: mark.glowColor,
-          opacity: 0.45,
+          backgroundImage: `radial-gradient(circle at ${mark.glowX}% ${mark.glowY}%, ${mark.glowColor} 0%, transparent 52%)`,
+          opacity: 0.32,
         }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10" />

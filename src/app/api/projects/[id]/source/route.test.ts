@@ -51,6 +51,21 @@ describe("project source route", () => {
     prismaProjectSnapshotFindFirstMock.mockResolvedValue(null);
   });
 
+  it("does not invent source files before the first real build/source exists", async () => {
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([]);
+
+    const response = await GET(new Request("http://localhost/source"), {
+      params: Promise.resolve({ id: "project_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.buildStatus).toBe("failed");
+    expect(body.files).toEqual([]);
+    expect(JSON.stringify(body)).not.toContain("angkringan");
+    expect(body.currentPreviewSource).toBeNull();
+  });
+
   it("returns the active preview source instead of the newest failed attempt source", async () => {
     const successfulBuild = {
       artifactRef: "project-artifact:local:dist:build_success",

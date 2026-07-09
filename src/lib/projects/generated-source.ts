@@ -1133,8 +1133,7 @@ export function createGeneratedSourceSnapshotMetadata(
   schema: ProjectSiteSchema,
   generation?: {
     buildSpec?: string;
-    fallbackReason?: string;
-    generationMode?: "agent-custom" | "deterministic-fallback";
+    generationMode?: "agent-custom";
     operationTrace?: Array<{
       detail: string;
       path?: string;
@@ -1156,7 +1155,6 @@ export function createGeneratedSourceSnapshotMetadata(
     generation: generation
       ? {
           buildSpec: generation.buildSpec,
-          fallbackReason: generation.fallbackReason,
           mode: generation.generationMode,
           operationTrace: generation.operationTrace ?? [],
           repairAttempts: generation.repairAttempts ?? 0,

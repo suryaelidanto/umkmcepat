@@ -212,16 +212,16 @@ function ContributionChart({
                   className="group/bar relative flex h-full min-w-0 flex-1 items-end"
                 >
                   <div
-                    className="w-full rounded-t-[3px] bg-[#0d6efd] transition group-hover/bar:bg-[#58a6ff]"
+                    className="w-full rounded-t-[3px] bg-github-blue-deep transition group-hover/bar:bg-github-blue"
                     style={{ height: `${height}%` }}
                   />
-                  <div className="pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 z-10 w-36 -translate-x-1/2 rounded-radius-md bg-surface-warm-white px-spacing-4 py-spacing-3 text-xs text-foreground-primary opacity-0 shadow-[0_12px_34px_rgba(0,0,0,0.28)] transition group-hover/bar:opacity-100">
+                  <div className="pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 z-10 w-36 -translate-x-1/2 rounded-radius-md border border-foreground-primary/10 bg-surface-warm-white px-spacing-4 py-spacing-3 text-xs text-foreground-primary opacity-0 ring-1 ring-foreground-primary/5 transition group-hover/bar:opacity-100">
                     <p className="font-semibold">{week.label}</p>
                     <p className="mt-spacing-1">{week.commits} commit</p>
-                    <p className="mt-spacing-1 text-[#0d6efd]">
+                    <p className="mt-spacing-1 text-github-blue-deep">
                       {formatCompact(week.additions)} ++
                     </p>
-                    <p className="text-[#ff4d4f]">
+                    <p className="text-github-red">
                       {formatCompact(week.deletions)} --
                     </p>
                   </div>
@@ -296,7 +296,7 @@ export async function CommunitySection() {
                 {contributors.map((contributor, index) => (
                   <article
                     key={contributor.login}
-                    className="group rounded-[30px] border border-surface-warm-white/12 bg-[#242422] p-spacing-6 text-left shadow-[0_24px_80px_rgba(0,0,0,0.14)] transition hover:bg-[#282826]"
+                    className="group rounded-[30px] border border-surface-warm-white/12 bg-[#242422] p-spacing-6 text-left ring-1 ring-surface-warm-white/5 transition hover:bg-[#282826]"
                   >
                     <div className="flex items-start justify-between gap-spacing-5">
                       <div className="flex min-w-0 items-center gap-spacing-4">
@@ -313,16 +313,16 @@ export async function CommunitySection() {
                             href={contributor.profileUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="truncate text-lg font-semibold text-[#58a6ff] transition hover:underline"
+                            className="truncate text-lg font-semibold text-github-blue transition hover:underline"
                           >
                             {contributor.login}
                           </a>
                           <p className="mt-spacing-1 text-xs text-surface-warm-white/58">
                             <span>{contributor.recentCommits} commits</span>
-                            <span className="ml-spacing-3 text-[#58a6ff]">
+                            <span className="ml-spacing-3 text-github-blue">
                               {formatCompact(contributor.recentAdditions)} ++
                             </span>
-                            <span className="ml-spacing-3 text-[#ff4d4f]">
+                            <span className="ml-spacing-3 text-github-red">
                               {formatCompact(contributor.recentDeletions)} --
                             </span>
                           </p>
@@ -350,7 +350,7 @@ export async function CommunitySection() {
                       <p className="text-lg font-semibold text-surface-warm-white">
                         Ikut bantu proyek ini
                       </p>
-                      <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/56">
+                      <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/68">
                         Lihat repo, buka issue, atau kirim pull request kalau
                         ada yang ingin kamu rapikan.
                       </p>
@@ -362,7 +362,7 @@ export async function CommunitySection() {
                 ) : null}
               </div>
             ) : (
-              <div className="mt-spacing-8 rounded-[28px] border border-dashed border-surface-warm-white/14 bg-[#1f1f1d] p-spacing-7 text-sm leading-6 text-surface-warm-white/58">
+              <div className="mt-spacing-8 rounded-[28px] border border-dashed border-surface-warm-white/14 bg-[#1f1f1d] p-spacing-7 text-sm leading-6 text-surface-warm-white/68">
                 Data kontributor belum bisa dibaca. Tambahkan GITHUB_TOKEN di
                 env server untuk menaikkan batas akses Github API.
               </div>
@@ -408,7 +408,7 @@ export async function CommunitySection() {
                       +
                     </span>
                   </summary>
-                  <p className="px-spacing-6 pb-spacing-6 text-sm leading-6 text-surface-warm-white/58">
+                  <p className="px-spacing-6 pb-spacing-6 text-sm leading-6 text-surface-warm-white/68">
                     {faq.answer}
                   </p>
                 </details>

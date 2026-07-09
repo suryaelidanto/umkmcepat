@@ -8,6 +8,7 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 - Keep every developer-facing or internal-facing surface in English: docs, system prompts, agent prompts, code names, comments, logs, errors, test names, commits, scripts, and internal tooling copy.
 - Keep only consumer-facing product UI copy in Indonesian unless an i18n layer is introduced.
 - Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, uploads, or generated junk.
+- Never surface mock, dummy, sample, or deterministic fallback project content as user-facing source, preview, or generated output. If real data/source/build output is unavailable, show an empty/error state and fail honestly.
 
 ## Local runtime
 

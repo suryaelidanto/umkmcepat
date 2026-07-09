@@ -17,6 +17,15 @@
   --color-surface-muted: #f7f4ed;
   --color-text-secondary: #5f5f5d;
   --color-action-primary: #1c1c1c;
+  --color-border-warm: #d8d5cc;
+  --color-aurora-orange: #ff7a59;
+  --color-aurora-rose: #ee4f9b;
+  --color-aurora-violet: #7867ff;
+  --color-aurora-blue: #2f8cff;
+  --color-aurora-gold: #f7a441;
+  --color-github-blue: #58a6ff;
+  --color-github-blue-deep: #0d6efd;
+  --color-github-red: #ff4d4f;
   --spacing-spacing-1: 2px;
   --spacing-spacing-2: 4px;
   --spacing-spacing-3: 6px;
@@ -82,6 +91,15 @@
   --color-surface-muted: #f7f4ed;
   --color-text-secondary: #5f5f5d;
   --color-action-primary: #1c1c1c;
+  --color-border-warm: #d8d5cc;
+  --color-aurora-orange: #ff7a59;
+  --color-aurora-rose: #ee4f9b;
+  --color-aurora-violet: #7867ff;
+  --color-aurora-blue: #2f8cff;
+  --color-aurora-gold: #f7a441;
+  --color-github-blue: #58a6ff;
+  --color-github-blue-deep: #0d6efd;
+  --color-github-red: #ff4d4f;
 
   --font-display-hero-family: "Plus Jakarta Sans";
   --font-display-hero-size: 60px;
@@ -293,6 +311,41 @@
 
   .lovable-shadow-subtle {
     box-shadow: 0 0 0 2px rgba(28, 28, 28, 0.08);
+  }
+
+  .hero-aurora-static {
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        #151515 0%,
+        rgba(21, 21, 21, 0.95) 16%,
+        rgba(33, 55, 90, 0.9) 32%,
+        var(--color-aurora-blue) 50%,
+        var(--color-aurora-violet) 64%,
+        var(--color-aurora-rose) 82%,
+        var(--color-aurora-orange) 100%
+      ),
+      radial-gradient(
+        ellipse at 24% 76%,
+        rgba(238, 79, 155, 0.22),
+        transparent 34%
+      ),
+      radial-gradient(
+        ellipse at 78% 32%,
+        rgba(47, 140, 255, 0.2),
+        transparent 36%
+      );
+  }
+
+  .hero-aurora-static-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      circle at 50% 18%,
+      rgba(10, 10, 10, 0.72) 0%,
+      rgba(10, 10, 10, 0.38) 18%,
+      transparent 42%
+    );
   }
 
   .type-display-hero {

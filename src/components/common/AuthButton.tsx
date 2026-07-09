@@ -96,7 +96,7 @@ export function AuthButton() {
       {open ? (
         <div
           id={menuId}
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-52 overflow-hidden rounded-[18px] border border-surface-warm-white/12 bg-[#232321] p-spacing-2 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-52 overflow-hidden rounded-[18px] border border-surface-warm-white/12 bg-[#232321] p-spacing-2 text-surface-warm-white ring-1 ring-surface-warm-white/6"
         >
           <Link
             href="/profile"

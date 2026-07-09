@@ -1,12 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
-import {
-  createGeneratedProjectFiles,
-  parseGeneratedProjectFiles,
-} from "@/lib/projects/generated-source";
+import { parseGeneratedProjectFiles } from "@/lib/projects/generated-source";
 import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
-import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
 
 export async function GET(
   _: Request,
@@ -24,7 +20,7 @@ export async function GET(
   const { id } = await params;
   const project = await prisma.project.findFirst({
     where: { id, userId: session.user.id },
-    select: { id: true, prompt: true, siteSchema: true },
+    select: { id: true },
   });
 
   if (!project) {
@@ -126,11 +122,6 @@ export async function GET(
     : parseGeneratedProjectFiles(snapshot?.files).length
       ? parseGeneratedProjectFiles(snapshot?.files)
       : parseGeneratedProjectFiles(sourceRow?.sourceFiles);
-  const siteSchema = parseProjectSiteSchema(
-    (project as { siteSchema?: unknown }).siteSchema,
-    project.prompt,
-  );
-
   return Response.json({
     projectId: project.id,
     buildLog: activeBuild?.logText ?? sourceRow?.buildLog ?? "",
@@ -140,9 +131,7 @@ export async function GET(
     currentPreviewSource: snapshot
       ? createSourceSummary(snapshot, activeBuild ?? null)
       : null,
-    files: storedFiles.length
-      ? storedFiles
-      : createGeneratedProjectFiles(project.id, siteSchema),
+    files: storedFiles,
     latestAttempt: latestAttempt ? createBuildSummary(latestAttempt) : null,
     latestAttemptSource: latestAttempt?.snapshot
       ? createSourceSummary(latestAttempt.snapshot, latestAttempt)

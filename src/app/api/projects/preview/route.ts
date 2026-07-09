@@ -1,8 +1,5 @@
 import {
   convertToModelMessages,
-  createUIMessageStream,
-  createUIMessageStreamResponse,
-  generateText,
   stepCountIs,
   streamText,
   tool,
@@ -290,10 +287,33 @@ async function handleStructuredDiscussTurn({
   userId: string;
 }) {
   const modelName = getChatAiModel();
-  const prompt = buildStructuredDiscussPrompt({
-    chatContext,
-    effectiveBrief,
-  });
+  let workspaceTurn = normalizeWorkspaceTurn(undefined, effectiveBrief);
+  let didWorkspaceToolUpdate = false;
+  const workspaceTools = {
+    setWorkspaceUi: tool({
+      description:
+        "Update the hidden UMKM Cepat workspace brief and interactive UI card. Before calling this tool, always write a short visible Indonesian chat response to the user. Call the tool exactly once per turn after that visible text.",
+      inputSchema: workspaceTurnToolInputSchema,
+      execute: async (input: unknown) => {
+        workspaceTurn = normalizeWorkspaceTurn(input, effectiveBrief);
+        didWorkspaceToolUpdate = true;
+        const title = workspaceTurn.projectTitle || project.title;
+
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+
+        await writeAiRequestLog({
+          event: "discuss:tool-output",
+          model: modelName,
+          projectId: project.id,
+          workspaceCard: workspaceTurn.workspaceCard,
+        });
+
+        return workspaceTurn;
+      },
+    }),
+  };
 
   await writeAiRequestLog({
     event: "discuss:start",
@@ -303,181 +323,66 @@ async function handleStructuredDiscussTurn({
     briefConfidence: effectiveBrief.confidence,
   });
 
-  const result = await generateText({
+  const result = streamText({
     model: getAiModel(modelName),
-    prompt,
-    temperature: 0.2,
-    maxRetries: 0,
-  });
-
-  await writeAiRequestLog({
-    event: "discuss:raw-output",
-    finishReason: result.finishReason,
-    model: modelName,
-    projectId: project.id,
-    textPreview: result.text.slice(0, 2000),
-    usage: result.usage,
-  });
-
-  const output = await parseOrRepairStructuredDiscussOutput({
-    chatContext,
-    effectiveBrief,
-    modelName,
-    projectId: project.id,
-    rawText: result.text,
-  });
-  const assistantText = output.assistantText.trim();
-  const workspaceTurn = normalizeWorkspaceTurn(output, effectiveBrief);
-  const assistantMessage: UIMessage = {
-    id: `assistant-${Date.now()}`,
-    role: "assistant",
-    parts: [
-      { type: "text", text: assistantText, state: "done" },
-      {
-        type: "tool-setWorkspaceUi",
-        toolCallId: `workspace-${Date.now()}`,
-        state: "output-available",
-        input: output,
-        output: workspaceTurn,
-      },
-    ],
-  } as UIMessage;
-  const safeMessages = dedupeUiMessages([...messages, assistantMessage]);
-  const title = workspaceTurn.projectTitle || project.title;
-
-  await writeAiRequestLog({
-    event: "discuss:parsed",
-    model: modelName,
-    projectId: project.id,
-    assistantTextPreview: assistantText.slice(0, 500),
-    workspaceCard: workspaceTurn.workspaceCard,
-  });
-
-  await prisma.$executeRaw`
-    UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-  `;
-
-  const compaction = await maybeCompactProjectChat({
-    memoryFacts,
-    messages: safeMessages,
-    summary,
-  }).catch(() => null);
-
-  if (compaction) {
-    await prisma.$executeRaw`
-      UPDATE "Project" SET "chatSummary" = ${JSON.stringify(compaction.summary)}::jsonb, "memoryFacts" = ${JSON.stringify(compaction.memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compaction.compactedMessageCount} WHERE id = ${project.id} AND "userId" = ${userId}
-    `;
-  }
-
-  const stream = createUIMessageStream<UIMessage>({
-    originalMessages: messages,
-    execute: ({ writer }) => {
-      writer.write({ type: "start", messageId: assistantMessage.id });
-      writer.write({ type: "text-start", id: "text-0" });
-      writer.write({ type: "text-delta", id: "text-0", delta: assistantText });
-      writer.write({ type: "text-end", id: "text-0" });
-      writer.write({ type: "finish" });
-    },
-  });
-
-  return createUIMessageStreamResponse({ stream });
-}
-
-type WorkspaceDiscussOutput = {
-  assistantText: string;
-} & Parameters<typeof normalizeWorkspaceTurn>[0];
-
-function buildStructuredDiscussPrompt({
-  chatContext,
-  effectiveBrief,
-}: {
-  chatContext: ReturnType<typeof buildProjectChatContext>;
-  effectiveBrief: ReturnType<typeof parseProjectBrief>;
-}) {
-  return [
-    buildSystemPrompt({
+    system: buildSystemPrompt({
       context: chatContext.systemContext,
       mode: "discuss",
       brief: effectiveBrief,
     }),
-    "Return JSON only. No markdown. No prose outside JSON.",
-    'Schema: {"assistantText": string, "briefPatch": object, "workspaceCard": object, "projectTitle"?: string}',
-    "assistantText is the visible Indonesian chat reply. workspaceCard is the matching UI card.",
-    "Recent conversation JSON:",
-    JSON.stringify(chatContext.messages),
-  ].join("\n\n");
-}
+    messages: await convertToModelMessages(chatContext.messages, {
+      tools: workspaceTools,
+    }),
+    tools: workspaceTools,
+    toolChoice: "required",
+    stopWhen: stepCountIs(1),
+    maxRetries: 0,
+    temperature: 0.35,
+    onError({ error }) {
+      console.error(
+        "[preview-chat] discuss stream error",
+        getSafeAiErrorLog(error),
+      );
+    },
+  });
 
-async function parseOrRepairStructuredDiscussOutput({
-  chatContext,
-  effectiveBrief,
-  modelName,
-  projectId,
-  rawText,
-}: {
-  chatContext: ReturnType<typeof buildProjectChatContext>;
-  effectiveBrief: ReturnType<typeof parseProjectBrief>;
-  modelName: string;
-  projectId: string;
-  rawText: string;
-}): Promise<WorkspaceDiscussOutput> {
-  try {
-    return parseStructuredDiscussOutput(rawText);
-  } catch (error) {
-    await writeAiRequestLog({
-      event: "discuss:repair-start",
-      error: error instanceof Error ? error.message : String(error),
-      model: modelName,
-      projectId,
-      rawTextPreview: rawText.slice(0, 2000),
-    });
+  return result.toUIMessageStreamResponse({
+    originalMessages: messages,
+    onFinish: async ({ messages }) => {
+      const safeMessages = dedupeUiMessages(parseProjectChatMessages(messages));
+      const title = workspaceTurn.projectTitle || project.title;
 
-    const repair = await generateText({
-      model: getAiModel(modelName),
-      prompt: [
-        "Convert the raw assistant response into valid JSON only. No markdown. No prose outside JSON.",
-        'Schema: {"assistantText": string, "briefPatch": object, "workspaceCard": object, "projectTitle"?: string}',
-        "The JSON must preserve the raw assistant meaning and ask the next matching workspace question.",
-        "Current brief JSON:",
-        JSON.stringify(effectiveBrief),
-        "Recent conversation JSON:",
-        JSON.stringify(chatContext.messages),
-        "Raw assistant response:",
-        rawText,
-      ].join("\n\n"),
-      temperature: 0,
-      maxRetries: 0,
-    });
+      await writeAiRequestLog({
+        event: "discuss:finish",
+        model: modelName,
+        projectId: project.id,
+        didWorkspaceToolUpdate,
+        workspaceCard: workspaceTurn.workspaceCard,
+      });
 
-    await writeAiRequestLog({
-      event: "discuss:repair-output",
-      finishReason: repair.finishReason,
-      model: modelName,
-      projectId,
-      textPreview: repair.text.slice(0, 2000),
-      usage: repair.usage,
-    });
+      if (didWorkspaceToolUpdate) {
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+      } else {
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+      }
 
-    return parseStructuredDiscussOutput(repair.text);
-  }
-}
+      const compaction = await maybeCompactProjectChat({
+        memoryFacts,
+        messages: safeMessages,
+        summary,
+      }).catch(() => null);
 
-function parseStructuredDiscussOutput(text: string): WorkspaceDiscussOutput {
-  const trimmed = text.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1];
-  const candidate =
-    fenced ?? trimmed.slice(trimmed.indexOf("{"), trimmed.lastIndexOf("}") + 1);
-  const value = JSON.parse(candidate) as Partial<WorkspaceDiscussOutput>;
-
-  if (
-    !value ||
-    typeof value !== "object" ||
-    typeof value.assistantText !== "string"
-  ) {
-    throw new Error("Structured discuss output missing assistantText.");
-  }
-
-  return value as WorkspaceDiscussOutput;
+      if (compaction) {
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "chatSummary" = ${JSON.stringify(compaction.summary)}::jsonb, "memoryFacts" = ${JSON.stringify(compaction.memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compaction.compactedMessageCount} WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+      }
+    },
+  });
 }
 
 function dedupeUiMessages(messages: UIMessage[]) {

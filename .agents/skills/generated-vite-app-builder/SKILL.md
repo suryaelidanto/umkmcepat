@@ -1,6 +1,9 @@
-# Generated Vite App Builder
+---
+name: generated-vite-app-builder
+description: Build or edit UMKM Cepat generated Vite apps safely inside generated project files only. Use when working on generated React/Vite/TanStack source, source snapshots, app-builder prompts, generated-file tool rules, runtime profile `vite-react-tanstack-v1`, preview-ready wiring, or generated static frontend constraints.
+---
 
-Description: Build or edit UMKM Cepat generated Vite apps safely inside generated project files only.
+# Generated Vite App Builder
 
 Use when creating or editing UMKM Cepat generated apps.
 

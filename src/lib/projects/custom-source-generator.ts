@@ -9,33 +9,21 @@ import {
 } from "@/lib/projects/agent-tool-runner";
 import {
   buildGeneratedProject,
-  createGeneratedProjectFiles,
   createGeneratedViteTanStackStarterFiles,
   type GeneratedProjectFile,
 } from "@/lib/projects/generated-source";
 import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
-export type CustomGeneratedSourceResult =
-  | {
-      buildSpec: string;
-      files: GeneratedProjectFile[];
-      generationMode: "agent-custom";
-      operationTrace: GeneratedAppAgentOperation[];
-      repairAttempts: number;
-      summary: string;
-      touchedFiles: string[];
-    }
-  | {
-      buildSpec: string;
-      fallbackReason: string;
-      files: GeneratedProjectFile[];
-      generationMode: "deterministic-fallback";
-      operationTrace: GeneratedAppAgentOperation[];
-      repairAttempts: number;
-      summary: string;
-      touchedFiles: string[];
-    };
+export type CustomGeneratedSourceResult = {
+  buildSpec: string;
+  files: GeneratedProjectFile[];
+  generationMode: "agent-custom";
+  operationTrace: GeneratedAppAgentOperation[];
+  repairAttempts: number;
+  summary: string;
+  touchedFiles: string[];
+};
 
 export async function generateCustomProjectFilesWithAgent({
   implementationBrief,
@@ -54,7 +42,6 @@ export async function generateCustomProjectFilesWithAgent({
     projectId,
     schema,
   );
-  const fallbackFiles = createGeneratedProjectFiles(projectId, schema);
   const appSpec = buildGeneratedAppBuildSpec({
     conversationBrief: implementationBrief,
     implementationSpec,
@@ -100,11 +87,9 @@ export async function generateCustomProjectFilesWithAgent({
     let quality = checkAgentSourceQuality(files, touchedFiles);
 
     if (!quality.ok) {
-      return fallback(fallbackFiles, quality.issues.join(", "), 0, {
-        buildSpec: appSpec,
-        operationTrace,
-        touchedFiles,
-      });
+      throw new Error(
+        `AI agent produced invalid source: ${quality.issues.join(", ")}`,
+      );
     }
 
     let repairAttempts = 0;
@@ -120,22 +105,16 @@ export async function generateCustomProjectFilesWithAgent({
         quality = checkAgentSourceQuality(files, touchedFiles);
 
         if (!quality.ok) {
-          return fallback(
-            fallbackFiles,
-            `repair failed: ${quality.issues.join(", ")}`,
-            repairAttempts,
-            { buildSpec: appSpec, operationTrace, touchedFiles },
+          throw new Error(
+            `AI repair produced invalid source: ${quality.issues.join(", ")}`,
           );
         }
 
         const repairedBuild = await buildGeneratedProject(files);
 
         if (!repairedBuild.ok) {
-          return fallback(
-            fallbackFiles,
-            `repair build failed: ${repairedBuild.log.slice(-1000)}`,
-            repairAttempts,
-            { buildSpec: appSpec, operationTrace, touchedFiles },
+          throw new Error(
+            `AI repair build failed: ${repairedBuild.log.slice(-1000)}`,
           );
         }
       }
@@ -151,11 +130,8 @@ export async function generateCustomProjectFilesWithAgent({
       touchedFiles: [...touchedFiles].sort(),
     };
   } catch (error) {
-    return fallback(
-      fallbackFiles,
-      error instanceof Error ? error.message : "agent failed",
-      0,
-      { buildSpec: appSpec, operationTrace, touchedFiles },
+    throw new Error(
+      `AI source generation failed: ${error instanceof Error ? error.message : "agent failed"}`,
     );
   }
 }
@@ -288,29 +264,6 @@ function checkAgentSourceQuality(
   return issues.length ? { issues, ok: false } : { issues: [], ok: true };
 }
 
-function fallback(
-  files: GeneratedProjectFile[],
-  fallbackReason: string,
-  repairAttempts: number,
-  trace?: {
-    buildSpec: string;
-    operationTrace: GeneratedAppAgentOperation[];
-    touchedFiles: Set<string>;
-  },
-): CustomGeneratedSourceResult {
-  return {
-    buildSpec: trace?.buildSpec ?? "",
-    fallbackReason,
-    files,
-    generationMode: "deterministic-fallback",
-    operationTrace: trace?.operationTrace ?? [],
-    repairAttempts,
-    summary:
-      "AI coding agent did not produce valid custom source; deterministic source was used.",
-    touchedFiles: trace ? [...trace.touchedFiles].sort() : [],
-  };
-}
-
 function buildAgentPrompt(implementationBrief: string) {
   return `Build a custom standalone generated app from the starter files.
 
@@ -352,7 +305,7 @@ export function buildGeneratedAppBuildSpec(
   return [
     implementationSpec
       ? `App kind: ${implementationSpec.appKind}`
-      : "App kind: landing fallback",
+      : "App kind: landing page",
     `Business: ${implementationSpec?.businessName || schema.businessName}`,
     implementationSpec
       ? `Pages: ${implementationSpec.pages.map((page) => `${page.slug} — ${page.title}: ${page.purpose}`).join(" | ")}`

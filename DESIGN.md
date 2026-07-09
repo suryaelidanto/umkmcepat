@@ -16,6 +16,9 @@ colors:
   aurora-violet: "#7867ff"
   aurora-blue: "#2f8cff"
   aurora-gold: "#f7a441"
+  github-blue: "#58a6ff"
+  github-blue-deep: "#0d6efd"
+  github-red: "#ff4d4f"
 typography:
   display-hero:
     fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
@@ -151,6 +154,7 @@ The palette is warm-neutral and restrained. Aurora colors are decorative accents
 ### Tertiary
 
 - **Aurora Set** (`#ff7a59`, `#ee4f9b`, `#7867ff`, `#2f8cff`, `#f7a441`): hero/background atmosphere only. Do not turn these into random CTAs, badges, or status colors.
+- **GitHub Proof Colors** (`#58a6ff`, `#0d6efd`, `#ff4d4f`): open-source contribution charts only. Do not reuse them as general product accent or status colors.
 
 ### Neutral
 
@@ -164,6 +168,8 @@ The palette is warm-neutral and restrained. Aurora colors are decorative accents
 **The Aurora Rationing Rule.** Aurora gradients may create atmosphere in brand surfaces; product workflows use them sparingly or not at all.
 
 **The One Action Rule.** Primary action color is near-black. Do not introduce orange, blue, purple, or gradient CTAs unless DESIGN.md is intentionally changed first.
+
+**The Proof-Color Containment Rule.** GitHub blue/red may appear inside contribution proof charts only; they are not brand accents.
 
 ## Typography
 
@@ -199,6 +205,7 @@ UMKM Cepat is flat-by-default. Depth is conveyed through warm surface contrast, 
 - **Outline Depth** (`border: 1px solid rgba(28, 28, 28, 0.10)`): default cards, dialogs, inputs.
 - **Focus Ring** (`0 0 0 2px #1c1c1c`): keyboard focus and active controls.
 - **Soft Overlay Shadow** (`0 18px 60px rgba(0, 0, 0, 0.18)`): modal/overlay use only, mostly on dark product chrome.
+- **Ring Depth** (`ring-1` with warm foreground opacity): preferred replacement for decorative shadows on landing cards and menus.
 
 ### Named Rules
 

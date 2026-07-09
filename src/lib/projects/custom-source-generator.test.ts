@@ -156,19 +156,14 @@ describe("custom generated source agent", () => {
     expect(spec).toContain("rental PS paket lengkap");
   });
 
-  it("falls back when the agent does not produce checked custom edits", async () => {
+  it("fails instead of inventing fallback source when the agent does not produce checked custom edits", async () => {
     agentGenerate.mockResolvedValue({ text: "no edits" });
 
-    const result = await generateCustomProjectFilesWithAgent({
-      projectId: "project_fallback",
-      schema: schema(),
-    });
-
-    expect(result.generationMode).toBe("deterministic-fallback");
-    if (result.generationMode !== "deterministic-fallback") {
-      throw new Error("Expected deterministic fallback");
-    }
-    expect(result.fallbackReason).toContain("agent did not edit enough files");
-    expect(result.touchedFiles).toEqual([]);
+    await expect(
+      generateCustomProjectFilesWithAgent({
+        projectId: "project_no_fake_source",
+        schema: schema(),
+      }),
+    ).rejects.toThrow("AI agent produced invalid source");
   });
 });

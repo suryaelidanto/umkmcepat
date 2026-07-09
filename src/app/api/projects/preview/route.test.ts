@@ -5,7 +5,6 @@ const {
   executeRawMock,
   projectFindFirstMock,
   queryRawMock,
-  generateTextMock,
   streamTextMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
@@ -26,10 +25,8 @@ const {
     },
   ]),
   executeRawMock: vi.fn(async () => 1),
-  generateTextMock: vi.fn(async () => ({
-    text: JSON.stringify({
-      assistantText:
-        "Oke, aku catat. Sekarang pilih pelanggan utama bakso ini.",
+  streamTextMock: vi.fn(({ tools }) => {
+    void tools.setWorkspaceUi.execute({
       briefPatch: { offer: "Bakso" },
       workspaceCard: {
         type: "question",
@@ -43,25 +40,6 @@ const {
             { label: "Anak sekolah", description: "Fokus harga hemat." },
           ],
         },
-      },
-    }),
-  })),
-  streamTextMock: vi.fn(({ tools }) => {
-    void tools.setWorkspaceUi.execute({
-      briefPatch: { offer: "Bakso" },
-      workspaceCard: {
-        type: "questions",
-        questions: [
-          {
-            id: "targetCustomer",
-            question: "Pelanggan utama bakso ini siapa?",
-            options: [
-              { label: "Pekerja sekitar", description: "Fokus makan siang." },
-              { label: "Keluarga", description: "Fokus makan bersama." },
-              { label: "Anak sekolah", description: "Fokus harga hemat." },
-            ],
-          },
-        ],
       },
     });
 
@@ -78,49 +56,23 @@ const {
   }),
 }));
 
-vi.mock("@/lib/auth", () => ({
-  auth: authMock,
-}));
-
+vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(async () => null),
 }));
-
-vi.mock("@/lib/ai", () => ({
-  getAiModel: vi.fn(() => "test-model"),
+vi.mock("@/lib/ai", () => ({ getAiModel: vi.fn(() => "test-model") }));
+vi.mock("@/lib/ai-request-log", () => ({
+  writeAiRequestLog: vi.fn(async () => undefined),
 }));
-
-vi.mock("@/lib/projects/chat-memory", async () => {
-  const actual = await vi.importActual<
-    typeof import("../../../../lib/projects/chat-memory")
-  >("../../../../lib/projects/chat-memory");
-
-  return actual;
-});
-
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: queryRawMock,
     $executeRaw: executeRawMock,
-    project: {
-      findFirst: projectFindFirstMock,
-    },
+    project: { findFirst: projectFindFirstMock },
   },
 }));
-
 vi.mock("ai", () => ({
   convertToModelMessages: vi.fn(async (messages) => messages),
-  createUIMessageStream: vi.fn(({ execute }) => {
-    const chunks: unknown[] = [];
-    void execute({ writer: { write: (chunk: unknown) => chunks.push(chunk) } });
-    return new ReadableStream({
-      start(controller) {
-        controller.close();
-      },
-    });
-  }),
-  createUIMessageStreamResponse: vi.fn(() => new Response("structured-stream")),
-  generateText: generateTextMock,
   jsonSchema: vi.fn((schema) => schema),
   stepCountIs: vi.fn((count) => ({ count })),
   streamText: streamTextMock,
@@ -129,6 +81,22 @@ vi.mock("ai", () => ({
 }));
 
 import { POST } from "./route";
+
+function authed() {
+  authMock.mockResolvedValueOnce({
+    user: { id: "user_1" },
+    expires: new Date().toISOString(),
+  });
+}
+
+function post(body: unknown) {
+  return POST(
+    new Request("http://localhost/api/projects/preview", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  );
+}
 
 describe("project preview AI route", () => {
   beforeEach(() => {
@@ -140,26 +108,16 @@ describe("project preview AI route", () => {
   });
 
   it("requires login before streaming AI", async () => {
-    authMock.mockResolvedValueOnce(null);
-
-    const response = await POST(
-      new Request("http://localhost/api/projects/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          projectId: "project_1",
-          message: { id: "m1", role: "user", parts: [] },
-        }),
-      }),
-    );
+    const response = await post({
+      projectId: "project_1",
+      message: { id: "m1", role: "user", parts: [] },
+    });
 
     expect(response.status).toBe(401);
   });
 
-  it("patches structured workspace answers before streaming the next turn", async () => {
-    authMock.mockResolvedValueOnce({
-      user: { id: "user_1" },
-      expires: new Date().toISOString(),
-    });
+  it("patches structured workspace answers before streaming the next discuss turn", async () => {
+    authed();
     queryRawMock.mockResolvedValueOnce([
       {
         brief: null,
@@ -176,7 +134,6 @@ describe("project preview AI route", () => {
               options: [
                 { label: "Warung Bakso", description: "Fokus bakso." },
                 { label: "Kedai Kopi", description: "Fokus kopi." },
-                { label: "Laundry", description: "Fokus laundry." },
               ],
             },
           ],
@@ -184,50 +141,41 @@ describe("project preview AI route", () => {
       },
     ]);
 
-    const response = await POST(
-      new Request("http://localhost/api/projects/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          mode: "discuss",
-          projectId: "project_1",
-          workspaceAnswers: [
-            {
-              answer: "aku ada toko bakso sih",
-              question: "Apa jenis usaha Anda?",
-              questionId: "businessType",
-              source: "custom",
-            },
-          ],
-          message: {
-            id: "m1",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "1. Apa jenis usaha Anda?\nJawaban: aku ada toko bakso sih",
-              },
-            ],
+    const response = await post({
+      mode: "discuss",
+      projectId: "project_1",
+      workspaceAnswers: [
+        {
+          answer: "aku ada toko bakso sih",
+          question: "Apa jenis usaha Anda?",
+          questionId: "businessType",
+          source: "custom",
+        },
+      ],
+      message: {
+        id: "m1",
+        role: "user",
+        parts: [
+          {
+            type: "text",
+            text: "1. Apa jenis usaha Anda?\nJawaban: aku ada toko bakso sih",
           },
-        }),
-      }),
-    );
+        ],
+      },
+    });
 
     expect(response.status).toBe(200);
-    expect(generateTextMock).toHaveBeenCalledWith(
+    expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        prompt: expect.stringContaining(
+        system: expect.stringContaining(
           '"businessType":"aku ada toko bakso sih"',
         ),
       }),
     );
-    expect(streamTextMock).not.toHaveBeenCalled();
   });
 
-  it("self-heals recent formatted answers from stored chat", async () => {
-    authMock.mockResolvedValueOnce({
-      user: { id: "user_1" },
-      expires: new Date().toISOString(),
-    });
+  it("self-heals recent formatted answers from stored chat before streaming", async () => {
+    authed();
     queryRawMock.mockResolvedValueOnce([
       {
         brief: null,
@@ -255,7 +203,6 @@ describe("project preview AI route", () => {
               options: [
                 { label: "Warung Bakso", description: "Fokus bakso." },
                 { label: "Kedai Kopi", description: "Fokus kopi." },
-                { label: "Laundry", description: "Fokus laundry." },
               ],
             },
           ],
@@ -263,25 +210,20 @@ describe("project preview AI route", () => {
       },
     ]);
 
-    const response = await POST(
-      new Request("http://localhost/api/projects/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          mode: "discuss",
-          projectId: "project_1",
-          message: {
-            id: "m2",
-            role: "user",
-            parts: [{ type: "text", text: "oke jadi gimana" }],
-          },
-        }),
-      }),
-    );
+    const response = await post({
+      mode: "discuss",
+      projectId: "project_1",
+      message: {
+        id: "m2",
+        role: "user",
+        parts: [{ type: "text", text: "oke jadi gimana" }],
+      },
+    });
 
     expect(response.status).toBe(200);
-    expect(generateTextMock).toHaveBeenCalledWith(
+    expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        prompt: expect.stringContaining(
+        system: expect.stringContaining(
           '"businessType":"aku ada toko bakso sih"',
         ),
       }),
@@ -289,130 +231,131 @@ describe("project preview AI route", () => {
   });
 
   it("streams through one AI SDK call and saves memory", async () => {
-    authMock.mockResolvedValueOnce({
-      user: { id: "user_1" },
-      expires: new Date().toISOString(),
-    });
+    authed();
 
-    const response = await POST(
-      new Request("http://localhost/api/projects/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          mode: "build",
-          projectId: "project_1",
-          message: {
-            id: "m1",
-            role: "user",
-            parts: [{ type: "text", text: "Bakso" }],
-          },
-        }),
-      }),
-    );
+    const response = await post({
+      mode: "build",
+      projectId: "project_1",
+      message: {
+        id: "m1",
+        role: "user",
+        parts: [{ type: "text", text: "Bakso" }],
+      },
+    });
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("stream");
     expect(streamTextMock).toHaveBeenCalledTimes(1);
     expect(projectFindFirstMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "project_1", userId: "user_1" },
-      }),
+      expect.objectContaining({ where: { id: "project_1", userId: "user_1" } }),
     );
     expect(executeRawMock).toHaveBeenCalled();
   });
 
-  it("persists structured discuss text and workspace card atomically", async () => {
-    authMock.mockResolvedValueOnce({
-      user: { id: "user_1" },
-      expires: new Date().toISOString(),
-    });
+  it("persists discuss workspace card from tool output", async () => {
+    authed();
 
-    const response = await POST(
-      new Request("http://localhost/api/projects/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          mode: "discuss",
-          projectId: "project_1",
-          message: {
-            id: "answer_package_count",
-            role: "user",
-            parts: [{ type: "text", text: "Jawaban: 3-5 paket" }],
-          },
-        }),
-      }),
-    );
+    const response = await post({
+      mode: "discuss",
+      projectId: "project_1",
+      message: {
+        id: "answer_package_count",
+        role: "user",
+        parts: [{ type: "text", text: "Jawaban: 3-5 paket" }],
+      },
+    });
 
     expect(response.status).toBe(200);
-    expect(await response.text()).toBe("structured-stream");
-    expect(
-      executeRawMock.mock.calls.some((call) =>
-        call.some((value: unknown) => {
-          const text = typeof value === "string" ? value : "";
-          return (
-            text.includes("Oke, aku catat. Sekarang pilih pelanggan utama") &&
-            text.includes("tool-setWorkspaceUi") &&
-            text.includes("targetCustomer")
-          );
-        }),
-      ),
-    ).toBe(true);
-    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(await response.text()).toBe("stream");
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+    expect(executeRawMock.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("persists the answer and advances the card before the AI stream (no stuck/repeat on failure)", async () => {
-    authMock.mockResolvedValueOnce({
-      user: { id: "user_1" },
-      expires: new Date().toISOString(),
-    });
-
+  it("persists the answer before the AI stream", async () => {
+    authed();
     const callOrder: string[] = [];
     executeRawMock.mockImplementation(async () => {
       callOrder.push("executeRaw");
       return 1;
     });
-    generateTextMock.mockImplementationOnce(async () => {
-      callOrder.push("generateText");
+    streamTextMock.mockImplementationOnce(() => {
+      callOrder.push("streamText");
       return {
-        text: JSON.stringify({
-          assistantText: "Oke, aku catat.",
-          briefPatch: { offer: "Bakso" },
-          workspaceCard: {
-            type: "question",
-            question: {
-              id: "targetCustomer",
-              question: "Pelanggan utama bakso ini siapa?",
-              answerMode: "choice",
-              options: [
-                { label: "Pekerja sekitar", description: "Fokus makan siang." },
-                { label: "Keluarga", description: "Fokus makan bersama." },
-              ],
-            },
-          },
-        }),
+        toUIMessageStreamResponse: () => new Response("stream"),
       };
     });
 
-    const response = await POST(
-      new Request("http://localhost/api/projects/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          mode: "discuss",
-          projectId: "project_1",
-          message: {
-            id: "m1",
-            role: "user",
-            parts: [{ type: "text", text: "Bakso" }],
-          },
-        }),
-      }),
-    );
+    const response = await post({
+      mode: "discuss",
+      projectId: "project_1",
+      message: {
+        id: "m1",
+        role: "user",
+        parts: [{ type: "text", text: "Bakso" }],
+      },
+    });
 
     expect(response.status).toBe(200);
-    // Phase 1 (deterministic persist) must run before AI generation, so a
-    // provider failure can never lose the answer or re-ask the question.
     expect(callOrder[0]).toBe("executeRaw");
-    expect(callOrder).toContain("generateText");
+    expect(callOrder).toContain("streamText");
     expect(callOrder.indexOf("executeRaw")).toBeLessThan(
-      callOrder.indexOf("generateText"),
+      callOrder.indexOf("streamText"),
     );
+  });
+
+  it("does not let an early finish overwrite a later discuss tool card", async () => {
+    authed();
+    let resolveTool!: () => void;
+    const toolGate = new Promise<void>((resolve) => {
+      resolveTool = resolve;
+    });
+
+    streamTextMock.mockImplementationOnce(({ tools }) => {
+      const toolPromise = (async () => {
+        await toolGate;
+        await tools.setWorkspaceUi.execute({
+          briefPatch: { contactOrCta: "WhatsApp 0812" },
+          workspaceCard: {
+            type: "question",
+            question: {
+              id: "kontak",
+              question: "Nomor WhatsApp atau kontak yang mau dicantumin?",
+              answerMode: "text",
+              placeholder: "Contoh: 0812-3456-7890",
+            },
+          },
+        });
+      })();
+
+      return {
+        toUIMessageStreamResponse: ({
+          onFinish,
+        }: {
+          onFinish: (input: { messages: unknown[] }) => void;
+        }) => {
+          void onFinish({ messages: [{ id: "m1", role: "user", parts: [] }] });
+          void toolPromise;
+          return new Response("stream");
+        },
+      };
+    });
+
+    const response = await post({
+      mode: "discuss",
+      projectId: "project_1",
+      message: {
+        id: "m1",
+        role: "user",
+        parts: [{ type: "text", text: "kontaknya whatsapp" }],
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(executeRawMock.mock.calls.length).toBe(2);
+
+    resolveTool();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(executeRawMock.mock.calls.length).toBe(3);
   });
 });

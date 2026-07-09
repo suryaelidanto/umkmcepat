@@ -2,6 +2,7 @@ node_modules
 .next
 .browser
 .pi
+.pi-subagents
 .agent
 .agents
 graphify-out

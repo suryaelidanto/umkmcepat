@@ -266,10 +266,6 @@ export async function POST(request: Request, { params }: RouteProps) {
         });
         devLog("generate", "source.generated", {
           buildSpecLength: sourceGeneration.buildSpec.length,
-          fallbackReason:
-            "fallbackReason" in sourceGeneration
-              ? sourceGeneration.fallbackReason
-              : undefined,
           files: sourceGeneration.files.length,
           mode: sourceGeneration.generationMode,
           projectId: project.id,
@@ -277,14 +273,8 @@ export async function POST(request: Request, { params }: RouteProps) {
         });
         const sourceFiles = sourceGeneration.files;
         send("progress", {
-          label:
-            sourceGeneration.generationMode === "agent-custom"
-              ? "AI menulis file website"
-              : "AI memakai fallback aman",
-          detail:
-            sourceGeneration.generationMode === "agent-custom"
-              ? `${sourceGeneration.touchedFiles.length} file dibuat atau diubah agent.`
-              : `Fallback dipakai: ${sourceGeneration.fallbackReason}`,
+          label: "AI menulis file website",
+          detail: `${sourceGeneration.touchedFiles.length} file dibuat atau diubah agent.`,
         });
         if (sourceGeneration.repairAttempts > 0) {
           send("operation", {

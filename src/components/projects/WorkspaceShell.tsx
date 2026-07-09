@@ -690,6 +690,26 @@ export function WorkspaceShell({
     };
   }, [activeTab, buildStatus, projectId]);
 
+  const reloadLatestChat = useCallback(async () => {
+    const response = await fetch(`/api/projects/${projectId}/chat?limit=20`, {
+      cache: "no-store",
+    });
+    const result = (await response.json()) as {
+      messages?: UIMessage[];
+      nextCursor?: number | null;
+      hasMore?: boolean;
+    };
+
+    if (!response.ok) {
+      return;
+    }
+
+    setMessages(result.messages || []);
+    setOlderMessages([]);
+    setChatCursor(result.nextCursor ?? null);
+    setHasMoreChat(Boolean(result.hasMore));
+  }, [projectId, setMessages]);
+
   const loadOlderChat = useCallback(async () => {
     if (!hasMoreChat || isLoadingOlderChat || chatCursor === null) {
       return;
@@ -850,12 +870,14 @@ export function WorkspaceShell({
     }
 
     void loadWorkspaceState();
+    void reloadLatestChat();
     const timeout = window.setTimeout(() => {
       void loadWorkspaceState();
+      void reloadLatestChat();
     }, 500);
 
     return () => window.clearTimeout(timeout);
-  }, [loadWorkspaceState, status]);
+  }, [loadWorkspaceState, reloadLatestChat, status]);
 
   const handleAnnotationTarget = useCallback((target: unknown) => {
     if (!target || typeof target !== "object") {
@@ -1364,7 +1386,7 @@ export function WorkspaceShell({
                         {rateLimitError.message}
                       </p>
                     </div>
-                  ) : error || missingWorkspaceUiTurn ? (
+                  ) : error || (!isResponding && missingWorkspaceUiTurn) ? (
                     <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                       <p className="text-sm font-medium text-[#ffb4a6]">
                         {isRetrying
@@ -1879,11 +1901,16 @@ function filterDiscussionMessagesWithWorkspaceUi(
       return true;
     }
 
-    return message.parts.some(
-      (part) =>
+    return message.parts.some((part) => {
+      if (part.type === "text" && part.text.trim()) {
+        return true;
+      }
+
+      return (
         part.type === "tool-setWorkspaceUi" &&
-        (part as { state?: unknown }).state === "output-available",
-    );
+        (part as { state?: unknown }).state === "output-available"
+      );
+    });
   });
 }
 
@@ -2627,6 +2654,22 @@ function buildFileTree(files: GeneratedProjectFile[]) {
   return root;
 }
 
+function EmptyCodeState({ buildStatus }: { buildStatus: string }) {
+  return (
+    <div className="grid h-full min-h-0 place-items-center bg-[#10100f] p-spacing-6 text-center text-surface-warm-white">
+      <div className="max-w-sm rounded-[24px] border border-surface-warm-white/10 bg-[#181816] px-spacing-6 py-spacing-6">
+        <p className="text-sm font-semibold">Belum ada source yang dibuat</p>
+        <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/54">
+          Kode website akan muncul setelah build pertama berhasil dibuat.
+        </p>
+        <p className="mt-spacing-4 text-xs text-surface-warm-white/34">
+          Status: {buildStatus}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function CodeView({
   files,
   buildStatus,
@@ -2649,7 +2692,15 @@ function CodeView({
     sortedFiles.find((file) => file.path === selectedPath) ?? sortedFiles[0];
 
   useEffect(() => {
-    if (!selectedPath && sortedFiles[0]?.path) {
+    if (!sortedFiles.length) {
+      setSelectedPath("");
+      return;
+    }
+
+    if (
+      !selectedPath ||
+      !sortedFiles.some((file) => file.path === selectedPath)
+    ) {
       setSelectedPath(sortedFiles[0].path);
     }
   }, [selectedPath, sortedFiles]);
@@ -2675,6 +2726,10 @@ function CodeView({
       `umkmcepat-generated-project-${new Date().toISOString().slice(0, 10)}.zip`,
     );
   }, [sortedFiles]);
+
+  if (!sortedFiles.length) {
+    return <EmptyCodeState buildStatus={buildStatus} />;
+  }
 
   return (
     <div className="grid h-full min-h-0 overflow-hidden border-t border-surface-warm-white/10 bg-[#10100f] text-surface-warm-white md:grid-cols-[280px_1fr]">
