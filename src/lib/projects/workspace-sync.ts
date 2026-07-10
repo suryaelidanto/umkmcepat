@@ -310,9 +310,12 @@ export function getWorkspacePreviewIssue({
     };
   }
 
+  // A successful artifact can cold-start again through the preview route.
+  // Keep the iframe loading instead of making users recover a transient runtime.
   if (
-    runtimeUserFacingState === "preview_failed" ||
-    deploymentStatus === "failed"
+    (runtimeUserFacingState === "preview_failed" ||
+      deploymentStatus === "failed") &&
+    !hasLastGoodPreview
   ) {
     return {
       detail:

@@ -400,23 +400,18 @@ describe("workspace chat sync", () => {
     ).toBe(false);
   });
 
-  it("surfaces actionable website view issues for failed runtime states", () => {
+  it("keeps the preview loading while a successful build recovers its runtime", () => {
     expect(
       getWorkspacePreviewIssue({
         deploymentStatus: "failed",
         buildStatus: "ready",
         sourceStatus: "passed",
       }),
-    ).toEqual({
-      detail:
-        "Tampilan website gagal dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal.",
-      title: "Tampilan website gagal dimuat",
-    });
+    ).toBeNull();
     expect(
       getWorkspacePreviewIssue({
-        deploymentStatus: "running",
-        buildStatus: "ready",
-        sourceStatus: "passed",
+        runtimeUserFacingState: "preview_failed",
+        runtimeBuildStatus: "succeeded",
       }),
     ).toBeNull();
   });

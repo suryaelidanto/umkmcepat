@@ -373,8 +373,7 @@ export function WorkspaceShell({
     setDraftTitle(result.projectTitle);
   }, [projectId]);
 
-  const retryPreviewRuntime = useCallback(() => {
-    setRuntimeError(null);
+  const recoverPreviewRuntime = useCallback(() => {
     setPreviewReloadKey((current) => current + 1);
     void loadRuntimeState();
   }, [loadRuntimeState]);
@@ -635,7 +634,6 @@ export function WorkspaceShell({
     buildStatus,
     isPublishing,
     onPublish: publishProject,
-    onRetryPreview: retryPreviewRuntime,
     publishedPath,
     runtimeError,
     runtimeState,
@@ -1710,7 +1708,6 @@ export function WorkspaceShell({
                           <PreviewIssueState
                             detail={previewIssue.detail}
                             title={previewIssue.title}
-                            onRetry={retryPreviewRuntime}
                           />
                         ) : shouldRenderGeneratedPreview ? (
                           <GeneratedPreviewFrame
@@ -1718,7 +1715,7 @@ export function WorkspaceShell({
                             annotationMarkers={annotations}
                             onAnnotationTarget={handleAnnotationTarget}
                             onLoad={() => void loadRuntimeState()}
-                            onRetry={retryPreviewRuntime}
+                            onRecover={recoverPreviewRuntime}
                             pendingAnnotation={
                               annotationMode && pendingAnnotationTarget
                                 ? {
@@ -1791,7 +1788,6 @@ function createRuntimeControl({
   buildStatus,
   isPublishing,
   onPublish,
-  onRetryPreview,
   publishedPath,
   runtimeError,
   runtimeState,
@@ -1800,7 +1796,6 @@ function createRuntimeControl({
   buildStatus: string;
   isPublishing: boolean;
   onPublish: () => void;
-  onRetryPreview: () => void;
   publishedPath: string | null;
   runtimeError: string | null;
   runtimeState: RuntimeWorkspaceState | null;
@@ -1826,7 +1821,6 @@ function createRuntimeControl({
     errorMessage: runtimeError,
     isPublishing,
     onPublish,
-    onRetryPreview,
     publishedPath: runtimePublishedPath,
   };
 }

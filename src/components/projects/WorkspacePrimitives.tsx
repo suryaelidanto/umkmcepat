@@ -44,7 +44,6 @@ export type WorkspaceRuntimeControl = {
   errorMessage?: string | null;
   isPublishing?: boolean;
   onPublish?: () => void;
-  onRetryPreview?: () => void;
   publishedPath?: string | null;
 };
 
@@ -217,9 +216,6 @@ function TabButton({
 
 function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
   const status = getRuntimeLabel(runtime);
-  const canRetry =
-    runtime.deploymentStatus === "failed" ||
-    runtime.deploymentStatus === "stopped";
 
   return (
     <div className="flex min-w-0 items-center gap-spacing-1 sm:gap-spacing-2">
@@ -230,18 +226,6 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
         <span className={`size-2 shrink-0 rounded-full ${status.dot}`} />
         <span className="truncate">{status.label}</span>
       </span>
-
-      {canRetry && runtime.onRetryPreview ? (
-        <button
-          type="button"
-          onClick={runtime.onRetryPreview}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-          aria-label="Muat ulang tampilan website"
-          title="Muat ulang tampilan website"
-        >
-          <RefreshCw className="size-4" />
-        </button>
-      ) : null}
 
       {runtime.publishedPath ? (
         <a
@@ -375,7 +359,7 @@ export function GeneratedPreviewFrame({
   annotationMarkers = [],
   onAnnotationTarget,
   onLoad,
-  onRetry,
+  onRecover,
   pendingAnnotation,
   projectId,
   reloadKey,
@@ -390,7 +374,7 @@ export function GeneratedPreviewFrame({
   }>;
   onAnnotationTarget?: (target: unknown) => void;
   onLoad?: () => void;
-  onRetry?: () => void;
+  onRecover?: () => void;
   pendingAnnotation?: {
     comment: string;
     onCancel: () => void;
@@ -404,14 +388,14 @@ export function GeneratedPreviewFrame({
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
-  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
     setReady(false);
-    setTimedOut(false);
 
-    const timeout = window.setTimeout(() => {
-      setTimedOut(true);
+    // Cold starts can exceed a single frame load. Retry quietly so the preview
+    // stays a loading state until a build failure supplies a terminal state.
+    const recovery = window.setTimeout(() => {
+      onRecover?.();
     }, 12_000);
 
     function handleMessage(event: MessageEvent) {
@@ -432,17 +416,16 @@ export function GeneratedPreviewFrame({
       }
 
       setReady(true);
-      setTimedOut(false);
-      window.clearTimeout(timeout);
+      window.clearTimeout(recovery);
     }
 
     window.addEventListener("message", handleMessage);
 
     return () => {
-      window.clearTimeout(timeout);
+      window.clearTimeout(recovery);
       window.removeEventListener("message", handleMessage);
     };
-  }, [onAnnotationTarget, onRetry, projectId, reloadKey]);
+  }, [onAnnotationTarget, onRecover, projectId, reloadKey]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -474,10 +457,7 @@ export function GeneratedPreviewFrame({
           key={reloadKey}
           title="Tampilan website"
           src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
-          onLoad={() => {
-            setTimedOut(false);
-            onLoad?.();
-          }}
+          onLoad={onLoad}
           sandbox="allow-scripts"
           className="h-full w-full border-0 bg-white"
         />
@@ -491,7 +471,7 @@ export function GeneratedPreviewFrame({
           />
         ) : null}
       </div>
-      {!ready && !timedOut ? (
+      {!ready ? (
         <div className="absolute inset-0 grid place-items-center bg-[#10100f]">
           <div className="flex flex-col items-center gap-spacing-4 text-center">
             <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
@@ -504,15 +484,6 @@ export function GeneratedPreviewFrame({
               </p>
             </div>
           </div>
-        </div>
-      ) : null}
-      {timedOut && !ready ? (
-        <div className="absolute inset-0">
-          <PreviewIssueState
-            title="Tampilan website belum siap"
-            detail="Website belum selesai dimuat. Coba muat ulang tampilan, atau build ulang kalau masih kosong."
-            onRetry={onRetry}
-          />
         </div>
       ) : null}
     </div>
@@ -744,11 +715,9 @@ export function VisualFeedbackWidget({
 
 export function PreviewIssueState({
   detail,
-  onRetry,
   title,
 }: {
   detail: string;
-  onRetry?: () => void;
   title: string;
 }) {
   return (
@@ -763,15 +732,6 @@ export function PreviewIssueState({
         <p className="mx-auto mt-spacing-3 max-w-md text-sm leading-6 text-surface-warm-white/58">
           {detail}
         </p>
-        {onRetry ? (
-          <Button
-            type="button"
-            onClick={onRetry}
-            className="mt-spacing-6 rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86"
-          >
-            Muat ulang tampilan
-          </Button>
-        ) : null}
       </div>
     </div>
   );

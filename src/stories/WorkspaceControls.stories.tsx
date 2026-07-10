@@ -72,7 +72,6 @@ export const TopBarNarrowMobile: Story = {
           canPublish: true,
           deploymentStatus: "running",
           onPublish: () => undefined,
-          onRetryPreview: () => undefined,
         }}
       />
       <div id="workspace-preview-panel" role="tabpanel" hidden />
@@ -97,7 +96,6 @@ export const TopBarRuntimeRunning: Story = {
           canPublish: true,
           deploymentStatus: "running",
           onPublish: () => undefined,
-          onRetryPreview: () => undefined,
         }}
       />
     </DarkCanvas>
@@ -120,7 +118,6 @@ export const TopBarRuntimeStopped: Story = {
           canPublish: true,
           deploymentStatus: "stopped",
           onPublish: () => undefined,
-          onRetryPreview: () => undefined,
         }}
       />
     </DarkCanvas>
@@ -203,8 +200,7 @@ export const PreviewIssue: Story = {
     <div className="h-[32rem] bg-[#10100f]">
       <PreviewIssueState
         title="Tampilan website gagal dimuat"
-        detail="Tampilan website gagal dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal."
-        onRetry={() => undefined}
+        detail="Tampilan website gagal dimuat. Periksa brief lalu jalankan build ulang bila diperlukan."
       />
     </div>
   ),
