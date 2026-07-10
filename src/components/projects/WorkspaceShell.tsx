@@ -1247,9 +1247,9 @@ export function WorkspaceShell({
       return;
     }
 
-    setPreviewCollapsed(true);
     chatPanelRef.current?.resize("100%");
     previewPanelRef.current?.collapse();
+    window.setTimeout(() => setPreviewCollapsed(true), 300);
   }
 
   function closeChatPanel() {
@@ -1317,7 +1317,9 @@ export function WorkspaceShell({
         <ResizablePanel
           id="chat"
           className={
-            mobileSurface === "chat" ? "max-md:!flex-1" : "max-md:hidden"
+            mobileSurface === "chat"
+              ? "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:!flex-1"
+              : "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:hidden"
           }
           panelRef={chatPanelRef}
           defaultSize={showPreviewPanel ? "25%" : "100%"}
@@ -1660,7 +1662,9 @@ export function WorkspaceShell({
             <ResizablePanel
               id="preview"
               className={
-                mobileSurface === "preview" ? "max-md:!flex-1" : "max-md:hidden"
+                mobileSurface === "preview"
+                  ? "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:!flex-1"
+                  : "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:hidden"
               }
               panelRef={previewPanelRef}
               defaultSize="75%"
