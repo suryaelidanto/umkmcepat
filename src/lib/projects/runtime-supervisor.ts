@@ -5,6 +5,7 @@ import path from "node:path";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { materializeProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import { createRuntimeEventData } from "@/lib/projects/runtime-events";
+import { fetchRuntime } from "@/lib/projects/runtime-network";
 import { type ProjectDeploymentStatus } from "@/lib/projects/runtime-types";
 
 export type RuntimeStatus = Extract<
@@ -158,8 +159,6 @@ export function createLocalProcessRuntimeSupervisor(
       if (child) {
         child.kill();
         processes.delete(deploymentId);
-      } else {
-        killDeploymentPid(deployment.containerName);
       }
 
       await markDeploymentStopped(runtimePrisma, deployment);
@@ -363,7 +362,6 @@ function spawnRuntimeProcess(root: string, port: number) {
     {
       detached: true,
       env: {
-        ...process.env,
         NODE_ENV: "production",
       },
       stdio: "ignore",
@@ -411,22 +409,10 @@ async function waitForRuntime(internalUrl: string) {
 
 async function isRuntimeReachable(internalUrl: string) {
   try {
-    const response = await fetch(internalUrl, { cache: "no-store" });
+    const response = await fetchRuntime(internalUrl, { kind: "health" });
     return response.status < 500;
   } catch {
     return false;
-  }
-}
-
-function killDeploymentPid(containerName: string | null) {
-  const pid = Number(containerName?.match(/^local-process:(\d+)$/)?.[1]);
-
-  if (Number.isInteger(pid) && pid > 0) {
-    try {
-      process.kill(pid);
-    } catch {
-      // The process may already be gone; the database state is still cleaned up.
-    }
   }
 }
 

@@ -7,11 +7,16 @@ import { getDefaultAiModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth";
+import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { prisma } from "@/lib/prisma";
 import { createInitialBrief } from "@/lib/projects/brief";
 import { createPendingWorkspaceCard } from "@/lib/projects/brief-flow";
 import { validateProjectRequest } from "@/lib/projects/input";
-import { PROJECT_PAGE_SIZE } from "@/lib/projects/pagination";
+import {
+  decodeProjectCursor,
+  encodeProjectCursor,
+  PROJECT_PAGE_SIZE,
+} from "@/lib/projects/pagination";
 import { createFallbackProjectSiteSchema } from "@/lib/projects/site-schema";
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -29,20 +34,46 @@ export async function GET(request: Request) {
     );
   }
 
-  const cursor = new URL(request.url).searchParams.get("cursor");
+  const rawCursor = new URL(request.url).searchParams.get("cursor");
+  const cursor = rawCursor ? decodeProjectCursor(rawCursor) : null;
+
+  if (rawCursor && !cursor) {
+    return NextResponse.json(
+      { code: "invalid_cursor", message: "Cursor proyek tidak valid." },
+      { status: 400 },
+    );
+  }
+
   const projects = await prisma.project.findMany({
-    where: { userId: session.user.id },
-    orderBy: { updatedAt: "desc" },
+    where: {
+      userId: session.user.id,
+      ...(cursor
+        ? {
+            OR: [
+              { updatedAt: { lt: cursor.updatedAt } },
+              { updatedAt: cursor.updatedAt, id: { lt: cursor.id } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     take: PROJECT_PAGE_SIZE + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     select: { buildStatus: true, id: true, title: true, updatedAt: true },
   });
   const hasMore = projects.length > PROJECT_PAGE_SIZE;
   const items = hasMore ? projects.slice(0, PROJECT_PAGE_SIZE) : projects;
 
+  const lastItem = items.at(-1);
+
   return NextResponse.json({
     projects: items,
-    nextCursor: hasMore ? items[items.length - 1].id : null,
+    nextCursor:
+      hasMore && lastItem
+        ? encodeProjectCursor({
+            id: lastItem.id,
+            updatedAt: lastItem.updatedAt,
+          })
+        : null,
   });
 }
 
@@ -70,11 +101,32 @@ export async function POST(request: Request) {
     return rateLimitResponse;
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
+  let body: {
     idempotencyKey?: string;
     mode?: WorkspaceMode;
     prompt?: string;
   };
+
+  try {
+    body = (await readBoundedJson(request, {
+      maxBytes: 16 * 1024,
+    })) as typeof body;
+  } catch (error) {
+    if (isBoundedJsonError(error)) {
+      return NextResponse.json(
+        {
+          code: error.code,
+          message:
+            error.code === "request_body_too_large"
+              ? "Permintaan terlalu besar. Ringkas dulu, ya."
+              : "Format permintaan belum valid.",
+        },
+        { status: error.code === "request_body_too_large" ? 413 : 400 },
+      );
+    }
+
+    throw error;
+  }
   const { prompt } = body;
   const mode = body.mode === "build" ? "build" : "discuss";
   const validation = validateProjectRequest(prompt ?? "");

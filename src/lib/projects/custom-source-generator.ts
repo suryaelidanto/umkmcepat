@@ -9,7 +9,6 @@ import {
   type GeneratedAppAgentToolCommand,
 } from "@/lib/projects/agent-tool-runner";
 import {
-  buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
   type GeneratedProjectFile,
 } from "@/lib/projects/generated-source";
@@ -94,7 +93,7 @@ export async function generateCustomProjectFilesWithAgent({
       agent.generate({ prompt: buildAgentPrompt(appSpec) }),
       "sourceGeneration",
     );
-    let quality = checkAgentSourceQuality(files, touchedFiles);
+    const quality = checkAgentSourceQuality(files, touchedFiles);
 
     if (!quality.ok) {
       throw new Error(
@@ -102,36 +101,7 @@ export async function generateCustomProjectFilesWithAgent({
       );
     }
 
-    let repairAttempts = 0;
-
-    if (!process.env.VITEST) {
-      const build = await buildGeneratedProject(files);
-
-      if (!build.ok) {
-        repairAttempts = 1;
-        await withAiTimeout(
-          agent.generate({
-            prompt: `${buildAgentPrompt(appSpec)}\n\nPrevious build failed. Repair the source using this build log, then run check_app.\n\n${build.log.slice(-6000)}`,
-          }),
-          "editRepair",
-        );
-        quality = checkAgentSourceQuality(files, touchedFiles);
-
-        if (!quality.ok) {
-          throw new Error(
-            `AI repair produced invalid source: ${quality.issues.join(", ")}`,
-          );
-        }
-
-        const repairedBuild = await buildGeneratedProject(files);
-
-        if (!repairedBuild.ok) {
-          throw new Error(
-            `AI repair build failed: ${repairedBuild.log.slice(-1000)}`,
-          );
-        }
-      }
-    }
+    const repairAttempts = 0;
 
     return {
       buildSpec: appSpec,

@@ -3,10 +3,12 @@ import {
   createPreviewAssetToken,
   PREVIEW_ASSET_TOKEN_PARAM,
 } from "@/lib/projects/preview-asset-token";
+import { fetchRuntime } from "@/lib/projects/runtime-network";
 import {
   getRuntimeSupervisor,
   type RuntimeSupervisor,
 } from "@/lib/projects/runtime-supervisor";
+import { assertRuntimeTargetAllowed } from "@/lib/projects/runtime-target-policy";
 
 type ProxyDeploymentRequestInput = {
   assetRewrite?: {
@@ -55,15 +57,39 @@ export async function proxyDeploymentRequest(
     return null;
   }
 
+  let targetUrl: URL;
+
+  try {
+    targetUrl = assertRuntimeTargetAllowed(target);
+  } catch (error) {
+    devLog("runtime-proxy", "target-rejected", {
+      deploymentId: input.deploymentId,
+      error: error instanceof Error ? error.message : "invalid target",
+    });
+    return null;
+  }
+
   const requestUrl = new URL(input.request.url);
-  const runtimeUrl = new URL(
-    encodeRuntimePath(input.pathSegments),
-    target.endsWith("/") ? target : `${target}/`,
-  );
+  const runtimeUrl = new URL(encodeRuntimePath(input.pathSegments), targetUrl);
 
   runtimeUrl.search = requestUrl.search;
 
-  const runtimeResponse = await fetch(runtimeUrl, { cache: "no-store" });
+  let runtimeResponse: Response;
+
+  try {
+    runtimeResponse = await fetchRuntime(runtimeUrl, {
+      kind: "proxy",
+      signal: input.request.signal,
+    });
+  } catch (error) {
+    devLog("runtime-proxy", "network-failed", {
+      deploymentId: input.deploymentId,
+      error: error instanceof Error ? error.name : "unknown",
+      path: runtimeUrl.pathname,
+    });
+    return null;
+  }
+
   devLog("runtime-proxy", "response", {
     deploymentId: input.deploymentId,
     path: runtimeUrl.pathname,
@@ -107,6 +133,7 @@ export function applyPreviewSandboxHeaders(
   { noindex = true }: { noindex?: boolean } = {},
 ) {
   headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Content-Security-Policy", "sandbox allow-scripts");
   headers.set("Cross-Origin-Resource-Policy", "cross-origin");
 
   if (noindex) {

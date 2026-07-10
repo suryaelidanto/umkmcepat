@@ -1,4 +1,6 @@
 import { auth } from "@/lib/auth";
+import { isGeneratedPublicExecutionEnabled } from "@/lib/config";
+import { getGeneratedPublicUrl } from "@/lib/generated-public-origin";
 import { prisma } from "@/lib/prisma";
 import { selectLatestSuccessfulBuild } from "@/lib/projects/deployment-resolution";
 import { createRuntimeEventData } from "@/lib/projects/runtime-events";
@@ -15,6 +17,17 @@ export async function POST(
     return Response.json(
       { message: "Masuk dulu untuk melanjutkan." },
       { status: 401 },
+    );
+  }
+
+  if (!isGeneratedPublicExecutionEnabled()) {
+    return Response.json(
+      {
+        code: "generated_public_execution_unavailable",
+        message:
+          "Publikasi sedang dinonaktifkan sementara. Draft dan tampilan terakhirmu tetap aman.",
+      },
+      { status: 503, headers: { "Retry-After": "30" } },
     );
   }
 
@@ -61,7 +74,7 @@ export async function POST(
     select: { id: true, slug: true },
   });
   const slug = existingDeployment?.slug || createPublishedSlug(project);
-  const publicPath = `/p/${slug}`;
+  const publicPath = getGeneratedPublicUrl(slug);
   const deployment = existingDeployment
     ? await prisma.projectDeployment.update({
         where: { id: existingDeployment.id },

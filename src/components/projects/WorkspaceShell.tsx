@@ -162,6 +162,9 @@ export function WorkspaceShell({
   const [activeTab, setActiveTab] = useState<BuildTab>("preview");
   const [sourceFiles, setSourceFiles] = useState<GeneratedProjectFile[]>([]);
   const [sourceStatus, setSourceStatus] = useState("not_started");
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const [isLoadingSource, setIsLoadingSource] = useState(false);
+  const [sourceReloadKey, setSourceReloadKey] = useState(0);
   const [buildProgress, setBuildProgress] = useState<BuildProgressStep[]>([]);
   const [buildStartedAt, setBuildStartedAt] = useState<number | null>(null);
   const [runtimeState, setRuntimeState] =
@@ -216,11 +219,13 @@ export function WorkspaceShell({
     message: string;
     retryAfter: number;
   } | null>(null);
-  const [hydrated, setHydrated] = useState(false);
   const [questionComposerMode, setQuestionComposerMode] = useState<
     "options" | "free"
   >("options");
   const [progressWidgetOpen, setProgressWidgetOpen] = useState(true);
+  const [mobileSurface, setMobileSurface] = useState<"chat" | "preview">(
+    "chat",
+  );
   const [progressWidgetPosition, setProgressWidgetPosition] = useState({
     x: 24,
     y: 84,
@@ -252,10 +257,6 @@ export function WorkspaceShell({
     }),
   });
   const previousChatStatus = useRef(status);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -341,6 +342,10 @@ export function WorkspaceShell({
         setRuntimeState(result);
         setRuntimeError(null);
 
+        if (result.latestSuccessfulBuild) {
+          setSourceStatus("passed");
+        }
+
         if (result.publishedDeployment?.publicPath) {
           setPublishedPath(result.publishedDeployment.publicPath);
         }
@@ -422,6 +427,7 @@ export function WorkspaceShell({
     setBuildProgress([]);
     setBuildStartedAt(Date.now());
     setActiveTab("preview");
+    setMobileSurface("preview");
 
     const abortController = new AbortController();
     buildAbortRef.current = abortController;
@@ -569,10 +575,14 @@ export function WorkspaceShell({
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
   const isProcessing = isResponding || isBuilding || isEditingPreview;
-  const allMessages = dedupeUiMessages([...olderMessages, ...messages]);
-  const visibleMessages = filterDiscussionMessagesWithWorkspaceUi(
-    allMessages,
-    mode === "discuss",
+  const allMessages = useMemo(
+    () => dedupeUiMessages([...olderMessages, ...messages]),
+    [messages, olderMessages],
+  );
+  const visibleMessages = useMemo(
+    () =>
+      filterDiscussionMessagesWithWorkspaceUi(allMessages, mode === "discuss"),
+    [allMessages, mode],
   );
   const buildRecommendationSignature =
     getBuildRecommendationHoldSignature(workspaceCard);
@@ -659,6 +669,7 @@ export function WorkspaceShell({
     }
 
     hasAutoOpenedPreview.current = true;
+    setMobileSurface("preview");
     setChatCollapsed(false);
     setPreviewCollapsed(false);
 
@@ -671,31 +682,55 @@ export function WorkspaceShell({
   }, [hasPreview]);
 
   useEffect(() => {
-    if (activeTab !== "code" && buildStatus !== "ready") {
+    if (activeTab !== "code") {
       return;
     }
 
-    let ignore = false;
+    const controller = new AbortController();
 
     async function loadSource() {
-      const response = await fetch(`/api/projects/${projectId}/source`);
-      const result = (await response.json()) as {
-        buildStatus?: string;
-        files?: GeneratedProjectFile[];
-      };
+      setIsLoadingSource(true);
+      setSourceError(null);
 
-      if (!ignore && response.ok) {
+      try {
+        const response = await fetch(`/api/projects/${projectId}/source`, {
+          signal: controller.signal,
+        });
+        const result = (await response.json()) as {
+          buildStatus?: string;
+          files?: GeneratedProjectFile[];
+        };
+
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        if (!response.ok) {
+          setSourceError(
+            "Kode website belum bisa dimuat. Coba lagi tanpa kehilangan tampilan terakhir.",
+          );
+          return;
+        }
+
         setSourceFiles(result.files ?? []);
         setSourceStatus(result.buildStatus ?? "not_started");
+      } catch {
+        if (!controller.signal.aborted) {
+          setSourceError(
+            "Kode website belum bisa dimuat. Coba lagi tanpa kehilangan tampilan terakhir.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingSource(false);
+        }
       }
     }
 
     void loadSource();
 
-    return () => {
-      ignore = true;
-    };
-  }, [activeTab, buildStatus, projectId]);
+    return () => controller.abort();
+  }, [activeTab, buildStatus, projectId, sourceReloadKey]);
 
   const reloadLatestChat = useCallback(async () => {
     const response = await fetch(`/api/projects/${projectId}/chat?limit=20`, {
@@ -906,6 +941,13 @@ export function WorkspaceShell({
       target: item.target,
     });
     setPendingAnnotationComment("");
+    setMobileSurface("chat");
+    setChatCollapsed(false);
+
+    window.requestAnimationFrame(() => {
+      chatPanelRef.current?.resize(32);
+      previewPanelRef.current?.resize(68);
+    });
   }, []);
 
   function addPendingAnnotation() {
@@ -1218,6 +1260,7 @@ export function WorkspaceShell({
   }
 
   const openPreviewPanel = useCallback(() => {
+    setMobileSurface("preview");
     setChatCollapsed(false);
     setPreviewCollapsed(false);
     chatPanelRef.current?.resize("32%");
@@ -1225,6 +1268,7 @@ export function WorkspaceShell({
   }, []);
 
   function openChatPanel() {
+    setMobileSurface("chat");
     setChatCollapsed(false);
     setPreviewCollapsed(false);
     chatPanelRef.current?.resize("32%");
@@ -1235,18 +1279,39 @@ export function WorkspaceShell({
     "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#1b1b19] p-spacing-5";
   const previewPanelClass = "h-full min-h-0 min-w-0";
 
-  if (!hydrated) {
-    return <WorkspaceInitialLoader />;
-  }
-
   return (
-    <div className="h-dvh overflow-hidden bg-[#10100f] text-surface-warm-white">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#10100f] text-surface-warm-white">
+      <nav
+        aria-label="Pilih tampilan ruang kerja"
+        className="flex h-12 shrink-0 items-center gap-spacing-2 border-b border-surface-warm-white/10 bg-[#1b1b19] px-spacing-4 md:hidden"
+      >
+        <button
+          type="button"
+          aria-pressed={mobileSurface === "chat"}
+          onClick={openChatPanel}
+          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
+        >
+          Diskusi
+        </button>
+        <button
+          type="button"
+          aria-pressed={mobileSurface === "preview"}
+          disabled={!hasPreview && !isBuilding}
+          onClick={openPreviewPanel}
+          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary disabled:opacity-40"
+        >
+          Tampilan
+        </button>
+      </nav>
       <ResizablePanelGroup
         orientation="horizontal"
-        className="h-full min-h-0 overflow-hidden"
+        className="min-h-0 flex-1 overflow-hidden"
       >
         <ResizablePanel
           id="chat"
+          className={
+            mobileSurface === "chat" ? "max-md:!flex-1" : "max-md:hidden"
+          }
           panelRef={chatPanelRef}
           defaultSize={showPreviewPanel ? 32 : 100}
           minSize={28}
@@ -1600,11 +1665,14 @@ export function WorkspaceShell({
           <>
             <ResizableHandle
               withHandle
-              className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16"
+              className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16 max-md:hidden"
             />
 
             <ResizablePanel
               id="preview"
+              className={
+                mobileSurface === "preview" ? "max-md:!flex-1" : "max-md:hidden"
+              }
               panelRef={previewPanelRef}
               defaultSize={68}
               minSize={8}
@@ -1619,7 +1687,6 @@ export function WorkspaceShell({
                     onToggleAnnotation={() => {
                       setAnnotationMode((current) => !current);
                       setActiveTab("preview");
-                      openChatPanel();
                     }}
                     activeTab={activeTab}
                     setActiveTab={setActiveTab}
@@ -1632,43 +1699,62 @@ export function WorkspaceShell({
                   />
                   <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
                     {activeTab === "preview" ? (
-                      isBuilding ? (
-                        <div className="grid min-h-full place-items-center p-spacing-6">
-                          <div className="w-full max-w-3xl">
-                            <BuildProgressPanel
-                              elapsedFrom={buildStartedAt}
-                              isBuilding={isBuilding}
-                              steps={buildProgress}
-                            />
+                      <div
+                        id="workspace-preview-panel"
+                        role="tabpanel"
+                        aria-labelledby="workspace-preview-tab"
+                        className="h-full min-h-0"
+                      >
+                        {isBuilding ? (
+                          <div className="grid min-h-full place-items-center p-spacing-6">
+                            <div className="w-full max-w-3xl">
+                              <BuildProgressPanel
+                                elapsedFrom={buildStartedAt}
+                                isBuilding={isBuilding}
+                                steps={buildProgress}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      ) : previewIssue ? (
-                        <PreviewIssueState
-                          detail={previewIssue.detail}
-                          title={previewIssue.title}
-                          onRetry={retryPreviewRuntime}
-                        />
-                      ) : shouldRenderGeneratedPreview ? (
-                        <GeneratedPreviewFrame
-                          annotationActive={annotationMode}
-                          annotationMarkers={annotations}
-                          onAnnotationTarget={handleAnnotationTarget}
-                          onLoad={() => void loadRuntimeState()}
-                          onRetry={retryPreviewRuntime}
-                          projectId={projectId}
-                          reloadKey={previewReloadKey}
-                          viewport={viewport}
-                        />
-                      ) : (
-                        <EmptyPreviewState />
-                      )
+                        ) : previewIssue ? (
+                          <PreviewIssueState
+                            detail={previewIssue.detail}
+                            title={previewIssue.title}
+                            onRetry={retryPreviewRuntime}
+                          />
+                        ) : shouldRenderGeneratedPreview ? (
+                          <GeneratedPreviewFrame
+                            annotationActive={annotationMode}
+                            annotationMarkers={annotations}
+                            onAnnotationTarget={handleAnnotationTarget}
+                            onLoad={() => void loadRuntimeState()}
+                            onRetry={retryPreviewRuntime}
+                            projectId={projectId}
+                            reloadKey={previewReloadKey}
+                            viewport={viewport}
+                          />
+                        ) : (
+                          <EmptyPreviewState />
+                        )}
+                      </div>
                     ) : null}
 
                     {activeTab === "code" ? (
-                      <CodeView
-                        files={sourceFiles}
-                        buildStatus={sourceStatus}
-                      />
+                      <div
+                        id="workspace-code-panel"
+                        role="tabpanel"
+                        aria-labelledby="workspace-code-tab"
+                        className="h-full min-h-0"
+                      >
+                        <CodeView
+                          files={sourceFiles}
+                          buildStatus={sourceStatus}
+                          error={sourceError}
+                          isLoading={isLoadingSource}
+                          onRetry={() =>
+                            setSourceReloadKey((current) => current + 1)
+                          }
+                        />
+                      </div>
                     ) : null}
                   </div>
                 </div>
@@ -1789,19 +1875,6 @@ function FloatingProgressWidget({
           />
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function WorkspaceInitialLoader() {
-  return (
-    <div className="grid h-dvh place-items-center bg-[#10100f] text-surface-warm-white">
-      <div className="flex flex-col items-center gap-spacing-4">
-        <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
-        <p className="text-sm text-surface-warm-white/48">
-          Menyiapkan ruang kerja...
-        </p>
-      </div>
     </div>
   );
 }
@@ -2681,9 +2754,15 @@ function EmptyCodeState({ buildStatus }: { buildStatus: string }) {
 function CodeView({
   files,
   buildStatus,
+  error,
+  isLoading,
+  onRetry,
 }: {
   files: GeneratedProjectFile[];
   buildStatus: string;
+  error: string | null;
+  isLoading: boolean;
+  onRetry: () => void;
 }) {
   const sortedFiles = useMemo(
     () =>
@@ -2735,6 +2814,33 @@ function CodeView({
     );
   }, [sortedFiles]);
 
+  if (!sortedFiles.length && isLoading) {
+    return (
+      <div
+        role="status"
+        className="grid h-full min-h-0 place-items-center bg-[#10100f] p-spacing-6 text-sm text-surface-warm-white/64"
+      >
+        Memuat kode website...
+      </div>
+    );
+  }
+
+  if (!sortedFiles.length && error) {
+    return (
+      <div className="grid h-full min-h-0 place-items-center bg-[#10100f] p-spacing-6 text-center text-surface-warm-white">
+        <div className="max-w-sm rounded-[24px] border border-[#ffb4a6]/25 bg-[#ffb4a6]/8 px-spacing-6 py-spacing-6">
+          <p className="text-sm font-semibold">Kode belum bisa dimuat</p>
+          <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/64">
+            {error}
+          </p>
+          <Button type="button" onClick={onRetry} className="mt-spacing-4">
+            Coba lagi
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!sortedFiles.length) {
     return <EmptyCodeState buildStatus={buildStatus} />;
   }
@@ -2749,6 +2855,15 @@ function CodeView({
           <p className="mt-spacing-2 text-xs text-surface-warm-white/44">
             Build: {buildStatus}
           </p>
+          {error ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-spacing-2 text-left text-xs leading-5 text-[#ffb4a6] underline underline-offset-4"
+            >
+              Kode lama tetap ditampilkan. Coba muat ulang.
+            </button>
+          ) : null}
           <Button
             type="button"
             size="sm"

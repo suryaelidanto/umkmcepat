@@ -1,8 +1,12 @@
+import { randomUUID } from "node:crypto";
+
 import { jsonSchema, Output, streamText } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
+import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
+import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import {
@@ -24,6 +28,11 @@ import {
   parseImplementationSpec,
   type ImplementationSpec,
 } from "@/lib/projects/implementation-spec";
+import {
+  claimProjectOperation,
+  finalizeProjectOperation,
+  renewProjectOperation,
+} from "@/lib/projects/project-operation";
 import {
   writeProjectDistArtifact,
   writeProjectSourceArtifact,
@@ -72,7 +81,40 @@ export async function POST(request: Request, { params }: RouteProps) {
     return rateLimitResponse;
   }
 
-  const body = (await request.json().catch(() => ({}))) as GenerateRequestBody;
+  if (!isGeneratedBuildExecutionEnabled()) {
+    return Response.json(
+      {
+        code: "generated_build_execution_unavailable",
+        message:
+          "Build baru sedang dinonaktifkan sementara. Tampilan terakhir tetap aman.",
+      },
+      { status: 503, headers: { "Retry-After": "30" } },
+    );
+  }
+
+  let body: GenerateRequestBody;
+
+  try {
+    body = (await readBoundedJson(request, {
+      maxBytes: 16 * 1024,
+    })) as GenerateRequestBody;
+  } catch (error) {
+    if (isBoundedJsonError(error)) {
+      return Response.json(
+        {
+          code: error.code,
+          message:
+            error.code === "request_body_too_large"
+              ? "Permintaan build terlalu besar."
+              : "Format permintaan build belum valid.",
+        },
+        { status: error.code === "request_body_too_large" ? 413 : 400 },
+      );
+    }
+
+    throw error;
+  }
+
   const forceBuild = body.force === true;
   const { id } = await params;
   devLog("generate", "request", { projectId: id, userId });
@@ -134,23 +176,52 @@ export async function POST(request: Request, { params }: RouteProps) {
   const projectId = project.id;
   const projectPrompt = project.prompt;
 
-  const claimedProject = await prisma.project.updateMany({
-    where: {
-      buildStatus: { not: "running" },
-      id: projectId,
-      status: { not: "building" },
-      userId,
-    },
-    data: { buildStatus: "running", status: "building" },
+  const operation = await claimProjectOperation({
+    kind: "build",
+    projectId,
+    userId,
   });
 
-  if (claimedProject.count !== 1) {
+  if (!operation.claimed) {
     return Response.json(
       {
         code: "project_build_in_progress",
         message: "Build masih berjalan untuk proyek ini.",
       },
       { status: 409 },
+    );
+  }
+
+  const operationAttemptId = `build_${randomUUID().replace(/-/g, "")}`;
+
+  try {
+    await prisma.projectEditAttempt.create({
+      data: {
+        id: operationAttemptId,
+        instruction: "Generate project from the accepted brief.",
+        kind: "generate",
+        leaseToken: operation.token,
+        projectId,
+        startedAt: new Date(),
+        status: "generating",
+        userId,
+      },
+      select: { id: true },
+    });
+  } catch {
+    await finalizeProjectOperation({
+      data: { buildStatus: "failed", status: "failed" },
+      projectId,
+      token: operation.token,
+      userId,
+    }).catch(() => false);
+
+    return Response.json(
+      {
+        code: "build_attempt_unavailable",
+        message: "Build belum bisa dimulai. Coba lagi sebentar.",
+      },
+      { status: 503, headers: { "Retry-After": "3" } },
     );
   }
 
@@ -263,6 +334,16 @@ export async function POST(request: Request, { params }: RouteProps) {
         const implementationSpec = await generateImplementationSpec(
           buildImplementationSpecPrompt(brief),
         );
+        const specLeaseRenewed = await renewProjectOperation({
+          projectId,
+          token: operation.token,
+          userId,
+        });
+
+        if (!specLeaseRenewed) {
+          throw new Error("Build operation lease was superseded.");
+        }
+
         const finalSchema = implementationSpecToSiteSchema(implementationSpec);
         send("progress", {
           label: "Menyiapkan starter React",
@@ -285,6 +366,16 @@ export async function POST(request: Request, { params }: RouteProps) {
           touchedFiles: sourceGeneration.touchedFiles.length,
         });
         const sourceFiles = sourceGeneration.files;
+        const sourceLeaseRenewed = await renewProjectOperation({
+          projectId,
+          token: operation.token,
+          userId,
+        });
+
+        if (!sourceLeaseRenewed) {
+          throw new Error("Build operation lease was superseded.");
+        }
+
         send("progress", {
           label: "AI menulis file website",
           detail: `${sourceGeneration.touchedFiles.length} file dibuat atau diubah agent.`,
@@ -315,6 +406,10 @@ export async function POST(request: Request, { params }: RouteProps) {
           artifactId: snapshot.id,
           files: sourceFiles,
         });
+        await prisma.projectEditAttempt.update({
+          where: { id: operationAttemptId },
+          data: { snapshotId: snapshot.id, status: "building" },
+        });
         await prisma.projectSnapshot.update({
           where: { id: snapshot.id },
           data: { sourceRef },
@@ -335,6 +430,10 @@ export async function POST(request: Request, { params }: RouteProps) {
           select: { id: true },
         });
         runtimeBuildId = build.id;
+        await prisma.projectEditAttempt.update({
+          where: { id: operationAttemptId },
+          data: { buildId: build.id },
+        });
         send("progress", {
           label: "Build masuk antrean",
           detail: "Worker build menyiapkan validasi file website.",
@@ -372,29 +471,43 @@ export async function POST(request: Request, { params }: RouteProps) {
         });
 
         if (latestProject?.status === "stopping") {
-          await prisma.projectBuild.update({
-            where: { id: build.id },
-            data: {
-              finishedAt: new Date(),
-              logText: buildResult.log,
-              status: "canceled" satisfies ProjectBuildStatus,
-            },
+          await prisma.$transaction(async (transaction) => {
+            const finalized = await finalizeProjectOperation({
+              data: { buildStatus: "stopped", status: "draft" },
+              projectId,
+              store: transaction,
+              token: operation.token,
+              userId,
+            });
+
+            if (!finalized) {
+              throw new Error("Build operation lease was superseded.");
+            }
+
+            await transaction.projectBuild.update({
+              where: { id: build.id },
+              data: {
+                finishedAt: new Date(),
+                logText: buildResult.log,
+                status: "canceled" satisfies ProjectBuildStatus,
+              },
+            });
+            await transaction.projectEditAttempt.update({
+              where: { id: operationAttemptId },
+              data: { finishedAt: new Date(), status: "canceled" },
+            });
           });
           runtimeBuildFinalized = true;
-          await prisma.runtimeEvent.create({
-            data: createRuntimeEventData({
-              buildId: build.id,
-              message: "Build was canceled after the user stopped the job.",
-              projectId: projectId,
-              type: "build.canceled",
-            }),
-          });
-          await prisma.project.update({
-            where: { id: projectId },
-            data: { status: "draft", buildStatus: "stopped" } as Parameters<
-              typeof prisma.project.update
-            >[0]["data"],
-          });
+          await prisma.runtimeEvent
+            .create({
+              data: createRuntimeEventData({
+                buildId: build.id,
+                message: "Build was canceled after the user stopped the job.",
+                projectId: projectId,
+                type: "build.canceled",
+              }),
+            })
+            .catch(() => undefined);
           send("error", { message: "Proses dihentikan." });
           return;
         }
@@ -408,61 +521,84 @@ export async function POST(request: Request, { params }: RouteProps) {
               files: buildResult.distFiles,
             })
           : null;
-        await prisma.projectBuild.update({
-          where: { id: build.id },
-          data: {
-            artifactRef,
-            finishedAt: new Date(),
-            logText: buildResult.log,
-            status: projectBuildStatus,
-          },
-        });
-        runtimeBuildFinalized = true;
-        await prisma.runtimeEvent.create({
-          data: createRuntimeEventData({
-            buildId: build.id,
-            message: buildResult.ok
-              ? "Generated frontend build succeeded and dist artifact was stored."
-              : "Generated frontend build failed.",
-            metadata: artifactRef ? { artifactRef } : undefined,
-            projectId: projectId,
-            type: buildResult.ok ? "build.succeeded" : "build.failed",
-          }),
-        });
-        await prisma.project.update({
-          where: { id: projectId },
-          data: {
-            status: buildResult.ok ? "ready" : "failed",
-            siteSchema: finalSchema,
-            sourceFiles,
-            distFiles: buildResult.distFiles,
-            buildStatus: buildResult.ok ? "passed" : "failed",
-            buildLog: buildResult.log,
-            builtAt: new Date(),
-          } as Parameters<typeof prisma.project.update>[0]["data"],
-        });
         const deploymentStatus: ProjectDeploymentStatus = buildResult.ok
           ? "created"
           : "failed";
-        const deployment = await prisma.projectDeployment.create({
-          data: {
-            buildId: build.id,
-            kind: PREVIEW_DEPLOYMENT_KIND,
-            projectId: projectId,
-            publicPath: `/api/projects/${projectId}/preview`,
-            snapshotId: snapshot.id,
-            status: deploymentStatus,
-          },
-          select: { id: true },
+        const deployment = await prisma.$transaction(async (transaction) => {
+          const finalized = await finalizeProjectOperation({
+            data: {
+              buildLog: buildResult.log,
+              buildStatus: buildResult.ok ? "passed" : "failed",
+              builtAt: new Date(),
+              distFiles: buildResult.distFiles,
+              siteSchema: finalSchema,
+              sourceFiles,
+              status: buildResult.ok ? "ready" : "failed",
+            },
+            projectId,
+            store: transaction,
+            token: operation.token,
+            userId,
+          });
+
+          if (!finalized) {
+            throw new Error("Build operation lease was superseded.");
+          }
+
+          await transaction.projectBuild.update({
+            where: { id: build.id },
+            data: {
+              artifactRef,
+              finishedAt: new Date(),
+              logText: buildResult.log,
+              status: projectBuildStatus,
+            },
+          });
+          const committedDeployment =
+            await transaction.projectDeployment.create({
+              data: {
+                buildId: build.id,
+                kind: PREVIEW_DEPLOYMENT_KIND,
+                projectId: projectId,
+                publicPath: `/api/projects/${projectId}/preview`,
+                snapshotId: snapshot.id,
+                status: deploymentStatus,
+              },
+              select: { id: true },
+            });
+          await transaction.projectEditAttempt.update({
+            where: { id: operationAttemptId },
+            data: {
+              errorMessage: buildResult.ok ? null : "Generated build failed.",
+              finishedAt: new Date(),
+              status: buildResult.ok ? "succeeded" : "failed",
+            },
+          });
+
+          return committedDeployment;
         });
-        await prisma.runtimeEvent.create({
-          data: createRuntimeEventData({
-            buildId: build.id,
-            deploymentId: deployment.id,
-            projectId: projectId,
-            type: buildResult.ok ? "deployment.created" : "deployment.failed",
+        runtimeBuildFinalized = true;
+        await Promise.allSettled([
+          prisma.runtimeEvent.create({
+            data: createRuntimeEventData({
+              buildId: build.id,
+              message: buildResult.ok
+                ? "Generated frontend build succeeded and dist artifact was stored."
+                : "Generated frontend build failed.",
+              metadata: artifactRef ? { artifactRef } : undefined,
+              projectId: projectId,
+              type: buildResult.ok ? "build.succeeded" : "build.failed",
+            }),
           }),
-        });
+          prisma.runtimeEvent.create({
+            data: createRuntimeEventData({
+              buildId: build.id,
+              deploymentId: deployment.id,
+              projectId: projectId,
+              type: buildResult.ok ? "deployment.created" : "deployment.failed",
+            }),
+          }),
+        ]);
 
         send("progress", {
           label: "Website siap dicek",
@@ -497,10 +633,26 @@ export async function POST(request: Request, { params }: RouteProps) {
             })
             .catch(() => undefined);
         }
-        await prisma.project.update({
-          where: { id: projectId },
-          data: { status: "failed", buildStatus: "failed" },
-        });
+        await Promise.allSettled([
+          finalizeProjectOperation({
+            data: { buildStatus: "failed", status: "failed" },
+            projectId,
+            token: operation.token,
+            userId,
+          }),
+          prisma.projectEditAttempt.updateMany({
+            where: {
+              finishedAt: null,
+              id: operationAttemptId,
+              status: { in: ["generating", "building"] },
+            },
+            data: {
+              errorMessage: "Build failed before completion.",
+              finishedAt: new Date(),
+              status: "failed",
+            },
+          }),
+        ]);
         send("error", { message: "AI belum bisa membangun website ini." });
       } finally {
         controller.close();

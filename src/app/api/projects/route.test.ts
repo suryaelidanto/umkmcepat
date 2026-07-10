@@ -7,6 +7,7 @@ const {
   queryRawMock,
   moderateProjectRequestMock,
   prismaProjectCreateMock,
+  prismaProjectFindManyMock,
   transactionMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => ({
@@ -18,6 +19,16 @@ const {
   queryRawMock: vi.fn<() => Promise<Array<{ id: string }>>>(async () => []),
   moderateProjectRequestMock: vi.fn(async () => ({ allowed: true })),
   prismaProjectCreateMock: vi.fn(async () => ({ id: "project_1" })),
+  prismaProjectFindManyMock: vi.fn<
+    () => Promise<
+      Array<{
+        buildStatus: string;
+        id: string;
+        title: string;
+        updatedAt: Date;
+      }>
+    >
+  >(async () => []),
   transactionMock: vi.fn(async (callback) =>
     callback({
       $executeRaw: executeRawMock,
@@ -61,7 +72,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: queryRawMock,
     $transaction: transactionMock,
-    project: { create: prismaProjectCreateMock },
+    project: {
+      create: prismaProjectCreateMock,
+      findMany: prismaProjectFindManyMock,
+    },
   },
 }));
 vi.mock("@/lib/projects/brief-flow", () => ({
@@ -77,7 +91,7 @@ vi.mock("@/lib/projects/brief-flow", () => ({
   })),
 }));
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 describe("projects route", () => {
   beforeEach(() => {
@@ -91,10 +105,73 @@ describe("projects route", () => {
     queryRawMock.mockResolvedValue([]);
     moderateProjectRequestMock.mockResolvedValue({ allowed: true });
     prismaProjectCreateMock.mockResolvedValue({ id: "project_1" });
+    prismaProjectFindManyMock.mockResolvedValue([]);
     transactionMock.mockImplementation(async (callback) =>
       callback({
         $executeRaw: executeRawMock,
         project: { create: prismaProjectCreateMock },
+      }),
+    );
+  });
+
+  it("uses a stable updatedAt and id keyset cursor", async () => {
+    const timestamp = new Date("2026-07-10T01:00:00.000Z");
+    prismaProjectFindManyMock.mockResolvedValue([
+      {
+        buildStatus: "passed",
+        id: "project_4",
+        title: "D",
+        updatedAt: timestamp,
+      },
+      {
+        buildStatus: "passed",
+        id: "project_3",
+        title: "C",
+        updatedAt: timestamp,
+      },
+      {
+        buildStatus: "passed",
+        id: "project_2",
+        title: "B",
+        updatedAt: timestamp,
+      },
+      {
+        buildStatus: "passed",
+        id: "project_1",
+        title: "A",
+        updatedAt: timestamp,
+      },
+    ]);
+
+    const firstResponse = await GET(
+      new Request("http://localhost/api/projects"),
+    );
+    const firstBody = await firstResponse.json();
+
+    expect(firstBody.projects).toHaveLength(3);
+    expect(firstBody.nextCursor).toEqual(expect.any(String));
+    expect(prismaProjectFindManyMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      }),
+    );
+
+    prismaProjectFindManyMock.mockResolvedValue([]);
+    const secondResponse = await GET(
+      new Request(
+        `http://localhost/api/projects?cursor=${encodeURIComponent(firstBody.nextCursor)}`,
+      ),
+    );
+
+    expect(secondResponse.status).toBe(200);
+    expect(prismaProjectFindManyMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { updatedAt: { lt: timestamp } },
+            { updatedAt: timestamp, id: { lt: "project_2" } },
+          ],
+        }),
       }),
     );
   });
@@ -110,6 +187,21 @@ describe("projects route", () => {
     );
 
     expect(response.status).toBe(401);
+  });
+
+  it("rejects oversized bodies before moderation or database work", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/projects", {
+        method: "POST",
+        body: JSON.stringify({ padding: "x".repeat(20_000), prompt: "kopi" }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(413);
+    expect(body.code).toBe("request_body_too_large");
+    expect(moderateProjectRequestMock).not.toHaveBeenCalled();
+    expect(prismaProjectCreateMock).not.toHaveBeenCalled();
   });
 
   it("rejects invalid prompt before moderation", async () => {

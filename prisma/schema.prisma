@@ -104,6 +104,9 @@ model Project {
   buildStatus               String                  @default("not_started") @db.VarChar(32)
   buildLog                  String?                 @db.Text
   builtAt                   DateTime?
+  activeOperationToken      String?                 @db.VarChar(64)
+  activeOperationKind       String?                 @db.VarChar(32)
+  activeOperationExpiresAt  DateTime?
   userId                    String
   user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   snapshots                 ProjectSnapshot[]
@@ -117,6 +120,8 @@ model Project {
 
   @@index([userId])
   @@index([updatedAt])
+  @@index([activeOperationExpiresAt])
+  @@index([userId, updatedAt, id])
 }
 
 model ProjectIdempotencyKey {
@@ -135,28 +140,32 @@ model ProjectIdempotencyKey {
 }
 
 model ProjectEditAttempt {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   projectId        String
-  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   parentSnapshotId String?
   snapshotId       String?
   buildId          String?
-  kind             String   @db.VarChar(32)
-  status           String   @default("received") @db.VarChar(32)
-  instruction      String   @db.Text
-  summary          String?  @db.Text
+  kind             String    @db.VarChar(32)
+  status           String    @default("received") @db.VarChar(32)
+  instruction      String    @db.Text
+  summary          String?   @db.Text
   annotations      Json?
   validationIssues Json?
   advisoryIssues   Json?
-  errorMessage     String?  @db.Text
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  errorMessage     String?   @db.Text
+  leaseToken       String?   @db.VarChar(64)
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([projectId, createdAt])
   @@index([userId])
   @@index([status])
+  @@index([leaseToken])
 }
 
 model ProjectSnapshot {
@@ -177,6 +186,7 @@ model ProjectSnapshot {
   @@index([projectId])
   @@index([parentSnapshotId])
   @@index([createdAt])
+  @@index([projectId, createdAt])
 }
 
 model ProjectBuild {
@@ -201,6 +211,8 @@ model ProjectBuild {
   @@index([snapshotId])
   @@index([status])
   @@index([createdAt])
+  @@index([projectId, createdAt])
+  @@index([projectId, status, updatedAt])
 }
 
 model ProjectDeployment {
@@ -232,6 +244,9 @@ model ProjectDeployment {
   @@index([runtimeNodeId])
   @@index([status])
   @@index([kind])
+  @@index([projectId, kind, createdAt])
+  @@index([projectId, kind, updatedAt])
+  @@index([slug])
 }
 
 model RuntimeNode {
@@ -273,6 +288,7 @@ model RuntimeEvent {
   @@index([runtimeNodeId])
   @@index([type])
   @@index([createdAt])
+  @@index([projectId, createdAt])
 }
 
 model VerificationToken {

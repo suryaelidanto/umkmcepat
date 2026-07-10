@@ -51,6 +51,33 @@ export const TopBarCodeMobile: Story = {
   ),
 };
 
+export const TopBarNarrowMobile: Story = {
+  parameters: {
+    viewport: { defaultViewport: "mobile1" },
+  },
+  render: () => (
+    <div className="w-[320px] max-w-full bg-[#151515] text-surface-warm-white">
+      <WorkspaceTopBar
+        activeTab="preview"
+        setActiveTab={() => undefined}
+        viewport="mobile"
+        setViewport={() => undefined}
+        chatCollapsed={false}
+        openChatPanel={() => undefined}
+        closeChatPanel={() => undefined}
+        annotationAvailable
+        runtime={{
+          buildStatus: "succeeded",
+          canPublish: true,
+          deploymentStatus: "running",
+          onPublish: () => undefined,
+          onRetryPreview: () => undefined,
+        }}
+      />
+    </div>
+  ),
+};
+
 export const TopBarRuntimeRunning: Story = {
   render: () => (
     <DarkCanvas>

@@ -21,6 +21,8 @@ describe("runtime proxy", () => {
     expect(injectPreviewAnnotationBridge(html)).toBe(html);
   });
   afterEach(async () => {
+    vi.restoreAllMocks();
+
     if (server) {
       await new Promise<void>((resolve) => server?.close(() => resolve()));
       server = null;
@@ -75,6 +77,27 @@ describe("runtime proxy", () => {
     await expect(response?.text()).resolves.toBe("/");
   });
 
+  it("maps runtime network failures to a recoverable missing response", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new DOMException("timed out", "TimeoutError"));
+    const response = await proxyDeploymentRequest({
+      deploymentId: "deployment_timeout",
+      deploymentStatus: "running",
+      pathSegments: [],
+      request: new Request("http://localhost/preview"),
+      supervisor: {
+        getDeploymentStatus: vi.fn(async () => "running" as const),
+        resolveDeploymentTarget: vi.fn(async () => "http://127.0.0.1:65535"),
+        startDeployment: vi.fn(async () => "running" as const),
+        stopDeployment: vi.fn(async () => "stopped" as const),
+      },
+    });
+
+    expect(response).toBeNull();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("allows published routes to opt out of noindex", async () => {
     const target = await startTestServer();
     const response = await proxyDeploymentRequest({
@@ -117,6 +140,9 @@ describe("runtime proxy", () => {
     expect(headers.get("Content-Type")).toBe("text/javascript; charset=utf-8");
     expect(headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(headers.get("Cross-Origin-Resource-Policy")).toBe("cross-origin");
+    expect(headers.get("Content-Security-Policy")).toBe(
+      "sandbox allow-scripts",
+    );
     expect(headers.get("X-Robots-Tag")).toBe("noindex");
   });
 });

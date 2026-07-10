@@ -25,9 +25,42 @@ export async function markStaleProjectBuilds(
     },
   });
 
+  const expiredOperation = await prisma.project.updateMany({
+    where: {
+      activeOperationExpiresAt: { lte: now },
+      activeOperationToken: { not: null },
+      id: projectId,
+      status: "building",
+    },
+    data: {
+      activeOperationExpiresAt: null,
+      activeOperationKind: null,
+      activeOperationToken: null,
+      buildLog: "Operation lease expired before completion.",
+      buildStatus: "failed",
+      status: "failed",
+    },
+  });
+
+  if (expiredOperation.count > 0) {
+    await prisma.projectEditAttempt.updateMany({
+      where: {
+        finishedAt: null,
+        projectId,
+        status: { in: ["generating", "editing", "repairing", "building"] },
+      },
+      data: {
+        errorMessage: "Operation lease expired before completion.",
+        finishedAt: now,
+        status: "failed",
+      },
+    });
+  }
+
   if (result.count > 0) {
     await prisma.project.updateMany({
       where: {
+        activeOperationToken: null,
         buildStatus: { in: ["queued", "running"] },
         id: projectId,
         status: "building",
@@ -40,5 +73,5 @@ export async function markStaleProjectBuilds(
     });
   }
 
-  return result.count;
+  return result.count + expiredOperation.count;
 }

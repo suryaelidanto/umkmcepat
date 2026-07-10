@@ -42,15 +42,19 @@ docker compose -f docker-compose.prod.yml up -d --build
 Production Compose runs:
 
 ```text
-app container:      Next.js production server
+migrate job:        one-shot Prisma migration release step
+app container:      Next.js production server after migration succeeds
 postgres container: database, unless using managed Postgres
 9router container:  AI gateway dashboard/API
 headroom container: optional context compression proxy
 langfuse stack:     optional AI trace storage/UI (web, worker, Postgres, ClickHouse, Redis, MinIO)
 uploads volume:     local upload persistence for OBJECT_STORAGE_PROVIDER=local
+project_artifacts:  canonical generated source/dist persistence for local artifact storage
 ```
 
-Current production Compose does not yet include an isolated generated-project runtime supervisor, build worker, proxy plane, or per-project runtime containers. The current preview path still serves generated static build files through the platform app from stored project artifacts.
+Current production Compose does not yet include the verified isolated generated-project build worker, runtime supervisor, proxy plane, or per-project runtime containers. Therefore generated build execution and public generated JavaScript execution default to disabled in production. Existing project metadata, snapshots, artifacts, and last-good preview records remain intact while those capabilities are disabled.
+
+The app exposes two uncached operational probes: `/api/health/live` confirms the process can answer, while `/api/health/ready` performs a bounded critical database check. Production Compose routes its app healthcheck through readiness. AI observability is optional and does not fail readiness; generated capabilities remain governed by their explicit containment switches.
 
 Public-facing services bind to localhost:
 
@@ -66,14 +70,11 @@ Preferred ingress:
 ```text
 umkmcepat.com          -> reverse proxy/tunnel -> http://localhost:3000
 www.umkmcepat.com      -> reverse proxy/tunnel -> http://localhost:3000
+generated.example.net  -> generated proxy      -> generated-origin app/proxy listener
 9router.umkmcepat.com  -> protected access     -> http://localhost:20129
 ```
 
-The app image runs migrations before the production server starts:
-
-```bash
-bunx prisma migrate deploy && bun run start
-```
+Production Compose runs `bunx prisma migrate deploy` as the one-shot `migrate` service. The app starts only after that service completes successfully. The app image itself starts only `bun run start`; migrations are not repeated inside every application process. Node instrumentation then runs a fail-closed production preflight: public/auth URLs must be HTTPS and aligned, the auth secret must be strong, default PostgreSQL credentials are rejected, canonical artifact storage must pass readiness, unsafe local runtime authority must remain `noop`, and generated execution capabilities remain disabled until their external gates pass.
 
 ## Minimum production env
 
@@ -92,19 +93,26 @@ LANGFUSE_SECRET_KEY="replace-with-langfuse-secret-key"
 RATE_LIMIT_PROVIDER="memory"
 OBJECT_STORAGE_PROVIDER="local"
 LOCAL_UPLOAD_DIR=".data/uploads"
+GENERATED_BUILD_EXECUTION_ENABLED="false"
+GENERATED_PUBLIC_EXECUTION_ENABLED="false"
+GENERATED_PUBLIC_ORIGIN="https://generated.example.net"
 PROJECT_ARTIFACT_STORAGE_PROVIDER="local"
-PROJECT_ARTIFACT_DIR=".data/project-artifacts"
+PROJECT_ARTIFACT_DIR="/app/.data/project-artifacts"
 PROJECT_ARTIFACT_R2_PREFIX="project-artifacts"
-PROJECT_RUNTIME_DIR=".data/project-runtimes"
-PROJECT_BUILD_WORKSPACE_DIR=".data/project-build-workspaces"
-PROJECT_RUNTIME_SUPERVISOR="local"
+PROJECT_RUNTIME_DIR="/app/.data/project-runtimes"
+PROJECT_BUILD_WORKSPACE_DIR="/app/.data/project-build-workspaces"
+PROJECT_RUNTIME_SUPERVISOR="noop"
 PROJECT_RUNTIME_MAX_CONTAINERS="8"
+PROJECT_RUNTIME_HEALTH_TIMEOUT_MS="2000"
+PROJECT_RUNTIME_PROXY_TIMEOUT_MS="15000"
 POSTGRES_USER="postgres"
 POSTGRES_PASSWORD="replace-with-strong-db-password"
 POSTGRES_DB="umkmcepat"
 ```
 
-If `OBJECT_STORAGE_PROVIDER="local"`, mount `LOCAL_UPLOAD_DIR` as a persistent volume. Generated project source/dist artifacts are controlled separately by `PROJECT_ARTIFACT_STORAGE_PROVIDER`. With `local`, mount `PROJECT_ARTIFACT_DIR` persistently because source snapshots and dist artifacts are canonical. With `r2`, generated artifact writes go to Cloudflare R2 under `PROJECT_ARTIFACT_R2_PREFIX` using `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET`; existing local refs remain readable because artifact refs include their provider. `PROJECT_RUNTIME_DIR` stays local because it only materializes artifacts for the local runtime. `PROJECT_BUILD_WORKSPACE_DIR` is a rebuildable local cache for generated app workspaces; persisting it speeds repeat builds by keeping `node_modules`, but deleting it is safe because source snapshots and dist artifacts remain canonical.
+If `OBJECT_STORAGE_PROVIDER="local"`, mount `LOCAL_UPLOAD_DIR` as a persistent volume. Generated project source/dist artifacts are controlled separately by `PROJECT_ARTIFACT_STORAGE_PROVIDER`. Production Compose deliberately fixes `PROJECT_ARTIFACT_DIR` to `/app/.data/project-artifacts` and mounts `project_artifacts` there; the production preflight rejects another local path rather than silently writing canonical artifacts to the ephemeral container layer. Node startup performs a write/read/delete readiness probe and refuses to serve if local canonical storage is unavailable. With `r2`, startup validates the required R2 configuration and generated artifact writes use `PROJECT_ARTIFACT_R2_PREFIX`; existing local refs remain readable because artifact refs include their provider. `PROJECT_RUNTIME_DIR` and `PROJECT_BUILD_WORKSPACE_DIR` are rebuildable. A future isolated worker may own a trusted toolchain cache, but generated executable state must not persist across tenants.
+
+`GENERATED_BUILD_EXECUTION_ENABLED` and `GENERATED_PUBLIC_EXECUTION_ENABLED` are containment switches. Production Compose hardcodes both to `false` and `PROJECT_RUNTIME_SUPERVISOR` to `noop`; values copied from the development `.env.example` cannot override those boundaries. Do not enable build execution until the isolated-worker adversarial gate passes. Do not enable public execution until `GENERATED_PUBLIC_ORIGIN` is a separate cookie-free HTTPS origin and browser tests prove control-plane cookies and authenticated API responses are unavailable there. Disabling either capability never deletes snapshots, artifacts, attempts, last-good previews, or published deployment metadata.
 
 If Headroom compression is enabled in 9Router, use this Docker-internal proxy URL:
 
@@ -177,5 +185,6 @@ Langfuse is optional for AI tracing. In local development, `bun run infra` start
 
 - `Dockerfile` uses `bun install --frozen-lockfile --ignore-scripts` so install-time scripts do not require a live DB during image build.
 - Prisma client is generated during image build.
-- Migrations run at container startup.
+- Migrations run once through the production Compose `migrate` service before application startup.
+- Canonical local artifacts use the dedicated `project_artifacts` volume; runtime/build workspaces are not canonical.
 - Local upload data, logs, screenshots, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, `storybook-static/`, and coverage artifacts must stay untracked.

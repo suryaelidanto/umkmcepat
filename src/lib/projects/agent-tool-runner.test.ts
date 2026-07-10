@@ -184,28 +184,55 @@ describe("generated app agent tool runner", () => {
     );
   });
 
-  it("fails app check when a tool adds a blocked package", () => {
+  it("rejects edits to platform-owned build files", () => {
+    const originalPackage = readFileContent(
+      createFixtureFiles(),
+      "package.json",
+    );
     const result = runGeneratedAppAgentTools({
       commands: [
         {
           content: JSON.stringify({
-            dependencies: { express: "5.0.0" },
-            scripts: { build: "vite build" },
+            dependencies: { react: "19.2.0" },
+            scripts: { build: "node -e 'process.exit(0)'" },
           }),
           path: "package.json",
           type: "write_file",
         },
-        { type: "check_app" },
       ],
       files: createFixtureFiles(),
     });
 
     expect(result.ok).toBe(false);
+    expect(result.outputs).toContainEqual({
+      error: "Platform-owned generated file cannot be edited: package.json",
+      type: "write_file",
+    });
+    expect(readFileContent(result.files, "package.json")).toBe(originalPackage);
+    expect(result.sideEffects).not.toContainEqual(
+      expect.objectContaining({ path: "package.json" }),
+    );
+  });
+
+  it("fails app check when stored source contains a blocked package", () => {
+    const result = runGeneratedAppAgentTools({
+      commands: [{ type: "check_app" }],
+      files: createFixtureFiles().map((file) =>
+        file.path === "package.json"
+          ? {
+              ...file,
+              content: JSON.stringify({
+                dependencies: { express: "5.0.0" },
+                scripts: { build: "vite build" },
+              }),
+            }
+          : file,
+      ),
+    });
+
+    expect(result.ok).toBe(false);
     expect(result.check?.issues).toContain(
       "Package is not allowed for vite-react-tanstack-v1: express",
-    );
-    expect(result.sideEffects).toContainEqual(
-      expect.objectContaining({ path: "package.json", type: "write_file" }),
     );
   });
 

@@ -47,13 +47,14 @@ Core rules:
 - If the user continues discussion after a build recommendation, the client keeps a local hold keyed by that recommendation content. Refreshes preserve the discussion composer for the same recommendation, while changed recommendation content surfaces the build decision again.
 - After a generated build completes, the build recommendation is no longer shown as the primary composer. The client shows a review state with preview, chat-edit, and rebuild actions. The normal text composer only returns when the user chooses to keep editing through chat.
 - Build generation streams server-sent progress events to the workspace; the client must render those events as visible build steps instead of hiding progress behind a generic spinner.
-- Build generation asks AI for a flexible implementation spec before writing source. The spec lets AI choose landing, marketing site, or static interactive app shape, including pages, components, features, content, and visual direction. A landing page is one valid outcome, not the forced default. Legacy site schema remains a compatibility/fallback shape for starter metadata and deterministic fallback.
+- Build generation asks AI for a flexible implementation spec before writing source. The spec lets AI choose landing, marketing site, or static interactive app shape, including pages, components, features, content, and visual direction. A landing page is one valid outcome, not the forced default. Legacy site schema remains a deterministic compatibility shape for starter metadata only; it must never be presented as successful AI-generated final source.
 - Opening a project or creating the first project draft must not trigger a separate AI card-generation call.
 - Project creation requests may carry an idempotency key scoped to the authenticated user and create action. Retries and double submits for the same draft should return the original project instead of creating duplicates.
 - User projects start as data and artifacts. Projects that need live runtime behavior should become isolated deployments managed outside the web app process.
 - Generated source/build artifacts may exist for preview, inspection, repair, export, and future publishing.
-- Generated source edits go through the constrained agent tool runner. The runner exposes structured read, list, search, write, replace, and check operations, enforces project file boundaries, records side effects, emits operation trace events for the workspace timeline, and blocks success when app checks are missing or policy checks fail.
-- Visual/comment-driven edits create a durable `ProjectEditAttempt` before AI work starts. Attempts store the user-facing summary, hidden annotation payload, validation/advisory issues, and final status so failed or rejected edits remain auditable and user comments are not lost. Validation blocks only clear non-rendered/no-change edits; heuristic target/selector concerns are advisory and may trigger one repair pass instead of silently discarding the request.
+- Generated source edits go through the constrained server-owned agent tool runner. Browser requests carry user instructions and annotations, never privileged file-tool commands. The runner exposes structured read, list, search, write, replace, and check operations to the server-owned agent, enforces project file boundaries, blocks platform-owned executable files, records side effects, emits operation trace events for the workspace timeline, and blocks success when app checks are missing or policy checks fail.
+- Generated build execution is disabled by default in production until the isolated worker gate is proven. Local/test execution still validates exact build scripts, rejects non-platform Vite/build configuration, disables dependency lifecycle scripts, and cannot be treated as the final tenant isolation boundary.
+- Visual/comment-driven edits create a durable `ProjectEditAttempt` before AI work starts. Attempts store the user-facing summary, hidden annotation payload, validation/advisory issues, lease token/timestamps, and final status so failed or rejected edits remain auditable and user comments are not lost. Project claims use an expiring fencing token; only the current token may promote output or clear the claim. Stale recovery can release an expired operation even when no `ProjectBuild` row was created. Validation blocks only clear non-rendered/no-change edits; heuristic target/selector concerns are advisory and may trigger one repair pass instead of silently discarding the request.
 - The platform must not execute arbitrary user backend code.
 - One bad project must not break the platform or another project.
 
@@ -78,14 +79,9 @@ The legacy build/preview fields remain as compatibility fallback data. The gener
 - Do not evaluate user JavaScript in the platform runtime.
 - Keep public publishing artifact-backed and cacheable when possible.
 
-Public routes use the shared platform/proxy model:
+Legacy public links retain the `/p/[slug]/[[...path]]` shape, but generated JavaScript must not be served from the authenticated control-plane origin. Production public execution remains disabled until `GENERATED_PUBLIC_ORIGIN` points to a verified cookie-free HTTPS origin that differs from the control plane. Control-plane `/p` requests may redirect to that origin; only requests arriving on the configured generated host may resolve generated bytes.
 
-```text
-/p/[slug]
-/p/[slug]/[[...path]]
-```
-
-Public routes and future custom domains should resolve through the proxy plane to either static artifacts or supervised runtime deployments. They should not create separate control-plane apps.
+Public routes and future custom domains should resolve through the generated-origin proxy/static plane to committed artifacts or supervised runtime deployments. They should not create separate control-plane apps or receive control-plane session cookies.
 
 ## Runtime foundation
 
@@ -112,7 +108,7 @@ Current runtime implementation:
 - `PROJECT_BUILD_WORKSPACE_DIR` stores rebuildable local build workspaces under `.data/project-build-workspaces` by default. Build workspaces cache generated app `node_modules` and build metadata so repeat edits can skip dependency install when the package/profile signature is unchanged. Source snapshots and dist artifacts remain canonical; workspaces may be deleted and rebuilt.
 - `RuntimeSupervisor` starts a local out-of-process static server from a dist artifact and records deployment events.
 - Private preview traffic goes through `/api/projects/[id]/preview/[[...path]]`, cold-starting stopped preview deployments when needed.
-- Published traffic goes through `/p/[slug]/[[...path]]`, cold-starting the published deployment when needed.
+- Published traffic is permitted only on the configured generated-site origin. Legacy control-plane `/p/[slug]/[[...path]]` links redirect there after the origin is configured; same-origin generated serving is disabled in production.
 - Proxy traffic must re-check a `running` deployment before forwarding. If the process is gone or stale, the same request should start it again instead of requiring a second refresh.
 - `bun run runtime:idle-stop` is the scale-to-zero worker entry for stopping idle preview deployments.
 - `PROJECT_RUNTIME_SUPERVISOR=noop` disables runtime starts for test/safe environments.

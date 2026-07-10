@@ -19,7 +19,7 @@
     "ps",
     "taskkill"
   ],
-  "ignoreDependencies": ["@lhci/cli", "eslint-config-next", "tailwindcss"],
+  "ignoreDependencies": ["eslint-config-next", "tailwindcss"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     "src/components/ui/**": ["exports"],

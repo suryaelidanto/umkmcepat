@@ -95,8 +95,7 @@ export function sanitizeVisualAnnotations(input: unknown) {
 
       const value = item as Partial<VisualAnnotationDraft>;
       const target = value.target as
-        | Partial<VisualAnnotationTarget>
-        | undefined;
+        Partial<VisualAnnotationTarget> | undefined;
       const box = target?.boundingBox;
 
       if (

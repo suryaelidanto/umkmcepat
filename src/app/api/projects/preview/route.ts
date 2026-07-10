@@ -12,6 +12,7 @@ import { getChatAiModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
+import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { prisma } from "@/lib/prisma";
 import {
   mergeProjectBriefPatch,
@@ -61,7 +62,29 @@ export async function POST(request: Request) {
     return rateLimitResponse;
   }
 
-  const body = (await request.json().catch(() => ({}))) as PreviewRequest;
+  let body: PreviewRequest;
+
+  try {
+    body = (await readBoundedJson(request, {
+      maxBytes: 256 * 1024,
+    })) as PreviewRequest;
+  } catch (error) {
+    if (isBoundedJsonError(error)) {
+      return Response.json(
+        {
+          code: error.code,
+          message:
+            error.code === "request_body_too_large"
+              ? "Pesan terlalu besar. Ringkas dulu sebelum dikirim."
+              : "Format pesan belum valid.",
+        },
+        { status: error.code === "request_body_too_large" ? 413 : 400 },
+      );
+    }
+
+    throw error;
+  }
+
   const mode = body.mode === "build" ? "build" : "discuss";
 
   if (!body.projectId) {
@@ -117,6 +140,33 @@ export async function POST(request: Request) {
   };
   const memoryFacts = parseProjectMemoryFacts(chatRow?.memoryFacts);
   const incoming = body.message ? [body.message] : (body.messages ?? []);
+
+  if (incoming.length > 1) {
+    return Response.json(
+      {
+        code: "chat_turn_count_exceeded",
+        message: "Kirim satu pesan baru dalam satu waktu, ya.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const incomingPartCount = incoming.reduce(
+    (count, message) => count + message.parts.length,
+    0,
+  );
+  const incomingBytes = Buffer.byteLength(JSON.stringify(incoming), "utf8");
+
+  if (incomingPartCount > 32 || incomingBytes > 16 * 1024) {
+    return Response.json(
+      {
+        code: "chat_turn_too_large",
+        message: "Pesan terlalu panjang. Ringkas dulu sebelum dikirim.",
+      },
+      { status: 413 },
+    );
+  }
+
   const latestUserText = incoming
     .flatMap((message) => message.parts)
     .filter((part) => part.type === "text")

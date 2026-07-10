@@ -1,8 +1,7 @@
 export const PROJECT_REQUEST_MAX_LENGTH = 1200;
 
 export type ProjectRequestValidation =
-  | { ok: true; value: string }
-  | { ok: false; message: string };
+  { ok: true; value: string } | { ok: false; message: string };
 
 export function validateProjectRequest(
   input: string,

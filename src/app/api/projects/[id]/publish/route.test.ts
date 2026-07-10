@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
@@ -36,6 +36,10 @@ const older = new Date("2026-07-07T01:00:00.000Z");
 const newer = new Date("2026-07-07T02:00:00.000Z");
 
 describe("project publish route", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({
@@ -51,6 +55,21 @@ describe("project publish route", () => {
       id: "published_deployment",
     });
     prismaRuntimeEventCreateMock.mockResolvedValue({});
+  });
+
+  it("does not mutate deployments while generated public execution is disabled", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "false");
+
+    const response = await POST(new Request("http://localhost/publish"), {
+      params: Promise.resolve({ id: "project_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.code).toBe("generated_public_execution_unavailable");
+    expect(prismaProjectFindFirstMock).not.toHaveBeenCalled();
+    expect(prismaProjectDeploymentCreateMock).not.toHaveBeenCalled();
+    expect(prismaRuntimeEventCreateMock).not.toHaveBeenCalled();
   });
 
   it("publishes the latest successful artifact instead of a newer failed attempt", async () => {

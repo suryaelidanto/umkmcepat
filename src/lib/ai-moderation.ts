@@ -6,8 +6,7 @@ import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
 import { getEnv } from "@/lib/config";
 
 export type ModerationResult =
-  | { allowed: true }
-  | { allowed: false; message: string };
+  { allowed: true } | { allowed: false; message: string };
 
 const BLOCK_MESSAGE =
   "Maaf, AI tidak bisa membantu membuat website untuk topik ini. Kamu bisa ubah chat dan coba lagi.";

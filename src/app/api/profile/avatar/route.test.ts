@@ -2,11 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { authMock, userFindUniqueMock } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
-  userFindUniqueMock: vi.fn(
-    async (): Promise<{ image: string | null }> => ({
-      image: null,
-    }),
-  ),
+  userFindUniqueMock: vi.fn(async (): Promise<{ image: string | null }> => ({
+    image: null,
+  })),
 }));
 
 vi.mock("@/lib/auth", () => ({

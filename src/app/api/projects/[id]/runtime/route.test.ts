@@ -51,6 +51,51 @@ describe("project runtime route", () => {
     getDeploymentStatusMock.mockResolvedValue("running");
   });
 
+  it("does not return another owner's stale runtime cache during a database outage", async () => {
+    prismaProjectFindFirstMock.mockResolvedValue({
+      id: "project_cross_tenant",
+    });
+    prismaProjectBuildFindManyMock.mockResolvedValue([]);
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([]);
+
+    const ownerResponse = await GET(new Request("http://localhost/runtime"), {
+      params: Promise.resolve({ id: "project_cross_tenant" }),
+    });
+
+    expect(ownerResponse.status).toBe(200);
+
+    authMock.mockResolvedValue({
+      user: { id: "user_2" },
+      expires: new Date().toISOString(),
+    });
+    prismaProjectFindFirstMock.mockRejectedValue({ code: "P1001" });
+
+    const otherUserResponse = await GET(
+      new Request("http://localhost/runtime"),
+      { params: Promise.resolve({ id: "project_cross_tenant" }) },
+    );
+    const body = await otherUserResponse.json();
+
+    expect(otherUserResponse.status).toBe(503);
+    expect(otherUserResponse.headers.get("X-UMKM-Runtime-Cache")).toBeNull();
+    expect(body.code).toBe("database_unavailable");
+
+    authMock.mockResolvedValue({
+      user: { id: "user_1" },
+      expires: new Date().toISOString(),
+    });
+
+    const ownerStaleResponse = await GET(
+      new Request("http://localhost/runtime"),
+      { params: Promise.resolve({ id: "project_cross_tenant" }) },
+    );
+
+    expect(ownerStaleResponse.status).toBe(200);
+    expect(ownerStaleResponse.headers.get("X-UMKM-Runtime-Cache")).toBe(
+      "stale",
+    );
+  });
+
   it("reports the latest failed attempt without replacing the active successful preview", async () => {
     const successfulBuild = {
       artifactRef: "project-artifact:local:dist:build_success",

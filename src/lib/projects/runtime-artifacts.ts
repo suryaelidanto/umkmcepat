@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { getEnv } from "@/lib/config";
+import { assertGeneratedResourceBudget } from "@/lib/projects/generated-resource-budget";
 import {
   assertSafeProjectFilePath,
   type GeneratedDistFile,
@@ -156,6 +157,7 @@ async function writeProjectArtifactFiles<
   TFile extends GeneratedDistFile | GeneratedProjectFile,
 >(input: WriteArtifactInput<TFile>) {
   validateArtifactFiles(input.files);
+  assertGeneratedResourceBudget(input.files, input.kind);
 
   const provider = getProjectArtifactProvider();
   const artifactRef = createProjectArtifactRef(

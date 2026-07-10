@@ -3,11 +3,7 @@ import { type UIMessage } from "ai";
 import { type WorkspaceCard } from "@/lib/projects/brief";
 
 export type WorkspaceChatStatus =
-  | "error"
-  | "ready"
-  | "streaming"
-  | "submitted"
-  | string;
+  "error" | "ready" | "streaming" | "submitted" | string;
 
 export function shouldRefreshWorkspaceAfterChatStatus(
   previous: WorkspaceChatStatus,

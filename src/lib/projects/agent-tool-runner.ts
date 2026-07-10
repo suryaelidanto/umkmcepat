@@ -1,6 +1,10 @@
 import { devLog } from "@/lib/dev-log";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
-import { validateGeneratedPackagePolicy } from "@/lib/projects/generated-package-policy";
+import {
+  isPlatformOwnedGeneratedPath,
+  validateGeneratedBuildPolicy,
+} from "@/lib/projects/generated-build-policy";
+import { assertGeneratedResourceBudget } from "@/lib/projects/generated-resource-budget";
 import {
   assertSafeProjectFilePath,
   type GeneratedProjectFile,
@@ -205,7 +209,7 @@ export function runGeneratedAppAgentTools({
     }
 
     if (command.type === "write_file") {
-      const safePath = getSafeCommandPath(command.path);
+      const safePath = getEditableCommandPath(command.path);
 
       if (!safePath.ok) {
         hasToolError = true;
@@ -238,7 +242,7 @@ export function runGeneratedAppAgentTools({
     }
 
     if (command.type === "replace_in_file") {
-      const safePath = getSafeCommandPath(command.path);
+      const safePath = getEditableCommandPath(command.path);
 
       if (!safePath.ok) {
         hasToolError = true;
@@ -344,19 +348,32 @@ export function runGeneratedAppAgentTools({
 function checkGeneratedApp(
   files: GeneratedProjectFile[],
 ): GeneratedAppAgentCheckResult {
+  try {
+    assertGeneratedResourceBudget(files, "source");
+  } catch (error) {
+    return {
+      issues: [
+        error instanceof Error
+          ? error.message
+          : "Generated source exceeds platform limits.",
+      ],
+      ok: false,
+    };
+  }
+
   const manifestResult = validateGeneratedAppManifest(files);
 
   if (!manifestResult.ok) {
     return { issues: manifestResult.issues, ok: false };
   }
 
-  const packagePolicyResult = validateGeneratedPackagePolicy(
+  const buildPolicyResult = validateGeneratedBuildPolicy(
     files,
     manifestResult.manifest.runtimeProfile,
   );
 
-  if (!packagePolicyResult.ok) {
-    return { issues: packagePolicyResult.issues, ok: false };
+  if (!buildPolicyResult.ok) {
+    return { issues: buildPolicyResult.issues, ok: false };
   }
 
   const designIssues = getGeneratedDesignIssues(files);
@@ -422,6 +439,25 @@ function getSafeCommandPath(
       ok: false,
     };
   }
+}
+
+function getEditableCommandPath(
+  filePath: string,
+): { ok: true; path: string } | { error: string; ok: false } {
+  const safePath = getSafeCommandPath(filePath);
+
+  if (!safePath.ok) {
+    return safePath;
+  }
+
+  if (isPlatformOwnedGeneratedPath(safePath.path)) {
+    return {
+      error: `Platform-owned generated file cannot be edited: ${safePath.path}`,
+      ok: false,
+    };
+  }
+
+  return safePath;
 }
 
 function getSafeOptionalPathPrefix(

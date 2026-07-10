@@ -15,9 +15,15 @@ export const runtime = "nodejs";
 
 const runtimeStateCache = new Map<
   string,
-  { body: unknown; expiresAt: number }
+  {
+    body: unknown;
+    expiresAt: number;
+    projectId: string;
+    userId: string;
+  }
 >();
 const RUNTIME_STATE_CACHE_TTL_MS = 15_000;
+const RUNTIME_STATE_CACHE_MAX_ENTRIES = 200;
 
 export async function GET(
   _: Request,
@@ -38,9 +44,9 @@ export async function GET(
     return await getRuntimeState(id, session.user.id);
   } catch (error) {
     if (isPrismaDatabaseUnavailable(error)) {
-      const cached = runtimeStateCache.get(id);
+      const cached = readRuntimeStateCache(session.user.id, id);
 
-      if (cached && cached.expiresAt > Date.now()) {
+      if (cached) {
         return Response.json(cached.body, {
           headers: { "X-UMKM-Runtime-Cache": "stale" },
         });
@@ -203,12 +209,75 @@ async function getRuntimeState(id: string, userId: string) {
     userFacingState,
   };
 
-  runtimeStateCache.set(id, {
-    body,
-    expiresAt: Date.now() + RUNTIME_STATE_CACHE_TTL_MS,
-  });
+  writeRuntimeStateCache(userId, id, body);
 
   return Response.json(body);
+}
+
+function readRuntimeStateCache(userId: string, projectId: string) {
+  evictExpiredRuntimeStateCache();
+  const cached = runtimeStateCache.get(runtimeStateCacheKey(userId, projectId));
+
+  if (
+    !cached ||
+    cached.userId !== userId ||
+    cached.projectId !== projectId ||
+    cached.expiresAt <= Date.now()
+  ) {
+    return null;
+  }
+
+  return cached;
+}
+
+function writeRuntimeStateCache(
+  userId: string,
+  projectId: string,
+  body: unknown,
+) {
+  evictExpiredRuntimeStateCache();
+  const key = runtimeStateCacheKey(userId, projectId);
+
+  runtimeStateCache.delete(key);
+
+  while (runtimeStateCache.size >= RUNTIME_STATE_CACHE_MAX_ENTRIES) {
+    const oldestKey = runtimeStateCache.keys().next().value;
+
+    if (typeof oldestKey !== "string") {
+      break;
+    }
+
+    runtimeStateCache.delete(oldestKey);
+  }
+
+  runtimeStateCache.set(key, {
+    body: createCacheSafeRuntimeBody(body),
+    expiresAt: Date.now() + RUNTIME_STATE_CACHE_TTL_MS,
+    projectId,
+    userId,
+  });
+}
+
+function evictExpiredRuntimeStateCache() {
+  const now = Date.now();
+
+  for (const [key, entry] of runtimeStateCache) {
+    if (entry.expiresAt <= now) {
+      runtimeStateCache.delete(key);
+    }
+  }
+}
+
+function runtimeStateCacheKey(userId: string, projectId: string) {
+  return `${userId.length}:${userId}${projectId}`;
+}
+
+function createCacheSafeRuntimeBody(body: unknown) {
+  return JSON.parse(
+    JSON.stringify(body, (key, value) =>
+      key === "logText" ? undefined : value,
+    ),
+  ) as unknown;
 }
 
 function getUserFacingRuntimeState({

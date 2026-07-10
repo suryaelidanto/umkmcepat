@@ -1,13 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
   buildGeneratedProjectMock,
+  editGeneratedSourceWithAgentMock,
+  prismaTransactionMock,
   prismaProjectBuildCreateMock,
   prismaProjectBuildUpdateManyMock,
   prismaProjectBuildUpdateMock,
   prismaProjectDeploymentCreateMock,
   prismaProjectDeploymentFindManyMock,
+  prismaProjectEditAttemptUpdateMock,
   prismaProjectFindFirstMock,
   prismaProjectSnapshotCreateMock,
   prismaProjectUpdateManyMock,
@@ -20,11 +23,14 @@ const {
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   buildGeneratedProjectMock: vi.fn(),
+  prismaTransactionMock: vi.fn(),
+  editGeneratedSourceWithAgentMock: vi.fn(),
   prismaProjectBuildCreateMock: vi.fn(),
   prismaProjectBuildUpdateManyMock: vi.fn(),
   prismaProjectBuildUpdateMock: vi.fn(),
   prismaProjectDeploymentCreateMock: vi.fn(),
   prismaProjectDeploymentFindManyMock: vi.fn(),
+  prismaProjectEditAttemptUpdateMock: vi.fn(),
   prismaProjectFindFirstMock: vi.fn(),
   prismaProjectSnapshotCreateMock: vi.fn(),
   prismaProjectUpdateManyMock: vi.fn(),
@@ -37,9 +43,10 @@ const {
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const prisma = {
     $executeRaw: prismaExecuteRawMock,
+    $transaction: prismaTransactionMock,
     project: {
       findFirst: prismaProjectFindFirstMock,
       update: prismaProjectUpdateMock,
@@ -54,15 +61,31 @@ vi.mock("@/lib/prisma", () => ({
       create: prismaProjectDeploymentCreateMock,
       findMany: prismaProjectDeploymentFindManyMock,
     },
+    projectEditAttempt: {
+      update: prismaProjectEditAttemptUpdateMock,
+    },
     projectSnapshot: {
       create: prismaProjectSnapshotCreateMock,
       update: prismaProjectSnapshotUpdateMock,
     },
     runtimeEvent: { create: prismaRuntimeEventCreateMock },
-  },
-}));
+  };
+
+  prismaTransactionMock.mockImplementation(
+    async (callback: (transaction: typeof prisma) => unknown) =>
+      callback(prisma),
+  );
+
+  return { prisma };
+});
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(async () => null),
+}));
+vi.mock("@/lib/projects/source-edit-agent", () => ({
+  editGeneratedSourceWithAgent: editGeneratedSourceWithAgentMock,
+}));
+vi.mock("@/lib/projects/stale-builds", () => ({
+  markStaleProjectBuilds: vi.fn(async () => 0),
 }));
 vi.mock("@/lib/projects/generated-source", async (importOriginal) => {
   const actual =
@@ -119,14 +142,21 @@ const baseFiles = [
   { path: "src/styles.css", content: ".topbar{background:#fff;color:#fff}" },
 ];
 
-function request(commands: unknown[], instruction?: string) {
+function request(
+  commands: unknown[],
+  instruction: string | null = "ubah judul website",
+) {
   return new Request("http://localhost/api/projects/project_1/edit", {
     method: "POST",
-    body: JSON.stringify({ commands, instruction }),
+    body: JSON.stringify({ commands, instruction: instruction ?? undefined }),
   });
 }
 
 describe("project edit route", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({
@@ -187,6 +217,23 @@ describe("project edit route", () => {
     prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
     prismaExecuteRawMock.mockResolvedValue(1);
     prismaProjectUpdateManyMock.mockResolvedValue({ count: 1 });
+    editGeneratedSourceWithAgentMock.mockImplementation(
+      async ({ files }: { files: typeof baseFiles }) => ({
+        check: { issues: [], ok: true },
+        files: files.map((file) =>
+          file.path === "src/App.tsx"
+            ? {
+                ...file,
+                content: file.content.replace("old headline", "new headline"),
+              }
+            : file,
+        ),
+        ok: true,
+        operations: [],
+        outputs: [],
+        sideEffects: [{ path: "src/App.tsx", type: "replace_in_file" }],
+      }),
+    );
     prismaProjectSnapshotCreateMock.mockResolvedValue({ id: "snapshot_edit" });
     writeProjectSourceArtifactMock.mockResolvedValue(
       "project-artifact:local:source:snapshot_edit",
@@ -205,6 +252,21 @@ describe("project edit route", () => {
     prismaProjectDeploymentCreateMock.mockResolvedValue({
       id: "deployment_edit",
     });
+  });
+
+  it("does not claim or mutate a project when generated builds are disabled", async () => {
+    vi.stubEnv("GENERATED_BUILD_EXECUTION_ENABLED", "false");
+
+    const response = await POST(request([], "ubah judul website"), {
+      params: Promise.resolve({ id: "project_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.code).toBe("generated_build_execution_unavailable");
+    expect(prismaProjectFindFirstMock).not.toHaveBeenCalled();
+    expect(prismaProjectUpdateManyMock).not.toHaveBeenCalled();
+    expect(prismaProjectSnapshotCreateMock).not.toHaveBeenCalled();
   });
 
   it("edits the latest successful preview source instead of the newest failed attempt", async () => {
@@ -244,11 +306,17 @@ describe("project edit route", () => {
         }),
       }),
     );
-    expect(prismaProjectUpdateMock).toHaveBeenCalledWith(
+    expect(prismaProjectUpdateManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          status: "ready",
           buildStatus: "passed",
+          sourceFiles: expect.any(Array),
+          status: "ready",
+        }),
+        where: expect.objectContaining({
+          activeOperationToken: expect.stringMatching(/^op_/),
+          id: "project_1",
+          userId: "user_1",
         }),
       }),
     );
@@ -276,6 +344,53 @@ describe("project edit route", () => {
     expect(body.attemptId).toMatch(/^edit_/);
     expect(prismaExecuteRawMock).toHaveBeenCalled();
     expect(prismaProjectSnapshotCreateMock).toHaveBeenCalled();
+  });
+
+  it("releases the project claim when artifact persistence throws before build creation", async () => {
+    writeProjectSourceArtifactMock.mockRejectedValueOnce(
+      new Error("artifact disk unavailable"),
+    );
+
+    const response = await POST(request([], "ubah judul website"), {
+      params: Promise.resolve({ id: "project_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.code).toBe("edit_failed_retryable");
+    expect(prismaProjectBuildCreateMock).not.toHaveBeenCalled();
+    expect(prismaProjectDeploymentCreateMock).not.toHaveBeenCalled();
+    expect(prismaProjectUpdateManyMock).toHaveBeenLastCalledWith({
+      data: {
+        activeOperationExpiresAt: null,
+        activeOperationKind: null,
+        activeOperationToken: null,
+        buildStatus: "passed",
+        status: "ready",
+      },
+      where: {
+        activeOperationToken: expect.stringMatching(/^op_/),
+        id: "project_1",
+        userId: "user_1",
+      },
+    });
+  });
+
+  it("does not promote a deployment when the operation token is superseded", async () => {
+    prismaProjectUpdateManyMock
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    const response = await POST(request([], "ubah judul website"), {
+      params: Promise.resolve({ id: "project_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.code).toBe("edit_failed_retryable");
+    expect(prismaProjectDeploymentCreateMock).not.toHaveBeenCalled();
   });
 
   it("records a failed edit build without replacing project source or ready status", async () => {
@@ -306,22 +421,33 @@ describe("project edit route", () => {
         data: expect.objectContaining({ status: "failed" }),
       }),
     );
-    expect(prismaProjectUpdateMock).toHaveBeenCalledWith({
-      data: { buildLog: "compile failed", buildStatus: "failed" },
-      where: { id: "project_1" },
-    });
+    expect(prismaProjectUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          buildLog: "compile failed",
+          buildStatus: "failed",
+          status: "ready",
+        }),
+      }),
+    );
   });
 
-  it("rejects unsafe edit tools before creating a snapshot", async () => {
+  it("rejects browser-supplied privileged tool commands before claiming", async () => {
     const response = await POST(
-      request([
-        { type: "write_file", path: "../escape.ts", content: "bad" },
-        { type: "check_app" },
-      ]),
+      request(
+        [
+          { type: "write_file", path: "src/App.tsx", content: "browser edit" },
+          { type: "check_app" },
+        ],
+        null,
+      ),
       { params: Promise.resolve({ id: "project_1" }) },
     );
+    const body = await response.json();
 
     expect(response.status).toBe(400);
+    expect(body.code).toBe("edit_instruction_required");
+    expect(prismaProjectUpdateManyMock).not.toHaveBeenCalled();
     expect(prismaProjectSnapshotCreateMock).not.toHaveBeenCalled();
   });
 });

@@ -12,7 +12,10 @@ import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PROJECT_PAGE_SIZE } from "@/lib/projects/pagination";
+import {
+  encodeProjectCursor,
+  PROJECT_PAGE_SIZE,
+} from "@/lib/projects/pagination";
 
 export default async function HomePage() {
   const session = await auth();
@@ -20,7 +23,7 @@ export default async function HomePage() {
     ? await Promise.all([
         prisma.project.findMany({
           where: { userId: session.user.id },
-          orderBy: { updatedAt: "desc" },
+          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
           take: 1 + PROJECT_PAGE_SIZE + 1,
           select: {
             buildStatus: true,
@@ -40,7 +43,7 @@ export default async function HomePage() {
   const hasMore = rest.length > PROJECT_PAGE_SIZE;
   const initialOthers = hasMore ? rest.slice(0, PROJECT_PAGE_SIZE) : rest;
   const initialNextCursor = hasMore
-    ? initialOthers[initialOthers.length - 1].id
+    ? encodeProjectCursor(initialOthers[initialOthers.length - 1])
     : null;
 
   async function deleteProject(formData: FormData) {

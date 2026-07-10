@@ -70,12 +70,12 @@ export function WorkspaceTopBar({
   runtime?: WorkspaceRuntimeControl;
 }) {
   return (
-    <div className="flex h-14 items-center justify-between gap-spacing-4 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-4">
-      <div className="flex min-w-0 items-center gap-spacing-3">
+    <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
+      <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:justify-start sm:gap-spacing-3">
         <button
           type="button"
           onClick={chatCollapsed ? openChatPanel : closeChatPanel}
-          className="rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          className="hidden min-h-11 min-w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white md:inline-flex"
           aria-label={chatCollapsed ? "Buka chat" : "Tutup chat"}
         >
           {chatCollapsed ? (
@@ -84,17 +84,43 @@ export function WorkspaceTopBar({
             <PanelLeftClose className="size-4" />
           )}
         </button>
-        <div className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs">
+        <div
+          role="tablist"
+          aria-label="Konten tampilan"
+          className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs"
+        >
           <TabButton
             active={activeTab === "preview"}
+            id="workspace-preview-tab"
+            controls="workspace-preview-panel"
             onClick={() => setActiveTab("preview")}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setActiveTab("code");
+                (
+                  event.currentTarget.nextElementSibling as HTMLElement
+                )?.focus();
+              }
+            }}
             icon={<Globe2 className="size-4" />}
           >
             Tampilan
           </TabButton>
           <TabButton
             active={activeTab === "code"}
+            id="workspace-code-tab"
+            controls="workspace-code-panel"
             onClick={() => setActiveTab("code")}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setActiveTab("preview");
+                (
+                  event.currentTarget.previousElementSibling as HTMLElement
+                )?.focus();
+              }
+            }}
             icon={<Code2 className="size-4" />}
           >
             Kode
@@ -104,15 +130,18 @@ export function WorkspaceTopBar({
           <button
             type="button"
             onClick={onToggleAnnotation}
-            className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+            aria-pressed={annotationActive}
+            className={`inline-flex min-h-11 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
           >
             <MessageSquarePlus className="size-4" />
-            {annotationActive ? "Komentar aktif" : "Komentar"}
+            <span className="hidden sm:inline">
+              {annotationActive ? "Komentar aktif" : "Komentar"}
+            </span>
           </button>
         ) : null}
       </div>
 
-      <div className="flex min-w-0 shrink-0 items-center gap-spacing-3">
+      <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
         {runtime ? <RuntimeControl runtime={runtime} /> : null}
 
         {activeTab === "preview" ? (
@@ -120,18 +149,20 @@ export function WorkspaceTopBar({
             <button
               type="button"
               onClick={() => setViewport("desktop")}
-              className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "desktop" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+              aria-pressed={viewport === "desktop"}
+              className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "desktop" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
             >
               <Monitor className="size-4" aria-hidden="true" />
-              Komputer
+              <span className="hidden md:inline">Komputer</span>
             </button>
             <button
               type="button"
               onClick={() => setViewport("mobile")}
-              className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "mobile" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+              aria-pressed={viewport === "mobile"}
+              className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "mobile" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
             >
               <Smartphone className="size-4" aria-hidden="true" />
-              HP
+              <span className="hidden md:inline">HP</span>
             </button>
           </div>
         ) : null}
@@ -142,20 +173,32 @@ export function WorkspaceTopBar({
 
 function TabButton({
   active,
+  controls,
+  id,
   onClick,
+  onKeyDown,
   icon,
   children,
 }: {
   active: boolean;
+  controls: string;
+  id: string;
   onClick: () => void;
+  onKeyDown: React.KeyboardEventHandler<HTMLButtonElement>;
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
+      role="tab"
+      id={id}
+      aria-controls={controls}
+      aria-selected={active}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${active ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+      onKeyDown={onKeyDown}
+      className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${active ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
     >
       {icon}
       {children}
@@ -170,10 +213,10 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
     runtime.deploymentStatus === "stopped";
 
   return (
-    <div className="flex min-w-0 items-center gap-spacing-2">
+    <div className="flex min-w-0 items-center gap-spacing-1 sm:gap-spacing-2">
       <span
         title={runtime.errorMessage || status.label}
-        className={`inline-flex max-w-[13rem] items-center gap-spacing-2 truncate rounded-radius-md border px-spacing-3 py-spacing-2 text-xs ${status.className}`}
+        className={`inline-flex max-w-24 items-center gap-spacing-2 truncate rounded-radius-md border px-spacing-2 py-spacing-2 text-xs sm:max-w-[13rem] sm:px-spacing-3 ${status.className}`}
       >
         <span className={`size-2 shrink-0 rounded-full ${status.dot}`} />
         <span className="truncate">{status.label}</span>
@@ -183,7 +226,7 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
         <button
           type="button"
           onClick={runtime.onRetryPreview}
-          className="rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
           aria-label="Muat ulang tampilan website"
           title="Muat ulang tampilan website"
         >
@@ -196,20 +239,22 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
           href={runtime.publishedPath}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
         >
           <ExternalLink className="size-4" />
-          Buka
+          <span className="hidden sm:inline">Buka</span>
         </a>
       ) : (
         <button
           type="button"
           disabled={!runtime.canPublish || runtime.isPublishing}
           onClick={runtime.onPublish}
-          className="inline-flex items-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-35"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Globe2 className="size-4" />
-          {runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}
+          <span className="hidden sm:inline">
+            {runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}
+          </span>
         </button>
       )}
     </div>

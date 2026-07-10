@@ -73,10 +73,15 @@ AI_PROVIDER="9router"
 NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
 OBJECT_STORAGE_PROVIDER="local"
 LOCAL_UPLOAD_DIR=".data/uploads"
+GENERATED_BUILD_EXECUTION_ENABLED="true"
+GENERATED_PUBLIC_EXECUTION_ENABLED="true"
+GENERATED_PUBLIC_ORIGIN=""
 PROJECT_ARTIFACT_DIR=".data/project-artifacts"
 PROJECT_RUNTIME_DIR=".data/project-runtimes"
 PROJECT_RUNTIME_SUPERVISOR="local"
 PROJECT_RUNTIME_MAX_CONTAINERS="8"
+PROJECT_RUNTIME_HEALTH_TIMEOUT_MS="2000"
+PROJECT_RUNTIME_PROXY_TIMEOUT_MS="15000"
 RATE_LIMIT_PROVIDER="memory"
 RATE_LIMIT_GLOBAL_IP_REQUESTS="300"
 RATE_LIMIT_GLOBAL_IP_WINDOW_SECONDS="60"
@@ -92,7 +97,7 @@ RATE_LIMIT_BUILD_IP_WINDOW_SECONDS="3600"
 
 Set Google OAuth, Turnstile, Sentry, Chromatic, and AI provider secrets only in `.env` or deployment secrets.
 
-Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep it mounted/persistent for local review sessions that need preview cold starts after restart.
+Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Runtime/build workspaces are rebuildable. Local/test generated execution stays enabled by default; production Compose explicitly disables build and public execution until the isolated-worker and separate-origin gates pass.
 
 Idle runtime cleanup:
 

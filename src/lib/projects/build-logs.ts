@@ -26,7 +26,10 @@ export function classifyBuildFailure(log: string): BuildFailureReason {
     return "manifest_failure";
   }
 
-  if (value.includes("generated app package policy failed preflight")) {
+  if (
+    value.includes("generated app package policy failed preflight") ||
+    value.includes("generated app build policy failed preflight")
+  ) {
     return "blocked_package";
   }
 

@@ -11,8 +11,14 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 
+import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
+import { sanitizeBuildLog } from "@/lib/projects/build-logs";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
-import { validateGeneratedPackagePolicy } from "@/lib/projects/generated-package-policy";
+import { validateGeneratedBuildPolicy } from "@/lib/projects/generated-build-policy";
+import {
+  assertGeneratedResourceBudget,
+  getGeneratedResourceBudget,
+} from "@/lib/projects/generated-resource-budget";
 
 import { type ProjectSiteSchema } from "./site-schema";
 
@@ -50,6 +56,7 @@ type BuildCacheMetadata = {
 };
 
 const MAX_LOG_LENGTH = 20_000;
+const MAX_IN_FLIGHT_LOG_LENGTH = 1024 * 1024;
 const BUILD_TIMEOUT_MS = 180_000;
 const BLOCKED_GENERATED_PATHS = new Set([
   ".env",
@@ -165,6 +172,27 @@ export async function buildGeneratedProject(
   files: GeneratedProjectFile[],
   options: BuildGeneratedProjectOptions = {},
 ): Promise<BuildGeneratedProjectResult> {
+  if (!isGeneratedBuildExecutionEnabled()) {
+    return {
+      distFiles: [],
+      log: "Generated build execution is disabled by platform policy.",
+      ok: false,
+    };
+  }
+
+  try {
+    assertGeneratedResourceBudget(files, "source");
+  } catch (error) {
+    return {
+      distFiles: [],
+      log:
+        error instanceof Error
+          ? error.message
+          : "Generated source exceeds platform limits.",
+      ok: false,
+    };
+  }
+
   const manifestResult = validateGeneratedAppManifest(files);
 
   if (!manifestResult.ok) {
@@ -177,16 +205,16 @@ export async function buildGeneratedProject(
     };
   }
 
-  const packagePolicyResult = validateGeneratedPackagePolicy(
+  const buildPolicyResult = validateGeneratedBuildPolicy(
     files,
     manifestResult.manifest.runtimeProfile,
   );
 
-  if (!packagePolicyResult.ok) {
+  if (!buildPolicyResult.ok) {
     return {
       distFiles: [],
       ok: false,
-      log: `Generated app package policy failed preflight:\n${packagePolicyResult.issues
+      log: `Generated app build policy failed preflight:\n${buildPolicyResult.issues
         .map((issue) => `- ${issue}`)
         .join("\n")}`,
     };
@@ -252,7 +280,10 @@ async function buildGeneratedProjectInWorkspace(
 
     if (shouldInstall) {
       const installStartedAt = Date.now();
-      install = await commandRunner(["bun", "install"], workspace);
+      install = await commandRunner(
+        ["bun", "install", "--ignore-scripts"],
+        workspace,
+      );
       installMs = Date.now() - installStartedAt;
 
       if (!install.ok) {
@@ -269,9 +300,20 @@ async function buildGeneratedProjectInWorkspace(
     const buildStartedAt = Date.now();
     const build = await commandRunner(["bun", "run", "build"], workspace);
     const collectStartedAt = Date.now();
-    const distFiles = build.ok
-      ? await collectDistFiles(path.join(workspace, "dist"))
-      : [];
+    let distFiles: GeneratedDistFile[] = [];
+    let collectionError = "";
+
+    if (build.ok) {
+      try {
+        distFiles = await collectDistFiles(path.join(workspace, "dist"));
+      } catch (error) {
+        collectionError =
+          error instanceof Error
+            ? error.message
+            : "Generated dist collection failed.";
+      }
+    }
+
     const log = [
       createBuildTimingLog({
         buildMs: collectStartedAt - buildStartedAt,
@@ -283,11 +325,12 @@ async function buildGeneratedProjectInWorkspace(
       }),
       install.log,
       build.log,
+      collectionError,
     ]
       .filter(Boolean)
       .join("\n");
 
-    return { distFiles, ok: build.ok, log };
+    return { distFiles, ok: build.ok && !collectionError, log };
   }
 
   let result = await attemptBuild(resetWorkspace);
@@ -311,36 +354,49 @@ async function runCommand(
         PATH: process.env.PATH ?? "",
         NODE_ENV: "production",
       },
-      shell: process.platform === "win32",
+      shell: false,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
+    let outputTruncated = false;
+
+    function appendOutput(chunk: Buffer) {
+      output += chunk.toString();
+
+      if (output.length > MAX_IN_FLIGHT_LOG_LENGTH) {
+        output = output.slice(-MAX_IN_FLIGHT_LOG_LENGTH);
+        outputTruncated = true;
+      }
+    }
+
+    function capturedOutput() {
+      return outputTruncated
+        ? `[earlier build output truncated]\n${output}`
+        : output;
+    }
+
     const timeout = setTimeout(() => {
       child.kill();
       resolve({
         ok: false,
-        log: truncateLog(`${output}\nBuild timed out.`),
+        log: truncateLog(`${capturedOutput()}\nBuild timed out.`),
       });
     }, BUILD_TIMEOUT_MS);
 
-    child.stdout.on("data", (chunk: Buffer) => {
-      output += chunk.toString();
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      output += chunk.toString();
-    });
+    child.stdout.on("data", appendOutput);
+    child.stderr.on("data", appendOutput);
     child.on("error", (error) => {
       clearTimeout(timeout);
       resolve({
         ok: false,
-        log: truncateLog(`${output}\n${error.message}`),
+        log: truncateLog(`${capturedOutput()}\n${error.message}`),
       });
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
       resolve({
         ok: code === 0,
-        log: truncateLog(output.trim()),
+        log: truncateLog(capturedOutput().trim()),
       });
     });
   });
@@ -556,13 +612,18 @@ function createBuildTimingLog({
 }
 
 function truncateLog(value: string) {
-  return value.length > MAX_LOG_LENGTH
-    ? `${value.slice(0, MAX_LOG_LENGTH)}\n...[truncated]`
-    : value;
+  const bounded =
+    value.length > MAX_LOG_LENGTH
+      ? `[earlier output truncated]\n${value.slice(-MAX_LOG_LENGTH)}`
+      : value;
+
+  return sanitizeBuildLog(bounded);
 }
 
 async function collectDistFiles(root: string): Promise<GeneratedDistFile[]> {
   const files: GeneratedDistFile[] = [];
+  const budget = getGeneratedResourceBudget("dist");
+  let totalBytes = 0;
 
   async function walk(current: string) {
     const entries = await readdir(current, { withFileTypes: true });
@@ -581,6 +642,26 @@ async function collectDistFiles(root: string): Promise<GeneratedDistFile[]> {
 
       const relativePath = path.relative(root, absolute).replace(/\\/g, "/");
       assertSafeProjectFilePath(relativePath);
+      const fileSize = (await stat(absolute)).size;
+
+      if (files.length + 1 > budget.maxFiles) {
+        throw new Error(`Generated dist exceeds ${budget.maxFiles} files.`);
+      }
+
+      if (fileSize > budget.maxFileBytes) {
+        throw new Error(
+          `Generated dist file exceeds ${budget.maxFileBytes} bytes: ${relativePath}`,
+        );
+      }
+
+      totalBytes += fileSize;
+
+      if (totalBytes > budget.maxTotalBytes) {
+        throw new Error(
+          `Generated dist exceeds ${budget.maxTotalBytes} aggregate bytes.`,
+        );
+      }
+
       files.push({
         content: await readFile(absolute, "utf8"),
         contentType: getContentType(relativePath),
