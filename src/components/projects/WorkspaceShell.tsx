@@ -34,6 +34,7 @@ import {
   PreviewIssueState,
   ProcessingControl,
   QuestionComposer,
+  VisualFeedbackWidget,
   WorkspaceCardView,
   WorkspaceTopBar,
   type BuildProgressStep,
@@ -157,9 +158,14 @@ export function WorkspaceShell({
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftTitle, setDraftTitle] = useState(initialTitle);
   const [buildStatus, setBuildStatus] = useState(initialStatus);
+  const hasInitialPreview = ["passed", "ready", "succeeded"].includes(
+    initialStatus,
+  );
   const [chatCollapsed, setChatCollapsed] = useState(false);
-  const [previewCollapsed, setPreviewCollapsed] = useState(true);
-  const [activeTab, setActiveTab] = useState<BuildTab>("preview");
+  const [previewCollapsed, setPreviewCollapsed] = useState(!hasInitialPreview);
+  const [activeTab, setActiveTab] = useState<BuildTab>(
+    hasInitialPreview ? "code" : "preview",
+  );
   const [sourceFiles, setSourceFiles] = useState<GeneratedProjectFile[]>([]);
   const [sourceStatus, setSourceStatus] = useState("not_started");
   const [sourceError, setSourceError] = useState<string | null>(null);
@@ -197,7 +203,7 @@ export function WorkspaceShell({
   const previewPanelRef = useRef<PanelImperativeHandle | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const olderChatSentinelRef = useRef<HTMLDivElement | null>(null);
-  const hasAutoOpenedPreview = useRef(false);
+  const hasAutoOpenedPreview = useRef(hasInitialPreview);
   const previousLiveMessageCount = useRef(initialMessages.length);
   const runtimeRequestRef = useRef<Promise<void> | null>(null);
   const runtimeRetryAfterRef = useRef(0);
@@ -224,7 +230,7 @@ export function WorkspaceShell({
   >("options");
   const [progressWidgetOpen, setProgressWidgetOpen] = useState(true);
   const [mobileSurface, setMobileSurface] = useState<"chat" | "preview">(
-    "chat",
+    hasInitialPreview ? "preview" : "chat",
   );
   const [progressWidgetPosition, setProgressWidgetPosition] = useState({
     x: 24,
@@ -674,8 +680,8 @@ export function WorkspaceShell({
     setPreviewCollapsed(false);
 
     const frame = window.requestAnimationFrame(() => {
-      chatPanelRef.current?.resize(32);
-      previewPanelRef.current?.resize(68);
+      chatPanelRef.current?.resize("25%");
+      previewPanelRef.current?.resize("75%");
     });
 
     return () => window.cancelAnimationFrame(frame);
@@ -941,13 +947,6 @@ export function WorkspaceShell({
       target: item.target,
     });
     setPendingAnnotationComment("");
-    setMobileSurface("chat");
-    setChatCollapsed(false);
-
-    window.requestAnimationFrame(() => {
-      chatPanelRef.current?.resize(32);
-      previewPanelRef.current?.resize(68);
-    });
   }, []);
 
   function addPendingAnnotation() {
@@ -957,14 +956,18 @@ export function WorkspaceShell({
       return;
     }
 
-    setAnnotations((current) => [
-      ...current,
-      {
-        ...pendingAnnotationTarget,
-        comment,
-        id: createVisualAnnotationId(),
-      },
-    ]);
+    setAnnotations((current) =>
+      current.length >= 20
+        ? current
+        : [
+            ...current,
+            {
+              ...pendingAnnotationTarget,
+              comment,
+              id: createVisualAnnotationId(),
+            },
+          ],
+    );
     setPendingAnnotationTarget(null);
     setPendingAnnotationComment("");
   }
@@ -1141,8 +1144,8 @@ export function WorkspaceShell({
             setActiveTab("preview");
             setChatCollapsed(false);
             setPreviewCollapsed(false);
-            chatPanelRef.current?.resize("32%");
-            previewPanelRef.current?.resize("68%");
+            chatPanelRef.current?.resize("25%");
+            previewPanelRef.current?.resize("75%");
             setPreviewReloadKey((current) => current + 1);
             void loadRuntimeState();
           })
@@ -1263,16 +1266,20 @@ export function WorkspaceShell({
     setMobileSurface("preview");
     setChatCollapsed(false);
     setPreviewCollapsed(false);
-    chatPanelRef.current?.resize("32%");
-    previewPanelRef.current?.resize("68%");
+    window.requestAnimationFrame(() => {
+      chatPanelRef.current?.resize("25%");
+      previewPanelRef.current?.resize("75%");
+    });
   }, []);
 
   function openChatPanel() {
     setMobileSurface("chat");
     setChatCollapsed(false);
     setPreviewCollapsed(false);
-    chatPanelRef.current?.resize("32%");
-    previewPanelRef.current?.resize("68%");
+    window.requestAnimationFrame(() => {
+      chatPanelRef.current?.resize("25%");
+      previewPanelRef.current?.resize("75%");
+    });
   }
 
   const chatPanelClass =
@@ -1313,8 +1320,8 @@ export function WorkspaceShell({
             mobileSurface === "chat" ? "max-md:!flex-1" : "max-md:hidden"
           }
           panelRef={chatPanelRef}
-          defaultSize={showPreviewPanel ? 32 : 100}
-          minSize={28}
+          defaultSize={showPreviewPanel ? "25%" : "100%"}
+          minSize="20%"
           collapsible
           collapsedSize={0}
         >
@@ -1409,79 +1416,61 @@ export function WorkspaceShell({
               }}
               className="mt-spacing-5 min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
             >
-              {annotationMode ? (
-                <VisualAnnotationPanel
-                  annotations={annotations}
-                  instruction={annotationInstruction}
-                  isSending={isEditingPreview}
-                  onAddPending={addPendingAnnotation}
-                  onCancelPending={() => setPendingAnnotationTarget(null)}
-                  onInstructionChange={setAnnotationInstruction}
-                  onPendingCommentChange={setPendingAnnotationComment}
-                  onRemove={removeAnnotation}
-                  onSend={() => void sendVisualAnnotations()}
-                  pendingComment={pendingAnnotationComment}
-                  pendingTarget={pendingAnnotationTarget}
+              {hasMoreChat ? (
+                <div
+                  ref={olderChatSentinelRef}
+                  className="py-spacing-3 text-center"
+                >
+                  {isLoadingOlderChat ? (
+                    <span className="text-xs text-surface-warm-white/42">
+                      Memuat chat lama...
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+              <ChatMessages messages={visibleMessages} />
+
+              {isBuilding || buildProgress.length ? (
+                <BuildProgressPanel
+                  elapsedFrom={buildStartedAt}
+                  isBuilding={isBuilding}
+                  steps={buildProgress}
                 />
-              ) : (
-                <>
-                  {hasMoreChat ? (
-                    <div
-                      ref={olderChatSentinelRef}
-                      className="py-spacing-3 text-center"
+              ) : null}
+
+              {isResponding ? (
+                <p className="text-sm text-surface-warm-white/46">
+                  AI sedang menyiapkan jawaban...
+                </p>
+              ) : null}
+              {rateLimitError ? (
+                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                  <p className="text-sm font-medium text-[#ffb4a6]">
+                    {rateLimitError.message}
+                  </p>
+                </div>
+              ) : error || (!isResponding && missingWorkspaceUiTurn) ? (
+                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                  <p className="text-sm font-medium text-[#ffb4a6]">
+                    {isRetrying
+                      ? "AI sempat terputus. Mencoba menyambung ulang..."
+                      : "AI belum sempat menyiapkan pilihan. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi."}
+                  </p>
+                  {!isRetrying ? (
+                    <Button
+                      type="button"
+                      onClick={() => void retryLastTurn()}
+                      className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
                     >
-                      {isLoadingOlderChat ? (
-                        <span className="text-xs text-surface-warm-white/42">
-                          Memuat chat lama...
-                        </span>
-                      ) : null}
-                    </div>
+                      Coba lagi
+                    </Button>
                   ) : null}
-                  <ChatMessages messages={visibleMessages} />
-
-                  {isBuilding || buildProgress.length ? (
-                    <BuildProgressPanel
-                      elapsedFrom={buildStartedAt}
-                      isBuilding={isBuilding}
-                      steps={buildProgress}
-                    />
-                  ) : null}
-
-                  {isResponding ? (
-                    <p className="text-sm text-surface-warm-white/46">
-                      AI sedang menyiapkan jawaban...
-                    </p>
-                  ) : null}
-                  {rateLimitError ? (
-                    <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                      <p className="text-sm font-medium text-[#ffb4a6]">
-                        {rateLimitError.message}
-                      </p>
-                    </div>
-                  ) : error || (!isResponding && missingWorkspaceUiTurn) ? (
-                    <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                      <p className="text-sm font-medium text-[#ffb4a6]">
-                        {isRetrying
-                          ? "AI sempat terputus. Mencoba menyambung ulang..."
-                          : "AI belum sempat menyiapkan pilihan. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi."}
-                      </p>
-                      {!isRetrying ? (
-                        <Button
-                          type="button"
-                          onClick={() => void retryLastTurn()}
-                          className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
-                        >
-                          Coba lagi
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </>
-              )}
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-spacing-5">
-              {annotationMode ? null : isProcessing ? (
+              {isProcessing ? (
                 <ProcessingControl
                   mode={isBuilding ? "Buat" : "Diskusi"}
                   onStop={stopCurrentJob}
@@ -1674,8 +1663,8 @@ export function WorkspaceShell({
                 mobileSurface === "preview" ? "max-md:!flex-1" : "max-md:hidden"
               }
               panelRef={previewPanelRef}
-              defaultSize={68}
-              minSize={8}
+              defaultSize="75%"
+              minSize="8%"
               collapsible
               collapsedSize={0}
             >
@@ -1685,7 +1674,14 @@ export function WorkspaceShell({
                     annotationActive={annotationMode}
                     annotationAvailable={shouldRenderGeneratedPreview}
                     onToggleAnnotation={() => {
-                      setAnnotationMode((current) => !current);
+                      setAnnotationMode((current) => {
+                        if (current) {
+                          setPendingAnnotationTarget(null);
+                          setPendingAnnotationComment("");
+                        }
+
+                        return !current;
+                      });
                       setActiveTab("preview");
                     }}
                     activeTab={activeTab}
@@ -1728,6 +1724,20 @@ export function WorkspaceShell({
                             onAnnotationTarget={handleAnnotationTarget}
                             onLoad={() => void loadRuntimeState()}
                             onRetry={retryPreviewRuntime}
+                            pendingAnnotation={
+                              annotationMode && pendingAnnotationTarget
+                                ? {
+                                    comment: pendingAnnotationComment,
+                                    onCancel: () => {
+                                      setPendingAnnotationTarget(null);
+                                      setPendingAnnotationComment("");
+                                    },
+                                    onChange: setPendingAnnotationComment,
+                                    onSave: addPendingAnnotation,
+                                    target: pendingAnnotationTarget,
+                                  }
+                                : null
+                            }
                             projectId={projectId}
                             reloadKey={previewReloadKey}
                             viewport={viewport}
@@ -1763,6 +1773,21 @@ export function WorkspaceShell({
           </>
         ) : null}
       </ResizablePanelGroup>
+      {annotations.length ? (
+        <VisualFeedbackWidget
+          annotations={annotations}
+          instruction={annotationInstruction}
+          isSending={isEditingPreview}
+          onClose={() => {
+            setAnnotationMode(false);
+            setPendingAnnotationTarget(null);
+            setPendingAnnotationComment("");
+          }}
+          onInstructionChange={setAnnotationInstruction}
+          onRemove={removeAnnotation}
+          onSend={() => void sendVisualAnnotations()}
+        />
+      ) : null}
       {buildProgress.length ? (
         <FloatingProgressWidget
           open={progressWidgetOpen}
@@ -2149,142 +2174,6 @@ function HeldBuildRecommendationNotice({
             Mulai build
           </Button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function VisualAnnotationPanel({
-  annotations,
-  instruction,
-  isSending,
-  onAddPending,
-  onCancelPending,
-  onInstructionChange,
-  onPendingCommentChange,
-  onRemove,
-  onSend,
-  pendingComment,
-  pendingTarget,
-}: {
-  annotations: VisualAnnotationDraft[];
-  instruction: string;
-  isSending: boolean;
-  onAddPending: () => void;
-  onCancelPending: () => void;
-  onInstructionChange: (value: string) => void;
-  onPendingCommentChange: (value: string) => void;
-  onRemove: (id: string) => void;
-  onSend: () => void;
-  pendingComment: string;
-  pendingTarget: Omit<VisualAnnotationDraft, "comment" | "id"> | null;
-}) {
-  return (
-    <div className="space-y-spacing-5">
-      <div className="rounded-[22px] border border-[#8fd3ff]/18 bg-[#10202b] px-spacing-5 py-spacing-4">
-        <p className="text-sm font-semibold text-surface-warm-white">
-          Komentar visual
-        </p>
-        <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/58">
-          Klik bagian website atau pilih teks di tampilan, lalu tulis catatan.
-        </p>
-      </div>
-
-      {pendingTarget ? (
-        <div className="rounded-[22px] border border-surface-warm-white/12 bg-[#242421] p-spacing-4">
-          <p className="text-xs font-medium text-[#8fd3ff]">
-            {pendingTarget.label}
-          </p>
-          {pendingTarget.selectedText ? (
-            <p className="mt-spacing-2 rounded-[12px] bg-surface-warm-white/6 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/62">
-              Teks dipilih: {pendingTarget.selectedText}
-            </p>
-          ) : null}
-          <textarea
-            rows={3}
-            value={pendingComment}
-            onChange={(event) => onPendingCommentChange(event.target.value)}
-            placeholder="Tulis catatan untuk bagian ini..."
-            className="mt-spacing-3 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-[#8fd3ff]/45"
-          />
-          <div className="mt-spacing-3 flex justify-end gap-spacing-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancelPending}
-              className="h-9 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8"
-            >
-              Batal
-            </Button>
-            <Button
-              type="button"
-              disabled={!pendingComment.trim()}
-              onClick={onAddPending}
-              className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
-            >
-              Tambah komentar
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="space-y-spacing-3">
-        {annotations.length ? (
-          annotations.map((annotation, index) => (
-            <article
-              key={annotation.id}
-              className="rounded-[18px] border border-surface-warm-white/10 bg-surface-warm-white/[0.035] p-spacing-4"
-            >
-              <div className="flex items-start gap-spacing-3">
-                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-warm-white text-xs font-bold text-foreground-primary">
-                  {index + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-semibold text-surface-warm-white">
-                    {annotation.label}
-                  </p>
-                  <p className="mt-spacing-1 break-words text-sm leading-6 text-surface-warm-white/64">
-                    {annotation.comment}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onRemove(annotation.id)}
-                  className="shrink-0 rounded-full px-spacing-2 py-spacing-1 text-xs text-surface-warm-white/42 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-                >
-                  Hapus
-                </button>
-              </div>
-            </article>
-          ))
-        ) : (
-          <div className="rounded-[18px] border border-dashed border-surface-warm-white/12 px-spacing-5 py-spacing-6 text-sm leading-6 text-surface-warm-white/50">
-            Belum ada komentar. Klik bagian website di panel kanan untuk mulai.
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-[22px] border border-surface-warm-white/10 bg-[#20201d] p-spacing-4">
-        <label className="text-xs font-medium text-surface-warm-white/58">
-          Arahan tambahan opsional
-        </label>
-        <textarea
-          rows={3}
-          value={instruction}
-          onChange={(event) => onInstructionChange(event.target.value)}
-          placeholder="Contoh: bikin keseluruhan lebih clean dan premium..."
-          className="mt-spacing-2 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
-        />
-        <Button
-          type="button"
-          disabled={!annotations.length || isSending}
-          onClick={onSend}
-          className="mt-spacing-3 h-10 w-full rounded-[12px] bg-surface-warm-white text-sm text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
-        >
-          {isSending
-            ? "Mengirim ke AI..."
-            : `Kirim ${annotations.length || ""} komentar ke AI`}
-        </Button>
       </div>
     </div>
   );

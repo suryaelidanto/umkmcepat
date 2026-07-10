@@ -218,25 +218,22 @@ export function HomePromptForm() {
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website
         </label>
-        <div className="relative">
-          <textarea
-            id="hero-prompt"
-            name="business-story"
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            onKeyDown={handlePromptKeyDown}
-            placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
-            maxLength={PROJECT_REQUEST_MAX_LENGTH}
-            disabled={isLoading}
-            className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-13 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/58 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
-          />
-          <span className="pointer-events-none absolute bottom-spacing-4 right-spacing-7 rounded-full bg-[#232321] px-spacing-4 py-spacing-2 text-sm tabular-nums text-surface-warm-white/62 ring-1 ring-surface-warm-white/10">
-            {prompt.length.toLocaleString("id-ID")}/1.200
+        <textarea
+          id="hero-prompt"
+          name="business-story"
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          onKeyDown={handlePromptKeyDown}
+          placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
+          maxLength={PROJECT_REQUEST_MAX_LENGTH}
+          disabled={isLoading}
+          className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/58 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
+        />
+        <div className="flex items-center justify-between gap-spacing-7 px-spacing-9 pb-spacing-7">
+          <span className="text-sm tabular-nums text-surface-warm-white/62">
+            {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
           </span>
-        </div>
-        <div className="flex items-center justify-between gap-spacing-5 px-spacing-7 pb-spacing-7">
-          <div />
-          <div className="flex items-center gap-spacing-4">
+          <div className="flex items-center gap-spacing-5">
             {isLoading ? (
               <span className="hidden text-sm text-surface-warm-white/58 sm:inline">
                 Menyiapkan...
@@ -246,7 +243,7 @@ export function HomePromptForm() {
               type="submit"
               size="icon"
               disabled={isLoading || !prompt.trim()}
-              className="size-11 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+              className="size-11 shrink-0 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
               aria-label="Buat halaman"
             >
               {isLoading ? (

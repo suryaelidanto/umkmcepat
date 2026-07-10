@@ -3,6 +3,7 @@ import {
   ModePill,
   PreviewIssueState,
   ProcessingControl,
+  VisualFeedbackWidget,
   WorkspaceTopBar,
 } from "@/components/projects/WorkspacePrimitives";
 
@@ -152,6 +153,36 @@ export const ProcessingBuild: Story = {
     <DarkCanvas>
       <div className="max-w-3xl p-spacing-6">
         <ProcessingControl mode="Buat" onStop={() => undefined} />
+      </div>
+    </DarkCanvas>
+  ),
+};
+
+export const VisualFeedbackCollapsed: Story = {
+  render: () => (
+    <DarkCanvas>
+      <div className="h-[32rem]">
+        <VisualFeedbackWidget
+          annotations={[
+            {
+              id: "annotation-1",
+              label: 'Judul utama — "Kopi enak setiap hari"',
+              comment: "Judul ini terlalu besar, kecilkan sedikit.",
+              target: {
+                boundingBox: { height: 64, width: 320, x: 32, y: 80 },
+                selectorPath: "main > section.hero > h1",
+                tag: "h1",
+                text: "Kopi enak setiap hari",
+              },
+            },
+          ]}
+          instruction=""
+          isSending={false}
+          onClose={() => undefined}
+          onInstructionChange={() => undefined}
+          onRemove={() => undefined}
+          onSend={() => undefined}
+        />
       </div>
     </DarkCanvas>
   ),

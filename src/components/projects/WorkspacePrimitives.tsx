@@ -9,13 +9,17 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   RefreshCw,
+  Send,
   Smartphone,
+  Trash2,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
+import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
 
 export type BuildTab = "preview" | "code";
@@ -362,6 +366,7 @@ export function GeneratedPreviewFrame({
   onAnnotationTarget,
   onLoad,
   onRetry,
+  pendingAnnotation,
   projectId,
   reloadKey,
   viewport,
@@ -376,6 +381,13 @@ export function GeneratedPreviewFrame({
   onAnnotationTarget?: (target: unknown) => void;
   onLoad?: () => void;
   onRetry?: () => void;
+  pendingAnnotation?: {
+    comment: string;
+    onCancel: () => void;
+    onChange: (value: string) => void;
+    onSave: () => void;
+    target: Omit<VisualAnnotationDraft, "comment" | "id">;
+  } | null;
   projectId: string;
   reloadKey?: number;
   viewport: "desktop" | "mobile";
@@ -444,18 +456,31 @@ export function GeneratedPreviewFrame({
 
   return (
     <div className="relative flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
-      <iframe
-        ref={iframeRef}
-        key={reloadKey}
-        title="Tampilan website"
-        src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
-        onLoad={() => {
-          setTimedOut(false);
-          onLoad?.();
-        }}
-        sandbox="allow-scripts"
-        className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} h-full w-full border-0 bg-white`}
-      />
+      <div
+        className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} relative h-full w-full`}
+      >
+        <iframe
+          ref={iframeRef}
+          key={reloadKey}
+          title="Tampilan website"
+          src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
+          onLoad={() => {
+            setTimedOut(false);
+            onLoad?.();
+          }}
+          sandbox="allow-scripts"
+          className="h-full w-full border-0 bg-white"
+        />
+        {pendingAnnotation ? (
+          <PreviewAnnotationPopover
+            comment={pendingAnnotation.comment}
+            onCancel={pendingAnnotation.onCancel}
+            onChange={pendingAnnotation.onChange}
+            onSave={pendingAnnotation.onSave}
+            target={pendingAnnotation.target}
+          />
+        ) : null}
+      </div>
       {!ready && !timedOut ? (
         <div className="absolute inset-0 grid place-items-center bg-[#10100f]">
           <div className="flex flex-col items-center gap-spacing-4 text-center">
@@ -478,6 +503,229 @@ export function GeneratedPreviewFrame({
             detail="Website belum selesai dimuat. Coba muat ulang tampilan, atau build ulang kalau masih kosong."
             onRetry={onRetry}
           />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PreviewAnnotationPopover({
+  comment,
+  onCancel,
+  onChange,
+  onSave,
+  target,
+}: {
+  comment: string;
+  onCancel: () => void;
+  onChange: (value: string) => void;
+  onSave: () => void;
+  target: Omit<VisualAnnotationDraft, "comment" | "id">;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const position = getAnnotationPopoverPosition(target.target.boundingBox);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [target]);
+
+  return (
+    <div
+      role="dialog"
+      aria-label={`Komentar untuk ${target.label}`}
+      className="absolute z-40 w-[min(22rem,calc(100%-1.5rem))] rounded-[18px] border border-surface-warm-white/14 bg-[#1b1b19] p-spacing-4 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
+      style={position}
+    >
+      <div className="flex items-start justify-between gap-spacing-4">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold text-[#d6f0ff]">
+            {target.label}
+          </p>
+          {target.selectedText ? (
+            <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/50">
+              Teks dipilih: {target.selectedText}
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="grid size-9 shrink-0 place-items-center rounded-full text-surface-warm-white/52 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          aria-label="Batalkan komentar"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+      <textarea
+        ref={textareaRef}
+        rows={3}
+        maxLength={1000}
+        value={comment}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+          }
+
+          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+            event.preventDefault();
+            onSave();
+          }
+        }}
+        placeholder="Apa yang ingin kamu ubah di bagian ini?"
+        className="mt-spacing-3 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30"
+      />
+      <div className="mt-spacing-3 flex items-center justify-between gap-spacing-4">
+        <span className="text-xs text-surface-warm-white/38">
+          Ctrl/⌘ + Enter
+        </span>
+        <Button
+          type="button"
+          disabled={!comment.trim()}
+          onClick={onSave}
+          className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
+        >
+          Tambah komentar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function getAnnotationPopoverPosition(
+  box: VisualAnnotationDraft["target"]["boundingBox"],
+) {
+  const horizontal =
+    box.x > 420 ? { right: 12 } : { left: Math.max(12, box.x) };
+  const shouldOpenAbove = box.y > 360;
+
+  return shouldOpenAbove
+    ? {
+        ...horizontal,
+        bottom: `calc(100% - ${Math.max(12, box.y - 10)}px)`,
+      }
+    : { ...horizontal, top: Math.max(12, box.y + box.height + 10) };
+}
+
+export function VisualFeedbackWidget({
+  annotations,
+  instruction,
+  isSending,
+  onClose,
+  onInstructionChange,
+  onRemove,
+  onSend,
+}: {
+  annotations: VisualAnnotationDraft[];
+  instruction: string;
+  isSending: boolean;
+  onClose: () => void;
+  onInstructionChange: (value: string) => void;
+  onRemove: (id: string) => void;
+  onSend: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (!annotations.length) {
+    return null;
+  }
+
+  return (
+    <div className="fixed bottom-spacing-7 right-spacing-7 z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-[22px] border border-surface-warm-white/12 bg-[#191916]/96 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur">
+      <div className="flex items-center gap-spacing-3 p-spacing-3">
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-spacing-3 rounded-[14px] px-spacing-2 text-left hover:bg-surface-warm-white/6"
+        >
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-warm-white text-sm font-bold text-foreground-primary">
+            {annotations.length}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">
+              {annotations.length === 1
+                ? "1 komentar siap"
+                : `${annotations.length} komentar siap`}
+            </span>
+            <span className="block text-xs text-surface-warm-white/48">
+              {open ? "Tutup ringkasan" : "Tinjau sebelum revisi"}
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            onClose();
+          }}
+          className="grid size-11 shrink-0 place-items-center rounded-full text-surface-warm-white/52 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          aria-label="Tutup mode komentar"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+      {open ? (
+        <div className="border-t border-surface-warm-white/8 px-spacing-4 pb-spacing-4 pt-spacing-3">
+          <div className="max-h-56 space-y-spacing-2 overflow-y-auto pr-spacing-1 [scrollbar-width:thin]">
+            {annotations.map((annotation, index) => (
+              <article
+                key={annotation.id}
+                className="flex items-start gap-spacing-3 rounded-[14px] bg-surface-warm-white/[0.045] p-spacing-3"
+              >
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-warm-white text-xs font-bold text-foreground-primary">
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold">
+                    {annotation.label}
+                  </p>
+                  <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/58">
+                    {annotation.comment}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(annotation.id)}
+                  className="grid size-9 shrink-0 place-items-center rounded-full text-surface-warm-white/42 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                  aria-label={`Hapus komentar ${index + 1}`}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </article>
+            ))}
+          </div>
+          <label
+            htmlFor="visual-feedback-instruction"
+            className="mt-spacing-4 block text-xs font-medium text-surface-warm-white/58"
+          >
+            Catatan tambahan <span className="font-normal">(opsional)</span>
+          </label>
+          <textarea
+            id="visual-feedback-instruction"
+            rows={3}
+            maxLength={1000}
+            value={instruction}
+            onChange={(event) => onInstructionChange(event.target.value)}
+            placeholder="Contoh: bikin keseluruhan lebih rapi dan tenang..."
+            className="mt-spacing-2 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30"
+          />
+          <Button
+            type="button"
+            disabled={isSending}
+            onClick={onSend}
+            className="mt-spacing-3 h-11 w-full rounded-[12px] bg-surface-warm-white text-sm text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
+          >
+            {isSending ? (
+              "Mengirim revisi..."
+            ) : (
+              <>
+                <Send className="size-4" />
+                Kirim revisi
+              </>
+            )}
+          </Button>
         </div>
       ) : null}
     </div>

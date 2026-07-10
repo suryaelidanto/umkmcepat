@@ -232,6 +232,7 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   }
 
   function meaningfulElement(element) {
+    if (element.closest('.umkm-annotation-marker,.umkm-annotation-hover')) return null;
     const preferred = element.closest('button,a,input,select,textarea,[role="button"],h1,h2,h3,h4,h5,h6,article,section,nav,header,footer,main,aside,[aria-label]');
     return preferred instanceof HTMLElement ? preferred : element;
   }

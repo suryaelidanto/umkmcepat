@@ -18,6 +18,9 @@ describe("runtime proxy", () => {
     );
 
     expect(html).toContain("data-umkm-annotation-bridge");
+    expect(html).toContain(
+      "element.closest('.umkm-annotation-marker,.umkm-annotation-hover')",
+    );
     expect(injectPreviewAnnotationBridge(html)).toBe(html);
   });
   afterEach(async () => {
