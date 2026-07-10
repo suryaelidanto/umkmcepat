@@ -1,0 +1,8 @@
+<clickhouse>
+  <profiles>
+    <default>
+      <!-- ClickHouse 26.x lazy-materialization planner can reject Langfuse trace joins. -->
+      <query_plan_optimize_lazy_materialization>0</query_plan_optimize_lazy_materialization>
+    </default>
+  </profiles>
+</clickhouse>

@@ -21,6 +21,14 @@ describe("runtime proxy", () => {
     expect(html).toContain(
       "element.closest('.umkm-annotation-marker,.umkm-annotation-hover')",
     );
+    expect(html).toContain("document.elementsFromPoint");
+    expect(html).toContain("function selectionAt");
+    expect(html).toContain("function isLeafTarget");
+    expect(html).toContain("function selectionAt");
+    expect(html).toContain("range.getBoundingClientRect()");
+    expect(html).toContain("p|label|li|blockquote");
+    expect(html).toContain("badge|card|capsule|chip");
+    expect(html).toContain(":nth-of-type(");
     expect(injectPreviewAnnotationBridge(html)).toBe(html);
   });
   afterEach(async () => {

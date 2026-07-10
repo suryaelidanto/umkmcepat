@@ -222,28 +222,132 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   }
 
   function elementAt(x, y) {
-    let element = document.elementFromPoint(x, y);
-    while (element && element.shadowRoot) {
-      const deeper = element.shadowRoot.elementFromPoint(x, y);
-      if (!deeper || deeper === element) break;
-      element = deeper;
+    const elements = typeof document.elementsFromPoint === 'function'
+      ? document.elementsFromPoint(x, y)
+      : [document.elementFromPoint(x, y)];
+
+    for (let element of elements) {
+      while (element && element.shadowRoot) {
+        const deeper = element.shadowRoot.elementFromPoint(x, y);
+        if (!deeper || deeper === element) break;
+        element = deeper;
+      }
+
+      if (!(element instanceof HTMLElement) || shouldIgnore(element)) continue;
+      const target = meaningfulElement(element);
+      if (target) return target;
     }
-    return element instanceof HTMLElement ? meaningfulElement(element) : null;
+
+    return null;
+  }
+
+  function selectionAt(x, y) {
+    const selection = window.getSelection && window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+
+    const text = clean(selection.toString());
+    if (!text) return null;
+
+    const range = selection.getRangeAt(0);
+    const rects = Array.from(range.getClientRects());
+    const containsPoint = rects.some((rect) =>
+      x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom,
+    );
+    const rect = range.getBoundingClientRect();
+    if (!rect.width && !rect.height) return null;
+
+    const node = range.commonAncestorContainer;
+    const element = node instanceof HTMLElement ? node : node.parentElement;
+    if (!containsPoint) return null;
+
+    const pointed = elementAt(x, y);
+    const target =
+      element instanceof HTMLElement && (isLeafTarget(element) || isAtomicBlock(element))
+        ? meaningfulElement(element)
+        : pointed;
+
+    return target ? { rect, target, text: text.slice(0, 500) } : null;
+  }
+
+  function shouldIgnore(element) {
+    if (element.closest('.umkm-annotation-marker,.umkm-annotation-hover')) return true;
+    if (element.getAttribute('aria-hidden') === 'true') return true;
+
+    const className = typeof element.className === 'string' ? element.className : '';
+    const isDecoration = /(backdrop|decoration|gradient|glow|overlay|veil)/i.test(className);
+    const hasText = Boolean(clean(element.innerText || element.textContent || ''));
+    const isInteractive = element.matches('a,button,input,select,textarea,[role="button"]');
+
+    return isDecoration && !hasText && !isInteractive;
   }
 
   function meaningfulElement(element) {
-    if (element.closest('.umkm-annotation-marker,.umkm-annotation-hover')) return null;
-    const preferred = element.closest('button,a,input,select,textarea,[role="button"],h1,h2,h3,h4,h5,h6,article,section,nav,header,footer,main,aside,[aria-label]');
-    return preferred instanceof HTMLElement ? preferred : element;
+    if (shouldIgnore(element)) return null;
+
+    const interactive = element.closest('button,a,input,select,textarea,[role="button"]');
+    if (interactive instanceof HTMLElement) return interactive;
+
+    const atomic = closestAtomicBlock(element);
+    if (atomic && atomic !== element && isInlineAtomicBlock(atomic)) return atomic;
+
+    let current = element;
+    while (current && current !== document.body) {
+      if (isLeafTarget(current)) return current;
+      if (isAtomicBlock(current)) return current;
+      current = current.parentElement;
+    }
+
+    const container = element.closest('article,[role="listitem"],section,nav,header,footer,main,aside,[aria-label]');
+    return container instanceof HTMLElement ? container : element;
   }
 
-  function targetData(element) {
-    const rect = element.getBoundingClientRect();
+  function isLeafTarget(element) {
+    const tag = element.tagName.toLowerCase();
+    if (/^h[1-6]$/.test(tag) || /^(p|label|li|blockquote|figcaption|caption|img|picture|video|svg)$/.test(tag)) return true;
+    if (tag === 'span') {
+      const parent = element.parentElement;
+      return Boolean(clean(element.innerText || element.textContent || '')) &&
+        !(parent && parent.matches('a,button,h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption'));
+    }
+
+    return tag === 'div' && isTextOnlyElement(element);
+  }
+
+  function isTextOnlyElement(element) {
     const text = clean(element.innerText || element.textContent || '');
-    const selected = clean(String((window.getSelection && window.getSelection().toString()) || ''));
+    if (!text) return false;
+
+    return !element.querySelector('a,article,button,h1,h2,h3,h4,h5,h6,img,input,li,p,section,textarea,video');
+  }
+
+  function closestAtomicBlock(element) {
+    let current = element;
+    while (current && current !== document.body) {
+      if (isAtomicBlock(current)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  function isAtomicBlock(element) {
+    if (element.matches('article,[role="listitem"],[data-umkm-annotatable]')) return true;
+
+    const className = typeof element.className === 'string' ? element.className : '';
+    return /(^|[-_\\s])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([-_\\s]|$)/i.test(className);
+  }
+
+  function isInlineAtomicBlock(element) {
+    const className = typeof element.className === 'string' ? element.className : '';
+    return /(^|[-_\\s])(badge|capsule|chip|pill|tag)([-_\\s]|$)/i.test(className);
+  }
+
+  function targetData(element, selection) {
+    const rect = selection ? selection.rect : element.getBoundingClientRect();
+    const text = clean(element.innerText || element.textContent || '');
+    const selected = selection ? selection.text : '';
     return {
       label: labelFor(element, selected || text),
-      selectedText: selected ? selected.slice(0, 500) : undefined,
+      selectedText: selected || undefined,
       target: {
         boundingBox: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
         classes: typeof element.className === 'string' ? clean(element.className).slice(0, 300) : '',
@@ -261,9 +365,9 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     if (tag === 'h1') return 'Judul utama' + snippet;
     if (/^h[2-6]$/.test(tag)) return 'Judul bagian' + snippet;
     if (tag === 'button' || tag === 'a' || element.getAttribute('role') === 'button') return 'Tombol' + snippet;
-    if (tag === 'img') return 'Gambar' + snippet;
-    if (tag === 'p' || tag === 'span' || tag === 'label') return 'Teks' + snippet;
-    if (tag === 'article') return 'Kartu' + snippet;
+    if (/^(img|picture|video|svg)$/.test(tag)) return 'Gambar' + snippet;
+    if (/^(p|span|label|li|blockquote|figcaption|caption)$/.test(tag)) return 'Teks' + snippet;
+    if (tag === 'article' || element.getAttribute('role') === 'listitem') return 'Kartu' + snippet;
     if (tag === 'section') return 'Bagian' + snippet;
     return 'Bagian website' + snippet;
   }
@@ -271,12 +375,22 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   function selectorPath(element) {
     const parts = [];
     let current = element;
-    while (current && current.nodeType === 1 && current !== document.body && parts.length < 5) {
+    while (current && current.nodeType === 1 && current !== document.body && parts.length < 7) {
       let part = current.tagName.toLowerCase();
-      if (current.id) part += '#' + current.id;
-      else if (typeof current.className === 'string') {
-        const cls = current.className.split(/\s+/).filter(Boolean).find((name) => name.length > 2 && !/[A-Z0-9]{6,}/.test(name));
-        if (cls) part += '.' + cls.replace(/[^a-zA-Z0-9_-]/g, '');
+      if (current.id) {
+        part += '#' + current.id.replace(/[^a-zA-Z0-9_-]/g, '');
+      } else {
+        const classes = typeof current.className === 'string' ? current.className.split(/\s+/) : [];
+        const cls = classes.find((name) =>
+          /^[a-z][a-z0-9_-]{2,}$/i.test(name) &&
+          !/(^css-|__[a-z0-9_-]{5,}$)/i.test(name),
+        );
+        if (cls) part += '.' + cls;
+
+        const siblings = current.parentElement
+          ? Array.from(current.parentElement.children).filter((item) => item.tagName === current.tagName)
+          : [];
+        if (siblings.length > 1) part += ':nth-of-type(' + (siblings.indexOf(current) + 1) + ')';
       }
       parts.unshift(part);
       current = current.parentElement;
@@ -300,22 +414,24 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
 
   function handleMove(event) {
     if (!active) return;
-    const element = elementAt(event.clientX, event.clientY);
+    const selection = selectionAt(event.clientX, event.clientY);
+    const element = selection ? selection.target : elementAt(event.clientX, event.clientY);
     if (!element) {
       hideHoverBox();
       return;
     }
-    setHoverBox(element.getBoundingClientRect());
-    window.parent.postMessage({ type: 'umkmcepat-annotation-hover', payload: targetData(element) }, '*');
+    setHoverBox(selection ? selection.rect : element.getBoundingClientRect());
+    window.parent.postMessage({ type: 'umkmcepat-annotation-hover', payload: targetData(element, selection) }, '*');
   }
 
   function handleClick(event) {
     if (!active) return;
     event.preventDefault();
     event.stopPropagation();
-    const element = elementAt(event.clientX, event.clientY);
+    const selection = selectionAt(event.clientX, event.clientY);
+    const element = selection ? selection.target : elementAt(event.clientX, event.clientY);
     if (!element) return;
-    window.parent.postMessage({ type: 'umkmcepat-annotation-target', payload: targetData(element) }, '*');
+    window.parent.postMessage({ type: 'umkmcepat-annotation-target', payload: targetData(element, selection) }, '*');
   }
 
   window.addEventListener('message', (event) => {

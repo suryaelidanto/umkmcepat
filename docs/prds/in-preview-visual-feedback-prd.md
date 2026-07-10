@@ -126,6 +126,9 @@ The left panel remains the normal discussion surface throughout. No visual-comme
 - On success, annotations, pending editor, optional note, local-storage draft, and annotation mode clear. Preview reloads to the newest successful deployment.
 - On any transport, validation, edit, build, artifact, deployment, or runtime failure, annotations and optional note remain. The feedback widget shows a recoverable error and retry remains available.
 - The bridge continues to be injected into private previews only. Public/published output must remain untouched.
+- Target resolution is **leaf-first**: clicks on headings, paragraphs, labels, list items, images, text-only capsules, and badge/chip/pill blocks select that visible target; clicks inside controls select the enclosing control; a section/card/container is a fallback only for its empty background or a deliberate `data-umkm-annotatable` marker. A parent container must never win merely because it is the nearest semantic ancestor.
+- Exact browser text selection wins over click inference. The bridge captures the selection range geometry for the popover, the enclosing leaf target for the source edit, and the selected text for user intent.
+- Hit testing uses the deepest valid element available from `elementsFromPoint`, skips annotation chrome and empty decorative overlay layers, and descends into open shadow roots. Selector paths prefer stable IDs/classes and add `:nth-of-type()` when siblings repeat.
 - Parent/iframe messaging should move toward the architecture hardening requirement: validate `event.source`, expected message type, payload shape/size, and a per-preview nonce where sandbox-origin constraints permit. Wildcard messaging is not accepted as a final production boundary.
 - Normal generated-site navigation, buttons, and form controls are intercepted only while annotation mode is active.
 - Disabling annotation mode hides hover state and pending editor immediately. Saved drafts remain until removed, successfully sent, or explicitly discarded.
@@ -142,7 +145,7 @@ The left panel remains the normal discussion surface throughout. No visual-comme
 - Unit-test pure annotation formatting/sanitization at the existing visual-annotation module. Assert caps, malformed payload rejection, optional overall note omission/inclusion, readable summary, and hidden target serialization.
 - Component tests should assert externally visible behavior and accessible names rather than Tailwind classes or exact pixel positions.
 - Preview-frame tests should assert that only messages from the active iframe are accepted and that target events are forwarded to the pending editor.
-- Runtime-proxy tests should assert private preview bridge injection, no duplicate injection, mode activation/deactivation, meaningful target selection, normal click interception only while active, and marker updates.
+- Runtime-proxy tests should assert private preview bridge injection, no duplicate injection, mode activation/deactivation, leaf-first target selection, text-range targeting, decorative-overlay filtering, unique repeated-sibling selector paths, normal click interception only while active, and marker updates.
 - Edit-route tests should assert ownership, bounded request handling, annotation sanitization, summary persistence, `visual_comment` edit kind, and reuse of safe snapshot/build/deployment behavior.
 - Failure tests must prove annotations and optional overall note remain after non-2xx responses, failed build status, thrown network errors, or validation failure.
 - Success tests must prove annotations, optional note, pending target, local-storage draft, and annotation mode clear only after successful visual revision.

@@ -23,7 +23,7 @@ MinIO console: http://localhost:9091
 
 `bun run infra` starts Postgres plus the local AI/observability stack: 9Router, Headroom, Langfuse, and Langfuse dependencies. Use `bun run infra:minimal` only when you need Postgres without AI/observability.
 
-Set `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` in `.env`. Local `.env.example` uses the same deterministic project key for Langfuse bootstrap and app tracing so observability works after first startup; replace both keys before any shared environment.
+Set `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` in `.env`. Local `.env.example` uses the same deterministic project key for Langfuse bootstrap and app tracing so observability works after first startup; replace both keys before any shared environment. After changing tracing keys, restart `bun run dev`. Local ClickHouse loads `infra/langfuse-clickhouse-settings.xml`; it disables a ClickHouse 26.x lazy-materialization planner bug that breaks Langfuse trace joins, while preserving trace data.
 
 Langfuse local Compose disables public signup (`AUTH_DISABLE_SIGNUP=true`); use the bootstrap admin account only. In production, keep Langfuse behind Cloudflare Access/reverse-proxy auth and never expose its backing Postgres, ClickHouse, Redis, or MinIO services.
 

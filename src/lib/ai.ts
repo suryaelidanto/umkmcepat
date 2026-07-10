@@ -11,6 +11,8 @@ export function getAiTelemetry(
   return {
     functionId,
     isEnabled: isLangfuseEnabled(),
+    recordInputs: false,
+    recordOutputs: false,
     metadata: {
       aiGateway: "9router",
       ...metadata,
