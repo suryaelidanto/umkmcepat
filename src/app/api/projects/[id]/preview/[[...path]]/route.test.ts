@@ -1,21 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  afterMock,
   authMock,
   prismaQueryRawMock,
   prismaProjectDeploymentFindManyMock,
   prismaProjectDeploymentUpdateMock,
   prismaProjectFindFirstMock,
   proxyDeploymentRequestMock,
+  refreshProjectThumbnailMock,
 } = vi.hoisted(() => ({
+  afterMock: vi.fn(),
   authMock: vi.fn<() => Promise<unknown>>(),
   prismaQueryRawMock: vi.fn(),
   prismaProjectDeploymentFindManyMock: vi.fn(),
   prismaProjectDeploymentUpdateMock: vi.fn(),
   prismaProjectFindFirstMock: vi.fn(),
   proxyDeploymentRequestMock: vi.fn(),
+  refreshProjectThumbnailMock: vi.fn(),
 }));
 
+vi.mock("next/server", () => ({ after: afterMock }));
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -26,6 +31,9 @@ vi.mock("@/lib/prisma", () => ({
       update: prismaProjectDeploymentUpdateMock,
     },
   },
+}));
+vi.mock("@/lib/projects/project-thumbnail", () => ({
+  refreshProjectThumbnail: refreshProjectThumbnailMock,
 }));
 vi.mock("@/lib/projects/runtime-proxy", async () => {
   const actual = await vi.importActual<
@@ -50,11 +58,17 @@ describe("project preview route", () => {
       user: { id: "user_1" },
       expires: new Date().toISOString(),
     });
-    prismaProjectFindFirstMock.mockResolvedValue({ id: "project_1" });
+    prismaProjectFindFirstMock.mockResolvedValue({
+      id: "project_1",
+      thumbnailBuildId: null,
+      thumbnailRef: null,
+    });
     prismaProjectDeploymentUpdateMock.mockResolvedValue({});
     proxyDeploymentRequestMock.mockResolvedValue(
       new Response("preview-success", { status: 200 }),
     );
+    refreshProjectThumbnailMock.mockResolvedValue(undefined);
+    afterMock.mockImplementation((callback: () => void) => callback());
   });
 
   it("proxies the active successful deployment when the newest deployment failed", async () => {
@@ -110,6 +124,73 @@ describe("project preview route", () => {
         deploymentStatus: "stopped",
       }),
     );
+  });
+
+  it("backfills a missing thumbnail once after a successful preview response", async () => {
+    const successfulBuild = {
+      artifactRef: "project-artifact:local:dist:build_success",
+      createdAt: newer,
+      id: "build_success",
+      snapshotId: "snapshot_success",
+      status: "succeeded",
+      updatedAt: newer,
+    };
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([
+      {
+        build: successfulBuild,
+        buildId: successfulBuild.id,
+        createdAt: newer,
+        id: "deployment_success",
+        kind: "preview",
+        snapshotId: successfulBuild.snapshotId,
+        status: "running",
+        updatedAt: newer,
+      },
+    ]);
+
+    await GET(new Request("http://localhost/preview"), {
+      params: Promise.resolve({ id: "project_1", path: [] }),
+    });
+
+    expect(refreshProjectThumbnailMock).toHaveBeenCalledWith({
+      artifactRef: successfulBuild.artifactRef,
+      buildId: successfulBuild.id,
+      projectId: "project_1",
+    });
+  });
+
+  it("does not recapture a thumbnail already matching the successful build", async () => {
+    const successfulBuild = {
+      artifactRef: "project-artifact:local:dist:build_success",
+      createdAt: newer,
+      id: "build_success",
+      snapshotId: "snapshot_success",
+      status: "succeeded",
+      updatedAt: newer,
+    };
+    prismaProjectFindFirstMock.mockResolvedValue({
+      id: "project_1",
+      thumbnailBuildId: successfulBuild.id,
+      thumbnailRef: "project-thumbnail:local:project_1",
+    });
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([
+      {
+        build: successfulBuild,
+        buildId: successfulBuild.id,
+        createdAt: newer,
+        id: "deployment_success",
+        kind: "preview",
+        snapshotId: successfulBuild.snapshotId,
+        status: "running",
+        updatedAt: newer,
+      },
+    ]);
+
+    await GET(new Request("http://localhost/preview"), {
+      params: Promise.resolve({ id: "project_1", path: [] }),
+    });
+
+    expect(refreshProjectThumbnailMock).not.toHaveBeenCalled();
   });
 
   it("returns an actionable HTML panel when no preview artifact exists", async () => {

@@ -1,8 +1,8 @@
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import path from "node:path";
-
-import { chromium, type BrowserContext } from "playwright-core";
 
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
@@ -74,8 +74,6 @@ export async function refreshProjectThumbnail({
   if (!isCaptureEnabled()) {
     return;
   }
-  latestRequestedBuild.set(projectId, buildId);
-
   if (!force) {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
@@ -85,6 +83,8 @@ export async function refreshProjectThumbnail({
       return;
     }
   }
+
+  latestRequestedBuild.set(projectId, buildId);
 
   if (activeCaptures >= positiveInt("PROJECT_THUMBNAIL_CONCURRENCY", 1)) {
     devLog("thumbnail", "capture.skipped", {
@@ -153,88 +153,147 @@ export async function refreshProjectThumbnail({
 
 export async function captureProjectThumbnail(artifactRef: string) {
   const files = await readProjectDistArtifact(artifactRef);
-  return withTimeout(
-    runThumbnailCapture(files),
+  return runThumbnailCapture(
+    files,
     positiveInt("PROJECT_THUMBNAIL_TIMEOUT_MS", 15_000),
   );
 }
 
 async function runThumbnailCapture(
   files: Awaited<ReturnType<typeof readProjectDistArtifact>>,
+  timeout: number,
 ) {
   const server = await startArtifactServer(files);
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
-  let context: BrowserContext | null = null;
-  const timeout = positiveInt("PROJECT_THUMBNAIL_TIMEOUT_MS", 15_000);
 
   try {
-    browser = await chromium.launch({
-      executablePath: process.env.PROJECT_THUMBNAIL_BROWSER_PATH || undefined,
-      headless: true,
-    });
-    context = await browser.newContext({
-      colorScheme: "light",
-      locale: "id-ID",
-      reducedMotion: "reduce",
-      timezoneId: "Asia/Jakarta",
-      viewport: { height: 900, width: 1440 },
-    });
-    const page = await context.newPage();
-    page.setDefaultTimeout(timeout);
-    page.setDefaultNavigationTimeout(timeout);
-    await page.route("**/*", async (route) => {
-      const url = new URL(route.request().url());
-      if (
-        url.origin === server.origin ||
-        url.protocol === "data:" ||
-        url.protocol === "blob:"
-      ) {
-        await route.continue();
-      } else {
-        await route.abort("blockedbyclient");
-      }
-    });
-    await page.goto(server.origin, { waitUntil: "domcontentloaded" });
-    await page.evaluate(() =>
-      Promise.race([
-        document.fonts.ready,
-        new Promise((resolve) => setTimeout(resolve, 1000)),
-      ]),
-    );
-    await page.addStyleTag({
-      content:
-        "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}",
-    });
-    await page.waitForTimeout(350);
-    const bytes = Buffer.from(
-      await page.screenshot({ fullPage: false, quality: 80, type: "jpeg" }),
-    );
+    const bytes = await captureWithNode({ origin: server.origin, timeout });
     assertJpeg(bytes);
     return bytes;
   } finally {
-    await context?.close().catch(() => undefined);
-    await browser?.close().catch(() => undefined);
     await stopServer(server.server);
   }
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error("Project thumbnail capture timed out.")),
-          timeoutMs,
-        );
-      }),
-    ]);
-  } finally {
-    if (timer) {
+function captureWithNode({
+  origin,
+  timeout,
+}: {
+  origin: string;
+  timeout: number;
+}) {
+  const nodePath = process.env.PROJECT_THUMBNAIL_NODE_PATH || "node";
+  const scriptPath = path.resolve(
+    process.cwd(),
+    "scripts/capture-project-thumbnail.cjs",
+  );
+
+  return new Promise<Buffer>((resolve, reject) => {
+    const child = spawn(
+      nodePath,
+      [
+        scriptPath,
+        origin,
+        resolveBrowserExecutablePath() || "",
+        String(timeout),
+      ],
+      {
+        detached: process.platform !== "win32",
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      },
+    );
+    const output: Buffer[] = [];
+    const errors: Buffer[] = [];
+    let outputBytes = 0;
+    let settled = false;
+    const timer = setTimeout(() => {
+      finish(new Error("Project thumbnail capture timed out."));
+      void terminateProcessTree(child.pid);
+    }, timeout);
+
+    function finish(error?: Error, bytes?: Buffer) {
+      if (settled) {
+        return;
+      }
+      settled = true;
       clearTimeout(timer);
+      if (error) {
+        reject(error);
+      } else {
+        resolve(bytes || Buffer.alloc(0));
+      }
+    }
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      outputBytes += chunk.length;
+      if (outputBytes > MAX_BYTES) {
+        finish(new Error("Project thumbnail exceeds size limit."));
+        void terminateProcessTree(child.pid);
+        return;
+      }
+      output.push(chunk);
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      if (Buffer.concat(errors).length < 2048) {
+        errors.push(chunk);
+      }
+    });
+    child.once("error", (error) => finish(error));
+    child.once("close", (code) => {
+      if (code !== 0) {
+        const detail = Buffer.concat(errors).toString("utf8").trim();
+        finish(
+          new Error(
+            `Project thumbnail renderer failed${detail ? `: ${detail.slice(0, 1000)}` : "."}`,
+          ),
+        );
+        return;
+      }
+      finish(undefined, Buffer.concat(output));
+    });
+  });
+}
+
+async function terminateProcessTree(pid: number | undefined) {
+  if (!pid) {
+    return;
+  }
+  if (process.platform === "win32") {
+    const taskkill = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    await new Promise<void>((resolve) =>
+      taskkill.once("close", () => resolve()),
+    );
+    return;
+  }
+  try {
+    process.kill(-pid, "SIGTERM");
+  } catch {
+    process.kill(pid, "SIGTERM");
+  }
+}
+
+function resolveBrowserExecutablePath() {
+  const configured = process.env.PROJECT_THUMBNAIL_BROWSER_PATH?.trim();
+  if (configured) {
+    return configured;
+  }
+
+  if (process.platform === "win32") {
+    const chrome = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+    if (existsSync(chrome)) {
+      return chrome;
+    }
+
+    const edge = "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe";
+    if (existsSync(edge)) {
+      return edge;
     }
   }
+
+  return undefined;
 }
 
 function resolveRoot(rootDir?: string) {
@@ -326,5 +385,6 @@ function normalizeUrlPath(value: string) {
 }
 
 function stopServer(server: Server) {
+  server.closeAllConnections?.();
   return new Promise<void>((resolve) => server.close(() => resolve()));
 }

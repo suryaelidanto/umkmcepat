@@ -143,7 +143,8 @@ Project deletion removes thumbnail bytes best-effort after an ownership-scoped d
 - Browser timezone: `Asia/Jakarta` when supported.
 - Reduced motion: enabled.
 - Animations, transitions, and caret are disabled before capture.
-- Wait sequence: DOM loaded, fonts ready, bounded short stabilization delay.
+- Wait sequence: DOM loaded, fonts ready for at most one second, bounded short stabilization delay.
+- Renderer: disposable Node subprocess; timeout terminates its full process tree.
 - Total capture timeout: configurable, default `15_000 ms`.
 - Capture concurrency: configurable, default `1`.
 

@@ -5,15 +5,19 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  captureProjectThumbnail,
   deleteProjectThumbnail,
   readProjectThumbnail,
   writeProjectThumbnail,
 } from "./project-thumbnail";
+import { writeProjectDistArtifact } from "./runtime-artifacts";
 
 let tempDir = "";
+const originalEnv = { ...process.env };
 
 describe("project thumbnails", () => {
   afterEach(async () => {
+    process.env = { ...originalEnv };
     if (tempDir) {
       await rm(tempDir, { force: true, recursive: true });
       tempDir = "";
@@ -60,6 +64,34 @@ describe("project thumbnails", () => {
       }),
     ).rejects.toThrow("Invalid project thumbnail JPEG");
   });
+
+  it.skipIf(process.env.RUN_BROWSER_INTEGRATION !== "true")(
+    "captures a JPEG through the isolated Node renderer",
+    async () => {
+      tempDir = await mkdtemp(
+        path.join(os.tmpdir(), "umkm-thumbnail-artifact-"),
+      );
+      process.env.PROJECT_ARTIFACT_DIR = tempDir;
+      process.env.PROJECT_THUMBNAIL_TIMEOUT_MS = "30000";
+      const artifactRef = await writeProjectDistArtifact({
+        artifactId: "build_1",
+        files: [
+          {
+            content: "<!doctype html><title>Preview</title><h1>Website</h1>",
+            contentType: "text/html; charset=utf-8",
+            path: "index.html",
+          },
+        ],
+        rootDir: tempDir,
+      });
+
+      const bytes = await captureProjectThumbnail(artifactRef);
+
+      expect(bytes.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+      expect(bytes.subarray(-2)).toEqual(Buffer.from([0xff, 0xd9]));
+    },
+    45_000,
+  );
 
   it("deletes the current project thumbnail", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkm-thumbnail-"));

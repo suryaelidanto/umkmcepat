@@ -18,7 +18,7 @@
     "graph:tree": "graphify tree --label umkmcepat",
     "graph:update": "graphify update . && graphify cluster-only . --no-label && graphify tree --label umkmcepat",
     "infra": "docker compose --profile ai --profile langfuse up -d",
-    "infra:down": "docker compose down",
+    "infra:down": "bun scripts/infra-down.ts",
     "infra:logs": "docker compose logs -f",
     "infra:minimal": "docker compose up -d",
     "infra:ps": "docker compose ps",

@@ -1,8 +1,11 @@
+import { after } from "next/server";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
+import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import {
   applyPreviewSandboxHeaders,
   injectPreviewAnnotationBridge,
@@ -60,7 +63,7 @@ async function getPreviewResponse({
 }) {
   const project = await prisma.project.findFirst({
     where: { id, userId },
-    select: { id: true },
+    select: { id: true, thumbnailBuildId: true, thumbnailRef: true },
   });
 
   if (!project) {
@@ -97,6 +100,11 @@ async function getPreviewResponse({
   const deployment = selectActivePreviewDeployment(deployments);
 
   if (deployment?.build?.artifactRef) {
+    scheduleThumbnailRecovery({
+      artifactRef: deployment.build.artifactRef,
+      buildId: deployment.build.id,
+      project,
+    });
     const response = await proxyDeploymentRequest({
       assetRewrite: { projectId: project.id },
       deploymentId: deployment.id,
@@ -149,6 +157,32 @@ async function getPreviewResponse({
       ),
     },
   );
+}
+
+function scheduleThumbnailRecovery({
+  artifactRef,
+  buildId,
+  project,
+}: {
+  artifactRef: string;
+  buildId: string;
+  project: {
+    id: string;
+    thumbnailBuildId: string | null;
+    thumbnailRef: string | null;
+  };
+}) {
+  if (project.thumbnailRef && project.thumbnailBuildId === buildId) {
+    return;
+  }
+
+  after(async () => {
+    await refreshProjectThumbnail({
+      artifactRef,
+      buildId,
+      projectId: project.id,
+    });
+  });
 }
 
 function createPreviewIssueResponse({

@@ -19,7 +19,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PROJECT_THUMBNAIL_BROWSER_PATH=/usr/bin/chromium-browser
 
-RUN apk add --no-cache chromium \
+RUN apk add --no-cache chromium nodejs \
   && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
@@ -30,6 +30,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.ts ./next.config.ts
+COPY --from=builder /app/scripts/capture-project-thumbnail.cjs ./scripts/capture-project-thumbnail.cjs
 
 RUN mkdir -p .data/uploads .data/project-artifacts .data/project-thumbnails \
   && chown -R nextjs:nodejs /app
