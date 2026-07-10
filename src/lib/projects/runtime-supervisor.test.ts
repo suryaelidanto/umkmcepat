@@ -8,6 +8,7 @@ import { writeProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import {
   createLocalProcessRuntimeSupervisor,
   createNoopRuntimeSupervisor,
+  stopSupersededPreviewDeployments,
 } from "@/lib/projects/runtime-supervisor";
 
 let tempDir = "";
@@ -35,6 +36,46 @@ describe("noop runtime supervisor", () => {
     await expect(
       supervisor.resolveDeploymentTarget("deployment_1"),
     ).resolves.toBeNull();
+  });
+
+  it("stops running preview deployments superseded by a newer deployment", async () => {
+    const findMany = vi.fn(async () => [
+      { id: "deployment_old_1" },
+      { id: "deployment_old_2" },
+    ]);
+    const stopDeployment = vi.fn(async () => "stopped" as const);
+
+    await expect(
+      stopSupersededPreviewDeployments({
+        activeDeploymentId: "deployment_new",
+        prisma: {
+          projectDeployment: {
+            findMany,
+            findUnique: vi.fn(),
+            update: vi.fn(),
+          },
+          runtimeEvent: { create: vi.fn() },
+          runtimeNode: { upsert: vi.fn() },
+        },
+        projectId: "project_1",
+        supervisor: {
+          getDeploymentStatus: vi.fn(),
+          resolveDeploymentTarget: vi.fn(),
+          startDeployment: vi.fn(),
+          stopDeployment,
+        },
+      }),
+    ).resolves.toEqual(["deployment_old_1", "deployment_old_2"]);
+    expect(findMany).toHaveBeenCalledWith({
+      select: { id: true },
+      where: {
+        id: { not: "deployment_new" },
+        kind: "preview",
+        projectId: "project_1",
+        status: { in: ["starting", "running"] },
+      },
+    });
+    expect(stopDeployment).toHaveBeenCalledTimes(2);
   });
 
   it("starts and stops a generated dist artifact in a local runtime process", async () => {

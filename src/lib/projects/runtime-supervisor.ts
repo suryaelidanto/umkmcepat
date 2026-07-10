@@ -32,6 +32,7 @@ type RuntimeDeploymentRecord = {
 
 type RuntimeSupervisorPrisma = {
   projectDeployment: {
+    findMany?(input: unknown): Promise<Array<{ id: string }>>;
     findUnique(input: unknown): Promise<RuntimeDeploymentRecord | null>;
     update(input: unknown): Promise<unknown>;
   };
@@ -280,6 +281,43 @@ export function getRuntimeSupervisor() {
   }
 
   return runtimeSupervisor;
+}
+
+export async function stopSupersededPreviewDeployments({
+  activeDeploymentId,
+  prisma = defaultPrisma as unknown as RuntimeSupervisorPrisma,
+  projectId,
+  supervisor = getRuntimeSupervisor(),
+}: {
+  activeDeploymentId: string;
+  prisma?: RuntimeSupervisorPrisma;
+  projectId: string;
+  supervisor?: RuntimeSupervisor;
+}) {
+  const deployments = await prisma.projectDeployment.findMany?.({
+    select: { id: true },
+    where: {
+      id: { not: activeDeploymentId },
+      kind: "preview",
+      projectId,
+      status: { in: ["starting", "running"] },
+    },
+  });
+
+  if (!deployments?.length) {
+    return [];
+  }
+
+  const results = await Promise.allSettled(
+    deployments.map(({ id }) => supervisor.stopDeployment(id)),
+  );
+
+  return deployments
+    .filter((_, index) => {
+      const result = results[index];
+      return result.status === "fulfilled" && result.value === "stopped";
+    })
+    .map(({ id }) => id);
 }
 
 async function findDeployment(

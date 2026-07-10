@@ -11,6 +11,7 @@ const {
   prismaProjectFindFirstMock,
   prismaProjectFindUniqueMock,
   prismaQueryRawMock,
+  stopSupersededPreviewDeploymentsMock,
   streamTextMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
@@ -26,6 +27,7 @@ const {
   prismaProjectFindFirstMock: vi.fn(),
   prismaProjectFindUniqueMock: vi.fn(),
   prismaQueryRawMock: vi.fn(),
+  stopSupersededPreviewDeploymentsMock: vi.fn(async () => []),
   streamTextMock: vi.fn(),
 }));
 
@@ -39,6 +41,9 @@ vi.mock("@/lib/projects/project-operation", () => ({
   claimProjectOperation: claimProjectOperationMock,
   finalizeProjectOperation: finalizeProjectOperationMock,
   renewProjectOperation: vi.fn(async () => true),
+}));
+vi.mock("@/lib/projects/runtime-supervisor", () => ({
+  stopSupersededPreviewDeployments: stopSupersededPreviewDeploymentsMock,
 }));
 vi.mock("@/lib/projects/stale-builds", () => ({
   markStaleProjectBuilds: markStaleProjectBuildsMock,

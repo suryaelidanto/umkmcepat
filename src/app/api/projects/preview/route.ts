@@ -450,7 +450,7 @@ async function handleStructuredDiscussTurn({
 
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
-    onFinish: async ({ messages }) => {
+    onFinish: async ({ messages, responseMessage }) => {
       let safeMessages = stripTransportDiagnosticMessages(
         dedupeUiMessages(parseProjectChatMessages(messages)),
       );
@@ -483,10 +483,7 @@ async function handleStructuredDiscussTurn({
         });
       }
 
-      if (
-        didWorkspaceToolUpdate &&
-        !safeMessages.some(hasWorkspaceToolOutput)
-      ) {
+      if (didWorkspaceToolUpdate && !hasWorkspaceToolOutput(responseMessage)) {
         safeMessages = [
           ...safeMessages,
           createPersistedWorkspaceToolMessage(workspaceTurn),
@@ -587,11 +584,13 @@ async function repairMissingWorkspaceTool({
   }
 }
 
-function hasWorkspaceToolOutput(message: UIMessage) {
-  return message.parts.some(
-    (part) =>
-      part.type === "tool-setWorkspaceUi" &&
-      (part as { state?: unknown }).state === "output-available",
+function hasWorkspaceToolOutput(message?: UIMessage) {
+  return Boolean(
+    message?.parts.some(
+      (part) =>
+        part.type === "tool-setWorkspaceUi" &&
+        (part as { state?: unknown }).state === "output-available",
+    ),
   );
 }
 

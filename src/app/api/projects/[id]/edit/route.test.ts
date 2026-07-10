@@ -18,6 +18,7 @@ const {
   prismaProjectUpdateMock,
   prismaRuntimeEventCreateMock,
   prismaExecuteRawMock,
+  stopSupersededPreviewDeploymentsMock,
   writeProjectDistArtifactMock,
   writeProjectSourceArtifactMock,
 } = vi.hoisted(() => ({
@@ -38,6 +39,7 @@ const {
   prismaProjectUpdateMock: vi.fn(),
   prismaRuntimeEventCreateMock: vi.fn(),
   prismaExecuteRawMock: vi.fn(),
+  stopSupersededPreviewDeploymentsMock: vi.fn(async () => []),
   writeProjectDistArtifactMock: vi.fn(),
   writeProjectSourceArtifactMock: vi.fn(),
 }));
@@ -80,6 +82,9 @@ vi.mock("@/lib/prisma", () => {
 });
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(async () => null),
+}));
+vi.mock("@/lib/projects/runtime-supervisor", () => ({
+  stopSupersededPreviewDeployments: stopSupersededPreviewDeploymentsMock,
 }));
 vi.mock("@/lib/projects/source-edit-agent", () => ({
   editGeneratedSourceWithAgent: editGeneratedSourceWithAgentMock,
@@ -290,6 +295,10 @@ describe("project edit route", () => {
       buildStatus: "succeeded",
       deploymentId: "deployment_edit",
       snapshotId: "snapshot_edit",
+    });
+    expect(stopSupersededPreviewDeploymentsMock).toHaveBeenCalledWith({
+      activeDeploymentId: "deployment_edit",
+      projectId: "project_1",
     });
     expect(prismaProjectSnapshotCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({

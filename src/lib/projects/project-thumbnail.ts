@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import path from "node:path";
 
-import { chromium } from "playwright-core";
+import { chromium, type BrowserContext } from "playwright-core";
 
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
@@ -63,16 +63,28 @@ export async function deleteProjectThumbnail(
 export async function refreshProjectThumbnail({
   artifactRef,
   buildId,
+  force = false,
   projectId,
 }: {
   artifactRef: string;
   buildId: string;
+  force?: boolean;
   projectId: string;
 }) {
   if (!isCaptureEnabled()) {
     return;
   }
   latestRequestedBuild.set(projectId, buildId);
+
+  if (!force) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { thumbnailBuildId: true, thumbnailRef: true },
+    });
+    if (project?.thumbnailRef && project.thumbnailBuildId === buildId) {
+      return;
+    }
+  }
 
   if (activeCaptures >= positiveInt("PROJECT_THUMBNAIL_CONCURRENCY", 1)) {
     devLog("thumbnail", "capture.skipped", {
@@ -141,8 +153,18 @@ export async function refreshProjectThumbnail({
 
 export async function captureProjectThumbnail(artifactRef: string) {
   const files = await readProjectDistArtifact(artifactRef);
+  return withTimeout(
+    runThumbnailCapture(files),
+    positiveInt("PROJECT_THUMBNAIL_TIMEOUT_MS", 15_000),
+  );
+}
+
+async function runThumbnailCapture(
+  files: Awaited<ReturnType<typeof readProjectDistArtifact>>,
+) {
   const server = await startArtifactServer(files);
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
+  let context: BrowserContext | null = null;
   const timeout = positiveInt("PROJECT_THUMBNAIL_TIMEOUT_MS", 15_000);
 
   try {
@@ -150,7 +172,7 @@ export async function captureProjectThumbnail(artifactRef: string) {
       executablePath: process.env.PROJECT_THUMBNAIL_BROWSER_PATH || undefined,
       headless: true,
     });
-    const context = await browser.newContext({
+    context = await browser.newContext({
       colorScheme: "light",
       locale: "id-ID",
       reducedMotion: "reduce",
@@ -158,6 +180,8 @@ export async function captureProjectThumbnail(artifactRef: string) {
       viewport: { height: 900, width: 1440 },
     });
     const page = await context.newPage();
+    page.setDefaultTimeout(timeout);
+    page.setDefaultNavigationTimeout(timeout);
     await page.route("**/*", async (route) => {
       const url = new URL(route.request().url());
       if (
@@ -170,8 +194,13 @@ export async function captureProjectThumbnail(artifactRef: string) {
         await route.abort("blockedbyclient");
       }
     });
-    await page.goto(server.origin, { timeout, waitUntil: "domcontentloaded" });
-    await page.evaluate(() => document.fonts.ready);
+    await page.goto(server.origin, { waitUntil: "domcontentloaded" });
+    await page.evaluate(() =>
+      Promise.race([
+        document.fonts.ready,
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]),
+    );
     await page.addStyleTag({
       content:
         "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}",
@@ -181,11 +210,30 @@ export async function captureProjectThumbnail(artifactRef: string) {
       await page.screenshot({ fullPage: false, quality: 80, type: "jpeg" }),
     );
     assertJpeg(bytes);
-    await context.close();
     return bytes;
   } finally {
+    await context?.close().catch(() => undefined);
     await browser?.close().catch(() => undefined);
     await stopServer(server.server);
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Project thumbnail capture timed out.")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
   }
 }
 

@@ -339,18 +339,36 @@ describe("project preview AI route", () => {
       toUIMessageStreamResponse: ({
         onFinish,
       }: {
-        onFinish: (input: { messages: unknown[] }) => void | Promise<void>;
+        onFinish: (input: {
+          messages: unknown[];
+          responseMessage: unknown;
+        }) => void | Promise<void>;
       }) => {
+        const responseMessage = {
+          id: "assistant_1",
+          role: "assistant",
+          parts: [{ type: "text", text: "Nomor WA aktifnya apa?" }],
+        };
         finishCompleted = Promise.resolve(
           onFinish({
             messages: [
-              { id: "m1", role: "user", parts: [] },
               {
-                id: "assistant_1",
+                id: "assistant_old",
                 role: "assistant",
-                parts: [{ type: "text", text: "Nomor WA aktifnya apa?" }],
+                parts: [
+                  {
+                    type: "tool-setWorkspaceUi",
+                    state: "output-available",
+                    toolCallId: "old-tool",
+                    input: {},
+                    output: {},
+                  },
+                ],
               },
+              { id: "m1", role: "user", parts: [] },
+              responseMessage,
             ],
+            responseMessage,
           }),
         );
         return new Response("stream");

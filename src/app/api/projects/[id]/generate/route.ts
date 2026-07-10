@@ -39,6 +39,7 @@ import {
   writeProjectSourceArtifact,
 } from "@/lib/projects/runtime-artifacts";
 import { createRuntimeEventData } from "@/lib/projects/runtime-events";
+import { stopSupersededPreviewDeployments } from "@/lib/projects/runtime-supervisor";
 import {
   type ProjectBuildStatus,
   type ProjectDeploymentKind,
@@ -602,11 +603,17 @@ export async function POST(request: Request, { params }: RouteProps) {
         ]);
 
         if (artifactRef) {
-          await refreshProjectThumbnail({
-            artifactRef,
-            buildId: build.id,
-            projectId,
-          });
+          await Promise.allSettled([
+            refreshProjectThumbnail({
+              artifactRef,
+              buildId: build.id,
+              projectId,
+            }),
+            stopSupersededPreviewDeployments({
+              activeDeploymentId: deployment.id,
+              projectId,
+            }),
+          ]);
         }
 
         send("progress", {

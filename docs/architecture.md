@@ -111,6 +111,7 @@ Current runtime implementation:
 - Private preview traffic goes through `/api/projects/[id]/preview/[[...path]]`, cold-starting stopped preview deployments when needed.
 - Published traffic is permitted only on the configured generated-site origin. Legacy control-plane `/p/[slug]/[[...path]]` links redirect there after the origin is configured; same-origin generated serving is disabled in production.
 - Proxy traffic must re-check a `running` deployment before forwarding. If the process is gone or stale, the same request should start it again instead of requiring a second refresh.
+- Promoting a successful preview deployment stops older `starting`/`running` preview deployments for the same project best-effort. Historical deployment rows stay auditable, but superseded local processes must not consume runtime capacity indefinitely.
 - `bun run runtime:idle-stop` is the scale-to-zero worker entry for stopping idle preview deployments.
 - `PROJECT_RUNTIME_SUPERVISOR=noop` disables runtime starts for test/safe environments.
 
@@ -229,7 +230,7 @@ NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 
 Keep provider keys out of frontend env vars and git. `AI_CHAT_MODEL` should stay on a stronger structured-output-capable model because user-facing discussion consumes AI-generated JSON for both the visible assistant reply and the next workspace card. Fast/cheap models are acceptable for edit/moderation defaults, not mandatory brief progression.
 
-Langfuse is the optional AI observability backend. When `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` are set, Next.js initializes OpenTelemetry at startup and AI SDK calls emit traces for moderation, guided discussion, implementation-spec generation, chat compaction, source generation, and source edits. Trace metadata must include route/function/project context where available, but must not include raw provider secrets.
+Langfuse is the optional AI observability backend. When `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` are set, Next.js initializes OpenTelemetry at startup and AI SDK calls emit traces for moderation, guided discussion, implementation-spec generation, chat compaction, source generation, and source edits. Local bootstrap/tracer keys intentionally match in `.env.example`; shared environments must replace them. Trace metadata must include route/function/project context where available, but must not include raw provider secrets.
 
 To get cost calculations for non-openai names from 9Router (for example `cmc/deepseek/deepseek-v4-pro`), seed matching model definitions in Langfuse once per environment:
 
