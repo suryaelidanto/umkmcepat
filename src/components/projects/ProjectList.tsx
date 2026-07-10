@@ -23,21 +23,18 @@ type Project = {
 };
 
 type ProjectListProps = {
-  featured: Project;
-  initialOthers: Project[];
+  initialProjects: Project[];
   initialNextCursor: string | null;
   deleteProject: (formData: FormData) => Promise<void>;
 };
 
 export function ProjectList({
-  featured: initialFeatured,
-  initialOthers,
+  initialProjects,
   initialNextCursor,
   deleteProject,
 }: ProjectListProps) {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [featured, setFeatured] = useState<Project | null>(initialFeatured);
-  const [others, setOthers] = useState<Project[]>(initialOthers);
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [nextCursor, setNextCursor] = useState<string | null>(
     initialNextCursor,
   );
@@ -64,7 +61,7 @@ export function ProjectList({
         projects: Project[];
         nextCursor: string | null;
       };
-      setOthers((current) => [...current, ...data.projects]);
+      setProjects((current) => [...current, ...data.projects]);
       setNextCursor(data.nextCursor);
     } catch {
       toast.error("Gagal memuat website lain. Coba lagi.");
@@ -79,8 +76,6 @@ export function ProjectList({
     }
 
     const targetId = selectedProject.id;
-    const isDeletingFeatured = featured?.id === targetId;
-    const promotedProject = isDeletingFeatured ? (others[0] ?? null) : null;
     const formData = new FormData();
     formData.set("projectId", targetId);
 
@@ -88,15 +83,8 @@ export function ProjectList({
       try {
         await deleteProject(formData);
 
-        if (isDeletingFeatured) {
-          setFeatured(promotedProject);
-        }
-
-        setOthers((current) =>
-          current.filter(
-            (project) =>
-              project.id !== targetId && project.id !== promotedProject?.id,
-          ),
+        setProjects((current) =>
+          current.filter((project) => project.id !== targetId),
         );
 
         toast.success("Website dihapus.");
@@ -107,9 +95,7 @@ export function ProjectList({
     });
   }
 
-  const totalCount = (featured ? 1 : 0) + others.length;
-
-  if (!featured) {
+  if (!projects.length) {
     return (
       <div className="rounded-radius-2xl border border-dashed border-surface-warm-white/16 bg-surface-warm-white/[0.06] p-spacing-10 text-center">
         <h3 className="text-xl font-semibold tracking-[-0.04em]">
@@ -124,54 +110,29 @@ export function ProjectList({
 
   return (
     <>
-      <div className="space-y-spacing-8">
-        <FeaturedProject project={featured} onDelete={setSelectedProject} />
-
-        <section className="rounded-radius-3xl border border-surface-warm-white/10 bg-surface-warm-white/[0.045] px-spacing-6 py-spacing-6 sm:px-spacing-8 sm:py-spacing-7">
-          <div className="flex flex-wrap items-end justify-between gap-spacing-5 pb-spacing-5">
-            <div>
-              <h3 className="text-lg font-semibold tracking-[-0.04em] text-surface-warm-white">
-                Website lain
-              </h3>
-              <p className="mt-spacing-1 text-sm text-surface-warm-white/56">
-                {others.length
-                  ? `${totalCount} website tersimpan`
-                  : "Belum ada website lain"}
-              </p>
-            </div>
-          </div>
-
-          {others.length ? (
-            <div className="grid gap-spacing-3">
-              {others.map((project) => (
-                <ProjectRow
-                  key={project.id}
-                  project={project}
-                  onDelete={setSelectedProject}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-radius-2xl border border-dashed border-surface-warm-white/10 px-spacing-6 py-spacing-8 text-sm leading-6 text-surface-warm-white/56">
-              Website berikutnya yang kamu buat akan muncul di sini.
-            </p>
-          )}
-
-          {nextCursor && others.length > 0 ? (
-            <div className="mt-spacing-6 flex justify-center">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={loadMore}
-                disabled={isLoadingMore}
-                className="rounded-radius-lg border-surface-warm-white/14 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12"
-              >
-                {isLoadingMore ? "Memuat..." : "Muat lebih banyak"}
-              </Button>
-            </div>
-          ) : null}
-        </section>
+      <div className="grid gap-spacing-5 sm:grid-cols-2 lg:grid-cols-3">
+        {projects.map((project) => (
+          <ProjectCard
+            key={project.id}
+            project={project}
+            onDelete={setSelectedProject}
+          />
+        ))}
       </div>
+
+      {nextCursor ? (
+        <div className="mt-spacing-8 flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            className="rounded-radius-lg border-surface-warm-white/14 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12"
+          >
+            {isLoadingMore ? "Memuat..." : "Muat lebih banyak"}
+          </Button>
+        </div>
+      ) : null}
 
       <Dialog
         open={Boolean(selectedProject)}
@@ -212,7 +173,7 @@ export function ProjectList({
   );
 }
 
-function FeaturedProject({
+function ProjectCard({
   project,
   onDelete,
 }: {
@@ -220,93 +181,41 @@ function FeaturedProject({
   onDelete: (project: Project) => void;
 }) {
   return (
-    <article className="overflow-hidden rounded-radius-3xl border border-surface-warm-white/10 bg-surface-warm-white/[0.055]">
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)]">
-        <ProjectPreviewThumb
-          project={project}
-          className="min-h-44 lg:min-h-full"
-        />
-        <div className="flex min-h-72 flex-col p-spacing-8 sm:p-spacing-10 lg:p-spacing-11">
-          <p className="text-sm text-surface-warm-white/58">
-            Terakhir dikerjakan
-          </p>
-          <h3 className="mt-spacing-5 max-w-2xl text-balance text-[clamp(2rem,4vw,4.2rem)] font-semibold leading-[0.98] tracking-[-0.065em] text-surface-warm-white">
-            <Link
-              href={`/projects/${project.id}`}
-              className="rounded-radius-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-surface-warm-white"
-            >
-              {project.title}
-            </Link>
-          </h3>
-          <p className="mt-spacing-7 text-sm text-surface-warm-white/58">
-            Diubah {formatDate(project.updatedAt)}
-          </p>
-          <div className="mt-auto flex flex-wrap items-center gap-spacing-4 pt-spacing-10">
-            <Button
-              asChild
-              className="rounded-radius-lg bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/90"
-            >
-              <Link href={`/projects/${project.id}`}>Buka</Link>
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => onDelete(project)}
-              className="rounded-radius-lg bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Hapus
-            </Button>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function ProjectRow({
-  project,
-  onDelete,
-}: {
-  project: Project;
-  onDelete: (project: Project) => void;
-}) {
-  return (
-    <div className="group grid grid-cols-[52px_1fr] gap-spacing-5 rounded-radius-2xl px-spacing-4 py-spacing-4 transition-colors hover:bg-surface-warm-white/[0.055] sm:grid-cols-[60px_1fr_auto] sm:items-center sm:px-spacing-5">
-      <ProjectPreviewThumb
-        project={project}
-        className="h-14 rounded-radius-xl sm:h-16"
-      />
-      <div className="min-w-0">
-        <Link
-          href={`/projects/${project.id}`}
-          className="line-clamp-1 text-base font-semibold tracking-[-0.035em] text-surface-warm-white outline-none hover:underline focus-visible:ring-2 focus-visible:ring-surface-warm-white"
-        >
-          {project.title}
-        </Link>
+    <article className="group flex flex-col overflow-hidden rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/[0.045] transition hover:bg-surface-warm-white/[0.06]">
+      <ProjectPreviewThumb project={project} className="h-40 sm:h-44" />
+      <div className="flex min-h-36 flex-1 flex-col p-spacing-5">
+        <h3 className="line-clamp-2 text-base font-semibold tracking-[-0.035em] text-surface-warm-white">
+          <Link
+            href={`/projects/${project.id}`}
+            className="rounded-radius-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-surface-warm-white"
+          >
+            {project.title}
+          </Link>
+        </h3>
         <p className="mt-spacing-2 text-sm text-surface-warm-white/54">
           Diubah {formatDate(project.updatedAt)}
         </p>
+        <div className="mt-auto flex items-center gap-spacing-3 pt-spacing-5">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="rounded-radius-lg border-surface-warm-white/12 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12"
+          >
+            <Link href={`/projects/${project.id}`}>Buka</Link>
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={() => onDelete(project)}
+            className="rounded-radius-lg bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Hapus
+          </Button>
+        </div>
       </div>
-      <div className="col-span-2 grid grid-cols-2 gap-spacing-3 sm:col-span-1 sm:col-start-auto sm:flex sm:items-center">
-        <Button
-          asChild
-          variant="outline"
-          size="sm"
-          className="w-full rounded-radius-lg border-surface-warm-white/12 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12 sm:w-auto"
-        >
-          <Link href={`/projects/${project.id}`}>Buka</Link>
-        </Button>
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          onClick={() => onDelete(project)}
-          className="w-full rounded-radius-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:w-auto"
-        >
-          Hapus
-        </Button>
-      </div>
-    </div>
+    </article>
   );
 }
 

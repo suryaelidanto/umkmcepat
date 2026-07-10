@@ -40,8 +40,7 @@ type Story = StoryObj<typeof meta>;
 export const Full: Story = {
   args: {
     deleteProject: async () => undefined,
-    featured: mockProjects[0],
-    initialOthers: mockProjects.slice(1),
+    initialProjects: mockProjects,
     initialNextCursor: null,
   },
   render: (args) => (
@@ -54,8 +53,7 @@ export const Full: Story = {
 export const SingleProject: Story = {
   args: {
     deleteProject: async () => undefined,
-    featured: mockProjects[0],
-    initialOthers: [],
+    initialProjects: [mockProjects[0]],
     initialNextCursor: null,
   },
   render: Full.render,

@@ -230,6 +230,14 @@ Keep provider keys out of frontend env vars and git. `AI_CHAT_MODEL` should stay
 
 Langfuse is the optional AI observability backend. When `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` are set, Next.js initializes OpenTelemetry at startup and AI SDK calls emit traces for moderation, guided discussion, implementation-spec generation, chat compaction, source generation, and source edits. Trace metadata must include route/function/project context where available, but must not include raw provider secrets.
 
+To get cost calculations for non-openai names from 9Router (for example `cmc/deepseek/deepseek-v4-pro`), seed matching model definitions in Langfuse once per environment:
+
+```bash
+bun run langfuse:seed-models
+```
+
+This script adds model catalog entries for configured `AI_MODELS` names that have pricing definitions.
+
 ## Storage
 
 Current implemented storage provider:

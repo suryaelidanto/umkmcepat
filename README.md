@@ -55,6 +55,12 @@ bun run dev
 
 `bun run infra` starts Postgres, 9Router, Headroom, and Langfuse.
 
+After setting Langfuse credentials in `.env`, seed model pricing for trace cost mapping:
+
+```bash
+bun run langfuse:seed-models
+```
+
 ```text
 App: http://localhost:3000
 9Router: http://localhost:20129

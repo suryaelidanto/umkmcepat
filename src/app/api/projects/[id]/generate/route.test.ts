@@ -1,21 +1,70 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, checkRateLimitMock, prismaProjectFindFirstMock } = vi.hoisted(
-  () => ({
-    authMock: vi.fn(),
-    checkRateLimitMock: vi.fn(async () => null),
-    prismaProjectFindFirstMock: vi.fn(),
-  }),
-);
+const {
+  authMock,
+  checkRateLimitMock,
+  claimProjectOperationMock,
+  finalizeProjectOperationMock,
+  markStaleProjectBuildsMock,
+  prismaProjectEditAttemptCreateMock,
+  prismaProjectEditAttemptUpdateManyMock,
+  prismaProjectFindFirstMock,
+  prismaProjectFindUniqueMock,
+  prismaQueryRawMock,
+  streamTextMock,
+} = vi.hoisted(() => ({
+  authMock: vi.fn(),
+  checkRateLimitMock: vi.fn(async () => null),
+  claimProjectOperationMock: vi.fn(async () => ({
+    claimed: true,
+    token: "operation-token",
+  })),
+  finalizeProjectOperationMock: vi.fn(async () => true),
+  markStaleProjectBuildsMock: vi.fn(async () => undefined),
+  prismaProjectEditAttemptCreateMock: vi.fn(async () => ({ id: "attempt_1" })),
+  prismaProjectEditAttemptUpdateManyMock: vi.fn(async () => ({ count: 1 })),
+  prismaProjectFindFirstMock: vi.fn(),
+  prismaProjectFindUniqueMock: vi.fn(),
+  prismaQueryRawMock: vi.fn(),
+  streamTextMock: vi.fn(),
+}));
 
+vi.mock("@/lib/ai", () => ({
+  getAiModel: vi.fn(() => "test-model"),
+  getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
+}));
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
-vi.mock("@/lib/rate-limit", () => ({
-  checkRateLimit: checkRateLimitMock,
+vi.mock("@/lib/dev-log", () => ({ devLog: vi.fn() }));
+vi.mock("@/lib/projects/project-operation", () => ({
+  claimProjectOperation: claimProjectOperationMock,
+  finalizeProjectOperation: finalizeProjectOperationMock,
+  renewProjectOperation: vi.fn(async () => true),
+}));
+vi.mock("@/lib/projects/stale-builds", () => ({
+  markStaleProjectBuilds: markStaleProjectBuildsMock,
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    project: { findFirst: prismaProjectFindFirstMock },
+    project: {
+      findFirst: prismaProjectFindFirstMock,
+      findUnique: prismaProjectFindUniqueMock,
+    },
+    projectEditAttempt: {
+      create: prismaProjectEditAttemptCreateMock,
+      updateMany: prismaProjectEditAttemptUpdateManyMock,
+    },
+    $queryRaw: prismaQueryRawMock,
   },
+}));
+vi.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: checkRateLimitMock,
+}));
+vi.mock("ai", () => ({
+  jsonSchema: vi.fn((schema: unknown) => schema),
+  Output: {
+    object: vi.fn((opts: unknown) => opts),
+  },
+  streamText: streamTextMock,
 }));
 
 import { POST } from "./route";
@@ -45,5 +94,65 @@ describe("project generate route", () => {
     expect(response.status).toBe(503);
     expect(body.code).toBe("generated_build_execution_unavailable");
     expect(prismaProjectFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a stream error when model output fails during implementation spec generation", async () => {
+    authMock.mockResolvedValue({
+      expires: new Date().toISOString(),
+      user: { id: "user_1" },
+    });
+    prismaProjectFindFirstMock
+      .mockResolvedValueOnce({
+        id: "project_1",
+        buildStatus: "ready",
+        prompt: "Saya jual bakso",
+        status: "ready",
+      })
+      .mockResolvedValueOnce({
+        id: "project_1",
+        buildStatus: "ready",
+        status: "ready",
+      });
+    prismaQueryRawMock.mockResolvedValueOnce([
+      {
+        brief: {
+          confidence: 100,
+          openQuestions: [],
+        },
+      },
+    ]);
+    streamTextMock.mockReturnValueOnce({
+      partialOutputStream: {
+        [Symbol.asyncIterator]: async function* () {
+          throw new Error(
+            '[provider transport error: {"type":"server_error","message":"Network connection lost."}]',
+          );
+        },
+      },
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/projects/project_1/generate", {
+        body: JSON.stringify({ force: true }),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "project_1" }) },
+    );
+
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain("event: error");
+    expect(body).toContain("AI belum bisa membangun website ini.");
+    expect(body).not.toContain("[provider transport error:");
+    expect(finalizeProjectOperationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          buildStatus: "failed",
+          status: "failed",
+        }),
+      }),
+    );
+    expect(prismaProjectEditAttemptUpdateManyMock).toHaveBeenCalled();
   });
 });

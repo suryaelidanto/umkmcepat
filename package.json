@@ -24,6 +24,7 @@
     "infra:ps": "docker compose ps",
     "postinstall": "prisma generate",
     "knip": "knip",
+    "langfuse:seed-models": "bun scripts/langfuse-seed-models.ts",
     "lighthouse": "node scripts/run-lighthouse.mjs",
     "lighthouse:auth": "node scripts/run-lighthouse.mjs auth",
     "lighthouse:auth:desktop": "node scripts/run-lighthouse.mjs auth-desktop",

@@ -135,7 +135,7 @@ describe("workspace chat sync", () => {
     ).toBe(false);
   });
 
-  it("ignores CommandCode transport errors as assistant content", () => {
+  it("ignores AI transport diagnostics as assistant content", () => {
     const card: WorkspaceCard = {
       type: "question",
       question: {
@@ -149,7 +149,7 @@ describe("workspace chat sync", () => {
 
     expect(
       isUserVisibleAssistantText(
-        '[CommandCode error: {"type":"server_error"}]',
+        '[Provider transport error: {"type":"server_error"}]',
       ),
     ).toBe(false);
     expect(
@@ -173,7 +173,7 @@ describe("workspace chat sync", () => {
             parts: [
               {
                 type: "text",
-                text: '[CommandCode error: {"type":"server_error"}]',
+                text: '[Provider transport error: {"type":"server_error"}]',
               },
             ],
           },

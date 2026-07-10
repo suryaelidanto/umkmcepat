@@ -24,7 +24,7 @@ export default async function HomePage() {
         prisma.project.findMany({
           where: { userId: session.user.id },
           orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-          take: 1 + PROJECT_PAGE_SIZE + 1,
+          take: PROJECT_PAGE_SIZE + 1,
           select: {
             buildStatus: true,
             id: true,
@@ -39,11 +39,12 @@ export default async function HomePage() {
       ])
     : [[], null];
   const greetingName = getGreetingName(user?.name || session?.user?.name);
-  const [featured, ...rest] = projects;
-  const hasMore = rest.length > PROJECT_PAGE_SIZE;
-  const initialOthers = hasMore ? rest.slice(0, PROJECT_PAGE_SIZE) : rest;
+  const hasMore = projects.length > PROJECT_PAGE_SIZE;
+  const initialProjects = hasMore
+    ? projects.slice(0, PROJECT_PAGE_SIZE)
+    : projects;
   const initialNextCursor = hasMore
-    ? encodeProjectCursor(initialOthers[initialOthers.length - 1])
+    ? encodeProjectCursor(initialProjects[initialProjects.length - 1])
     : null;
 
   async function deleteProject(formData: FormData) {
@@ -112,26 +113,13 @@ export default async function HomePage() {
                   </p>
                 </div>
 
-                {featured ? (
-                  <div className="mt-spacing-10">
-                    <ProjectList
-                      featured={featured}
-                      initialOthers={initialOthers}
-                      initialNextCursor={initialNextCursor}
-                      deleteProject={deleteProject}
-                    />
-                  </div>
-                ) : (
-                  <div className="mt-spacing-10 rounded-radius-2xl border border-dashed border-surface-warm-white/16 bg-surface-warm-white/[0.06] p-spacing-10 text-center">
-                    <h3 className="text-xl font-semibold tracking-[-0.04em]">
-                      Belum ada website
-                    </h3>
-                    <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/58">
-                      Tulis kebutuhan usahamu di atas. Website barumu akan
-                      muncul di sini.
-                    </p>
-                  </div>
-                )}
+                <div className="mt-spacing-10">
+                  <ProjectList
+                    initialProjects={initialProjects}
+                    initialNextCursor={initialNextCursor}
+                    deleteProject={deleteProject}
+                  />
+                </div>
               </div>
             </div>
           </ScrollReveal>

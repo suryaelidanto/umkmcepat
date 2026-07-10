@@ -207,10 +207,13 @@ function isWorkspaceUiToolPart(part: UIMessage["parts"][number]) {
   );
 }
 
+const AI_TRANSPORT_ERROR_PATTERN =
+  /^\[[\s\S]*?\b(?:error|failure|exception|retry|rate[-_ ]?limit)\b[\s\S]*\]$/i;
+
 export function isUserVisibleAssistantText(text: string) {
   const value = text.trim();
 
-  return Boolean(value) && !/^\[CommandCode error:/i.test(value);
+  return Boolean(value) && !AI_TRANSPORT_ERROR_PATTERN.test(value);
 }
 
 export function shouldShowBuildRecommendationComposer({

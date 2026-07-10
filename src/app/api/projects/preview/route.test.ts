@@ -1,3 +1,4 @@
+import { type UIMessage } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -84,6 +85,7 @@ vi.mock("ai", () => ({
 }));
 
 import { POST } from "./route";
+import { stripTransportDiagnosticMessages } from "./strip-transport-diagnostic-messages";
 
 function authed() {
   authMock.mockResolvedValueOnce({
@@ -376,5 +378,73 @@ describe("project preview AI route", () => {
     expect(finishCompleted).toBe(true);
     expect(executeRawMock.mock.calls.length).toBe(3);
     vi.useRealTimers();
+  });
+
+  it("strips transport diagnostic messages before persistence", () => {
+    const messages = [
+      {
+        id: "assistant_error",
+        role: "assistant",
+        parts: [
+          {
+            type: "text",
+            text: '[provider transport error: {"type":"server_error","message":"Network connection lost."}]',
+          },
+          {
+            type: "text",
+            text: "Lanjut ke pertanyaan berikutnya.",
+          },
+        ],
+      },
+      {
+        id: "assistant_tool",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-setWorkspaceUi",
+            state: "output-available",
+            toolName: "setWorkspaceUi",
+            toolCallId: "tool-1",
+            args: {},
+            result: null,
+          } as unknown,
+        ],
+      },
+      {
+        id: "assistant_only_command",
+        role: "assistant",
+        parts: [
+          {
+            type: "text",
+            text: ' [provider transport error: {"type":"server_error"}] ',
+          },
+        ],
+      },
+      {
+        id: "user_input",
+        role: "user",
+        parts: [
+          {
+            type: "text",
+            text: "Aku mau lanjut",
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const cleaned = stripTransportDiagnosticMessages(messages);
+
+    expect(cleaned).toHaveLength(3);
+    expect(cleaned[0]).toEqual({
+      ...messages[0],
+      parts: [
+        {
+          type: "text",
+          text: "Lanjut ke pertanyaan berikutnya.",
+        },
+      ],
+    });
+    expect(cleaned[1]).toEqual(messages[1]);
+    expect(cleaned[2]).toEqual(messages[3]);
   });
 });

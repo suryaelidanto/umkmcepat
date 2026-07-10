@@ -27,6 +27,14 @@ Create/copy Langfuse project API keys in Langfuse, then set `LANGFUSE_BASE_URL`,
 
 Langfuse local Compose disables public signup (`AUTH_DISABLE_SIGNUP=true`); use the bootstrap admin account only. In production, keep Langfuse behind Cloudflare Access/reverse-proxy auth and never expose its backing Postgres, ClickHouse, Redis, or MinIO services.
 
+After Langfuse boots and API keys are in `.env`, seed model pricing IDs used by 9Router:
+
+```bash
+bun run langfuse:seed-models
+```
+
+Run this whenever you change `AI_MODELS` or deploy to a fresh Langfuse database so traces can map usage to cost tiers.
+
 Use local Node/Bun for the Next.js dev server because bind-mounted Docker dev can make `.next` and file watching stale on some host filesystems.
 
 If `.next` gets stale, stop the dev server, remove `.next`, then restart `bun run dev`.
