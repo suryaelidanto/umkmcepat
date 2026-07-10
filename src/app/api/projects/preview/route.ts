@@ -10,7 +10,7 @@ import {
 } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
-import { getChatAiModel } from "@/lib/ai-models";
+import { getChatAiModel, getEditAiModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
@@ -45,6 +45,7 @@ type PreviewRequest = {
   messages?: UIMessage[];
   mode?: "discuss" | "build";
   projectId?: string;
+  repairWorkspace?: boolean;
   workspaceAnswers?: unknown;
 };
 
@@ -143,6 +144,7 @@ export async function POST(request: Request) {
   };
   const memoryFacts = parseProjectMemoryFacts(chatRow?.memoryFacts);
   const incoming = body.message ? [body.message] : (body.messages ?? []);
+  const repairWorkspace = body.repairWorkspace === true;
 
   if (incoming.length > 1) {
     return Response.json(
@@ -211,18 +213,27 @@ export async function POST(request: Request) {
     workspaceAnswerPatch,
   );
 
-  if (!incoming.length) {
+  if (!incoming.length && !repairWorkspace) {
     return Response.json(
       { message: "Pesan tidak boleh kosong." },
       { status: 400 },
     );
   }
 
+  if (repairWorkspace && mode !== "discuss") {
+    return Response.json(
+      { message: "Pilihan hanya bisa disiapkan saat diskusi." },
+      { status: 400 },
+    );
+  }
+
   // Persist the user's answer before AI work. The discuss path below writes
   // assistant text + workspace card atomically from one structured AI output.
-  await prisma.$executeRaw`
-    UPDATE "Project" SET "brief" = ${JSON.stringify(effectiveBrief)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
-  `;
+  if (!repairWorkspace) {
+    await prisma.$executeRaw`
+      UPDATE "Project" SET "brief" = ${JSON.stringify(effectiveBrief)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
+    `;
+  }
 
   const messages = await validateUIMessages({
     messages: dedupeUiMessages(
@@ -234,6 +245,17 @@ export async function POST(request: Request) {
     messages,
     summary: chatSummary,
   });
+
+  if (repairWorkspace) {
+    return repairWorkspaceCard({
+      chatContext,
+      effectiveBrief,
+      messages,
+      project,
+      storedWorkspaceCard,
+      userId,
+    });
+  }
 
   if (mode === "discuss") {
     return handleStructuredDiscussTurn({
@@ -333,6 +355,144 @@ export async function POST(request: Request) {
       }
     },
   });
+}
+
+async function repairWorkspaceCard({
+  chatContext,
+  effectiveBrief,
+  messages,
+  project,
+  storedWorkspaceCard,
+  userId,
+}: {
+  chatContext: ReturnType<typeof buildProjectChatContext>;
+  effectiveBrief: ReturnType<typeof parseProjectBrief>;
+  messages: UIMessage[];
+  project: { id: string; prompt: string; status: string; title: string };
+  storedWorkspaceCard: ReturnType<typeof parseWorkspaceCard>;
+  userId: string;
+}) {
+  const modelName = getChatAiModel();
+  const fallbackModel = getEditAiModel();
+  const repairModels = [
+    modelName,
+    ...(fallbackModel === modelName ? [] : [fallbackModel]),
+  ];
+  const latestAnsweredQuestion = getLatestAnsweredQuestion(messages);
+  let workspaceTurn = normalizeWorkspaceTurn(
+    { workspaceCard: storedWorkspaceCard },
+    effectiveBrief,
+  );
+  let didWorkspaceToolUpdate = false;
+  const workspaceTools = {
+    setWorkspaceUi: tool({
+      description:
+        "Update the hidden UMKM Cepat workspace brief and interactive UI card. Call exactly once with the brief update and the next unanswered workspace card.",
+      inputSchema: workspaceTurnToolInputSchema,
+      execute: async (input: unknown) => {
+        workspaceTurn = normalizeWorkspaceTurn(input, effectiveBrief);
+        didWorkspaceToolUpdate = true;
+        return workspaceTurn;
+      },
+    }),
+  };
+  const systemPrompt = buildSystemPrompt({
+    context: chatContext.systemContext,
+    mode: "discuss",
+    brief: effectiveBrief,
+  });
+  const modelMessages = await convertToModelMessages(chatContext.messages, {
+    tools: workspaceTools,
+  });
+
+  for (const repairModel of repairModels) {
+    await writeAiRequestLog({
+      event: "discuss:card-retry-start",
+      model: repairModel,
+      projectId: project.id,
+    });
+
+    try {
+      const repair = await generateText({
+        model: getAiModel(repairModel),
+        system: `${systemPrompt}\n\nRecovery pass: a prior answer is already saved. Do not write user-visible text. Call setWorkspaceUi exactly once with the next unanswered workspace card. Never repeat this answered question: ${latestAnsweredQuestion || "none"}.`,
+        messages: modelMessages,
+        tools: workspaceTools,
+        toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
+        stopWhen: stepCountIs(1),
+        maxRetries: 0,
+        temperature: 0.2,
+        timeout: getAiTimeoutMs("discussToolSettle"),
+        experimental_telemetry: getAiTelemetry(
+          "project-guided-discuss-card-retry",
+          {
+            model: repairModel,
+            projectId: project.id,
+            route: "api.projects.preview",
+          },
+        ),
+      });
+
+      const cardRepeatsAnswer =
+        workspaceTurn.workspaceCard.type === "question" &&
+        workspaceTurn.workspaceCard.question.question ===
+          latestAnsweredQuestion;
+      const repaired =
+        didWorkspaceToolUpdate &&
+        repair.toolResults.length > 0 &&
+        !cardRepeatsAnswer;
+
+      await writeAiRequestLog({
+        event: "discuss:card-retry-finish",
+        model: repairModel,
+        projectId: project.id,
+        finishReason: repair.finishReason,
+        toolCallCount: repair.toolCalls.length,
+        toolResultCount: repair.toolResults.length,
+        repaired,
+      });
+
+      if (repaired) {
+        const safeMessages = [
+          ...stripTransportDiagnosticMessages(dedupeUiMessages(messages)),
+          createPersistedWorkspaceToolMessage(workspaceTurn),
+        ];
+        const title = workspaceTurn.projectTitle || project.title;
+
+        await prisma.$executeRaw`
+          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+        `;
+
+        return Response.json({
+          projectTitle: title,
+          workspaceCard: workspaceTurn.workspaceCard,
+        });
+      }
+
+      if (repairModel === fallbackModel) {
+        break;
+      }
+    } catch (error) {
+      await writeAiRequestLog({
+        event: "discuss:card-retry-error",
+        model: repairModel,
+        projectId: project.id,
+        error: getSafeAiErrorLog(error),
+      });
+
+      if (repairModel === fallbackModel) {
+        break;
+      }
+    }
+  }
+
+  return Response.json(
+    {
+      message:
+        "Pilihan berikutnya belum bisa disiapkan. Jawabanmu tetap tersimpan; coba lagi sebentar.",
+    },
+    { status: 503, headers: { "Retry-After": "3" } },
+  );
 }
 
 async function handleStructuredDiscussTurn({
@@ -539,49 +699,95 @@ async function repairMissingWorkspaceTool({
   systemPrompt: string;
   tools: ToolSet;
 }) {
-  await writeAiRequestLog({
-    event: "discuss:tool-repair-start",
-    model: modelName,
-    projectId,
-  });
+  const fallbackModel = getEditAiModel();
+  const repairModels = [
+    modelName,
+    ...(fallbackModel === modelName ? [] : [fallbackModel]),
+  ];
 
-  try {
-    const repair = await generateText({
-      model: getAiModel(modelName),
-      system: `${systemPrompt}\n\nRecovery pass: the visible answer was already streamed. Do not write user-visible text. Call setWorkspaceUi exactly once now with the brief update and next workspace card.`,
-      messages,
-      tools,
-      toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
-      stopWhen: stepCountIs(1),
-      maxRetries: 0,
-      temperature: 0.2,
-      timeout: getAiTimeoutMs("discussToolSettle"),
-      experimental_telemetry: getAiTelemetry(
-        "project-guided-discuss-tool-repair",
-        {
-          model: modelName,
-          projectId,
-          route: "api.projects.preview",
-        },
-      ),
+  for (const repairModel of repairModels) {
+    await writeAiRequestLog({
+      event: "discuss:tool-repair-start",
+      model: repairModel,
+      projectId,
     });
 
-    await writeAiRequestLog({
-      event: "discuss:tool-repair-finish",
-      model: modelName,
-      projectId,
-      finishReason: repair.finishReason,
-      toolCallCount: repair.toolCalls.length,
-      toolResultCount: repair.toolResults.length,
-    });
-  } catch (error) {
-    await writeAiRequestLog({
-      event: "discuss:tool-repair-error",
-      model: modelName,
-      projectId,
-      error: getSafeAiErrorLog(error),
-    });
+    try {
+      const repair = await generateText({
+        model: getAiModel(repairModel),
+        system: `${systemPrompt}\n\nRecovery pass: the visible answer was already streamed. Do not write user-visible text. Call setWorkspaceUi exactly once now with the brief update and next workspace card. Never repeat the question answered in the latest user message.`,
+        messages,
+        tools,
+        toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
+        stopWhen: stepCountIs(1),
+        maxRetries: 0,
+        temperature: 0.2,
+        timeout: getAiTimeoutMs("discussToolSettle"),
+        experimental_telemetry: getAiTelemetry(
+          "project-guided-discuss-tool-repair",
+          {
+            model: repairModel,
+            projectId,
+            route: "api.projects.preview",
+          },
+        ),
+      });
+
+      const didRepairToolUpdate = repair.toolResults.length > 0;
+      await writeAiRequestLog({
+        event: "discuss:tool-repair-finish",
+        model: repairModel,
+        projectId,
+        finishReason: repair.finishReason,
+        toolCallCount: repair.toolCalls.length,
+        toolResultCount: repair.toolResults.length,
+      });
+
+      if (didRepairToolUpdate || repairModel === fallbackModel) {
+        return;
+      }
+
+      await writeAiRequestLog({
+        event: "discuss:tool-repair-fallback",
+        model: fallbackModel,
+        projectId,
+      });
+    } catch (error) {
+      await writeAiRequestLog({
+        event: "discuss:tool-repair-error",
+        model: repairModel,
+        projectId,
+        error: getSafeAiErrorLog(error),
+      });
+
+      if (repairModel === fallbackModel) {
+        return;
+      }
+
+      await writeAiRequestLog({
+        event: "discuss:tool-repair-fallback",
+        model: fallbackModel,
+        projectId,
+      });
+    }
   }
+}
+
+function getLatestAnsweredQuestion(messages: UIMessage[]) {
+  for (const message of [...messages].reverse()) {
+    if (message.role !== "user") {
+      continue;
+    }
+
+    const question = getTextFromUIMessage(message)
+      .split(/\nJawaban:/i)[0]
+      ?.trim();
+    if (question) {
+      return question;
+    }
+  }
+
+  return "";
 }
 
 function hasWorkspaceToolOutput(message?: UIMessage) {
@@ -637,7 +843,10 @@ function getSafeAiErrorLog(error: unknown) {
     };
     reason?: string;
   };
-  const statusCode = value.lastError?.statusCode;
+  const statusCode =
+    typeof (error as { statusCode?: unknown }).statusCode === "number"
+      ? (error as { statusCode: number }).statusCode
+      : value.lastError?.statusCode;
   const retryAfter = value.lastError?.responseHeaders?.["retry-after"];
 
   return {

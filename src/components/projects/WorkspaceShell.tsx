@@ -234,7 +234,6 @@ export function WorkspaceShell({
     status,
     error,
     stop,
-    regenerate,
     clearError,
   } = useChat({
     id: projectId,
@@ -1204,7 +1203,7 @@ export function WorkspaceShell({
     submitChatText(message);
   }
 
-  const retryLastTurn = useCallback(async () => {
+  const retryWorkspaceCard = useCallback(async () => {
     if (status === "streaming" || status === "submitted" || isRetrying) {
       return;
     }
@@ -1212,18 +1211,43 @@ export function WorkspaceShell({
     setIsRetrying(true);
     clearError();
     try {
-      // Re-run the last turn server-side. The user's answer was already
-      // persisted before the failed stream, so this never loses input and the
-      // existing AI rate limit still applies (no abuse via spam retries).
-      await regenerate().catch((error) => {
-        if (!captureRateLimitError(error, setRateLimitError)) {
-          throw error;
-        }
+      // Only repair the hidden card. Replaying the chat turn can duplicate the
+      // user's answer and can stream a second visible response.
+      const response = await fetch("/api/projects/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "discuss",
+          projectId,
+          repairWorkspace: true,
+        }),
       });
+      const result = (await response.json().catch(() => null)) as {
+        message?: string;
+        projectTitle?: string;
+        workspaceCard?: WorkspaceCard;
+      } | null;
+
+      if (!response.ok || !result?.workspaceCard) {
+        const error = new Error(
+          result?.message || "Pilihan berikutnya belum bisa disiapkan.",
+        );
+        captureRateLimitError(error, setRateLimitError);
+        throw error;
+      }
+
+      setWorkspaceCard(result.workspaceCard);
+      if (result.projectTitle) {
+        setProjectTitle(result.projectTitle);
+        setDraftTitle(result.projectTitle);
+      }
+      await reloadLatestChat();
+    } catch {
+      // The retry panel remains visible. The stored answer is never replayed.
     } finally {
       setIsRetrying(false);
     }
-  }, [clearError, isRetrying, regenerate, status]);
+  }, [clearError, isRetrying, projectId, reloadLatestChat, status]);
 
   useEffect(() => {
     if (error) {
@@ -1450,7 +1474,7 @@ export function WorkspaceShell({
                   {!isRetrying ? (
                     <Button
                       type="button"
-                      onClick={() => void retryLastTurn()}
+                      onClick={() => void retryWorkspaceCard()}
                       className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
                     >
                       Coba lagi
@@ -1470,8 +1494,7 @@ export function WorkspaceShell({
                 <div className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62">
                   Tunggu sebentar sebelum mengirim jawaban berikutnya.
                 </div>
-              ) : !missingWorkspaceUiTurn &&
-                !hasAnsweredActiveQuestion &&
+              ) : missingWorkspaceUiTurn ? null : !hasAnsweredActiveQuestion &&
                 composerState === "question" &&
                 workspaceCard.type === "question" ? (
                 <AnimatePresence mode="wait" initial={false}>

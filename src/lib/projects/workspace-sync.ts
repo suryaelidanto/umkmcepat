@@ -126,7 +126,10 @@ export function hasAnsweredWorkspaceQuestion({
     return false;
   }
 
-  return messages.slice(latestUserIndex + 1).some(hasAssistantContent);
+  // A submitted answer invalidates its card immediately. Waiting for an
+  // assistant response here reopens the already-answered stale card whenever
+  // the provider or repair call fails.
+  return true;
 }
 
 export function hasMissingWorkspaceUiTurn({
@@ -152,17 +155,27 @@ export function hasMissingWorkspaceUiTurn({
   }
 
   const messagesAfterUser = messages.slice(latestUserIndex + 1);
-  const hasNewerWorkspaceTool = messagesAfterUser.some(hasWorkspaceUiTool);
-  const hasAssistantAfterUser = messagesAfterUser.some(hasAssistantContent);
 
-  if (!hasAssistantAfterUser || hasNewerWorkspaceTool) {
+  if (messagesAfterUser.some(hasWorkspaceUiTool)) {
     return false;
   }
 
-  // The card may be stale from any prior turn. Success for the latest turn is
-  // proven only by a newer tool output, regardless of the previous card type.
-  void card;
-  return true;
+  const latestUserText = getUiMessageText(messages[latestUserIndex]);
+  const answeredQuestion = latestUserText.split(/\nJawaban:/i)[0]?.trim();
+
+  // The card is stale as soon as its question is answered, even when the
+  // provider fails before producing visible text. Never show it again; expose
+  // the retry state instead.
+  if (
+    card.type === "question" &&
+    answeredQuestion === card.question.question.trim()
+  ) {
+    return true;
+  }
+
+  // The first turn and free-form/review turns have no card answer to compare.
+  // Their visible assistant response still proves a missing tool output.
+  return messagesAfterUser.some(hasAssistantContent);
 }
 
 function findLastIndex<T>(items: T[], predicate: (item: T) => boolean) {

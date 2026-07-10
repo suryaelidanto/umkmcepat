@@ -66,3 +66,5 @@ graphify-out/
 # Lighthouse local reports/session state
 /.lighthouseci/
 /.lighthouse-auth/
+
+cookie.txt

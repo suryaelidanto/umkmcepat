@@ -135,7 +135,7 @@ describe("workspace chat sync", () => {
     ).toBe(false);
   });
 
-  it("ignores AI transport diagnostics as assistant content", () => {
+  it("shows retry state when an answered question has only transport diagnostics", () => {
     const card: WorkspaceCard = {
       type: "question",
       question: {
@@ -179,7 +179,7 @@ describe("workspace chat sync", () => {
           },
         ],
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("shows missing workspace UI when first-turn text has no tool card", () => {
@@ -197,6 +197,38 @@ describe("workspace chat sync", () => {
             id: "assistant_1",
             role: "assistant",
             parts: [{ type: "text", text: "Nomor WA aktifnya apa?" }],
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("hides an answered question immediately before its assistant response arrives", () => {
+    const card: WorkspaceCard = {
+      type: "question",
+      question: {
+        id: "business_name",
+        answerMode: "text",
+        options: [],
+        question: "Apa nama usaha nasi box kamu?",
+        selectionMode: "single",
+      },
+    };
+
+    expect(
+      hasAnsweredWorkspaceQuestion({
+        card,
+        mode: "discuss",
+        messages: [
+          {
+            id: "user_1",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: "Apa nama usaha nasi box kamu?\nJawaban: Dapur Surya",
+              },
+            ],
           },
         ],
       }),
