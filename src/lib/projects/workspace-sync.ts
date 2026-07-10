@@ -138,7 +138,7 @@ export function hasMissingWorkspaceUiTurn({
   messages: UIMessage[];
   mode: string;
 }) {
-  if (mode !== "discuss" || card.type !== "question") {
+  if (mode !== "discuss") {
     return false;
   }
 
@@ -151,18 +151,18 @@ export function hasMissingWorkspaceUiTurn({
     return false;
   }
 
-  const latestUserText = getUiMessageText(messages[latestUserIndex]);
-  const answeredQuestion = latestUserText.split(/\nJawaban:/i)[0]?.trim();
-
-  if (!answeredQuestion || answeredQuestion !== card.question.question.trim()) {
-    return false;
-  }
-
   const messagesAfterUser = messages.slice(latestUserIndex + 1);
   const hasNewerWorkspaceTool = messagesAfterUser.some(hasWorkspaceUiTool);
   const hasAssistantAfterUser = messagesAfterUser.some(hasAssistantContent);
 
-  return hasAssistantAfterUser && !hasNewerWorkspaceTool;
+  if (!hasAssistantAfterUser || hasNewerWorkspaceTool) {
+    return false;
+  }
+
+  // The card may be stale from any prior turn. Success for the latest turn is
+  // proven only by a newer tool output, regardless of the previous card type.
+  void card;
+  return true;
 }
 
 function findLastIndex<T>(items: T[], predicate: (item: T) => boolean) {

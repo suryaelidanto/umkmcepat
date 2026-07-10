@@ -182,6 +182,27 @@ describe("workspace chat sync", () => {
     ).toBe(false);
   });
 
+  it("shows missing workspace UI when first-turn text has no tool card", () => {
+    expect(
+      hasMissingWorkspaceUiTurn({
+        card: { type: "none" },
+        mode: "discuss",
+        messages: [
+          {
+            id: "user_1",
+            role: "user",
+            parts: [{ type: "text", text: "Bikin rental PS Neon Pad" }],
+          },
+          {
+            id: "assistant_1",
+            role: "assistant",
+            parts: [{ type: "text", text: "Nomor WA aktifnya apa?" }],
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
   it("shows missing workspace UI only when the current answered card has no newer tool", () => {
     const card: WorkspaceCard = {
       type: "question",
@@ -213,6 +234,31 @@ describe("workspace chat sync", () => {
             id: "assistant_1",
             role: "assistant",
             parts: [{ type: "text", text: "Oke aku catat." }],
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("shows missing workspace UI when a stale recommendation has no current tool output", () => {
+    expect(
+      hasMissingWorkspaceUiTurn({
+        card: {
+          type: "build_recommendation",
+          title: "Brief lama siap dibangun",
+          summary: ["Ringkasan lama"],
+        },
+        mode: "discuss",
+        messages: [
+          {
+            id: "user_1",
+            role: "user",
+            parts: [{ type: "text", text: "Aku mau ubah targetnya" }],
+          },
+          {
+            id: "assistant_1",
+            role: "assistant",
+            parts: [{ type: "text", text: "Oke, target barunya siapa?" }],
           },
         ],
       }),

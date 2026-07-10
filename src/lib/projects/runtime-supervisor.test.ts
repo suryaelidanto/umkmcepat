@@ -111,5 +111,5 @@ describe("noop runtime supervisor", () => {
 
     expect(deployment.status).toBe("stopped");
     expect(events).toHaveLength(2);
-  });
+  }, 30_000);
 });

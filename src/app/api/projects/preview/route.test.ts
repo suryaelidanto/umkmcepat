@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   authMock,
   executeRawMock,
+  generateTextMock,
   projectFindFirstMock,
   queryRawMock,
   streamTextMock,
@@ -26,6 +27,26 @@ const {
     },
   ]),
   executeRawMock: vi.fn(async () => 1),
+  generateTextMock: vi.fn(async ({ tools }) => {
+    await tools.setWorkspaceUi.execute({
+      briefPatch: { confidence: 20 },
+      workspaceCard: {
+        type: "question",
+        question: {
+          id: "kontak",
+          question: "Nomor WhatsApp atau kontak yang mau dicantumin?",
+          answerMode: "text",
+          placeholder: "Contoh: 0812-3456-7890",
+        },
+      },
+    });
+
+    return {
+      finishReason: "tool-calls",
+      toolCalls: [{ toolName: "setWorkspaceUi" }],
+      toolResults: [{ toolName: "setWorkspaceUi" }],
+    };
+  }),
   streamTextMock: vi.fn(({ tools }) => {
     void tools.setWorkspaceUi.execute({
       briefPatch: { offer: "Bakso" },
@@ -77,6 +98,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("ai", () => ({
   convertToModelMessages: vi.fn(async (messages) => messages),
+  generateText: generateTextMock,
   jsonSchema: vi.fn((schema) => schema),
   stepCountIs: vi.fn((count) => ({ count })),
   streamText: streamTextMock,
@@ -109,6 +131,7 @@ describe("project preview AI route", () => {
     executeRawMock.mockClear();
     projectFindFirstMock.mockClear();
     queryRawMock.mockClear();
+    generateTextMock.mockClear();
     streamTextMock.mockClear();
   });
 
@@ -308,31 +331,82 @@ describe("project preview AI route", () => {
     );
   });
 
-  it("waits for a delayed discuss tool before completing finish persistence", async () => {
-    vi.useFakeTimers();
+  it("repairs a missing provider tool call after visible text finishes", async () => {
     authed();
-    let resolveTool!: () => void;
-    const toolGate = new Promise<void>((resolve) => {
-      resolveTool = resolve;
+    let finishCompleted: Promise<void> = Promise.resolve();
+
+    streamTextMock.mockImplementationOnce(() => ({
+      toUIMessageStreamResponse: ({
+        onFinish,
+      }: {
+        onFinish: (input: { messages: unknown[] }) => void | Promise<void>;
+      }) => {
+        finishCompleted = Promise.resolve(
+          onFinish({
+            messages: [
+              { id: "m1", role: "user", parts: [] },
+              {
+                id: "assistant_1",
+                role: "assistant",
+                parts: [{ type: "text", text: "Nomor WA aktifnya apa?" }],
+              },
+            ],
+          }),
+        );
+        return new Response("stream");
+      },
+    }));
+
+    const response = await post({
+      mode: "discuss",
+      projectId: "project_1",
+      message: {
+        id: "m1",
+        role: "user",
+        parts: [{ type: "text", text: "Bikin rental PS Neon Pad" }],
+      },
     });
-    let finishCompleted = false;
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("stream");
+    await finishCompleted;
+
+    expect(streamTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({ toolChoice: "required" }),
+    );
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+    expect(generateTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({ role: "assistant" }),
+        ]),
+        toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
+      }),
+    );
+    expect(executeRawMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(JSON.stringify(executeRawMock.mock.calls)).toContain(
+      "tool-setWorkspaceUi",
+    );
+  });
+
+  it("repairs when the primary workspace tool execution rejects", async () => {
+    authed();
+    let finishCompleted: Promise<void> = Promise.resolve();
 
     streamTextMock.mockImplementationOnce(({ tools }) => {
-      const toolPromise = (async () => {
-        await toolGate;
-        await tools.setWorkspaceUi.execute({
-          briefPatch: { contactOrCta: "WhatsApp 0812" },
+      executeRawMock.mockRejectedValueOnce(new Error("database unavailable"));
+      void tools.setWorkspaceUi
+        .execute({
           workspaceCard: {
             type: "question",
             question: {
               id: "kontak",
-              question: "Nomor WhatsApp atau kontak yang mau dicantumin?",
+              question: "Nomor WhatsApp?",
               answerMode: "text",
-              placeholder: "Contoh: 0812-3456-7890",
             },
           },
-        });
-      })();
+        })
+        .catch(() => undefined);
 
       return {
         toUIMessageStreamResponse: ({
@@ -340,14 +414,18 @@ describe("project preview AI route", () => {
         }: {
           onFinish: (input: { messages: unknown[] }) => void | Promise<void>;
         }) => {
-          void Promise.resolve(
+          finishCompleted = Promise.resolve(
             onFinish({
-              messages: [{ id: "m1", role: "user", parts: [] }],
+              messages: [
+                { id: "m1", role: "user", parts: [] },
+                {
+                  id: "assistant_1",
+                  role: "assistant",
+                  parts: [{ type: "text", text: "Nomor WA aktifnya apa?" }],
+                },
+              ],
             }),
-          ).then(() => {
-            finishCompleted = true;
-          });
-          void toolPromise;
+          );
           return new Response("stream");
         },
       };
@@ -359,25 +437,13 @@ describe("project preview AI route", () => {
       message: {
         id: "m1",
         role: "user",
-        parts: [{ type: "text", text: "kontaknya whatsapp" }],
+        parts: [{ type: "text", text: "Bikin rental PS Neon Pad" }],
       },
     });
 
     expect(response.status).toBe(200);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(finishCompleted).toBe(false);
-    expect(executeRawMock.mock.calls.length).toBe(1);
-
-    resolveTool();
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(finishCompleted).toBe(false);
-
-    await vi.advanceTimersByTimeAsync(25_000);
-    await vi.runAllTimersAsync();
-
-    expect(finishCompleted).toBe(true);
-    expect(executeRawMock.mock.calls.length).toBe(3);
-    vi.useRealTimers();
+    await finishCompleted;
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
   });
 
   it("strips transport diagnostic messages before persistence", () => {

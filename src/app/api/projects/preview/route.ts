@@ -1,8 +1,10 @@
 import {
   convertToModelMessages,
+  generateText,
   stepCountIs,
   streamText,
   tool,
+  type ToolSet,
   type UIMessage,
   validateUIMessages,
 } from "ai";
@@ -36,7 +38,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 
 import { stripTransportDiagnosticMessages } from "./strip-transport-diagnostic-messages";
 
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 type PreviewRequest = {
   message?: UIMessage;
@@ -240,6 +242,7 @@ export async function POST(request: Request) {
       memoryFacts,
       messages,
       project,
+      storedWorkspaceCard,
       summary: chatSummary,
       userId,
     });
@@ -338,6 +341,7 @@ async function handleStructuredDiscussTurn({
   memoryFacts,
   messages,
   project,
+  storedWorkspaceCard,
   summary,
   userId,
 }: {
@@ -346,11 +350,15 @@ async function handleStructuredDiscussTurn({
   memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
   messages: UIMessage[];
   project: { id: string; prompt: string; status: string; title: string };
+  storedWorkspaceCard: ReturnType<typeof parseWorkspaceCard>;
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
   const modelName = getChatAiModel();
-  let workspaceTurn = normalizeWorkspaceTurn(undefined, effectiveBrief);
+  let workspaceTurn = normalizeWorkspaceTurn(
+    { workspaceCard: storedWorkspaceCard },
+    effectiveBrief,
+  );
   let didWorkspaceToolUpdate = false;
   let workspaceToolPromise: Promise<void> | null = null;
   const workspaceTools = {
@@ -359,23 +367,28 @@ async function handleStructuredDiscussTurn({
         "Update the hidden UMKM Cepat workspace brief and interactive UI card. Before calling this tool, always write a short visible Indonesian chat response to the user. Call the tool exactly once per turn after that visible text.",
       inputSchema: workspaceTurnToolInputSchema,
       execute: async (input: unknown) => {
-        const nextWorkspaceTurn = normalizeWorkspaceTurn(input, effectiveBrief);
-        workspaceToolPromise = (async () => {
-          workspaceTurn = nextWorkspaceTurn;
-          didWorkspaceToolUpdate = true;
-          const title = workspaceTurn.projectTitle || project.title;
+        if (!workspaceToolPromise) {
+          const nextWorkspaceTurn = normalizeWorkspaceTurn(
+            input,
+            effectiveBrief,
+          );
+          workspaceToolPromise = (async () => {
+            workspaceTurn = nextWorkspaceTurn;
+            didWorkspaceToolUpdate = true;
+            const title = workspaceTurn.projectTitle || project.title;
 
-          await prisma.$executeRaw`
-            UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-          `;
+            await prisma.$executeRaw`
+              UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
+            `;
 
-          await writeAiRequestLog({
-            event: "discuss:tool-output",
-            model: modelName,
-            projectId: project.id,
-            workspaceCard: workspaceTurn.workspaceCard,
-          });
-        })();
+            await writeAiRequestLog({
+              event: "discuss:tool-output",
+              model: modelName,
+              projectId: project.id,
+              workspaceCard: workspaceTurn.workspaceCard,
+            });
+          })();
+        }
 
         await workspaceToolPromise;
         return workspaceTurn;
@@ -391,16 +404,18 @@ async function handleStructuredDiscussTurn({
     briefConfidence: effectiveBrief.confidence,
   });
 
+  const systemPrompt = buildSystemPrompt({
+    context: chatContext.systemContext,
+    mode: "discuss",
+    brief: effectiveBrief,
+  });
+  const modelMessages = await convertToModelMessages(chatContext.messages, {
+    tools: workspaceTools,
+  });
   const result = streamText({
     model: getAiModel(modelName),
-    system: buildSystemPrompt({
-      context: chatContext.systemContext,
-      mode: "discuss",
-      brief: effectiveBrief,
-    }),
-    messages: await convertToModelMessages(chatContext.messages, {
-      tools: workspaceTools,
-    }),
+    system: systemPrompt,
+    messages: modelMessages,
     tools: workspaceTools,
     toolChoice: "required",
     stopWhen: stepCountIs(1),
@@ -415,6 +430,16 @@ async function handleStructuredDiscussTurn({
       route: "api.projects.preview",
       userId,
     }),
+    onStepFinish({ finishReason, toolCalls, toolResults }) {
+      void writeAiRequestLog({
+        event: "discuss:step-finish",
+        model: modelName,
+        projectId: project.id,
+        finishReason,
+        toolCallCount: toolCalls.length,
+        toolResultCount: toolResults.length,
+      });
+    },
     onError({ error }) {
       console.error(
         "[preview-chat] discuss stream error",
@@ -426,21 +451,48 @@ async function handleStructuredDiscussTurn({
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
     onFinish: async ({ messages }) => {
-      const didToolSettle = await waitForWorkspaceToolSettled(
-        () => workspaceToolPromise,
+      let safeMessages = stripTransportDiagnosticMessages(
+        dedupeUiMessages(parseProjectChatMessages(messages)),
       );
+      let primaryToolFailed = false;
 
-      if (!didToolSettle) {
-        await writeAiRequestLog({
-          event: "discuss:tool-wait-timeout",
-          model: modelName,
+      if (workspaceToolPromise) {
+        try {
+          await workspaceToolPromise;
+        } catch (error) {
+          primaryToolFailed = true;
+          workspaceToolPromise = null;
+          await writeAiRequestLog({
+            event: "discuss:tool-primary-error",
+            model: modelName,
+            projectId: project.id,
+            error: getSafeAiErrorLog(error),
+          });
+        }
+      }
+
+      if (!workspaceToolPromise) {
+        await repairMissingWorkspaceTool({
+          messages: await convertToModelMessages(safeMessages, {
+            tools: workspaceTools,
+          }),
+          modelName,
           projectId: project.id,
+          systemPrompt,
+          tools: workspaceTools,
         });
       }
 
-      const safeMessages = stripTransportDiagnosticMessages(
-        dedupeUiMessages(parseProjectChatMessages(messages)),
-      );
+      if (
+        didWorkspaceToolUpdate &&
+        !safeMessages.some(hasWorkspaceToolOutput)
+      ) {
+        safeMessages = [
+          ...safeMessages,
+          createPersistedWorkspaceToolMessage(workspaceTurn),
+        ];
+      }
+
       const title = workspaceTurn.projectTitle || project.title;
 
       await writeAiRequestLog({
@@ -448,6 +500,7 @@ async function handleStructuredDiscussTurn({
         model: modelName,
         projectId: project.id,
         didWorkspaceToolUpdate,
+        primaryToolFailed,
         workspaceCard: workspaceTurn.workspaceCard,
       });
 
@@ -476,27 +529,90 @@ async function handleStructuredDiscussTurn({
   });
 }
 
-async function waitForWorkspaceToolSettled(
-  getPromise: () => Promise<void> | null,
-) {
-  const existingPromise = getPromise();
+async function repairMissingWorkspaceTool({
+  messages,
+  modelName,
+  projectId,
+  systemPrompt,
+  tools,
+}: {
+  messages: Awaited<ReturnType<typeof convertToModelMessages>>;
+  modelName: string;
+  projectId: string;
+  systemPrompt: string;
+  tools: ToolSet;
+}) {
+  await writeAiRequestLog({
+    event: "discuss:tool-repair-start",
+    model: modelName,
+    projectId,
+  });
 
-  if (existingPromise) {
-    await existingPromise;
-    return true;
+  try {
+    const repair = await generateText({
+      model: getAiModel(modelName),
+      system: `${systemPrompt}\n\nRecovery pass: the visible answer was already streamed. Do not write user-visible text. Call setWorkspaceUi exactly once now with the brief update and next workspace card.`,
+      messages,
+      tools,
+      toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
+      stopWhen: stepCountIs(1),
+      maxRetries: 0,
+      temperature: 0.2,
+      timeout: getAiTimeoutMs("discussToolSettle"),
+      experimental_telemetry: getAiTelemetry(
+        "project-guided-discuss-tool-repair",
+        {
+          model: modelName,
+          projectId,
+          route: "api.projects.preview",
+        },
+      ),
+    });
+
+    await writeAiRequestLog({
+      event: "discuss:tool-repair-finish",
+      model: modelName,
+      projectId,
+      finishReason: repair.finishReason,
+      toolCallCount: repair.toolCalls.length,
+      toolResultCount: repair.toolResults.length,
+    });
+  } catch (error) {
+    await writeAiRequestLog({
+      event: "discuss:tool-repair-error",
+      model: modelName,
+      projectId,
+      error: getSafeAiErrorLog(error),
+    });
   }
+}
 
-  await new Promise((resolve) =>
-    setTimeout(resolve, getAiTimeoutMs("discussToolSettle")),
+function hasWorkspaceToolOutput(message: UIMessage) {
+  return message.parts.some(
+    (part) =>
+      part.type === "tool-setWorkspaceUi" &&
+      (part as { state?: unknown }).state === "output-available",
   );
-  const latePromise = getPromise();
+}
 
-  if (!latePromise) {
-    return false;
-  }
+function createPersistedWorkspaceToolMessage(
+  workspaceTurn: ReturnType<typeof normalizeWorkspaceTurn>,
+): UIMessage {
+  const toolCallId = `workspace-repair-${crypto.randomUUID()}`;
 
-  await latePromise;
-  return true;
+  return {
+    id: toolCallId,
+    role: "assistant",
+    parts: [
+      {
+        type: "tool-setWorkspaceUi",
+        toolCallId,
+        state: "output-available",
+        input: {},
+        output: workspaceTurn,
+      } as UIMessage["parts"][number],
+    ],
+  };
 }
 
 function dedupeUiMessages(messages: UIMessage[]) {

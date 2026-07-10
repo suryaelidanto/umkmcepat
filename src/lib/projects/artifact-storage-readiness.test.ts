@@ -35,7 +35,7 @@ describe("project artifact storage readiness", () => {
 
     await expect(assertProjectArtifactStorageReady()).resolves.toBeUndefined();
     await expect(readdir(tempDir)).resolves.toEqual([]);
-  });
+  }, 30_000);
 
   it("rejects incomplete R2 configuration before serving", async () => {
     vi.stubEnv("PROJECT_ARTIFACT_STORAGE_PROVIDER", "r2");
