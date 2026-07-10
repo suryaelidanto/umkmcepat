@@ -17,8 +17,10 @@ FROM oven/bun:1.3.9-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PROJECT_THUMBNAIL_BROWSER_PATH=/usr/bin/chromium-browser
 
-RUN addgroup --system --gid 1001 nodejs \
+RUN apk add --no-cache chromium \
+  && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/package.json ./package.json
@@ -29,7 +31,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.ts ./next.config.ts
 
-RUN mkdir -p .data/uploads .data/project-artifacts \
+RUN mkdir -p .data/uploads .data/project-artifacts .data/project-thumbnails \
   && chown -R nextjs:nodejs /app
 
 USER nextjs

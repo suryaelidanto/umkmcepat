@@ -33,6 +33,7 @@ import {
   finalizeProjectOperation,
   renewProjectOperation,
 } from "@/lib/projects/project-operation";
+import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import {
   writeProjectDistArtifact,
   writeProjectSourceArtifact,
@@ -599,6 +600,14 @@ export async function POST(request: Request, { params }: RouteProps) {
             }),
           }),
         ]);
+
+        if (artifactRef) {
+          await refreshProjectThumbnail({
+            artifactRef,
+            buildId: build.id,
+            projectId,
+          });
+        }
 
         send("progress", {
           label: "Website siap dicek",

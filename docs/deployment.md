@@ -106,6 +106,9 @@ GENERATED_PUBLIC_EXECUTION_ENABLED="false"
 GENERATED_PUBLIC_ORIGIN="https://generated.example.net"
 PROJECT_ARTIFACT_STORAGE_PROVIDER="local"
 PROJECT_ARTIFACT_DIR="/app/.data/project-artifacts"
+PROJECT_THUMBNAIL_DIR="/app/.data/project-thumbnails"
+PROJECT_THUMBNAIL_CAPTURE_ENABLED="true"
+PROJECT_THUMBNAIL_BROWSER_PATH=""
 PROJECT_ARTIFACT_R2_PREFIX="project-artifacts"
 PROJECT_RUNTIME_DIR="/app/.data/project-runtimes"
 PROJECT_BUILD_WORKSPACE_DIR="/app/.data/project-build-workspaces"
@@ -117,6 +120,8 @@ POSTGRES_USER="postgres"
 POSTGRES_PASSWORD="replace-with-strong-db-password"
 POSTGRES_DB="umkmcepat"
 ```
+
+Project-card thumbnails are derived JPEGs stored under `PROJECT_THUMBNAIL_DIR`. The production image installs Chromium, fixes `PROJECT_THUMBNAIL_BROWSER_PATH`, enables capture, and persists the `project_thumbnails` volume. Development and production therefore use the same successful-build capture lifecycle. Missing thumbnails safely use the deterministic project gradient; capture failures never invalidate successful build artifacts.
 
 If `OBJECT_STORAGE_PROVIDER="local"`, mount `LOCAL_UPLOAD_DIR` as a persistent volume. Generated project source/dist artifacts are controlled separately by `PROJECT_ARTIFACT_STORAGE_PROVIDER`. Production Compose deliberately fixes `PROJECT_ARTIFACT_DIR` to `/app/.data/project-artifacts` and mounts `project_artifacts` there; the production preflight rejects another local path rather than silently writing canonical artifacts to the ephemeral container layer. Node startup performs a write/read/delete readiness probe and refuses to serve if local canonical storage is unavailable. With `r2`, startup validates the required R2 configuration and generated artifact writes use `PROJECT_ARTIFACT_R2_PREFIX`; existing local refs remain readable because artifact refs include their provider. `PROJECT_RUNTIME_DIR` and `PROJECT_BUILD_WORKSPACE_DIR` are rebuildable. A future isolated worker may own a trusted toolchain cache, but generated executable state must not persist across tenants.
 

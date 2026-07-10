@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -18,6 +19,8 @@ import { createProjectMark } from "./project-mark";
 type Project = {
   buildStatus?: string | null;
   id: string;
+  thumbnailBuildId?: string | null;
+  thumbnailRef?: string | null;
   title: string;
   updatedAt: Date | string;
 };
@@ -226,11 +229,9 @@ function ProjectPreviewThumb({
   className?: string;
   project: Project;
 }) {
-  const canPreview = ["ready", "succeeded", "passed"].includes(
-    project.buildStatus ?? "",
-  );
+  const [failed, setFailed] = useState(false);
 
-  if (!canPreview) {
+  if (!project.thumbnailRef || !project.thumbnailBuildId || failed) {
     return <ProjectMark seed={project.id} className={className} />;
   }
 
@@ -240,14 +241,14 @@ function ProjectPreviewThumb({
       className={`group relative block overflow-hidden bg-[#10100f] ${className}`}
       aria-label={`Buka ${project.title}`}
     >
-      <iframe
-        title={`Cuplikan ${project.title}`}
-        src={`/api/projects/${project.id}/preview/?thumb=1`}
-        sandbox="allow-scripts"
-        loading="lazy"
-        scrolling="no"
-        tabIndex={-1}
-        className="pointer-events-none h-[400%] w-[400%] origin-top-left scale-25 overflow-hidden border-0 bg-white opacity-95 transition duration-300 group-hover:opacity-100"
+      <Image
+        src={`/api/projects/${project.id}/thumbnail?v=${encodeURIComponent(project.thumbnailBuildId)}`}
+        alt=""
+        fill
+        unoptimized
+        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+        onError={() => setFailed(true)}
+        className="object-cover object-top opacity-95 transition duration-300 group-hover:opacity-100"
       />
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-surface-warm-white/10" />
     </Link>

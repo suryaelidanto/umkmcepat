@@ -58,7 +58,14 @@ export async function GET(request: Request) {
     },
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     take: PROJECT_PAGE_SIZE + 1,
-    select: { buildStatus: true, id: true, title: true, updatedAt: true },
+    select: {
+      buildStatus: true,
+      id: true,
+      thumbnailBuildId: true,
+      thumbnailRef: true,
+      title: true,
+      updatedAt: true,
+    },
   });
   const hasMore = projects.length > PROJECT_PAGE_SIZE;
   const items = hasMore ? projects.slice(0, PROJECT_PAGE_SIZE) : projects;

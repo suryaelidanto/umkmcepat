@@ -28,6 +28,8 @@ export default async function HomePage() {
           select: {
             buildStatus: true,
             id: true,
+            thumbnailBuildId: true,
+            thumbnailRef: true,
             title: true,
             updatedAt: true,
           },
@@ -57,12 +59,23 @@ export default async function HomePage() {
       throw new Error("Unauthorized");
     }
 
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, userId: session.user.id },
+      select: { thumbnailRef: true },
+    });
+
     await prisma.project.deleteMany({
       where: {
         id: projectId,
         userId: session.user.id,
       },
     });
+
+    if (project?.thumbnailRef) {
+      const { deleteProjectThumbnail } =
+        await import("@/lib/projects/project-thumbnail");
+      await deleteProjectThumbnail(project.thumbnailRef).catch(() => undefined);
+    }
 
     revalidatePath("/");
   }

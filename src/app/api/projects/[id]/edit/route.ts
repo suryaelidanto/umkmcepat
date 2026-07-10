@@ -19,6 +19,7 @@ import {
   finalizeProjectOperation,
   renewProjectOperation,
 } from "@/lib/projects/project-operation";
+import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import {
   readProjectSourceArtifact,
   writeProjectSourceArtifact,
@@ -689,6 +690,14 @@ export async function POST(request: Request, { params }: RouteProps) {
         }),
       }),
     ]);
+
+    if (artifactRef && buildResult.status === "succeeded") {
+      await refreshProjectThumbnail({
+        artifactRef,
+        buildId: build.id,
+        projectId: project.id,
+      });
+    }
 
     return Response.json({
       attemptId: attempt.id,

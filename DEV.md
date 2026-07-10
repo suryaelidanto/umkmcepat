@@ -77,6 +77,9 @@ GENERATED_BUILD_EXECUTION_ENABLED="true"
 GENERATED_PUBLIC_EXECUTION_ENABLED="true"
 GENERATED_PUBLIC_ORIGIN=""
 PROJECT_ARTIFACT_DIR=".data/project-artifacts"
+PROJECT_THUMBNAIL_DIR=".data/project-thumbnails"
+PROJECT_THUMBNAIL_CAPTURE_ENABLED="true"
+PROJECT_THUMBNAIL_BROWSER_PATH=""
 PROJECT_RUNTIME_DIR=".data/project-runtimes"
 PROJECT_RUNTIME_SUPERVISOR="local"
 PROJECT_RUNTIME_MAX_CONTAINERS="8"
@@ -97,7 +100,7 @@ RATE_LIMIT_BUILD_IP_WINDOW_SECONDS="3600"
 
 Set Google OAuth, Turnstile, Sentry, Chromatic, and AI provider secrets only in `.env` or deployment secrets.
 
-Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Runtime/build workspaces are rebuildable. Local/test generated execution stays enabled by default; production Compose explicitly disables build and public execution until the isolated-worker and separate-origin gates pass.
+Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Home project thumbnails are derived JPEGs under `.data/project-thumbnails`; keep that directory persistent when thumbnail continuity matters, or let missing images fall back to the deterministic gradient until the next successful build. Set `PROJECT_THUMBNAIL_BROWSER_PATH` when Playwright cannot discover a local Chromium/Chrome executable. Runtime/build workspaces are rebuildable. Local/test generated execution stays enabled by default; production Compose explicitly disables build and public execution until the isolated-worker and separate-origin gates pass.
 
 Idle runtime cleanup:
 

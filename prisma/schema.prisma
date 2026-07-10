@@ -104,6 +104,9 @@ model Project {
   buildStatus               String                  @default("not_started") @db.VarChar(32)
   buildLog                  String?                 @db.Text
   builtAt                   DateTime?
+  thumbnailRef              String?                 @db.Text
+  thumbnailBuildId          String?
+  thumbnailUpdatedAt        DateTime?
   activeOperationToken      String?                 @db.VarChar(64)
   activeOperationKind       String?                 @db.VarChar(32)
   activeOperationExpiresAt  DateTime?
