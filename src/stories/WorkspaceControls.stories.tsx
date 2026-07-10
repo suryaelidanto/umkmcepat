@@ -75,6 +75,8 @@ export const TopBarNarrowMobile: Story = {
           onRetryPreview: () => undefined,
         }}
       />
+      <div id="workspace-preview-panel" role="tabpanel" hidden />
+      <div id="workspace-code-panel" role="tabpanel" hidden />
     </div>
   ),
 };
@@ -212,6 +214,8 @@ function DarkCanvas({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen bg-[#151515] text-surface-warm-white">
       {children}
+      <div id="workspace-preview-panel" role="tabpanel" hidden />
+      <div id="workspace-code-panel" role="tabpanel" hidden />
     </main>
   );
 }

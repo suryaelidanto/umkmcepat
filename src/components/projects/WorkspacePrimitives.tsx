@@ -134,6 +134,9 @@ export function WorkspaceTopBar({
           <button
             type="button"
             onClick={onToggleAnnotation}
+            aria-label={
+              annotationActive ? "Nonaktifkan komentar" : "Aktifkan komentar"
+            }
             aria-pressed={annotationActive}
             className={`inline-flex min-h-11 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
           >
@@ -153,6 +156,7 @@ export function WorkspaceTopBar({
             <button
               type="button"
               onClick={() => setViewport("desktop")}
+              aria-label="Tampilan komputer"
               aria-pressed={viewport === "desktop"}
               className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "desktop" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
             >
@@ -162,6 +166,7 @@ export function WorkspaceTopBar({
             <button
               type="button"
               onClick={() => setViewport("mobile")}
+              aria-label="Tampilan HP"
               aria-pressed={viewport === "mobile"}
               className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "mobile" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
             >
@@ -253,6 +258,11 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
           type="button"
           disabled={!runtime.canPublish || runtime.isPublishing}
           onClick={runtime.onPublish}
+          aria-label={
+            runtime.isPublishing
+              ? "Sedang menerbitkan website"
+              : "Terbitkan website"
+          }
           className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Globe2 className="size-4" />
