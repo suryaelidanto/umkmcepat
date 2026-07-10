@@ -161,9 +161,7 @@ export function WorkspaceShell({
   );
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [previewCollapsed, setPreviewCollapsed] = useState(!hasInitialPreview);
-  const [activeTab, setActiveTab] = useState<BuildTab>(
-    hasInitialPreview ? "code" : "preview",
-  );
+  const [activeTab, setActiveTab] = useState<BuildTab>("preview");
   const [sourceFiles, setSourceFiles] = useState<GeneratedProjectFile[]>([]);
   const [sourceStatus, setSourceStatus] = useState("not_started");
   const [sourceError, setSourceError] = useState<string | null>(null);
