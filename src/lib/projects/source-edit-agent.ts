@@ -11,7 +11,7 @@ import {
   type GeneratedAppAgentToolCommand,
   type GeneratedAppAgentToolSideEffect,
 } from "./agent-tool-runner";
-import { type GeneratedProjectFile } from "./generated-source";
+import { type GeneratedProjectFile } from "./generated-types";
 
 export async function editGeneratedSourceWithAgent({
   files,

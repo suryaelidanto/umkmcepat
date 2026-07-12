@@ -47,7 +47,8 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { type WorkspaceCard } from "@/lib/projects/brief";
-import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
+import { dedupeUiMessages } from "@/lib/projects/chat-memory";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
   createVisualAnnotationEditInstruction,
   createVisualAnnotationId,
@@ -1873,25 +1874,6 @@ function completeBuildProgress(current: BuildProgressStep[]) {
   return current.map((step) =>
     step.status === "active" ? { ...step, status: "done" as const } : step,
   );
-}
-
-function dedupeUiMessages(messages: UIMessage[]) {
-  const seen = new Set<string>();
-
-  return messages.filter((message) => {
-    const text = message.parts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join("\n");
-    const key = message.id || `${message.role}:${text}`;
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
 }
 
 function filterDiscussionMessagesWithWorkspaceUi(

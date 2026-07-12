@@ -1,4 +1,4 @@
-import { type GeneratedProjectFile } from "./generated-source";
+import { type GeneratedProjectFile } from "./generated-types";
 
 export type EditValidationResult = {
   advisoryIssues: string[];

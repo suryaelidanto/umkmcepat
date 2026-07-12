@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { validateGeneratedEdit } from "./edit-validation";
-import { type GeneratedProjectFile } from "./generated-source";
+import { type GeneratedProjectFile } from "./generated-types";
 
 const baseFiles: GeneratedProjectFile[] = [
   {

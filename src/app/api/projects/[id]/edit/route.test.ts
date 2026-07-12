@@ -11,6 +11,7 @@ const {
   prismaProjectDeploymentCreateMock,
   prismaProjectDeploymentFindManyMock,
   prismaProjectEditAttemptUpdateMock,
+  prismaProjectEditAttemptCreateMock,
   prismaProjectFindFirstMock,
   prismaProjectSnapshotCreateMock,
   prismaProjectUpdateManyMock,
@@ -32,6 +33,7 @@ const {
   prismaProjectDeploymentCreateMock: vi.fn(),
   prismaProjectDeploymentFindManyMock: vi.fn(),
   prismaProjectEditAttemptUpdateMock: vi.fn(),
+  prismaProjectEditAttemptCreateMock: vi.fn(),
   prismaProjectFindFirstMock: vi.fn(),
   prismaProjectSnapshotCreateMock: vi.fn(),
   prismaProjectUpdateManyMock: vi.fn(),
@@ -64,6 +66,7 @@ vi.mock("@/lib/prisma", () => {
       findMany: prismaProjectDeploymentFindManyMock,
     },
     projectEditAttempt: {
+      create: prismaProjectEditAttemptCreateMock,
       update: prismaProjectEditAttemptUpdateMock,
     },
     projectSnapshot: {
@@ -351,7 +354,7 @@ describe("project edit route", () => {
 
     expect(response.status).toBe(200);
     expect(body.attemptId).toMatch(/^edit_/);
-    expect(prismaExecuteRawMock).toHaveBeenCalled();
+    expect(prismaProjectEditAttemptCreateMock).toHaveBeenCalled();
     expect(prismaProjectSnapshotCreateMock).toHaveBeenCalled();
   });
 

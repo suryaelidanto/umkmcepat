@@ -4,11 +4,11 @@ import path from "node:path";
 
 import { getEnv } from "@/lib/config";
 import { assertGeneratedResourceBudget } from "@/lib/projects/generated-resource-budget";
+import { assertSafeProjectFilePath } from "@/lib/projects/generated-source";
 import {
-  assertSafeProjectFilePath,
   type GeneratedDistFile,
   type GeneratedProjectFile,
-} from "@/lib/projects/generated-source";
+} from "@/lib/projects/generated-types";
 
 const PROJECT_ARTIFACT_REF_PREFIX = "project-artifact:";
 const LOCAL_PROJECT_ARTIFACT_REF_PREFIX = `${PROJECT_ARTIFACT_REF_PREFIX}local:`;

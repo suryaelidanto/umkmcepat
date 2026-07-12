@@ -16,6 +16,7 @@ import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { prisma } from "@/lib/prisma";
+import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import {
   mergeProjectBriefPatch,
   parseProjectBrief,
@@ -28,6 +29,7 @@ import {
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   buildProjectChatContext,
+  dedupeUiMessages,
   getTextFromUIMessage,
   parseProjectChatMessages,
   parseProjectChatSummary,
@@ -230,9 +232,11 @@ export async function POST(request: Request) {
   // Persist the user's answer before AI work. The discuss path below writes
   // assistant text + workspace card atomically from one structured AI output.
   if (!repairWorkspace) {
-    await prisma.$executeRaw`
-      UPDATE "Project" SET "brief" = ${JSON.stringify(effectiveBrief)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
-    `;
+    await persistProjectBrief({
+      brief: effectiveBrief,
+      projectId: project.id,
+      userId,
+    });
   }
 
   const messages = await validateUIMessages({
@@ -284,9 +288,13 @@ export async function POST(request: Request) {
         didWorkspaceToolUpdate = true;
         const title = workspaceTurn.projectTitle || project.title;
 
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
+        await persistProjectWorkspaceTurn({
+          brief: workspaceTurn.brief,
+          projectId: project.id,
+          title,
+          userId,
+          workspaceCard: workspaceTurn.workspaceCard,
+        });
 
         return workspaceTurn;
       },
@@ -332,15 +340,16 @@ export async function POST(request: Request) {
       const title = workspaceTurn.projectTitle || project.title;
       const messagesToPersist = safeMessages;
 
-      if (didWorkspaceToolUpdate) {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messagesToPersist)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      } else {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messagesToPersist)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      }
+      await persistProjectChatTurn({
+        brief: didWorkspaceToolUpdate ? workspaceTurn.brief : undefined,
+        messages: messagesToPersist,
+        projectId: project.id,
+        title: didWorkspaceToolUpdate ? title : undefined,
+        userId,
+        workspaceCard: didWorkspaceToolUpdate
+          ? workspaceTurn.workspaceCard
+          : undefined,
+      });
 
       const compaction = await maybeCompactProjectChat({
         memoryFacts,
@@ -349,9 +358,13 @@ export async function POST(request: Request) {
       }).catch(() => null);
 
       if (compaction) {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatSummary" = ${JSON.stringify(compaction.summary)}::jsonb, "memoryFacts" = ${JSON.stringify(compaction.memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compaction.compactedMessageCount} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
+        await persistProjectChatCompaction({
+          compactedMessageCount: compaction.compactedMessageCount,
+          memoryFacts: compaction.memoryFacts,
+          projectId: project.id,
+          summary: compaction.summary,
+          userId,
+        });
       }
     },
   });
@@ -459,9 +472,14 @@ async function repairWorkspaceCard({
         ];
         const title = workspaceTurn.projectTitle || project.title;
 
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
+        await persistProjectChatTurn({
+          brief: workspaceTurn.brief,
+          messages: safeMessages,
+          projectId: project.id,
+          title,
+          userId,
+          workspaceCard: workspaceTurn.workspaceCard,
+        });
 
         return Response.json({
           projectTitle: title,
@@ -537,9 +555,13 @@ async function handleStructuredDiscussTurn({
             didWorkspaceToolUpdate = true;
             const title = workspaceTurn.projectTitle || project.title;
 
-            await prisma.$executeRaw`
-              UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-            `;
+            await persistProjectWorkspaceTurn({
+              brief: workspaceTurn.brief,
+              projectId: project.id,
+              title,
+              userId,
+              workspaceCard: workspaceTurn.workspaceCard,
+            });
 
             await writeAiRequestLog({
               event: "discuss:tool-output",
@@ -661,15 +683,16 @@ async function handleStructuredDiscussTurn({
         workspaceCard: workspaceTurn.workspaceCard,
       });
 
-      if (didWorkspaceToolUpdate) {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      } else {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      }
+      await persistProjectChatTurn({
+        brief: didWorkspaceToolUpdate ? workspaceTurn.brief : undefined,
+        messages: safeMessages,
+        projectId: project.id,
+        title: didWorkspaceToolUpdate ? title : undefined,
+        userId,
+        workspaceCard: didWorkspaceToolUpdate
+          ? workspaceTurn.workspaceCard
+          : undefined,
+      });
 
       const compaction = await maybeCompactProjectChat({
         memoryFacts,
@@ -678,9 +701,13 @@ async function handleStructuredDiscussTurn({
       }).catch(() => null);
 
       if (compaction) {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatSummary" = ${JSON.stringify(compaction.summary)}::jsonb, "memoryFacts" = ${JSON.stringify(compaction.memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compaction.compactedMessageCount} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
+        await persistProjectChatCompaction({
+          compactedMessageCount: compaction.compactedMessageCount,
+          memoryFacts: compaction.memoryFacts,
+          projectId: project.id,
+          summary: compaction.summary,
+          userId,
+        });
       }
     },
   });
@@ -815,45 +842,88 @@ function createPersistedWorkspaceToolMessage(
         state: "output-available",
         input: {},
         output: workspaceTurn,
-      } as UIMessage["parts"][number],
+      } satisfies UIMessage["parts"][number],
     ],
   };
 }
 
-function dedupeUiMessages(messages: UIMessage[]) {
-  const seen = new Set<string>();
-  return messages.filter((message) => {
-    const text = getTextFromUIMessage(message);
-    const key = message.id || `${message.role}:${text}`;
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
+function persistProjectBrief({
+  brief,
+  projectId,
+  userId,
+}: {
+  brief: unknown;
+  projectId: string;
+  userId: string;
+}) {
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "brief" = ${JSON.stringify(brief)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
 }
 
-function getSafeAiErrorLog(error: unknown) {
-  const value = error as {
-    lastError?: {
-      statusCode?: number;
-      responseHeaders?: Record<string, string>;
-    };
-    reason?: string;
-  };
-  const statusCode =
-    typeof (error as { statusCode?: unknown }).statusCode === "number"
-      ? (error as { statusCode: number }).statusCode
-      : value.lastError?.statusCode;
-  const retryAfter = value.lastError?.responseHeaders?.["retry-after"];
+function persistProjectWorkspaceTurn({
+  brief,
+  projectId,
+  title,
+  userId,
+  workspaceCard,
+}: {
+  brief: unknown;
+  projectId: string;
+  title: string;
+  userId: string;
+  workspaceCard: unknown;
+}) {
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "brief" = ${JSON.stringify(brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
+}
 
-  return {
-    reason: value.reason || "unknown",
-    retryAfter,
-    statusCode,
-  };
+function persistProjectChatTurn({
+  brief,
+  messages,
+  projectId,
+  title,
+  userId,
+  workspaceCard,
+}: {
+  brief?: unknown;
+  messages: UIMessage[];
+  projectId: string;
+  title?: string;
+  userId: string;
+  workspaceCard?: unknown;
+}) {
+  if (
+    brief !== undefined &&
+    workspaceCard !== undefined &&
+    title !== undefined
+  ) {
+    return prisma.$executeRaw`
+      UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
+    `;
+  }
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
+}
+
+function persistProjectChatCompaction({
+  compactedMessageCount,
+  memoryFacts,
+  projectId,
+  summary,
+  userId,
+}: {
+  compactedMessageCount: number;
+  memoryFacts: unknown;
+  projectId: string;
+  summary: unknown;
+  userId: string;
+}) {
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "chatSummary" = ${JSON.stringify(summary)}::jsonb, "memoryFacts" = ${JSON.stringify(memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compactedMessageCount} WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
 }
 
 function buildSystemPrompt({

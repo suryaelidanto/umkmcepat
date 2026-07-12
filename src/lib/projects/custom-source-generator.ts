@@ -8,10 +8,8 @@ import {
   type GeneratedAppAgentOperation,
   type GeneratedAppAgentToolCommand,
 } from "@/lib/projects/agent-tool-runner";
-import {
-  createGeneratedViteTanStackStarterFiles,
-  type GeneratedProjectFile,
-} from "@/lib/projects/generated-source";
+import { createGeneratedViteTanStackStarterFiles } from "@/lib/projects/generated-source";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 

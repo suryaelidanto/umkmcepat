@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { Prisma } from "@prisma/client";
+
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
@@ -791,12 +793,11 @@ async function persistVisualSummaryMessage({
         ...current,
         {
           id: attemptId,
-          metadata: undefined,
           parts: [{ text: summary, type: "text" }],
           role: "user",
         },
-      ],
-    } as Parameters<typeof prisma.project.update>[0]["data"],
+      ] as Prisma.InputJsonValue,
+    },
   });
 }
 
@@ -826,33 +827,21 @@ type EditAttemptUpdateInput = Partial<{
 async function createProjectEditAttempt(input: EditAttemptCreateInput) {
   const id = `edit_${randomUUID().replace(/-/g, "")}`;
 
-  await prisma.$executeRaw`
-    INSERT INTO "ProjectEditAttempt" (
-      "id",
-      "projectId",
-      "userId",
-      "parentSnapshotId",
-      "kind",
-      "status",
-      "instruction",
-      "summary",
-      "annotations",
-      "createdAt",
-      "updatedAt"
-    ) VALUES (
-      ${id},
-      ${input.projectId},
-      ${input.userId},
-      ${input.parentSnapshotId},
-      ${input.kind},
-      ${input.status},
-      ${input.instruction},
-      ${input.summary ?? null},
-      ${input.annotations ? JSON.stringify(input.annotations) : null}::jsonb,
-      NOW(),
-      NOW()
-    )
-  `;
+  await prisma.projectEditAttempt.create({
+    data: {
+      annotations: input.annotations
+        ? (input.annotations as Prisma.InputJsonValue)
+        : undefined,
+      id,
+      instruction: input.instruction,
+      kind: input.kind,
+      parentSnapshotId: input.parentSnapshotId,
+      projectId: input.projectId,
+      status: input.status,
+      summary: input.summary,
+      userId: input.userId,
+    },
+  });
 
   return { id };
 }
@@ -861,19 +850,22 @@ async function updateProjectEditAttempt(
   id: string,
   input: EditAttemptUpdateInput,
 ) {
-  await prisma.$executeRaw`
-    UPDATE "ProjectEditAttempt"
-    SET
-      "status" = COALESCE(${input.status ?? null}, "status"),
-      "snapshotId" = COALESCE(${input.snapshotId ?? null}, "snapshotId"),
-      "buildId" = COALESCE(${input.buildId ?? null}, "buildId"),
-      "validationIssues" = COALESCE(${input.validationIssues ? JSON.stringify(input.validationIssues) : null}::jsonb, "validationIssues"),
-      "advisoryIssues" = COALESCE(${input.advisoryIssues ? JSON.stringify(input.advisoryIssues) : null}::jsonb, "advisoryIssues"),
-      "errorMessage" = COALESCE(${input.errorMessage ?? null}, "errorMessage"),
-      "leaseToken" = COALESCE(${input.leaseToken ?? null}, "leaseToken"),
-      "startedAt" = COALESCE(${input.startedAt ?? null}, "startedAt"),
-      "finishedAt" = COALESCE(${input.finishedAt ?? null}, "finishedAt"),
-      "updatedAt" = NOW()
-    WHERE "id" = ${id}
-  `;
+  await prisma.projectEditAttempt.update({
+    where: { id },
+    data: {
+      advisoryIssues: input.advisoryIssues
+        ? (input.advisoryIssues as Prisma.InputJsonValue)
+        : undefined,
+      buildId: input.buildId,
+      errorMessage: input.errorMessage ?? undefined,
+      finishedAt: input.finishedAt,
+      leaseToken: input.leaseToken,
+      snapshotId: input.snapshotId,
+      startedAt: input.startedAt,
+      status: input.status,
+      validationIssues: input.validationIssues
+        ? (input.validationIssues as Prisma.InputJsonValue)
+        : undefined,
+    },
+  });
 }
