@@ -10,7 +10,6 @@ const OPTION_LABEL_MAX_LENGTH = 120;
 const OPTION_DESCRIPTION_MAX_LENGTH = 180;
 
 export type WorkspaceTurnToolInput = {
-  chatText?: string;
   briefPatch?: {
     businessName?: string;
     businessType?: string;
@@ -203,9 +202,16 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     return null;
   }
 
-  const candidate = raw as Partial<BriefQuestion>;
+  const candidate = raw as Partial<BriefQuestion> & { id?: unknown };
 
-  if (!isBriefQuestionId(candidate.id)) {
+  const coercedId =
+    typeof candidate.id === "number"
+      ? String(candidate.id)
+      : typeof candidate.id === "string"
+        ? candidate.id
+        : undefined;
+
+  if (!isBriefQuestionId(coercedId)) {
     return null;
   }
 
@@ -221,18 +227,10 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     cleanText(aliasedQuestion.title, 160);
   const options = Array.isArray(candidate.options)
     ? candidate.options
-        .filter(
-          (option): option is { label: string; description: string } =>
-            Boolean(option) && typeof option === "object",
+        .map((option) => coerceQuestionOption(option))
+        .filter((option): option is { label: string; description: string } =>
+          Boolean(option?.label),
         )
-        .map((option) => ({
-          label: cleanText(option.label, OPTION_LABEL_MAX_LENGTH),
-          description: cleanText(
-            option.description,
-            OPTION_DESCRIPTION_MAX_LENGTH,
-          ),
-        }))
-        .filter((option) => option.label && option.description)
         .slice(0, 5)
     : [];
 
@@ -248,7 +246,7 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
   );
 
   return {
-    id: candidate.id,
+    id: coercedId,
     question,
     answerMode,
     options: answerMode === "text" ? [] : options,
@@ -267,6 +265,29 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
       cleanText(aliasedQuestion.description, 180) ||
       cleanText(aliasedQuestion.hint, 180) ||
       undefined,
+  };
+}
+
+function coerceQuestionOption(
+  option: unknown,
+): { label: string; description: string } | null {
+  if (typeof option === "string") {
+    const label = cleanText(option, OPTION_LABEL_MAX_LENGTH);
+    return label ? { label, description: "" } : null;
+  }
+
+  if (!option || typeof option !== "object") {
+    return null;
+  }
+
+  const value = option as { label?: unknown; description?: unknown };
+  const label = cleanText(value.label, OPTION_LABEL_MAX_LENGTH);
+  if (!label) {
+    return null;
+  }
+  return {
+    label,
+    description: cleanText(value.description, OPTION_DESCRIPTION_MAX_LENGTH),
   };
 }
 

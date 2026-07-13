@@ -2,9 +2,7 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  jsonSchema,
-  Output,
-  stepCountIs,
+  generateText,
   streamText,
   type UIMessage,
   validateUIMessages,
@@ -25,7 +23,6 @@ import {
 import {
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
-  type WorkspaceTurnToolInput,
 } from "@/lib/projects/brief-flow";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
@@ -51,137 +48,8 @@ type PreviewRequest = {
   workspaceAnswers?: unknown;
 };
 
-const discussOutputSchema = jsonSchema<WorkspaceTurnToolInput>({
-  type: "object",
-  properties: {
-    chatText: {
-      type: "string",
-      description:
-        "The user-visible Indonesian chat response. 1-3 sentences: acknowledge the answer, introduce the next question or card. Always include this field.",
-    },
-    briefPatch: {
-      type: "object",
-      description:
-        "Known brief fields captured so far. Fill only what the user has actually decided.",
-      properties: {
-        businessType: { type: "string" },
-        offer: { type: "string" },
-        targetCustomer: { type: "string" },
-        contactOrCta: { type: "string" },
-        businessName: { type: "string" },
-        confidence: {
-          type: "number",
-          description:
-            "AI-owned readiness confidence from 0 to 100. Use 95+ only when genuinely build-ready.",
-        },
-        stylePreference: { type: "string" },
-        notes: { type: "array", items: { type: "string" } },
-        openQuestions: {
-          type: "array",
-          description:
-            "Material unresolved decisions before recommending build.",
-          items: { type: "string" },
-        },
-        facts: {
-          type: "array",
-          description:
-            "Canonical facts learned. Use stable keys like business_name, whatsapp, address.",
-          items: {
-            type: "object",
-            properties: {
-              key: { type: "string" },
-              label: { type: "string" },
-              value: { type: "string" },
-            },
-          },
-        },
-        decisions: {
-          type: "array",
-          description:
-            "Canonical user decisions. Add one when the user answers the active question.",
-          items: {
-            type: "object",
-            properties: {
-              id: { type: "string" },
-              question: { type: "string" },
-              answer: { type: "string" },
-            },
-          },
-        },
-        forcedBuild: {
-          type: "object",
-          description:
-            "Set only when the user explicitly forces build before confidence 95.",
-          properties: {
-            assumed: { type: "array", items: { type: "string" } },
-          },
-        },
-      },
-    },
-    projectTitle: {
-      type: "string",
-      description: "A concise, specific Indonesian project name.",
-    },
-    workspaceCard: {
-      type: "object",
-      description:
-        "Interactive UI card. Use type 'question' to ask the next single decision, or type 'build_recommendation' once the brief is clear.",
-      properties: {
-        type: { type: "string" },
-        question: {
-          type: "object",
-          description:
-            "Exactly one decision to ask this turn, with 2-5 specific options.",
-          properties: {
-            id: { type: "string" },
-            question: { type: "string" },
-            answerMode: {
-              type: "string",
-              description:
-                "Use 'text' for exact values like name, WhatsApp, address. Use 'choice' for decisions with options.",
-              enum: ["choice", "text"],
-            },
-            recommendedOptionLabel: { type: "string" },
-            selectionMode: {
-              type: "string",
-              description:
-                "'single' when one path; 'multiple' when several can be true.",
-              enum: ["single", "multiple"],
-            },
-            placeholder: { type: "string" },
-            whyThisQuestionMatters: { type: "string" },
-            options: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  label: { type: "string" },
-                  description: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        title: { type: "string" },
-        summary: {
-          type: "array",
-          description: "Flexible implementation spec shaped by real needs.",
-          items: { type: "string" },
-        },
-        actions: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              label: { type: "string" },
-              prompt: { type: "string" },
-            },
-          },
-        },
-      },
-    },
-  },
-});
+const CHAT_FALLBACK_TEXT =
+  "Oke, aku nangkap. Ada lagi yang mau kamu sampaikan?";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -397,10 +265,12 @@ async function handleDiscussTurn({
   userId: string;
 }) {
   const modelName = getDefaultAiModel();
-  const systemPrompt = buildSystemPrompt({
+  const model = getAiModel(modelName);
+  const chatSystemPrompt = buildChatSystemPrompt({
     context: chatContext.systemContext,
     brief: effectiveBrief,
   });
+  const cardSystemPrompt = buildCardSystemPrompt();
   const modelMessages = await convertToModelMessages(chatContext.messages);
 
   await writeAiRequestLog({
@@ -411,20 +281,10 @@ async function handleDiscussTurn({
     briefConfidence: effectiveBrief.confidence,
   });
 
-  let lastChatText = "";
-  let lastPartial: unknown = null;
-
-  const result = streamText({
-    model: getAiModel(modelName),
-    system: systemPrompt,
+  const phase1 = streamText({
+    model,
+    system: chatSystemPrompt,
     messages: modelMessages,
-    output: Output.object({
-      name: "WorkspaceTurn",
-      description:
-        "Return a JSON object with chatText (user-visible Indonesian response), briefPatch (brief updates), workspaceCard (next interactive card), and projectTitle.",
-      schema: discussOutputSchema,
-    }),
-    stopWhen: stepCountIs(1),
     maxRetries: 2,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discuss"),
@@ -438,58 +298,97 @@ async function handleDiscussTurn({
     }),
     onError({ error }) {
       console.error(
-        "[preview-chat] discuss stream error",
+        "[preview-chat] phase 1 stream error",
         getSafeAiErrorLog(error),
       );
     },
   });
 
-  const partialStream = result.partialOutputStream;
-
   return createUIMessageStreamResponse({
     stream: createUIMessageStream({
       execute: async ({ writer }) => {
-        for await (const partial of partialStream) {
-          lastPartial = partial;
-          const chatText = extractChatText(partial);
+        const messageId = `discuss-${crypto.randomUUID()}`;
+        const textPartId = "discuss-text";
 
-          if (chatText && chatText !== lastChatText) {
-            const delta = chatText.slice(lastChatText.length);
-            if (delta) {
-              writer.write({ type: "text-delta", id: "discuss-text", delta });
-            }
-            lastChatText = chatText;
+        writer.write({ type: "start", messageId });
+        writer.write({ type: "text-start", id: textPartId });
+
+        let fullText = "";
+        let hadError = false;
+
+        try {
+          for await (const delta of phase1.textStream) {
+            fullText += delta;
+            writer.write({ type: "text-delta", id: textPartId, delta });
           }
+        } catch {
+          hadError = true;
         }
 
-        const finalObject = lastPartial as WorkspaceTurnToolInput | null;
-        const chatText = extractChatText(finalObject);
-        const workspaceTurn =
-          finalObject && (finalObject.workspaceCard || finalObject.briefPatch)
-            ? normalizeWorkspaceTurn(finalObject, effectiveBrief)
-            : null;
-        const hasStructuredOutput =
-          workspaceTurn !== null && workspaceTurn.workspaceCard.type !== "none";
+        writer.write({ type: "text-end", id: textPartId });
 
+        if (hadError && !fullText.trim()) {
+          writer.write({ type: "error", errorText: "Stream gagal." });
+          return;
+        }
+
+        const chatText = fullText.trim() || CHAT_FALLBACK_TEXT;
         const assistantMessage: UIMessage = {
-          id: `discuss-${crypto.randomUUID()}`,
+          id: messageId,
           role: "assistant",
-          parts: [
-            {
-              type: "text",
-              text:
-                chatText ||
-                "Oke, aku nangkap. Ada lagi yang mau kamu sampaikan?",
-              state: "done",
-            },
-          ],
+          parts: [{ type: "text", text: chatText, state: "done" }],
         };
 
-        writer.write({ type: "start", messageId: assistantMessage.id });
+        let workspaceTurn = null;
+        let phase2Failed = false;
 
-        writer.write({ type: "finish" });
+        try {
+          const phase2 = await generateText({
+            model,
+            system: cardSystemPrompt,
+            messages: [
+              ...modelMessages,
+              { role: "assistant", content: chatText },
+            ],
+            providerOptions: {
+              "9router": { responseFormat: { type: "json" } },
+            },
+            maxRetries: 2,
+            temperature: 0.35,
+            timeout: getAiTimeoutMs("discuss"),
+            experimental_telemetry: getAiTelemetry(
+              "project-guided-discuss-card",
+              {
+                mode: "discuss",
+                model: modelName,
+                phase: "card",
+                projectId: project.id,
+                route: "api.projects.preview",
+                userId,
+              },
+            ),
+          });
 
-        if (hasStructuredOutput && workspaceTurn) {
+          workspaceTurn = normalizeWorkspaceTurn(
+            parseJsonLenient(phase2.text),
+            effectiveBrief,
+          );
+        } catch (error) {
+          phase2Failed = true;
+          console.error(
+            "[preview-chat] phase 2 card error",
+            getSafeAiErrorLog(error),
+          );
+        }
+
+        const hasCard =
+          workspaceTurn !== null && workspaceTurn.workspaceCard.type !== "none";
+
+        const safeMessages = stripTransportDiagnosticMessages(
+          dedupeUiMessages([...messages, assistantMessage]),
+        );
+
+        if (hasCard && workspaceTurn) {
           const title = workspaceTurn.projectTitle || project.title;
 
           await writeAiRequestLog({
@@ -500,10 +399,6 @@ async function handleDiscussTurn({
             primaryToolFailed: false,
             workspaceCard: workspaceTurn.workspaceCard,
           });
-
-          const safeMessages = stripTransportDiagnosticMessages(
-            dedupeUiMessages([...messages, assistantMessage]),
-          );
 
           await persistProjectChatTurn({
             brief: workspaceTurn.brief,
@@ -519,26 +414,21 @@ async function handleDiscussTurn({
             model: modelName,
             projectId: project.id,
             didWorkspaceToolUpdate: false,
-            primaryToolFailed: false,
+            primaryToolFailed: phase2Failed,
             workspaceCard: { type: "none" },
           });
-
-          const safeMessages = stripTransportDiagnosticMessages(
-            dedupeUiMessages([...messages, assistantMessage]),
-          );
 
           await persistProjectChatTurn({
             messages: safeMessages,
             projectId: project.id,
             userId,
+            workspaceCard: { type: "none" },
           });
         }
 
         const compaction = await maybeCompactProjectChat({
           memoryFacts,
-          messages: stripTransportDiagnosticMessages(
-            dedupeUiMessages([...messages, assistantMessage]),
-          ),
+          messages: safeMessages,
           summary,
         }).catch(() => null);
 
@@ -551,6 +441,8 @@ async function handleDiscussTurn({
             userId,
           });
         }
+
+        writer.write({ type: "finish" });
       },
       onError: (error) =>
         `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
@@ -558,12 +450,24 @@ async function handleDiscussTurn({
   });
 }
 
-function extractChatText(partial: unknown): string {
-  if (!partial || typeof partial !== "object") {
-    return "";
+function parseJsonLenient(text: string): unknown {
+  const cleaned = text
+    .replace(/^```json\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+
+    if (start >= 0 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    }
+
+    throw new Error("No JSON object found in response");
   }
-  const obj = partial as { chatText?: unknown };
-  return typeof obj.chatText === "string" ? obj.chatText : "";
 }
 
 function persistProjectBrief({
@@ -593,19 +497,15 @@ function persistProjectChatTurn({
   projectId: string;
   title?: string;
   userId: string;
-  workspaceCard?: unknown;
+  workspaceCard: unknown;
 }) {
-  if (
-    brief !== undefined &&
-    workspaceCard !== undefined &&
-    title !== undefined
-  ) {
+  if (brief !== undefined && title !== undefined) {
     return prisma.$executeRaw`
       UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
     `;
   }
   return prisma.$executeRaw`
-    UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
+    UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
   `;
 }
 
@@ -627,7 +527,7 @@ function persistProjectChatCompaction({
   `;
 }
 
-function buildSystemPrompt({
+function buildChatSystemPrompt({
   brief,
   context,
 }: {
@@ -637,18 +537,8 @@ function buildSystemPrompt({
   return `You are a relentless website-discovery interviewer for Indonesian small businesses.
 Your job is to interview the user until their needs are fully understood, then help build only when you are at least 95% confident or the user explicitly asks to build now.
 
-You must respond with a JSON object containing these fields:
-- chatText: The user-visible Indonesian chat response (1-3 sentences). Always include this field.
-- briefPatch: Brief updates (facts, decisions, confidence, openQuestions, etc).
-- workspaceCard: The next interactive UI card (type "question" with one question, or "build_recommendation" when ready).
-- projectTitle: A concise Indonesian project name when you can improve on the user's first prompt.
-
-Output format:
-- Always produce valid JSON.
-- chatText is the ONLY user-visible text. It appears in the chat bubble.
-- workspaceCard is the hidden interactive card. It is NOT shown as text.
-- Never put JSON, XML, markdown, option lists, or raw HTML in chatText.
-- Never use emojis or decorative symbols in any field.
+Write user-visible chat copy in natural, concise Indonesian.
+Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
 
 Tone contract:
 - Treat the user like a friend building something together.
@@ -656,41 +546,21 @@ Tone contract:
 - Never address the user as "Anda", "Bapak", "Ibu", "Pak", "Bu", "Kak", "Gan", or other distant/formal labels.
 - Keep it warm, relaxed, helpful, and specific.
 - Do not become overly slangy, flirty, childish, or hypey. Friendly and calm is enough.
-- The same tone applies to workspaceCard questions, option labels/descriptions, review actions, and summaries.
 
 Interview discipline:
-- Ask EXACTLY ONE question per turn via workspaceCard. Never batch.
+- Ask EXACTLY ONE question per turn. Never batch.
 - Walk the decision tree one branch at a time, resolving the deepest open dependency first.
 - Recommend a sensible default option for each question.
 - If something can be inferred from context or the existing brief, do not ask it.
 - Keep going until the brief is genuinely clear.
 
 Confidence gate:
-- Set briefPatch.confidence every turn from 0-100.
-- Stay in question mode unless confidence is at least 95, every material decision is resolved, answers are specific, no contradictions, and you have reflected the brief back.
-- Use briefPatch.openQuestions for unresolved material decisions. Clear it only when confidence is genuinely 95+.
 - Bias hard toward asking. When unsure, ask another question.
-- Exception: if the user clearly asks to build now, set workspaceCard.type to "build_recommendation" and briefPatch.forcedBuild.assumed.
-
-workspaceCard design:
-- While interviewing: type "question" with a single question.
-- answerMode "text" for exact values (business name, WhatsApp, address, hours, menu names).
-- answerMode "choice" for decisions with 2-5 specific, non-overlapping options.
-- selectionMode "multiple" when several options can be true; "single" when one path simplifies the next decision.
-- When the brief is usable but needs confirmation: type "brief_review" with actions.
-- When confidence passes or user forces build: type "build_recommendation".
-- question.id is a short slug like opening_hours, delivery_area, visual_direction.
-- Options must be specific to the user's business, not generic templates.
-- For brief_review and build_recommendation, write summary as a flexible implementation spec.
-
-Memory:
-- briefPatch.facts: stable keys for learned business facts.
-- briefPatch.decisions: add one when the user answers the active question.
-- Legacy fields (businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference) are compatibility caches. Fill when obvious.
+- Build only at 95+ confidence or explicit user request.
 
 Chat style:
-- 1-3 sentences in chatText.
-- Acknowledge the answer, then introduce the next question/card.
+- 1-3 sentences.
+- Acknowledge the answer, then introduce the next question.
 - Do not restate options (the card shows them).
 - When recommending build, summarize briefly and point to the build button.
 
@@ -699,6 +569,28 @@ ${JSON.stringify(brief)}
 
 Hidden context:
 ${context}`;
+}
+
+function buildCardSystemPrompt() {
+  return `You are a card generator for an Indonesian small business website brief flow.
+Based on the conversation, output ONLY a JSON object. No markdown fences, no explanation.
+
+The JSON object must have these fields:
+- briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer}), forcedBuild ({assumed: string array} or null)
+- workspaceCard: object with type (exactly "question" or "build_recommendation" or "brief_review")
+  - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode)
+  - For type "build_recommendation": title (string), summary (string array)
+  - For type "brief_review": title (string), summary (string array), actions (array of {label, prompt})
+- projectTitle: concise Indonesian project name string
+
+Rules:
+- workspaceCard.type must be exactly one of: "question", "build_recommendation", "brief_review"
+- question.id must be a string (not a number)
+- question.options must be an array of objects with label and description strings (not plain strings)
+- Set confidence to 95+ only when genuinely build-ready
+- When the user forces build, use type "build_recommendation" with forcedBuild.assumed
+
+Output valid JSON only. The word json must appear in your thinking.`;
 }
 
 function hasBriefPatchValue(patch: object) {
