@@ -16,6 +16,8 @@ export default function VerifyPage() {
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [skipping, setSkipping] = useState(false);
+  const isDev = process.env.NODE_ENV === "development";
 
   useEffect(() => {
     void (async () => {
@@ -101,6 +103,29 @@ export default function VerifyPage() {
       setVerifying(false);
     }
   }, [otp, phone, router]);
+
+  const skipVerification = useCallback(async () => {
+    setSkipping(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/dev/skip-verification", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        setError("Gagal skip verifikasi.");
+        return;
+      }
+
+      setState("done");
+      setTimeout(() => router.replace("/"), 1500);
+    } catch {
+      setError("Gagal skip verifikasi.");
+    } finally {
+      setSkipping(false);
+    }
+  }, [router]);
 
   if (state === "loading") {
     return (
@@ -189,6 +214,30 @@ export default function VerifyPage() {
               >
                 {sending ? "Mengirim..." : "Kirim Kode OTP"}
               </Button>
+
+              {isDev && (
+                <>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-surface-warm-white/10" />
+                    </div>
+                    <div className="relative flex justify-center text-xs">
+                      <span className="bg-[#1d1d1a] px-2 text-surface-warm-white/42">
+                        atau
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void skipVerification()}
+                    disabled={skipping}
+                    className="w-full"
+                  >
+                    {skipping ? "Melewati..." : "Skip verifikasi (dev mode)"}
+                  </Button>
+                </>
+              )}
             </div>
           )}
 
