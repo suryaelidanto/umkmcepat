@@ -2,7 +2,7 @@ import { stepCountIs, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
-import { getEditAiModel } from "@/lib/ai-models";
+import { getDefaultAiModel } from "@/lib/ai-models";
 import { withAiTimeout } from "@/lib/ai-timeouts";
 
 import {
@@ -41,11 +41,11 @@ export async function editGeneratedSourceWithAgent({
   };
 
   const agent = new ToolLoopAgent({
-    model: getAiModel(model || getEditAiModel()),
+    model: getAiModel(model || getDefaultAiModel()),
     instructions: EDIT_AGENT_INSTRUCTIONS,
     experimental_telemetry: getAiTelemetry("project-source-edit-agent", {
       fileCount: files.length,
-      model: model || getEditAiModel(),
+      model: model || getDefaultAiModel(),
     }),
     stopWhen: stepCountIs(18),
     tools: {

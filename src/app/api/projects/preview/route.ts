@@ -10,7 +10,7 @@ import {
 } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
-import { getChatAiModel, getEditAiModel } from "@/lib/ai-models";
+import { getDefaultAiModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
@@ -303,7 +303,7 @@ export async function POST(request: Request) {
   let workspaceTurn = normalizeWorkspaceTurn(undefined, effectiveBrief);
 
   const result = streamText({
-    model: getAiModel(getChatAiModel()),
+    model: getAiModel(getDefaultAiModel()),
     system: buildSystemPrompt({
       context: chatContext.systemContext,
       mode,
@@ -320,7 +320,7 @@ export async function POST(request: Request) {
     timeout: getAiTimeoutMs("discuss"),
     experimental_telemetry: getAiTelemetry("project-chat-build-mode", {
       mode,
-      model: getChatAiModel(),
+      model: getDefaultAiModel(),
       projectId: project.id,
       route: "api.projects.preview",
       userId,
@@ -385,8 +385,8 @@ async function repairWorkspaceCard({
   storedWorkspaceCard: ReturnType<typeof parseWorkspaceCard>;
   userId: string;
 }) {
-  const modelName = getChatAiModel();
-  const fallbackModel = getEditAiModel();
+  const modelName = getDefaultAiModel();
+  const fallbackModel = getDefaultAiModel();
   const repairModels = [
     modelName,
     ...(fallbackModel === modelName ? [] : [fallbackModel]),
@@ -532,7 +532,7 @@ async function handleStructuredDiscussTurn({
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
-  const modelName = getChatAiModel();
+  const modelName = getDefaultAiModel();
   let workspaceTurn = normalizeWorkspaceTurn(
     { workspaceCard: storedWorkspaceCard },
     effectiveBrief,
@@ -726,7 +726,7 @@ async function repairMissingWorkspaceTool({
   systemPrompt: string;
   tools: ToolSet;
 }) {
-  const fallbackModel = getEditAiModel();
+  const fallbackModel = getDefaultAiModel();
   const repairModels = [
     modelName,
     ...(fallbackModel === modelName ? [] : [fallbackModel]),

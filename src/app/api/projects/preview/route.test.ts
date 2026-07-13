@@ -384,52 +384,6 @@ describe("project preview AI route", () => {
     );
   });
 
-  it("uses the repair fallback model when the primary repair call fails", async () => {
-    authed();
-    generateTextMock.mockRejectedValueOnce(new Error("provider unavailable"));
-    queryRawMock.mockResolvedValueOnce([
-      {
-        brief: null,
-        chatMessages: [
-          {
-            id: "user_answer",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "Siapa pelanggan utama kamu?\nJawaban: Anak kos & mahasiswa",
-              },
-            ],
-          },
-        ],
-        chatSummary: null,
-        lastCompactedMessageCount: 0,
-        memoryFacts: null,
-        workspaceCard: {
-          type: "question",
-          question: {
-            id: "target_customer",
-            question: "Siapa pelanggan utama kamu?",
-            answerMode: "choice",
-            options: [
-              { label: "Anak kos & mahasiswa", description: "Mahasiswa" },
-              { label: "Umum", description: "Semua kalangan" },
-            ],
-          },
-        },
-      },
-    ]);
-
-    const response = await post({
-      mode: "discuss",
-      projectId: "project_1",
-      repairWorkspace: true,
-    });
-
-    expect(response.status).toBe(200);
-    expect(generateTextMock).toHaveBeenCalledTimes(2);
-  });
-
   it("repairs a missing provider tool call after visible text finishes", async () => {
     authed();
     let finishCompleted: Promise<void> = Promise.resolve();

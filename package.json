@@ -31,7 +31,7 @@
     "lighthouse:auth:mobile": "node scripts/run-lighthouse.mjs auth-mobile",
     "lighthouse:desktop": "node scripts/run-lighthouse.mjs desktop",
     "lighthouse:mobile": "node scripts/run-lighthouse.mjs mobile",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint . --max-warnings=0 --cache --cache-location .eslintcache",
     "prepare": "husky",
     "runtime:idle-stop": "bun src/lib/projects/runtime-idle-runner.ts",
     "setup:agent": "bun run graph:index",
@@ -44,7 +44,7 @@
     "test:storybook": "node scripts/run-storybook-tests.mjs",
     "test:storybook:coverage": "node scripts/run-storybook-tests.mjs --coverage",
     "test:watch": "vitest --project unit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit --incremental --tsBuildInfoFile .tsbuildinfo"
   },
   "overrides": {
     "dompurify": "3.4.11",
