@@ -4,11 +4,11 @@ import {
   sanitizeBuildLog,
   type BuildFailureReason,
 } from "@/lib/projects/build-logs";
+import { buildGeneratedProject } from "@/lib/projects/generated-source";
 import {
-  buildGeneratedProject,
   type GeneratedDistFile,
   type GeneratedProjectFile,
-} from "@/lib/projects/generated-source";
+} from "@/lib/projects/generated-types";
 import { writeProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import { type ProjectBuildStatus } from "@/lib/projects/runtime-types";
 

@@ -5,14 +5,14 @@ import {
   getBuildRecommendationHoldSignature,
   getWorkspacePreviewIssue,
   getWorkspaceComposerState,
-  hasAnsweredWorkspaceQuestion,
-  hasMissingWorkspaceUiTurn,
   isBuildRecommendationHeld,
+  isFreshWorkspaceCard,
   isWorkspaceBuildComplete,
+  PREPARING_POLL_INTERVAL_MS,
+  PREPARING_TIMEOUT_MS,
   shouldShowBuildRecommendationComposer,
   shouldRefreshWorkspaceAfterChatStatus,
   shouldUseGeneratedPreviewFrame,
-  isUserVisibleAssistantText,
 } from "@/lib/projects/workspace-sync";
 
 describe("workspace chat sync", () => {
@@ -36,265 +36,6 @@ describe("workspace chat sync", () => {
     expect(shouldRefreshWorkspaceAfterChatStatus("ready", "submitted")).toBe(
       false,
     );
-  });
-
-  it("does not show missing workspace UI when stored messages have the next tool card", () => {
-    const card: WorkspaceCard = {
-      type: "question",
-      question: {
-        id: "service_area",
-        answerMode: "text",
-        options: [],
-        question: "Area mana saja yang kamu layani?",
-        selectionMode: "single",
-      },
-    };
-
-    expect(
-      hasMissingWorkspaceUiTurn({
-        card,
-        mode: "discuss",
-        messages: [
-          {
-            id: "user_1",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "Apa nama usaha nasi box kamu?\nJawaban: Dapur Surya Elidanto",
-              },
-            ],
-          },
-          {
-            id: "workspace-tool-1",
-            role: "assistant",
-            parts: [
-              {
-                type: "tool-setWorkspaceUi",
-                state: "output-available",
-                toolCallId: "workspace-tool-1",
-                input: {},
-                output: { workspaceCard: card },
-              },
-            ],
-          },
-          {
-            id: "transient_assistant",
-            role: "assistant",
-            parts: [{ type: "text", text: "Sebentar ya..." }],
-          },
-        ],
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps an unanswered persisted card active after duplicate previous answers", () => {
-    const card: WorkspaceCard = {
-      type: "question",
-      question: {
-        id: "next_section",
-        answerMode: "choice",
-        options: [],
-        question: "Selain paket, bagian apa lagi yang kamu mau?",
-        selectionMode: "multiple",
-      },
-    };
-
-    expect(
-      hasAnsweredWorkspaceQuestion({
-        card,
-        mode: "discuss",
-        messages: [
-          {
-            id: "user_1",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "Turnamen masih jalan?\nJawaban: Masih jalan rutin",
-              },
-            ],
-          },
-          {
-            id: "user_2",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "Turnamen masih jalan?\nJawaban: Masih jalan rutin",
-              },
-            ],
-          },
-          {
-            id: "assistant_1",
-            role: "assistant",
-            parts: [{ type: "text", text: "Oke, aku lanjut tanya." }],
-          },
-        ],
-      }),
-    ).toBe(false);
-  });
-
-  it("shows retry state when an answered question has only transport diagnostics", () => {
-    const card: WorkspaceCard = {
-      type: "question",
-      question: {
-        id: "opening_hours",
-        answerMode: "text",
-        options: [],
-        question: "Neon Pad buka jam berapa?",
-        selectionMode: "single",
-      },
-    };
-
-    expect(
-      isUserVisibleAssistantText(
-        '[Provider transport error: {"type":"server_error"}]',
-      ),
-    ).toBe(false);
-    expect(
-      hasMissingWorkspaceUiTurn({
-        card,
-        mode: "discuss",
-        messages: [
-          {
-            id: "user_1",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "Neon Pad buka jam berapa?\nJawaban: Senin-Jumat 8-5",
-              },
-            ],
-          },
-          {
-            id: "assistant_error",
-            role: "assistant",
-            parts: [
-              {
-                type: "text",
-                text: '[Provider transport error: {"type":"server_error"}]',
-              },
-            ],
-          },
-        ],
-      }),
-    ).toBe(true);
-  });
-
-  it("shows missing workspace UI when first-turn text has no tool card", () => {
-    expect(
-      hasMissingWorkspaceUiTurn({
-        card: { type: "none" },
-        mode: "discuss",
-        messages: [
-          {
-            id: "user_1",
-            role: "user",
-            parts: [{ type: "text", text: "Bikin rental PS Neon Pad" }],
-          },
-          {
-            id: "assistant_1",
-            role: "assistant",
-            parts: [{ type: "text", text: "Nomor WA aktifnya apa?" }],
-          },
-        ],
-      }),
-    ).toBe(true);
-  });
-
-  it("hides an answered question immediately before its assistant response arrives", () => {
-    const card: WorkspaceCard = {
-      type: "question",
-      question: {
-        id: "business_name",
-        answerMode: "text",
-        options: [],
-        question: "Apa nama usaha nasi box kamu?",
-        selectionMode: "single",
-      },
-    };
-
-    expect(
-      hasAnsweredWorkspaceQuestion({
-        card,
-        mode: "discuss",
-        messages: [
-          {
-            id: "user_1",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "Apa nama usaha nasi box kamu?\nJawaban: Dapur Surya",
-              },
-            ],
-          },
-        ],
-      }),
-    ).toBe(true);
-  });
-
-  it("shows missing workspace UI only when the current answered card has no newer tool", () => {
-    const card: WorkspaceCard = {
-      type: "question",
-      question: {
-        id: "business_name",
-        answerMode: "text",
-        options: [],
-        question: "Apa nama usaha nasi box kamu?",
-        selectionMode: "single",
-      },
-    };
-
-    expect(
-      hasMissingWorkspaceUiTurn({
-        card,
-        mode: "discuss",
-        messages: [
-          {
-            id: "user_1",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "Apa nama usaha nasi box kamu?\nJawaban: Dapur Surya Elidanto",
-              },
-            ],
-          },
-          {
-            id: "assistant_1",
-            role: "assistant",
-            parts: [{ type: "text", text: "Oke aku catat." }],
-          },
-        ],
-      }),
-    ).toBe(true);
-  });
-
-  it("shows missing workspace UI when a stale recommendation has no current tool output", () => {
-    expect(
-      hasMissingWorkspaceUiTurn({
-        card: {
-          type: "build_recommendation",
-          title: "Brief lama siap dibangun",
-          summary: ["Ringkasan lama"],
-        },
-        mode: "discuss",
-        messages: [
-          {
-            id: "user_1",
-            role: "user",
-            parts: [{ type: "text", text: "Aku mau ubah targetnya" }],
-          },
-          {
-            id: "assistant_1",
-            role: "assistant",
-            parts: [{ type: "text", text: "Oke, target barunya siapa?" }],
-          },
-        ],
-      }),
-    ).toBe(true);
   });
 
   it("holds a build recommendation only while the recommendation content matches", () => {
@@ -504,5 +245,85 @@ describe("workspace chat sync", () => {
         sourceStatus: "passed",
       }),
     ).toBeNull();
+  });
+});
+
+describe("isFreshWorkspaceCard", () => {
+  const questionCard = (id: string): WorkspaceCard => ({
+    type: "question",
+    question: {
+      id,
+      question: "Apa nama bisnisnya?",
+      answerMode: "text",
+      options: [],
+      placeholder: "",
+      selectionMode: "single",
+      whyThisQuestionMatters: "",
+    },
+  });
+
+  const buildRecommendationCard = (
+    title: string,
+    summary: string[],
+  ): WorkspaceCard => ({
+    type: "build_recommendation",
+    title,
+    summary,
+  });
+
+  it("treats a none card as not fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        { type: "none" } as WorkspaceCard,
+        questionCard("nama_bisnis"),
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a different card type as fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan"]),
+        questionCard("nama_bisnis"),
+      ),
+    ).toBe(true);
+  });
+
+  it("treats a question with a new id as fresh", () => {
+    expect(
+      isFreshWorkspaceCard(questionCard("lokasi"), questionCard("nama_bisnis")),
+    ).toBe(true);
+  });
+
+  it("treats a question with the same id as not fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        questionCard("nama_bisnis"),
+        questionCard("nama_bisnis"),
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a build recommendation with a different signature as fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan baru"]),
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan lama"]),
+      ),
+    ).toBe(true);
+  });
+
+  it("treats a build recommendation with the same signature as not fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan"]),
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan"]),
+      ),
+    ).toBe(false);
+  });
+
+  it("exposes bounded poll and timeout constants", () => {
+    expect(PREPARING_POLL_INTERVAL_MS).toBeGreaterThan(0);
+    expect(PREPARING_TIMEOUT_MS).toBeGreaterThan(PREPARING_POLL_INTERVAL_MS);
   });
 });

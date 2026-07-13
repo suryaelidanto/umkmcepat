@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   createProjectSiteSchemaFromBrief,
   createFallbackProjectSiteSchema,
+  parseProjectSiteSchema,
+} from "./site-schema";
+import {
   getProjectSiteSchemaCandidateIssues,
   getProjectSiteSchemaQualityIssues,
-  parseProjectSiteSchema,
   resolveProjectSiteSchemaCandidate,
-} from "./site-schema";
+} from "./site-schema-issues";
 
 describe("project site schema", () => {
   it("creates a safe fallback schema from a prompt", () => {

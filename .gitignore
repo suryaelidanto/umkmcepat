@@ -38,6 +38,7 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+.eslintcache
 next-env.d.ts
 
 # Sentry Config File
@@ -62,9 +63,5 @@ graphify-out/
 
 # Storybook build output
 /storybook-static/
-
-# Lighthouse local reports/session state
-/.lighthouseci/
-/.lighthouse-auth/
 
 cookie.txt

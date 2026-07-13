@@ -1,21 +1,21 @@
 import {
   convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
   generateText,
-  stepCountIs,
   streamText,
-  tool,
-  type ToolSet,
   type UIMessage,
   validateUIMessages,
 } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
-import { getChatAiModel, getEditAiModel } from "@/lib/ai-models";
+import { getDefaultAiModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { prisma } from "@/lib/prisma";
+import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import {
   mergeProjectBriefPatch,
   parseProjectBrief,
@@ -23,11 +23,11 @@ import {
 import {
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
-  workspaceTurnToolInputSchema,
 } from "@/lib/projects/brief-flow";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   buildProjectChatContext,
+  dedupeUiMessages,
   getTextFromUIMessage,
   parseProjectChatMessages,
   parseProjectChatSummary,
@@ -45,9 +45,11 @@ type PreviewRequest = {
   messages?: UIMessage[];
   mode?: "discuss" | "build";
   projectId?: string;
-  repairWorkspace?: boolean;
   workspaceAnswers?: unknown;
 };
+
+const CHAT_FALLBACK_TEXT =
+  "Oke, aku nangkap. Ada lagi yang mau kamu sampaikan?";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -88,8 +90,6 @@ export async function POST(request: Request) {
 
     throw error;
   }
-
-  const mode = body.mode === "build" ? "build" : "discuss";
 
   if (!body.projectId) {
     return Response.json({ message: "Proyek tidak valid." }, { status: 400 });
@@ -144,7 +144,6 @@ export async function POST(request: Request) {
   };
   const memoryFacts = parseProjectMemoryFacts(chatRow?.memoryFacts);
   const incoming = body.message ? [body.message] : (body.messages ?? []);
-  const repairWorkspace = body.repairWorkspace === true;
 
   if (incoming.length > 1) {
     return Response.json(
@@ -213,27 +212,18 @@ export async function POST(request: Request) {
     workspaceAnswerPatch,
   );
 
-  if (!incoming.length && !repairWorkspace) {
+  if (!incoming.length) {
     return Response.json(
       { message: "Pesan tidak boleh kosong." },
       { status: 400 },
     );
   }
 
-  if (repairWorkspace && mode !== "discuss") {
-    return Response.json(
-      { message: "Pilihan hanya bisa disiapkan saat diskusi." },
-      { status: 400 },
-    );
-  }
-
-  // Persist the user's answer before AI work. The discuss path below writes
-  // assistant text + workspace card atomically from one structured AI output.
-  if (!repairWorkspace) {
-    await prisma.$executeRaw`
-      UPDATE "Project" SET "brief" = ${JSON.stringify(effectiveBrief)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
-    `;
-  }
+  await persistProjectBrief({
+    brief: effectiveBrief,
+    projectId: project.id,
+    userId,
+  });
 
   const messages = await validateUIMessages({
     messages: dedupeUiMessages(
@@ -246,262 +236,23 @@ export async function POST(request: Request) {
     summary: chatSummary,
   });
 
-  if (repairWorkspace) {
-    return repairWorkspaceCard({
-      chatContext,
-      effectiveBrief,
-      messages,
-      project,
-      storedWorkspaceCard,
-      userId,
-    });
-  }
-
-  if (mode === "discuss") {
-    return handleStructuredDiscussTurn({
-      chatContext,
-      effectiveBrief,
-      memoryFacts,
-      messages,
-      project,
-      storedWorkspaceCard,
-      summary: chatSummary,
-      userId,
-    });
-  }
-
-  let didWorkspaceToolUpdate = false;
-  const workspaceTools = {
-    setWorkspaceUi: tool({
-      description:
-        "Update the hidden UMKM Cepat workspace brief and interactive UI card. Before calling this tool, always write a short visible Indonesian chat response to the user. Call the tool exactly once per turn after that visible text.",
-      inputSchema: workspaceTurnToolInputSchema,
-      // The server is the single authority: normalize never throws, so a
-      // malformed tool input degrades to a valid fallback card instead of
-      // failing the chat turn.
-      execute: async (input: unknown) => {
-        workspaceTurn = normalizeWorkspaceTurn(input, effectiveBrief);
-        didWorkspaceToolUpdate = true;
-        const title = workspaceTurn.projectTitle || project.title;
-
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-
-        return workspaceTurn;
-      },
-    }),
-  };
-  let workspaceTurn = normalizeWorkspaceTurn(undefined, effectiveBrief);
-
-  const result = streamText({
-    model: getAiModel(getChatAiModel()),
-    system: buildSystemPrompt({
-      context: chatContext.systemContext,
-      mode,
-      brief: effectiveBrief,
-    }),
-    messages: await convertToModelMessages(chatContext.messages, {
-      tools: workspaceTools,
-    }),
-    tools: workspaceTools,
-    toolChoice: "auto",
-    stopWhen: stepCountIs(1),
-    maxRetries: 0,
-    temperature: 0.35,
-    timeout: getAiTimeoutMs("discuss"),
-    experimental_telemetry: getAiTelemetry("project-chat-build-mode", {
-      mode,
-      model: getChatAiModel(),
-      projectId: project.id,
-      route: "api.projects.preview",
-      userId,
-    }),
-    onError({ error }) {
-      console.error("[preview-chat] stream error", getSafeAiErrorLog(error));
-    },
-  });
-
-  return result.toUIMessageStreamResponse({
-    originalMessages: messages,
-    onFinish: async ({ messages }) => {
-      const safeMessages = stripTransportDiagnosticMessages(
-        dedupeUiMessages(parseProjectChatMessages(messages)),
-      );
-
-      const title = workspaceTurn.projectTitle || project.title;
-      const messagesToPersist = safeMessages;
-
-      if (didWorkspaceToolUpdate) {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messagesToPersist)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      } else {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messagesToPersist)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      }
-
-      const compaction = await maybeCompactProjectChat({
-        memoryFacts,
-        messages: safeMessages,
-        summary: chatSummary,
-      }).catch(() => null);
-
-      if (compaction) {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatSummary" = ${JSON.stringify(compaction.summary)}::jsonb, "memoryFacts" = ${JSON.stringify(compaction.memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compaction.compactedMessageCount} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      }
-    },
-  });
-}
-
-async function repairWorkspaceCard({
-  chatContext,
-  effectiveBrief,
-  messages,
-  project,
-  storedWorkspaceCard,
-  userId,
-}: {
-  chatContext: ReturnType<typeof buildProjectChatContext>;
-  effectiveBrief: ReturnType<typeof parseProjectBrief>;
-  messages: UIMessage[];
-  project: { id: string; prompt: string; status: string; title: string };
-  storedWorkspaceCard: ReturnType<typeof parseWorkspaceCard>;
-  userId: string;
-}) {
-  const modelName = getChatAiModel();
-  const fallbackModel = getEditAiModel();
-  const repairModels = [
-    modelName,
-    ...(fallbackModel === modelName ? [] : [fallbackModel]),
-  ];
-  const latestAnsweredQuestion = getLatestAnsweredQuestion(messages);
-  let workspaceTurn = normalizeWorkspaceTurn(
-    { workspaceCard: storedWorkspaceCard },
+  return handleDiscussTurn({
+    chatContext,
     effectiveBrief,
-  );
-  let didWorkspaceToolUpdate = false;
-  const workspaceTools = {
-    setWorkspaceUi: tool({
-      description:
-        "Update the hidden UMKM Cepat workspace brief and interactive UI card. Call exactly once with the brief update and the next unanswered workspace card.",
-      inputSchema: workspaceTurnToolInputSchema,
-      execute: async (input: unknown) => {
-        workspaceTurn = normalizeWorkspaceTurn(input, effectiveBrief);
-        didWorkspaceToolUpdate = true;
-        return workspaceTurn;
-      },
-    }),
-  };
-  const systemPrompt = buildSystemPrompt({
-    context: chatContext.systemContext,
-    mode: "discuss",
-    brief: effectiveBrief,
+    memoryFacts,
+    messages,
+    project,
+    summary: chatSummary,
+    userId,
   });
-  const modelMessages = await convertToModelMessages(chatContext.messages, {
-    tools: workspaceTools,
-  });
-
-  for (const repairModel of repairModels) {
-    await writeAiRequestLog({
-      event: "discuss:card-retry-start",
-      model: repairModel,
-      projectId: project.id,
-    });
-
-    try {
-      const repair = await generateText({
-        model: getAiModel(repairModel),
-        system: `${systemPrompt}\n\nRecovery pass: a prior answer is already saved. Do not write user-visible text. Call setWorkspaceUi exactly once with the next unanswered workspace card. Never repeat this answered question: ${latestAnsweredQuestion || "none"}.`,
-        messages: modelMessages,
-        tools: workspaceTools,
-        toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
-        stopWhen: stepCountIs(1),
-        maxRetries: 0,
-        temperature: 0.2,
-        timeout: getAiTimeoutMs("discussToolSettle"),
-        experimental_telemetry: getAiTelemetry(
-          "project-guided-discuss-card-retry",
-          {
-            model: repairModel,
-            projectId: project.id,
-            route: "api.projects.preview",
-          },
-        ),
-      });
-
-      const cardRepeatsAnswer =
-        workspaceTurn.workspaceCard.type === "question" &&
-        workspaceTurn.workspaceCard.question.question ===
-          latestAnsweredQuestion;
-      const repaired =
-        didWorkspaceToolUpdate &&
-        repair.toolResults.length > 0 &&
-        !cardRepeatsAnswer;
-
-      await writeAiRequestLog({
-        event: "discuss:card-retry-finish",
-        model: repairModel,
-        projectId: project.id,
-        finishReason: repair.finishReason,
-        toolCallCount: repair.toolCalls.length,
-        toolResultCount: repair.toolResults.length,
-        repaired,
-      });
-
-      if (repaired) {
-        const safeMessages = [
-          ...stripTransportDiagnosticMessages(dedupeUiMessages(messages)),
-          createPersistedWorkspaceToolMessage(workspaceTurn),
-        ];
-        const title = workspaceTurn.projectTitle || project.title;
-
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-
-        return Response.json({
-          projectTitle: title,
-          workspaceCard: workspaceTurn.workspaceCard,
-        });
-      }
-
-      if (repairModel === fallbackModel) {
-        break;
-      }
-    } catch (error) {
-      await writeAiRequestLog({
-        event: "discuss:card-retry-error",
-        model: repairModel,
-        projectId: project.id,
-        error: getSafeAiErrorLog(error),
-      });
-
-      if (repairModel === fallbackModel) {
-        break;
-      }
-    }
-  }
-
-  return Response.json(
-    {
-      message:
-        "Pilihan berikutnya belum bisa disiapkan. Jawabanmu tetap tersimpan; coba lagi sebentar.",
-    },
-    { status: 503, headers: { "Retry-After": "3" } },
-  );
 }
 
-async function handleStructuredDiscussTurn({
+async function handleDiscussTurn({
   chatContext,
   effectiveBrief,
   memoryFacts,
   messages,
   project,
-  storedWorkspaceCard,
   summary,
   userId,
 }: {
@@ -510,51 +261,17 @@ async function handleStructuredDiscussTurn({
   memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
   messages: UIMessage[];
   project: { id: string; prompt: string; status: string; title: string };
-  storedWorkspaceCard: ReturnType<typeof parseWorkspaceCard>;
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
-  const modelName = getChatAiModel();
-  let workspaceTurn = normalizeWorkspaceTurn(
-    { workspaceCard: storedWorkspaceCard },
-    effectiveBrief,
-  );
-  let didWorkspaceToolUpdate = false;
-  let workspaceToolPromise: Promise<void> | null = null;
-  const workspaceTools = {
-    setWorkspaceUi: tool({
-      description:
-        "Update the hidden UMKM Cepat workspace brief and interactive UI card. Before calling this tool, always write a short visible Indonesian chat response to the user. Call the tool exactly once per turn after that visible text.",
-      inputSchema: workspaceTurnToolInputSchema,
-      execute: async (input: unknown) => {
-        if (!workspaceToolPromise) {
-          const nextWorkspaceTurn = normalizeWorkspaceTurn(
-            input,
-            effectiveBrief,
-          );
-          workspaceToolPromise = (async () => {
-            workspaceTurn = nextWorkspaceTurn;
-            didWorkspaceToolUpdate = true;
-            const title = workspaceTurn.projectTitle || project.title;
-
-            await prisma.$executeRaw`
-              UPDATE "Project" SET "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-            `;
-
-            await writeAiRequestLog({
-              event: "discuss:tool-output",
-              model: modelName,
-              projectId: project.id,
-              workspaceCard: workspaceTurn.workspaceCard,
-            });
-          })();
-        }
-
-        await workspaceToolPromise;
-        return workspaceTurn;
-      },
-    }),
-  };
+  const modelName = getDefaultAiModel();
+  const model = getAiModel(modelName);
+  const chatSystemPrompt = buildChatSystemPrompt({
+    context: chatContext.systemContext,
+    brief: effectiveBrief,
+  });
+  const cardSystemPrompt = buildCardSystemPrompt();
+  const modelMessages = await convertToModelMessages(chatContext.messages);
 
   await writeAiRequestLog({
     event: "discuss:start",
@@ -564,22 +281,11 @@ async function handleStructuredDiscussTurn({
     briefConfidence: effectiveBrief.confidence,
   });
 
-  const systemPrompt = buildSystemPrompt({
-    context: chatContext.systemContext,
-    mode: "discuss",
-    brief: effectiveBrief,
-  });
-  const modelMessages = await convertToModelMessages(chatContext.messages, {
-    tools: workspaceTools,
-  });
-  const result = streamText({
-    model: getAiModel(modelName),
-    system: systemPrompt,
+  const phase1 = streamText({
+    model,
+    system: chatSystemPrompt,
     messages: modelMessages,
-    tools: workspaceTools,
-    toolChoice: "required",
-    stopWhen: stepCountIs(1),
-    maxRetries: 0,
+    maxRetries: 2,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discuss"),
     experimental_telemetry: getAiTelemetry("project-guided-discuss", {
@@ -590,346 +296,272 @@ async function handleStructuredDiscussTurn({
       route: "api.projects.preview",
       userId,
     }),
-    onStepFinish({ finishReason, toolCalls, toolResults }) {
-      void writeAiRequestLog({
-        event: "discuss:step-finish",
-        model: modelName,
-        projectId: project.id,
-        finishReason,
-        toolCallCount: toolCalls.length,
-        toolResultCount: toolResults.length,
-      });
-    },
     onError({ error }) {
       console.error(
-        "[preview-chat] discuss stream error",
+        "[preview-chat] phase 1 stream error",
         getSafeAiErrorLog(error),
       );
     },
   });
 
-  return result.toUIMessageStreamResponse({
-    originalMessages: messages,
-    onFinish: async ({ messages, responseMessage }) => {
-      let safeMessages = stripTransportDiagnosticMessages(
-        dedupeUiMessages(parseProjectChatMessages(messages)),
-      );
-      let primaryToolFailed = false;
+  return createUIMessageStreamResponse({
+    stream: createUIMessageStream({
+      execute: async ({ writer }) => {
+        const messageId = `discuss-${crypto.randomUUID()}`;
+        const textPartId = "discuss-text";
 
-      if (workspaceToolPromise) {
+        writer.write({ type: "start", messageId });
+        writer.write({ type: "text-start", id: textPartId });
+
+        let fullText = "";
+        let hadError = false;
+
         try {
-          await workspaceToolPromise;
+          for await (const delta of phase1.textStream) {
+            fullText += delta;
+            writer.write({ type: "text-delta", id: textPartId, delta });
+          }
+        } catch {
+          hadError = true;
+        }
+
+        writer.write({ type: "text-end", id: textPartId });
+
+        if (hadError && !fullText.trim()) {
+          writer.write({ type: "error", errorText: "Stream gagal." });
+          return;
+        }
+
+        const chatText = fullText.trim() || CHAT_FALLBACK_TEXT;
+        const assistantMessage: UIMessage = {
+          id: messageId,
+          role: "assistant",
+          parts: [{ type: "text", text: chatText, state: "done" }],
+        };
+
+        let workspaceTurn = null;
+        let phase2Failed = false;
+
+        try {
+          const phase2 = await generateText({
+            model,
+            system: cardSystemPrompt,
+            messages: [
+              ...modelMessages,
+              { role: "assistant", content: chatText },
+            ],
+            providerOptions: {
+              "9router": { responseFormat: { type: "json" } },
+            },
+            maxRetries: 2,
+            temperature: 0.35,
+            timeout: getAiTimeoutMs("discuss"),
+            experimental_telemetry: getAiTelemetry(
+              "project-guided-discuss-card",
+              {
+                mode: "discuss",
+                model: modelName,
+                phase: "card",
+                projectId: project.id,
+                route: "api.projects.preview",
+                userId,
+              },
+            ),
+          });
+
+          workspaceTurn = normalizeWorkspaceTurn(
+            parseJsonLenient(phase2.text),
+            effectiveBrief,
+          );
         } catch (error) {
-          primaryToolFailed = true;
-          workspaceToolPromise = null;
+          phase2Failed = true;
+          console.error(
+            "[preview-chat] phase 2 card error",
+            getSafeAiErrorLog(error),
+          );
+        }
+
+        const hasCard =
+          workspaceTurn !== null && workspaceTurn.workspaceCard.type !== "none";
+
+        const safeMessages = stripTransportDiagnosticMessages(
+          dedupeUiMessages([...messages, assistantMessage]),
+        );
+
+        if (hasCard && workspaceTurn) {
+          const title = workspaceTurn.projectTitle || project.title;
+
           await writeAiRequestLog({
-            event: "discuss:tool-primary-error",
+            event: "discuss:finish",
             model: modelName,
             projectId: project.id,
-            error: getSafeAiErrorLog(error),
+            didWorkspaceToolUpdate: true,
+            primaryToolFailed: false,
+            workspaceCard: workspaceTurn.workspaceCard,
+          });
+
+          await persistProjectChatTurn({
+            brief: workspaceTurn.brief,
+            messages: safeMessages,
+            projectId: project.id,
+            title,
+            userId,
+            workspaceCard: workspaceTurn.workspaceCard,
+          });
+        } else {
+          await writeAiRequestLog({
+            event: "discuss:finish",
+            model: modelName,
+            projectId: project.id,
+            didWorkspaceToolUpdate: false,
+            primaryToolFailed: phase2Failed,
+            workspaceCard: { type: "none" },
+          });
+
+          await persistProjectChatTurn({
+            messages: safeMessages,
+            projectId: project.id,
+            userId,
+            workspaceCard: { type: "none" },
           });
         }
-      }
 
-      if (!workspaceToolPromise) {
-        await repairMissingWorkspaceTool({
-          messages: await convertToModelMessages(safeMessages, {
-            tools: workspaceTools,
-          }),
-          modelName,
-          projectId: project.id,
-          systemPrompt,
-          tools: workspaceTools,
-        });
-      }
+        const compaction = await maybeCompactProjectChat({
+          memoryFacts,
+          messages: safeMessages,
+          summary,
+        }).catch(() => null);
 
-      if (didWorkspaceToolUpdate && !hasWorkspaceToolOutput(responseMessage)) {
-        safeMessages = [
-          ...safeMessages,
-          createPersistedWorkspaceToolMessage(workspaceTurn),
-        ];
-      }
+        if (compaction) {
+          await persistProjectChatCompaction({
+            compactedMessageCount: compaction.compactedMessageCount,
+            memoryFacts: compaction.memoryFacts,
+            projectId: project.id,
+            summary: compaction.summary,
+            userId,
+          });
+        }
 
-      const title = workspaceTurn.projectTitle || project.title;
-
-      await writeAiRequestLog({
-        event: "discuss:finish",
-        model: modelName,
-        projectId: project.id,
-        didWorkspaceToolUpdate,
-        primaryToolFailed,
-        workspaceCard: workspaceTurn.workspaceCard,
-      });
-
-      if (didWorkspaceToolUpdate) {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb, "brief" = ${JSON.stringify(workspaceTurn.brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceTurn.workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      } else {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatMessages" = ${JSON.stringify(safeMessages)}::jsonb WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      }
-
-      const compaction = await maybeCompactProjectChat({
-        memoryFacts,
-        messages: safeMessages,
-        summary,
-      }).catch(() => null);
-
-      if (compaction) {
-        await prisma.$executeRaw`
-          UPDATE "Project" SET "chatSummary" = ${JSON.stringify(compaction.summary)}::jsonb, "memoryFacts" = ${JSON.stringify(compaction.memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compaction.compactedMessageCount} WHERE id = ${project.id} AND "userId" = ${userId}
-        `;
-      }
-    },
+        writer.write({ type: "finish" });
+      },
+      onError: (error) =>
+        `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
+    }),
   });
 }
 
-async function repairMissingWorkspaceTool({
-  messages,
-  modelName,
+function parseJsonLenient(text: string): unknown {
+  const cleaned = text
+    .replace(/^```json\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+
+    if (start >= 0 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    }
+
+    throw new Error("No JSON object found in response");
+  }
+}
+
+function persistProjectBrief({
+  brief,
   projectId,
-  systemPrompt,
-  tools,
+  userId,
 }: {
-  messages: Awaited<ReturnType<typeof convertToModelMessages>>;
-  modelName: string;
+  brief: unknown;
   projectId: string;
-  systemPrompt: string;
-  tools: ToolSet;
+  userId: string;
 }) {
-  const fallbackModel = getEditAiModel();
-  const repairModels = [
-    modelName,
-    ...(fallbackModel === modelName ? [] : [fallbackModel]),
-  ];
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "brief" = ${JSON.stringify(brief)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
+}
 
-  for (const repairModel of repairModels) {
-    await writeAiRequestLog({
-      event: "discuss:tool-repair-start",
-      model: repairModel,
-      projectId,
-    });
-
-    try {
-      const repair = await generateText({
-        model: getAiModel(repairModel),
-        system: `${systemPrompt}\n\nRecovery pass: the visible answer was already streamed. Do not write user-visible text. Call setWorkspaceUi exactly once now with the brief update and next workspace card. Never repeat the question answered in the latest user message.`,
-        messages,
-        tools,
-        toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
-        stopWhen: stepCountIs(1),
-        maxRetries: 0,
-        temperature: 0.2,
-        timeout: getAiTimeoutMs("discussToolSettle"),
-        experimental_telemetry: getAiTelemetry(
-          "project-guided-discuss-tool-repair",
-          {
-            model: repairModel,
-            projectId,
-            route: "api.projects.preview",
-          },
-        ),
-      });
-
-      const didRepairToolUpdate = repair.toolResults.length > 0;
-      await writeAiRequestLog({
-        event: "discuss:tool-repair-finish",
-        model: repairModel,
-        projectId,
-        finishReason: repair.finishReason,
-        toolCallCount: repair.toolCalls.length,
-        toolResultCount: repair.toolResults.length,
-      });
-
-      if (didRepairToolUpdate || repairModel === fallbackModel) {
-        return;
-      }
-
-      await writeAiRequestLog({
-        event: "discuss:tool-repair-fallback",
-        model: fallbackModel,
-        projectId,
-      });
-    } catch (error) {
-      await writeAiRequestLog({
-        event: "discuss:tool-repair-error",
-        model: repairModel,
-        projectId,
-        error: getSafeAiErrorLog(error),
-      });
-
-      if (repairModel === fallbackModel) {
-        return;
-      }
-
-      await writeAiRequestLog({
-        event: "discuss:tool-repair-fallback",
-        model: fallbackModel,
-        projectId,
-      });
-    }
+function persistProjectChatTurn({
+  brief,
+  messages,
+  projectId,
+  title,
+  userId,
+  workspaceCard,
+}: {
+  brief?: unknown;
+  messages: UIMessage[];
+  projectId: string;
+  title?: string;
+  userId: string;
+  workspaceCard: unknown;
+}) {
+  if (brief !== undefined && title !== undefined) {
+    return prisma.$executeRaw`
+      UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
+    `;
   }
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
 }
 
-function getLatestAnsweredQuestion(messages: UIMessage[]) {
-  for (const message of [...messages].reverse()) {
-    if (message.role !== "user") {
-      continue;
-    }
-
-    const question = getTextFromUIMessage(message)
-      .split(/\nJawaban:/i)[0]
-      ?.trim();
-    if (question) {
-      return question;
-    }
-  }
-
-  return "";
+function persistProjectChatCompaction({
+  compactedMessageCount,
+  memoryFacts,
+  projectId,
+  summary,
+  userId,
+}: {
+  compactedMessageCount: number;
+  memoryFacts: unknown;
+  projectId: string;
+  summary: unknown;
+  userId: string;
+}) {
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "chatSummary" = ${JSON.stringify(summary)}::jsonb, "memoryFacts" = ${JSON.stringify(memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compactedMessageCount} WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
 }
 
-function hasWorkspaceToolOutput(message?: UIMessage) {
-  return Boolean(
-    message?.parts.some(
-      (part) =>
-        part.type === "tool-setWorkspaceUi" &&
-        (part as { state?: unknown }).state === "output-available",
-    ),
-  );
-}
-
-function createPersistedWorkspaceToolMessage(
-  workspaceTurn: ReturnType<typeof normalizeWorkspaceTurn>,
-): UIMessage {
-  const toolCallId = `workspace-repair-${crypto.randomUUID()}`;
-
-  return {
-    id: toolCallId,
-    role: "assistant",
-    parts: [
-      {
-        type: "tool-setWorkspaceUi",
-        toolCallId,
-        state: "output-available",
-        input: {},
-        output: workspaceTurn,
-      } as UIMessage["parts"][number],
-    ],
-  };
-}
-
-function dedupeUiMessages(messages: UIMessage[]) {
-  const seen = new Set<string>();
-  return messages.filter((message) => {
-    const text = getTextFromUIMessage(message);
-    const key = message.id || `${message.role}:${text}`;
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
-}
-
-function getSafeAiErrorLog(error: unknown) {
-  const value = error as {
-    lastError?: {
-      statusCode?: number;
-      responseHeaders?: Record<string, string>;
-    };
-    reason?: string;
-  };
-  const statusCode =
-    typeof (error as { statusCode?: unknown }).statusCode === "number"
-      ? (error as { statusCode: number }).statusCode
-      : value.lastError?.statusCode;
-  const retryAfter = value.lastError?.responseHeaders?.["retry-after"];
-
-  return {
-    reason: value.reason || "unknown",
-    retryAfter,
-    statusCode,
-  };
-}
-
-function buildSystemPrompt({
+function buildChatSystemPrompt({
   brief,
   context,
-  mode,
 }: {
   brief: unknown;
   context: string;
-  mode: "build" | "discuss";
 }) {
   return `You are a relentless website-discovery interviewer for Indonesian small businesses.
-Your job in Discuss mode is to interview the user until their needs are fully understood, then help build only when you are at least 95% confident or the user explicitly asks to build now.
+Your job is to interview the user until their needs are fully understood, then help build only when you are at least 95% confident or the user explicitly asks to build now.
 
 Write user-visible chat copy in natural, concise Indonesian.
-Critical streaming contract:
-- Always emit a visible assistant text response first, then call setWorkspaceUi.
-- Never answer with only a tool call. The user must see streamed text in the chat bubble every turn.
-- Keep the visible text short: acknowledge their answer, then introduce the next question/card in one or two sentences.
+Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
+
 Tone contract:
-- Treat the user like a friend building something together, not like a formal customer-service ticket.
+- Treat the user like a friend building something together.
 - Use "aku" for yourself and "kamu" for the user.
 - Never address the user as "Anda", "Bapak", "Ibu", "Pak", "Bu", "Kak", "Gan", or other distant/formal labels.
-- Keep it warm, relaxed, helpful, and specific. Avoid stiff phrases like "Saya perlu mengetahui", "berdasarkan keterangan Anda", or "pelanggan Anda".
-- Prefer phrasing like "Oke, aku nangkap...", "biar websitenya pas...", "satu hal lagi...", "menurutku yang paling penting sekarang...".
-- The same tone applies to workspaceCard questions, option labels/descriptions, review actions, and summaries.
+- Keep it warm, relaxed, helpful, and specific.
 - Do not become overly slangy, flirty, childish, or hypey. Friendly and calm is enough.
-Do not reveal chain-of-thought.
-Do not write JSON, XML, markdown schemas, or option lists in chat text.
-Do not use emojis, decorative symbols, or hype labels in chat text or tool fields.
-Do not send raw HTML/CSS/JS in chat text.
 
-Active mode: ${mode === "build" ? "Build" : "Discuss"}.
-
-Interview discipline (grilling):
-- Ask EXACTLY ONE question per turn. Never batch multiple questions. Asking several at once is bewildering.
+Interview discipline:
+- Ask EXACTLY ONE question per turn. Never batch.
 - Walk the decision tree one branch at a time, resolving the deepest open dependency first.
-- For each question, recommend a sensible default option.
+- Recommend a sensible default option for each question.
 - If something can be inferred from context or the existing brief, do not ask it.
-- Keep going until the brief is genuinely clear. Depth adapts to the request: a simple shop needs few questions, a richer business needs many. Do not stop early just because the legacy metadata fields are filled.
+- Keep going until the brief is genuinely clear.
 
-Confidence gate (before recommending build):
-- Set briefPatch.confidence every turn from 0-100.
-- Stay in question mode unless confidence is at least 95, every material decision is resolved, answers are specific (not vague like "terserah" or "bagus aja"), there are no contradictions, and you have reflected the brief back for agreement.
-- Use briefPatch.openQuestions for unresolved material decisions. Clear it only when confidence is genuinely 95+.
-- Bias hard toward asking. When unsure, ask another question. Build is the exception, not the goal.
-- Exception: if the user clearly asks to build now (in any wording or language), you may recommend build even below 95, but set briefPatch.forcedBuild.assumed with the assumptions still used.
-
-Mandatory tool contract:
-- In Discuss mode, call setWorkspaceUi exactly once on every turn.
-- The tool is the hidden channel for brief updates and the interactive UI. Do not explain tool/JSON internals to the user.
-- While interviewing, set workspaceCard.type to "question" with a single question.
-- Choose the easiest input mode for the user, not the easiest mode for you.
-- Use question.answerMode "text" only for exact unknown values the user must type, such as business name, WhatsApp number, address, opening hours, owner name, precise menu/item names, or a custom slogan.
-- Do not use free text for a decision where curated options would reduce effort and ambiguity.
-- Use question.answerMode "choice" when the user is deciding among understandable paths, categories, features, sections, audiences, channels, service styles, or product/menu groups.
-- Choice questions must have 2-5 specific, non-overlapping options with short labels and helpful descriptions. Avoid vague labels, duplicate meanings, and generic template categories.
-- Set question.selectionMode to "multiple" when several options can be true together or when the user is selecting all applicable items, such as menus, products, services, page sections, customer groups, sales channels, delivery methods, proof/trust items, or supported actions.
-- Set question.selectionMode to "single" only when choosing one option would clearly simplify the next decision, such as one primary audience, one visual direction, one ordering flow, one main CTA, or one priority.
-- If the user likely has several valid items but exact names are not yet needed, prefer choice + multiple first; ask exact text details later only for the selected items.
-- Never ask the user to type a broad list when a multi-select card can make the decision easier.
-- When the core brief is usable but you still want user confirmation or optional refinement, set workspaceCard.type to "brief_review" with natural actions like build now, adjust offer, adjust visual direction, or add missing detail. Do not fabricate another question.
-- Only when the confidence gate passes (or the user forces build), set workspaceCard.type to "build_recommendation".
-- question.id is a short free-form slug for the decision being asked, such as opening_hours, delivery_area, product_count, visual_direction, booking_flow, or target_customer. It does not need to match legacy metadata fields.
-- Canonical structured memory is briefPatch.facts and briefPatch.decisions. Add/update facts with stable keys for learned business facts, and add/update one decision when the user answers the active card.
-- Legacy metadata fields (businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference) are only compatibility caches for build prompts. Fill them when obvious, but never treat them as readiness gates.
-- Capture deeper details in briefPatch.facts/decisions first; use notes only for extra nuance that does not fit a fact or decision.
-- Options must be specific to the user's business, not generic templates.
-- For brief_review and build_recommendation, write summary as a flexible implementation spec shaped by the user's real needs, not fixed template labels.
-- When the user answers the current question, write the answer into briefPatch.
-- Set projectTitle when you can name the project more clearly than the user's raw first prompt. Keep it concise, specific, and Indonesian.
+Confidence gate:
+- Bias hard toward asking. When unsure, ask another question.
+- Build only at 95+ confidence or explicit user request.
 
 Chat style:
 - 1-3 sentences.
-- Sound like a capable friend: short, warm, concrete.
-- When asking, give brief context for why the decision matters; do not restate the options (the card shows them).
+- Acknowledge the answer, then introduce the next question.
+- Do not restate options (the card shows them).
 - When recommending build, summarize briefly and point to the build button.
 
 Current brief:
@@ -937,6 +569,28 @@ ${JSON.stringify(brief)}
 
 Hidden context:
 ${context}`;
+}
+
+function buildCardSystemPrompt() {
+  return `You are a card generator for an Indonesian small business website brief flow.
+Based on the conversation, output ONLY a JSON object. No markdown fences, no explanation.
+
+The JSON object must have these fields:
+- briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer}), forcedBuild ({assumed: string array} or null)
+- workspaceCard: object with type (exactly "question" or "build_recommendation" or "brief_review")
+  - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode)
+  - For type "build_recommendation": title (string), summary (string array)
+  - For type "brief_review": title (string), summary (string array), actions (array of {label, prompt})
+- projectTitle: concise Indonesian project name string
+
+Rules:
+- workspaceCard.type must be exactly one of: "question", "build_recommendation", "brief_review"
+- question.id must be a string (not a number)
+- question.options must be an array of objects with label and description strings (not plain strings)
+- Set confidence to 95+ only when genuinely build-ready
+- When the user forces build, use type "build_recommendation" with forcedBuild.assumed
+
+Output valid JSON only. The word json must appear in your thinking.`;
 }
 
 function hasBriefPatchValue(patch: object) {

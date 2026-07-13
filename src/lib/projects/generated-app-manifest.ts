@@ -1,4 +1,4 @@
-import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 
 export const GENERATED_APP_MANIFEST_PATH = "generated-app.manifest.json";
 

@@ -1,5 +1,3 @@
-import { jsonSchema } from "ai";
-
 import {
   type BriefQuestion,
   type ProjectBrief,
@@ -34,135 +32,6 @@ export type WorkspaceTurnToolInput = {
 // permissive (no strict mode, no length/enum/required constraints) so a slightly
 // malformed model output never fails the whole turn. The server is the single
 // authority that validates, normalizes, and falls back. See normalizeWorkspaceTurn.
-export const workspaceTurnToolInputSchema = jsonSchema<WorkspaceTurnToolInput>({
-  type: "object",
-  properties: {
-    briefPatch: {
-      type: "object",
-      description:
-        "Known brief fields captured so far. Fill only what the user has actually decided. Leave unknown fields out.",
-      properties: {
-        businessType: { type: "string" },
-        offer: { type: "string" },
-        targetCustomer: { type: "string" },
-        contactOrCta: { type: "string" },
-        businessName: { type: "string" },
-        confidence: {
-          type: "number",
-          description:
-            "AI-owned readiness confidence from 0 to 100. Use 95+ only when the user need is genuinely build-ready.",
-        },
-        stylePreference: { type: "string" },
-        notes: { type: "array", items: { type: "string" } },
-        openQuestions: {
-          type: "array",
-          description:
-            "Material unresolved decisions that should be asked before recommending build.",
-          items: { type: "string" },
-        },
-        facts: {
-          type: "array",
-          description:
-            "Canonical facts learned from the user. Use stable keys like business_name, cuisine_type, opening_hours, address, whatsapp.",
-          items: {
-            type: "object",
-            properties: {
-              key: { type: "string" },
-              label: { type: "string" },
-              value: { type: "string" },
-            },
-          },
-        },
-        decisions: {
-          type: "array",
-          description:
-            "Canonical user decisions. Add one item when the user answers the current workspace question.",
-          items: {
-            type: "object",
-            properties: {
-              id: { type: "string" },
-              question: { type: "string" },
-              answer: { type: "string" },
-            },
-          },
-        },
-        forcedBuild: {
-          type: "object",
-          description:
-            "Set only when the user explicitly forces build before confidence reaches 95.",
-          properties: {
-            assumed: { type: "array", items: { type: "string" } },
-          },
-        },
-      },
-    },
-    projectTitle: {
-      type: "string",
-      description:
-        "A concise, specific Indonesian project name useful in a dashboard.",
-    },
-    workspaceCard: {
-      type: "object",
-      description:
-        "Interactive UI card. Use type 'question' to ask the next single decision while clarifying, or type 'build_recommendation' once the brief is fully clear.",
-      properties: {
-        type: { type: "string" },
-        question: {
-          type: "object",
-          description:
-            "Exactly one decision to ask this turn, with 3-5 specific options.",
-          properties: {
-            id: { type: "string" },
-            question: { type: "string" },
-            answerMode: {
-              type: "string",
-              description:
-                "Use 'text' for exact user-provided values like business name, WhatsApp number, address, opening hours, or menu names. Use 'choice' for decisions with useful options.",
-              enum: ["choice", "text"],
-            },
-            recommendedOptionLabel: { type: "string" },
-            selectionMode: {
-              type: "string",
-              description:
-                "Use 'single' when the user should pick one path; use 'multiple' only when several options can be true at the same time.",
-              enum: ["single", "multiple"],
-            },
-            placeholder: { type: "string" },
-            whyThisQuestionMatters: { type: "string" },
-            options: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  label: { type: "string" },
-                  description: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        title: { type: "string" },
-        summary: {
-          type: "array",
-          description:
-            "Flexible implementation spec shaped by the user's real needs. Avoid fixed template labels.",
-          items: { type: "string" },
-        },
-        actions: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              label: { type: "string" },
-              prompt: { type: "string" },
-            },
-          },
-        },
-      },
-    },
-  },
-});
-
 export function applyBriefPatch(
   brief: ProjectBrief,
   patch: WorkspaceTurnToolInput["briefPatch"],
@@ -333,9 +202,16 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     return null;
   }
 
-  const candidate = raw as Partial<BriefQuestion>;
+  const candidate = raw as Partial<BriefQuestion> & { id?: unknown };
 
-  if (!isBriefQuestionId(candidate.id)) {
+  const coercedId =
+    typeof candidate.id === "number"
+      ? String(candidate.id)
+      : typeof candidate.id === "string"
+        ? candidate.id
+        : undefined;
+
+  if (!isBriefQuestionId(coercedId)) {
     return null;
   }
 
@@ -351,18 +227,10 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     cleanText(aliasedQuestion.title, 160);
   const options = Array.isArray(candidate.options)
     ? candidate.options
-        .filter(
-          (option): option is { label: string; description: string } =>
-            Boolean(option) && typeof option === "object",
+        .map((option) => coerceQuestionOption(option))
+        .filter((option): option is { label: string; description: string } =>
+          Boolean(option?.label),
         )
-        .map((option) => ({
-          label: cleanText(option.label, OPTION_LABEL_MAX_LENGTH),
-          description: cleanText(
-            option.description,
-            OPTION_DESCRIPTION_MAX_LENGTH,
-          ),
-        }))
-        .filter((option) => option.label && option.description)
         .slice(0, 5)
     : [];
 
@@ -378,7 +246,7 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
   );
 
   return {
-    id: candidate.id,
+    id: coercedId,
     question,
     answerMode,
     options: answerMode === "text" ? [] : options,
@@ -397,6 +265,29 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
       cleanText(aliasedQuestion.description, 180) ||
       cleanText(aliasedQuestion.hint, 180) ||
       undefined,
+  };
+}
+
+function coerceQuestionOption(
+  option: unknown,
+): { label: string; description: string } | null {
+  if (typeof option === "string") {
+    const label = cleanText(option, OPTION_LABEL_MAX_LENGTH);
+    return label ? { label, description: "" } : null;
+  }
+
+  if (!option || typeof option !== "object") {
+    return null;
+  }
+
+  const value = option as { label?: unknown; description?: unknown };
+  const label = cleanText(value.label, OPTION_LABEL_MAX_LENGTH);
+  if (!label) {
+    return null;
+  }
+  return {
+    label,
+    description: cleanText(value.description, OPTION_DESCRIPTION_MAX_LENGTH),
   };
 }
 

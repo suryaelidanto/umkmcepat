@@ -61,8 +61,44 @@ export default async function HomePage() {
 
     const project = await prisma.project.findFirst({
       where: { id: projectId, userId: session.user.id },
-      select: { thumbnailRef: true },
+      select: { id: true, thumbnailRef: true },
     });
+
+    // Gather artifact refs and deployment ids before the DB row is deleted,
+    // then stop runtimes and delete every on-disk/R2 resource best-effort.
+    // DB cascade removes snapshots/builds/deployments; resource cleanup must
+    // run first while the refs are still queryable.
+    if (project) {
+      const [snapshots, builds, deployments] = await Promise.all([
+        prisma.projectSnapshot.findMany({
+          where: { projectId },
+          select: { sourceRef: true },
+        }),
+        prisma.projectBuild.findMany({
+          where: { projectId },
+          select: { artifactRef: true },
+        }),
+        prisma.projectDeployment.findMany({
+          where: { projectId },
+          select: { id: true },
+        }),
+      ]);
+      const artifactRefs = [
+        ...snapshots.map((snapshot) => snapshot.sourceRef),
+        ...builds.map((build) => build.artifactRef),
+      ].filter((ref): ref is string => Boolean(ref));
+      const { cleanupProjectResources } =
+        await import("@/lib/projects/project-cleanup");
+      const { getRuntimeSupervisor } =
+        await import("@/lib/projects/runtime-supervisor");
+      await cleanupProjectResources({
+        projectId: project.id,
+        artifactRefs,
+        deploymentIds: deployments.map((deployment) => deployment.id),
+        thumbnailRef: project.thumbnailRef,
+        supervisor: getRuntimeSupervisor(),
+      });
+    }
 
     await prisma.project.deleteMany({
       where: {
@@ -70,12 +106,6 @@ export default async function HomePage() {
         userId: session.user.id,
       },
     });
-
-    if (project?.thumbnailRef) {
-      const { deleteProjectThumbnail } =
-        await import("@/lib/projects/project-thumbnail");
-      await deleteProjectThumbnail(project.thumbnailRef).catch(() => undefined);
-    }
 
     revalidatePath("/");
   }

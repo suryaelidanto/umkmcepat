@@ -5,10 +5,8 @@ import {
   validateGeneratedBuildPolicy,
 } from "@/lib/projects/generated-build-policy";
 import { assertGeneratedResourceBudget } from "@/lib/projects/generated-resource-budget";
-import {
-  assertSafeProjectFilePath,
-  type GeneratedProjectFile,
-} from "@/lib/projects/generated-source";
+import { assertSafeProjectFilePath } from "@/lib/projects/generated-source";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 
 export type GeneratedAppAgentToolCommand =
   | { type: "check_app" }

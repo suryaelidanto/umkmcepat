@@ -5,7 +5,7 @@ import {
   validateGeneratedAppManifest,
   type GeneratedAppManifest,
 } from "@/lib/projects/generated-app-manifest";
-import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 
 const validManifest: GeneratedAppManifest = {
   buildCommand: "bun run build",

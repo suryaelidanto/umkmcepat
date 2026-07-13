@@ -324,11 +324,11 @@ function createProjectData({
     prompt,
     model: getDefaultAiModel(),
     status: mode === "build" ? "draft" : "discussing",
-    siteSchema,
-    brief,
-    workspaceCard,
+    siteSchema: siteSchema as Prisma.InputJsonValue,
+    brief: brief as Prisma.InputJsonValue,
+    workspaceCard: workspaceCard as Prisma.InputJsonValue,
     userId: sessionUserId,
-  } as Parameters<typeof prisma.project.create>[0]["data"];
+  };
 }
 
 function isUniqueConstraintError(error: unknown) {

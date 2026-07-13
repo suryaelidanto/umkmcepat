@@ -140,6 +140,21 @@ export function getTextFromUIMessage(message: UIMessage) {
     .join("\n");
 }
 
+export function dedupeUiMessages(messages: UIMessage[]): UIMessage[] {
+  const seen = new Set<string>();
+  return messages.filter((message) => {
+    const text = getTextFromUIMessage(message);
+    const key = message.id || `${message.role}:${text}`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
 function sanitizeStoredUiMessage(value: unknown): unknown {
   if (!value || typeof value !== "object") {
     return value;

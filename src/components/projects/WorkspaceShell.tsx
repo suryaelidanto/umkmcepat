@@ -47,7 +47,8 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { type WorkspaceCard } from "@/lib/projects/brief";
-import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
+import { dedupeUiMessages } from "@/lib/projects/chat-memory";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
   createVisualAnnotationEditInstruction,
   createVisualAnnotationId,
@@ -59,9 +60,11 @@ import {
   getWorkspaceComposerState,
   getWorkspacePreviewIssue,
   hasAnsweredWorkspaceQuestion,
-  hasMissingWorkspaceUiTurn,
   isBuildRecommendationHeld,
+  isFreshWorkspaceCard,
   isWorkspaceBuildComplete,
+  PREPARING_POLL_INTERVAL_MS,
+  PREPARING_TIMEOUT_MS,
   shouldRefreshWorkspaceAfterChatStatus,
   shouldUseGeneratedPreviewFrame,
   isUserVisibleAssistantText,
@@ -207,6 +210,10 @@ export function WorkspaceShell({
   const shouldStickToBottomRef = useRef(true);
   const ignoreNextScrollRef = useRef(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isPreparingNextQuestion, setIsPreparingNextQuestion] = useState(false);
+  const isPreparingNextQuestionRef = useRef(false);
+  const workspaceCardRef = useRef(initialWorkspaceCard);
+  const preparingPollRef = useRef<(() => void) | null>(null);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
   const [annotationMode, setAnnotationMode] = useState(false);
@@ -229,6 +236,7 @@ export function WorkspaceShell({
   );
   const {
     messages,
+    regenerate,
     sendMessage,
     setMessages,
     status,
@@ -356,21 +364,39 @@ export function WorkspaceShell({
     return request;
   }, [projectId]);
 
-  const loadWorkspaceState = useCallback(async () => {
-    const response = await fetch(`/api/projects/${projectId}/workspace`, {
-      cache: "no-store",
-    });
+  const loadWorkspaceState = useCallback(
+    async (options?: { skipIfPreparing?: boolean }) => {
+      if (options?.skipIfPreparing && isPreparingNextQuestionRef.current) {
+        return;
+      }
 
-    if (!response.ok) {
-      return;
-    }
+      const response = await fetch(`/api/projects/${projectId}/workspace`, {
+        cache: "no-store",
+      });
 
-    const result = (await response.json()) as WorkspaceStateResponse;
+      if (!response.ok) {
+        return;
+      }
 
-    setWorkspaceCard(result.workspaceCard);
-    setProjectTitle(result.projectTitle);
-    setDraftTitle(result.projectTitle);
-  }, [projectId]);
+      const result = (await response.json()) as WorkspaceStateResponse;
+
+      if (isPreparingNextQuestionRef.current) {
+        if (
+          isFreshWorkspaceCard(result.workspaceCard, workspaceCardRef.current)
+        ) {
+          setWorkspaceCard(result.workspaceCard);
+          setProjectTitle(result.projectTitle);
+          setDraftTitle(result.projectTitle);
+        }
+        return;
+      }
+
+      setWorkspaceCard(result.workspaceCard);
+      setProjectTitle(result.projectTitle);
+      setDraftTitle(result.projectTitle);
+    },
+    [projectId],
+  );
 
   const recoverPreviewRuntime = useCallback(() => {
     setPreviewReloadKey((current) => current + 1);
@@ -574,6 +600,10 @@ export function WorkspaceShell({
     () => dedupeUiMessages([...olderMessages, ...messages]),
     [messages, olderMessages],
   );
+  const allMessagesRef = useRef(allMessages);
+  useEffect(() => {
+    allMessagesRef.current = allMessages;
+  }, [allMessages]);
   const visibleMessages = useMemo(
     () =>
       filterDiscussionMessagesWithWorkspaceUi(allMessages, mode === "discuss"),
@@ -619,11 +649,6 @@ export function WorkspaceShell({
   const hasPreview = shouldRenderGeneratedPreview;
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
-  const missingWorkspaceUiTurn = hasMissingWorkspaceUiTurn({
-    card: workspaceCard,
-    messages: allMessages,
-    mode,
-  });
   const hasAnsweredActiveQuestion = hasAnsweredWorkspaceQuestion({
     card: workspaceCard,
     messages: allMessages,
@@ -882,19 +907,82 @@ export function WorkspaceShell({
   }, [questionComposerMode, workspaceCard, scrollChatToBottom]);
 
   useEffect(() => {
-    const workspaceUpdate = getLatestWorkspaceUpdateFromMessages(messages);
+    workspaceCardRef.current = workspaceCard;
+  }, [workspaceCard]);
 
-    if (workspaceUpdate?.workspaceCard) {
-      setWorkspaceCard(workspaceUpdate.workspaceCard);
-      clearError();
-      setRateLimitError(null);
+  useEffect(() => {
+    isPreparingNextQuestionRef.current = isPreparingNextQuestion;
+  }, [isPreparingNextQuestion]);
+
+  useEffect(() => {
+    if (!isPreparingNextQuestion) {
+      return;
     }
 
-    if (workspaceUpdate?.projectTitle) {
-      setProjectTitle(workspaceUpdate.projectTitle);
-      setDraftTitle(workspaceUpdate.projectTitle);
-    }
-  }, [clearError, messages]);
+    let canceled = false;
+    const previousCard = workspaceCardRef.current;
+    const startedAt = Date.now();
+
+    const stop = () => {
+      canceled = true;
+      preparingPollRef.current = null;
+    };
+    preparingPollRef.current = stop;
+
+    const poll = async () => {
+      while (!canceled) {
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, PREPARING_POLL_INTERVAL_MS),
+        );
+        if (canceled) {
+          return;
+        }
+
+        if (Date.now() - startedAt >= PREPARING_TIMEOUT_MS) {
+          setIsPreparingNextQuestion(false);
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/projects/${projectId}/workspace`, {
+            cache: "no-store",
+          });
+          if (!response.ok) {
+            continue;
+          }
+          const result = (await response.json()) as WorkspaceStateResponse;
+          if (canceled) {
+            return;
+          }
+          if (isFreshWorkspaceCard(result.workspaceCard, previousCard)) {
+            setWorkspaceCard(result.workspaceCard);
+            if (result.projectTitle) {
+              setProjectTitle(result.projectTitle);
+              setDraftTitle(result.projectTitle);
+            }
+            setIsPreparingNextQuestion(false);
+            void reloadLatestChat();
+            return;
+          }
+
+          if (result.workspaceCard.type === "none") {
+            setWorkspaceCard(result.workspaceCard);
+            setIsPreparingNextQuestion(false);
+            void reloadLatestChat();
+            return;
+          }
+        } catch {
+          continue;
+        }
+      }
+    };
+
+    void poll();
+
+    return () => {
+      canceled = true;
+    };
+  }, [isPreparingNextQuestion, projectId, reloadLatestChat]);
 
   useEffect(() => {
     const previous = previousChatStatus.current;
@@ -902,6 +990,17 @@ export function WorkspaceShell({
     previousChatStatus.current = status;
 
     if (!shouldRefreshWorkspaceAfterChatStatus(previous, status)) {
+      return;
+    }
+
+    const answered = hasAnsweredWorkspaceQuestion({
+      card: workspaceCardRef.current,
+      messages: allMessagesRef.current,
+      mode: modeRef.current,
+    });
+
+    if (answered && modeRef.current === "discuss") {
+      setIsPreparingNextQuestion(true);
       return;
     }
 
@@ -1211,43 +1310,13 @@ export function WorkspaceShell({
     setIsRetrying(true);
     clearError();
     try {
-      // Only repair the hidden card. Replaying the chat turn can duplicate the
-      // user's answer and can stream a second visible response.
-      const response = await fetch("/api/projects/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "discuss",
-          projectId,
-          repairWorkspace: true,
-        }),
-      });
-      const result = (await response.json().catch(() => null)) as {
-        message?: string;
-        projectTitle?: string;
-        workspaceCard?: WorkspaceCard;
-      } | null;
-
-      if (!response.ok || !result?.workspaceCard) {
-        const error = new Error(
-          result?.message || "Pilihan berikutnya belum bisa disiapkan.",
-        );
-        captureRateLimitError(error, setRateLimitError);
-        throw error;
-      }
-
-      setWorkspaceCard(result.workspaceCard);
-      if (result.projectTitle) {
-        setProjectTitle(result.projectTitle);
-        setDraftTitle(result.projectTitle);
-      }
-      await reloadLatestChat();
+      await regenerate();
     } catch {
-      // The retry panel remains visible. The stored answer is never replayed.
+      // The error panel remains visible.
     } finally {
       setIsRetrying(false);
     }
-  }, [clearError, isRetrying, projectId, reloadLatestChat, status]);
+  }, [clearError, isRetrying, regenerate, status]);
 
   useEffect(() => {
     if (error) {
@@ -1464,12 +1533,18 @@ export function WorkspaceShell({
                     {rateLimitError.message}
                   </p>
                 </div>
-              ) : error || (!isResponding && missingWorkspaceUiTurn) ? (
+              ) : isPreparingNextQuestion ? (
+                <div className="rounded-[18px] border border-surface-warm-white/10 bg-surface-warm-white/[0.04] px-spacing-5 py-spacing-4">
+                  <p className="text-sm font-medium text-surface-warm-white/62">
+                    Menyiapkan pertanyaan berikutnya...
+                  </p>
+                </div>
+              ) : error ? (
                 <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                   <p className="text-sm font-medium text-[#ffb4a6]">
                     {isRetrying
                       ? "AI sempat terputus. Mencoba menyambung ulang..."
-                      : "AI belum sempat menyiapkan pilihan. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi."}
+                      : "AI sempat terputus. Coba kirim ulang pesanmu."}
                   </p>
                   {!isRetrying ? (
                     <Button
@@ -1477,7 +1552,7 @@ export function WorkspaceShell({
                       onClick={() => void retryWorkspaceCard()}
                       className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
                     >
-                      Coba lagi
+                      Kirim ulang
                     </Button>
                   ) : null}
                 </div>
@@ -1494,7 +1569,7 @@ export function WorkspaceShell({
                 <div className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62">
                   Tunggu sebentar sebelum mengirim jawaban berikutnya.
                 </div>
-              ) : missingWorkspaceUiTurn ? null : !hasAnsweredActiveQuestion &&
+              ) : isPreparingNextQuestion ? null : !hasAnsweredActiveQuestion &&
                 composerState === "question" &&
                 workspaceCard.type === "question" ? (
                 <AnimatePresence mode="wait" initial={false}>
@@ -1875,25 +1950,6 @@ function completeBuildProgress(current: BuildProgressStep[]) {
   );
 }
 
-function dedupeUiMessages(messages: UIMessage[]) {
-  const seen = new Set<string>();
-
-  return messages.filter((message) => {
-    const text = message.parts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join("\n");
-    const key = message.id || `${message.role}:${text}`;
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
-}
-
 function filterDiscussionMessagesWithWorkspaceUi(
   messages: UIMessage[],
   enabled: boolean,
@@ -1912,43 +1968,9 @@ function filterDiscussionMessagesWithWorkspaceUi(
         return isUserVisibleAssistantText(part.text);
       }
 
-      return (
-        part.type === "tool-setWorkspaceUi" &&
-        (part as { state?: unknown }).state === "output-available"
-      );
+      return false;
     });
   });
-}
-
-function getLatestWorkspaceUpdateFromMessages(messages: UIMessage[]) {
-  for (const message of [...messages].reverse()) {
-    for (const part of [...message.parts].reverse()) {
-      if (
-        part.type !== "tool-setWorkspaceUi" ||
-        part.state !== "output-available"
-      ) {
-        continue;
-      }
-
-      const output = part.output as {
-        projectTitle?: string;
-        workspaceCard?: WorkspaceCard;
-      } | null;
-
-      if (output?.workspaceCard?.type === "none") {
-        if (output.projectTitle) {
-          return { projectTitle: output.projectTitle };
-        }
-        continue;
-      }
-
-      if (output?.workspaceCard || output?.projectTitle) {
-        return output;
-      }
-    }
-  }
-
-  return null;
 }
 
 function ChatMessages({ messages }: { messages: UIMessage[] }) {
@@ -1972,11 +1994,8 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
             { type: "text" }
           > => part.type === "text" && Boolean(part.text.trim()),
         );
-        const fallbackText = textParts.length
-          ? ""
-          : getToolOnlyAssistantFallback(message);
 
-        if (!textParts.length && !fallbackText) {
+        if (!textParts.length) {
           return null;
         }
 
@@ -1988,55 +2007,15 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
             <div
               className={`max-w-[88%] overflow-hidden break-words [overflow-wrap:anywhere] rounded-[22px] px-spacing-6 py-spacing-5 ${message.role === "user" ? "border border-surface-warm-white/12 bg-[#30302c] text-surface-warm-white/88" : "border border-surface-warm-white/10 bg-[#242421] text-surface-warm-white/80"}`}
             >
-              {textParts.length ? (
-                textParts.map((part, index) => (
-                  <MessageText key={index} text={part.text} />
-                ))
-              ) : (
-                <MessageText text={fallbackText} />
-              )}
+              {textParts.map((part, index) => (
+                <MessageText key={index} text={part.text} />
+              ))}
             </div>
           </div>
         );
       })}
     </div>
   );
-}
-
-function getToolOnlyAssistantFallback(message: UIMessage) {
-  if (message.role !== "assistant") {
-    return "";
-  }
-
-  for (const part of [...message.parts].reverse()) {
-    if (
-      part.type !== "tool-setWorkspaceUi" ||
-      part.state !== "output-available"
-    ) {
-      continue;
-    }
-
-    const output = part.output as { workspaceCard?: WorkspaceCard } | null;
-    const card = output?.workspaceCard;
-
-    if (!card) {
-      continue;
-    }
-
-    if (card.type === "question") {
-      return card.question.question;
-    }
-
-    if (card.type === "brief_review") {
-      return "Oke, aku rangkum dulu biar kamu bisa cek sebelum websitenya dibuat.";
-    }
-
-    if (card.type === "build_recommendation") {
-      return "Brief sudah cukup. Aku siap mulai bikin websitenya kalau kamu setuju.";
-    }
-  }
-
-  return "";
 }
 
 function HeldBuildRecommendationNotice({

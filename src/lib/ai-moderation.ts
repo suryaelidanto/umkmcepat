@@ -3,7 +3,6 @@ import { generateText } from "ai";
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
-import { getEnv } from "@/lib/config";
 
 export type ModerationResult =
   { allowed: true } | { allowed: false; message: string };
@@ -35,11 +34,11 @@ export async function moderateProjectRequest(
     generateText({
       abortSignal: abortController.signal,
       maxOutputTokens: 4,
-      model: getAiModel(getModerationModel()),
+      model: getAiModel(getDefaultAiModel()),
       temperature: 0,
       timeout: timeoutMs,
       experimental_telemetry: getAiTelemetry("project-moderation", {
-        model: getModerationModel(),
+        model: getDefaultAiModel(),
       }),
       system:
         "You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when intent is unclear but potentially unsafe. ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action.",
@@ -65,11 +64,7 @@ export async function moderateProjectRequest(
   return result;
 }
 
-export function getModerationModel() {
-  return getEnv("AI_MODERATION_MODEL", getDefaultAiModel());
-}
-
-function getModerationTimeoutMs() {
+export function getModerationTimeoutMs() {
   return getAiTimeoutMs("moderation");
 }
 

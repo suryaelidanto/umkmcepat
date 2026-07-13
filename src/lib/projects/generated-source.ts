@@ -20,24 +20,12 @@ import {
   getGeneratedResourceBudget,
 } from "@/lib/projects/generated-resource-budget";
 
+import {
+  type BuildGeneratedProjectResult,
+  type GeneratedDistFile,
+  type GeneratedProjectFile,
+} from "./generated-types";
 import { type ProjectSiteSchema } from "./site-schema";
-
-export type GeneratedProjectFile = {
-  path: string;
-  content: string;
-};
-
-export type GeneratedDistFile = {
-  content: string;
-  contentType: string;
-  path: string;
-};
-
-export type BuildGeneratedProjectResult = {
-  distFiles: GeneratedDistFile[];
-  ok: boolean;
-  log: string;
-};
 
 type BuildCommandResult = Omit<BuildGeneratedProjectResult, "distFiles">;
 

@@ -1,4 +1,4 @@
-import { type GeneratedProjectFile } from "@/lib/projects/generated-source";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 
 const ALLOWED_PACKAGES_BY_PROFILE: Record<string, Set<string>> = {
   "static-react-v1": new Set([

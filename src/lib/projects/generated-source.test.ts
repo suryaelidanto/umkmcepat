@@ -11,8 +11,8 @@ import {
   createGeneratedProjectFiles,
   createGeneratedSourceSnapshotMetadata,
   parseGeneratedProjectFiles,
-  type GeneratedProjectFile,
 } from "./generated-source";
+import { type GeneratedProjectFile } from "./generated-types";
 import { createProjectSiteSchemaFromBrief } from "./site-schema";
 
 let tempDir = "";
