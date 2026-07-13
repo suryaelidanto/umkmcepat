@@ -15,7 +15,10 @@ import {
   canBriefBuild,
   parseProjectBrief,
 } from "@/lib/projects/brief";
-import { generateCustomProjectFilesWithAgent } from "@/lib/projects/custom-source-generator";
+import {
+  generateCustomProjectFilesWithAgent,
+  repairGeneratedProjectFiles,
+} from "@/lib/projects/custom-source-generator";
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
@@ -50,7 +53,7 @@ import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generatio
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
 
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
   "generated" satisfies ProjectSnapshotSourceType;
@@ -367,7 +370,7 @@ export async function POST(request: Request, { params }: RouteProps) {
           projectId: projectId,
           touchedFiles: sourceGeneration.touchedFiles.length,
         });
-        const sourceFiles = sourceGeneration.files;
+        let sourceFiles = sourceGeneration.files;
         const sourceLeaseRenewed = await renewProjectOperation({
           projectId,
           token: operation.token,
@@ -459,14 +462,113 @@ export async function POST(request: Request, { params }: RouteProps) {
           ok: buildResult.ok,
           projectId: projectId,
         });
-        send("progress", {
-          label: buildResult.ok
-            ? "Build website berhasil"
-            : "Build website gagal",
-          detail: buildResult.ok
-            ? "File website berhasil divalidasi."
-            : "File website tetap disimpan, tapi build log perlu dicek di tab Kode.",
-        });
+
+        let finalBuildResult = buildResult;
+
+        if (!buildResult.ok) {
+          for (let repairAttempt = 0; repairAttempt < 2; repairAttempt++) {
+            const renewed = await renewProjectOperation({
+              projectId,
+              token: operation.token,
+              userId,
+            });
+            if (!renewed) {
+              throw new Error("Build operation lease was superseded.");
+            }
+
+            send("progress", {
+              label: "AI memperbaiki kode",
+              detail: `Percobaan perbaikan ${repairAttempt + 1} dari 2. AI sedang membenarkan error TypeScript.`,
+            });
+
+            try {
+              const repair = await repairGeneratedProjectFiles({
+                buildLog: buildResult.log,
+                files: sourceFiles,
+                implementationSpec,
+                onOperation(operation) {
+                  send("operation", operation);
+                },
+                projectId: projectId,
+                schema: finalSchema,
+              });
+              sourceFiles = repair.files;
+
+              await prisma.projectSnapshot.update({
+                where: { id: snapshot.id },
+                data: {
+                  files: sourceFiles,
+                  metadata: createGeneratedSourceSnapshotMetadata(
+                    sourceFiles,
+                    finalSchema,
+                    repair,
+                  ),
+                },
+              });
+              await writeProjectSourceArtifact({
+                artifactId: snapshot.id,
+                files: sourceFiles,
+              });
+
+              const retryBuild = await buildGeneratedProject(sourceFiles);
+              finalBuildResult = retryBuild;
+              devLog("generate", "build.retry.finished", {
+                attempt: repairAttempt + 1,
+                ok: retryBuild.ok,
+                projectId: projectId,
+              });
+
+              if (retryBuild.ok) {
+                send("progress", {
+                  label: "Build website berhasil",
+                  detail: `File website berhasil divalidasi setelah ${repairAttempt + 1} perbaikan.`,
+                });
+                await prisma.projectBuild.update({
+                  where: { id: build.id },
+                  data: {
+                    finishedAt: new Date(),
+                    logText: retryBuild.log,
+                    status: "succeeded" satisfies ProjectBuildStatus,
+                  },
+                });
+                runtimeBuildFinalized = true;
+                break;
+              }
+
+              if (repairAttempt === 1) {
+                send("progress", {
+                  label: "Build website gagal",
+                  detail:
+                    "File website tetap disimpan, tapi build log perlu dicek di tab Kode.",
+                });
+              }
+            } catch (repairError) {
+              devLog("generate", "build.repair.error", {
+                attempt: repairAttempt + 1,
+                error:
+                  repairError instanceof Error
+                    ? repairError.message
+                    : "unknown",
+                projectId: projectId,
+              });
+            }
+          }
+        }
+
+        const finalBuildOk = finalBuildResult.ok;
+
+        if (finalBuildOk) {
+          send("progress", {
+            label: "Build website berhasil",
+            detail: "File website berhasil divalidasi.",
+          });
+        } else {
+          send("progress", {
+            label: "Build website gagal",
+            detail:
+              "File website tetap disimpan, tapi build log perlu dicek di tab Kode.",
+          });
+        }
         const latestProject = await prisma.project.findUnique({
           where: { id: projectId },
           select: { status: true },
@@ -514,28 +616,28 @@ export async function POST(request: Request, { params }: RouteProps) {
           return;
         }
 
-        const projectBuildStatus: ProjectBuildStatus = buildResult.ok
+        const projectBuildStatus: ProjectBuildStatus = finalBuildOk
           ? "succeeded"
           : "failed";
-        const artifactRef = buildResult.ok
+        const artifactRef = finalBuildResult.ok
           ? await writeProjectDistArtifact({
               artifactId: build.id,
-              files: buildResult.distFiles,
+              files: finalBuildResult.distFiles,
             })
           : null;
-        const deploymentStatus: ProjectDeploymentStatus = buildResult.ok
+        const deploymentStatus: ProjectDeploymentStatus = finalBuildResult.ok
           ? "created"
           : "failed";
         const deployment = await prisma.$transaction(async (transaction) => {
           const finalized = await finalizeProjectOperation({
             data: {
-              buildLog: buildResult.log,
-              buildStatus: buildResult.ok ? "passed" : "failed",
+              buildLog: finalBuildResult.log,
+              buildStatus: finalBuildResult.ok ? "passed" : "failed",
               builtAt: new Date(),
-              distFiles: buildResult.distFiles,
+              distFiles: finalBuildResult.distFiles,
               siteSchema: finalSchema,
               sourceFiles,
-              status: buildResult.ok ? "ready" : "failed",
+              status: finalBuildResult.ok ? "ready" : "failed",
             },
             projectId,
             store: transaction,
@@ -552,7 +654,7 @@ export async function POST(request: Request, { params }: RouteProps) {
             data: {
               artifactRef,
               finishedAt: new Date(),
-              logText: buildResult.log,
+              logText: finalBuildResult.log,
               status: projectBuildStatus,
             },
           });
@@ -571,9 +673,11 @@ export async function POST(request: Request, { params }: RouteProps) {
           await transaction.projectEditAttempt.update({
             where: { id: operationAttemptId },
             data: {
-              errorMessage: buildResult.ok ? null : "Generated build failed.",
+              errorMessage: finalBuildResult.ok
+                ? null
+                : "Generated build failed.",
               finishedAt: new Date(),
-              status: buildResult.ok ? "succeeded" : "failed",
+              status: finalBuildResult.ok ? "succeeded" : "failed",
             },
           });
 
@@ -584,12 +688,12 @@ export async function POST(request: Request, { params }: RouteProps) {
           prisma.runtimeEvent.create({
             data: createRuntimeEventData({
               buildId: build.id,
-              message: buildResult.ok
+              message: finalBuildResult.ok
                 ? "Generated frontend build succeeded and dist artifact was stored."
                 : "Generated frontend build failed.",
               metadata: artifactRef ? { artifactRef } : undefined,
               projectId: projectId,
-              type: buildResult.ok ? "build.succeeded" : "build.failed",
+              type: finalBuildResult.ok ? "build.succeeded" : "build.failed",
             }),
           }),
           prisma.runtimeEvent.create({
@@ -597,7 +701,9 @@ export async function POST(request: Request, { params }: RouteProps) {
               buildId: build.id,
               deploymentId: deployment.id,
               projectId: projectId,
-              type: buildResult.ok ? "deployment.created" : "deployment.failed",
+              type: finalBuildResult.ok
+                ? "deployment.created"
+                : "deployment.failed",
             }),
           }),
         ]);

@@ -90,8 +90,77 @@ export async function generateCustomProjectFilesWithAgent({
     const result = await withAiTimeout(
       agent.generate({ prompt: buildAgentPrompt(appSpec) }),
       "sourceGeneration",
-    );
-    const quality = checkAgentSourceQuality(files, touchedFiles);
+    ).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "timeout";
+      if (/timeout|timed out|aborted/i.test(message)) {
+        return { text: "Agent timed out, using partial files." };
+      }
+      throw error;
+    });
+    let quality = checkAgentSourceQuality(files, touchedFiles);
+    let currentFiles = files;
+    const currentTouched = touchedFiles;
+    let totalRepairAttempts = 0;
+
+    while (!quality.ok && totalRepairAttempts < 2) {
+      totalRepairAttempts += 1;
+      onOperation?.({
+        detail: `Quality check gagal: ${quality.issues.join(", ")}`,
+        id: `${operationTrace.length + 1}`,
+        state: "failed",
+        title: "Memperbaiki struktur file",
+        type: "check_app",
+      });
+
+      const repairAgent = new ToolLoopAgent({
+        model: getAiModel(),
+        instructions: buildGeneratedAppAgentInstructions(
+          schema,
+          implementationSpec,
+        ),
+        experimental_telemetry: getAiTelemetry(
+          "project-source-generation-agent-repair",
+          { projectId },
+        ),
+        stopWhen: stepCountIs(12),
+        tools: createAgentTools((command) => {
+          const repairResult = runGeneratedAppAgentTools({
+            commands: [command],
+            files: currentFiles,
+            onOperation(operation) {
+              const traced = {
+                ...operation,
+                id: `${operationTrace.length + 1}`,
+              };
+              operationTrace.push(traced);
+              onOperation?.(traced);
+            },
+          });
+          currentFiles = repairResult.files;
+          for (const effect of repairResult.sideEffects) {
+            if (effect.path) {
+              currentTouched.add(effect.path);
+            }
+          }
+          return repairResult.outputs.at(-1) ?? { type: command.type };
+        }),
+      });
+
+      await withAiTimeout(
+        repairAgent.generate({
+          prompt: `The quality check failed with these issues. Fix them using read_file, write_file, or replace_in_file. Then call check_app.
+
+Issues:
+${quality.issues.map((issue) => `- ${issue}`).join("\n")}
+
+Current files:
+${currentFiles.map((f) => f.path).join("\n")}`,
+        }),
+        "sourceGeneration",
+      );
+
+      quality = checkAgentSourceQuality(currentFiles, currentTouched);
+    }
 
     if (!quality.ok) {
       throw new Error(
@@ -99,16 +168,14 @@ export async function generateCustomProjectFilesWithAgent({
       );
     }
 
-    const repairAttempts = 0;
-
     return {
       buildSpec: appSpec,
-      files,
+      files: currentFiles,
       generationMode: "agent-custom",
       operationTrace,
-      repairAttempts,
+      repairAttempts: totalRepairAttempts,
       summary: result.text || "AI coding agent generated custom source files.",
-      touchedFiles: [...touchedFiles].sort(),
+      touchedFiles: [...currentTouched].sort(),
     };
   } catch (error) {
     throw new Error(
@@ -340,4 +407,85 @@ Rules:
 - You should create at least one src/components/custom/*.tsx file for the main visual section.
 - You must call check_app after final write.
 - If unsure, make the smallest safe custom improvement.`;
+}
+
+export async function repairGeneratedProjectFiles({
+  files,
+  buildLog,
+  onOperation,
+  projectId,
+  schema,
+  implementationSpec,
+}: {
+  files: GeneratedProjectFile[];
+  buildLog: string;
+  onOperation?: (operation: GeneratedAppAgentOperation) => void;
+  projectId: string;
+  schema: ProjectSiteSchema;
+  implementationSpec?: ImplementationSpec;
+}): Promise<CustomGeneratedSourceResult> {
+  const operationTrace: GeneratedAppAgentOperation[] = [];
+  const touchedFiles = new Set<string>();
+  let currentFiles = files;
+
+  const runCommand = (command: GeneratedAppAgentToolCommand) => {
+    const result = runGeneratedAppAgentTools({
+      commands: [command],
+      files: currentFiles,
+      onOperation(operation) {
+        const traced = { ...operation, id: `${operationTrace.length + 1}` };
+        operationTrace.push(traced);
+        onOperation?.(traced);
+      },
+    });
+    currentFiles = result.files;
+
+    for (const effect of result.sideEffects) {
+      if (effect.path) {
+        touchedFiles.add(effect.path);
+      }
+    }
+
+    return result.outputs.at(-1) ?? { type: command.type };
+  };
+
+  const agent = new ToolLoopAgent({
+    model: getAiModel(),
+    instructions: buildGeneratedAppAgentInstructions(
+      schema,
+      implementationSpec,
+    ),
+    experimental_telemetry: getAiTelemetry(
+      "project-source-generation-agent-repair",
+      { projectId },
+    ),
+    stopWhen: stepCountIs(12),
+    tools: createAgentTools(runCommand),
+  });
+
+  const result = await withAiTimeout(
+    agent.generate({
+      prompt: `The previous build failed with these TypeScript/build errors. Fix them using read_file and replace_in_file or write_file. Do NOT rewrite the entire app — only fix the specific errors.
+
+Build errors:
+${buildLog.slice(0, 2000)}
+
+Steps:
+1. read_file the files mentioned in the errors
+2. Fix the specific TypeScript issues
+3. run check_app
+4. Brief summary of what you fixed`,
+    }),
+    "sourceGeneration",
+  );
+
+  return {
+    buildSpec: buildGeneratedAppBuildSpec({ implementationSpec, schema }),
+    files: currentFiles,
+    generationMode: "agent-custom",
+    operationTrace,
+    repairAttempts: 1,
+    summary: result.text || "AI agent repaired source files.",
+    touchedFiles: [...touchedFiles].sort(),
+  };
 }

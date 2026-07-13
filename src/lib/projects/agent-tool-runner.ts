@@ -420,6 +420,20 @@ function normalizeFiles(files: GeneratedProjectFile[]) {
   }));
 }
 
+function normalizeAgentPath(filePath: string): string {
+  let normalized = filePath.trim();
+
+  if (normalized === "." || normalized === "./" || normalized === "/") {
+    return "";
+  }
+
+  while (normalized.startsWith("./") || normalized.startsWith("/")) {
+    normalized = normalized.replace(/^[./]+/, "");
+  }
+
+  return normalized;
+}
+
 function assertAgentPath(filePath: string) {
   assertSafeProjectFilePath(filePath);
   return filePath;
@@ -428,8 +442,15 @@ function assertAgentPath(filePath: string) {
 function getSafeCommandPath(
   filePath: string,
 ): { ok: true; path: string } | { error: string; ok: false } {
+  const normalized = normalizeAgentPath(filePath);
+  if (!normalized) {
+    return {
+      error: "File path cannot be empty or root directory.",
+      ok: false,
+    };
+  }
   try {
-    return { ok: true, path: assertAgentPath(filePath) };
+    return { ok: true, path: assertAgentPath(normalized) };
   } catch (error) {
     return {
       error:
@@ -461,16 +482,17 @@ function getEditableCommandPath(
 function getSafeOptionalPathPrefix(
   pathPrefix?: string,
 ): { ok: true; pathPrefix: string } | { error: string; ok: false } {
-  if (!pathPrefix) {
+  const normalized = pathPrefix ? normalizeAgentPath(pathPrefix) : "";
+  if (!normalized) {
     return { ok: true, pathPrefix: "" };
   }
 
   try {
-    const sentinelPath = pathPrefix.endsWith("/")
-      ? `${pathPrefix}index`
-      : pathPrefix;
+    const sentinelPath = normalized.endsWith("/")
+      ? `${normalized}index`
+      : normalized;
     assertAgentPath(sentinelPath);
-    return { ok: true, pathPrefix };
+    return { ok: true, pathPrefix: normalized };
   } catch (error) {
     return {
       error:
