@@ -13,6 +13,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { signOut, useSession } from "next-auth/react";
 import {
   FormEvent,
   KeyboardEvent,
@@ -201,6 +202,14 @@ export function WorkspaceShell({
   const chatPanelRef = useRef<PanelImperativeHandle | null>(null);
   const previewPanelRef = useRef<PanelImperativeHandle | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const { status: authStatus } = useSession();
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (authStatus === "unauthenticated") {
+      setSessionExpired(true);
+    }
+  }, [authStatus]);
   const olderChatSentinelRef = useRef<HTMLDivElement | null>(null);
   const hasAutoOpenedPreview = useRef(hasInitialPreview);
   const previousLiveMessageCount = useRef(initialMessages.length);
@@ -435,7 +444,11 @@ export function WorkspaceShell({
   }, [isPublishing, loadRuntimeState, projectId]);
 
   const startBuild = useCallback(async () => {
-    if (buildStatus === "building") {
+    if (
+      buildStatus === "building" ||
+      authStatus !== "authenticated" ||
+      sessionExpired
+    ) {
       return;
     }
 
@@ -568,7 +581,14 @@ export function WorkspaceShell({
     } finally {
       buildAbortRef.current = null;
     }
-  }, [buildRecommendationStorageKey, buildStatus, loadRuntimeState, projectId]);
+  }, [
+    authStatus,
+    buildRecommendationStorageKey,
+    buildStatus,
+    loadRuntimeState,
+    projectId,
+    sessionExpired,
+  ]);
 
   useEffect(() => {
     if (
@@ -1187,7 +1207,13 @@ export function WorkspaceShell({
     ) => {
       const trimmed = text.trim();
 
-      if (!trimmed || isProcessing || rateLimitError) {
+      if (
+        !trimmed ||
+        isProcessing ||
+        rateLimitError ||
+        authStatus !== "authenticated" ||
+        sessionExpired
+      ) {
         return;
       }
 
@@ -1260,6 +1286,7 @@ export function WorkspaceShell({
       );
     },
     [
+      authStatus,
       composerState,
       isProcessing,
       loadRuntimeState,
@@ -1268,6 +1295,7 @@ export function WorkspaceShell({
       rateLimitError,
       scrollChatToBottom,
       sendMessage,
+      sessionExpired,
     ],
   );
 
@@ -1538,6 +1566,19 @@ export function WorkspaceShell({
                     {rateLimitError.message}
                   </p>
                 </div>
+              ) : sessionExpired ? (
+                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                  <p className="text-sm font-medium text-[#ffb4a6]">
+                    Sesi kamu sudah habis.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => void signOut({ callbackUrl: "/" })}
+                    className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                  >
+                    Login ulang
+                  </Button>
+                </div>
               ) : isPreparingNextQuestion ? (
                 <div className="rounded-[18px] border border-surface-warm-white/10 bg-surface-warm-white/[0.04] px-spacing-5 py-spacing-4">
                   <p className="text-sm font-medium text-surface-warm-white/62">
@@ -1655,7 +1696,14 @@ export function WorkspaceShell({
                         value={message}
                         onChange={(event) => setMessage(event.target.value)}
                         onKeyDown={handleMessageKeyDown}
-                        placeholder="Tulis bebas..."
+                        placeholder={
+                          sessionExpired
+                            ? "Sesi habis, login ulang..."
+                            : "Tulis bebas..."
+                        }
+                        disabled={
+                          sessionExpired || authStatus !== "authenticated"
+                        }
                         className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                       />
                       <div className="flex items-center justify-between gap-spacing-4">
@@ -1720,11 +1768,16 @@ export function WorkspaceShell({
                       onChange={(event) => setMessage(event.target.value)}
                       onKeyDown={handleMessageKeyDown}
                       placeholder={
-                        mode === "build"
-                          ? "Minta perubahan, contoh: buat lebih premium..."
-                          : "Jawab pilihan atau tulis kebutuhanmu..."
+                        sessionExpired
+                          ? "Sesi habis, login ulang..."
+                          : mode === "build"
+                            ? "Minta perubahan, contoh: buat lebih premium..."
+                            : "Jawab pilihan atau tulis kebutuhanmu..."
                       }
                       className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                      disabled={
+                        sessionExpired || authStatus !== "authenticated"
+                      }
                     />
                     <div className="flex items-center justify-between gap-spacing-4">
                       <ModePill mode="Diskusi" tone="idle" />
