@@ -190,18 +190,6 @@ Chromatic requires `CHROMATIC_PROJECT_TOKEN`:
 bun run chromatic
 ```
 
-## Lighthouse
-
-Local release/performance guardrail only; not CI/CD or pre-commit. See `docs/lighthouse.md` for scope, thresholds, and interpretation.
-
-```bash
-bun run lighthouse
-bun run lighthouse:mobile
-bun run lighthouse:desktop
-```
-
-Reports are written to `.lighthouseci/` and ignored by Git.
-
 ## shadcn/ui
 
 Config lives in `components.json`. Owned primitives live under `src/components/ui`.

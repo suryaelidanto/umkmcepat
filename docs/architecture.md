@@ -66,6 +66,8 @@ Project -> ProjectSnapshot -> ProjectBuild -> ProjectDeployment -> RuntimeNode
 
 The legacy build/preview fields remain as compatibility fallback data. The generation route now creates a `ProjectSnapshot`, queues/runs a `ProjectBuild`, writes local artifact refs for generated source and dist output, creates a preview `ProjectDeployment`, and records runtime events. The private preview route prefers the deployment proxy and only falls back to legacy `Project.distFiles` when no artifact-backed deployment exists.
 
+Deleting a project must delete every resource tied to it, not just the DB row: stop running `ProjectDeployment` runtimes, delete source/dist artifacts (local dir or R2 objects), remove materialized runtime dirs and build workspace dirs, and delete the project thumbnail. `src/lib/projects/project-cleanup.ts` runs this best-effort before the DB delete so refs stay queryable; the Prisma schema cascades the remaining metadata rows (`ProjectSnapshot`, `ProjectBuild`, `ProjectDeployment`, `ProjectEditAttempt`, `ProjectIdempotencyKey`). A failed resource step is recorded and never blocks the next step, but the call must not silently leave orphaned files or R2 objects.
+
 ## Renderer and preview
 
 - Validate AI output before saving or rendering.

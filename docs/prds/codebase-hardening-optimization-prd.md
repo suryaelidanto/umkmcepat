@@ -26,7 +26,6 @@ UMKM Cepat's generated-app builder spine is functionally beta-complete: create, 
 - A three-file type import cycle (generated-source <-> generated-build-policy <-> generated-package-policy) is runtime-safe but signals a missing shared types seam.
 - The largest modules mix unrelated concerns: `generated-source.ts` interleaves build execution with starter file templates; `site-schema.ts` interleaves the schema type with quality/candidate validators.
 - The home page `SponsorTable` renders a fixed 760px-wide table inside an overflow wrapper, so mobile users get a horizontal-scroll table where a card list would communicate the same data with less effort.
-- There is no recent Lighthouse evidence; the `.lighthouseci/` directory is empty.
 
 From the maintainer's perspective, none of these break the product today, but each makes the next change slower and riskier, and a few (client/server dedupe mismatch, unknown repair errors) are latent correctness/observability gaps.
 
@@ -125,7 +124,6 @@ Track G — Responsive SponsorTable:
 Track H — Release evidence:
 
 - Run `bun run check` (locks, prettier, lint, typecheck, unit tests, knip) as the merge gate.
-- Run `bun run lighthouse:mobile` for the public-page regression floor. If the local environment cannot start Chrome or build, record the blocker and the last known thresholds instead of weakening the gate.
 
 Track I — Verified clean and deferred:
 

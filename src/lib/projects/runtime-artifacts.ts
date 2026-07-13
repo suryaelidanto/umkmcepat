@@ -153,6 +153,27 @@ export async function materializeProjectDistArtifact(
   return files;
 }
 
+export async function deleteProjectArtifact(
+  ref: string,
+  options: ArtifactRootOptions = {},
+) {
+  const parsed = parseProjectArtifactRef(ref);
+
+  if (!parsed) {
+    return;
+  }
+
+  if (parsed.provider === "r2") {
+    await deleteR2ProjectArtifact(parsed);
+    return;
+  }
+
+  await rm(
+    resolveProjectArtifactDir(parsed.kind, parsed.artifactId, options.rootDir),
+    { force: true, recursive: true },
+  );
+}
+
 async function writeProjectArtifactFiles<
   TFile extends GeneratedDistFile | GeneratedProjectFile,
 >(input: WriteArtifactInput<TFile>) {
@@ -315,6 +336,39 @@ async function readR2ProjectArtifact(parsed: ParsedProjectArtifactRef) {
   return { files, kind: manifest.kind };
 }
 
+async function deleteR2ProjectArtifact(parsed: ParsedProjectArtifactRef) {
+  const config = getR2Config();
+  const manifestKey = getR2ArtifactKey(
+    parsed.kind,
+    parsed.artifactId,
+    "manifest.json",
+  );
+
+  // Enumerate files from the manifest when available; best-effort so a
+  // missing/unreadable manifest does not block deleting the manifest key.
+  let filePaths: string[] = [];
+  try {
+    const manifest = JSON.parse(await getR2Object(config, manifestKey)) as {
+      files?: Array<{ path?: unknown }>;
+    };
+    filePaths = (manifest.files ?? [])
+      .map((file) => (typeof file?.path === "string" ? file.path : null))
+      .filter((filePath): filePath is string => filePath !== null);
+  } catch {
+    // Manifest missing or unreadable; nothing more to enumerate.
+  }
+
+  await Promise.all([
+    ...filePaths.map((filePath) =>
+      deleteR2Object(
+        config,
+        getR2ArtifactKey(parsed.kind, parsed.artifactId, `files/${filePath}`),
+      ),
+    ),
+    deleteR2Object(config, manifestKey),
+  ]);
+}
+
 function parseManifest(
   value: string,
   expectedKind: ProjectArtifactKind,
@@ -466,10 +520,23 @@ async function getR2Object(config: R2Config, key: string) {
   return response.text();
 }
 
+async function deleteR2Object(config: R2Config, key: string) {
+  const response = await signedR2Fetch(config, key, { method: "DELETE" });
+
+  // 204 success; 404 means the object is already gone — treat as success.
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`R2 project artifact delete failed: ${response.status}`);
+  }
+}
+
 async function signedR2Fetch(
   config: R2Config,
   key: string,
-  input: { body?: string; contentType?: string; method: "GET" | "PUT" },
+  input: {
+    body?: string;
+    contentType?: string;
+    method: "GET" | "PUT" | "DELETE";
+  },
 ) {
   const encodedKey = key
     .split("/")

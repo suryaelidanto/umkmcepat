@@ -5,10 +5,6 @@
     "src/**/*.test.ts",
     ".husky/pre-commit",
     ".husky/commit-msg",
-    "lighthouserc.mobile.cjs",
-    "lighthouserc.desktop.cjs",
-    "lighthouserc.auth.mobile.cjs",
-    "lighthouserc.auth.desktop.cjs",
     "scripts/capture-project-thumbnail.cjs"
   ],
   "project": ["src/**/*.{ts,tsx}", "*.{ts,js,mjs,cjs}"],

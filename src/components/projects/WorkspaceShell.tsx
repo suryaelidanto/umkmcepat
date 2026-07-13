@@ -1012,15 +1012,13 @@ export function WorkspaceShell({
       messages: allMessagesRef.current,
       mode: modeRef.current,
     });
-    const hasFreshToolOutput = messages.some((message) =>
-      message.parts.some(
-        (part) =>
-          part.type === "tool-setWorkspaceUi" &&
-          (part as { state?: unknown }).state === "output-available",
-      ),
-    );
+    const missingTurn = hasMissingWorkspaceUiTurn({
+      card: workspaceCardRef.current,
+      messages: allMessagesRef.current,
+      mode: modeRef.current,
+    });
 
-    if (answered && !hasFreshToolOutput && modeRef.current === "discuss") {
+    if (answered && missingTurn && modeRef.current === "discuss") {
       setIsPreparingNextQuestion(true);
       return;
     }
@@ -1033,7 +1031,7 @@ export function WorkspaceShell({
     }, 500);
 
     return () => window.clearTimeout(timeout);
-  }, [loadWorkspaceState, reloadLatestChat, status, messages]);
+  }, [loadWorkspaceState, reloadLatestChat, status]);
 
   const handleAnnotationTarget = useCallback((target: unknown) => {
     if (!target || typeof target !== "object") {
