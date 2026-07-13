@@ -76,7 +76,7 @@ describe("custom generated source agent", () => {
       await tools.replace_in_file.execute({
         path: "src/styles.css",
         find: "text-align:center",
-        replace: "text-align:left",
+        replace: "text-align:center\n.agent-proof{display:block}",
       });
       await tools.check_app.execute({});
 
@@ -123,7 +123,7 @@ describe("custom generated source agent", () => {
       await tools.replace_in_file.execute({
         path: "src/styles.css",
         find: "text-align:center",
-        replace: "text-align:left",
+        replace: "text-align:center\n.agent-proof{display:block}",
       });
       await tools.check_app.execute({});
 

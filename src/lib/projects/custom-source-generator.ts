@@ -83,7 +83,7 @@ export async function generateCustomProjectFilesWithAgent({
           projectId,
         },
       ),
-      stopWhen: stepCountIs(28),
+      stopWhen: stepCountIs(15),
       tools: createAgentTools(runCommand),
     });
 
@@ -97,70 +97,8 @@ export async function generateCustomProjectFilesWithAgent({
       }
       throw error;
     });
-    let quality = checkAgentSourceQuality(files, touchedFiles);
-    let currentFiles = files;
-    const currentTouched = touchedFiles;
-    let totalRepairAttempts = 0;
 
-    while (!quality.ok && totalRepairAttempts < 2) {
-      totalRepairAttempts += 1;
-      onOperation?.({
-        detail: `Quality check gagal: ${quality.issues.join(", ")}`,
-        id: `${operationTrace.length + 1}`,
-        state: "failed",
-        title: "Memperbaiki struktur file",
-        type: "check_app",
-      });
-
-      const repairAgent = new ToolLoopAgent({
-        model: getAiModel(),
-        instructions: buildGeneratedAppAgentInstructions(
-          schema,
-          implementationSpec,
-        ),
-        experimental_telemetry: getAiTelemetry(
-          "project-source-generation-agent-repair",
-          { projectId },
-        ),
-        stopWhen: stepCountIs(12),
-        tools: createAgentTools((command) => {
-          const repairResult = runGeneratedAppAgentTools({
-            commands: [command],
-            files: currentFiles,
-            onOperation(operation) {
-              const traced = {
-                ...operation,
-                id: `${operationTrace.length + 1}`,
-              };
-              operationTrace.push(traced);
-              onOperation?.(traced);
-            },
-          });
-          currentFiles = repairResult.files;
-          for (const effect of repairResult.sideEffects) {
-            if (effect.path) {
-              currentTouched.add(effect.path);
-            }
-          }
-          return repairResult.outputs.at(-1) ?? { type: command.type };
-        }),
-      });
-
-      await withAiTimeout(
-        repairAgent.generate({
-          prompt: `The quality check failed with these issues. Fix them using read_file, write_file, or replace_in_file. Then call check_app.
-
-Issues:
-${quality.issues.map((issue) => `- ${issue}`).join("\n")}
-
-Current files:
-${currentFiles.map((f) => f.path).join("\n")}`,
-        }),
-        "sourceGeneration",
-      );
-
-      quality = checkAgentSourceQuality(currentFiles, currentTouched);
-    }
+    const quality = checkAgentSourceQuality(files, touchedFiles);
 
     if (!quality.ok) {
       throw new Error(
@@ -170,12 +108,12 @@ ${currentFiles.map((f) => f.path).join("\n")}`,
 
     return {
       buildSpec: appSpec,
-      files: currentFiles,
+      files,
       generationMode: "agent-custom",
       operationTrace,
-      repairAttempts: totalRepairAttempts,
+      repairAttempts: 0,
       summary: result.text || "AI coding agent generated custom source files.",
-      touchedFiles: [...currentTouched].sort(),
+      touchedFiles: [...touchedFiles].sort(),
     };
   } catch (error) {
     throw new Error(
@@ -309,6 +247,34 @@ function checkAgentSourceQuality(
     issues.push("preview-ready signal missing");
   }
 
+  const styleFile = files.find((file) => file.path === "src/styles.css");
+  const styleContent = styleFile?.content || "";
+  const usedClassNames = new Set<string>();
+
+  for (const file of files) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    const classMatches = file.content.matchAll(
+      /className=["{`'\[]([a-zA-Z0-9_-]+)/g,
+    );
+    for (const match of classMatches) {
+      if (match[1]) {
+        usedClassNames.add(match[1]);
+      }
+    }
+  }
+
+  const missingCss = [...usedClassNames].filter(
+    (cls) => cls.length > 1 && !styleContent.includes(cls),
+  );
+
+  if (missingCss.length > 0) {
+    issues.push(
+      `missing CSS rules for classNames: ${missingCss.slice(0, 8).join(", ")}`,
+    );
+  }
+
   return issues.length ? { issues, ok: false } : { issues: [], ok: true };
 }
 
@@ -324,8 +290,9 @@ Required steps:
 3. create at least one component under src/components/custom/ unless a better domain folder already exists
 4. edit route, content, and CSS files so the app feels designed, not pasted answers
 5. keep static frontend only
-6. run check_app after all writes
-7. final answer: concise summary and touched files`;
+6. every className you use in JSX must have a corresponding CSS rule in src/styles.css
+7. run check_app after all writes
+8. final answer: concise summary and touched files`;
 }
 
 export function buildGeneratedAppBuildSpec(
