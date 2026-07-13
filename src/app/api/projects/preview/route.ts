@@ -35,6 +35,12 @@ import {
 } from "@/lib/projects/chat-memory";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  checkEnergy,
+  deductEnergy,
+  ENERGY_COST_DISCUSS,
+  isUserVerified,
+} from "@/lib/user-credits";
 
 import { stripTransportDiagnosticMessages } from "./strip-transport-diagnostic-messages";
 
@@ -62,6 +68,30 @@ export async function POST(request: Request) {
   }
 
   const userId = session.user.id;
+
+  const verified = await isUserVerified(userId);
+  if (!verified) {
+    return Response.json(
+      {
+        message: "Verifikasi nomor telepon diperlukan.",
+        code: "verification_required",
+      },
+      { status: 403 },
+    );
+  }
+
+  const energy = await checkEnergy(userId, ENERGY_COST_DISCUSS);
+  if (!energy.allowed) {
+    return Response.json(
+      {
+        message: "Energi harian habis. Coba lagi besok.",
+        code: "energy_exhausted",
+        remaining: energy.remaining,
+      },
+      { status: 429 },
+    );
+  }
+
   const rateLimitResponse = await checkRateLimit(request, "ai", userId);
 
   if (rateLimitResponse) {
@@ -441,6 +471,8 @@ async function handleDiscussTurn({
             userId,
           });
         }
+
+        await deductEnergy(userId, ENERGY_COST_DISCUSS, "discuss_turn");
 
         writer.write({ type: "finish" });
       },

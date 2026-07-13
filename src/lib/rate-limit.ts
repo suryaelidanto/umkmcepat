@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getConfiguredProvider, getEnv } from "@/lib/config";
 
-type RateLimitType = "global" | "ai" | "build";
+type RateLimitType = "global" | "ai" | "build" | "otp";
 type RateLimitSubject = "ip" | "user";
 
 type Bucket = {
@@ -32,6 +32,10 @@ const defaults: Record<
   build: {
     ip: { limit: 5, windowMs: 3_600_000 },
     user: { limit: 10, windowMs: 3_600_000 },
+  },
+  otp: {
+    ip: { limit: 10, windowMs: 3_600_000 },
+    user: { limit: 5, windowMs: 3_600_000 },
   },
 };
 
@@ -67,6 +71,16 @@ const envNames: Record<
     user: {
       requests: "RATE_LIMIT_BUILD_USER_REQUESTS",
       windowSeconds: "RATE_LIMIT_BUILD_USER_WINDOW_SECONDS",
+    },
+  },
+  otp: {
+    ip: {
+      requests: "RATE_LIMIT_OTP_IP_REQUESTS",
+      windowSeconds: "RATE_LIMIT_OTP_IP_WINDOW_SECONDS",
+    },
+    user: {
+      requests: "RATE_LIMIT_OTP_USER_REQUESTS",
+      windowSeconds: "RATE_LIMIT_OTP_USER_WINDOW_SECONDS",
     },
   },
 };

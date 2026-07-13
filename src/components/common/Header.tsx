@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { AuthButton } from "@/components/common/AuthButton";
+import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 
 export function Header() {
   return (
@@ -24,7 +25,8 @@ export function Header() {
 
         <div aria-hidden="true" />
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-3">
+          <EnergyDisplay />
           <AuthButton />
         </div>
       </div>

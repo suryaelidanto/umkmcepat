@@ -52,6 +52,12 @@ import {
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  checkEnergy,
+  deductEnergy,
+  ENERGY_COST_BUILD,
+  isUserVerified,
+} from "@/lib/user-credits";
 
 export const maxDuration = 300;
 
@@ -80,6 +86,30 @@ export async function POST(request: Request, { params }: RouteProps) {
   }
 
   const userId = session.user.id;
+
+  const verified = await isUserVerified(userId);
+  if (!verified) {
+    return Response.json(
+      {
+        message: "Verifikasi nomor telepon diperlukan.",
+        code: "verification_required",
+      },
+      { status: 403 },
+    );
+  }
+
+  const energy = await checkEnergy(userId, ENERGY_COST_BUILD);
+  if (!energy.allowed) {
+    return Response.json(
+      {
+        message: "Energi harian habis. Coba lagi besok.",
+        code: "energy_exhausted",
+        remaining: energy.remaining,
+      },
+      { status: 429 },
+    );
+  }
+
   const rateLimitResponse = await checkRateLimit(request, "build", userId);
 
   if (rateLimitResponse) {
@@ -684,6 +714,11 @@ export async function POST(request: Request, { params }: RouteProps) {
           return committedDeployment;
         });
         runtimeBuildFinalized = true;
+
+        if (finalBuildResult.ok) {
+          await deductEnergy(userId, ENERGY_COST_BUILD, "build");
+        }
+
         await Promise.allSettled([
           prisma.runtimeEvent.create({
             data: createRuntimeEventData({

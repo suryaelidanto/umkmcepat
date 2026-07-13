@@ -64,6 +64,12 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
+vi.mock("@/lib/user-credits", () => ({
+  checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 50 })),
+  deductEnergy: vi.fn(async () => {}),
+  ENERGY_COST_BUILD: 20,
+  isUserVerified: vi.fn(async () => true),
+}));
 vi.mock("ai", () => ({
   jsonSchema: vi.fn((schema: unknown) => schema),
   Output: {
