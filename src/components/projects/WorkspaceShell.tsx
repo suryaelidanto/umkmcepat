@@ -920,6 +920,7 @@ export function WorkspaceShell({
     }
 
     let canceled = false;
+    let nonePollCount = 0;
     const previousCard = workspaceCardRef.current;
     const startedAt = Date.now();
 
@@ -966,10 +967,14 @@ export function WorkspaceShell({
           }
 
           if (result.workspaceCard.type === "none") {
-            setWorkspaceCard(result.workspaceCard);
-            setIsPreparingNextQuestion(false);
-            void reloadLatestChat();
-            return;
+            nonePollCount += 1;
+            if (nonePollCount >= 3) {
+              setWorkspaceCard(result.workspaceCard);
+              setIsPreparingNextQuestion(false);
+              void reloadLatestChat();
+              return;
+            }
+            continue;
           }
         } catch {
           continue;
