@@ -8,7 +8,10 @@ import {
   hasAnsweredWorkspaceQuestion,
   hasMissingWorkspaceUiTurn,
   isBuildRecommendationHeld,
+  isFreshWorkspaceCard,
   isWorkspaceBuildComplete,
+  PREPARING_POLL_INTERVAL_MS,
+  PREPARING_TIMEOUT_MS,
   shouldShowBuildRecommendationComposer,
   shouldRefreshWorkspaceAfterChatStatus,
   shouldUseGeneratedPreviewFrame,
@@ -504,5 +507,85 @@ describe("workspace chat sync", () => {
         sourceStatus: "passed",
       }),
     ).toBeNull();
+  });
+});
+
+describe("isFreshWorkspaceCard", () => {
+  const questionCard = (id: string): WorkspaceCard => ({
+    type: "question",
+    question: {
+      id,
+      question: "Apa nama bisnisnya?",
+      answerMode: "text",
+      options: [],
+      placeholder: "",
+      selectionMode: "single",
+      whyThisQuestionMatters: "",
+    },
+  });
+
+  const buildRecommendationCard = (
+    title: string,
+    summary: string[],
+  ): WorkspaceCard => ({
+    type: "build_recommendation",
+    title,
+    summary,
+  });
+
+  it("treats a none card as not fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        { type: "none" } as WorkspaceCard,
+        questionCard("nama_bisnis"),
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a different card type as fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan"]),
+        questionCard("nama_bisnis"),
+      ),
+    ).toBe(true);
+  });
+
+  it("treats a question with a new id as fresh", () => {
+    expect(
+      isFreshWorkspaceCard(questionCard("lokasi"), questionCard("nama_bisnis")),
+    ).toBe(true);
+  });
+
+  it("treats a question with the same id as not fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        questionCard("nama_bisnis"),
+        questionCard("nama_bisnis"),
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a build recommendation with a different signature as fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan baru"]),
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan lama"]),
+      ),
+    ).toBe(true);
+  });
+
+  it("treats a build recommendation with the same signature as not fresh", () => {
+    expect(
+      isFreshWorkspaceCard(
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan"]),
+        buildRecommendationCard("Bangun sekarang", ["Ringkasan"]),
+      ),
+    ).toBe(false);
+  });
+
+  it("exposes bounded poll and timeout constants", () => {
+    expect(PREPARING_POLL_INTERVAL_MS).toBeGreaterThan(0);
+    expect(PREPARING_TIMEOUT_MS).toBeGreaterThan(PREPARING_POLL_INTERVAL_MS);
   });
 });

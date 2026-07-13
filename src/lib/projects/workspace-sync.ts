@@ -359,3 +359,35 @@ function getSafePreviewIssueDetail(value: string, fallback: string) {
 
   return detail;
 }
+
+export const PREPARING_POLL_INTERVAL_MS = 2000;
+export const PREPARING_TIMEOUT_MS = 30_000;
+
+export function isFreshWorkspaceCard(
+  next: WorkspaceCard,
+  previous: WorkspaceCard,
+) {
+  if (next.type === "none") {
+    return false;
+  }
+
+  if (next.type !== previous.type) {
+    return true;
+  }
+
+  if (next.type === "question" && previous.type === "question") {
+    return next.question.id !== previous.question.id;
+  }
+
+  if (
+    next.type === "build_recommendation" &&
+    previous.type === "build_recommendation"
+  ) {
+    return (
+      getBuildRecommendationHoldSignature(next) !==
+      getBuildRecommendationHoldSignature(previous)
+    );
+  }
+
+  return false;
+}

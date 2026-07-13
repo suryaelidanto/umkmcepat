@@ -62,7 +62,10 @@ import {
   hasAnsweredWorkspaceQuestion,
   hasMissingWorkspaceUiTurn,
   isBuildRecommendationHeld,
+  isFreshWorkspaceCard,
   isWorkspaceBuildComplete,
+  PREPARING_POLL_INTERVAL_MS,
+  PREPARING_TIMEOUT_MS,
   shouldRefreshWorkspaceAfterChatStatus,
   shouldUseGeneratedPreviewFrame,
   isUserVisibleAssistantText,
@@ -208,6 +211,10 @@ export function WorkspaceShell({
   const shouldStickToBottomRef = useRef(true);
   const ignoreNextScrollRef = useRef(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isPreparingNextQuestion, setIsPreparingNextQuestion] = useState(false);
+  const isPreparingNextQuestionRef = useRef(false);
+  const workspaceCardRef = useRef(initialWorkspaceCard);
+  const preparingPollRef = useRef<(() => void) | null>(null);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
   const [annotationMode, setAnnotationMode] = useState(false);
@@ -357,21 +364,39 @@ export function WorkspaceShell({
     return request;
   }, [projectId]);
 
-  const loadWorkspaceState = useCallback(async () => {
-    const response = await fetch(`/api/projects/${projectId}/workspace`, {
-      cache: "no-store",
-    });
+  const loadWorkspaceState = useCallback(
+    async (options?: { skipIfPreparing?: boolean }) => {
+      if (options?.skipIfPreparing && isPreparingNextQuestionRef.current) {
+        return;
+      }
 
-    if (!response.ok) {
-      return;
-    }
+      const response = await fetch(`/api/projects/${projectId}/workspace`, {
+        cache: "no-store",
+      });
 
-    const result = (await response.json()) as WorkspaceStateResponse;
+      if (!response.ok) {
+        return;
+      }
 
-    setWorkspaceCard(result.workspaceCard);
-    setProjectTitle(result.projectTitle);
-    setDraftTitle(result.projectTitle);
-  }, [projectId]);
+      const result = (await response.json()) as WorkspaceStateResponse;
+
+      if (isPreparingNextQuestionRef.current) {
+        if (
+          isFreshWorkspaceCard(result.workspaceCard, workspaceCardRef.current)
+        ) {
+          setWorkspaceCard(result.workspaceCard);
+          setProjectTitle(result.projectTitle);
+          setDraftTitle(result.projectTitle);
+        }
+        return;
+      }
+
+      setWorkspaceCard(result.workspaceCard);
+      setProjectTitle(result.projectTitle);
+      setDraftTitle(result.projectTitle);
+    },
+    [projectId],
+  );
 
   const recoverPreviewRuntime = useCallback(() => {
     setPreviewReloadKey((current) => current + 1);
@@ -575,6 +600,10 @@ export function WorkspaceShell({
     () => dedupeUiMessages([...olderMessages, ...messages]),
     [messages, olderMessages],
   );
+  const allMessagesRef = useRef(allMessages);
+  useEffect(() => {
+    allMessagesRef.current = allMessages;
+  }, [allMessages]);
   const visibleMessages = useMemo(
     () =>
       filterDiscussionMessagesWithWorkspaceUi(allMessages, mode === "discuss"),
@@ -883,10 +912,82 @@ export function WorkspaceShell({
   }, [questionComposerMode, workspaceCard, scrollChatToBottom]);
 
   useEffect(() => {
+    workspaceCardRef.current = workspaceCard;
+  }, [workspaceCard]);
+
+  useEffect(() => {
+    isPreparingNextQuestionRef.current = isPreparingNextQuestion;
+  }, [isPreparingNextQuestion]);
+
+  useEffect(() => {
+    if (!isPreparingNextQuestion) {
+      return;
+    }
+
+    let canceled = false;
+    const previousCard = workspaceCardRef.current;
+    const startedAt = Date.now();
+
+    const stop = () => {
+      canceled = true;
+      preparingPollRef.current = null;
+    };
+    preparingPollRef.current = stop;
+
+    const poll = async () => {
+      while (!canceled) {
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, PREPARING_POLL_INTERVAL_MS),
+        );
+        if (canceled) {
+          return;
+        }
+
+        if (Date.now() - startedAt >= PREPARING_TIMEOUT_MS) {
+          setIsPreparingNextQuestion(false);
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/projects/${projectId}/workspace`, {
+            cache: "no-store",
+          });
+          if (!response.ok) {
+            continue;
+          }
+          const result = (await response.json()) as WorkspaceStateResponse;
+          if (canceled) {
+            return;
+          }
+          if (isFreshWorkspaceCard(result.workspaceCard, previousCard)) {
+            setWorkspaceCard(result.workspaceCard);
+            if (result.projectTitle) {
+              setProjectTitle(result.projectTitle);
+              setDraftTitle(result.projectTitle);
+            }
+            setIsPreparingNextQuestion(false);
+            void reloadLatestChat();
+            return;
+          }
+        } catch {
+          continue;
+        }
+      }
+    };
+
+    void poll();
+
+    return () => {
+      canceled = true;
+    };
+  }, [isPreparingNextQuestion, projectId, reloadLatestChat]);
+
+  useEffect(() => {
     const workspaceUpdate = getLatestWorkspaceUpdateFromMessages(messages);
 
     if (workspaceUpdate?.workspaceCard) {
       setWorkspaceCard(workspaceUpdate.workspaceCard);
+      setIsPreparingNextQuestion(false);
       clearError();
       setRateLimitError(null);
     }
@@ -906,6 +1007,24 @@ export function WorkspaceShell({
       return;
     }
 
+    const answered = hasAnsweredWorkspaceQuestion({
+      card: workspaceCardRef.current,
+      messages: allMessagesRef.current,
+      mode: modeRef.current,
+    });
+    const hasFreshToolOutput = messages.some((message) =>
+      message.parts.some(
+        (part) =>
+          part.type === "tool-setWorkspaceUi" &&
+          (part as { state?: unknown }).state === "output-available",
+      ),
+    );
+
+    if (answered && !hasFreshToolOutput && modeRef.current === "discuss") {
+      setIsPreparingNextQuestion(true);
+      return;
+    }
+
     void loadWorkspaceState();
     void reloadLatestChat();
     const timeout = window.setTimeout(() => {
@@ -914,7 +1033,7 @@ export function WorkspaceShell({
     }, 500);
 
     return () => window.clearTimeout(timeout);
-  }, [loadWorkspaceState, reloadLatestChat, status]);
+  }, [loadWorkspaceState, reloadLatestChat, status, messages]);
 
   const handleAnnotationTarget = useCallback((target: unknown) => {
     if (!target || typeof target !== "object") {
@@ -1465,6 +1584,12 @@ export function WorkspaceShell({
                     {rateLimitError.message}
                   </p>
                 </div>
+              ) : isPreparingNextQuestion ? (
+                <div className="rounded-[18px] border border-surface-warm-white/10 bg-surface-warm-white/[0.04] px-spacing-5 py-spacing-4">
+                  <p className="text-sm font-medium text-surface-warm-white/62">
+                    Menyiapkan pertanyaan berikutnya...
+                  </p>
+                </div>
               ) : error || (!isResponding && missingWorkspaceUiTurn) ? (
                 <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                   <p className="text-sm font-medium text-[#ffb4a6]">
@@ -1495,7 +1620,8 @@ export function WorkspaceShell({
                 <div className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62">
                   Tunggu sebentar sebelum mengirim jawaban berikutnya.
                 </div>
-              ) : missingWorkspaceUiTurn ? null : !hasAnsweredActiveQuestion &&
+              ) : isPreparingNextQuestion ||
+                missingWorkspaceUiTurn ? null : !hasAnsweredActiveQuestion &&
                 composerState === "question" &&
                 workspaceCard.type === "question" ? (
                 <AnimatePresence mode="wait" initial={false}>
