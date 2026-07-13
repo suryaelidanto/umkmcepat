@@ -60,7 +60,6 @@ import {
   getWorkspaceComposerState,
   getWorkspacePreviewIssue,
   hasAnsweredWorkspaceQuestion,
-  hasMissingWorkspaceUiTurn,
   isBuildRecommendationHeld,
   isFreshWorkspaceCard,
   isWorkspaceBuildComplete,
@@ -237,6 +236,7 @@ export function WorkspaceShell({
   );
   const {
     messages,
+    regenerate,
     sendMessage,
     setMessages,
     status,
@@ -649,11 +649,6 @@ export function WorkspaceShell({
   const hasPreview = shouldRenderGeneratedPreview;
   const showPreviewPanel = !previewCollapsed;
   const showChatPanel = !chatCollapsed;
-  const missingWorkspaceUiTurn = hasMissingWorkspaceUiTurn({
-    card: workspaceCard,
-    messages: allMessages,
-    mode,
-  });
   const hasAnsweredActiveQuestion = hasAnsweredWorkspaceQuestion({
     card: workspaceCard,
     messages: allMessages,
@@ -969,6 +964,13 @@ export function WorkspaceShell({
             void reloadLatestChat();
             return;
           }
+
+          if (result.workspaceCard.type === "none") {
+            setWorkspaceCard(result.workspaceCard);
+            setIsPreparingNextQuestion(false);
+            void reloadLatestChat();
+            return;
+          }
         } catch {
           continue;
         }
@@ -996,13 +998,8 @@ export function WorkspaceShell({
       messages: allMessagesRef.current,
       mode: modeRef.current,
     });
-    const missingTurn = hasMissingWorkspaceUiTurn({
-      card: workspaceCardRef.current,
-      messages: allMessagesRef.current,
-      mode: modeRef.current,
-    });
 
-    if (answered && missingTurn && modeRef.current === "discuss") {
+    if (answered && modeRef.current === "discuss") {
       setIsPreparingNextQuestion(true);
       return;
     }
@@ -1313,43 +1310,13 @@ export function WorkspaceShell({
     setIsRetrying(true);
     clearError();
     try {
-      // Only repair the hidden card. Replaying the chat turn can duplicate the
-      // user's answer and can stream a second visible response.
-      const response = await fetch("/api/projects/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "discuss",
-          projectId,
-          repairWorkspace: true,
-        }),
-      });
-      const result = (await response.json().catch(() => null)) as {
-        message?: string;
-        projectTitle?: string;
-        workspaceCard?: WorkspaceCard;
-      } | null;
-
-      if (!response.ok || !result?.workspaceCard) {
-        const error = new Error(
-          result?.message || "Pilihan berikutnya belum bisa disiapkan.",
-        );
-        captureRateLimitError(error, setRateLimitError);
-        throw error;
-      }
-
-      setWorkspaceCard(result.workspaceCard);
-      if (result.projectTitle) {
-        setProjectTitle(result.projectTitle);
-        setDraftTitle(result.projectTitle);
-      }
-      await reloadLatestChat();
+      await regenerate();
     } catch {
-      // The retry panel remains visible. The stored answer is never replayed.
+      // The error panel remains visible.
     } finally {
       setIsRetrying(false);
     }
-  }, [clearError, isRetrying, projectId, reloadLatestChat, status]);
+  }, [clearError, isRetrying, regenerate, status]);
 
   useEffect(() => {
     if (error) {
@@ -1572,12 +1539,12 @@ export function WorkspaceShell({
                     Menyiapkan pertanyaan berikutnya...
                   </p>
                 </div>
-              ) : error || (!isResponding && missingWorkspaceUiTurn) ? (
+              ) : error ? (
                 <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                   <p className="text-sm font-medium text-[#ffb4a6]">
                     {isRetrying
                       ? "AI sempat terputus. Mencoba menyambung ulang..."
-                      : "AI belum sempat menyiapkan pilihan. Jawabanmu sudah tersimpan, jadi kamu bisa coba lagi."}
+                      : "AI sempat terputus. Coba kirim ulang pesanmu."}
                   </p>
                   {!isRetrying ? (
                     <Button
@@ -1585,7 +1552,7 @@ export function WorkspaceShell({
                       onClick={() => void retryWorkspaceCard()}
                       className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
                     >
-                      Coba lagi
+                      Kirim ulang
                     </Button>
                   ) : null}
                 </div>
@@ -1602,8 +1569,7 @@ export function WorkspaceShell({
                 <div className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62">
                   Tunggu sebentar sebelum mengirim jawaban berikutnya.
                 </div>
-              ) : isPreparingNextQuestion ||
-                missingWorkspaceUiTurn ? null : !hasAnsweredActiveQuestion &&
+              ) : isPreparingNextQuestion ? null : !hasAnsweredActiveQuestion &&
                 composerState === "question" &&
                 workspaceCard.type === "question" ? (
                 <AnimatePresence mode="wait" initial={false}>

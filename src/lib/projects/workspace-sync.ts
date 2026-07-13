@@ -132,52 +132,6 @@ export function hasAnsweredWorkspaceQuestion({
   return true;
 }
 
-export function hasMissingWorkspaceUiTurn({
-  card,
-  messages,
-  mode,
-}: {
-  card: WorkspaceCard;
-  messages: UIMessage[];
-  mode: string;
-}) {
-  if (mode !== "discuss") {
-    return false;
-  }
-
-  const latestUserIndex = findLastIndex(
-    messages,
-    (message) => message.role === "user",
-  );
-
-  if (latestUserIndex < 0) {
-    return false;
-  }
-
-  const messagesAfterUser = messages.slice(latestUserIndex + 1);
-
-  if (messagesAfterUser.some(hasWorkspaceUiTool)) {
-    return false;
-  }
-
-  const latestUserText = getUiMessageText(messages[latestUserIndex]);
-  const answeredQuestion = latestUserText.split(/\nJawaban:/i)[0]?.trim();
-
-  // The card is stale as soon as its question is answered, even when the
-  // provider fails before producing visible text. Never show it again; expose
-  // the retry state instead.
-  if (
-    card.type === "question" &&
-    answeredQuestion === card.question.question.trim()
-  ) {
-    return true;
-  }
-
-  // The first turn and free-form/review turns have no card answer to compare.
-  // Their visible assistant response still proves a missing tool output.
-  return messagesAfterUser.some(hasAssistantContent);
-}
-
 function findLastIndex<T>(items: T[], predicate: (item: T) => boolean) {
   for (let index = items.length - 1; index >= 0; index -= 1) {
     if (predicate(items[index])) {
@@ -193,31 +147,6 @@ function getUiMessageText(message: UIMessage) {
     .filter((part) => part.type === "text")
     .map((part) => part.text)
     .join("\n");
-}
-
-function hasAssistantContent(message: UIMessage) {
-  if (message.role !== "assistant") {
-    return false;
-  }
-
-  return message.parts.some((part) => {
-    if (part.type === "text") {
-      return isUserVisibleAssistantText(part.text);
-    }
-
-    return isWorkspaceUiToolPart(part);
-  });
-}
-
-function hasWorkspaceUiTool(message: UIMessage) {
-  return message.parts.some(isWorkspaceUiToolPart);
-}
-
-function isWorkspaceUiToolPart(part: UIMessage["parts"][number]) {
-  return (
-    part.type === "tool-setWorkspaceUi" &&
-    (part as { state?: unknown }).state === "output-available"
-  );
 }
 
 const AI_TRANSPORT_ERROR_PATTERN =

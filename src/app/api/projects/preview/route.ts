@@ -425,7 +425,7 @@ async function handleDiscussTurn({
       schema: discussOutputSchema,
     }),
     stopWhen: stepCountIs(1),
-    maxRetries: 0,
+    maxRetries: 2,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discuss"),
     experimental_telemetry: getAiTelemetry("project-guided-discuss", {
