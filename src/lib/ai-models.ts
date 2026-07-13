@@ -1,4 +1,4 @@
-export const DEFAULT_AI_MODEL = "combo/umkmcepat-combo";
+export const DEFAULT_AI_MODEL = "umkmcepat-combo";
 
 export function getDefaultAiModel(rawModels = process.env.AI_MODELS) {
   const models = rawModels
