@@ -3,16 +3,37 @@ import { prisma } from "@/lib/prisma";
 export const DAILY_ENERGY_LIMIT = 50;
 export const ENERGY_COST_DISCUSS = 5;
 export const ENERGY_COST_BUILD = 20;
+export const PROJECT_LIMIT_DEFAULT = 5;
 
-export async function getRemainingEnergy(userId: string): Promise<number> {
-  const now = new Date();
+export const AI_MAX_TOKENS_DISCUSS = 2048;
+export const AI_MAX_TOKENS_DISCUSS_CARD = 1024;
+export const AI_MAX_TOKENS_BUILD_SPEC = 8192;
+export const AI_MAX_TOKENS_EDIT = 16384;
+export const AI_MAX_TOKENS_SOURCE_GENERATION = 32768;
+
+export function getProjectLimit(): number {
+  const raw = Number(process.env.PROJECT_LIMIT);
+  return Number.isFinite(raw) && raw >= 1
+    ? Math.floor(raw)
+    : PROJECT_LIMIT_DEFAULT;
+}
+
+export function getDayBoundaries(now: Date = new Date()): {
+  startOfDay: Date;
+  endOfDay: Date;
+} {
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+  return { startOfDay, endOfDay };
+}
+
+export async function getRemainingEnergy(userId: string): Promise<number> {
+  const { startOfDay, endOfDay } = getDayBoundaries();
 
   const result = await prisma.userCredit.aggregate({
     where: {
       userId,
-      expiresAt: { gte: startOfDay, lt: endOfDay },
+      createdAt: { gte: startOfDay, lt: endOfDay },
     },
     _sum: { amount: true },
   });
@@ -34,9 +55,7 @@ export async function deductEnergy(
   cost: number,
   reason: string,
 ): Promise<void> {
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+  const { endOfDay } = getDayBoundaries();
 
   await prisma.userCredit.create({
     data: {
@@ -54,14 +73,12 @@ export async function getEnergyStats(userId: string): Promise<{
   limit: number;
   resetsAt: Date;
 }> {
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+  const { startOfDay, endOfDay } = getDayBoundaries();
 
   const result = await prisma.userCredit.aggregate({
     where: {
       userId,
-      expiresAt: { gte: startOfDay, lt: endOfDay },
+      createdAt: { gte: startOfDay, lt: endOfDay },
     },
     _sum: { amount: true },
   });
@@ -83,4 +100,12 @@ export async function isUserVerified(userId: string): Promise<boolean> {
     select: { verifiedAt: true },
   });
   return user?.verifiedAt !== null && user?.verifiedAt !== undefined;
+}
+
+export async function getProjectCount(userId: string): Promise<number> {
+  return prisma.project.count({ where: { userId } });
+}
+
+export function isOverProjectLimit(count: number, limit: number): boolean {
+  return count > limit;
 }

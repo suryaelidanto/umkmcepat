@@ -53,6 +53,7 @@ import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generatio
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
+  AI_MAX_TOKENS_BUILD_SPEC,
   checkEnergy,
   deductEnergy,
   ENERGY_COST_BUILD,
@@ -299,6 +300,7 @@ export async function POST(request: Request, { params }: RouteProps) {
             model: getAiModel(),
             temperature: 0.35,
             timeout: getAiTimeoutMs("buildSpec"),
+            maxOutputTokens: AI_MAX_TOKENS_BUILD_SPEC,
             output: Output.object({
               name: "ImplementationSpec",
               description:

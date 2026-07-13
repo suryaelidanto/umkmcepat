@@ -75,6 +75,7 @@ vi.mock("@/lib/prisma", () => ({
     project: {
       create: prismaProjectCreateMock,
       findMany: prismaProjectFindManyMock,
+      count: vi.fn(async () => 0),
     },
   },
 }));
@@ -225,7 +226,7 @@ describe("projects route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
+    expect(await response.json()).toMatchObject({
       id: "project_1",
       path: "/projects/project_1",
     });
@@ -285,7 +286,7 @@ describe("projects route", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       id: "project_existing",
       path: "/projects/project_existing",
     });

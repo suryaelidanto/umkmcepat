@@ -20,6 +20,11 @@ import {
 import { createFallbackProjectSiteSchema } from "@/lib/projects/site-schema";
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  getProjectCount,
+  getProjectLimit,
+  isOverProjectLimit,
+} from "@/lib/user-credits";
 
 const CREATE_PROJECT_IDEMPOTENCY_ACTION = "project.create";
 const IDEMPOTENCY_KEY_MAX_LENGTH = 120;
@@ -71,6 +76,8 @@ export async function GET(request: Request) {
   const items = hasMore ? projects.slice(0, PROJECT_PAGE_SIZE) : projects;
 
   const lastItem = items.at(-1);
+  const projectCount = await getProjectCount(session.user.id);
+  const projectLimit = getProjectLimit();
 
   return NextResponse.json({
     projects: items,
@@ -81,6 +88,9 @@ export async function GET(request: Request) {
             updatedAt: lastItem.updatedAt,
           })
         : null,
+    projectCount,
+    projectLimit,
+    overProjectLimit: isOverProjectLimit(projectCount, projectLimit),
   });
 }
 
@@ -191,7 +201,12 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ id: project.id, path: `/projects/${project.id}` });
+  return NextResponse.json({
+    id: project.id,
+    path: `/projects/${project.id}`,
+    projectCount: await getProjectCount(userId),
+    projectLimit: getProjectLimit(),
+  });
 }
 
 function getIdempotencyKey(request: Request, bodyKey?: string) {

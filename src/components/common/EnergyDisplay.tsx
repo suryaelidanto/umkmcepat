@@ -36,9 +36,13 @@ export function EnergyDisplay() {
   const percentage = Math.round((stats.remaining / stats.limit) * 100);
   const isLow = percentage < 20;
   const isEmpty = stats.remaining === 0;
+  const resetLabel = formatResetTime(stats.resetsAt);
 
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="flex items-center gap-2"
+      title={`Energi harian. Terpakai ${stats.used}/${stats.limit}. Reset ${resetLabel}.`}
+    >
       <div className="flex items-center gap-1.5">
         <div
           className={`size-2 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"}`}
@@ -57,4 +61,23 @@ export function EnergyDisplay() {
       </div>
     </div>
   );
+}
+
+function formatResetTime(resetsAt: string): string {
+  const reset = new Date(resetsAt);
+  const now = new Date();
+  const diffMs = reset.getTime() - now.getTime();
+
+  if (diffMs <= 0) {
+    return "segera";
+  }
+
+  const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+  const diffMinutes = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
+
+  if (diffHours >= 1) {
+    return `dalam ${diffHours} jam`;
+  }
+
+  return `dalam ${diffMinutes} menit`;
 }

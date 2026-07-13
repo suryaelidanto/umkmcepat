@@ -29,12 +29,18 @@ type ProjectListProps = {
   initialProjects: Project[];
   initialNextCursor: string | null;
   deleteProject: (formData: FormData) => Promise<void>;
+  projectCount?: number;
+  projectLimit?: number;
+  overProjectLimit?: boolean;
 };
 
 export function ProjectList({
   initialProjects,
   initialNextCursor,
   deleteProject,
+  projectCount,
+  projectLimit,
+  overProjectLimit,
 }: ProjectListProps) {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
@@ -113,6 +119,23 @@ export function ProjectList({
 
   return (
     <>
+      {overProjectLimit &&
+      typeof projectCount === "number" &&
+      typeof projectLimit === "number" ? (
+        <div className="mb-spacing-6 flex items-start gap-spacing-3 rounded-radius-xl border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-5 py-spacing-4">
+          <span className="mt-0.5 text-yellow-400" aria-hidden>
+            ⚠️
+          </span>
+          <div className="text-sm leading-6 text-surface-warm-white/78">
+            Kamu punya{" "}
+            <strong className="font-semibold text-surface-warm-white">
+              {projectCount} website
+            </strong>
+            , melebihi batas {projectLimit}. Kamu masih bisa menggunakannya
+            semua, tapi sebaiknya hapus yang tidak terpakai agar mudah dikelola.
+          </div>
+        </div>
+      ) : null}
       <div className="grid gap-spacing-5 sm:grid-cols-2 lg:grid-cols-3">
         {projects.map((project) => (
           <ProjectCard

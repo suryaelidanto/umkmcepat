@@ -16,6 +16,11 @@ import {
   encodeProjectCursor,
   PROJECT_PAGE_SIZE,
 } from "@/lib/projects/pagination";
+import {
+  getProjectCount,
+  getProjectLimit,
+  isOverProjectLimit,
+} from "@/lib/user-credits";
 
 export default async function HomePage() {
   const session = await auth();
@@ -48,6 +53,11 @@ export default async function HomePage() {
   const initialNextCursor = hasMore
     ? encodeProjectCursor(initialProjects[initialProjects.length - 1])
     : null;
+  const projectCount = session?.user?.id
+    ? await getProjectCount(session.user.id)
+    : 0;
+  const projectLimit = getProjectLimit();
+  const overProjectLimit = isOverProjectLimit(projectCount, projectLimit);
 
   async function deleteProject(formData: FormData) {
     "use server";
@@ -161,6 +171,9 @@ export default async function HomePage() {
                     initialProjects={initialProjects}
                     initialNextCursor={initialNextCursor}
                     deleteProject={deleteProject}
+                    projectCount={projectCount}
+                    projectLimit={projectLimit}
+                    overProjectLimit={overProjectLimit}
                   />
                 </div>
               </div>

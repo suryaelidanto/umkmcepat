@@ -12,6 +12,7 @@ import { createGeneratedViteTanStackStarterFiles } from "@/lib/projects/generate
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
+import { AI_MAX_TOKENS_SOURCE_GENERATION } from "@/lib/user-credits";
 
 export type CustomGeneratedSourceResult = {
   buildSpec: string;
@@ -77,6 +78,7 @@ export async function generateCustomProjectFilesWithAgent({
         schema,
         implementationSpec,
       ),
+      maxOutputTokens: AI_MAX_TOKENS_SOURCE_GENERATION,
       experimental_telemetry: getAiTelemetry(
         "project-source-generation-agent",
         {
@@ -422,6 +424,7 @@ export async function repairGeneratedProjectFiles({
       schema,
       implementationSpec,
     ),
+    maxOutputTokens: AI_MAX_TOKENS_SOURCE_GENERATION,
     experimental_telemetry: getAiTelemetry(
       "project-source-generation-agent-repair",
       { projectId },
