@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   authMock,
   executeRawMock,
-  generateTextMock,
   projectFindFirstMock,
   queryRawMock,
   streamTextMock,
@@ -27,55 +26,31 @@ const {
     },
   ]),
   executeRawMock: vi.fn(async () => 1),
-  generateTextMock: vi.fn(async ({ tools }) => {
-    await tools.setWorkspaceUi.execute({
-      briefPatch: { confidence: 20 },
-      workspaceCard: {
-        type: "question",
-        question: {
-          id: "kontak",
-          question: "Nomor WhatsApp atau kontak yang mau dicantumin?",
-          answerMode: "text",
-          placeholder: "Contoh: 0812-3456-7890",
-        },
-      },
-    });
-
-    return {
-      finishReason: "tool-calls",
-      toolCalls: [{ toolName: "setWorkspaceUi" }],
-      toolResults: [{ toolName: "setWorkspaceUi" }],
-    };
-  }),
-  streamTextMock: vi.fn(({ tools }) => {
-    void tools.setWorkspaceUi.execute({
-      briefPatch: { offer: "Bakso" },
-      workspaceCard: {
-        type: "question",
-        question: {
-          id: "targetCustomer",
-          question: "Pelanggan utama bakso ini siapa?",
-          answerMode: "choice",
-          options: [
-            { label: "Pekerja sekitar", description: "Fokus makan siang." },
-            { label: "Keluarga", description: "Fokus makan bersama." },
-            { label: "Anak sekolah", description: "Fokus harga hemat." },
-          ],
-        },
-      },
-    });
-
-    return {
-      toUIMessageStreamResponse: ({
-        onFinish,
-      }: {
-        onFinish: (input: { messages: unknown[] }) => void;
-      }) => {
-        void onFinish({ messages: [{ id: "m1", role: "user", parts: [] }] });
-        return new Response("stream");
-      },
-    };
-  }),
+  streamTextMock: vi.fn<() => { partialOutputStream: AsyncGenerator<unknown> }>(
+    () => ({
+      partialOutputStream: (async function* () {
+        yield {
+          chatText: "Oke, ",
+        };
+        yield {
+          chatText: "Oke, aku catat. Pelanggan utama bakso ini siapa?",
+          briefPatch: { offer: "Bakso" },
+          workspaceCard: {
+            type: "question",
+            question: {
+              id: "targetCustomer",
+              question: "Pelanggan utama bakso ini siapa?",
+              answerMode: "choice",
+              options: [
+                { label: "Pekerja sekitar", description: "Fokus makan siang." },
+                { label: "Keluarga", description: "Fokus makan bersama." },
+              ],
+            },
+          },
+        };
+      })(),
+    }),
+  ),
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
@@ -96,15 +71,14 @@ vi.mock("@/lib/prisma", () => ({
     project: { findFirst: projectFindFirstMock },
   },
 }));
-vi.mock("ai", () => ({
-  convertToModelMessages: vi.fn(async (messages) => messages),
-  generateText: generateTextMock,
-  jsonSchema: vi.fn((schema) => schema),
-  stepCountIs: vi.fn((count) => ({ count })),
-  streamText: streamTextMock,
-  tool: vi.fn((definition) => definition),
-  validateUIMessages: vi.fn(async ({ messages }) => messages),
-}));
+vi.mock("ai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("ai")>();
+  return {
+    ...actual,
+    convertToModelMessages: vi.fn(async (messages) => messages),
+    streamText: streamTextMock,
+  };
+});
 
 import { POST } from "./route";
 import { stripTransportDiagnosticMessages } from "./strip-transport-diagnostic-messages";
@@ -125,13 +99,16 @@ function post(body: unknown) {
   );
 }
 
+function readStream(response: Response) {
+  return response.text();
+}
+
 describe("project preview AI route", () => {
   beforeEach(() => {
     authMock.mockResolvedValue(null);
     executeRawMock.mockClear();
     projectFindFirstMock.mockClear();
     queryRawMock.mockClear();
-    generateTextMock.mockClear();
     streamTextMock.mockClear();
   });
 
@@ -258,7 +235,7 @@ describe("project preview AI route", () => {
     );
   });
 
-  it("streams through one AI SDK call and saves memory", async () => {
+  it("streams through one AI SDK call and persists the workspace card", async () => {
     authed();
 
     const response = await post({
@@ -272,7 +249,7 @@ describe("project preview AI route", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(await response.text()).toBe("stream");
+    await readStream(response);
     expect(streamTextMock).toHaveBeenCalledTimes(1);
     expect(projectFindFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "project_1", userId: "user_1" } }),
@@ -280,7 +257,7 @@ describe("project preview AI route", () => {
     expect(executeRawMock).toHaveBeenCalled();
   });
 
-  it("persists discuss workspace card from tool output", async () => {
+  it("persists discuss workspace card from structured output", async () => {
     authed();
 
     const response = await post({
@@ -294,12 +271,12 @@ describe("project preview AI route", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(await response.text()).toBe("stream");
+    await readStream(response);
     expect(streamTextMock).toHaveBeenCalledTimes(1);
-    expect(executeRawMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(executeRawMock.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("persists the answer before the AI stream", async () => {
+  it("persists the answer before the AI stream starts", async () => {
     authed();
     const callOrder: string[] = [];
     executeRawMock.mockImplementation(async () => {
@@ -309,7 +286,12 @@ describe("project preview AI route", () => {
     streamTextMock.mockImplementationOnce(() => {
       callOrder.push("streamText");
       return {
-        toUIMessageStreamResponse: () => new Response("stream"),
+        partialOutputStream: (async function* () {
+          yield {
+            chatText: "Oke, lanjut.",
+            workspaceCard: { type: "question", question: { id: "x" } },
+          };
+        })() as AsyncGenerator<unknown>,
       };
     });
 
@@ -324,6 +306,7 @@ describe("project preview AI route", () => {
     });
 
     expect(response.status).toBe(200);
+    await readStream(response);
     expect(callOrder[0]).toBe("executeRaw");
     expect(callOrder).toContain("streamText");
     expect(callOrder.indexOf("executeRaw")).toBeLessThan(
@@ -331,101 +314,12 @@ describe("project preview AI route", () => {
     );
   });
 
-  it("repairs only the hidden workspace card without replaying the answered turn", async () => {
+  it("falls back to free-text when structured output is incomplete", async () => {
     authed();
-    queryRawMock.mockResolvedValueOnce([
-      {
-        brief: null,
-        chatMessages: [
-          {
-            id: "user_answer",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "Siapa pelanggan utama kamu?\nJawaban: Anak kos & mahasiswa",
-              },
-            ],
-          },
-        ],
-        chatSummary: null,
-        lastCompactedMessageCount: 0,
-        memoryFacts: null,
-        workspaceCard: {
-          type: "question",
-          question: {
-            id: "target_customer",
-            question: "Siapa pelanggan utama kamu?",
-            answerMode: "choice",
-            options: [
-              { label: "Anak kos & mahasiswa", description: "Mahasiswa" },
-              { label: "Umum", description: "Semua kalangan" },
-            ],
-          },
-        },
-      },
-    ]);
-
-    const response = await post({
-      mode: "discuss",
-      projectId: "project_1",
-      repairWorkspace: true,
-    });
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      workspaceCard: { type: "question" },
-    });
-    expect(streamTextMock).not.toHaveBeenCalled();
-    expect(generateTextMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
-      }),
-    );
-  });
-
-  it("repairs a missing provider tool call after visible text finishes", async () => {
-    authed();
-    let finishCompleted: Promise<void> = Promise.resolve();
-
     streamTextMock.mockImplementationOnce(() => ({
-      toUIMessageStreamResponse: ({
-        onFinish,
-      }: {
-        onFinish: (input: {
-          messages: unknown[];
-          responseMessage: unknown;
-        }) => void | Promise<void>;
-      }) => {
-        const responseMessage = {
-          id: "assistant_1",
-          role: "assistant",
-          parts: [{ type: "text", text: "Nomor WA aktifnya apa?" }],
-        };
-        finishCompleted = Promise.resolve(
-          onFinish({
-            messages: [
-              {
-                id: "assistant_old",
-                role: "assistant",
-                parts: [
-                  {
-                    type: "tool-setWorkspaceUi",
-                    state: "output-available",
-                    toolCallId: "old-tool",
-                    input: {},
-                    output: {},
-                  },
-                ],
-              },
-              { id: "m1", role: "user", parts: [] },
-              responseMessage,
-            ],
-            responseMessage,
-          }),
-        );
-        return new Response("stream");
-      },
+      partialOutputStream: (async function* () {
+        yield { chatText: "Oke, aku nangkap maksudmu." };
+      })() as AsyncGenerator<unknown>,
     }));
 
     const response = await post({
@@ -434,87 +328,13 @@ describe("project preview AI route", () => {
       message: {
         id: "m1",
         role: "user",
-        parts: [{ type: "text", text: "Bikin rental PS Neon Pad" }],
+        parts: [{ type: "text", text: "terserah" }],
       },
     });
 
     expect(response.status).toBe(200);
-    expect(await response.text()).toBe("stream");
-    await finishCompleted;
-
-    expect(streamTextMock).toHaveBeenCalledWith(
-      expect.objectContaining({ toolChoice: "required" }),
-    );
-    expect(generateTextMock).toHaveBeenCalledTimes(1);
-    expect(generateTextMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        messages: expect.arrayContaining([
-          expect.objectContaining({ role: "assistant" }),
-        ]),
-        toolChoice: { type: "tool", toolName: "setWorkspaceUi" },
-      }),
-    );
-    expect(executeRawMock.mock.calls.length).toBeGreaterThanOrEqual(3);
-    expect(JSON.stringify(executeRawMock.mock.calls)).toContain(
-      "tool-setWorkspaceUi",
-    );
-  });
-
-  it("repairs when the primary workspace tool execution rejects", async () => {
-    authed();
-    let finishCompleted: Promise<void> = Promise.resolve();
-
-    streamTextMock.mockImplementationOnce(({ tools }) => {
-      executeRawMock.mockRejectedValueOnce(new Error("database unavailable"));
-      void tools.setWorkspaceUi
-        .execute({
-          workspaceCard: {
-            type: "question",
-            question: {
-              id: "kontak",
-              question: "Nomor WhatsApp?",
-              answerMode: "text",
-            },
-          },
-        })
-        .catch(() => undefined);
-
-      return {
-        toUIMessageStreamResponse: ({
-          onFinish,
-        }: {
-          onFinish: (input: { messages: unknown[] }) => void | Promise<void>;
-        }) => {
-          finishCompleted = Promise.resolve(
-            onFinish({
-              messages: [
-                { id: "m1", role: "user", parts: [] },
-                {
-                  id: "assistant_1",
-                  role: "assistant",
-                  parts: [{ type: "text", text: "Nomor WA aktifnya apa?" }],
-                },
-              ],
-            }),
-          );
-          return new Response("stream");
-        },
-      };
-    });
-
-    const response = await post({
-      mode: "discuss",
-      projectId: "project_1",
-      message: {
-        id: "m1",
-        role: "user",
-        parts: [{ type: "text", text: "Bikin rental PS Neon Pad" }],
-      },
-    });
-
-    expect(response.status).toBe(200);
-    await finishCompleted;
-    expect(generateTextMock).toHaveBeenCalledTimes(1);
+    const body = await readStream(response);
+    expect(body).toContain("Oke, aku nangkap maksudmu.");
   });
 
   it("strips transport diagnostic messages before persistence", () => {
@@ -538,13 +358,9 @@ describe("project preview AI route", () => {
         role: "assistant",
         parts: [
           {
-            type: "tool-setWorkspaceUi",
-            state: "output-available",
-            toolName: "setWorkspaceUi",
-            toolCallId: "tool-1",
-            args: {},
-            result: null,
-          } as unknown,
+            type: "text",
+            text: "Pertanyaan berikutnya.",
+          },
         ],
       },
       {
