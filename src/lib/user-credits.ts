@@ -5,12 +5,6 @@ export const ENERGY_COST_DISCUSS = 5;
 export const ENERGY_COST_BUILD = 20;
 export const PROJECT_LIMIT_DEFAULT = 5;
 
-export const AI_MAX_TOKENS_DISCUSS = 2048;
-export const AI_MAX_TOKENS_DISCUSS_CARD = 1024;
-export const AI_MAX_TOKENS_BUILD_SPEC = 8192;
-export const AI_MAX_TOKENS_EDIT = 16384;
-export const AI_MAX_TOKENS_SOURCE_GENERATION = 32768;
-
 export function getProjectLimit(): number {
   const raw = Number(process.env.PROJECT_LIMIT);
   return Number.isFinite(raw) && raw >= 1

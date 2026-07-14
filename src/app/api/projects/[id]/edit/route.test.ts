@@ -86,6 +86,12 @@ vi.mock("@/lib/prisma", () => {
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(async () => null),
 }));
+vi.mock("@/lib/user-credits", () => ({
+  isUserVerified: vi.fn(async () => true),
+  checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 50 })),
+  deductEnergy: vi.fn(async () => undefined),
+  ENERGY_COST_DISCUSS: 5,
+}));
 vi.mock("@/lib/projects/runtime-supervisor", () => ({
   stopSupersededPreviewDeployments: stopSupersededPreviewDeploymentsMock,
 }));

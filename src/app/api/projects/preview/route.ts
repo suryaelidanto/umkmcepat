@@ -38,8 +38,6 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import {
   checkEnergy,
   deductEnergy,
-  AI_MAX_TOKENS_DISCUSS,
-  AI_MAX_TOKENS_DISCUSS_CARD,
   ENERGY_COST_DISCUSS,
   isUserVerified,
 } from "@/lib/user-credits";
@@ -318,7 +316,6 @@ async function handleDiscussTurn({
     system: chatSystemPrompt,
     messages: modelMessages,
     maxRetries: 2,
-    maxOutputTokens: AI_MAX_TOKENS_DISCUSS,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discuss"),
     experimental_telemetry: getAiTelemetry("project-guided-discuss", {
@@ -387,7 +384,6 @@ async function handleDiscussTurn({
               "9router": { responseFormat: { type: "json" } },
             },
             maxRetries: 2,
-            maxOutputTokens: AI_MAX_TOKENS_DISCUSS_CARD,
             temperature: 0.35,
             timeout: getAiTimeoutMs("discuss"),
             experimental_telemetry: getAiTelemetry(

@@ -37,6 +37,12 @@ import { editGeneratedSourceWithAgent } from "@/lib/projects/source-edit-agent";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  checkEnergy,
+  deductEnergy,
+  ENERGY_COST_DISCUSS,
+  isUserVerified,
+} from "@/lib/user-credits";
 
 export const maxDuration = 180;
 
@@ -66,6 +72,29 @@ export async function POST(request: Request, { params }: RouteProps) {
 
   if (rateLimitResponse) {
     return rateLimitResponse;
+  }
+
+  const verified = await isUserVerified(userId);
+  if (!verified) {
+    return Response.json(
+      {
+        message: "Verifikasi nomor telepon diperlukan.",
+        code: "verification_required",
+      },
+      { status: 403 },
+    );
+  }
+
+  const energy = await checkEnergy(userId, ENERGY_COST_DISCUSS);
+  if (!energy.allowed) {
+    return Response.json(
+      {
+        message: "Energi harian habis. Coba lagi besok.",
+        code: "energy_exhausted",
+        remaining: energy.remaining,
+      },
+      { status: 429 },
+    );
   }
 
   if (!isGeneratedBuildExecutionEnabled()) {
@@ -706,6 +735,10 @@ export async function POST(request: Request, { params }: RouteProps) {
           projectId: project.id,
         }),
       ]);
+    }
+
+    if (buildResult.status === "succeeded") {
+      await deductEnergy(userId, ENERGY_COST_DISCUSS, "edit_turn");
     }
 
     return Response.json({

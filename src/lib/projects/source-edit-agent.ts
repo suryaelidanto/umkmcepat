@@ -4,7 +4,6 @@ import { z } from "zod";
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { withAiTimeout } from "@/lib/ai-timeouts";
-import { AI_MAX_TOKENS_EDIT } from "@/lib/user-credits";
 
 import {
   runGeneratedAppAgentTools,
@@ -44,7 +43,6 @@ export async function editGeneratedSourceWithAgent({
   const agent = new ToolLoopAgent({
     model: getAiModel(model || getDefaultAiModel()),
     instructions: EDIT_AGENT_INSTRUCTIONS,
-    maxOutputTokens: AI_MAX_TOKENS_EDIT,
     experimental_telemetry: getAiTelemetry("project-source-edit-agent", {
       fileCount: files.length,
       model: model || getDefaultAiModel(),
