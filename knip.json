@@ -1,18 +1,27 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "entry": [
-    "src/app/**/{page,layout,route,loading,error,global-error,not-found}.{ts,tsx}",
+    "src/routes/**/*.{ts,tsx}",
+    "src/router.tsx",
+    "src/client.tsx",
+    "src/server.ts",
+    "src/start.ts",
     "src/**/*.test.ts",
+    "tests/**/*.test.ts",
     ".husky/pre-commit",
     ".husky/commit-msg",
-    "lighthouserc.mobile.cjs",
-    "lighthouserc.desktop.cjs",
-    "lighthouserc.auth.mobile.cjs",
-    "lighthouserc.auth.desktop.cjs"
+    "scripts/capture-project-thumbnail.cjs"
   ],
   "project": ["src/**/*.{ts,tsx}", "*.{ts,js,mjs,cjs}"],
-  "ignoreBinaries": ["graphify", "netstat"],
-  "ignoreDependencies": ["@lhci/cli", "eslint-config-next", "tailwindcss"],
+  "ignoreBinaries": [
+    "graphify",
+    "lsof",
+    "netstat",
+    "powershell.exe",
+    "ps",
+    "taskkill"
+  ],
+  "ignoreDependencies": ["tailwindcss"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     "src/components/ui/**": ["exports"],

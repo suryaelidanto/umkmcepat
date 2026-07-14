@@ -38,6 +38,7 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+.eslintcache
 next-env.d.ts
 
 # Sentry Config File
@@ -47,6 +48,7 @@ next-env.d.ts
 # Local automation/browser artifacts
 .browser/
 .pi/
+.pi-subagents/
 graphify-out/
 
 # Local object storage uploads
@@ -62,6 +64,16 @@ graphify-out/
 # Storybook build output
 /storybook-static/
 
-# Lighthouse local reports/session state
-/.lighthouseci/
-/.lighthouse-auth/
+cookie.txt.claude/
+
+.output/
+.nitro/
+.tanstack/
+src/routeTree.gen.ts
+storybook-static/
+sb-err.txt
+sb-full.txt
+_session_token.txt
+_token.txt
+_build*.txt
+_sse*.txt

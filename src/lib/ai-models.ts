@@ -1,18 +1,17 @@
-export const DEFAULT_AI_MODELS = [
-  "cmc/deepseek/deepseek-v4-pro",
-  "cmc/deepseek/deepseek-v4-flash",
-  "cmc/moonshotai/Kimi-K2.6",
-] as const;
+export const DEFAULT_AI_MODEL = "umkmcepat-combo";
 
-export function getAvailableAiModels(rawModels = process.env.AI_MODELS) {
+export function getDefaultAiModel(rawModels = process.env.AI_MODELS) {
   const models = rawModels
     ?.split(",")
     .map((model) => model.trim())
     .filter(Boolean);
 
-  return models?.length ? models : [...DEFAULT_AI_MODELS];
+  return models?.length ? models[0] : DEFAULT_AI_MODEL;
 }
 
-export function getDefaultAiModel(models = getAvailableAiModels()) {
-  return models[0];
+// Get model for build pipeline (spec + source generation). Reads
+// AI_GENERATION_MODEL env, falling back to the default model. This allows
+// using a different (potentially higher rate-limit) model for the agent loop.
+export function getGenerationModel() {
+  return process.env.AI_GENERATION_MODEL || getDefaultAiModel();
 }

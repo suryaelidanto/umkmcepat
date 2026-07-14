@@ -1,11 +1,11 @@
-import Image from "next/image";
-import Link from "next/link";
-
 import { AuthButton } from "@/components/common/AuthButton";
+import { EnergyDisplay } from "@/components/common/EnergyDisplay";
+import { Image } from "@/components/ui/image";
+import { Link } from "@/components/ui/link";
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-surface-warm-white/10 bg-[#151515]/82 text-surface-warm-white backdrop-blur-xl">
+    <header className="sticky top-0 z-50 w-full border-b border-surface-warm-white/10 bg-[#151515] text-surface-warm-white">
       <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-center px-spacing-7 sm:px-spacing-9 lg:px-spacing-10">
         <Link
           href="/"
@@ -24,7 +24,8 @@ export function Header() {
 
         <div aria-hidden="true" />
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-3">
+          <EnergyDisplay />
           <AuthButton />
         </div>
       </div>

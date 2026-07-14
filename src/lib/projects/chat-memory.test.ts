@@ -17,9 +17,60 @@ describe("project chat memory", () => {
         null,
         { id: "m1", role: "user", parts: [{ type: "text", text: "Halo" }] },
         { id: "m2", role: "bad", parts: [] },
+        { id: "m3", role: "assistant", parts: [] },
       ]),
     ).toEqual([
       { id: "m1", role: "user", parts: [{ type: "text", text: "Halo" }] },
+    ]);
+  });
+
+  it("drops incomplete assistant stream parts before persistence", () => {
+    expect(
+      parseProjectChatMessages([
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            { type: "step-start" },
+            { type: "reasoning", state: "done", text: "hidden thought" },
+            {
+              type: "text",
+              state: "streaming",
+              text: "Uncommitted next question",
+            },
+            {
+              type: "tool-setWorkspaceUi",
+              state: "input-streaming",
+              input: { workspaceCard: { type: "question" } },
+            },
+          ],
+        },
+        {
+          id: "a2",
+          role: "assistant",
+          parts: [
+            { type: "text", state: "done", text: "Committed answer" },
+            {
+              type: "tool-setWorkspaceUi",
+              state: "output-available",
+              output: { workspaceCard: { type: "question" } },
+            },
+          ],
+        },
+      ]),
+    ).toEqual([
+      {
+        id: "a2",
+        role: "assistant",
+        parts: [
+          { type: "text", state: "done", text: "Committed answer" },
+          {
+            type: "tool-setWorkspaceUi",
+            state: "output-available",
+            output: { workspaceCard: { type: "question" } },
+          },
+        ],
+      },
     ]);
   });
 

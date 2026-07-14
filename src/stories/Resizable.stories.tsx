@@ -1,10 +1,10 @@
+import type { Meta, StoryObj } from "@storybook/react-vite";
+
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 const meta = {
   parameters: { layout: "fullscreen" },

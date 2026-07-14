@@ -1,22 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { getAvailableAiModels, getDefaultAiModel } from "./ai-models";
+import { DEFAULT_AI_MODEL, getDefaultAiModel } from "./ai-models";
 
 describe("AI model config", () => {
-  it("parses a comma-separated model list", () => {
-    expect(getAvailableAiModels("a, b ,, c")).toEqual(["a", "b", "c"]);
-  });
+  const previous = process.env.AI_MODELS;
 
-  it("uses a single model list value as both option and default", () => {
-    expect(getAvailableAiModels("cmc/deepseek/deepseek-v4-pro")).toEqual([
-      "cmc/deepseek/deepseek-v4-pro",
-    ]);
-    expect(getDefaultAiModel(["cmc/deepseek/deepseek-v4-pro"])).toBe(
-      "cmc/deepseek/deepseek-v4-pro",
-    );
+  afterEach(() => {
+    if (previous === undefined) {
+      delete process.env.AI_MODELS;
+    } else {
+      process.env.AI_MODELS = previous;
+    }
   });
 
   it("uses the first listed model as the default", () => {
-    expect(getDefaultAiModel(["fast", "pro"])).toBe("fast");
+    expect(getDefaultAiModel("fast, pro, flash")).toBe("fast");
+  });
+
+  it("uses a single model list value as the default", () => {
+    expect(getDefaultAiModel("combo/umkmcepat-combo")).toBe(
+      "combo/umkmcepat-combo",
+    );
+  });
+
+  it("falls back to the platform combo when AI_MODELS is empty or unset", () => {
+    delete process.env.AI_MODELS;
+    expect(getDefaultAiModel("")).toBe(DEFAULT_AI_MODEL);
+    expect(getDefaultAiModel(undefined)).toBe(DEFAULT_AI_MODEL);
   });
 });

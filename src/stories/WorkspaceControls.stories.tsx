@@ -1,11 +1,13 @@
+import type { Meta, StoryObj } from "@storybook/react-vite";
+
 import {
   EmptyPreviewState,
   ModePill,
+  PreviewIssueState,
   ProcessingControl,
+  VisualFeedbackWidget,
   WorkspaceTopBar,
 } from "@/components/projects/WorkspacePrimitives";
-
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 const meta = {
   parameters: {
@@ -50,6 +52,78 @@ export const TopBarCodeMobile: Story = {
   ),
 };
 
+export const TopBarNarrowMobile: Story = {
+  parameters: {
+    viewport: { defaultViewport: "mobile1" },
+  },
+  render: () => (
+    <div className="w-[320px] max-w-full bg-[#151515] text-surface-warm-white">
+      <WorkspaceTopBar
+        activeTab="preview"
+        setActiveTab={() => undefined}
+        viewport="mobile"
+        setViewport={() => undefined}
+        chatCollapsed={false}
+        openChatPanel={() => undefined}
+        closeChatPanel={() => undefined}
+        annotationAvailable
+        runtime={{
+          buildStatus: "succeeded",
+          canPublish: true,
+          deploymentStatus: "running",
+          onPublish: () => undefined,
+        }}
+      />
+      <div id="workspace-preview-panel" role="tabpanel" hidden />
+      <div id="workspace-code-panel" role="tabpanel" hidden />
+    </div>
+  ),
+};
+
+export const TopBarRuntimeRunning: Story = {
+  render: () => (
+    <DarkCanvas>
+      <WorkspaceTopBar
+        activeTab="preview"
+        setActiveTab={() => undefined}
+        viewport="desktop"
+        setViewport={() => undefined}
+        chatCollapsed={false}
+        openChatPanel={() => undefined}
+        closeChatPanel={() => undefined}
+        runtime={{
+          buildStatus: "succeeded",
+          canPublish: true,
+          deploymentStatus: "running",
+          onPublish: () => undefined,
+        }}
+      />
+    </DarkCanvas>
+  ),
+};
+
+export const TopBarRuntimeStopped: Story = {
+  render: () => (
+    <DarkCanvas>
+      <WorkspaceTopBar
+        activeTab="preview"
+        setActiveTab={() => undefined}
+        viewport="desktop"
+        setViewport={() => undefined}
+        chatCollapsed={false}
+        openChatPanel={() => undefined}
+        closeChatPanel={() => undefined}
+        runtime={{
+          buildStatus: "succeeded",
+          canPublish: true,
+          deploymentStatus: "stopped",
+          onPublish: () => undefined,
+        }}
+      />
+    </DarkCanvas>
+  ),
+};
+
 export const ModePills: Story = {
   render: () => (
     <DarkCanvas>
@@ -83,6 +157,36 @@ export const ProcessingBuild: Story = {
   ),
 };
 
+export const VisualFeedbackCollapsed: Story = {
+  render: () => (
+    <DarkCanvas>
+      <div className="h-[32rem]">
+        <VisualFeedbackWidget
+          annotations={[
+            {
+              id: "annotation-1",
+              label: 'Judul utama — "Kopi enak setiap hari"',
+              comment: "Judul ini terlalu besar, kecilkan sedikit.",
+              target: {
+                boundingBox: { height: 64, width: 320, x: 32, y: 80 },
+                selectorPath: "main > section.hero > h1",
+                tag: "h1",
+                text: "Kopi enak setiap hari",
+              },
+            },
+          ]}
+          instruction=""
+          isSending={false}
+          onClose={() => undefined}
+          onInstructionChange={() => undefined}
+          onRemove={() => undefined}
+          onSend={() => undefined}
+        />
+      </div>
+    </DarkCanvas>
+  ),
+};
+
 export const EmptyPreview: Story = {
   render: () => (
     <div className="h-[32rem] bg-[#10100f]">
@@ -91,10 +195,25 @@ export const EmptyPreview: Story = {
   ),
 };
 
+export const PreviewIssue: Story = {
+  render: () => (
+    <div className="h-[32rem] bg-[#10100f]">
+      <PreviewIssueState
+        title="Tampilan website gagal dimuat"
+        detail="Tampilan website gagal dimuat. Periksa brief lalu jalankan build ulang bila diperlukan."
+        onRetry={() => undefined}
+        onRebuild={() => undefined}
+      />
+    </div>
+  ),
+};
+
 function DarkCanvas({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen bg-[#151515] text-surface-warm-white">
       {children}
+      <div id="workspace-preview-panel" role="tabpanel" hidden />
+      <div id="workspace-code-panel" role="tabpanel" hidden />
     </main>
   );
 }

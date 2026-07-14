@@ -25,7 +25,47 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
 
   return (
     <div className="mt-spacing-8 overflow-hidden rounded-[22px] border border-surface-warm-white/10">
-      <table className="w-full text-sm">
+      <ul className="divide-y divide-surface-warm-white/10 sm:hidden">
+        {visibleSponsors.map((sponsor) => (
+          <li
+            key={`${sponsor.donorName}-${sponsor.date}`}
+            className="flex flex-col gap-spacing-2 px-spacing-5 py-spacing-4"
+          >
+            <div className="flex items-center justify-between gap-spacing-3">
+              <p className="font-semibold text-surface-warm-white">
+                {sponsor.donorName}
+              </p>
+              <span className="text-xs text-surface-warm-white/50">
+                {sponsor.date}
+              </span>
+            </div>
+            <div className="text-sm">
+              {sponsor.brandUrl ? (
+                <a
+                  href={sponsor.brandUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold text-surface-warm-white underline decoration-surface-warm-white/24 underline-offset-4 transition hover:decoration-surface-warm-white"
+                >
+                  {sponsor.brandName}
+                </a>
+              ) : (
+                <span className="font-semibold text-surface-warm-white">
+                  {sponsor.brandName}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-surface-warm-white/70">
+              {sponsor.support}
+            </p>
+            <p className="text-sm font-semibold text-surface-warm-white">
+              {sponsor.value}
+            </p>
+          </li>
+        ))}
+      </ul>
+
+      <table className="hidden w-full text-sm sm:table">
         <thead className="bg-surface-warm-white/[0.055] text-left text-surface-warm-white/50">
           <tr>
             <th className="px-spacing-5 py-spacing-4 font-medium">Tanggal</th>

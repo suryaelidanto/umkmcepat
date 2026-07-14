@@ -8,6 +8,9 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 - Keep every developer-facing or internal-facing surface in English: docs, system prompts, agent prompts, code names, comments, logs, errors, test names, commits, scripts, and internal tooling copy.
 - Keep only consumer-facing product UI copy in Indonesian unless an i18n layer is introduced.
 - Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, uploads, or generated junk.
+- Never surface mock, dummy, sample, inferred, or deterministic fallback content as a successful user-facing AI response, workspace card, implementation spec, project source, preview, or generated output. Preserve last-known-good user data when available; otherwise show an honest empty/error state.
+- Recovery order is bounded automatic retry for safe transient failures, then an explicit user-triggered retry. Semantic AI failures (empty text, invalid structured output, incomplete source) must remain failures; never convert them into fabricated success. Manual repair must retry only the failed stage when replaying the full user action could duplicate messages, charges, builds, or side effects.
+- Development-only mocks must be explicit and impossible in production. Missing providers, moderation, OTP delivery, storage, or other trust-boundary dependencies must fail clearly instead of returning success.
 
 ## Local runtime
 
@@ -21,21 +24,36 @@ bun run db:migrate
 bun run dev
 ```
 
+Verbose development mode:
+
+```bash
+bun run dev:verbose
+```
+
+Use verbose mode whenever debugging project generation, generated runtime previews, auth/session flow, storage/artifacts, build workers, AI request parsing, or any bug that is not immediately obvious from the UI. It sets `UMKM_VERBOSE_DEV=1` and prints structured terminal lines like `[umkm:scope] event {"key":"value"}`. AI request traces are also appended to `.data/tmp/ai-debug/requests.ndjson` while the local server is running. Keep normal `bun run dev` quiet; add new verbose logs through `src/lib/dev-log.ts` or `src/lib/ai-request-log.ts` instead of raw `console.log`.
+
+If port 3000 is already used by a repo-owned Next dev process, reset it safely:
+
+```bash
+bun run dev:reset
+```
+
+`dev:reset` only stops a listener whose command line is clearly owned by this repo. If another app owns port 3000, it prints that process information and exits so the owner can stop it manually.
+
 Open:
 
 ```text
 App: http://localhost:3000
-```
-
-Optional AI gateway:
-
-```bash
-bun run infra:ai
-```
-
-```text
 9Router: http://localhost:20129
+Langfuse: http://localhost:3001
+MinIO console: http://localhost:9091
 ```
+
+`bun run infra` starts Postgres plus the local AI/observability stack: 9Router, Headroom, Langfuse, and Langfuse dependencies. Use `bun run infra:minimal` only when you need Postgres without AI/observability.
+
+For Langfuse traces, local bootstrap and tracer keys in `.env.example` intentionally match. After `cp .env.example .env`, restart `bun run dev` once Langfuse is healthy. Shared/production environments must replace both `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` with environment-specific project keys.
+
+Langfuse local Compose disables public signup (`AUTH_DISABLE_SIGNUP=true`); use the bootstrap admin account only. In production, keep Langfuse behind Cloudflare Access/reverse-proxy auth and never expose its backing Postgres, ClickHouse, Redis, or MinIO services.
 
 Useful infrastructure commands:
 
@@ -43,6 +61,16 @@ Useful infrastructure commands:
 bun run infra:ps
 bun run infra:logs
 bun run infra:down
+```
+
+`bun run infra:down` removes the Compose services, any stopped/orphaned container still attached to this project's Docker network, then the network itself. It never removes volumes, so PostgreSQL, 9Router, and Langfuse data survive the next `bun run infra`.
+
+Daily workflow:
+
+```bash
+bun run infra       # start full local infrastructure
+bun run infra:down  # stop all project infrastructure
+bun run infra:ps    # inspect status
 ```
 
 If Docker is missing, install/start Docker Desktop or Docker Engine. If `.next` gets stale, stop the dev server, remove `.next`, then restart `bun run dev`.
@@ -57,10 +85,42 @@ AI_PROVIDER="9router"
 NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
 OBJECT_STORAGE_PROVIDER="local"
 LOCAL_UPLOAD_DIR=".data/uploads"
+GENERATED_BUILD_EXECUTION_ENABLED="true"
+GENERATED_PUBLIC_EXECUTION_ENABLED="true"
+GENERATED_PUBLIC_ORIGIN=""
+PROJECT_ARTIFACT_DIR=".data/project-artifacts"
+PROJECT_THUMBNAIL_DIR=".data/project-thumbnails"
+PROJECT_THUMBNAIL_CAPTURE_ENABLED="true"
+PROJECT_THUMBNAIL_BROWSER_PATH=""
+PROJECT_RUNTIME_DIR=".data/project-runtimes"
+PROJECT_RUNTIME_SUPERVISOR="local"
+PROJECT_RUNTIME_MAX_CONTAINERS="8"
+PROJECT_RUNTIME_HEALTH_TIMEOUT_MS="2000"
+PROJECT_RUNTIME_PROXY_TIMEOUT_MS="15000"
 RATE_LIMIT_PROVIDER="memory"
+RATE_LIMIT_GLOBAL_IP_REQUESTS="300"
+RATE_LIMIT_GLOBAL_IP_WINDOW_SECONDS="60"
+RATE_LIMIT_AI_USER_REQUESTS="60"
+RATE_LIMIT_AI_USER_WINDOW_SECONDS="600"
+RATE_LIMIT_AI_IP_REQUESTS="20"
+RATE_LIMIT_AI_IP_WINDOW_SECONDS="600"
+RATE_LIMIT_BUILD_USER_REQUESTS="10"
+RATE_LIMIT_BUILD_USER_WINDOW_SECONDS="3600"
+RATE_LIMIT_BUILD_IP_REQUESTS="5"
+RATE_LIMIT_BUILD_IP_WINDOW_SECONDS="3600"
 ```
 
 Set Google OAuth, Turnstile, Sentry, Chromatic, and AI provider secrets only in `.env` or deployment secrets.
+
+Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Home project thumbnails are derived JPEGs under `.data/project-thumbnails`; keep that directory persistent when thumbnail continuity matters, or let missing images fall back to the deterministic gradient until the next successful build or first preview recovery. Capture runs in an isolated Node subprocess with a hidden browser window; local Windows uses installed Chrome when `PROJECT_THUMBNAIL_BROWSER_PATH` is empty. Set that path only to override browser discovery. Runtime/build workspaces are rebuildable. Local/test generated execution stays enabled by default; production Compose explicitly disables build and public execution until the isolated-worker and separate-origin gates pass.
+
+Idle runtime cleanup:
+
+```bash
+bun run runtime:idle-stop
+```
+
+Use this from cron/systemd/timer-equivalent in a single-node deployment until a dedicated worker owns the loop.
 
 ## Graphify
 
@@ -132,18 +192,6 @@ Chromatic requires `CHROMATIC_PROJECT_TOKEN`:
 bun run chromatic
 ```
 
-## Lighthouse
-
-Local release/performance guardrail only; not CI/CD or pre-commit. See `docs/lighthouse.md` for scope, thresholds, and interpretation.
-
-```bash
-bun run lighthouse
-bun run lighthouse:mobile
-bun run lighthouse:desktop
-```
-
-Reports are written to `.lighthouseci/` and ignored by Git.
-
 ## shadcn/ui
 
 Config lives in `components.json`. Owned primitives live under `src/components/ui`.
@@ -166,10 +214,10 @@ Read the relevant doc before touching that area:
 Core architecture rule:
 
 ```text
-one platform app, many project rows, one shared renderer
+one control-plane platform app, many project rows, supervised generated runtimes
 ```
 
-Do not add per-user apps, per-project containers, arbitrary user backend code, or generated source files as the primary platform runtime.
+Do not add per-user platform apps or import generated source files into the Next.js runtime. Per-project runtime containers are allowed only through the snapshot/build/deployment/runtime-supervisor architecture; the production web app must not own the Docker socket.
 
 ## Final handoff checklist
 

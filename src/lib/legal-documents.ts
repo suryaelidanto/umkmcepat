@@ -64,7 +64,7 @@ export const legalDocuments = {
       },
       {
         title: "Untuk apa data dipakai",
-        body: "Data dipakai untuk login, menyimpan proyek, menjalankan AI, menjaga layanan dari penyalahgunaan, dan memperbaiki produk.",
+        body: "Data dipakai untuk login, menyimpan proyek, menjalankan AI, menjaga layanan dari penyalahgunaan, dan memperbaiki produk. Untuk memantau keandalan AI, kami dapat mencatat model, jumlah token, waktu proses, dan status teknis tanpa mengirim isi chat atau hasil AI mentah ke sistem observability.",
       },
       {
         title: "Pihak ketiga",

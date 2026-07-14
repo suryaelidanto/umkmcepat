@@ -71,11 +71,11 @@ Open PRs into `dev` first unless maintainers say otherwise.
 
 ## Where to read next
 
-- `PRINCIPLES.md` — quality bar and operating taste.
-- `DEV.md` — maintainer workflow, commands, Storybook, Graphify, checks.
-- `DESIGN.md` — visual system and UI rules.
-- `docs/architecture.md` — project/workspace/renderer/provider/storage/auth/AI constraints.
-- `docs/deployment.md` — Docker, VPS, storage persistence, and Sentry setup.
+- `PRINCIPLES.md`: quality bar and operating taste.
+- `DEV.md`: maintainer workflow, commands, Storybook, Graphify, checks.
+- `DESIGN.md`: visual system and UI rules.
+- `docs/architecture.md`: project/workspace/renderer/provider/storage/auth/AI constraints.
+- `docs/deployment.md`: Docker, VPS, storage persistence, and Sentry setup.
 
 ## Safety
 

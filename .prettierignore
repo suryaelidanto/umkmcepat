@@ -2,9 +2,11 @@ node_modules
 .next
 .browser
 .pi
+.pi-subagents
 .agent
 .agents
 graphify-out
+.data
 .lighthouseci
 .lighthouse-auth
 coverage
@@ -14,3 +16,10 @@ public/uploads
 *.log
 bun.lock
 skills-lock.json
+
+.output/
+.nitro/
+.tanstack/
+src/routeTree.gen.ts
+.claude/
+storybook-static/

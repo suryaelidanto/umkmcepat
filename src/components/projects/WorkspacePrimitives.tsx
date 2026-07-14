@@ -2,17 +2,25 @@
 
 import {
   Code2,
+  ExternalLink,
   Globe2,
+  MessageSquarePlus,
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
+  RefreshCw,
+  Send,
   Smartphone,
+  Trash2,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
+import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
+import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
 
 export type BuildTab = "preview" | "code";
 
@@ -29,6 +37,16 @@ export type BuildProgressStep = {
   status?: "active" | "done" | "error";
 };
 
+export type WorkspaceRuntimeControl = {
+  buildStatus?: string | null;
+  canPublish?: boolean;
+  deploymentStatus?: string | null;
+  errorMessage?: string | null;
+  isPublishing?: boolean;
+  onPublish?: () => void;
+  publishedPath?: string | null;
+};
+
 export function WorkspaceTopBar({
   activeTab,
   setActiveTab,
@@ -37,6 +55,10 @@ export function WorkspaceTopBar({
   chatCollapsed,
   openChatPanel,
   closeChatPanel,
+  annotationActive = false,
+  annotationAvailable = false,
+  onToggleAnnotation,
+  runtime,
 }: {
   activeTab: BuildTab;
   setActiveTab: (tab: BuildTab) => void;
@@ -45,14 +67,18 @@ export function WorkspaceTopBar({
   chatCollapsed: boolean;
   openChatPanel: () => void;
   closeChatPanel: () => void;
+  annotationActive?: boolean;
+  annotationAvailable?: boolean;
+  onToggleAnnotation?: () => void;
+  runtime?: WorkspaceRuntimeControl;
 }) {
   return (
-    <div className="flex h-14 items-center justify-between gap-spacing-4 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-4">
-      <div className="flex items-center gap-spacing-3">
+    <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
+      <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:justify-start sm:gap-spacing-3">
         <button
           type="button"
           onClick={chatCollapsed ? openChatPanel : closeChatPanel}
-          className="rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          className="hidden min-h-11 min-w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white md:inline-flex"
           aria-label={chatCollapsed ? "Buka chat" : "Tutup chat"}
         >
           {chatCollapsed ? (
@@ -61,64 +87,126 @@ export function WorkspaceTopBar({
             <PanelLeftClose className="size-4" />
           )}
         </button>
-        <div className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs">
+        <div
+          role="tablist"
+          aria-label="Konten tampilan"
+          className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs"
+        >
           <TabButton
             active={activeTab === "preview"}
+            id="workspace-preview-tab"
+            controls="workspace-preview-panel"
             onClick={() => setActiveTab("preview")}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setActiveTab("code");
+                (
+                  event.currentTarget.nextElementSibling as HTMLElement
+                )?.focus();
+              }
+            }}
             icon={<Globe2 className="size-4" />}
           >
-            Preview
+            Tampilan
           </TabButton>
           <TabButton
             active={activeTab === "code"}
+            id="workspace-code-tab"
+            controls="workspace-code-panel"
             onClick={() => setActiveTab("code")}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setActiveTab("preview");
+                (
+                  event.currentTarget.previousElementSibling as HTMLElement
+                )?.focus();
+              }
+            }}
             icon={<Code2 className="size-4" />}
           >
-            Code
+            Kode
           </TabButton>
         </div>
+        {annotationAvailable && activeTab === "preview" ? (
+          <button
+            type="button"
+            onClick={onToggleAnnotation}
+            aria-label={
+              annotationActive ? "Nonaktifkan komentar" : "Aktifkan komentar"
+            }
+            aria-pressed={annotationActive}
+            className={`inline-flex min-h-11 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+          >
+            <MessageSquarePlus className="size-4" />
+            <span className="hidden sm:inline">
+              {annotationActive ? "Komentar aktif" : "Komentar"}
+            </span>
+          </button>
+        ) : null}
       </div>
 
-      {activeTab === "preview" ? (
-        <div className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs">
-          <button
-            type="button"
-            onClick={() => setViewport("desktop")}
-            className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "desktop" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
-          >
-            <Monitor className="size-4" aria-hidden="true" />
-            Komputer
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewport("mobile")}
-            className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "mobile" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
-          >
-            <Smartphone className="size-4" aria-hidden="true" />
-            HP
-          </button>
-        </div>
-      ) : null}
+      <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
+        {runtime ? <RuntimeControl runtime={runtime} /> : null}
+
+        {activeTab === "preview" ? (
+          <div className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setViewport("desktop")}
+              aria-label="Tampilan komputer"
+              aria-pressed={viewport === "desktop"}
+              className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "desktop" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+            >
+              <Monitor className="size-4" aria-hidden="true" />
+              <span className="hidden md:inline">Komputer</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewport("mobile")}
+              aria-label="Tampilan HP"
+              aria-pressed={viewport === "mobile"}
+              className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "mobile" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+            >
+              <Smartphone className="size-4" aria-hidden="true" />
+              <span className="hidden md:inline">HP</span>
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
 
 function TabButton({
   active,
+  controls,
+  id,
   onClick,
+  onKeyDown,
   icon,
   children,
 }: {
   active: boolean;
+  controls: string;
+  id: string;
   onClick: () => void;
+  onKeyDown: React.KeyboardEventHandler<HTMLButtonElement>;
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
+      role="tab"
+      id={id}
+      aria-controls={controls}
+      aria-selected={active}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={`flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${active ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+      onKeyDown={onKeyDown}
+      className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${active ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
     >
       {icon}
       {children}
@@ -126,21 +214,543 @@ function TabButton({
   );
 }
 
+function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
+  const status = getRuntimeLabel(runtime);
+
+  return (
+    <div className="flex min-w-0 items-center gap-spacing-1 sm:gap-spacing-2">
+      <span
+        title={runtime.errorMessage || status.label}
+        className={`inline-flex max-w-24 items-center gap-spacing-2 truncate rounded-radius-md border px-spacing-2 py-spacing-2 text-xs sm:max-w-[13rem] sm:px-spacing-3 ${status.className}`}
+      >
+        <span className={`size-2 shrink-0 rounded-full ${status.dot}`} />
+        <span className="truncate">{status.label}</span>
+      </span>
+
+      {runtime.publishedPath ? (
+        <a
+          href={runtime.publishedPath}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+        >
+          <ExternalLink className="size-4" />
+          <span className="hidden sm:inline">Buka</span>
+        </a>
+      ) : (
+        <button
+          type="button"
+          disabled={!runtime.canPublish || runtime.isPublishing}
+          onClick={runtime.onPublish}
+          aria-label={
+            runtime.isPublishing
+              ? "Sedang menerbitkan website"
+              : "Terbitkan website"
+          }
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Globe2 className="size-4" />
+          <span className="hidden sm:inline">
+            {runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
+  if (runtime.errorMessage) {
+    return {
+      className: "border-[#ffb4a6]/24 bg-[#ffb4a6]/10 text-[#ffb4a6]",
+      dot: "bg-[#ffb4a6]",
+      label: "Runtime gagal",
+    };
+  }
+
+  if (runtime.buildStatus === "queued") {
+    return {
+      className:
+        "border-surface-warm-white/10 bg-surface-warm-white/[0.055] text-surface-warm-white/68",
+      dot: "bg-surface-warm-white/52",
+      label: "Build antre",
+    };
+  }
+
+  if (runtime.buildStatus === "running" || runtime.buildStatus === "building") {
+    return {
+      className:
+        "border-surface-warm-white/14 bg-surface-warm-white/[0.075] text-surface-warm-white/78",
+      dot: "animate-pulse bg-surface-warm-white",
+      label: "Build berjalan",
+    };
+  }
+
+  if (runtime.buildStatus === "failed") {
+    return {
+      className: "border-[#ffb4a6]/24 bg-[#ffb4a6]/10 text-[#ffb4a6]",
+      dot: "bg-[#ffb4a6]",
+      label: "Build gagal",
+    };
+  }
+
+  if (runtime.buildStatus === "canceled" || runtime.buildStatus === "stopped") {
+    return {
+      className:
+        "border-surface-warm-white/10 bg-surface-warm-white/[0.045] text-surface-warm-white/58",
+      dot: "bg-surface-warm-white/42",
+      label: "Build dihentikan",
+    };
+  }
+
+  if (runtime.deploymentStatus === "starting") {
+    return {
+      className:
+        "border-surface-warm-white/14 bg-surface-warm-white/[0.075] text-surface-warm-white/78",
+      dot: "animate-pulse bg-surface-warm-white",
+      label: "Menyiapkan tampilan",
+    };
+  }
+
+  if (runtime.deploymentStatus === "running") {
+    return {
+      className: "border-[#8ce99a]/24 bg-[#8ce99a]/10 text-[#c7f8cf]",
+      dot: "bg-[#8ce99a]",
+      label: "Tampilan aktif",
+    };
+  }
+
+  if (runtime.deploymentStatus === "stopped") {
+    return {
+      className:
+        "border-surface-warm-white/10 bg-surface-warm-white/[0.045] text-surface-warm-white/58",
+      dot: "bg-surface-warm-white/42",
+      label: "Tampilan belum aktif",
+    };
+  }
+
+  if (runtime.deploymentStatus === "failed") {
+    return {
+      className: "border-[#ffb4a6]/24 bg-[#ffb4a6]/10 text-[#ffb4a6]",
+      dot: "bg-[#ffb4a6]",
+      label: "Runtime gagal",
+    };
+  }
+
+  if (runtime.buildStatus === "succeeded" || runtime.buildStatus === "passed") {
+    return {
+      className:
+        "border-surface-warm-white/10 bg-surface-warm-white/[0.055] text-surface-warm-white/68",
+      dot: "bg-[#8ce99a]",
+      label: "Website siap",
+    };
+  }
+
+  return {
+    className:
+      "border-surface-warm-white/10 bg-surface-warm-white/[0.04] text-surface-warm-white/52",
+    dot: "bg-surface-warm-white/32",
+    label: "Belum dibuild",
+  };
+}
+
 export function GeneratedPreviewFrame({
+  annotationActive = false,
+  annotationMarkers = [],
+  onAnnotationTarget,
+  onLoad,
+  onRecover,
+  pendingAnnotation,
   projectId,
+  reloadKey,
   viewport,
 }: {
+  annotationActive?: boolean;
+  annotationMarkers?: Array<{
+    id: string;
+    target: {
+      boundingBox: { height: number; width: number; x: number; y: number };
+    };
+  }>;
+  onAnnotationTarget?: (target: unknown) => void;
+  onLoad?: () => void;
+  onRecover?: () => void;
+  pendingAnnotation?: {
+    comment: string;
+    onCancel: () => void;
+    onChange: (value: string) => void;
+    onSave: () => void;
+    target: Omit<VisualAnnotationDraft, "comment" | "id">;
+  } | null;
   projectId: string;
+  reloadKey?: number;
   viewport: "desktop" | "mobile";
 }) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(false);
+
+    // Cold starts can exceed a single frame load. Retry quietly so the preview
+    // stays a loading state until a build failure supplies a terminal state.
+    const recovery = window.setTimeout(() => {
+      onRecover?.();
+    }, 12_000);
+
+    function handleMessage(event: MessageEvent) {
+      if (event.source !== iframeRef.current?.contentWindow) {
+        return;
+      }
+
+      if (event.data?.type === "umkmcepat-annotation-target") {
+        onAnnotationTarget?.(event.data.payload);
+        return;
+      }
+
+      if (
+        event.data?.type !== "umkmcepat-preview-ready" &&
+        event.data?.type !== "generated-app-preview-ready"
+      ) {
+        return;
+      }
+
+      setReady(true);
+      window.clearTimeout(recovery);
+    }
+
+    window.addEventListener("message", handleMessage);
+
+    return () => {
+      window.clearTimeout(recovery);
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [onAnnotationTarget, onRecover, projectId, reloadKey]);
+
+  useEffect(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { active: annotationActive, type: "umkmcepat-annotation-mode" },
+      "*",
+    );
+  }, [annotationActive, ready, reloadKey]);
+
+  useEffect(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      {
+        annotations: annotationMarkers.map((annotation, index) => ({
+          ...annotation,
+          index: index + 1,
+        })),
+        type: "umkmcepat-annotation-markers",
+      },
+      "*",
+    );
+  }, [annotationMarkers, ready, reloadKey]);
+
   return (
-    <div className="flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
-      <iframe
-        title="Generated website preview"
-        src={`/api/projects/${projectId}/preview/`}
-        sandbox="allow-scripts"
-        className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} h-full w-full border-0 bg-white`}
+    <div className="relative flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
+      <div
+        className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} relative h-full w-full`}
+      >
+        <iframe
+          ref={iframeRef}
+          key={reloadKey}
+          title="Tampilan website"
+          src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
+          onLoad={onLoad}
+          sandbox="allow-scripts"
+          className="h-full w-full border-0 bg-white"
+        />
+        {pendingAnnotation ? (
+          <PreviewAnnotationPopover
+            comment={pendingAnnotation.comment}
+            onCancel={pendingAnnotation.onCancel}
+            onChange={pendingAnnotation.onChange}
+            onSave={pendingAnnotation.onSave}
+            target={pendingAnnotation.target}
+          />
+        ) : null}
+      </div>
+      {!ready ? (
+        <div className="absolute inset-0 grid place-items-center bg-[#10100f]">
+          <div className="flex flex-col items-center gap-spacing-4 text-center">
+            <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
+            <div>
+              <p className="text-sm font-medium text-surface-warm-white/78">
+                Menyiapkan tampilan website...
+              </p>
+              <p className="mt-spacing-1 text-xs text-surface-warm-white/42">
+                Preview akan muncul setelah website selesai render.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PreviewAnnotationPopover({
+  comment,
+  onCancel,
+  onChange,
+  onSave,
+  target,
+}: {
+  comment: string;
+  onCancel: () => void;
+  onChange: (value: string) => void;
+  onSave: () => void;
+  target: Omit<VisualAnnotationDraft, "comment" | "id">;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const position = getAnnotationPopoverPosition(target.target.boundingBox);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [target]);
+
+  return (
+    <div
+      role="dialog"
+      aria-label={`Komentar untuk ${target.label}`}
+      className="absolute z-40 w-[min(22rem,calc(100%-1.5rem))] rounded-[18px] border border-surface-warm-white/14 bg-[#1b1b19] p-spacing-4 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
+      style={position}
+    >
+      <div className="flex items-start justify-between gap-spacing-4">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold text-[#d6f0ff]">
+            {target.label}
+          </p>
+          {target.selectedText ? (
+            <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/50">
+              Teks dipilih: {target.selectedText}
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="grid size-9 shrink-0 place-items-center rounded-full text-surface-warm-white/52 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          aria-label="Batalkan komentar"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+      <textarea
+        ref={textareaRef}
+        rows={3}
+        maxLength={1000}
+        value={comment}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+          }
+
+          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+            event.preventDefault();
+            onSave();
+          }
+        }}
+        placeholder="Apa yang ingin kamu ubah di bagian ini?"
+        className="mt-spacing-3 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30"
       />
+      <div className="mt-spacing-3 flex items-center justify-between gap-spacing-4">
+        <span className="text-xs text-surface-warm-white/38">
+          Ctrl/⌘ + Enter
+        </span>
+        <Button
+          type="button"
+          disabled={!comment.trim()}
+          onClick={onSave}
+          className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
+        >
+          Tambah komentar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function getAnnotationPopoverPosition(
+  box: VisualAnnotationDraft["target"]["boundingBox"],
+) {
+  const horizontal =
+    box.x > 420 ? { right: 12 } : { left: Math.max(12, box.x) };
+  const shouldOpenAbove = box.y > 360;
+
+  return shouldOpenAbove
+    ? {
+        ...horizontal,
+        bottom: `calc(100% - ${Math.max(12, box.y - 10)}px)`,
+      }
+    : { ...horizontal, top: Math.max(12, box.y + box.height + 10) };
+}
+
+export function VisualFeedbackWidget({
+  annotations,
+  instruction,
+  isSending,
+  onClose,
+  onInstructionChange,
+  onRemove,
+  onSend,
+}: {
+  annotations: VisualAnnotationDraft[];
+  instruction: string;
+  isSending: boolean;
+  onClose: () => void;
+  onInstructionChange: (value: string) => void;
+  onRemove: (id: string) => void;
+  onSend: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (!annotations.length) {
+    return null;
+  }
+
+  return (
+    <div className="fixed bottom-spacing-7 right-spacing-7 z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-[22px] border border-surface-warm-white/12 bg-[#191916]/96 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur">
+      <div className="flex items-center gap-spacing-3 p-spacing-3">
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-spacing-3 rounded-[14px] px-spacing-2 text-left hover:bg-surface-warm-white/6"
+        >
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-warm-white text-sm font-bold text-foreground-primary">
+            {annotations.length}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">
+              {annotations.length === 1
+                ? "1 komentar siap"
+                : `${annotations.length} komentar siap`}
+            </span>
+            <span className="block text-xs text-surface-warm-white/48">
+              {open ? "Tutup ringkasan" : "Tinjau sebelum revisi"}
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            onClose();
+          }}
+          className="grid size-11 shrink-0 place-items-center rounded-full text-surface-warm-white/52 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          aria-label="Tutup mode komentar"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+      {open ? (
+        <div className="border-t border-surface-warm-white/8 px-spacing-4 pb-spacing-4 pt-spacing-3">
+          <div className="max-h-56 space-y-spacing-2 overflow-y-auto pr-spacing-1 [scrollbar-width:thin]">
+            {annotations.map((annotation, index) => (
+              <article
+                key={annotation.id}
+                className="flex items-start gap-spacing-3 rounded-[14px] bg-surface-warm-white/[0.045] p-spacing-3"
+              >
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-warm-white text-xs font-bold text-foreground-primary">
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold">
+                    {annotation.label}
+                  </p>
+                  <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/58">
+                    {annotation.comment}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(annotation.id)}
+                  className="grid size-9 shrink-0 place-items-center rounded-full text-surface-warm-white/42 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                  aria-label={`Hapus komentar ${index + 1}`}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </article>
+            ))}
+          </div>
+          <label
+            htmlFor="visual-feedback-instruction"
+            className="mt-spacing-4 block text-xs font-medium text-surface-warm-white/58"
+          >
+            Catatan tambahan <span className="font-normal">(opsional)</span>
+          </label>
+          <textarea
+            id="visual-feedback-instruction"
+            rows={3}
+            maxLength={1000}
+            value={instruction}
+            onChange={(event) => onInstructionChange(event.target.value)}
+            placeholder="Contoh: bikin keseluruhan lebih rapi dan tenang..."
+            className="mt-spacing-2 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30"
+          />
+          <Button
+            type="button"
+            disabled={isSending}
+            onClick={onSend}
+            className="mt-spacing-3 h-11 w-full rounded-[12px] bg-surface-warm-white text-sm text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
+          >
+            {isSending ? (
+              "Mengirim revisi..."
+            ) : (
+              <>
+                <Send className="size-4" />
+                Kirim revisi
+              </>
+            )}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function PreviewIssueState({
+  detail,
+  onRebuild,
+  onRetry,
+  title,
+}: {
+  detail: string;
+  onRebuild?: () => void;
+  onRetry?: () => void;
+  title: string;
+}) {
+  return (
+    <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
+      <div className="max-w-lg rounded-[24px] border border-[#ffb4a6]/20 bg-[#241d1a] px-spacing-7 py-spacing-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        <div className="mx-auto grid size-11 place-items-center rounded-full border border-[#ffb4a6]/28 bg-[#ffb4a6]/10 text-[#ffb4a6]">
+          <RefreshCw className="size-5" aria-hidden="true" />
+        </div>
+        <h2 className="mt-spacing-5 text-2xl font-semibold tracking-[-0.02em] text-surface-warm-white">
+          {title}
+        </h2>
+        <p className="mx-auto mt-spacing-3 max-w-md text-sm leading-6 text-surface-warm-white/58">
+          {detail}
+        </p>
+        {onRetry || onRebuild ? (
+          <div className="mt-spacing-5 flex flex-wrap justify-center gap-spacing-3">
+            {onRetry ? (
+              <Button type="button" onClick={onRetry}>
+                Muat ulang tampilan
+              </Button>
+            ) : null}
+            {onRebuild ? (
+              <Button type="button" variant="outline" onClick={onRebuild}>
+                Build ulang
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -150,11 +760,11 @@ export function EmptyPreviewState() {
     <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
       <div>
         <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white">
-          Belum ada preview
+          Belum ada tampilan website
         </h2>
         <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/50">
-          Preview akan muncul setelah brief cukup jelas dan proses build
-          selesai.
+          Tampilan website akan muncul setelah brief cukup jelas dan proses
+          build selesai.
         </p>
       </div>
     </div>
@@ -189,15 +799,21 @@ export function BuildProgressPanel({
 }) {
   const [now, setNow] = useState(() => Date.now());
 
+  const hasActiveStep = steps.some(
+    (step) => (step.status || "active") === "active",
+  );
+  const isRunning = isBuilding || hasActiveStep;
+
   useEffect(() => {
-    if (!isBuilding) {
+    if (!isRunning) {
       return;
     }
 
+    setNow(Date.now());
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
 
     return () => window.clearInterval(interval);
-  }, [isBuilding]);
+  }, [isRunning]);
 
   const elapsedSeconds = elapsedFrom
     ? Math.max(0, Math.floor((now - elapsedFrom) / 1000))
@@ -217,11 +833,11 @@ export function BuildProgressPanel({
       <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
         <div>
           <p className="text-sm font-semibold text-surface-warm-white">
-            {isBuilding ? "Build sedang berjalan" : "Riwayat build terakhir"}
+            {isRunning ? "Proses sedang berjalan" : "Riwayat build terakhir"}
           </p>
           <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
-            {isBuilding
-              ? "Preview akan bergerak mengikuti hasil yang sudah berhasil dibaca."
+            {isRunning
+              ? "Tampilan website akan mengikuti hasil yang sudah berhasil dibaca."
               : "Langkah build terakhir sudah selesai."}
           </p>
         </div>
@@ -277,11 +893,11 @@ export function ProcessingControl({
   mode: "Diskusi" | "Buat";
   onStop: () => void;
 }) {
-  const title = mode === "Buat" ? "Membangun preview" : "Menyusun jawaban";
+  const title = mode === "Buat" ? "Membuat website" : "Menyusun jawaban";
   const detail =
     mode === "Buat"
-      ? "AI sedang menyiapkan source dan preview proyek."
-      : "Input ditutup sebentar supaya urutan diskusi tetap rapi.";
+      ? "AI sedang menyiapkan file website dan tampilannya."
+      : "AI sedang menyiapkan jawaban.";
 
   return (
     <div className="mt-spacing-3 overflow-hidden rounded-[22px] border border-surface-warm-white/10 bg-[#242421] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
@@ -317,31 +933,60 @@ export function ProcessingControl({
 
 export function QuestionComposer({
   question,
+  onClose,
   onSubmit,
 }: {
   question: BriefQuestion;
+  onClose?: () => void;
   onSubmit: (
     answer: string,
     workspaceAnswers?: WorkspaceAnswerPayload[],
   ) => void;
 }) {
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
   const [source, setSource] = useState<"custom" | "option">("option");
   const [customAnswer, setCustomAnswer] = useState("");
   const [customAnswerOpen, setCustomAnswerOpen] = useState(false);
-  const customAnswerSelected = Boolean(selected) && source === "custom";
-  const canSubmit = Boolean(selected);
+  const isTextQuestion = question.answerMode === "text";
+  const isMultiple = question.selectionMode === "multiple";
+  const modeTone = isMultiple
+    ? {
+        accent: "#8fd3ff",
+        helper: "Pilih beberapa yang berlaku.",
+        option: "border-surface-warm-white/8 hover:bg-[#8fd3ff]/[0.055]",
+        selected: "border-[#8fd3ff]/24 bg-[#8fd3ff]/10",
+      }
+    : {
+        accent: "#8ce99a",
+        helper: "Pilih satu arah utama.",
+        option:
+          "border-surface-warm-white/8 hover:bg-surface-warm-white/[0.045]",
+        selected: "border-[#8ce99a]/24 bg-[#8ce99a]/10",
+      };
+  const answer = isTextQuestion
+    ? customAnswer.trim()
+    : formatWorkspaceAnswerSelection(question, selected, source);
+  const customAnswerSelected = Boolean(selected.length) && source === "custom";
+  const canSubmit = isTextQuestion ? Boolean(answer) : selected.length > 0;
 
   useEffect(() => {
-    setSelected("");
+    setSelected([]);
     setSource("option");
     setCustomAnswer("");
     setCustomAnswerOpen(false);
   }, [question.id]);
 
   function chooseAnswer(answer: string, nextSource: "custom" | "option") {
-    setSelected(answer);
     setSource(nextSource);
+    setSelected((current) => {
+      if (nextSource === "custom" || !isMultiple) {
+        return [answer];
+      }
+
+      return current.includes(answer)
+        ? current.filter((item) => item !== answer)
+        : [...current, answer];
+    });
   }
 
   function useCustomAnswer() {
@@ -358,128 +1003,177 @@ export function QuestionComposer({
       return;
     }
 
-    onSubmit(`${question.question}\nJawaban: ${selected}`, [
+    onSubmit(`${question.question}\nJawaban: ${answer}`, [
       {
-        answer: selected,
+        answer,
         question: question.question,
         questionId: question.id,
-        source,
+        source: isTextQuestion ? "custom" : source,
       },
     ]);
   }
 
   return (
     <div className="mt-spacing-3 overflow-hidden border-y border-surface-warm-white/10 bg-[#1d1d1a] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
-      <div className="border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/56">
-          Satu keputusan dulu
-        </p>
-        <h2 className="mt-spacing-1 max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
+      <div className="border-b border-surface-warm-white/8 bg-[#20201d] px-spacing-5 py-spacing-4">
+        <h2 className="max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
           {question.question}
         </h2>
-        {question.whyThisQuestionMatters ? (
-          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/52">
-            {question.whyThisQuestionMatters}
-          </p>
-        ) : null}
+        <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/50">
+          {question.whyThisQuestionMatters ||
+            (isTextQuestion
+              ? "Tulis jawabannya di kolom khusus ini."
+              : modeTone.helper)}
+        </p>
       </div>
 
       <div className="divide-y divide-surface-warm-white/8">
-        {question.options.map((option) => {
-          const isSelected = selected === option.label && source === "option";
-          const isRecommended =
-            question.recommendedOptionLabel === option.label;
-          return (
-            <button
-              key={option.label}
-              type="button"
-              onClick={() => chooseAnswer(option.label, "option")}
-              className={`group grid w-full grid-cols-[1fr_auto] items-start gap-spacing-4 px-spacing-5 py-spacing-4 text-left transition ${isSelected ? "bg-surface-warm-white/[0.075]" : "hover:bg-surface-warm-white/[0.045]"}`}
-            >
-              <span>
-                <span className="block text-sm font-semibold text-surface-warm-white">
-                  {option.label}
-                </span>
-                <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/54">
-                  {option.description}
-                </span>
-                {isRecommended ? (
-                  <span className="mt-spacing-2 block text-[11px] font-medium text-[#c7f8cf]/82">
-                    Rekomendasi paling aman
-                  </span>
-                ) : null}
-              </span>
-              <span
-                className={`mt-1 size-3 border ${isSelected ? "border-[#8ce99a] bg-[#8ce99a]" : "border-surface-warm-white/22 group-hover:border-surface-warm-white/44"}`}
-              />
-            </button>
-          );
-        })}
-        <div
-          className={`px-spacing-5 py-spacing-4 transition ${customAnswerOpen || customAnswerSelected ? "bg-surface-warm-white/[0.075]" : "bg-transparent"}`}
-        >
-          {customAnswerOpen ? (
-            <div className="space-y-spacing-3">
-              <label
-                htmlFor={`custom-answer-${question.id}`}
-                className="text-xs font-medium text-surface-warm-white/58"
+        {isTextQuestion ? (
+          <div className="px-spacing-5 py-spacing-4">
+            <label htmlFor={`text-answer-${question.id}`} className="sr-only">
+              {question.question}
+            </label>
+            <input
+              id={`text-answer-${question.id}`}
+              value={customAnswer}
+              onChange={(event) => setCustomAnswer(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  submitAnswer();
+                }
+              }}
+              placeholder={question.placeholder || "Tulis jawabanmu di sini..."}
+              className="h-12 w-full rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 text-sm text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
+            />
+          </div>
+        ) : (
+          question.options.map((option) => {
+            const isSelected =
+              selected.includes(option.label) && source === "option";
+            const isRecommended =
+              question.recommendedOptionLabel === option.label;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => chooseAnswer(option.label, "option")}
+                className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 border-b px-spacing-5 py-spacing-4 text-left transition last:border-b-0 ${isSelected ? modeTone.selected : modeTone.option}`}
               >
-                Jawaban sendiri untuk keputusan ini
-              </label>
-              <textarea
-                id={`custom-answer-${question.id}`}
-                rows={3}
-                value={customAnswer}
-                onChange={(event) => setCustomAnswer(event.target.value)}
-                placeholder="Tulis jawabanmu sendiri..."
-                className="w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
-              />
-              <div className="flex items-center justify-end gap-spacing-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomAnswerOpen(false);
-                    setCustomAnswer("");
-                  }}
-                  className="rounded-full px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
+                <span className="min-w-0">
+                  <span className="block whitespace-normal break-words text-sm font-semibold text-surface-warm-white [overflow-wrap:anywhere]">
+                    {option.label}
+                  </span>
+                  <span className="mt-spacing-1 block whitespace-normal break-words text-xs leading-5 text-surface-warm-white/54 [overflow-wrap:anywhere]">
+                    {option.description}
+                  </span>
+                  {isRecommended ? (
+                    <span className="mt-spacing-2 block text-[11px] font-medium text-[#c7f8cf]/82">
+                      Rekomendasi paling aman
+                    </span>
+                  ) : null}
+                </span>
+                <span
+                  className={`mt-1 grid size-4 shrink-0 place-items-center border transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? "text-[#10100f]" : "border-surface-warm-white/24 group-hover:border-surface-warm-white/48"}`}
+                  style={
+                    isSelected
+                      ? {
+                          backgroundColor: modeTone.accent,
+                          borderColor: modeTone.accent,
+                        }
+                      : undefined
+                  }
                 >
-                  Batal
-                </button>
-                <Button
-                  type="button"
-                  disabled={!customAnswer.trim()}
-                  onClick={useCustomAnswer}
-                  className="h-9 rounded-full bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                  {isSelected ? (
+                    <span className="text-[10px] leading-none">
+                      {isMultiple ? "✓" : "•"}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            );
+          })
+        )}
+        {!isTextQuestion ? (
+          <div
+            className={`px-spacing-5 py-spacing-4 transition ${customAnswerOpen || customAnswerSelected ? "bg-surface-warm-white/[0.075]" : "bg-transparent"}`}
+          >
+            {customAnswerOpen ? (
+              <div className="space-y-spacing-3">
+                <label
+                  htmlFor={`custom-answer-${question.id}`}
+                  className="text-xs font-medium text-surface-warm-white/58"
                 >
-                  Pakai jawaban ini
-                </Button>
+                  Tulis jawabanmu
+                </label>
+                <textarea
+                  id={`custom-answer-${question.id}`}
+                  rows={3}
+                  value={customAnswer}
+                  onChange={(event) => setCustomAnswer(event.target.value)}
+                  placeholder="Tulis jawabanmu sendiri..."
+                  className="w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
+                />
+                <div className="flex items-center justify-end gap-spacing-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomAnswerOpen(false);
+                      setCustomAnswer("");
+                      setSelected([]);
+                      setSource("option");
+                    }}
+                    className="rounded-full px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
+                  >
+                    Kembali ke pilihan
+                  </button>
+                  <Button
+                    type="button"
+                    disabled={!customAnswer.trim()}
+                    onClick={useCustomAnswer}
+                    className="h-9 rounded-full bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                  >
+                    Pakai jawaban ini
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCustomAnswerOpen(true)}
-              className="flex w-full items-center justify-between gap-spacing-4 text-left"
-            >
-              <span>
-                <span className="block text-sm font-semibold text-surface-warm-white/84">
-                  Jawaban sendiri
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCustomAnswerOpen(true)}
+                className="flex w-full items-center justify-between gap-spacing-4 text-left"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-surface-warm-white/84">
+                    Jawab manual
+                  </span>
+                  <span className="mt-spacing-1 block break-words text-xs leading-5 text-surface-warm-white/58 [overflow-wrap:anywhere]">
+                    {customAnswerSelected
+                      ? answer
+                      : "Pakai ini kalau pilihan di atas belum pas."}
+                  </span>
                 </span>
-                <span className="mt-spacing-1 block text-xs leading-5 text-surface-warm-white/58">
-                  {customAnswerSelected
-                    ? selected
-                    : "Pakai ini kalau pilihan AI belum pas untuk keputusan ini."}
+                <span className="shrink-0 border-b border-surface-warm-white/20 pb-0.5 text-xs text-surface-warm-white/56">
+                  {customAnswerSelected ? "Ganti" : "Isi"}
                 </span>
-              </span>
-              <span className="border-b border-surface-warm-white/20 pb-0.5 text-xs text-surface-warm-white/56">
-                Tulis
-              </span>
-            </button>
-          )}
-        </div>
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
 
-      <div className="flex items-center justify-end border-t border-surface-warm-white/8 px-spacing-5 py-spacing-4">
+      <div className="flex items-center justify-between gap-spacing-3 border-t border-surface-warm-white/8 px-spacing-5 py-spacing-4">
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          >
+            Tulis bebas
+          </button>
+        ) : (
+          <span />
+        )}
         <Button
           type="button"
           disabled={!canSubmit}
@@ -495,19 +1189,63 @@ export function QuestionComposer({
 
 export function WorkspaceCardView({
   card,
+  onAction,
   onBuild,
+  onDiscuss,
 }: {
   card: WorkspaceCard;
+  onAction?: (text: string) => void;
   onBuild: () => void;
+  onDiscuss?: () => void;
 }) {
   if (card.type === "none") {
     return null;
   }
 
+  if (card.type === "brief_review") {
+    return (
+      <div className="border-y border-surface-warm-white/10 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+        <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/46">
+              Ringkasan arah
+            </p>
+            <h2 className="mt-spacing-2 text-base font-semibold leading-6 text-surface-warm-white">
+              {card.title}
+            </h2>
+            <ul className="mt-spacing-4 divide-y divide-surface-warm-white/8 text-sm leading-6 text-surface-warm-white/66">
+              {card.summary.slice(0, 5).map((item, index) => (
+                <li
+                  key={`${item}-${index}`}
+                  className="break-words py-spacing-3 first:pt-0 last:pb-0 [overflow-wrap:anywhere]"
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-spacing-3 md:mt-spacing-6 md:flex-col md:items-stretch">
+            {card.actions.map((action) => (
+              <Button
+                key={action.label}
+                type="button"
+                variant="outline"
+                onClick={() => onAction?.(action.prompt)}
+                className="h-10 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-5 text-sm text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+              >
+                {action.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (card.type === "build_recommendation") {
     return (
       <div className="border-y border-surface-warm-white/10 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
-        <div className="flex items-start justify-between gap-spacing-5">
+        <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/56">
               Rancangan build
@@ -515,24 +1253,36 @@ export function WorkspaceCardView({
             <h2 className="mt-spacing-2 text-base font-semibold leading-6 text-surface-warm-white">
               {card.title}
             </h2>
-            <ul className="mt-spacing-4 space-y-spacing-3 text-sm leading-6 text-surface-warm-white/66">
+            <ul className="mt-spacing-4 divide-y divide-surface-warm-white/8 text-sm leading-6 text-surface-warm-white/66">
               {card.summary.slice(0, 7).map((item, index) => (
                 <li
                   key={`${item}-${index}`}
-                  className="border-t border-surface-warm-white/8 pt-spacing-3 first:border-t-0 first:pt-0"
+                  className="break-words py-spacing-3 first:pt-0 last:pb-0 [overflow-wrap:anywhere]"
                 >
                   {item}
                 </li>
               ))}
             </ul>
           </div>
-          <Button
-            type="button"
-            onClick={onBuild}
-            className="mt-spacing-6 shrink-0 rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86"
-          >
-            Mulai build
-          </Button>
+          <div className="flex shrink-0 flex-wrap items-center gap-spacing-3 md:mt-spacing-6 md:flex-col md:items-stretch">
+            <Button
+              type="button"
+              onClick={onBuild}
+              className="rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86"
+            >
+              Mulai build
+            </Button>
+            {onDiscuss ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onDiscuss}
+                className="rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-5 text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+              >
+                Lanjut diskusi dulu
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
     );

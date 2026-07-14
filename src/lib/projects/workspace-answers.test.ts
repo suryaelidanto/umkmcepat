@@ -31,7 +31,19 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
       ],
     });
 
-    expect(patch).toEqual({ businessType: "aku ada toko bakso sih" });
+    expect(patch).toEqual(
+      expect.objectContaining({ businessType: "aku ada toko bakso sih" }),
+    );
+    expect(patch.facts).toContainEqual({
+      key: "businessType",
+      label: "Apa jenis usaha Anda?",
+      value: "aku ada toko bakso sih",
+    });
+    expect(patch.decisions).toContainEqual({
+      id: "businessType",
+      question: "Apa jenis usaha Anda?",
+      answer: "aku ada toko bakso sih",
+    });
   });
 
   it("ignores answers that do not belong to the active stored card", () => {
@@ -57,7 +69,9 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
       workspaceAnswers: undefined,
     });
 
-    expect(patch).toEqual({ businessType: "aku ada toko bakso sih" });
+    expect(patch).toEqual(
+      expect.objectContaining({ businessType: "aku ada toko bakso sih" }),
+    );
   });
 
   it("self-heals old repeated business-type questions with equivalent wording", () => {
@@ -68,7 +82,30 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
       workspaceAnswers: undefined,
     });
 
-    expect(patch).toEqual({ businessType: "aku ada toko bakso sih" });
+    expect(patch).toEqual(
+      expect.objectContaining({ businessType: "aku ada toko bakso sih" }),
+    );
+  });
+
+  it("does not map an old answer to a different free-form active question", () => {
+    const patch = buildBriefPatchFromWorkspaceAnswers({
+      card: {
+        type: "question",
+        question: {
+          id: "menu_readiness",
+          question: "Soal menu, kamu udah punya daftar menu?",
+          options: [
+            { label: "Sudah", description: "Menu sudah siap." },
+            { label: "Belum", description: "Menu belum siap." },
+          ],
+        },
+      },
+      fallbackText:
+        "1. Warung Joss buka setiap hari, atau ada hari libur?\nJawaban: Setiap hari",
+      workspaceAnswers: undefined,
+    });
+
+    expect(patch).toEqual({});
   });
 
   it("does not map an old answer to a different active field", () => {

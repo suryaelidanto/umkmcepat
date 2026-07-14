@@ -1,13 +1,13 @@
 "use client";
 
 import { Camera, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
+import { useSession } from "@/lib/auth-client";
+import { useRouter } from "@/lib/navigation";
 
 const PROFILE_IMAGE_MAX_BYTES = 1_000_000;
 

@@ -1,6 +1,6 @@
-import { AvatarFrame } from "@/components/ui/avatar-frame";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { AvatarFrame } from "@/components/ui/avatar-frame";
 
 const meta = {
   component: AvatarFrame,

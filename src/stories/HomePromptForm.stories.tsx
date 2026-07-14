@@ -1,8 +1,7 @@
-import { SessionProvider } from "next-auth/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
-
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { SessionProvider } from "@/lib/auth-client";
 
 const meta = {
   component: HomePromptForm,
