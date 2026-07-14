@@ -8,7 +8,7 @@ describe("normalizeWorkspaceTurn", () => {
     const brief = createInitialBrief("jualan katering sekolah");
     const turn = normalizeWorkspaceTurn(undefined, brief);
 
-    expect(turn.workspaceCard.type).toBe("question");
+    expect(turn.workspaceCard.type).toBe("none");
     expect(turn.projectTitle).toBe("");
   });
 
@@ -40,7 +40,7 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("question");
   });
 
-  it("drops a malformed question and falls back to a valid single question", () => {
+  it("drops a malformed question without inventing a fallback question", () => {
     const brief = parseProjectBrief(
       { businessType: "Katering", targetCustomer: "Anak sekolah" },
       "jualan katering",
@@ -59,12 +59,7 @@ describe("normalizeWorkspaceTurn", () => {
       brief,
     );
 
-    expect(turn.workspaceCard.type).toBe("question");
-    if (turn.workspaceCard.type === "question") {
-      expect(turn.workspaceCard.question.options.length).toBeGreaterThanOrEqual(
-        3,
-      );
-    }
+    expect(turn.workspaceCard.type).toBe("none");
   });
 
   it("migrates a legacy questions[] card to a single question", () => {
@@ -95,11 +90,360 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("accepts a build recommendation with a flexible summary", () => {
+  it("does not mark the newly asked question as already answered", () => {
+    const brief = createInitialBrief("butuh website restoran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        briefPatch: {
+          facts: [
+            {
+              key: "photos_readiness",
+              label: "Foto galeri",
+              value: "Belum punya foto",
+            },
+          ],
+          decisions: [
+            {
+              id: "photos_readiness",
+              question:
+                "Untuk galeri foto di website, kamu udah punya fotonya?",
+              answer: "Belum punya foto",
+            },
+          ],
+        },
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "photos_readiness",
+            answerMode: "choice",
+            question: "Untuk galeri foto di website, kamu udah punya fotonya?",
+            options: [
+              { label: "Udah punya foto", description: "Foto siap dipajang." },
+              { label: "Belum", description: "Pakai placeholder dulu." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.brief.facts).toEqual([]);
+    expect(turn.brief.decisions).toEqual([]);
+  });
+
+  it("accepts AI text questions without forcing fake options", () => {
+    const brief = createInitialBrief("butuh website restoran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "business_name",
+            answerMode: "text",
+            question: "Nama restorannya apa?",
+            placeholder: "Contoh: Dapur Sari Laut",
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.answerMode).toBe("text");
+      expect(turn.workspaceCard.question.options).toEqual([]);
+      expect(turn.workspaceCard.question.placeholder).toBe(
+        "Contoh: Dapur Sari Laut",
+      );
+    }
+  });
+
+  it("accepts AI question text/title and description/hint aliases", () => {
+    const brief = createInitialBrief("butuh website laundry");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "business_name",
+            answerMode: "text",
+            text: "Nama laundry kamu apa?",
+            hint: "Nama ini akan jadi judul utama website.",
+            placeholder: "Misal: Laundry Bekasi Fresh",
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.question).toBe(
+        "Nama laundry kamu apa?",
+      );
+      expect(turn.workspaceCard.question.whyThisQuestionMatters).toBe(
+        "Nama ini akan jadi judul utama website.",
+      );
+    }
+  });
+
+  it("accepts free-form AI question ids", () => {
+    const brief = createInitialBrief("butuh app booking barbershop");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "booking_flow",
+            question: "Alur booking seperti apa yang paling pas?",
+            options: [
+              {
+                label: "WhatsApp dulu",
+                description: "Pelanggan chat sebelum pilih jam.",
+              },
+              {
+                label: "Pilih jadwal",
+                description: "Pelanggan lihat slot dan pilih waktu.",
+              },
+              {
+                label: "Datang langsung",
+                description: "Website fokus info jam ramai.",
+              },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("booking_flow");
+    }
+  });
+
+  it("accepts focused two-option AI questions", () => {
+    const brief = createInitialBrief("butuh website restoran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "menu_readiness",
+            answerMode: "choice",
+            question: "Menu kamu sudah siap?",
+            options: [
+              { label: "Sudah siap", description: "Menu tinggal dimasukkan." },
+              { label: "Belum", description: "Menu perlu disusun dulu." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.options).toHaveLength(2);
+    }
+  });
+
+  it("keeps a valid multiple-choice question mode", () => {
+    const brief = createInitialBrief("jualan hampers lebaran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "offer",
+            question: "Produk apa saja yang mau ditonjolkan?",
+            selectionMode: "multiple",
+            options: [
+              { label: "Hampers kue kering", description: "Untuk keluarga." },
+              { label: "Hampers kopi", description: "Untuk kantor." },
+              { label: "Hampers custom", description: "Untuk pesanan khusus." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.selectionMode).toBe("multiple");
+    }
+  });
+
+  it("preserves realistic long option labels instead of cutting them at 48 characters", () => {
+    const brief = parseProjectBrief(
+      { businessType: "Warung fisik dan pesanan online" },
+      "jualan angkringan",
+    );
+    const longLabel =
+      "Menu klasik: nasi kucing, sate usus, gorengan, wedang jahe";
+    const longDescription =
+      "Paket standar angkringan yang paling dikenal, harga terjangkau, menu sederhana, dan mudah dipahami pelanggan baru.";
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "offer",
+            question: "Menu andalan apa yang Anda jual di angkringan?",
+            options: [
+              {
+                description: longDescription,
+                label: longLabel,
+              },
+              {
+                description:
+                  "Selain menu ringan khas angkringan, ada juga menu yang lebih mengenyangkan.",
+                label:
+                  "Kombinasi klasik + menu berat (nasi goreng, mie goreng)",
+              },
+              {
+                description:
+                  "Menu angkringan tradisional dipadukan dengan racikan kopi susu dan minuman modern.",
+                label: "Klasik + kopi kekinian",
+              },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.options[0]).toEqual({
+        description: longDescription,
+        label: longLabel,
+      });
+      expect(turn.workspaceCard.question.options[1].label).toBe(
+        "Kombinasi klasik + menu berat (nasi goreng, mie goreng)",
+      );
+    }
+  });
+
+  it("defaults invalid question mode to single-choice", () => {
+    const brief = createInitialBrief("jualan hampers lebaran");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "offer",
+            question: "Produk apa yang paling utama?",
+            selectionMode: "many" as never,
+            options: [
+              { label: "Hampers kue kering", description: "Untuk keluarga." },
+              { label: "Hampers kopi", description: "Untuk kantor." },
+              { label: "Hampers custom", description: "Untuk pesanan khusus." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.selectionMode).toBe("single");
+    }
+  });
+
+  it("does not invent fallback questions when confidence is low", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Dropship sepatu",
+        offer: "Semua jenis sepatu",
+        targetCustomer: "Anak muda",
+        contactOrCta: "WhatsApp katalog",
+        stylePreference: "Masih perlu dipilih",
+      },
+      "dropship sepatu",
+    );
+    const turn = normalizeWorkspaceTurn(undefined, brief);
+
+    expect(turn.workspaceCard.type).toBe("none");
+  });
+
+  it("keeps an explicit AI question even when that field was just patched", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Dropship sepatu",
+        offer: "Sneakers dan sepatu casual",
+        targetCustomer: "Anak muda",
+        contactOrCta: "WhatsApp katalog",
+      },
+      "dropship sepatu",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        briefPatch: { stylePreference: "Enerjik dan playful" },
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "stylePreference",
+            question: "Mau vibe visual yang lebih neon atau clean minimalis?",
+            options: [
+              { label: "Neon streetwear", description: "Cerah dan berani." },
+              { label: "Clean minimalis", description: "Rapi dan premium." },
+              { label: "Sporty katalog", description: "Fokus produk." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("stylePreference");
+    }
+  });
+
+  it("accepts a brief review card with natural next actions", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Laundry kiloan",
+        offer: "Cuci setrika dan antar jemput",
+        targetCustomer: "Warga Depok",
+        contactOrCta: "WhatsApp",
+        stylePreference: "Bersih segar",
+      },
+      "laundry depok",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "brief_review",
+          title: "Arah website laundry",
+          summary: ["Laundry kiloan Depok", "CTA WhatsApp"],
+          actions: [
+            { label: "Mulai build", prompt: "Mulai build sekarang." },
+            { label: "Ubah harga", prompt: "Saya mau ubah harga dulu." },
+          ],
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("brief_review");
+    if (turn.workspaceCard.type === "brief_review") {
+      expect(turn.workspaceCard.title).toBe("Arah website laundry");
+      expect(turn.workspaceCard.actions[0].label).toBe("Mulai build");
+    }
+  });
+
+  it("accepts a build recommendation with a flexible summary only when confidence is high", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Katering sekolah",
+        confidence: 95,
         offer: "Nasi kotak harian",
+        openQuestions: [],
         targetCustomer: "Anak sekolah",
         contactOrCta: "Pesan via WhatsApp",
         stylePreference: "Cerah dan ramah",

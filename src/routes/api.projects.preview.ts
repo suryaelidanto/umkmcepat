@@ -1,0 +1,842 @@
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  generateText,
+  streamText,
+  type UIMessage,
+  validateUIMessages,
+} from "ai";
+
+import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getDefaultAiModel } from "@/lib/ai-models";
+import { writeAiRequestLog } from "@/lib/ai-request-log";
+import {
+  DISCUSS_CARD_SEMANTIC_ATTEMPTS,
+  DISCUSS_CARD_SERVER_DEADLINE_MS,
+  getAiTimeoutMs,
+} from "@/lib/ai-timeouts";
+import { auth } from "@/lib/auth";
+import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
+import { prisma } from "@/lib/prisma";
+import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
+import {
+  mergeProjectBriefPatch,
+  parseProjectBrief,
+} from "@/lib/projects/brief";
+import {
+  normalizeWorkspaceTurn,
+  parseWorkspaceCard,
+} from "@/lib/projects/brief-flow";
+import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
+import {
+  buildProjectChatContext,
+  dedupeUiMessages,
+  getTextFromUIMessage,
+  parseProjectChatMessages,
+  parseProjectChatSummary,
+  parseProjectMemoryFacts,
+} from "@/lib/projects/chat-memory";
+import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
+import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
+import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  checkEnergy,
+  deductEnergy,
+  ENERGY_COST_DISCUSS,
+  isUserVerified,
+} from "@/lib/user-credits";
+
+type PreviewRequest = {
+  message?: UIMessage;
+  messages?: UIMessage[];
+  mode?: "discuss" | "build" | "repair_card";
+  projectId?: string;
+  workspaceAnswers?: unknown;
+};
+
+export const Route = createFileRoute("/api/projects/preview")({
+  server: {
+    handlers: {
+      POST: ({ request }) => handlePreviewPost(request),
+    },
+  },
+});
+
+async function handlePreviewPost(request: Request) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return Response.json(
+      { message: "Masuk dulu untuk melanjutkan." },
+      { status: 401 },
+    );
+  }
+
+  const userId = session.user.id;
+
+  const verified = await isUserVerified(userId);
+  if (!verified) {
+    return Response.json(
+      {
+        message: "Verifikasi nomor telepon diperlukan.",
+        code: "verification_required",
+      },
+      { status: 403 },
+    );
+  }
+
+  const rateLimitResponse = await checkRateLimit(request, "ai", userId);
+
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
+  let body: PreviewRequest;
+
+  try {
+    body = (await readBoundedJson(request, {
+      maxBytes: 256 * 1024,
+    })) as PreviewRequest;
+  } catch (error) {
+    if (isBoundedJsonError(error)) {
+      return Response.json(
+        {
+          code: error.code,
+          message:
+            error.code === "request_body_too_large"
+              ? "Pesan terlalu besar. Ringkas dulu sebelum dikirim."
+              : "Format pesan belum valid.",
+        },
+        { status: error.code === "request_body_too_large" ? 413 : 400 },
+      );
+    }
+
+    throw error;
+  }
+
+  if (!body.projectId) {
+    return Response.json({ message: "Proyek tidak valid." }, { status: 400 });
+  }
+
+  if (body.mode !== "repair_card") {
+    const energy = await checkEnergy(userId, ENERGY_COST_DISCUSS);
+    if (!energy.allowed) {
+      return sseError({
+        message: "Energi harian habis. Coba lagi besok.",
+        code: "energy_exhausted",
+        remaining: energy.remaining,
+      });
+    }
+  }
+
+  const project = await prisma.project.findFirst({
+    where: { id: body.projectId, userId },
+    select: { id: true, prompt: true, status: true, title: true },
+  });
+
+  if (!project) {
+    return Response.json(
+      { message: "Proyek tidak ditemukan." },
+      { status: 404 },
+    );
+  }
+
+  if (project.status === "building") {
+    return Response.json(
+      {
+        message:
+          "AI sedang membangun. Tunggu sampai selesai atau hentikan dulu.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const [chatRow] = await prisma.$queryRaw<
+    [
+      {
+        brief: unknown;
+        chatMessages: unknown;
+        chatSummary: unknown;
+        lastCompactedMessageCount: unknown;
+        memoryFacts: unknown;
+        workspaceCard: unknown;
+      },
+    ]
+  >`
+    SELECT "chatMessages", "chatSummary", "memoryFacts", "lastCompactedMessageCount", "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
+  `;
+  const storedMessages = parseProjectChatMessages(chatRow?.chatMessages);
+  const parsedChatSummary = parseProjectChatSummary(chatRow?.chatSummary);
+  const chatSummary = {
+    ...parsedChatSummary,
+    compactedMessageCount: Math.max(
+      parsedChatSummary.compactedMessageCount,
+      typeof chatRow?.lastCompactedMessageCount === "number"
+        ? chatRow.lastCompactedMessageCount
+        : 0,
+    ),
+  };
+  const memoryFacts = parseProjectMemoryFacts(chatRow?.memoryFacts);
+  const incoming = body.message ? [body.message] : (body.messages ?? []);
+
+  if (incoming.length > 1) {
+    return Response.json(
+      {
+        code: "chat_turn_count_exceeded",
+        message: "Kirim satu pesan baru dalam satu waktu, ya.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const incomingPartCount = incoming.reduce(
+    (count, message) => count + message.parts.length,
+    0,
+  );
+  const incomingBytes = Buffer.byteLength(JSON.stringify(incoming), "utf8");
+
+  if (incomingPartCount > 32 || incomingBytes > 16 * 1024) {
+    return Response.json(
+      {
+        code: "chat_turn_too_large",
+        message: "Pesan terlalu panjang. Ringkas dulu sebelum dikirim.",
+      },
+      { status: 413 },
+    );
+  }
+
+  const latestUserText = incoming
+    .flatMap((message) => message.parts)
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join(" ");
+  const currentBrief = parseProjectBrief(chatRow?.brief, project.prompt);
+  const storedWorkspaceCard = parseWorkspaceCard(
+    chatRow?.workspaceCard,
+    currentBrief,
+  );
+  let workspaceAnswerPatch = buildBriefPatchFromWorkspaceAnswers({
+    card: storedWorkspaceCard,
+    fallbackText: latestUserText,
+    workspaceAnswers: body.workspaceAnswers,
+  });
+
+  if (!hasBriefPatchValue(workspaceAnswerPatch)) {
+    const recentStoredAnswerTexts = storedMessages
+      .filter((message) => message.role === "user")
+      .slice(-6)
+      .reverse()
+      .map(getTextFromUIMessage)
+      .filter((text) => /Jawaban:/i.test(text));
+
+    for (const text of recentStoredAnswerTexts) {
+      workspaceAnswerPatch = buildBriefPatchFromWorkspaceAnswers({
+        card: storedWorkspaceCard,
+        fallbackText: text,
+        workspaceAnswers: undefined,
+      });
+
+      if (hasBriefPatchValue(workspaceAnswerPatch)) {
+        break;
+      }
+    }
+  }
+  const effectiveBrief = mergeProjectBriefPatch(
+    currentBrief,
+    workspaceAnswerPatch,
+  );
+
+  if (body.mode === "repair_card") {
+    return repairWorkspaceCard({
+      brief: effectiveBrief,
+      messages: storedMessages,
+      project,
+      userId,
+    });
+  }
+
+  if (!incoming.length) {
+    return Response.json(
+      { message: "Pesan tidak boleh kosong." },
+      { status: 400 },
+    );
+  }
+
+  await persistProjectBrief({
+    brief: effectiveBrief,
+    projectId: project.id,
+    userId,
+  });
+
+  const messages = await validateUIMessages({
+    messages: dedupeUiMessages(
+      parseProjectChatMessages([...storedMessages, ...incoming]),
+    ),
+  });
+  const chatContext = buildProjectChatContext({
+    memoryFacts,
+    messages,
+    summary: chatSummary,
+  });
+
+  return handleDiscussTurn({
+    chatContext,
+    effectiveBrief,
+    memoryFacts,
+    messages,
+    project,
+    summary: chatSummary,
+    userId,
+  });
+}
+
+async function handleDiscussTurn({
+  chatContext,
+  effectiveBrief,
+  memoryFacts,
+  messages,
+  project,
+  summary,
+  userId,
+}: {
+  chatContext: ReturnType<typeof buildProjectChatContext>;
+  effectiveBrief: ReturnType<typeof parseProjectBrief>;
+  memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
+  messages: UIMessage[];
+  project: { id: string; prompt: string; status: string; title: string };
+  summary: ReturnType<typeof parseProjectChatSummary>;
+  userId: string;
+}) {
+  const modelName = getDefaultAiModel();
+  const model = getAiModel(modelName);
+  const chatSystemPrompt = buildChatSystemPrompt({
+    context: chatContext.systemContext,
+    brief: effectiveBrief,
+  });
+  const cardSystemPrompt = buildCardSystemPrompt();
+  const modelMessages = await convertToModelMessages(chatContext.messages);
+
+  await writeAiRequestLog({
+    event: "discuss:start",
+    model: modelName,
+    projectId: project.id,
+    messageCount: messages.length,
+    briefConfidence: effectiveBrief.confidence,
+  });
+
+  const phase1 = streamText({
+    model,
+    system: chatSystemPrompt,
+    messages: modelMessages,
+    maxRetries: 2,
+    temperature: 0.35,
+    timeout: getAiTimeoutMs("discuss"),
+    experimental_telemetry: getAiTelemetry("project-guided-discuss", {
+      briefConfidence: effectiveBrief.confidence,
+      mode: "discuss",
+      model: modelName,
+      projectId: project.id,
+      route: "api.projects.preview",
+      userId,
+    }),
+    onError({ error }) {
+      console.error(
+        "[preview-chat] phase 1 stream error",
+        getSafeAiErrorLog(error),
+      );
+    },
+  });
+
+  return createUIMessageStreamResponse({
+    stream: createUIMessageStream({
+      execute: async ({ writer }) => {
+        const messageId = `discuss-${crypto.randomUUID()}`;
+        const textPartId = "discuss-text";
+
+        writer.write({ type: "start", messageId });
+        writer.write({ type: "text-start", id: textPartId });
+
+        let fullText = "";
+        let hadError = false;
+
+        try {
+          for await (const delta of phase1.textStream) {
+            fullText += delta;
+            writer.write({ type: "text-delta", id: textPartId, delta });
+          }
+        } catch {
+          hadError = true;
+        }
+
+        writer.write({ type: "text-end", id: textPartId });
+
+        if (hadError || !fullText.trim()) {
+          writer.write({
+            type: "error",
+            errorText: hadError
+              ? "Jawaban AI terputus. Coba lagi."
+              : "AI belum memberi jawaban. Coba lagi.",
+          });
+          return;
+        }
+
+        const chatText = fullText.trim();
+        const assistantMessage: UIMessage = {
+          id: messageId,
+          role: "assistant",
+          parts: [{ type: "text", text: chatText, state: "done" }],
+        };
+
+        const workspaceTurn = await generateWorkspaceTurn({
+          brief: effectiveBrief,
+          cardSystemPrompt,
+          chatText,
+          model,
+          modelMessages,
+          modelName,
+          projectId: project.id,
+          userId,
+        });
+        const phase2Failed = !workspaceTurn;
+
+        const hasCard =
+          workspaceTurn !== null && workspaceTurn.workspaceCard.type !== "none";
+
+        const safeMessages = stripTransportDiagnosticMessages(
+          dedupeUiMessages([...messages, assistantMessage]),
+        );
+
+        if (hasCard && workspaceTurn) {
+          const title = workspaceTurn.projectTitle || project.title;
+
+          await writeAiRequestLog({
+            event: "discuss:finish",
+            model: modelName,
+            projectId: project.id,
+            didWorkspaceToolUpdate: true,
+            primaryToolFailed: phase2Failed,
+            workspaceCard: workspaceTurn.workspaceCard,
+          });
+
+          await persistProjectChatTurn({
+            brief: workspaceTurn.brief,
+            messages: safeMessages,
+            projectId: project.id,
+            title,
+            userId,
+            workspaceCard: workspaceTurn.workspaceCard,
+          });
+        } else {
+          await writeAiRequestLog({
+            event: "discuss:finish",
+            model: modelName,
+            projectId: project.id,
+            didWorkspaceToolUpdate: false,
+            primaryToolFailed: phase2Failed,
+            workspaceCard: { type: "none" },
+          });
+
+          await persistProjectChatTurn({
+            messages: safeMessages,
+            projectId: project.id,
+            userId,
+            workspaceCard: { type: "none" },
+          });
+        }
+
+        const compaction = await maybeCompactProjectChat({
+          memoryFacts,
+          messages: safeMessages,
+          summary,
+        }).catch(() => null);
+
+        if (compaction) {
+          await persistProjectChatCompaction({
+            compactedMessageCount: compaction.compactedMessageCount,
+            memoryFacts: compaction.memoryFacts,
+            projectId: project.id,
+            summary: compaction.summary,
+            userId,
+          });
+        }
+
+        await deductEnergy(userId, ENERGY_COST_DISCUSS, "discuss_turn");
+
+        writer.write({ type: "finish" });
+      },
+      onError: (error) =>
+        `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
+    }),
+  });
+}
+
+async function generateWorkspaceTurn({
+  brief,
+  cardSystemPrompt,
+  chatText,
+  model,
+  modelMessages,
+  modelName,
+  projectId,
+  userId,
+}: {
+  brief: ReturnType<typeof parseProjectBrief>;
+  cardSystemPrompt: string;
+  chatText: string;
+  model: ReturnType<typeof getAiModel>;
+  modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
+  modelName: string;
+  projectId: string;
+  userId: string;
+}) {
+  const abortController = new AbortController();
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+
+  const attempts = (async () => {
+    for (
+      let semanticAttempt = 0;
+      semanticAttempt < DISCUSS_CARD_SEMANTIC_ATTEMPTS;
+      semanticAttempt += 1
+    ) {
+      try {
+        const phase2 = await generateText({
+          abortSignal: abortController.signal,
+          model,
+          system: cardSystemPrompt,
+          messages: [
+            ...modelMessages,
+            { role: "assistant", content: chatText },
+          ],
+          maxOutputTokens: 8192,
+          maxRetries: 2,
+          temperature: 0.35,
+          timeout: getAiTimeoutMs("discussCard"),
+          experimental_telemetry: getAiTelemetry(
+            "project-guided-discuss-card",
+            {
+              mode: "discuss",
+              model: modelName,
+              phase: semanticAttempt === 0 ? "card" : "card-repair",
+              projectId,
+              route: "api.projects.preview",
+              userId,
+            },
+          ),
+        });
+        console.error("[preview-chat] phase 2 raw text:", {
+          projectId,
+          textLen: phase2.text.length,
+          textPreview: phase2.text.slice(0, 200),
+        });
+
+        const parsed = parseJsonLenient(phase2.text);
+        console.error("[preview-chat] phase 2 parsed:", {
+          projectId,
+          parsedType: typeof parsed,
+          parsedPreview: JSON.stringify(parsed)?.slice(0, 200),
+        });
+
+        const turn = normalizeWorkspaceTurn(parsed, brief);
+
+        if (turn.workspaceCard.type !== "none") {
+          return turn;
+        }
+
+        console.error("[preview-chat] phase 2 returned no valid card", {
+          projectId,
+          semanticAttempt,
+          cardType: turn.workspaceCard.type,
+        });
+      } catch (error) {
+        console.error(
+          "[preview-chat] phase 2 card error",
+          getSafeAiErrorLog(error),
+        );
+      }
+    }
+
+    return null;
+  })();
+
+  try {
+    return await Promise.race([
+      attempts,
+      new Promise<null>((resolve) => {
+        deadline = setTimeout(() => {
+          abortController.abort();
+          resolve(null);
+        }, DISCUSS_CARD_SERVER_DEADLINE_MS);
+      }),
+    ]);
+  } finally {
+    if (deadline) {
+      clearTimeout(deadline);
+    }
+  }
+}
+
+async function repairWorkspaceCard({
+  brief,
+  messages,
+  project,
+  userId,
+}: {
+  brief: ReturnType<typeof parseProjectBrief>;
+  messages: UIMessage[];
+  project: { id: string; prompt: string; status: string; title: string };
+  userId: string;
+}) {
+  if (!messages.length) {
+    return Response.json(
+      {
+        code: "workspace_card_repair_unavailable",
+        message: "Belum ada diskusi yang bisa dipulihkan.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const modelName = getDefaultAiModel();
+  const latestAssistantIndex = findLastMessageIndex(
+    messages,
+    (message) => message.role === "assistant",
+  );
+  const latestAssistantText = messages[latestAssistantIndex];
+  const chatText = latestAssistantText
+    ? getTextFromUIMessage(latestAssistantText).trim()
+    : "";
+
+  if (!chatText) {
+    return Response.json(
+      {
+        code: "workspace_card_repair_unavailable",
+        message:
+          "Jawaban AI terakhir belum tersedia. Coba kirim ulang pesanmu.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const modelMessages = await convertToModelMessages(
+    messages.slice(0, latestAssistantIndex),
+  );
+  const turn = await generateWorkspaceTurn({
+    brief,
+    cardSystemPrompt: buildCardSystemPrompt(),
+    chatText,
+    model: getAiModel(modelName),
+    modelMessages,
+    modelName,
+    projectId: project.id,
+    userId,
+  });
+
+  if (!turn) {
+    return Response.json(
+      {
+        code: "workspace_card_repair_failed",
+        message: "Pertanyaan berikutnya belum berhasil dibuat. Coba lagi.",
+      },
+      { status: 503, headers: { "Retry-After": "3" } },
+    );
+  }
+
+  const title = turn.projectTitle || project.title;
+  await persistProjectChatTurn({
+    brief: turn.brief,
+    messages,
+    projectId: project.id,
+    title,
+    userId,
+    workspaceCard: turn.workspaceCard,
+  });
+
+  return Response.json({
+    projectTitle: title,
+    workspaceCard: turn.workspaceCard,
+  });
+}
+
+function findLastMessageIndex(
+  messages: UIMessage[],
+  predicate: (message: UIMessage) => boolean,
+) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (predicate(messages[index])) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function parseJsonLenient(text: string): unknown {
+  const cleaned = text
+    .replace(/^```json\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+
+    if (start >= 0 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    }
+
+    throw new Error("No JSON object found in response");
+  }
+}
+
+function persistProjectBrief({
+  brief,
+  projectId,
+  userId,
+}: {
+  brief: unknown;
+  projectId: string;
+  userId: string;
+}) {
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "brief" = ${JSON.stringify(brief)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
+}
+
+function persistProjectChatTurn({
+  brief,
+  messages,
+  projectId,
+  title,
+  userId,
+  workspaceCard,
+}: {
+  brief?: unknown;
+  messages: UIMessage[];
+  projectId: string;
+  title?: string;
+  userId: string;
+  workspaceCard: unknown;
+}) {
+  if (brief !== undefined && title !== undefined) {
+    return prisma.$executeRaw`
+      UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
+    `;
+  }
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
+}
+
+function persistProjectChatCompaction({
+  compactedMessageCount,
+  memoryFacts,
+  projectId,
+  summary,
+  userId,
+}: {
+  compactedMessageCount: number;
+  memoryFacts: unknown;
+  projectId: string;
+  summary: unknown;
+  userId: string;
+}) {
+  return prisma.$executeRaw`
+    UPDATE "Project" SET "chatSummary" = ${JSON.stringify(summary)}::jsonb, "memoryFacts" = ${JSON.stringify(memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compactedMessageCount} WHERE id = ${projectId} AND "userId" = ${userId}
+  `;
+}
+
+function buildChatSystemPrompt({
+  brief,
+  context,
+}: {
+  brief: unknown;
+  context: string;
+}) {
+  return `You are a relentless website-discovery interviewer for Indonesian small businesses.
+Your job is to interview the user until their needs are fully understood, then help build only when you are at least 95% confident or the user explicitly asks to build now.
+
+Write user-visible chat copy in natural, concise Indonesian.
+Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
+
+Tone contract:
+- Treat the user like a friend building something together.
+- Use "aku" for yourself and "kamu" for the user.
+- Never address the user as "Anda", "Bapak", "Ibu", "Pak", "Bu", "Kak", "Gan", or other distant/formal labels.
+- Keep it warm, relaxed, helpful, and specific.
+- Do not become overly slangy, flirty, childish, or hypey. Friendly and calm is enough.
+
+Interview discipline:
+- Ask EXACTLY ONE question per turn. Never batch.
+- Walk the decision tree one branch at a time, resolving the deepest open dependency first.
+- Recommend a sensible default option for each question.
+- If something can be inferred from context or the existing brief, do not ask it.
+- Keep going until the brief is genuinely clear.
+
+Confidence gate:
+- Bias hard toward asking. When unsure, ask another question.
+- Build only at 95+ confidence or explicit user request.
+
+Chat style:
+- 1-3 sentences.
+- Acknowledge the answer, then introduce the next question.
+- Do not restate options (the card shows them).
+- When recommending build, summarize briefly and point to the build button.
+
+Current brief:
+${JSON.stringify(brief)}
+
+Hidden context:
+${context}`;
+}
+
+function buildCardSystemPrompt() {
+  return `You are a card generator for an Indonesian small business website brief flow.
+Based on the conversation, output ONLY a JSON object. No markdown fences, no explanation.
+
+The JSON object must have these fields:
+- briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer}), forcedBuild ({assumed: string array} or null)
+- workspaceCard: object with type (exactly "question" or "build_recommendation" or "brief_review")
+  - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode)
+  - For type "build_recommendation": title (string), summary (string array)
+  - For type "brief_review": title (string), summary (string array), actions (array of {label, prompt})
+- projectTitle: concise Indonesian project name string
+
+Rules:
+- workspaceCard.type must be exactly one of: "question", "build_recommendation", "brief_review"
+- question.id must be a string (not a number)
+- question.options must be an array of objects with label and description strings (not plain strings)
+- Set confidence to 95+ only when genuinely build-ready
+- When the user forces build, use type "build_recommendation" with forcedBuild.assumed
+
+Output valid JSON only. The word json must appear in your thinking.`;
+}
+
+function hasBriefPatchValue(patch: object) {
+  return Object.values(patch).some((value) =>
+    Array.isArray(value) ? value.length > 0 : Boolean(value),
+  );
+}
+
+function sseError(data: Record<string, unknown>) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(`event: error\ndata: ${JSON.stringify(data)}\n\n`),
+      );
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    },
+  });
+}

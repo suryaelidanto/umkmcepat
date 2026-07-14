@@ -1,8 +1,8 @@
 import { expect, screen } from "storybook/test";
 
-import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 
 const meta = {
   args: {

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { expect, screen, waitFor } from "storybook/test";
 
+import type { Meta, StoryObj } from "@storybook/react-vite";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,8 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 const meta = {
   parameters: {
@@ -87,7 +87,7 @@ function DialogDemo() {
               Tutup
             </Button>
             <Button className="bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86">
-              Lihat preview
+              Lihat website
             </Button>
           </div>
         </DialogContent>

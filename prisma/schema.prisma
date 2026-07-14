@@ -70,45 +70,261 @@ model Session {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  name          String?       @db.VarChar(100)
-  email         String?       @unique @db.VarChar(100)
-  emailVerified DateTime?
-  image         String?       @db.Text
-  accounts      Account[]
-  sessions      Session[]
-  landingPages  LandingPage[]
-  projects      Project[]
+  id              String                  @id @default(cuid())
+  name            String?                 @db.VarChar(100)
+  email           String?                 @unique @db.VarChar(100)
+  emailVerified   DateTime?
+  image           String?                 @db.Text
+  phone           String?                 @db.VarChar(20)
+  verifiedAt      DateTime?
+  accounts        Account[]
+  sessions        Session[]
+  idempotencyKeys ProjectIdempotencyKey[]
+  landingPages    LandingPage[]
+  projects        Project[]
+  editAttempts    ProjectEditAttempt[]
+  credits         UserCredit[]
+  otpRequests     OtpRequest[]
 
   @@index([email])
   @@index([name])
+  @@index([verifiedAt])
 }
 
 model Project {
-  id                        String    @id @default(cuid())
-  title                     String    @db.VarChar(120)
-  prompt                    String    @db.Text
-  model                     String    @db.VarChar(160)
-  status                    String    @default("draft") @db.VarChar(32)
+  id                        String                  @id @default(cuid())
+  title                     String                  @db.VarChar(120)
+  prompt                    String                  @db.Text
+  model                     String                  @db.VarChar(160)
+  status                    String                  @default("draft") @db.VarChar(32)
   siteSchema                Json?
   chatMessages              Json?
   chatSummary               Json?
   memoryFacts               Json?
-  lastCompactedMessageCount Int       @default(0)
+  lastCompactedMessageCount Int                     @default(0)
   brief                     Json?
   workspaceCard             Json?
   sourceFiles               Json?
   distFiles                 Json?
-  buildStatus               String    @default("not_started") @db.VarChar(32)
-  buildLog                  String?   @db.Text
+  buildStatus               String                  @default("not_started") @db.VarChar(32)
+  buildLog                  String?                 @db.Text
   builtAt                   DateTime?
+  thumbnailRef              String?                 @db.Text
+  thumbnailBuildId          String?
+  thumbnailUpdatedAt        DateTime?
+  activeOperationToken      String?                 @db.VarChar(64)
+  activeOperationKind       String?                 @db.VarChar(32)
+  activeOperationExpiresAt  DateTime?
   userId                    String
-  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
+  user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots                 ProjectSnapshot[]
+  builds                    ProjectBuild[]
+  deployments               ProjectDeployment[]
+  idempotencyKeys           ProjectIdempotencyKey[]
+  runtimeEvents             RuntimeEvent[]
+  editAttempts              ProjectEditAttempt[]
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
 
   @@index([userId])
   @@index([updatedAt])
+  @@index([activeOperationExpiresAt])
+  @@index([userId, updatedAt, id])
+}
+
+model ProjectIdempotencyKey {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  action    String   @db.VarChar(64)
+  key       String   @db.VarChar(160)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, action, key])
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+model ProjectEditAttempt {
+  id               String    @id @default(cuid())
+  projectId        String
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentSnapshotId String?
+  snapshotId       String?
+  buildId          String?
+  kind             String    @db.VarChar(32)
+  status           String    @default("received") @db.VarChar(32)
+  instruction      String    @db.Text
+  summary          String?   @db.Text
+  annotations      Json?
+  validationIssues Json?
+  advisoryIssues   Json?
+  errorMessage     String?   @db.Text
+  leaseToken       String?   @db.VarChar(64)
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([projectId, createdAt])
+  @@index([userId])
+  @@index([status])
+  @@index([leaseToken])
+}
+
+model ProjectSnapshot {
+  id               String              @id @default(cuid())
+  projectId        String
+  project          Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentSnapshotId String?
+  parentSnapshot   ProjectSnapshot?    @relation("ProjectSnapshotParent", fields: [parentSnapshotId], references: [id], onDelete: SetNull)
+  childSnapshots   ProjectSnapshot[]   @relation("ProjectSnapshotParent")
+  sourceType       String              @default("generated") @db.VarChar(32)
+  sourceRef        String?             @db.Text
+  files            Json?
+  metadata         Json?
+  builds           ProjectBuild[]
+  deployments      ProjectDeployment[]
+  createdAt        DateTime            @default(now())
+
+  @@index([projectId])
+  @@index([parentSnapshotId])
+  @@index([createdAt])
+  @@index([projectId, createdAt])
+}
+
+model ProjectBuild {
+  id            String              @id @default(cuid())
+  projectId     String
+  project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  snapshotId    String
+  snapshot      ProjectSnapshot     @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  status        String              @db.VarChar(32)
+  logRef        String?             @db.Text
+  logText       String?             @db.Text
+  artifactRef   String?             @db.Text
+  imageRef      String?             @db.Text
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  deployments   ProjectDeployment[]
+  runtimeEvents RuntimeEvent[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([projectId])
+  @@index([snapshotId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([projectId, createdAt])
+  @@index([projectId, status, updatedAt])
+}
+
+model ProjectDeployment {
+  id            String           @id @default(cuid())
+  projectId     String
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  buildId       String?
+  build         ProjectBuild?    @relation(fields: [buildId], references: [id], onDelete: SetNull)
+  snapshotId    String?
+  snapshot      ProjectSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+  kind          String           @db.VarChar(32)
+  status        String           @db.VarChar(32)
+  runtimeNodeId String?
+  runtimeNode   RuntimeNode?     @relation(fields: [runtimeNodeId], references: [id], onDelete: SetNull)
+  containerName String?          @db.VarChar(160)
+  internalUrl   String?          @db.Text
+  publicPath    String?          @db.VarChar(255)
+  publicUrl     String?          @db.Text
+  slug          String?          @db.VarChar(160)
+  lastRequestAt DateTime?
+  startedAt     DateTime?
+  stoppedAt     DateTime?
+  runtimeEvents RuntimeEvent[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([projectId])
+  @@index([buildId])
+  @@index([runtimeNodeId])
+  @@index([status])
+  @@index([kind])
+  @@index([projectId, kind, createdAt])
+  @@index([projectId, kind, updatedAt])
+  @@index([slug])
+}
+
+model RuntimeNode {
+  id              String              @id @default(cuid())
+  name            String              @unique @db.VarChar(120)
+  provider        String              @db.VarChar(64)
+  internalUrl     String?             @db.Text
+  status          String              @db.VarChar(32)
+  maxContainers   Int
+  memoryMb        Int?
+  cpuCores        Float?
+  lastHeartbeatAt DateTime?
+  deployments     ProjectDeployment[]
+  runtimeEvents   RuntimeEvent[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([status])
+}
+
+model RuntimeEvent {
+  id            String             @id @default(cuid())
+  projectId     String?
+  project       Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  deploymentId  String?
+  deployment    ProjectDeployment? @relation(fields: [deploymentId], references: [id], onDelete: SetNull)
+  buildId       String?
+  build         ProjectBuild?      @relation(fields: [buildId], references: [id], onDelete: SetNull)
+  runtimeNodeId String?
+  runtimeNode   RuntimeNode?       @relation(fields: [runtimeNodeId], references: [id], onDelete: SetNull)
+  type          String             @db.VarChar(96)
+  message       String?            @db.Text
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+
+  @@index([projectId])
+  @@index([deploymentId])
+  @@index([buildId])
+  @@index([runtimeNodeId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([projectId, createdAt])
+}
+
+model UserCredit {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    String   @db.VarChar(64)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model OtpRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone     String   @db.VarChar(20)
+  code      String   @db.VarChar(6)
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, phone])
+  @@index([expiresAt])
 }
 
 model VerificationToken {

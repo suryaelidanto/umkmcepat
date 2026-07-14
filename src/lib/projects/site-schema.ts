@@ -1,4 +1,4 @@
-import { type JSONSchema7 } from "ai";
+import { type ProjectBrief } from "@/lib/projects/brief";
 
 export type ProjectSiteSchema = {
   version: 1;
@@ -102,11 +102,76 @@ export function createFallbackProjectSiteSchema(
   };
 }
 
+export function createProjectSiteSchemaFromBrief(
+  brief: ProjectBrief,
+): ProjectSiteSchema {
+  const domain = detectBusinessDomain(brief);
+  const businessName = cleanText(
+    brief.businessName,
+    deriveBusinessName(brief, domain),
+    80,
+  );
+  const offer = cleanText(brief.offer, domain.defaultOffer, 120);
+  const rawTargetCustomer = cleanText(
+    brief.targetCustomer,
+    "pelanggan sekitar yang butuh info cepat",
+    140,
+  );
+  const rawContactOrCta = cleanText(
+    brief.contactOrCta,
+    "hubungi usaha untuk pesan atau bertanya",
+    140,
+  );
+  const rawStylePreference = cleanText(
+    brief.stylePreference,
+    "tampilan bersih dan mudah dipercaya",
+    140,
+  );
+  const targetCustomer = selectionLabel(rawTargetCustomer);
+  const targetCustomerDetail = selectionDetail(rawTargetCustomer);
+  const contactOrCta = selectionLabel(rawContactOrCta);
+  const contactDetail = selectionDetail(rawContactOrCta);
+  const stylePreference = selectionLabel(rawStylePreference);
+  const styleDetail = selectionDetail(rawStylePreference);
+  const theme = themeForBrief(brief, domain.key);
+  const primaryCta = primaryCtaFor(rawContactOrCta);
+  const secondaryCta = rawContactOrCta.toLowerCase().includes("maps")
+    ? "Lihat lokasi"
+    : "Lihat menu";
+
+  return {
+    version: 1,
+    businessName,
+    eyebrow: domain.eyebrow,
+    headline: headlineForBrief(domain.key, offer, targetCustomer),
+    subheadline: subheadlineForBrief(domain.key, contactOrCta, stylePreference),
+    primaryCta,
+    secondaryCta,
+    audience: targetCustomer,
+    offer,
+    theme,
+    trustPoints: buildTrustPoints(offer, contactOrCta, stylePreference),
+    sections: buildBriefSections({
+      contactOrCta,
+      contactDetail,
+      domainLabel: domain.label,
+      offer,
+      stylePreference,
+      styleDetail,
+      targetCustomer,
+      targetCustomerDetail,
+    }),
+  };
+}
+
 export function parseProjectSiteSchema(
   value: unknown,
-  fallbackPrompt = "",
+  fallbackInput: ProjectSiteSchema | string = "",
 ): ProjectSiteSchema {
-  const fallback = createFallbackProjectSiteSchema(fallbackPrompt);
+  const fallback =
+    typeof fallbackInput === "string"
+      ? createFallbackProjectSiteSchema(fallbackInput)
+      : fallbackInput;
 
   if (!value || typeof value !== "object") {
     return fallback;
@@ -156,63 +221,377 @@ export function parseProjectSiteSchema(
   };
 }
 
-export const projectSiteJsonSchema: JSONSchema7 = {
-  type: "object",
-  properties: {
-    version: { type: "number", enum: [1] },
-    businessName: { type: "string" },
-    eyebrow: { type: "string" },
-    headline: { type: "string" },
-    subheadline: { type: "string" },
-    primaryCta: { type: "string" },
-    secondaryCta: { type: "string" },
-    audience: { type: "string" },
-    offer: { type: "string" },
-    theme: {
-      type: "object",
-      properties: {
-        background: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
-        foreground: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
-        muted: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
-        accent: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
-      },
-      required: ["background", "foreground", "muted", "accent"],
-      additionalProperties: false,
-    },
-    trustPoints: {
-      type: "array",
-      minItems: 3,
-      maxItems: MAX_TRUST_POINTS,
-      items: { type: "string" },
-    },
-    sections: {
-      type: "array",
-      minItems: 4,
-      maxItems: MAX_SECTIONS,
-      items: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          body: { type: "string" },
-        },
-        required: ["title", "body"],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: [
-    "version",
-    "businessName",
-    "eyebrow",
-    "headline",
-    "subheadline",
-    "primaryCta",
-    "secondaryCta",
-    "audience",
-    "offer",
-    "theme",
-    "trustPoints",
-    "sections",
-  ],
-  additionalProperties: false,
+type BusinessDomain = {
+  defaultBusinessName: string;
+  defaultOffer: string;
+  eyebrow: string;
+  key: "angkringan" | "automotive" | "food" | "laundry" | "retail" | "service";
+  label: string;
 };
+
+function detectBusinessDomain(brief: ProjectBrief): BusinessDomain {
+  const text = normalizeSearchText([
+    brief.prompt,
+    brief.businessName,
+    brief.businessType,
+    brief.offer,
+    brief.targetCustomer,
+    brief.stylePreference,
+    ...brief.notes,
+  ]);
+
+  if (text.includes("angkringan")) {
+    return {
+      defaultBusinessName: "Angkringan Hangat",
+      defaultOffer: "Menu angkringan klasik",
+      eyebrow: "Angkringan lokal",
+      key: "angkringan",
+      label: "angkringan",
+    };
+  }
+
+  if (text.includes("laundry")) {
+    return {
+      defaultBusinessName: "Laundry Rapi",
+      defaultOffer: "Cuci, setrika, dan layanan laundry harian",
+      eyebrow: "Laundry cepat",
+      key: "laundry",
+      label: "laundry",
+    };
+  }
+
+  if (
+    text.includes("bengkel") ||
+    text.includes("motor") ||
+    text.includes("mobil") ||
+    text.includes("servis")
+  ) {
+    return {
+      defaultBusinessName: "Bengkel Siap Servis",
+      defaultOffer: "Servis kendaraan dan pengecekan rutin",
+      eyebrow: "Bengkel terpercaya",
+      key: "automotive",
+      label: "bengkel",
+    };
+  }
+
+  if (
+    text.includes("makanan") ||
+    text.includes("kuliner") ||
+    text.includes("bakso") ||
+    text.includes("kopi") ||
+    text.includes("roti")
+  ) {
+    return {
+      defaultBusinessName: "Dapur Lokal",
+      defaultOffer: "Menu favorit siap pesan",
+      eyebrow: "Kuliner lokal",
+      key: "food",
+      label: "kuliner",
+    };
+  }
+
+  if (
+    text.includes("toko") ||
+    text.includes("jual") ||
+    text.includes("produk")
+  ) {
+    return {
+      defaultBusinessName: "Toko Lokal",
+      defaultOffer: "Produk pilihan untuk pelanggan sekitar",
+      eyebrow: "Toko UMKM",
+      key: "retail",
+      label: "toko",
+    };
+  }
+
+  return {
+    defaultBusinessName: "Usaha Lokal",
+    defaultOffer: "Layanan utama usaha",
+    eyebrow: "Usaha lokal",
+    key: "service",
+    label: "usaha",
+  };
+}
+
+function deriveBusinessName(brief: ProjectBrief, domain: BusinessDomain) {
+  const promptText = normalizeSearchText([brief.prompt, brief.businessType]);
+
+  if (domain.key === "angkringan" && promptText.includes("angkringan")) {
+    return "Angkringan Hangat";
+  }
+
+  return domain.defaultBusinessName;
+}
+
+function themeForBrief(
+  brief: ProjectBrief,
+  domainKey: BusinessDomain["key"],
+): ProjectSiteSchema["theme"] {
+  const style = normalizeSearchText([
+    brief.stylePreference,
+    brief.businessType,
+  ]);
+
+  if (
+    domainKey === "angkringan" ||
+    style.includes("hangat") ||
+    style.includes("tradisional") ||
+    style.includes("kayu") ||
+    style.includes("coklat")
+  ) {
+    return {
+      background: "#f7f1e7",
+      foreground: "#21170f",
+      muted: "#755f4d",
+      accent: "#c65a1e",
+    };
+  }
+
+  if (style.includes("premium") || style.includes("bold")) {
+    return {
+      background: "#f4f1eb",
+      foreground: "#171512",
+      muted: "#6b645b",
+      accent: "#8d6b32",
+    };
+  }
+
+  if (domainKey === "laundry") {
+    return {
+      background: "#eef7f4",
+      foreground: "#12211d",
+      muted: "#587169",
+      accent: "#1f8f7a",
+    };
+  }
+
+  if (domainKey === "automotive") {
+    return {
+      background: "#f3f4f2",
+      foreground: "#151715",
+      muted: "#5f655f",
+      accent: "#d3342f",
+    };
+  }
+
+  return defaultTheme;
+}
+
+function primaryCtaFor(contactOrCta: string) {
+  const text = normalizeSearchText([contactOrCta]);
+
+  if (text.includes("wa") || text.includes("whatsapp")) {
+    return "Pesan via WhatsApp";
+  }
+
+  if (text.includes("booking") || text.includes("reservasi")) {
+    return "Booking sekarang";
+  }
+
+  if (text.includes("maps") || text.includes("lokasi")) {
+    return "Lihat lokasi";
+  }
+
+  if (text.includes("pesan")) {
+    return "Pesan sekarang";
+  }
+
+  return "Hubungi kami";
+}
+
+function headlineForBrief(
+  domainKey: BusinessDomain["key"],
+  offer: string,
+  targetCustomer: string,
+) {
+  const shortTarget = lowerFirstPhrase(clipPhrase(targetCustomer, 58));
+
+  if (domainKey === "angkringan") {
+    return `Angkringan hangat untuk ${shortTarget}`;
+  }
+
+  if (domainKey === "laundry") {
+    return `Laundry rapi untuk ${shortTarget}`;
+  }
+
+  if (domainKey === "automotive") {
+    return `Servis motor rapi tanpa tebak-tebakan untuk ${shortTarget}`;
+  }
+
+  if (domainKey === "food") {
+    return `${clipPhrase(offer, 46)} yang mudah dipesan`;
+  }
+
+  return `${clipPhrase(offer, 54)} untuk ${shortTarget}`;
+}
+
+function subheadlineForBrief(
+  domainKey: BusinessDomain["key"],
+  contactOrCta: string,
+  stylePreference: string,
+) {
+  if (domainKey === "angkringan") {
+    const stylePhrase = lowerFirstPhrase(stylePreference);
+
+    return `Tampilkan menu, suasana warung, dan akses pesan lewat ${clipPhrase(contactOrCta, 64)}. Nuansa ${clipPhrase(stylePhrase, 92)} membantu pelanggan merasa dekat sebelum datang atau pesan.`;
+  }
+
+  if (domainKey === "automotive") {
+    return `Tampilkan layanan bengkel, estimasi langkah servis, dan jalur ${clipPhrase(contactOrCta, 72)} supaya pelanggan datang dengan keluhan yang jelas.`;
+  }
+
+  return `Website menonjolkan penawaran utama, alasan pelanggan percaya, dan langkah berikutnya lewat ${clipPhrase(contactOrCta, 72)}.`;
+}
+
+function buildTrustPoints(
+  offer: string,
+  contactOrCta: string,
+  stylePreference: string,
+) {
+  const offerSummary = summarizeOffer(offer);
+
+  return [
+    `${offerSummary} dijelaskan per kebutuhan pelanggan`,
+    `${clipPhrase(contactOrCta, 42)} mudah ditemukan`,
+    `Nuansa ${lowerFirstPhrase(clipPhrase(stylePreference, 42))}`,
+  ];
+}
+
+function buildBriefSections({
+  contactOrCta,
+  contactDetail,
+  domainLabel,
+  offer,
+  stylePreference,
+  styleDetail,
+  targetCustomer,
+  targetCustomerDetail,
+}: {
+  contactOrCta: string;
+  contactDetail?: string;
+  domainLabel: string;
+  offer: string;
+  stylePreference: string;
+  styleDetail?: string;
+  targetCustomer: string;
+  targetCustomerDetail?: string;
+}): ProjectSiteSchema["sections"] {
+  const offerSentence = stripTrailingPunctuation(offer);
+  const targetContext = targetCustomerDetail
+    ? `${lowerFirstPhrase(targetCustomer)} yang ${stripTrailingPunctuation(lowerFirstPhrase(targetCustomerDetail))}`
+    : lowerFirstPhrase(targetCustomer);
+  const contactContext = contactDetail
+    ? `${contactOrCta} dibuat jelas. ${sentenceCase(stripTrailingPunctuation(contactDetail))}.`
+    : `${contactOrCta} dibuat jelas.`;
+  const styleContext = styleDetail
+    ? `${sentenceCase(stripTrailingPunctuation(styleDetail))}. `
+    : "";
+
+  if (domainLabel === "bengkel") {
+    return [
+      {
+        title: "Layanan servis",
+        body: `${offerSentence}. Tiap layanan dibuat mudah dipahami agar pelanggan tahu apakah perlu datang untuk cek ringan, kelistrikan, ban, atau komponen lain.`,
+      },
+      {
+        title: "Untuk pengendara",
+        body: `Konten diarahkan untuk ${targetContext}. Halaman membantu mereka menjelaskan keluhan motor sebelum datang ke bengkel.`,
+      },
+      {
+        title: "Booking dan konsultasi",
+        body: `${contactContext} Pelanggan bisa tanya estimasi awal, jam ramai, atau kesiapan spare part tanpa bolak-balik.`,
+      },
+      {
+        title: "Kesan bengkel",
+        body: `Tampilan dibuat ${lowerFirstPhrase(stylePreference)}. ${styleContext}Kesan ini membangun rasa rapi, teknis, dan dapat dipercaya.`,
+      },
+    ];
+  }
+
+  return [
+    {
+      title: "Penawaran utama",
+      body: `${offerSentence}. Tampilannya dibuat ringkas supaya pembeli cepat tahu pilihan utama sebelum pesan.`,
+    },
+    {
+      title: "Untuk pembeli",
+      body: `Konten diarahkan untuk ${targetContext}. Halaman menonjolkan menu, suasana, dan cara pesan yang mudah dipahami.`,
+    },
+    {
+      title: "Pesan atau datang",
+      body: `${contactContext} Pelanggan bisa langsung pesan atau mencari lokasi tanpa bertanya berulang.`,
+    },
+    {
+      title: "Kesan visual",
+      body: `Tampilan dibuat ${lowerFirstPhrase(stylePreference)}. ${styleContext}Kesan ini menjaga karakter ${domainLabel} yang akrab.`,
+    },
+  ];
+}
+
+export function normalizeSearchText(values: string[]) {
+  return values.join(" ").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function clipPhrase(value: string, maxLength: number) {
+  const text = value.trim().replace(/\s+/g, " ");
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  const clipped = text.slice(0, maxLength);
+  const lastSpace = clipped.lastIndexOf(" ");
+
+  return clipped.slice(0, lastSpace > 16 ? lastSpace : maxLength).trim();
+}
+
+function selectionLabel(value: string) {
+  return normalizeDisplayPhrase(splitSelection(value).label || value);
+}
+
+function selectionDetail(value: string) {
+  return normalizeDisplayPhrase(splitSelection(value).detail);
+}
+
+function splitSelection(value: string) {
+  const match = value.match(/^(.+?)\s*\((.+)\)\s*$/);
+
+  if (!match) {
+    return { detail: "", label: value };
+  }
+
+  return {
+    detail: match[2],
+    label: match[1],
+  };
+}
+
+function normalizeDisplayPhrase(value: string) {
+  return value
+    .replace(/\s*&\s*/g, " dan ")
+    .replace(/\bWA\b/g, "WhatsApp")
+    .replace(/\s*\+\s*link\s+/gi, " dan ")
+    .replace(/\s*\+\s*/g, " dan ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function lowerFirstPhrase(value: string) {
+  return value ? `${value[0].toLowerCase()}${value.slice(1)}` : value;
+}
+
+function sentenceCase(value: string) {
+  return value ? `${value[0].toUpperCase()}${value.slice(1)}` : value;
+}
+
+function summarizeOffer(offer: string) {
+  const [label] = offer.split(":");
+  const summary = label && label.length >= 5 ? label : offer;
+
+  return clipPhrase(summary, 42);
+}
+
+function stripTrailingPunctuation(value: string) {
+  return value.trim().replace(/[.。!?]+$/g, "");
+}

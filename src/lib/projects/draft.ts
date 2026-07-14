@@ -4,6 +4,7 @@ export const PROJECT_DRAFT_STORAGE_KEY = "umkmcepat:project-draft";
 
 export type ProjectDraft = {
   continueAfterLogin: boolean;
+  idempotencyKey?: string;
   mode: WorkspaceMode;
   prompt: string;
   savedAt: number;
@@ -49,12 +50,16 @@ export function parseProjectDraft(value: string | null): ProjectDraft | null {
         ? draft.savedAt
         : Date.now();
     const continueAfterLogin = draft.continueAfterLogin === true;
+    const idempotencyKey =
+      typeof draft.idempotencyKey === "string" && draft.idempotencyKey.trim()
+        ? draft.idempotencyKey.trim()
+        : undefined;
 
     if (!prompt) {
       return null;
     }
 
-    return { prompt, mode, savedAt, continueAfterLogin };
+    return { prompt, mode, savedAt, continueAfterLogin, idempotencyKey };
   } catch {
     return null;
   }

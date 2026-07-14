@@ -1,11 +1,10 @@
-import { SessionProvider } from "next-auth/react";
+import type { Session } from "@auth/core/types";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
 import { MainChrome } from "@/components/common/MainChrome";
-
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import type { Session } from "next-auth";
+import { SessionProvider } from "@/lib/auth-client";
 
 const meta = {
   decorators: [
@@ -45,11 +44,6 @@ export const FooterDefault: Story = {
 };
 
 export const MainChromeDefault: Story = {
-  parameters: {
-    nextjs: {
-      navigation: { pathname: "/" },
-    },
-  },
   render: () => (
     <SessionProvider session={null}>
       <MainChrome>

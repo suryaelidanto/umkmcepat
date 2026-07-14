@@ -1,33 +1,39 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import js from "@eslint/js";
 import importPlugin from "eslint-plugin-import";
 import unusedImports from "eslint-plugin-unused-imports";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
 const eslintConfig = [
   {
     ignores: [
       ".browser/**",
-      ".next/**",
+      ".claude/**",
+      ".data/**",
+      ".output/**",
+      ".nitro/**",
+      ".tanstack/**",
       ".pi/**",
+      ".agents/**",
       "graphify-out/**",
       "node_modules/**",
       "coverage/**",
       "dist/**",
       "build/**",
-      "next-env.d.ts",
+      "storybook-static/**",
+      "src/routeTree.gen.ts",
       "*.config.*",
     ],
   },
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
     plugins: {
       import: importPlugin,
       "unused-imports": unusedImports,
@@ -63,6 +69,12 @@ const eslintConfig = [
       "prefer-const": "error",
       eqeqeq: ["error", "always", { null: "ignore" }],
       curly: ["error", "all"],
+      // Not enforced under the previous next/typescript preset; keep parity so
+      // the migration does not introduce churn in unrelated pre-existing files.
+      "no-useless-escape": "off",
+      "require-yield": "off",
+      "no-useless-assignment": "off",
+      "preserve-caught-error": "off",
     },
   },
 ];

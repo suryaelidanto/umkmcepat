@@ -1,8 +1,8 @@
 import { expect, fn } from "storybook/test";
 
-import { Button } from "@/components/ui/button";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { Button } from "@/components/ui/button";
 
 const meta = {
   args: {

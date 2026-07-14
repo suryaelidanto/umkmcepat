@@ -1,8 +1,6 @@
 "use client";
 
 import { ArrowUp, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import {
   FormEvent,
   KeyboardEvent,
@@ -15,6 +13,9 @@ import {
 
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import { Button } from "@/components/ui/button";
+import { apiNetworkError, parseApiResponse } from "@/lib/api-client";
+import { useSession } from "@/lib/auth-client";
+import { useRouter } from "@/lib/navigation";
 import {
   createProjectDraft,
   parseProjectDraft,
@@ -25,7 +26,33 @@ import {
   validateProjectRequest,
 } from "@/lib/projects/input";
 
-export function HomePromptForm() {
+function getProjectCreateIdempotencyKey(prompt: string) {
+  const draft = parseProjectDraft(
+    window.localStorage.getItem(PROJECT_DRAFT_STORAGE_KEY),
+  );
+
+  if (draft?.prompt === prompt.trim() && draft.idempotencyKey) {
+    return draft.idempotencyKey;
+  }
+
+  const idempotencyKey = crypto.randomUUID();
+  const nextDraft = createProjectDraft(prompt, "discuss");
+
+  if (nextDraft) {
+    window.localStorage.setItem(
+      PROJECT_DRAFT_STORAGE_KEY,
+      JSON.stringify({ ...nextDraft, idempotencyKey }),
+    );
+  }
+
+  return idempotencyKey;
+}
+
+export function HomePromptForm({
+  overProjectLimit = false,
+}: {
+  overProjectLimit?: boolean;
+}) {
   const router = useRouter();
   const { status } = useSession();
   const [prompt, setPrompt] = useState("");
@@ -34,6 +61,7 @@ export function HomePromptForm() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const hasAutoContinued = useRef(false);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     const draft = parseProjectDraft(
@@ -55,6 +83,10 @@ export function HomePromptForm() {
       continueAfterLogin,
     );
 
+    if (draft) {
+      draft.idempotencyKey = getProjectCreateIdempotencyKey(draft.prompt);
+    }
+
     if (!draft) {
       return;
     }
@@ -67,28 +99,42 @@ export function HomePromptForm() {
 
   const createProject = useCallback(
     async (value: string) => {
+      const idempotencyKey = getProjectCreateIdempotencyKey(value);
       const response = await fetch("/api/projects", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: value }),
-      });
-      const result = (await response.json()) as {
-        path?: string;
-        message?: string;
-      };
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify({ idempotencyKey, prompt: value }),
+      }).catch((error: unknown) => apiNetworkError(error));
+      const result =
+        response instanceof Response
+          ? await parseApiResponse<{ path?: string }>(response)
+          : response;
 
-      if (!response.ok || !result.path) {
+      if (!result.ok) {
         setErrorMessage(
-          result.message ||
+          result.error.message ||
             "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
         );
         setIsContinuing(false);
+        isSubmittingRef.current = false;
+        return;
+      }
+
+      if (!result.data.path) {
+        setErrorMessage(
+          "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
+        );
+        setIsContinuing(false);
+        isSubmittingRef.current = false;
         return;
       }
 
       window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
       startTransition(() => {
-        router.push(result.path || "/");
+        router.push(result.data.path || "/");
       });
     },
     [router, startTransition],
@@ -111,7 +157,12 @@ export function HomePromptForm() {
     setIsContinuing(true);
     window.localStorage.setItem(
       PROJECT_DRAFT_STORAGE_KEY,
-      JSON.stringify({ ...draft, continueAfterLogin: false }),
+      JSON.stringify({
+        ...draft,
+        continueAfterLogin: false,
+        idempotencyKey:
+          draft.idempotencyKey || getProjectCreateIdempotencyKey(draft.prompt),
+      }),
     );
 
     void createProject(draft.prompt);
@@ -122,22 +173,25 @@ export function HomePromptForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isLoading) {
+    if (isLoading || isSubmittingRef.current) {
       return;
     }
 
+    isSubmittingRef.current = true;
     setErrorMessage("");
 
     const validation = validateProjectRequest(prompt);
 
     if (!validation.ok) {
       setErrorMessage(validation.message);
+      isSubmittingRef.current = false;
       return;
     }
 
     if (status !== "authenticated") {
       saveDraft(true);
       setLoginOpen(true);
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -159,34 +213,42 @@ export function HomePromptForm() {
     event.currentTarget.form?.requestSubmit();
   }
 
+  if (overProjectLimit) {
+    return (
+      <div className="mx-auto mt-spacing-12 w-full max-w-3xl rounded-[28px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-7 py-spacing-6 text-center">
+        <p className="text-sm leading-6 text-surface-warm-white/78">
+          Kamu sudah mencapai batas website. Hapus yang tidak terpakai untuk
+          membuat yang baru.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       <form
         onSubmit={handleSubmit}
-        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/10 bg-[#232321] text-left shadow-[0_24px_80px_rgba(0,0,0,0.32)] transition-all duration-300"
+        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/12 bg-[#232321] text-left ring-1 ring-surface-warm-white/6 transition-colors duration-200"
       >
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website
         </label>
-        <div className="relative">
-          <textarea
-            id="hero-prompt"
-            name="business-story"
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            onKeyDown={handlePromptKeyDown}
-            placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
-            maxLength={PROJECT_REQUEST_MAX_LENGTH}
-            disabled={isLoading}
-            className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-13 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/42 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
-          />
-          <span className="pointer-events-none absolute bottom-spacing-4 right-spacing-7 rounded-full bg-[#232321]/85 px-spacing-4 py-spacing-2 text-sm tabular-nums text-surface-warm-white/52 backdrop-blur-sm">
-            {prompt.length.toLocaleString("id-ID")}/1.200
+        <textarea
+          id="hero-prompt"
+          name="business-story"
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          onKeyDown={handlePromptKeyDown}
+          placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
+          maxLength={PROJECT_REQUEST_MAX_LENGTH}
+          disabled={isLoading}
+          className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/58 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
+        />
+        <div className="flex items-center justify-between gap-spacing-7 px-spacing-9 pb-spacing-7">
+          <span className="text-sm tabular-nums text-surface-warm-white/62">
+            {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
           </span>
-        </div>
-        <div className="flex items-center justify-between gap-spacing-5 px-spacing-7 pb-spacing-7">
-          <div />
-          <div className="flex items-center gap-spacing-4">
+          <div className="flex items-center gap-spacing-5">
             {isLoading ? (
               <span className="hidden text-sm text-surface-warm-white/58 sm:inline">
                 Menyiapkan...
@@ -196,7 +258,7 @@ export function HomePromptForm() {
               type="submit"
               size="icon"
               disabled={isLoading || !prompt.trim()}
-              className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+              className="size-11 shrink-0 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
               aria-label="Buat halaman"
             >
               {isLoading ? (

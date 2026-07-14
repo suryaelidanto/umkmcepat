@@ -1,7 +1,7 @@
-import { ProjectSitePreview } from "@/components/projects/renderer/ProjectSitePreview";
-
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+
+import { ProjectSitePreview } from "@/components/projects/renderer/ProjectSitePreview";
 
 const mockSiteSchema = {
   audience: "Pekerja kantor sekitar Antapani",

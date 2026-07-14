@@ -1,26 +1,83 @@
 import { generateText } from "ai";
 
-import { getAiModel } from "@/lib/ai";
+import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getDefaultAiModel } from "@/lib/ai-models";
+import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
 
 export type ModerationResult =
-  | { allowed: true }
-  | { allowed: false; message: string };
+  { allowed: true } | { allowed: false; message: string };
 
 const BLOCK_MESSAGE =
   "Maaf, AI tidak bisa membantu membuat website untuk topik ini. Kamu bisa ubah chat dan coba lagi.";
+const CLARIFY_MESSAGE =
+  "Checker keamanan lagi lambat. Coba kirim lagi sebentar ya.";
+
+const MODERATION_CACHE_TTL_MS = 30 * 60 * 1000;
+const moderationCache = new Map<
+  string,
+  { expiresAt: number; result: ModerationResult }
+>();
 
 export async function moderateProjectRequest(
   prompt: string,
+  timeoutMs = getModerationTimeoutMs(),
 ): Promise<ModerationResult> {
-  const { text } = await generateText({
-    model: getAiModel(),
-    temperature: 0,
-    system:
-      "You are a strict safety classifier for UMKM Cepat, an AI website and app builder for small businesses. Reply with exactly ALLOW or BLOCK. Block requests involving gambling, pornography or sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, or impersonation of real brands, people, or government entities. Allow normal small-business websites, landing pages, catalogs, menus, booking, contact forms, ordering flows, and calls to action.",
-    prompt,
+  const key = normalizePrompt(prompt);
+  const cached = moderationCache.get(key);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.result;
+  }
+
+  const abortController = new AbortController();
+  const { text } = await withAiTimeout(
+    generateText({
+      abortSignal: abortController.signal,
+      maxOutputTokens: 256,
+      model: getAiModel(getDefaultAiModel()),
+      temperature: 0,
+      timeout: timeoutMs,
+      experimental_telemetry: getAiTelemetry("project-moderation", {
+        model: getDefaultAiModel(),
+      }),
+      system:
+        "You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when intent is unclear but potentially unsafe. ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action.",
+      prompt: key,
+    }),
+    "moderation",
+    abortController,
+    timeoutMs,
+  );
+
+  const label = text.trim().toUpperCase();
+  if (!["ALLOW", "BLOCK", "CLARIFY"].includes(label)) {
+    // Model returned empty or unexpected text. Default to ALLOW to avoid
+    // blocking legitimate users; log for investigation.
+    console.warn(
+      `[moderation] unexpected model response: ${JSON.stringify(text)} — defaulting to ALLOW`,
+    );
+    return { allowed: true };
+  }
+
+  const result: ModerationResult =
+    label === "BLOCK"
+      ? { allowed: false, message: BLOCK_MESSAGE }
+      : label === "CLARIFY"
+        ? { allowed: false, message: CLARIFY_MESSAGE }
+        : { allowed: true };
+
+  moderationCache.set(key, {
+    expiresAt: Date.now() + MODERATION_CACHE_TTL_MS,
+    result,
   });
 
-  return text.trim().toUpperCase().startsWith("ALLOW")
-    ? { allowed: true }
-    : { allowed: false, message: BLOCK_MESSAGE };
+  return result;
+}
+
+export function getModerationTimeoutMs() {
+  return getAiTimeoutMs("moderation");
+}
+
+function normalizePrompt(prompt: string) {
+  return prompt.trim().replace(/\s+/g, " ").slice(0, 1_200);
 }

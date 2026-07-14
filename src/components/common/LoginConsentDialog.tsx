@@ -1,6 +1,5 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 import { LegalDocumentContent } from "@/components/legal/LegalDocumentContent";
@@ -12,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { signIn } from "@/lib/auth-client";
 
 declare global {
   interface Window {
@@ -37,7 +37,7 @@ declare global {
 }
 
 const defaultTurnstileSiteKey =
-  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+  import.meta.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 export function LoginConsentDialog({
   description,
