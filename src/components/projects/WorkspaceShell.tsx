@@ -23,6 +23,7 @@ import {
 } from "react";
 import { type PanelImperativeHandle } from "react-resizable-panels";
 
+import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import {
   BuildProgressPanel,
   EmptyPreviewState,
@@ -999,6 +1000,20 @@ export function WorkspaceShell({
       return;
     }
 
+    // One-call path may already have delivered a fresh card via tool output.
+    if (workspaceCardRef.current.type !== "none") {
+      const fromTool = getWorkspaceCardFromMessages(allMessagesRef.current);
+      if (
+        fromTool &&
+        isFreshWorkspaceCard(fromTool.workspaceCard, {
+          type: "none",
+        } as WorkspaceCard)
+      ) {
+        setIsPreparingNextQuestion(false);
+        return;
+      }
+    }
+
     let canceled = false;
     const previousCard = workspaceCardRef.current;
     const startedAt = Date.now();
@@ -1076,6 +1091,28 @@ export function WorkspaceShell({
 
     window.dispatchEvent(new Event("umkm:energy-changed"));
     void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
+
+    // Prefer card from one-call tool output before falling back to poll.
+    const toolCard = getWorkspaceCardFromMessages(allMessagesRef.current);
+    if (toolCard && toolCard.workspaceCard.type !== "none") {
+      if (
+        isFreshWorkspaceCard(
+          toolCard.workspaceCard,
+          workspaceCardRef.current,
+        ) ||
+        toolCard.workspaceCard.type !== workspaceCardRef.current.type
+      ) {
+        setWorkspaceCard(toolCard.workspaceCard);
+        if (toolCard.projectTitle) {
+          setProjectTitle(toolCard.projectTitle);
+          setDraftTitle(toolCard.projectTitle);
+        }
+        setWorkspaceCardError(false);
+        setIsPreparingNextQuestion(false);
+        void reloadLatestChat();
+        return;
+      }
+    }
 
     const answered = hasAnsweredWorkspaceQuestion({
       card: workspaceCardRef.current,
@@ -1604,6 +1641,7 @@ export function WorkspaceShell({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-spacing-2">
+                <EnergyDisplay />
                 <button
                   type="button"
                   onClick={
@@ -2139,6 +2177,71 @@ function completeBuildProgress(current: BuildProgressStep[]) {
   return current.map((step) =>
     step.status === "active" ? { ...step, status: "done" as const } : step,
   );
+}
+
+const PRESENT_WORKSPACE_CARD_TOOL_TYPE = "tool-presentWorkspaceCard";
+
+function getWorkspaceCardFromMessages(messages: UIMessage[]): {
+  projectTitle?: string;
+  workspaceCard: WorkspaceCard;
+} | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "assistant") {
+      continue;
+    }
+
+    for (
+      let partIndex = message.parts.length - 1;
+      partIndex >= 0;
+      partIndex -= 1
+    ) {
+      const part = message.parts[partIndex] as {
+        type?: string;
+        state?: string;
+        output?: {
+          projectTitle?: unknown;
+          workspaceCard?: WorkspaceCard;
+        };
+        toolInvocation?: {
+          toolName?: string;
+          state?: string;
+          output?: {
+            projectTitle?: unknown;
+            workspaceCard?: WorkspaceCard;
+          };
+        };
+      };
+
+      const isPresentCardTool =
+        part.type === PRESENT_WORKSPACE_CARD_TOOL_TYPE ||
+        part.toolInvocation?.toolName === "presentWorkspaceCard";
+      if (!isPresentCardTool) {
+        continue;
+      }
+
+      const state = part.state || part.toolInvocation?.state;
+      if (state !== "output-available") {
+        continue;
+      }
+
+      const output = part.output || part.toolInvocation?.output;
+      const card = output?.workspaceCard;
+      if (!card || typeof card !== "object" || card.type === "none") {
+        continue;
+      }
+
+      return {
+        workspaceCard: card,
+        projectTitle:
+          typeof output?.projectTitle === "string"
+            ? output.projectTitle
+            : undefined,
+      };
+    }
+  }
+
+  return null;
 }
 
 function filterDiscussionMessagesWithWorkspaceUi(
