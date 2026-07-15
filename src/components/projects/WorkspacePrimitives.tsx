@@ -469,7 +469,7 @@ export function GeneratedPreviewFrame({
           title="Tampilan website"
           src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
           onLoad={onLoad}
-          sandbox="allow-scripts"
+          sandbox="allow-scripts allow-same-origin allow-forms"
           className="h-full w-full border-0 bg-white"
         />
         {pendingAnnotation ? (
