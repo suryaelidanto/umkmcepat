@@ -10,7 +10,7 @@ const agentGenerate = vi.fn();
 
 vi.mock("ai", () => {
   return {
-    stepCountIs: () => () => false,
+    isStepCount: () => () => false,
     tool: (config: unknown) => config,
     ToolLoopAgent: class ToolLoopAgent {
       tools: Record<string, { execute: (input: never) => unknown }>;

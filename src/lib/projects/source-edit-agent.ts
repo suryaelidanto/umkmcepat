@@ -1,4 +1,4 @@
-import { stepCountIs, tool, ToolLoopAgent } from "ai";
+import { isStepCount, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
 import {
@@ -46,11 +46,11 @@ export async function editGeneratedSourceWithAgent({
     // raise the per-step budget so visible tool calls still land.
     maxOutputTokens: 12_000,
     instructions: EDIT_AGENT_INSTRUCTIONS,
-    experimental_telemetry: getAiTelemetry("project-source-edit-agent", {
+    telemetry: getAiTelemetry("project-source-edit-agent", {
       fileCount: files.length,
       model: model || getDefaultAiModel(),
     }),
-    stopWhen: stepCountIs(18),
+    stopWhen: isStepCount(18),
     tools: {
       list_files: tool({
         description: "List generated project files.",
