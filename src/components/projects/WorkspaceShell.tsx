@@ -1000,18 +1000,10 @@ export function WorkspaceShell({
       return;
     }
 
-    // One-call path may already have delivered a fresh card via tool output.
+    // One-call path already set a non-none card via tool output.
     if (workspaceCardRef.current.type !== "none") {
-      const fromTool = getWorkspaceCardFromMessages(allMessagesRef.current);
-      if (
-        fromTool &&
-        isFreshWorkspaceCard(fromTool.workspaceCard, {
-          type: "none",
-        } as WorkspaceCard)
-      ) {
-        setIsPreparingNextQuestion(false);
-        return;
-      }
+      setIsPreparingNextQuestion(false);
+      return;
     }
 
     let canceled = false;

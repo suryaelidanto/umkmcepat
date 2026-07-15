@@ -5,6 +5,7 @@ export type AiTimeoutKey =
   | "chatCompaction"
   | "discuss"
   | "discussCard"
+  | "discussOneCall"
   | "discussToolSettle"
   | "edit"
   | "editRepair"
@@ -42,6 +43,12 @@ const AI_TIMEOUTS = {
     defaultMs: DISCUSS_CARD_ATTEMPT_TIMEOUT_MS,
     minMs: 3_000,
     maxMs: 120_000,
+  },
+  discussOneCall: {
+    env: "AI_TIMEOUT_DISCUSS_ONE_CALL_MS",
+    defaultMs: 120_000,
+    minMs: 30_000,
+    maxMs: 240_000,
   },
   discussToolSettle: {
     env: "AI_TIMEOUT_DISCUSS_TOOL_SETTLE_MS",
