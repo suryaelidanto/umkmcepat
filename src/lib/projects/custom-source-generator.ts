@@ -76,6 +76,9 @@ export async function generateCustomProjectFilesWithAgent({
   try {
     const agent = new ToolLoopAgent({
       model: getAiModel(getGenerationModel()),
+      // Reasoning models emit hidden reasoning_content per step; without a
+      // generous per-step budget the visible tool-call never lands.
+      maxOutputTokens: 12_000,
       instructions: buildGeneratedAppAgentInstructions(
         schema,
         implementationSpec,
@@ -448,6 +451,7 @@ export async function repairGeneratedProjectFiles({
 
   const agent = new ToolLoopAgent({
     model: getAiModel(getGenerationModel()),
+    maxOutputTokens: 12_000,
     instructions: buildGeneratedAppAgentInstructions(
       schema,
       implementationSpec,
