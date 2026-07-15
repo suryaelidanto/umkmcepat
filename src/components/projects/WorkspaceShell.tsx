@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import {
   ArrowLeft,
@@ -70,6 +71,7 @@ import {
   shouldUseGeneratedPreviewFrame,
   isUserVisibleAssistantText,
 } from "@/lib/projects/workspace-sync";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 
 const MonacoEditor = clientOnly(() => import("@monaco-editor/react"));
 
@@ -211,7 +213,6 @@ export function WorkspaceShell({
   const olderChatSentinelRef = useRef<HTMLDivElement | null>(null);
   const hasAutoOpenedPreview = useRef(hasInitialPreview);
   const previousLiveMessageCount = useRef(initialMessages.length);
-  const runtimeRequestRef = useRef<Promise<void> | null>(null);
   const runtimeRetryAfterRef = useRef(0);
   const previousScrollHeight = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -324,53 +325,72 @@ export function WorkspaceShell({
     );
   }, [annotationInstruction, annotations, visualAnnotationStorageKey]);
 
-  const loadRuntimeState = useCallback(async () => {
-    if (runtimeRequestRef.current) {
-      return runtimeRequestRef.current;
-    }
+  const queryClient = useQueryClient();
 
-    if (Date.now() < runtimeRetryAfterRef.current) {
+  const runtimeQuery = useQuery({
+    queryKey: queryKeys.projectRuntime(projectId),
+    queryFn: async () => {
+      if (Date.now() < runtimeRetryAfterRef.current) {
+        if (!runtimeState) {
+          throw new Error("runtime_backoff");
+        }
+        return runtimeState;
+      }
+
+      const response = await fetch(`/api/projects/${projectId}/runtime`, {
+        cache: "no-store",
+      });
+
+      if (response.status === 503) {
+        const retryAfter = Number(response.headers.get("Retry-After") || "3");
+        runtimeRetryAfterRef.current = Date.now() + retryAfter * 1000;
+        throw new Error("runtime_unavailable");
+      }
+
+      if (!response.ok) {
+        throw new Error("runtime_failed");
+      }
+
+      return (await response.json()) as RuntimeWorkspaceState;
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data as RuntimeWorkspaceState | undefined;
+      const status = data?.build?.status || data?.deployment?.status || "";
+      if (
+        ["running", "building", "starting", "queued"].includes(status) ||
+        buildStatus === "building"
+      ) {
+        return 7000;
+      }
+      return false;
+    },
+    staleTime: 3000,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (!runtimeQuery.data) {
       return;
     }
 
-    const request = (async () => {
-      try {
-        const response = await fetch(`/api/projects/${projectId}/runtime`, {
-          cache: "no-store",
-        });
+    const result = runtimeQuery.data;
+    setRuntimeState(result);
+    setRuntimeError(null);
 
-        if (response.status === 503) {
-          const retryAfter = Number(response.headers.get("Retry-After") || "3");
-          runtimeRetryAfterRef.current = Date.now() + retryAfter * 1000;
-          return;
-        }
+    if (result.latestSuccessfulBuild) {
+      setSourceStatus("passed");
+    }
 
-        if (!response.ok) {
-          return;
-        }
+    if (result.publishedDeployment?.publicPath) {
+      setPublishedPath(result.publishedDeployment.publicPath);
+    }
+  }, [runtimeQuery.data]);
 
-        const result = (await response.json()) as RuntimeWorkspaceState;
-
-        setRuntimeState(result);
-        setRuntimeError(null);
-
-        if (result.latestSuccessfulBuild) {
-          setSourceStatus("passed");
-        }
-
-        if (result.publishedDeployment?.publicPath) {
-          setPublishedPath(result.publishedDeployment.publicPath);
-        }
-      } catch {
-        runtimeRetryAfterRef.current = Date.now() + 3000;
-      } finally {
-        runtimeRequestRef.current = null;
-      }
-    })();
-
-    runtimeRequestRef.current = request;
-    return request;
-  }, [projectId]);
+  const loadRuntimeState = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.projectRuntime(projectId),
+    });
+  }, [projectId, queryClient]);
 
   const loadWorkspaceState = useCallback(
     async (options?: { skipIfPreparing?: boolean }) => {
@@ -560,6 +580,7 @@ export function WorkspaceShell({
             setBuildProgress((current) => completeBuildProgress(current));
             void loadRuntimeState();
             window.dispatchEvent(new Event("umkm:energy-changed"));
+            void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
           }
 
           if (eventName === "error") {
@@ -730,56 +751,43 @@ export function WorkspaceShell({
     return () => window.cancelAnimationFrame(frame);
   }, [hasPreview]);
 
+  const sourceQuery = useQuery({
+    queryKey: [
+      ...queryKeys.projectSource(projectId),
+      sourceReloadKey,
+      buildStatus,
+    ],
+    queryFn: async () =>
+      fetchJson<{
+        buildStatus?: string;
+        files?: GeneratedProjectFile[];
+      }>(`/api/projects/${projectId}/source`),
+    enabled: activeTab === "code",
+  });
+
   useEffect(() => {
     if (activeTab !== "code") {
       return;
     }
 
-    const controller = new AbortController();
+    setIsLoadingSource(sourceQuery.isPending || sourceQuery.isFetching);
+    setSourceError(
+      sourceQuery.isError
+        ? "Kode website belum bisa dimuat. Coba lagi tanpa kehilangan tampilan terakhir."
+        : null,
+    );
 
-    async function loadSource() {
-      setIsLoadingSource(true);
-      setSourceError(null);
-
-      try {
-        const response = await fetch(`/api/projects/${projectId}/source`, {
-          signal: controller.signal,
-        });
-        const result = (await response.json()) as {
-          buildStatus?: string;
-          files?: GeneratedProjectFile[];
-        };
-
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        if (!response.ok) {
-          setSourceError(
-            "Kode website belum bisa dimuat. Coba lagi tanpa kehilangan tampilan terakhir.",
-          );
-          return;
-        }
-
-        setSourceFiles(result.files ?? []);
-        setSourceStatus(result.buildStatus ?? "not_started");
-      } catch {
-        if (!controller.signal.aborted) {
-          setSourceError(
-            "Kode website belum bisa dimuat. Coba lagi tanpa kehilangan tampilan terakhir.",
-          );
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingSource(false);
-        }
-      }
+    if (sourceQuery.data) {
+      setSourceFiles(sourceQuery.data.files ?? []);
+      setSourceStatus(sourceQuery.data.buildStatus ?? "not_started");
     }
-
-    void loadSource();
-
-    return () => controller.abort();
-  }, [activeTab, buildStatus, projectId, sourceReloadKey]);
+  }, [
+    activeTab,
+    sourceQuery.data,
+    sourceQuery.isError,
+    sourceQuery.isFetching,
+    sourceQuery.isPending,
+  ]);
 
   const reloadLatestChat = useCallback(async () => {
     const response = await fetch(`/api/projects/${projectId}/chat?limit=20`, {
@@ -1025,6 +1033,7 @@ export function WorkspaceShell({
     }
 
     window.dispatchEvent(new Event("umkm:energy-changed"));
+    void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
 
     const answered = hasAnsweredWorkspaceQuestion({
       card: workspaceCardRef.current,
@@ -1180,6 +1189,7 @@ export function WorkspaceShell({
       setPreviewReloadKey((current) => current + 1);
       void loadRuntimeState();
       window.dispatchEvent(new Event("umkm:energy-changed"));
+      void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
     } finally {
       visualEditInFlightRef.current = false;
       setIsEditingPreview(false);
