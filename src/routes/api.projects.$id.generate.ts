@@ -298,7 +298,10 @@ async function handleGeneratePost(request: Request, routeId: string) {
         async function generateImplementationSpec(prompt: string) {
           const result = streamText({
             model: getAiModel(getGenerationModel()),
-            maxOutputTokens: 8192,
+            // Reasoning models (deepseek-v4-pro) burn tokens on hidden
+            // reasoning_content before emitting visible content. Budget high
+            // enough that the JSON spec actually lands in `content`.
+            maxOutputTokens: 16_384,
             temperature: 0.35,
             timeout: getAiTimeoutMs("buildSpec"),
             system:
@@ -313,7 +316,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
               '- style: {direction: string, palette: {background: "#hex", foreground: "#hex", muted: "#hex", accent: "#hex"}}\n' +
               "- primaryCta: string\n" +
               "- notes: array of strings\n\n" +
-              "Output valid JSON only. No markdown fences, no explanation.",
+              "Output valid JSON only. No markdown fences, no explanation, no thinking.",
             prompt,
             experimental_telemetry: getAiTelemetry(
               "project-implementation-spec",
@@ -325,7 +328,12 @@ async function handleGeneratePost(request: Request, routeId: string) {
             ),
             onError(error) {
               devLog("generate", "spec.error", {
-                error: error instanceof Error ? error.message : String(error),
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : typeof error === "object" && error
+                      ? JSON.stringify(error)
+                      : String(error),
                 projectId,
               });
               send("progress", {

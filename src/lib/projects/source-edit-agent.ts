@@ -42,6 +42,9 @@ export async function editGeneratedSourceWithAgent({
 
   const agent = new ToolLoopAgent({
     model: getAiModel(model || getDefaultAiModel()),
+    // Reasoning models spend tokens on hidden reasoning_content per step;
+    // raise the per-step budget so visible tool calls still land.
+    maxOutputTokens: 12_000,
     instructions: EDIT_AGENT_INSTRUCTIONS,
     experimental_telemetry: getAiTelemetry("project-source-edit-agent", {
       fileCount: files.length,
