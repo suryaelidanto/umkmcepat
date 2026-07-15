@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import { Camera, Loader2 } from "lucide-react";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "@/lib/navigation";
+import { fetchJson } from "@/lib/query-client";
 
 const PROFILE_IMAGE_MAX_BYTES = 1_000_000;
 
@@ -26,10 +28,44 @@ export function ProfileNameForm({
   const [imagePreview, setImagePreview] = useState(initialImage);
   const [imageDataUrl, setImageDataUrl] = useState("");
   const [error, setError] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
   const normalizedName = normalizeName(name);
   const isChanged = normalizedName !== savedName || Boolean(imageDataUrl);
   const initial = normalizedName[0]?.toUpperCase() || "U";
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload: { imageDataUrl?: string; name: string }) =>
+      fetchJson<{ user: { image?: string | null; name?: string | null } }>(
+        "/api/profile",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      ),
+    onSuccess: async (result) => {
+      if (!result.user?.name) {
+        setError("Profil belum berhasil disimpan.");
+        return;
+      }
+
+      const nextName = normalizeName(result.user.name);
+      const nextImage = result.user.image || imagePreview;
+      setSavedName(nextName);
+      setName(nextName);
+      setImageDataUrl("");
+      setImagePreview(nextImage);
+      toast.success("Profil disimpan.");
+      await update({ image: nextImage, name: nextName });
+      router.refresh();
+    },
+    onError: (mutationError) => {
+      setError(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Profil belum berhasil disimpan.",
+      );
+    },
+  });
 
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -63,47 +99,17 @@ export function ProfileNameForm({
       return;
     }
 
-    if (isSaving) {
+    if (saveMutation.isPending) {
       return;
     }
 
-    setIsSaving(true);
-
-    try {
-      const response = await fetch("/api/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageDataUrl: imageDataUrl || undefined,
-          name: normalizedName,
-        }),
-      });
-      const result = (await response.json().catch(() => ({}))) as {
-        message?: string;
-        user?: { image?: string | null; name?: string | null };
-      };
-
-      if (!response.ok || !result.user?.name) {
-        setError(result.message || "Profil belum berhasil disimpan.");
-        return;
-      }
-
-      const nextName = normalizeName(result.user.name);
-      const nextImage = result.user.image || imagePreview;
-      setSavedName(nextName);
-      setName(nextName);
-      setImageDataUrl("");
-      setImagePreview(nextImage);
-      toast.success("Profil disimpan.");
-
-      await update({ image: nextImage, name: nextName });
-      router.refresh();
-    } catch {
-      setError("Profil belum berhasil disimpan.");
-    } finally {
-      setIsSaving(false);
-    }
+    saveMutation.mutate({
+      imageDataUrl: imageDataUrl || undefined,
+      name: normalizedName,
+    });
   }
+
+  const isSaving = saveMutation.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-spacing-7">
@@ -169,7 +175,7 @@ export function ProfileNameForm({
           {isSaving ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Menyimpan
+              Menyimpan...
             </>
           ) : (
             "Simpan profil"
@@ -181,21 +187,14 @@ export function ProfileNameForm({
 }
 
 function normalizeName(value: string) {
-  return value.trim().replace(/\s+/g, " ").slice(0, 100);
+  return value.trim().replace(/\s+/g, " ");
 }
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-
-      reject(new Error("Foto tidak bisa dibaca."));
-    });
-    reader.addEventListener("error", () => reject(reader.error));
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Gagal membaca file."));
     reader.readAsDataURL(file);
   });
 }

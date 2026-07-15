@@ -1,59 +1,48 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
 import { usePathname, useRouter } from "@/lib/navigation";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 
 export function MainChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
   const isWorkspace =
     pathname.startsWith("/projects/") && pathname !== "/projects/new";
   const isVerifyPage = pathname === "/verify";
 
+  const verificationQuery = useQuery({
+    queryKey: queryKeys.verification,
+    queryFn: () =>
+      fetchJson<{ verified: boolean }>("/api/user/verification", {
+        cache: "no-store",
+      }),
+    enabled: !isVerifyPage,
+    staleTime: 30_000,
+    retry: 1,
+  });
+
   useEffect(() => {
     if (isVerifyPage) {
-      setChecking(false);
       return;
     }
 
-    let canceled = false;
-
-    void (async () => {
-      try {
-        const response = await fetch("/api/user/verification", {
-          cache: "no-store",
-        });
-        if (canceled) {
-          return;
-        }
-
-        if (response.ok) {
-          const data = (await response.json()) as { verified: boolean };
-          if (!data.verified) {
-            router.replace("/verify");
-            return;
-          }
-        }
-      } catch {
-        // ignore — allow access on error
-      }
-      if (!canceled) {
-        setChecking(false);
-      }
-    })();
-
-    return () => {
-      canceled = true;
-    };
-  }, [isVerifyPage, router, pathname]);
+    if (verificationQuery.data && !verificationQuery.data.verified) {
+      router.replace("/verify");
+    }
+  }, [isVerifyPage, router, verificationQuery.data]);
 
   if (isVerifyPage) {
     return <>{children}</>;
   }
+
+  const checking =
+    verificationQuery.isPending ||
+    (verificationQuery.isSuccess && !verificationQuery.data.verified);
 
   if (checking) {
     return (
