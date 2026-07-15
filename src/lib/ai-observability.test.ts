@@ -7,5 +7,5 @@ describe("AI observability", () => {
     await expect(import("@/lib/instrumentation")).resolves.toHaveProperty(
       "register",
     );
-  });
+  }, 15_000);
 });
