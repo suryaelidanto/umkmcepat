@@ -68,8 +68,30 @@ vi.mock("@/lib/prisma", () => ({
       findMany: prismaProjectFindManyMock,
       count: vi.fn(async () => 0),
     },
+    userCredit: {
+      aggregate: vi.fn(async () => ({
+        _sum: { amount: 0, inputTokens: 0, outputTokens: 0 },
+      })),
+      create: vi.fn(async () => ({ id: "credit_1" })),
+    },
   },
 }));
+vi.mock("@/lib/user-credits", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/user-credits")>(
+      "@/lib/user-credits",
+    );
+
+  return {
+    ...actual,
+    checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 200_000 })),
+    addEnergyUsage: vi.fn(async () => ({
+      energyUsed: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    })),
+  };
+});
 vi.mock("@/lib/projects/brief-flow", () => ({
   createPendingWorkspaceCard: vi.fn(() => ({
     type: "questions",
@@ -100,7 +122,10 @@ describe("projects route", () => {
     checkRateLimitMock.mockResolvedValue(null);
     executeRawMock.mockResolvedValue(1);
     queryRawMock.mockResolvedValue([]);
-    moderateProjectRequestMock.mockResolvedValue({ allowed: true });
+    moderateProjectRequestMock.mockResolvedValue({
+      allowed: true,
+      usage: { inputTokens: 0, outputTokens: 0 },
+    });
     prismaProjectCreateMock.mockResolvedValue({ id: "project_1" });
     prismaProjectFindManyMock.mockResolvedValue([]);
     transactionMock.mockImplementation(async (callback) =>
