@@ -7,6 +7,10 @@ export function getRouter() {
     routeTree,
     scrollRestoration: true,
     defaultPreload: "intent",
+    // Keep previous page painted until the next route is ready so
+    // project ↔ home navigations don't flash a blank main content area.
+    defaultPendingMs: 200,
+    defaultPendingMinMs: 0,
   });
 
   return router;

@@ -22,10 +22,13 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
         cache: "no-store",
       }),
     enabled: !isVerifyPage,
-    // Short stale window so post-verify navigation picks up truth quickly,
-    // while still avoiding a fetch on every route change.
-    staleTime: 5_000,
+    // Keep last answer across project↔home navigations so the whole shell
+    // does not unmount into a blank spinner while revalidating.
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
     retry: 1,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   useEffect(() => {
@@ -49,11 +52,14 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  const checking =
-    verificationQuery.isPending ||
-    (verificationQuery.isSuccess && !verificationQuery.data.verified);
+  // First load only: no cached verification yet.
+  // Never blank the shell on background refetch (e.g. project → home).
+  const firstLoadChecking =
+    verificationQuery.isPending && verificationQuery.data === undefined;
+  const blockingUnverified =
+    verificationQuery.isSuccess && !verificationQuery.data.verified;
 
-  if (checking) {
+  if (firstLoadChecking || blockingUnverified) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-warm-white">
         <div className="size-8 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
