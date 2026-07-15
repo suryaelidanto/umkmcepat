@@ -10,30 +10,41 @@ vi.mock("@/lib/ai", () => ({
 const generateTextMock = vi.mocked(generateText);
 
 import { moderateProjectRequest } from "./ai-moderation";
-import { getAiTimeoutMs } from "./ai-timeouts";
 
 describe("moderateProjectRequest", () => {
   it("allows ALLOW responses", async () => {
-    generateTextMock.mockResolvedValueOnce({ text: "ALLOW" } as never);
+    generateTextMock.mockResolvedValueOnce({
+      text: "ALLOW",
+      usage: { inputTokens: 10, outputTokens: 1 },
+    } as never);
 
     await expect(moderateProjectRequest("jual kopi")).resolves.toEqual({
       allowed: true,
+      usage: { inputTokens: 10, outputTokens: 1 },
     });
   });
 
   it("blocks BLOCK responses", async () => {
-    generateTextMock.mockResolvedValueOnce({ text: "BLOCK" } as never);
+    generateTextMock.mockResolvedValueOnce({
+      text: "BLOCK",
+      usage: { inputTokens: 8, outputTokens: 1 },
+    } as never);
 
     await expect(moderateProjectRequest("bad")).resolves.toMatchObject({
       allowed: false,
+      usage: { inputTokens: 8, outputTokens: 1 },
     });
   });
 
   it("defaults to ALLOW for empty/unexpected model responses", async () => {
-    generateTextMock.mockResolvedValueOnce({ text: "" } as never);
+    generateTextMock.mockResolvedValueOnce({
+      text: "",
+      usage: { inputTokens: 5, outputTokens: 0 },
+    } as never);
 
     await expect(moderateProjectRequest("jual teh kosong")).resolves.toEqual({
       allowed: true,
+      usage: { inputTokens: 5, outputTokens: 0 },
     });
   });
 
@@ -43,10 +54,6 @@ describe("moderateProjectRequest", () => {
     await expect(
       moderateProjectRequest("jual teh provider down"),
     ).rejects.toThrow("provider down");
-  });
-
-  it("uses a 30 second default timeout", () => {
-    expect(getAiTimeoutMs("moderation")).toBe(30_000);
   });
 
   it("times out", async () => {

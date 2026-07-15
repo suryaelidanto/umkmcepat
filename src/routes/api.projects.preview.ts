@@ -42,10 +42,10 @@ import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
+  addEnergyUsage,
   checkEnergy,
-  deductEnergy,
-  ENERGY_COST_DISCUSS,
   isUserVerified,
+  MIN_ENERGY_DISCUSS,
 } from "@/lib/user-credits";
 
 type PreviewRequest = {
@@ -121,7 +121,7 @@ async function handlePreviewPost(request: Request) {
   }
 
   if (body.mode !== "repair_card") {
-    const energy = await checkEnergy(userId, ENERGY_COST_DISCUSS);
+    const energy = await checkEnergy(userId, MIN_ENERGY_DISCUSS);
     if (!energy.allowed) {
       return sseError({
         message: "Energi harian habis. Coba lagi besok.",
@@ -372,6 +372,11 @@ async function handleDiscussTurn({
 
         writer.write({ type: "text-end", id: textPartId });
 
+        // Capture phase1 (chat) token usage
+        const phase1Usage = await phase1.usage;
+        let totalInputTokens = phase1Usage?.inputTokens ?? 0;
+        let totalOutputTokens = phase1Usage?.outputTokens ?? 0;
+
         if (hadError || !fullText.trim()) {
           writer.write({
             type: "error",
@@ -399,6 +404,23 @@ async function handleDiscussTurn({
           projectId: project.id,
           userId,
         });
+
+        // Capture phase2 (card) token usage
+        if (workspaceTurn && "usage" in workspaceTurn) {
+          totalInputTokens +=
+            (
+              workspaceTurn as {
+                usage?: { inputTokens: number; outputTokens: number };
+              }
+            ).usage?.inputTokens ?? 0;
+          totalOutputTokens +=
+            (
+              workspaceTurn as {
+                usage?: { inputTokens: number; outputTokens: number };
+              }
+            ).usage?.outputTokens ?? 0;
+        }
+
         const phase2Failed = !workspaceTurn;
 
         const hasCard =
@@ -460,9 +482,16 @@ async function handleDiscussTurn({
             summary: compaction.summary,
             userId,
           });
+          totalInputTokens += compaction.usage?.inputTokens ?? 0;
+          totalOutputTokens += compaction.usage?.outputTokens ?? 0;
         }
 
-        await deductEnergy(userId, ENERGY_COST_DISCUSS, "discuss_turn");
+        await addEnergyUsage(
+          userId,
+          totalInputTokens,
+          totalOutputTokens,
+          "discuss_turn",
+        );
 
         writer.write({ type: "finish" });
       },
@@ -541,7 +570,13 @@ async function generateWorkspaceTurn({
         const turn = normalizeWorkspaceTurn(parsed, brief);
 
         if (turn.workspaceCard.type !== "none") {
-          return turn;
+          return {
+            ...turn,
+            usage: {
+              inputTokens: phase2.usage?.inputTokens ?? 0,
+              outputTokens: phase2.usage?.outputTokens ?? 0,
+            },
+          };
         }
 
         console.error("[preview-chat] phase 2 returned no valid card", {

@@ -18,6 +18,7 @@ export type ProjectChatCompactionResult = {
   compactedMessageCount: number;
   memoryFacts: ProjectMemoryFacts;
   summary: ProjectChatSummary;
+  usage: { inputTokens: number; outputTokens: number };
 };
 
 type AiCompactionOutput = {
@@ -134,6 +135,10 @@ export async function maybeCompactProjectChat({
       decisions: output.decisions,
       preferences: output.preferences,
       updatedAt: now,
+    },
+    usage: {
+      inputTokens: result.usage?.inputTokens ?? 0,
+      outputTokens: result.usage?.outputTokens ?? 0,
     },
   };
 }

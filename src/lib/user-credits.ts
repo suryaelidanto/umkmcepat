@@ -1,9 +1,34 @@
 import { prisma } from "@/lib/prisma";
 
-export const DAILY_ENERGY_LIMIT = 50;
-export const ENERGY_COST_DISCUSS = 5;
-export const ENERGY_COST_BUILD = 20;
+/**
+ * Token-based energy system.
+ *
+ * Formula: energy = inputTokens + (2 × outputTokens)
+ *
+ * Output tokens cost ~2× more than input tokens (DeepSeek V4 Pro pricing).
+ * Daily limit: 200,000 energy ≈ Rp 1,400/day/user at current pricing.
+ * Day boundary: Asia/Jakarta (WIB).
+ */
+export const DAILY_ENERGY_LIMIT = 200_000;
+
+/** Soft gate before discuss turns — cheap relative to build. */
+export const MIN_ENERGY_DISCUSS = 5_000;
+/** Soft gate before full build pipeline. */
+export const MIN_ENERGY_BUILD = 40_000;
+/** Soft gate before source edit agent. */
+export const MIN_ENERGY_EDIT = 10_000;
+/** Soft gate before moderation. */
+export const MIN_ENERGY_MODERATION = 500;
+
 export const PROJECT_LIMIT_DEFAULT = 5;
+
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+export function calculateEnergy(inputTokens: number, outputTokens: number) {
+  const input = Math.max(0, Math.floor(inputTokens));
+  const output = Math.max(0, Math.floor(outputTokens));
+  return input + 2 * output;
+}
 
 export function getProjectLimit(): number {
   const raw = Number(process.env.PROJECT_LIMIT);
@@ -12,53 +37,68 @@ export function getProjectLimit(): number {
     : PROJECT_LIMIT_DEFAULT;
 }
 
+/** Day boundaries in Asia/Jakarta (WIB, UTC+7). */
 export function getDayBoundaries(now: Date = new Date()): {
   startOfDay: Date;
   endOfDay: Date;
 } {
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const wibMs = now.getTime() + WIB_OFFSET_MS;
+  const wib = new Date(wibMs);
+  const startWibUtcMs = Date.UTC(
+    wib.getUTCFullYear(),
+    wib.getUTCMonth(),
+    wib.getUTCDate(),
+  );
+  const startOfDay = new Date(startWibUtcMs - WIB_OFFSET_MS);
   const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
   return { startOfDay, endOfDay };
 }
 
 export async function getRemainingEnergy(userId: string): Promise<number> {
-  const { startOfDay, endOfDay } = getDayBoundaries();
-
-  const result = await prisma.userCredit.aggregate({
-    where: {
-      userId,
-      createdAt: { gte: startOfDay, lt: endOfDay },
-    },
-    _sum: { amount: true },
-  });
-
-  const used = Math.abs(result._sum.amount ?? 0);
-  return Math.max(0, DAILY_ENERGY_LIMIT - used);
+  const stats = await getEnergyStats(userId);
+  return stats.remaining;
 }
 
 export async function checkEnergy(
   userId: string,
-  cost: number,
+  cost: number = MIN_ENERGY_DISCUSS,
 ): Promise<{ allowed: boolean; remaining: number }> {
   const remaining = await getRemainingEnergy(userId);
   return { allowed: remaining >= cost, remaining };
 }
 
-export async function deductEnergy(
+/**
+ * Deduct energy based on actual token usage.
+ * Formula: energy = inputTokens + (2 × outputTokens)
+ */
+export async function addEnergyUsage(
   userId: string,
-  cost: number,
+  inputTokens: number,
+  outputTokens: number,
   reason: string,
-): Promise<void> {
+): Promise<{ energyUsed: number; inputTokens: number; outputTokens: number }> {
+  const input = Math.max(0, Math.floor(inputTokens));
+  const output = Math.max(0, Math.floor(outputTokens));
+  const energyUsed = calculateEnergy(input, output);
+
+  if (energyUsed <= 0) {
+    return { energyUsed: 0, inputTokens: 0, outputTokens: 0 };
+  }
+
   const { endOfDay } = getDayBoundaries();
 
   await prisma.userCredit.create({
     data: {
       userId,
-      amount: -cost,
-      reason,
+      amount: -energyUsed,
+      inputTokens: input,
+      outputTokens: output,
+      reason: reason.slice(0, 64),
       expiresAt: endOfDay,
     },
   });
+
+  return { energyUsed, inputTokens: input, outputTokens: output };
 }
 
 export async function getEnergyStats(userId: string): Promise<{
@@ -66,18 +106,29 @@ export async function getEnergyStats(userId: string): Promise<{
   used: number;
   limit: number;
   resetsAt: Date;
+  inputTokens: number;
+  outputTokens: number;
 }> {
   const { startOfDay, endOfDay } = getDayBoundaries();
 
-  const result = await prisma.userCredit.aggregate({
-    where: {
-      userId,
-      createdAt: { gte: startOfDay, lt: endOfDay },
-    },
-    _sum: { amount: true },
-  });
+  const [sumResult, tokenResult] = await Promise.all([
+    prisma.userCredit.aggregate({
+      where: {
+        userId,
+        createdAt: { gte: startOfDay, lt: endOfDay },
+      },
+      _sum: { amount: true },
+    }),
+    prisma.userCredit.aggregate({
+      where: {
+        userId,
+        createdAt: { gte: startOfDay, lt: endOfDay },
+      },
+      _sum: { inputTokens: true, outputTokens: true },
+    }),
+  ]);
 
-  const used = Math.abs(result._sum.amount ?? 0);
+  const used = Math.abs(sumResult._sum.amount ?? 0);
   const remaining = Math.max(0, DAILY_ENERGY_LIMIT - used);
 
   return {
@@ -85,6 +136,8 @@ export async function getEnergyStats(userId: string): Promise<{
     used,
     limit: DAILY_ENERGY_LIMIT,
     resetsAt: endOfDay,
+    inputTokens: tokenResult._sum.inputTokens ?? 0,
+    outputTokens: tokenResult._sum.outputTokens ?? 0,
   };
 }
 
@@ -93,7 +146,8 @@ export async function isUserVerified(userId: string): Promise<boolean> {
     where: { id: userId },
     select: { verifiedAt: true },
   });
-  return user?.verifiedAt !== null && user?.verifiedAt !== undefined;
+
+  return Boolean(user?.verifiedAt);
 }
 
 export async function getProjectCount(userId: string): Promise<number> {

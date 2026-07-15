@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { moderateProjectRequest } from "@/lib/ai-moderation";
+import { auth } from "@/lib/auth";
 import { validateProjectRequest } from "@/lib/projects/input";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { addEnergyUsage } from "@/lib/user-credits";
 
 type ModerationBody = { prompt?: string };
 
@@ -27,7 +29,20 @@ export const Route = createFileRoute("/api/moderation/project-request")({
         }
 
         try {
-          return Response.json(await moderateProjectRequest(validation.value));
+          const result = await moderateProjectRequest(validation.value);
+          const session = await auth();
+          if (session?.user?.id && result.usage) {
+            await addEnergyUsage(
+              session.user.id,
+              result.usage.inputTokens,
+              result.usage.outputTokens,
+              "moderation",
+            );
+          }
+          return Response.json({
+            allowed: result.allowed,
+            message: "message" in result ? result.message : undefined,
+          });
         } catch {
           return Response.json(
             {

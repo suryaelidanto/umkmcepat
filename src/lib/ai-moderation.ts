@@ -5,7 +5,12 @@ import { getDefaultAiModel } from "@/lib/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
 
 export type ModerationResult =
-  { allowed: true } | { allowed: false; message: string };
+  | { allowed: true; usage: { inputTokens: number; outputTokens: number } }
+  | {
+      allowed: false;
+      message: string;
+      usage: { inputTokens: number; outputTokens: number };
+    };
 
 const BLOCK_MESSAGE =
   "Maaf, AI tidak bisa membantu membuat website untuk topik ini. Kamu bisa ubah chat dan coba lagi.";
@@ -26,11 +31,14 @@ export async function moderateProjectRequest(
   const cached = moderationCache.get(key);
 
   if (cached && cached.expiresAt > Date.now()) {
-    return cached.result;
+    return {
+      ...cached.result,
+      usage: { inputTokens: 0, outputTokens: 0 },
+    };
   }
 
   const abortController = new AbortController();
-  const { text } = await withAiTimeout(
+  const result = await withAiTimeout(
     generateText({
       abortSignal: abortController.signal,
       maxOutputTokens: 256,
@@ -49,29 +57,31 @@ export async function moderateProjectRequest(
     timeoutMs,
   );
 
-  const label = text.trim().toUpperCase();
+  const usage = {
+    inputTokens: result.usage?.inputTokens ?? 0,
+    outputTokens: result.usage?.outputTokens ?? 0,
+  };
+  const label = result.text.trim().toUpperCase();
   if (!["ALLOW", "BLOCK", "CLARIFY"].includes(label)) {
-    // Model returned empty or unexpected text. Default to ALLOW to avoid
-    // blocking legitimate users; log for investigation.
     console.warn(
-      `[moderation] unexpected model response: ${JSON.stringify(text)} — defaulting to ALLOW`,
+      `[moderation] unexpected model response: ${JSON.stringify(result.text)} — defaulting to ALLOW`,
     );
-    return { allowed: true };
+    return { allowed: true, usage };
   }
 
-  const result: ModerationResult =
+  const moderationResult: ModerationResult =
     label === "BLOCK"
-      ? { allowed: false, message: BLOCK_MESSAGE }
+      ? { allowed: false, message: BLOCK_MESSAGE, usage }
       : label === "CLARIFY"
-        ? { allowed: false, message: CLARIFY_MESSAGE }
-        : { allowed: true };
+        ? { allowed: false, message: CLARIFY_MESSAGE, usage }
+        : { allowed: true, usage };
 
   moderationCache.set(key, {
     expiresAt: Date.now() + MODERATION_CACHE_TTL_MS,
-    result,
+    result: moderationResult,
   });
 
-  return result;
+  return moderationResult;
 }
 
 export function getModerationTimeoutMs() {

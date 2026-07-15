@@ -23,6 +23,7 @@ export type CustomGeneratedSourceResult = {
   repairAttempts: number;
   summary: string;
   touchedFiles: string[];
+  usage?: { inputTokens: number; outputTokens: number };
 };
 
 export async function generateCustomProjectFilesWithAgent({
@@ -139,6 +140,10 @@ export async function generateCustomProjectFilesWithAgent({
       repairAttempts: 0,
       summary: result.text || "AI coding agent generated custom source files.",
       touchedFiles: [...touchedFiles].sort(),
+      usage: {
+        inputTokens: "usage" in result ? (result.usage?.inputTokens ?? 0) : 0,
+        outputTokens: "usage" in result ? (result.usage?.outputTokens ?? 0) : 0,
+      },
     };
   } catch (error) {
     throw new Error(
@@ -479,5 +484,9 @@ Steps:
     repairAttempts: 1,
     summary: result.text || "AI agent repaired source files.",
     touchedFiles: [...touchedFiles].sort(),
+    usage: {
+      inputTokens: "usage" in result ? (result.usage?.inputTokens ?? 0) : 0,
+      outputTokens: "usage" in result ? (result.usage?.outputTokens ?? 0) : 0,
+    },
   };
 }

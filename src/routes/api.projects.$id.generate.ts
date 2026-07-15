@@ -53,10 +53,10 @@ import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generatio
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
+  addEnergyUsage,
   checkEnergy,
-  deductEnergy,
-  ENERGY_COST_BUILD,
   isUserVerified,
+  MIN_ENERGY_BUILD,
 } from "@/lib/user-credits";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
@@ -100,7 +100,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
     );
   }
 
-  const energy = await checkEnergy(userId, ENERGY_COST_BUILD);
+  const energy = await checkEnergy(userId, MIN_ENERGY_BUILD);
   if (!energy.allowed) {
     return Response.json(
       {
@@ -396,15 +396,25 @@ async function handleGeneratePost(request: Request, routeId: string) {
               "AI implementation spec was invalid after retries.",
             );
           }
-          return spec;
+          const usage = await result.usage;
+          return {
+            spec,
+            inputTokens: usage?.inputTokens ?? 0,
+            outputTokens: usage?.outputTokens ?? 0,
+          };
         }
 
         const implementationSpecPrompt = buildImplementationSpecPrompt(brief);
         let implementationSpec: ImplementationSpec;
+        let specInputTokens = 0;
+        let specOutputTokens = 0;
         try {
-          implementationSpec = await generateImplementationSpec(
+          const specResult = await generateImplementationSpec(
             implementationSpecPrompt,
           );
+          implementationSpec = specResult.spec;
+          specInputTokens = specResult.inputTokens;
+          specOutputTokens = specResult.outputTokens;
         } catch {
           send("progress", {
             label: "Memeriksa ulang rancangan",
@@ -412,9 +422,12 @@ async function handleGeneratePost(request: Request, routeId: string) {
           });
           // Wait 5s before retry so rate limits have time to clear.
           await new Promise((resolve) => setTimeout(resolve, 5_000));
-          implementationSpec = await generateImplementationSpec(
+          const specResult = await generateImplementationSpec(
             implementationSpecPrompt,
           );
+          implementationSpec = specResult.spec;
+          specInputTokens = specResult.inputTokens;
+          specOutputTokens = specResult.outputTokens;
         }
         const specLeaseRenewed = await renewProjectOperation({
           projectId,
@@ -440,6 +453,8 @@ async function handleGeneratePost(request: Request, routeId: string) {
           projectId: projectId,
           schema: finalSchema,
         });
+        let sourceInputTokens = sourceGeneration.usage?.inputTokens ?? 0;
+        let sourceOutputTokens = sourceGeneration.usage?.outputTokens ?? 0;
         devLog("generate", "source.generated", {
           buildSpecLength: sourceGeneration.buildSpec.length,
           files: sourceGeneration.files.length,
@@ -611,6 +626,8 @@ async function handleGeneratePost(request: Request, routeId: string) {
                 projectId: projectId,
                 schema: finalSchema,
               });
+              sourceInputTokens += repair.usage?.inputTokens ?? 0;
+              sourceOutputTokens += repair.usage?.outputTokens ?? 0;
               sourceFiles = repair.files;
 
               await prisma.projectSnapshot.update({
@@ -805,7 +822,12 @@ async function handleGeneratePost(request: Request, routeId: string) {
         runtimeBuildFinalized = true;
 
         if (finalBuildResult.ok) {
-          await deductEnergy(userId, ENERGY_COST_BUILD, "build");
+          await addEnergyUsage(
+            userId,
+            specInputTokens + sourceInputTokens,
+            specOutputTokens + sourceOutputTokens,
+            "build",
+          );
         }
 
         await Promise.allSettled([
