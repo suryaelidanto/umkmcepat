@@ -883,23 +883,56 @@ export function WorkspaceShell({
     }
   }, [olderMessages.length]);
 
-  const scrollChatToBottom = useCallback(() => {
-    const element = chatScrollRef.current;
-
-    if (!element) {
-      return;
-    }
-
-    ignoreNextScrollRef.current = true;
-    element.scrollTop = element.scrollHeight;
-    window.setTimeout(() => {
-      ignoreNextScrollRef.current = false;
-    }, 80);
+  const isChatNearBottom = useCallback((element: HTMLElement) => {
+    // Small threshold so a slight upward scroll unsticks auto-follow.
+    const distanceFromBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight;
+    return distanceFromBottom < 48;
   }, []);
 
+  const scrollChatToBottom = useCallback(
+    (options?: { force?: boolean; behavior?: ScrollBehavior }) => {
+      const element = chatScrollRef.current;
+
+      if (!element) {
+        return;
+      }
+
+      if (!options?.force && !shouldStickToBottomRef.current) {
+        return;
+      }
+
+      const behavior = options?.behavior ?? "smooth";
+
+      // Instant programmatic jumps would otherwise look like "forced" scrolling.
+      // Only suppress the next scroll event for hard jumps (e.g. user send).
+      if (behavior === "auto") {
+        ignoreNextScrollRef.current = true;
+        element.scrollTop = element.scrollHeight;
+        window.setTimeout(() => {
+          ignoreNextScrollRef.current = false;
+        }, 80);
+        return;
+      }
+
+      element.scrollTo({
+        top: element.scrollHeight,
+        behavior: "smooth",
+      });
+    },
+    [],
+  );
+
+  // First paint: stick to bottom once so first generation starts at latest.
   useEffect(() => {
-    const frame = requestAnimationFrame(scrollChatToBottom);
-    const timeout = window.setTimeout(scrollChatToBottom, 120);
+    shouldStickToBottomRef.current = true;
+    const frame = requestAnimationFrame(() =>
+      scrollChatToBottom({ force: true, behavior: "auto" }),
+    );
+    const timeout = window.setTimeout(
+      () => scrollChatToBottom({ force: true, behavior: "smooth" }),
+      120,
+    );
 
     return () => {
       cancelAnimationFrame(frame);
@@ -916,7 +949,7 @@ export function WorkspaceShell({
     }
 
     if (shouldStickToBottomRef.current) {
-      scrollChatToBottom();
+      scrollChatToBottom({ behavior: "smooth" });
     }
 
     previousLiveMessageCount.current = messages.length;
@@ -927,13 +960,19 @@ export function WorkspaceShell({
     setMessage("");
   }, [activeQuestionKey]);
 
+  // While AI streams, keep following only if user is still pinned to bottom.
   useEffect(() => {
     if (!isResponding || !shouldStickToBottomRef.current) {
       return;
     }
 
-    const frame = requestAnimationFrame(scrollChatToBottom);
-    const timeout = window.setTimeout(scrollChatToBottom, 120);
+    const frame = requestAnimationFrame(() =>
+      scrollChatToBottom({ behavior: "smooth" }),
+    );
+    const timeout = window.setTimeout(
+      () => scrollChatToBottom({ behavior: "smooth" }),
+      120,
+    );
 
     return () => {
       cancelAnimationFrame(frame);
@@ -943,7 +982,7 @@ export function WorkspaceShell({
 
   useEffect(() => {
     if (shouldStickToBottomRef.current) {
-      requestAnimationFrame(scrollChatToBottom);
+      requestAnimationFrame(() => scrollChatToBottom({ behavior: "smooth" }));
     }
   }, [questionComposerMode, workspaceCard, scrollChatToBottom]);
 
@@ -1248,10 +1287,13 @@ export function WorkspaceShell({
         return;
       }
 
+      // User is sending a new turn: re-pin and jump to latest.
       shouldStickToBottomRef.current = true;
       setRateLimitError(null);
       setMessage("");
-      requestAnimationFrame(scrollChatToBottom);
+      requestAnimationFrame(() =>
+        scrollChatToBottom({ force: true, behavior: "smooth" }),
+      );
 
       if (composerState === "post_build_chat") {
         setIsEditingPreview(true);
@@ -1583,17 +1625,26 @@ export function WorkspaceShell({
 
             <div
               ref={chatScrollRef}
+              onWheel={(event) => {
+                // Immediate unstick when user scrolls up, even mid smooth-follow.
+                if (event.deltaY < 0) {
+                  shouldStickToBottomRef.current = false;
+                }
+              }}
+              onTouchStart={() => {
+                // Touch drag intent: stop forcing until they return to bottom.
+                const element = chatScrollRef.current;
+                if (element && !isChatNearBottom(element)) {
+                  shouldStickToBottomRef.current = false;
+                }
+              }}
               onScroll={(event) => {
                 if (ignoreNextScrollRef.current) {
                   return;
                 }
 
                 const element = event.currentTarget;
-                shouldStickToBottomRef.current =
-                  element.scrollHeight -
-                    element.scrollTop -
-                    element.clientHeight <
-                  120;
+                shouldStickToBottomRef.current = isChatNearBottom(element);
               }}
               className="mt-spacing-5 min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
             >
