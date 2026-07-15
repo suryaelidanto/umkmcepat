@@ -12,7 +12,7 @@ const {
   prismaProjectFindUniqueMock,
   prismaQueryRawMock,
   stopSupersededPreviewDeploymentsMock,
-  streamTextMock,
+  generateTextMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   checkRateLimitMock: vi.fn(async () => null),
@@ -28,7 +28,7 @@ const {
   prismaProjectFindUniqueMock: vi.fn(),
   prismaQueryRawMock: vi.fn(),
   stopSupersededPreviewDeploymentsMock: vi.fn(async () => []),
-  streamTextMock: vi.fn(),
+  generateTextMock: vi.fn(),
 }));
 
 vi.mock("@/lib/ai", () => ({
@@ -77,9 +77,11 @@ vi.mock("@/lib/user-credits", () => ({
 vi.mock("ai", () => ({
   jsonSchema: vi.fn((schema: unknown) => schema),
   Output: {
+    json: vi.fn(() => ({})),
     object: vi.fn((opts: unknown) => opts),
   },
-  streamText: streamTextMock,
+  generateText: generateTextMock,
+  streamText: vi.fn(),
 }));
 
 import { getHandler } from "./_handler";
@@ -140,15 +142,11 @@ describe("project generate route", () => {
         },
       },
     ]);
-    streamTextMock.mockReturnValueOnce({
-      partialOutputStream: {
-        [Symbol.asyncIterator]: async function* () {
-          throw new Error(
-            '[provider transport error: {"type":"server_error","message":"Network connection lost."}]',
-          );
-        },
-      },
-    });
+    generateTextMock.mockRejectedValueOnce(
+      new Error(
+        '[provider transport error: {"type":"server_error","message":"Network connection lost."}]',
+      ),
+    );
 
     const response = await POST(
       new Request("http://localhost/api/projects/project_1/generate", {
