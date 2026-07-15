@@ -33,6 +33,23 @@ vi.mock("@/lib/projects/input", () => ({
   validateProjectRequest: validateProjectRequestMock,
 }));
 
+vi.mock("@/lib/user-credits", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/user-credits")>(
+      "@/lib/user-credits",
+    );
+
+  return {
+    ...actual,
+    checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 200_000 })),
+    addEnergyUsage: vi.fn(async () => ({
+      energyUsed: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    })),
+  };
+});
+
 import { getHandler } from "./_handler";
 
 import { Route } from "@/routes/api.projects.moderate";

@@ -111,22 +111,13 @@ export async function getEnergyStats(userId: string): Promise<{
 }> {
   const { startOfDay, endOfDay } = getDayBoundaries();
 
-  const [sumResult, tokenResult] = await Promise.all([
-    prisma.userCredit.aggregate({
-      where: {
-        userId,
-        createdAt: { gte: startOfDay, lt: endOfDay },
-      },
-      _sum: { amount: true },
-    }),
-    prisma.userCredit.aggregate({
-      where: {
-        userId,
-        createdAt: { gte: startOfDay, lt: endOfDay },
-      },
-      _sum: { inputTokens: true, outputTokens: true },
-    }),
-  ]);
+  const sumResult = await prisma.userCredit.aggregate({
+    where: {
+      userId,
+      createdAt: { gte: startOfDay, lt: endOfDay },
+    },
+    _sum: { amount: true, inputTokens: true, outputTokens: true },
+  });
 
   const used = Math.abs(sumResult._sum.amount ?? 0);
   const remaining = Math.max(0, DAILY_ENERGY_LIMIT - used);
@@ -136,8 +127,8 @@ export async function getEnergyStats(userId: string): Promise<{
     used,
     limit: DAILY_ENERGY_LIMIT,
     resetsAt: endOfDay,
-    inputTokens: tokenResult._sum.inputTokens ?? 0,
-    outputTokens: tokenResult._sum.outputTokens ?? 0,
+    inputTokens: sumResult._sum.inputTokens ?? 0,
+    outputTokens: sumResult._sum.outputTokens ?? 0,
   };
 }
 
