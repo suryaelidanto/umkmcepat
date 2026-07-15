@@ -3,23 +3,24 @@ import { describe, expect, it, vi } from "vitest";
 // Integration test proving the build pipeline logic works end-to-end.
 // Mocks the AI provider to verify the code path without external dependencies.
 
+const generateTextMock = vi.fn().mockResolvedValue({
+  text: "ALLOW",
+  usage: { inputTokens: 5, outputTokens: 1 },
+});
+
 vi.mock("ai", async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
-    generateText: vi.fn().mockResolvedValue({
-      text: "ALLOW",
-      usage: { totalTokens: 10, promptTokens: 5, completionTokens: 5 },
-    }),
+    generateText: generateTextMock,
     streamText: vi.fn().mockResolvedValue({
       textStream: (async function* () {
         yield '{"appKind":"interactive_app","businessName":"Test Business","pages":[{"slug":"home","title":"Home","purpose":"Landing"}],"components":[{"name":"Hero","purpose":"Hero section"},{"name":"ProductCard","purpose":"Product display"}],"features":["WhatsApp ordering"],"content":{},"style":{"direction":"Modern Indonesian","palette":{"background":"#ffffff","foreground":"#000000","muted":"#cccccc","accent":"#d84315"}},"primaryCta":"Pesan via WhatsApp","notes":[]}';
       })(),
       text: Promise.resolve("{}"),
       usage: Promise.resolve({
-        totalTokens: 100,
-        promptTokens: 50,
-        completionTokens: 50,
+        inputTokens: 50,
+        outputTokens: 50,
       }),
     }),
   };
@@ -217,13 +218,18 @@ describe("Build pipeline integration", () => {
   });
 
   it("moderation defaults to ALLOW for empty model responses", async () => {
-    // The moderation function uses getAiModel internally which is mocked.
-    // With the mocked model, generateText returns "ALLOW" by default.
+    generateTextMock.mockResolvedValueOnce({
+      text: "",
+      usage: { inputTokens: 5, outputTokens: 0 },
+    });
     const { moderateProjectRequest } = await import("@/lib/ai-moderation");
-    // This will call generateText with the mocked model — the mock returns
-    // "ALLOW" so moderation should allow.
-    const result = await moderateProjectRequest("test prompt");
-    expect(result).toMatchObject({ allowed: true });
+    const result = await moderateProjectRequest(
+      `unique empty moderation ${Date.now()}`,
+    );
+    expect(result).toMatchObject({
+      allowed: true,
+      usage: { inputTokens: 5, outputTokens: 0 },
+    });
   });
 
   it("implementation spec parser validates required fields", async () => {
