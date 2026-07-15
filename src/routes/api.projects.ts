@@ -20,6 +20,7 @@ import {
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
+  addEnergyUsage,
   getProjectCount,
   getProjectLimit,
   isOverProjectLimit,
@@ -201,6 +202,15 @@ export const Route = createFileRoute("/api/projects")({
             retryAfter: 3,
             status: 503,
           });
+        }
+
+        if (moderation.usage) {
+          await addEnergyUsage(
+            userId,
+            moderation.usage.inputTokens,
+            moderation.usage.outputTokens,
+            "moderation",
+          );
         }
 
         if (!moderation.allowed) {

@@ -39,10 +39,10 @@ import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
+  addEnergyUsage,
   checkEnergy,
-  deductEnergy,
-  ENERGY_COST_DISCUSS,
   isUserVerified,
+  MIN_ENERGY_EDIT,
 } from "@/lib/user-credits";
 
 type EditRequest = {
@@ -88,7 +88,7 @@ async function handleEditPost(request: Request, routeId: string) {
     );
   }
 
-  const energy = await checkEnergy(userId, ENERGY_COST_DISCUSS);
+  const energy = await checkEnergy(userId, MIN_ENERGY_EDIT);
   if (!energy.allowed) {
     return Response.json(
       {
@@ -382,10 +382,15 @@ async function handleEditPost(request: Request, routeId: string) {
   let activeBuildId: string | null = null;
 
   try {
+    let totalEditInputTokens = 0;
+    let totalEditOutputTokens = 0;
+
     const editResult = await editGeneratedSourceWithAgent({
       files: baseFiles,
       instruction,
     });
+    totalEditInputTokens += editResult.usage?.inputTokens ?? 0;
+    totalEditOutputTokens += editResult.usage?.outputTokens ?? 0;
     devLog("edit", "tools.finished", {
       ok: editResult.ok,
       operations: editResult.operations.length,
@@ -404,6 +409,8 @@ async function handleEditPost(request: Request, routeId: string) {
         ].join("\n\n"),
         model: getDefaultAiModel(),
       });
+      totalEditInputTokens += fallbackResult.usage?.inputTokens ?? 0;
+      totalEditOutputTokens += fallbackResult.usage?.outputTokens ?? 0;
 
       if (fallbackResult.ok) {
         editResult.files = fallbackResult.files;
@@ -475,6 +482,8 @@ async function handleEditPost(request: Request, routeId: string) {
           `Validation issues: ${editValidation.blockingIssues.join("; ")}`,
         ].join("\n\n"),
       });
+      totalEditInputTokens += repairResult.usage?.inputTokens ?? 0;
+      totalEditOutputTokens += repairResult.usage?.outputTokens ?? 0;
 
       if (repairResult.ok) {
         editResult.files = repairResult.files;
@@ -741,7 +750,12 @@ async function handleEditPost(request: Request, routeId: string) {
     }
 
     if (buildResult.status === "succeeded") {
-      await deductEnergy(userId, ENERGY_COST_DISCUSS, "edit_turn");
+      await addEnergyUsage(
+        userId,
+        totalEditInputTokens,
+        totalEditOutputTokens,
+        "edit_turn",
+      );
     }
 
     return Response.json({

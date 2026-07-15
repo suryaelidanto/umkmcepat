@@ -111,10 +111,14 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 vi.mock("@/lib/user-credits", () => ({
-  checkEnergy: vi.fn().mockResolvedValue({ allowed: true, remaining: 50 }),
-  deductEnergy: vi.fn().mockResolvedValue(undefined),
+  checkEnergy: vi.fn().mockResolvedValue({ allowed: true, remaining: 200_000 }),
+  addEnergyUsage: vi.fn().mockResolvedValue({
+    energyUsed: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+  }),
   isUserVerified: vi.fn().mockResolvedValue(true),
-  ENERGY_COST_BUILD: 20,
+  MIN_ENERGY_BUILD: 40_000,
 }));
 
 vi.mock("@/lib/auth", () => ({

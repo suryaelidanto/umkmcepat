@@ -65,9 +65,13 @@ vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
 vi.mock("@/lib/user-credits", () => ({
-  checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 50 })),
-  deductEnergy: vi.fn(async () => {}),
-  ENERGY_COST_BUILD: 20,
+  checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 200_000 })),
+  addEnergyUsage: vi.fn(async () => ({
+    energyUsed: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+  })),
+  MIN_ENERGY_BUILD: 40_000,
   isUserVerified: vi.fn(async () => true),
 }));
 vi.mock("ai", () => ({

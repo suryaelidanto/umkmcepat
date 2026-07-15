@@ -473,10 +473,19 @@ export function WorkspaceShell({
       });
 
       if (!response.ok || !response.body) {
+        let detail = "Server belum bisa memulai proses build. Coba ulangi.";
+        try {
+          const errorBody = (await response.json()) as { message?: string };
+          if (errorBody.message) {
+            detail = errorBody.message;
+          }
+        } catch {
+          // keep default message
+        }
         setBuildStatus("failed");
         setBuildProgress((current) =>
           addBuildProgressStep(current, {
-            detail: "Server belum bisa memulai proses build. Coba ulangi.",
+            detail,
             label: "Build belum mulai",
             status: "error",
           }),
@@ -550,6 +559,7 @@ export function WorkspaceShell({
             setBuildStatus("ready");
             setBuildProgress((current) => completeBuildProgress(current));
             void loadRuntimeState();
+            window.dispatchEvent(new Event("umkm:energy-changed"));
           }
 
           if (eventName === "error") {
@@ -1014,6 +1024,8 @@ export function WorkspaceShell({
       return;
     }
 
+    window.dispatchEvent(new Event("umkm:energy-changed"));
+
     const answered = hasAnsweredWorkspaceQuestion({
       card: workspaceCardRef.current,
       messages: allMessagesRef.current,
@@ -1167,6 +1179,7 @@ export function WorkspaceShell({
       setPreviewCollapsed(false);
       setPreviewReloadKey((current) => current + 1);
       void loadRuntimeState();
+      window.dispatchEvent(new Event("umkm:energy-changed"));
     } finally {
       visualEditInFlightRef.current = false;
       setIsEditingPreview(false);
@@ -1618,11 +1631,9 @@ export function WorkspaceShell({
                   </Button>
                 </div>
               ) : isPreparingNextQuestion ? (
-                <div className="rounded-[18px] border border-surface-warm-white/10 bg-surface-warm-white/[0.04] px-spacing-5 py-spacing-4">
-                  <p className="text-sm font-medium text-surface-warm-white/62">
-                    Menyiapkan pertanyaan berikutnya...
-                  </p>
-                </div>
+                <p className="text-sm text-surface-warm-white/46">
+                  Menyiapkan pertanyaan berikutnya...
+                </p>
               ) : workspaceCardError ? (
                 <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                   <p className="text-sm font-medium text-[#ffb4a6]">

@@ -7,7 +7,13 @@ type EnergyStats = {
   used: number;
   limit: number;
   resetsAt: string;
+  inputTokens: number;
+  outputTokens: number;
 };
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("id-ID").format(value);
+}
 
 export function EnergyDisplay() {
   const [stats, setStats] = useState<EnergyStats | null>(null);
@@ -25,8 +31,26 @@ export function EnergyDisplay() {
 
   useEffect(() => {
     void loadStats();
-    const interval = window.setInterval(() => void loadStats(), 30_000);
-    return () => window.clearInterval(interval);
+    const interval = window.setInterval(() => void loadStats(), 15_000);
+
+    const onFocus = () => void loadStats();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void loadStats();
+      }
+    };
+    const onEnergyChanged = () => void loadStats();
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("umkm:energy-changed", onEnergyChanged);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("umkm:energy-changed", onEnergyChanged);
+    };
   }, [loadStats]);
 
   if (!stats) {
@@ -41,14 +65,21 @@ export function EnergyDisplay() {
   return (
     <div
       className="flex items-center gap-2"
-      title={`Energi harian. Terpakai ${stats.used}/${stats.limit}. Reset ${resetLabel}.`}
+      title={[
+        `Energi: ${formatNumber(stats.remaining)}/${formatNumber(stats.limit)}`,
+        `Terpakai: ${formatNumber(stats.used)}`,
+        `Input: ${formatNumber(stats.inputTokens)} token`,
+        `Output: ${formatNumber(stats.outputTokens)} token (×2 energi)`,
+        "Rumus: input + (2 × output)",
+        `Reset ${resetLabel} (WIB)`,
+      ].join("\n")}
     >
       <div className="flex items-center gap-1.5">
         <div
           className={`size-2 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"}`}
         />
         <span className="text-xs font-medium text-surface-warm-white/78">
-          {stats.remaining}
+          {formatNumber(stats.remaining)}
         </span>
         <span className="text-xs text-surface-warm-white/42">Energi</span>
       </div>
@@ -67,7 +98,7 @@ export function EnergyDisplay() {
           className="rounded-md bg-surface-warm-white/10 px-2 py-0.5 text-[10px] font-medium text-surface-warm-white/60 transition hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80"
           title="Dev: reset energy hari ini"
         >
-          +100
+          Reset
         </button>
       )}
     </div>
@@ -98,6 +129,7 @@ async function handleDevAddEnergy(refresh: () => Promise<void>) {
     const response = await fetch("/api/dev/add-energy", { method: "POST" });
     if (response.ok) {
       await refresh();
+      window.dispatchEvent(new Event("umkm:energy-changed"));
     }
   } catch {
     // ignore

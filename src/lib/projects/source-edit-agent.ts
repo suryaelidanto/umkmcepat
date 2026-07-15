@@ -93,7 +93,7 @@ export async function editGeneratedSourceWithAgent({
     },
   });
 
-  await withAiTimeout(
+  const result = await withAiTimeout(
     agent.generate({
       prompt: [
         "Edit the generated source to satisfy this user request.",
@@ -123,6 +123,10 @@ export async function editGeneratedSourceWithAgent({
     files: currentFiles,
     operations: operationTrace.length ? operationTrace : finalCheck.operations,
     sideEffects,
+    usage: {
+      inputTokens: result.usage?.inputTokens ?? 0,
+      outputTokens: result.usage?.outputTokens ?? 0,
+    },
   };
 }
 
