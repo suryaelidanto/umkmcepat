@@ -5,15 +5,25 @@ import { useEffect } from "react";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
-import { usePathname, useRouter } from "@/lib/navigation";
+import {
+  useIsRoutePending,
+  usePathname,
+  useRouter,
+  useTargetPathname,
+} from "@/lib/navigation";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 
 export function MainChrome({ children }: { children: React.ReactNode }) {
+  // Layout must follow the *committed* page (Outlet), not the in-flight target.
+  // Otherwise project → home briefly shows home chrome around project chat.
   const pathname = usePathname();
+  const targetPathname = useTargetPathname();
+  const isRoutePending = useIsRoutePending();
   const router = useRouter();
+
   const isWorkspace =
     pathname.startsWith("/projects/") && pathname !== "/projects/new";
-  const isVerifyPage = pathname === "/verify";
+  const isVerifyPage = pathname === "/verify" || targetPathname === "/verify";
 
   const verificationQuery = useQuery({
     queryKey: queryKeys.verification,
@@ -67,7 +77,9 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (isWorkspace) {
+  // During a pending transition keep the previous chrome so header/footer
+  // don't jump ahead of the still-mounted previous page content.
+  if (isWorkspace || (isRoutePending && pathname.startsWith("/projects/"))) {
     return <main className="min-h-dvh bg-[#1b1b19]">{children}</main>;
   }
 
