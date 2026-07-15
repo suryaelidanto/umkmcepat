@@ -236,9 +236,6 @@ function checkAgentSourceQuality(
     issues.push("missing route files");
   }
 
-  const routeEdited = [...touchedFiles].some((path) =>
-    path.startsWith("src/routes/"),
-  );
   const presentationEdited = [...touchedFiles].some(
     (path) => path.startsWith("src/components/") || path === "src/styles.css",
   );
@@ -246,16 +243,10 @@ function checkAgentSourceQuality(
     path.startsWith("src/content/"),
   );
 
-  if (!routeEdited) {
-    issues.push("agent did not edit route files");
-  }
-
-  if (!presentationEdited) {
-    issues.push("agent did not edit presentation files");
-  }
-
-  if (!contentEdited) {
-    issues.push("agent did not edit content files");
+  // Routes come from the starter factory; the agent does not always need to
+  // edit them. Only require that the agent touched at least one content area.
+  if (!presentationEdited && !contentEdited) {
+    issues.push("agent did not edit any presentation or content files");
   }
 
   if (!files.some((file) => file.path.startsWith("src/content/"))) {

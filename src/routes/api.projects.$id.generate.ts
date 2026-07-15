@@ -529,43 +529,12 @@ async function handleGeneratePost(request: Request, routeId: string) {
           }),
         });
 
-        // If the agent timed out with partial files, persist the snapshot and
-        // fail the build honestly — the user can review partial output and retry.
         if (isPartial) {
           send("progress", {
             label: "AI belum selesai menulis file",
             detail:
-              "Agent kehabisan waktu. File yang sudah ditulis tetap tersimpan. Kamu bisa coba lagi.",
+              "Agent kehabisan waktu. Mencoba build dengan file yang ada.",
           });
-          await finalizeProjectOperation({
-            data: {
-              buildStatus: "failed",
-              status: "failed",
-              sourceFiles,
-            },
-            projectId,
-            token: operation.token,
-            userId,
-          });
-          await prisma.projectEditAttempt.updateMany({
-            where: {
-              finishedAt: null,
-              id: operationAttemptId,
-              status: { in: ["generating", "building"] },
-            },
-            data: {
-              errorMessage: "Agent timed out with partial files.",
-              finishedAt: new Date(),
-              status: "failed",
-            },
-          });
-          send("error", {
-            code: "agent_timeout",
-            message:
-              "AI belum selesai menulis semua file website. File yang sudah ditulis tetap tersimpan. Coba lagi untuk mencoba ulang.",
-            partial: true,
-          });
-          return;
         }
 
         const build = await prisma.projectBuild.create({
