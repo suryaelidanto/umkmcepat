@@ -86,17 +86,20 @@ export async function addEnergyUsage(
   }
 
   const { endOfDay } = getDayBoundaries();
-
-  await prisma.userCredit.create({
-    data: {
-      userId,
-      amount: -energyUsed,
-      inputTokens: input,
-      outputTokens: output,
-      reason: reason.slice(0, 64),
-      expiresAt: endOfDay,
-    },
-  });
+  // Raw insert: Prisma client can lag schema when dev server locks generate.
+  await prisma.$executeRaw`
+    INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+    VALUES (
+      ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
+      ${userId},
+      ${-energyUsed},
+      ${input},
+      ${output},
+      ${reason.slice(0, 64)},
+      ${endOfDay},
+      NOW()
+    )
+  `;
 
   return { energyUsed, inputTokens: input, outputTokens: output };
 }
@@ -111,15 +114,24 @@ export async function getEnergyStats(userId: string): Promise<{
 }> {
   const { startOfDay, endOfDay } = getDayBoundaries();
 
-  const sumResult = await prisma.userCredit.aggregate({
-    where: {
-      userId,
-      createdAt: { gte: startOfDay, lt: endOfDay },
-    },
-    _sum: { amount: true, inputTokens: true, outputTokens: true },
-  });
+  const [row] = await prisma.$queryRaw<
+    Array<{
+      amount: number | null;
+      inputTokens: number | null;
+      outputTokens: number | null;
+    }>
+  >`
+    SELECT
+      SUM("amount")::int AS "amount",
+      SUM("inputTokens")::int AS "inputTokens",
+      SUM("outputTokens")::int AS "outputTokens"
+    FROM "UserCredit"
+    WHERE "userId" = ${userId}
+      AND "createdAt" >= ${startOfDay}
+      AND "createdAt" < ${endOfDay}
+  `;
 
-  const used = Math.abs(sumResult._sum.amount ?? 0);
+  const used = Math.abs(row?.amount ?? 0);
   const remaining = Math.max(0, DAILY_ENERGY_LIMIT - used);
 
   return {
@@ -127,8 +139,8 @@ export async function getEnergyStats(userId: string): Promise<{
     used,
     limit: DAILY_ENERGY_LIMIT,
     resetsAt: endOfDay,
-    inputTokens: sumResult._sum.inputTokens ?? 0,
-    outputTokens: sumResult._sum.outputTokens ?? 0,
+    inputTokens: row?.inputTokens ?? 0,
+    outputTokens: row?.outputTokens ?? 0,
   };
 }
 
