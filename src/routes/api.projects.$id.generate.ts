@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { createFileRoute } from "@tanstack/react-router";
-import { streamText } from "ai";
+import { Output, generateText } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getGenerationModel } from "@/lib/ai-models";
@@ -29,7 +29,6 @@ import {
   buildImplementationSpecPrompt,
   implementationSpecToSiteSchema,
   parseImplementationSpec,
-  type ImplementationSpec,
 } from "@/lib/projects/implementation-spec";
 import {
   claimProjectOperation,
@@ -296,147 +295,144 @@ async function handleGeneratePost(request: Request, routeId: string) {
         const buildPrompt = briefToBuildPrompt(brief);
 
         async function generateImplementationSpec(prompt: string) {
-          const result = streamText({
-            model: getAiModel(getGenerationModel()),
-            // Reasoning models (deepseek-v4-pro) burn tokens on hidden
-            // reasoning_content before emitting visible content. Budget high
-            // enough that the JSON spec actually lands in `content`.
-            maxOutputTokens: 16_384,
-            temperature: 0.35,
-            timeout: getAiTimeoutMs("buildSpec"),
-            system:
-              projectSiteGenerationSystemPrompt +
-              "\n\nOutput a JSON object with exactly these fields:\n" +
-              '- appKind: "landing" | "marketing_site" | "interactive_app"\n' +
-              "- businessName: string\n" +
-              "- pages: array of {slug: string, title: string, purpose: string} (1-6 items)\n" +
-              "- components: array of {name: string, purpose: string} (2-10 items)\n" +
-              "- features: array of strings (1-10 items)\n" +
-              "- content: object\n" +
-              '- style: {direction: string, palette: {background: "#hex", foreground: "#hex", muted: "#hex", accent: "#hex"}}\n' +
-              "- primaryCta: string\n" +
-              "- notes: array of strings\n\n" +
-              "Output valid JSON only. No markdown fences, no explanation, no thinking.",
-            prompt,
-            experimental_telemetry: getAiTelemetry(
-              "project-implementation-spec",
-              {
-                projectId,
-                route: "api.projects.generate",
-                userId,
-              },
-            ),
-            onError(error) {
-              devLog("generate", "spec.error", {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : typeof error === "object" && error
-                      ? JSON.stringify(error)
-                      : String(error),
-                projectId,
-              });
-              send("progress", {
-                label: "AI mengalami kendala",
-                detail:
-                  "UMKM Cepat akan memeriksa ulang hasil sebelum build dilanjutkan.",
-              });
-            },
-          });
+          const system =
+            projectSiteGenerationSystemPrompt +
+            "\n\nOutput a JSON object with exactly these fields:\n" +
+            '- appKind: "landing" | "marketing_site" | "interactive_app"\n' +
+            "- businessName: string\n" +
+            "- pages: array of {slug: string, title: string, purpose: string} (1-6 items)\n" +
+            "- components: array of {name: string, purpose: string} (2-10 items)\n" +
+            "- features: array of strings (1-10 items)\n" +
+            "- content: object\n" +
+            '- style: {direction: string, palette: {background: "#hex", foreground: "#hex", muted: "#hex", accent: "#hex"}}\n' +
+            "- primaryCta: string\n" +
+            "- notes: array of strings\n\n" +
+            "Output valid JSON only. No markdown fences, no explanation.";
 
-          let sentKind = false;
-          let sentStructure = false;
-          let sentDesign = false;
-          let accumulated = "";
-
-          for await (const delta of result.textStream) {
-            accumulated += delta;
-            const spec = parseImplementationSpec(
-              parseJsonLenientSafe(accumulated),
+          const attemptSpec = async (maxTokens: number) => {
+            // Output.json() guarantees valid JSON via SDK-level validation.
+            // The provider sends response_format: json_object when supported.
+            const abortController = new AbortController();
+            const timeoutMs = getAiTimeoutMs("buildSpec");
+            const timeout = setTimeout(
+              () => abortController.abort(),
+              timeoutMs,
             );
-            if (!spec) {
-              continue;
-            }
 
-            if (!sentKind) {
-              sentKind = true;
-              send("progress", {
-                label: "Memilih jenis aplikasi",
-                detail: `AI memilih arah ${spec.appKind.replace(/_/g, " ")}.`,
+            let result;
+            try {
+              result = await generateText({
+                model: getAiModel(getGenerationModel()),
+                maxOutputTokens: maxTokens,
+                temperature: 0.35,
+                abortSignal: abortController.signal,
+                instructions: system,
+                prompt,
+                output: Output.json(),
+                telemetry: getAiTelemetry("project-implementation-spec", {
+                  projectId,
+                  route: "api.projects.generate",
+                  userId,
+                }),
               });
+            } finally {
+              clearTimeout(timeout);
             }
 
-            if (!sentStructure && spec.pages.length) {
-              sentStructure = true;
-              send("progress", {
-                label: "Menyusun struktur",
-                detail: `${spec.pages.length} halaman/flow dan ${spec.components.length} komponen dirancang.`,
-              });
-            }
+            const usage = result.usage;
+            devLog("generate", "spec.attempt", {
+              projectId,
+              maxTokens,
+              finishReason: result.finishReason,
+              contentLength: result.text.length,
+              inputTokens: usage.inputTokens ?? 0,
+              outputTokens: usage.outputTokens ?? 0,
+            });
 
-            if (!sentDesign && spec.style.direction) {
-              sentDesign = true;
-              send("progress", {
-                label: "Memilih arah visual",
-                detail: spec.style.direction,
-              });
-            }
+            const spec = parseImplementationSpec(result.output);
 
-            send("implementation_spec", spec);
-            send("schema", implementationSpecToSiteSchema(spec));
+            return {
+              spec,
+              inputTokens: usage.inputTokens ?? 0,
+              outputTokens: usage.outputTokens ?? 0,
+              finishReason: result.finishReason,
+            };
+          };
+
+          // Attempt 1: normal budget
+          let lastError: unknown;
+          try {
+            const attempt1 = await attemptSpec(4_096);
+            if (attempt1.spec) {
+              return {
+                spec: attempt1.spec,
+                inputTokens: attempt1.inputTokens,
+                outputTokens: attempt1.outputTokens,
+              };
+            }
+            // Spec parsed but invalid schema — don't retry, model was wrong
+            lastError = new Error(
+              "AI implementation spec was invalid (schema mismatch).",
+            );
+          } catch (error) {
+            lastError = error;
+            devLog("generate", "spec.error", {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : typeof error === "object" && error
+                    ? JSON.stringify(error)
+                    : String(error),
+              projectId,
+              attempt: 1,
+            });
           }
 
-          devLog("generate", "spec.accumulated", {
-            projectId,
-            length: accumulated.length,
-            preview: accumulated.slice(0, 200),
+          // Attempt 2: 2x budget (only if attempt 1 hit token limit or errored)
+          send("progress", {
+            label: "AI mencoba sekali lagi",
+            detail: "Rancangan perlu waktu lebih untuk diselesaikan.",
           });
+          await new Promise((resolve) => setTimeout(resolve, 2_000));
 
-          const spec = parseImplementationSpec(
-            parseJsonLenientSafe(accumulated),
-          );
-          if (!spec) {
-            devLog("generate", "spec.parse.failed", {
-              projectId,
-              accumulated: accumulated.slice(0, 500),
-            });
-            throw new Error(
+          try {
+            const attempt2 = await attemptSpec(8_192);
+            if (attempt2.spec) {
+              return {
+                spec: attempt2.spec,
+                inputTokens: attempt2.inputTokens,
+                outputTokens: attempt2.outputTokens,
+              };
+            }
+            lastError = new Error(
               "AI implementation spec was invalid after retries.",
             );
+          } catch (error) {
+            lastError = error;
+            devLog("generate", "spec.error", {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : typeof error === "object" && error
+                    ? JSON.stringify(error)
+                    : String(error),
+              projectId,
+              attempt: 2,
+            });
           }
-          const usage = await result.usage;
-          return {
-            spec,
-            inputTokens: usage?.inputTokens ?? 0,
-            outputTokens: usage?.outputTokens ?? 0,
-          };
+
+          throw lastError instanceof Error
+            ? lastError
+            : new Error("AI implementation spec was invalid after retries.");
         }
 
         const implementationSpecPrompt = buildImplementationSpecPrompt(brief);
-        let implementationSpec: ImplementationSpec;
-        let specInputTokens = 0;
-        let specOutputTokens = 0;
-        try {
-          const specResult = await generateImplementationSpec(
-            implementationSpecPrompt,
-          );
-          implementationSpec = specResult.spec;
-          specInputTokens = specResult.inputTokens;
-          specOutputTokens = specResult.outputTokens;
-        } catch {
-          send("progress", {
-            label: "Memeriksa ulang rancangan",
-            detail: "AI mencoba sekali lagi sebelum proses build dimulai.",
-          });
-          // Wait 5s before retry so rate limits have time to clear.
-          await new Promise((resolve) => setTimeout(resolve, 5_000));
-          const specResult = await generateImplementationSpec(
-            implementationSpecPrompt,
-          );
-          implementationSpec = specResult.spec;
-          specInputTokens = specResult.inputTokens;
-          specOutputTokens = specResult.outputTokens;
-        }
+        const specResult = await generateImplementationSpec(
+          implementationSpecPrompt,
+        );
+        const implementationSpec = specResult.spec;
+        const specInputTokens = specResult.inputTokens;
+        const specOutputTokens = specResult.outputTokens;
         const specLeaseRenewed = await renewProjectOperation({
           projectId,
           token: operation.token,
@@ -912,28 +908,4 @@ async function handleGeneratePost(request: Request, routeId: string) {
       Connection: "keep-alive",
     },
   });
-}
-
-function parseJsonLenientSafe(text: string): unknown {
-  const cleaned = text
-    .replace(/^```json\s*/i, "")
-    .replace(/```\s*$/i, "")
-    .trim();
-
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(cleaned.slice(start, end + 1));
-      } catch {
-        return null;
-      }
-    }
-
-    return null;
-  }
 }

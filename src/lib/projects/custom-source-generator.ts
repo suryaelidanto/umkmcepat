@@ -1,4 +1,4 @@
-import { stepCountIs, tool, ToolLoopAgent } from "ai";
+import { isStepCount, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
@@ -83,13 +83,10 @@ export async function generateCustomProjectFilesWithAgent({
         schema,
         implementationSpec,
       ),
-      experimental_telemetry: getAiTelemetry(
-        "project-source-generation-agent",
-        {
-          projectId,
-        },
-      ),
-      stopWhen: stepCountIs(8),
+      telemetry: getAiTelemetry("project-source-generation-agent", {
+        projectId,
+      }),
+      stopWhen: isStepCount(8),
       tools: createAgentTools(runCommand),
     });
 
@@ -447,11 +444,10 @@ export async function repairGeneratedProjectFiles({
       schema,
       implementationSpec,
     ),
-    experimental_telemetry: getAiTelemetry(
-      "project-source-generation-agent-repair",
-      { projectId },
-    ),
-    stopWhen: stepCountIs(4),
+    telemetry: getAiTelemetry("project-source-generation-agent-repair", {
+      projectId,
+    }),
+    stopWhen: isStepCount(4),
     tools: createAgentTools(runCommand),
   });
 

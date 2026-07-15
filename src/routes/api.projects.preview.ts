@@ -348,7 +348,7 @@ async function handleDiscussTurn({
     maxRetries: 2,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discuss"),
-    experimental_telemetry: getAiTelemetry("project-guided-discuss", {
+    telemetry: getAiTelemetry("project-guided-discuss", {
       briefConfidence: effectiveBrief.confidence,
       mode: "discuss",
       model: modelName,
@@ -621,7 +621,7 @@ async function handleDiscussTurnOneCall({
     maxRetries: 1,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discussOneCall"),
-    experimental_telemetry: getAiTelemetry("project-guided-discuss-one-call", {
+    telemetry: getAiTelemetry("project-guided-discuss-one-call", {
       briefConfidence: effectiveBrief.confidence,
       mode: "discuss-one-call",
       model: modelName,
@@ -653,7 +653,7 @@ async function handleDiscussTurnOneCall({
         let streamToolCallId: string | null = null;
 
         try {
-          for await (const part of primary.fullStream) {
+          for await (const part of primary.stream) {
             if (part.type === "text-delta") {
               const delta =
                 "text" in part && typeof part.text === "string"
@@ -908,17 +908,14 @@ Keep a short Indonesian chat preface only if needed. Prefer type=question with 2
           temperature: 0.2,
           maxRetries: 1,
           timeout: getAiTimeoutMs("discussCard"),
-          experimental_telemetry: getAiTelemetry(
-            "project-guided-discuss-one-call-repair",
-            {
-              mode: "discuss-one-call-repair",
-              model: modelName,
-              phase: semanticAttempt === 0 ? "repair" : "repair-retry",
-              projectId,
-              route: "api.projects.preview",
-              userId,
-            },
-          ),
+          telemetry: getAiTelemetry("project-guided-discuss-one-call-repair", {
+            mode: "discuss-one-call-repair",
+            model: modelName,
+            phase: semanticAttempt === 0 ? "repair" : "repair-retry",
+            projectId,
+            route: "api.projects.preview",
+            userId,
+          }),
         });
 
         totalInputTokens += repaired.usage?.inputTokens ?? 0;
@@ -1006,17 +1003,14 @@ async function generateWorkspaceTurn({
           maxRetries: 2,
           temperature: 0.35,
           timeout: getAiTimeoutMs("discussCard"),
-          experimental_telemetry: getAiTelemetry(
-            "project-guided-discuss-card",
-            {
-              mode: "discuss",
-              model: modelName,
-              phase: semanticAttempt === 0 ? "card" : "card-repair",
-              projectId,
-              route: "api.projects.preview",
-              userId,
-            },
-          ),
+          telemetry: getAiTelemetry("project-guided-discuss-card", {
+            mode: "discuss",
+            model: modelName,
+            phase: semanticAttempt === 0 ? "card" : "card-repair",
+            projectId,
+            route: "api.projects.preview",
+            userId,
+          }),
         });
         console.error("[preview-chat] phase 2 raw text:", {
           projectId,
