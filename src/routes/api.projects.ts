@@ -21,9 +21,11 @@ import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
   addEnergyUsage,
+  checkEnergy,
   getProjectCount,
   getProjectLimit,
   isOverProjectLimit,
+  MIN_ENERGY_MODERATION,
 } from "@/lib/user-credits";
 
 const CREATE_PROJECT_IDEMPOTENCY_ACTION = "project.create";
@@ -136,6 +138,18 @@ export const Route = createFileRoute("/api/projects")({
               projectLimit,
             },
             { status: 403 },
+          );
+        }
+
+        const energy = await checkEnergy(userId, MIN_ENERGY_MODERATION);
+        if (!energy.allowed) {
+          return Response.json(
+            {
+              code: "energy_exhausted",
+              message: "Energi harian habis. Coba lagi besok.",
+              remaining: energy.remaining,
+            },
+            { status: 429 },
           );
         }
 

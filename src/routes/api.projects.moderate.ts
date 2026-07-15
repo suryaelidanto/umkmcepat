@@ -4,7 +4,11 @@ import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { auth } from "@/lib/auth";
 import { validateProjectRequest } from "@/lib/projects/input";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { addEnergyUsage } from "@/lib/user-credits";
+import {
+  addEnergyUsage,
+  checkEnergy,
+  MIN_ENERGY_MODERATION,
+} from "@/lib/user-credits";
 
 export const Route = createFileRoute("/api/projects/moderate")({
   server: {
@@ -23,6 +27,22 @@ export const Route = createFileRoute("/api/projects/moderate")({
 
         if (rateLimitResponse) {
           return rateLimitResponse;
+        }
+
+        const energy = await checkEnergy(
+          session.user.id,
+          MIN_ENERGY_MODERATION,
+        );
+        if (!energy.allowed) {
+          return Response.json(
+            {
+              allowed: false,
+              message: "Energi harian habis. Coba lagi besok.",
+              code: "energy_exhausted",
+              remaining: energy.remaining,
+            },
+            { status: 429 },
+          );
         }
 
         const { prompt } = (await request.json()) as { prompt?: string };

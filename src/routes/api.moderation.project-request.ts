@@ -4,7 +4,11 @@ import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { auth } from "@/lib/auth";
 import { validateProjectRequest } from "@/lib/projects/input";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { addEnergyUsage } from "@/lib/user-credits";
+import {
+  addEnergyUsage,
+  checkEnergy,
+  MIN_ENERGY_MODERATION,
+} from "@/lib/user-credits";
 
 type ModerationBody = { prompt?: string };
 
@@ -29,8 +33,26 @@ export const Route = createFileRoute("/api/moderation/project-request")({
         }
 
         try {
-          const result = await moderateProjectRequest(validation.value);
           const session = await auth();
+          if (session?.user?.id) {
+            const energy = await checkEnergy(
+              session.user.id,
+              MIN_ENERGY_MODERATION,
+            );
+            if (!energy.allowed) {
+              return Response.json(
+                {
+                  allowed: false,
+                  message: "Energi harian habis. Coba lagi besok.",
+                  code: "energy_exhausted",
+                  remaining: energy.remaining,
+                },
+                { status: 429 },
+              );
+            }
+          }
+
+          const result = await moderateProjectRequest(validation.value);
           if (session?.user?.id && result.usage) {
             await addEnergyUsage(
               session.user.id,
