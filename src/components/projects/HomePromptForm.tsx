@@ -131,7 +131,8 @@ export function HomePromptForm({
     },
     onSuccess: async (path) => {
       window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      // Drop list cache so home always refetches fresh projects after create.
+      queryClient.removeQueries({ queryKey: queryKeys.projects });
       await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
       router.push(path);
     },

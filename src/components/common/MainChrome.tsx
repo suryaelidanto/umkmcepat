@@ -22,7 +22,9 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
         cache: "no-store",
       }),
     enabled: !isVerifyPage,
-    staleTime: 30_000,
+    // Short stale window so post-verify navigation picks up truth quickly,
+    // while still avoiding a fetch on every route change.
+    staleTime: 5_000,
     retry: 1,
   });
 
@@ -31,10 +33,17 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (verificationQuery.data && !verificationQuery.data.verified) {
+    // Only redirect after a successful "not verified" response.
+    // Errors should not bounce the user (matches previous allow-on-error).
+    if (verificationQuery.isSuccess && !verificationQuery.data.verified) {
       router.replace("/verify");
     }
-  }, [isVerifyPage, router, verificationQuery.data]);
+  }, [
+    isVerifyPage,
+    router,
+    verificationQuery.data,
+    verificationQuery.isSuccess,
+  ]);
 
   if (isVerifyPage) {
     return <>{children}</>;
