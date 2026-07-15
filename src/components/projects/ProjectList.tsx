@@ -59,19 +59,15 @@ export function ProjectList({
   const projectsQuery = useInfiniteQuery({
     queryKey: queryKeys.projects,
     queryFn: async ({ pageParam }) => {
-      if (!pageParam) {
-        return {
-          projects: initialProjects,
-          nextCursor: initialNextCursor,
-        } satisfies ProjectsPage;
-      }
-
-      return fetchJson<ProjectsPage>(
-        `/api/projects?cursor=${encodeURIComponent(pageParam)}`,
-      );
+      const path = pageParam
+        ? `/api/projects?cursor=${encodeURIComponent(pageParam)}`
+        : "/api/projects";
+      return fetchJson<ProjectsPage>(path, { cache: "no-store" });
     },
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
+    // Seed cache once from the route loader. Always refetch page 0 from API
+    // afterwards so deletes/creates don't get overwritten by stale loader data.
     initialData: {
       pages: [
         {
@@ -81,6 +77,8 @@ export function ProjectList({
       ],
       pageParams: [null],
     },
+    initialDataUpdatedAt: 0,
+    staleTime: 0,
   });
 
   const deleteMutation = useMutation({
@@ -91,6 +89,7 @@ export function ProjectList({
       return projectId;
     },
     onSuccess: async (projectId) => {
+      // Optimistic local removal first so UI updates immediately.
       queryClient.setQueryData(
         queryKeys.projects,
         (current: typeof projectsQuery.data | undefined) => {
@@ -109,7 +108,11 @@ export function ProjectList({
           };
         },
       );
-      await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      // Refetch from API (not loader props) so cache stays truthful.
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.projects,
+        refetchType: "active",
+      });
       toast.success("Website dihapus.");
       setSelectedProject(null);
     },
