@@ -326,15 +326,16 @@ export function WorkspaceShell({
   }, [annotationInstruction, annotations, visualAnnotationStorageKey]);
 
   const queryClient = useQueryClient();
+  const buildStatusRef = useRef(buildStatus);
+  buildStatusRef.current = buildStatus;
 
   const runtimeQuery = useQuery({
     queryKey: queryKeys.projectRuntime(projectId),
     queryFn: async () => {
+      // During 503 backoff, fail the fetch and keep previous cached data.
+      // Never return a closed-over React state snapshot (stale after builds).
       if (Date.now() < runtimeRetryAfterRef.current) {
-        if (!runtimeState) {
-          throw new Error("runtime_backoff");
-        }
-        return runtimeState;
+        throw new Error("runtime_backoff");
       }
 
       const response = await fetch(`/api/projects/${projectId}/runtime`, {
@@ -358,12 +359,14 @@ export function WorkspaceShell({
       const status = data?.build?.status || data?.deployment?.status || "";
       if (
         ["running", "building", "starting", "queued"].includes(status) ||
-        buildStatus === "building"
+        buildStatusRef.current === "building"
       ) {
         return 7000;
       }
       return false;
     },
+    // Keep last good runtime while a poll fails (503/backoff/network).
+    placeholderData: (previous) => previous,
     staleTime: 3000,
     retry: 1,
   });

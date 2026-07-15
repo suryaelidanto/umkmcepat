@@ -67,6 +67,8 @@ function VerifyPage() {
       }),
     onSuccess: async () => {
       setFlowState("done");
+      // Write through cache immediately so MainChrome doesn't redirect back.
+      queryClient.setQueryData(queryKeys.verification, { verified: true });
       await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
       setTimeout(() => router.replace("/"), 1500);
     },
@@ -86,6 +88,7 @@ function VerifyPage() {
       }),
     onSuccess: async () => {
       setFlowState("done");
+      queryClient.setQueryData(queryKeys.verification, { verified: true });
       await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
       setTimeout(() => router.replace("/"), 1500);
     },
