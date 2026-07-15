@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { devLog } from "@/lib/dev-log";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
 import {
@@ -19,7 +22,8 @@ export type GeneratedAppAgentToolCommand =
     }
   | { query: string; pathPrefix?: string; type: "search_files" }
   | { content: string; path: string; type: "write_file" }
-  | { find: string; path: string; replace: string; type: "replace_in_file" };
+  | { find: string; path: string; replace: string; type: "replace_in_file" }
+  | { name: string; type: "read_skill" };
 
 export type GeneratedAppAgentToolSideEffect = {
   path?: string;
@@ -300,6 +304,33 @@ export function runGeneratedAppAgentTools({
         type: command.type,
       });
       outputs.push({ result: "replaced", type: command.type });
+      continue;
+    }
+
+    if (command.type === "read_skill") {
+      const skillName = command.name.replace(/[^a-z0-9-]/g, "");
+      const skillPath = `src/lib/projects/skills/${skillName}.md`;
+
+      try {
+        const fullPath = resolve(process.cwd(), skillPath);
+        const content = readFileSync(fullPath, "utf8");
+        outputs.push({ result: content, type: command.type });
+        emit({
+          detail: `Skill "${skillName}" loaded.`,
+          state: "succeeded",
+          title: "Membaca skill",
+          type: command.type,
+        });
+      } catch {
+        const error = `Skill not found: ${skillName}`;
+        outputs.push({ error, type: command.type });
+        emit({
+          detail: error,
+          state: "failed",
+          title: "Skill tidak ditemukan",
+          type: command.type,
+        });
+      }
       continue;
     }
 

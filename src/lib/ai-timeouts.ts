@@ -5,6 +5,7 @@ export type AiTimeoutKey =
   | "chatCompaction"
   | "discuss"
   | "discussCard"
+  | "discussOneCall"
   | "discussToolSettle"
   | "edit"
   | "editRepair"
@@ -43,6 +44,12 @@ const AI_TIMEOUTS = {
     minMs: 3_000,
     maxMs: 120_000,
   },
+  discussOneCall: {
+    env: "AI_TIMEOUT_DISCUSS_ONE_CALL_MS",
+    defaultMs: 120_000,
+    minMs: 30_000,
+    maxMs: 240_000,
+  },
   discussToolSettle: {
     env: "AI_TIMEOUT_DISCUSS_TOOL_SETTLE_MS",
     defaultMs: 30_000,
@@ -64,20 +71,20 @@ const AI_TIMEOUTS = {
   sourceGeneration: {
     env: "AI_TIMEOUT_SOURCE_GENERATION_MS",
     defaultMs: 600_000,
-    minMs: 30_000,
+    minMs: 120_000,
     maxMs: 900_000,
   },
   edit: {
     env: "AI_TIMEOUT_EDIT_MS",
-    defaultMs: 180_000,
-    minMs: 30_000,
-    maxMs: 300_000,
+    defaultMs: 300_000,
+    minMs: 60_000,
+    maxMs: 600_000,
   },
   editRepair: {
     env: "AI_TIMEOUT_EDIT_REPAIR_MS",
-    defaultMs: 180_000,
-    minMs: 30_000,
-    maxMs: 300_000,
+    defaultMs: 300_000,
+    minMs: 60_000,
+    maxMs: 600_000,
   },
 } satisfies Record<AiTimeoutKey, AiTimeoutConfig>;
 

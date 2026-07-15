@@ -55,6 +55,9 @@ export function getDayBoundaries(now: Date = new Date()): {
 }
 
 export async function getRemainingEnergy(userId: string): Promise<number> {
+  if (process.env.NODE_ENV !== "production") {
+    return DAILY_ENERGY_LIMIT;
+  }
   const stats = await getEnergyStats(userId);
   return stats.remaining;
 }
@@ -63,6 +66,9 @@ export async function checkEnergy(
   userId: string,
   cost: number = MIN_ENERGY_DISCUSS,
 ): Promise<{ allowed: boolean; remaining: number }> {
+  if (process.env.NODE_ENV !== "production") {
+    return { allowed: true, remaining: DAILY_ENERGY_LIMIT };
+  }
   const remaining = await getRemainingEnergy(userId);
   return { allowed: remaining >= cost, remaining };
 }
@@ -83,6 +89,11 @@ export async function addEnergyUsage(
 
   if (energyUsed <= 0) {
     return { energyUsed: 0, inputTokens: 0, outputTokens: 0 };
+  }
+
+  // Skip persistence in development — unlimited energy for local testing.
+  if (process.env.NODE_ENV !== "production") {
+    return { energyUsed, inputTokens: input, outputTokens: output };
   }
 
   const { endOfDay } = getDayBoundaries();
@@ -112,6 +123,17 @@ export async function getEnergyStats(userId: string): Promise<{
   inputTokens: number;
   outputTokens: number;
 }> {
+  if (process.env.NODE_ENV !== "production") {
+    return {
+      remaining: DAILY_ENERGY_LIMIT,
+      used: 0,
+      limit: DAILY_ENERGY_LIMIT,
+      resetsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      inputTokens: 0,
+      outputTokens: 0,
+    };
+  }
+
   const { startOfDay, endOfDay } = getDayBoundaries();
 
   const [row] = await prisma.$queryRaw<

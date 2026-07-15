@@ -1,6 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { createProjectMark } from "./project-mark";
@@ -15,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 
 type Project = {
   buildStatus?: string | null;
@@ -34,6 +40,11 @@ type ProjectListProps = {
   overProjectLimit?: boolean;
 };
 
+type ProjectsPage = {
+  projects: Project[];
+  nextCursor: string | null;
+};
+
 export function ProjectList({
   initialProjects,
   initialNextCursor,
@@ -42,66 +53,101 @@ export function ProjectList({
   projectLimit,
   overProjectLimit,
 }: ProjectListProps) {
+  const queryClient = useQueryClient();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [nextCursor, setNextCursor] = useState<string | null>(
-    initialNextCursor,
-  );
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isPending, startTransition] = useTransition();
+
+  const projectsQuery = useInfiniteQuery({
+    queryKey: queryKeys.projects,
+    queryFn: async ({ pageParam }) => {
+      const path = pageParam
+        ? `/api/projects?cursor=${encodeURIComponent(pageParam)}`
+        : "/api/projects";
+      return fetchJson<ProjectsPage>(path, { cache: "no-store" });
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    // Seed cache once from the route loader. Always refetch page 0 from API
+    // afterwards so deletes/creates don't get overwritten by stale loader data.
+    initialData: {
+      pages: [
+        {
+          projects: initialProjects,
+          nextCursor: initialNextCursor,
+        },
+      ],
+      pageParams: [null],
+    },
+    initialDataUpdatedAt: 0,
+    staleTime: 0,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      const formData = new FormData();
+      formData.set("projectId", projectId);
+      await deleteProject(formData);
+      return projectId;
+    },
+    onSuccess: async (projectId) => {
+      // Optimistic local removal first so UI updates immediately.
+      queryClient.setQueryData(
+        queryKeys.projects,
+        (current: typeof projectsQuery.data | undefined) => {
+          if (!current) {
+            return current;
+          }
+
+          return {
+            ...current,
+            pages: current.pages.map((page) => ({
+              ...page,
+              projects: page.projects.filter(
+                (project) => project.id !== projectId,
+              ),
+            })),
+          };
+        },
+      );
+      // Refetch from API (not loader props) so cache stays truthful.
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.projects,
+        refetchType: "active",
+      });
+      toast.success("Website dihapus.");
+      setSelectedProject(null);
+    },
+    onError: () => {
+      toast.error("Website belum berhasil dihapus.");
+    },
+  });
+
+  const projects =
+    projectsQuery.data?.pages.flatMap((page) => page.projects) ??
+    initialProjects;
+  const nextCursor = projectsQuery.hasNextPage
+    ? projectsQuery.data?.pages.at(-1)?.nextCursor
+    : null;
+  const isLoadingMore = projectsQuery.isFetchingNextPage;
+  const isPending = deleteMutation.isPending;
 
   async function loadMore() {
-    if (!nextCursor || isLoadingMore) {
+    if (!projectsQuery.hasNextPage || isLoadingMore) {
       return;
     }
 
-    setIsLoadingMore(true);
-
     try {
-      const response = await fetch(
-        `/api/projects?cursor=${encodeURIComponent(nextCursor)}`,
-      );
-
-      if (!response.ok) {
-        throw new Error("failed");
-      }
-
-      const data = (await response.json()) as {
-        projects: Project[];
-        nextCursor: string | null;
-      };
-      setProjects((current) => [...current, ...data.projects]);
-      setNextCursor(data.nextCursor);
+      await projectsQuery.fetchNextPage();
     } catch {
       toast.error("Gagal memuat website lain. Coba lagi.");
-    } finally {
-      setIsLoadingMore(false);
     }
   }
 
   function handleDelete() {
-    if (!selectedProject) {
+    if (!selectedProject || isPending) {
       return;
     }
 
-    const targetId = selectedProject.id;
-    const formData = new FormData();
-    formData.set("projectId", targetId);
-
-    startTransition(async () => {
-      try {
-        await deleteProject(formData);
-
-        setProjects((current) =>
-          current.filter((project) => project.id !== targetId),
-        );
-
-        toast.success("Website dihapus.");
-        setSelectedProject(null);
-      } catch {
-        toast.error("Website belum berhasil dihapus.");
-      }
-    });
+    deleteMutation.mutate(selectedProject.id);
   }
 
   if (!projects.length) {

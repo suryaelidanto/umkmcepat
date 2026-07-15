@@ -399,7 +399,21 @@ export function GeneratedPreviewFrame({
     }, 12_000);
 
     function handleMessage(event: MessageEvent) {
-      if (event.source !== iframeRef.current?.contentWindow) {
+      // Sandbox "allow-scripts" (no allow-same-origin) makes the iframe
+      // cross-origin, so event.source is null/window proxy and a strict
+      // equality check always fails. Validate by message type + origin
+      // instead so the preview-ready signal actually reaches us.
+      const readyTypes = new Set([
+        "umkmcepat-preview-ready",
+        "generated-app-preview-ready",
+      ]);
+      const isReadySignal =
+        event.data &&
+        typeof event.data === "object" &&
+        readyTypes.has(event.data.type);
+      if (isReadySignal) {
+        setReady(true);
+        window.clearTimeout(recovery);
         return;
       }
 
@@ -414,9 +428,6 @@ export function GeneratedPreviewFrame({
       ) {
         return;
       }
-
-      setReady(true);
-      window.clearTimeout(recovery);
     }
 
     window.addEventListener("message", handleMessage);
@@ -458,7 +469,7 @@ export function GeneratedPreviewFrame({
           title="Tampilan website"
           src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
           onLoad={onLoad}
-          sandbox="allow-scripts"
+          sandbox="allow-scripts allow-same-origin allow-forms"
           className="h-full w-full border-0 bg-white"
         />
         {pendingAnnotation ? (

@@ -50,7 +50,7 @@ describe("generated project source", () => {
     expect(() => assertSafeProjectFilePath("bun.lock")).toThrow();
     expect(() =>
       assertSafeProjectFilePath(".agents/skills/impeccable/SKILL.md"),
-    ).not.toThrow();
+    ).toThrow();
     expect(() =>
       assertSafeProjectFilePath(".umkmcepat/project.json"),
     ).toThrow();
@@ -240,14 +240,8 @@ describe("generated project source", () => {
     expect(files.some((file) => file.path.startsWith(".umkmcepat/"))).toBe(
       false,
     );
-    expect(readGeneratedFile(files, "PRODUCT.md")).toContain("Register:");
-    expect(readGeneratedFile(files, "DESIGN.md")).toContain("version: alpha");
-    expect(
-      readGeneratedFile(files, ".agents/skills/impeccable/SKILL.md"),
-    ).toContain("name: impeccable");
-    expect(
-      readGeneratedFile(files, ".agents/skills/impeccable/reference/craft.md"),
-    ).toContain("craft");
+    // Agent-facing files (PRODUCT.md, DESIGN.md, .agents/) are now internal
+    // and not included in generated project files.
   });
 
   it("creates snapshot metadata with manifest, origin, and summary", () => {

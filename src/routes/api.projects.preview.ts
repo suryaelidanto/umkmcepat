@@ -5,9 +5,11 @@ import {
   createUIMessageStreamResponse,
   generateText,
   streamText,
+  tool,
   type UIMessage,
   validateUIMessages,
 } from "ai";
+import { z } from "zod";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
@@ -19,6 +21,7 @@ import {
 } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
+import { isDiscussOneCallToolsEnabled } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import {
@@ -309,6 +312,18 @@ async function handleDiscussTurn({
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
+  if (isDiscussOneCallToolsEnabled()) {
+    return handleDiscussTurnOneCall({
+      chatContext,
+      effectiveBrief,
+      memoryFacts,
+      messages,
+      project,
+      summary,
+      userId,
+    });
+  }
+
   const modelName = getDefaultAiModel();
   const model = getAiModel(modelName);
   const chatSystemPrompt = buildChatSystemPrompt({
@@ -333,7 +348,7 @@ async function handleDiscussTurn({
     maxRetries: 2,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discuss"),
-    experimental_telemetry: getAiTelemetry("project-guided-discuss", {
+    telemetry: getAiTelemetry("project-guided-discuss", {
       briefConfidence: effectiveBrief.confidence,
       mode: "discuss",
       model: modelName,
@@ -501,6 +516,452 @@ async function handleDiscussTurn({
   });
 }
 
+const PRESENT_WORKSPACE_CARD_TOOL_NAME = "presentWorkspaceCard";
+
+const presentWorkspaceCardTool = tool({
+  description:
+    "Present the next workspace card after your short Indonesian chat reply.",
+  inputSchema: z.object({
+    projectTitle: z.string().optional(),
+    briefPatch: z
+      .object({
+        confidence: z.number().optional(),
+        businessName: z.string().optional(),
+        businessType: z.string().optional(),
+        offer: z.string().optional(),
+        targetCustomer: z.string().optional(),
+        contactOrCta: z.string().optional(),
+        stylePreference: z.string().optional(),
+        notes: z.array(z.string()).optional(),
+        openQuestions: z.array(z.string()).optional(),
+      })
+      .optional(),
+    workspaceCard: z
+      .object({
+        type: z.string(),
+        title: z.string().optional(),
+        summary: z.array(z.string()).optional(),
+        question: z
+          .object({
+            id: z.union([z.string(), z.number()]).optional(),
+            question: z.string().optional(),
+            text: z.string().optional(),
+            title: z.string().optional(),
+            answerMode: z.string().optional(),
+            selectionMode: z.string().optional(),
+            placeholder: z.string().optional(),
+            options: z.array(z.any()).optional(),
+          })
+          .optional(),
+        questions: z.array(z.any()).optional(),
+        actions: z.array(z.any()).optional(),
+      })
+      .optional(),
+  }),
+});
+
+function buildOneCallSystemPrompt({
+  brief,
+  context,
+}: {
+  brief: unknown;
+  context: string;
+}) {
+  return `${buildChatSystemPrompt({ brief, context })}
+
+CRITICAL OUTPUT ORDER:
+1) Write 1-3 short Indonesian chat sentences first (aku/kamu only).
+2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with the next workspace card.
+Never put JSON in chat text. Never call the tool before chat text.
+For questions: type="question", question.id must be a short slug like business_name or services.
+Prefer choice options with label+description (2-5). Use build_recommendation only when genuinely ready or user forces build. Use brief_review if almost ready but gaps remain.`;
+}
+
+async function handleDiscussTurnOneCall({
+  chatContext,
+  effectiveBrief,
+  memoryFacts,
+  messages,
+  project,
+  summary,
+  userId,
+}: {
+  chatContext: ReturnType<typeof buildProjectChatContext>;
+  effectiveBrief: ReturnType<typeof parseProjectBrief>;
+  memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
+  messages: UIMessage[];
+  project: { id: string; prompt: string; status: string; title: string };
+  summary: ReturnType<typeof parseProjectChatSummary>;
+  userId: string;
+}) {
+  const modelName = getDefaultAiModel();
+  const model = getAiModel(modelName);
+  const systemPrompt = buildOneCallSystemPrompt({
+    brief: effectiveBrief,
+    context: chatContext.systemContext,
+  });
+  const cardSystemPrompt = buildCardSystemPrompt();
+  const modelMessages = await convertToModelMessages(chatContext.messages);
+
+  await writeAiRequestLog({
+    event: "discuss:start",
+    model: modelName,
+    mode: "one_call_tools",
+    projectId: project.id,
+    messageCount: messages.length,
+    briefConfidence: effectiveBrief.confidence,
+  });
+
+  const primary = streamText({
+    model,
+    system: systemPrompt,
+    messages: modelMessages,
+    tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
+    toolChoice: "auto",
+    maxRetries: 1,
+    temperature: 0.35,
+    timeout: getAiTimeoutMs("discussOneCall"),
+    telemetry: getAiTelemetry("project-guided-discuss-one-call", {
+      briefConfidence: effectiveBrief.confidence,
+      mode: "discuss-one-call",
+      model: modelName,
+      projectId: project.id,
+      route: "api.projects.preview",
+      userId,
+    }),
+    onError({ error }) {
+      console.error(
+        "[preview-chat] one-call stream error",
+        getSafeAiErrorLog(error),
+      );
+    },
+  });
+
+  return createUIMessageStreamResponse({
+    stream: createUIMessageStream({
+      execute: async ({ writer }) => {
+        const messageId = `discuss-${crypto.randomUUID()}`;
+        const textPartId = "discuss-text";
+        const toolCallId = `tool-${crypto.randomUUID()}`;
+
+        writer.write({ type: "start", messageId });
+        writer.write({ type: "text-start", id: textPartId });
+
+        let fullText = "";
+        let hadError = false;
+        let toolInput: unknown = null;
+        let streamToolCallId: string | null = null;
+
+        try {
+          for await (const part of primary.stream) {
+            if (part.type === "text-delta") {
+              const delta =
+                "text" in part && typeof part.text === "string"
+                  ? part.text
+                  : "delta" in part && typeof part.delta === "string"
+                    ? part.delta
+                    : "";
+              if (!delta) {
+                continue;
+              }
+              fullText += delta;
+              writer.write({ type: "text-delta", id: textPartId, delta });
+              continue;
+            }
+
+            if (part.type === "tool-call") {
+              streamToolCallId =
+                "toolCallId" in part && typeof part.toolCallId === "string"
+                  ? part.toolCallId
+                  : streamToolCallId;
+              toolInput =
+                "input" in part
+                  ? part.input
+                  : "args" in part
+                    ? (part as { args?: unknown }).args
+                    : toolInput;
+            }
+          }
+        } catch {
+          hadError = true;
+        }
+
+        writer.write({ type: "text-end", id: textPartId });
+
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
+        try {
+          const primaryUsage = await primary.usage;
+          totalInputTokens = primaryUsage?.inputTokens ?? 0;
+          totalOutputTokens = primaryUsage?.outputTokens ?? 0;
+        } catch {
+          // usage is best-effort
+        }
+
+        const chatText = fullText.trim();
+        if (hadError || !chatText) {
+          writer.write({
+            type: "error",
+            errorText: hadError
+              ? "Jawaban AI terputus. Coba lagi."
+              : "AI belum memberi jawaban. Coba lagi.",
+          });
+          return;
+        }
+
+        let workspaceTurn = normalizeWorkspaceTurn(toolInput, effectiveBrief);
+        let primaryToolFailed = workspaceTurn.workspaceCard.type === "none";
+        let repairsUsed = 0;
+
+        if (primaryToolFailed) {
+          const repaired = await repairDiscussCardWithTool({
+            brief: effectiveBrief,
+            cardSystemPrompt,
+            chatText,
+            model,
+            modelMessages,
+            modelName,
+            projectId: project.id,
+            userId,
+          });
+          if (repaired) {
+            workspaceTurn = {
+              brief: repaired.brief,
+              projectTitle: repaired.projectTitle,
+              workspaceCard: repaired.workspaceCard,
+            };
+            primaryToolFailed = false;
+            repairsUsed = repaired.repairsUsed;
+            totalInputTokens += repaired.usage.inputTokens;
+            totalOutputTokens += repaired.usage.outputTokens;
+          }
+        }
+
+        const hasCard = workspaceTurn.workspaceCard.type !== "none";
+        const resolvedToolCallId = streamToolCallId || toolCallId;
+
+        writer.write({
+          type: "tool-input-available",
+          toolCallId: resolvedToolCallId,
+          toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+          input: toolInput ?? {},
+        });
+        writer.write({
+          type: "tool-output-available",
+          toolCallId: resolvedToolCallId,
+          output: {
+            workspaceCard: workspaceTurn.workspaceCard,
+            projectTitle: workspaceTurn.projectTitle || project.title,
+            repairsUsed,
+          },
+        });
+
+        const assistantMessage: UIMessage = {
+          id: messageId,
+          role: "assistant",
+          parts: [
+            { type: "text", text: chatText, state: "done" },
+            {
+              type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
+              toolCallId: resolvedToolCallId,
+              state: "output-available",
+              input: toolInput ?? {},
+              output: {
+                workspaceCard: workspaceTurn.workspaceCard,
+                projectTitle: workspaceTurn.projectTitle || project.title,
+              },
+            } as UIMessage["parts"][number],
+          ],
+        };
+
+        const safeMessages = stripTransportDiagnosticMessages(
+          dedupeUiMessages([...messages, assistantMessage]),
+        );
+
+        if (hasCard) {
+          const title = workspaceTurn.projectTitle || project.title;
+          await writeAiRequestLog({
+            event: "discuss:finish",
+            model: modelName,
+            mode: "one_call_tools",
+            projectId: project.id,
+            didWorkspaceToolUpdate: true,
+            primaryToolFailed,
+            repairsUsed,
+            workspaceCard: workspaceTurn.workspaceCard,
+          });
+          await persistProjectChatTurn({
+            brief: workspaceTurn.brief,
+            messages: safeMessages,
+            projectId: project.id,
+            title,
+            userId,
+            workspaceCard: workspaceTurn.workspaceCard,
+          });
+        } else {
+          await writeAiRequestLog({
+            event: "discuss:finish",
+            model: modelName,
+            mode: "one_call_tools",
+            projectId: project.id,
+            didWorkspaceToolUpdate: false,
+            primaryToolFailed: true,
+            repairsUsed,
+            workspaceCard: { type: "none" },
+          });
+          await persistProjectChatTurn({
+            messages: safeMessages,
+            projectId: project.id,
+            userId,
+            workspaceCard: { type: "none" },
+          });
+        }
+
+        const compaction = await maybeCompactProjectChat({
+          memoryFacts,
+          messages: safeMessages,
+          summary,
+        }).catch(() => null);
+
+        if (compaction) {
+          await persistProjectChatCompaction({
+            compactedMessageCount: compaction.compactedMessageCount,
+            memoryFacts: compaction.memoryFacts,
+            projectId: project.id,
+            summary: compaction.summary,
+            userId,
+          });
+          totalInputTokens += compaction.usage?.inputTokens ?? 0;
+          totalOutputTokens += compaction.usage?.outputTokens ?? 0;
+        }
+
+        await addEnergyUsage(
+          userId,
+          totalInputTokens,
+          totalOutputTokens,
+          "discuss_turn",
+        );
+
+        writer.write({ type: "finish" });
+      },
+      onError: (error) =>
+        `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
+    }),
+  });
+}
+
+async function repairDiscussCardWithTool({
+  brief,
+  cardSystemPrompt,
+  chatText,
+  model,
+  modelMessages,
+  modelName,
+  projectId,
+  userId,
+}: {
+  brief: ReturnType<typeof parseProjectBrief>;
+  cardSystemPrompt: string;
+  chatText: string;
+  model: ReturnType<typeof getAiModel>;
+  modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
+  modelName: string;
+  projectId: string;
+  userId: string;
+}) {
+  const abortController = new AbortController();
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+
+  const attempts = (async () => {
+    for (
+      let semanticAttempt = 0;
+      semanticAttempt < DISCUSS_CARD_SEMANTIC_ATTEMPTS;
+      semanticAttempt += 1
+    ) {
+      try {
+        const repaired = await generateText({
+          abortSignal: abortController.signal,
+          model,
+          system: `${cardSystemPrompt}
+
+REPAIR attempt ${semanticAttempt + 1}: previous card was invalid or missing.
+Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with a valid workspace card.
+Keep a short Indonesian chat preface only if needed. Prefer type=question with 2-5 options.`,
+          messages: [
+            ...modelMessages,
+            { role: "assistant", content: chatText || "(no text)" },
+            {
+              role: "user",
+              content:
+                "Perbaiki card-nya supaya valid. Satu pertanyaan jelas, opsi konkret, tanpa JSON di chat.",
+            },
+          ],
+          tools: {
+            [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool,
+          },
+          toolChoice: {
+            type: "tool",
+            toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+          },
+          temperature: 0.2,
+          maxRetries: 1,
+          timeout: getAiTimeoutMs("discussCard"),
+          telemetry: getAiTelemetry("project-guided-discuss-one-call-repair", {
+            mode: "discuss-one-call-repair",
+            model: modelName,
+            phase: semanticAttempt === 0 ? "repair" : "repair-retry",
+            projectId,
+            route: "api.projects.preview",
+            userId,
+          }),
+        });
+
+        totalInputTokens += repaired.usage?.inputTokens ?? 0;
+        totalOutputTokens += repaired.usage?.outputTokens ?? 0;
+
+        const toolCall = repaired.toolCalls?.[0] as
+          { input?: unknown; args?: unknown } | undefined;
+        const input = toolCall?.input ?? toolCall?.args ?? null;
+        const turn = normalizeWorkspaceTurn(input, brief);
+        if (turn.workspaceCard.type !== "none") {
+          return {
+            ...turn,
+            repairsUsed: semanticAttempt + 1,
+            usage: {
+              inputTokens: totalInputTokens,
+              outputTokens: totalOutputTokens,
+            },
+          };
+        }
+      } catch (error) {
+        console.error(
+          "[preview-chat] one-call repair error",
+          getSafeAiErrorLog(error),
+        );
+      }
+    }
+    return null;
+  })();
+
+  try {
+    return await Promise.race([
+      attempts,
+      new Promise<null>((resolve) => {
+        deadline = setTimeout(() => {
+          abortController.abort();
+          resolve(null);
+        }, DISCUSS_CARD_SERVER_DEADLINE_MS);
+      }),
+    ]);
+  } finally {
+    if (deadline) {
+      clearTimeout(deadline);
+    }
+  }
+}
+
 async function generateWorkspaceTurn({
   brief,
   cardSystemPrompt,
@@ -542,17 +1003,14 @@ async function generateWorkspaceTurn({
           maxRetries: 2,
           temperature: 0.35,
           timeout: getAiTimeoutMs("discussCard"),
-          experimental_telemetry: getAiTelemetry(
-            "project-guided-discuss-card",
-            {
-              mode: "discuss",
-              model: modelName,
-              phase: semanticAttempt === 0 ? "card" : "card-repair",
-              projectId,
-              route: "api.projects.preview",
-              userId,
-            },
-          ),
+          telemetry: getAiTelemetry("project-guided-discuss-card", {
+            mode: "discuss",
+            model: modelName,
+            phase: semanticAttempt === 0 ? "card" : "card-repair",
+            projectId,
+            route: "api.projects.preview",
+            userId,
+          }),
         });
         console.error("[preview-chat] phase 2 raw text:", {
           projectId,

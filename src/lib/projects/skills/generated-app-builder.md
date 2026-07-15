@@ -1,0 +1,88 @@
+# Generated App Builder
+
+Development workflow for UMKM Cepat generated Vite React TypeScript TanStack Router apps.
+
+## Architecture
+
+- **Stack:** Vite + React 19 + TypeScript + TanStack Router (hash history)
+- **Output:** Static `dist/` files served via iframe preview
+- **Constraint:** Frontend only. No backend, API routes, database, auth, payments, checkout, fake persistence, browser automation, or native dependencies.
+
+## File Structure
+
+```
+src/
+  routes/
+    __root.tsx          # Root layout — do not edit unless adding global wrapper
+    index.tsx           # Home page — MUST edit this to build the actual app
+  components/custom/    # Business-specific React components
+  content/site.ts       # Business data (name, contact, hours, etc.)
+  styles.css            # All CSS rules — every className in JSX needs a rule here
+  lib/preview-ready.ts  # Preview signal — keep usePreviewReady() in rendered route
+  main.tsx              # Entry point — do not edit
+package.json            # Platform-owned — do not add/remove dependencies
+```
+
+## Development Workflow
+
+### Step 1: Read before writing
+
+Read these files to understand the project:
+
+- `PRODUCT.md` — business context and requirements
+- `DESIGN.md` — visual direction and design tokens
+- `src/content/site.ts` — business data available for use
+- `src/styles.css` — existing styles and design tokens
+- `src/routes/index.tsx` — current route structure (starter placeholder)
+- `src/router.tsx` — router setup (hash history)
+
+### Step 2: Edit src/routes/index.tsx
+
+This is the most important file. Replace the starter placeholder with real JSX.
+
+**Requirements:**
+
+- Import and render components from `src/components/custom/`
+- Keep `usePreviewReady()` call — it signals to the parent iframe that the app is ready
+- Use business data from `site.ts` (name, contact, hours, etc.)
+- Write real Indonesian customer-facing copy, not placeholders
+
+### Step 3: Edit src/content/site.ts
+
+Replace placeholder data with business-specific data from the implementation spec. Use the `site` object in components and routes.
+
+### Step 4: Edit src/styles.css
+
+- Add CSS rules for **every** className used in JSX
+- Use design tokens from the palette (background, foreground, muted, accent)
+- Mobile-first responsive: base styles for mobile, `@media (min-width: 640px)` for larger screens
+- No external CSS frameworks — custom CSS only
+
+### Step 5: Create components in src/components/custom/
+
+Create business-specific React components:
+
+- One component per file
+- Use TypeScript
+- Import business data from `site.ts`
+- Use `lucide-react` for icons (already installed)
+- Use `clsx` for conditional classes (already installed)
+
+### Step 6: Validate
+
+Run `check_app` after all writes. It validates:
+
+- All files are syntactically valid
+- No forbidden patterns (backend, auth, payment language)
+- Preview-ready signal is present
+- Package.json is valid
+
+## Forbidden
+
+- No `fetch()` calls or API routes
+- No database, authentication, or payment code
+- No `localStorage` for data persistence (except drafts)
+- No `window.open()` or external navigation
+- No third-party scripts or analytics
+- No Tailwind CSS (custom CSS only)
+- No placeholder text like "Lorem ipsum" or "Coming soon"

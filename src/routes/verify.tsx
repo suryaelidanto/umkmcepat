@@ -1,136 +1,103 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/lib/navigation";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 
 export const Route = createFileRoute("/verify")({
   component: VerifyPage,
 });
 
-type VerificationState = "loading" | "phone" | "otp" | "done" | "error";
+type FlowState = "phone" | "otp" | "done";
 
 function VerifyPage() {
   const router = useRouter();
-  const [state, setState] = useState<VerificationState>("loading");
+  const queryClient = useQueryClient();
+  const [flowState, setFlowState] = useState<FlowState>("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [skipping, setSkipping] = useState(false);
   const isDev = import.meta.env.DEV;
 
+  const verificationQuery = useQuery({
+    queryKey: queryKeys.verification,
+    queryFn: () =>
+      fetchJson<{ verified: boolean }>("/api/user/verification", {
+        cache: "no-store",
+      }),
+    staleTime: 10_000,
+  });
+
   useEffect(() => {
-    void (async () => {
-      try {
-        const response = await fetch("/api/user/verification");
-        if (response.ok) {
-          const data = (await response.json()) as { verified: boolean };
-          if (data.verified) {
-            router.replace("/");
-            return;
-          }
-        }
-      } catch {
-        // ignore
-      }
-      setState("phone");
-    })();
-  }, [router]);
-
-  const sendOtp = useCallback(async () => {
-    if (!phone.trim()) {
-      setError("Masukkan nomor telepon.");
-      return;
+    if (verificationQuery.data?.verified) {
+      router.replace("/");
     }
+  }, [router, verificationQuery.data?.verified]);
 
-    setSending(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/auth/otp/send", {
+  const sendOtpMutation = useMutation({
+    mutationFn: async (phoneValue: string) =>
+      fetchJson<{ expiresAt?: string }>("/api/auth/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim() }),
-      });
-
-      const data = (await response.json()) as {
-        message?: string;
-        expiresAt?: string;
-      };
-
-      if (!response.ok) {
-        setError(data.message ?? "Gagal mengirim OTP.");
-        return;
-      }
-
+        body: JSON.stringify({ phone: phoneValue }),
+      }),
+    onSuccess: (data) => {
       setExpiresAt(data.expiresAt ?? null);
-      setState("otp");
-    } catch {
-      setError("Gagal mengirim OTP. Coba lagi.");
-    } finally {
-      setSending(false);
-    }
-  }, [phone]);
+      setFlowState("otp");
+      setError("");
+    },
+    onError: (mutationError) => {
+      setError(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Gagal mengirim OTP.",
+      );
+    },
+  });
 
-  const verifyOtp = useCallback(async () => {
-    if (!otp.trim()) {
-      setError("Masukkan kode OTP.");
-      return;
-    }
-
-    setVerifying(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/auth/otp/verify", {
+  const verifyOtpMutation = useMutation({
+    mutationFn: async (payload: { phone: string; code: string }) =>
+      fetchJson<{ message?: string }>("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim(), code: otp.trim() }),
-      });
-
-      const data = (await response.json()) as { message?: string };
-
-      if (!response.ok) {
-        setError(data.message ?? "Verifikasi gagal.");
-        return;
-      }
-
-      setState("done");
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: async () => {
+      setFlowState("done");
+      // Write through cache immediately so MainChrome doesn't redirect back.
+      queryClient.setQueryData(queryKeys.verification, { verified: true });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
       setTimeout(() => router.replace("/"), 1500);
-    } catch {
-      setError("Verifikasi gagal. Coba lagi.");
-    } finally {
-      setVerifying(false);
-    }
-  }, [otp, phone, router]);
+    },
+    onError: (mutationError) => {
+      setError(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Verifikasi gagal.",
+      );
+    },
+  });
 
-  const skipVerification = useCallback(async () => {
-    setSkipping(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/dev/skip-verification", {
+  const skipMutation = useMutation({
+    mutationFn: async () =>
+      fetchJson<{ ok?: boolean }>("/api/dev/skip-verification", {
         method: "POST",
-      });
-
-      if (!response.ok) {
-        setError("Gagal skip verifikasi.");
-        return;
-      }
-
-      setState("done");
+      }),
+    onSuccess: async () => {
+      setFlowState("done");
+      queryClient.setQueryData(queryKeys.verification, { verified: true });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
       setTimeout(() => router.replace("/"), 1500);
-    } catch {
+    },
+    onError: () => {
       setError("Gagal skip verifikasi.");
-    } finally {
-      setSkipping(false);
-    }
-  }, [router]);
+    },
+  });
 
-  if (state === "loading") {
+  if (verificationQuery.isPending || verificationQuery.data?.verified) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#10100f]">
         <div className="text-center">
@@ -143,7 +110,7 @@ function VerifyPage() {
     );
   }
 
-  if (state === "done") {
+  if (flowState === "done") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#10100f]">
         <div className="text-center">
@@ -185,7 +152,7 @@ function VerifyPage() {
             dari penyalahgunaan.
           </p>
 
-          {state === "phone" && (
+          {flowState === "phone" && (
             <div className="mt-6 space-y-4">
               <div>
                 <label
@@ -201,7 +168,7 @@ function VerifyPage() {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+6281234567890"
                   className="mt-1 w-full rounded-lg border border-surface-warm-white/12 bg-[#262622] px-3 py-2 text-sm text-surface-warm-white placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30 focus:outline-none"
-                  disabled={sending}
+                  disabled={sendOtpMutation.isPending}
                 />
                 <p className="mt-1 text-xs text-surface-warm-white/42">
                   Format: +628xxxxxxxxxx
@@ -211,11 +178,18 @@ function VerifyPage() {
               {error && <p className="text-sm text-[#ffb4a6]">{error}</p>}
 
               <Button
-                onClick={() => void sendOtp()}
-                disabled={sending || !phone.trim()}
+                onClick={() => {
+                  if (!phone.trim()) {
+                    setError("Masukkan nomor telepon.");
+                    return;
+                  }
+                  setError("");
+                  sendOtpMutation.mutate(phone.trim());
+                }}
+                disabled={sendOtpMutation.isPending || !phone.trim()}
                 className="w-full"
               >
-                {sending ? "Mengirim..." : "Kirim Kode OTP"}
+                {sendOtpMutation.isPending ? "Mengirim..." : "Kirim Kode OTP"}
               </Button>
 
               {isDev && (
@@ -233,18 +207,23 @@ function VerifyPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => void skipVerification()}
-                    disabled={skipping}
+                    onClick={() => {
+                      setError("");
+                      skipMutation.mutate();
+                    }}
+                    disabled={skipMutation.isPending}
                     className="w-full"
                   >
-                    {skipping ? "Melewati..." : "Skip verifikasi (dev mode)"}
+                    {skipMutation.isPending
+                      ? "Melewati..."
+                      : "Skip verifikasi (dev mode)"}
                   </Button>
                 </>
               )}
             </div>
           )}
 
-          {state === "otp" && (
+          {flowState === "otp" && (
             <div className="mt-6 space-y-4">
               <div>
                 <label
@@ -257,51 +236,53 @@ function VerifyPage() {
                   id="otp"
                   type="text"
                   value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  placeholder="123456"
-                  maxLength={6}
-                  className="mt-1 w-full rounded-lg border border-surface-warm-white/12 bg-[#262622] px-3 py-2 text-center text-lg font-mono tracking-widest text-surface-warm-white placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30 focus:outline-none"
-                  disabled={verifying}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="6 digit"
+                  className="mt-1 w-full rounded-lg border border-surface-warm-white/12 bg-[#262622] px-3 py-2 text-sm text-surface-warm-white placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30 focus:outline-none"
+                  disabled={verifyOtpMutation.isPending}
                 />
-                <p className="mt-1 text-xs text-surface-warm-white/42">
-                  Masukkan 6 digit kode yang dikirim ke {phone}
-                </p>
+                {expiresAt ? (
+                  <p className="mt-1 text-xs text-surface-warm-white/42">
+                    Berlaku sampai{" "}
+                    {new Date(expiresAt).toLocaleTimeString("id-ID")}
+                  </p>
+                ) : null}
               </div>
 
               {error && <p className="text-sm text-[#ffb4a6]">{error}</p>}
 
               <Button
-                onClick={() => void verifyOtp()}
-                disabled={verifying || otp.length !== 6}
+                onClick={() => {
+                  if (!otp.trim()) {
+                    setError("Masukkan kode OTP.");
+                    return;
+                  }
+                  setError("");
+                  verifyOtpMutation.mutate({
+                    phone: phone.trim(),
+                    code: otp.trim(),
+                  });
+                }}
+                disabled={verifyOtpMutation.isPending || !otp.trim()}
                 className="w-full"
               >
-                {verifying ? "Memverifikasi..." : "Verifikasi"}
+                {verifyOtpMutation.isPending
+                  ? "Memverifikasi..."
+                  : "Verifikasi"}
               </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
-                  setState("phone");
-                  setOtp("");
+                  setFlowState("phone");
                   setError("");
                 }}
-                className="w-full text-center text-xs text-surface-warm-white/42 hover:text-surface-warm-white/62"
+                className="w-full"
               >
-                Ganti nomor telepon
-              </button>
+                Ganti nomor
+              </Button>
             </div>
-          )}
-
-          {expiresAt && (
-            <p className="mt-4 text-center text-xs text-surface-warm-white/42">
-              Kode berlaku hingga{" "}
-              {new Date(expiresAt).toLocaleTimeString("id-ID", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
           )}
         </div>
       </div>

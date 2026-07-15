@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import {
   ArrowLeft,
@@ -22,6 +23,7 @@ import {
 } from "react";
 import { type PanelImperativeHandle } from "react-resizable-panels";
 
+import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import {
   BuildProgressPanel,
   EmptyPreviewState,
@@ -70,6 +72,7 @@ import {
   shouldUseGeneratedPreviewFrame,
   isUserVisibleAssistantText,
 } from "@/lib/projects/workspace-sync";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 
 const MonacoEditor = clientOnly(() => import("@monaco-editor/react"));
 
@@ -211,7 +214,6 @@ export function WorkspaceShell({
   const olderChatSentinelRef = useRef<HTMLDivElement | null>(null);
   const hasAutoOpenedPreview = useRef(hasInitialPreview);
   const previousLiveMessageCount = useRef(initialMessages.length);
-  const runtimeRequestRef = useRef<Promise<void> | null>(null);
   const runtimeRetryAfterRef = useRef(0);
   const previousScrollHeight = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -324,53 +326,75 @@ export function WorkspaceShell({
     );
   }, [annotationInstruction, annotations, visualAnnotationStorageKey]);
 
-  const loadRuntimeState = useCallback(async () => {
-    if (runtimeRequestRef.current) {
-      return runtimeRequestRef.current;
-    }
+  const queryClient = useQueryClient();
+  const buildStatusRef = useRef(buildStatus);
+  buildStatusRef.current = buildStatus;
 
-    if (Date.now() < runtimeRetryAfterRef.current) {
+  const runtimeQuery = useQuery({
+    queryKey: queryKeys.projectRuntime(projectId),
+    queryFn: async () => {
+      // During 503 backoff, fail the fetch and keep previous cached data.
+      // Never return a closed-over React state snapshot (stale after builds).
+      if (Date.now() < runtimeRetryAfterRef.current) {
+        throw new Error("runtime_backoff");
+      }
+
+      const response = await fetch(`/api/projects/${projectId}/runtime`, {
+        cache: "no-store",
+      });
+
+      if (response.status === 503) {
+        const retryAfter = Number(response.headers.get("Retry-After") || "3");
+        runtimeRetryAfterRef.current = Date.now() + retryAfter * 1000;
+        throw new Error("runtime_unavailable");
+      }
+
+      if (!response.ok) {
+        throw new Error("runtime_failed");
+      }
+
+      return (await response.json()) as RuntimeWorkspaceState;
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data as RuntimeWorkspaceState | undefined;
+      const status = data?.build?.status || data?.deployment?.status || "";
+      if (
+        ["running", "building", "starting", "queued"].includes(status) ||
+        buildStatusRef.current === "building"
+      ) {
+        return 7000;
+      }
+      return false;
+    },
+    // Keep last good runtime while a poll fails (503/backoff/network).
+    placeholderData: (previous) => previous,
+    staleTime: 3000,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (!runtimeQuery.data) {
       return;
     }
 
-    const request = (async () => {
-      try {
-        const response = await fetch(`/api/projects/${projectId}/runtime`, {
-          cache: "no-store",
-        });
+    const result = runtimeQuery.data;
+    setRuntimeState(result);
+    setRuntimeError(null);
 
-        if (response.status === 503) {
-          const retryAfter = Number(response.headers.get("Retry-After") || "3");
-          runtimeRetryAfterRef.current = Date.now() + retryAfter * 1000;
-          return;
-        }
+    if (result.latestSuccessfulBuild) {
+      setSourceStatus("passed");
+    }
 
-        if (!response.ok) {
-          return;
-        }
+    if (result.publishedDeployment?.publicPath) {
+      setPublishedPath(result.publishedDeployment.publicPath);
+    }
+  }, [runtimeQuery.data]);
 
-        const result = (await response.json()) as RuntimeWorkspaceState;
-
-        setRuntimeState(result);
-        setRuntimeError(null);
-
-        if (result.latestSuccessfulBuild) {
-          setSourceStatus("passed");
-        }
-
-        if (result.publishedDeployment?.publicPath) {
-          setPublishedPath(result.publishedDeployment.publicPath);
-        }
-      } catch {
-        runtimeRetryAfterRef.current = Date.now() + 3000;
-      } finally {
-        runtimeRequestRef.current = null;
-      }
-    })();
-
-    runtimeRequestRef.current = request;
-    return request;
-  }, [projectId]);
+  const loadRuntimeState = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.projectRuntime(projectId),
+    });
+  }, [projectId, queryClient]);
 
   const loadWorkspaceState = useCallback(
     async (options?: { skipIfPreparing?: boolean }) => {
@@ -560,6 +584,7 @@ export function WorkspaceShell({
             setBuildProgress((current) => completeBuildProgress(current));
             void loadRuntimeState();
             window.dispatchEvent(new Event("umkm:energy-changed"));
+            void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
           }
 
           if (eventName === "error") {
@@ -730,56 +755,43 @@ export function WorkspaceShell({
     return () => window.cancelAnimationFrame(frame);
   }, [hasPreview]);
 
+  const sourceQuery = useQuery({
+    queryKey: [
+      ...queryKeys.projectSource(projectId),
+      sourceReloadKey,
+      buildStatus,
+    ],
+    queryFn: async () =>
+      fetchJson<{
+        buildStatus?: string;
+        files?: GeneratedProjectFile[];
+      }>(`/api/projects/${projectId}/source`),
+    enabled: activeTab === "code",
+  });
+
   useEffect(() => {
     if (activeTab !== "code") {
       return;
     }
 
-    const controller = new AbortController();
+    setIsLoadingSource(sourceQuery.isPending || sourceQuery.isFetching);
+    setSourceError(
+      sourceQuery.isError
+        ? "Kode website belum bisa dimuat. Coba lagi tanpa kehilangan tampilan terakhir."
+        : null,
+    );
 
-    async function loadSource() {
-      setIsLoadingSource(true);
-      setSourceError(null);
-
-      try {
-        const response = await fetch(`/api/projects/${projectId}/source`, {
-          signal: controller.signal,
-        });
-        const result = (await response.json()) as {
-          buildStatus?: string;
-          files?: GeneratedProjectFile[];
-        };
-
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        if (!response.ok) {
-          setSourceError(
-            "Kode website belum bisa dimuat. Coba lagi tanpa kehilangan tampilan terakhir.",
-          );
-          return;
-        }
-
-        setSourceFiles(result.files ?? []);
-        setSourceStatus(result.buildStatus ?? "not_started");
-      } catch {
-        if (!controller.signal.aborted) {
-          setSourceError(
-            "Kode website belum bisa dimuat. Coba lagi tanpa kehilangan tampilan terakhir.",
-          );
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingSource(false);
-        }
-      }
+    if (sourceQuery.data) {
+      setSourceFiles(sourceQuery.data.files ?? []);
+      setSourceStatus(sourceQuery.data.buildStatus ?? "not_started");
     }
-
-    void loadSource();
-
-    return () => controller.abort();
-  }, [activeTab, buildStatus, projectId, sourceReloadKey]);
+  }, [
+    activeTab,
+    sourceQuery.data,
+    sourceQuery.isError,
+    sourceQuery.isFetching,
+    sourceQuery.isPending,
+  ]);
 
   const reloadLatestChat = useCallback(async () => {
     const response = await fetch(`/api/projects/${projectId}/chat?limit=20`, {
@@ -872,23 +884,56 @@ export function WorkspaceShell({
     }
   }, [olderMessages.length]);
 
-  const scrollChatToBottom = useCallback(() => {
-    const element = chatScrollRef.current;
-
-    if (!element) {
-      return;
-    }
-
-    ignoreNextScrollRef.current = true;
-    element.scrollTop = element.scrollHeight;
-    window.setTimeout(() => {
-      ignoreNextScrollRef.current = false;
-    }, 80);
+  const isChatNearBottom = useCallback((element: HTMLElement) => {
+    // Small threshold so a slight upward scroll unsticks auto-follow.
+    const distanceFromBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight;
+    return distanceFromBottom < 48;
   }, []);
 
+  const scrollChatToBottom = useCallback(
+    (options?: { force?: boolean; behavior?: ScrollBehavior }) => {
+      const element = chatScrollRef.current;
+
+      if (!element) {
+        return;
+      }
+
+      if (!options?.force && !shouldStickToBottomRef.current) {
+        return;
+      }
+
+      const behavior = options?.behavior ?? "smooth";
+
+      // Instant programmatic jumps would otherwise look like "forced" scrolling.
+      // Only suppress the next scroll event for hard jumps (e.g. user send).
+      if (behavior === "auto") {
+        ignoreNextScrollRef.current = true;
+        element.scrollTop = element.scrollHeight;
+        window.setTimeout(() => {
+          ignoreNextScrollRef.current = false;
+        }, 80);
+        return;
+      }
+
+      element.scrollTo({
+        top: element.scrollHeight,
+        behavior: "smooth",
+      });
+    },
+    [],
+  );
+
+  // First paint: stick to bottom once so first generation starts at latest.
   useEffect(() => {
-    const frame = requestAnimationFrame(scrollChatToBottom);
-    const timeout = window.setTimeout(scrollChatToBottom, 120);
+    shouldStickToBottomRef.current = true;
+    const frame = requestAnimationFrame(() =>
+      scrollChatToBottom({ force: true, behavior: "auto" }),
+    );
+    const timeout = window.setTimeout(
+      () => scrollChatToBottom({ force: true, behavior: "smooth" }),
+      120,
+    );
 
     return () => {
       cancelAnimationFrame(frame);
@@ -905,7 +950,7 @@ export function WorkspaceShell({
     }
 
     if (shouldStickToBottomRef.current) {
-      scrollChatToBottom();
+      scrollChatToBottom({ behavior: "smooth" });
     }
 
     previousLiveMessageCount.current = messages.length;
@@ -916,13 +961,19 @@ export function WorkspaceShell({
     setMessage("");
   }, [activeQuestionKey]);
 
+  // While AI streams, keep following only if user is still pinned to bottom.
   useEffect(() => {
     if (!isResponding || !shouldStickToBottomRef.current) {
       return;
     }
 
-    const frame = requestAnimationFrame(scrollChatToBottom);
-    const timeout = window.setTimeout(scrollChatToBottom, 120);
+    const frame = requestAnimationFrame(() =>
+      scrollChatToBottom({ behavior: "smooth" }),
+    );
+    const timeout = window.setTimeout(
+      () => scrollChatToBottom({ behavior: "smooth" }),
+      120,
+    );
 
     return () => {
       cancelAnimationFrame(frame);
@@ -932,7 +983,7 @@ export function WorkspaceShell({
 
   useEffect(() => {
     if (shouldStickToBottomRef.current) {
-      requestAnimationFrame(scrollChatToBottom);
+      requestAnimationFrame(() => scrollChatToBottom({ behavior: "smooth" }));
     }
   }, [questionComposerMode, workspaceCard, scrollChatToBottom]);
 
@@ -946,6 +997,12 @@ export function WorkspaceShell({
 
   useEffect(() => {
     if (!isPreparingNextQuestion) {
+      return;
+    }
+
+    // One-call path already set a non-none card via tool output.
+    if (workspaceCardRef.current.type !== "none") {
+      setIsPreparingNextQuestion(false);
       return;
     }
 
@@ -1025,6 +1082,29 @@ export function WorkspaceShell({
     }
 
     window.dispatchEvent(new Event("umkm:energy-changed"));
+    void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
+
+    // Prefer card from one-call tool output before falling back to poll.
+    const toolCard = getWorkspaceCardFromMessages(allMessagesRef.current);
+    if (toolCard && toolCard.workspaceCard.type !== "none") {
+      if (
+        isFreshWorkspaceCard(
+          toolCard.workspaceCard,
+          workspaceCardRef.current,
+        ) ||
+        toolCard.workspaceCard.type !== workspaceCardRef.current.type
+      ) {
+        setWorkspaceCard(toolCard.workspaceCard);
+        if (toolCard.projectTitle) {
+          setProjectTitle(toolCard.projectTitle);
+          setDraftTitle(toolCard.projectTitle);
+        }
+        setWorkspaceCardError(false);
+        setIsPreparingNextQuestion(false);
+        void reloadLatestChat();
+        return;
+      }
+    }
 
     const answered = hasAnsweredWorkspaceQuestion({
       card: workspaceCardRef.current,
@@ -1180,6 +1260,7 @@ export function WorkspaceShell({
       setPreviewReloadKey((current) => current + 1);
       void loadRuntimeState();
       window.dispatchEvent(new Event("umkm:energy-changed"));
+      void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
     } finally {
       visualEditInFlightRef.current = false;
       setIsEditingPreview(false);
@@ -1235,10 +1316,13 @@ export function WorkspaceShell({
         return;
       }
 
+      // User is sending a new turn: re-pin and jump to latest.
       shouldStickToBottomRef.current = true;
       setRateLimitError(null);
       setMessage("");
-      requestAnimationFrame(scrollChatToBottom);
+      requestAnimationFrame(() =>
+        scrollChatToBottom({ force: true, behavior: "smooth" }),
+      );
 
       if (composerState === "post_build_chat") {
         setIsEditingPreview(true);
@@ -1549,6 +1633,7 @@ export function WorkspaceShell({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-spacing-2">
+                <EnergyDisplay />
                 <button
                   type="button"
                   onClick={
@@ -1570,17 +1655,26 @@ export function WorkspaceShell({
 
             <div
               ref={chatScrollRef}
+              onWheel={(event) => {
+                // Immediate unstick when user scrolls up, even mid smooth-follow.
+                if (event.deltaY < 0) {
+                  shouldStickToBottomRef.current = false;
+                }
+              }}
+              onTouchStart={() => {
+                // Touch drag intent: stop forcing until they return to bottom.
+                const element = chatScrollRef.current;
+                if (element && !isChatNearBottom(element)) {
+                  shouldStickToBottomRef.current = false;
+                }
+              }}
               onScroll={(event) => {
                 if (ignoreNextScrollRef.current) {
                   return;
                 }
 
                 const element = event.currentTarget;
-                shouldStickToBottomRef.current =
-                  element.scrollHeight -
-                    element.scrollTop -
-                    element.clientHeight <
-                  120;
+                shouldStickToBottomRef.current = isChatNearBottom(element);
               }}
               className="mt-spacing-5 min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
             >
@@ -2075,6 +2169,71 @@ function completeBuildProgress(current: BuildProgressStep[]) {
   return current.map((step) =>
     step.status === "active" ? { ...step, status: "done" as const } : step,
   );
+}
+
+const PRESENT_WORKSPACE_CARD_TOOL_TYPE = "tool-presentWorkspaceCard";
+
+function getWorkspaceCardFromMessages(messages: UIMessage[]): {
+  projectTitle?: string;
+  workspaceCard: WorkspaceCard;
+} | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "assistant") {
+      continue;
+    }
+
+    for (
+      let partIndex = message.parts.length - 1;
+      partIndex >= 0;
+      partIndex -= 1
+    ) {
+      const part = message.parts[partIndex] as {
+        type?: string;
+        state?: string;
+        output?: {
+          projectTitle?: unknown;
+          workspaceCard?: WorkspaceCard;
+        };
+        toolInvocation?: {
+          toolName?: string;
+          state?: string;
+          output?: {
+            projectTitle?: unknown;
+            workspaceCard?: WorkspaceCard;
+          };
+        };
+      };
+
+      const isPresentCardTool =
+        part.type === PRESENT_WORKSPACE_CARD_TOOL_TYPE ||
+        part.toolInvocation?.toolName === "presentWorkspaceCard";
+      if (!isPresentCardTool) {
+        continue;
+      }
+
+      const state = part.state || part.toolInvocation?.state;
+      if (state !== "output-available") {
+        continue;
+      }
+
+      const output = part.output || part.toolInvocation?.output;
+      const card = output?.workspaceCard;
+      if (!card || typeof card !== "object" || card.type === "none") {
+        continue;
+      }
+
+      return {
+        workspaceCard: card,
+        projectTitle:
+          typeof output?.projectTitle === "string"
+            ? output.projectTitle
+            : undefined,
+      };
+    }
+  }
+
+  return null;
 }
 
 function filterDiscussionMessagesWithWorkspaceUi(

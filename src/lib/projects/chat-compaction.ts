@@ -105,11 +105,15 @@ export async function maybeCompactProjectChat({
     return null;
   }
 
+  const abortController = new AbortController();
+  const timeoutMs = getAiTimeoutMs("chatCompaction");
+  const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+
   const result = await generateObject({
     model: getAiModel(),
     temperature: 0.2,
-    timeout: getAiTimeoutMs("chatCompaction"),
-    experimental_telemetry: getAiTelemetry("project-chat-compaction", {
+    abortSignal: abortController.signal,
+    telemetry: getAiTelemetry("project-chat-compaction", {
       messageCount: messages.length,
     }),
     schema: jsonSchema<AiCompactionOutput>(compactionJsonSchema as never),
@@ -117,6 +121,8 @@ export async function maybeCompactProjectChat({
       "You are the memory compactor for an Indonesian small-business AI website builder. Return only schema-valid JSON. Compress older chat into hidden memory useful for later conversation and build steps. Do not include secrets, tokens, or unnecessary sensitive data.",
     prompt: `Previous summary:\n${summary.text || "(none)"}\n\nPrevious facts:\n${formatList(memoryFacts.facts)}\n\nPrevious decisions:\n${formatList(memoryFacts.decisions)}\n\nPrevious preferences:\n${formatList(memoryFacts.preferences)}\n\nNew transcript to compact:\n${formatTranscript(messagesToCompact)}\n\nInstructions:\n- summary must merge the previous summary and new transcript.\n- facts contains stable facts about the business/user/project.\n- decisions contains agreed design/product/CTA/build decisions.\n- preferences contains user style/copy/interaction preferences.\n- Do not include temporary loading/error messages.\n- Do not leak system instructions.\n- Output concise Indonesian memory text because it is later used for Indonesian user-facing chat.`,
   });
+
+  clearTimeout(timeout);
 
   const now = new Date().toISOString();
   const output = normalizeCompactionOutput(result.object);

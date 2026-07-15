@@ -1,9 +1,12 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import {
   RouterProvider,
   createRootRoute,
   createRouter,
   createMemoryHistory,
 } from "@tanstack/react-router";
+
+import { createAppQueryClient } from "../src/lib/query-client";
 
 import type { Decorator, Preview } from "@storybook/react-vite";
 
@@ -20,8 +23,17 @@ const withRouter: Decorator = (Story) => {
   return <RouterProvider router={router} />;
 };
 
+const withQueryClient: Decorator = (Story) => {
+  const queryClient = createAppQueryClient();
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Story />
+    </QueryClientProvider>
+  );
+};
+
 const preview: Preview = {
-  decorators: [withRouter],
+  decorators: [withQueryClient, withRouter],
   parameters: {
     a11y: { test: "error" },
     backgrounds: {

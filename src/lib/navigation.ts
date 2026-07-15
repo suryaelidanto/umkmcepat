@@ -10,9 +10,42 @@ import {
 
 export function usePathname(): string {
   try {
+    // Prefer the resolved (committed) location over the in-flight target.
+    // During project → home transitions, location.pathname can already be "/"
+    // while Outlet still paints the previous project page. Chrome that keys
+    // layout off the target path will then show header/footer with project chat.
+    return useRouterState({
+      select: (state) =>
+        state.resolvedLocation?.pathname ?? state.location.pathname,
+    });
+  } catch {
+    return "/";
+  }
+}
+
+/** In-flight destination path (updates immediately on click). */
+export function useTargetPathname(): string {
+  try {
     return useRouterState({ select: (state) => state.location.pathname });
   } catch {
     return "/";
+  }
+}
+
+/** True while a route transition still has previous content committed. */
+export function useIsRoutePending(): boolean {
+  try {
+    return useRouterState({
+      select: (state) =>
+        Boolean(
+          state.isLoading ||
+          state.isTransitioning ||
+          (state.resolvedLocation &&
+            state.resolvedLocation.pathname !== state.location.pathname),
+        ),
+    });
+  } catch {
+    return false;
   }
 }
 

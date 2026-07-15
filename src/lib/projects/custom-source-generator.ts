@@ -1,4 +1,4 @@
-import { stepCountIs, tool, ToolLoopAgent } from "ai";
+import { isStepCount, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
@@ -76,17 +76,17 @@ export async function generateCustomProjectFilesWithAgent({
   try {
     const agent = new ToolLoopAgent({
       model: getAiModel(getGenerationModel()),
+      // Reasoning models emit hidden reasoning_content per step; without a
+      // generous per-step budget the visible tool-call never lands.
+      maxOutputTokens: 12_000,
       instructions: buildGeneratedAppAgentInstructions(
         schema,
         implementationSpec,
       ),
-      experimental_telemetry: getAiTelemetry(
-        "project-source-generation-agent",
-        {
-          projectId,
-        },
-      ),
-      stopWhen: stepCountIs(8),
+      telemetry: getAiTelemetry("project-source-generation-agent", {
+        projectId,
+      }),
+      stopWhen: isStepCount(8),
       tools: createAgentTools(runCommand),
     });
 
@@ -202,6 +202,12 @@ function createAgentTools(
       execute: ({ find, path, replace }) =>
         runCommand({ find, path, replace, type: "replace_in_file" }),
     }),
+    read_skill: tool({
+      description:
+        "Read an internal skill document (generated-app-builder, design-quality, anti-slop, indonesian-business).",
+      inputSchema: z.object({ name: z.string() }),
+      execute: ({ name }) => runCommand({ name, type: "read_skill" }),
+    }),
     check_app: tool({
       description:
         "Validate manifest, package policy, and source safety after edits.",
@@ -233,9 +239,6 @@ function checkAgentSourceQuality(
     issues.push("missing route files");
   }
 
-  const routeEdited = [...touchedFiles].some((path) =>
-    path.startsWith("src/routes/"),
-  );
   const presentationEdited = [...touchedFiles].some(
     (path) => path.startsWith("src/components/") || path === "src/styles.css",
   );
@@ -243,16 +246,10 @@ function checkAgentSourceQuality(
     path.startsWith("src/content/"),
   );
 
-  if (!routeEdited) {
-    issues.push("agent did not edit route files");
-  }
-
-  if (!presentationEdited) {
-    issues.push("agent did not edit presentation files");
-  }
-
-  if (!contentEdited) {
-    issues.push("agent did not edit content files");
+  // Routes come from the starter factory; the agent does not always need to
+  // edit them. Only require that the agent touched at least one content area.
+  if (!presentationEdited && !contentEdited) {
+    issues.push("agent did not edit any presentation or content files");
   }
 
   if (!files.some((file) => file.path.startsWith("src/content/"))) {
@@ -309,20 +306,16 @@ function checkAgentSourceQuality(
 }
 
 function buildAgentPrompt(implementationBrief: string) {
-  return `Build a custom standalone generated app from the starter files.
+  return `Build a custom standalone app from starter files.
 
 Implementation brief:
 ${implementationBrief}
 
-Required steps:
-1. list_files
-2. read PRODUCT.md, DESIGN.md, .agents/skills/impeccable/SKILL.md, router, index route, content, and style files; use line ranges for large files
-3. create at least one component under src/components/custom/ unless a better domain folder already exists
-4. edit route, content, and CSS files so the app feels designed, not pasted answers
-5. keep static frontend only
-6. every className you use in JSX must have a corresponding CSS rule in src/styles.css
-7. run check_app after all writes
-8. final answer: concise summary and touched files`;
+Read the generated-app-builder skill for the development workflow.
+Key rule: EDIT src/routes/index.tsx FIRST with real business content.
+Keep usePreviewReady() in the rendered route.
+Every className in JSX needs a CSS rule in src/styles.css.
+Run check_app after all writes.`;
 }
 
 export function buildGeneratedAppBuildSpec(
@@ -386,24 +379,19 @@ function buildGeneratedAppAgentInstructions(
   schema: ProjectSiteSchema,
   implementationSpec?: ImplementationSpec,
 ) {
-  return `You are an expert frontend coding agent inside a generated Vite React TypeScript TanStack Router project.
+  return `You are a frontend coding agent for UMKM Cepat generated apps.
 
-Rules:
-- Use the provided file tools only.
-- Keep all paths inside the generated project.
-- Static frontend only: no backend, API routes, DB, auth, payment, checkout, fake persistence, browser automation, or native deps.
-- User-facing copy must be Indonesian.
-- Do not dump raw brief answers; transform them into the app structure requested by the implementation spec.
-- Create React components; do not keep everything in one route file.
-- Prefer custom CSS, React components, content modules, and routes.
-- Make structure specific to this business: ${implementationSpec?.businessName || schema.businessName} / ${implementationSpec?.appKind || "landing"} / ${(implementationSpec?.features || [schema.offer, schema.audience]).join(", ")}.
-- Do not add packages unless already allowed by package policy.
-- Follow PRODUCT.md, DESIGN.md, and .agents/skills/impeccable/SKILL.md. Do not run installers or CLIs.
-- Keep preview readiness working.
-- You must edit route, content, and styling files.
-- You should create at least one src/components/custom/*.tsx file for the main visual section.
-- You must call check_app after final write.
-- If unsure, make the smallest safe custom improvement.`;
+Business: ${implementationSpec?.businessName || schema.businessName} — ${implementationSpec?.appKind || "landing"} — ${(implementationSpec?.features || [schema.offer, schema.audience]).join(", ")}
+
+Before coding, read these skills via read_skill tool:
+1. generated-app-builder — development workflow and file structure
+2. design-quality — design best practices (color, typography, layout)
+3. anti-slop — avoid generic AI patterns
+4. indonesian-business — business context and copy rules
+
+Then follow the skill instructions. The project uses Vite + React + TanStack Router.
+Static frontend only. User-facing copy in Indonesian.
+Call check_app after all writes.`;
 }
 
 export async function repairGeneratedProjectFiles({
@@ -448,15 +436,15 @@ export async function repairGeneratedProjectFiles({
 
   const agent = new ToolLoopAgent({
     model: getAiModel(getGenerationModel()),
+    maxOutputTokens: 12_000,
     instructions: buildGeneratedAppAgentInstructions(
       schema,
       implementationSpec,
     ),
-    experimental_telemetry: getAiTelemetry(
-      "project-source-generation-agent-repair",
-      { projectId },
-    ),
-    stopWhen: stepCountIs(4),
+    telemetry: getAiTelemetry("project-source-generation-agent-repair", {
+      projectId,
+    }),
+    stopWhen: isStepCount(4),
     tools: createAgentTools(runCommand),
   });
 

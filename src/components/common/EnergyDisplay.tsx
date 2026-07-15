@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+
+import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
 
 type EnergyStats = {
   remaining: number;
@@ -16,42 +19,48 @@ function formatNumber(value: number): string {
 }
 
 export function EnergyDisplay() {
-  const [stats, setStats] = useState<EnergyStats | null>(null);
-
-  const loadStats = useCallback(async () => {
-    try {
-      const response = await fetch("/api/user/credits", { cache: "no-store" });
-      if (response.ok) {
-        setStats((await response.json()) as EnergyStats);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  const queryClient = useQueryClient();
+  const energyQuery = useQuery({
+    queryKey: queryKeys.energy,
+    queryFn: () =>
+      fetchJson<EnergyStats>("/api/user/credits", { cache: "no-store" }),
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+  });
 
   useEffect(() => {
-    void loadStats();
-    const interval = window.setInterval(() => void loadStats(), 15_000);
-
-    const onFocus = () => void loadStats();
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void loadStats();
-      }
+    const onEnergyChanged = () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
     };
-    const onEnergyChanged = () => void loadStats();
 
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("umkm:energy-changed", onEnergyChanged);
-
     return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("umkm:energy-changed", onEnergyChanged);
     };
-  }, [loadStats]);
+  }, [queryClient]);
+
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      await fetchJson<{ ok: boolean }>("/api/dev/add-energy", {
+        method: "POST",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
+      notifyEnergyChanged();
+    },
+  });
+
+  const stats = energyQuery.data;
+
+  if (energyQuery.isPending && !stats) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-surface-warm-white/42">
+        <div className="size-2 animate-pulse rounded-full bg-surface-warm-white/30" />
+        <span>Energi…</span>
+      </div>
+    );
+  }
 
   if (!stats) {
     return null;
@@ -72,11 +81,14 @@ export function EnergyDisplay() {
         `Output: ${formatNumber(stats.outputTokens)} token (×2 energi)`,
         "Rumus: input + (2 × output)",
         `Reset ${resetLabel} (WIB)`,
-      ].join("\n")}
+        energyQuery.isFetching ? "Memperbarui…" : "",
+      ]
+        .filter(Boolean)
+        .join("\n")}
     >
       <div className="flex items-center gap-1.5">
         <div
-          className={`size-2 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"}`}
+          className={`size-2 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"} ${energyQuery.isFetching ? "animate-pulse" : ""}`}
         />
         <span className="text-xs font-medium text-surface-warm-white/78">
           {formatNumber(stats.remaining)}
@@ -94,11 +106,12 @@ export function EnergyDisplay() {
       {import.meta.env.DEV && (
         <button
           type="button"
-          onClick={() => void handleDevAddEnergy(loadStats)}
-          className="rounded-md bg-surface-warm-white/10 px-2 py-0.5 text-[10px] font-medium text-surface-warm-white/60 transition hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80"
+          onClick={() => resetMutation.mutate()}
+          disabled={resetMutation.isPending}
+          className="rounded-md bg-surface-warm-white/10 px-2 py-0.5 text-[10px] font-medium text-surface-warm-white/60 transition hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80 disabled:opacity-50"
           title="Dev: reset energy hari ini"
         >
-          Reset
+          {resetMutation.isPending ? "…" : "Reset"}
         </button>
       )}
     </div>
@@ -122,16 +135,4 @@ function formatResetTime(resetsAt: string): string {
   }
 
   return `dalam ${diffMinutes} menit`;
-}
-
-async function handleDevAddEnergy(refresh: () => Promise<void>) {
-  try {
-    const response = await fetch("/api/dev/add-energy", { method: "POST" });
-    if (response.ok) {
-      await refresh();
-      window.dispatchEvent(new Event("umkm:energy-changed"));
-    }
-  } catch {
-    // ignore
-  }
 }

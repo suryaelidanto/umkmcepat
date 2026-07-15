@@ -45,7 +45,7 @@ export async function moderateProjectRequest(
       model: getAiModel(getDefaultAiModel()),
       temperature: 0,
       timeout: timeoutMs,
-      experimental_telemetry: getAiTelemetry("project-moderation", {
+      telemetry: getAiTelemetry("project-moderation", {
         model: getDefaultAiModel(),
       }),
       system:

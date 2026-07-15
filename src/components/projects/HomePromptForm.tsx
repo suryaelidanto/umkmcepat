@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, Loader2 } from "lucide-react";
 import {
   FormEvent,
@@ -8,7 +9,6 @@ import {
   useEffect,
   useRef,
   useState,
-  useTransition,
 } from "react";
 
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
@@ -25,6 +25,7 @@ import {
   PROJECT_REQUEST_MAX_LENGTH,
   validateProjectRequest,
 } from "@/lib/projects/input";
+import { queryKeys } from "@/lib/query-client";
 
 function getProjectCreateIdempotencyKey(prompt: string) {
   const draft = parseProjectDraft(
@@ -54,12 +55,11 @@ export function HomePromptForm({
   overProjectLimit?: boolean;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { status } = useSession();
   const [prompt, setPrompt] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
-  const [isContinuing, setIsContinuing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isPending, startTransition] = useTransition();
   const hasAutoContinued = useRef(false);
   const isSubmittingRef = useRef(false);
 
@@ -97,8 +97,8 @@ export function HomePromptForm({
     );
   }
 
-  const createProject = useCallback(
-    async (value: string) => {
+  const createMutation = useMutation({
+    mutationFn: async (value: string) => {
       const idempotencyKey = getProjectCreateIdempotencyKey(value);
       const response = await fetch("/api/projects", {
         method: "POST",
@@ -108,36 +108,53 @@ export function HomePromptForm({
         },
         body: JSON.stringify({ idempotencyKey, prompt: value }),
       }).catch((error: unknown) => apiNetworkError(error));
+
       const result =
         response instanceof Response
           ? await parseApiResponse<{ path?: string }>(response)
           : response;
 
       if (!result.ok) {
-        setErrorMessage(
+        throw new Error(
           result.error.message ||
             "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
         );
-        setIsContinuing(false);
-        isSubmittingRef.current = false;
-        return;
       }
 
       if (!result.data.path) {
-        setErrorMessage(
+        throw new Error(
           "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
         );
-        setIsContinuing(false);
-        isSubmittingRef.current = false;
-        return;
       }
 
-      window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
-      startTransition(() => {
-        router.push(result.data.path || "/");
-      });
+      return result.data.path;
     },
-    [router, startTransition],
+    onSuccess: async (path) => {
+      window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
+      // Drop list cache so home always refetches fresh projects after create.
+      queryClient.removeQueries({ queryKey: queryKeys.projects });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
+      router.push(path);
+    },
+    onError: (error) => {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
+      );
+      isSubmittingRef.current = false;
+    },
+    onSettled: () => {
+      isSubmittingRef.current = false;
+    },
+  });
+
+  const createProject = useCallback(
+    async (value: string) => {
+      setErrorMessage("");
+      await createMutation.mutateAsync(value);
+    },
+    [createMutation],
   );
 
   useEffect(() => {
@@ -154,7 +171,6 @@ export function HomePromptForm({
     }
 
     hasAutoContinued.current = true;
-    setIsContinuing(true);
     window.localStorage.setItem(
       PROJECT_DRAFT_STORAGE_KEY,
       JSON.stringify({
@@ -168,7 +184,7 @@ export function HomePromptForm({
     void createProject(draft.prompt);
   }, [createProject, status]);
 
-  const isLoading = isContinuing || isPending;
+  const isLoading = createMutation.isPending;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -194,8 +210,6 @@ export function HomePromptForm({
       isSubmittingRef.current = false;
       return;
     }
-
-    setIsContinuing(true);
 
     await createProject(validation.value);
   }
@@ -258,30 +272,24 @@ export function HomePromptForm({
               type="submit"
               size="icon"
               disabled={isLoading || !prompt.trim()}
-              className="size-11 shrink-0 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-              aria-label="Buat halaman"
+              className="size-11 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-45"
             >
               {isLoading ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-5 animate-spin" />
               ) : (
-                <ArrowUp className="size-4" />
+                <ArrowUp className="size-5" />
               )}
             </Button>
           </div>
         </div>
         {errorMessage ? (
-          <p className="px-spacing-7 pb-spacing-7 text-sm text-red-200">
+          <p className="border-t border-surface-warm-white/10 px-spacing-9 py-spacing-4 text-sm text-[#ffb4a6]">
             {errorMessage}
           </p>
         ) : null}
       </form>
 
-      <LoginConsentDialog
-        open={loginOpen}
-        onOpenChange={setLoginOpen}
-        title="Masuk dulu untuk lanjut"
-        description="Chat kamu sudah disimpan. Setelah masuk, AI akan lanjut otomatis tanpa perlu mengetik ulang."
-      />
+      <LoginConsentDialog open={loginOpen} onOpenChange={setLoginOpen} />
     </>
   );
 }
