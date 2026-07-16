@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/projects/$id/assets/$")({
       GET: async ({ request, params }) => {
         const { id } = params;
         const _splat = params._splat ?? "";
-        const path = _splat ? _splat.split("/") : [];
+        const path = _splat ? _splat.split("/").filter(Boolean) : [];
 
         try {
           return await getAssetResponse({ id, path, request });

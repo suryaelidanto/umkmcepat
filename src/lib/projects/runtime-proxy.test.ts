@@ -137,8 +137,10 @@ describe("runtime proxy", () => {
       projectId: "project_1",
     });
 
-    expect(result).toContain("/api/projects/project_1/assets/app.js/?");
-    expect(result).toContain("/api/projects/project_1/assets/app.css/?");
+    expect(result).toContain("/api/projects/project_1/assets/app.js?");
+    expect(result).toContain("/api/projects/project_1/assets/app.css?");
+    expect(result).not.toContain("/assets/app.js/?");
+    expect(result).not.toContain("/assets/app.css/?");
     expect(result).toContain("assetToken=");
     expect(result).not.toContain("./assets/");
   });

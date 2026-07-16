@@ -18,7 +18,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { devLog } from "@/lib/dev-log";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
@@ -400,11 +399,6 @@ export function GeneratedPreviewFrame({
     }, 12_000);
 
     function handleMessage(event: MessageEvent) {
-      // TEMP DIAGNOSTIC
-      devLog("preview", "message", {
-        type: event.data?.type,
-        origin: event.origin,
-      });
       // Sandbox "allow-scripts" (no allow-same-origin) makes the iframe
       // cross-origin, so event.source is null/window proxy and a strict
       // equality check always fails. Validate by message type + origin

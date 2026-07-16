@@ -29,6 +29,7 @@ run(
         "x",
         "eslint",
         "--max-warnings=0",
+        "--no-warn-ignored",
         "--cache",
         "--cache-location",
         ".eslintcache",

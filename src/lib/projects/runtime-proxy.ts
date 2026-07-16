@@ -181,7 +181,7 @@ export function rewritePreviewAssetUrls(
         .map((segment) => encodeURIComponent(segment))
         .join("/");
 
-      return `${attribute}="/api/projects/${encodeURIComponent(projectId)}/assets/${encodedPath}/?${PREVIEW_ASSET_TOKEN_PARAM}=${encodeURIComponent(token)}"`;
+      return `${attribute}="/api/projects/${encodeURIComponent(projectId)}/assets/${encodedPath}?${PREVIEW_ASSET_TOKEN_PARAM}=${encodeURIComponent(token)}"`;
     },
   );
 }
