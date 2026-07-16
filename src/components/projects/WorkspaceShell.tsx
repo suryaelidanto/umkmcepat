@@ -88,6 +88,20 @@ type WorkspaceShellProps = {
 };
 
 type RuntimeWorkspaceState = {
+  activeJob?: {
+    attemptId?: string | null;
+    buildId?: string | null;
+    kind?: string;
+    message?: string | null;
+    phase?: string;
+    startedAt?: string;
+    steps?: Array<{
+      detail: string;
+      label: string;
+      status?: "active" | "done" | "error";
+    }>;
+    updatedAt?: string;
+  } | null;
   activePreviewDeployment?: {
     id: string;
     lastRequestAt?: string | null;
@@ -124,6 +138,7 @@ type RuntimeWorkspaceState = {
   canRetry?: boolean;
   latestAttempt?: {
     id: string;
+    startedAt?: string | null;
     status: string;
   } | null;
   latestFailedAttempt?: {
@@ -357,12 +372,25 @@ export function WorkspaceShell({
     },
     refetchInterval: (query) => {
       const data = query.state.data as RuntimeWorkspaceState | undefined;
-      const status = data?.build?.status || data?.deployment?.status || "";
+      const attemptStatus = data?.latestAttempt?.status || "";
+      const deploymentStatus = data?.deployment?.status || "";
+      const jobActive = Boolean(
+        data?.activeJob &&
+        ["generating", "building", "finalizing"].includes(
+          data.activeJob.phase || "",
+        ),
+      );
       if (
-        ["running", "building", "starting", "queued"].includes(status) ||
+        jobActive ||
+        data?.userFacingState === "building" ||
+        ["running", "building", "starting", "queued"].includes(attemptStatus) ||
+        ["running", "building", "starting", "queued"].includes(
+          deploymentStatus,
+        ) ||
         buildStatusRef.current === "building"
       ) {
-        return 7000;
+        // Faster while a job is active so refresh/hydrate feels live.
+        return jobActive || buildStatusRef.current === "building" ? 3000 : 7000;
       }
       return false;
     },
@@ -387,6 +415,70 @@ export function WorkspaceShell({
 
     if (result.publishedDeployment?.publicPath) {
       setPublishedPath(result.publishedDeployment.publicPath);
+    }
+
+    // Server-owned job hydrate: refresh/HMR must reattach as observer, not
+    // wipe progress or auto-start a second generate.
+    const job = result.activeJob;
+    const jobRunning =
+      job && ["generating", "building", "finalizing"].includes(job.phase || "");
+    const attemptRunning = ["queued", "running"].includes(
+      result.latestAttempt?.status || "",
+    );
+    const serverBuilding =
+      jobRunning || attemptRunning || result.userFacingState === "building";
+
+    if (serverBuilding) {
+      hasStartedBuild.current = true;
+      setBuildStatus("building");
+      setMode("build");
+      const startedMs = Date.parse(
+        job?.startedAt || result.latestAttempt?.startedAt || "",
+      );
+      if (Number.isFinite(startedMs)) {
+        setBuildStartedAt((current) => current ?? startedMs);
+      } else {
+        setBuildStartedAt((current) => current ?? Date.now());
+      }
+      if (job?.steps?.length) {
+        setBuildProgress(
+          job.steps.map((step) => ({
+            detail: step.detail,
+            label: step.label,
+            status: step.status,
+          })),
+        );
+      } else {
+        setBuildProgress((current) =>
+          current.length
+            ? current
+            : [
+                {
+                  detail:
+                    job?.message ||
+                    result.message ||
+                    "Build website sedang berjalan di server.",
+                  label: "Build berjalan",
+                  status: "active" as const,
+                },
+              ],
+        );
+      }
+      return;
+    }
+
+    if (
+      result.userFacingState === "ready" ||
+      result.userFacingState === "ready_with_failed_latest_attempt"
+    ) {
+      if (buildStatusRef.current === "building") {
+        setBuildStatus("ready");
+        setBuildProgress((current) => completeBuildProgress(current));
+      }
+    } else if (result.userFacingState === "build_failed_without_last_good") {
+      if (buildStatusRef.current === "building") {
+        setBuildStatus("failed");
+      }
     }
   }, [runtimeQuery.data]);
 
@@ -632,18 +724,34 @@ export function WorkspaceShell({
   ]);
 
   useEffect(() => {
+    // Never auto-start if a job is already running on the server (refresh case).
     if (
       hasStartedBuild.current ||
       initialStatus === "ready" ||
       initialStatus === "discussing" ||
-      initialStatus === "failed"
+      initialStatus === "failed" ||
+      initialStatus === "building" ||
+      runtimeState?.userFacingState === "building" ||
+      runtimeState?.activeJob
     ) {
+      if (
+        initialStatus === "building" ||
+        runtimeState?.userFacingState === "building" ||
+        runtimeState?.activeJob
+      ) {
+        hasStartedBuild.current = true;
+      }
       return;
     }
 
     hasStartedBuild.current = true;
     void startBuild();
-  }, [initialStatus, startBuild]);
+  }, [
+    initialStatus,
+    runtimeState?.activeJob,
+    runtimeState?.userFacingState,
+    startBuild,
+  ]);
 
   useEffect(() => {
     if (hasStartedChat.current || !prompt || initialMessages.length) {

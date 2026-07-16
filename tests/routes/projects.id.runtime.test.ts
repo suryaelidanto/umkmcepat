@@ -5,6 +5,7 @@ const {
   getDeploymentStatusMock,
   prismaProjectBuildFindManyMock,
   prismaProjectDeploymentFindManyMock,
+  prismaProjectEditAttemptFindManyMock,
   prismaProjectFindFirstMock,
   prismaRuntimeEventFindManyMock,
 } = vi.hoisted(() => ({
@@ -12,6 +13,7 @@ const {
   getDeploymentStatusMock: vi.fn<() => Promise<string>>(),
   prismaProjectBuildFindManyMock: vi.fn(),
   prismaProjectDeploymentFindManyMock: vi.fn(),
+  prismaProjectEditAttemptFindManyMock: vi.fn(),
   prismaProjectFindFirstMock: vi.fn(),
   prismaRuntimeEventFindManyMock: vi.fn(),
 }));
@@ -22,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
     project: { findFirst: prismaProjectFindFirstMock },
     projectBuild: { findMany: prismaProjectBuildFindManyMock },
     projectDeployment: { findMany: prismaProjectDeploymentFindManyMock },
+    projectEditAttempt: { findMany: prismaProjectEditAttemptFindManyMock },
     runtimeEvent: { findMany: prismaRuntimeEventFindManyMock },
   },
 }));
@@ -50,17 +53,25 @@ describe("project runtime route", () => {
       user: { id: "user_1" },
       expires: new Date().toISOString(),
     });
-    prismaProjectFindFirstMock.mockResolvedValue({ id: "project_1" });
+    prismaProjectFindFirstMock.mockResolvedValue({
+      buildStatus: "not_started",
+      id: "project_1",
+      status: "discussing",
+    });
     prismaRuntimeEventFindManyMock.mockResolvedValue([]);
+    prismaProjectEditAttemptFindManyMock.mockResolvedValue([]);
     getDeploymentStatusMock.mockResolvedValue("running");
   });
 
   it("does not return another owner's stale runtime cache during a database outage", async () => {
     prismaProjectFindFirstMock.mockResolvedValue({
+      buildStatus: "not_started",
       id: "project_cross_tenant",
+      status: "discussing",
     });
     prismaProjectBuildFindManyMock.mockResolvedValue([]);
     prismaProjectDeploymentFindManyMock.mockResolvedValue([]);
+    prismaProjectEditAttemptFindManyMock.mockResolvedValue([]);
 
     const ownerResponse = await GET(new Request("http://localhost/runtime"), {
       id: "project_cross_tenant",

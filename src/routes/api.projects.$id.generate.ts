@@ -272,9 +272,38 @@ async function handleGeneratePost(request: Request, routeId: string) {
     async start(controller) {
       let runtimeBuildFinalized = false;
       let runtimeBuildId: string | null = earlyBuildId;
+      let lastPersistedProgressLabel: string | null = null;
 
       function send(event: string, data: unknown) {
         controller.enqueue(encoder.encode(encodeEvent(event, data)));
+
+        if (
+          event === "progress" &&
+          data &&
+          typeof data === "object" &&
+          "label" in data
+        ) {
+          const label = String(
+            (data as { label?: unknown }).label ?? "",
+          ).trim();
+          const detail = String(
+            (data as { detail?: unknown }).detail ?? label,
+          ).trim();
+          if (label && label !== lastPersistedProgressLabel) {
+            lastPersistedProgressLabel = label;
+            void prisma.runtimeEvent
+              .create({
+                data: createRuntimeEventData({
+                  buildId: runtimeBuildId,
+                  message: label,
+                  metadata: { detail, label },
+                  projectId,
+                  type: "build.progress",
+                }),
+              })
+              .catch(() => undefined);
+          }
+        }
       }
 
       try {

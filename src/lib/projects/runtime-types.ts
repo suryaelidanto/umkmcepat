@@ -39,6 +39,7 @@ export type RuntimeNodeStatus = (typeof RUNTIME_NODE_STATUSES)[number];
 export const RUNTIME_EVENT_TYPES = [
   "snapshot.created",
   "build.started",
+  "build.progress",
   "build.succeeded",
   "build.failed",
   "build.canceled",

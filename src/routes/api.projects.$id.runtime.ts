@@ -10,6 +10,7 @@ import {
   selectLatestFailedAttempt,
   selectLatestSuccessfulBuild,
 } from "@/lib/projects/deployment-resolution";
+import { deriveActiveProjectJob } from "@/lib/projects/project-job";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 
@@ -72,7 +73,7 @@ export const Route = createFileRoute("/api/projects/$id/runtime")({
 async function getRuntimeState(id: string, userId: string) {
   const project = await prisma.project.findFirst({
     where: { id, userId },
-    select: { id: true },
+    select: { buildStatus: true, id: true, status: true },
   });
 
   if (!project) {
@@ -84,7 +85,7 @@ async function getRuntimeState(id: string, userId: string) {
 
   await markStaleProjectBuilds(project.id);
 
-  const [builds, previewDeployments, publishedDeployments, events] =
+  const [builds, previewDeployments, publishedDeployments, events, attempts] =
     await Promise.all([
       prisma.projectBuild.findMany({
         where: { projectId: project.id },
@@ -163,9 +164,24 @@ async function getRuntimeState(id: string, userId: string) {
           deploymentId: true,
           id: true,
           message: true,
+          metadata: true,
           type: true,
         },
-        take: 20,
+        take: 40,
+      }),
+      prisma.projectEditAttempt.findMany({
+        where: { projectId: project.id },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          buildId: true,
+          finishedAt: true,
+          id: true,
+          kind: true,
+          startedAt: true,
+          status: true,
+          updatedAt: true,
+        },
       }),
     ]);
   const latestAttempt = selectLatestAttempt(builds);
@@ -184,8 +200,17 @@ async function getRuntimeState(id: string, userId: string) {
     latestFailedAttemptId: latestFailedAttempt?.id,
     latestSuccessfulBuildId: latestSuccessfulBuild?.id,
   });
+  const latestEditAttempt = attempts[0] ?? null;
+  const activeJob = deriveActiveProjectJob({
+    attempt: latestEditAttempt,
+    build: latestAttempt,
+    events,
+    projectBuildStatus: project.buildStatus,
+    projectStatus: project.status,
+  });
 
   const body = {
+    activeJob,
     activePreviewDeployment: deployment
       ? {
           ...deployment,
@@ -211,7 +236,7 @@ async function getRuntimeState(id: string, userId: string) {
           status: liveDeploymentStatus,
         }
       : null,
-    events,
+    events: events.map(({ metadata: _metadata, ...event }) => event),
     latestAttempt,
     latestFailedAttempt,
     latestSuccessfulBuild,
