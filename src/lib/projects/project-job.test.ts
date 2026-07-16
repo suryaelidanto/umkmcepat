@@ -65,4 +65,30 @@ describe("deriveActiveProjectJob", () => {
     expect(job?.steps.length).toBeGreaterThan(0);
     expect(job?.steps[0]?.status).toBe("active");
   });
+
+  it("treats open visual_comment edit as active even when last build succeeded", () => {
+    const job = deriveActiveProjectJob({
+      attempt: {
+        id: "edit_1",
+        kind: "visual_comment",
+        startedAt: "2026-07-16T10:20:00.000Z",
+        status: "editing",
+      },
+      build: {
+        createdAt: "2026-07-16T09:00:00.000Z",
+        finishedAt: "2026-07-16T09:05:00.000Z",
+        id: "b_old",
+        startedAt: "2026-07-16T09:00:00.000Z",
+        status: "succeeded",
+        updatedAt: "2026-07-16T09:05:00.000Z",
+      },
+      projectBuildStatus: "running",
+      projectStatus: "building",
+    });
+
+    expect(job).not.toBeNull();
+    expect(job?.kind).toBe("edit");
+    expect(job?.phase).toBe("generating");
+    expect(job?.startedAt).toBe("2026-07-16T10:20:00.000Z");
+  });
 });

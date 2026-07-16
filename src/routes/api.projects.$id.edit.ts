@@ -385,6 +385,23 @@ async function handleEditPost(request: Request, routeId: string) {
     let totalEditInputTokens = 0;
     let totalEditOutputTokens = 0;
 
+    // Durable progress so refresh can rehydrate the edit observer UI.
+    try {
+      await prisma.runtimeEvent.create({
+        data: createRuntimeEventData({
+          message: "Merevisi website",
+          metadata: {
+            detail: "AI menerapkan revisi ke source website.",
+            label: "Merevisi website",
+          },
+          projectId: project.id,
+          type: "build.progress",
+        }),
+      });
+    } catch {
+      // Non-fatal: edit continues even if progress event write fails.
+    }
+
     const editResult = await editGeneratedSourceWithAgent({
       files: baseFiles,
       instruction,

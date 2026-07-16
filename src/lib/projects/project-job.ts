@@ -280,24 +280,41 @@ export function deriveActiveProjectJob({
   projectBuildStatus?: string | null;
   projectStatus?: string | null;
 }): ActiveProjectJob | null {
-  const activeBuild =
-    build && isActiveBuildStatus(build.status)
-      ? build
-      : projectBuildStatus === "running" || projectStatus === "building"
-        ? build
-        : null;
+  // Prefer a truly active build row. Do NOT treat an old succeeded build as
+  // active just because Project.status is still "building" during edit agent.
+  const activeBuild = build && isActiveBuildStatus(build.status) ? build : null;
   const activeAttempt =
     attempt && isActiveAttemptStatus(attempt.status) ? attempt : null;
+  const projectBusy =
+    projectBuildStatus === "running" || projectStatus === "building";
 
-  if (!activeBuild && !activeAttempt) {
+  if (!activeBuild && !activeAttempt && !projectBusy) {
     return null;
   }
 
+  // Edit/visual_comment often sets project=building before any new ProjectBuild.
+  if (!activeBuild && !activeAttempt && projectBusy) {
+    const startedAt = new Date().toISOString();
+    return {
+      attemptId: null,
+      buildId: null,
+      kind: "edit",
+      message: "Revisi website sedang berjalan di server.",
+      phase: "generating",
+      startedAt,
+      steps: syntheticSteps("generating", startedAt),
+      updatedAt: startedAt,
+    };
+  }
+
   const kind: ActiveProjectJob["kind"] =
-    attempt?.kind === "edit" || attempt?.kind === "visual_comment"
+    activeAttempt?.kind === "edit" ||
+    activeAttempt?.kind === "visual_comment" ||
+    activeAttempt?.kind === "instruction"
       ? "edit"
       : "generate";
 
+  // While an edit attempt is open and build not yet running, phase is generating.
   const phase = activeBuild
     ? phaseFromBuild(activeBuild.status)
     : phaseFromAttempt(activeAttempt!.status);

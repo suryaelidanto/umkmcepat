@@ -431,12 +431,18 @@ export function WorkspaceShell({
     if (serverBuilding) {
       hasStartedBuild.current = true;
       setBuildStatus("building");
+      // Edit/visual revisi also sets project building — keep processing UI.
+      if (job?.kind === "edit") {
+        setIsEditingPreview(true);
+      }
       setMode("build");
       const startedMs = Date.parse(
         job?.startedAt || result.latestAttempt?.startedAt || "",
       );
       if (Number.isFinite(startedMs)) {
-        setBuildStartedAt((current) => current ?? startedMs);
+        setBuildStartedAt((current) =>
+          current && current <= startedMs ? current : startedMs,
+        );
       } else {
         setBuildStartedAt((current) => current ?? Date.now());
       }
@@ -458,7 +464,10 @@ export function WorkspaceShell({
                     job?.message ||
                     result.message ||
                     "Build website sedang berjalan di server.",
-                  label: "Build berjalan",
+                  label:
+                    job?.kind === "edit"
+                      ? "Merevisi website"
+                      : "Build berjalan",
                   status: "active" as const,
                 },
               ],
@@ -467,6 +476,9 @@ export function WorkspaceShell({
       return;
     }
 
+    // Job finished while we were polling after refresh.
+    setIsEditingPreview(false);
+
     if (
       result.userFacingState === "ready" ||
       result.userFacingState === "ready_with_failed_latest_attempt"
@@ -474,6 +486,7 @@ export function WorkspaceShell({
       if (buildStatusRef.current === "building") {
         setBuildStatus("ready");
         setBuildProgress((current) => completeBuildProgress(current));
+        setPreviewReloadKey((current) => current + 1);
       }
     } else if (result.userFacingState === "build_failed_without_last_good") {
       if (buildStatusRef.current === "building") {

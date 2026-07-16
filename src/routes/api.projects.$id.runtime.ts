@@ -194,17 +194,20 @@ async function getRuntimeState(id: string, userId: string) {
     deployment?.status === "running" || deployment?.status === "starting"
       ? await getRuntimeSupervisor().getDeploymentStatus(deployment.id)
       : deployment?.status;
-  const userFacingState = getUserFacingRuntimeState({
-    deploymentStatus: liveDeploymentStatus,
-    latestAttemptStatus: latestAttempt?.status,
-    latestFailedAttemptId: latestFailedAttempt?.id,
-    latestSuccessfulBuildId: latestSuccessfulBuild?.id,
-  });
   const latestEditAttempt = attempts[0] ?? null;
   const activeJob = deriveActiveProjectJob({
     attempt: latestEditAttempt,
     build: latestAttempt,
     events,
+    projectBuildStatus: project.buildStatus,
+    projectStatus: project.status,
+  });
+  const userFacingState = getUserFacingRuntimeState({
+    activeJobPhase: activeJob?.phase,
+    deploymentStatus: liveDeploymentStatus,
+    latestAttemptStatus: latestAttempt?.status,
+    latestFailedAttemptId: latestFailedAttempt?.id,
+    latestSuccessfulBuildId: latestSuccessfulBuild?.id,
     projectBuildStatus: project.buildStatus,
     projectStatus: project.status,
   });
@@ -317,17 +320,33 @@ function createCacheSafeRuntimeBody(body: unknown) {
 }
 
 function getUserFacingRuntimeState({
+  activeJobPhase,
   deploymentStatus,
   latestAttemptStatus,
   latestFailedAttemptId,
   latestSuccessfulBuildId,
+  projectBuildStatus,
+  projectStatus,
 }: {
+  activeJobPhase?: string | null;
   deploymentStatus?: string | null;
   latestAttemptStatus?: string | null;
   latestFailedAttemptId?: string | null;
   latestSuccessfulBuildId?: string | null;
+  projectBuildStatus?: string | null;
+  projectStatus?: string | null;
 }) {
-  if (latestAttemptStatus === "queued" || latestAttemptStatus === "running") {
+  // Edit/visual_comment can leave Project.status=building with no new
+  // ProjectBuild yet — still treat as in-progress for observers.
+  if (
+    latestAttemptStatus === "queued" ||
+    latestAttemptStatus === "running" ||
+    activeJobPhase === "generating" ||
+    activeJobPhase === "building" ||
+    activeJobPhase === "finalizing" ||
+    projectStatus === "building" ||
+    projectBuildStatus === "running"
+  ) {
     return "building";
   }
 
