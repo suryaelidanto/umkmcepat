@@ -17,10 +17,12 @@ export async function editGeneratedSourceWithAgent({
   files,
   instruction,
   model,
+  onOperation,
 }: {
   files: GeneratedProjectFile[];
   instruction: string;
   model?: string;
+  onOperation?: (operation: GeneratedAppAgentOperation) => void;
 }) {
   let currentFiles = files;
   const operationTrace: GeneratedAppAgentOperation[] = [];
@@ -30,10 +32,9 @@ export async function editGeneratedSourceWithAgent({
       commands: [command],
       files: currentFiles,
       onOperation(operation) {
-        operationTrace.push({
-          ...operation,
-          id: `${operationTrace.length + 1}`,
-        });
+        const next = { ...operation, id: `${operationTrace.length + 1}` };
+        operationTrace.push(next);
+        onOperation?.(next);
       },
     });
     currentFiles = result.files;

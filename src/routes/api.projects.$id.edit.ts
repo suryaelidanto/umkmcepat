@@ -380,31 +380,55 @@ async function handleEditPost(request: Request, routeId: string) {
     );
   }
   let activeBuildId: string | null = null;
+  let lastProgressLabel: string | null = null;
+
+  // Durable per-tool-call progress so refresh can rehydrate the edit
+  // observer UI with real step-by-step detail, not just one static label.
+  function persistEditProgress(operation: {
+    detail: string;
+    path?: string;
+    title: string;
+  }) {
+    const label = operation.title;
+    if (label === lastProgressLabel) {
+      return;
+    }
+    lastProgressLabel = label;
+    try {
+      void prisma.runtimeEvent
+        .create({
+          data: createRuntimeEventData({
+            buildId: activeBuildId,
+            message: label,
+            metadata: {
+              detail: operation.path
+                ? `${operation.detail} (${operation.path})`
+                : operation.detail,
+              label,
+            },
+            projectId: project!.id,
+            type: "build.progress",
+          }),
+        })
+        ?.catch(() => undefined);
+    } catch {
+      // Non-fatal: edit continues even if progress event write fails.
+    }
+  }
 
   try {
     let totalEditInputTokens = 0;
     let totalEditOutputTokens = 0;
 
-    // Durable progress so refresh can rehydrate the edit observer UI.
-    try {
-      await prisma.runtimeEvent.create({
-        data: createRuntimeEventData({
-          message: "Merevisi website",
-          metadata: {
-            detail: "AI menerapkan revisi ke source website.",
-            label: "Merevisi website",
-          },
-          projectId: project.id,
-          type: "build.progress",
-        }),
-      });
-    } catch {
-      // Non-fatal: edit continues even if progress event write fails.
-    }
+    persistEditProgress({
+      detail: "AI menerapkan revisi ke source website.",
+      title: "Merevisi website",
+    });
 
     const editResult = await editGeneratedSourceWithAgent({
       files: baseFiles,
       instruction,
+      onOperation: persistEditProgress,
     });
     totalEditInputTokens += editResult.usage?.inputTokens ?? 0;
     totalEditOutputTokens += editResult.usage?.outputTokens ?? 0;
@@ -425,6 +449,7 @@ async function handleEditPost(request: Request, routeId: string) {
           "Keep the edit minimal and run check_app.",
         ].join("\n\n"),
         model: getDefaultAiModel(),
+        onOperation: persistEditProgress,
       });
       totalEditInputTokens += fallbackResult.usage?.inputTokens ?? 0;
       totalEditOutputTokens += fallbackResult.usage?.outputTokens ?? 0;
@@ -498,6 +523,7 @@ async function handleEditPost(request: Request, routeId: string) {
           "Repair it now. Make concrete edits to rendered JSX/content/CSS. Run check_app.",
           `Validation issues: ${editValidation.blockingIssues.join("; ")}`,
         ].join("\n\n"),
+        onOperation: persistEditProgress,
       });
       totalEditInputTokens += repairResult.usage?.inputTokens ?? 0;
       totalEditOutputTokens += repairResult.usage?.outputTokens ?? 0;

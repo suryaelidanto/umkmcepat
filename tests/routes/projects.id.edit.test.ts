@@ -348,6 +348,69 @@ describe("project edit route", () => {
     );
   });
 
+  it("persists a durable progress event for each agent operation", async () => {
+    editGeneratedSourceWithAgentMock.mockImplementation(
+      async ({
+        files,
+        onOperation,
+      }: {
+        files: typeof baseFiles;
+        onOperation?: (operation: {
+          detail: string;
+          path?: string;
+          title: string;
+        }) => void;
+      }) => {
+        onOperation?.({
+          detail: "Membaca file",
+          path: "src/App.tsx",
+          title: "Membaca file",
+        });
+        onOperation?.({
+          detail: "Mengedit file",
+          path: "src/App.tsx",
+          title: "Mengedit file",
+        });
+        return {
+          check: { issues: [], ok: true },
+          files: files.map((file) =>
+            file.path === "src/App.tsx"
+              ? {
+                  ...file,
+                  content: file.content.replace("old headline", "new headline"),
+                }
+              : file,
+          ),
+          ok: true,
+          operations: [],
+          outputs: [],
+          sideEffects: [{ path: "src/App.tsx", type: "replace_in_file" }],
+        };
+      },
+    );
+
+    const response = await POST(
+      request([
+        {
+          type: "replace_in_file",
+          path: "src/App.tsx",
+          find: "old headline",
+          replace: "new headline",
+        },
+        { type: "check_app" },
+      ]),
+      { id: "project_1" },
+    );
+
+    expect(response.status).toBe(200);
+    const progressCalls = prismaRuntimeEventCreateMock.mock.calls.filter(
+      ([arg]) => arg?.data?.type === "build.progress",
+    );
+    const labels = progressCalls.map(([arg]) => arg.data.message);
+    expect(labels).toContain("Membaca file");
+    expect(labels).toContain("Mengedit file");
+  });
+
   it("records visual edit attempts and treats no-op selectors as advisory", async () => {
     const response = await POST(
       request(
