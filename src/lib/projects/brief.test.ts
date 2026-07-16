@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyBriefValidator,
   briefToBuildPrompt,
   createInitialBrief,
   getMissingBriefFields,
   isBriefReady,
+  isBriefReadyForBuild,
   parseProjectBrief,
 } from "./brief";
+
+import type { CleanedBrief } from "./brief-rich-fields";
 
 describe("project brief", () => {
   it("creates a safe initial brief", () => {
@@ -59,5 +63,62 @@ describe("project brief", () => {
         parseProjectBrief({ confidence: 95, openQuestions: [] }, "buat web"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("applyBriefValidator + isBriefReadyForBuild", () => {
+  const fullClean: CleanedBrief = {
+    businessName: "Kopi Tuku",
+    productOrService: [{ name: "Kopi Susu", isPrimary: true }],
+    contact: { channel: "whatsapp", value: "08123456789", label: undefined },
+    tagline: "Kopi susu enak harga mahasiswa",
+    usp: ["Biji single origin"],
+    targetCustomer: "Mahasiswa",
+    priceRange: "15-25rb",
+    visuals: true,
+    hours: [
+      {
+        dayRange: "Senin-Jumat",
+        open: "08:00",
+        close: "21:00",
+        note: undefined,
+      },
+    ],
+    address: "Jl. Kaliurang KM 5",
+    deliveryArea: "Sleman",
+    since: "2018",
+    testimonials: [
+      { quote: "Mantap", author: "Ibu Rina", context: undefined, rating: 5 },
+    ],
+    certifications: [{ name: "Halal", issuer: undefined }],
+    paymentMethods: [{ method: "qris", detail: undefined }],
+    socialLinks: [
+      { platform: "instagram", handle: "@kopituku", url: undefined },
+    ],
+    currentPromo: null,
+    secondaryCta: null,
+  };
+
+  it("isBriefReadyForBuild is false when readyForBuild is false", () => {
+    const brief = applyBriefValidator({ ...fullClean, businessName: null });
+    expect(isBriefReadyForBuild(brief)).toBe(false);
+  });
+
+  it("isBriefReadyForBuild is true when readyForBuild is true and productOrService present", () => {
+    const brief = applyBriefValidator(fullClean);
+    brief.readyForBuild = true;
+    expect(isBriefReadyForBuild(brief)).toBe(true);
+  });
+
+  it("applyBriefValidator populates all fields from a CleanedBrief", () => {
+    const brief = applyBriefValidator(fullClean);
+    expect(brief.businessName).toBe("Kopi Tuku");
+    expect(brief.contact?.channel).toBe("whatsapp");
+    expect(brief.paymentMethods?.[0].method).toBe("qris");
+  });
+
+  it("applyBriefValidator defaults readyForBuild to false", () => {
+    const brief = applyBriefValidator(fullClean);
+    expect(brief.readyForBuild).toBe(false);
   });
 });

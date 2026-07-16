@@ -1,3 +1,18 @@
+import type {
+  CertificationValue,
+  ContactValue,
+  HoursValue,
+  PaymentMethodValue,
+  ProductOrServiceItem,
+  SocialLinkValue,
+  TestimonialValue,
+} from "@/lib/projects/brief-rich-fields";
+
+import {
+  type CleanedBrief,
+  validateBrief,
+} from "@/lib/projects/brief-rich-fields";
+
 export type ProjectFact = {
   key: string;
   label: string;
@@ -26,6 +41,23 @@ export type ProjectBrief = {
   confidence?: number;
   /** Material decisions the AI still wants to resolve before recommending build. */
   openQuestions?: string[];
+  productOrService: ProductOrServiceItem[] | null;
+  contact: ContactValue | null;
+  tagline: string | null;
+  usp: string[] | null;
+  priceRange: string | null;
+  visuals: boolean | null;
+  hours: HoursValue[] | null;
+  address: string | null;
+  deliveryArea: string | null;
+  since: string | null;
+  testimonials: TestimonialValue[] | null;
+  certifications: CertificationValue[] | null;
+  paymentMethods: PaymentMethodValue[] | null;
+  socialLinks: SocialLinkValue[] | null;
+  currentPromo: string | null;
+  secondaryCta: { label: string; action: string } | null;
+  readyForBuild: boolean;
 };
 
 export type BriefQuestion = {
@@ -97,6 +129,23 @@ export function createInitialBrief(prompt = ""): ProjectBrief {
     notes: [],
     confidence: 0,
     openQuestions: [],
+    productOrService: null,
+    contact: null,
+    tagline: null,
+    usp: null,
+    priceRange: null,
+    visuals: null,
+    hours: null,
+    address: null,
+    deliveryArea: null,
+    since: null,
+    testimonials: null,
+    certifications: null,
+    paymentMethods: null,
+    socialLinks: null,
+    currentPromo: null,
+    secondaryCta: null,
+    readyForBuild: false,
   };
 }
 
@@ -124,6 +173,32 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
     openQuestions: Array.isArray(input.openQuestions)
       ? input.openQuestions.filter(isString).slice(-12)
       : [],
+    productOrService: input.productOrService ?? null,
+    contact: input.contact ?? null,
+    tagline: stringValueOrNull(input.tagline),
+    usp: Array.isArray(input.usp)
+      ? input.usp.filter(isString).slice(-12)
+      : null,
+    priceRange: stringValueOrNull(input.priceRange),
+    visuals: typeof input.visuals === "boolean" ? input.visuals : null,
+    hours: Array.isArray(input.hours) ? input.hours : null,
+    address: stringValueOrNull(input.address),
+    deliveryArea: stringValueOrNull(input.deliveryArea),
+    since: stringValueOrNull(input.since),
+    testimonials: Array.isArray(input.testimonials) ? input.testimonials : null,
+    certifications: Array.isArray(input.certifications)
+      ? input.certifications
+      : null,
+    paymentMethods: Array.isArray(input.paymentMethods)
+      ? input.paymentMethods
+      : null,
+    socialLinks: Array.isArray(input.socialLinks) ? input.socialLinks : null,
+    currentPromo: stringValueOrNull(input.currentPromo),
+    secondaryCta:
+      input.secondaryCta && typeof input.secondaryCta === "object"
+        ? input.secondaryCta
+        : null,
+    readyForBuild: input.readyForBuild === true,
   };
 }
 
@@ -294,6 +369,36 @@ function slugValue(value: unknown) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+}
+
+function stringValueOrNull(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  return trimmed ? trimmed : null;
+}
+
+export function applyBriefValidator(
+  input: CleanedBrief | unknown,
+): ProjectBrief {
+  const { cleaned } = validateBrief(input);
+  return {
+    ...createInitialBrief(""),
+    ...cleaned,
+    businessName: cleaned.businessName ?? "",
+    targetCustomer: cleaned.targetCustomer ?? "",
+    readyForBuild: false,
+  };
+}
+
+export function isBriefReadyForBuild(brief: ProjectBrief): boolean {
+  return Boolean(
+    brief.readyForBuild &&
+    brief.businessName &&
+    brief.productOrService &&
+    brief.productOrService.length > 0,
+  );
 }
 
 function isString(value: unknown): value is string {

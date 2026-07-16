@@ -48,6 +48,23 @@ function schema() {
     stylePreference: "Modern teknis",
     targetCustomer: "Pengendara harian",
     version: 1,
+    productOrService: null,
+    contact: null,
+    tagline: null,
+    usp: null,
+    priceRange: null,
+    visuals: null,
+    hours: null,
+    address: null,
+    deliveryArea: null,
+    since: null,
+    testimonials: null,
+    certifications: null,
+    paymentMethods: null,
+    socialLinks: null,
+    currentPromo: null,
+    secondaryCta: null,
+    readyForBuild: false,
   });
 }
 
