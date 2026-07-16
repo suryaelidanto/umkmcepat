@@ -1,5 +1,6 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
+import { nineRouterFetch } from "@/lib/ai-fetch";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { getAiTracer, isLangfuseEnabled } from "@/lib/ai-observability";
 import { getEnv } from "@/lib/config";
@@ -39,5 +40,6 @@ export function getAiModel(model = getDefaultAiModel()) {
     apiKey,
     includeUsage: true,
     supportsStructuredOutputs: false,
+    fetch: nineRouterFetch,
   })(model);
 }
