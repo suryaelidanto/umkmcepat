@@ -2,25 +2,14 @@
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "entry": [
     "src/routes/**/*.{ts,tsx}",
-    "src/router.tsx",
-    "src/client.tsx",
-    "src/server.ts",
-    "src/start.ts",
     "src/**/*.test.ts",
     "tests/**/*.test.ts",
     ".husky/pre-commit",
     ".husky/commit-msg",
     "scripts/capture-project-thumbnail.cjs"
   ],
-  "project": ["src/**/*.{ts,tsx}", "*.{ts,js,mjs,cjs}"],
-  "ignoreBinaries": [
-    "graphify",
-    "lsof",
-    "netstat",
-    "powershell.exe",
-    "ps",
-    "taskkill"
-  ],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignoreBinaries": ["graphify", "lsof", "netstat", "ps", "taskkill"],
   "ignoreDependencies": ["tailwindcss"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
