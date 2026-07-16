@@ -11,6 +11,7 @@ import {
   parseSocialLink,
   parseTestimonial,
   SOFT_FIELDS,
+  validateBrief,
 } from "@/lib/projects/brief-rich-fields";
 
 describe("brief rich-field parsers", () => {
@@ -139,5 +140,61 @@ describe("field applicability", () => {
     expect(SOFT_FIELDS).toContain("contact");
     expect(SOFT_FIELDS).toContain("testimonials");
     expect(SOFT_FIELDS).toContain("secondaryCta");
+  });
+});
+
+describe("validateBrief", () => {
+  it("keeps a well-formed businessName", () => {
+    const result = validateBrief({
+      businessName: "Kopi Tuku",
+      productOrService: "Kopi",
+    });
+    expect(result.dropped).toEqual([]);
+    expect(result.cleaned.businessName).toBe("Kopi Tuku");
+  });
+
+  it("drops a single-word generic businessName", () => {
+    const result = validateBrief({ businessName: "Warung" });
+    expect(result.dropped).toContain("businessName");
+    expect(result.cleaned.businessName).toBeNull();
+  });
+
+  it("drops a hallucinated phone number contact", () => {
+    const result = validateBrief({
+      businessName: "Kopi Tuku",
+      contact: { channel: "whatsapp", value: "hello world" },
+    });
+    expect(result.dropped).toContain("contact");
+    expect(result.cleaned.contact).toBeNull();
+  });
+
+  it("keeps a valid whatsapp contact", () => {
+    const result = validateBrief({
+      businessName: "Kopi Tuku",
+      contact: { channel: "whatsapp", value: "08123456789" },
+    });
+    expect(result.dropped).toEqual([]);
+    expect(result.cleaned.contact).toEqual({
+      channel: "whatsapp",
+      value: "08123456789",
+      label: undefined,
+    });
+  });
+
+  it("drops a priceRange that is just dots", () => {
+    const result = validateBrief({
+      businessName: "Kopi Tuku",
+      priceRange: "....",
+    });
+    expect(result.dropped).toContain("priceRange");
+  });
+
+  it("keeps a sensible priceRange", () => {
+    const result = validateBrief({
+      businessName: "Kopi Tuku",
+      priceRange: "20-50rb",
+    });
+    expect(result.dropped).toEqual([]);
+    expect(result.cleaned.priceRange).toBe("20-50rb");
   });
 });
