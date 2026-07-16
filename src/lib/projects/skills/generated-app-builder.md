@@ -53,7 +53,9 @@ Replace placeholder data with business-specific data from the implementation spe
 
 ### Step 4: Edit src/styles.css
 
+- Prefer contract classes already in the starter stylesheet: `.page`, `.site-header` (+ BEM pieces), `.hero`, `.section`, `.primary`, `.secondary`, `.fab-wa`, CSS vars `--bg` `--fg` `--muted` `--accent`
 - Add CSS rules for **every** className used in JSX
+- If you invent new classes, **rewrite** `src/styles.css` fully — never leave starter-only / `.starter-shell`-only CSS after custom components
 - Use design tokens from the palette (background, foreground, muted, accent)
 - Mobile-first responsive: base styles for mobile, `@media (min-width: 640px)` for larger screens
 - No external CSS frameworks — custom CSS only

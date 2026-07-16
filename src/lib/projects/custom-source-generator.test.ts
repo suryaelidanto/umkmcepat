@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildGeneratedAppBuildSpec,
+  ensureStylesCoverClassNames,
+  extractClassNamesFromTsx,
+  findMissingCssClasses,
   generateCustomProjectFilesWithAgent,
+  isStarterStylesContent,
 } from "@/lib/projects/custom-source-generator";
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 
@@ -166,5 +170,49 @@ describe("custom generated source agent", () => {
         schema: schema(),
       }),
     ).rejects.toThrow("AI agent produced invalid source");
+  });
+
+  it("extracts multi-class classNames and detects missing CSS", () => {
+    const tsx = `<div className="site-header hero"><span className="fab-wa">x</span></div>`;
+    expect([...extractClassNamesFromTsx(tsx)].sort()).toEqual([
+      "fab-wa",
+      "hero",
+      "site-header",
+    ]);
+
+    const legacyStarter =
+      ":root{color:#111}.starter-shell{min-height:100dvh;display:grid}";
+    expect(isStarterStylesContent(legacyStarter)).toBe(true);
+    expect(
+      findMissingCssClasses(
+        [{ path: "src/routes/index.tsx", content: tsx }],
+        legacyStarter,
+      ),
+    ).toEqual(["fab-wa", "hero", "site-header"]);
+  });
+
+  it("upgrades starter CSS and stubs missing classNames so custom JSX is never unstyled", () => {
+    const files = ensureStylesCoverClassNames(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            'export function Home(){return <div className="page bakso-card">ok</div>}',
+        },
+        {
+          path: "src/styles.css",
+          content:
+            ":root{color:#111}.starter-shell{min-height:100dvh;display:grid}",
+        },
+      ],
+      schema(),
+    );
+
+    const css = files.find((file) => file.path === "src/styles.css")?.content;
+    expect(css).toContain("--accent");
+    expect(css).toContain(".page{");
+    expect(css).toContain(".bakso-card{");
+    expect(isStarterStylesContent(css ?? "")).toBe(false);
+    expect(findMissingCssClasses(files, css ?? "")).toEqual([]);
   });
 });

@@ -10,6 +10,7 @@ import {
   buildGeneratedProject,
   createGeneratedProjectFiles,
   createGeneratedSourceSnapshotMetadata,
+  createStarterContractStyles,
   parseGeneratedProjectFiles,
 } from "./generated-source";
 import { type GeneratedProjectFile } from "./generated-types";
@@ -37,6 +38,26 @@ describe("generated project source", () => {
     ).toEqual([
       { path: "src/App.tsx", content: "export default function App() {}" },
     ]);
+  });
+
+  it("starter contract CSS includes theme tokens and shared layout classes", () => {
+    const schema = createProjectSiteSchemaFromBrief({
+      businessName: "Toko Contoh",
+      businessType: "Retail",
+      contactOrCta: "WhatsApp",
+      notes: [],
+      offer: "Produk harian",
+      prompt: "buat website toko",
+      stylePreference: "Hangat",
+      targetCustomer: "Warga lokal",
+      version: 1,
+    });
+    const css = createStarterContractStyles(schema);
+    expect(css).toContain("--accent");
+    expect(css).toContain(".page{");
+    expect(css).toContain(".site-header");
+    expect(css).toContain(".hero");
+    expect(css).toContain(".fab-wa");
   });
 
   it("rejects unsafe paths", () => {

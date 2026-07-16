@@ -9,7 +9,10 @@ import {
   type GeneratedAppAgentOperation,
   type GeneratedAppAgentToolCommand,
 } from "@/lib/projects/agent-tool-runner";
-import { createGeneratedViteTanStackStarterFiles } from "@/lib/projects/generated-source";
+import {
+  createGeneratedViteTanStackStarterFiles,
+  createStarterContractStyles,
+} from "@/lib/projects/generated-source";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
@@ -107,30 +110,27 @@ export async function generateCustomProjectFilesWithAgent({
       throw error;
     });
 
-    const isPartial = "partial" in result && result.partial === true;
-    let isPartialResult = isPartial;
+    const isPartialResult = "partial" in result && result.partial === true;
 
-    // For partial results (agent timed out or hit rate limit), skip the
-    // quality check — the files may be incomplete but still worth persisting.
-    // Also treat quality-check failures as partial if the agent wrote some
-    // files — the rate limit or step limit may have prevented completion.
-    if (!isPartialResult) {
-      const quality = checkAgentSourceQuality(files, touchedFiles);
+    // CSS coverage is non-negotiable: never ship custom JSX with starter-only
+    // styles. Deterministic ensure first, then quality gate. Timeout/rate-limit
+    // partials still get ensure so preview is not unstyled.
+    files = ensureStylesCoverClassNames(files, schema);
+    touchedFiles.add("src/styles.css");
 
-      if (!quality.ok) {
-        if (touchedFiles.size > 0) {
-          // Agent wrote some files but quality check failed (e.g. missing
-          // CSS rules, incomplete routes). Treat as partial so the user can
-          // review and retry.
-          isPartialResult = true;
-        } else {
-          throw new Error(
-            `AI agent produced invalid source: ${quality.issues.join(", ")}`,
-          );
-        }
+    const quality = checkAgentSourceQuality(files, touchedFiles);
+    if (!quality.ok) {
+      // Second ensure after any exotic paths; still fail hard if incomplete.
+      files = ensureStylesCoverClassNames(files, schema);
+      const recheck = checkAgentSourceQuality(files, touchedFiles);
+      if (!recheck.ok) {
+        throw new Error(
+          `AI agent produced invalid source: ${recheck.issues.join(", ")}`,
+        );
       }
     }
 
+    // Structural partial (timeout) is OK only after CSS gate passes.
     return {
       buildSpec: appSpec,
       files,
@@ -217,6 +217,112 @@ function createAgentTools(
   };
 }
 
+export function extractClassNamesFromTsx(source: string) {
+  const classes = new Set<string>();
+  const patterns = [
+    /className\s*=\s*"([^"]+)"/g,
+    /className\s*=\s*'([^']+)'/g,
+    /className\s*=\s*`([^`${}]+)`/g,
+    /className\s*=\s*\{\s*"([^"]+)"\s*\}/g,
+    /className\s*=\s*\{\s*'([^']+)'\s*\}/g,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      for (const token of match[1].split(/\s+/)) {
+        if (/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(token) && token.length > 1) {
+          classes.add(token);
+        }
+      }
+    }
+  }
+
+  return classes;
+}
+
+export function cssCoversClassName(styleContent: string, className: string) {
+  const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\.${escaped}(?![a-zA-Z0-9_-])`).test(styleContent);
+}
+
+export function findMissingCssClasses(
+  files: GeneratedProjectFile[],
+  styleContent: string,
+) {
+  const used = new Set<string>();
+  for (const file of files) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    for (const className of extractClassNamesFromTsx(file.content)) {
+      used.add(className);
+    }
+  }
+
+  return [...used]
+    .filter((className) => !cssCoversClassName(styleContent, className))
+    .sort();
+}
+
+/** Starter seed before agent; also detects legacy tiny starter CSS. */
+export function isStarterStylesContent(styleContent: string) {
+  const trimmed = styleContent.trim();
+  if (!trimmed) {
+    return true;
+  }
+  // Legacy tiny starter: only shell + no design tokens.
+  if (
+    trimmed.includes(".starter-shell") &&
+    !trimmed.includes("--accent") &&
+    !trimmed.includes(".page{") &&
+    !trimmed.includes(".page {")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function ensureStylesCoverClassNames(
+  files: GeneratedProjectFile[],
+  schema: ProjectSiteSchema,
+): GeneratedProjectFile[] {
+  const styleIndex = files.findIndex((file) => file.path === "src/styles.css");
+  const current =
+    styleIndex >= 0
+      ? files[styleIndex].content
+      : createStarterContractStyles(schema);
+  let next = isStarterStylesContent(current)
+    ? createStarterContractStyles(schema)
+    : current;
+
+  const withStyles = files.map((file) =>
+    file.path === "src/styles.css" ? { ...file, content: next } : file,
+  );
+  const filesForScan =
+    styleIndex >= 0
+      ? withStyles
+      : [...withStyles, { path: "src/styles.css", content: next }];
+
+  const missing = findMissingCssClasses(filesForScan, next);
+  if (missing.length > 0) {
+    const stubs = missing
+      .map(
+        (className) =>
+          `.${className}{color:var(--fg);/* auto-cover: define layout in agent styles */}`,
+      )
+      .join("");
+    next = `${next.trim()}\n/* auto-covered classNames */\n${stubs}\n`;
+  }
+
+  if (styleIndex >= 0) {
+    return files.map((file, index) =>
+      index === styleIndex ? { ...file, content: next } : file,
+    );
+  }
+
+  return [...files, { path: "src/styles.css", content: next }];
+}
+
 function checkAgentSourceQuality(
   files: GeneratedProjectFile[],
   touchedFiles: Set<string>,
@@ -240,7 +346,10 @@ function checkAgentSourceQuality(
   }
 
   const presentationEdited = [...touchedFiles].some(
-    (path) => path.startsWith("src/components/") || path === "src/styles.css",
+    (path) =>
+      path.startsWith("src/components/") ||
+      path.startsWith("src/routes/") ||
+      path === "src/styles.css",
   );
   const contentEdited = [...touchedFiles].some((path) =>
     path.startsWith("src/content/"),
@@ -276,30 +385,27 @@ function checkAgentSourceQuality(
 
   const styleFile = files.find((file) => file.path === "src/styles.css");
   const styleContent = styleFile?.content || "";
-  const usedClassNames = new Set<string>();
-
-  for (const file of files) {
-    if (!file.path.endsWith(".tsx")) {
-      continue;
-    }
-    const classMatches = file.content.matchAll(
-      /className=["{`'\[]([a-zA-Z0-9_-]+)/g,
-    );
-    for (const match of classMatches) {
-      if (match[1]) {
-        usedClassNames.add(match[1]);
-      }
-    }
-  }
-
-  const missingCss = [...usedClassNames].filter(
-    (cls) => cls.length > 1 && !styleContent.includes(cls),
-  );
+  const missingCss = findMissingCssClasses(files, styleContent);
 
   if (missingCss.length > 0) {
     issues.push(
       `missing CSS rules for classNames: ${missingCss.slice(0, 8).join(", ")}`,
     );
+  }
+
+  const customPresentation =
+    files.some(
+      (file) =>
+        file.path.startsWith("src/components/") && file.path.endsWith(".tsx"),
+    ) ||
+    files.some(
+      (file) =>
+        file.path === "src/routes/index.tsx" &&
+        !file.content.includes("starter-shell"),
+    );
+
+  if (customPresentation && isStarterStylesContent(styleContent)) {
+    issues.push("custom presentation still uses starter-only styles.css");
   }
 
   return issues.length ? { issues, ok: false } : { issues: [], ok: true };
@@ -314,7 +420,8 @@ ${implementationBrief}
 Read the generated-app-builder skill for the development workflow.
 Key rule: EDIT src/routes/index.tsx FIRST with real business content.
 Keep usePreviewReady() in the rendered route.
-Every className in JSX needs a CSS rule in src/styles.css.
+Prefer contract classes already in src/styles.css (.page, .site-header, .hero, .section, .primary, .fab-wa).
+If you invent new classNames, rewrite src/styles.css fully so every class has a rule — never leave starter-only CSS.
 Run check_app after all writes.`;
 }
 
@@ -463,6 +570,9 @@ Steps:
     }),
     "sourceGeneration",
   );
+
+  currentFiles = ensureStylesCoverClassNames(currentFiles, schema);
+  touchedFiles.add("src/styles.css");
 
   return {
     buildSpec: buildGeneratedAppBuildSpec({ implementationSpec, schema }),
