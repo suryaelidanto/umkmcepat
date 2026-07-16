@@ -2241,6 +2241,12 @@ export function WorkspaceShell({
           instruction={annotationInstruction}
           isSending={isEditingPreview}
           onClose={() => {
+            // Dismissing the review tray drops draft comments (work is done
+            // or user abandons). Prevents stale "N komentar siap" badges.
+            setAnnotations([]);
+            setAnnotationInstruction("");
+            pendingVisualRevisionRef.current = false;
+            window.localStorage.removeItem(visualAnnotationStorageKey);
             setAnnotationMode(false);
             setPendingAnnotationTarget(null);
             setPendingAnnotationComment("");
