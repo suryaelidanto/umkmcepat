@@ -1324,76 +1324,23 @@ export function WorkspaceShell({
         scrollChatToBottom({ force: true, behavior: "smooth" }),
       );
 
-      if (composerState === "post_build_chat") {
-        setIsEditingPreview(true);
-        setBuildStartedAt(Date.now());
-        setBuildProgress((current) =>
-          addBuildProgressStep(current, {
-            detail:
-              "AI menerapkan perubahan ke source preview terakhir yang berhasil.",
-            label: "Mengedit website",
-            status: "active",
-          }),
-        );
-        void fetch(`/api/projects/${projectId}/edit`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ instruction: trimmed }),
-        })
-          .then(async (response) => {
-            const result = (await response.json().catch(() => null)) as {
-              buildStatus?: string;
-              message?: string;
-            } | null;
-
-            if (!response.ok || result?.buildStatus !== "succeeded") {
-              setBuildProgress((current) =>
-                addBuildProgressStep(current, {
-                  detail:
-                    result?.message ||
-                    "Edit belum berhasil dibuild. Tampilan terakhir tetap aman.",
-                  label: "Edit belum selesai",
-                  status: "error",
-                }),
-              );
-              return;
-            }
-
-            setBuildStatus("ready");
-            setBuildProgress((current) => completeBuildProgress(current));
-            setActiveTab("preview");
-            setChatCollapsed(false);
-            setPreviewCollapsed(false);
-            chatPanelRef.current?.resize("25%");
-            previewPanelRef.current?.resize("75%");
-            setPreviewReloadKey((current) => current + 1);
-            void loadRuntimeState();
-          })
-          .catch(() => {
-            setBuildProgress((current) =>
-              addBuildProgressStep(current, {
-                detail: "Koneksi edit terputus. Tampilan terakhir tetap aman.",
-                label: "Edit terputus",
-                status: "error",
-              }),
-            );
-          })
-          .finally(() => setIsEditingPreview(false));
-        return;
-      }
-
+      // Post-build "Chat dengan AI" is discuss-only. Rebuilds use the
+      // build_recommendation card ("Mulai build"), not an auto /edit build.
       sendMessage(
         { text: trimmed },
-        { body: { mode, workspaceAnswers: options.workspaceAnswers } },
+        {
+          body: {
+            mode: composerState === "post_build_chat" ? "discuss" : mode,
+            workspaceAnswers: options.workspaceAnswers,
+          },
+        },
       );
     },
     [
       authStatus,
       composerState,
       isProcessing,
-      loadRuntimeState,
       mode,
-      projectId,
       rateLimitError,
       scrollChatToBottom,
       sendMessage,
@@ -1892,6 +1839,17 @@ export function WorkspaceShell({
                 composerState === "build_failed_with_last_good" ? (
                 <CompletedBuildNotice
                   onDiscuss={() => {
+                    // Park the current build recommendation so free discuss
+                    // opens first; a fresh recommendation can surface later.
+                    if (buildRecommendationSignature) {
+                      window.localStorage.setItem(
+                        buildRecommendationStorageKey,
+                        buildRecommendationSignature,
+                      );
+                      setHeldBuildRecommendationSignature(
+                        buildRecommendationSignature,
+                      );
+                    }
                     setMode("discuss");
                     setPostBuildChatOpen(true);
                   }}

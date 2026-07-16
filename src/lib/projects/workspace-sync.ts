@@ -74,7 +74,26 @@ export function getWorkspaceComposerState({
       return "build_failed_with_last_good";
     }
 
-    return postBuildChatOpen ? "post_build_chat" : "post_build_review";
+    // After a successful build, "Chat dengan AI" opens discuss first.
+    // A held build_recommendation stays out of the way until the user
+    // re-opens it or discuss produces a fresh recommendation signature.
+    if (postBuildChatOpen) {
+      if (card.type === "build_recommendation" && held) {
+        return "held_build_recommendation";
+      }
+
+      if (card.type === "build_recommendation") {
+        return "build_recommendation";
+      }
+
+      if (card.type === "question") {
+        return "question";
+      }
+
+      return "post_build_chat";
+    }
+
+    return "post_build_review";
   }
 
   if (card.type === "build_recommendation" && held) {

@@ -127,11 +127,27 @@ describe("workspace chat sync", () => {
     expect(
       getWorkspaceComposerState({
         buildComplete: true,
-        card,
+        card: { type: "none" },
         held: false,
         postBuildChatOpen: true,
       }),
     ).toBe("post_build_chat");
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card,
+        held: true,
+        postBuildChatOpen: true,
+      }),
+    ).toBe("held_build_recommendation");
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card,
+        held: false,
+        postBuildChatOpen: true,
+      }),
+    ).toBe("build_recommendation");
   });
 
   it("hides stale build_recommendation cards after the website has been built", () => {
