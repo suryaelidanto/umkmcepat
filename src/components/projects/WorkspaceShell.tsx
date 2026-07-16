@@ -381,6 +381,42 @@ export function WorkspaceShell({
   const buildStatusRef = useRef(buildStatus);
   buildStatusRef.current = buildStatus;
 
+  function patchProjectInList(
+    projectPatch: Partial<{
+      buildStatus: string | null;
+      thumbnailBuildId: string | null;
+      thumbnailRef: string | null;
+      title: string;
+    }>,
+  ) {
+    queryClient.setQueryData(queryKeys.projects, (previous) => {
+      const data = previous as
+        | {
+            pages: Array<{
+              projects: Array<{ id: string; title: string }>;
+            }>;
+            pageParams: unknown[];
+          }
+        | undefined;
+
+      if (!data) {
+        return data;
+      }
+
+      return {
+        ...data,
+        pages: data.pages.map((page) => ({
+          ...page,
+          projects: page.projects.map((project) =>
+            project.id === projectId
+              ? { ...project, ...projectPatch }
+              : project,
+          ),
+        })),
+      };
+    });
+  }
+
   const runtimeQuery = useQuery({
     queryKey: queryKeys.projectRuntime(projectId),
     queryFn: async () => {
@@ -767,8 +803,13 @@ export function WorkspaceShell({
           if (eventName === "done") {
             setBuildStatus("ready");
             setBuildProgress((current) => completeBuildProgress(current));
+            patchProjectInList({ buildStatus: "ready" });
             void loadRuntimeState();
             window.dispatchEvent(new Event("umkm:energy-changed"));
+            void queryClient.invalidateQueries({
+              queryKey: queryKeys.projects,
+              refetchType: "active",
+            });
             void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
           }
 
@@ -1513,8 +1554,13 @@ export function WorkspaceShell({
       setActiveTab("preview");
       setPreviewCollapsed(false);
       setPreviewReloadKey((current) => current + 1);
+      patchProjectInList({ buildStatus: "ready" });
       void loadRuntimeState();
       window.dispatchEvent(new Event("umkm:energy-changed"));
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.projects,
+        refetchType: "active",
+      });
       void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
     } finally {
       visualEditInFlightRef.current = false;
