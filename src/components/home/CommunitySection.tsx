@@ -129,6 +129,9 @@ async function getTopContributors(): Promise<ContributorCard[]> {
     const stats = (await response.json()) as GithubStatsContributor[];
 
     return stats
+      .filter(
+        (contributor) => contributor.author.login.toLowerCase() !== "claude",
+      )
       .map((contributor) => {
         const weeks = contributor.weeks
           .slice(-RECENT_WEEK_COUNT)
