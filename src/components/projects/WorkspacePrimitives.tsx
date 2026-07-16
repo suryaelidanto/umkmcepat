@@ -490,7 +490,7 @@ export function GeneratedPreviewFrame({
               <p className="text-sm font-medium text-surface-warm-white/78">
                 Menyiapkan tampilan website...
               </p>
-              <p className="mt-spacing-1 text-xs text-surface-warm-white/42">
+              <p className="mt-spacing-1 text-xs text-surface-warm-white/50">
                 Preview akan muncul setelah website selesai render.
               </p>
             </div>
@@ -680,7 +680,7 @@ export function VisualFeedbackWidget({
                 <button
                   type="button"
                   onClick={() => onRemove(annotation.id)}
-                  className="grid size-9 shrink-0 place-items-center rounded-full text-surface-warm-white/42 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                  className="grid size-9 shrink-0 place-items-center rounded-full text-surface-warm-white/50 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
                   aria-label={`Hapus komentar ${index + 1}`}
                 >
                   <Trash2 className="size-3.5" />

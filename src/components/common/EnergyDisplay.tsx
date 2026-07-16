@@ -55,7 +55,7 @@ export function EnergyDisplay() {
 
   if (energyQuery.isPending && !stats) {
     return (
-      <div className="flex items-center gap-2 text-xs text-surface-warm-white/42">
+      <div className="flex items-center gap-2 text-xs text-surface-warm-white/50">
         <div className="size-2 animate-pulse rounded-full bg-surface-warm-white/30" />
         <span>Energi…</span>
       </div>
@@ -93,7 +93,7 @@ export function EnergyDisplay() {
         <span className="text-xs font-medium text-surface-warm-white/78">
           {formatNumber(stats.remaining)}
         </span>
-        <span className="text-xs text-surface-warm-white/42">Energi</span>
+        <span className="text-xs text-surface-warm-white/50">Energi</span>
       </div>
 
       <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-surface-warm-white/12 sm:block">

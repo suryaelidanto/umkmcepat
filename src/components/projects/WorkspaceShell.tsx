@@ -1684,7 +1684,7 @@ export function WorkspaceShell({
                   className="py-spacing-3 text-center"
                 >
                   {isLoadingOlderChat ? (
-                    <span className="text-xs text-surface-warm-white/42">
+                    <span className="text-xs text-surface-warm-white/50">
                       Memuat chat lama...
                     </span>
                   ) : null}
@@ -2565,7 +2565,7 @@ function FileTree({
 
   if (!files.length) {
     return (
-      <p className="px-spacing-4 py-spacing-3 text-sm text-surface-warm-white/42">
+      <p className="px-spacing-4 py-spacing-3 text-sm text-surface-warm-white/50">
         Source belum tersedia.
       </p>
     );

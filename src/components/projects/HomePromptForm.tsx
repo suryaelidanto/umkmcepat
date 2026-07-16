@@ -272,6 +272,7 @@ export function HomePromptForm({
               type="submit"
               size="icon"
               disabled={isLoading || !prompt.trim()}
+              aria-label="Buat website"
               className="size-11 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-45"
             >
               {isLoading ? (

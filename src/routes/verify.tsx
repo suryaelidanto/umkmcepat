@@ -170,7 +170,7 @@ function VerifyPage() {
                   className="mt-1 w-full rounded-lg border border-surface-warm-white/12 bg-[#262622] px-3 py-2 text-sm text-surface-warm-white placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30 focus:outline-none"
                   disabled={sendOtpMutation.isPending}
                 />
-                <p className="mt-1 text-xs text-surface-warm-white/42">
+                <p className="mt-1 text-xs text-surface-warm-white/50">
                   Format: +628xxxxxxxxxx
                 </p>
               </div>
@@ -199,7 +199,7 @@ function VerifyPage() {
                       <div className="w-full border-t border-surface-warm-white/10" />
                     </div>
                     <div className="relative flex justify-center text-xs">
-                      <span className="bg-[#1d1d1a] px-2 text-surface-warm-white/42">
+                      <span className="bg-[#1d1d1a] px-2 text-surface-warm-white/50">
                         atau
                       </span>
                     </div>
@@ -242,7 +242,7 @@ function VerifyPage() {
                   disabled={verifyOtpMutation.isPending}
                 />
                 {expiresAt ? (
-                  <p className="mt-1 text-xs text-surface-warm-white/42">
+                  <p className="mt-1 text-xs text-surface-warm-white/50">
                     Berlaku sampai{" "}
                     {new Date(expiresAt).toLocaleTimeString("id-ID")}
                   </p>
