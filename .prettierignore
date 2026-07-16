@@ -23,3 +23,5 @@ skills-lock.json
 src/routeTree.gen.ts
 .claude/
 storybook-static/
+.superpowers/
+docs/superpowers/
