@@ -134,12 +134,11 @@ describe("workspace chat sync", () => {
     ).toBe("post_build_chat");
   });
 
-  it("hides stale review cards after the website has been built", () => {
+  it("hides stale build_recommendation cards after the website has been built", () => {
     const card: WorkspaceCard = {
-      actions: [{ label: "Build sekarang", prompt: "build" }],
       summary: ["Agency", "CTA WA"],
       title: "Ringkasan Brief",
-      type: "brief_review",
+      type: "build_recommendation",
     };
 
     expect(

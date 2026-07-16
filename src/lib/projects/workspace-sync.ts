@@ -49,7 +49,6 @@ export function isWorkspaceBuildComplete({
 
 export type WorkspaceComposerState =
   | "question"
-  | "brief_review"
   | "build_recommendation"
   | "held_build_recommendation"
   | "build_failed_with_last_good"
@@ -84,10 +83,6 @@ export function getWorkspaceComposerState({
 
   if (card.type === "build_recommendation") {
     return "build_recommendation";
-  }
-
-  if (card.type === "brief_review") {
-    return "brief_review";
   }
 
   if (card.type === "question") {

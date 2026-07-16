@@ -7,14 +7,13 @@ import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getGenerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
-import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import {
   BRIEF_CONFIDENCE_THRESHOLD,
   briefToBuildPrompt,
-  canBriefBuild,
+  isBriefReady,
   parseProjectBrief,
 } from "@/lib/projects/brief";
 import {
@@ -65,8 +64,6 @@ const PREVIEW_DEPLOYMENT_KIND = "preview" satisfies ProjectDeploymentKind;
 function encodeEvent(event: string, data: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
-
-type GenerateRequestBody = { force?: boolean };
 
 export const Route = createFileRoute("/api/projects/$id/generate")({
   server: {
@@ -128,30 +125,6 @@ async function handleGeneratePost(request: Request, routeId: string) {
     );
   }
 
-  let body: GenerateRequestBody;
-
-  try {
-    body = (await readBoundedJson(request, {
-      maxBytes: 16 * 1024,
-    })) as GenerateRequestBody;
-  } catch (error) {
-    if (isBoundedJsonError(error)) {
-      return Response.json(
-        {
-          code: error.code,
-          message:
-            error.code === "request_body_too_large"
-              ? "Permintaan build terlalu besar."
-              : "Format permintaan build belum valid.",
-        },
-        { status: error.code === "request_body_too_large" ? 413 : 400 },
-      );
-    }
-
-    throw error;
-  }
-
-  const forceBuild = body.force === true;
   const id = routeId;
   devLog("generate", "request", { projectId: id, userId });
   const project = await prisma.project.findFirst({
@@ -177,12 +150,12 @@ async function handleGeneratePost(request: Request, routeId: string) {
   `;
   const gateBrief = parseProjectBrief(briefGateRow?.brief, project.prompt);
 
-  if (!forceBuild && !canBriefBuild(gateBrief)) {
+  if (!isBriefReady(gateBrief)) {
     return Response.json(
       {
         code: "brief_confidence_too_low",
         confidence: gateBrief.confidence,
-        message: `AI belum yakin ${BRIEF_CONFIDENCE_THRESHOLD}% bahwa kebutuhanmu sudah jelas. Lanjut diskusi dulu, atau paksa build kalau kamu memang mau.`,
+        message: `AI belum yakin ${BRIEF_CONFIDENCE_THRESHOLD}% bahwa kebutuhanmu sudah jelas. Lanjut diskusi dulu.`,
         openQuestions: gateBrief.openQuestions,
       },
       { status: 409 },
@@ -280,14 +253,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
         const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
           SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
         `;
-        const brief = forceBuild
-          ? {
-              ...parseProjectBrief(briefRow?.brief, projectPrompt),
-              forcedBuild: {
-                assumed: ["Build dipaksa sebelum AI mencapai keyakinan 95%."],
-              },
-            }
-          : parseProjectBrief(briefRow?.brief, projectPrompt);
+        const brief = parseProjectBrief(briefRow?.brief, projectPrompt);
         devLog("generate", "brief.parsed", {
           projectId,
           promptLength: projectPrompt.length,

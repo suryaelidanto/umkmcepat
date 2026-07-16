@@ -574,7 +574,7 @@ CRITICAL OUTPUT ORDER:
 2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with the next workspace card.
 Never put JSON in chat text. Never call the tool before chat text.
 For questions: type="question", question.id must be a short slug like business_name or services.
-Prefer choice options with label+description (2-5). Use build_recommendation only when genuinely ready or user forces build. Use brief_review if almost ready but gaps remain.`;
+Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is genuinely 95%+ and no open questions remain. Below that, keep asking a question. Never use any other card type.`;
 }
 
 async function handleDiscussTurnOneCall({
@@ -1290,19 +1290,18 @@ function buildCardSystemPrompt() {
 Based on the conversation, output ONLY a JSON object. No markdown fences, no explanation.
 
 The JSON object must have these fields:
-- briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer}), forcedBuild ({assumed: string array} or null)
-- workspaceCard: object with type (exactly "question" or "build_recommendation" or "brief_review")
+- briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer})
+- workspaceCard: object with type (exactly "question" or "build_recommendation")
   - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode)
   - For type "build_recommendation": title (string), summary (string array)
-  - For type "brief_review": title (string), summary (string array), actions (array of {label, prompt})
 - projectTitle: concise Indonesian project name string
 
 Rules:
-- workspaceCard.type must be exactly one of: "question", "build_recommendation", "brief_review"
+- workspaceCard.type must be exactly one of: "question", "build_recommendation"
 - question.id must be a string (not a number)
 - question.options must be an array of objects with label and description strings (not plain strings)
 - Set confidence to 95+ only when genuinely build-ready
-- When the user forces build, use type "build_recommendation" with forcedBuild.assumed
+- Use "build_recommendation" only when confidence is 95+ AND openQuestions is empty. Otherwise ask the next question.
 
 Output valid JSON only. The word json must appear in your thinking.`;
 }

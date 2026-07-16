@@ -17,7 +17,6 @@ export type WorkspaceTurnToolInput = {
     contactOrCta?: string;
     decisions?: Array<{ answer?: string; id?: string; question?: string }>;
     facts?: Array<{ key?: string; label?: string; value?: string }>;
-    forcedBuild?: { assumed?: unknown };
     notes?: string[];
     offer?: string;
     openQuestions?: string[];
@@ -73,16 +72,6 @@ export function applyBriefPatch(
       .map((question) => cleanText(question, 160))
       .filter(Boolean)
       .slice(-12);
-  }
-
-  if (patch.forcedBuild && typeof patch.forcedBuild === "object") {
-    const assumed = Array.isArray(patch.forcedBuild.assumed)
-      ? patch.forcedBuild.assumed
-          .map((item) => cleanText(item, 160))
-          .filter(Boolean)
-          .slice(-12)
-      : [];
-    next.forcedBuild = assumed.length ? { assumed } : undefined;
   }
 
   return next;
@@ -142,50 +131,43 @@ function normalizeWorkspaceCard(
     return createFallbackWorkspaceCard(brief);
   }
 
-  const value = card as Partial<WorkspaceCard> & {
+  const value = card as {
+    type?: WorkspaceCard["type"] | "brief_review";
     question?: unknown;
     // Backward compatibility: older stored cards used a questions[] array.
     questions?: unknown;
+    summary?: unknown;
+    title?: unknown;
   };
 
-  if (value.type === "brief_review") {
-    return buildBriefReviewCard(
-      brief,
-      typeof value.title === "string" ? value.title : undefined,
-      Array.isArray(value.summary)
+  if (value.type === "build_recommendation" || value.type === "brief_review") {
+    const readiness = getBriefReadiness(brief);
+
+    if (readiness.ready) {
+      const summary = Array.isArray(value.summary)
         ? (value.summary as unknown[]).filter(
             (item): item is string => typeof item === "string",
           )
-        : undefined,
-      Array.isArray(value.actions)
-        ? (value.actions as unknown[]).filter(
-            (item): item is { label: string; prompt: string } =>
-              Boolean(item) &&
-              typeof item === "object" &&
-              typeof (item as { label?: unknown }).label === "string" &&
-              typeof (item as { prompt?: unknown }).prompt === "string",
-          )
-        : undefined,
-    );
-  }
-
-  if (value.type === "build_recommendation") {
-    const readiness = getBriefReadiness(brief);
-
-    if (!readiness.ready && !brief.forcedBuild) {
-      return buildBriefReviewCard(brief);
+        : undefined;
+      return buildRecommendationCard(
+        brief,
+        typeof value.title === "string" ? value.title : undefined,
+        summary,
+      );
     }
 
-    const summary = Array.isArray(value.summary)
-      ? (value.summary as unknown[]).filter(
-          (item): item is string => typeof item === "string",
-        )
-      : undefined;
-    return buildRecommendationCard(
-      brief,
-      typeof value.title === "string" ? value.title : undefined,
-      summary,
-    );
+    // Below 95% confidence: discussion is not done. Fall through to a
+    // question from the same tool output (the AI usually includes one) so
+    // the interview keeps flowing. No brief_review card, no force-build
+    // affordance.
+    const rawQuestion =
+      value.question ??
+      (Array.isArray(value.questions) ? value.questions[0] : undefined);
+    const question = normalizeQuestion(rawQuestion);
+
+    return question
+      ? { type: "question", question }
+      : createFallbackWorkspaceCard(brief);
   }
 
   const rawQuestion =
@@ -292,26 +274,6 @@ function coerceQuestionOption(
   };
 }
 
-function buildBriefReviewCard(
-  brief: ProjectBrief,
-  title = "Rancangan sementara",
-  summary?: string[],
-  actions?: Array<{ label: string; prompt: string }>,
-): WorkspaceCard {
-  return {
-    actions: (actions?.length ? actions : defaultReviewActions())
-      .map((action) => ({
-        label: cleanText(action.label, 60),
-        prompt: cleanText(action.prompt, 160),
-      }))
-      .filter((action) => action.label && action.prompt)
-      .slice(0, 4),
-    summary: buildCardSummary(brief, summary),
-    title: cleanText(title, 80) || "Rancangan sementara",
-    type: "brief_review",
-  };
-}
-
 function buildRecommendationCard(
   brief: ProjectBrief,
   title = "Brief sudah siap dibuild",
@@ -342,32 +304,6 @@ function buildCardSummary(brief: ProjectBrief, summary?: string[]) {
       ),
     ].filter(Boolean)
   );
-}
-
-function defaultReviewActions() {
-  return [
-    {
-      label: "Lanjut diskusi",
-      prompt: "Ayo lanjut diskusi sampai AI yakin 95% sebelum build.",
-    },
-    {
-      label: "Paksa build",
-      prompt:
-        "Saya mau paksa build sekarang walaupun AI belum 95% yakin. Tuliskan asumsi yang masih kamu pakai.",
-    },
-    {
-      label: "Ubah penawaran",
-      prompt: "Saya mau mengubah penawaran utama dulu.",
-    },
-    {
-      label: "Ubah tampilan",
-      prompt: "Saya mau mengubah arah visual website dulu.",
-    },
-    {
-      label: "Tambah info penting",
-      prompt: "Saya mau menambahkan detail penting sebelum build.",
-    },
-  ];
 }
 
 const BRIEF_PATCH_FIELDS = [

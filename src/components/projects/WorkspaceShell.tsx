@@ -1882,11 +1882,9 @@ export function WorkspaceShell({
                     </motion.form>
                   )}
                 </AnimatePresence>
-              ) : composerState === "build_recommendation" ||
-                composerState === "brief_review" ? (
+              ) : composerState === "build_recommendation" ? (
                 <WorkspaceCardView
                   card={workspaceCard}
-                  onAction={submitChatText}
                   onBuild={() => void startBuild()}
                   onDiscuss={holdBuildRecommendation}
                 />

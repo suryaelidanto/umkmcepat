@@ -1200,57 +1200,15 @@ export function QuestionComposer({
 
 export function WorkspaceCardView({
   card,
-  onAction,
   onBuild,
   onDiscuss,
 }: {
   card: WorkspaceCard;
-  onAction?: (text: string) => void;
   onBuild: () => void;
   onDiscuss?: () => void;
 }) {
   if (card.type === "none") {
     return null;
-  }
-
-  if (card.type === "brief_review") {
-    return (
-      <div className="border-y border-surface-warm-white/10 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
-        <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/46">
-              Ringkasan arah
-            </p>
-            <h2 className="mt-spacing-2 text-base font-semibold leading-6 text-surface-warm-white">
-              {card.title}
-            </h2>
-            <ul className="mt-spacing-4 divide-y divide-surface-warm-white/8 text-sm leading-6 text-surface-warm-white/66">
-              {card.summary.slice(0, 5).map((item, index) => (
-                <li
-                  key={`${item}-${index}`}
-                  className="break-words py-spacing-3 first:pt-0 last:pb-0 [overflow-wrap:anywhere]"
-                >
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-spacing-3 md:mt-spacing-6 md:flex-col md:items-stretch">
-            {card.actions.map((action) => (
-              <Button
-                key={action.label}
-                type="button"
-                variant="outline"
-                onClick={() => onAction?.(action.prompt)}
-                className="h-10 rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-5 text-sm text-surface-warm-white/78 hover:bg-surface-warm-white/8"
-              >
-                {action.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
   }
 
   if (card.type === "build_recommendation") {

@@ -404,11 +404,54 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("accepts a brief review card with natural next actions", () => {
+  it("falls back to the embedded question when AI emits a brief_review below threshold", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Laundry kiloan",
+        confidence: 80,
         offer: "Cuci setrika dan antar jemput",
+        openQuestions: ["Jam operasional"],
+        targetCustomer: "Warga Depok",
+        contactOrCta: "WhatsApp",
+        stylePreference: "Bersih segar",
+      },
+      "laundry depok",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "brief_review",
+          title: "Arah website laundry",
+          summary: ["Laundry kiloan Depok"],
+          actions: [{ label: "Paksa build", prompt: "Paksa build." }],
+          question: {
+            id: "operational_hours",
+            question: "Jam operasional laundry?",
+            answerMode: "choice",
+            options: [
+              { label: "07.00 - 21.00", description: "Buka seharian" },
+              { label: "08.00 - 20.00", description: "Buka biasa" },
+            ],
+            selectionMode: "single",
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("operational_hours");
+    }
+  });
+
+  it("emits build_recommendation when AI sends brief_review and confidence is 95+", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Laundry kiloan",
+        confidence: 95,
+        offer: "Cuci setrika dan antar jemput",
+        openQuestions: [],
         targetCustomer: "Warga Depok",
         contactOrCta: "WhatsApp",
         stylePreference: "Bersih segar",
@@ -421,19 +464,81 @@ describe("normalizeWorkspaceTurn", () => {
           type: "brief_review",
           title: "Arah website laundry",
           summary: ["Laundry kiloan Depok", "CTA WhatsApp"],
-          actions: [
-            { label: "Mulai build", prompt: "Mulai build sekarang." },
-            { label: "Ubah harga", prompt: "Saya mau ubah harga dulu." },
-          ],
+          actions: [{ label: "Mulai build", prompt: "Mulai build sekarang." }],
         },
       },
       brief,
     );
 
-    expect(turn.workspaceCard.type).toBe("brief_review");
-    if (turn.workspaceCard.type === "brief_review") {
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
       expect(turn.workspaceCard.title).toBe("Arah website laundry");
-      expect(turn.workspaceCard.actions[0].label).toBe("Mulai build");
+    }
+  });
+
+  it("emits none when brief_review arrives below threshold without an embedded question", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Laundry kiloan",
+        confidence: 60,
+        offer: "Cuci setrika",
+        targetCustomer: "Warga Depok",
+        contactOrCta: "WhatsApp",
+        stylePreference: "Bersih",
+      },
+      "laundry",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "brief_review",
+          title: "Arah website laundry",
+          summary: ["Laundry"],
+          actions: [{ label: "Paksa build", prompt: "Paksa build." }],
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("none");
+  });
+
+  it("downgrades a premature build_recommendation below 95% into a question", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Katering sekolah",
+        confidence: 70,
+        offer: "Nasi kotak",
+        targetCustomer: "Anak sekolah",
+        contactOrCta: "WhatsApp",
+        stylePreference: "Cerah",
+      },
+      "katering",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Katering siap",
+          summary: [],
+          question: {
+            id: "price_range",
+            question: "Range harga per kotak?",
+            answerMode: "choice",
+            options: [
+              { label: "Rp 15.000", description: "Entry" },
+              { label: "Rp 25.000", description: "Premium" },
+            ],
+            selectionMode: "single",
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("price_range");
     }
   });
 

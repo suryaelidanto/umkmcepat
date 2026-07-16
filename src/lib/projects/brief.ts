@@ -26,8 +26,6 @@ export type ProjectBrief = {
   confidence?: number;
   /** Material decisions the AI still wants to resolve before recommending build. */
   openQuestions?: string[];
-  /** Present only when the user forced a build below the confidence threshold. */
-  forcedBuild?: { assumed: string[] };
 };
 
 export type BriefQuestion = {
@@ -46,20 +44,9 @@ export type BriefQuestion = {
 // One question per turn (relentless interview style). The card never batches
 // questions: the AI asks a single decision, the user answers, then the next
 // turn asks the next one.
-export type BriefReviewAction = {
-  label: string;
-  prompt: string;
-};
-
 export type WorkspaceCard =
   | { type: "none" }
   | { type: "question"; question: BriefQuestion }
-  | {
-      actions: BriefReviewAction[];
-      summary: string[];
-      title: string;
-      type: "brief_review";
-    }
   | { type: "build_recommendation"; title: string; summary: string[] };
 
 export type ProjectBriefPatch = Partial<
@@ -74,7 +61,6 @@ export type ProjectBriefPatch = Partial<
   >
 > & {
   confidence?: number;
-  forcedBuild?: { assumed?: unknown };
   decisions?: ProjectDecision[];
   facts?: ProjectFact[];
   notes?: string[];
@@ -138,7 +124,6 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
     openQuestions: Array.isArray(input.openQuestions)
       ? input.openQuestions.filter(isString).slice(-12)
       : [],
-    forcedBuild: normalizeForcedBuild(input.forcedBuild),
   };
 }
 
@@ -182,10 +167,6 @@ export function mergeProjectBriefPatch(
     next.openQuestions = patch.openQuestions.filter(isString).slice(-12);
   }
 
-  if ("forcedBuild" in patch) {
-    next.forcedBuild = normalizeForcedBuild(patch.forcedBuild);
-  }
-
   return next;
 }
 
@@ -223,16 +204,6 @@ export function isBriefReady(brief: ProjectBrief) {
   return getBriefReadiness(brief).ready;
 }
 
-/** Returns true when the user has forced a build below the confidence threshold. */
-export function isBriefForceBuild(brief: ProjectBrief) {
-  return Boolean(brief.forcedBuild?.assumed.length);
-}
-
-/** Whether a build is allowed: confidence >= 95 OR an explicit force flag. */
-export function canBriefBuild(brief: ProjectBrief) {
-  return isBriefReady(brief) || isBriefForceBuild(brief);
-}
-
 export function briefToBuildPrompt(brief: ProjectBrief) {
   const lines = [
     `Permintaan awal: ${brief.prompt}`,
@@ -252,9 +223,6 @@ export function briefToBuildPrompt(brief: ProjectBrief) {
     `Tingkat keyakinan: ${brief.confidence ?? 0}%`,
     brief.openQuestions?.length
       ? `Pertanyaan terbuka: ${brief.openQuestions.join("; ")}`
-      : "",
-    brief.forcedBuild?.assumed.length
-      ? `Build dipaksa dengan asumsi: ${brief.forcedBuild.assumed.join("; ")}`
       : "",
   ].filter(Boolean);
 
@@ -340,17 +308,4 @@ function normalizeConfidence(value: unknown) {
   }
 
   return Math.min(100, Math.max(0, Math.round(parsed)));
-}
-
-function normalizeForcedBuild(value: unknown): ProjectBrief["forcedBuild"] {
-  if (!value || typeof value !== "object") {
-    return undefined;
-  }
-
-  const input = value as { assumed?: unknown };
-  const assumed = Array.isArray(input.assumed)
-    ? input.assumed.filter(isString).slice(-12)
-    : [];
-
-  return assumed.length ? { assumed } : undefined;
 }

@@ -183,7 +183,7 @@ vi.mock("@/lib/projects/brief", () => ({
     openQuestions: [],
   }),
   briefToBuildPrompt: vi.fn().mockReturnValue("build prompt"),
-  canBriefBuild: vi.fn().mockReturnValue(true),
+  isBriefReady: vi.fn().mockReturnValue(true),
   BRIEF_CONFIDENCE_THRESHOLD: 95,
 }));
 
