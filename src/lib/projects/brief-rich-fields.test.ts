@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FIELD_APPLICABILITY,
+  getApplicableFields,
   parseContact,
-  parseSocialLink,
   parsePaymentMethod,
+  parseProductOrServiceItem,
   parseCertification,
   parseHours,
+  parseSocialLink,
   parseTestimonial,
-  parseProductOrServiceItem,
+  SOFT_FIELDS,
 } from "@/lib/projects/brief-rich-fields";
 
 describe("brief rich-field parsers", () => {
@@ -96,5 +99,45 @@ describe("brief rich-field parsers", () => {
       priceRange: undefined,
       isPrimary: true,
     });
+  });
+});
+
+describe("field applicability", () => {
+  it("always-on fields are in every type's applicable set", () => {
+    const alwaysOn: ReadonlyArray<"contact" | "tagline" | "usp" | "visuals"> = [
+      "contact",
+      "tagline",
+      "usp",
+      "visuals",
+    ];
+    for (const t of Object.keys(FIELD_APPLICABILITY) as Array<
+      keyof typeof FIELD_APPLICABILITY
+    >) {
+      for (const f of alwaysOn) {
+        expect(getApplicableFields(t)).toContain(f);
+      }
+    }
+  });
+
+  it("F&B applicability includes hours, address, paymentMethods, priceRange, since", () => {
+    const applicable = getApplicableFields("fnb");
+    expect(applicable).toContain("hours");
+    expect(applicable).toContain("address");
+    expect(applicable).toContain("paymentMethods");
+    expect(applicable).toContain("priceRange");
+    expect(applicable).toContain("since");
+  });
+
+  it("online-only jasa excludes address, hours, deliveryArea", () => {
+    const applicable = getApplicableFields("jasa_online");
+    expect(applicable).not.toContain("address");
+    expect(applicable).not.toContain("hours");
+    expect(applicable).not.toContain("deliveryArea");
+  });
+
+  it("SOFT_FIELDS is the union of all field ids", () => {
+    expect(SOFT_FIELDS).toContain("contact");
+    expect(SOFT_FIELDS).toContain("testimonials");
+    expect(SOFT_FIELDS).toContain("secondaryCta");
   });
 });

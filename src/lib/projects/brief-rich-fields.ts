@@ -197,3 +197,87 @@ export function parseProductOrServiceItem(
   const isPrimary = input.isPrimary === true ? true : undefined;
   return { name, description, priceRange, isPrimary };
 }
+
+export type UmkmType =
+  "fnb" | "retail" | "jasa_lokal" | "jasa_online" | "kursus" | "other";
+
+export type SoftFieldId =
+  | "contact"
+  | "tagline"
+  | "usp"
+  | "visuals"
+  | "priceRange"
+  | "targetCustomer"
+  | "hours"
+  | "address"
+  | "deliveryArea"
+  | "since"
+  | "testimonials"
+  | "certifications"
+  | "paymentMethods"
+  | "socialLinks"
+  | "currentPromo"
+  | "secondaryCta";
+
+export const SOFT_FIELDS: readonly SoftFieldId[] = [
+  "contact",
+  "tagline",
+  "usp",
+  "visuals",
+  "priceRange",
+  "targetCustomer",
+  "hours",
+  "address",
+  "deliveryArea",
+  "since",
+  "testimonials",
+  "certifications",
+  "paymentMethods",
+  "socialLinks",
+  "currentPromo",
+  "secondaryCta",
+] as const;
+
+const ALWAYS: readonly SoftFieldId[] = ["contact", "tagline", "usp", "visuals"];
+
+export const FIELD_APPLICABILITY: Record<UmkmType, readonly SoftFieldId[]> = {
+  fnb: [
+    ...ALWAYS,
+    "hours",
+    "address",
+    "deliveryArea",
+    "paymentMethods",
+    "priceRange",
+    "since",
+    "secondaryCta",
+  ],
+  retail: [
+    ...ALWAYS,
+    "hours",
+    "address",
+    "paymentMethods",
+    "priceRange",
+    "since",
+  ],
+  jasa_lokal: [
+    ...ALWAYS,
+    "hours",
+    "address",
+    "deliveryArea",
+    "priceRange",
+    "since",
+  ],
+  jasa_online: [
+    ...ALWAYS,
+    "priceRange",
+    "socialLinks",
+    "secondaryCta",
+    "testimonials",
+  ],
+  kursus: [...ALWAYS, "hours", "priceRange", "socialLinks", "secondaryCta"],
+  other: ALWAYS,
+};
+
+export function getApplicableFields(type: UmkmType): readonly SoftFieldId[] {
+  return FIELD_APPLICABILITY[type] ?? ALWAYS;
+}
