@@ -106,6 +106,22 @@ export function getRateLimitConfig(
   return { limit, windowMs: windowSeconds * 1000 };
 }
 
+/**
+ * Product routes (ai/build) already gate on daily energy for authenticated users.
+ * Fixed hourly/10-min buckets were a second soft-paywall on retries.
+ * Default pilot: skip ai|build when userId is known unless RATE_LIMIT_ENFORCE_PRODUCT=1.
+ */
+export function shouldEnforceProductRateLimit(
+  type: RateLimitType,
+  userId?: string,
+) {
+  if (!userId || (type !== "ai" && type !== "build")) {
+    return true;
+  }
+
+  return process.env.RATE_LIMIT_ENFORCE_PRODUCT === "1";
+}
+
 export async function checkRateLimit(
   request: Request,
   type: RateLimitType = "global",
@@ -114,6 +130,10 @@ export async function checkRateLimit(
   const provider = getConfiguredProvider("rateLimit");
 
   if (provider === "none") {
+    return null;
+  }
+
+  if (!shouldEnforceProductRateLimit(type, userId)) {
     return null;
   }
 

@@ -239,7 +239,7 @@ describe("workspace chat sync", () => {
       }),
     ).toEqual({
       detail:
-        "Build website belum berhasil dan belum ada tampilan sebelumnya. Coba build ulang setelah brief siap.",
+        "Build website belum berhasil dan belum ada tampilan sebelumnya. Tekan Build ulang untuk mencoba lagi.",
       title: "Build website belum selesai",
     });
   });

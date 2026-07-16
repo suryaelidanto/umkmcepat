@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getRateLimitConfig } from "@/lib/rate-limit";
+import {
+  checkRateLimit,
+  getRateLimitConfig,
+  shouldEnforceProductRateLimit,
+} from "@/lib/rate-limit";
 
 const envNames = [
   "RATE_LIMIT_AI_USER_REQUESTS",
   "RATE_LIMIT_AI_USER_WINDOW_SECONDS",
   "RATE_LIMIT_BUILD_IP_REQUESTS",
+  "RATE_LIMIT_ENFORCE_PRODUCT",
+  "RATE_LIMIT_PROVIDER",
 ] as const;
 const previous = Object.fromEntries(
   envNames.map((name) => [name, process.env[name]]),
@@ -50,5 +56,31 @@ describe("getRateLimitConfig", () => {
     expect(getRateLimitConfig("build", "ip").limit).toBeLessThan(
       getRateLimitConfig("ai", "ip").limit,
     );
+  });
+});
+
+describe("energy-first product rate limits", () => {
+  it("skips ai/build buckets for authenticated users by default", () => {
+    delete process.env.RATE_LIMIT_ENFORCE_PRODUCT;
+    expect(shouldEnforceProductRateLimit("build", "user_1")).toBe(false);
+    expect(shouldEnforceProductRateLimit("ai", "user_1")).toBe(false);
+    expect(shouldEnforceProductRateLimit("global", "user_1")).toBe(true);
+    expect(shouldEnforceProductRateLimit("build", undefined)).toBe(true);
+  });
+
+  it("re-enables product buckets when RATE_LIMIT_ENFORCE_PRODUCT=1", () => {
+    process.env.RATE_LIMIT_ENFORCE_PRODUCT = "1";
+    expect(shouldEnforceProductRateLimit("build", "user_1")).toBe(true);
+  });
+
+  it("does not 429 authenticated build retries when energy-first is on", async () => {
+    delete process.env.RATE_LIMIT_ENFORCE_PRODUCT;
+    process.env.RATE_LIMIT_PROVIDER = "memory";
+    const request = new Request("http://localhost/api/projects/x/generate");
+
+    for (let i = 0; i < 20; i += 1) {
+      const blocked = await checkRateLimit(request, "build", "user_retry");
+      expect(blocked).toBeNull();
+    }
   });
 });

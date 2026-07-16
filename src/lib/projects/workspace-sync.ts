@@ -246,7 +246,7 @@ export function getWorkspacePreviewIssue({
   if (runtimeUserFacingState === "build_failed_without_last_good") {
     return {
       detail:
-        "Build website belum berhasil dan belum ada tampilan sebelumnya. Coba build ulang setelah brief siap.",
+        "Build website belum berhasil dan belum ada tampilan sebelumnya. Tekan Build ulang untuk mencoba lagi.",
       title: "Build website belum selesai",
     };
   }
@@ -257,13 +257,23 @@ export function getWorkspacePreviewIssue({
 
   if (
     !hasLastGoodPreview &&
-    (buildStatus === "failed" || sourceStatus === "failed")
+    (buildStatus === "failed" ||
+      sourceStatus === "failed" ||
+      runtimeUserFacingState === "not_built")
   ) {
-    return {
-      detail:
-        "File website belum berhasil dibuild. Jalankan build ulang setelah brief siap.",
-      title: "Build website belum selesai",
-    };
+    // not_built with local/source failed (or empty builds after agent fail)
+    // still needs an explicit rebuild CTA — runtime canRetry used to be false.
+    if (
+      buildStatus === "failed" ||
+      sourceStatus === "failed" ||
+      runtimeBuildStatus === "failed"
+    ) {
+      return {
+        detail:
+          "File website belum berhasil dibuild. Tekan Build ulang — brief yang sudah siap tetap dipakai.",
+        title: "Build website belum selesai",
+      };
+    }
   }
 
   // A successful artifact can cold-start again through the preview route.

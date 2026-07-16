@@ -204,6 +204,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
   const operationAttemptId = `build_${randomUUID().replace(/-/g, "")}`;
 
+  let earlyBuildId: string | null = null;
   try {
     await prisma.projectEditAttempt.create({
       data: {
@@ -217,6 +218,37 @@ async function handleGeneratePost(request: Request, routeId: string) {
         userId,
       },
       select: { id: true },
+    });
+
+    // Placeholder snapshot so a ProjectBuild row exists before agent work.
+    // Without it, agent-phase failures leave project=failed and canRetry=false.
+    const earlySnapshot = await prisma.projectSnapshot.create({
+      data: {
+        files: [],
+        metadata: {
+          origin: {
+            generator: "generate-placeholder",
+            sourceType: "generated",
+          },
+        },
+        projectId,
+        sourceType: "generated" satisfies ProjectSnapshotSourceType,
+      },
+      select: { id: true },
+    });
+    const earlyBuild = await prisma.projectBuild.create({
+      data: {
+        projectId,
+        snapshotId: earlySnapshot.id,
+        startedAt: new Date(),
+        status: "running" satisfies ProjectBuildStatus,
+      },
+      select: { id: true },
+    });
+    earlyBuildId = earlyBuild.id;
+    await prisma.projectEditAttempt.update({
+      where: { id: operationAttemptId },
+      data: { buildId: earlyBuild.id, snapshotId: earlySnapshot.id },
     });
   } catch {
     await finalizeProjectOperation({
@@ -239,7 +271,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
   const stream = new ReadableStream({
     async start(controller) {
       let runtimeBuildFinalized = false;
-      let runtimeBuildId: string | null = null;
+      let runtimeBuildId: string | null = earlyBuildId;
 
       function send(event: string, data: unknown) {
         controller.enqueue(encoder.encode(encodeEvent(event, data)));
@@ -499,29 +531,33 @@ async function handleGeneratePost(request: Request, routeId: string) {
           });
         }
 
-        const build = await prisma.projectBuild.create({
-          data: {
-            projectId: projectId,
-            snapshotId: snapshot.id,
-            status: "queued" satisfies ProjectBuildStatus,
-          },
-          select: { id: true },
-        });
+        const build = runtimeBuildId
+          ? await prisma.projectBuild.update({
+              where: { id: runtimeBuildId },
+              data: {
+                snapshotId: snapshot.id,
+                startedAt: new Date(),
+                status: "running" satisfies ProjectBuildStatus,
+              },
+              select: { id: true },
+            })
+          : await prisma.projectBuild.create({
+              data: {
+                projectId: projectId,
+                snapshotId: snapshot.id,
+                startedAt: new Date(),
+                status: "running" satisfies ProjectBuildStatus,
+              },
+              select: { id: true },
+            });
         runtimeBuildId = build.id;
         await prisma.projectEditAttempt.update({
           where: { id: operationAttemptId },
-          data: { buildId: build.id },
+          data: { buildId: build.id, snapshotId: snapshot.id },
         });
         send("progress", {
           label: "Build masuk antrean",
           detail: "Worker build menyiapkan validasi file website.",
-        });
-        await prisma.projectBuild.update({
-          where: { id: build.id },
-          data: {
-            startedAt: new Date(),
-            status: "running" satisfies ProjectBuildStatus,
-          },
         });
         await prisma.runtimeEvent.create({
           data: createRuntimeEventData({
@@ -805,6 +841,14 @@ async function handleGeneratePost(request: Request, routeId: string) {
               projectId,
             }),
           ]);
+        }
+
+        if (!finalBuildOk) {
+          send("error", {
+            message:
+              "Build website belum berhasil. Coba build ulang setelah cek brief.",
+          });
+          return;
         }
 
         send("progress", {

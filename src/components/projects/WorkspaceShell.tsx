@@ -602,17 +602,23 @@ export function WorkspaceShell({
         }
       }
     } catch (error) {
-      if ((error as Error).name !== "AbortError") {
-        setBuildStatus("failed");
-        void loadRuntimeState();
-        setBuildProgress((current) =>
-          addBuildProgressStep(current, {
-            detail: "Koneksi build terputus. Coba jalankan build lagi.",
-            label: "Build terputus",
-            status: "error",
-          }),
-        );
-      }
+      // Abort and network failure both leave a retryable failed state — never
+      // stick on local "building" with no CTA.
+      setBuildStatus("failed");
+      void loadRuntimeState();
+      setBuildProgress((current) =>
+        addBuildProgressStep(current, {
+          detail:
+            (error as Error).name === "AbortError"
+              ? "Build dihentikan. Kamu bisa jalankan build lagi kapan saja."
+              : "Koneksi build terputus. Coba jalankan build lagi.",
+          label:
+            (error as Error).name === "AbortError"
+              ? "Build dihentikan"
+              : "Build terputus",
+          status: "error",
+        }),
+      );
     } finally {
       buildAbortRef.current = null;
     }
@@ -841,6 +847,12 @@ export function WorkspaceShell({
   }, [chatCursor, hasMoreChat, isLoadingOlderChat, projectId]);
 
   function stopCurrentJob() {
+    // Cancel preparing poll so Stop does not force a false card-error timeout.
+    preparingPollRef.current?.();
+    preparingPollRef.current = null;
+    setIsPreparingNextQuestion(false);
+    setWorkspaceCardError(false);
+
     if (isResponding) {
       stop();
       return;
@@ -849,8 +861,9 @@ export function WorkspaceShell({
     buildAbortRef.current?.abort();
     buildAbortRef.current = null;
     void fetch(`/api/projects/${projectId}/stop`, { method: "POST" });
-    setBuildStatus("draft");
+    setBuildStatus("failed");
     setMode("discuss");
+    void loadRuntimeState();
   }
 
   useEffect(() => {
@@ -1438,6 +1451,21 @@ export function WorkspaceShell({
       captureRateLimitError(error, setRateLimitError);
     }
   }, [error]);
+
+  // 429 banner used to stick forever (deadlock). Auto-clear after retryAfter.
+  useEffect(() => {
+    if (!rateLimitError) {
+      return;
+    }
+
+    const ms = Math.max(1, rateLimitError.retryAfter) * 1000;
+    const timeout = window.setTimeout(() => {
+      setRateLimitError(null);
+      clearError();
+    }, ms);
+
+    return () => window.clearTimeout(timeout);
+  }, [clearError, rateLimitError]);
 
   function closePreviewPanel() {
     if (!showChatPanel) {

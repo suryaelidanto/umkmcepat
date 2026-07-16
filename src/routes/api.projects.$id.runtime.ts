@@ -196,7 +196,15 @@ async function getRuntimeState(id: string, userId: string) {
     build: latestSuccessfulBuild,
     canPreview: Boolean(deployment),
     canPublish: Boolean(latestSuccessfulBuild),
-    canRetry: latestAttempt?.status === "failed",
+    // Retry whenever the latest attempt failed/stale/canceled, or project has
+    // no success artifact (covers agent-phase fails that used to leave zero builds).
+    canRetry:
+      latestAttempt?.status === "failed" ||
+      latestAttempt?.status === "stale" ||
+      latestAttempt?.status === "canceled" ||
+      (!latestSuccessfulBuild &&
+        (latestFailedAttempt?.status === "failed" ||
+          latestFailedAttempt?.status === "stale")),
     deployment: deployment
       ? {
           ...deployment,
