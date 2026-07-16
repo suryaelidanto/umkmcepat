@@ -241,6 +241,8 @@ export function WorkspaceShell({
   const preparingPollRef = useRef<(() => void) | null>(null);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
+  // Survives refresh: if user sent visual comments, clear them when server job ends OK.
+  const pendingVisualRevisionRef = useRef(false);
   const [annotationMode, setAnnotationMode] = useState(false);
   const [annotationInstruction, setAnnotationInstruction] = useState("");
   const [annotations, setAnnotations] = useState<VisualAnnotationDraft[]>([]);
@@ -315,6 +317,7 @@ export function WorkspaceShell({
       const draft = JSON.parse(raw) as {
         annotations?: VisualAnnotationDraft[];
         instruction?: string;
+        pendingRevision?: boolean;
       };
 
       if (Array.isArray(draft.annotations)) {
@@ -324,20 +327,32 @@ export function WorkspaceShell({
       if (typeof draft.instruction === "string") {
         setAnnotationInstruction(draft.instruction);
       }
+
+      if (draft.pendingRevision) {
+        pendingVisualRevisionRef.current = true;
+      }
     } catch {
       window.localStorage.removeItem(visualAnnotationStorageKey);
     }
   }, [visualAnnotationStorageKey]);
 
   useEffect(() => {
-    if (!annotations.length && !annotationInstruction.trim()) {
+    if (
+      !annotations.length &&
+      !annotationInstruction.trim() &&
+      !pendingVisualRevisionRef.current
+    ) {
       window.localStorage.removeItem(visualAnnotationStorageKey);
       return;
     }
 
     window.localStorage.setItem(
       visualAnnotationStorageKey,
-      JSON.stringify({ annotations, instruction: annotationInstruction }),
+      JSON.stringify({
+        annotations,
+        instruction: annotationInstruction,
+        pendingRevision: pendingVisualRevisionRef.current,
+      }),
     );
   }, [annotationInstruction, annotations, visualAnnotationStorageKey]);
 
@@ -488,12 +503,28 @@ export function WorkspaceShell({
         setBuildProgress((current) => completeBuildProgress(current));
         setPreviewReloadKey((current) => current + 1);
       }
+
+      // After refresh mid-edit, fetch success never runs — clear visual
+      // comments when a pending revision settles on a ready workspace.
+      if (pendingVisualRevisionRef.current) {
+        pendingVisualRevisionRef.current = false;
+        setAnnotations([]);
+        setAnnotationInstruction("");
+        setAnnotationMode(false);
+        setPendingAnnotationTarget(null);
+        setPendingAnnotationComment("");
+        window.localStorage.removeItem(visualAnnotationStorageKey);
+      }
     } else if (result.userFacingState === "build_failed_without_last_good") {
       if (buildStatusRef.current === "building") {
         setBuildStatus("failed");
       }
+      // Keep comments for resend; drop pending flag only.
+      if (pendingVisualRevisionRef.current) {
+        pendingVisualRevisionRef.current = false;
+      }
     }
-  }, [runtimeQuery.data]);
+  }, [runtimeQuery.data, visualAnnotationStorageKey]);
 
   const loadRuntimeState = useCallback(async () => {
     await queryClient.invalidateQueries({
@@ -1325,6 +1356,7 @@ export function WorkspaceShell({
     }
 
     visualEditInFlightRef.current = true;
+    pendingVisualRevisionRef.current = true;
 
     const summary = createVisualAnnotationSummary({
       annotations,
@@ -1334,6 +1366,16 @@ export function WorkspaceShell({
       annotations,
       instruction: annotationInstruction,
     });
+
+    // Persist pending flag so a refresh mid-edit can still clear on success.
+    window.localStorage.setItem(
+      visualAnnotationStorageKey,
+      JSON.stringify({
+        annotations,
+        instruction: annotationInstruction,
+        pendingRevision: true,
+      }),
+    );
 
     setIsEditingPreview(true);
     setBuildStartedAt(Date.now());
@@ -1371,6 +1413,7 @@ export function WorkspaceShell({
       } | null;
 
       if (!response.ok || result?.buildStatus !== "succeeded") {
+        pendingVisualRevisionRef.current = false;
         setBuildProgress((current) =>
           addBuildProgressStep(current, {
             detail:
@@ -1383,8 +1426,11 @@ export function WorkspaceShell({
         return;
       }
 
+      pendingVisualRevisionRef.current = false;
       setAnnotations([]);
       setAnnotationInstruction("");
+      setPendingAnnotationTarget(null);
+      setPendingAnnotationComment("");
       window.localStorage.removeItem(visualAnnotationStorageKey);
       setAnnotationMode(false);
       setBuildStatus("ready");
