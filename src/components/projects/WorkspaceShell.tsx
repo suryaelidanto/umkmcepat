@@ -77,7 +77,7 @@ import {
   shouldUseGeneratedPreviewFrame,
   isUserVisibleAssistantText,
 } from "@/lib/projects/workspace-sync";
-import { fetchJson, queryKeys } from "@/lib/query-client";
+import { fetchJson, queryKeys, useCacheMutation } from "@/lib/query-client";
 
 const MonacoEditor = clientOnly(() => import("@monaco-editor/react"));
 
@@ -1522,6 +1522,64 @@ export function WorkspaceShell({
     }
   }
 
+  const saveTitleMutation = useCacheMutation<
+    { title: string },
+    { title: string }
+  >({
+    mutationFn: async ({ title }) => {
+      const response = await fetch(`/api/projects/${projectId}/title`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        title?: string;
+      } | null;
+
+      if (!response.ok || !result?.title) {
+        throw new Error("Judul belum berhasil disimpan.");
+      }
+
+      return { title: result.title };
+    },
+    optimisticPatches: [
+      {
+        queryKey: queryKeys.projects,
+        updater: (previous, variables) => {
+          const data = previous as
+            | {
+                pages: Array<{
+                  projects: Array<{ id: string; title: string }>;
+                }>;
+                pageParams: unknown[];
+              }
+            | undefined;
+
+          if (!data) {
+            return data;
+          }
+
+          return {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              projects: page.projects.map((project) =>
+                project.id === projectId
+                  ? { ...project, title: variables.title }
+                  : project,
+              ),
+            })),
+          };
+        },
+      },
+    ],
+    invalidateKeys: [queryKeys.projects],
+    onSuccess: ({ title }) => {
+      setProjectTitle(title);
+      setDraftTitle(title);
+    },
+  });
+
   async function saveProjectTitle() {
     const title = draftTitle.trim();
 
@@ -1534,24 +1592,14 @@ export function WorkspaceShell({
     setProjectTitle(title);
     setDraftTitle(title);
 
-    const response = await fetch(`/api/projects/${projectId}/title`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
-    });
-    const result = (await response.json().catch(() => null)) as {
-      title?: string;
-    } | null;
-
-    if (response.ok && result?.title) {
-      setProjectTitle(result.title);
-      setDraftTitle(result.title);
-    } else {
+    try {
+      await saveTitleMutation.mutateAsync({ title });
+    } catch {
       setProjectTitle(projectTitle);
       setDraftTitle(projectTitle);
+    } finally {
+      setIsRenaming(false);
     }
-
-    setIsRenaming(false);
   }
 
   const submitChatText = useCallback(
