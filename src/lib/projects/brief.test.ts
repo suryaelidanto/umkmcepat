@@ -7,6 +7,7 @@ import {
   getMissingBriefFields,
   isBriefReady,
   isBriefReadyForBuild,
+  mergeProjectBriefPatch,
   parseProjectBrief,
 } from "./brief";
 
@@ -120,5 +121,100 @@ describe("applyBriefValidator + isBriefReadyForBuild", () => {
   it("applyBriefValidator defaults readyForBuild to false", () => {
     const brief = applyBriefValidator(fullClean);
     expect(brief.readyForBuild).toBe(false);
+  });
+});
+
+describe("mergeProjectBriefPatch typed rich fields", () => {
+  it("propagates productOrService through the patch so the gate can open", () => {
+    const brief = createInitialBrief("kopi tuku");
+    const merged = mergeProjectBriefPatch(brief, {
+      productOrService: [{ name: "Kopi Susu", isPrimary: true }],
+    });
+
+    expect(merged.productOrService).toEqual([
+      { name: "Kopi Susu", isPrimary: true },
+    ]);
+  });
+
+  it("copies scalar rich fields (contact, tagline, usp, priceRange) when non-null", () => {
+    const brief = createInitialBrief("kopi tuku");
+    const merged = mergeProjectBriefPatch(brief, {
+      contact: { channel: "whatsapp", value: "08123456789" },
+      tagline: "Kopi susu harga mahasiswa",
+      usp: ["Single origin"],
+      priceRange: "15-25rb",
+      visuals: true,
+      address: "Jl. Kaliurang KM 5",
+      since: "2018",
+      currentPromo: "Beli 1 gratis 1",
+      secondaryCta: { label: "Lihat menu", action: "scroll_to_menu" },
+    });
+
+    expect(merged.contact?.value).toBe("08123456789");
+    expect(merged.tagline).toBe("Kopi susu harga mahasiswa");
+    expect(merged.usp).toEqual(["Single origin"]);
+    expect(merged.priceRange).toBe("15-25rb");
+    expect(merged.visuals).toBe(true);
+    expect(merged.address).toBe("Jl. Kaliurang KM 5");
+    expect(merged.since).toBe("2018");
+    expect(merged.currentPromo).toBe("Beli 1 gratis 1");
+    expect(merged.secondaryCta).toEqual({
+      label: "Lihat menu",
+      action: "scroll_to_menu",
+    });
+  });
+
+  it("copies array rich fields (hours, testimonials, paymentMethods, socialLinks, certifications)", () => {
+    const brief = createInitialBrief("kopi tuku");
+    const merged = mergeProjectBriefPatch(brief, {
+      hours: [{ dayRange: "Senin-Jumat", open: "08:00", close: "21:00" }],
+      testimonials: [{ quote: "Mantap", author: "Ibu Rina", rating: 5 }],
+      paymentMethods: [{ method: "qris" }],
+      socialLinks: [{ platform: "instagram", handle: "@kopituku" }],
+      certifications: [{ name: "Halal" }],
+      deliveryArea: "Sleman",
+    });
+
+    expect(merged.hours).toEqual([
+      { dayRange: "Senin-Jumat", open: "08:00", close: "21:00" },
+    ]);
+    expect(merged.testimonials?.[0].author).toBe("Ibu Rina");
+    expect(merged.paymentMethods?.[0].method).toBe("qris");
+    expect(merged.socialLinks?.[0].handle).toBe("@kopituku");
+    expect(merged.certifications?.[0].name).toBe("Halal");
+    expect(merged.deliveryArea).toBe("Sleman");
+  });
+
+  it("treats empty array patch as explicit null so the gate stays false", () => {
+    const brief = createInitialBrief("kopi tuku");
+    const merged = mergeProjectBriefPatch(brief, {
+      productOrService: [],
+    });
+
+    expect(merged.productOrService).toBeNull();
+  });
+
+  it("ignores the new fields entirely when the patch has none (legacy patches still work)", () => {
+    const brief = createInitialBrief("kopi tuku");
+    const merged = mergeProjectBriefPatch(brief, {
+      businessType: "F&B",
+      confidence: 30,
+    });
+
+    expect(merged.productOrService).toBeNull();
+    expect(merged.contact).toBeNull();
+    expect(merged.businessType).toBe("F&B");
+    expect(merged.confidence).toBe(30);
+  });
+
+  it("opens the build gate when patch sets productOrService and readyForBuild", () => {
+    const brief = createInitialBrief("kopi tuku");
+    const merged = mergeProjectBriefPatch(brief, {
+      businessName: "Kopi Tuku",
+      productOrService: [{ name: "Kopi Susu", isPrimary: true }],
+    });
+    merged.readyForBuild = true;
+
+    expect(isBriefReadyForBuild(merged)).toBe(true);
   });
 });

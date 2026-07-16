@@ -1,3 +1,13 @@
+import type {
+  CertificationValue,
+  ContactValue,
+  HoursValue,
+  PaymentMethodValue,
+  ProductOrServiceItem,
+  SocialLinkValue,
+  TestimonialValue,
+} from "@/lib/projects/brief-rich-fields";
+
 import {
   type BriefQuestion,
   type ProjectBrief,
@@ -5,7 +15,6 @@ import {
   getBriefReadiness,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
-
 const OPTION_LABEL_MAX_LENGTH = 120;
 const OPTION_DESCRIPTION_MAX_LENGTH = 180;
 
@@ -22,6 +31,22 @@ export type WorkspaceTurnToolInput = {
     openQuestions?: string[];
     stylePreference?: string;
     targetCustomer?: string;
+    productOrService?: ProductOrServiceItem[];
+    contact?: ContactValue;
+    tagline?: string;
+    usp?: string[];
+    priceRange?: string;
+    visuals?: boolean;
+    hours?: HoursValue[];
+    address?: string;
+    deliveryArea?: string;
+    since?: string;
+    testimonials?: TestimonialValue[];
+    certifications?: CertificationValue[];
+    paymentMethods?: PaymentMethodValue[];
+    socialLinks?: SocialLinkValue[];
+    currentPromo?: string;
+    secondaryCta?: { label: string; action: string };
   };
   projectTitle?: string;
   workspaceCard?: WorkspaceCard;
@@ -72,6 +97,65 @@ export function applyBriefPatch(
       .map((question) => cleanText(question, 160))
       .filter(Boolean)
       .slice(-12);
+  }
+
+  // Typed rich fields. Mirrors mergeProjectBriefPatch: non-empty arrays copy
+  // through, empty arrays become explicit null. The validator scrubs bad data
+  // downstream.
+  if (Array.isArray(patch.productOrService)) {
+    next.productOrService = patch.productOrService.length
+      ? patch.productOrService
+      : null;
+  }
+  if (patch.contact !== undefined && patch.contact !== null) {
+    next.contact = patch.contact;
+  }
+  if (patch.tagline !== undefined && patch.tagline !== null) {
+    next.tagline = cleanText(patch.tagline, 160) || null;
+  }
+  if (Array.isArray(patch.usp)) {
+    const usp = patch.usp.map((item) => cleanText(item, 160)).filter(Boolean);
+    next.usp = usp.length ? usp : null;
+  }
+  if (patch.priceRange !== undefined && patch.priceRange !== null) {
+    next.priceRange = cleanText(patch.priceRange, 80) || null;
+  }
+  if (patch.visuals !== undefined && patch.visuals !== null) {
+    next.visuals = patch.visuals === true;
+  }
+  if (Array.isArray(patch.hours)) {
+    next.hours = patch.hours.length ? patch.hours : null;
+  }
+  if (patch.address !== undefined && patch.address !== null) {
+    next.address = cleanText(patch.address, 200) || null;
+  }
+  if (patch.deliveryArea !== undefined && patch.deliveryArea !== null) {
+    next.deliveryArea = cleanText(patch.deliveryArea, 160) || null;
+  }
+  if (patch.since !== undefined && patch.since !== null) {
+    next.since = cleanText(patch.since, 40) || null;
+  }
+  if (Array.isArray(patch.testimonials)) {
+    next.testimonials = patch.testimonials.length ? patch.testimonials : null;
+  }
+  if (Array.isArray(patch.certifications)) {
+    next.certifications = patch.certifications.length
+      ? patch.certifications
+      : null;
+  }
+  if (Array.isArray(patch.paymentMethods)) {
+    next.paymentMethods = patch.paymentMethods.length
+      ? patch.paymentMethods
+      : null;
+  }
+  if (Array.isArray(patch.socialLinks)) {
+    next.socialLinks = patch.socialLinks.length ? patch.socialLinks : null;
+  }
+  if (patch.currentPromo !== undefined && patch.currentPromo !== null) {
+    next.currentPromo = cleanText(patch.currentPromo, 200) || null;
+  }
+  if (patch.secondaryCta !== undefined && patch.secondaryCta !== null) {
+    next.secondaryCta = patch.secondaryCta;
   }
 
   return next;

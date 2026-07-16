@@ -90,6 +90,22 @@ export type ProjectBriefPatch = Partial<
     | "targetCustomer"
     | "contactOrCta"
     | "stylePreference"
+    | "productOrService"
+    | "contact"
+    | "tagline"
+    | "usp"
+    | "priceRange"
+    | "visuals"
+    | "hours"
+    | "address"
+    | "deliveryArea"
+    | "since"
+    | "testimonials"
+    | "certifications"
+    | "paymentMethods"
+    | "socialLinks"
+    | "currentPromo"
+    | "secondaryCta"
   >
 > & {
   confidence?: number;
@@ -240,6 +256,64 @@ export function mergeProjectBriefPatch(
 
   if (Array.isArray(patch.openQuestions)) {
     next.openQuestions = patch.openQuestions.filter(isString).slice(-12);
+  }
+
+  // Typed rich fields. The validator scrubs hallucinated values downstream; we
+  // only copy non-null scalars and arrays here. Empty arrays become explicit
+  // null so the readiness gate has a stable signal.
+  if (Array.isArray(patch.productOrService)) {
+    next.productOrService = patch.productOrService.length
+      ? patch.productOrService
+      : null;
+  }
+  if (patch.contact !== undefined && patch.contact !== null) {
+    next.contact = patch.contact;
+  }
+  if (patch.tagline !== undefined && patch.tagline !== null) {
+    next.tagline = patch.tagline;
+  }
+  if (Array.isArray(patch.usp)) {
+    next.usp = patch.usp.length ? patch.usp : null;
+  }
+  if (patch.priceRange !== undefined && patch.priceRange !== null) {
+    next.priceRange = patch.priceRange;
+  }
+  if (patch.visuals !== undefined && patch.visuals !== null) {
+    next.visuals = patch.visuals;
+  }
+  if (Array.isArray(patch.hours)) {
+    next.hours = patch.hours.length ? patch.hours : null;
+  }
+  if (patch.address !== undefined && patch.address !== null) {
+    next.address = patch.address;
+  }
+  if (patch.deliveryArea !== undefined && patch.deliveryArea !== null) {
+    next.deliveryArea = patch.deliveryArea;
+  }
+  if (patch.since !== undefined && patch.since !== null) {
+    next.since = patch.since;
+  }
+  if (Array.isArray(patch.testimonials)) {
+    next.testimonials = patch.testimonials.length ? patch.testimonials : null;
+  }
+  if (Array.isArray(patch.certifications)) {
+    next.certifications = patch.certifications.length
+      ? patch.certifications
+      : null;
+  }
+  if (Array.isArray(patch.paymentMethods)) {
+    next.paymentMethods = patch.paymentMethods.length
+      ? patch.paymentMethods
+      : null;
+  }
+  if (Array.isArray(patch.socialLinks)) {
+    next.socialLinks = patch.socialLinks.length ? patch.socialLinks : null;
+  }
+  if (patch.currentPromo !== undefined && patch.currentPromo !== null) {
+    next.currentPromo = patch.currentPromo;
+  }
+  if (patch.secondaryCta !== undefined && patch.secondaryCta !== null) {
+    next.secondaryCta = patch.secondaryCta;
   }
 
   return next;

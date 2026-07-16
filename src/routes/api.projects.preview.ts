@@ -542,6 +542,98 @@ const presentWorkspaceCardTool = tool({
         stylePreference: z.string().optional(),
         notes: z.array(z.string()).optional(),
         openQuestions: z.array(z.string()).optional(),
+        productOrService: z
+          .array(
+            z.object({
+              name: z.string(),
+              description: z.string().optional(),
+              priceRange: z.string().optional(),
+              isPrimary: z.boolean().optional(),
+            }),
+          )
+          .optional(),
+        contact: z
+          .object({
+            channel: z.enum([
+              "whatsapp",
+              "phone",
+              "instagram",
+              "maps",
+              "other",
+            ]),
+            value: z.string(),
+            label: z.string().optional(),
+          })
+          .optional(),
+        tagline: z.string().optional(),
+        usp: z.array(z.string()).optional(),
+        priceRange: z.string().optional(),
+        visuals: z.boolean().optional(),
+        hours: z
+          .array(
+            z.object({
+              dayRange: z.string(),
+              open: z.string(),
+              close: z.string(),
+              note: z.string().optional(),
+            }),
+          )
+          .optional(),
+        address: z.string().optional(),
+        deliveryArea: z.string().optional(),
+        since: z.string().optional(),
+        testimonials: z
+          .array(
+            z.object({
+              quote: z.string(),
+              author: z.string(),
+              context: z.string().optional(),
+              rating: z.union([z.number(), z.string()]).optional(),
+            }),
+          )
+          .optional(),
+        certifications: z
+          .array(
+            z.object({
+              name: z.string(),
+              issuer: z.string().optional(),
+            }),
+          )
+          .optional(),
+        paymentMethods: z
+          .array(
+            z.union([
+              z.enum(["cash", "transfer", "qris", "ewallet", "cod"]),
+              z.object({
+                method: z.enum(["cash", "transfer", "qris", "ewallet", "cod"]),
+                detail: z.string().optional(),
+              }),
+            ]),
+          )
+          .optional(),
+        socialLinks: z
+          .array(
+            z.object({
+              platform: z.enum([
+                "instagram",
+                "tiktok",
+                "facebook",
+                "youtube",
+                "x",
+                "other",
+              ]),
+              handle: z.string(),
+              url: z.string().optional(),
+            }),
+          )
+          .optional(),
+        currentPromo: z.string().optional(),
+        secondaryCta: z
+          .object({
+            label: z.string(),
+            action: z.string(),
+          })
+          .optional(),
       })
       .optional(),
     workspaceCard: z
