@@ -4,9 +4,11 @@ import {
   calculateEnergy,
   DAILY_ENERGY_LIMIT,
   getDayBoundaries,
+  isDevUnlimitedEnergyEnabled,
   MIN_ENERGY_BUILD,
   MIN_ENERGY_DISCUSS,
   MIN_ENERGY_EDIT,
+  setDevUnlimitedEnergy,
 } from "./user-credits";
 
 describe("user-credits energy formula", () => {
@@ -40,5 +42,18 @@ describe("user-credits energy formula", () => {
     expect(afterMidnightWib.startOfDay.toISOString()).toBe(
       "2026-07-14T17:00:00.000Z",
     );
+  });
+});
+
+describe("dev unlimited energy toggle", () => {
+  it("defaults to off and only flips via explicit toggle", () => {
+    setDevUnlimitedEnergy(false);
+    expect(isDevUnlimitedEnergyEnabled()).toBe(false);
+
+    setDevUnlimitedEnergy(true);
+    expect(isDevUnlimitedEnergyEnabled()).toBe(true);
+
+    setDevUnlimitedEnergy(false);
+    expect(isDevUnlimitedEnergyEnabled()).toBe(false);
   });
 });

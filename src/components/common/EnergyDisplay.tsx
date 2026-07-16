@@ -28,6 +28,15 @@ export function EnergyDisplay() {
     refetchOnWindowFocus: true,
   });
 
+  const unlimitedQuery = useQuery({
+    queryKey: ["dev-unlimited-energy"],
+    queryFn: () =>
+      fetchJson<{ enabled: boolean }>("/api/dev/unlimited-energy", {
+        cache: "no-store",
+      }),
+    enabled: import.meta.env.DEV,
+  });
+
   useEffect(() => {
     const onEnergyChanged = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
@@ -46,6 +55,23 @@ export function EnergyDisplay() {
       });
     },
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
+      notifyEnergyChanged();
+    },
+  });
+
+  const unlimitedMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      await fetchJson<{ enabled: boolean }>("/api/dev/unlimited-energy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["dev-unlimited-energy"],
+      });
       await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
       notifyEnergyChanged();
     },
@@ -104,15 +130,36 @@ export function EnergyDisplay() {
       </div>
 
       {import.meta.env.DEV && (
-        <button
-          type="button"
-          onClick={() => resetMutation.mutate()}
-          disabled={resetMutation.isPending}
-          className="rounded-md bg-surface-warm-white/10 px-2 py-0.5 text-[10px] font-medium text-surface-warm-white/60 transition hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80 disabled:opacity-50"
-          title="Dev: reset energy hari ini"
-        >
-          {resetMutation.isPending ? "…" : "Reset"}
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => resetMutation.mutate()}
+            disabled={resetMutation.isPending}
+            className="rounded-md bg-surface-warm-white/10 px-2 py-0.5 text-[10px] font-medium text-surface-warm-white/60 transition hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80 disabled:opacity-50"
+            title="Dev: reset energy hari ini"
+          >
+            {resetMutation.isPending ? "…" : "Reset"}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              unlimitedMutation.mutate(!unlimitedQuery.data?.enabled)
+            }
+            disabled={unlimitedMutation.isPending}
+            className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition disabled:opacity-50 ${
+              unlimitedQuery.data?.enabled
+                ? "bg-green-400/20 text-green-300 hover:bg-green-400/30"
+                : "bg-surface-warm-white/10 text-surface-warm-white/60 hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80"
+            }`}
+            title="Dev: toggle unlimited energy"
+          >
+            {unlimitedMutation.isPending
+              ? "…"
+              : unlimitedQuery.data?.enabled
+                ? "Unlimited ✓"
+                : "Unlimited"}
+          </button>
+        </>
       )}
     </div>
   );

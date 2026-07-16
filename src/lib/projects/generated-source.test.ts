@@ -294,11 +294,11 @@ describe("generated project source", () => {
   it("accepts standalone source without a platform manifest", async () => {
     const result = await buildGeneratedProject(buildableFiles("standalone"), {
       commandRunner: async (command, cwd) => {
-        if (command.join(" ") === "bun install --ignore-scripts") {
+        if (normalizeCommand(command) === "<bun> install --ignore-scripts") {
           await mkdir(path.join(cwd, "node_modules"), { recursive: true });
         }
 
-        if (command.join(" ") === "bun run build") {
+        if (normalizeCommand(command) === "<bun> run build") {
           await writeDist(cwd, "<html>ok</html>");
         }
 
@@ -321,13 +321,14 @@ describe("generated project source", () => {
     const files = buildableFiles("project_cached");
     const commands: string[] = [];
     const commandRunner = async (command: string[], cwd: string) => {
-      commands.push(command.join(" "));
+      const normalized = normalizeCommand(command);
+      commands.push(normalized);
 
-      if (command.join(" ") === "bun install --ignore-scripts") {
+      if (normalized === "<bun> install --ignore-scripts") {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
-      if (command.join(" ") === "bun run build") {
+      if (normalized === "<bun> run build") {
         await writeDist(cwd, "cached");
       }
 
@@ -348,9 +349,9 @@ describe("generated project source", () => {
     );
 
     expect(commands).toEqual([
-      "bun install --ignore-scripts",
-      "bun run build",
-      "bun run build",
+      "<bun> install --ignore-scripts",
+      "<bun> run build",
+      "<bun> run build",
     ]);
     expect(second.log).toContain('"installSkipped":true');
   });
@@ -359,13 +360,13 @@ describe("generated project source", () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
     const commands: string[] = [];
     const commandRunner = async (command: string[], cwd: string) => {
-      commands.push(command.join(" "));
+      commands.push(normalizeCommand(command));
 
-      if (command.join(" ") === "bun install --ignore-scripts") {
+      if (normalizeCommand(command) === "<bun> install --ignore-scripts") {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
-      if (command.join(" ") === "bun run build") {
+      if (normalizeCommand(command) === "<bun> run build") {
         await writeDist(cwd, "package-change");
       }
 
@@ -396,10 +397,10 @@ describe("generated project source", () => {
     );
 
     expect(commands).toEqual([
-      "bun install --ignore-scripts",
-      "bun run build",
-      "bun install --ignore-scripts",
-      "bun run build",
+      "<bun> install --ignore-scripts",
+      "<bun> run build",
+      "<bun> install --ignore-scripts",
+      "<bun> run build",
     ]);
   });
 
@@ -409,11 +410,11 @@ describe("generated project source", () => {
       { content: "export const stale = true;", path: "src/stale.ts" },
     ]);
     const commandRunner = async (command: string[], cwd: string) => {
-      if (command.join(" ") === "bun install --ignore-scripts") {
+      if (normalizeCommand(command) === "<bun> install --ignore-scripts") {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
-      if (command.join(" ") === "bun run build") {
+      if (normalizeCommand(command) === "<bun> run build") {
         await writeDist(cwd, "stale");
       }
 
@@ -449,13 +450,14 @@ describe("generated project source", () => {
     const files = buildableFiles("project_retry");
     let buildAttempts = 0;
     const commandRunner = async (command: string[], cwd: string) => {
-      commands.push(command.join(" "));
+      const normalized = normalizeCommand(command);
+      commands.push(normalized);
 
-      if (command.join(" ") === "bun install --ignore-scripts") {
+      if (normalized === "<bun> install --ignore-scripts") {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
-      if (command.join(" ") === "bun run build") {
+      if (normalized === "<bun> run build") {
         buildAttempts += 1;
 
         if (buildAttempts === 2) {
@@ -479,11 +481,11 @@ describe("generated project source", () => {
 
     expect(result.ok).toBe(true);
     expect(commands).toEqual([
-      "bun install --ignore-scripts",
-      "bun run build",
-      "bun run build",
-      "bun install --ignore-scripts",
-      "bun run build",
+      "<bun> install --ignore-scripts",
+      "<bun> run build",
+      "<bun> run build",
+      "<bun> install --ignore-scripts",
+      "<bun> run build",
     ]);
     expect(result.log).toContain('"cacheReset":true');
   }, 15_000);
@@ -550,6 +552,12 @@ describe("generated project source", () => {
 async function writeDist(cwd: string, content: string) {
   await mkdir(path.join(cwd, "dist"), { recursive: true });
   await writeFile(path.join(cwd, "dist", "index.html"), content);
+}
+
+// Replace the resolved runner path (which is environment-dependent) with a
+// stable token so assertions stay focused on the command structure.
+function normalizeCommand(command: string[]) {
+  return command.map((part, index) => (index === 0 ? "<bun>" : part)).join(" ");
 }
 
 function buildableFiles(

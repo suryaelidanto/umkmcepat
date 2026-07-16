@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { createFileRoute } from "@tanstack/react-router";
-import { Output, generateText } from "ai";
+import { generateText } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getGenerationModel } from "@/lib/ai-models";
@@ -26,6 +26,7 @@ import {
 } from "@/lib/projects/generated-source";
 import {
   buildImplementationSpecPrompt,
+  implementationSpecTool,
   implementationSpecToSiteSchema,
   parseImplementationSpec,
 } from "@/lib/projects/implementation-spec";
@@ -263,21 +264,11 @@ async function handleGeneratePost(request: Request, routeId: string) {
         async function generateImplementationSpec(prompt: string) {
           const system =
             projectSiteGenerationSystemPrompt +
-            "\n\nOutput a JSON object with exactly these fields:\n" +
-            '- appKind: "landing" | "marketing_site" | "interactive_app"\n' +
-            "- businessName: string\n" +
-            "- pages: array of {slug: string, title: string, purpose: string} (1-6 items)\n" +
-            "- components: array of {name: string, purpose: string} (2-10 items)\n" +
-            "- features: array of strings (1-10 items)\n" +
-            "- content: object\n" +
-            '- style: {direction: string, palette: {background: "#hex", foreground: "#hex", muted: "#hex", accent: "#hex"}}\n' +
-            "- primaryCta: string\n" +
-            "- notes: array of strings\n\n" +
-            "Output valid JSON only. No markdown fences, no explanation.";
+            "\n\nCall the presentImplementationSpec tool exactly once with the full spec. Never reply with plain text or JSON in chat.";
 
           const attemptSpec = async (maxTokens: number) => {
-            // Output.json() guarantees valid JSON via SDK-level validation.
-            // The provider sends response_format: json_object when supported.
+            // Real tool-calling (not prompt-based JSON mode) — 9Router combo
+            // models emit malformed pseudo-XML wrappers under Output.json().
             const abortController = new AbortController();
             const timeoutMs = getAiTimeoutMs("buildSpec");
             const timeout = setTimeout(
@@ -294,7 +285,13 @@ async function handleGeneratePost(request: Request, routeId: string) {
                 abortSignal: abortController.signal,
                 instructions: system,
                 prompt,
-                output: Output.json(),
+                tools: {
+                  presentImplementationSpec: implementationSpecTool,
+                },
+                toolChoice: {
+                  type: "tool",
+                  toolName: "presentImplementationSpec",
+                },
                 telemetry: getAiTelemetry("project-implementation-spec", {
                   projectId,
                   route: "api.projects.generate",
@@ -306,6 +303,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
             }
 
             const usage = result.usage;
+            const toolCall = result.toolCalls?.[0] as
+              { input?: unknown; args?: unknown } | undefined;
+            const rawOutput = toolCall?.input ?? toolCall?.args ?? null;
             devLog("generate", "spec.attempt", {
               projectId,
               maxTokens,
@@ -315,7 +315,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
               outputTokens: usage.outputTokens ?? 0,
             });
 
-            const spec = parseImplementationSpec(result.output);
+            const spec = parseImplementationSpec(rawOutput);
 
             return {
               spec,

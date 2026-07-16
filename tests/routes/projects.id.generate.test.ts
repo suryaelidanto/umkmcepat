@@ -80,6 +80,7 @@ vi.mock("ai", () => ({
     json: vi.fn(() => ({})),
     object: vi.fn((opts: unknown) => opts),
   },
+  tool: vi.fn((opts: unknown) => opts),
   generateText: generateTextMock,
   streamText: vi.fn(),
 }));

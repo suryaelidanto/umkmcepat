@@ -24,6 +24,21 @@ export const PROJECT_LIMIT_DEFAULT = 5;
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
+// Dev-only manual override, toggled via the navbar "Unlimited mode" button.
+// Off by default so dev energy depletes like production and nobody forgets
+// to turn a blanket bypass off.
+let devUnlimitedEnergyEnabled = false;
+
+export function isDevUnlimitedEnergyEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" && devUnlimitedEnergyEnabled;
+}
+
+export function setDevUnlimitedEnergy(enabled: boolean): void {
+  if (process.env.NODE_ENV !== "production") {
+    devUnlimitedEnergyEnabled = enabled;
+  }
+}
+
 export function calculateEnergy(inputTokens: number, outputTokens: number) {
   const input = Math.max(0, Math.floor(inputTokens));
   const output = Math.max(0, Math.floor(outputTokens));
@@ -55,7 +70,7 @@ export function getDayBoundaries(now: Date = new Date()): {
 }
 
 export async function getRemainingEnergy(userId: string): Promise<number> {
-  if (process.env.NODE_ENV !== "production") {
+  if (isDevUnlimitedEnergyEnabled()) {
     return DAILY_ENERGY_LIMIT;
   }
   const stats = await getEnergyStats(userId);
@@ -66,7 +81,7 @@ export async function checkEnergy(
   userId: string,
   cost: number = MIN_ENERGY_DISCUSS,
 ): Promise<{ allowed: boolean; remaining: number }> {
-  if (process.env.NODE_ENV !== "production") {
+  if (isDevUnlimitedEnergyEnabled()) {
     return { allowed: true, remaining: DAILY_ENERGY_LIMIT };
   }
   const remaining = await getRemainingEnergy(userId);
@@ -91,8 +106,7 @@ export async function addEnergyUsage(
     return { energyUsed: 0, inputTokens: 0, outputTokens: 0 };
   }
 
-  // Skip persistence in development — unlimited energy for local testing.
-  if (process.env.NODE_ENV !== "production") {
+  if (isDevUnlimitedEnergyEnabled()) {
     return { energyUsed, inputTokens: input, outputTokens: output };
   }
 
@@ -123,18 +137,18 @@ export async function getEnergyStats(userId: string): Promise<{
   inputTokens: number;
   outputTokens: number;
 }> {
-  if (process.env.NODE_ENV !== "production") {
+  const { startOfDay, endOfDay } = getDayBoundaries();
+
+  if (isDevUnlimitedEnergyEnabled()) {
     return {
       remaining: DAILY_ENERGY_LIMIT,
       used: 0,
       limit: DAILY_ENERGY_LIMIT,
-      resetsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      resetsAt: endOfDay,
       inputTokens: 0,
       outputTokens: 0,
     };
   }
-
-  const { startOfDay, endOfDay } = getDayBoundaries();
 
   const [row] = await prisma.$queryRaw<
     Array<{

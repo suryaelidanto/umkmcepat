@@ -1115,7 +1115,7 @@ async function repairWorkspaceCard({
   const modelMessages = await convertToModelMessages(
     messages.slice(0, latestAssistantIndex),
   );
-  const turn = await generateWorkspaceTurn({
+  const turn = await repairDiscussCardWithTool({
     brief,
     cardSystemPrompt: buildCardSystemPrompt(),
     chatText,

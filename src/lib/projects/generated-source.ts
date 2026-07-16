@@ -211,6 +211,41 @@ export async function buildGeneratedProject(
   );
 }
 
+// node:child_process.spawn on Windows requires an absolute path or an
+// explicit .exe suffix; the bare name "bun" resolves to ENOENT once the
+// child's CWD is anything other than the lookup directory (e.g. a brand-new
+// generated workspace). Resolve once at module init and reuse the absolute
+// path for every spawn so this works on Windows + POSIX and is independent
+// of the calling process's CWD.
+function resolveBundledRunner(): string {
+  const explicit = process.env.PROJECT_BUILD_BUN_PATH?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  const candidates =
+    process.platform === "win32" ? ["bun.exe", "bun"] : ["bun"];
+  const pathDirs = (process.env.PATH ?? "").split(path.delimiter);
+  for (const dir of pathDirs) {
+    if (!dir) {
+      continue;
+    }
+    for (const name of candidates) {
+      const full = path.join(dir, name);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require("node:fs").statSync(full);
+        return full;
+      } catch {
+        // keep searching
+      }
+    }
+  }
+  // Last resort: rely on PATH lookup with the OS-correct suffix.
+  return candidates[0];
+}
+
+const BUNDLED_RUNNER = resolveBundledRunner();
+
 async function buildGeneratedProjectInWorkspace(
   files: GeneratedProjectFile[],
   manifest: {
@@ -265,7 +300,7 @@ async function buildGeneratedProjectInWorkspace(
     if (shouldInstall) {
       const installStartedAt = Date.now();
       install = await commandRunner(
-        ["bun", "install", "--ignore-scripts"],
+        [BUNDLED_RUNNER, "install", "--ignore-scripts"],
         workspace,
       );
       installMs = Date.now() - installStartedAt;
@@ -282,7 +317,10 @@ async function buildGeneratedProjectInWorkspace(
     }
 
     const buildStartedAt = Date.now();
-    const build = await commandRunner(["bun", "run", "build"], workspace);
+    const build = await commandRunner(
+      [BUNDLED_RUNNER, "run", "build"],
+      workspace,
+    );
     const collectStartedAt = Date.now();
     let distFiles: GeneratedDistFile[] = [];
     let collectionError = "";

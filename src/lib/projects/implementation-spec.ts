@@ -1,5 +1,43 @@
+import { tool } from "ai";
+import { z } from "zod";
+
 import { type ProjectBrief } from "@/lib/projects/brief";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
+
+export const implementationSpecTool = tool({
+  description: "Present the full website implementation spec.",
+  inputSchema: z.object({
+    appKind: z.enum(["landing", "marketing_site", "interactive_app"]),
+    businessName: z.string(),
+    pages: z
+      .array(
+        z.object({
+          slug: z.string(),
+          title: z.string(),
+          purpose: z.string(),
+        }),
+      )
+      .min(1)
+      .max(6),
+    components: z
+      .array(z.object({ name: z.string(), purpose: z.string() }))
+      .min(2)
+      .max(10),
+    features: z.array(z.string()).min(1).max(10),
+    content: z.record(z.string(), z.unknown()),
+    style: z.object({
+      direction: z.string(),
+      palette: z.object({
+        background: z.string(),
+        foreground: z.string(),
+        muted: z.string(),
+        accent: z.string(),
+      }),
+    }),
+    primaryCta: z.string(),
+    notes: z.array(z.string()),
+  }),
+});
 
 export type ImplementationSpec = {
   appKind: "landing" | "marketing_site" | "interactive_app";

@@ -64,6 +64,7 @@ graphify-out/
 # Storybook build output
 /storybook-static/
 
+cookie.txt
 cookie.txt.claude/
 
 .output/
