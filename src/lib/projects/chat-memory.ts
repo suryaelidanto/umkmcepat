@@ -71,15 +71,18 @@ export function parseProjectMemoryFacts(value: unknown): ProjectMemoryFacts {
 }
 
 export function buildProjectChatContext({
+  fieldState,
   memoryFacts,
   messages,
   summary,
 }: {
+  fieldState?: FieldStateMap;
   memoryFacts: ProjectMemoryFacts;
   messages: UIMessage[];
   summary: ProjectChatSummary;
 }): ProjectChatContext {
   const recentMessages = getProjectChatContext(messages);
+  const fieldStateBlock = buildFieldStateBlock(fieldState ?? {});
   const systemContext = [
     summary.text
       ? `Hidden previous chat summary:\n${summary.text}`
@@ -93,6 +96,7 @@ export function buildProjectChatContext({
     memoryFacts.preferences.length
       ? `User preferences:\n${formatBullets(memoryFacts.preferences)}`
       : "User preferences: none.",
+    fieldStateBlock ? `Field state:\n${fieldStateBlock}` : "Field state: none.",
     "Use this hidden context to keep the conversation coherent. Do not mention internal summaries/facts to the user unless naturally relevant.",
   ].join("\n\n");
 

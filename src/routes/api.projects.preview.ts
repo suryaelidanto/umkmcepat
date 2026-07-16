@@ -32,6 +32,7 @@ import {
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
 } from "@/lib/projects/brief-flow";
+import { validateBrief } from "@/lib/projects/brief-rich-fields";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   buildProjectChatContext,
@@ -41,6 +42,7 @@ import {
   parseProjectChatSummary,
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
+import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -279,6 +281,7 @@ async function handlePreviewPost(request: Request) {
     ),
   });
   const chatContext = buildProjectChatContext({
+    fieldState: {},
     memoryFacts,
     messages,
     summary: chatSummary,
@@ -458,7 +461,7 @@ async function handleDiscussTurn({
           });
 
           await persistProjectChatTurn({
-            brief: workspaceTurn.brief,
+            brief: scrubBriefForStorage(workspaceTurn.brief, false, project.id),
             messages: safeMessages,
             projectId: project.id,
             title,
@@ -523,6 +526,7 @@ const presentWorkspaceCardTool = tool({
     "Present the next workspace card after your short Indonesian chat reply.",
   inputSchema: z.object({
     projectTitle: z.string().optional(),
+    readyForBuild: z.boolean().default(false),
     briefPatch: z
       .object({
         confidence: z.number().optional(),
@@ -734,6 +738,12 @@ async function handleDiscussTurnOneCall({
             repairsUsed = repaired.repairsUsed;
             totalInputTokens += repaired.usage.inputTokens;
             totalOutputTokens += repaired.usage.outputTokens;
+            // Track readyForBuild from the repair attempt; surfaced later via
+            // scrubBriefForStorage when we persist the turn.
+            toolInput = {
+              ...(toolInput ?? {}),
+              readyForBuild: repaired.readyForBuild,
+            };
           }
         }
 
@@ -790,8 +800,15 @@ async function handleDiscussTurnOneCall({
             repairsUsed,
             workspaceCard: workspaceTurn.workspaceCard,
           });
+          const readyForBuild =
+            (toolInput as { readyForBuild?: unknown } | null)?.readyForBuild ===
+            true;
           await persistProjectChatTurn({
-            brief: workspaceTurn.brief,
+            brief: scrubBriefForStorage(
+              workspaceTurn.brief,
+              readyForBuild,
+              project.id,
+            ),
             messages: safeMessages,
             projectId: project.id,
             title,
@@ -926,8 +943,12 @@ Keep a short Indonesian chat preface only if needed. Prefer type=question with 2
         const input = toolCall?.input ?? toolCall?.args ?? null;
         const turn = normalizeWorkspaceTurn(input, brief);
         if (turn.workspaceCard.type !== "none") {
+          const readyForBuild =
+            (input as { readyForBuild?: unknown } | null)?.readyForBuild ===
+            true;
           return {
             ...turn,
+            readyForBuild,
             repairsUsed: semanticAttempt + 1,
             usage: {
               inputTokens: totalInputTokens,
@@ -1138,7 +1159,7 @@ async function repairWorkspaceCard({
 
   const title = turn.projectTitle || project.title;
   await persistProjectChatTurn({
-    brief: turn.brief,
+    brief: scrubBriefForStorage(turn.brief, turn.readyForBuild, project.id),
     messages,
     projectId: project.id,
     title,
@@ -1182,6 +1203,24 @@ function parseJsonLenient(text: string): unknown {
 
     throw new Error("No JSON object found in response");
   }
+}
+
+function scrubBriefForStorage(
+  brief: ReturnType<typeof parseProjectBrief>,
+  readyForBuild: boolean,
+  projectId: string,
+): ReturnType<typeof parseProjectBrief> {
+  const { cleaned, dropped } = validateBrief(brief);
+  if (dropped.length > 0) {
+    console.warn("brief: dropped hallucinated fields", { dropped, projectId });
+  }
+  return {
+    ...brief,
+    ...cleaned,
+    businessName: cleaned.businessName ?? brief.businessName,
+    targetCustomer: cleaned.targetCustomer ?? brief.targetCustomer,
+    readyForBuild,
+  };
 }
 
 function persistProjectBrief({
@@ -1282,7 +1321,9 @@ Current brief:
 ${JSON.stringify(brief)}
 
 Hidden context:
-${context}`;
+${context}
+
+${DISCUSS_SYSTEM_PROMPT}`;
 }
 
 function buildCardSystemPrompt() {
@@ -1303,7 +1344,9 @@ Rules:
 - Set confidence to 95+ only when genuinely build-ready
 - Use "build_recommendation" only when confidence is 95+ AND openQuestions is empty. Otherwise ask the next question.
 
-Output valid JSON only. The word json must appear in your thinking.`;
+Output valid JSON only. The word json must appear in your thinking.
+
+${DISCUSS_SYSTEM_PROMPT}`;
 }
 
 function hasBriefPatchValue(patch: object) {
