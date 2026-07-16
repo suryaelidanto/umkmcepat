@@ -5,6 +5,7 @@ import {
   getBuildRecommendationHoldSignature,
   getWorkspacePreviewIssue,
   getWorkspaceComposerState,
+  isBuildRecommendationConsumed,
   isBuildRecommendationHeld,
   isFreshWorkspaceCard,
   isWorkspaceBuildComplete,
@@ -165,6 +166,108 @@ describe("workspace chat sync", () => {
         postBuildChatOpen: false,
       }),
     ).toBe("post_build_review");
+  });
+
+  it("never resurfaces a build_recommendation signature that was already used to start a build", () => {
+    const card: WorkspaceCard = {
+      summary: ["Warung fisik", "Menu klasik"],
+      title: "Brief sudah siap dibuild",
+      type: "build_recommendation",
+    };
+    const consumed = new Set([getBuildRecommendationHoldSignature(card)]);
+
+    // helper
+    expect(isBuildRecommendationConsumed(card, consumed)).toBe(true);
+    expect(isBuildRecommendationConsumed(card, new Set())).toBe(false);
+    expect(isBuildRecommendationConsumed({ type: "none" }, consumed)).toBe(
+      false,
+    );
+
+    // pre-build path: card was a rancangan, got consumed → falls back to free_chat
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: false,
+        card,
+        consumedSignatures: consumed,
+        held: false,
+        postBuildChatOpen: false,
+      }),
+    ).toBe("free_chat");
+
+    // post-build with chat open: card would normally be build_recommendation,
+    // but signature was consumed → falls back to post_build_chat
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card,
+        consumedSignatures: consumed,
+        held: false,
+        postBuildChatOpen: true,
+      }),
+    ).toBe("post_build_chat");
+
+    // held branch is suppressed too (held != effective when consumed)
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card,
+        consumedSignatures: consumed,
+        held: true,
+        postBuildChatOpen: true,
+      }),
+    ).toBe("post_build_chat");
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: false,
+        card,
+        consumedSignatures: consumed,
+        held: true,
+        postBuildChatOpen: false,
+      }),
+    ).toBe("free_chat");
+  });
+
+  it("still allows a brand-new build_recommendation signature post-build", () => {
+    const oldCard: WorkspaceCard = {
+      summary: ["Lama"],
+      title: "Rancangan lama",
+      type: "build_recommendation",
+    };
+    const freshCard: WorkspaceCard = {
+      summary: ["Baru"],
+      title: "Rancangan baru",
+      type: "build_recommendation",
+    };
+    const consumed = new Set([getBuildRecommendationHoldSignature(oldCard)]);
+
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card: freshCard,
+        consumedSignatures: consumed,
+        held: false,
+        postBuildChatOpen: true,
+      }),
+    ).toBe("build_recommendation");
+  });
+
+  it("accepts an iterable of signatures for consumedSignatures", () => {
+    const card: WorkspaceCard = {
+      summary: ["X"],
+      title: "Y",
+      type: "build_recommendation",
+    };
+    const signature = getBuildRecommendationHoldSignature(card);
+
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: false,
+        card,
+        consumedSignatures: [signature],
+        held: false,
+        postBuildChatOpen: false,
+      }),
+    ).toBe("free_chat");
   });
 
   it("uses the generated iframe after any successful build status", () => {

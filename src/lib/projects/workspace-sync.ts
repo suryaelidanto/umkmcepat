@@ -56,19 +56,41 @@ export type WorkspaceComposerState =
   | "post_build_chat"
   | "free_chat";
 
+export function isBuildRecommendationConsumed(
+  card: WorkspaceCard,
+  consumedSignatures: ReadonlySet<string> | Iterable<string> | null | undefined,
+): boolean {
+  if (card.type !== "build_recommendation" || !consumedSignatures) {
+    return false;
+  }
+  const set =
+    consumedSignatures instanceof Set
+      ? consumedSignatures
+      : new Set(consumedSignatures);
+  return set.has(getBuildRecommendationHoldSignature(card));
+}
+
 export function getWorkspaceComposerState({
   buildComplete,
   card,
+  consumedSignatures,
   hasFailedLatestAttemptWithLastGood = false,
   held,
   postBuildChatOpen,
 }: {
   buildComplete: boolean;
   card: WorkspaceCard;
+  consumedSignatures?: ReadonlySet<string> | Iterable<string> | null;
   hasFailedLatestAttemptWithLastGood?: boolean;
   held: boolean;
   postBuildChatOpen: boolean;
 }): WorkspaceComposerState {
+  // A build_recommendation signature that has already been used to start a
+  // build must never resurface — even if the build subsequently failed or
+  // succeeded. Retry uses the dedicated "Build ulang" CTA, not this card.
+  const cardConsumed = isBuildRecommendationConsumed(card, consumedSignatures);
+  const heldEffective = held && !cardConsumed;
+
   if (buildComplete) {
     if (hasFailedLatestAttemptWithLastGood && !postBuildChatOpen) {
       return "build_failed_with_last_good";
@@ -78,11 +100,11 @@ export function getWorkspaceComposerState({
     // A held build_recommendation stays out of the way until the user
     // re-opens it or discuss produces a fresh recommendation signature.
     if (postBuildChatOpen) {
-      if (card.type === "build_recommendation" && held) {
+      if (card.type === "build_recommendation" && heldEffective) {
         return "held_build_recommendation";
       }
 
-      if (card.type === "build_recommendation") {
+      if (card.type === "build_recommendation" && !cardConsumed) {
         return "build_recommendation";
       }
 
@@ -96,11 +118,11 @@ export function getWorkspaceComposerState({
     return "post_build_review";
   }
 
-  if (card.type === "build_recommendation" && held) {
+  if (card.type === "build_recommendation" && heldEffective) {
     return "held_build_recommendation";
   }
 
-  if (card.type === "build_recommendation") {
+  if (card.type === "build_recommendation" && !cardConsumed) {
     return "build_recommendation";
   }
 

@@ -201,6 +201,15 @@ export function WorkspaceShell({
     heldBuildRecommendationSignature,
     setHeldBuildRecommendationSignature,
   ] = useState<string | null>(null);
+  // Permanent record of build_recommendation signatures already used to start
+  // a build. Once a signature is here, the matching card never renders again —
+  // regardless of build outcome. Survives refresh via localStorage.
+  const [
+    consumedBuildRecommendationSignatures,
+    setConsumedBuildRecommendationSignatures,
+  ] = useState<Set<string>>(() =>
+    readConsumedBuildRecommendationSignatures(projectId),
+  );
   const [postBuildChatOpen, setPostBuildChatOpen] = useState(false);
   const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
   const [chatCursor, setChatCursor] = useState<number | null>(
@@ -210,6 +219,7 @@ export function WorkspaceShell({
   const [isLoadingOlderChat, setIsLoadingOlderChat] = useState(false);
   const prompt = initialPrompt.trim();
   const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
+  const buildRecommendationConsumedKey = `umkmcepat:build-recommendation-consumed:${projectId}`;
   const visualAnnotationStorageKey = `umkmcepat:visual-comments:${projectId}`;
   const hasStartedChat = useRef(false);
   const hasStartedBuild = useRef(false);
@@ -623,6 +633,31 @@ export function WorkspaceShell({
     setActiveTab("preview");
     setMobileSurface("preview");
 
+    // Permanently consume the current build_recommendation signature (if any)
+    // so the same rancangan can never trigger another build. Retry must use
+    // the "Build ulang" CTA, not the original card. Outcome-agnostic.
+    const consumedSignature = getBuildRecommendationHoldSignature(
+      workspaceCardRef.current,
+    );
+    if (consumedSignature) {
+      setConsumedBuildRecommendationSignatures((prev) => {
+        if (prev.has(consumedSignature)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.add(consumedSignature);
+        try {
+          window.localStorage.setItem(
+            buildRecommendationConsumedKey,
+            JSON.stringify([...next]),
+          );
+        } catch {
+          // Non-fatal; in-memory set is still the source of truth for this tab.
+        }
+        return next;
+      });
+    }
+
     const abortController = new AbortController();
     buildAbortRef.current = abortController;
 
@@ -760,6 +795,7 @@ export function WorkspaceShell({
     }
   }, [
     authStatus,
+    buildRecommendationConsumedKey,
     buildRecommendationStorageKey,
     buildStatus,
     loadRuntimeState,
@@ -839,6 +875,7 @@ export function WorkspaceShell({
   const composerState = getWorkspaceComposerState({
     buildComplete,
     card: workspaceCard,
+    consumedSignatures: consumedBuildRecommendationSignatures,
     hasFailedLatestAttemptWithLastGood,
     held: buildRecommendationHeld,
     postBuildChatOpen,
@@ -3144,4 +3181,28 @@ function CodeView({
       </section>
     </div>
   );
+}
+
+function readConsumedBuildRecommendationSignatures(
+  projectId: string,
+): Set<string> {
+  if (typeof window === "undefined") {
+    return new Set();
+  }
+  const key = `umkmcepat:build-recommendation-consumed:${projectId}`;
+  const raw = window.localStorage.getItem(key);
+  if (!raw) {
+    return new Set();
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return new Set();
+    }
+    return new Set(
+      parsed.filter((value): value is string => typeof value === "string"),
+    );
+  } catch {
+    return new Set();
+  }
 }
