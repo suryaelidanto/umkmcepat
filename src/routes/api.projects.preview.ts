@@ -461,7 +461,11 @@ async function handleDiscussTurn({
           });
 
           await persistProjectChatTurn({
-            brief: scrubBriefForStorage(workspaceTurn.brief, false, project.id),
+            brief: scrubBriefForStorage(
+              workspaceTurn.brief,
+              workspaceTurn.readyForBuild,
+              project.id,
+            ),
             messages: safeMessages,
             projectId: project.id,
             title,
@@ -1047,10 +1051,14 @@ async function generateWorkspaceTurn({
         });
 
         const turn = normalizeWorkspaceTurn(parsed, brief);
+        const readyForBuild =
+          (parsed as { readyForBuild?: unknown } | null)?.readyForBuild ===
+          true;
 
         if (turn.workspaceCard.type !== "none") {
           return {
             ...turn,
+            readyForBuild,
             usage: {
               inputTokens: phase2.usage?.inputTokens ?? 0,
               outputTokens: phase2.usage?.outputTokens ?? 0,
