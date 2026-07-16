@@ -52,11 +52,14 @@ describe("DISCUSS_SYSTEM_PROMPT", () => {
     expect(DISCUSS_SYSTEM_PROMPT.toLowerCase()).toContain("hallucinat");
   });
 
-  it("documents the first-message greeting", () => {
-    expect(DISCUSS_SYSTEM_PROMPT.toLowerCase()).toContain("greeting");
+  it("instructs the AI to reply in Bahasa Indonesia to the user", () => {
+    expect(DISCUSS_SYSTEM_PROMPT).toContain("Bahasa Indonesia");
+    expect(DISCUSS_SYSTEM_PROMPT).toContain("Mirror the user's register");
   });
 
-  it("documents multi-product handling", () => {
-    expect(DISCUSS_SYSTEM_PROMPT).toContain("isPrimary");
+  it("instructs the AI to push back on single-word generic business names", () => {
+    expect(DISCUSS_SYSTEM_PROMPT).toContain("Warung");
+    expect(DISCUSS_SYSTEM_PROMPT).toContain("Toko");
+    expect(DISCUSS_SYSTEM_PROMPT).toContain("nama brand penuhnya apa?");
   });
 });

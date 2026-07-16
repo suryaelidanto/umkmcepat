@@ -8,6 +8,13 @@ import {
   parseProjectChatMessages,
   parseProjectChatSummary,
   parseProjectMemoryFacts,
+  recordFieldAsk,
+  recordFieldAnswer,
+  recordFieldDecline,
+  recordFieldEmpty,
+  summarizeFieldState,
+  buildFieldStateBlock,
+  type FieldStateMap,
 } from "./chat-memory";
 
 describe("project chat memory", () => {
@@ -154,5 +161,48 @@ describe("project chat memory", () => {
     const older = getProjectChatPage(messages, latest.nextCursor, 20);
     expect(older.messages[0]?.id).toBe("m15");
     expect(older.nextCursor).toBe(15);
+  });
+});
+
+describe("field state tracking", () => {
+  it("records an ask and an answer", () => {
+    let map: FieldStateMap = {};
+    map = recordFieldAsk(map, "hours");
+    map = recordFieldAnswer(map, "hours");
+    expect(map.hours).toBe("answered");
+  });
+
+  it("records a decline", () => {
+    let map: FieldStateMap = {};
+    map = recordFieldAsk(map, "deliveryArea");
+    map = recordFieldDecline(map, "deliveryArea");
+    expect(map.deliveryArea).toBe("declined");
+  });
+
+  it("records an explicit empty (none yet)", () => {
+    let map: FieldStateMap = {};
+    map = recordFieldAsk(map, "contact");
+    map = recordFieldEmpty(map, "contact");
+    expect(map.contact).toBe("explicitly_empty");
+  });
+
+  it("summarizeFieldState counts each state", () => {
+    let map: FieldStateMap = {};
+    map = recordFieldAsk(map, "hours");
+    map = recordFieldAnswer(map, "hours");
+    map = recordFieldAsk(map, "contact");
+    map = recordFieldDecline(map, "contact");
+    const summary = summarizeFieldState(map);
+    expect(summary.answered).toContain("hours");
+    expect(summary.declined).toContain("contact");
+  });
+
+  it("buildFieldStateBlock produces a readable block", () => {
+    let map: FieldStateMap = {};
+    map = recordFieldAsk(map, "hours");
+    map = recordFieldAnswer(map, "hours");
+    const block = buildFieldStateBlock(map);
+    expect(block).toContain("hours: answered");
+    expect(block).not.toMatch(/Bahasa dominan/i);
   });
 });

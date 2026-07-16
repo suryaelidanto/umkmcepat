@@ -1,5 +1,7 @@
 import { type UIMessage } from "ai";
 
+import type { SoftFieldId } from "@/lib/projects/brief-rich-fields";
+
 const MAX_STORED_MESSAGES = 200;
 export const MAX_CONTEXT_MESSAGES = 10;
 export const CHAT_PAGE_SIZE = 20;
@@ -229,4 +231,91 @@ function stringArrayValue(value: unknown, maxItems: number) {
 
 function formatBullets(items: string[]) {
   return items.map((item) => `- ${item}`).join("\n");
+}
+
+export type FieldState = "asked" | "answered" | "declined" | "explicitly_empty";
+
+export type FieldStateMap = Partial<Record<SoftFieldId, FieldState>>;
+
+export function recordFieldAsk(
+  map: FieldStateMap,
+  field: SoftFieldId,
+): FieldStateMap {
+  const current = map[field];
+  if (
+    current === "answered" ||
+    current === "declined" ||
+    current === "explicitly_empty"
+  ) {
+    return map;
+  }
+  return { ...map, [field]: "asked" };
+}
+
+export function recordFieldAnswer(
+  map: FieldStateMap,
+  field: SoftFieldId,
+): FieldStateMap {
+  return { ...map, [field]: "answered" };
+}
+
+export function recordFieldDecline(
+  map: FieldStateMap,
+  field: SoftFieldId,
+): FieldStateMap {
+  const current = map[field];
+  if (current === "answered") {
+    return map;
+  }
+  return { ...map, [field]: "declined" };
+}
+
+export function recordFieldEmpty(
+  map: FieldStateMap,
+  field: SoftFieldId,
+): FieldStateMap {
+  const current = map[field];
+  if (current === "answered") {
+    return map;
+  }
+  return { ...map, [field]: "explicitly_empty" };
+}
+
+export function summarizeFieldState(map: FieldStateMap) {
+  const answered: SoftFieldId[] = [];
+  const declined: SoftFieldId[] = [];
+  const empty: SoftFieldId[] = [];
+  const asked: SoftFieldId[] = [];
+  for (const [field, state] of Object.entries(map) as Array<
+    [SoftFieldId, FieldState]
+  >) {
+    if (state === "answered") {
+      answered.push(field);
+    } else if (state === "declined") {
+      declined.push(field);
+    } else if (state === "explicitly_empty") {
+      empty.push(field);
+    } else {
+      asked.push(field);
+    }
+  }
+  return { answered, declined, empty, asked };
+}
+
+export function buildFieldStateBlock(map: FieldStateMap): string {
+  const summary = summarizeFieldState(map);
+  const lines: string[] = [];
+  for (const field of summary.answered) {
+    lines.push(`${field}: answered`);
+  }
+  for (const field of summary.declined) {
+    lines.push(`${field}: declined`);
+  }
+  for (const field of summary.empty) {
+    lines.push(`${field}: explicitly_empty`);
+  }
+  for (const field of summary.asked) {
+    lines.push(`${field}: asked`);
+  }
+  return lines.join("\n");
 }
