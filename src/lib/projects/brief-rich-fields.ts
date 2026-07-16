@@ -282,20 +282,6 @@ export function getApplicableFields(type: UmkmType): readonly SoftFieldId[] {
   return FIELD_APPLICABILITY[type] ?? ALWAYS;
 }
 
-const GENERIC_SINGLE_WORDS = new Set([
-  "warung",
-  "toko",
-  "kedai",
-  "kios",
-  "resto",
-  "rumah",
-  "tempat",
-  " usaha",
-  "jasa",
-  "brand",
-  "toko",
-]);
-
 export type CleanedBrief = {
   businessName: string | null;
   productOrService: ProductOrServiceItem[] | null;
@@ -323,16 +309,6 @@ function looksLikePrice(v: string): boolean {
   }
   if (/^[\s.\-_,]+$/.test(v)) {
     return false;
-  }
-  return true;
-}
-
-function looksLikeBusinessName(v: string): boolean {
-  if (!v) {
-    return false;
-  }
-  if (v.split(/\s+/).length === 1) {
-    return !GENERIC_SINGLE_WORDS.has(v.toLowerCase());
   }
   return true;
 }
@@ -365,12 +341,8 @@ export function validateBrief(input: unknown): {
   };
 
   const businessName = stringField(source, "businessName");
-  if (businessName) {
-    if (looksLikeBusinessName(businessName)) {
-      cleaned.businessName = businessName;
-    } else {
-      dropped.push("businessName");
-    }
+  if (businessName && businessName.length >= 2) {
+    cleaned.businessName = businessName;
   }
 
   const pos = source.productOrService;

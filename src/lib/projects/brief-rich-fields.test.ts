@@ -153,10 +153,10 @@ describe("validateBrief", () => {
     expect(result.cleaned.businessName).toBe("Kopi Tuku");
   });
 
-  it("drops a single-word generic businessName", () => {
-    const result = validateBrief({ businessName: "Warung" });
-    expect(result.dropped).toContain("businessName");
-    expect(result.cleaned.businessName).toBeNull();
+  it("keeps a single-word non-empty businessName (AI's job to push back, not the validator's)", () => {
+    const result = validateBrief({ businessName: "Toko" });
+    expect(result.dropped).toEqual([]);
+    expect(result.cleaned.businessName).toBe("Toko");
   });
 
   it("drops a hallucinated phone number contact", () => {
