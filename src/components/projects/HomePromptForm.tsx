@@ -1,6 +1,5 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, Loader2 } from "lucide-react";
 import {
   FormEvent,
@@ -13,7 +12,6 @@ import {
 
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import { Button } from "@/components/ui/button";
-import { apiNetworkError, parseApiResponse } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "@/lib/navigation";
 import {
@@ -25,7 +23,8 @@ import {
   PROJECT_REQUEST_MAX_LENGTH,
   validateProjectRequest,
 } from "@/lib/projects/input";
-import { queryKeys } from "@/lib/query-client";
+import { useProjectLimit } from "@/lib/projects/use-project-limit";
+import { queryKeys, useCacheMutation } from "@/lib/query-client";
 
 function getProjectCreateIdempotencyKey(prompt: string) {
   const draft = parseProjectDraft(
@@ -49,13 +48,9 @@ function getProjectCreateIdempotencyKey(prompt: string) {
   return idempotencyKey;
 }
 
-export function HomePromptForm({
-  overProjectLimit = false,
-}: {
-  overProjectLimit?: boolean;
-}) {
+export function HomePromptForm() {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { overLimit } = useProjectLimit();
   const { status } = useSession();
   const [prompt, setPrompt] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
@@ -97,57 +92,44 @@ export function HomePromptForm({
     );
   }
 
-  const createMutation = useMutation({
-    mutationFn: async (value: string) => {
-      const idempotencyKey = getProjectCreateIdempotencyKey(value);
-      const response = await fetch("/api/projects", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify({ idempotencyKey, prompt: value }),
-      }).catch((error: unknown) => apiNetworkError(error));
+  const createMutation = useCacheMutation<{ id: string; path: string }, string>(
+    {
+      mutationFn: async (value) => {
+        const idempotencyKey = getProjectCreateIdempotencyKey(value);
+        const response = await fetch("/api/projects", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify({ prompt: value }),
+        });
+        const result = (await response.json().catch(() => null)) as {
+          id?: string;
+          message?: string;
+          path?: string;
+        } | null;
 
-      const result =
-        response instanceof Response
-          ? await parseApiResponse<{ path?: string }>(response)
-          : response;
+        if (!response.ok || !result?.id || !result?.path) {
+          throw new Error(result?.message || "Gagal membuat website.");
+        }
 
-      if (!result.ok) {
-        throw new Error(
-          result.error.message ||
-            "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
+        return { id: result.id, path: result.path };
+      },
+      invalidateKeys: [queryKeys.projects, queryKeys.energy],
+      onSuccess: async (data) => {
+        // Force a refetch so home sees the new project after create.
+        window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
+        router.push(data.path);
+      },
+      onError: (error) => {
+        setErrorMessage(
+          error instanceof Error ? error.message : "Gagal membuat website.",
         );
-      }
-
-      if (!result.data.path) {
-        throw new Error(
-          "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
-        );
-      }
-
-      return result.data.path;
+        isSubmittingRef.current = false;
+      },
     },
-    onSuccess: async (path) => {
-      window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
-      // Drop list cache so home always refetches fresh projects after create.
-      queryClient.removeQueries({ queryKey: queryKeys.projects });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
-      router.push(path);
-    },
-    onError: (error) => {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "AI belum bisa menyiapkan website ini. Coba lagi nanti.",
-      );
-      isSubmittingRef.current = false;
-    },
-    onSettled: () => {
-      isSubmittingRef.current = false;
-    },
-  });
+  );
 
   const createProject = useCallback(
     async (value: string) => {
@@ -227,7 +209,7 @@ export function HomePromptForm({
     event.currentTarget.form?.requestSubmit();
   }
 
-  if (overProjectLimit) {
+  if (overLimit) {
     return (
       <div className="mx-auto mt-spacing-12 w-full max-w-3xl rounded-[28px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-7 py-spacing-6 text-center">
         <p className="text-sm leading-6 text-surface-warm-white/78">
