@@ -151,7 +151,6 @@ function HomePage() {
     hasUser,
     initialNextCursor,
     initialProjects,
-    overProjectLimit,
   } = Route.useLoaderData();
 
   async function deleteProject(formData: FormData) {
@@ -187,7 +186,7 @@ function HomePage() {
           </HeroMotionItem>
 
           <HeroMotionItem className="w-full">
-            <HomePromptForm overProjectLimit={overProjectLimit} />
+            <HomePromptForm />
           </HeroMotionItem>
         </HeroContentMotion>
       </section>
