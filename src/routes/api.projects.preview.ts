@@ -397,7 +397,7 @@ async function handleDiscussTurn({
         );
         let totalInputTokens = phase1Usage?.inputTokens ?? 0;
         let totalOutputTokens = phase1Usage?.outputTokens ?? 0;
-        let discussModelId = phase1Response?.modelId || modelName;
+        const discussModelId = phase1Response?.modelId || modelName;
 
         if (hadError || !fullText.trim()) {
           // AI already ran — charge even on stream error / empty text.
@@ -811,7 +811,9 @@ async function handleDiscussTurnOneCall({
           const primaryResponse = await Promise.resolve(primary.response).catch(
             () => null,
           );
-          if (primaryResponse?.modelId) discussModelId = primaryResponse.modelId;
+          if (primaryResponse?.modelId) {
+            discussModelId = primaryResponse.modelId;
+          }
         } catch {
           // usage is best-effort
         }
@@ -854,17 +856,12 @@ async function handleDiscussTurnOneCall({
               brief: repaired.brief,
               projectTitle: repaired.projectTitle,
               workspaceCard: repaired.workspaceCard,
+              readyForBuild: repaired.readyForBuild,
             };
             primaryToolFailed = false;
             repairsUsed = repaired.repairsUsed;
             totalInputTokens += repaired.usage.inputTokens;
             totalOutputTokens += repaired.usage.outputTokens;
-            // Track readyForBuild from the repair attempt; surfaced later via
-            // scrubBriefForStorage when we persist the turn.
-            toolInput = {
-              ...(toolInput ?? {}),
-              readyForBuild: repaired.readyForBuild,
-            };
           }
         }
 
@@ -921,13 +918,10 @@ async function handleDiscussTurnOneCall({
             repairsUsed,
             workspaceCard: workspaceTurn.workspaceCard,
           });
-          const readyForBuild =
-            (toolInput as { readyForBuild?: unknown } | null)?.readyForBuild ===
-            true;
           await persistProjectChatTurn({
             brief: scrubBriefForStorage(
               workspaceTurn.brief,
-              readyForBuild,
+              workspaceTurn.readyForBuild,
               project.id,
             ),
             messages: safeMessages,
@@ -1065,12 +1059,8 @@ Keep a short Indonesian chat preface only if needed. Prefer type=question with 2
         const input = toolCall?.input ?? toolCall?.args ?? null;
         const turn = normalizeWorkspaceTurn(input, brief);
         if (turn.workspaceCard.type !== "none") {
-          const readyForBuild =
-            (input as { readyForBuild?: unknown } | null)?.readyForBuild ===
-            true;
           return {
             ...turn,
-            readyForBuild,
             repairsUsed: semanticAttempt + 1,
             usage: {
               inputTokens: totalInputTokens,
@@ -1169,14 +1159,10 @@ async function generateWorkspaceTurn({
         });
 
         const turn = normalizeWorkspaceTurn(parsed, brief);
-        const readyForBuild =
-          (parsed as { readyForBuild?: unknown } | null)?.readyForBuild ===
-          true;
 
         if (turn.workspaceCard.type !== "none") {
           return {
             ...turn,
-            readyForBuild,
             usage: {
               inputTokens: phase2.usage?.inputTokens ?? 0,
               outputTokens: phase2.usage?.outputTokens ?? 0,

@@ -172,11 +172,16 @@ export function normalizeWorkspaceTurn(
     input && typeof input === "object" ? (input as WorkspaceTurnToolInput) : {};
   const brief = applyBriefPatch(fallbackBrief, value.briefPatch);
   const workspaceCard = normalizeWorkspaceCard(value.workspaceCard, brief);
+  // Card type is the single source of truth for buildability: derive
+  // readyForBuild from it instead of trusting a separate AI-set flag that
+  // can drift out of sync (build_recommendation shown, readyForBuild false).
+  const readyForBuild = workspaceCard.type === "build_recommendation";
 
   return {
     brief: removeUnansweredActiveQuestionMemory(brief, workspaceCard),
     projectTitle: cleanText(value.projectTitle, 80),
     workspaceCard,
+    readyForBuild,
   };
 }
 
