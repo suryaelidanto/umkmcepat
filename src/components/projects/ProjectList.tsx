@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -20,8 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
-import { fetchJson, queryKeys } from "@/lib/query-client";
-
+import { useProjectLimit } from "@/lib/projects/use-project-limit";
+import { fetchJson, queryKeys, useCacheMutation } from "@/lib/query-client";
 type Project = {
   buildStatus?: string | null;
   id: string;
@@ -35,9 +31,6 @@ type ProjectListProps = {
   initialProjects: Project[];
   initialNextCursor: string | null;
   deleteProject: (formData: FormData) => Promise<void>;
-  projectCount?: number;
-  projectLimit?: number;
-  overProjectLimit?: boolean;
 };
 
 type ProjectsPage = {
@@ -49,12 +42,10 @@ export function ProjectList({
   initialProjects,
   initialNextCursor,
   deleteProject,
-  projectCount,
-  projectLimit,
-  overProjectLimit,
 }: ProjectListProps) {
   const queryClient = useQueryClient();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const { count, limit, overLimit } = useProjectLimit();
 
   const projectsQuery = useInfiniteQuery({
     queryKey: queryKeys.projects,
@@ -81,43 +72,58 @@ export function ProjectList({
     staleTime: 0,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (projectId: string) => {
+  function applyDeleteOptimistic(projectId: string) {
+    queryClient.setQueryData(queryKeys.projects, (previous) => {
+      const data = previous as
+        | {
+            pages: Array<{
+              projectCount?: number;
+              projectLimit?: number;
+              overProjectLimit?: boolean;
+              projects: Project[];
+            }>;
+            pageParams: unknown[];
+          }
+        | undefined;
+
+      if (!data) {
+        return data;
+      }
+
+      return {
+        ...data,
+        pages: data.pages.map((page) => {
+          if (page.projectCount === undefined) {
+            return {
+              ...page,
+              projects: page.projects.filter((p) => p.id !== projectId),
+            };
+          }
+          const nextCount = Math.max(0, page.projectCount - 1);
+          const limitForPage = page.projectLimit ?? nextCount;
+          return {
+            ...page,
+            projectCount: nextCount,
+            projects: page.projects.filter((p) => p.id !== projectId),
+            overProjectLimit: nextCount > limitForPage,
+          };
+        }),
+      };
+    });
+  }
+
+  const deleteMutation = useCacheMutation<string, string>({
+    mutationFn: async (projectId) => {
       const formData = new FormData();
       formData.set("projectId", projectId);
       await deleteProject(formData);
       return projectId;
     },
-    onSuccess: async (projectId) => {
-      // Optimistic local removal first so UI updates immediately.
-      queryClient.setQueryData(
-        queryKeys.projects,
-        (current: typeof projectsQuery.data | undefined) => {
-          if (!current) {
-            return current;
-          }
-
-          return {
-            ...current,
-            pages: current.pages.map((page) => ({
-              ...page,
-              projects: page.projects.filter(
-                (project) => project.id !== projectId,
-              ),
-            })),
-          };
-        },
-      );
-      // Refetch from API (not loader props) so cache stays truthful.
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.projects,
-        refetchType: "active",
-      });
-      toast.success("Website dihapus.");
+    invalidateKeys: [queryKeys.projects],
+    successMessage: "Website dihapus.",
+    errorMessage: "Website belum berhasil dihapus.",
+    onSuccess: () => {
       setSelectedProject(null);
-    },
-    onError: () => {
-      toast.error("Website belum berhasil dihapus.");
     },
   });
 
@@ -147,6 +153,7 @@ export function ProjectList({
       return;
     }
 
+    applyDeleteOptimistic(selectedProject.id);
     deleteMutation.mutate(selectedProject.id);
   }
 
@@ -165,9 +172,7 @@ export function ProjectList({
 
   return (
     <>
-      {overProjectLimit &&
-      typeof projectCount === "number" &&
-      typeof projectLimit === "number" ? (
+      {overLimit ? (
         <div className="mb-spacing-6 flex items-start gap-spacing-3 rounded-radius-xl border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-5 py-spacing-4">
           <span className="mt-0.5 text-yellow-400" aria-hidden>
             ⚠️
@@ -175,10 +180,10 @@ export function ProjectList({
           <div className="text-sm leading-6 text-surface-warm-white/78">
             Kamu punya{" "}
             <strong className="font-semibold text-surface-warm-white">
-              {projectCount} website
+              {count} website
             </strong>
-            , melebihi batas {projectLimit}. Kamu masih bisa menggunakannya
-            semua, tapi sebaiknya hapus yang tidak terpakai agar mudah dikelola.
+            , melebihi batas {limit}. Kamu masih bisa menggunakannya semua, tapi
+            sebaiknya hapus yang tidak terpakai agar mudah dikelola.
           </div>
         </div>
       ) : null}

@@ -152,8 +152,6 @@ function HomePage() {
     initialNextCursor,
     initialProjects,
     overProjectLimit,
-    projectCount,
-    projectLimit,
   } = Route.useLoaderData();
 
   async function deleteProject(formData: FormData) {
@@ -215,9 +213,6 @@ function HomePage() {
                     initialProjects={initialProjects}
                     initialNextCursor={initialNextCursor}
                     deleteProject={deleteProject}
-                    projectCount={projectCount}
-                    projectLimit={projectLimit}
-                    overProjectLimit={overProjectLimit}
                   />
                 </div>
               </div>
