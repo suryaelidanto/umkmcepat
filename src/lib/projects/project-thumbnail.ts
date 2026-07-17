@@ -20,6 +20,17 @@ export function createProjectThumbnailRef(projectId: string) {
   return `${REF_PREFIX}${projectId}`;
 }
 
+export function parseProjectThumbnailRef(ref: string): string | null {
+  if (!ref.startsWith(REF_PREFIX)) {
+    return null;
+  }
+  const id = ref.slice(REF_PREFIX.length);
+  if (!/^[A-Za-z0-9_-]{1,160}$/.test(id)) {
+    return null;
+  }
+  return id;
+}
+
 export async function writeProjectThumbnail({
   bytes,
   projectId,
@@ -294,6 +305,10 @@ function resolveBrowserExecutablePath() {
   }
 
   return undefined;
+}
+
+export function getProjectThumbnailDir(rootDir?: string) {
+  return resolveRoot(rootDir);
 }
 
 function resolveRoot(rootDir?: string) {

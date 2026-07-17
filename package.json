@@ -37,6 +37,7 @@
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
     "storybook:ci": "bun run storybook:build && bun run test:storybook",
+    "sweep:project-orphans": "bun scripts/sweep-orphan-project-resources.ts",
     "test": "vitest run --project unit",
     "test:storybook": "node scripts/run-storybook-tests.mjs",
     "test:storybook:coverage": "node scripts/run-storybook-tests.mjs --coverage",

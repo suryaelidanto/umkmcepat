@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   captureProjectThumbnail,
+  createProjectThumbnailRef,
   deleteProjectThumbnail,
+  parseProjectThumbnailRef,
   readProjectThumbnail,
   writeProjectThumbnail,
 } from "./project-thumbnail";
@@ -106,6 +108,18 @@ describe("project thumbnails", () => {
     await expect(
       readProjectThumbnail(ref, { rootDir: tempDir }),
     ).rejects.toThrow();
+  });
+
+  it("round-trips a thumbnail ref through parseProjectThumbnailRef", () => {
+    const id = "cm123abc-_OK";
+    const ref = createProjectThumbnailRef(id);
+
+    expect(parseProjectThumbnailRef(ref)).toBe(id);
+    expect(parseProjectThumbnailRef("not-a-ref")).toBeNull();
+    expect(
+      parseProjectThumbnailRef("project-thumbnail:local:bad id"),
+    ).toBeNull();
+    expect(parseProjectThumbnailRef("project-thumbnail:r2:abc")).toBeNull();
   });
 });
 
