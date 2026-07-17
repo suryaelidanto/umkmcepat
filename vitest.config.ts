@@ -16,6 +16,10 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "src") },
   },
   test: {
+    // `package.json` and `vitest.config.ts` changes would otherwise force a
+    // full rerun. We want `--changed HEAD~1` to filter by source diff only so
+    // the pre-commit gate stays fast on config-only commits.
+    forceRerunTriggers: [],
     coverage: {
       watermarks: {
         statements: [0, 40],
