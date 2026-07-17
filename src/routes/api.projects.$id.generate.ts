@@ -549,7 +549,6 @@ async function handleGeneratePost(request: Request, routeId: string) {
             await prisma.projectDeployment
               .create({
                 data: {
-                  artifactRef: distRef,
                   buildId: runtimeBuildId,
                   kind: PREVIEW_DEPLOYMENT_KIND,
                   projectId,
