@@ -78,3 +78,7 @@ _session_token.txt
 _token.txt
 _build*.txt
 _sse*.txt
+
+# Prettier + ESLint caches (regenerated on every run)
+.prettiercache
+.eslintcache

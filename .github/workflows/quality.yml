@@ -75,9 +75,6 @@ jobs:
       - name: Prisma migrate
         run: bunx prisma migrate deploy
 
-      - name: Check
-        run: bun run check
-
       - name: Install Playwright browser
         run: bunx playwright install --with-deps chromium
 
@@ -93,3 +90,6 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Verify full suite
+        run: bun run verify

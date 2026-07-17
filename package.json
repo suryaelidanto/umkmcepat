@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "check": "bun run check:locks && bun run routes:generate && bun run format && bun run lint && bun run typecheck && bun run test && bun run knip",
+    "check": "bun run check:locks && bun run format:check && bun run lint && bun run typecheck && bun run test:changed && bun run knip",
     "check:commit": "bun run check:locks && bun scripts/check-staged.ts",
     "check:locks": "bun -e \"import { existsSync } from 'node:fs'; const bad = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb'].filter(existsSync); if (!existsSync('bun.lock') || bad.length) { console.error('Use Bun only. Lockfile: bun.lock. Remove: ' + (bad.join(', ') || 'missing bun.lock')); process.exit(1); }\"",
     "chromatic": "chromatic",
@@ -15,7 +15,8 @@
     "dev": "vite dev --port 3000",
     "dev:reset": "bun scripts/dev-reset.ts",
     "dev:verbose": "bun scripts/dev-verbose.ts",
-    "format": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\" --ignore-path .prettierignore",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\" --ignore-path .prettierignore",
+    "format:check": "prettier --check --cache --cache-location .prettiercache \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\" --ignore-path .prettierignore",
     "graph:index": "graphify extract . --out . && graphify cluster-only . --no-label && graphify tree --label umkmcepat",
     "graph:tree": "graphify tree --label umkmcepat",
     "graph:update": "graphify update . && graphify cluster-only . --no-label && graphify tree --label umkmcepat",
@@ -39,10 +40,13 @@
     "storybook:ci": "bun run storybook:build && bun run test:storybook",
     "sweep:project-orphans": "bun scripts/sweep-orphan-project-resources.ts",
     "test": "vitest run --project unit",
+    "test:changed": "vitest run --project unit --changed HEAD~1",
+    "test:full": "vitest run --project unit",
     "test:storybook": "node scripts/run-storybook-tests.mjs",
     "test:storybook:coverage": "node scripts/run-storybook-tests.mjs --coverage",
     "test:watch": "vitest --project unit",
-    "typecheck": "tsc --noEmit --incremental --tsBuildInfoFile .tsbuildinfo"
+    "typecheck": "tsc --noEmit --incremental --tsBuildInfoFile .tsbuildinfo",
+    "verify": "bun run check:locks && bun run routes:generate && bun run format:check && bun run lint && bun run typecheck && bun run test:full && bun run knip"
   },
   "overrides": {
     "dompurify": "3.4.11",

@@ -19,7 +19,16 @@ const formatFiles = files.filter((file) =>
 
 run(
   formatFiles.length
-    ? [process.execPath, "x", "prettier", "--check", ...formatFiles]
+    ? [
+        process.execPath,
+        "x",
+        "prettier",
+        "--check",
+        "--cache",
+        "--cache-location",
+        ".prettiercache",
+        ...formatFiles,
+      ]
     : [],
 );
 run(

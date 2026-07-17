@@ -19,14 +19,21 @@ cp .env.example .env
 bun run infra
 bun run db:migrate
 bun run dev
-bun run check
+bun run check      # fast local gate (run before commit; hooks also run this)
+bun run verify     # full suite: every test, every file, route tree regenerated (run on demand or rely on CI)
 ```
 
 Local quality gates are automated:
 
-- Pre-commit runs `bun run check:commit`: lockfile policy plus Prettier/ESLint for staged files.
-- Pre-push and CI run `bun run check`: repository-wide format, lint, typecheck, unit tests, and Knip.
-- During fast iteration, run the nearest focused test plus targeted ESLint; do not repeatedly run the full suite. Never bypass a failing gate. Before handoff without a push, run `bun run check` explicitly.
+- **Pre-commit** runs `bun run check`: cached Prettier/ESLint, incremental TypeScript, **only tests affected by the current diff** (`vitest --changed HEAD~1`), plus Knip. Typical commit-time: 3-10s on a focused diff.
+- **No pre-push hook.** Push is intentionally cheap locally; CI runs the full suite on every push to `dev`/`main` and on every PR.
+- **CI** runs `bun run verify` plus Storybook build, Storybook tests, Chromatic visual tests, and `bun run build`. This is the real quality gate.
+- The local `bun run check` is a fast feedback loop, not a substitute for CI. Both must pass before anything reaches `main`.
+- During fast iteration, run the nearest focused test plus targeted ESLint; do not repeatedly run the full suite. Never bypass a failing gate.
+
+`bun run verify` is the same suite CI runs. Use it before handoff without a push, or when you want to confirm a clean state locally.
+
+`bun run sweep:project-orphans` purges `.data/project-*` dirs whose IDs are not in the DB. Run after deleting projects via the DB / CLI (the homepage's delete path runs cleanup automatically).
 
 `bun run infra` starts Postgres, 9Router, Headroom, and Langfuse. Use `bun run infra:minimal` only when you need Postgres without AI/observability services.
 
@@ -50,6 +57,6 @@ bun run test:storybook
 - New reusable UI or repeated visual patterns must be added to Storybook first or in the same change.
 - Use Graphify for non-trivial codebase discovery when available; do not add it as a project dependency.
 - Docs are part of the change: if behavior, setup, env, architecture, provider, storage, deployment, UI system, or product flow changes, update the canonical doc in the same diff or state why docs did not change.
-- Let pre-push/CI run `bun run check`; run it manually before handoff when no push occurs.
+- Pre-commit runs `bun run check`; CI runs `bun run verify`. Never bypass a failing gate. Before handoff without a push, run `bun run check` explicitly.
 - Do not run `bun run build` unless requested or touching build/deployment behavior.
 - Never commit `.env`, secrets, OAuth credentials, API keys, private data, local uploads, logs, screenshots, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, `storybook-static/`, or coverage artifacts.
