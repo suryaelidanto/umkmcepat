@@ -49,7 +49,12 @@ import {
 } from "@/components/ui/resizable";
 import { signOut, useSession } from "@/lib/auth-client";
 import { clientOnly } from "@/lib/client-only";
-import { type WorkspaceCard } from "@/lib/projects/brief";
+import {
+  isBriefReadyForBuild,
+  type ProjectBrief,
+  type WorkspaceCard,
+} from "@/lib/projects/brief";
+import { buildHandoffLine } from "@/lib/projects/build-handoff";
 import { dedupeUiMessages } from "@/lib/projects/chat-memory";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
@@ -85,6 +90,7 @@ type WorkspaceShellProps = {
   initialChatCursor: number | null;
   initialChatHasMore: boolean;
   initialWorkspaceCard: WorkspaceCard;
+  initialBrief?: ProjectBrief;
 };
 
 type RuntimeWorkspaceState = {
@@ -154,6 +160,7 @@ type RuntimeWorkspaceState = {
 };
 
 type WorkspaceStateResponse = {
+  brief?: ProjectBrief;
   projectId: string;
   projectTitle: string;
   workspaceCard: WorkspaceCard;
@@ -168,6 +175,7 @@ export function WorkspaceShell({
   initialChatCursor,
   initialChatHasMore,
   initialWorkspaceCard,
+  initialBrief,
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
@@ -197,6 +205,9 @@ export function WorkspaceShell({
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const [workspaceCard, setWorkspaceCard] =
     useState<WorkspaceCard>(initialWorkspaceCard);
+  const [latestBrief, setLatestBrief] = useState<ProjectBrief | null>(
+    initialBrief ?? null,
+  );
   const [
     heldBuildRecommendationSignature,
     setHeldBuildRecommendationSignature,
@@ -572,6 +583,9 @@ export function WorkspaceShell({
       setWorkspaceCard(result.workspaceCard);
       setProjectTitle(result.projectTitle);
       setDraftTitle(result.projectTitle);
+      if (result.brief) {
+        setLatestBrief(result.brief);
+      }
       return result;
     },
     [projectId],
@@ -803,6 +817,29 @@ export function WorkspaceShell({
     sessionExpired,
   ]);
 
+  // Append a one-liner to the chat so the user sees what fields the AI is
+  // building from, then start the build. Gated on canStartBuild to mirror the
+  // server-side readiness check.
+  const handleStartBuild = useCallback(async () => {
+    if (!canStartBuild(latestBrief) || !latestBrief) {
+      return;
+    }
+
+    const handoffBrief = latestBrief;
+    setMessages((current) => [
+      ...current,
+      {
+        id: `handoff-${Date.now()}`,
+        metadata: undefined,
+        parts: [{ text: buildHandoffLine(handoffBrief), type: "text" }],
+        role: "user",
+      },
+    ]);
+    shouldStickToBottomRef.current = true;
+
+    await startBuild();
+  }, [latestBrief, startBuild]);
+
   useEffect(() => {
     // Never auto-start if a job is already running on the server (refresh case).
     if (
@@ -880,6 +917,7 @@ export function WorkspaceShell({
     held: buildRecommendationHeld,
     postBuildChatOpen,
   });
+  const canStartBuildNow = canStartBuild(latestBrief);
   const activeQuestionKey =
     workspaceCard.type === "question"
       ? workspaceCard.question.id
@@ -2063,8 +2101,9 @@ export function WorkspaceShell({
                 </AnimatePresence>
               ) : composerState === "build_recommendation" ? (
                 <WorkspaceCardView
+                  canBuild={canStartBuildNow}
                   card={workspaceCard}
-                  onBuild={() => void startBuild()}
+                  onBuild={() => void handleStartBuild()}
                   onDiscuss={holdBuildRecommendation}
                 />
               ) : composerState === "post_build_review" ||
@@ -2099,7 +2138,8 @@ export function WorkspaceShell({
                 <>
                   {composerState === "held_build_recommendation" ? (
                     <HeldBuildRecommendationNotice
-                      onBuild={() => void startBuild()}
+                      canBuild={canStartBuildNow}
+                      onBuild={() => void handleStartBuild()}
                       onOpen={openBuildRecommendation}
                     />
                   ) : null}
@@ -2499,9 +2539,11 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
 }
 
 function HeldBuildRecommendationNotice({
+  canBuild = true,
   onBuild,
   onOpen,
 }: {
+  canBuild?: boolean;
   onBuild: () => void;
   onOpen: () => void;
 }) {
@@ -2527,8 +2569,9 @@ function HeldBuildRecommendationNotice({
           </Button>
           <Button
             type="button"
+            disabled={!canBuild}
             onClick={onBuild}
-            className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+            className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
           >
             Mulai build
           </Button>
@@ -3205,4 +3248,13 @@ function readConsumedBuildRecommendationSignatures(
   } catch {
     return new Set();
   }
+}
+
+// Pure gate: brief is non-null AND every readiness field passes. Mirrors the
+// server-side check at /api/projects/$id/generate.
+export function canStartBuild(brief: ProjectBrief | null | undefined): boolean {
+  if (!brief) {
+    return false;
+  }
+  return isBriefReadyForBuild(brief);
 }

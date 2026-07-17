@@ -62,6 +62,7 @@ export const Route = createFileRoute("/api/projects/$id/workspace")({
         const brief = parseProjectBrief(workspaceRow?.brief, project.prompt);
 
         return Response.json({
+          brief,
           projectId: project.id,
           projectTitle: project.title,
           workspaceCard: parseWorkspaceCard(workspaceRow?.workspaceCard, brief),

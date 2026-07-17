@@ -1,7 +1,7 @@
 import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
-import type { WorkspaceCard } from "@/lib/projects/brief";
+import type { ProjectBrief, WorkspaceCard } from "@/lib/projects/brief";
 import type { UIMessage } from "ai";
 
 import { ClearProjectDraft } from "@/components/projects/ClearProjectDraft";
@@ -70,6 +70,7 @@ const loadProject = createServerFn({ method: "GET" })
     // round-trip cleanly, so we cross the boundary as a JSON string and rehydrate
     // in the component — keeping strong typing on both ends without a lossy cast.
     return {
+      initialBriefJson: JSON.stringify(initialBrief),
       initialChatCursor: initialChatPage.nextCursor,
       initialChatHasMore: initialChatPage.hasMore,
       initialMessagesJson: JSON.stringify(initialChatPage.messages),
@@ -92,6 +93,7 @@ function ProjectPage() {
   const initialWorkspaceCard = JSON.parse(
     data.initialWorkspaceCardJson,
   ) as WorkspaceCard;
+  const initialBrief = JSON.parse(data.initialBriefJson) as ProjectBrief;
 
   return (
     <>
@@ -105,6 +107,7 @@ function ProjectPage() {
         initialChatCursor={data.initialChatCursor}
         initialChatHasMore={data.initialChatHasMore}
         initialWorkspaceCard={initialWorkspaceCard}
+        initialBrief={initialBrief}
       />
     </>
   );

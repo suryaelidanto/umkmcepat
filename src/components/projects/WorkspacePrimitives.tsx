@@ -1199,11 +1199,13 @@ export function QuestionComposer({
 }
 
 export function WorkspaceCardView({
+  canBuild = true,
   card,
   onBuild,
   onDiscuss,
 }: {
   card: WorkspaceCard;
+  canBuild?: boolean;
   onBuild: () => void;
   onDiscuss?: () => void;
 }) {
@@ -1236,8 +1238,9 @@ export function WorkspaceCardView({
           <div className="flex shrink-0 flex-wrap items-center gap-spacing-3 md:mt-spacing-6 md:flex-col md:items-stretch">
             <Button
               type="button"
+              disabled={!canBuild}
               onClick={onBuild}
-              className="rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86"
+              className="rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
             >
               Mulai build
             </Button>
