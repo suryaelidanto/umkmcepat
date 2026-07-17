@@ -42,18 +42,17 @@ export function readProjectLimitFromCache(
 
 export function useProjectLimit(): ProjectLimitInfo {
   const queryClient = useQueryClient();
+  const loader = HomeRoute.useLoaderData() as {
+    overProjectLimit: boolean;
+    projectCount: number;
+    projectLimit: number;
+  };
   const cache = queryClient.getQueryData<ProjectsCache>(queryKeys.projects);
   const fromCache = readProjectLimitFromCache(cache);
 
   if (fromCache) {
     return fromCache;
   }
-
-  const loader = HomeRoute.useLoaderData() as {
-    overProjectLimit: boolean;
-    projectCount: number;
-    projectLimit: number;
-  };
 
   return {
     count: loader.projectCount,
