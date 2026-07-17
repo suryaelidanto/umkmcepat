@@ -595,7 +595,7 @@ export function WorkspaceShell({
   }, [projectId, queryClient]);
 
   const loadWorkspaceState = useCallback(
-    async (options?: { skipIfPreparing?: boolean }) => {
+    async (options?: { preserveCard?: boolean; skipIfPreparing?: boolean }) => {
       if (options?.skipIfPreparing && isPreparingNextQuestionRef.current) {
         return;
       }
@@ -614,6 +614,18 @@ export function WorkspaceShell({
 
       // Discard if a later call already resolved (avoids stale data winning a race).
       if (requestId !== loadWorkspaceStateRequestIdRef.current) {
+        return result;
+      }
+
+      // Tool path already applied card; still need server brief for canStartBuild.
+      if (options?.preserveCard) {
+        if (result.brief) {
+          setLatestBrief(result.brief);
+        }
+        if (result.projectTitle) {
+          setProjectTitle(result.projectTitle);
+          setDraftTitle(result.projectTitle);
+        }
         return result;
       }
 
@@ -1411,6 +1423,8 @@ export function WorkspaceShell({
         setWorkspaceCardError(false);
         setIsPreparingNextQuestion(false);
         void reloadLatestChat();
+        // Card from tool is instant; brief for Mulai build lives on server only.
+        void loadWorkspaceState({ preserveCard: true });
         return;
       }
     }
