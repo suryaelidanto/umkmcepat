@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
-import { parseGeneratedProjectFiles } from "@/lib/projects/generated-source";
+import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
 import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
 
 export const Route = createFileRoute("/api/projects/$id/source")({
@@ -98,40 +98,48 @@ export const Route = createFileRoute("/api/projects/$id/source")({
             status: true,
           },
         });
+        const latestProjectSnapshot = await prisma.projectSnapshot.findFirst({
+          where: { projectId: project.id },
+          orderBy: { createdAt: "desc" },
+          select: {
+            createdAt: true,
+            files: true,
+            id: true,
+            metadata: true,
+            sourceRef: true,
+            sourceType: true,
+          },
+        });
         const activeDeployment = selectActivePreviewDeployment(deployments);
-        const activeSnapshot = activeDeployment?.snapshot;
         const activeBuild = activeDeployment?.build;
-        const fallbackSnapshot = activeDeployment
-          ? null
-          : await prisma.projectSnapshot.findFirst({
-              where: { projectId: project.id },
-              orderBy: { createdAt: "desc" },
-              select: {
-                createdAt: true,
-                files: true,
-                id: true,
-                metadata: true,
-                sourceRef: true,
-                sourceType: true,
-              },
-            });
-        const snapshot = activeSnapshot ?? fallbackSnapshot;
-        const artifactFiles = snapshot?.sourceRef
-          ? await readProjectSourceArtifact(snapshot.sourceRef).catch(() => [])
-          : [];
-        const storedFiles = artifactFiles.length
-          ? artifactFiles
-          : parseGeneratedProjectFiles(snapshot?.files).length
-            ? parseGeneratedProjectFiles(snapshot?.files)
-            : parseGeneratedProjectFiles(sourceRow?.sourceFiles);
+        const storedFiles = await resolveProjectSourceFiles({
+          latestAttemptSnapshot: latestAttempt?.snapshot ?? null,
+          latestProjectSnapshot,
+          projectSourceFiles: sourceRow?.sourceFiles,
+          readArtifact: (sourceRef) => readProjectSourceArtifact(sourceRef),
+        });
+        const summarySnapshot =
+          latestAttempt?.snapshot ??
+          latestProjectSnapshot ??
+          activeDeployment?.snapshot ??
+          null;
         return Response.json({
           projectId: project.id,
-          buildLog: activeBuild?.logText ?? sourceRow?.buildLog ?? "",
+          buildLog:
+            latestAttempt?.logText ??
+            activeBuild?.logText ??
+            sourceRow?.buildLog ??
+            "",
           buildStatus: mapBuildStatusForWorkspace(
-            activeBuild?.status ?? sourceRow?.buildStatus,
+            latestAttempt?.status ??
+              activeBuild?.status ??
+              sourceRow?.buildStatus,
           ),
-          currentPreviewSource: snapshot
-            ? createSourceSummary(snapshot, activeBuild ?? null)
+          currentPreviewSource: summarySnapshot
+            ? createSourceSummary(
+                summarySnapshot,
+                latestAttempt ?? activeBuild ?? null,
+              )
             : null,
           files: storedFiles,
           latestAttempt: latestAttempt

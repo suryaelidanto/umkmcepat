@@ -680,15 +680,20 @@ export async function repairGeneratedProjectFiles({
 
   const result = await withAiTimeout(
     agent.generate({
-      prompt: `The previous build failed with these TypeScript/build errors. Fix them using read_file and replace_in_file or write_file. Do NOT rewrite the entire app — only fix the specific errors.
+      prompt: `The previous build failed with TypeScript/vite errors. Fix ONLY those errors.
+
+Rules:
+- Edit only under src/ (or PRODUCT.md / DESIGN.md / AGENTS.md). Never package.json, locks, vite/tsconfig/eslint, netlify/vercel, .npmrc.
+- Prefer replace_in_file on paths named in the log. Do not add dependencies or deploy configs.
+- check_app validates policy only — it is NOT proof the compile passes.
 
 Build errors:
-${buildLog.slice(0, 2000)}
+${buildLog.slice(0, 8000)}
 
 Steps:
 1. read_file the files mentioned in the errors
-2. Fix the specific TypeScript issues
-3. run check_app
+2. Fix the specific TypeScript/build issues
+3. run check_app once
 4. Brief summary of what you fixed`,
     }),
     "sourceGeneration",

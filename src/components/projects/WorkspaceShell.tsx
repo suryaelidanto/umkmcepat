@@ -724,8 +724,19 @@ export function WorkspaceShell({
     buildAbortRef.current = abortController;
 
     try {
+      const hasExistingSource =
+        sourceFiles.length > 0 ||
+        sourceStatus === "failed" ||
+        sourceStatus === "ready" ||
+        sourceStatus === "passed" ||
+        buildStatus === "failed" ||
+        buildStatus === "ready";
       const response = await fetch(`/api/projects/${projectId}/generate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: hasExistingSource ? "retry_build" : "first_generate",
+        }),
         signal: abortController.signal,
       });
 
@@ -817,6 +828,7 @@ export function WorkspaceShell({
             setBuildProgress((current) => completeBuildProgressSteps(current));
             patchProjectInList({ buildStatus: "ready" });
             void loadRuntimeState();
+            setSourceReloadKey((current) => current + 1);
             window.dispatchEvent(new Event("umkm:energy-changed"));
             void queryClient.invalidateQueries({
               queryKey: queryKeys.projects,
@@ -828,6 +840,7 @@ export function WorkspaceShell({
           if (eventName === "error") {
             setBuildStatus("failed");
             void loadRuntimeState();
+            setSourceReloadKey((current) => current + 1);
             setBuildProgress((current) =>
               appendBuildProgressStep(current, {
                 detail: data.detail
@@ -869,6 +882,8 @@ export function WorkspaceShell({
     loadRuntimeState,
     projectId,
     sessionExpired,
+    sourceFiles.length,
+    sourceStatus,
   ]);
 
   // Append a one-liner to the chat so the user sees what fields the AI is
@@ -3112,7 +3127,8 @@ function EmptyCodeState({ buildStatus }: { buildStatus: string }) {
       <div className="max-w-sm rounded-[24px] border border-surface-warm-white/10 bg-[#181816] px-spacing-6 py-spacing-6">
         <p className="text-sm font-semibold">Belum ada source yang dibuat</p>
         <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/54">
-          Kode website akan muncul setelah build pertama berhasil dibuat.
+          Kode website muncul setelah AI menulis file (termasuk bila build
+          gagal). Jalankan build pertama dari rancangan jika masih kosong.
         </p>
         <p className="mt-spacing-4 text-xs text-surface-warm-white/34">
           Status: {buildStatus}

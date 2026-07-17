@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { runGeneratedAppAgentTools } from "@/lib/projects/agent-tool-runner";
+import {
+  isAgentEditablePath,
+  runGeneratedAppAgentTools,
+} from "@/lib/projects/agent-tool-runner";
 import { createGeneratedProjectFiles } from "@/lib/projects/generated-source";
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 
@@ -107,6 +110,122 @@ describe("generated app agent tool runner", () => {
         }),
         expect.objectContaining({ title: "Mengecek app" }),
       ]),
+    );
+  });
+
+  it("isAgentEditablePath allows only src/ and brief docs", () => {
+    for (const path of [
+      "src/routes/index.tsx",
+      "src/styles.css",
+      "src/lib/preview-ready.ts",
+      "PRODUCT.md",
+      "DESIGN.md",
+      "AGENTS.md",
+    ]) {
+      expect(isAgentEditablePath(path)).toBe(true);
+    }
+
+    for (const path of [
+      "netlify.toml",
+      "vercel.json",
+      "wrangler.toml",
+      "wrangler.json",
+      "fly.toml",
+      "railway.json",
+      "render.yaml",
+      "Dockerfile",
+      "docker-compose.yml",
+      "package.json",
+      "package-lock.json",
+      "bun.lock",
+      "pnpm-lock.yaml",
+      "yarn.lock",
+      ".npmrc",
+      "tsconfig.json",
+      "tsconfig.app.json",
+      "vite.config.ts",
+      "eslint.config.js",
+      "index.html",
+      "public/favicon.ico",
+      "README.md",
+      ".github/workflows/deploy.yml",
+      "amplify.yml",
+      "firebase.json",
+      "app.yaml",
+    ]) {
+      expect(isAgentEditablePath(path)).toBe(false);
+    }
+  });
+
+  it("rejects write_file for common deploy/host configs", () => {
+    const forbidden = [
+      "netlify.toml",
+      "vercel.json",
+      "wrangler.toml",
+      "fly.toml",
+      "Dockerfile",
+      "tsconfig.json",
+      "index.html",
+      "eslint.config.js",
+    ];
+
+    for (const path of forbidden) {
+      const result = runGeneratedAppAgentTools({
+        commands: [
+          {
+            content: "blocked\n",
+            path,
+            type: "write_file",
+          },
+        ],
+        files: createFixtureFiles(),
+      });
+      expect(result.ok).toBe(false);
+      expect(
+        result.outputs.some(
+          (output) =>
+            output.type === "write_file" &&
+            typeof output.error === "string" &&
+            (output.error.includes("Agent may only edit") ||
+              output.error.includes("Platform-owned") ||
+              output.error.includes("Unsafe")),
+        ),
+      ).toBe(true);
+      // Must not create new deploy/config files; fixture paths must not get
+      // overwritten with the attempted content.
+      const written = result.files.find((file) => file.path === path);
+      if (written) {
+        expect(written.content).not.toBe("blocked\n");
+      }
+    }
+
+    const packageJson = runGeneratedAppAgentTools({
+      commands: [
+        {
+          find: '"name"',
+          path: "package.json",
+          replace: '"name-x"',
+          type: "replace_in_file",
+        },
+      ],
+      files: createFixtureFiles(),
+    });
+    expect(packageJson.ok).toBe(false);
+
+    const srcWrite = runGeneratedAppAgentTools({
+      commands: [
+        {
+          content: "export const x = 1\n",
+          path: "src/lib/agent-note.ts",
+          type: "write_file",
+        },
+        { type: "check_app" },
+      ],
+      files: createFixtureFiles(),
+    });
+    expect(srcWrite.ok).toBe(true);
+    expect(readFileContent(srcWrite.files, "src/lib/agent-note.ts")).toContain(
+      "export const x = 1",
     );
   });
 

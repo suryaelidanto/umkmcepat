@@ -36,6 +36,7 @@ import {
   renewProjectOperation,
 } from "@/lib/projects/project-operation";
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
+import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
 import {
   writeProjectDistArtifact,
   writeProjectSourceArtifact,
@@ -49,6 +50,7 @@ import {
   type ProjectSnapshotSourceType,
 } from "@/lib/projects/runtime-types";
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
+import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -82,6 +84,16 @@ async function handleGeneratePost(request: Request, routeId: string) {
       { message: "Masuk dulu untuk melanjutkan." },
       { status: 401 },
     );
+  }
+
+  let generateMode: "first_generate" | "retry_build" = "first_generate";
+  try {
+    const body = (await request.json()) as { mode?: string };
+    if (body?.mode === "retry_build") {
+      generateMode = "retry_build";
+    }
+  } catch {
+    // empty body = first generate
   }
 
   const userId = session.user.id;
@@ -315,7 +327,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
       let energyCharged = false;
 
       const flushGenerateEnergy = async () => {
-        if (energyCharged) return;
+        if (energyCharged) {
+          return;
+        }
         energyCharged = true;
         const fallbackModelId = getGenerationModel();
         if (specInputTokens > 0 || specOutputTokens > 0) {
@@ -339,6 +353,241 @@ async function handleGeneratePost(request: Request, routeId: string) {
       };
 
       try {
+        if (generateMode === "retry_build") {
+          send("progress", {
+            label: "Memuat source tersimpan",
+            detail:
+              "Membangun ulang dari file yang sudah ada (bukan generate dari awal).",
+          });
+
+          const [sourceRow] = await prisma.$queryRaw<
+            [{ sourceFiles: unknown }]
+          >`
+            SELECT "sourceFiles" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
+          `;
+          const latestAttempt = await prisma.projectBuild.findFirst({
+            where: { projectId },
+            orderBy: { createdAt: "desc" },
+            select: {
+              snapshot: {
+                select: {
+                  files: true,
+                  id: true,
+                  sourceRef: true,
+                },
+              },
+            },
+          });
+          const latestProjectSnapshot = await prisma.projectSnapshot.findFirst({
+            where: { projectId },
+            orderBy: { createdAt: "desc" },
+            select: {
+              files: true,
+              id: true,
+              sourceRef: true,
+            },
+          });
+          let sourceFiles = await resolveProjectSourceFiles({
+            latestAttemptSnapshot: latestAttempt?.snapshot ?? null,
+            latestProjectSnapshot,
+            projectSourceFiles: sourceRow?.sourceFiles,
+            readArtifact: (sourceRef) => readProjectSourceArtifact(sourceRef),
+          });
+
+          if (!sourceFiles.length) {
+            throw new Error(
+              "Belum ada source tersimpan. Jalankan build pertama dulu.",
+            );
+          }
+
+          send("progress", {
+            label: "Build website dari source tersimpan",
+            detail: `${sourceFiles.length} file dimuat. Menjalankan validasi build.`,
+          });
+
+          const [retryBriefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
+            SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
+          `;
+          const retryBrief = parseProjectBrief(
+            retryBriefRow?.brief,
+            projectPrompt,
+          );
+          const retrySchema = createProjectSiteSchemaFromBrief(retryBrief);
+
+          const snapshot = await prisma.projectSnapshot.create({
+            data: {
+              files: sourceFiles,
+              metadata: createGeneratedSourceSnapshotMetadata(
+                sourceFiles,
+                retrySchema,
+                {
+                  generationMode: "retry_build",
+                  summary: "Retry build from existing source",
+                },
+              ),
+              projectId,
+              sourceType: GENERATED_SNAPSHOT_SOURCE_TYPE,
+            },
+            select: { id: true },
+          });
+          const sourceRef = await writeProjectSourceArtifact({
+            artifactId: snapshot.id,
+            files: sourceFiles,
+          });
+          await prisma.projectSnapshot.update({
+            where: { id: snapshot.id },
+            data: { sourceRef },
+          });
+
+          if (runtimeBuildId) {
+            await prisma.projectBuild.update({
+              where: { id: runtimeBuildId },
+              data: { snapshotId: snapshot.id, status: "running" },
+            });
+          }
+
+          let finalBuildResult = await buildGeneratedProject(sourceFiles);
+
+          if (!finalBuildResult.ok) {
+            for (let repairAttempt = 0; repairAttempt < 2; repairAttempt++) {
+              const renewed = await renewProjectOperation({
+                projectId,
+                token: operation.token,
+                userId,
+              });
+              if (!renewed) {
+                throw new Error("Build operation lease was superseded.");
+              }
+              send("progress", {
+                label: "AI memperbaiki kode",
+                detail: `Percobaan perbaikan ${repairAttempt + 1} dari 2. AI sedang membenarkan error build.`,
+              });
+              try {
+                const repair = await repairGeneratedProjectFiles({
+                  buildLog: finalBuildResult.log,
+                  files: sourceFiles,
+                  onOperation(op) {
+                    send("operation", op);
+                  },
+                });
+                sourceInputTokens += repair.usage?.inputTokens ?? 0;
+                sourceOutputTokens += repair.usage?.outputTokens ?? 0;
+                if (repair.modelId) {
+                  sourceModelId = repair.modelId;
+                }
+                sourceFiles = repair.files;
+                await prisma.projectSnapshot.update({
+                  where: { id: snapshot.id },
+                  data: {
+                    files: sourceFiles,
+                    metadata: createGeneratedSourceSnapshotMetadata(
+                      sourceFiles,
+                      retrySchema,
+                      {
+                        generationMode: "retry_build",
+                        repairAttempts: repairAttempt + 1,
+                        summary: "Retry build repair",
+                      },
+                    ),
+                  },
+                });
+                await writeProjectSourceArtifact({
+                  artifactId: snapshot.id,
+                  files: sourceFiles,
+                }).catch(() => undefined);
+                finalBuildResult = await buildGeneratedProject(sourceFiles);
+                if (finalBuildResult.ok) {
+                  break;
+                }
+              } catch (repairError) {
+                devLog("generate", "build.repair.error", {
+                  attempt: repairAttempt + 1,
+                  message:
+                    repairError instanceof Error
+                      ? repairError.message
+                      : String(repairError),
+                  mode: "retry_build",
+                });
+              }
+            }
+          }
+
+          const buildOk = finalBuildResult.ok;
+          let distRef: string | null = null;
+          if (buildOk && finalBuildResult.distFiles?.length) {
+            distRef = await writeProjectDistArtifact({
+              artifactId: runtimeBuildId || snapshot.id,
+              files: finalBuildResult.distFiles,
+            });
+          }
+
+          await prisma.project.update({
+            where: { id: projectId },
+            data: {
+              buildLog: finalBuildResult.log ?? "",
+              buildStatus: buildOk ? "ready" : "failed",
+              sourceFiles: sourceFiles as object,
+              status: buildOk ? "ready" : "failed",
+            },
+          });
+
+          if (runtimeBuildId) {
+            await prisma.projectBuild.update({
+              where: { id: runtimeBuildId },
+              data: {
+                finishedAt: new Date(),
+                logText: finalBuildResult.log ?? "",
+                status: buildOk ? "succeeded" : "failed",
+                ...(distRef ? { artifactRef: distRef } : {}),
+              },
+            });
+            runtimeBuildFinalized = true;
+          }
+
+          if (buildOk) {
+            await prisma.projectDeployment
+              .create({
+                data: {
+                  artifactRef: distRef,
+                  buildId: runtimeBuildId,
+                  kind: PREVIEW_DEPLOYMENT_KIND,
+                  projectId,
+                  snapshotId: snapshot.id,
+                  status: "running" satisfies ProjectDeploymentStatus,
+                },
+              })
+              .catch(() => undefined);
+            send("done", {
+              message: "Build ulang berhasil.",
+              projectId,
+            });
+            void refreshProjectThumbnail(projectId).catch(() => undefined);
+          } else {
+            send("progress", {
+              label: "Build website gagal",
+              detail:
+                "File website tetap disimpan, tapi build log perlu dicek di tab Kode.",
+            });
+            send("error", {
+              message: "AI belum bisa membangun website ini.",
+              detail: finalBuildResult.log?.slice(0, 500) || "Build gagal.",
+            });
+          }
+
+          await finalizeProjectOperation({
+            data: {
+              buildStatus: buildOk ? "ready" : "failed",
+              status: buildOk ? "ready" : "failed",
+            },
+            projectId,
+            token: operation.token,
+            userId,
+          }).catch(() => false);
+          await flushGenerateEnergy();
+          controller.close();
+          return;
+        }
+
         send("progress", {
           label: "Memahami usaha dan target pembeli",
           detail: "AI membaca kebutuhan utama dari brief kamu.",
@@ -593,7 +842,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
           send("progress", {
             label: "AI belum selesai menulis file",
             detail:
-              "Agent kehabisan waktu. Mencoba build dengan file yang ada.",
+              "Agent berhenti lebih awal (timeout, dibatasi, atau terputus). Mencoba build dengan file yang ada.",
           });
         }
 
@@ -653,12 +902,12 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
             send("progress", {
               label: "AI memperbaiki kode",
-              detail: `Percobaan perbaikan ${repairAttempt + 1} dari 2. AI sedang membenarkan error TypeScript.`,
+              detail: `Percobaan perbaikan ${repairAttempt + 1} dari 2. AI sedang membenarkan error build.`,
             });
 
             try {
               const repair = await repairGeneratedProjectFiles({
-                buildLog: buildResult.log,
+                buildLog: finalBuildResult.log,
                 files: sourceFiles,
                 implementationSpec,
                 onOperation(operation) {
@@ -669,7 +918,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
               });
               sourceInputTokens += repair.usage?.inputTokens ?? 0;
               sourceOutputTokens += repair.usage?.outputTokens ?? 0;
-              if (repair.modelId) sourceModelId = repair.modelId;
+              if (repair.modelId) {
+                sourceModelId = repair.modelId;
+              }
               sourceFiles = repair.files;
 
               await prisma.projectSnapshot.update({

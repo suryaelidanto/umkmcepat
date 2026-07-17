@@ -756,7 +756,7 @@ export function PreviewIssueState({
             ) : null}
             {onRebuild ? (
               <Button type="button" variant="outline" onClick={onRebuild}>
-                Build ulang
+                Coba lagi
               </Button>
             ) : null}
           </div>
