@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useMatch } from "@tanstack/react-router";
 
 import { queryKeys } from "@/lib/query-client";
-import { Route as HomeRoute } from "@/routes/_main.index";
 
 type ProjectsCache = {
   pages: Array<{
@@ -40,18 +40,34 @@ export function readProjectLimitFromCache(
   };
 }
 
+const FALLBACK_LIMIT: ProjectLimitInfo = {
+  count: 0,
+  limit: 0,
+  overLimit: false,
+};
+
 export function useProjectLimit(): ProjectLimitInfo {
   const queryClient = useQueryClient();
-  const loader = HomeRoute.useLoaderData() as {
-    overProjectLimit: boolean;
-    projectCount: number;
-    projectLimit: number;
-  };
+  // shouldThrow: false so components using this hook (ProjectList,
+  // HomePromptForm) can render outside the "/_main/" route match, e.g. in
+  // Storybook, without pulling in the route module's server-only imports.
+  const match = useMatch({ from: "/_main/", shouldThrow: false });
+  const loader = match?.loaderData as
+    | {
+        overProjectLimit: boolean;
+        projectCount: number;
+        projectLimit: number;
+      }
+    | undefined;
   const cache = queryClient.getQueryData<ProjectsCache>(queryKeys.projects);
   const fromCache = readProjectLimitFromCache(cache);
 
   if (fromCache) {
     return fromCache;
+  }
+
+  if (!loader) {
+    return FALLBACK_LIMIT;
   }
 
   return {
