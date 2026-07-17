@@ -41,7 +41,7 @@ export function sanitizeAiErrorMessage(value: unknown) {
     .replace(/sk-or-v1-[A-Za-z0-9_-]{12,}/gi, "[redacted]")
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
     .replace(
-      /\b(api[_-]?key|token|secret|password)\s*[:=]\s*['"]?[^'"\s,;]+/gi,
+      /\b(api[_-]?key|token|secret|password)\s*[:=]\s*['"]?[^'"\s,;]+['"]?/gi,
       "$1=[redacted]",
     )
     .replace(/[A-Za-z0-9._-]+:[^@/\s]+@/g, "[redacted]@");
@@ -114,10 +114,17 @@ function reasonFromText(text: string) {
   if (/\b(rate.?limit|too many requests|429)\b/.test(lower)) {
     return "rate_limited";
   }
-  if (/\b(timeout|timed out|deadline|etimedout|abort(?:ed)?)\b/.test(lower)) {
+  if (
+    /\b(timeout|timed[\s_-]?out|deadline|etimedout|abort(?:ed)?)\b/.test(
+      lower,
+    ) ||
+    /timeout/.test(lower)
+  ) {
     return "timeout";
   }
-  if (/\b(econnreset|econnrefused|enotfound|fetch failed|network)\b/.test(lower)) {
+  if (
+    /\b(econnreset|econnrefused|enotfound|fetch failed|network)\b/.test(lower)
+  ) {
     return "network_error";
   }
   if (/\b(unauthorized|forbidden|invalid.?api.?key|401|403)\b/.test(lower)) {

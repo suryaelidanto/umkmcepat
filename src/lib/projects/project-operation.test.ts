@@ -100,4 +100,31 @@ describe("project operation lease", () => {
       },
     });
   });
+
+  it("returns claimed false when no row is updated", async () => {
+    const updateMany = vi.fn(async () => ({ count: 0 }));
+    const result = await claimProjectOperation({
+      kind: "build",
+      now: new Date("2026-07-10T01:00:00.000Z"),
+      projectId: "project_1",
+      store: { project: { updateMany } },
+      userId: "user_1",
+    });
+
+    expect(result.claimed).toBe(false);
+    expect(result.token).toMatch(/^op_/);
+  });
+
+  it("refuses renew when the fencing token is wrong", async () => {
+    const updateMany = vi.fn(async () => ({ count: 0 }));
+    await expect(
+      renewProjectOperation({
+        now: new Date("2026-07-10T01:00:00.000Z"),
+        projectId: "project_1",
+        store: { project: { updateMany } },
+        token: "op_wrong",
+        userId: "user_1",
+      }),
+    ).resolves.toBe(false);
+  });
 });
