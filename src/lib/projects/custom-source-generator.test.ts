@@ -238,6 +238,47 @@ describe("custom generated source agent", () => {
     expect(agentGenerate).toHaveBeenCalledTimes(2);
   });
 
+  it("checkAgentSourceQuality does not fail on payment/login business copy", async () => {
+    agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
+        find: "<h1>{starterMessage}</h1>",
+        replace:
+          '<h1>Cara payment & login member info.</h1>\n      <section className="agent-proof">checkout register api/orders ok as copy</section>',
+      });
+      await tools.replace_in_file.execute({
+        path: "src/content/site.ts",
+        find: "Bengkel Maju",
+        replace: "Bengkel Payment Copy",
+      });
+      await tools.replace_in_file.execute({
+        path: "src/styles.css",
+        find: "text-align:center",
+        replace: "text-align:center\n.agent-proof{display:block}",
+      });
+      await tools.check_app.execute({});
+      return { text: "ok" };
+    });
+
+    const result = await generateCustomProjectFilesWithAgent({
+      projectId: "project_quality_payment_copy",
+      schema: schema(),
+    });
+
+    const quality = checkAgentSourceQuality(
+      result.files,
+      new Set([
+        "src/content/site.ts",
+        "src/routes/index.tsx",
+        "src/styles.css",
+      ]),
+    );
+    expect(quality.issues ?? []).not.toContain(
+      "unsupported fake backend/auth/payment language detected",
+    );
+    expect(quality.ok).toBe(true);
+  });
+
   it("checkAgentSourceQuality fails on auto styles-only touch", () => {
     const site = schema();
     const files = ensureStylesCoverClassNames(

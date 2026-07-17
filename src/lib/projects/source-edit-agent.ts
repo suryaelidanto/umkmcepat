@@ -141,7 +141,7 @@ export async function editGeneratedSourceWithAgent({
 const EDIT_AGENT_INSTRUCTIONS = `You edit a generated static Vite React app for UMKM Cepat.
 Rules:
 - User-facing copy must be Indonesian.
-- Do not add backend/auth/payment/database code or dependencies.
+- Static frontend only: no auth/session, database, payment gateway, fake /api routes, or new dependencies (package.json is platform-owned). Prefer WA/contact CTA over fake login/checkout systems. Business copy may mention cara bayar.
 - Do not expose annotation selectors/classes/DOM metadata in visible UI.
 - Build success is not enough. Make concrete changes that satisfy the user's requested targets.
 - For visual annotation requests, inspect target text/classes/nearby text, then edit existing rendered JSX/content/CSS.

@@ -1,8 +1,8 @@
 import { isStepCount, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
-import { getAgentMaxSteps } from "@/lib/ai-agent-steps";
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getAgentMaxSteps } from "@/lib/ai-agent-steps";
 import { getGenerationModel } from "@/lib/ai-models";
 import { withAiTimeout } from "@/lib/ai-timeouts";
 import {
@@ -238,6 +238,8 @@ You MUST call write_file or replace_in_file on at least:
 Do NOT call read_skill. Prefer write over endless reads.
 Then call check_app once.
 
+Static only: no auth/DB/payment gateway/fake /api. Use WA/contact CTA and real Indonesian business copy.
+
 Build intent:
 ${appSpec}`,
     }),
@@ -472,27 +474,6 @@ export function checkAgentSourceQuality(
     issues.push("missing content files");
   }
 
-  // Fake backend policy: prefer agent-edited files so untouched starter
-  // substrings (e.g. api/) do not false-positive when agent wrote nothing.
-  // When agentEdited empty, scan all app sources — 0-edit already fails above.
-  const scanFiles =
-    agentEditedFiles.size > 0
-      ? files.filter((file) => agentEditedFiles.has(file.path))
-      : files.filter((file) =>
-          /^(src\/(routes|components|content|lib)\/|src\/styles\.css)/.test(
-            file.path,
-          ),
-        );
-
-  const sourceText = scanFiles
-    .map((file) => file.content)
-    .join("\n")
-    .toLowerCase();
-
-  if (/checkout|payment|login|register|api\//i.test(sourceText)) {
-    issues.push("unsupported fake backend/auth/payment language detected");
-  }
-
   const allSourceText = files
     .filter((file) =>
       /^(src\/(routes|components|content|lib)\/|src\/styles\.css)/.test(
@@ -543,8 +524,13 @@ ${implementationBrief}
 
 CODING FIRST (required order):
 1. write_file or replace_in_file on src/content/site.ts AND src/routes/index.tsx (and src/styles.css if needed)
-2. Optional: at most 2 read_skill calls if stuck
+2. Optional: at most 2 read_skill calls if stuck (prefer skill "generated-app-builder")
 3. check_app ONLY after at least one write/replace
+
+STATIC ONLY (platform limit — soft but important):
+- Frontend marketing/catalog site only. No auth, session, database, payment gateway, or real backend.
+- Prefer WhatsApp/contact CTA, price list, static catalog. Copy may mention cara bayar; do not build fake login/checkout systems or fetch invented /api/* endpoints.
+- Do not add dependencies. package.json is platform-owned.
 
 Key rule: EDIT src/routes/index.tsx with real business content early.
 Keep usePreviewReady() in the rendered route.
