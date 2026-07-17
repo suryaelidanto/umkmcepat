@@ -2,7 +2,10 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { type ProjectBrief } from "@/lib/projects/brief";
-import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
+import {
+  createProjectSiteSchemaFromBrief,
+  type ProjectSiteSchema,
+} from "@/lib/projects/site-schema";
 
 export const implementationSpecTool = tool({
   description: "Present the full website implementation spec.",
@@ -190,6 +193,102 @@ export function buildImplementationSpecPrompt(brief: ProjectBrief) {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/**
+ * Deterministic ImplementationSpec from an accepted discuss brief.
+ * Must always pass parseImplementationSpec for ready briefs.
+ */
+export function implementationSpecFromBrief(
+  brief: ProjectBrief,
+): ImplementationSpec {
+  const schema = createProjectSiteSchemaFromBrief(brief);
+  const businessName = clean(schema.businessName, 80) || "Usaha Lokal";
+  const offer = clean(schema.offer || brief.offer, 120) || businessName;
+  const audience =
+    clean(schema.audience || brief.targetCustomer, 120) || "pelanggan sekitar";
+  const primaryCta =
+    clean(schema.primaryCta || brief.contactOrCta, 60) || "Hubungi kami";
+  const direction =
+    clean(brief.stylePreference, 220) ||
+    clean(schema.subheadline, 220) ||
+    "Tampilan bersih, mudah dipercaya, cocok UMKM.";
+  const tagline = clean(brief.tagline, 120);
+  const features = [
+    offer,
+    ...(brief.usp ?? []).map((item) => clean(item, 160)),
+    ...(brief.productOrService ?? []).map((item) => clean(item.name, 160)),
+    brief.deliveryArea ? clean(brief.deliveryArea, 160) : "",
+    brief.priceRange ? `Harga: ${clean(brief.priceRange, 80)}` : "",
+  ]
+    .filter(Boolean)
+    .slice(0, 10);
+  if (!features.length) {
+    features.push(offer);
+  }
+
+  const palette = {
+    background: cleanHex(schema.theme.background) || "#ffffff",
+    foreground: cleanHex(schema.theme.foreground) || "#111111",
+    muted: cleanHex(schema.theme.muted) || "#6b7280",
+    accent: cleanHex(schema.theme.accent) || "#16a34a",
+  };
+
+  const pages = [
+    {
+      slug: "home",
+      title: clean(schema.headline, 80) || businessName,
+      purpose:
+        clean(schema.subheadline, 220) ||
+        `Landing page untuk ${businessName}: ${offer}.`,
+    },
+  ];
+
+  const components = [
+    {
+      name: "Hero",
+      purpose: tagline
+        ? `Hero dengan tagline ${tagline} dan CTA utama.`
+        : `Hero ${businessName} dengan penawaran utama dan CTA.`,
+    },
+    {
+      name: "Offer",
+      purpose: `Menampilkan ${offer} untuk ${audience}.`,
+    },
+    {
+      name: "Contact",
+      purpose: `Kontak / aksi: ${primaryCta}.`,
+    },
+  ];
+
+  const content: Record<string, unknown> = {
+    offer,
+    audience,
+    targetCustomer: audience,
+    tagline: tagline || undefined,
+    contactOrCta: brief.contactOrCta || primaryCta,
+    businessType: brief.businessType || undefined,
+    priceRange: brief.priceRange || undefined,
+    paymentMethods: brief.paymentMethods || undefined,
+    deliveryArea: brief.deliveryArea || undefined,
+  };
+
+  const notes = ["spec_source:brief_fallback", ...cleanList(brief.notes, 8)];
+
+  return {
+    appKind: "landing",
+    businessName,
+    pages,
+    components,
+    features,
+    content,
+    style: {
+      direction,
+      palette,
+    },
+    primaryCta,
+    notes,
+  };
 }
 
 function parsePage(value: unknown): ImplementationSpec["pages"][number] | null {

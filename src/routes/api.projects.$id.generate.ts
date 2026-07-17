@@ -26,6 +26,7 @@ import {
 } from "@/lib/projects/generated-source";
 import {
   buildImplementationSpecPrompt,
+  implementationSpecFromBrief,
   implementationSpecTool,
   implementationSpecToSiteSchema,
   parseImplementationSpec,
@@ -608,6 +609,10 @@ async function handleGeneratePost(request: Request, routeId: string) {
             projectSiteGenerationSystemPrompt +
             "\n\nCall the presentImplementationSpec tool exactly once with the full spec. Never reply with plain text or JSON in chat.";
 
+          let totalInputTokens = 0;
+          let totalOutputTokens = 0;
+          let lastModelId: string | undefined;
+
           const attemptSpec = async (maxTokens: number) => {
             // Real tool-calling (not prompt-based JSON mode) — 9Router combo
             // models emit malformed pseudo-XML wrappers under Output.json().
@@ -648,44 +653,43 @@ async function handleGeneratePost(request: Request, routeId: string) {
             const toolCall = result.toolCalls?.[0] as
               { input?: unknown; args?: unknown } | undefined;
             const rawOutput = toolCall?.input ?? toolCall?.args ?? null;
+            const inputTokens = usage.inputTokens ?? 0;
+            const outputTokens = usage.outputTokens ?? 0;
+            totalInputTokens += inputTokens;
+            totalOutputTokens += outputTokens;
+            lastModelId = result.response.modelId;
             devLog("generate", "spec.attempt", {
               projectId,
               maxTokens,
               finishReason: result.finishReason,
               contentLength: result.text.length,
-              inputTokens: usage.inputTokens ?? 0,
-              outputTokens: usage.outputTokens ?? 0,
+              inputTokens,
+              outputTokens,
             });
 
             const spec = parseImplementationSpec(rawOutput);
 
             return {
               spec,
-              inputTokens: usage.inputTokens ?? 0,
-              outputTokens: usage.outputTokens ?? 0,
+              inputTokens,
+              outputTokens,
               finishReason: result.finishReason,
               modelId: result.response.modelId,
             };
           };
 
-          // Attempt 1: normal budget
-          let lastError: unknown;
           try {
             const attempt1 = await attemptSpec(4_096);
             if (attempt1.spec) {
               return {
                 spec: attempt1.spec,
-                inputTokens: attempt1.inputTokens,
-                outputTokens: attempt1.outputTokens,
+                source: "ai" as const,
+                inputTokens: totalInputTokens,
+                outputTokens: totalOutputTokens,
                 modelId: attempt1.modelId,
               };
             }
-            // Spec parsed but invalid schema — don't retry, model was wrong
-            lastError = new Error(
-              "AI implementation spec was invalid (schema mismatch).",
-            );
           } catch (error) {
-            lastError = error;
             devLog("generate", "spec.error", {
               error:
                 error instanceof Error
@@ -698,7 +702,6 @@ async function handleGeneratePost(request: Request, routeId: string) {
             });
           }
 
-          // Attempt 2: 2x budget (only if attempt 1 hit token limit or errored)
           send("progress", {
             label: "AI mencoba sekali lagi",
             detail: "Rancangan perlu waktu lebih untuk diselesaikan.",
@@ -710,16 +713,13 @@ async function handleGeneratePost(request: Request, routeId: string) {
             if (attempt2.spec) {
               return {
                 spec: attempt2.spec,
-                inputTokens: attempt2.inputTokens,
-                outputTokens: attempt2.outputTokens,
+                source: "ai" as const,
+                inputTokens: totalInputTokens,
+                outputTokens: totalOutputTokens,
                 modelId: attempt2.modelId,
               };
             }
-            lastError = new Error(
-              "AI implementation spec was invalid after retries.",
-            );
           } catch (error) {
-            lastError = error;
             devLog("generate", "spec.error", {
               error:
                 error instanceof Error
@@ -732,9 +732,36 @@ async function handleGeneratePost(request: Request, routeId: string) {
             });
           }
 
-          throw lastError instanceof Error
-            ? lastError
-            : new Error("AI implementation spec was invalid after retries.");
+          const fallbackSpec = implementationSpecFromBrief(brief);
+          if (!parseImplementationSpec(fallbackSpec)) {
+            throw new Error(
+              "AI implementation spec was invalid after retries and brief fallback failed.",
+            );
+          }
+
+          send("progress", {
+            label: "Rancangan AI tidak lengkap",
+            detail:
+              "Sudah dicoba 2 kali. Lanjut pakai rancangan dari brief diskusi yang sudah disetujui.",
+          });
+          send("progress", {
+            label: "Pakai rancangan dari brief",
+            detail:
+              "Struktur default landing + data usaha dari diskusi. Website tetap dibangun.",
+          });
+          devLog("generate", "spec.fallback", {
+            projectId,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+          });
+
+          return {
+            spec: fallbackSpec,
+            source: "brief_fallback" as const,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            modelId: lastModelId,
+          };
         }
 
         const implementationSpecPrompt = buildImplementationSpecPrompt(brief);
