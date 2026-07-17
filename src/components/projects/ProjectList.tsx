@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -43,7 +43,6 @@ export function ProjectList({
   initialNextCursor,
   deleteProject,
 }: ProjectListProps) {
-  const queryClient = useQueryClient();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const { count, limit, overLimit } = useProjectLimit();
 
@@ -72,46 +71,6 @@ export function ProjectList({
     staleTime: 0,
   });
 
-  function applyDeleteOptimistic(projectId: string) {
-    queryClient.setQueryData(queryKeys.projects, (previous) => {
-      const data = previous as
-        | {
-            pages: Array<{
-              projectCount?: number;
-              projectLimit?: number;
-              overProjectLimit?: boolean;
-              projects: Project[];
-            }>;
-            pageParams: unknown[];
-          }
-        | undefined;
-
-      if (!data) {
-        return data;
-      }
-
-      return {
-        ...data,
-        pages: data.pages.map((page) => {
-          if (page.projectCount === undefined) {
-            return {
-              ...page,
-              projects: page.projects.filter((p) => p.id !== projectId),
-            };
-          }
-          const nextCount = Math.max(0, page.projectCount - 1);
-          const limitForPage = page.projectLimit ?? nextCount;
-          return {
-            ...page,
-            projectCount: nextCount,
-            projects: page.projects.filter((p) => p.id !== projectId),
-            overProjectLimit: nextCount > limitForPage,
-          };
-        }),
-      };
-    });
-  }
-
   const deleteMutation = useCacheMutation<string, string>({
     mutationFn: async (projectId) => {
       const formData = new FormData();
@@ -119,6 +78,48 @@ export function ProjectList({
       await deleteProject(formData);
       return projectId;
     },
+    optimisticPatches: [
+      {
+        queryKey: queryKeys.projects,
+        updater: (previous, projectId) => {
+          const data = previous as
+            | {
+                pages: Array<{
+                  projectCount?: number;
+                  projectLimit?: number;
+                  overProjectLimit?: boolean;
+                  projects: Project[];
+                }>;
+                pageParams: unknown[];
+              }
+            | undefined;
+
+          if (!data) {
+            return data;
+          }
+
+          return {
+            ...data,
+            pages: data.pages.map((page) => {
+              if (page.projectCount === undefined) {
+                return {
+                  ...page,
+                  projects: page.projects.filter((p) => p.id !== projectId),
+                };
+              }
+              const nextCount = Math.max(0, page.projectCount - 1);
+              const limitForPage = page.projectLimit ?? nextCount;
+              return {
+                ...page,
+                projectCount: nextCount,
+                projects: page.projects.filter((p) => p.id !== projectId),
+                overProjectLimit: nextCount > limitForPage,
+              };
+            }),
+          };
+        },
+      },
+    ],
     invalidateKeys: [queryKeys.projects],
     successMessage: "Website dihapus.",
     errorMessage: "Website belum berhasil dihapus.",
@@ -153,7 +154,6 @@ export function ProjectList({
       return;
     }
 
-    applyDeleteOptimistic(selectedProject.id);
     deleteMutation.mutate(selectedProject.id);
   }
 

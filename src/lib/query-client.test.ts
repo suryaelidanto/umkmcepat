@@ -13,7 +13,7 @@ describe("useCacheMutation helpers", () => {
     const patches: CachePatch[] = [
       {
         queryKey: ["projects"],
-        updater: (previous: unknown) => {
+        updater: (previous: unknown, _variables: void) => {
           const data = previous as {
             count: number;
             limit: number;
@@ -28,7 +28,7 @@ describe("useCacheMutation helpers", () => {
       },
     ];
 
-    const next = applyPatches(initial, patches);
+    const next = applyPatches(initial, patches, undefined);
 
     expect(next).toEqual({ count: 5, limit: 5, overLimit: false });
     expect(next).not.toBe(initial);

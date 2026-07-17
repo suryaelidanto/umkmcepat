@@ -66,9 +66,9 @@ export function notifyEnergyChanged() {
   }
 }
 
-export type CachePatch = {
+export type CachePatch<TVariables = void> = {
   queryKey: readonly unknown[];
-  updater: (previous: unknown) => unknown;
+  updater: (previous: unknown, variables: TVariables) => unknown;
 };
 
 export type CacheMutationOptions<TData, TVariables> = {
@@ -77,16 +77,17 @@ export type CacheMutationOptions<TData, TVariables> = {
   mutationFn: (variables: TVariables) => Promise<TData>;
   onError?: (error: Error, variables: TVariables) => void;
   onSuccess?: (data: TData, variables: TVariables) => void | Promise<void>;
-  optimisticPatches?: readonly CachePatch[];
+  optimisticPatches?: readonly CachePatch<TVariables>[];
   successMessage?: string;
 };
 
-export function applyPatches<T>(
+export function applyPatches<T, TVariables = void>(
   previous: T,
-  patches: readonly CachePatch[],
+  patches: readonly CachePatch<TVariables>[],
+  variables: TVariables,
 ): T {
   return patches.reduce(
-    (current, patch) => patch.updater(current) as T,
+    (current, patch) => patch.updater(current, variables) as T,
     previous,
   );
 }
@@ -121,7 +122,7 @@ export function useCacheMutation<TData, TVariables>(
         const key = snapshotKey(patch.queryKey);
         snapshots.set(key, queryClient.getQueryData(patch.queryKey));
         queryClient.setQueryData(patch.queryKey, (previous: unknown) =>
-          patch.updater(previous),
+          patch.updater(previous, variables),
         );
       }
 
