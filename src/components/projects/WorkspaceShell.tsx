@@ -55,6 +55,10 @@ import {
   type WorkspaceCard,
 } from "@/lib/projects/brief";
 import { buildHandoffLine } from "@/lib/projects/build-handoff";
+import {
+  appendBuildProgressStep,
+  completeBuildProgressSteps,
+} from "@/lib/projects/build-progress-steps";
 import { dedupeUiMessages } from "@/lib/projects/chat-memory";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
@@ -558,7 +562,7 @@ export function WorkspaceShell({
     ) {
       if (buildStatusRef.current === "building") {
         setBuildStatus("ready");
-        setBuildProgress((current) => completeBuildProgress(current));
+        setBuildProgress((current) => completeBuildProgressSteps(current));
         setPreviewReloadKey((current) => current + 1);
       }
 
@@ -737,7 +741,7 @@ export function WorkspaceShell({
         }
         setBuildStatus("failed");
         setBuildProgress((current) =>
-          addBuildProgressStep(current, {
+          appendBuildProgressStep(current, {
             detail,
             label: "Build belum mulai",
             status: "error",
@@ -783,7 +787,7 @@ export function WorkspaceShell({
             const label = data.label;
 
             setBuildProgress((current) =>
-              addBuildProgressStep(current, {
+              appendBuildProgressStep(current, {
                 detail: data.detail || "",
                 label,
                 status: "active",
@@ -794,7 +798,7 @@ export function WorkspaceShell({
           if (eventName === "operation" && data.title) {
             const title = data.title;
             setBuildProgress((current) =>
-              addBuildProgressStep(current, {
+              appendBuildProgressStep(current, {
                 detail: data.path
                   ? `${data.path} — ${data.detail || "Operasi selesai."}`
                   : (data.detail ?? "Operasi selesai."),
@@ -810,7 +814,7 @@ export function WorkspaceShell({
 
           if (eventName === "done") {
             setBuildStatus("ready");
-            setBuildProgress((current) => completeBuildProgress(current));
+            setBuildProgress((current) => completeBuildProgressSteps(current));
             patchProjectInList({ buildStatus: "ready" });
             void loadRuntimeState();
             window.dispatchEvent(new Event("umkm:energy-changed"));
@@ -825,7 +829,7 @@ export function WorkspaceShell({
             setBuildStatus("failed");
             void loadRuntimeState();
             setBuildProgress((current) =>
-              addBuildProgressStep(current, {
+              appendBuildProgressStep(current, {
                 detail: data.detail
                   ? `Build berhenti sebelum tampilan website siap: ${data.detail}`
                   : "Build berhenti sebelum tampilan website siap. Coba ulangi build.",
@@ -842,7 +846,7 @@ export function WorkspaceShell({
       setBuildStatus("failed");
       void loadRuntimeState();
       setBuildProgress((current) =>
-        addBuildProgressStep(current, {
+        appendBuildProgressStep(current, {
           detail:
             (error as Error).name === "AbortError"
               ? "Build dihentikan. Kamu bisa jalankan build lagi kapan saja."
@@ -1505,7 +1509,7 @@ export function WorkspaceShell({
     setIsEditingPreview(true);
     setBuildStartedAt(Date.now());
     setBuildProgress((current) =>
-      addBuildProgressStep(current, {
+      appendBuildProgressStep(current, {
         detail: "AI menerapkan komentar visual ke source preview terakhir.",
         label: "Merevisi dari komentar visual",
         status: "active",
@@ -1540,7 +1544,7 @@ export function WorkspaceShell({
       if (!response.ok || result?.buildStatus !== "succeeded") {
         pendingVisualRevisionRef.current = false;
         setBuildProgress((current) =>
-          addBuildProgressStep(current, {
+          appendBuildProgressStep(current, {
             detail:
               result?.message ||
               "Komentar visual belum berhasil dibuild. Komentar tetap aman.",
@@ -1559,7 +1563,7 @@ export function WorkspaceShell({
       window.localStorage.removeItem(visualAnnotationStorageKey);
       setAnnotationMode(false);
       setBuildStatus("ready");
-      setBuildProgress((current) => completeBuildProgress(current));
+      setBuildProgress((current) => completeBuildProgressSteps(current));
       setActiveTab("preview");
       setPreviewCollapsed(false);
       setPreviewReloadKey((current) => current + 1);
@@ -2479,33 +2483,6 @@ function createRuntimeControl({
     onPublish,
     publishedPath: runtimePublishedPath,
   };
-}
-
-function addBuildProgressStep(
-  current: BuildProgressStep[],
-  next: BuildProgressStep,
-) {
-  const previous = current[current.length - 1];
-
-  if (previous?.label === next.label) {
-    return [
-      ...current.slice(0, -1),
-      { ...next, status: next.status || previous.status },
-    ];
-  }
-
-  return [
-    ...current.map((step) =>
-      step.status === "active" ? { ...step, status: "done" as const } : step,
-    ),
-    next,
-  ].slice(-8);
-}
-
-function completeBuildProgress(current: BuildProgressStep[]) {
-  return current.map((step) =>
-    step.status === "active" ? { ...step, status: "done" as const } : step,
-  );
 }
 
 const PRESENT_WORKSPACE_CARD_TOOL_TYPE = "tool-presentWorkspaceCard";

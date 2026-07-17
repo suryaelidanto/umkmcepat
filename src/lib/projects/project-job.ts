@@ -228,18 +228,12 @@ function stepsFromEvents(
           ? "active"
           : "done";
 
-    const existing = steps.findIndex((step) => step.label === label);
-    const next = {
+    steps.push({
       at: toIso(event.createdAt),
       detail,
       label,
       status,
-    };
-    if (existing >= 0) {
-      steps[existing] = next;
-    } else {
-      steps.push(next);
-    }
+    });
   }
 
   if (!steps.length) {
@@ -264,7 +258,7 @@ function stepsFromEvents(
     }
   }
 
-  return steps.slice(-8);
+  return steps;
 }
 
 export function deriveActiveProjectJob({
