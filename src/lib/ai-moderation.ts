@@ -5,10 +5,15 @@ import { getDefaultAiModel } from "@/lib/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
 
 export type ModerationResult =
-  | { allowed: true; usage: { inputTokens: number; outputTokens: number } }
+  | {
+      allowed: true;
+      modelId?: string;
+      usage: { inputTokens: number; outputTokens: number };
+    }
   | {
       allowed: false;
       message: string;
+      modelId?: string;
       usage: { inputTokens: number; outputTokens: number };
     };
 
@@ -61,20 +66,21 @@ export async function moderateProjectRequest(
     inputTokens: result.usage?.inputTokens ?? 0,
     outputTokens: result.usage?.outputTokens ?? 0,
   };
+  const modelId = result.response?.modelId || getDefaultAiModel();
   const label = result.text.trim().toUpperCase();
   if (!["ALLOW", "BLOCK", "CLARIFY"].includes(label)) {
     console.warn(
       `[moderation] unexpected model response: ${JSON.stringify(result.text)} — defaulting to ALLOW`,
     );
-    return { allowed: true, usage };
+    return { allowed: true, modelId, usage };
   }
 
   const moderationResult: ModerationResult =
     label === "BLOCK"
-      ? { allowed: false, message: BLOCK_MESSAGE, usage }
+      ? { allowed: false, message: BLOCK_MESSAGE, modelId, usage }
       : label === "CLARIFY"
-        ? { allowed: false, message: CLARIFY_MESSAGE, usage }
-        : { allowed: true, usage };
+        ? { allowed: false, message: CLARIFY_MESSAGE, modelId, usage }
+        : { allowed: true, modelId, usage };
 
   moderationCache.set(key, {
     expiresAt: Date.now() + MODERATION_CACHE_TTL_MS,

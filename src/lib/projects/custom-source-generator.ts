@@ -1,6 +1,7 @@
 import { isStepCount, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
+import { getAgentMaxSteps } from "@/lib/ai-agent-steps";
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getGenerationModel } from "@/lib/ai-models";
 import { withAiTimeout } from "@/lib/ai-timeouts";
@@ -17,10 +18,19 @@ import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
+/** Paths auto-touched by ensureStylesCoverClassNames — not agent edits. */
+const AUTO_STYLE_PATH = "src/styles.css";
+
+const NO_MEANINGFUL_EDIT_ISSUES = [
+  "agent did not edit enough files",
+  "agent did not edit any presentation or content files",
+] as const;
+
 export type CustomGeneratedSourceResult = {
   buildSpec: string;
   files: GeneratedProjectFile[];
   generationMode: "agent-custom" | "agent-partial";
+  modelId?: string;
   operationTrace: GeneratedAppAgentOperation[];
   partial?: boolean;
   repairAttempts: number;
@@ -28,6 +38,8 @@ export type CustomGeneratedSourceResult = {
   touchedFiles: string[];
   usage?: { inputTokens: number; outputTokens: number };
 };
+
+type RunCommand = (command: GeneratedAppAgentToolCommand) => unknown;
 
 export async function generateCustomProjectFilesWithAgent({
   implementationBrief,
@@ -54,8 +66,10 @@ export async function generateCustomProjectFilesWithAgent({
   let files = starterFiles;
   const operationTrace: GeneratedAppAgentOperation[] = [];
   const touchedFiles = new Set<string>();
+  /** Paths the agent actually write/replace'd (excludes auto CSS ensure). */
+  const agentEditedFiles = new Set<string>();
 
-  const runCommand = (command: GeneratedAppAgentToolCommand) => {
+  const runCommand: RunCommand = (command) => {
     const result = runGeneratedAppAgentTools({
       commands: [command],
       files,
@@ -70,6 +84,12 @@ export async function generateCustomProjectFilesWithAgent({
     for (const effect of result.sideEffects) {
       if (effect.path) {
         touchedFiles.add(effect.path);
+        if (
+          command.type === "write_file" ||
+          command.type === "replace_in_file"
+        ) {
+          agentEditedFiles.add(effect.path);
+        }
       }
     }
 
@@ -77,6 +97,7 @@ export async function generateCustomProjectFilesWithAgent({
   };
 
   try {
+    const generateSteps = getAgentMaxSteps("generate");
     const agent = new ToolLoopAgent({
       model: getAiModel(getGenerationModel()),
       // Reasoning models emit hidden reasoning_content per step; without a
@@ -85,11 +106,13 @@ export async function generateCustomProjectFilesWithAgent({
       instructions: buildGeneratedAppAgentInstructions(
         schema,
         implementationSpec,
+        "generate",
       ),
       telemetry: getAiTelemetry("project-source-generation-agent", {
         projectId,
       }),
-      stopWhen: isStepCount(8),
+      // Step cap is a brake only — outcome still comes from quality checklist.
+      stopWhen: isStepCount(generateSteps),
       tools: createAgentTools(runCommand),
     });
 
@@ -112,17 +135,29 @@ export async function generateCustomProjectFilesWithAgent({
 
     const isPartialResult = "partial" in result && result.partial === true;
 
-    // CSS coverage is non-negotiable: never ship custom JSX with starter-only
-    // styles. Deterministic ensure first, then quality gate. Timeout/rate-limit
-    // partials still get ensure so preview is not unstyled.
+    // CSS coverage is non-negotiable. Auto-touch must not count as agent edit.
     files = ensureStylesCoverClassNames(files, schema);
-    touchedFiles.add("src/styles.css");
+    touchedFiles.add(AUTO_STYLE_PATH);
 
-    const quality = checkAgentSourceQuality(files, touchedFiles);
+    let quality = checkAgentSourceQuality(files, agentEditedFiles);
+    if (!quality.ok && isNoMeaningfulEditFailure(quality.issues)) {
+      // One forced rewrite: coding-only. Step budget small (repair cap).
+      await runForcedRewritePass({
+        appSpec,
+        implementationSpec,
+        projectId,
+        runCommand,
+        schema,
+      });
+      files = ensureStylesCoverClassNames(files, schema);
+      touchedFiles.add(AUTO_STYLE_PATH);
+      quality = checkAgentSourceQuality(files, agentEditedFiles);
+    }
+
     if (!quality.ok) {
       // Second ensure after any exotic paths; still fail hard if incomplete.
       files = ensureStylesCoverClassNames(files, schema);
-      const recheck = checkAgentSourceQuality(files, touchedFiles);
+      const recheck = checkAgentSourceQuality(files, agentEditedFiles);
       if (!recheck.ok) {
         throw new Error(
           `AI agent produced invalid source: ${recheck.issues.join(", ")}`,
@@ -130,11 +165,15 @@ export async function generateCustomProjectFilesWithAgent({
       }
     }
 
-    // Structural partial (timeout) is OK only after CSS gate passes.
+    // Structural partial (timeout) is OK only after CSS/quality gate passes.
     return {
       buildSpec: appSpec,
       files,
       generationMode: isPartialResult ? "agent-partial" : "agent-custom",
+      modelId:
+        "response" in result && result.response
+          ? result.response.modelId
+          : undefined,
       operationTrace,
       partial: isPartialResult,
       repairAttempts: 0,
@@ -152,9 +191,73 @@ export async function generateCustomProjectFilesWithAgent({
   }
 }
 
-function createAgentTools(
-  runCommand: (command: GeneratedAppAgentToolCommand) => unknown,
-) {
+function isNoMeaningfulEditFailure(issues: string[]): boolean {
+  return issues.some((issue) =>
+    (NO_MEANINGFUL_EDIT_ISSUES as readonly string[]).includes(issue),
+  );
+}
+
+async function runForcedRewritePass({
+  appSpec,
+  implementationSpec,
+  projectId,
+  runCommand,
+  schema,
+}: {
+  appSpec: string;
+  implementationSpec?: ImplementationSpec;
+  projectId: string;
+  runCommand: RunCommand;
+  schema: ProjectSiteSchema;
+}) {
+  const rewriteSteps = Math.min(12, getAgentMaxSteps("repair"));
+  const agent = new ToolLoopAgent({
+    model: getAiModel(getGenerationModel()),
+    maxOutputTokens: 12_000,
+    instructions: buildGeneratedAppAgentInstructions(
+      schema,
+      implementationSpec,
+      "rewrite",
+    ),
+    telemetry: getAiTelemetry("project-source-generation-agent-rewrite", {
+      projectId,
+    }),
+    stopWhen: isStepCount(rewriteSteps),
+    tools: createAgentTools(runCommand),
+  });
+
+  await withAiTimeout(
+    agent.generate({
+      prompt: `FORCED REWRITE — previous pass produced no meaningful file edits.
+
+You MUST call write_file or replace_in_file on at least:
+- src/content/site.ts
+- src/routes/index.tsx
+- src/styles.css (if you add classNames)
+
+Do NOT call read_skill. Prefer write over endless reads.
+Then call check_app once.
+
+Build intent:
+${appSpec}`,
+    }),
+    "sourceGeneration",
+  ).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      /timeout|timed out|aborted/i.test(message) ||
+      /rate.?limit|exceeded|too many/i.test(message)
+    ) {
+      return {
+        text: "Rewrite stopped early.",
+        partial: true,
+      };
+    }
+    throw error;
+  });
+}
+
+function createAgentTools(runCommand: RunCommand) {
   return {
     list_files: tool({
       description: "List generated project files.",
@@ -323,9 +426,14 @@ export function ensureStylesCoverClassNames(
   return [...files, { path: "src/styles.css", content: next }];
 }
 
-function checkAgentSourceQuality(
+/**
+ * Technical checklist: is source ready to attempt compile?
+ * `agentEditedFiles` must exclude auto CSS ensure paths.
+ * Exported for unit tests.
+ */
+export function checkAgentSourceQuality(
   files: GeneratedProjectFile[],
-  touchedFiles: Set<string>,
+  agentEditedFiles: Set<string>,
 ): { issues: string[]; ok: false } | { issues: []; ok: true } {
   const check = runGeneratedAppAgentTools({
     commands: [{ type: "check_app" }],
@@ -337,7 +445,8 @@ function checkAgentSourceQuality(
     issues.push("agent check failed");
   }
 
-  if (touchedFiles.size < 2) {
+  // Meaningful agent edits only (auto styles.css alone must fail).
+  if (agentEditedFiles.size < 2) {
     issues.push("agent did not edit enough files");
   }
 
@@ -345,18 +454,16 @@ function checkAgentSourceQuality(
     issues.push("missing route files");
   }
 
-  const presentationEdited = [...touchedFiles].some(
+  const presentationEdited = [...agentEditedFiles].some(
     (path) =>
       path.startsWith("src/components/") ||
       path.startsWith("src/routes/") ||
       path === "src/styles.css",
   );
-  const contentEdited = [...touchedFiles].some((path) =>
+  const contentEdited = [...agentEditedFiles].some((path) =>
     path.startsWith("src/content/"),
   );
 
-  // Routes come from the starter factory; the agent does not always need to
-  // edit them. Only require that the agent touched at least one content area.
   if (!presentationEdited && !contentEdited) {
     issues.push("agent did not edit any presentation or content files");
   }
@@ -365,7 +472,28 @@ function checkAgentSourceQuality(
     issues.push("missing content files");
   }
 
-  const sourceText = files
+  // Fake backend policy: prefer agent-edited files so untouched starter
+  // substrings (e.g. api/) do not false-positive when agent wrote nothing.
+  // When agentEdited empty, scan all app sources — 0-edit already fails above.
+  const scanFiles =
+    agentEditedFiles.size > 0
+      ? files.filter((file) => agentEditedFiles.has(file.path))
+      : files.filter((file) =>
+          /^(src\/(routes|components|content|lib)\/|src\/styles\.css)/.test(
+            file.path,
+          ),
+        );
+
+  const sourceText = scanFiles
+    .map((file) => file.content)
+    .join("\n")
+    .toLowerCase();
+
+  if (/checkout|payment|login|register|api\//i.test(sourceText)) {
+    issues.push("unsupported fake backend/auth/payment language detected");
+  }
+
+  const allSourceText = files
     .filter((file) =>
       /^(src\/(routes|components|content|lib)\/|src\/styles\.css)/.test(
         file.path,
@@ -375,11 +503,7 @@ function checkAgentSourceQuality(
     .join("\n")
     .toLowerCase();
 
-  if (/checkout|payment|login|register|api\//i.test(sourceText)) {
-    issues.push("unsupported fake backend/auth/payment language detected");
-  }
-
-  if (!sourceText.includes("generated-app-preview-ready")) {
+  if (!allSourceText.includes("generated-app-preview-ready")) {
     issues.push("preview-ready signal missing");
   }
 
@@ -417,12 +541,16 @@ function buildAgentPrompt(implementationBrief: string) {
 Implementation brief:
 ${implementationBrief}
 
-Read the generated-app-builder skill for the development workflow.
-Key rule: EDIT src/routes/index.tsx FIRST with real business content.
+CODING FIRST (required order):
+1. write_file or replace_in_file on src/content/site.ts AND src/routes/index.tsx (and src/styles.css if needed)
+2. Optional: at most 2 read_skill calls if stuck
+3. check_app ONLY after at least one write/replace
+
+Key rule: EDIT src/routes/index.tsx with real business content early.
 Keep usePreviewReady() in the rendered route.
 Prefer contract classes already in src/styles.css (.page, .site-header, .hero, .section, .primary, .fab-wa).
 If you invent new classNames, rewrite src/styles.css fully so every class has a rule — never leave starter-only CSS.
-Run check_app after all writes.`;
+Do not spend the whole budget reading — empty edits fail the build.`;
 }
 
 export function buildGeneratedAppBuildSpec(
@@ -485,18 +613,25 @@ export function buildGeneratedAppBuildSpec(
 function buildGeneratedAppAgentInstructions(
   schema: ProjectSiteSchema,
   implementationSpec?: ImplementationSpec,
+  mode: "generate" | "repair" | "rewrite" = "generate",
 ) {
+  const skillsBlock =
+    mode === "generate"
+      ? `\nOptional skills (max 2 read_skill calls total — do not tour all skills):
+- generated-app-builder
+- design-quality OR anti-slop OR indonesian-business
+
+WRITE first: src/content/site.ts + src/routes/index.tsx before check_app.
+Never call check_app before at least one write_file or replace_in_file.`
+      : mode === "rewrite"
+        ? `\nFORCED REWRITE MODE: no read_skill. Write core files immediately, then check_app.`
+        : "";
+
   return `You are a frontend coding agent for UMKM Cepat generated apps.
 
 Business: ${implementationSpec?.businessName || schema.businessName} — ${implementationSpec?.appKind || "landing"} — ${(implementationSpec?.features || [schema.offer, schema.audience]).join(", ")}
-
-Before coding, read these skills via read_skill tool:
-1. generated-app-builder — development workflow and file structure
-2. design-quality — design best practices (color, typography, layout)
-3. anti-slop — avoid generic AI patterns
-4. indonesian-business — business context and copy rules
-
-Then follow the skill instructions. The project uses Vite + React + TanStack Router.
+${skillsBlock}
+The project uses Vite + React + TanStack Router.
 Static frontend only. User-facing copy in Indonesian.
 Call check_app after all writes.`;
 }
@@ -520,7 +655,7 @@ export async function repairGeneratedProjectFiles({
   const touchedFiles = new Set<string>();
   let currentFiles = files;
 
-  const runCommand = (command: GeneratedAppAgentToolCommand) => {
+  const runCommand: RunCommand = (command) => {
     const result = runGeneratedAppAgentTools({
       commands: [command],
       files: currentFiles,
@@ -541,17 +676,19 @@ export async function repairGeneratedProjectFiles({
     return result.outputs.at(-1) ?? { type: command.type };
   };
 
+  const repairSteps = getAgentMaxSteps("repair");
   const agent = new ToolLoopAgent({
     model: getAiModel(getGenerationModel()),
     maxOutputTokens: 12_000,
     instructions: buildGeneratedAppAgentInstructions(
       schema,
       implementationSpec,
+      "repair",
     ),
     telemetry: getAiTelemetry("project-source-generation-agent-repair", {
       projectId,
     }),
-    stopWhen: isStepCount(4),
+    stopWhen: isStepCount(repairSteps),
     tools: createAgentTools(runCommand),
   });
 
@@ -572,12 +709,13 @@ Steps:
   );
 
   currentFiles = ensureStylesCoverClassNames(currentFiles, schema);
-  touchedFiles.add("src/styles.css");
+  touchedFiles.add(AUTO_STYLE_PATH);
 
   return {
     buildSpec: buildGeneratedAppBuildSpec({ implementationSpec, schema }),
     files: currentFiles,
     generationMode: "agent-custom",
+    modelId: result.response?.modelId,
     operationTrace,
     repairAttempts: 1,
     summary: result.text || "AI agent repaired source files.",

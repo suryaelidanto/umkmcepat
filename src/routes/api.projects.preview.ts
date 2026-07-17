@@ -47,7 +47,7 @@ import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
-  addEnergyUsage,
+  chargeEnergyForAiUsage,
   checkEnergy,
   isUserVerified,
   MIN_ENERGY_DISCUSS,
@@ -390,12 +390,24 @@ async function handleDiscussTurn({
 
         writer.write({ type: "text-end", id: textPartId });
 
-        // Capture phase1 (chat) token usage
+        // Capture phase1 (chat) token usage + actual model that served it
         const phase1Usage = await phase1.usage;
+        const phase1Response = await Promise.resolve(phase1.response).catch(
+          () => null,
+        );
         let totalInputTokens = phase1Usage?.inputTokens ?? 0;
         let totalOutputTokens = phase1Usage?.outputTokens ?? 0;
+        let discussModelId = phase1Response?.modelId || modelName;
 
         if (hadError || !fullText.trim()) {
+          // AI already ran — charge even on stream error / empty text.
+          await chargeEnergyForAiUsage({
+            userId,
+            modelId: discussModelId,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            reason: "discuss_turn",
+          });
           writer.write({
             type: "error",
             errorText: hadError
@@ -508,12 +520,13 @@ async function handleDiscussTurn({
           totalOutputTokens += compaction.usage?.outputTokens ?? 0;
         }
 
-        await addEnergyUsage(
+        await chargeEnergyForAiUsage({
           userId,
-          totalInputTokens,
-          totalOutputTokens,
-          "discuss_turn",
-        );
+          modelId: discussModelId,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          reason: "discuss_turn",
+        });
 
         writer.write({ type: "finish" });
       },
@@ -790,16 +803,28 @@ async function handleDiscussTurnOneCall({
 
         let totalInputTokens = 0;
         let totalOutputTokens = 0;
+        let discussModelId = modelName;
         try {
           const primaryUsage = await primary.usage;
           totalInputTokens = primaryUsage?.inputTokens ?? 0;
           totalOutputTokens = primaryUsage?.outputTokens ?? 0;
+          const primaryResponse = await Promise.resolve(primary.response).catch(
+            () => null,
+          );
+          if (primaryResponse?.modelId) discussModelId = primaryResponse.modelId;
         } catch {
           // usage is best-effort
         }
 
         const chatText = fullText.trim();
         if (hadError || !chatText) {
+          await chargeEnergyForAiUsage({
+            userId,
+            modelId: discussModelId,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            reason: "discuss_turn",
+          });
           writer.write({
             type: "error",
             errorText: hadError
@@ -948,12 +973,13 @@ async function handleDiscussTurnOneCall({
           totalOutputTokens += compaction.usage?.outputTokens ?? 0;
         }
 
-        await addEnergyUsage(
+        await chargeEnergyForAiUsage({
           userId,
-          totalInputTokens,
-          totalOutputTokens,
-          "discuss_turn",
-        );
+          modelId: discussModelId,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          reason: "discuss_turn",
+        });
 
         writer.write({ type: "finish" });
       },

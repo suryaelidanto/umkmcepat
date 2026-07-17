@@ -260,6 +260,7 @@ export function WorkspaceShell({
   const isPreparingNextQuestionRef = useRef(false);
   const workspaceCardRef = useRef(initialWorkspaceCard);
   const preparingPollRef = useRef<(() => void) | null>(null);
+  const loadWorkspaceStateRequestIdRef = useRef(0);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
   // Survives refresh: if user sent visual comments, clear them when server job ends OK.
@@ -595,6 +596,8 @@ export function WorkspaceShell({
         return;
       }
 
+      const requestId = ++loadWorkspaceStateRequestIdRef.current;
+
       const response = await fetch(`/api/projects/${projectId}/workspace`, {
         cache: "no-store",
       });
@@ -604,6 +607,11 @@ export function WorkspaceShell({
       }
 
       const result = (await response.json()) as WorkspaceStateResponse;
+
+      // Discard if a later call already resolved (avoids stale data winning a race).
+      if (requestId !== loadWorkspaceStateRequestIdRef.current) {
+        return result;
+      }
 
       if (isPreparingNextQuestionRef.current) {
         if (
@@ -818,8 +826,9 @@ export function WorkspaceShell({
             void loadRuntimeState();
             setBuildProgress((current) =>
               addBuildProgressStep(current, {
-                detail:
-                  "Build berhenti sebelum tampilan website siap. Coba ulangi build.",
+                detail: data.detail
+                  ? `Build berhenti sebelum tampilan website siap: ${data.detail}`
+                  : "Build berhenti sebelum tampilan website siap. Coba ulangi build.",
                 label: "Build belum selesai",
                 status: "error",
               }),

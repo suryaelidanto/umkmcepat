@@ -20,4 +20,8 @@ export async function register() {
   assertProductionConfigReady();
   await assertProjectArtifactStorageReady();
   await import("@/lib/ai-observability");
+
+  // Warm OpenRouter pricing cache + schedule 24h refresh (non-blocking).
+  const { startModelPricingRefresh } = await import("@/lib/model-pricing");
+  startModelPricingRefresh();
 }

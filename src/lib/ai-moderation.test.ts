@@ -20,6 +20,7 @@ describe("moderateProjectRequest", () => {
 
     await expect(moderateProjectRequest("jual kopi")).resolves.toEqual({
       allowed: true,
+      modelId: "umkmcepat-combo",
       usage: { inputTokens: 10, outputTokens: 1 },
     });
   });
@@ -32,6 +33,7 @@ describe("moderateProjectRequest", () => {
 
     await expect(moderateProjectRequest("bad")).resolves.toMatchObject({
       allowed: false,
+      modelId: "umkmcepat-combo",
       usage: { inputTokens: 8, outputTokens: 1 },
     });
   });
@@ -44,6 +46,7 @@ describe("moderateProjectRequest", () => {
 
     await expect(moderateProjectRequest("jual teh kosong")).resolves.toEqual({
       allowed: true,
+      modelId: "umkmcepat-combo",
       usage: { inputTokens: 5, outputTokens: 0 },
     });
   });

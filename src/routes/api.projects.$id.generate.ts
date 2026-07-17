@@ -52,7 +52,7 @@ import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generatio
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
-  addEnergyUsage,
+  chargeEnergyForAiUsage,
   checkEnergy,
   isUserVerified,
   MIN_ENERGY_BUILD,
@@ -306,6 +306,38 @@ async function handleGeneratePost(request: Request, routeId: string) {
         }
       }
 
+      let specInputTokens = 0;
+      let specOutputTokens = 0;
+      let specModelId: string | undefined;
+      let sourceInputTokens = 0;
+      let sourceOutputTokens = 0;
+      let sourceModelId: string | undefined;
+      let energyCharged = false;
+
+      const flushGenerateEnergy = async () => {
+        if (energyCharged) return;
+        energyCharged = true;
+        const fallbackModelId = getGenerationModel();
+        if (specInputTokens > 0 || specOutputTokens > 0) {
+          await chargeEnergyForAiUsage({
+            userId,
+            modelId: specModelId || fallbackModelId,
+            inputTokens: specInputTokens,
+            outputTokens: specOutputTokens,
+            reason: "build:spec",
+          });
+        }
+        if (sourceInputTokens > 0 || sourceOutputTokens > 0) {
+          await chargeEnergyForAiUsage({
+            userId,
+            modelId: sourceModelId || fallbackModelId,
+            inputTokens: sourceInputTokens,
+            outputTokens: sourceOutputTokens,
+            reason: "build:source",
+          });
+        }
+      };
+
       try {
         send("progress", {
           label: "Memahami usaha dan target pembeli",
@@ -383,6 +415,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
               inputTokens: usage.inputTokens ?? 0,
               outputTokens: usage.outputTokens ?? 0,
               finishReason: result.finishReason,
+              modelId: result.response.modelId,
             };
           };
 
@@ -395,6 +428,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
                 spec: attempt1.spec,
                 inputTokens: attempt1.inputTokens,
                 outputTokens: attempt1.outputTokens,
+                modelId: attempt1.modelId,
               };
             }
             // Spec parsed but invalid schema — don't retry, model was wrong
@@ -429,6 +463,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
                 spec: attempt2.spec,
                 inputTokens: attempt2.inputTokens,
                 outputTokens: attempt2.outputTokens,
+                modelId: attempt2.modelId,
               };
             }
             lastError = new Error(
@@ -458,8 +493,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
           implementationSpecPrompt,
         );
         const implementationSpec = specResult.spec;
-        const specInputTokens = specResult.inputTokens;
-        const specOutputTokens = specResult.outputTokens;
+        specInputTokens = specResult.inputTokens;
+        specOutputTokens = specResult.outputTokens;
+        specModelId = specResult.modelId;
         const specLeaseRenewed = await renewProjectOperation({
           projectId,
           token: operation.token,
@@ -484,8 +520,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
           projectId: projectId,
           schema: finalSchema,
         });
-        let sourceInputTokens = sourceGeneration.usage?.inputTokens ?? 0;
-        let sourceOutputTokens = sourceGeneration.usage?.outputTokens ?? 0;
+        sourceInputTokens = sourceGeneration.usage?.inputTokens ?? 0;
+        sourceOutputTokens = sourceGeneration.usage?.outputTokens ?? 0;
+        sourceModelId = sourceGeneration.modelId;
         devLog("generate", "source.generated", {
           buildSpecLength: sourceGeneration.buildSpec.length,
           files: sourceGeneration.files.length,
@@ -632,6 +669,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
               });
               sourceInputTokens += repair.usage?.inputTokens ?? 0;
               sourceOutputTokens += repair.usage?.outputTokens ?? 0;
+              if (repair.modelId) sourceModelId = repair.modelId;
               sourceFiles = repair.files;
 
               await prisma.projectSnapshot.update({
@@ -825,14 +863,8 @@ async function handleGeneratePost(request: Request, routeId: string) {
         });
         runtimeBuildFinalized = true;
 
-        if (finalBuildResult.ok) {
-          await addEnergyUsage(
-            userId,
-            specInputTokens + sourceInputTokens,
-            specOutputTokens + sourceOutputTokens,
-            "build",
-          );
-        }
+        // Charge whether build ok or not — AI tokens already spent.
+        await flushGenerateEnergy();
 
         await Promise.allSettled([
           prisma.runtimeEvent.create({
@@ -887,17 +919,20 @@ async function handleGeneratePost(request: Request, routeId: string) {
         devLog("generate", "done", { projectId: projectId });
         send("done", finalSchema);
       } catch (error) {
+        const rawErrorMessage =
+          error instanceof Error ? error.message : String(error);
         devLog("generate", "error", {
-          error: error instanceof Error ? error.message : String(error),
+          error: rawErrorMessage,
           projectId: projectId,
         });
+        const logText = `Build route failed before completion: ${rawErrorMessage}`;
         if (runtimeBuildId && !runtimeBuildFinalized) {
           await prisma.projectBuild
             .update({
               where: { id: runtimeBuildId },
               data: {
                 finishedAt: new Date(),
-                logText: "Build route failed before completion.",
+                logText,
                 status: "failed" satisfies ProjectBuildStatus,
               },
             })
@@ -906,7 +941,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
             .create({
               data: createRuntimeEventData({
                 buildId: runtimeBuildId,
-                message: "Build route failed before completion.",
+                message: logText,
                 projectId: projectId,
                 type: "build.failed",
               }),
@@ -927,14 +962,19 @@ async function handleGeneratePost(request: Request, routeId: string) {
               status: { in: ["generating", "building"] },
             },
             data: {
-              errorMessage: "Build failed before completion.",
+              errorMessage: logText,
               finishedAt: new Date(),
               status: "failed",
             },
           }),
         ]);
-        send("error", { message: "AI belum bisa membangun website ini." });
+        send("error", {
+          message: "AI belum bisa membangun website ini.",
+          detail: rawErrorMessage,
+        });
       } finally {
+        // Always debit if AI already ran (success or failure).
+        await flushGenerateEnergy();
         controller.close();
       }
     },

@@ -104,8 +104,8 @@ export function EnergyDisplay() {
         `Energi: ${formatNumber(stats.remaining)}/${formatNumber(stats.limit)}`,
         `Terpakai: ${formatNumber(stats.used)}`,
         `Input: ${formatNumber(stats.inputTokens)} token`,
-        `Output: ${formatNumber(stats.outputTokens)} token (×2 energi)`,
-        "Rumus: input + (2 × output)",
+        `Output: ${formatNumber(stats.outputTokens)} token`,
+        "Energi = biaya model (USD) × 1.000.000",
         `Reset ${resetLabel} (WIB)`,
         energyQuery.isFetching ? "Memperbarui…" : "",
       ]

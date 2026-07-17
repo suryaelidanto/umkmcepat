@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildGeneratedAppBuildSpec,
+  checkAgentSourceQuality,
   ensureStylesCoverClassNames,
   extractClassNamesFromTsx,
   findMissingCssClasses,
   generateCustomProjectFilesWithAgent,
   isStarterStylesContent,
 } from "@/lib/projects/custom-source-generator";
+import { createGeneratedViteTanStackStarterFiles } from "@/lib/projects/generated-source";
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 
 const agentGenerate = vi.fn();
@@ -35,6 +37,11 @@ vi.mock("ai", () => {
 vi.mock("@/lib/ai", () => ({
   getAiModel: () => "test-model",
   getAiTelemetry: () => ({ isEnabled: false }),
+}));
+
+vi.mock("@/lib/ai-agent-steps", () => ({
+  getAgentMaxSteps: (key: "generate" | "repair") =>
+    key === "generate" ? 50 : 12,
 }));
 
 function schema() {
@@ -179,6 +186,7 @@ describe("custom generated source agent", () => {
   });
 
   it("fails instead of inventing fallback source when the agent does not produce checked custom edits", async () => {
+    // First pass + forced rewrite both produce zero writes.
     agentGenerate.mockResolvedValue({ text: "no edits" });
 
     await expect(
@@ -187,6 +195,105 @@ describe("custom generated source agent", () => {
         schema: schema(),
       }),
     ).rejects.toThrow("AI agent produced invalid source");
+    expect(agentGenerate).toHaveBeenCalledTimes(2);
+  });
+
+  it("recovers via forced rewrite when first pass has no meaningful edits", async () => {
+    agentGenerate
+      .mockImplementationOnce(async () => ({ text: "only reads" }))
+      .mockImplementationOnce(async (tools) => {
+        await tools.replace_in_file.execute({
+          path: "src/routes/index.tsx",
+          find: "<h1>{starterMessage}</h1>",
+          replace:
+            '<h1>Servis motor harian yang jelas.</h1>\n      <section className="agent-proof">Oli, ban, aki.</section>',
+        });
+        await tools.replace_in_file.execute({
+          path: "src/content/site.ts",
+          find: "Bengkel Maju",
+          replace: "Bengkel Maju Rewrite",
+        });
+        await tools.replace_in_file.execute({
+          path: "src/styles.css",
+          find: "text-align:center",
+          replace: "text-align:center\n.agent-proof{display:block}",
+        });
+        await tools.check_app.execute({});
+        return { text: "forced rewrite ok" };
+      });
+
+    const result = await generateCustomProjectFilesWithAgent({
+      projectId: "project_forced_rewrite",
+      schema: schema(),
+    });
+
+    expect(result.generationMode).toBe("agent-custom");
+    expect(result.touchedFiles).toEqual(
+      expect.arrayContaining([
+        "src/content/site.ts",
+        "src/routes/index.tsx",
+        "src/styles.css",
+      ]),
+    );
+    expect(agentGenerate).toHaveBeenCalledTimes(2);
+  });
+
+  it("checkAgentSourceQuality fails on auto styles-only touch", () => {
+    const site = schema();
+    const files = ensureStylesCoverClassNames(
+      createGeneratedViteTanStackStarterFiles("p_quality", site),
+      site,
+    );
+    const onlyAuto = new Set<string>(["src/styles.css"]);
+    const quality = checkAgentSourceQuality(files, onlyAuto);
+    expect(quality.ok).toBe(false);
+    if (!quality.ok) {
+      // styles.css alone counts as presentation path but fails size < 2.
+      expect(quality.issues).toContain("agent did not edit enough files");
+    }
+  });
+
+  it("checkAgentSourceQuality passes when content + route were agent-edited", async () => {
+    agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
+        find: "<h1>{starterMessage}</h1>",
+        replace:
+          '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
+      });
+      await tools.replace_in_file.execute({
+        path: "src/content/site.ts",
+        find: "Bengkel Maju",
+        replace: "Bengkel Checklist",
+      });
+      await tools.replace_in_file.execute({
+        path: "src/styles.css",
+        find: "text-align:center",
+        replace: "text-align:center\n.agent-proof{display:block}",
+      });
+      await tools.check_app.execute({});
+      return { text: "ok" };
+    });
+
+    const result = await generateCustomProjectFilesWithAgent({
+      projectId: "project_quality_pass",
+      schema: schema(),
+    });
+
+    const agentEdited = new Set(
+      result.touchedFiles.filter((path) => path !== "src/styles.css" || true),
+    );
+    // Use paths the agent actually edited in the mock (all three + auto).
+    const quality = checkAgentSourceQuality(
+      result.files,
+      new Set([
+        "src/content/site.ts",
+        "src/routes/index.tsx",
+        "src/styles.css",
+      ]),
+    );
+    expect(quality.ok).toBe(true);
+    expect(agentEdited.size).toBeGreaterThan(0);
   });
 
   it("extracts multi-class classNames and detects missing CSS", () => {

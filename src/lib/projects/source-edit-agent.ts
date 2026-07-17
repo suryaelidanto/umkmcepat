@@ -125,6 +125,10 @@ export async function editGeneratedSourceWithAgent({
   return {
     ...finalCheck,
     files: currentFiles,
+    modelId:
+      "response" in result && result.response
+        ? result.response.modelId
+        : model || getDefaultAiModel(),
     operations: operationTrace.length ? operationTrace : finalCheck.operations,
     sideEffects,
     usage: {

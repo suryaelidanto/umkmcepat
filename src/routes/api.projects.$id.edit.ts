@@ -39,7 +39,7 @@ import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
-  addEnergyUsage,
+  chargeEnergyForAiUsage,
   checkEnergy,
   isUserVerified,
   MIN_ENERGY_EDIT,
@@ -416,10 +416,24 @@ async function handleEditPost(request: Request, routeId: string) {
     }
   }
 
-  try {
-    let totalEditInputTokens = 0;
-    let totalEditOutputTokens = 0;
+  let totalEditInputTokens = 0;
+  let totalEditOutputTokens = 0;
+  let editModelId: string | undefined;
+  let energyCharged = false;
 
+  const flushEditEnergy = async () => {
+    if (energyCharged) return;
+    energyCharged = true;
+    await chargeEnergyForAiUsage({
+      userId,
+      modelId: editModelId || getDefaultAiModel(),
+      inputTokens: totalEditInputTokens,
+      outputTokens: totalEditOutputTokens,
+      reason: "edit_turn",
+    });
+  };
+
+  try {
     persistEditProgress({
       detail: "AI menerapkan revisi ke source website.",
       title: "Merevisi website",
@@ -432,6 +446,7 @@ async function handleEditPost(request: Request, routeId: string) {
     });
     totalEditInputTokens += editResult.usage?.inputTokens ?? 0;
     totalEditOutputTokens += editResult.usage?.outputTokens ?? 0;
+    if (editResult.modelId) editModelId = editResult.modelId;
     devLog("edit", "tools.finished", {
       ok: editResult.ok,
       operations: editResult.operations.length,
@@ -453,6 +468,7 @@ async function handleEditPost(request: Request, routeId: string) {
       });
       totalEditInputTokens += fallbackResult.usage?.inputTokens ?? 0;
       totalEditOutputTokens += fallbackResult.usage?.outputTokens ?? 0;
+      if (fallbackResult.modelId) editModelId = fallbackResult.modelId;
 
       if (fallbackResult.ok) {
         editResult.files = fallbackResult.files;
@@ -488,6 +504,7 @@ async function handleEditPost(request: Request, routeId: string) {
         operation.token,
       );
 
+      await flushEditEnergy();
       return Response.json(
         {
           attemptId: attempt.id,
@@ -527,6 +544,7 @@ async function handleEditPost(request: Request, routeId: string) {
       });
       totalEditInputTokens += repairResult.usage?.inputTokens ?? 0;
       totalEditOutputTokens += repairResult.usage?.outputTokens ?? 0;
+      if (repairResult.modelId) editModelId = repairResult.modelId;
 
       if (repairResult.ok) {
         editResult.files = repairResult.files;
@@ -580,6 +598,7 @@ async function handleEditPost(request: Request, routeId: string) {
         operation.token,
       );
 
+      await flushEditEnergy();
       return Response.json(
         {
           attemptId: attempt.id,
@@ -792,14 +811,8 @@ async function handleEditPost(request: Request, routeId: string) {
       ]);
     }
 
-    if (buildResult.status === "succeeded") {
-      await addEnergyUsage(
-        userId,
-        totalEditInputTokens,
-        totalEditOutputTokens,
-        "edit_turn",
-      );
-    }
+    // Charge whether build ok or not — AI tokens already spent.
+    await flushEditEnergy();
 
     return Response.json({
       attemptId: attempt.id,
@@ -813,6 +826,8 @@ async function handleEditPost(request: Request, routeId: string) {
       error: error instanceof Error ? error.name : "unknown",
       projectId: project.id,
     });
+
+    await flushEditEnergy();
 
     await Promise.allSettled([
       updateProjectEditAttempt(attempt.id, {
