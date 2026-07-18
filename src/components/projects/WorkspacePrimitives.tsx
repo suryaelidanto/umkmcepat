@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Check,
   Code2,
   ExternalLink,
   Globe2,
@@ -1085,20 +1086,30 @@ export function QuestionComposer({
                   ) : null}
                 </span>
                 <span
-                  className={`mt-1 grid size-4 shrink-0 place-items-center border transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? "text-[#10100f]" : "border-surface-warm-white/24 group-hover:border-surface-warm-white/48"}`}
+                  className={`mt-1 grid size-5 shrink-0 place-items-center border-2 transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? "" : "border-surface-warm-white/24 bg-transparent group-hover:border-surface-warm-white/48"}`}
                   style={
                     isSelected
                       ? {
-                          backgroundColor: modeTone.accent,
+                          backgroundColor: isMultiple
+                            ? modeTone.accent
+                            : "transparent",
                           borderColor: modeTone.accent,
                         }
                       : undefined
                   }
                 >
                   {isSelected ? (
-                    <span className="text-[10px] leading-none">
-                      {isMultiple ? "✓" : "•"}
-                    </span>
+                    isMultiple ? (
+                      <Check
+                        className="size-3 text-[#10100f]"
+                        strokeWidth={3}
+                      />
+                    ) : (
+                      <span
+                        className="size-2.5 rounded-full"
+                        style={{ backgroundColor: modeTone.accent }}
+                      />
+                    )
                   ) : null}
                 </span>
               </button>
