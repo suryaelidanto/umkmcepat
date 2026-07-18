@@ -1,3 +1,5 @@
+import { Plus, X } from "lucide-react";
+
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { SponsorTable } from "@/components/home/SponsorTable";
 import { Image } from "@/components/ui/image";
@@ -177,73 +179,43 @@ async function getTopContributors(): Promise<ContributorCard[]> {
   }
 }
 
-function ContributionChart({
+function MiniChart({
   weeks,
   maxCommits,
 }: {
   weeks: ContributionWeek[];
   maxCommits: number;
 }) {
-  const yLabels = [40, 20, 0];
-
   return (
-    <div className="mt-spacing-5 rounded-[14px] border border-surface-warm-white/12 bg-[#0f1218] px-spacing-4 pb-spacing-5 pt-spacing-4">
-      <div className="grid grid-cols-[1fr_34px] gap-spacing-3">
-        <div className="relative h-28">
-          <div className="absolute inset-x-0 top-0 border-t border-dashed border-surface-warm-white/12" />
-          <div className="absolute inset-x-0 top-1/3 border-t border-dashed border-surface-warm-white/12" />
-          <div className="absolute inset-x-0 top-2/3 border-t border-dashed border-surface-warm-white/12" />
-          <div className="absolute inset-x-0 bottom-0 border-t border-surface-warm-white/24" />
-          <div className="absolute inset-y-0 left-1/4 border-l border-dashed border-surface-warm-white/10" />
-          <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-surface-warm-white/10" />
-          <div className="absolute inset-y-0 left-3/4 border-l border-dashed border-surface-warm-white/10" />
-
-          <div className="relative flex h-full items-end gap-spacing-2">
-            {weeks.map((week) => {
-              const height = maxCommits
-                ? Math.max(
-                    (week.commits / maxCommits) * 100,
-                    week.commits ? 8 : 3,
-                  )
-                : 3;
-
-              return (
-                <div
-                  key={`${week.label}-${week.commits}`}
-                  className="group/bar relative flex h-full min-w-0 flex-1 items-end"
-                >
-                  <div
-                    className="w-full rounded-t-[3px] bg-github-blue-deep transition group-hover/bar:bg-github-blue"
-                    style={{ height: `${height}%` }}
-                  />
-                  <div className="pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 z-10 w-36 -translate-x-1/2 rounded-radius-md border border-foreground-primary/10 bg-surface-warm-white px-spacing-4 py-spacing-3 text-xs text-foreground-primary opacity-0 ring-1 ring-foreground-primary/5 transition group-hover/bar:opacity-100">
-                    <p className="font-semibold">{week.label}</p>
-                    <p className="mt-spacing-1">{week.commits} commit</p>
-                    <p className="mt-spacing-1 text-github-blue-deep">
-                      {formatCompact(week.additions)} ++
-                    </p>
-                    <p className="text-github-red">
-                      {formatCompact(week.deletions)} --
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+    <div className="mt-spacing-5 flex h-16 items-end gap-spacing-1.5">
+      {weeks.map((week) => {
+        const height = maxCommits
+          ? Math.max((week.commits / maxCommits) * 100, week.commits ? 8 : 3)
+          : 3;
+        return (
+          <div
+            key={`${week.label}-${week.commits}`}
+            className="group/bar relative flex h-full min-w-0 flex-1 items-end"
+          >
+            <div
+              className="w-full rounded-t-[2px] bg-github-blue-deep transition-transform duration-150 group-hover/bar:scale-x-125 group-hover/bar:bg-github-blue"
+              style={{ height: `${height}%` }}
+            />
+            <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-32 -translate-x-1/2 scale-95 rounded-md border border-white/10 bg-[#1c1c1a] px-spacing-3 py-spacing-2 text-xs text-surface-warm-white opacity-0 shadow-[0_12px_32px_rgba(0,0,0,0.45)] transition duration-150 group-hover/bar:scale-100 group-hover/bar:opacity-100">
+              <p className="font-semibold">{week.label}</p>
+              <p className="mt-spacing-1 text-surface-warm-white/68">
+                {week.commits} commit
+              </p>
+              <p className="mt-spacing-1">
+                <span className="text-github-blue">+{week.additions}</span>
+                <span className="ml-spacing-2 text-github-red">
+                  -{week.deletions}
+                </span>
+              </p>
+            </div>
           </div>
-        </div>
-
-        <div className="flex h-28 flex-col items-start justify-between text-xs text-surface-warm-white/62">
-          {yLabels.map((label) => (
-            <span key={label}>{label}</span>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-spacing-4 grid grid-cols-3 pl-spacing-4 pr-12 text-xs text-surface-warm-white/50">
-        <span>{weeks[0]?.monthLabel}</span>
-        <span className="text-center">{weeks[4]?.monthLabel}</span>
-        <span className="text-right">{weeks[8]?.monthLabel}</span>
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -284,7 +256,7 @@ export function CommunitySection({
                   href={ALL_CONTRIBUTORS_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex w-fit items-center justify-center rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white/8 px-spacing-6 py-spacing-4 text-sm font-semibold text-surface-warm-white transition hover:bg-surface-warm-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
+                  className="inline-flex w-fit items-center justify-center rounded-md border border-white/14 bg-transparent px-spacing-6 py-spacing-4 text-sm font-semibold text-surface-warm-white transition hover:bg-white/[0.06]"
                 >
                   Lihat semua kontributor
                 </a>
@@ -292,7 +264,7 @@ export function CommunitySection({
                   href={REPOSITORY_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex w-fit items-center justify-center rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white px-spacing-6 py-spacing-4 text-sm font-semibold text-foreground-primary transition hover:bg-surface-warm-white/86 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
+                  className="inline-flex w-fit items-center justify-center rounded-md bg-white px-spacing-6 py-spacing-4 text-sm font-semibold text-[#141413] transition hover:bg-white/90"
                 >
                   Buka Github
                 </a>
@@ -300,77 +272,55 @@ export function CommunitySection({
             </div>
 
             {contributors.length ? (
-              <div className="mt-spacing-8 grid gap-spacing-5 md:grid-cols-3">
+              <div className="mt-spacing-8 divide-y divide-white/[0.07] border-t border-white/[0.07]">
                 {contributors.map((contributor, index) => (
-                  <article
+                  <div
                     key={contributor.login}
-                    className="group rounded-[30px] border border-surface-warm-white/12 bg-[#242422] p-spacing-6 text-left ring-1 ring-surface-warm-white/5 transition hover:bg-[#282826]"
+                    className="flex flex-col gap-spacing-5 py-spacing-6 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="flex items-start justify-between gap-spacing-5">
-                      <div className="flex min-w-0 items-center gap-spacing-4">
-                        <Image
-                          src={contributor.avatarUrl}
-                          alt={`Foto profil ${contributor.login}`}
-                          width={52}
-                          height={52}
-                          className="size-[52px] rounded-full border border-surface-warm-white/12 bg-surface-warm-white/10"
-                          unoptimized
-                        />
-                        <div className="min-w-0">
-                          <a
-                            href={contributor.profileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="truncate text-lg font-semibold text-github-blue transition hover:underline"
-                          >
-                            {contributor.login}
-                          </a>
-                          <p className="mt-spacing-1 text-xs text-surface-warm-white/58">
-                            <span>{contributor.recentCommits} commits</span>
-                            <span className="ml-spacing-3 text-github-blue">
-                              {formatCompact(contributor.recentAdditions)} ++
-                            </span>
-                            <span className="ml-spacing-3 text-github-red">
-                              {formatCompact(contributor.recentDeletions)} --
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-                      <span className="rounded-full border border-surface-warm-white/10 bg-[#151515] px-spacing-3 py-spacing-2 text-xs font-semibold text-surface-warm-white/72">
+                    <div className="flex min-w-0 items-center gap-spacing-4">
+                      <span className="w-5 shrink-0 text-sm text-surface-warm-white/40">
                         #{index + 1}
                       </span>
+                      <Image
+                        src={contributor.avatarUrl}
+                        alt={`Foto profil ${contributor.login}`}
+                        width={40}
+                        height={40}
+                        className="size-10 shrink-0 rounded-full"
+                        unoptimized
+                      />
+                      <div className="min-w-0">
+                        <a
+                          href={contributor.profileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="truncate text-base font-semibold text-surface-warm-white transition hover:underline"
+                        >
+                          {contributor.login}
+                        </a>
+                        <p className="mt-spacing-1 text-xs text-surface-warm-white/50">
+                          <span>{contributor.recentCommits} commits</span>
+                          <span className="ml-spacing-3 text-github-blue">
+                            +{formatCompact(contributor.recentAdditions)}
+                          </span>
+                          <span className="ml-spacing-2 text-github-red">
+                            -{formatCompact(contributor.recentDeletions)}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-
-                    <ContributionChart
-                      weeks={contributor.weeks}
-                      maxCommits={maxCommits}
-                    />
-                  </article>
+                    <div className="w-full sm:w-48">
+                      <MiniChart
+                        weeks={contributor.weeks}
+                        maxCommits={maxCommits}
+                      />
+                    </div>
+                  </div>
                 ))}
-                {contributors.length < 3 ? (
-                  <a
-                    href={REPOSITORY_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex min-h-64 flex-col justify-between rounded-[30px] border border-dashed border-surface-warm-white/14 bg-surface-warm-white/[0.035] p-spacing-6 text-left transition hover:bg-surface-warm-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/70"
-                  >
-                    <div>
-                      <p className="text-lg font-semibold text-surface-warm-white">
-                        Ikut bantu proyek ini
-                      </p>
-                      <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/68">
-                        Lihat repo, buka issue, atau kirim pull request kalau
-                        ada yang ingin kamu rapikan.
-                      </p>
-                    </div>
-                    <span className="text-sm font-semibold text-surface-warm-white underline decoration-surface-warm-white/24 underline-offset-4">
-                      Buka Github
-                    </span>
-                  </a>
-                ) : null}
               </div>
             ) : (
-              <div className="mt-spacing-8 rounded-[28px] border border-dashed border-surface-warm-white/14 bg-[#1f1f1d] p-spacing-7 text-sm leading-6 text-surface-warm-white/68">
+              <div className="mt-spacing-8 border-t border-white/[0.07] pt-spacing-7 text-sm leading-6 text-surface-warm-white/68">
                 Data kontributor belum bisa dibaca. Tambahkan GITHUB_TOKEN di
                 env server untuk menaikkan batas akses Github API.
               </div>
@@ -392,13 +342,13 @@ export function CommunitySection({
               <button
                 type="button"
                 disabled
-                className="w-fit rounded-radius-lg border border-surface-warm-white/14 bg-surface-warm-white/8 px-spacing-6 py-spacing-4 text-sm font-semibold text-surface-warm-white/44"
+                className="w-fit rounded-md border border-white/14 bg-transparent px-spacing-6 py-spacing-4 text-sm font-semibold text-surface-warm-white/44"
               >
                 Ikut sponsor
               </button>
             </div>
 
-            <SponsorTable sponsors={sponsors} />
+            <SponsorTable sponsors={sponsors} flat />
           </div>
         </ScrollReveal>
 
@@ -407,16 +357,17 @@ export function CommunitySection({
             <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
               Pertanyaan yang sering muncul
             </h2>
-            <div className="mt-spacing-8 divide-y divide-surface-warm-white/10 overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#1f1f1d]">
+            <div className="mt-spacing-8 divide-y divide-white/[0.07] border-t border-white/[0.07]">
               {faqs.map((faq) => (
                 <details key={faq.question} className="group">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-spacing-6 px-spacing-6 py-spacing-5 text-base font-semibold text-surface-warm-white outline-none transition hover:bg-surface-warm-white/[0.04] focus-visible:bg-surface-warm-white/[0.04] [&::-webkit-details-marker]:hidden">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-spacing-6 py-spacing-5 text-base font-semibold text-surface-warm-white outline-none transition [&::-webkit-details-marker]:hidden">
                     {faq.question}
-                    <span className="grid size-7 shrink-0 place-items-center rounded-full border border-surface-warm-white/12 text-surface-warm-white/62 transition group-open:rotate-45">
-                      +
+                    <span className="relative grid size-6 shrink-0 place-items-center text-surface-warm-white/50">
+                      <Plus className="absolute size-4 transition-all duration-300 ease-out group-open:rotate-90 group-open:opacity-0" />
+                      <X className="absolute size-4 -rotate-90 opacity-0 transition-all duration-300 ease-out group-open:rotate-0 group-open:opacity-100" />
                     </span>
                   </summary>
-                  <p className="px-spacing-6 pb-spacing-6 text-sm leading-6 text-surface-warm-white/68">
+                  <p className="pb-spacing-6 text-sm leading-6 text-surface-warm-white/68">
                     {faq.answer}
                   </p>
                 </details>

@@ -152,7 +152,6 @@ function HomePage() {
     initialNextCursor,
     initialProjects,
   } = Route.useLoaderData();
-
   async function deleteProject(formData: FormData) {
     const projectId = formData.get("projectId");
     if (typeof projectId !== "string") {
