@@ -868,6 +868,17 @@ export function BuildProgressPanel({
         },
       ];
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToBottomRef = useRef(true);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element || !shouldStickToBottomRef.current) {
+      return;
+    }
+    element.scrollTop = element.scrollHeight;
+  }, [visibleSteps.length]);
+
   return (
     <div className="overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#20201d] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
@@ -886,7 +897,16 @@ export function BuildProgressPanel({
         </div>
       </div>
 
-      <div className="space-y-spacing-3 p-spacing-5">
+      <div
+        ref={scrollRef}
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          const distanceFromBottom =
+            element.scrollHeight - element.scrollTop - element.clientHeight;
+          shouldStickToBottomRef.current = distanceFromBottom < 20;
+        }}
+        className="max-h-96 space-y-spacing-3 overflow-y-auto p-spacing-5"
+      >
         <AnimatePresence initial={false}>
           {visibleSteps.map((step, index) => {
             const status = step.status || "active";
