@@ -1,4 +1,4 @@
-export const PROJECT_PAGE_SIZE = 3;
+export const PROJECT_PAGE_SIZE = 6;
 
 const MAX_CURSOR_LENGTH = 512;
 
