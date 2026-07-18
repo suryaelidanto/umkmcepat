@@ -117,7 +117,7 @@ export function ProfileNameForm({
         <AvatarFrame
           image={imagePreview}
           initial={initial}
-          className="grid size-24 place-items-center border border-surface-warm-white/12 bg-surface-warm-white/8 text-3xl font-semibold text-surface-warm-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+          className="grid size-20 place-items-center border border-white/10 bg-white/[0.04] text-2xl font-semibold text-surface-warm-white"
         />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-surface-warm-white">
@@ -128,7 +128,7 @@ export function ProfileNameForm({
               type="button"
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-radius-lg border-surface-warm-white/12 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12"
+              className="rounded-md border border-white/14 bg-transparent text-surface-warm-white hover:bg-white/[0.06]"
             >
               <Camera className="size-4" />
               Ganti foto
@@ -145,7 +145,7 @@ export function ProfileNameForm({
         </div>
       </div>
 
-      <div>
+      <div className="border-t border-white/[0.07] pt-spacing-7">
         <label
           htmlFor="profile-name"
           className="text-sm font-medium text-surface-warm-white"
@@ -159,18 +159,18 @@ export function ProfileNameForm({
           onChange={(event) => setName(event.target.value)}
           maxLength={100}
           autoComplete="name"
-          className="mt-spacing-3 w-full rounded-radius-lg border border-surface-warm-white/10 bg-[#1b1b19] px-spacing-6 py-spacing-5 text-base text-surface-warm-white outline-none transition placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28 focus:ring-2 focus:ring-surface-warm-white/10"
+          className="mt-spacing-3 w-full rounded-lg border border-white/10 bg-transparent px-spacing-5 py-spacing-4 text-base text-surface-warm-white outline-none transition placeholder:text-surface-warm-white/34 focus:border-white/30 focus:ring-1 focus:ring-white/20"
           placeholder="Nama kamu"
         />
       </div>
 
       {error ? <p className="text-sm text-[#ffb4a6]">{error}</p> : null}
 
-      <div className="flex flex-col-reverse gap-spacing-3 sm:flex-row sm:items-center sm:justify-end">
+      <div className="flex justify-end border-t border-white/[0.07] pt-spacing-7">
         <Button
           type="submit"
           disabled={!isChanged || isSaving}
-          className="rounded-radius-lg bg-surface-warm-white px-spacing-8 text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
+          className="rounded-lg bg-white px-spacing-8 text-[#141413] hover:bg-white/90 disabled:opacity-40"
         >
           {isSaving ? (
             <>

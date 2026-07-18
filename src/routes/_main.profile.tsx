@@ -2,7 +2,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
 import { ProfileNameForm } from "@/components/profile/ProfileNameForm";
-import { DarkCard, DarkPage } from "@/components/ui/surface";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toPublicProfileImage } from "@/lib/profile";
@@ -38,15 +37,13 @@ function ProfilePage() {
   const { initialImage, initialName } = Route.useLoaderData();
 
   return (
-    <DarkPage>
-      <section className="mx-auto w-full max-w-2xl">
-        <DarkCard>
-          <ProfileNameForm
-            initialImage={initialImage}
-            initialName={initialName}
-          />
-        </DarkCard>
+    <main className="min-h-[calc(100dvh-4rem)] bg-[#151515] px-4 py-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
+      <section className="mx-auto w-full max-w-xl">
+        <ProfileNameForm
+          initialImage={initialImage}
+          initialName={initialName}
+        />
       </section>
-    </DarkPage>
+    </main>
   );
 }
