@@ -337,6 +337,117 @@
       );
   }
 
+  /* Floating orbs hero (shipped from prototype B). */
+  @keyframes hero-aurora-drift-a {
+    0%,
+    100% {
+      transform: translate3d(-4%, 2%, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(6%, -5%, 0) scale(1.08);
+    }
+  }
+
+  @keyframes hero-aurora-drift-b {
+    0%,
+    100% {
+      transform: translate3d(5%, -3%, 0) scale(1.05);
+    }
+    50% {
+      transform: translate3d(-7%, 6%, 0) scale(0.95);
+    }
+  }
+
+  @keyframes hero-aurora-drift-c {
+    0%,
+    100% {
+      transform: translate3d(0%, 4%, 0) scale(1);
+    }
+    33% {
+      transform: translate3d(-5%, -4%, 0) scale(1.1);
+    }
+    66% {
+      transform: translate3d(7%, 2%, 0) scale(0.98);
+    }
+  }
+
+  @keyframes hero-aurora-breathe {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.12);
+    }
+  }
+
+  .hero-aurora-orbs {
+    background: #151515;
+  }
+
+  .hero-aurora-orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(64px);
+    will-change: transform, opacity;
+  }
+
+  .hero-aurora-orb-1 {
+    width: 55vmax;
+    height: 55vmax;
+    left: -10%;
+    top: 20%;
+    background: radial-gradient(
+      circle,
+      rgba(47, 140, 255, 0.75) 0%,
+      transparent 68%
+    );
+    animation: hero-aurora-drift-a 18s ease-in-out infinite;
+  }
+
+  .hero-aurora-orb-2 {
+    width: 48vmax;
+    height: 48vmax;
+    right: -8%;
+    top: 10%;
+    background: radial-gradient(
+      circle,
+      rgba(120, 103, 255, 0.7) 0%,
+      transparent 68%
+    );
+    animation: hero-aurora-drift-b 22s ease-in-out infinite;
+  }
+
+  .hero-aurora-orb-3 {
+    width: 60vmax;
+    height: 40vmax;
+    left: 15%;
+    bottom: -15%;
+    background: radial-gradient(
+      ellipse,
+      rgba(238, 79, 155, 0.65) 0%,
+      rgba(247, 164, 65, 0.45) 45%,
+      transparent 70%
+    );
+    animation: hero-aurora-drift-c 16s ease-in-out infinite;
+  }
+
+  .hero-aurora-orb-core {
+    width: 40vmax;
+    height: 40vmax;
+    left: 50%;
+    top: 0;
+    margin-left: -20vmax;
+    background: radial-gradient(
+      circle,
+      rgba(21, 21, 21, 0.95) 0%,
+      transparent 70%
+    );
+    animation: hero-aurora-breathe 10s ease-in-out infinite;
+  }
+
   .hero-aurora-static-vignette {
     position: absolute;
     inset: 0;
@@ -346,6 +457,12 @@
       rgba(10, 10, 10, 0.38) 18%,
       transparent 42%
     );
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-aurora-orb {
+      animation: none !important;
+    }
   }
 
   .type-display-hero {

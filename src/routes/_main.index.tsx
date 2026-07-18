@@ -10,6 +10,7 @@ import {
   HeroContentMotion,
   HeroMotionItem,
 } from "@/components/home/HeroContentMotion";
+import { PromptFormSwitcher } from "@/components/home/prototype/PromptFormSwitcher";
 import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
@@ -139,7 +140,22 @@ const deleteProjectFn = createServerFn({ method: "POST" })
     });
   });
 
+// PROTOTYPE: prompt shell variants via ?variant=A|B|C|D|E (A = current).
+const PROMPT_KEYS = new Set(["A", "B", "C", "D", "E"]);
+export type PromptShellVariant = "A" | "B" | "C" | "D" | "E";
+
 export const Route = createFileRoute("/_main/")({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): {
+    variant?: PromptShellVariant;
+  } => {
+    const raw = typeof search.variant === "string" ? search.variant : undefined;
+    if (!raw || !PROMPT_KEYS.has(raw)) {
+      return {};
+    }
+    return { variant: raw as PromptShellVariant };
+  },
   loader: () => loadHome(),
   component: HomePage,
 });
@@ -152,6 +168,8 @@ function HomePage() {
     initialNextCursor,
     initialProjects,
   } = Route.useLoaderData();
+  const search = Route.useSearch();
+  const promptShell: PromptShellVariant = search.variant ?? "A";
 
   async function deleteProject(formData: FormData) {
     const projectId = formData.get("projectId");
@@ -186,7 +204,7 @@ function HomePage() {
           </HeroMotionItem>
 
           <HeroMotionItem className="w-full">
-            <HomePromptForm />
+            <HomePromptForm appearance={promptShell} />
           </HeroMotionItem>
         </HeroContentMotion>
       </section>
@@ -219,6 +237,8 @@ function HomePage() {
           </ScrollReveal>
         </section>
       ) : null}
+
+      <PromptFormSwitcher current={promptShell} />
     </div>
   );
 }
