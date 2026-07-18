@@ -5,6 +5,7 @@ node_modules
 .pi-subagents
 .agent
 .agents
+.omc
 graphify-out
 .data
 .lighthouseci
