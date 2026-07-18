@@ -1,13 +1,13 @@
 import type { SVGProps } from "react";
 
-type MascotComp = (props: SVGProps<SVGSVGElement>) => React.ReactElement;
-
 const viewBox = "0 0 64 64";
 
 // "Kopi" — a coffee cup character, warm and grounded. Chosen mascot for
 // UMKM Cepat's onboarding guide: maps to the warung / café / barista world
 // of Indonesian small business, reads at favicon + tooltip sizes.
-export function KopiMascot(props: SVGProps<SVGSVGElement>): React.ReactElement {
+export function OnboardingMascot(
+  props: SVGProps<SVGSVGElement>,
+): React.ReactElement {
   return (
     <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" {...props}>
       <circle
@@ -49,5 +49,3 @@ export function KopiMascot(props: SVGProps<SVGSVGElement>): React.ReactElement {
     </svg>
   );
 }
-
-export const OnboardingMascot: MascotComp = KopiMascot;
