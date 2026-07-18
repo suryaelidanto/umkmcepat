@@ -4,6 +4,8 @@ import { createServerFn } from "@tanstack/react-start";
 import type { ProjectBrief, WorkspaceCard } from "@/lib/projects/brief";
 import type { UIMessage } from "ai";
 
+import { FirstBuildModal } from "@/components/onboarding/FirstBuildModal";
+import { KopiFab } from "@/components/onboarding/KopiFab";
 import { ClearProjectDraft } from "@/components/projects/ClearProjectDraft";
 import { WorkspaceShell } from "@/components/projects/WorkspaceShell";
 import { auth } from "@/lib/auth";
@@ -98,6 +100,8 @@ function ProjectPage() {
   return (
     <>
       <ClearProjectDraft />
+      <FirstBuildModal projectId={data.projectId} />
+      <KopiFab variant="workspace" />
       <WorkspaceShell
         projectId={data.projectId}
         initialTitle={data.initialTitle}
