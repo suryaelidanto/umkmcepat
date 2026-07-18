@@ -108,6 +108,7 @@ type RuntimeWorkspaceState = {
     startedAt?: string;
     steps?: Array<{
       detail: string;
+      diff?: BuildProgressStep["diff"];
       label: string;
       status?: "active" | "done" | "error";
     }>;
@@ -207,6 +208,7 @@ export function WorkspaceShell({
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishedPath, setPublishedPath] = useState<string | null>(null);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const [workspaceCard, setWorkspaceCard] =
     useState<WorkspaceCard>(initialWorkspaceCard);
@@ -529,6 +531,7 @@ export function WorkspaceShell({
         setBuildProgress(
           job.steps.map((step) => ({
             detail: step.detail,
+            diff: step.diff,
             label: step.label,
             status: step.status,
           })),
@@ -689,6 +692,31 @@ export function WorkspaceShell({
     }
   }, [isPublishing, loadRuntimeState, projectId]);
 
+  const cancelBuild = useCallback(async () => {
+    if (isCanceling) {
+      return;
+    }
+
+    setIsCanceling(true);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/cancel`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        setRuntimeError("Build belum bisa dihentikan.");
+        return;
+      }
+
+      await loadRuntimeState();
+    } catch {
+      setRuntimeError("Build belum bisa dihentikan.");
+    } finally {
+      setIsCanceling(false);
+    }
+  }, [isCanceling, loadRuntimeState, projectId]);
+
   const startBuild = useCallback(async () => {
     if (
       buildStatus === "building" ||
@@ -800,6 +828,7 @@ export function WorkspaceShell({
 
           const data = JSON.parse(dataText) as {
             detail?: string;
+            diff?: BuildProgressStep["diff"];
             label?: string;
             message?: string;
             path?: string;
@@ -827,6 +856,7 @@ export function WorkspaceShell({
                 detail: data.path
                   ? `${data.path} — ${data.detail || "Operasi selesai."}`
                   : (data.detail ?? "Operasi selesai."),
+                diff: data.diff,
                 label: title,
                 status: data.state === "failed" ? "error" : "done",
               }),
@@ -1029,7 +1059,9 @@ export function WorkspaceShell({
   });
   const runtimeControl = createRuntimeControl({
     buildStatus,
+    isCanceling,
     isPublishing,
+    onCancel: cancelBuild,
     onPublish: publishProject,
     publishedPath,
     runtimeError,
@@ -2496,7 +2528,9 @@ export function WorkspaceShell({
 
 function createRuntimeControl({
   buildStatus,
+  isCanceling,
   isPublishing,
+  onCancel,
   onPublish,
   publishedPath,
   runtimeError,
@@ -2504,7 +2538,9 @@ function createRuntimeControl({
   sourceStatus,
 }: {
   buildStatus: string;
+  isCanceling: boolean;
   isPublishing: boolean;
+  onCancel: () => void;
   onPublish: () => void;
   publishedPath: string | null;
   runtimeError: string | null;
@@ -2529,7 +2565,9 @@ function createRuntimeControl({
       runtimeBuildStatus === "succeeded" || runtimeBuildStatus === "passed",
     deploymentStatus: runtimeState?.deployment?.status ?? null,
     errorMessage: runtimeError,
+    isCanceling,
     isPublishing,
+    onCancel,
     onPublish,
     publishedPath: runtimePublishedPath,
   };

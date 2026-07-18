@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Send,
   Smartphone,
+  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
+import { type DiffLine } from "@/lib/projects/diff";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
 
@@ -34,6 +36,7 @@ export type WorkspaceAnswerPayload = {
 
 export type BuildProgressStep = {
   detail: string;
+  diff?: DiffLine[];
   label: string;
   status?: "active" | "done" | "error";
 };
@@ -43,7 +46,9 @@ export type WorkspaceRuntimeControl = {
   canPublish?: boolean;
   deploymentStatus?: string | null;
   errorMessage?: string | null;
+  isCanceling?: boolean;
   isPublishing?: boolean;
+  onCancel?: () => void;
   onPublish?: () => void;
   publishedPath?: string | null;
 };
@@ -228,6 +233,21 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
         <span className="truncate">{status.label}</span>
       </span>
 
+      {isBuildActive(runtime.buildStatus) ? (
+        <button
+          type="button"
+          disabled={runtime.isCanceling}
+          onClick={runtime.onCancel}
+          aria-label="Hentikan build"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-[#ffb4a6]/24 px-spacing-3 py-spacing-2 text-xs text-[#ffb4a6] transition hover:bg-[#ffb4a6]/10 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Square className="size-4" />
+          <span className="hidden sm:inline">
+            {runtime.isCanceling ? "Menghentikan..." : "Hentikan Build"}
+          </span>
+        </button>
+      ) : null}
+
       {runtime.publishedPath ? (
         <a
           href={runtime.publishedPath}
@@ -257,6 +277,14 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
         </button>
       )}
     </div>
+  );
+}
+
+function isBuildActive(buildStatus?: string | null) {
+  return (
+    buildStatus === "queued" ||
+    buildStatus === "running" ||
+    buildStatus === "building"
   );
 }
 
@@ -840,6 +868,17 @@ export function BuildProgressPanel({
         },
       ];
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToBottomRef = useRef(true);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element || !shouldStickToBottomRef.current) {
+      return;
+    }
+    element.scrollTop = element.scrollHeight;
+  }, [visibleSteps.length]);
+
   return (
     <div className="overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#20201d] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
@@ -858,7 +897,16 @@ export function BuildProgressPanel({
         </div>
       </div>
 
-      <div className="space-y-spacing-3 p-spacing-5">
+      <div
+        ref={scrollRef}
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          const distanceFromBottom =
+            element.scrollHeight - element.scrollTop - element.clientHeight;
+          shouldStickToBottomRef.current = distanceFromBottom < 20;
+        }}
+        className="max-h-96 space-y-spacing-3 overflow-y-auto p-spacing-5"
+      >
         <AnimatePresence initial={false}>
           {visibleSteps.map((step, index) => {
             const status = step.status || "active";
@@ -881,19 +929,66 @@ export function BuildProgressPanel({
                     className={`block ${isActive ? "size-3 animate-pulse rounded-full bg-current" : "size-2 bg-current"}`}
                   />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-surface-warm-white">
                     {step.label}
                   </p>
                   <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/54">
                     {step.detail}
                   </p>
+                  {step.diff?.length ? (
+                    <BuildProgressStepDiff diff={step.diff} />
+                  ) : null}
                 </div>
               </motion.div>
             );
           })}
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+function BuildProgressStepDiff({ diff }: { diff: DiffLine[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const changedCount = diff.filter((line) => line.type !== "normal").length;
+
+  if (!changedCount) {
+    return null;
+  }
+
+  return (
+    <div className="mt-spacing-2">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="text-xs font-medium text-surface-warm-white/60 underline-offset-2 hover:text-surface-warm-white hover:underline"
+      >
+        {isOpen ? "Sembunyikan perubahan" : `Lihat perubahan (${changedCount})`}
+      </button>
+      {isOpen ? (
+        <pre className="mt-spacing-2 max-h-64 overflow-auto rounded-[12px] border border-surface-warm-white/8 bg-black/20 p-spacing-3 text-xs leading-5">
+          {diff.map((line, index) => (
+            <div
+              key={index}
+              className={
+                line.type === "add"
+                  ? "bg-[#8ce99a]/10 text-[#8ce99a]"
+                  : line.type === "delete"
+                    ? "bg-[#ffb4a6]/10 text-[#ffb4a6]"
+                    : "text-surface-warm-white/54"
+              }
+            >
+              {line.type === "add"
+                ? "+ "
+                : line.type === "delete"
+                  ? "- "
+                  : "  "}
+              {line.text}
+            </div>
+          ))}
+        </pre>
+      ) : null}
     </div>
   );
 }

@@ -3,7 +3,28 @@ import { createFileRoute } from "@tanstack/react-router";
 import { resolveGeneratedPublicRequest } from "@/lib/generated-public-origin";
 import { prisma } from "@/lib/prisma";
 import { selectActivePublishedDeployment } from "@/lib/projects/deployment-resolution";
+import { createPreviewIssueHtml } from "@/lib/projects/preview-error-html";
 import { proxyDeploymentRequest } from "@/lib/projects/runtime-proxy";
+
+function createPublicIssueResponse({
+  detail,
+  headers,
+  status,
+  title,
+}: {
+  detail: string;
+  headers?: HeadersInit;
+  status: number;
+  title: string;
+}) {
+  return new Response(createPreviewIssueHtml({ detail, title }), {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      ...headers,
+    },
+    status,
+  });
+}
 
 export const Route = createFileRoute("/p/$slug/$")({
   server: {
@@ -15,20 +36,16 @@ export const Route = createFileRoute("/p/$slug/$")({
         const resolution = resolveGeneratedPublicRequest(request, slug, path);
 
         if (resolution.action === "disabled") {
-          return Response.json(
-            {
-              code: "generated_public_execution_unavailable",
-              message: "Website publik sedang tidak tersedia sementara.",
+          return createPublicIssueResponse({
+            detail: "Website publik sedang tidak tersedia sementara.",
+            headers: {
+              "Cache-Control": "no-store",
+              "Retry-After": "30",
+              "X-Robots-Tag": "noindex",
             },
-            {
-              status: 503,
-              headers: {
-                "Cache-Control": "no-store",
-                "Retry-After": "30",
-                "X-Robots-Tag": "noindex",
-              },
-            },
-          );
+            status: 503,
+            title: "Website sedang tidak tersedia",
+          });
         }
 
         if (resolution.action === "redirect") {
@@ -68,10 +85,11 @@ export const Route = createFileRoute("/p/$slug/$")({
         const deployment = selectActivePublishedDeployment(deployments);
 
         if (!deployment?.build?.artifactRef) {
-          return Response.json(
-            { message: "Website belum tersedia." },
-            { status: 404 },
-          );
+          return createPublicIssueResponse({
+            detail: "Website belum tersedia.",
+            status: 404,
+            title: "Website belum tersedia",
+          });
         }
 
         const response = await proxyDeploymentRequest({
@@ -83,10 +101,11 @@ export const Route = createFileRoute("/p/$slug/$")({
         });
 
         if (!response) {
-          return Response.json(
-            { message: "Website belum bisa dimulai." },
-            { status: 503 },
-          );
+          return createPublicIssueResponse({
+            detail: "Website belum bisa dimulai.",
+            status: 503,
+            title: "Website belum bisa dimulai",
+          });
         }
 
         await prisma.projectDeployment.update({
