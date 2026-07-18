@@ -303,12 +303,13 @@ export function WorkspaceShell({
     transport: new DefaultChatTransport({
       api: "/api/projects/preview",
       fetch: rateLimitAwareFetch,
-      prepareSendMessagesRequest({ messages }) {
+      prepareSendMessagesRequest({ messages, body }) {
         return {
           body: {
             message: messages[messages.length - 1],
             mode: modeRef.current,
             projectId,
+            ...body,
           },
         };
       },
