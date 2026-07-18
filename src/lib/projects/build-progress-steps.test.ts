@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   appendBuildProgressStep,
   completeBuildProgressSteps,
+  type ProgressStepLike,
 } from "./build-progress-steps";
 
 describe("appendBuildProgressStep", () => {
   it("appends same label as separate cards", () => {
-    let steps = appendBuildProgressStep([], {
+    let steps: ProgressStepLike[] = appendBuildProgressStep([], {
       detail: "a.ts",
       label: "Menulis file",
       status: "done",
@@ -31,7 +32,7 @@ describe("appendBuildProgressStep", () => {
   });
 
   it("does not cap length", () => {
-    let steps: Array<{ detail: string; label: string; status?: string }> = [];
+    let steps: ProgressStepLike[] = [];
     for (let i = 0; i < 12; i += 1) {
       steps = appendBuildProgressStep(steps, {
         detail: `f${i}`,

@@ -422,7 +422,9 @@ async function handleEditPost(request: Request, routeId: string) {
   let energyCharged = false;
 
   const flushEditEnergy = async () => {
-    if (energyCharged) return;
+    if (energyCharged) {
+      return;
+    }
     energyCharged = true;
     await chargeEnergyForAiUsage({
       userId,
@@ -446,7 +448,9 @@ async function handleEditPost(request: Request, routeId: string) {
     });
     totalEditInputTokens += editResult.usage?.inputTokens ?? 0;
     totalEditOutputTokens += editResult.usage?.outputTokens ?? 0;
-    if (editResult.modelId) editModelId = editResult.modelId;
+    if (editResult.modelId) {
+      editModelId = editResult.modelId;
+    }
     devLog("edit", "tools.finished", {
       ok: editResult.ok,
       operations: editResult.operations.length,
@@ -468,7 +472,9 @@ async function handleEditPost(request: Request, routeId: string) {
       });
       totalEditInputTokens += fallbackResult.usage?.inputTokens ?? 0;
       totalEditOutputTokens += fallbackResult.usage?.outputTokens ?? 0;
-      if (fallbackResult.modelId) editModelId = fallbackResult.modelId;
+      if (fallbackResult.modelId) {
+        editModelId = fallbackResult.modelId;
+      }
 
       if (fallbackResult.ok) {
         editResult.files = fallbackResult.files;
@@ -544,7 +550,9 @@ async function handleEditPost(request: Request, routeId: string) {
       });
       totalEditInputTokens += repairResult.usage?.inputTokens ?? 0;
       totalEditOutputTokens += repairResult.usage?.outputTokens ?? 0;
-      if (repairResult.modelId) editModelId = repairResult.modelId;
+      if (repairResult.modelId) {
+        editModelId = repairResult.modelId;
+      }
 
       if (repairResult.ok) {
         editResult.files = repairResult.files;

@@ -39,6 +39,7 @@ import {
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
 import {
+  readProjectSourceArtifact,
   writeProjectDistArtifact,
   writeProjectSourceArtifact,
 } from "@/lib/projects/runtime-artifacts";
@@ -470,6 +471,8 @@ async function handleGeneratePost(request: Request, routeId: string) {
                   onOperation(op) {
                     send("operation", op);
                   },
+                  projectId,
+                  schema: retrySchema,
                 });
                 sourceInputTokens += repair.usage?.inputTokens ?? 0;
                 sourceOutputTokens += repair.usage?.outputTokens ?? 0;
@@ -561,7 +564,11 @@ async function handleGeneratePost(request: Request, routeId: string) {
               message: "Build ulang berhasil.",
               projectId,
             });
-            void refreshProjectThumbnail(projectId).catch(() => undefined);
+            void refreshProjectThumbnail({
+              artifactRef: distRef ?? snapshot.id,
+              buildId: runtimeBuildId ?? snapshot.id,
+              projectId,
+            }).catch(() => undefined);
           } else {
             send("progress", {
               label: "Build website gagal",
