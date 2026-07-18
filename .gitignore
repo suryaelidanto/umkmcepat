@@ -84,3 +84,5 @@ _sse*.txt
 .eslintcache
 auth.env
 *.env
+
+.omc
