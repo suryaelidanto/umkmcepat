@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createInitialBrief, parseProjectBrief } from "./brief";
-import { normalizeWorkspaceTurn } from "./brief-flow";
+import { normalizeWorkspaceTurn, parseWorkspaceCard } from "./brief-flow";
 
 describe("normalizeWorkspaceTurn", () => {
   it("never throws and falls back when the tool input is empty", () => {
@@ -572,6 +572,39 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("build_recommendation");
     if (turn.workspaceCard.type === "build_recommendation") {
       expect(turn.workspaceCard.summary.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("parseWorkspaceCard questions variant", () => {
+  it("parses a valid questions[] card", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "jam_buka",
+            question: "Jam buka hari kerja?",
+            answerMode: "text",
+            options: [],
+          },
+          {
+            id: "kontak",
+            question: "Pakai apa buat order?",
+            options: [
+              { label: "WhatsApp", description: "Chat langsung." },
+              { label: "Telepon", description: "Telepon dulu." },
+            ],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions).toHaveLength(2);
+      expect(card.questions[0].id).toBe("jam_buka");
     }
   });
 });
