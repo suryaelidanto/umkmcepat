@@ -45,7 +45,9 @@ export const CONSERVATIVE_DEFAULT_PRICE: ModelPrice = {
  */
 export function normalizeOpenRouterModelId(modelId: string): string {
   let id = modelId.trim();
-  if (!id) return "unknown";
+  if (!id) {
+    return "unknown";
+  }
   const lower = id.toLowerCase();
   for (const prefix of ["openrouter/", "cmc/"]) {
     if (lower.startsWith(prefix)) {
@@ -69,12 +71,15 @@ async function fetchWithTimeout(url: string) {
 }
 
 function parsePricing(raw: unknown): ModelPrice | null {
-  const pricing = (raw as { pricing?: Record<string, string> } | null)
-    ?.pricing;
+  const pricing = (raw as { pricing?: Record<string, string> } | null)?.pricing;
   const prompt = Number(pricing?.prompt);
   const completion = Number(pricing?.completion);
-  if (!Number.isFinite(prompt) || !Number.isFinite(completion)) return null;
-  if (prompt < 0 || completion < 0) return null;
+  if (!Number.isFinite(prompt) || !Number.isFinite(completion)) {
+    return null;
+  }
+  if (prompt < 0 || completion < 0) {
+    return null;
+  }
   return { promptPrice: prompt, completionPrice: completion };
 }
 
@@ -83,7 +88,9 @@ async function fetchSingleModel(modelId: string): Promise<ModelPrice | null> {
     const res = await fetchWithTimeout(
       `${OPENROUTER_API_BASE}/model/${modelId}`,
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return null;
+    }
     const body = await res.json();
     return parsePricing(body?.data);
   } catch {
@@ -94,7 +101,9 @@ async function fetchSingleModel(modelId: string): Promise<ModelPrice | null> {
 async function fetchFromFullList(modelId: string): Promise<ModelPrice | null> {
   try {
     const res = await fetchWithTimeout(`${OPENROUTER_API_BASE}/models`);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return null;
+    }
     const body = await res.json();
     const match = (body?.data as unknown[] | undefined)?.find(
       (m) => (m as { id?: string })?.id === modelId,
@@ -107,7 +116,9 @@ async function fetchFromFullList(modelId: string): Promise<ModelPrice | null> {
 
 async function getStaleCacheRow(modelId: string): Promise<ModelPrice | null> {
   const row = await prisma.modelPricing.findUnique({ where: { modelId } });
-  if (!row) return null;
+  if (!row) {
+    return null;
+  }
   return {
     promptPrice: Number(row.promptPrice),
     completionPrice: Number(row.completionPrice),
@@ -116,7 +127,9 @@ async function getStaleCacheRow(modelId: string): Promise<ModelPrice | null> {
 
 async function getMaxKnownPrice(): Promise<ModelPrice | null> {
   const rows = await prisma.modelPricing.findMany();
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    return null;
+  }
   return {
     promptPrice: Math.max(...rows.map((r) => Number(r.promptPrice))),
     completionPrice: Math.max(...rows.map((r) => Number(r.completionPrice))),
@@ -188,7 +201,9 @@ export async function getModelPricing(modelId: string): Promise<ModelPrice> {
   }
 
   const existing = inflight.get(key);
-  if (existing) return existing;
+  if (existing) {
+    return existing;
+  }
 
   const p = refreshModelPrice(key).finally(() => {
     inflight.delete(key);
@@ -206,7 +221,9 @@ let refreshInterval: ReturnType<typeof setInterval> | undefined;
 
 /** Starts boot-time + 24h background pricing refresh. Call once at server startup. */
 export function startModelPricingRefresh(): void {
-  if (refreshInterval) return;
+  if (refreshInterval) {
+    return;
+  }
   refreshAllSeedModelPricing().catch((err) =>
     console.warn("[model-pricing] initial refresh failed", err),
   );

@@ -157,10 +157,16 @@ export async function chargeEnergyForAiUsage(opts: {
   inputTokens: number;
   outputTokens: number;
   reason: string;
-}): Promise<{ energyUsed: number; inputTokens: number; outputTokens: number } | null> {
+}): Promise<{
+  energyUsed: number;
+  inputTokens: number;
+  outputTokens: number;
+} | null> {
   const input = Math.max(0, Math.floor(opts.inputTokens));
   const output = Math.max(0, Math.floor(opts.outputTokens));
-  if (input <= 0 && output <= 0) return null;
+  if (input <= 0 && output <= 0) {
+    return null;
+  }
 
   try {
     return await addEnergyUsage(
