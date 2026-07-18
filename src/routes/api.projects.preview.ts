@@ -666,7 +666,22 @@ const presentWorkspaceCardTool = tool({
             options: z.array(z.any()).optional(),
           })
           .optional(),
-        questions: z.array(z.any()).optional(),
+        questions: z
+          .array(
+            z.object({
+              id: z.union([z.string(), z.number()]).optional(),
+              question: z.string().optional(),
+              text: z.string().optional(),
+              title: z.string().optional(),
+              answerMode: z.string().optional(),
+              selectionMode: z.string().optional(),
+              placeholder: z.string().optional(),
+              recommendedOptionLabel: z.string().optional(),
+              whyThisQuestionMatters: z.string().optional(),
+              options: z.array(z.any()).optional(),
+            }),
+          )
+          .optional(),
         actions: z.array(z.any()).optional(),
       })
       .optional(),
