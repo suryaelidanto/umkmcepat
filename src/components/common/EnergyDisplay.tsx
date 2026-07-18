@@ -22,8 +22,6 @@ function formatNumber(value: number): string {
 export function EnergyDisplay() {
   const queryClient = useQueryClient();
   const { data: session, status } = useSession();
-  // Fetch energy only once we know there's a logged-in user; logged-out and
-  // still-loading visitors never hit /api/user/credits (it 401s anyway).
   const hasUser = Boolean(session?.user) && status !== "loading";
   const energyQuery = useQuery({
     queryKey: queryKeys.energy,
@@ -85,9 +83,6 @@ export function EnergyDisplay() {
 
   const stats = energyQuery.data;
 
-  // Logged-out (or session still resolving): don't render anything, and the
-  // queries above are disabled so nothing fetches. Avoids a stray "Energi…"
-  // indicator for visitors who aren't signed in.
   if (!hasUser) {
     return null;
   }
