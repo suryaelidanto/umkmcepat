@@ -98,47 +98,51 @@ export const Route = createFileRoute("/api/projects/$id/source")({
             status: true,
           },
         });
-        const latestProjectSnapshot = await prisma.projectSnapshot.findFirst({
-          where: { projectId: project.id },
-          orderBy: { createdAt: "desc" },
-          select: {
-            createdAt: true,
-            files: true,
-            id: true,
-            metadata: true,
-            sourceRef: true,
-            sourceType: true,
-          },
-        });
         const activeDeployment = selectActivePreviewDeployment(deployments);
         const activeBuild = activeDeployment?.build;
+        const latestProjectSnapshot =
+          activeDeployment?.snapshot || latestAttempt?.snapshot
+            ? null
+            : await prisma.projectSnapshot.findFirst({
+                where: { projectId: project.id },
+                orderBy: { createdAt: "desc" },
+                select: {
+                  createdAt: true,
+                  files: true,
+                  id: true,
+                  metadata: true,
+                  sourceRef: true,
+                  sourceType: true,
+                },
+              });
         const storedFiles = await resolveProjectSourceFiles({
-          latestAttemptSnapshot: latestAttempt?.snapshot ?? null,
+          latestAttemptSnapshot:
+            activeDeployment?.snapshot ?? latestAttempt?.snapshot ?? null,
           latestProjectSnapshot,
           projectSourceFiles: sourceRow?.sourceFiles,
           readArtifact: (sourceRef) => readProjectSourceArtifact(sourceRef),
         });
         const summarySnapshot =
+          activeDeployment?.snapshot ??
           latestAttempt?.snapshot ??
           latestProjectSnapshot ??
-          activeDeployment?.snapshot ??
           null;
         return Response.json({
           projectId: project.id,
           buildLog:
-            latestAttempt?.logText ??
             activeBuild?.logText ??
+            latestAttempt?.logText ??
             sourceRow?.buildLog ??
             "",
           buildStatus: mapBuildStatusForWorkspace(
-            latestAttempt?.status ??
-              activeBuild?.status ??
+            activeBuild?.status ??
+              latestAttempt?.status ??
               sourceRow?.buildStatus,
           ),
           currentPreviewSource: summarySnapshot
             ? createSourceSummary(
                 summarySnapshot,
-                latestAttempt ?? activeBuild ?? null,
+                activeBuild ?? latestAttempt ?? null,
               )
             : null,
           files: storedFiles,

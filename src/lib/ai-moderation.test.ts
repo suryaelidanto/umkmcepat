@@ -6,6 +6,10 @@ vi.mock("@/lib/ai", () => ({
   getAiModel: vi.fn(() => "test/model"),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
 }));
+vi.mock("@/lib/ai-models", () => ({
+  DEFAULT_AI_MODEL: "umkmcepat-combo",
+  getDefaultAiModel: vi.fn(() => "umkmcepat-combo"),
+}));
 
 const generateTextMock = vi.mocked(generateText);
 
