@@ -108,6 +108,7 @@ type RuntimeWorkspaceState = {
     startedAt?: string;
     steps?: Array<{
       detail: string;
+      diff?: BuildProgressStep["diff"];
       label: string;
       status?: "active" | "done" | "error";
     }>;
@@ -529,6 +530,7 @@ export function WorkspaceShell({
         setBuildProgress(
           job.steps.map((step) => ({
             detail: step.detail,
+            diff: step.diff,
             label: step.label,
             status: step.status,
           })),
@@ -800,6 +802,7 @@ export function WorkspaceShell({
 
           const data = JSON.parse(dataText) as {
             detail?: string;
+            diff?: BuildProgressStep["diff"];
             label?: string;
             message?: string;
             path?: string;
@@ -827,6 +830,7 @@ export function WorkspaceShell({
                 detail: data.path
                   ? `${data.path} — ${data.detail || "Operasi selesai."}`
                   : (data.detail ?? "Operasi selesai."),
+                diff: data.diff,
                 label: title,
                 status: data.state === "failed" ? "error" : "done",
               }),

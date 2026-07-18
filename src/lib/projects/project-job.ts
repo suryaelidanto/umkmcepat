@@ -1,6 +1,9 @@
+import { type DiffLine } from "@/lib/projects/diff";
+
 export type ProjectJobStep = {
   at: string;
   detail: string;
+  diff?: DiffLine[];
   label: string;
   status: "active" | "done" | "error";
 };
@@ -193,7 +196,11 @@ function stepsFromEvents(
   for (const event of relevant) {
     const meta =
       event.metadata && typeof event.metadata === "object"
-        ? (event.metadata as { detail?: unknown; label?: unknown })
+        ? (event.metadata as {
+            detail?: unknown;
+            diff?: unknown;
+            label?: unknown;
+          })
         : null;
     const label =
       typeof meta?.label === "string" && meta.label.trim()
@@ -228,9 +235,14 @@ function stepsFromEvents(
           ? "active"
           : "done";
 
+    const diff = Array.isArray(meta?.diff)
+      ? (meta.diff as ProjectJobStep["diff"])
+      : undefined;
+
     steps.push({
       at: toIso(event.createdAt),
       detail,
+      diff,
       label,
       status,
     });
@@ -344,9 +356,15 @@ export function deriveActiveProjectJob({
 
 export function mapActiveJobStepsToBuildProgress(
   steps: ProjectJobStep[],
-): Array<{ detail: string; label: string; status?: ProjectJobStep["status"] }> {
+): Array<{
+  detail: string;
+  diff?: DiffLine[];
+  label: string;
+  status?: ProjectJobStep["status"];
+}> {
   return steps.map((step) => ({
     detail: step.detail,
+    diff: step.diff,
     label: step.label,
     status: step.status,
   }));

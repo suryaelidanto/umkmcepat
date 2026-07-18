@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
+import { type DiffLine } from "@/lib/projects/diff";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
 
@@ -34,6 +35,7 @@ export type WorkspaceAnswerPayload = {
 
 export type BuildProgressStep = {
   detail: string;
+  diff?: DiffLine[];
   label: string;
   status?: "active" | "done" | "error";
 };
@@ -881,19 +883,66 @@ export function BuildProgressPanel({
                     className={`block ${isActive ? "size-3 animate-pulse rounded-full bg-current" : "size-2 bg-current"}`}
                   />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-surface-warm-white">
                     {step.label}
                   </p>
                   <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/54">
                     {step.detail}
                   </p>
+                  {step.diff?.length ? (
+                    <BuildProgressStepDiff diff={step.diff} />
+                  ) : null}
                 </div>
               </motion.div>
             );
           })}
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+function BuildProgressStepDiff({ diff }: { diff: DiffLine[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const changedCount = diff.filter((line) => line.type !== "normal").length;
+
+  if (!changedCount) {
+    return null;
+  }
+
+  return (
+    <div className="mt-spacing-2">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="text-xs font-medium text-surface-warm-white/60 underline-offset-2 hover:text-surface-warm-white hover:underline"
+      >
+        {isOpen ? "Sembunyikan perubahan" : `Lihat perubahan (${changedCount})`}
+      </button>
+      {isOpen ? (
+        <pre className="mt-spacing-2 max-h-64 overflow-auto rounded-[12px] border border-surface-warm-white/8 bg-black/20 p-spacing-3 text-xs leading-5">
+          {diff.map((line, index) => (
+            <div
+              key={index}
+              className={
+                line.type === "add"
+                  ? "bg-[#8ce99a]/10 text-[#8ce99a]"
+                  : line.type === "delete"
+                    ? "bg-[#ffb4a6]/10 text-[#ffb4a6]"
+                    : "text-surface-warm-white/54"
+              }
+            >
+              {line.type === "add"
+                ? "+ "
+                : line.type === "delete"
+                  ? "- "
+                  : "  "}
+              {line.text}
+            </div>
+          ))}
+        </pre>
+      ) : null}
     </div>
   );
 }

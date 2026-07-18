@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { devLog } from "@/lib/dev-log";
+import { generateDiff, type DiffLine } from "@/lib/projects/diff";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
 import {
   isPlatformOwnedGeneratedPath,
@@ -10,6 +11,8 @@ import {
 import { assertGeneratedResourceBudget } from "@/lib/projects/generated-resource-budget";
 import { assertSafeProjectFilePath } from "@/lib/projects/generated-source";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
+
+const MAX_DIFF_LINES = 400;
 
 export type GeneratedAppAgentToolCommand =
   | { type: "check_app" }
@@ -50,6 +53,7 @@ export type GeneratedAppAgentCheckResult = {
 
 export type GeneratedAppAgentOperation = {
   detail: string;
+  diff?: DiffLine[];
   id: string;
   path?: string;
   state: "failed" | "succeeded";
@@ -226,6 +230,8 @@ export function runGeneratedAppAgentTools({
       }
 
       const filePath = safePath.path;
+      const previousContent =
+        currentFiles.find((file) => file.path === filePath)?.content ?? "";
       currentFiles = upsertFile(currentFiles, {
         content: command.content,
         path: filePath,
@@ -234,6 +240,7 @@ export function runGeneratedAppAgentTools({
       sideEffects.push({ path: filePath, type: command.type });
       emit({
         detail: "File dibuat atau ditimpa oleh agent.",
+        diff: truncateDiff(generateDiff(previousContent, command.content)),
         path: filePath,
         state: "succeeded",
         title: "Menulis file",
@@ -290,14 +297,16 @@ export function runGeneratedAppAgentTools({
         continue;
       }
 
+      const nextContent = file.content.replace(command.find, command.replace);
       currentFiles = upsertFile(currentFiles, {
-        content: file.content.replace(command.find, command.replace),
+        content: nextContent,
         path: filePath,
       });
       changedSinceLastCheck = true;
       sideEffects.push({ path: filePath, type: command.type });
       emit({
         detail: "Perubahan presisi diterapkan ke satu lokasi.",
+        diff: truncateDiff(generateDiff(file.content, nextContent)),
         path: filePath,
         state: "succeeded",
         title: "Mengedit file",
@@ -603,6 +612,10 @@ function truncate(value: string, maxLength: number) {
   return value.length > maxLength
     ? `${value.slice(0, maxLength)}\n[truncated]`
     : value;
+}
+
+function truncateDiff(lines: DiffLine[]): DiffLine[] {
+  return lines.length > MAX_DIFF_LINES ? lines.slice(0, MAX_DIFF_LINES) : lines;
 }
 
 function lineReadDetail(fullContent: string, result: string) {
