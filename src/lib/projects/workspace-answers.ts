@@ -21,11 +21,12 @@ export function buildBriefPatchFromWorkspaceAnswers({
   fallbackText: string;
   workspaceAnswers: unknown;
 }): ProjectBriefPatch {
-  if (card.type !== "question") {
+  if (card.type !== "question" && card.type !== "questions") {
     return {};
   }
 
-  const questions = [card.question];
+  const questions =
+    card.type === "questions" ? card.questions : [card.question];
   const answers = parseWorkspaceAnswers(workspaceAnswers);
   const normalizedAnswers = answers.length
     ? answers
@@ -104,7 +105,7 @@ function parseWorkspaceAnswers(value: unknown): WorkspaceAnswerPayload[] {
     });
   }
 
-  return answers.slice(0, 1);
+  return answers.slice(0, 3);
 }
 
 function parseFormattedWorkspaceAnswers(
