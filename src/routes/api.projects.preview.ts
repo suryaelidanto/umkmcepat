@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
+import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import {
   DISCUSS_CARD_SEMANTIC_ATTEMPTS,
@@ -227,6 +228,46 @@ async function handlePreviewPost(request: Request) {
     .filter((part) => part.type === "text")
     .map((part) => part.text)
     .join(" ");
+
+  if (latestUserText.trim()) {
+    let moderation;
+    try {
+      moderation = await moderateProjectRequest(latestUserText);
+    } catch (error) {
+      console.error(
+        "[moderation] failed:",
+        error instanceof Error ? error.message : error,
+      );
+      return Response.json(
+        {
+          code: "moderation_unavailable",
+          message: "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
+        },
+        { status: 503, headers: { "Retry-After": "3" } },
+      );
+    }
+
+    if (moderation.usage) {
+      await chargeEnergyForAiUsage({
+        userId,
+        modelId: moderation.modelId || getDefaultAiModel(),
+        inputTokens: moderation.usage.inputTokens,
+        outputTokens: moderation.usage.outputTokens,
+        reason: "moderation",
+      });
+    }
+
+    if (!moderation.allowed) {
+      return Response.json(
+        {
+          code: "project_request_blocked",
+          message: moderation.message || "Permintaan belum bisa diproses.",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const currentBrief = parseProjectBrief(chatRow?.brief, project.prompt);
   const storedWorkspaceCard = parseWorkspaceCard(
     chatRow?.workspaceCard,

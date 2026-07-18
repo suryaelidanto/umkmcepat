@@ -513,7 +513,6 @@ async function handleEditPost(request: Request, routeId: string) {
         operation.token,
       );
 
-      await flushEditEnergy();
       return Response.json(
         {
           attemptId: attempt.id,
@@ -609,7 +608,6 @@ async function handleEditPost(request: Request, routeId: string) {
         operation.token,
       );
 
-      await flushEditEnergy();
       return Response.json(
         {
           attemptId: attempt.id,
@@ -822,9 +820,6 @@ async function handleEditPost(request: Request, routeId: string) {
       ]);
     }
 
-    // Charge whether build ok or not — AI tokens already spent.
-    await flushEditEnergy();
-
     return Response.json({
       attemptId: attempt.id,
       buildId: build.id,
@@ -837,8 +832,6 @@ async function handleEditPost(request: Request, routeId: string) {
       error: error instanceof Error ? error.name : "unknown",
       projectId: project.id,
     });
-
-    await flushEditEnergy();
 
     await Promise.allSettled([
       updateProjectEditAttempt(attempt.id, {
@@ -871,6 +864,9 @@ async function handleEditPost(request: Request, routeId: string) {
       },
       { status: 503, headers: { "Retry-After": "3" } },
     );
+  } finally {
+    // Charge whether the edit succeeded or not — AI tokens already spent.
+    await flushEditEnergy();
   }
 }
 
