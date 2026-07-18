@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 
+import { ChromeSkinSwitcher } from "@/components/common/ChromeSkinSwitcher";
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
 import {
@@ -88,6 +89,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
+      <ChromeSkinSwitcher />
     </div>
   );
 }

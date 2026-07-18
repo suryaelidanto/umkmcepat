@@ -3,11 +3,14 @@
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { authSkin } from "@/components/common/chrome-skin";
+import { useChromeSkin } from "@/components/common/ChromeSkinSwitcher";
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { signOut, useSession } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
 export function AuthButton() {
   const { data: session, status } = useSession();
@@ -15,6 +18,7 @@ export function AuthButton() {
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const skin = authSkin[useChromeSkin()];
 
   useEffect(() => {
     if (!open) {
@@ -59,7 +63,7 @@ export function AuthButton() {
           variant="outline"
           size="sm"
           onClick={() => setLoginOpen(true)}
-          className="rounded-radius-lg border-surface-warm-white/16 bg-surface-warm-white/8 px-spacing-8 text-surface-warm-white hover:bg-surface-warm-white/14 focus-visible:ring-2 focus-visible:ring-surface-warm-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#151515]"
+          className={skin.login}
         >
           Masuk
         </Button>
@@ -76,7 +80,10 @@ export function AuthButton() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex max-w-[12rem] items-center gap-spacing-3 rounded-full border border-surface-warm-white/16 bg-surface-warm-white/8 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white transition hover:bg-surface-warm-white/14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#151515] sm:max-w-[15rem] sm:px-spacing-4"
+        className={cn(
+          "flex max-w-[12rem] items-center gap-spacing-3 text-sm text-surface-warm-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white focus-visible:ring-offset-2 sm:max-w-[15rem]",
+          skin.trigger,
+        )}
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={open ? "Tutup menu akun" : "Buka menu akun"}
@@ -84,7 +91,7 @@ export function AuthButton() {
         <AvatarFrame
           image={session.user.image || ""}
           initial={initial}
-          className="size-7 bg-surface-warm-white text-xs font-semibold text-foreground-primary"
+          className={skin.avatar}
         />
         <span className="hidden min-w-0 truncate sm:block">{displayName}</span>
         <ChevronDown
@@ -96,12 +103,18 @@ export function AuthButton() {
       {open ? (
         <div
           id={menuId}
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-52 overflow-hidden rounded-[18px] border border-surface-warm-white/12 bg-[#232321] p-spacing-2 text-surface-warm-white ring-1 ring-surface-warm-white/6"
+          className={cn(
+            "absolute right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden text-surface-warm-white",
+            skin.menu,
+          )}
         >
           <Link
             href="/profile"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-spacing-3 rounded-radius-lg px-spacing-4 py-spacing-3 text-sm outline-none transition hover:bg-surface-warm-white/8 focus-visible:bg-surface-warm-white/8"
+            className={cn(
+              "flex items-center gap-spacing-3 text-sm outline-none transition",
+              skin.item,
+            )}
           >
             <UserRound className="size-4 text-surface-warm-white/62" />
             Profil
@@ -109,7 +122,10 @@ export function AuthButton() {
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/" })}
-            className="flex w-full items-center gap-spacing-3 rounded-radius-lg px-spacing-4 py-spacing-3 text-left text-sm outline-none transition hover:bg-surface-warm-white/8 focus-visible:bg-surface-warm-white/8"
+            className={cn(
+              "flex w-full items-center gap-spacing-3 text-left text-sm outline-none transition",
+              skin.item,
+            )}
           >
             <LogOut className="size-4 text-surface-warm-white/62" />
             Keluar

@@ -1,9 +1,16 @@
+"use client";
+
+import { footerSkin } from "@/components/common/chrome-skin";
+import { useChromeSkin } from "@/components/common/ChromeSkinSwitcher";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
+import { cn } from "@/lib/utils";
 
 export function Footer() {
+  const skin = footerSkin[useChromeSkin()];
+
   return (
-    <footer className="border-t border-surface-warm-white/10 bg-[#151515] text-surface-warm-white">
+    <footer className={cn("text-surface-warm-white", skin.bar)}>
       <div className="mx-auto flex max-w-7xl flex-col gap-spacing-7 px-4 py-spacing-9 sm:px-6 lg:px-spacing-10">
         <div className="flex flex-col gap-spacing-9 md:flex-row md:items-center md:justify-between">
           <div>
@@ -19,21 +26,21 @@ export function Footer() {
               />
               <span>UMKM Cepat</span>
             </Link>
-            <p className="mt-2 max-w-md text-sm leading-6 text-surface-warm-white/62">
+            <p className={cn("mt-2 max-w-md text-sm leading-6", skin.muted)}>
               Buat website dan alat digital untuk usaha kecil dengan bantuan AI.
             </p>
           </div>
 
-          <nav className="flex flex-wrap gap-spacing-5 text-sm text-surface-warm-white/62">
+          <nav className="flex flex-wrap gap-spacing-5 text-sm">
             <Link
               href="/terms"
-              className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className={cn("outline-none transition-colors", skin.link)}
             >
               Ketentuan
             </Link>
             <Link
               href="/privacy"
-              className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className={cn("outline-none transition-colors", skin.link)}
             >
               Privasi
             </Link>
@@ -41,14 +48,14 @@ export function Footer() {
               href="https://github.com/suryaelidanto/umkmcepat"
               target="_blank"
               rel="noopener noreferrer"
-              className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className={cn("outline-none transition-colors", skin.link)}
             >
               Github
             </Link>
           </nav>
         </div>
 
-        <p className="text-sm text-surface-warm-white/50">
+        <p className={cn("text-sm", skin.muted, "opacity-80")}>
           © {new Date().getFullYear()} UMKM Cepat
         </p>
       </div>

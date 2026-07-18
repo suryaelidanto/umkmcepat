@@ -1,44 +1,40 @@
 "use client";
 
-// PROTOTYPE throwaway — switch "Website kamu" section shells.
+// PROTOTYPE throwaway — floating bar for header/menu/footer skins.
 
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect } from "react";
 
+import {
+  CHROME_SKINS,
+  parseChromeSkin,
+  type ChromeSkin,
+} from "@/components/common/chrome-skin";
 import { cn } from "@/lib/utils";
 
-export type ProjectsSectionVariant = "A" | "B" | "C" | "D" | "E";
+export function useChromeSkin(): ChromeSkin {
+  return useRouterState({
+    select: (state) => {
+      const search = state.location.search as Record<string, unknown>;
+      return parseChromeSkin(search?.variant);
+    },
+  });
+}
 
-export const PROJECTS_SECTION_VARIANTS: {
-  key: ProjectsSectionVariant;
-  label: string;
-}[] = [
-  { key: "A", label: "Current box" },
-  { key: "B", label: "Flat open" },
-  { key: "C", label: "Elevated match" },
-  { key: "D", label: "Dense rows" },
-  { key: "E", label: "Index table" },
-];
-
-export function ProjectsSectionSwitcher({
-  current,
-}: {
-  current: ProjectsSectionVariant;
-}) {
-  const navigate = useNavigate({ from: "/" });
-  const index = PROJECTS_SECTION_VARIANTS.findIndex((v) => v.key === current);
+export function ChromeSkinSwitcher() {
+  const navigate = useNavigate();
+  const current = useChromeSkin();
+  const index = CHROME_SKINS.findIndex((v) => v.key === current);
   const safeIndex = index < 0 ? 0 : index;
-  const meta = PROJECTS_SECTION_VARIANTS[safeIndex];
+  const meta = CHROME_SKINS[safeIndex];
 
   function go(nextIndex: number) {
-    const wrapped =
-      (nextIndex + PROJECTS_SECTION_VARIANTS.length) %
-      PROJECTS_SECTION_VARIANTS.length;
-    const key = PROJECTS_SECTION_VARIANTS[wrapped].key;
+    const wrapped = (nextIndex + CHROME_SKINS.length) % CHROME_SKINS.length;
+    const key = CHROME_SKINS[wrapped].key;
     void navigate({
-      to: "/",
-      search: { variant: key },
+      to: ".",
+      search: (prev: Record<string, unknown>) => ({ ...prev, variant: key }),
       replace: true,
     });
   }
@@ -65,7 +61,7 @@ export function ProjectsSectionSwitcher({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [safeIndex, navigate]);
+  }, [safeIndex]);
 
   if (!import.meta.env.DEV) {
     return null;
@@ -78,7 +74,7 @@ export function ProjectsSectionSwitcher({
         "rounded-full border border-white/15 bg-black/90 px-2 py-1.5 text-white shadow-2xl backdrop-blur",
       )}
       role="navigation"
-      aria-label="Projects section prototype switcher"
+      aria-label="Chrome skin prototype switcher"
     >
       <button
         type="button"
@@ -88,7 +84,7 @@ export function ProjectsSectionSwitcher({
       >
         <ChevronLeft className="size-4" />
       </button>
-      <div className="min-w-[11.5rem] px-2 text-center text-xs font-medium tracking-wide">
+      <div className="min-w-[12rem] px-2 text-center text-xs font-medium tracking-wide">
         <span className="text-white/45">{meta.key}</span>
         <span className="mx-1.5 text-white/25">—</span>
         <span>{meta.label}</span>
