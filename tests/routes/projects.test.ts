@@ -90,6 +90,11 @@ vi.mock("@/lib/user-credits", async () => {
       inputTokens: 0,
       outputTokens: 0,
     })),
+    chargeEnergyForAiUsage: vi.fn(async () => ({
+      energyUsed: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    })),
   };
 });
 vi.mock("@/lib/projects/brief-flow", () => ({

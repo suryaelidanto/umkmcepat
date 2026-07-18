@@ -48,7 +48,11 @@ function getProjectCreateIdempotencyKey(prompt: string) {
   return idempotencyKey;
 }
 
-export function HomePromptForm() {
+export function HomePromptForm({
+  onFocusChange,
+}: {
+  onFocusChange?: (focused: boolean) => void;
+}) {
   const router = useRouter();
   const { overLimit } = useProjectLimit();
   const { status } = useSession();
@@ -224,7 +228,13 @@ export function HomePromptForm() {
     <>
       <form
         onSubmit={handleSubmit}
-        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-[28px] border border-surface-warm-white/12 bg-[#232321] text-left ring-1 ring-surface-warm-white/6 transition-colors duration-200"
+        onFocus={() => onFocusChange?.(true)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+            onFocusChange?.(false);
+          }
+        }}
+        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-2xl border border-white/10 bg-[#1c1c1a] text-left shadow-[0_24px_48px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.05] transition-all duration-300 ease-out focus-within:scale-[1.05] focus-within:border-[#2f8cff]/55 focus-within:ring-[#2f8cff]/35 focus-within:shadow-[0_0_0_1px_rgba(47,140,255,0.25),0_36px_80px_rgba(0,0,0,0.6)]"
       >
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website
@@ -238,10 +248,10 @@ export function HomePromptForm() {
           placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
           maxLength={PROJECT_REQUEST_MAX_LENGTH}
           disabled={isLoading}
-          className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/58 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
+          className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/52 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
         />
         <div className="flex items-center justify-between gap-spacing-7 px-spacing-9 pb-spacing-7">
-          <span className="text-sm tabular-nums text-surface-warm-white/62">
+          <span className="text-sm tabular-nums text-surface-warm-white/58">
             {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
           </span>
           <div className="flex items-center gap-spacing-5">
@@ -255,7 +265,7 @@ export function HomePromptForm() {
               size="icon"
               disabled={isLoading || !prompt.trim()}
               aria-label="Buat website"
-              className="size-11 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-45"
+              className="size-11 rounded-full bg-white text-[#141413] hover:bg-white/92 disabled:opacity-45"
             >
               {isLoading ? (
                 <Loader2 className="size-5 animate-spin" />
@@ -266,7 +276,7 @@ export function HomePromptForm() {
           </div>
         </div>
         {errorMessage ? (
-          <p className="border-t border-surface-warm-white/10 px-spacing-9 py-spacing-4 text-sm text-[#ffb4a6]">
+          <p className="border-t border-white/10 px-spacing-9 py-spacing-4 text-sm text-[#ffb4a6]">
             {errorMessage}
           </p>
         ) : null}

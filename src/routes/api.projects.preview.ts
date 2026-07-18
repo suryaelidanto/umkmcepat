@@ -29,6 +29,7 @@ import {
   parseProjectBrief,
 } from "@/lib/projects/brief";
 import {
+  buildFallbackWorkspaceCardFromBrief,
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
 } from "@/lib/projects/brief-flow";
@@ -47,7 +48,7 @@ import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
-  addEnergyUsage,
+  chargeEnergyForAiUsage,
   checkEnergy,
   isUserVerified,
   MIN_ENERGY_DISCUSS,
@@ -390,12 +391,24 @@ async function handleDiscussTurn({
 
         writer.write({ type: "text-end", id: textPartId });
 
-        // Capture phase1 (chat) token usage
+        // Capture phase1 (chat) token usage + actual model that served it
         const phase1Usage = await phase1.usage;
+        const phase1Response = await Promise.resolve(phase1.response).catch(
+          () => null,
+        );
         let totalInputTokens = phase1Usage?.inputTokens ?? 0;
         let totalOutputTokens = phase1Usage?.outputTokens ?? 0;
+        const discussModelId = phase1Response?.modelId || modelName;
 
         if (hadError || !fullText.trim()) {
+          // AI already ran — charge even on stream error / empty text.
+          await chargeEnergyForAiUsage({
+            userId,
+            modelId: discussModelId,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            reason: "discuss_turn",
+          });
           writer.write({
             type: "error",
             errorText: hadError
@@ -508,12 +521,13 @@ async function handleDiscussTurn({
           totalOutputTokens += compaction.usage?.outputTokens ?? 0;
         }
 
-        await addEnergyUsage(
+        await chargeEnergyForAiUsage({
           userId,
-          totalInputTokens,
-          totalOutputTokens,
-          "discuss_turn",
-        );
+          modelId: discussModelId,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          reason: "discuss_turn",
+        });
 
         writer.write({ type: "finish" });
       },
@@ -653,7 +667,22 @@ const presentWorkspaceCardTool = tool({
             options: z.array(z.any()).optional(),
           })
           .optional(),
-        questions: z.array(z.any()).optional(),
+        questions: z
+          .array(
+            z.object({
+              id: z.union([z.string(), z.number()]).optional(),
+              question: z.string().optional(),
+              text: z.string().optional(),
+              title: z.string().optional(),
+              answerMode: z.string().optional(),
+              selectionMode: z.string().optional(),
+              placeholder: z.string().optional(),
+              recommendedOptionLabel: z.string().optional(),
+              whyThisQuestionMatters: z.string().optional(),
+              options: z.array(z.any()).optional(),
+            }),
+          )
+          .optional(),
         actions: z.array(z.any()).optional(),
       })
       .optional(),
@@ -672,9 +701,20 @@ function buildOneCallSystemPrompt({
 CRITICAL OUTPUT ORDER:
 1) Write 1-3 short Indonesian chat sentences first (aku/kamu only).
 2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with the next workspace card.
+
+INTERVIEW DISCIPLINE — rounds questions:
+- Emit 1-3 questions per turn. Mixed modes (choice/text, single/multiple) OK in one batch.
+- INDEPENDENCE GATE: batch ONLY questions whose answer does not change another question's framing, options, or whether it needs asking. If Q2 depends on Q1's answer, ask Q1 alone this turn; ask Q2 next turn.
+- Cap 3 per batch. Server enforces (dedupes id, slices surplus).
+- EACH question sets recommendedOptionLabel (your default) — user can accept in one click.
+- Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
+- When all applicable fields are filled/declined AND confidence is 95+: emit build_recommendation instead of questions.
+
 Never put JSON in chat text. Never call the tool before chat text.
-For questions: type="question", question.id must be a short slug like business_name or services.
-Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is genuinely 95%+ and no open questions remain. Below that, keep asking a question. Never use any other card type.`;
+For questions: type="questions" with questions[] (independent batch), or type="question" for a single question. question.id must be a short slug like business_name or services.
+Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is genuinely 95%+ and no open questions remain. Below that, keep asking a question. Never use any other card type.
+
+Be relentless — extract every field, batching independent questions aggressively to reach 95% fast. Slightly annoying upfront is fine; the 95% gate still protects the build. Ask only the applicable soft fields for the UMKM type, but do not skip them.`;
 }
 
 async function handleDiscussTurnOneCall({
@@ -718,7 +758,7 @@ async function handleDiscussTurnOneCall({
     messages: modelMessages,
     tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
     toolChoice: "auto",
-    maxRetries: 1,
+    maxRetries: 2,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discussOneCall"),
     telemetry: getAiTelemetry("project-guided-discuss-one-call", {
@@ -790,16 +830,30 @@ async function handleDiscussTurnOneCall({
 
         let totalInputTokens = 0;
         let totalOutputTokens = 0;
+        let discussModelId = modelName;
         try {
           const primaryUsage = await primary.usage;
           totalInputTokens = primaryUsage?.inputTokens ?? 0;
           totalOutputTokens = primaryUsage?.outputTokens ?? 0;
+          const primaryResponse = await Promise.resolve(primary.response).catch(
+            () => null,
+          );
+          if (primaryResponse?.modelId) {
+            discussModelId = primaryResponse.modelId;
+          }
         } catch {
           // usage is best-effort
         }
 
         const chatText = fullText.trim();
         if (hadError || !chatText) {
+          await chargeEnergyForAiUsage({
+            userId,
+            modelId: discussModelId,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            reason: "discuss_turn",
+          });
           writer.write({
             type: "error",
             errorText: hadError
@@ -829,17 +883,25 @@ async function handleDiscussTurnOneCall({
               brief: repaired.brief,
               projectTitle: repaired.projectTitle,
               workspaceCard: repaired.workspaceCard,
+              readyForBuild: repaired.readyForBuild,
             };
             primaryToolFailed = false;
             repairsUsed = repaired.repairsUsed;
             totalInputTokens += repaired.usage.inputTokens;
             totalOutputTokens += repaired.usage.outputTokens;
-            // Track readyForBuild from the repair attempt; surfaced later via
-            // scrubBriefForStorage when we persist the turn.
-            toolInput = {
-              ...(toolInput ?? {}),
-              readyForBuild: repaired.readyForBuild,
+          }
+        }
+
+        if (workspaceTurn.workspaceCard.type === "none") {
+          const fallbackCard = buildFallbackWorkspaceCardFromBrief(
+            workspaceTurn.brief,
+          );
+          if (fallbackCard.type !== "none") {
+            workspaceTurn = {
+              ...workspaceTurn,
+              workspaceCard: fallbackCard,
             };
+            primaryToolFailed = true; // still log as AI-failed, fallback covered
           }
         }
 
@@ -896,13 +958,10 @@ async function handleDiscussTurnOneCall({
             repairsUsed,
             workspaceCard: workspaceTurn.workspaceCard,
           });
-          const readyForBuild =
-            (toolInput as { readyForBuild?: unknown } | null)?.readyForBuild ===
-            true;
           await persistProjectChatTurn({
             brief: scrubBriefForStorage(
               workspaceTurn.brief,
-              readyForBuild,
+              workspaceTurn.readyForBuild,
               project.id,
             ),
             messages: safeMessages,
@@ -948,12 +1007,13 @@ async function handleDiscussTurnOneCall({
           totalOutputTokens += compaction.usage?.outputTokens ?? 0;
         }
 
-        await addEnergyUsage(
+        await chargeEnergyForAiUsage({
           userId,
-          totalInputTokens,
-          totalOutputTokens,
-          "discuss_turn",
-        );
+          modelId: discussModelId,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          reason: "discuss_turn",
+        });
 
         writer.write({ type: "finish" });
       },
@@ -1001,7 +1061,8 @@ async function repairDiscussCardWithTool({
 
 REPAIR attempt ${semanticAttempt + 1}: previous card was invalid or missing.
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with a valid workspace card.
-Keep a short Indonesian chat preface only if needed. Prefer type=question with 2-5 options.`,
+Emit type="questions" with 1-3 independent questions[], or type="question" with a single question, or type="build_recommendation" only at 95%+ confidence.
+Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
           messages: [
             ...modelMessages,
             { role: "assistant", content: chatText || "(no text)" },
@@ -1039,12 +1100,8 @@ Keep a short Indonesian chat preface only if needed. Prefer type=question with 2
         const input = toolCall?.input ?? toolCall?.args ?? null;
         const turn = normalizeWorkspaceTurn(input, brief);
         if (turn.workspaceCard.type !== "none") {
-          const readyForBuild =
-            (input as { readyForBuild?: unknown } | null)?.readyForBuild ===
-            true;
           return {
             ...turn,
-            readyForBuild,
             repairsUsed: semanticAttempt + 1,
             usage: {
               inputTokens: totalInputTokens,
@@ -1143,14 +1200,10 @@ async function generateWorkspaceTurn({
         });
 
         const turn = normalizeWorkspaceTurn(parsed, brief);
-        const readyForBuild =
-          (parsed as { readyForBuild?: unknown } | null)?.readyForBuild ===
-          true;
 
         if (turn.workspaceCard.type !== "none") {
           return {
             ...turn,
-            readyForBuild,
             usage: {
               inputTokens: phase2.usage?.inputTokens ?? 0,
               outputTokens: phase2.usage?.outputTokens ?? 0,

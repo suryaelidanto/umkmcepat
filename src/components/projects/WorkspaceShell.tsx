@@ -32,6 +32,7 @@ import {
   PreviewIssueState,
   ProcessingControl,
   QuestionComposer,
+  QuestionsComposer,
   VisualFeedbackWidget,
   WorkspaceCardView,
   WorkspaceTopBar,
@@ -55,6 +56,10 @@ import {
   type WorkspaceCard,
 } from "@/lib/projects/brief";
 import { buildHandoffLine } from "@/lib/projects/build-handoff";
+import {
+  appendBuildProgressStep,
+  completeBuildProgressSteps,
+} from "@/lib/projects/build-progress-steps";
 import { dedupeUiMessages } from "@/lib/projects/chat-memory";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
@@ -260,6 +265,7 @@ export function WorkspaceShell({
   const isPreparingNextQuestionRef = useRef(false);
   const workspaceCardRef = useRef(initialWorkspaceCard);
   const preparingPollRef = useRef<(() => void) | null>(null);
+  const loadWorkspaceStateRequestIdRef = useRef(0);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
   // Survives refresh: if user sent visual comments, clear them when server job ends OK.
@@ -297,12 +303,13 @@ export function WorkspaceShell({
     transport: new DefaultChatTransport({
       api: "/api/projects/preview",
       fetch: rateLimitAwareFetch,
-      prepareSendMessagesRequest({ messages }) {
+      prepareSendMessagesRequest({ messages, body }) {
         return {
           body: {
             message: messages[messages.length - 1],
             mode: modeRef.current,
             projectId,
+            ...body,
           },
         };
       },
@@ -557,7 +564,7 @@ export function WorkspaceShell({
     ) {
       if (buildStatusRef.current === "building") {
         setBuildStatus("ready");
-        setBuildProgress((current) => completeBuildProgress(current));
+        setBuildProgress((current) => completeBuildProgressSteps(current));
         setPreviewReloadKey((current) => current + 1);
       }
 
@@ -590,10 +597,12 @@ export function WorkspaceShell({
   }, [projectId, queryClient]);
 
   const loadWorkspaceState = useCallback(
-    async (options?: { skipIfPreparing?: boolean }) => {
+    async (options?: { preserveCard?: boolean; skipIfPreparing?: boolean }) => {
       if (options?.skipIfPreparing && isPreparingNextQuestionRef.current) {
         return;
       }
+
+      const requestId = ++loadWorkspaceStateRequestIdRef.current;
 
       const response = await fetch(`/api/projects/${projectId}/workspace`, {
         cache: "no-store",
@@ -604,6 +613,23 @@ export function WorkspaceShell({
       }
 
       const result = (await response.json()) as WorkspaceStateResponse;
+
+      // Discard if a later call already resolved (avoids stale data winning a race).
+      if (requestId !== loadWorkspaceStateRequestIdRef.current) {
+        return result;
+      }
+
+      // Tool path already applied card; still need server brief for canStartBuild.
+      if (options?.preserveCard) {
+        if (result.brief) {
+          setLatestBrief(result.brief);
+        }
+        if (result.projectTitle) {
+          setProjectTitle(result.projectTitle);
+          setDraftTitle(result.projectTitle);
+        }
+        return result;
+      }
 
       if (isPreparingNextQuestionRef.current) {
         if (
@@ -712,8 +738,19 @@ export function WorkspaceShell({
     buildAbortRef.current = abortController;
 
     try {
+      const hasExistingSource =
+        sourceFiles.length > 0 ||
+        sourceStatus === "failed" ||
+        sourceStatus === "ready" ||
+        sourceStatus === "passed" ||
+        buildStatus === "failed" ||
+        buildStatus === "ready";
       const response = await fetch(`/api/projects/${projectId}/generate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: hasExistingSource ? "retry_build" : "first_generate",
+        }),
         signal: abortController.signal,
       });
 
@@ -729,7 +766,7 @@ export function WorkspaceShell({
         }
         setBuildStatus("failed");
         setBuildProgress((current) =>
-          addBuildProgressStep(current, {
+          appendBuildProgressStep(current, {
             detail,
             label: "Build belum mulai",
             status: "error",
@@ -775,7 +812,7 @@ export function WorkspaceShell({
             const label = data.label;
 
             setBuildProgress((current) =>
-              addBuildProgressStep(current, {
+              appendBuildProgressStep(current, {
                 detail: data.detail || "",
                 label,
                 status: "active",
@@ -786,7 +823,7 @@ export function WorkspaceShell({
           if (eventName === "operation" && data.title) {
             const title = data.title;
             setBuildProgress((current) =>
-              addBuildProgressStep(current, {
+              appendBuildProgressStep(current, {
                 detail: data.path
                   ? `${data.path} — ${data.detail || "Operasi selesai."}`
                   : (data.detail ?? "Operasi selesai."),
@@ -802,9 +839,10 @@ export function WorkspaceShell({
 
           if (eventName === "done") {
             setBuildStatus("ready");
-            setBuildProgress((current) => completeBuildProgress(current));
+            setBuildProgress((current) => completeBuildProgressSteps(current));
             patchProjectInList({ buildStatus: "ready" });
             void loadRuntimeState();
+            setSourceReloadKey((current) => current + 1);
             window.dispatchEvent(new Event("umkm:energy-changed"));
             void queryClient.invalidateQueries({
               queryKey: queryKeys.projects,
@@ -816,10 +854,12 @@ export function WorkspaceShell({
           if (eventName === "error") {
             setBuildStatus("failed");
             void loadRuntimeState();
+            setSourceReloadKey((current) => current + 1);
             setBuildProgress((current) =>
-              addBuildProgressStep(current, {
-                detail:
-                  "Build berhenti sebelum tampilan website siap. Coba ulangi build.",
+              appendBuildProgressStep(current, {
+                detail: data.detail
+                  ? `Build berhenti sebelum tampilan website siap: ${data.detail}`
+                  : "Build berhenti sebelum tampilan website siap. Coba ulangi build.",
                 label: "Build belum selesai",
                 status: "error",
               }),
@@ -833,7 +873,7 @@ export function WorkspaceShell({
       setBuildStatus("failed");
       void loadRuntimeState();
       setBuildProgress((current) =>
-        addBuildProgressStep(current, {
+        appendBuildProgressStep(current, {
           detail:
             (error as Error).name === "AbortError"
               ? "Build dihentikan. Kamu bisa jalankan build lagi kapan saja."
@@ -856,6 +896,8 @@ export function WorkspaceShell({
     loadRuntimeState,
     projectId,
     sessionExpired,
+    sourceFiles.length,
+    sourceStatus,
   ]);
 
   // Append a one-liner to the chat so the user sees what fields the AI is
@@ -962,7 +1004,9 @@ export function WorkspaceShell({
   const activeQuestionKey =
     workspaceCard.type === "question"
       ? workspaceCard.question.id
-      : workspaceCard.type;
+      : workspaceCard.type === "questions"
+        ? workspaceCard.questions.map((q) => q.id).join("|")
+        : workspaceCard.type;
   const previewIssue = getWorkspacePreviewIssue({
     buildStatus,
     deploymentStatus: runtimeState?.deployment?.status,
@@ -1383,6 +1427,8 @@ export function WorkspaceShell({
         setWorkspaceCardError(false);
         setIsPreparingNextQuestion(false);
         void reloadLatestChat();
+        // Card from tool is instant; brief for Mulai build lives on server only.
+        void loadWorkspaceState({ preserveCard: true });
         return;
       }
     }
@@ -1496,7 +1542,7 @@ export function WorkspaceShell({
     setIsEditingPreview(true);
     setBuildStartedAt(Date.now());
     setBuildProgress((current) =>
-      addBuildProgressStep(current, {
+      appendBuildProgressStep(current, {
         detail: "AI menerapkan komentar visual ke source preview terakhir.",
         label: "Merevisi dari komentar visual",
         status: "active",
@@ -1531,7 +1577,7 @@ export function WorkspaceShell({
       if (!response.ok || result?.buildStatus !== "succeeded") {
         pendingVisualRevisionRef.current = false;
         setBuildProgress((current) =>
-          addBuildProgressStep(current, {
+          appendBuildProgressStep(current, {
             detail:
               result?.message ||
               "Komentar visual belum berhasil dibuild. Komentar tetap aman.",
@@ -1550,7 +1596,7 @@ export function WorkspaceShell({
       window.localStorage.removeItem(visualAnnotationStorageKey);
       setAnnotationMode(false);
       setBuildStatus("ready");
-      setBuildProgress((current) => completeBuildProgress(current));
+      setBuildProgress((current) => completeBuildProgressSteps(current));
       setActiveTab("preview");
       setPreviewCollapsed(false);
       setPreviewReloadKey((current) => current + 1);
@@ -1654,9 +1700,10 @@ export function WorkspaceShell({
       options: { workspaceAnswers?: WorkspaceAnswerPayload[] } = {},
     ) => {
       const trimmed = text.trim();
+      const hasAnswers = Boolean(options.workspaceAnswers?.length);
 
       if (
-        !trimmed ||
+        (!trimmed && !hasAnswers) ||
         isProcessing ||
         rateLimitError ||
         authStatus !== "authenticated" ||
@@ -2089,110 +2136,126 @@ export function WorkspaceShell({
               ) : isPreparingNextQuestion ||
                 workspaceCardError ? null : !hasAnsweredActiveQuestion &&
                 composerState === "question" &&
-                workspaceCard.type === "question" ? (
-                <AnimatePresence mode="wait" initial={false}>
-                  {questionComposerMode === "options" ? (
-                    <motion.div
-                      key="question-options"
-                      initial={{
-                        opacity: 0,
-                        y: 12,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: "blur(0px)",
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -10,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      <QuestionComposer
-                        question={workspaceCard.question}
-                        onClose={() => setQuestionComposerMode("free")}
-                        onSubmit={(answer, workspaceAnswers) =>
-                          submitChatText(answer, { workspaceAnswers })
-                        }
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.form
-                      key="question-free"
-                      initial={{
-                        opacity: 0,
-                        y: 12,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: "blur(0px)",
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -10,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                      onSubmit={handleMessageSubmit}
-                      className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
-                    >
-                      <div className="mb-spacing-2 flex items-center justify-between gap-spacing-3 px-spacing-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setQuestionComposerMode("options");
-                            setMessage("");
-                          }}
-                          className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-                        >
-                          Lihat pilihan
-                        </button>
-                      </div>
-                      <label htmlFor="workspace-message" className="sr-only">
-                        Pesan untuk AI
-                      </label>
-                      <textarea
-                        id="workspace-message"
-                        rows={3}
-                        value={message}
-                        onChange={(event) => setMessage(event.target.value)}
-                        onKeyDown={handleMessageKeyDown}
-                        placeholder={
-                          sessionExpired
-                            ? "Sesi habis, login ulang..."
-                            : "Tulis bebas..."
-                        }
-                        disabled={
-                          sessionExpired || authStatus !== "authenticated"
-                        }
-                        className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                      />
-                      <div className="flex items-center justify-between gap-spacing-4">
-                        <ModePill mode="Diskusi" tone="idle" />
-                        <Button
-                          type="submit"
-                          size="icon"
-                          disabled={!message.trim()}
-                          className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                          aria-label="Kirim pesan"
-                        >
-                          <ArrowUp className="size-4" />
-                        </Button>
-                      </div>
-                    </motion.form>
-                  )}
-                </AnimatePresence>
+                (workspaceCard.type === "question" ||
+                  workspaceCard.type === "questions") ? (
+                workspaceCard.type === "questions" ? (
+                  <QuestionsComposer
+                    questions={workspaceCard.questions}
+                    onSubmit={(answers) =>
+                      submitChatText("", { workspaceAnswers: answers })
+                    }
+                  />
+                ) : (
+                  <AnimatePresence mode="wait" initial={false}>
+                    {questionComposerMode === "options" ? (
+                      <motion.div
+                        key="question-options"
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                          scale: 1,
+                          filter: "blur(0px)",
+                        }}
+                        exit={{
+                          opacity: 0,
+                          y: -10,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        transition={{
+                          duration: 0.22,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                      >
+                        <QuestionComposer
+                          question={workspaceCard.question}
+                          onClose={() => setQuestionComposerMode("free")}
+                          onSubmit={(answer, workspaceAnswers) =>
+                            submitChatText(answer, { workspaceAnswers })
+                          }
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.form
+                        key="question-free"
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                          scale: 1,
+                          filter: "blur(0px)",
+                        }}
+                        exit={{
+                          opacity: 0,
+                          y: -10,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        transition={{
+                          duration: 0.22,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        onSubmit={handleMessageSubmit}
+                        className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                      >
+                        <div className="mb-spacing-2 flex items-center justify-between gap-spacing-3 px-spacing-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuestionComposerMode("options");
+                              setMessage("");
+                            }}
+                            className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                          >
+                            Lihat pilihan
+                          </button>
+                        </div>
+                        <label htmlFor="workspace-message" className="sr-only">
+                          Pesan untuk AI
+                        </label>
+                        <textarea
+                          id="workspace-message"
+                          rows={3}
+                          value={message}
+                          onChange={(event) => setMessage(event.target.value)}
+                          onKeyDown={handleMessageKeyDown}
+                          placeholder={
+                            sessionExpired
+                              ? "Sesi habis, login ulang..."
+                              : "Tulis bebas..."
+                          }
+                          disabled={
+                            sessionExpired || authStatus !== "authenticated"
+                          }
+                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                        />
+                        <div className="flex items-center justify-between gap-spacing-4">
+                          <ModePill mode="Diskusi" tone="idle" />
+                          <Button
+                            type="submit"
+                            size="icon"
+                            disabled={!message.trim()}
+                            className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                            aria-label="Kirim pesan"
+                          >
+                            <ArrowUp className="size-4" />
+                          </Button>
+                        </div>
+                      </motion.form>
+                    )}
+                  </AnimatePresence>
+                )
               ) : composerState === "build_recommendation" ? (
                 <WorkspaceCardView
                   canBuild={canStartBuildNow}
@@ -2470,33 +2533,6 @@ function createRuntimeControl({
     onPublish,
     publishedPath: runtimePublishedPath,
   };
-}
-
-function addBuildProgressStep(
-  current: BuildProgressStep[],
-  next: BuildProgressStep,
-) {
-  const previous = current[current.length - 1];
-
-  if (previous?.label === next.label) {
-    return [
-      ...current.slice(0, -1),
-      { ...next, status: next.status || previous.status },
-    ];
-  }
-
-  return [
-    ...current.map((step) =>
-      step.status === "active" ? { ...step, status: "done" as const } : step,
-    ),
-    next,
-  ].slice(-8);
-}
-
-function completeBuildProgress(current: BuildProgressStep[]) {
-  return current.map((step) =>
-    step.status === "active" ? { ...step, status: "done" as const } : step,
-  );
 }
 
 const PRESENT_WORKSPACE_CARD_TOOL_TYPE = "tool-presentWorkspaceCard";
@@ -3126,7 +3162,8 @@ function EmptyCodeState({ buildStatus }: { buildStatus: string }) {
       <div className="max-w-sm rounded-[24px] border border-surface-warm-white/10 bg-[#181816] px-spacing-6 py-spacing-6">
         <p className="text-sm font-semibold">Belum ada source yang dibuat</p>
         <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/54">
-          Kode website akan muncul setelah build pertama berhasil dibuat.
+          Kode website muncul setelah AI menulis file (termasuk bila build
+          gagal). Jalankan build pertama dari rancangan jika masih kosong.
         </p>
         <p className="mt-spacing-4 text-xs text-surface-warm-white/34">
           Status: {buildStatus}

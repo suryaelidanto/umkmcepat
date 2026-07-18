@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { createInitialBrief, parseProjectBrief } from "./brief";
-import { normalizeWorkspaceTurn } from "./brief-flow";
+import {
+  buildFallbackWorkspaceCardFromBrief,
+  normalizeWorkspaceTurn,
+  parseWorkspaceCard,
+} from "./brief-flow";
 
 describe("normalizeWorkspaceTurn", () => {
   it("never throws and falls back when the tool input is empty", () => {
@@ -573,5 +577,208 @@ describe("normalizeWorkspaceTurn", () => {
     if (turn.workspaceCard.type === "build_recommendation") {
       expect(turn.workspaceCard.summary.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("parseWorkspaceCard questions variant", () => {
+  it("parses a valid questions[] card", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "jam_buka",
+            question: "Jam buka hari kerja?",
+            answerMode: "text",
+            options: [],
+          },
+          {
+            id: "kontak",
+            question: "Pakai apa buat order?",
+            options: [
+              { label: "WhatsApp", description: "Chat langsung." },
+              { label: "Telepon", description: "Telepon dulu." },
+            ],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions).toHaveLength(2);
+      expect(card.questions[0].id).toBe("jam_buka");
+    }
+  });
+
+  it("drops an invalid question but keeps valid ones", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "jam_buka",
+            question: "Jam buka?",
+            answerMode: "text",
+            options: [],
+          },
+          {
+            id: "bad",
+            question: "y",
+            options: [{ label: "", description: "" }],
+          },
+          {
+            id: "kontak",
+            question: "Order via?",
+            options: [
+              { label: "WhatsApp", description: "Chat." },
+              { label: "Telepon", description: "Call." },
+            ],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions.map((q) => q.id)).toEqual(["jam_buka", "kontak"]);
+    }
+  });
+
+  it("collapses single valid question to type:question", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "bad",
+            question: "y",
+            options: [{ label: "", description: "" }],
+          },
+          {
+            id: "kontak",
+            question: "Order via?",
+            options: [
+              { label: "WhatsApp", description: "" },
+              { label: "Telepon", description: "" },
+            ],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("question");
+    if (card.type === "question") {
+      expect(card.question.id).toBe("kontak");
+    }
+  });
+
+  it("dedupes by id keeping the first occurrence", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "kontak",
+            question: "Order via?",
+            options: [
+              { label: "WA", description: "" },
+              { label: "Telp", description: "" },
+            ],
+          },
+          {
+            id: "kontak",
+            question: "Order via? (dup)",
+            options: [
+              { label: "WA", description: "" },
+              { label: "Telp", description: "" },
+            ],
+          },
+          {
+            id: "jam_buka",
+            question: "Jam buka?",
+            answerMode: "text",
+            options: [],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions.map((q) => q.id)).toEqual(["kontak", "jam_buka"]);
+    }
+  });
+
+  it("caps at 3 questions", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: Array.from({ length: 5 }, (_, i) => ({
+          id: `q${i}`,
+          question: `Q${i}?`,
+          answerMode: "text" as const,
+          options: [],
+        })),
+      },
+      brief,
+    );
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions).toHaveLength(3);
+    }
+  });
+
+  it("returns type:none when all questions are invalid", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "bad",
+            question: "y",
+            options: [{ label: "", description: "" }],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("none");
+  });
+});
+
+describe("buildFallbackWorkspaceCardFromBrief", () => {
+  it("builds a questions card from missing required fields", () => {
+    const brief = createInitialBrief("jualan");
+    brief.businessType = "Katering";
+    // offer, targetCustomer, contactOrCta, stylePreference still empty
+    const card = buildFallbackWorkspaceCardFromBrief(brief);
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions.length).toBeGreaterThan(0);
+      expect(card.questions.length).toBeLessThanOrEqual(3);
+      expect(
+        card.questions.every(
+          (q) => q.options.length >= 2 || q.answerMode === "text",
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("returns none when no required fields are missing", () => {
+    const brief = createInitialBrief("jualan");
+    brief.businessType = "Katering";
+    brief.offer = "Nasi kotak";
+    brief.targetCustomer = "Anak sekolah";
+    brief.contactOrCta = "WhatsApp";
+    brief.stylePreference = "Hangat";
+    const card = buildFallbackWorkspaceCardFromBrief(brief);
+    expect(card.type).toBe("none");
   });
 });

@@ -13,7 +13,13 @@ type Sponsor = {
 
 const PAGE_SIZE = 10;
 
-export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
+export function SponsorTable({
+  sponsors,
+  flat = false,
+}: {
+  sponsors: Sponsor[];
+  flat?: boolean;
+}) {
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(sponsors.length / PAGE_SIZE));
   const visibleSponsors = useMemo(() => {
@@ -24,7 +30,13 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
   const end = Math.min(page * PAGE_SIZE, sponsors.length);
 
   return (
-    <div className="mt-spacing-8 overflow-hidden rounded-[22px] border border-surface-warm-white/10">
+    <div
+      className={
+        flat
+          ? "mt-spacing-8 border-t border-white/[0.07]"
+          : "mt-spacing-8 overflow-hidden rounded-[22px] border border-surface-warm-white/10"
+      }
+    >
       <ul className="divide-y divide-surface-warm-white/10 sm:hidden">
         {visibleSponsors.map((sponsor) => (
           <li
@@ -66,7 +78,13 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
       </ul>
 
       <table className="hidden w-full text-sm sm:table">
-        <thead className="bg-surface-warm-white/[0.055] text-left text-surface-warm-white/50">
+        <thead
+          className={
+            flat
+              ? "border-b border-white/[0.07] text-left text-surface-warm-white/50"
+              : "bg-surface-warm-white/[0.055] text-left text-surface-warm-white/50"
+          }
+        >
           <tr>
             <th className="px-spacing-5 py-spacing-4 font-medium">Tanggal</th>
             <th className="px-spacing-5 py-spacing-4 font-medium">Donatur</th>
@@ -77,7 +95,13 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-surface-warm-white/10">
+        <tbody
+          className={
+            flat
+              ? "divide-y divide-white/[0.07]"
+              : "divide-y divide-surface-warm-white/10"
+          }
+        >
           {visibleSponsors.map((sponsor) => (
             <tr key={`${sponsor.donorName}-${sponsor.date}`}>
               <td className="px-spacing-5 py-spacing-5 text-surface-warm-white/58">
@@ -116,7 +140,13 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
       </table>
 
       {pageCount > 1 ? (
-        <div className="flex flex-col gap-spacing-4 border-t border-surface-warm-white/10 bg-[#151515] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/52 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className={
+            flat
+              ? "flex flex-col gap-spacing-4 border-t border-white/[0.07] px-0 py-spacing-4 text-sm text-surface-warm-white/52 sm:flex-row sm:items-center sm:justify-between"
+              : "flex flex-col gap-spacing-4 border-t border-surface-warm-white/10 bg-[#151515] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/52 sm:flex-row sm:items-center sm:justify-between"
+          }
+        >
           <span>
             {start}-{end} dari {sponsors.length} sponsor
           </span>
@@ -125,7 +155,11 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
               type="button"
               disabled={page === 1}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
-              className="rounded-radius-lg border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-surface-warm-white/8 disabled:cursor-not-allowed disabled:opacity-40"
+              className={
+                flat
+                  ? "rounded-md border border-white/14 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
+                  : "rounded-radius-lg border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-surface-warm-white/8 disabled:cursor-not-allowed disabled:opacity-40"
+              }
             >
               Sebelumnya
             </button>
@@ -135,7 +169,11 @@ export function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
               onClick={() =>
                 setPage((current) => Math.min(pageCount, current + 1))
               }
-              className="rounded-radius-lg border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-surface-warm-white/8 disabled:cursor-not-allowed disabled:opacity-40"
+              className={
+                flat
+                  ? "rounded-md border border-white/14 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
+                  : "rounded-radius-lg border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-surface-warm-white/8 disabled:cursor-not-allowed disabled:opacity-40"
+              }
             >
               Berikutnya
             </button>

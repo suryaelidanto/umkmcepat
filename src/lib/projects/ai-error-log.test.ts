@@ -29,6 +29,23 @@ describe("sanitizeAiErrorMessage", () => {
     ).toBe("auth failed for [redacted]");
   });
 
+  it("redacts OpenRouter-style API keys", () => {
+    expect(
+      sanitizeAiErrorMessage(
+        "auth failed for sk-or-v1-abcdef0123456789xyz0123",
+      ),
+    ).toBe("auth failed for [redacted]");
+  });
+
+  it("redacts key-value secret pairs", () => {
+    expect(sanitizeAiErrorMessage("api_key=supersecretvalue123")).toBe(
+      "api_key=[redacted]",
+    );
+    expect(sanitizeAiErrorMessage('token: "abc123def456"')).toBe(
+      "token=[redacted]",
+    );
+  });
+
   it("redacts Bearer tokens", () => {
     expect(
       sanitizeAiErrorMessage("Bearer abc.def.ghi rejected by gateway"),
@@ -99,5 +116,85 @@ describe("getSafeAiErrorLog", () => {
     expect(
       getSafeAiErrorLog({ lastError: { message: "connection reset" } }),
     ).toMatchObject({ message: "connection reset" });
+  });
+
+  it("prefers explicit reason over status heuristics", () => {
+    expect(
+      getSafeAiErrorLog({ reason: "custom_reason", statusCode: 429 }),
+    ).toMatchObject({ reason: "custom_reason" });
+  });
+
+  it("uses code when reason is missing", () => {
+    expect(getSafeAiErrorLog({ code: "ECONNRESET" })).toMatchObject({
+      reason: "ECONNRESET",
+    });
+  });
+
+  it("maps status codes to stable reasons", () => {
+    expect(getSafeAiErrorLog({ statusCode: 429 }).reason).toBe("rate_limited");
+    expect(getSafeAiErrorLog({ statusCode: 401 }).reason).toBe("auth_failed");
+    expect(getSafeAiErrorLog({ statusCode: 403 }).reason).toBe("auth_failed");
+    expect(getSafeAiErrorLog({ statusCode: 408 }).reason).toBe("timeout");
+    expect(getSafeAiErrorLog({ statusCode: 504 }).reason).toBe("timeout");
+    expect(getSafeAiErrorLog({ statusCode: 502 }).reason).toBe(
+      "upstream_error",
+    );
+    expect(getSafeAiErrorLog({ statusCode: 400 }).reason).toBe(
+      "request_failed",
+    );
+  });
+
+  it("infers reason from message text", () => {
+    expect(getSafeAiErrorLog({ message: "Too Many Requests" }).reason).toBe(
+      "rate_limited",
+    );
+    expect(
+      getSafeAiErrorLog({ message: "socket hang up ETIMEDOUT" }).reason,
+    ).toBe("timeout");
+    expect(
+      getSafeAiErrorLog({ message: "fetch failed ENOTFOUND" }).reason,
+    ).toBe("network_error");
+    expect(getSafeAiErrorLog({ message: "invalid API key" }).reason).toBe(
+      "auth_failed",
+    );
+    expect(
+      getSafeAiErrorLog({ message: "context length exceeded" }).reason,
+    ).toBe("context_overflow");
+    expect(getSafeAiErrorLog({ message: "invalid tool call" }).reason).toBe(
+      "tool_error",
+    );
+  });
+
+  it("infers from Error name when not generic Error", () => {
+    expect(getSafeAiErrorLog({ name: "TimeoutError" }).reason).toBe("timeout");
+  });
+
+  it("ignores generic Error name", () => {
+    expect(getSafeAiErrorLog({ name: "Error" }).reason).toBe("unknown");
+  });
+
+  it("reads cause.message for heuristics", () => {
+    expect(
+      getSafeAiErrorLog({ cause: { message: "rate limit exceeded" } }).reason,
+    ).toBe("rate_limited");
+  });
+
+  it("clamps long reason and redacts keys in reason", () => {
+    expect(getSafeAiErrorLog({ reason: "r".repeat(80) }).reason?.length).toBe(
+      64,
+    );
+    expect(
+      getSafeAiErrorLog({ reason: "leak sk-abcdef0123456789xyz0123" }).reason,
+    ).toContain("[redacted]");
+  });
+
+  it("handles null/undefined error objects safely", () => {
+    expect(getSafeAiErrorLog(null)).toEqual({
+      message: undefined,
+      reason: "unknown",
+      retryAfter: undefined,
+      statusCode: undefined,
+    });
+    expect(getSafeAiErrorLog(undefined)).toMatchObject({ reason: "unknown" });
   });
 });

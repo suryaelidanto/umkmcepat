@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { validateProjectRequest } from "@/lib/projects/input";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
-  addEnergyUsage,
+  chargeEnergyForAiUsage,
   checkEnergy,
   MIN_ENERGY_MODERATION,
 } from "@/lib/user-credits";
@@ -54,12 +54,13 @@ export const Route = createFileRoute("/api/moderation/project-request")({
 
           const result = await moderateProjectRequest(validation.value);
           if (session?.user?.id && result.usage) {
-            await addEnergyUsage(
-              session.user.id,
-              result.usage.inputTokens,
-              result.usage.outputTokens,
-              "moderation",
-            );
+            await chargeEnergyForAiUsage({
+              userId: session.user.id,
+              modelId: result.modelId || "umkmcepat-combo",
+              inputTokens: result.usage.inputTokens,
+              outputTokens: result.usage.outputTokens,
+              reason: "moderation",
+            });
           }
           return Response.json({
             allowed: result.allowed,

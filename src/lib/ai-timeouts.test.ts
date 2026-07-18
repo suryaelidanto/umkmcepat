@@ -7,9 +7,9 @@ afterEach(() => {
 });
 
 describe("discuss card timeout", () => {
-  it("uses 45s per attempt with 90s total deadline across two semantic attempts", () => {
+  it("uses 45s per attempt with 135s total deadline across three semantic attempts", () => {
     expect(getAiTimeoutMs("discussCard")).toBe(45_000);
-    expect(DISCUSS_CARD_SERVER_DEADLINE_MS).toBe(90_000);
+    expect(DISCUSS_CARD_SERVER_DEADLINE_MS).toBe(135_000);
   });
 
   it("allows environment overrides up to the maxMs cap", () => {

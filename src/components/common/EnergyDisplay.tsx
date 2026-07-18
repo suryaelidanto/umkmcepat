@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
+import { useSession } from "@/lib/auth-client";
 import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
 
 type EnergyStats = {
@@ -20,12 +21,15 @@ function formatNumber(value: number): string {
 
 export function EnergyDisplay() {
   const queryClient = useQueryClient();
+  const { data: session, status } = useSession();
+  const hasUser = Boolean(session?.user) && status !== "loading";
   const energyQuery = useQuery({
     queryKey: queryKeys.energy,
     queryFn: () =>
       fetchJson<EnergyStats>("/api/user/credits", { cache: "no-store" }),
-    refetchInterval: 15_000,
-    refetchOnWindowFocus: true,
+    enabled: hasUser,
+    refetchInterval: hasUser ? 15_000 : false,
+    refetchOnWindowFocus: hasUser,
   });
 
   const unlimitedQuery = useQuery({
@@ -79,6 +83,10 @@ export function EnergyDisplay() {
 
   const stats = energyQuery.data;
 
+  if (!hasUser) {
+    return null;
+  }
+
   if (energyQuery.isPending && !stats) {
     return (
       <div className="flex items-center gap-2 text-xs text-surface-warm-white/50">
@@ -104,8 +112,8 @@ export function EnergyDisplay() {
         `Energi: ${formatNumber(stats.remaining)}/${formatNumber(stats.limit)}`,
         `Terpakai: ${formatNumber(stats.used)}`,
         `Input: ${formatNumber(stats.inputTokens)} token`,
-        `Output: ${formatNumber(stats.outputTokens)} token (×2 energi)`,
-        "Rumus: input + (2 × output)",
+        `Output: ${formatNumber(stats.outputTokens)} token`,
+        "Energi = biaya model (USD) × 1.000.000",
         `Reset ${resetLabel} (WIB)`,
         energyQuery.isFetching ? "Memperbarui…" : "",
       ]

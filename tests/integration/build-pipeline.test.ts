@@ -118,6 +118,11 @@ vi.mock("@/lib/user-credits", () => ({
     inputTokens: 0,
     outputTokens: 0,
   }),
+  chargeEnergyForAiUsage: vi.fn().mockResolvedValue({
+    energyUsed: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+  }),
   isUserVerified: vi.fn().mockResolvedValue(true),
   MIN_ENERGY_BUILD: 40_000,
 }));

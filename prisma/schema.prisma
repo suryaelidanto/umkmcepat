@@ -314,6 +314,18 @@ model UserCredit {
   @@index([expiresAt])
 }
 
+// USD-per-token pricing cache for OpenRouter models, refreshed on a
+// background interval (see src/lib/model-pricing.ts). Avoids hitting the
+// OpenRouter pricing API on the generation hot path.
+model ModelPricing {
+  id              String   @id @default(cuid())
+  modelId         String   @unique
+  promptPrice     Decimal  @db.Decimal(20, 12)
+  completionPrice Decimal  @db.Decimal(20, 12)
+  fetchedAt       DateTime @default(now())
+  createdAt       DateTime @default(now())
+}
+
 model OtpRequest {
   id        String   @id @default(cuid())
   userId    String

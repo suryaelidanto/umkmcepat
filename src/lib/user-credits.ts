@@ -1,15 +1,20 @@
+import { getModelPricing } from "@/lib/model-pricing";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Token-based energy system.
+ * Cost-based energy system.
  *
- * Formula: energy = inputTokens + (2 × outputTokens)
+ * "Energy" = USD cost × 1,000,000 (micro-USD), computed from the actual
+ * OpenRouter model that served each generation (see model-pricing.ts) —
+ * not a flat multiplier. This is fair across the 7-model combo, since each
+ * model has a different prompt:completion price ratio.
  *
- * Output tokens cost ~2× more than input tokens (DeepSeek V4 Pro pricing).
- * Daily limit: 200,000 energy ≈ Rp 1,400/day/user at current pricing.
+ * Daily limit: 230,000 energy ≈ $0.23/day/user (~Rp 3,700/day), the
+ * "generous but not wasteful" tier confirmed against real usage.
  * Day boundary: Asia/Jakarta (WIB).
  */
-export const DAILY_ENERGY_LIMIT = 200_000;
+export const MICRO_USD_PER_ENERGY = 1_000_000;
+export const DAILY_ENERGY_LIMIT = 230_000;
 
 /** Soft gate before discuss turns — cheap relative to build. */
 export const MIN_ENERGY_DISCUSS = 5_000;
@@ -39,10 +44,16 @@ export function setDevUnlimitedEnergy(enabled: boolean): void {
   }
 }
 
-export function calculateEnergy(inputTokens: number, outputTokens: number) {
+export async function calculateEnergyCost(
+  modelId: string,
+  inputTokens: number,
+  outputTokens: number,
+): Promise<number> {
   const input = Math.max(0, Math.floor(inputTokens));
   const output = Math.max(0, Math.floor(outputTokens));
-  return input + 2 * output;
+  const { promptPrice, completionPrice } = await getModelPricing(modelId);
+  const usd = input * promptPrice + output * completionPrice;
+  return Math.round(usd * MICRO_USD_PER_ENERGY);
 }
 
 export function getProjectLimit(): number {
@@ -89,18 +100,25 @@ export async function checkEnergy(
 }
 
 /**
- * Deduct energy based on actual token usage.
- * Formula: energy = inputTokens + (2 × outputTokens)
+ * Deduct energy based on actual model cost (USD × 1e6).
+ * Price comes from OpenRouter via model-pricing cache for `modelId`.
  */
 export async function addEnergyUsage(
   userId: string,
+  modelId: string,
   inputTokens: number,
   outputTokens: number,
   reason: string,
 ): Promise<{ energyUsed: number; inputTokens: number; outputTokens: number }> {
   const input = Math.max(0, Math.floor(inputTokens));
   const output = Math.max(0, Math.floor(outputTokens));
-  const energyUsed = calculateEnergy(input, output);
+  // ponytail: reasoning/cache token breakdown not split; relies on provider
+  // folding billed tokens into input/output. Split when 9router exposes stable fields.
+  const energyUsed = await calculateEnergyCost(
+    modelId.trim() || "unknown",
+    input,
+    output,
+  );
 
   if (energyUsed <= 0) {
     return { energyUsed: 0, inputTokens: 0, outputTokens: 0 };
@@ -127,6 +145,45 @@ export async function addEnergyUsage(
   `;
 
   return { energyUsed, inputTokens: input, outputTokens: output };
+}
+
+/**
+ * Route-facing debit after an AI call. Charges on success **or** failure when
+ * usage > 0. Never throws into the request path (logs and returns null).
+ */
+export async function chargeEnergyForAiUsage(opts: {
+  userId: string;
+  modelId?: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  reason: string;
+}): Promise<{
+  energyUsed: number;
+  inputTokens: number;
+  outputTokens: number;
+} | null> {
+  const input = Math.max(0, Math.floor(opts.inputTokens));
+  const output = Math.max(0, Math.floor(opts.outputTokens));
+  if (input <= 0 && output <= 0) {
+    return null;
+  }
+
+  try {
+    return await addEnergyUsage(
+      opts.userId,
+      opts.modelId?.trim() || "unknown",
+      input,
+      output,
+      opts.reason,
+    );
+  } catch (error) {
+    console.warn("[energy] chargeEnergyForAiUsage failed", {
+      reason: opts.reason,
+      userId: opts.userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 export async function getEnergyStats(userId: string): Promise<{

@@ -82,3 +82,5 @@ _sse*.txt
 # Prettier + ESLint caches (regenerated on every run)
 .prettiercache
 .eslintcache
+auth.env
+*.env

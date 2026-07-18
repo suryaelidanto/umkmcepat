@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 
 import {
   CommunitySection,
@@ -12,6 +13,8 @@ import {
 } from "@/components/home/HeroContentMotion";
 import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
+import { FirstVisitModal } from "@/components/onboarding/FirstVisitModal";
+import { KopiFab } from "@/components/onboarding/KopiFab";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { auth } from "@/lib/auth";
@@ -152,6 +155,10 @@ function HomePage() {
     initialNextCursor,
     initialProjects,
   } = Route.useLoaderData();
+  const [promptFocused, setPromptFocused] = useState(false);
+  const siblingClass = promptFocused
+    ? "transition-all duration-300 opacity-40 scale-[0.98]"
+    : "transition-all duration-300";
 
   async function deleteProject(formData: FormData) {
     const projectId = formData.get("projectId");
@@ -168,8 +175,11 @@ function HomePage() {
         <HeroAuroraBackground />
 
         <HeroContentMotion>
-          <HeroMotionItem>
-            <h1 className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white">
+          <HeroMotionItem className={siblingClass}>
+            <h1
+              id="hero-heading"
+              className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white"
+            >
               {hasUser
                 ? greetingName
                   ? `Hai, ${greetingName}. Mau buat website apa hari ini?`
@@ -177,7 +187,7 @@ function HomePage() {
                 : "Usahamu layak punya website. 100% gratis."}
             </h1>
           </HeroMotionItem>
-          <HeroMotionItem>
+          <HeroMotionItem className={siblingClass}>
             <p className="mt-spacing-7 max-w-2xl text-balance text-lg leading-7 text-surface-warm-white/72 sm:text-xl">
               {hasUser
                 ? "Tulis kebutuhan usahamu. AI bantu susun website yang cocok untuk pelangganmu."
@@ -186,7 +196,7 @@ function HomePage() {
           </HeroMotionItem>
 
           <HeroMotionItem className="w-full">
-            <HomePromptForm />
+            <HomePromptForm onFocusChange={setPromptFocused} />
           </HeroMotionItem>
         </HeroContentMotion>
       </section>
@@ -194,31 +204,32 @@ function HomePage() {
       {!hasUser ? <CommunitySection contributors={contributors} /> : null}
 
       {hasUser ? (
-        <section className="bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
+        <section className="border-t border-surface-warm-white/10 bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
           <ScrollReveal>
             <div className="mx-auto max-w-6xl text-left">
-              <div className="rounded-radius-3xl border border-surface-warm-white/10 bg-[#1f1f1d] p-spacing-7 sm:p-spacing-10">
-                <div className="max-w-2xl">
-                  <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
-                    Website kamu
-                  </h2>
-                  <p className="mt-spacing-4 text-sm leading-6 text-surface-warm-white/62 sm:text-base">
-                    Lanjutkan website terakhir atau buka arsip pekerjaanmu.
-                  </p>
-                </div>
+              <div className="max-w-2xl">
+                <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
+                  Website kamu
+                </h2>
+                <p className="mt-spacing-4 text-sm leading-6 text-surface-warm-white/62 sm:text-base">
+                  Lanjutkan website terakhir atau buka arsip pekerjaanmu.
+                </p>
+              </div>
 
-                <div className="mt-spacing-10">
-                  <ProjectList
-                    initialProjects={initialProjects}
-                    initialNextCursor={initialNextCursor}
-                    deleteProject={deleteProject}
-                  />
-                </div>
+              <div className="mt-spacing-10">
+                <ProjectList
+                  initialProjects={initialProjects}
+                  initialNextCursor={initialNextCursor}
+                  deleteProject={deleteProject}
+                />
               </div>
             </div>
           </ScrollReveal>
         </section>
       ) : null}
+
+      {!hasUser ? <FirstVisitModal /> : null}
+      {!hasUser ? <KopiFab variant="homepage" /> : null}
     </div>
   );
 }

@@ -90,6 +90,11 @@ vi.mock("@/lib/user-credits", () => ({
     inputTokens: 0,
     outputTokens: 0,
   })),
+  chargeEnergyForAiUsage: vi.fn(async () => ({
+    energyUsed: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+  })),
   MIN_ENERGY_BUILD: 40_000,
   isUserVerified: vi.fn(async () => true),
 }));

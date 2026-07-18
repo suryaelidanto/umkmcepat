@@ -20,7 +20,7 @@ import {
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
-  addEnergyUsage,
+  chargeEnergyForAiUsage,
   checkEnergy,
   getProjectCount,
   getProjectLimit,
@@ -219,12 +219,13 @@ export const Route = createFileRoute("/api/projects")({
         }
 
         if (moderation.usage) {
-          await addEnergyUsage(
+          await chargeEnergyForAiUsage({
             userId,
-            moderation.usage.inputTokens,
-            moderation.usage.outputTokens,
-            "moderation",
-          );
+            modelId: moderation.modelId || "umkmcepat-combo",
+            inputTokens: moderation.usage.inputTokens,
+            outputTokens: moderation.usage.outputTokens,
+            reason: "moderation",
+          });
         }
 
         if (!moderation.allowed) {

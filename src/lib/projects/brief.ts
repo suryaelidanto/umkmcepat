@@ -73,12 +73,13 @@ export type BriefQuestion = {
   options: Array<{ label: string; description: string }>;
 };
 
-// One question per turn (relentless interview style). The card never batches
-// questions: the AI asks a single decision, the user answers, then the next
-// turn asks the next one.
+// One decision per turn OR a round of up to 3 independent questions. The card
+// never batches dependent questions: if Q2 depends on Q1's answer, the AI asks
+// Q1 alone this turn and Q2 next turn. Server validates per-question.
 export type WorkspaceCard =
   | { type: "none" }
   | { type: "question"; question: BriefQuestion }
+  | { type: "questions"; questions: BriefQuestion[] }
   | { type: "build_recommendation"; title: string; summary: string[] };
 
 export type ProjectBriefPatch = Partial<

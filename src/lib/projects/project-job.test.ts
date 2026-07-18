@@ -66,6 +66,68 @@ describe("deriveActiveProjectJob", () => {
     expect(job?.steps[0]?.status).toBe("active");
   });
 
+  it("keeps same-label progress events as separate steps", () => {
+    const job = deriveActiveProjectJob({
+      build: {
+        createdAt: "2026-07-16T00:00:00.000Z",
+        id: "b1",
+        startedAt: "2026-07-16T00:00:10.000Z",
+        status: "running",
+        updatedAt: "2026-07-16T00:00:40.000Z",
+      },
+      events: [
+        {
+          buildId: "b1",
+          createdAt: "2026-07-16T00:00:30.000Z",
+          message: "Menulis file",
+          metadata: { detail: "c.ts", label: "Menulis file" },
+          type: "build.progress",
+        },
+        {
+          buildId: "b1",
+          createdAt: "2026-07-16T00:00:20.000Z",
+          message: "Menulis file",
+          metadata: { detail: "b.ts", label: "Menulis file" },
+          type: "build.progress",
+        },
+        {
+          buildId: "b1",
+          createdAt: "2026-07-16T00:00:15.000Z",
+          message: "Menulis file",
+          metadata: { detail: "a.ts", label: "Menulis file" },
+          type: "build.progress",
+        },
+      ],
+    });
+
+    const writes = job?.steps.filter((s) => s.label === "Menulis file") ?? [];
+    expect(writes).toHaveLength(3);
+    expect(writes.map((s) => s.detail)).toEqual(["a.ts", "b.ts", "c.ts"]);
+  });
+
+  it("does not cap steps at 8", () => {
+    const events = Array.from({ length: 12 }, (_, i) => ({
+      buildId: "b1",
+      createdAt: `2026-07-16T00:00:${String(i + 10).padStart(2, "0")}.000Z`,
+      message: `Step ${i}`,
+      metadata: { detail: `d${i}`, label: `Label ${i}` },
+      type: "build.progress" as const,
+    })).reverse();
+
+    const job = deriveActiveProjectJob({
+      build: {
+        createdAt: "2026-07-16T00:00:00.000Z",
+        id: "b1",
+        startedAt: "2026-07-16T00:00:10.000Z",
+        status: "running",
+        updatedAt: "2026-07-16T00:01:00.000Z",
+      },
+      events,
+    });
+
+    expect(job?.steps.length).toBeGreaterThanOrEqual(12);
+  });
+
   it("treats open visual_comment edit as active even when last build succeeded", () => {
     const job = deriveActiveProjectJob({
       attempt: {

@@ -1,9 +1,11 @@
+"use client";
+
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
 
 export function Footer() {
   return (
-    <footer className="border-t border-surface-warm-white/10 bg-[#151515] text-surface-warm-white">
+    <footer className="border-t border-white/[0.07] bg-[#151515] text-surface-warm-white">
       <div className="mx-auto flex max-w-7xl flex-col gap-spacing-7 px-4 py-spacing-9 sm:px-6 lg:px-spacing-10">
         <div className="flex flex-col gap-spacing-9 md:flex-row md:items-center md:justify-between">
           <div>
@@ -19,21 +21,21 @@ export function Footer() {
               />
               <span>UMKM Cepat</span>
             </Link>
-            <p className="mt-2 max-w-md text-sm leading-6 text-surface-warm-white/62">
+            <p className="mt-2 max-w-md text-sm leading-6 text-surface-warm-white/50">
               Buat website dan alat digital untuk usaha kecil dengan bantuan AI.
             </p>
           </div>
 
-          <nav className="flex flex-wrap gap-spacing-5 text-sm text-surface-warm-white/62">
+          <nav className="flex flex-wrap gap-spacing-5 text-sm">
             <Link
               href="/terms"
-              className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
             >
               Ketentuan
             </Link>
             <Link
               href="/privacy"
-              className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
             >
               Privasi
             </Link>
@@ -41,14 +43,14 @@ export function Footer() {
               href="https://github.com/suryaelidanto/umkmcepat"
               target="_blank"
               rel="noopener noreferrer"
-              className="outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
             >
               Github
             </Link>
           </nav>
         </div>
 
-        <p className="text-sm text-surface-warm-white/50">
+        <p className="text-sm text-surface-warm-white/60">
           © {new Date().getFullYear()} UMKM Cepat
         </p>
       </div>

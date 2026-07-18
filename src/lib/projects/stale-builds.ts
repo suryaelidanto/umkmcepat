@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-export const STALE_BUILD_TIMEOUT_MS = 15 * 60 * 1000;
+export const STALE_BUILD_TIMEOUT_MS = 3 * 60 * 1000;
 
 export function getStaleBuildCutoff(now = new Date()) {
   return new Date(now.getTime() - STALE_BUILD_TIMEOUT_MS);

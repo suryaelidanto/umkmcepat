@@ -94,6 +94,11 @@ vi.mock("@/lib/user-credits", () => ({
     inputTokens: 0,
     outputTokens: 0,
   })),
+  chargeEnergyForAiUsage: vi.fn(async () => ({
+    energyUsed: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+  })),
   MIN_ENERGY_EDIT: 10_000,
 }));
 vi.mock("@/lib/projects/runtime-supervisor", () => ({

@@ -26,7 +26,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-foreground-primary/58 backdrop-blur-sm",
+        "fixed inset-0 z-50 bg-black/62 backdrop-blur-sm",
         className,
       )}
       {...props}
@@ -48,14 +48,14 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-spacing-7 rounded-radius-2xl border border-surface-warm-white/10 bg-[#232321] p-spacing-9 text-surface-warm-white shadow-[0_24px_80px_rgba(0,0,0,0.32)] outline-none",
+          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-spacing-7 rounded-lg border border-white/[0.08] bg-[#161614] p-spacing-9 text-surface-warm-white shadow-[0_24px_80px_rgba(0,0,0,0.5)] outline-none",
           className,
         )}
         {...props}
       >
         {children}
         {showCloseButton ? (
-          <DialogPrimitive.Close className="absolute right-spacing-7 top-spacing-7 rounded-radius-md text-surface-warm-white/54 opacity-80 outline-none transition hover:text-surface-warm-white hover:opacity-100 focus-visible:ring-2 focus-visible:ring-surface-warm-white/70">
+          <DialogPrimitive.Close className="absolute right-spacing-7 top-spacing-7 rounded-md text-surface-warm-white/54 outline-none transition hover:text-surface-warm-white focus-visible:ring-1 focus-visible:ring-white/40">
             <XIcon className="size-4" />
             <span className="sr-only">Tutup</span>
           </DialogPrimitive.Close>

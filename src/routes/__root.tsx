@@ -4,7 +4,6 @@ import {
   Scripts,
   createRootRoute,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { AlertTriangle } from "lucide-react";
 
 import type { ReactNode } from "react";
@@ -15,8 +14,6 @@ import { Link } from "@/components/ui/link";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import globalCss from "@/styles/globals.css?url";
-
-const showDevtools = import.meta.env.DEV;
 
 const siteUrl = "https://umkmcepat.com";
 const siteDescription =
@@ -112,9 +109,6 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         />
         <AppProviders>{children}</AppProviders>
         <Toaster richColors position="bottom-right" />
-        {showDevtools ? (
-          <TanStackRouterDevtools position="bottom-right" />
-        ) : null}
         <Scripts />
       </body>
     </html>

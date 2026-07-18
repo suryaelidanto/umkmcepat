@@ -507,7 +507,30 @@ function getEditableCommandPath(
     };
   }
 
+  if (!isAgentEditablePath(safePath.path)) {
+    return {
+      error: `Agent may only edit app source under src/ (and PRODUCT/DESIGN/AGENTS.md): ${safePath.path}`,
+      ok: false,
+    };
+  }
+
   return safePath;
+}
+
+/** Writes/replaces limited to app source + optional brief docs — not deploy/config. */
+export function isAgentEditablePath(filePath: string) {
+  if (
+    filePath === "PRODUCT.md" ||
+    filePath === "DESIGN.md" ||
+    filePath === "AGENTS.md"
+  ) {
+    return true;
+  }
+  return (
+    filePath === "src" ||
+    filePath.startsWith("src/") ||
+    filePath.startsWith("src\\")
+  );
 }
 
 function getSafeOptionalPathPrefix(

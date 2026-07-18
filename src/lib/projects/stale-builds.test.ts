@@ -27,9 +27,9 @@ describe("stale build recovery", () => {
     prismaProjectEditAttemptUpdateManyMock.mockResolvedValue({ count: 0 });
   });
 
-  it("computes a fifteen minute stale cutoff", () => {
+  it("computes a three minute stale cutoff", () => {
     expect(getStaleBuildCutoff(new Date("2026-07-07T12:15:00.000Z"))).toEqual(
-      new Date("2026-07-07T12:00:00.000Z"),
+      new Date("2026-07-07T12:12:00.000Z"),
     );
   });
 
@@ -48,7 +48,7 @@ describe("stale build recovery", () => {
       where: {
         projectId: "project_1",
         status: { in: ["queued", "running"] },
-        updatedAt: { lt: new Date("2026-07-07T12:00:00.000Z") },
+        updatedAt: { lt: new Date("2026-07-07T12:12:00.000Z") },
       },
     });
     expect(prismaProjectUpdateManyMock).toHaveBeenCalledWith({
@@ -91,8 +91,12 @@ describe("stale build recovery", () => {
     });
     expect(prismaProjectEditAttemptUpdateManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: "failed" }),
+        data: expect.objectContaining({
+          errorMessage: "Operation lease expired before completion.",
+          status: "failed",
+        }),
         where: expect.objectContaining({
+          finishedAt: null,
           projectId: "project_1",
           status: {
             in: ["generating", "editing", "repairing", "building"],
@@ -100,5 +104,52 @@ describe("stale build recovery", () => {
         }),
       }),
     );
+  });
+
+  it("returns zero when no stale builds and no expired lease", async () => {
+    const now = new Date("2026-07-07T12:15:00.000Z");
+    prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
+    prismaProjectUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    await expect(markStaleProjectBuilds("project_1", now)).resolves.toBe(0);
+    expect(prismaProjectEditAttemptUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("does not fail open edit attempts when lease expire count is 0", async () => {
+    const now = new Date("2026-07-07T12:15:00.000Z");
+    prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 1 });
+    prismaProjectUpdateManyMock
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    await expect(markStaleProjectBuilds("project_1", now)).resolves.toBe(1);
+    expect(prismaProjectEditAttemptUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("uses three minute cutoff in build where clause", async () => {
+    const now = new Date("2026-07-07T12:15:00.000Z");
+    prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
+    prismaProjectUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    await markStaleProjectBuilds("project_x", now);
+
+    expect(prismaProjectBuildUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          projectId: "project_x",
+          updatedAt: { lt: new Date("2026-07-07T12:12:00.000Z") },
+        }),
+      }),
+    );
+  });
+
+  it("sums stale build count and expired lease count", async () => {
+    const now = new Date("2026-07-07T12:15:00.000Z");
+    prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 3 });
+    prismaProjectUpdateManyMock
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    await expect(markStaleProjectBuilds("project_1", now)).resolves.toBe(4);
   });
 });

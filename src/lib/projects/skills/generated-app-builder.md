@@ -72,19 +72,29 @@ Create business-specific React components:
 
 ### Step 6: Validate
 
-Run `check_app` after all writes. It validates:
+Run `check_app` after all writes. It validates platform integrity:
 
-- All files are syntactically valid
-- No forbidden patterns (backend, auth, payment language)
-- Preview-ready signal is present
-- Package.json is valid
+- Resource budget / file size limits
+- Generated app manifest present and valid
+- Package allowlist + allowed build scripts only (no new deps like prisma/express)
+- Design policy bans (e.g. gradient-text, h-screen)
+
+It does **not** ban ordinary business words like “payment”, “login”, or “register” in copy.
+
+Post-generation structural checks (separate) also require meaningful edits, routes/content, preview-ready signal (`generated-app-preview-ready` / `usePreviewReady()`), and CSS coverage for classNames.
+
+## Static product patterns
+
+- Prefer WhatsApp / phone / maps CTA, static catalog, price list, hours, testimonials.
+- Copy may describe cara bayar (transfer, COD, dll). Do **not** build fake login, checkout carts with payment gateways, member auth, or `fetch('/api/...')` to invented backends.
+- Data lives in `src/content/site.ts` and JSX — not a database.
 
 ## Forbidden
 
-- No `fetch()` calls or API routes
-- No database, authentication, or payment code
-- No `localStorage` for data persistence (except drafts)
-- No `window.open()` or external navigation
+- No real backend, database, authentication, or payment-gateway integrations
+- No new npm dependencies (package.json is platform-owned)
+- No invented API routes or server code
+- No `localStorage` for durable business data (except ephemeral drafts)
 - No third-party scripts or analytics
 - No Tailwind CSS (custom CSS only)
 - No placeholder text like "Lorem ipsum" or "Coming soon"
