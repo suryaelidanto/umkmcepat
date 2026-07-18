@@ -13,6 +13,7 @@ import {
   type ProjectBrief,
   type WorkspaceCard,
   getBriefReadiness,
+  getMissingBriefFields,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
 const OPTION_LABEL_MAX_LENGTH = 120;
@@ -193,6 +194,103 @@ export function createFallbackWorkspaceCard(
 
 export function createPendingWorkspaceCard(brief: ProjectBrief): WorkspaceCard {
   return createFallbackWorkspaceCard(brief);
+}
+
+const FALLBACK_FIELD_QUESTIONS: Record<
+  string,
+  {
+    question: string;
+    answerMode: "choice" | "text";
+    placeholder?: string;
+    options: Array<{ label: string; description: string }>;
+  }
+> = {
+  businessType: {
+    question: "Usahamu bidang apa?",
+    answerMode: "choice",
+    options: [
+      { label: "Kuliner/F&B", description: "Warung makan, kafe, jajanan." },
+      { label: "Jasa lokal", description: "Laundry, barber, servis." },
+      { label: "Jasa online", description: "Desain, tulis, freelance." },
+      { label: "Lainnya", description: "Tulis sendiri." },
+    ],
+  },
+  offer: {
+    question: "Produk/jasa utama yang dijual?",
+    answerMode: "text",
+    placeholder: "Contoh: nasi kotak harian",
+    options: [],
+  },
+  targetCustomer: {
+    question: "Pelanggan utamanya siapa?",
+    answerMode: "text",
+    placeholder: "Contoh: anak sekolah sekitar",
+    options: [],
+  },
+  contactOrCta: {
+    question: "Pakai apa buat dihubungi?",
+    answerMode: "choice",
+    options: [
+      { label: "WhatsApp", description: "Chat langsung." },
+      { label: "Telepon", description: "Telepon dulu." },
+      { label: "Instagram", description: "DM Instagram." },
+      { label: "Lainnya", description: "Tulis sendiri." },
+    ],
+  },
+  stylePreference: {
+    question: "Arah tampilan yang kamu suka?",
+    answerMode: "choice",
+    options: [
+      { label: "Hangat & ramah", description: "Warna earthy, cozy." },
+      { label: "Bersih & modern", description: "Minimalis, putih." },
+      { label: "Ceria & cerah", description: "Warna terang, playful." },
+      { label: "Lainnya", description: "Tulis sendiri." },
+    ],
+  },
+};
+
+// Last-resort card when every AI path produced type none. Derives up to 3
+// questions from empty REQUIRED_BRIEF_FIELDS without calling the model, which
+// matches the grilling principle that an inferable fact should not be re-asked
+// of the AI. Never returns build_recommendation.
+export function buildFallbackWorkspaceCardFromBrief(
+  brief: ProjectBrief,
+): WorkspaceCard {
+  const missing = getMissingBriefFields(brief);
+  if (missing.length === 0) {
+    return createFallbackWorkspaceCard(brief);
+  }
+
+  const seen = new Set<string>();
+  const questions: BriefQuestion[] = [];
+  for (const field of missing) {
+    if (seen.has(field)) {
+      continue;
+    }
+    const spec = FALLBACK_FIELD_QUESTIONS[field];
+    if (!spec) {
+      continue;
+    }
+    seen.add(field);
+    questions.push({
+      id: field,
+      question: spec.question,
+      answerMode: spec.answerMode,
+      options: spec.options,
+      placeholder: spec.placeholder,
+    });
+    if (questions.length === 3) {
+      break;
+    }
+  }
+
+  if (questions.length === 0) {
+    return createFallbackWorkspaceCard(brief);
+  }
+  if (questions.length === 1) {
+    return { type: "question", question: questions[0] };
+  }
+  return { type: "questions", questions };
 }
 
 export function parseWorkspaceCard(

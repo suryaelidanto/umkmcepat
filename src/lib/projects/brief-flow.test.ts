@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { createInitialBrief, parseProjectBrief } from "./brief";
-import { normalizeWorkspaceTurn, parseWorkspaceCard } from "./brief-flow";
+import {
+  buildFallbackWorkspaceCardFromBrief,
+  normalizeWorkspaceTurn,
+  parseWorkspaceCard,
+} from "./brief-flow";
 
 describe("normalizeWorkspaceTurn", () => {
   it("never throws and falls back when the tool input is empty", () => {
@@ -745,6 +749,36 @@ describe("parseWorkspaceCard questions variant", () => {
       },
       brief,
     );
+    expect(card.type).toBe("none");
+  });
+});
+
+describe("buildFallbackWorkspaceCardFromBrief", () => {
+  it("builds a questions card from missing required fields", () => {
+    const brief = createInitialBrief("jualan");
+    brief.businessType = "Katering";
+    // offer, targetCustomer, contactOrCta, stylePreference still empty
+    const card = buildFallbackWorkspaceCardFromBrief(brief);
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions.length).toBeGreaterThan(0);
+      expect(card.questions.length).toBeLessThanOrEqual(3);
+      expect(
+        card.questions.every(
+          (q) => q.options.length >= 2 || q.answerMode === "text",
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("returns none when no required fields are missing", () => {
+    const brief = createInitialBrief("jualan");
+    brief.businessType = "Katering";
+    brief.offer = "Nasi kotak";
+    brief.targetCustomer = "Anak sekolah";
+    brief.contactOrCta = "WhatsApp";
+    brief.stylePreference = "Hangat";
+    const card = buildFallbackWorkspaceCardFromBrief(brief);
     expect(card.type).toBe("none");
   });
 });

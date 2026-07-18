@@ -29,6 +29,7 @@ import {
   parseProjectBrief,
 } from "@/lib/projects/brief";
 import {
+  buildFallbackWorkspaceCardFromBrief,
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
 } from "@/lib/projects/brief-flow";
@@ -888,6 +889,19 @@ async function handleDiscussTurnOneCall({
             repairsUsed = repaired.repairsUsed;
             totalInputTokens += repaired.usage.inputTokens;
             totalOutputTokens += repaired.usage.outputTokens;
+          }
+        }
+
+        if (workspaceTurn.workspaceCard.type === "none") {
+          const fallbackCard = buildFallbackWorkspaceCardFromBrief(
+            workspaceTurn.brief,
+          );
+          if (fallbackCard.type !== "none") {
+            workspaceTurn = {
+              ...workspaceTurn,
+              workspaceCard: fallbackCard,
+            };
+            primaryToolFailed = true; // still log as AI-failed, fallback covered
           }
         }
 
