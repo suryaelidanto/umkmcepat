@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Send,
   Smartphone,
+  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -45,7 +46,9 @@ export type WorkspaceRuntimeControl = {
   canPublish?: boolean;
   deploymentStatus?: string | null;
   errorMessage?: string | null;
+  isCanceling?: boolean;
   isPublishing?: boolean;
+  onCancel?: () => void;
   onPublish?: () => void;
   publishedPath?: string | null;
 };
@@ -230,6 +233,21 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
         <span className="truncate">{status.label}</span>
       </span>
 
+      {isBuildActive(runtime.buildStatus) ? (
+        <button
+          type="button"
+          disabled={runtime.isCanceling}
+          onClick={runtime.onCancel}
+          aria-label="Hentikan build"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-[#ffb4a6]/24 px-spacing-3 py-spacing-2 text-xs text-[#ffb4a6] transition hover:bg-[#ffb4a6]/10 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Square className="size-4" />
+          <span className="hidden sm:inline">
+            {runtime.isCanceling ? "Menghentikan..." : "Hentikan Build"}
+          </span>
+        </button>
+      ) : null}
+
       {runtime.publishedPath ? (
         <a
           href={runtime.publishedPath}
@@ -259,6 +277,14 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
         </button>
       )}
     </div>
+  );
+}
+
+function isBuildActive(buildStatus?: string | null) {
+  return (
+    buildStatus === "queued" ||
+    buildStatus === "running" ||
+    buildStatus === "building"
   );
 }
 

@@ -44,6 +44,7 @@ import {
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
+import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -147,6 +148,14 @@ async function handlePreviewPost(request: Request) {
       { message: "Proyek tidak ditemukan." },
       { status: 404 },
     );
+  }
+
+  if (project.status === "building") {
+    const prunedCount = await markStaleProjectBuilds(project.id);
+
+    if (prunedCount > 0) {
+      project.status = "failed";
+    }
   }
 
   if (project.status === "building") {
