@@ -359,7 +359,10 @@ export function CommunitySection({
             </h2>
             <div className="mt-spacing-8 divide-y divide-white/[0.07] border-t border-white/[0.07]">
               {faqs.map((faq) => (
-                <details key={faq.question} className="group">
+                <details
+                  key={faq.question}
+                  className="group grid grid-rows-[auto_0fr] transition-[grid-template-rows] duration-300 ease-out open:grid-rows-[auto_1fr]"
+                >
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-spacing-6 py-spacing-5 text-base font-semibold text-surface-warm-white outline-none transition [&::-webkit-details-marker]:hidden">
                     {faq.question}
                     <span className="relative grid size-6 shrink-0 place-items-center text-surface-warm-white/50">
@@ -367,9 +370,11 @@ export function CommunitySection({
                       <X className="absolute size-4 -rotate-90 opacity-0 transition-all duration-300 ease-out group-open:rotate-0 group-open:opacity-100" />
                     </span>
                   </summary>
-                  <p className="pb-spacing-6 text-sm leading-6 text-surface-warm-white/68">
-                    {faq.answer}
-                  </p>
+                  <div className="overflow-hidden">
+                    <p className="pb-spacing-6 text-sm leading-6 text-surface-warm-white/68">
+                      {faq.answer}
+                    </p>
+                  </div>
                 </details>
               ))}
             </div>
