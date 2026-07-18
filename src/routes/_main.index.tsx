@@ -10,11 +10,13 @@ import {
   HeroContentMotion,
   HeroMotionItem,
 } from "@/components/home/HeroContentMotion";
-import { PromptFormSwitcher } from "@/components/home/prototype/PromptFormSwitcher";
+import {
+  ProjectsSectionSwitcher,
+  type ProjectsSectionVariant,
+} from "@/components/home/prototype/ProjectsSectionSwitcher";
+import { ProjectsSectionVariants } from "@/components/home/prototype/ProjectsSectionVariants";
 import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
-import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
-import { ProjectList } from "@/components/projects/ProjectList";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -140,21 +142,20 @@ const deleteProjectFn = createServerFn({ method: "POST" })
     });
   });
 
-// PROTOTYPE: prompt shell variants via ?variant=A|B|C|D|E (A = current).
-const PROMPT_KEYS = new Set(["A", "B", "C", "D", "E"]);
-export type PromptShellVariant = "A" | "B" | "C" | "D" | "E";
+// PROTOTYPE: projects section via ?variant=A|B|C|D|E (A = current box).
+const SECTION_KEYS = new Set(["A", "B", "C", "D", "E"]);
 
 export const Route = createFileRoute("/_main/")({
   validateSearch: (
     search: Record<string, unknown>,
   ): {
-    variant?: PromptShellVariant;
+    variant?: ProjectsSectionVariant;
   } => {
     const raw = typeof search.variant === "string" ? search.variant : undefined;
-    if (!raw || !PROMPT_KEYS.has(raw)) {
+    if (!raw || !SECTION_KEYS.has(raw)) {
       return {};
     }
-    return { variant: raw as PromptShellVariant };
+    return { variant: raw as ProjectsSectionVariant };
   },
   loader: () => loadHome(),
   component: HomePage,
@@ -169,7 +170,7 @@ function HomePage() {
     initialProjects,
   } = Route.useLoaderData();
   const search = Route.useSearch();
-  const promptShell: PromptShellVariant = search.variant ?? "A";
+  const sectionVariant: ProjectsSectionVariant = search.variant ?? "A";
 
   async function deleteProject(formData: FormData) {
     const projectId = formData.get("projectId");
@@ -204,7 +205,7 @@ function HomePage() {
           </HeroMotionItem>
 
           <HeroMotionItem className="w-full">
-            <HomePromptForm appearance={promptShell} />
+            <HomePromptForm />
           </HeroMotionItem>
         </HeroContentMotion>
       </section>
@@ -212,33 +213,15 @@ function HomePage() {
       {!hasUser ? <CommunitySection contributors={contributors} /> : null}
 
       {hasUser ? (
-        <section className="bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
-          <ScrollReveal>
-            <div className="mx-auto max-w-6xl text-left">
-              <div className="rounded-radius-3xl border border-surface-warm-white/10 bg-[#1f1f1d] p-spacing-7 sm:p-spacing-10">
-                <div className="max-w-2xl">
-                  <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
-                    Website kamu
-                  </h2>
-                  <p className="mt-spacing-4 text-sm leading-6 text-surface-warm-white/62 sm:text-base">
-                    Lanjutkan website terakhir atau buka arsip pekerjaanmu.
-                  </p>
-                </div>
-
-                <div className="mt-spacing-10">
-                  <ProjectList
-                    initialProjects={initialProjects}
-                    initialNextCursor={initialNextCursor}
-                    deleteProject={deleteProject}
-                  />
-                </div>
-              </div>
-            </div>
-          </ScrollReveal>
-        </section>
+        <ProjectsSectionVariants
+          variant={sectionVariant}
+          initialProjects={initialProjects}
+          initialNextCursor={initialNextCursor}
+          deleteProject={deleteProject}
+        />
       ) : null}
 
-      <PromptFormSwitcher current={promptShell} />
+      {hasUser ? <ProjectsSectionSwitcher current={sectionVariant} /> : null}
     </div>
   );
 }

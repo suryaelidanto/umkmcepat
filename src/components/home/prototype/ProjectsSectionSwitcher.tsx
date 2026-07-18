@@ -1,36 +1,41 @@
 "use client";
 
-// PROTOTYPE throwaway — switch hero prompt shell skins.
+// PROTOTYPE throwaway — switch "Website kamu" section shells.
 
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect } from "react";
 
-import type { PromptShellAppearance } from "@/components/projects/HomePromptForm";
-
 import { cn } from "@/lib/utils";
 
-const VARIANTS: { key: PromptShellAppearance; label: string }[] = [
-  { key: "A", label: "Current solid" },
-  { key: "B", label: "Frosted glass" },
-  { key: "C", label: "Soft pill" },
-  { key: "D", label: "Outline only" },
-  { key: "E", label: "Elevated solid" },
+export type ProjectsSectionVariant = "A" | "B" | "C" | "D" | "E";
+
+export const PROJECTS_SECTION_VARIANTS: {
+  key: ProjectsSectionVariant;
+  label: string;
+}[] = [
+  { key: "A", label: "Current box" },
+  { key: "B", label: "Flat open" },
+  { key: "C", label: "Elevated match" },
+  { key: "D", label: "Dense rows" },
+  { key: "E", label: "Index table" },
 ];
 
-export function PromptFormSwitcher({
+export function ProjectsSectionSwitcher({
   current,
 }: {
-  current: PromptShellAppearance;
+  current: ProjectsSectionVariant;
 }) {
   const navigate = useNavigate({ from: "/" });
-  const index = VARIANTS.findIndex((v) => v.key === current);
+  const index = PROJECTS_SECTION_VARIANTS.findIndex((v) => v.key === current);
   const safeIndex = index < 0 ? 0 : index;
-  const meta = VARIANTS[safeIndex];
+  const meta = PROJECTS_SECTION_VARIANTS[safeIndex];
 
   function go(nextIndex: number) {
-    const wrapped = (nextIndex + VARIANTS.length) % VARIANTS.length;
-    const key = VARIANTS[wrapped].key;
+    const wrapped =
+      (nextIndex + PROJECTS_SECTION_VARIANTS.length) %
+      PROJECTS_SECTION_VARIANTS.length;
+    const key = PROJECTS_SECTION_VARIANTS[wrapped].key;
     void navigate({
       to: "/",
       search: { variant: key },
@@ -73,7 +78,7 @@ export function PromptFormSwitcher({
         "rounded-full border border-white/15 bg-black/90 px-2 py-1.5 text-white shadow-2xl backdrop-blur",
       )}
       role="navigation"
-      aria-label="Prompt form prototype switcher"
+      aria-label="Projects section prototype switcher"
     >
       <button
         type="button"
