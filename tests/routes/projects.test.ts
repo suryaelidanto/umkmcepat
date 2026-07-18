@@ -146,6 +146,24 @@ describe("projects route", () => {
     prismaProjectFindManyMock.mockResolvedValue([
       {
         buildStatus: "passed",
+        id: "project_7",
+        title: "G",
+        updatedAt: timestamp,
+      },
+      {
+        buildStatus: "passed",
+        id: "project_6",
+        title: "F",
+        updatedAt: timestamp,
+      },
+      {
+        buildStatus: "passed",
+        id: "project_5",
+        title: "E",
+        updatedAt: timestamp,
+      },
+      {
+        buildStatus: "passed",
         id: "project_4",
         title: "D",
         updatedAt: timestamp,
@@ -175,7 +193,7 @@ describe("projects route", () => {
     );
     const firstBody = await firstResponse.json();
 
-    expect(firstBody.projects).toHaveLength(3);
+    expect(firstBody.projects).toHaveLength(6);
     expect(firstBody.nextCursor).toEqual(expect.any(String));
     expect(prismaProjectFindManyMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
