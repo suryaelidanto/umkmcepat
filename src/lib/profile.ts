@@ -81,11 +81,7 @@ export function toPublicProfileImage(value: unknown) {
     return "/api/profile/avatar";
   }
 
-  if (image.startsWith("https://")) {
-    return image;
-  }
-
-  if (image === "/api/profile/avatar") {
+  if (image.startsWith("https://") || image.startsWith("/api/profile/avatar")) {
     return image;
   }
 
