@@ -32,6 +32,7 @@ import {
   PreviewIssueState,
   ProcessingControl,
   QuestionComposer,
+  QuestionsComposer,
   VisualFeedbackWidget,
   WorkspaceCardView,
   WorkspaceTopBar,
@@ -1002,7 +1003,9 @@ export function WorkspaceShell({
   const activeQuestionKey =
     workspaceCard.type === "question"
       ? workspaceCard.question.id
-      : workspaceCard.type;
+      : workspaceCard.type === "questions"
+        ? workspaceCard.questions.map((q) => q.id).join("|")
+        : workspaceCard.type;
   const previewIssue = getWorkspacePreviewIssue({
     buildStatus,
     deploymentStatus: runtimeState?.deployment?.status,
@@ -1696,9 +1699,10 @@ export function WorkspaceShell({
       options: { workspaceAnswers?: WorkspaceAnswerPayload[] } = {},
     ) => {
       const trimmed = text.trim();
+      const hasAnswers = Boolean(options.workspaceAnswers?.length);
 
       if (
-        !trimmed ||
+        (!trimmed && !hasAnswers) ||
         isProcessing ||
         rateLimitError ||
         authStatus !== "authenticated" ||
@@ -2131,110 +2135,126 @@ export function WorkspaceShell({
               ) : isPreparingNextQuestion ||
                 workspaceCardError ? null : !hasAnsweredActiveQuestion &&
                 composerState === "question" &&
-                workspaceCard.type === "question" ? (
-                <AnimatePresence mode="wait" initial={false}>
-                  {questionComposerMode === "options" ? (
-                    <motion.div
-                      key="question-options"
-                      initial={{
-                        opacity: 0,
-                        y: 12,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: "blur(0px)",
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -10,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      <QuestionComposer
-                        question={workspaceCard.question}
-                        onClose={() => setQuestionComposerMode("free")}
-                        onSubmit={(answer, workspaceAnswers) =>
-                          submitChatText(answer, { workspaceAnswers })
-                        }
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.form
-                      key="question-free"
-                      initial={{
-                        opacity: 0,
-                        y: 12,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: "blur(0px)",
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -10,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                      onSubmit={handleMessageSubmit}
-                      className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
-                    >
-                      <div className="mb-spacing-2 flex items-center justify-between gap-spacing-3 px-spacing-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setQuestionComposerMode("options");
-                            setMessage("");
-                          }}
-                          className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-                        >
-                          Lihat pilihan
-                        </button>
-                      </div>
-                      <label htmlFor="workspace-message" className="sr-only">
-                        Pesan untuk AI
-                      </label>
-                      <textarea
-                        id="workspace-message"
-                        rows={3}
-                        value={message}
-                        onChange={(event) => setMessage(event.target.value)}
-                        onKeyDown={handleMessageKeyDown}
-                        placeholder={
-                          sessionExpired
-                            ? "Sesi habis, login ulang..."
-                            : "Tulis bebas..."
-                        }
-                        disabled={
-                          sessionExpired || authStatus !== "authenticated"
-                        }
-                        className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                      />
-                      <div className="flex items-center justify-between gap-spacing-4">
-                        <ModePill mode="Diskusi" tone="idle" />
-                        <Button
-                          type="submit"
-                          size="icon"
-                          disabled={!message.trim()}
-                          className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                          aria-label="Kirim pesan"
-                        >
-                          <ArrowUp className="size-4" />
-                        </Button>
-                      </div>
-                    </motion.form>
-                  )}
-                </AnimatePresence>
+                (workspaceCard.type === "question" ||
+                  workspaceCard.type === "questions") ? (
+                workspaceCard.type === "questions" ? (
+                  <QuestionsComposer
+                    questions={workspaceCard.questions}
+                    onSubmit={(answers) =>
+                      submitChatText("", { workspaceAnswers: answers })
+                    }
+                  />
+                ) : (
+                  <AnimatePresence mode="wait" initial={false}>
+                    {questionComposerMode === "options" ? (
+                      <motion.div
+                        key="question-options"
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                          scale: 1,
+                          filter: "blur(0px)",
+                        }}
+                        exit={{
+                          opacity: 0,
+                          y: -10,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        transition={{
+                          duration: 0.22,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                      >
+                        <QuestionComposer
+                          question={workspaceCard.question}
+                          onClose={() => setQuestionComposerMode("free")}
+                          onSubmit={(answer, workspaceAnswers) =>
+                            submitChatText(answer, { workspaceAnswers })
+                          }
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.form
+                        key="question-free"
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                          scale: 1,
+                          filter: "blur(0px)",
+                        }}
+                        exit={{
+                          opacity: 0,
+                          y: -10,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        transition={{
+                          duration: 0.22,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        onSubmit={handleMessageSubmit}
+                        className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                      >
+                        <div className="mb-spacing-2 flex items-center justify-between gap-spacing-3 px-spacing-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuestionComposerMode("options");
+                              setMessage("");
+                            }}
+                            className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                          >
+                            Lihat pilihan
+                          </button>
+                        </div>
+                        <label htmlFor="workspace-message" className="sr-only">
+                          Pesan untuk AI
+                        </label>
+                        <textarea
+                          id="workspace-message"
+                          rows={3}
+                          value={message}
+                          onChange={(event) => setMessage(event.target.value)}
+                          onKeyDown={handleMessageKeyDown}
+                          placeholder={
+                            sessionExpired
+                              ? "Sesi habis, login ulang..."
+                              : "Tulis bebas..."
+                          }
+                          disabled={
+                            sessionExpired || authStatus !== "authenticated"
+                          }
+                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                        />
+                        <div className="flex items-center justify-between gap-spacing-4">
+                          <ModePill mode="Diskusi" tone="idle" />
+                          <Button
+                            type="submit"
+                            size="icon"
+                            disabled={!message.trim()}
+                            className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                            aria-label="Kirim pesan"
+                          >
+                            <ArrowUp className="size-4" />
+                          </Button>
+                        </div>
+                      </motion.form>
+                    )}
+                  </AnimatePresence>
+                )
               ) : composerState === "build_recommendation" ? (
                 <WorkspaceCardView
                   canBuild={canStartBuildNow}

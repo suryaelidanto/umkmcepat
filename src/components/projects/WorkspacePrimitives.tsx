@@ -1198,6 +1198,64 @@ export function QuestionComposer({
   );
 }
 
+export function QuestionsComposer({
+  questions,
+  onSubmit,
+}: {
+  questions: BriefQuestion[];
+  onSubmit: (answers: WorkspaceAnswerPayload[]) => void;
+}) {
+  // Per-id draft state. Each child QuestionComposer is uncontrolled for its own
+  // selection; we collect on submit by reading a ref map of answers. To keep this
+  // simple and avoid prop-drilling controlled state into the existing single
+  // QuestionComposer, we render one QuestionComposer per question and capture its
+  // onSubmit per question, buffering until the user presses "Kirim semua".
+  const buffer = useRef<Record<string, WorkspaceAnswerPayload | undefined>>({});
+
+  function childSubmit(
+    question: BriefQuestion,
+    payload: WorkspaceAnswerPayload,
+  ) {
+    buffer.current[question.id] = payload;
+  }
+
+  function sendAll() {
+    const answers = Object.values(buffer.current).filter(
+      (item): item is WorkspaceAnswerPayload => Boolean(item),
+    );
+    if (!answers.length) {
+      return;
+    }
+    onSubmit(answers);
+  }
+
+  return (
+    <div className="mt-spacing-3 space-y-spacing-3">
+      {questions.map((question) => (
+        <QuestionComposer
+          key={question.id}
+          question={question}
+          onSubmit={(answer, workspaceAnswers) => {
+            const payload = workspaceAnswers?.[0];
+            if (payload) {
+              childSubmit(question, payload);
+            }
+          }}
+        />
+      ))}
+      <div className="flex items-center justify-end gap-spacing-3 px-spacing-1">
+        <Button
+          type="button"
+          onClick={sendAll}
+          className="rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
+        >
+          Kirim semua jawaban
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function WorkspaceCardView({
   canBuild = true,
   card,
