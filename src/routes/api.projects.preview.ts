@@ -757,7 +757,7 @@ async function handleDiscussTurnOneCall({
     messages: modelMessages,
     tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
     toolChoice: "auto",
-    maxRetries: 1,
+    maxRetries: 2,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discussOneCall"),
     telemetry: getAiTelemetry("project-guided-discuss-one-call", {
