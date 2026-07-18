@@ -212,6 +212,40 @@ export function parseWorkspaceCard(
   return normalizeWorkspaceCard(card, brief);
 }
 
+function normalizeQuestionsArray(
+  raw: unknown,
+  brief: ProjectBrief,
+): WorkspaceCard {
+  if (!Array.isArray(raw)) {
+    return createFallbackWorkspaceCard(brief);
+  }
+
+  const seenIds = new Set<string>();
+  const questions: BriefQuestion[] = [];
+  for (const item of raw) {
+    const question = normalizeQuestion(item);
+    if (!question) {
+      continue;
+    }
+    if (seenIds.has(question.id)) {
+      continue;
+    }
+    seenIds.add(question.id);
+    questions.push(question);
+    if (questions.length === 3) {
+      break;
+    }
+  }
+
+  if (questions.length === 0) {
+    return createFallbackWorkspaceCard(brief);
+  }
+  if (questions.length === 1) {
+    return { type: "question", question: questions[0] };
+  }
+  return { type: "questions", questions };
+}
+
 function normalizeWorkspaceCard(
   card: unknown,
   brief: ProjectBrief,
@@ -228,6 +262,10 @@ function normalizeWorkspaceCard(
     summary?: unknown;
     title?: unknown;
   };
+
+  if (value.type === "questions") {
+    return normalizeQuestionsArray(value.questions, brief);
+  }
 
   if (value.type === "build_recommendation" || value.type === "brief_review") {
     const readiness = getBriefReadiness(brief);

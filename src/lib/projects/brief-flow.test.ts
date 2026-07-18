@@ -607,4 +607,144 @@ describe("parseWorkspaceCard questions variant", () => {
       expect(card.questions[0].id).toBe("jam_buka");
     }
   });
+
+  it("drops an invalid question but keeps valid ones", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "jam_buka",
+            question: "Jam buka?",
+            answerMode: "text",
+            options: [],
+          },
+          {
+            id: "bad",
+            question: "y",
+            options: [{ label: "", description: "" }],
+          },
+          {
+            id: "kontak",
+            question: "Order via?",
+            options: [
+              { label: "WhatsApp", description: "Chat." },
+              { label: "Telepon", description: "Call." },
+            ],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions.map((q) => q.id)).toEqual(["jam_buka", "kontak"]);
+    }
+  });
+
+  it("collapses single valid question to type:question", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "bad",
+            question: "y",
+            options: [{ label: "", description: "" }],
+          },
+          {
+            id: "kontak",
+            question: "Order via?",
+            options: [
+              { label: "WhatsApp", description: "" },
+              { label: "Telepon", description: "" },
+            ],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("question");
+    if (card.type === "question") {
+      expect(card.question.id).toBe("kontak");
+    }
+  });
+
+  it("dedupes by id keeping the first occurrence", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "kontak",
+            question: "Order via?",
+            options: [
+              { label: "WA", description: "" },
+              { label: "Telp", description: "" },
+            ],
+          },
+          {
+            id: "kontak",
+            question: "Order via? (dup)",
+            options: [
+              { label: "WA", description: "" },
+              { label: "Telp", description: "" },
+            ],
+          },
+          {
+            id: "jam_buka",
+            question: "Jam buka?",
+            answerMode: "text",
+            options: [],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions.map((q) => q.id)).toEqual(["kontak", "jam_buka"]);
+    }
+  });
+
+  it("caps at 3 questions", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: Array.from({ length: 5 }, (_, i) => ({
+          id: `q${i}`,
+          question: `Q${i}?`,
+          answerMode: "text" as const,
+          options: [],
+        })),
+      },
+      brief,
+    );
+    expect(card.type).toBe("questions");
+    if (card.type === "questions") {
+      expect(card.questions).toHaveLength(3);
+    }
+  });
+
+  it("returns type:none when all questions are invalid", () => {
+    const brief = createInitialBrief("warung kopi");
+    const card = parseWorkspaceCard(
+      {
+        type: "questions",
+        questions: [
+          {
+            id: "bad",
+            question: "y",
+            options: [{ label: "", description: "" }],
+          },
+        ],
+      },
+      brief,
+    );
+    expect(card.type).toBe("none");
+  });
 });
