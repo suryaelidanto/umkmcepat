@@ -176,7 +176,10 @@ function HomePage() {
 
         <HeroContentMotion>
           <HeroMotionItem className={siblingClass}>
-            <h1 className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white">
+            <h1
+              id="hero-heading"
+              className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white"
+            >
               {hasUser
                 ? greetingName
                   ? `Hai, ${greetingName}. Mau buat website apa hari ini?`

@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  Joyride,
+  STATUS,
+  type EventData,
+  type TooltipRenderProps,
+} from "react-joyride";
 
 import { OnboardingMascot } from "@/components/onboarding/KopiMascot";
 
@@ -16,10 +22,6 @@ const FAB_HOME_FAQ = [
   {
     q: "Berapa lama proses build?",
     a: "Biasanya 1-3 menit. Tergantung panjang prompt dan beban server saat itu.",
-  },
-  {
-    q: "Kenapa gratis?",
-    a: "UMKM Cepat disubsidi owner dan dikembangkan terbuka di Github. Bukan jualan, bantu.",
   },
 ];
 
@@ -38,48 +40,62 @@ const FAB_WORKSHOP_FAQ = [
   },
 ];
 
-const TOURS = {
-  homepage: [
-    {
-      title: "Mulai dari sini",
-      body: "Tulis kebutuhan usahamu di kotak atas.",
-    },
-    {
-      title: "Tunggu sebentar",
-      body: "AI akan tanya balik dan susun brief untukmu.",
-    },
-    {
-      title: "Lihat hasilnya",
-      body: "Setelah website jadi, kamu bisa edit, deploy, atau minta revisi.",
-    },
-  ],
-  workspace: [
-    {
-      title: "Ngobrol dengan AI",
-      body: "Ketik permintaan di kotak chat. AI langsung kerjakan.",
-    },
-    {
-      title: "Lihat preview",
-      body: "Panel kanan otomatis update setelah AI selesai.",
-    },
-    {
-      title: "Pakai atau edit lagi",
-      body: "Klik 'Lihat live' untuk publish, atau minta AI revisi.",
-    },
-  ],
-} as const;
+const HOME_TOUR_STEPS = [
+  {
+    target: "#hero-heading",
+    placement: "bottom" as const,
+    title: "Hai, aku Kopi",
+    content: "Halaman ini ngerangkai website-mu dari kalimat yang kamu tulis.",
+  },
+  {
+    target: "#hero-prompt",
+    placement: "top" as const,
+    title: "Tulis kebutuhan usahamu",
+    content:
+      "Contoh: 'Saya jual produk rumahan, pelanggan pesan lewat WhatsApp.'",
+  },
+  {
+    target: 'button[aria-label="Buat website"]',
+    placement: "top" as const,
+    title: "Kirim",
+    content: "AI akan tanya balik sampai brief-nya siap, lalu mulai bikin.",
+  },
+];
 
-type Variant = keyof typeof TOURS;
+const WORKSHOP_TOUR_STEPS = [
+  {
+    target: "#workspace-message",
+    placement: "top" as const,
+    title: "Ngobrol dengan AI",
+    content:
+      "Ketik permintaan di sini. AI langsung kerjakan setelah kamu kirim.",
+  },
+  {
+    target: 'button[aria-label="Buka tampilan"]',
+    placement: "left" as const,
+    title: "Buka panel preview",
+    content:
+      "Kalau preview tertutup, klik tombol ini. Preview auto-update setiap AI selesai.",
+  },
+  {
+    target: 'button[aria-label="Buka tampilan"]',
+    placement: "left" as const,
+    title: "Cek hasil",
+    content:
+      "Di preview kamu bisa lihat apa yang AI bikin. Kalau ada yang kurang, ketik permintaan lagi di chat.",
+  },
+];
 
-const TOUR_KEY = "umkmcepat.tour.dismissed";
+type Variant = "homepage" | "workspace";
+
 const FAB_DISMISS_KEY = "umkmcepat.fab.dismissed";
 
 export function KopiFab({ variant = "homepage" }: { variant?: Variant }) {
   const [open, setOpen] = useState(false);
-  const [tourStep, setTourStep] = useState<number | null>(null);
+  const [tourRun, setTourRun] = useState(false);
   const [fabHidden, setFabHidden] = useState(false);
   const faq = variant === "workspace" ? FAB_WORKSHOP_FAQ : FAB_HOME_FAQ;
-  const tourSteps = TOURS[variant];
+  const steps = variant === "workspace" ? WORKSHOP_TOUR_STEPS : HOME_TOUR_STEPS;
 
   useEffect(() => {
     setFabHidden(window.localStorage.getItem(FAB_DISMISS_KEY) === "1");
@@ -87,14 +103,7 @@ export function KopiFab({ variant = "homepage" }: { variant?: Variant }) {
 
   function startTour() {
     setOpen(false);
-    setTourStep(0);
-  }
-
-  function endTour(markDismissed: boolean) {
-    setTourStep(null);
-    if (markDismissed) {
-      window.localStorage.setItem(TOUR_KEY, String(Date.now()));
-    }
+    setTourRun(true);
   }
 
   function dismissFab() {
@@ -102,27 +111,38 @@ export function KopiFab({ variant = "homepage" }: { variant?: Variant }) {
     window.localStorage.setItem(FAB_DISMISS_KEY, "1");
   }
 
-  if (fabHidden && tourStep === null) {
+  if (fabHidden) {
     return null;
   }
 
   return (
     <>
-      {tourStep !== null ? (
-        <TourModal
-          steps={tourSteps}
-          step={tourStep}
-          onPrev={() => setTourStep((s) => Math.max(0, (s ?? 0) - 1))}
-          onNext={() => {
-            if (tourStep >= tourSteps.length - 1) {
-              endTour(false);
-            } else {
-              setTourStep(tourStep + 1);
-            }
-          }}
-          onSkip={() => endTour(true)}
-        />
-      ) : null}
+      <Joyride
+        run={tourRun}
+        steps={steps}
+        continuous
+        scrollToFirstStep
+        locale={{
+          back: "Kembali",
+          close: "Tutup",
+          last: "Selesai",
+          next: "Lanjut",
+          skip: "Lewati",
+        }}
+        onEvent={(data: EventData) => {
+          if (data.type === "tour:end" || data.status === STATUS.FINISHED) {
+            setTourRun(false);
+          }
+        }}
+        options={{
+          backgroundColor: "transparent",
+          arrowColor: "#191918",
+          showProgress: true,
+          spotlightRadius: 12,
+          zIndex: 60,
+        }}
+        tooltipComponent={KopiTooltip}
+      />
 
       <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-spacing-3">
         {open ? (
@@ -188,69 +208,71 @@ export function KopiFab({ variant = "homepage" }: { variant?: Variant }) {
   );
 }
 
-function TourModal({
-  steps,
+function KopiTooltip({
+  backProps,
+  closeProps,
+  index,
+  isLastStep,
+  primaryProps,
+  skipProps,
   step,
-  onPrev,
-  onNext,
-  onSkip,
-}: {
-  steps: readonly { title: string; body: string }[];
-  step: number;
-  onPrev: () => void;
-  onNext: () => void;
-  onSkip: () => void;
-}) {
-  const current = steps[step];
-  const isLast = step === steps.length - 1;
+  tooltipProps,
+}: TooltipRenderProps) {
   return (
-    <>
-      <div aria-hidden="true" className="fixed inset-0 z-50 bg-black/55" />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="pointer-events-auto fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-md border border-white/15 bg-[#191918] px-spacing-8 py-spacing-7 text-sm text-surface-warm-white shadow-[0_24px_80px_rgba(0,0,0,0.7)]"
-        style={{ width: "min(28rem, 90vw)" }}
+    <div
+      {...tooltipProps}
+      className="relative max-w-xs overflow-visible rounded-lg border border-white/10 bg-[#191918] px-spacing-7 py-spacing-6 text-surface-warm-white shadow-[0_24px_80px_rgba(0,0,0,0.6)]"
+    >
+      <button
+        {...closeProps}
+        className="absolute right-spacing-5 top-spacing-5 text-surface-warm-white/48 transition hover:text-surface-warm-white"
+        aria-label="Tutup"
       >
-        <div className="flex items-center gap-spacing-3">
-          <div className="h-10 w-10 shrink-0">
-            <OnboardingMascot aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold">{current.title}</p>
-            <p className="mt-spacing-2 text-xs text-surface-warm-white/64">
-              {current.body}
-            </p>
-          </div>
+        ✕
+      </button>
+
+      <div className="flex gap-spacing-5">
+        <div className="relative h-16 w-16 shrink-0 -translate-y-spacing-8">
+          <OnboardingMascot aria-hidden="true" />
         </div>
-        <div className="mt-spacing-6 flex items-center justify-between text-xs">
-          <button
-            type="button"
-            onClick={onSkip}
-            className="text-surface-warm-white/56 underline-offset-4 transition hover:text-surface-warm-white hover:underline"
-          >
-            Lewati
-          </button>
-          <div className="flex items-center gap-spacing-3">
-            {step > 0 ? (
-              <button
-                type="button"
-                onClick={onPrev}
-                className="rounded-md border border-white/14 px-spacing-4 py-spacing-2 text-surface-warm-white transition hover:bg-white/[0.06]"
-              >
-                Kembali
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={onNext}
-              className="rounded-md bg-white px-spacing-5 py-spacing-2 font-semibold text-[#141413] transition hover:bg-white/90"
-            >
-              {isLast ? "Selesai" : "Lanjut"}
-            </button>
-          </div>
+        <div className="min-w-0 pt-spacing-1">
+          {step.title ? (
+            <h4 className="text-base font-semibold tracking-[-0.02em]">
+              {step.title}
+            </h4>
+          ) : null}
+          {step.content ? (
+            <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/72">
+              {step.content}
+            </p>
+          ) : null}
         </div>
       </div>
-    </>
+
+      <div className="mt-spacing-6 flex items-center justify-between">
+        <button
+          {...skipProps}
+          className="text-xs text-surface-warm-white/56 underline-offset-4 transition hover:text-surface-warm-white hover:underline"
+        >
+          {skipProps.title}
+        </button>
+        <div className="flex items-center gap-spacing-3">
+          {index > 0 ? (
+            <button
+              {...backProps}
+              className="rounded-md border border-white/14 px-spacing-4 py-spacing-2 text-sm text-surface-warm-white transition hover:bg-white/[0.06]"
+            >
+              {backProps.title}
+            </button>
+          ) : null}
+          <button
+            {...primaryProps}
+            className="rounded-md bg-white px-spacing-5 py-spacing-2 text-sm font-semibold text-[#141413] transition hover:bg-white/90"
+          >
+            {isLastStep ? "Selesai" : primaryProps.title}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
