@@ -48,7 +48,11 @@ function getProjectCreateIdempotencyKey(prompt: string) {
   return idempotencyKey;
 }
 
-export function HomePromptForm() {
+export function HomePromptForm({
+  onFocusChange,
+}: {
+  onFocusChange?: (focused: boolean) => void;
+}) {
   const router = useRouter();
   const { overLimit } = useProjectLimit();
   const { status } = useSession();
@@ -224,7 +228,13 @@ export function HomePromptForm() {
     <>
       <form
         onSubmit={handleSubmit}
-        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-2xl border border-white/10 bg-[#1c1c1a] text-left shadow-[0_24px_48px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.05] transition-colors duration-200 focus-within:border-[#2f8cff]/40 focus-within:ring-[#2f8cff]/25"
+        onFocus={() => onFocusChange?.(true)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+            onFocusChange?.(false);
+          }
+        }}
+        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-2xl border border-white/10 bg-[#1c1c1a] text-left shadow-[0_24px_48px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.05] transition-all duration-300 ease-out focus-within:scale-[1.05] focus-within:border-[#2f8cff]/55 focus-within:ring-[#2f8cff]/35 focus-within:shadow-[0_0_0_1px_rgba(47,140,255,0.25),0_36px_80px_rgba(0,0,0,0.6)]"
       >
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website

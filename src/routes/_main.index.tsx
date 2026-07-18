@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 
 import {
   CommunitySection,
@@ -12,6 +13,7 @@ import {
 } from "@/components/home/HeroContentMotion";
 import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
+import { OnboardingGuide } from "@/components/onboarding/OnboardingGuide";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { auth } from "@/lib/auth";
@@ -152,6 +154,11 @@ function HomePage() {
     initialNextCursor,
     initialProjects,
   } = Route.useLoaderData();
+  const [promptFocused, setPromptFocused] = useState(false);
+  const siblingClass = promptFocused
+    ? "transition-all duration-300 opacity-40 scale-[0.98]"
+    : "transition-all duration-300";
+
   async function deleteProject(formData: FormData) {
     const projectId = formData.get("projectId");
     if (typeof projectId !== "string") {
@@ -167,7 +174,7 @@ function HomePage() {
         <HeroAuroraBackground />
 
         <HeroContentMotion>
-          <HeroMotionItem>
+          <HeroMotionItem className={siblingClass}>
             <h1 className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white">
               {hasUser
                 ? greetingName
@@ -176,7 +183,7 @@ function HomePage() {
                 : "Usahamu layak punya website. 100% gratis."}
             </h1>
           </HeroMotionItem>
-          <HeroMotionItem>
+          <HeroMotionItem className={siblingClass}>
             <p className="mt-spacing-7 max-w-2xl text-balance text-lg leading-7 text-surface-warm-white/72 sm:text-xl">
               {hasUser
                 ? "Tulis kebutuhan usahamu. AI bantu susun website yang cocok untuk pelangganmu."
@@ -185,7 +192,7 @@ function HomePage() {
           </HeroMotionItem>
 
           <HeroMotionItem className="w-full">
-            <HomePromptForm />
+            <HomePromptForm onFocusChange={setPromptFocused} />
           </HeroMotionItem>
         </HeroContentMotion>
       </section>
@@ -216,6 +223,8 @@ function HomePage() {
           </ScrollReveal>
         </section>
       ) : null}
+
+      {!hasUser ? <OnboardingGuide /> : null}
     </div>
   );
 }
