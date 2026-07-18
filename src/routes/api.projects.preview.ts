@@ -1061,7 +1061,8 @@ async function repairDiscussCardWithTool({
 
 REPAIR attempt ${semanticAttempt + 1}: previous card was invalid or missing.
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with a valid workspace card.
-Keep a short Indonesian chat preface only if needed. Prefer type=question with 2-5 options.`,
+Emit type="questions" with 1-3 independent questions[], or type="question" with a single question, or type="build_recommendation" only at 95%+ confidence.
+Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
           messages: [
             ...modelMessages,
             { role: "assistant", content: chatText || "(no text)" },
