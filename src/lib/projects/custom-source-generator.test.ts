@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  applyStylesCoverStubs,
   buildGeneratedAppBuildSpec,
   checkAgentSourceQuality,
-  ensureStylesCoverClassNames,
+  cssCoversClassName,
+  ensureStylesFileExists,
   extractClassNamesFromTsx,
   findMissingCssClasses,
   generateCustomProjectFilesWithAgent,
@@ -74,6 +76,90 @@ function schema() {
     readyForBuild: false,
   });
 }
+
+describe("cssCoversClassName (meaningful rule semantics)", () => {
+  it("rejects a color-only single-declaration rule as not covered", () => {
+    const css = `.product-card{color:var(--fg)}`;
+    expect(cssCoversClassName(css, "product-card")).toBe(false);
+  });
+
+  it("rejects an auto-cover stub", () => {
+    const css = `.product-card{color:var(--fg);/* auto-cover: define layout in agent styles */}`;
+    expect(cssCoversClassName(css, "product-card")).toBe(false);
+  });
+
+  it("accepts a multi-declaration rule", () => {
+    const css = `.product-card{display:grid;gap:16px;color:var(--fg)}`;
+    expect(cssCoversClassName(css, "product-card")).toBe(true);
+  });
+
+  it("accepts a single non-color declaration", () => {
+    const css = `.product-card{display:grid}`;
+    expect(cssCoversClassName(css, "product-card")).toBe(true);
+  });
+
+  it("accepts allowlisted utility class with a single color declaration", () => {
+    const css = `.muted{color:var(--muted)}`;
+    expect(cssCoversClassName(css, "muted")).toBe(true);
+  });
+
+  it("treats a bare class name with no rule as not covered", () => {
+    expect(cssCoversClassName("", "product-card")).toBe(false);
+  });
+});
+
+describe("findMissingCssClasses (meaningful rule semantics)", () => {
+  it("flags a component class that only has a color-only stub", () => {
+    const files = [
+      {
+        path: "src/components/Card.tsx",
+        content: `export function Card(){return <div className="product-card">x</div>}`,
+      },
+      {
+        path: "src/styles.css",
+        content: `.product-card{color:var(--fg)}`,
+      },
+    ];
+    expect(findMissingCssClasses(files, files[1].content)).toContain(
+      "product-card",
+    );
+  });
+
+  it("does not flag a component class with a real layout rule", () => {
+    const files = [
+      {
+        path: "src/components/Card.tsx",
+        content: `export function Card(){return <div className="product-card">x</div>}`,
+      },
+      {
+        path: "src/styles.css",
+        content: `.product-card{display:grid;gap:16px;padding:12px}`,
+      },
+    ];
+    expect(findMissingCssClasses(files, files[1].content)).not.toContain(
+      "product-card",
+    );
+  });
+
+  it("does not flag allowlisted utility classes with single color decl", () => {
+    const files = [
+      {
+        path: "src/components/Mute.tsx",
+        content: `export function Mute(){return <span className="muted small">y</span>}`,
+      },
+      {
+        path: "src/styles.css",
+        content: `.muted{color:var(--muted)}.small{color:var(--muted)}`,
+      },
+    ];
+    expect(findMissingCssClasses(files, files[1].content)).not.toContain(
+      "muted",
+    );
+    expect(findMissingCssClasses(files, files[1].content)).not.toContain(
+      "small",
+    );
+  });
+});
 
 describe("custom generated source agent", () => {
   beforeEach(() => {
@@ -281,7 +367,7 @@ describe("custom generated source agent", () => {
 
   it("checkAgentSourceQuality fails on auto styles-only touch", () => {
     const site = schema();
-    const files = ensureStylesCoverClassNames(
+    const files = ensureStylesFileExists(
       createGeneratedViteTanStackStarterFiles("p_quality", site),
       site,
     );
@@ -357,7 +443,7 @@ describe("custom generated source agent", () => {
   });
 
   it("upgrades starter CSS and stubs missing classNames so custom JSX is never unstyled", () => {
-    const files = ensureStylesCoverClassNames(
+    let files = ensureStylesFileExists(
       [
         {
           path: "src/routes/index.tsx",
@@ -372,12 +458,19 @@ describe("custom generated source agent", () => {
       ],
       schema(),
     );
+    // Last-resort stub pass (mirrors the generate flow ordering: ensure file,
+    // then stub only as fallback).
+    files = applyStylesCoverStubs(files).files;
 
     const css = files.find((file) => file.path === "src/styles.css")?.content;
     expect(css).toContain("--accent");
     expect(css).toContain(".page{");
     expect(css).toContain(".bakso-card{");
     expect(isStarterStylesContent(css ?? "")).toBe(false);
-    expect(findMissingCssClasses(files, css ?? "")).toEqual([]);
+    // A color-only stub no longer counts as meaningful coverage, so the
+    // validator correctly keeps flagging the class as missing — the fix is
+    // a rewrite pass (real CSS), not the stub. This is the behavior change
+    // that stops broken UI from silently shipping.
+    expect(findMissingCssClasses(files, css ?? "")).toContain("bakso-card");
   });
 });
