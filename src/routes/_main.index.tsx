@@ -13,8 +13,6 @@ import {
 } from "@/components/home/HeroContentMotion";
 import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
-import { FirstVisitModal } from "@/components/onboarding/FirstVisitModal";
-import { KopiFab } from "@/components/onboarding/KopiFab";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { auth } from "@/lib/auth";
@@ -227,9 +225,6 @@ function HomePage() {
           </ScrollReveal>
         </section>
       ) : null}
-
-      {!hasUser ? <FirstVisitModal /> : null}
-      {!hasUser ? <KopiFab variant="homepage" /> : null}
     </div>
   );
 }
