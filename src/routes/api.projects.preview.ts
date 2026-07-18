@@ -685,9 +685,20 @@ function buildOneCallSystemPrompt({
 CRITICAL OUTPUT ORDER:
 1) Write 1-3 short Indonesian chat sentences first (aku/kamu only).
 2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with the next workspace card.
+
+INTERVIEW DISCIPLINE — rounds questions:
+- Emit 1-3 questions per turn. Mixed modes (choice/text, single/multiple) OK in one batch.
+- INDEPENDENCE GATE: batch ONLY questions whose answer does not change another question's framing, options, or whether it needs asking. If Q2 depends on Q1's answer, ask Q1 alone this turn; ask Q2 next turn.
+- Cap 3 per batch. Server enforces (dedupes id, slices surplus).
+- EACH question sets recommendedOptionLabel (your default) — user can accept in one click.
+- Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
+- When all applicable fields are filled/declined AND confidence is 95+: emit build_recommendation instead of questions.
+
 Never put JSON in chat text. Never call the tool before chat text.
-For questions: type="question", question.id must be a short slug like business_name or services.
-Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is genuinely 95%+ and no open questions remain. Below that, keep asking a question. Never use any other card type.`;
+For questions: type="questions" with questions[] (independent batch), or type="question" for a single question. question.id must be a short slug like business_name or services.
+Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is genuinely 95%+ and no open questions remain. Below that, keep asking a question. Never use any other card type.
+
+Be relentless — extract every field, batching independent questions aggressively to reach 95% fast. Slightly annoying upfront is fine; the 95% gate still protects the build. Ask only the applicable soft fields for the UMKM type, but do not skip them.`;
 }
 
 async function handleDiscussTurnOneCall({
