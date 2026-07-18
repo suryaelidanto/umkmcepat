@@ -1,15 +1,13 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
 import { Camera, Loader2 } from "lucide-react";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "@/lib/navigation";
-import { fetchJson } from "@/lib/query-client";
+import { fetchJson, useCacheMutation } from "@/lib/query-client";
 
 const PROFILE_IMAGE_MAX_BYTES = 1_000_000;
 
@@ -32,8 +30,11 @@ export function ProfileNameForm({
   const isChanged = normalizedName !== savedName || Boolean(imageDataUrl);
   const initial = normalizedName[0]?.toUpperCase() || "U";
 
-  const saveMutation = useMutation({
-    mutationFn: async (payload: { imageDataUrl?: string; name: string }) =>
+  const saveMutation = useCacheMutation<
+    { user: { image?: string | null; name?: string | null } },
+    { imageDataUrl?: string; name: string }
+  >({
+    mutationFn: async (payload) =>
       fetchJson<{ user: { image?: string | null; name?: string | null } }>(
         "/api/profile",
         {
@@ -42,6 +43,8 @@ export function ProfileNameForm({
           body: JSON.stringify(payload),
         },
       ),
+    successMessage: "Profil disimpan.",
+    errorMessage: "Profil belum berhasil disimpan.",
     onSuccess: async (result) => {
       if (!result.user?.name) {
         setError("Profil belum berhasil disimpan.");
@@ -54,7 +57,6 @@ export function ProfileNameForm({
       setName(nextName);
       setImageDataUrl("");
       setImagePreview(nextImage);
-      toast.success("Profil disimpan.");
       await update({ image: nextImage, name: nextName });
       router.refresh();
     },
