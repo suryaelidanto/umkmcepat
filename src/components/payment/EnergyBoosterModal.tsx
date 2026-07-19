@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { BOOSTER_PACKS, type BoosterPackId } from "@/lib/pakasir";
 import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
+import { isDev } from "@/lib/utils";
 
 interface EnergyBoosterModalProps {
   open: boolean;
@@ -256,6 +257,11 @@ export function EnergyBoosterModal({
                     className="mx-auto block"
                   />
                 </div>
+                {isDev && (
+                  <div className="rounded border border-dashed border-white/20 bg-white/5 px-2.5 py-1 text-[10px] text-surface-warm-white/70 font-mono select-all">
+                    Dev Order ID: {paymentSession.orderId}
+                  </div>
+                )}
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-surface-warm-white/50">
                     Total Pembayaran:

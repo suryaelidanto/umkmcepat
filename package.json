@@ -36,6 +36,7 @@
     "runtime:idle-stop": "bun src/lib/projects/runtime-idle-runner.ts",
     "setup:agent": "bun run graph:index",
     "setup:local": "bun install && docker compose up -d && bun run db:migrate",
+    "simulate-payment": "bun scripts/simulate-payment.ts",
     "start": "bun .output/server/index.mjs",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
