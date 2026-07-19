@@ -298,6 +298,7 @@ const p = new PrismaClient();
 CREATE_PAYLOAD=$(node -e "process.stdout.write(JSON.stringify({prompt:process.argv[1],mode:'discuss'}))" "$PROMPT")
 BUILD_RETRIES="${BUILD_RETRIES:-3}"
 build_ok=false
+build_started_at=$(date +%s)
 for attempt in $(seq 1 "$BUILD_RETRIES"); do
   if create_and_build "$attempt"; then
     build_ok=true
@@ -370,6 +371,7 @@ if [ "$matches" -lt 1 ]; then
 fi
 echo "JS bundle contains $matches expected keyword(s) — PASS"
 
+elapsed=$(($(date +%s) - build_started_at))
 echo ""
 echo "E2E PASS: project=$PROJECT_ID, ${elapsed}s build time"
 exit 0
