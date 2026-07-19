@@ -130,7 +130,9 @@ export function EnergyDisplay() {
         <span className="text-xs font-medium text-surface-warm-white/78">
           {formatNumber(stats.remaining)}
         </span>
-        <span className="text-xs text-surface-warm-white/50">Energi</span>
+        <span className="hidden text-xs text-surface-warm-white/50 min-[400px]:inline">
+          Energi
+        </span>
         <button
           type="button"
           onClick={() => setModalOpen(true)}
@@ -154,7 +156,7 @@ export function EnergyDisplay() {
             type="button"
             onClick={() => resetMutation.mutate()}
             disabled={resetMutation.isPending}
-            className="rounded-md bg-surface-warm-white/10 px-2 py-0.5 text-[10px] font-medium text-surface-warm-white/60 transition hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80 disabled:opacity-50"
+            className="hidden sm:inline-block rounded-md bg-surface-warm-white/10 px-2 py-0.5 text-[10px] font-medium text-surface-warm-white/60 transition hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80 disabled:opacity-50"
             title="Dev: reset energy hari ini"
           >
             {resetMutation.isPending ? "…" : "Reset"}
@@ -165,7 +167,7 @@ export function EnergyDisplay() {
               unlimitedMutation.mutate(!unlimitedQuery.data?.enabled)
             }
             disabled={unlimitedMutation.isPending}
-            className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition disabled:opacity-50 ${
+            className={`hidden sm:inline-block rounded-md px-2 py-0.5 text-[10px] font-medium transition disabled:opacity-50 ${
               unlimitedQuery.data?.enabled
                 ? "bg-green-400/20 text-green-300 hover:bg-green-400/30"
                 : "bg-surface-warm-white/10 text-surface-warm-white/60 hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80"
