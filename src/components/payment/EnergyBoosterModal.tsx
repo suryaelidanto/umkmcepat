@@ -16,8 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BOOSTER_PACKS, type BoosterPackId } from "@/lib/pakasir";
 import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
-import { BOOSTER_PACKS, type BoosterPackId } from "@/routes/api.payment.create";
 
 interface EnergyBoosterModalProps {
   open: boolean;

@@ -1,5 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { getEnv } from "@/lib/config";
@@ -30,10 +30,6 @@ export function getObjectStorageProvider(): ObjectStorageProvider {
   throw new Error(
     `Invalid OBJECT_STORAGE_PROVIDER '${provider}'. Supported values: local, r2.`,
   );
-}
-
-export function isObjectStorageRef(value: unknown) {
-  return typeof value === "string" && value.startsWith(OBJECT_REF_PREFIX);
 }
 
 export async function getStoredObject(
@@ -74,19 +70,6 @@ export async function putStoredObject(input: UploadObjectInput) {
   await writeFile(filePath, input.body);
 
   return `${LOCAL_REF_PREFIX}${key}`;
-}
-
-export async function replaceStoredObject(input: UploadObjectInput) {
-  const key = normalizeObjectKey(input.key);
-
-  if (getObjectStorageProvider() === "r2") {
-    return putStoredObject({ ...input, key });
-  }
-
-  const dir = path.dirname(resolveLocalObjectPath(key));
-
-  await rm(dir, { force: true, recursive: true }).catch(() => undefined);
-  return putStoredObject({ ...input, key });
 }
 
 function contentTypeFromKey(key: string) {
