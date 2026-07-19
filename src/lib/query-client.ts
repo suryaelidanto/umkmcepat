@@ -51,6 +51,10 @@ export async function fetchJson<T>(
     );
   });
 
+  if (response.status === 401) {
+    void handleUnauthorizedError(input);
+  }
+
   const result = await parseApiResponse<T>(response);
 
   if (!result.ok) {
@@ -58,6 +62,32 @@ export async function fetchJson<T>(
   }
 
   return result.data;
+}
+
+async function handleUnauthorizedError(
+  input: RequestInfo | URL,
+): Promise<void> {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const urlString =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+
+  // Do not intercept auth calls (callbacks, sessions, CSRF token, Otp verification, etc)
+  if (!urlString.includes("/api/auth/")) {
+    try {
+      const { signOut } = await import("./auth-client");
+      // Clean sign out and redirect to home landing page
+      await signOut({ callbackUrl: "/" });
+    } catch (error) {
+      console.error("Failed to sign out on 401:", error);
+    }
+  }
 }
 
 export function notifyEnergyChanged() {

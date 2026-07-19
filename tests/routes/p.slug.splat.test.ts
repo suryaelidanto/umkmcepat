@@ -83,4 +83,47 @@ describe("published generated route", () => {
     expect(prismaProjectDeploymentFindManyMock).not.toHaveBeenCalled();
     expect(proxyDeploymentRequestMock).not.toHaveBeenCalled();
   });
+
+  it("passes publicAssetRewrite through to proxyDeploymentRequest", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
+    prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
+      {
+        build: {
+          artifactRef: "project-artifact:local:dist:abc",
+          createdAt: new Date(),
+          id: "build_1",
+          snapshotId: "snapshot_1",
+          status: "succeeded",
+          updatedAt: new Date(),
+        },
+        buildId: "build_1",
+        createdAt: new Date(),
+        id: "deployment_1",
+        kind: "published",
+        snapshotId: "snapshot_1",
+        status: "running",
+        updatedAt: new Date(),
+      },
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValueOnce(
+      new Response("<html></html>", {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      }),
+    );
+
+    const response = await GET(
+      new Request("https://sites.example.net/p/warung/"),
+      { slug: "warung" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(proxyDeploymentRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deploymentId: "deployment_1",
+        noindex: false,
+        pathSegments: [],
+        publicAssetRewrite: { slug: "warung" },
+      }),
+    );
+  });
 });

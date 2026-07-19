@@ -7,8 +7,9 @@ import { defineConfig, type Plugin } from "vite";
 /**
  * Vite's transform middleware treats Sec-Fetch-Dest: script|style (and bare
  * .js/.css URLs) as module graph transforms. Preview assets live under
- * /api/projects/... and must hit TanStack route handlers instead — otherwise
- * the browser gets Express-style 404 and the iframe never posts ready.
+ * /api/projects/... and published site assets live under /p/... — both must
+ * hit TanStack route handlers instead, otherwise the browser gets an
+ * Express-style 404 and the preview iframe/published site never renders.
  * Forcing document dest makes Vite skip transform (see isDocumentFetchDest).
  */
 function bypassViteTransformForProjectApis(): Plugin {
@@ -17,7 +18,7 @@ function bypassViteTransformForProjectApis(): Plugin {
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
         const url = req.url ?? "";
-        if (url.startsWith("/api/projects/")) {
+        if (url.startsWith("/api/projects/") || url.startsWith("/p/")) {
           req.headers["sec-fetch-dest"] = "document";
         }
         next();

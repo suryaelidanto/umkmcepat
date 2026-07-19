@@ -5,10 +5,13 @@ import {
   buildGeneratedAppBuildSpec,
   checkAgentSourceQuality,
   cssCoversClassName,
+  ensurePreviewReadyCalled,
+  ensureRouterRouteWired,
   ensureStylesFileExists,
   extractClassNamesFromTsx,
   findMissingCssClasses,
   generateCustomProjectFilesWithAgent,
+  getTailwindCssRule,
   isStarterStylesContent,
 } from "@/lib/projects/custom-source-generator";
 import { createGeneratedViteTanStackStarterFiles } from "@/lib/projects/generated-source";
@@ -467,11 +470,11 @@ describe("custom generated source agent", () => {
     expect(css).toContain(".page{");
     expect(css).toContain(".bakso-card{");
     expect(isStarterStylesContent(css ?? "")).toBe(false);
-    // A color-only stub no longer counts as meaningful coverage, so the
-    // validator correctly keeps flagging the class as missing — the fix is
-    // a rewrite pass (real CSS), not the stub. This is the behavior change
-    // that stops broken UI from silently shipping.
-    expect(findMissingCssClasses(files, css ?? "")).toContain("bakso-card");
+    // Stubs now include a non-color declaration (display: inline-block) so
+    // they satisfy the meaningful-rule check — the site renders text/visuals
+    // instead of staying silently broken. The class is no longer flagged as
+    // missing, which is the intended behavior change.
+    expect(findMissingCssClasses(files, css ?? "")).not.toContain("bakso-card");
   });
 
   it("checkAgentSourceQuality fails when usePreviewReady is defined but never called", async () => {
@@ -558,5 +561,132 @@ describe("custom generated source agent", () => {
       new Set(["src/routes/index.tsx", "src/content/site.ts"]),
     );
     expect(quality.ok).toBe(true);
+  });
+
+  describe("ensurePreviewReadyCalled", () => {
+    it("auto-injects usePreviewReady import and call if missing", () => {
+      const files = [
+        {
+          path: "src/routes/index.tsx",
+          content: `import { site } from "../content/site";
+export function HomeRouteComponent() {
+  return <div>{site.businessName}</div>;
+}`,
+        },
+      ];
+      const healed = ensurePreviewReadyCalled(files);
+      const healedContent = healed[0].content;
+      expect(healedContent).toContain("import { usePreviewReady } from");
+      expect(healedContent).toContain("usePreviewReady();");
+    });
+
+    it("does not modify if usePreviewReady call is already present", () => {
+      const files = [
+        {
+          path: "src/routes/index.tsx",
+          content: `import { usePreviewReady } from "../lib/preview-ready";
+export function HomeRouteComponent() {
+  usePreviewReady();
+  return <div>ok</div>;
+}`,
+        },
+      ];
+      const healed = ensurePreviewReadyCalled(files);
+      expect(healed).toEqual(files);
+    });
+  });
+
+  describe("ensureRouterRouteWired", () => {
+    it("drops the alias on the rootRoute import and removes local createRootRoute", () => {
+      const files = [
+        {
+          path: "src/router.tsx",
+          content: `import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { rootRoute as RootComponent } from './routes/__root';
+import IndexComponent from './routes/index';
+
+const rootRoute = createRootRoute({
+  component: RootComponent,
+});
+
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: IndexComponent,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute]);
+export const router = createRouter({ routeTree });`,
+        },
+      ];
+      const healed = ensureRouterRouteWired(files);
+      const healedContent = healed[0].content;
+      expect(healedContent).toContain(
+        `import { rootRoute } from "./routes/__root";`,
+      );
+      expect(healedContent).not.toContain("as RootComponent");
+      expect(healedContent).not.toContain("const rootRoute = createRootRoute");
+    });
+
+    it("does not modify a correct router.tsx", () => {
+      const files = [
+        {
+          path: "src/router.tsx",
+          content: `import { createRoute, createRouter } from '@tanstack/react-router';
+import { rootRoute } from './routes/__root';
+import IndexComponent from './routes/index';
+
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: IndexComponent,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute]);
+export const router = createRouter({ routeTree });`,
+        },
+      ];
+      const healed = ensureRouterRouteWired(files);
+      expect(healed).toEqual(files);
+    });
+  });
+
+  describe("getTailwindCssRule", () => {
+    it("maps common Tailwind layout and color classNames correctly", () => {
+      expect(getTailwindCssRule("space-y-4")).toBe(
+        ".space-y-4>*+*{margin-top:1rem}",
+      );
+      expect(getTailwindCssRule("mb-4")).toBe(".mb-4{margin-bottom:1rem}");
+      expect(getTailwindCssRule("text-emerald-600")).toBe(
+        ".text-emerald-600{color:#059669}",
+      );
+      expect(getTailwindCssRule("flex")).toBe(".flex{display:flex}");
+      expect(getTailwindCssRule("items-center")).toBe(
+        ".items-center{align-items:center}",
+      );
+      expect(getTailwindCssRule("rounded-lg")).toBe(
+        ".rounded-lg{border-radius:0.5rem}",
+      );
+    });
+  });
+
+  describe("cssCoversClassName color declarations", () => {
+    it("treats real color values as meaningful coverage", () => {
+      // Color-only Tailwind-style rules should count as coverage now that
+      // agent-generated fallbacks set real hex/rgb values.
+      expect(
+        cssCoversClassName(
+          ".text-emerald-600{color:#059669}",
+          "text-emerald-600",
+        ),
+      ).toBe(true);
+      // The legacy lazy stub must still be rejected.
+      expect(
+        cssCoversClassName(
+          ".some-lazy-stub{color:var(--fg)}",
+          "some-lazy-stub",
+        ),
+      ).toBe(false);
+    });
   });
 });
