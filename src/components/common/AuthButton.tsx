@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronDown, LogOut, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, UserRound, Zap } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
+import { EnergyBoosterModal } from "@/components/payment/EnergyBoosterModal";
 import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
@@ -13,6 +14,7 @@ export function AuthButton() {
   const { data: session, status } = useSession();
   const [loginOpen, setLoginOpen] = useState(false);
   const [open, setOpen] = useState(false);
+  const [boosterOpen, setBoosterOpen] = useState(false);
   const menuId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -106,6 +108,17 @@ export function AuthButton() {
           </Link>
           <button
             type="button"
+            onClick={() => {
+              setOpen(false);
+              setBoosterOpen(true);
+            }}
+            className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06] text-[#ff7a59]"
+          >
+            <Zap className="size-4 fill-[#ff7a59]/10 text-[#ff7a59]" />
+            Tambah Energi
+          </button>
+          <button
+            type="button"
             onClick={() => signOut({ callbackUrl: "/" })}
             className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06]"
           >
@@ -114,6 +127,7 @@ export function AuthButton() {
           </button>
         </div>
       ) : null}
+      <EnergyBoosterModal open={boosterOpen} onOpenChange={setBoosterOpen} />
     </div>
   );
 }
