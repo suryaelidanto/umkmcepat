@@ -1,12 +1,12 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { EnergyBoosterModal } from "@/components/payment/EnergyBoosterModal";
 import { useSession } from "@/lib/auth-client";
-import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 
 type EnergyStats = {
   remaining: number;
@@ -35,15 +35,6 @@ export function EnergyDisplay() {
     refetchOnWindowFocus: hasUser,
   });
 
-  const unlimitedQuery = useQuery({
-    queryKey: ["dev-unlimited-energy"],
-    queryFn: () =>
-      fetchJson<{ enabled: boolean }>("/api/dev/unlimited-energy", {
-        cache: "no-store",
-      }),
-    enabled: import.meta.env.DEV,
-  });
-
   useEffect(() => {
     const onEnergyChanged = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
@@ -54,35 +45,6 @@ export function EnergyDisplay() {
       window.removeEventListener("umkm:energy-changed", onEnergyChanged);
     };
   }, [queryClient]);
-
-  const resetMutation = useMutation({
-    mutationFn: async () => {
-      await fetchJson<{ ok: boolean }>("/api/dev/add-energy", {
-        method: "POST",
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
-      notifyEnergyChanged();
-    },
-  });
-
-  const unlimitedMutation = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      await fetchJson<{ enabled: boolean }>("/api/dev/unlimited-energy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["dev-unlimited-energy"],
-      });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
-      notifyEnergyChanged();
-    },
-  });
 
   const stats = energyQuery.data;
 
@@ -149,39 +111,6 @@ export function EnergyDisplay() {
           style={{ width: `${percentage}%` }}
         />
       </div>
-
-      {import.meta.env.DEV && (
-        <>
-          <button
-            type="button"
-            onClick={() => resetMutation.mutate()}
-            disabled={resetMutation.isPending}
-            className="hidden sm:inline-block rounded-md bg-surface-warm-white/10 px-2 py-0.5 text-[10px] font-medium text-surface-warm-white/60 transition hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80 disabled:opacity-50"
-            title="Dev: reset energy hari ini"
-          >
-            {resetMutation.isPending ? "…" : "Reset"}
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              unlimitedMutation.mutate(!unlimitedQuery.data?.enabled)
-            }
-            disabled={unlimitedMutation.isPending}
-            className={`hidden sm:inline-block rounded-md px-2 py-0.5 text-[10px] font-medium transition disabled:opacity-50 ${
-              unlimitedQuery.data?.enabled
-                ? "bg-green-400/20 text-green-300 hover:bg-green-400/30"
-                : "bg-surface-warm-white/10 text-surface-warm-white/60 hover:bg-surface-warm-white/20 hover:text-surface-warm-white/80"
-            }`}
-            title="Dev: toggle unlimited energy"
-          >
-            {unlimitedMutation.isPending
-              ? "…"
-              : unlimitedQuery.data?.enabled
-                ? "Unlimited ✓"
-                : "Unlimited"}
-          </button>
-        </>
-      )}
 
       <EnergyBoosterModal open={modalOpen} onOpenChange={setModalOpen} />
     </div>

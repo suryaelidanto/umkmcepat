@@ -1,11 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getModelPricingMock } = vi.hoisted(() => ({
+const {
+  getModelPricingMock,
+  prismaQueryRawMock,
+  prismaExecuteRawMock,
+  prismaTransactionMock,
+} = vi.hoisted(() => ({
   getModelPricingMock: vi.fn(),
+  prismaQueryRawMock: vi.fn(),
+  prismaExecuteRawMock: vi.fn(),
+  prismaTransactionMock: vi.fn(async (callback) =>
+    callback({
+      $queryRaw: prismaQueryRawMock,
+      $executeRaw: prismaExecuteRawMock,
+    }),
+  ),
 }));
 
 vi.mock("@/lib/model-pricing", () => ({
   getModelPricing: getModelPricingMock,
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    $transaction: prismaTransactionMock,
+  },
 }));
 
 import {
@@ -13,11 +32,9 @@ import {
   chargeEnergyForAiUsage,
   DAILY_ENERGY_LIMIT,
   getDayBoundaries,
-  isDevUnlimitedEnergyEnabled,
   MIN_ENERGY_BUILD,
   MIN_ENERGY_DISCUSS,
   MIN_ENERGY_EDIT,
-  setDevUnlimitedEnergy,
 } from "./user-credits";
 
 describe("user-credits energy cost formula", () => {
@@ -64,19 +81,6 @@ describe("user-credits energy cost formula", () => {
   });
 });
 
-describe("dev unlimited energy toggle", () => {
-  it("defaults to off and only flips via explicit toggle", () => {
-    setDevUnlimitedEnergy(false);
-    expect(isDevUnlimitedEnergyEnabled()).toBe(false);
-
-    setDevUnlimitedEnergy(true);
-    expect(isDevUnlimitedEnergyEnabled()).toBe(true);
-
-    setDevUnlimitedEnergy(false);
-    expect(isDevUnlimitedEnergyEnabled()).toBe(false);
-  });
-});
-
 describe("chargeEnergyForAiUsage", () => {
   beforeEach(() => {
     getModelPricingMock.mockReset();
@@ -84,7 +88,10 @@ describe("chargeEnergyForAiUsage", () => {
       promptPrice: 0.0000003,
       completionPrice: 0.0000012,
     });
-    setDevUnlimitedEnergy(true);
+    prismaQueryRawMock.mockReset();
+    prismaQueryRawMock.mockResolvedValue([{ used: 0 }]);
+    prismaExecuteRawMock.mockReset();
+    prismaExecuteRawMock.mockResolvedValue(1);
   });
 
   it("skips when both token counts are zero", async () => {
