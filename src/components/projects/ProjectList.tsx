@@ -187,7 +187,7 @@ export function ProjectList({
           </div>
         </div>
       ) : null}
-      <div className="grid gap-spacing-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-spacing-7 sm:gap-spacing-5 sm:grid-cols-2 lg:grid-cols-3">
         {projects.map((project) => (
           <ProjectCard
             key={project.id}
