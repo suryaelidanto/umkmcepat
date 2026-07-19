@@ -11,8 +11,7 @@
 <p align="center">
   <a href="https://github.com/suryaelidanto/umkmcepat/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-blue" /></a>
   <a href="https://github.com/suryaelidanto/umkmcepat/pulls"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen" /></a>
-  <a href="https://github.com/suryaelidanto/umkmcepat/stargazers"><img alt="Github stars" src="https://img.shields.io/github/stars/suryaelidanto/umkmcepat?style=flat&label=stars" /></a>
-  <a href="https://github.com/suryaelidanto/umkmcepat/network/members"><img alt="Github forks" src="https://img.shields.io/github/forks/suryaelidanto/umkmcepat?style=flat&label=forks" /></a>
+  <a href="https://github.com/suryaelidanto/umkmcepat"><img alt="GitHub" src="https://img.shields.io/badge/github-repo-black?logo=github" /></a>
 </p>
 
 ## What is UMKM Cepat?
