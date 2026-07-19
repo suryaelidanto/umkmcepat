@@ -548,6 +548,17 @@ async function handleGeneratePost(request: Request, routeId: string) {
             runtimeBuildFinalized = true;
           }
 
+          await prisma.projectEditAttempt
+            .update({
+              where: { id: operationAttemptId },
+              data: {
+                errorMessage: buildOk ? null : "Retry build failed.",
+                finishedAt: new Date(),
+                status: buildOk ? "succeeded" : "failed",
+              },
+            })
+            .catch(() => undefined);
+
           if (buildOk) {
             await prisma.projectDeployment
               .create({
