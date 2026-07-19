@@ -200,8 +200,8 @@ export function EnergyBoosterModal({
 
         {!paymentSession ? (
           <div className="flex flex-col gap-4">
-            {/* 2x2 Grid Pricing Cards */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Vertical list of pricing cards */}
+            <div className="flex flex-col gap-2.5">
               {(Object.keys(BOOSTER_PACKS) as BoosterPackId[]).map((key) => {
                 const pack = BOOSTER_PACKS[key];
                 const local = PAKET_DETAILS[key];
@@ -213,16 +213,16 @@ export function EnergyBoosterModal({
                     key={key}
                     type="button"
                     onClick={() => setSelectedPack(key)}
-                    className={`relative flex flex-col justify-between rounded-xl border p-3.5 text-left transition cursor-pointer ${
+                    className={`relative flex items-center justify-between rounded-xl border p-4 text-left transition cursor-pointer ${
                       isSelected
                         ? "border-[#ff7a59] bg-[#ff7a59]/5 text-white"
                         : "border-white/[0.08] bg-white/[0.01] hover:border-white/15"
                     }`}
                   >
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5 justify-between">
-                        <span className="text-xs font-bold text-surface-warm-white/40 uppercase tracking-wider">
-                          Paket
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-surface-warm-white">
+                          {local.label}
                         </span>
                         {key === "popular" && (
                           <span className="rounded bg-[#ff7a59]/10 px-1.5 py-0.5 text-[8px] font-bold text-[#ff7a59] uppercase tracking-wider">
@@ -230,18 +230,15 @@ export function EnergyBoosterModal({
                           </span>
                         )}
                       </div>
-                      <span className="text-sm font-bold text-surface-warm-white mt-1">
-                        {local.label}
-                      </span>
-                      <span className="text-[10px] text-surface-warm-white/55 leading-tight mt-1">
+                      <span className="text-[10px] text-surface-warm-white/55">
                         {local.desc}
                       </span>
-                      <span className="text-xs font-bold text-[#ff7a59] mt-2.5">
+                      <span className="text-xs font-semibold text-[#ff7a59] mt-0.5">
                         +{formatEnergy(pack.energy)} Energi
                       </span>
                     </div>
 
-                    <div className="mt-4 pt-2 border-t border-white/5 flex flex-col">
+                    <div className="flex flex-col items-end">
                       <span className="text-[10px] text-white/35 line-through">
                         {formatRupiah(gimmickCoret)}
                       </span>
