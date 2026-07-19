@@ -7,6 +7,7 @@ Thanks for helping UMKM Cepat. Keep changes focused, useful, and easy to review.
 - Git
 - Bun, pinned in `package.json`
 - Docker with Compose
+- Signed [CLA.md](CLA.md) (Contributor License Agreement) for any Pull Requests
 
 Bun is the only supported package manager.
 
