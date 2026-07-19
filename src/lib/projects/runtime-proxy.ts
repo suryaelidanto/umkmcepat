@@ -18,6 +18,9 @@ type ProxyDeploymentRequestInput = {
   deploymentStatus: string;
   noindex?: boolean;
   pathSegments: string[];
+  publicAssetRewrite?: {
+    slug: string;
+  };
   request: Request;
   supervisor?: RuntimeSupervisor;
 };
@@ -100,25 +103,29 @@ export async function proxyDeploymentRequest(
   applyPreviewSandboxHeaders(headers, { noindex: input.noindex ?? true });
 
   if (
-    input.assetRewrite &&
+    (input.assetRewrite || input.publicAssetRewrite) &&
     runtimeResponse.status === 200 &&
     headers.get("content-type")?.toLowerCase().includes("text/html")
   ) {
     headers.delete("content-length");
+    const originalHtml = await runtimeResponse.text();
 
-    return new Response(
-      injectPreviewAnnotationBridge(
-        rewritePreviewAssetUrls(await runtimeResponse.text(), {
-          deploymentId: input.deploymentId,
-          projectId: input.assetRewrite.projectId,
-        }),
-      ),
-      {
-        headers,
-        status: runtimeResponse.status,
-        statusText: runtimeResponse.statusText,
-      },
-    );
+    const rewrittenHtml = input.assetRewrite
+      ? injectPreviewAnnotationBridge(
+          rewritePreviewAssetUrls(originalHtml, {
+            deploymentId: input.deploymentId,
+            projectId: input.assetRewrite.projectId,
+          }),
+        )
+      : input.publicAssetRewrite
+        ? rewritePublicAssetUrls(originalHtml, input.publicAssetRewrite.slug)
+        : originalHtml;
+
+    return new Response(rewrittenHtml, {
+      headers,
+      status: runtimeResponse.status,
+      statusText: runtimeResponse.statusText,
+    });
   }
 
   return new Response(runtimeResponse.body, {
@@ -182,6 +189,26 @@ export function rewritePreviewAssetUrls(
         .join("/");
 
       return `${attribute}="/api/projects/${encodeURIComponent(projectId)}/assets/${encodedPath}?${PREVIEW_ASSET_TOKEN_PARAM}=${encodeURIComponent(token)}"`;
+    },
+  );
+}
+
+/**
+ * Rewrite generated HTML's relative `./assets/...` URLs to absolute public
+ * paths (`/p/<slug>/assets/...`). The public route's splat handler proxies
+ * each asset back to the same runtime, so the site renders end-to-end on the
+ * published URL.
+ */
+export function rewritePublicAssetUrls(html: string, slug: string) {
+  return html.replace(
+    /\b(src|href)="\.\/assets\/([^"]+)"/g,
+    (_match, attribute: string, assetPath: string) => {
+      const encodedPath = assetPath
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+
+      return `${attribute}="/p/${encodeURIComponent(slug)}/assets/${encodedPath}"`;
     },
   );
 }

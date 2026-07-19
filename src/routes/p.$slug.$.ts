@@ -107,6 +107,7 @@ export const Route = createFileRoute("/p/$slug/$")({
           deploymentStatus: deployment.status,
           noindex: false,
           pathSegments: path,
+          publicAssetRewrite: { slug },
           request,
         });
 

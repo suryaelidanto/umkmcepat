@@ -7,6 +7,7 @@ import {
   injectPreviewAnnotationBridge,
   proxyDeploymentRequest,
   rewritePreviewAssetUrls,
+  rewritePublicAssetUrls,
 } from "@/lib/projects/runtime-proxy";
 
 let server: Server | null = null;
@@ -142,6 +143,21 @@ describe("runtime proxy", () => {
     expect(result).not.toContain("/assets/app.js/?");
     expect(result).not.toContain("/assets/app.css/?");
     expect(result).toContain("assetToken=");
+    expect(result).not.toContain("./assets/");
+  });
+
+  it("rewrites generated HTML asset URLs for public routes", () => {
+    const html =
+      '<script type="module" crossorigin src="./assets/app.js"></script><link rel="stylesheet" href="./assets/app.css">';
+    const result = rewritePublicAssetUrls(
+      html,
+      "salon-kecantikan-wanita-zi8pc6",
+    );
+
+    expect(result).toContain("/p/salon-kecantikan-wanita-zi8pc6/assets/app.js");
+    expect(result).toContain(
+      "/p/salon-kecantikan-wanita-zi8pc6/assets/app.css",
+    );
     expect(result).not.toContain("./assets/");
   });
 
