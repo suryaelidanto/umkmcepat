@@ -17,6 +17,12 @@ Many generated artifacts and supervised runtime deployments
 
 UMKM Cepat remains one platform/control-plane app. Generated project runtimes may run out-of-process as isolated deployments, but only through the source snapshot, build, deployment, runtime node, runtime supervisor, and proxy architecture documented in `docs/prds/isolated-project-runtime-prd.md`.
 
+Platform Constraints:
+
+- Fully free for users; operating costs (LLM inference, hosting) are subsidized by the owner (no user-facing monetization).
+- Pilot whitelist with admin approval restricts registration and limits scale (initially targeting ~10 active UMKM businesses).
+- User quotas refills are enabled via an Energy Booster modal (1-column layout) integrated into the navbar profile dropdown.
+
 Rules:
 
 - Do not create per-user platform apps.
