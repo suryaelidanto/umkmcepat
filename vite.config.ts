@@ -42,6 +42,7 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: ["dev.umkmcepat.com", "localhost", "127.0.0.1"],
     watch: {
       // Ignore build artifacts and data directories to prevent Vite's file
       // watcher from triggering HMR when the source generator writes files.

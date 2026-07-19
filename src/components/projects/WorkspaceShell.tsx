@@ -268,6 +268,7 @@ export function WorkspaceShell({
   const olderChatSentinelRef = useRef<HTMLDivElement | null>(null);
   const hasAutoOpenedPreview = useRef(hasInitialPreview);
   const previousLiveMessageCount = useRef(initialMessages.length);
+  const previousLiveBuildStepCount = useRef(0);
   const runtimeRetryAfterRef = useRef(0);
   const previousScrollHeight = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -279,6 +280,9 @@ export function WorkspaceShell({
   const workspaceCardRef = useRef(initialWorkspaceCard);
   const preparingPollRef = useRef<(() => void) | null>(null);
   const loadWorkspaceStateRequestIdRef = useRef(0);
+  // Synchronous lock so the same `submitChatText` call within one tick can't
+  // fire `sendMessage` twice when `isProcessing` state hasn't propagated yet.
+  const submitInFlightRef = useRef(false);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
   // Survives refresh: if user sent visual comments, clear them when server job ends OK.
@@ -1325,6 +1329,24 @@ export function WorkspaceShell({
   }, [messages.length, scrollChatToBottom]);
 
   useEffect(() => {
+    const element = chatScrollRef.current;
+
+    if (
+      !element ||
+      buildProgress.length <= previousLiveBuildStepCount.current
+    ) {
+      previousLiveBuildStepCount.current = buildProgress.length;
+      return;
+    }
+
+    if (shouldStickToBottomRef.current) {
+      scrollChatToBottom({ behavior: "smooth" });
+    }
+
+    previousLiveBuildStepCount.current = buildProgress.length;
+  }, [buildProgress.length, scrollChatToBottom]);
+
+  useEffect(() => {
     setQuestionComposerMode("options");
     setMessage("");
   }, [activeQuestionKey]);
@@ -1439,6 +1461,14 @@ export function WorkspaceShell({
       canceled = true;
     };
   }, [isPreparingNextQuestion, projectId, reloadLatestChat]);
+
+  useEffect(() => {
+    // Release the synchronous submit lock once the chat settles back to idle,
+    // so subsequent stepper / chat submissions aren't blocked forever.
+    if (status === "ready" || status === "error") {
+      submitInFlightRef.current = false;
+    }
+  }, [status]);
 
   useEffect(() => {
     const previous = previousChatStatus.current;
@@ -1750,15 +1780,21 @@ export function WorkspaceShell({
         isProcessing ||
         rateLimitError ||
         authStatus !== "authenticated" ||
-        sessionExpired
+        sessionExpired ||
+        submitInFlightRef.current
       ) {
         return;
       }
+
+      // Lock the channel for the duration of the request so a synchronous
+      // double-invoke (double-tap, React 19 batching edge) cannot post twice.
+      submitInFlightRef.current = true;
 
       // User is sending a new turn: re-pin and jump to latest.
       shouldStickToBottomRef.current = true;
       setRateLimitError(null);
       setMessage("");
+      setBuildProgress([]);
       requestAnimationFrame(() =>
         scrollChatToBottom({ force: true, behavior: "smooth" }),
       );
@@ -1784,6 +1820,7 @@ export function WorkspaceShell({
       scrollChatToBottom,
       sendMessage,
       sessionExpired,
+      setBuildProgress,
     ],
   );
 
@@ -2195,9 +2232,19 @@ export function WorkspaceShell({
                     const isRequired = currentQ.required === true;
                     const advance = (answer: WorkspaceAnswerPayload) => {
                       const next = [...pendingStepAnswers, answer];
+                      // ponytail: always send each step's answer as a chat message
+                      // (matching the single-question UX where the user sees their
+                      // own "<question>\nJawaban: <answer>" bubble). Skip on
+                      // non-final steps where we just advance the index.
                       if (isLastStep) {
                         setPendingStepAnswers(next);
-                        submitChatText("", { workspaceAnswers: next });
+                        const summary = next
+                          .map(
+                            (payload) =>
+                              `${payload.question}\nJawaban: ${payload.answer || "(lewati)"}`,
+                          )
+                          .join("\n\n");
+                        submitChatText(summary, { workspaceAnswers: next });
                       } else {
                         setPendingStepAnswers(next);
                         setCurrentQuestionIndex(idx + 1);
@@ -2213,57 +2260,27 @@ export function WorkspaceShell({
                       advance(skipPayload);
                     };
                     return (
-                      <div>
-                        <div className="mb-spacing-3 flex items-baseline gap-spacing-2">
-                          <h3 className="text-base font-semibold text-surface-warm-white">
-                            {currentQ.question}
-                            {isRequired ? (
-                              <span
-                                aria-label="wajib diisi"
-                                className="ml-spacing-1 text-red-400"
-                              >
-                                *
-                              </span>
-                            ) : null}
-                          </h3>
-                        </div>
-                        <QuestionComposer
-                          question={currentQ}
-                          onSubmit={(_answer, workspaceAnswers) => {
-                            const first = workspaceAnswers?.[0];
-                            if (!first) {
-                              return;
-                            }
-                            if (isRequired && !first.answer.trim()) {
-                              return;
-                            }
-                            advance(first);
-                          }}
-                        />
-                        <div className="mt-spacing-3 flex items-center justify-between text-xs text-surface-warm-white/55">
-                          <span>
-                            Pertanyaan {idx + 1} dari {questions.length}
-                            {isRequired ? " · wajib" : " · opsional"}
-                          </span>
-                          <div className="flex items-center gap-spacing-3">
-                            {pendingStepAnswers.length > 0 ? (
-                              <span>
-                                {pendingStepAnswers.length} jawaban tersimpan
-                              </span>
-                            ) : null}
-                            {!isRequired ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={skipCurrent}
-                                className="rounded-full px-spacing-4 text-surface-warm-white/72 hover:bg-surface-warm-white/8"
-                              >
-                                Lewati
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
+                      <QuestionComposer
+                        key={currentQ.id}
+                        question={currentQ}
+                        stepMeta={{
+                          current: idx + 1,
+                          total: questions.length,
+                          required: isRequired,
+                          savedCount: pendingStepAnswers.length,
+                        }}
+                        onSubmit={(_answer, workspaceAnswers) => {
+                          const first = workspaceAnswers?.[0];
+                          if (!first) {
+                            return;
+                          }
+                          if (isRequired && !first.answer.trim()) {
+                            return;
+                          }
+                          advance(first);
+                        }}
+                        onSkip={!isRequired ? skipCurrent : undefined}
+                      />
                     );
                   })()
                 ) : (

@@ -67,4 +67,20 @@ describe("published generated route", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(prismaProjectDeploymentFindManyMock).not.toHaveBeenCalled();
   });
+
+  it("redirects base site requests to have a trailing slash", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
+
+    const response = await GET(
+      new Request("https://sites.example.net/p/warung"),
+      {
+        slug: "warung",
+      },
+    );
+
+    expect(response.status).toBe(301);
+    expect(response.headers.get("Location")).toBe("/p/warung/");
+    expect(prismaProjectDeploymentFindManyMock).not.toHaveBeenCalled();
+    expect(proxyDeploymentRequestMock).not.toHaveBeenCalled();
+  });
 });

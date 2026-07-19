@@ -16,7 +16,7 @@ export const implementationSpecTool = tool({
       .array(
         z.object({
           slug: z.string(),
-          title: z.string(),
+          title: z.string().optional(),
           purpose: z.string(),
         }),
       )
@@ -297,7 +297,7 @@ function parsePage(value: unknown): ImplementationSpec["pages"][number] | null {
   }
   const item = value as { purpose?: unknown; slug?: unknown; title?: unknown };
   const slug = clean(item.slug, 80);
-  const title = clean(item.title, 80);
+  const title = clean(item.title || "Beranda", 80);
   const purpose = clean(item.purpose, 220);
   return slug && title && purpose ? { slug, title, purpose } : null;
 }

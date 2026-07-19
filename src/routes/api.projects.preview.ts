@@ -231,11 +231,47 @@ async function handlePreviewPost(request: Request) {
     );
   }
 
-  const latestUserText = incoming
+  let latestUserText = incoming
     .flatMap((message) => message.parts)
     .filter((part) => part.type === "text")
     .map((part) => part.text)
     .join(" ");
+
+  // ponytail: fail-safe if client sent empty text but valid workspaceAnswers
+  if (
+    !latestUserText.trim() &&
+    Array.isArray(body.workspaceAnswers) &&
+    body.workspaceAnswers.length > 0
+  ) {
+    const summary = body.workspaceAnswers
+      .map((item) => {
+        const ans = item as Record<string, unknown> | null;
+        const q =
+          typeof ans?.question === "string" ? ans.question : "Pertanyaan";
+        const a =
+          typeof ans?.answer === "string" && ans.answer
+            ? ans.answer
+            : "(lewati)";
+        return `${q}\nJawaban: ${a}`;
+      })
+      .join("\n\n");
+
+    if (incoming[0]) {
+      if (!incoming[0].parts) {
+        incoming[0].parts = [];
+      }
+      const textPart = incoming[0].parts.find((p) => p.type === "text");
+      if (textPart && "text" in textPart) {
+        textPart.text = summary;
+      } else {
+        incoming[0].parts.push({
+          type: "text",
+          text: summary,
+        } as UIMessage["parts"][number]);
+      }
+    }
+    latestUserText = summary;
+  }
 
   if (latestUserText.trim()) {
     let moderation;

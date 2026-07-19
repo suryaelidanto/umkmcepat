@@ -172,28 +172,9 @@ export async function generateCustomProjectFilesWithAgent({
     }
 
     if (!quality.ok) {
-      // Exotic-path retry: try one more forced rewrite with the missing list.
-      const missingCss = findMissingCssClasses(
-        files,
-        files.find((file) => file.path === "src/styles.css")?.content ?? "",
+      throw new Error(
+        `AI agent produced invalid source: ${quality.issues.join(", ")}`,
       );
-      if (missingCss.length > 0) {
-        await runForcedRewritePass({
-          appSpec,
-          implementationSpec,
-          missingCss,
-          projectId,
-          runCommand,
-          schema,
-        });
-        files = ensureStylesFileExists(files, schema);
-        quality = checkAgentSourceQuality(files, agentEditedFiles);
-      }
-      if (!quality.ok) {
-        throw new Error(
-          `AI agent produced invalid source: ${quality.issues.join(", ")}`,
-        );
-      }
     }
 
     // Last-resort: if real CSS is still missing after rewrite attempts, inject
@@ -714,21 +695,21 @@ function buildAgentPrompt(implementationBrief: string) {
 Implementation brief:
 ${implementationBrief}
 
-CODING FIRST (required order):
-1. write_file or replace_in_file on src/content/site.ts AND src/routes/index.tsx (and src/styles.css if needed)
-2. Optional: at most 2 read_skill calls if stuck (prefer skill "generated-app-builder")
-3. check_app ONLY after at least one write/replace
+SPEED RULES (you have limited steps — write immediately):
+1. FIRST STEP: write_file src/content/site.ts with real business data
+2. SECOND STEP: write_file src/routes/index.tsx with full page layout
+3. THIRD STEP: write_file src/styles.css with complete CSS for every className you used
+4. Then write any extra components/routes you need
+5. LAST STEP: check_app once
 
-STATIC ONLY (platform limit — soft but important):
-- Frontend marketing/catalog site only. No auth, session, database, payment gateway, or real backend.
-- Prefer WhatsApp/contact CTA, price list, static catalog. Copy may mention cara bayar; do not build fake login/checkout systems or fetch invented /api/* endpoints.
-- Do not add dependencies. package.json is platform-owned.
+DO NOT read_skill. DO NOT read_file before writing — starter files are predictable.
+DO NOT spend steps exploring. Write complete files from the start.
 
-Key rule: EDIT src/routes/index.tsx with real business content early.
-Keep usePreviewReady() in the rendered route.
-Prefer contract classes already in src/styles.css (.page, .site-header, .hero, .section, .primary, .fab-wa).
-If you invent new classNames, rewrite src/styles.css fully so every class has a rule — never leave starter-only CSS.
-Do not spend the whole budget reading — empty edits fail the build.`;
+STATIC ONLY: no auth/DB/payment gateway/fake /api. Use WA/contact CTA and real Indonesian business copy.
+Do not add dependencies. package.json is platform-owned.
+
+Keep usePreviewReady() called in the rendered route.
+If you invent new classNames, write their CSS rules immediately — never leave unstyled classes.`;
 }
 
 export function buildGeneratedAppBuildSpec(
@@ -795,12 +776,10 @@ function buildGeneratedAppAgentInstructions(
 ) {
   const skillsBlock =
     mode === "generate"
-      ? `\nOptional skills (max 2 read_skill calls total — do not tour all skills):
-- generated-app-builder
-- design-quality OR anti-slop OR indonesian-business
-
-WRITE first: src/content/site.ts + src/routes/index.tsx before check_app.
-Never call check_app before at least one write_file or replace_in_file.`
+      ? `\nDo NOT call read_skill — write files directly. You already know the stack.
+WRITE first: src/content/site.ts, src/routes/index.tsx, src/styles.css.
+Never call check_app before at least one write_file or replace_in_file.
+Minimize read_file calls — starter structure is predictable.`
       : mode === "rewrite"
         ? `\nFORCED REWRITE MODE: no read_skill. Write core files immediately, then check_app.`
         : "";

@@ -58,6 +58,16 @@ export const Route = createFileRoute("/p/$slug/$")({
           });
         }
 
+        const url = new URL(request.url);
+        if (_splat === "" && !url.pathname.endsWith("/")) {
+          return new Response(null, {
+            status: 301,
+            headers: {
+              Location: `${url.pathname}/${url.search}`,
+            },
+          });
+        }
+
         const deployments = await prisma.projectDeployment.findMany({
           where: { kind: "published", slug },
           orderBy: { updatedAt: "desc" },

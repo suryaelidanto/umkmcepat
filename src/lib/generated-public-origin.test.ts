@@ -26,6 +26,13 @@ describe("generated public origin", () => {
     );
   });
 
+  it("appends trailing slash for base site URLs", () => {
+    vi.stubEnv("GENERATED_PUBLIC_ORIGIN", "https://sites.example.net");
+    expect(getGeneratedPublicUrl("warung")).toBe(
+      "https://sites.example.net/p/warung/",
+    );
+  });
+
   it("redirects control-plane requests and serves only the generated host", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");

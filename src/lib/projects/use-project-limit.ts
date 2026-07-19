@@ -1,15 +1,12 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, type InfiniteData } from "@tanstack/react-query";
 import { useMatch } from "@tanstack/react-router";
 
 import { queryKeys } from "@/lib/query-client";
 
-type ProjectsCache = {
-  pages: Array<{
-    projectCount?: number;
-    projectLimit?: number;
-    overProjectLimit?: boolean;
-  }>;
-  pageParams: unknown[];
+type ProjectsPage = {
+  projectCount?: number;
+  projectLimit?: number;
+  overProjectLimit?: boolean;
 };
 
 export type ProjectLimitInfo = {
@@ -19,7 +16,7 @@ export type ProjectLimitInfo = {
 };
 
 export function readProjectLimitFromCache(
-  cache: ProjectsCache | undefined,
+  cache: { pages: ProjectsPage[] } | undefined,
 ): ProjectLimitInfo | null {
   const firstPage = cache?.pages[0];
 
@@ -47,7 +44,6 @@ const FALLBACK_LIMIT: ProjectLimitInfo = {
 };
 
 export function useProjectLimit(): ProjectLimitInfo {
-  const queryClient = useQueryClient();
   // shouldThrow: false so components using this hook (ProjectList,
   // HomePromptForm) can render outside the "/_main/" route match, e.g. in
   // Storybook, without pulling in the route module's server-only imports.
@@ -59,8 +55,25 @@ export function useProjectLimit(): ProjectLimitInfo {
         projectLimit: number;
       }
     | undefined;
-  const cache = queryClient.getQueryData<ProjectsCache>(queryKeys.projects);
-  const fromCache = readProjectLimitFromCache(cache);
+
+  // ponytail: reactive subscription to projects cache so hero section
+  // updates when project count changes (e.g. full → available). If query
+  // hasn't been initialised yet we fall through to loader data.
+  const { data: fromCache } = useInfiniteQuery<
+    ProjectsPage,
+    Error,
+    ProjectLimitInfo | null
+  >({
+    queryKey: queryKeys.projects,
+    queryFn: () => {
+      throw new Error("useProjectLimit: piggybacks on ProjectList query");
+    },
+    enabled: false,
+    initialPageParam: null as string | null,
+    getNextPageParam: () => null,
+    select: (data: InfiniteData<ProjectsPage>) =>
+      readProjectLimitFromCache(data),
+  });
 
   if (fromCache) {
     return fromCache;

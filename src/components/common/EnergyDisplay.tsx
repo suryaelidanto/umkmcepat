@@ -1,8 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { PlusIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 
+import { EnergyBoosterModal } from "@/components/payment/EnergyBoosterModal";
 import { useSession } from "@/lib/auth-client";
 import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
 
@@ -21,6 +23,7 @@ function formatNumber(value: number): string {
 
 export function EnergyDisplay() {
   const queryClient = useQueryClient();
+  const [modalOpen, setModalOpen] = useState(false);
   const { data: session, status } = useSession();
   const hasUser = Boolean(session?.user) && status !== "loading";
   const energyQuery = useQuery({
@@ -128,6 +131,14 @@ export function EnergyDisplay() {
           {formatNumber(stats.remaining)}
         </span>
         <span className="text-xs text-surface-warm-white/50">Energi</span>
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="ml-1 flex size-5 items-center justify-center rounded-full bg-yellow-400/10 text-yellow-400 transition hover:bg-yellow-400/20 active:scale-95 focus:outline-none"
+          title="Top-up Energi Premium"
+        >
+          <PlusIcon className="size-3" />
+        </button>
       </div>
 
       <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-surface-warm-white/12 sm:block">
@@ -169,6 +180,8 @@ export function EnergyDisplay() {
           </button>
         </>
       )}
+
+      <EnergyBoosterModal open={modalOpen} onOpenChange={setModalOpen} />
     </div>
   );
 }

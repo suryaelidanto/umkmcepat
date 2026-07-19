@@ -1,13 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
-import { replaceStoredObject } from "@/lib/object-storage";
 import { prisma } from "@/lib/prisma";
-import {
-  normalizeProfileImageDataUrl,
-  normalizeProfileName,
-  toPublicProfileImage,
-} from "@/lib/profile";
+import { normalizeProfileName } from "@/lib/profile";
 
 export const Route = createFileRoute("/api/profile")({
   server: {
@@ -23,7 +18,6 @@ export const Route = createFileRoute("/api/profile")({
         }
 
         const body = (await request.json().catch(() => ({}))) as {
-          imageDataUrl?: unknown;
           name?: unknown;
         };
         const name = normalizeProfileName(body.name);
@@ -35,35 +29,16 @@ export const Route = createFileRoute("/api/profile")({
           );
         }
 
-        const data: { image?: string; name: string } = { name };
-        const sessionImage = toPublicProfileImage(session.user.image);
-
-        if (sessionImage.startsWith("https://")) {
-          data.image = sessionImage;
-        }
-
-        if (body.imageDataUrl !== undefined) {
-          const image = normalizeProfileImageDataUrl(body.imageDataUrl);
-
-          if (!image.ok) {
-            return Response.json({ message: image.message }, { status: 400 });
-          }
-
-          data.image = await replaceStoredObject({
-            body: image.value.body,
-            contentType: image.value.contentType,
-            key: `profile-avatars/${session.user.id}/avatar.${image.value.ext}`,
-          });
-        }
+        const data: { name: string } = { name };
 
         const user = await prisma.user.update({
           where: { id: session.user.id },
           data,
-          select: { image: true, name: true },
+          select: { name: true },
         });
 
         return Response.json({
-          user: { image: toPublicProfileImage(user.image), name: user.name },
+          user: { name: user.name },
         });
       },
     },

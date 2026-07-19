@@ -88,7 +88,9 @@ describe("nineRouterFetch", () => {
       }),
     );
 
-    const result = await nineRouterFetch("https://example.com", {});
+    const result = await nineRouterFetch("https://example.com", {
+      body: JSON.stringify({ stream: true }),
+    });
     expect(result.headers.get("content-type")).toBe("text/event-stream");
     expect(await result.text()).toBe(genuine);
   });
@@ -231,5 +233,35 @@ describe("nineRouterFetch", () => {
     expect(result.headers.get("content-type")).toBe("application/json");
     const parsed = await result.json();
     expect(parsed.message.content).toBe('He said "hi" to {friend}');
+  });
+
+  it("reconstructs genuine multi-event SSE streams into a single JSON object when the request is non-streaming", async () => {
+    const genuineSse = [
+      'data: {"id":"1","object":"chat.completion.chunk","created":123,"model":"m","choices":[{"index":0,"delta":{"role":"assistant","content":"hello"}}]}',
+      "",
+      'data: {"id":"1","object":"chat.completion.chunk","created":123,"model":"m","choices":[{"index":0,"delta":{"content":" world"}}]}',
+      "",
+      'data: {"id":"1","object":"chat.completion.chunk","created":123,"model":"m","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}',
+      "",
+      "data: [DONE]",
+      "",
+    ].join("\n");
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      makeResponse(genuineSse, {
+        status: 200,
+        contentType: "text/event-stream",
+      }),
+    );
+
+    const result = await nineRouterFetch("https://example.com", {
+      body: JSON.stringify({ stream: false }),
+    });
+
+    expect(result.headers.get("content-type")).toBe("application/json");
+    const parsed = await result.json();
+    expect(parsed.id).toBe("1");
+    expect(parsed.choices[0].message.content).toBe("hello world");
+    expect(parsed.choices[0].finish_reason).toBe("stop");
   });
 });

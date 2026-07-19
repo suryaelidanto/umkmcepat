@@ -358,8 +358,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
         if (generateMode === "retry_build") {
           send("progress", {
             label: "Memuat source tersimpan",
-            detail:
-              "Membangun ulang dari file yang sudah ada (bukan generate dari awal).",
+            detail: "Membangun ulang dari file tersimpan.",
           });
 
           const [sourceRow] = await prisma.$queryRaw<
@@ -404,7 +403,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
           send("progress", {
             label: "Build website dari source tersimpan",
-            detail: `${sourceFiles.length} file dimuat. Menjalankan validasi build.`,
+            detail: `${sourceFiles.length} file dimuat. Validasi build.`,
           });
 
           const [retryBriefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
@@ -462,7 +461,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
               }
               send("progress", {
                 label: "AI memperbaiki kode",
-                detail: `Percobaan perbaikan ${repairAttempt + 1} dari 2. AI sedang membenarkan error build.`,
+                detail: `Perbaikan ${repairAttempt + 1}/2. Memperbaiki error build.`,
               });
               try {
                 const repair = await repairGeneratedProjectFiles({
@@ -548,6 +547,17 @@ async function handleGeneratePost(request: Request, routeId: string) {
             runtimeBuildFinalized = true;
           }
 
+          await prisma.projectEditAttempt
+            .update({
+              where: { id: operationAttemptId },
+              data: {
+                errorMessage: buildOk ? null : "Retry build failed.",
+                finishedAt: new Date(),
+                status: buildOk ? "succeeded" : "failed",
+              },
+            })
+            .catch(() => undefined);
+
           if (buildOk) {
             await prisma.projectDeployment
               .create({
@@ -572,8 +582,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
           } else {
             send("progress", {
               label: "Build website gagal",
-              detail:
-                "File website tetap disimpan, tapi build log perlu dicek di tab Kode.",
+              detail: "File disimpan. Silakan cek log di tab Kode.",
             });
             send("error", {
               message: "AI belum bisa membangun website ini.",
@@ -597,7 +606,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
         send("progress", {
           label: "Memahami usaha dan target pembeli",
-          detail: "AI membaca kebutuhan utama dari brief kamu.",
+          detail: "Membaca kebutuhan utama dari brief.",
         });
 
         const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
@@ -710,7 +719,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
           send("progress", {
             label: "AI mencoba sekali lagi",
-            detail: "Rancangan perlu waktu lebih untuk diselesaikan.",
+            detail: "Merancang ulang struktur halaman.",
           });
           await new Promise((resolve) => setTimeout(resolve, 2_000));
 
@@ -747,13 +756,11 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
           send("progress", {
             label: "Rancangan AI tidak lengkap",
-            detail:
-              "Sudah dicoba 2 kali. Lanjut pakai rancangan dari brief diskusi yang sudah disetujui.",
+            detail: "Melanjutkan dengan rancangan dari brief.",
           });
           send("progress", {
             label: "Pakai rancangan dari brief",
-            detail:
-              "Struktur default landing + data usaha dari diskusi. Website tetap dibangun.",
+            detail: "Menyusun landing page dari data usaha.",
           });
           devLog("generate", "spec.fallback", {
             projectId,
@@ -791,7 +798,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
         const finalSchema = implementationSpecToSiteSchema(implementationSpec);
         send("progress", {
           label: "Menyiapkan starter React",
-          detail: "Vite React TypeScript dan TanStack Router disiapkan.",
+          detail: "Menyiapkan dependensi dan router.",
         });
         const sourceGeneration = await generateCustomProjectFilesWithAgent({
           implementationBrief: buildPrompt,
@@ -827,11 +834,11 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
         send("progress", {
           label: "AI menulis file website",
-          detail: `${sourceGeneration.touchedFiles.length} file dibuat atau diubah agent.`,
+          detail: `${sourceGeneration.touchedFiles.length} file ditulis.`,
         });
         if (sourceGeneration.repairAttempts > 0) {
           send("operation", {
-            detail: `${sourceGeneration.repairAttempts} percobaan perbaikan build dilakukan.`,
+            detail: `${sourceGeneration.repairAttempts} perbaikan build.`,
             id: `repair-${sourceGeneration.repairAttempts}`,
             state: "succeeded",
             title: "AI memperbaiki build",
@@ -874,8 +881,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
         if (isPartial) {
           send("progress", {
             label: "AI belum selesai menulis file",
-            detail:
-              "Agent berhenti lebih awal (timeout, dibatasi, atau terputus). Mencoba build dengan file yang ada.",
+            detail: "Melanjutkan build dengan file hasil penulisan.",
           });
         }
 
@@ -905,7 +911,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
         });
         send("progress", {
           label: "Build masuk antrean",
-          detail: "Worker build menyiapkan validasi file website.",
+          detail: "Memvalidasi file website.",
         });
         await prisma.runtimeEvent.create({
           data: createRuntimeEventData({
@@ -935,7 +941,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
             send("progress", {
               label: "AI memperbaiki kode",
-              detail: `Percobaan perbaikan ${repairAttempt + 1} dari 2. AI sedang membenarkan error build.`,
+              detail: `Perbaikan ${repairAttempt + 1}/2. Memperbaiki error build.`,
             });
 
             try {
@@ -983,7 +989,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
               if (retryBuild.ok) {
                 send("progress", {
                   label: "Build website berhasil",
-                  detail: `File website berhasil divalidasi setelah ${repairAttempt + 1} perbaikan.`,
+                  detail: `Berhasil divalidasi setelah ${repairAttempt + 1} perbaikan.`,
                 });
                 await prisma.projectBuild.update({
                   where: { id: build.id },
@@ -1000,8 +1006,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
               if (repairAttempt === 1) {
                 send("progress", {
                   label: "Build website gagal",
-                  detail:
-                    "File website tetap disimpan, tapi build log perlu dicek di tab Kode.",
+                  detail: "File disimpan. Silakan cek log di tab Kode.",
                 });
               }
             } catch (repairError) {
@@ -1027,8 +1032,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
         } else {
           send("progress", {
             label: "Build website gagal",
-            detail:
-              "File website tetap disimpan, tapi build log perlu dicek di tab Kode.",
+            detail: "File disimpan. Silakan cek log di tab Kode.",
           });
         }
         const latestProject = await prisma.project.findUnique({
@@ -1198,7 +1202,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
         send("progress", {
           label: "Website siap dicek",
-          detail: "Tampilan dan file website sudah siap dicek.",
+          detail: "Website siap ditinjau.",
         });
         devLog("generate", "done", { projectId: projectId });
         send("done", finalSchema);

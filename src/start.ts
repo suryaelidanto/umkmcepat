@@ -37,6 +37,13 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
   const generatedOrigin = isGeneratedOrigin(url.origin);
   const isApi = pathname.startsWith("/api/");
 
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const proto =
+    forwardedProto === "https" || forwardedProto === "http"
+      ? forwardedProto
+      : url.protocol.replace(":", "");
+  const requestOrigin = `${proto}://${url.host}`;
+
   if (
     isApi &&
     isCrossSiteMutation({
@@ -44,7 +51,7 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
       method: request.method,
       origin: request.headers.get("origin"),
       pathname,
-      requestOrigin: url.origin,
+      requestOrigin,
     })
   ) {
     const blocked = Response.json(

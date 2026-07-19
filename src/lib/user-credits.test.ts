@@ -43,7 +43,7 @@ describe("user-credits energy cost formula", () => {
   });
 
   it("uses token-scale daily limits", () => {
-    expect(DAILY_ENERGY_LIMIT).toBe(230_000);
+    expect(DAILY_ENERGY_LIMIT).toBe(250_000);
     expect(MIN_ENERGY_DISCUSS).toBeLessThan(MIN_ENERGY_EDIT);
     expect(MIN_ENERGY_EDIT).toBeLessThan(MIN_ENERGY_BUILD);
   });

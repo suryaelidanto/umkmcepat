@@ -1,7 +1,7 @@
 "use client";
 
-import { Camera, Loader2 } from "lucide-react";
-import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { FormEvent, useState } from "react";
 
 import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
@@ -9,40 +9,25 @@ import { useSession } from "@/lib/auth-client";
 import { useRouter } from "@/lib/navigation";
 import { fetchJson, useCacheMutation } from "@/lib/query-client";
 
-const PROFILE_IMAGE_MAX_BYTES = 1_000_000;
-
-export function ProfileNameForm({
-  initialImage,
-  initialName,
-}: {
-  initialImage: string;
-  initialName: string;
-}) {
+export function ProfileNameForm({ initialName }: { initialName: string }) {
   const router = useRouter();
   const { update } = useSession();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [savedName, setSavedName] = useState(normalizeName(initialName));
   const [name, setName] = useState(normalizeName(initialName));
-  const [imagePreview, setImagePreview] = useState(initialImage);
-  const [imageDataUrl, setImageDataUrl] = useState("");
   const [error, setError] = useState("");
   const normalizedName = normalizeName(name);
-  const isChanged = normalizedName !== savedName || Boolean(imageDataUrl);
-  const initial = normalizedName[0]?.toUpperCase() || "U";
+  const isChanged = normalizedName !== savedName;
 
   const saveMutation = useCacheMutation<
-    { user: { image?: string | null; name?: string | null } },
-    { imageDataUrl?: string; name: string }
+    { user: { name?: string | null } },
+    { name: string }
   >({
     mutationFn: async (payload) =>
-      fetchJson<{ user: { image?: string | null; name?: string | null } }>(
-        "/api/profile",
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      ),
+      fetchJson<{ user: { name?: string | null } }>("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
     successMessage: "Profil disimpan.",
     errorMessage: "Profil belum berhasil disimpan.",
     onSuccess: async (result) => {
@@ -52,12 +37,9 @@ export function ProfileNameForm({
       }
 
       const nextName = normalizeName(result.user.name);
-      const nextImage = result.user.image || imagePreview;
       setSavedName(nextName);
       setName(nextName);
-      setImageDataUrl("");
-      setImagePreview(nextImage);
-      await update({ image: nextImage, name: nextName });
+      await update({ name: nextName });
       router.refresh();
     },
     onError: (mutationError) => {
@@ -68,29 +50,6 @@ export function ProfileNameForm({
       );
     },
   });
-
-  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    setError("");
-
-    if (!file) {
-      return;
-    }
-
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      setError("Foto harus berupa PNG, JPG, atau WebP.");
-      return;
-    }
-
-    if (file.size > PROFILE_IMAGE_MAX_BYTES) {
-      setError("Ukuran foto maksimal 1 MB.");
-      return;
-    }
-
-    const dataUrl = await readFileAsDataUrl(file);
-    setImageDataUrl(dataUrl);
-    setImagePreview(dataUrl);
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -106,7 +65,6 @@ export function ProfileNameForm({
     }
 
     saveMutation.mutate({
-      imageDataUrl: imageDataUrl || undefined,
       name: normalizedName,
     });
   }
@@ -117,34 +75,9 @@ export function ProfileNameForm({
     <form onSubmit={handleSubmit} className="space-y-spacing-7">
       <div className="flex flex-col gap-spacing-6 sm:flex-row sm:items-center">
         <AvatarFrame
-          image={imagePreview}
-          initial={initial}
-          className="grid size-20 place-items-center border border-white/10 bg-white/[0.04] text-2xl font-semibold text-surface-warm-white"
+          seed={name}
+          className="grid size-20 place-items-center border border-white/10 bg-white/[0.04]"
         />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-surface-warm-white">
-            Foto profil
-          </p>
-          <div className="mt-spacing-4 flex flex-wrap gap-spacing-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-md border border-white/14 bg-transparent text-surface-warm-white hover:bg-white/[0.06]"
-            >
-              <Camera className="size-4" />
-              Ganti foto
-            </Button>
-          </div>
-          <input
-            ref={fileInputRef}
-            aria-label="Unggah foto profil"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="sr-only"
-            onChange={handleImageChange}
-          />
-        </div>
       </div>
 
       <div className="border-t border-white/[0.07] pt-spacing-7">
@@ -190,13 +123,4 @@ export function ProfileNameForm({
 
 function normalizeName(value: string) {
   return value.trim().replace(/\s+/g, " ");
-}
-
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Gagal membaca file."));
-    reader.readAsDataURL(file);
-  });
 }
