@@ -32,7 +32,6 @@ import {
   PreviewIssueState,
   ProcessingControl,
   QuestionComposer,
-  QuestionsComposer,
   VisualFeedbackWidget,
   WorkspaceCardView,
   WorkspaceTopBar,

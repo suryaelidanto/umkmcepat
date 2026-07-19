@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { randomUUID } from "node:crypto";
+
+import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -28,7 +29,6 @@ import { isDiscussOneCallToolsEnabled } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import {
-  getMissingBriefFields,
   mergeProjectBriefPatch,
   parseProjectBrief,
   type ProjectBrief,
