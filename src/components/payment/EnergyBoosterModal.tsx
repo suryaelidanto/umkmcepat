@@ -5,6 +5,7 @@ import {
   CreditCardIcon,
   CheckCircle2Icon,
   AlertCircleIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -41,6 +42,34 @@ type PaymentStatusResponse = {
   paymentMethod: string;
 };
 
+type PrototypeStyle = "classic" | "aurora" | "grid" | "slider" | "retro";
+
+const PAKET_DETAILS: Record<
+  BoosterPackId,
+  { label: string; desc: string; detail: string }
+> = {
+  pocket: {
+    label: "Eceran Hemat",
+    desc: "Pas buat uji coba fitur",
+    detail: "Bisa buat buat sekitar 10-15 project uji coba.",
+  },
+  starter: {
+    label: "Usaha Rintisan",
+    desc: "Ideal untuk toko online pemula",
+    detail: "Mulai bangun kehadiran online tokomu dengan tenang.",
+  },
+  popular: {
+    label: "Laris Manis",
+    desc: "Paling Populer! Pendamping tumbuh cepat",
+    detail: "Kebutuhan harian terpenuhi tanpa takut kehabisan energi.",
+  },
+  max: {
+    label: "Juragan Besar",
+    desc: "Sangat hemat, kuota melimpah harian",
+    detail: "Pilihan terbaik untuk bisnis yang sering update halaman.",
+  },
+};
+
 export function EnergyBoosterModal({
   open,
   onOpenChange,
@@ -52,6 +81,9 @@ export function EnergyBoosterModal({
     null,
   );
   const [paymentStatus, setPaymentStatus] = useState<string>("PENDING");
+
+  // Prototype style selection (defaults to 'classic', user can switch if isDev is true)
+  const [protoStyle, setProtoStyle] = useState<PrototypeStyle>("classic");
 
   // Reset states when modal is opened or closed
   useEffect(() => {
@@ -133,7 +165,6 @@ export function EnergyBoosterModal({
     return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(payload)}`;
   };
 
-  // Helper formatting for Indonesian Rupiah
   const formatRupiah = (value: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -142,91 +173,376 @@ export function EnergyBoosterModal({
     }).format(value);
   };
 
-  // Helper formatting for Indonesian Energy Number
   const formatEnergy = (value: number) => {
     return new Intl.NumberFormat("id-ID").format(value);
   };
 
+  const getGimmickCoret = (key: BoosterPackId) => {
+    switch (key) {
+      case "pocket":
+        return 15000;
+      case "starter":
+        return 45000;
+      case "popular":
+        return 125000;
+      case "max":
+        return 299000;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-[#161614] text-surface-warm-white">
+      <DialogContent
+        className={`max-w-md transition-all duration-300 ${
+          protoStyle === "retro"
+            ? "border-4 border-black bg-[#faf6ee] text-[#1c1c1c] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            : protoStyle === "aurora"
+              ? "border border-white/10 bg-[#0d0d0c] text-[#fcfbf8] shadow-[0_0_40px_rgba(120,103,255,0.15)]"
+              : "border border-[#d8d5cc]/60 bg-[#161614] text-[#fcfbf8]"
+        }`}
+      >
+        {/* Prototype Style Switcher: Only visible in dev/staging */}
+        {isDev && !paymentSession && (
+          <div className="mb-2 rounded border border-white/10 bg-white/5 p-1.5">
+            <span className="mb-1 block text-center text-[9px] font-bold tracking-wider text-surface-warm-white/40 uppercase">
+              Prototype Variants (Dev Mode)
+            </span>
+            <div className="grid grid-cols-5 gap-1 text-[10px]">
+              {(
+                [
+                  "classic",
+                  "aurora",
+                  "grid",
+                  "slider",
+                  "retro",
+                ] as PrototypeStyle[]
+              ).map((style) => (
+                <button
+                  key={style}
+                  type="button"
+                  onClick={() => setProtoStyle(style)}
+                  className={`rounded px-1 py-1 text-center font-medium capitalize transition cursor-pointer ${
+                    protoStyle === style
+                      ? "bg-yellow-400 text-black font-bold"
+                      : "bg-white/5 text-surface-warm-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  {style}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <ZapIcon className="size-5 text-yellow-400 fill-yellow-400" />
-            <span>UMKM Cepat Booster Pack</span>
+            <ZapIcon
+              className={`size-5 ${
+                protoStyle === "retro"
+                  ? "fill-[#1c1c1c] text-[#1c1c1c]"
+                  : "fill-yellow-400 text-yellow-400"
+              }`}
+            />
+            <span>Booster Kuota UMKM</span>
           </DialogTitle>
-          <DialogDescription className="text-surface-warm-white/60">
-            Energi gratis harian habis? Top-up energi booster permanen
-            sebutuhnya. Energi premium tidak kedaluwarsa.
+          <DialogDescription
+            className={
+              protoStyle === "retro"
+                ? "text-black/70"
+                : "text-surface-warm-white/60"
+            }
+          >
+            Kuotamu habis? Beli paket booster tambahan sekali bayar. Berlaku
+            selamanya & tidak kedaluwarsa.
           </DialogDescription>
         </DialogHeader>
 
         {!paymentSession ? (
           <div className="flex flex-col gap-4">
-            <div className="grid gap-3">
-              {(Object.keys(BOOSTER_PACKS) as BoosterPackId[]).map((key) => {
-                const pack = BOOSTER_PACKS[key];
-                let gimmickCoret = 0;
-                let badge = "";
+            {/* MODEL 1: KLASIK MODERN (Clean Cards) */}
+            {protoStyle === "classic" && (
+              <div className="grid gap-3">
+                {(Object.keys(BOOSTER_PACKS) as BoosterPackId[]).map((key) => {
+                  const pack = BOOSTER_PACKS[key];
+                  const local = PAKET_DETAILS[key];
+                  const gimmickCoret = getGimmickCoret(key);
+                  const isSelected = selectedPack === key;
 
-                if (key === "pocket") {
-                  gimmickCoret = 15000;
-                  badge = "Terlaris (Rp 2.900)";
-                } else if (key === "starter") {
-                  gimmickCoret = 45000;
-                  badge = "Booster Murah (Diskon 80%)";
-                } else if (key === "popular") {
-                  gimmickCoret = 125000;
-                  badge = "Terbaik (Diskon 80%)";
-                } else if (key === "max") {
-                  gimmickCoret = 299000;
-                  badge = "Super Hemat (Diskon 80%)";
-                }
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedPack(key)}
+                      className={`relative flex items-center justify-between rounded-lg border p-4 text-left transition cursor-pointer ${
+                        isSelected
+                          ? "border-yellow-400/80 bg-yellow-400/5 text-surface-warm-white"
+                          : "border-white/[0.08] bg-white/[0.02] text-surface-warm-white/80 hover:border-white/20 hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-semibold">
+                            {local.label}
+                          </span>
+                          {key === "popular" && (
+                            <span className="rounded bg-yellow-400/10 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400 uppercase tracking-wider">
+                              Laris
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-surface-warm-white/50">
+                          {local.desc}
+                        </span>
+                        <span className="text-[10px] text-yellow-400/70 mt-0.5">
+                          +{formatEnergy(pack.energy)} Energi
+                        </span>
+                      </div>
 
-                const isSelected = selectedPack === key;
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-[#5f5f5d] line-through">
+                          {formatRupiah(gimmickCoret)}
+                        </span>
+                        <span className="text-sm font-bold text-yellow-400">
+                          {formatRupiah(pack.amount)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSelectedPack(key)}
-                    className={`relative flex items-center justify-between rounded-lg border p-4 text-left transition ${
-                      isSelected
-                        ? "border-yellow-400/80 bg-yellow-400/5 text-surface-warm-white"
-                        : "border-white/[0.08] bg-white/[0.02] text-surface-warm-white/80 hover:border-white/20 hover:bg-white/[0.04]"
-                    }`}
-                  >
-                    {badge && (
-                      <span className="absolute -top-2 left-3 rounded bg-yellow-400 px-1.5 py-0.5 text-[9px] font-bold text-black uppercase tracking-wider">
-                        {badge}
-                      </span>
-                    )}
+            {/* MODEL 2: AURORA GLOW (Cyberpunk/Neon Accent) */}
+            {protoStyle === "aurora" && (
+              <div className="grid gap-3">
+                {(Object.keys(BOOSTER_PACKS) as BoosterPackId[]).map((key) => {
+                  const pack = BOOSTER_PACKS[key];
+                  const local = PAKET_DETAILS[key];
+                  const gimmickCoret = getGimmickCoret(key);
+                  const isSelected = selectedPack === key;
 
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold">{pack.name}</span>
-                      <span className="text-xs text-surface-warm-white/50">
-                        +{formatEnergy(pack.energy)} Energi Premium
-                      </span>
-                    </div>
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedPack(key)}
+                      className={`relative flex items-center justify-between rounded-xl border p-4 text-left transition duration-300 cursor-pointer overflow-hidden ${
+                        isSelected
+                          ? "border-[#7867ff] bg-[#7867ff]/5 text-white shadow-[0_0_15px_rgba(120,103,255,0.2)]"
+                          : "border-white/5 bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500" />
+                      )}
+                      <div className="flex flex-col gap-0.5 z-10">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold tracking-wide">
+                            {local.label}
+                          </span>
+                          {key === "popular" && (
+                            <span className="rounded bg-gradient-to-r from-[#ff7a59] to-[#ee4f9b] px-2 py-0.5 text-[8px] font-extrabold text-white uppercase tracking-wider">
+                              Rekomendasi
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-white/50">
+                          {local.desc}
+                        </span>
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-[#ff7a59] mt-1">
+                          <SparklesIcon className="size-3 fill-[#ff7a59]" />
+                          <span>+{formatEnergy(pack.energy)} Kuota</span>
+                        </span>
+                      </div>
 
-                    <div className="flex flex-col items-end">
-                      <span className="text-xs text-surface-warm-white/40 line-through">
-                        {formatRupiah(gimmickCoret)}
-                      </span>
-                      <span className="text-sm font-bold text-yellow-400">
-                        {formatRupiah(pack.amount)}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      <div className="flex flex-col items-end z-10">
+                        <span className="text-xs text-white/30 line-through">
+                          {formatRupiah(gimmickCoret)}
+                        </span>
+                        <span
+                          className={`text-sm font-extrabold ${isSelected ? "text-white" : "text-[#f7a441]"}`}
+                        >
+                          {formatRupiah(pack.amount)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
+            {/* MODEL 3: GRID COMPARISON */}
+            {protoStyle === "grid" && (
+              <div className="grid grid-cols-2 gap-2.5">
+                {(Object.keys(BOOSTER_PACKS) as BoosterPackId[]).map((key) => {
+                  const pack = BOOSTER_PACKS[key];
+                  const local = PAKET_DETAILS[key];
+                  const isSelected = selectedPack === key;
+
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedPack(key)}
+                      className={`relative flex flex-col justify-between rounded-xl border p-3.5 text-left transition cursor-pointer ${
+                        isSelected
+                          ? "border-yellow-400 bg-yellow-400/5 text-white"
+                          : "border-white/[0.08] bg-white/[0.01] hover:border-white/15"
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-surface-warm-white/40 uppercase tracking-widest">
+                          Paket
+                        </span>
+                        <span className="text-sm font-bold text-surface-warm-white mt-1">
+                          {local.label.split(" ")[0]}
+                        </span>
+                        <span className="text-[10px] text-surface-warm-white/55 leading-tight mt-1">
+                          {local.desc}
+                        </span>
+                        <span className="text-xs font-black text-yellow-400 mt-2.5">
+                          +{formatEnergy(pack.energy / 1000)}K Kuota
+                        </span>
+                      </div>
+
+                      <div className="mt-4 pt-2 border-t border-white/5 flex flex-col">
+                        <span className="text-xs text-white/35 line-through">
+                          {formatRupiah(getGimmickCoret(key))}
+                        </span>
+                        <span className="text-sm font-black text-yellow-400">
+                          {formatRupiah(pack.amount)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* MODEL 4: RANGE SLIDER / CONVERSATIONAL SELECTOR */}
+            {protoStyle === "slider" && (
+              <div className="flex flex-col gap-4">
+                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-center">
+                  <span className="text-xs font-bold text-yellow-400 uppercase tracking-widest">
+                    {PAKET_DETAILS[selectedPack].label}
+                  </span>
+                  <p className="text-sm font-medium text-surface-warm-white mt-1.5">
+                    {PAKET_DETAILS[selectedPack].desc}
+                  </p>
+                  <div className="my-4 flex items-center justify-center gap-1.5">
+                    <span className="text-3xl font-black text-white">
+                      +{formatEnergy(BOOSTER_PACKS[selectedPack].energy)}
+                    </span>
+                    <span className="text-xs text-surface-warm-white/50 font-bold uppercase">
+                      Kuota
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-surface-warm-white/60 px-4 leading-normal">
+                    {PAKET_DETAILS[selectedPack].detail}
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between px-2">
+                    <span className="text-xs text-white/30 line-through">
+                      Harga Normal:{" "}
+                      {formatRupiah(getGimmickCoret(selectedPack))}
+                    </span>
+                    <span className="text-base font-extrabold text-yellow-400">
+                      Cukup Bayar:{" "}
+                      {formatRupiah(BOOSTER_PACKS[selectedPack].amount)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Range steps */}
+                <div className="flex flex-col gap-1 px-1">
+                  <div className="flex justify-between text-[10px] text-surface-warm-white/40 font-bold px-1">
+                    <span>ECERAN</span>
+                    <span>RINTISAN</span>
+                    <span>LARIS</span>
+                    <span>JURAGAN</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={3}
+                    step={1}
+                    value={Object.keys(BOOSTER_PACKS).indexOf(selectedPack)}
+                    onChange={(e) => {
+                      const idx = parseInt(e.target.value, 10);
+                      const key = Object.keys(BOOSTER_PACKS)[
+                        idx
+                      ] as BoosterPackId;
+                      setSelectedPack(key);
+                    }}
+                    className="w-full accent-yellow-400 h-1 bg-white/10 rounded-lg cursor-pointer"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* MODEL 5: RETRO LOKAL / NEOBRUTALISM */}
+            {protoStyle === "retro" && (
+              <div className="grid gap-3.5">
+                {(Object.keys(BOOSTER_PACKS) as BoosterPackId[]).map((key) => {
+                  const pack = BOOSTER_PACKS[key];
+                  const local = PAKET_DETAILS[key];
+                  const isSelected = selectedPack === key;
+
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedPack(key)}
+                      className={`relative flex items-center justify-between border-2 border-black p-3.5 text-left transition-all duration-150 cursor-pointer ${
+                        isSelected
+                          ? "bg-yellow-300 translate-x-[2px] translate-y-[2px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                          : "bg-white hover:bg-yellow-50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-black">
+                            {local.label}
+                          </span>
+                          {key === "popular" && (
+                            <span className="border border-black bg-black text-yellow-300 px-1.5 py-0.5 text-[8px] font-black uppercase">
+                              REKOMENDASI
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-black/75 mt-0.5 font-medium">
+                          {local.desc}
+                        </span>
+                        <span className="text-xs font-extrabold text-black mt-2">
+                          +{formatEnergy(pack.energy)} Kuota Permanen
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col items-end justify-center pl-2">
+                        <span className="text-[10px] text-black/40 line-through">
+                          {formatRupiah(getGimmickCoret(key))}
+                        </span>
+                        <span className="text-sm font-black text-black">
+                          {formatRupiah(pack.amount)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Buy button */}
             <button
               type="button"
               disabled={isCreating}
               onClick={() => handleBuy(selectedPack)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-semibold text-black transition hover:bg-yellow-300 disabled:opacity-50"
+              className={`flex w-full items-center justify-center gap-2 py-3 text-sm font-bold transition duration-200 cursor-pointer disabled:opacity-50 ${
+                protoStyle === "retro"
+                  ? "border-2 border-black bg-yellow-300 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
+                  : protoStyle === "aurora"
+                    ? "rounded-xl bg-gradient-to-r from-[#7867ff] via-[#ee4f9b] to-[#ff7a59] text-white hover:brightness-110 active:scale-[0.98]"
+                    : "rounded-lg bg-yellow-400 text-black hover:bg-yellow-300 active:scale-[0.98]"
+              }`}
             >
               {isCreating ? (
                 <>
