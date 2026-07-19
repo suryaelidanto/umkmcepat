@@ -21,6 +21,8 @@ UMKM Cepat helps Indonesian small businesses turn plain Indonesian prompts into 
 
 The goal is practical: help sellers get a clean online presence without needing to understand design systems, routing, deployment, or AI tooling.
 
+The platform is 100% free for users, fully subsidized by the owner to cap unit cost and prevent LLM cost abuse. Access is managed via a pilot whitelist with admin approval (targeting ~10 initial real UMKM businesses).
+
 ## Current direction
 
 UMKM Cepat is evolving into a Lovable-like builder for UMKM:
@@ -31,6 +33,7 @@ UMKM Cepat is evolving into a Lovable-like builder for UMKM:
 - reusable design-system components in Storybook
 - private project workspace with chat memory and account/profile UX
 - local-first object storage, with R2 reserved for later
+- Energy Booster modal (1-column layout) integrated in navbar profile dropdown
 - export and publish workflows later
 
 ## Tech overview
