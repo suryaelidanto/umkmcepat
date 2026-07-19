@@ -1,6 +1,8 @@
 /* eslint-disable no-console */
 import readline from "node:readline";
 
+import { BOOSTER_PACKS } from "../src/lib/pakasir";
+
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
@@ -32,8 +34,30 @@ async function main() {
     process.exit(1);
   }
 
-  const amountStr = await question("Enter Amount (e.g. 2900): ");
-  const amount = parseInt(amountStr.trim(), 10);
+  console.log("\nSelect Package:");
+  const packs = Object.values(BOOSTER_PACKS);
+  packs.forEach((pack, index) => {
+    console.log(
+      `${index + 1}. ${pack.name} (Rp ${pack.amount.toLocaleString("id-ID")})`,
+    );
+  });
+  console.log(`${packs.length + 1}. Enter custom amount`);
+
+  const choiceStr = await question(`Choose option (1-${packs.length + 1}): `);
+  const choice = parseInt(choiceStr.trim(), 10);
+
+  let amount = 0;
+  if (choice >= 1 && choice <= packs.length) {
+    amount = packs[choice - 1].amount;
+  } else if (choice === packs.length + 1) {
+    const customAmountStr = await question("Enter custom amount (e.g. 5000): ");
+    amount = parseInt(customAmountStr.trim(), 10);
+  } else {
+    console.error("Error: Invalid option chosen.");
+    rl.close();
+    process.exit(1);
+  }
+
   if (isNaN(amount) || amount <= 0) {
     console.error("Error: Payment amount must be a positive integer.");
     rl.close();
