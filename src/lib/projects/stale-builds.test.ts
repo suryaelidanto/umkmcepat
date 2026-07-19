@@ -27,9 +27,9 @@ describe("stale build recovery", () => {
     prismaProjectEditAttemptUpdateManyMock.mockResolvedValue({ count: 0 });
   });
 
-  it("computes a three minute stale cutoff", () => {
+  it("computes a ten minute stale cutoff", () => {
     expect(getStaleBuildCutoff(new Date("2026-07-07T12:15:00.000Z"))).toEqual(
-      new Date("2026-07-07T12:12:00.000Z"),
+      new Date("2026-07-07T12:05:00.000Z"),
     );
   });
 
@@ -48,7 +48,7 @@ describe("stale build recovery", () => {
       where: {
         projectId: "project_1",
         status: { in: ["queued", "running"] },
-        updatedAt: { lt: new Date("2026-07-07T12:12:00.000Z") },
+        updatedAt: { lt: new Date("2026-07-07T12:05:00.000Z") },
       },
     });
     expect(prismaProjectUpdateManyMock).toHaveBeenCalledWith({
@@ -126,7 +126,7 @@ describe("stale build recovery", () => {
     expect(prismaProjectEditAttemptUpdateManyMock).not.toHaveBeenCalled();
   });
 
-  it("uses three minute cutoff in build where clause", async () => {
+  it("uses ten minute cutoff in build where clause", async () => {
     const now = new Date("2026-07-07T12:15:00.000Z");
     prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
     prismaProjectUpdateManyMock.mockResolvedValue({ count: 0 });
@@ -137,7 +137,7 @@ describe("stale build recovery", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           projectId: "project_x",
-          updatedAt: { lt: new Date("2026-07-07T12:12:00.000Z") },
+          updatedAt: { lt: new Date("2026-07-07T12:05:00.000Z") },
         }),
       }),
     );
