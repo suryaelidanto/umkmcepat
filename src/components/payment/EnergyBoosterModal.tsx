@@ -258,9 +258,16 @@ export function EnergyBoosterModal({
                   />
                 </div>
                 {isDev && (
-                  <div className="rounded border border-dashed border-white/20 bg-white/5 px-2.5 py-1 text-[10px] text-surface-warm-white/70 font-mono select-all">
-                    Dev Order ID: {paymentSession.orderId}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(paymentSession.orderId);
+                      toast.success("Order ID copied to clipboard!");
+                    }}
+                    className="rounded border border-dashed border-white/20 bg-white/5 px-2.5 py-1 text-[10px] text-surface-warm-white/70 font-mono hover:bg-white/10 transition cursor-pointer select-all"
+                  >
+                    Dev Order ID: {paymentSession.orderId} (Click to copy)
+                  </button>
                 )}
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-surface-warm-white/50">
