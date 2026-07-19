@@ -29,21 +29,6 @@ export const PROJECT_LIMIT_DEFAULT = 5;
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
-// Dev-only manual override, toggled via the navbar "Unlimited mode" button.
-// Off by default so dev energy depletes like production and nobody forgets
-// to turn a blanket bypass off.
-let devUnlimitedEnergyEnabled = false;
-
-export function isDevUnlimitedEnergyEnabled(): boolean {
-  return process.env.NODE_ENV !== "production" && devUnlimitedEnergyEnabled;
-}
-
-export function setDevUnlimitedEnergy(enabled: boolean): void {
-  if (process.env.NODE_ENV !== "production") {
-    devUnlimitedEnergyEnabled = enabled;
-  }
-}
-
 export async function calculateEnergyCost(
   modelId: string,
   inputTokens: number,
@@ -81,9 +66,6 @@ export function getDayBoundaries(now: Date = new Date()): {
 }
 
 export async function getRemainingEnergy(userId: string): Promise<number> {
-  if (isDevUnlimitedEnergyEnabled()) {
-    return DAILY_ENERGY_LIMIT;
-  }
   const stats = await getEnergyStats(userId);
   return stats.remaining;
 }
@@ -92,9 +74,6 @@ export async function checkEnergy(
   userId: string,
   cost: number = MIN_ENERGY_DISCUSS,
 ): Promise<{ allowed: boolean; remaining: number }> {
-  if (isDevUnlimitedEnergyEnabled()) {
-    return { allowed: true, remaining: DAILY_ENERGY_LIMIT };
-  }
   const remaining = await getRemainingEnergy(userId);
   return { allowed: remaining >= cost, remaining };
 }
@@ -121,10 +100,6 @@ export async function addEnergyUsage(
 
   if (energyUsed <= 0) {
     return { energyUsed: 0, inputTokens: 0, outputTokens: 0 };
-  }
-
-  if (isDevUnlimitedEnergyEnabled()) {
-    return { energyUsed, inputTokens: input, outputTokens: output };
   }
 
   const { startOfDay, endOfDay } = getDayBoundaries();
@@ -244,19 +219,6 @@ export async function getEnergyStats(userId: string): Promise<{
   outputTokens: number;
 }> {
   const { startOfDay, endOfDay } = getDayBoundaries();
-
-  if (isDevUnlimitedEnergyEnabled()) {
-    return {
-      remaining: DAILY_ENERGY_LIMIT,
-      remainingFree: DAILY_ENERGY_LIMIT,
-      remainingPremium: 0,
-      used: 0,
-      limit: DAILY_ENERGY_LIMIT,
-      resetsAt: endOfDay,
-      inputTokens: 0,
-      outputTokens: 0,
-    };
-  }
 
   const premiumExpiryLimit = new Date("9999-01-01");
 
