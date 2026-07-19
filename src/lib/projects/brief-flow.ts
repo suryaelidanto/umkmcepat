@@ -720,9 +720,7 @@ function pickAckReply(text: string): string {
 }
 
 export type RuleEngineDecision =
-  | { path: "ack"; reply: string }
-  | { path: "rule-engine" }
-  | { path: "llm" };
+  { path: "ack"; reply: string } | { path: "rule-engine" } | { path: "llm" };
 
 // ponytail: pure decision function for the precompute branch.
 // Returns which path the discuss turn should take. Mirrors the inline logic

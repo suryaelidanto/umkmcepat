@@ -802,9 +802,9 @@ describe("shouldEscapeRuleEngine", () => {
 
   it("returns true when a URL is mentioned", () => {
     expect(shouldEscapeRuleEngine("cek www.tokopedia.com ya")).toBe(true);
-    expect(shouldEscapeRuleEngine("lihat https://instagram.com/warungpedia")).toBe(
-      true,
-    );
+    expect(
+      shouldEscapeRuleEngine("lihat https://instagram.com/warungpedia"),
+    ).toBe(true);
   });
 
   it("returns true when a phone number is mentioned", () => {
