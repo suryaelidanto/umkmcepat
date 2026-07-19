@@ -480,7 +480,8 @@ describe("custom generated source agent", () => {
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
         find: "<h1>{starterMessage}</h1>",
-        replace: '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
+        replace:
+          '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
       });
       await tools.replace_in_file.execute({
         path: "src/content/site.ts",
@@ -530,7 +531,8 @@ describe("custom generated source agent", () => {
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
         find: "<h1>{starterMessage}</h1>",
-        replace: '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
+        replace:
+          '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
       });
       await tools.replace_in_file.execute({
         path: "src/content/site.ts",

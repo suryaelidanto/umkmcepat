@@ -663,9 +663,10 @@ export function checkAgentSourceQuality(
     // actually called somewhere outside its definition, otherwise the
     // production bundle silently drops the postMessage and the preview
     // iframe hangs forever on "Menyiapkan tampilan website".
-    const previewReadyDef = files.find((file) =>
-      file.path === "src/lib/preview-ready.ts" ||
-      file.content.includes("function usePreviewReady"),
+    const previewReadyDef = files.find(
+      (file) =>
+        file.path === "src/lib/preview-ready.ts" ||
+        file.content.includes("function usePreviewReady"),
     );
     const hasCallSite = files.some(
       (file) =>
