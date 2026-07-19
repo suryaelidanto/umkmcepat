@@ -238,10 +238,19 @@ export function EnergyBoosterModal({
                       </span>
                     </div>
 
-                    <div className="flex flex-col items-end">
-                      <span className="text-[10px] text-white/35 line-through">
-                        {formatRupiah(gimmickCoret)}
-                      </span>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="rounded bg-red-500 text-white font-semibold px-1.5 py-0.5 text-[8px] font-bold">
+                          Hemat{" "}
+                          {Math.round(
+                            ((gimmickCoret - pack.amount) / gimmickCoret) * 100,
+                          )}
+                          %
+                        </span>
+                        <span className="text-[10px] text-white/35 line-through">
+                          {formatRupiah(gimmickCoret)}
+                        </span>
+                      </div>
                       <span className="text-sm font-extrabold text-[#f7a441]">
                         {formatRupiah(pack.amount)}
                       </span>
