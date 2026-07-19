@@ -12,9 +12,9 @@ type AiAgentStepConfig = {
 const AI_AGENT_STEPS = {
   generate: {
     env: "AI_AGENT_GENERATE_MAX_STEPS",
-    defaultSteps: 50,
-    minSteps: 20,
-    maxSteps: 100,
+    defaultSteps: 30,
+    minSteps: 15,
+    maxSteps: 60,
   },
   repair: {
     env: "AI_AGENT_REPAIR_MAX_STEPS",

@@ -268,6 +268,7 @@ export function WorkspaceShell({
   const olderChatSentinelRef = useRef<HTMLDivElement | null>(null);
   const hasAutoOpenedPreview = useRef(hasInitialPreview);
   const previousLiveMessageCount = useRef(initialMessages.length);
+  const previousLiveBuildStepCount = useRef(0);
   const runtimeRetryAfterRef = useRef(0);
   const previousScrollHeight = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -1328,6 +1329,24 @@ export function WorkspaceShell({
   }, [messages.length, scrollChatToBottom]);
 
   useEffect(() => {
+    const element = chatScrollRef.current;
+
+    if (
+      !element ||
+      buildProgress.length <= previousLiveBuildStepCount.current
+    ) {
+      previousLiveBuildStepCount.current = buildProgress.length;
+      return;
+    }
+
+    if (shouldStickToBottomRef.current) {
+      scrollChatToBottom({ behavior: "smooth" });
+    }
+
+    previousLiveBuildStepCount.current = buildProgress.length;
+  }, [buildProgress.length, scrollChatToBottom]);
+
+  useEffect(() => {
     setQuestionComposerMode("options");
     setMessage("");
   }, [activeQuestionKey]);
@@ -1775,6 +1794,7 @@ export function WorkspaceShell({
       shouldStickToBottomRef.current = true;
       setRateLimitError(null);
       setMessage("");
+      setBuildProgress([]);
       requestAnimationFrame(() =>
         scrollChatToBottom({ force: true, behavior: "smooth" }),
       );
@@ -1800,6 +1820,7 @@ export function WorkspaceShell({
       scrollChatToBottom,
       sendMessage,
       sessionExpired,
+      setBuildProgress,
     ],
   );
 

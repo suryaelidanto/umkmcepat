@@ -5,7 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { AuthConfig } from "@auth/core";
 
 import { prisma } from "@/lib/prisma";
-import { toPublicProfileImage } from "@/lib/profile";
+import { getDiceBearAvatarUrl } from "@/lib/profile";
 
 const googleConfigured = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
@@ -49,7 +49,7 @@ export const authConfig: AuthConfig = {
       if (user) {
         token.sub = user.id;
         token.name = user.name;
-        token.picture = toPublicProfileImage(user.image);
+        token.picture = getDiceBearAvatarUrl(user.name || "default");
       }
 
       if (trigger === "update") {
@@ -57,12 +57,7 @@ export const authConfig: AuthConfig = {
 
         if (name) {
           token.name = name;
-        }
-
-        const image = getSessionUpdateImage(session);
-
-        if (image) {
-          token.picture = image;
+          token.picture = getDiceBearAvatarUrl(name);
         }
       }
 
@@ -78,22 +73,6 @@ export const authConfig: AuthConfig = {
 // Populate AUTH_SECRET/host env defaults the way the framework integrations do,
 // so a single NEXTAUTH_SECRET keeps working without renaming env vars.
 setEnvDefaults(process.env, authConfig);
-
-function getSessionUpdateImage(value: unknown) {
-  if (!value || typeof value !== "object") {
-    return "";
-  }
-
-  const input = value as { image?: unknown; user?: { image?: unknown } };
-  const image =
-    typeof input.image === "string"
-      ? input.image
-      : typeof input.user?.image === "string"
-        ? input.user.image
-        : "";
-
-  return toPublicProfileImage(image);
-}
 
 function getSessionUpdateName(value: unknown) {
   if (!value || typeof value !== "object") {

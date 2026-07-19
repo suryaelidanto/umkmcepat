@@ -70,9 +70,9 @@ const AI_TIMEOUTS = {
   },
   sourceGeneration: {
     env: "AI_TIMEOUT_SOURCE_GENERATION_MS",
-    defaultMs: 600_000,
+    defaultMs: 300_000,
     minMs: 120_000,
-    maxMs: 900_000,
+    maxMs: 600_000,
   },
   edit: {
     env: "AI_TIMEOUT_EDIT_MS",

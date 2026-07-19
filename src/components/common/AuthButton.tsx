@@ -69,7 +69,6 @@ export function AuthButton() {
   }
 
   const displayName = session.user.name?.trim() || "Akun";
-  const initial = displayName[0]?.toUpperCase() || "U";
 
   return (
     <div ref={containerRef} className="relative">
@@ -82,8 +81,7 @@ export function AuthButton() {
         aria-label={open ? "Tutup menu akun" : "Buka menu akun"}
       >
         <AvatarFrame
-          image={session.user.image || ""}
-          initial={initial}
+          seed={displayName}
           className="size-6 bg-surface-warm-white text-[10px] font-semibold text-foreground-primary"
         />
         <span className="hidden min-w-0 truncate sm:block">{displayName}</span>

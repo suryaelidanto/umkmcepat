@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { beforeEach, afterEach, describe, expect, it } from "vitest";
 
 import { getAgentMaxSteps } from "./ai-agent-steps";
 
@@ -7,23 +7,26 @@ const ENV_KEYS = [
   "AI_AGENT_REPAIR_MAX_STEPS",
 ] as const;
 
-afterEach(() => {
+function clearEnv() {
   for (const key of ENV_KEYS) {
     delete process.env[key];
   }
-});
+}
+
+beforeEach(clearEnv);
+afterEach(clearEnv);
 
 describe("getAgentMaxSteps", () => {
-  it("defaults generate to 50 and repair to 12", () => {
-    expect(getAgentMaxSteps("generate")).toBe(50);
+  it("defaults generate to 30 and repair to 12", () => {
+    expect(getAgentMaxSteps("generate")).toBe(30);
     expect(getAgentMaxSteps("repair")).toBe(12);
   });
 
-  it("clamps generate steps to [20, 100]", () => {
+  it("clamps generate steps to [15, 60]", () => {
     process.env.AI_AGENT_GENERATE_MAX_STEPS = "5";
-    expect(getAgentMaxSteps("generate")).toBe(20);
+    expect(getAgentMaxSteps("generate")).toBe(15);
     process.env.AI_AGENT_GENERATE_MAX_STEPS = "999";
-    expect(getAgentMaxSteps("generate")).toBe(100);
+    expect(getAgentMaxSteps("generate")).toBe(60);
     process.env.AI_AGENT_GENERATE_MAX_STEPS = "40";
     expect(getAgentMaxSteps("generate")).toBe(40);
   });
@@ -37,6 +40,6 @@ describe("getAgentMaxSteps", () => {
 
   it("falls back on invalid values", () => {
     process.env.AI_AGENT_GENERATE_MAX_STEPS = "nope";
-    expect(getAgentMaxSteps("generate")).toBe(50);
+    expect(getAgentMaxSteps("generate")).toBe(30);
   });
 });

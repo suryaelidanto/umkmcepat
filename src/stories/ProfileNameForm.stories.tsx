@@ -27,17 +27,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const NoAvatar: Story = {
-  args: { initialImage: "", initialName: "Surya" },
+  args: { initialName: "Surya" },
 };
 
 export const WithAvatar: Story = {
   args: {
-    initialImage:
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%23ee4f9b'/%3E%3Ccircle cx='72' cy='48' r='34' fill='%23fcfbf8' opacity='.9'/%3E%3C/svg%3E",
     initialName: "Rina Kopi",
   },
 };
 
 export const EmptyName: Story = {
-  args: { initialImage: "", initialName: "" },
+  args: { initialName: "" },
 };

@@ -9,12 +9,12 @@ import { prisma } from "@/lib/prisma";
  * not a flat multiplier. This is fair across the 7-model combo, since each
  * model has a different prompt:completion price ratio.
  *
- * Daily limit: 230,000 energy ≈ $0.23/day/user (~Rp 3,700/day), the
+ * Daily limit: 250,000 energy ≈ $0.25/day/user (~Rp 4,500/day), the
  * "generous but not wasteful" tier confirmed against real usage.
  * Day boundary: Asia/Jakarta (WIB).
  */
 export const MICRO_USD_PER_ENERGY = 1_000_000;
-export const DAILY_ENERGY_LIMIT = 230_000;
+export const DAILY_ENERGY_LIMIT = 250_000;
 
 /** Soft gate before discuss turns — cheap relative to build. */
 export const MIN_ENERGY_DISCUSS = 5_000;
@@ -102,6 +102,7 @@ export async function checkEnergy(
 /**
  * Deduct energy based on actual model cost (USD × 1e6).
  * Price comes from OpenRouter via model-pricing cache for `modelId`.
+ * Prioritizes daily free energy, then falls back to premium booster credit.
  */
 export async function addEnergyUsage(
   userId: string,
@@ -112,8 +113,6 @@ export async function addEnergyUsage(
 ): Promise<{ energyUsed: number; inputTokens: number; outputTokens: number }> {
   const input = Math.max(0, Math.floor(inputTokens));
   const output = Math.max(0, Math.floor(outputTokens));
-  // ponytail: reasoning/cache token breakdown not split; relies on provider
-  // folding billed tokens into input/output. Split when 9router exposes stable fields.
   const energyUsed = await calculateEnergyCost(
     modelId.trim() || "unknown",
     input,
@@ -128,21 +127,69 @@ export async function addEnergyUsage(
     return { energyUsed, inputTokens: input, outputTokens: output };
   }
 
-  const { endOfDay } = getDayBoundaries();
-  // Raw insert: Prisma client can lag schema when dev server locks generate.
-  await prisma.$executeRaw`
-    INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
-    VALUES (
-      ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
-      ${userId},
-      ${-energyUsed},
-      ${input},
-      ${output},
-      ${reason.slice(0, 64)},
-      ${endOfDay},
-      NOW()
-    )
-  `;
+  const { startOfDay, endOfDay } = getDayBoundaries();
+  const premiumExpiryLimit = new Date("9999-01-01");
+
+  // Transaction ensures we safely read and deduct without race conditions.
+  await prisma.$transaction(async (tx) => {
+    const [freeRow] = await tx.$queryRaw<Array<{ used: number | null }>>`
+      SELECT SUM(ABS("amount"))::int AS "used"
+      FROM "UserCredit"
+      WHERE "userId" = ${userId}
+        AND "createdAt" >= ${startOfDay}
+        AND "createdAt" < ${endOfDay}
+        AND "expiresAt" < ${premiumExpiryLimit}
+    `;
+
+    const freeUsedToday = Math.abs(freeRow?.used ?? 0);
+    const remainingFree = Math.max(0, DAILY_ENERGY_LIMIT - freeUsedToday);
+
+    let freeDeduction = 0;
+    let premiumDeduction = 0;
+
+    if (remainingFree > 0) {
+      freeDeduction = Math.min(energyUsed, remainingFree);
+      premiumDeduction = energyUsed - freeDeduction;
+    } else {
+      premiumDeduction = energyUsed;
+    }
+
+    const totalDeducted = freeDeduction + premiumDeduction;
+    const freeRatio = totalDeducted > 0 ? freeDeduction / totalDeducted : 0;
+
+    if (freeDeduction > 0) {
+      await tx.$executeRaw`
+        INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+        VALUES (
+          ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
+          ${userId},
+          ${-freeDeduction},
+          ${Math.round(input * freeRatio)},
+          ${Math.round(output * freeRatio)},
+          ${reason.slice(0, 64)},
+          ${endOfDay},
+          NOW()
+        )
+      `;
+    }
+
+    if (premiumDeduction > 0) {
+      const premiumExpiry = new Date("9999-12-31T23:59:59.999Z");
+      await tx.$executeRaw`
+        INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+        VALUES (
+          ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
+          ${userId},
+          ${-premiumDeduction},
+          ${input - Math.round(input * freeRatio)},
+          ${output - Math.round(output * freeRatio)},
+          ${(reason + " (Premium)").slice(0, 64)},
+          ${premiumExpiry},
+          NOW()
+        )
+      `;
+    }
+  });
 
   return { energyUsed, inputTokens: input, outputTokens: output };
 }
@@ -188,6 +235,8 @@ export async function chargeEnergyForAiUsage(opts: {
 
 export async function getEnergyStats(userId: string): Promise<{
   remaining: number;
+  remainingFree: number;
+  remainingPremium: number;
   used: number;
   limit: number;
   resetsAt: Date;
@@ -199,6 +248,8 @@ export async function getEnergyStats(userId: string): Promise<{
   if (isDevUnlimitedEnergyEnabled()) {
     return {
       remaining: DAILY_ENERGY_LIMIT,
+      remainingFree: DAILY_ENERGY_LIMIT,
+      remainingPremium: 0,
       used: 0,
       limit: DAILY_ENERGY_LIMIT,
       resetsAt: endOfDay,
@@ -207,7 +258,10 @@ export async function getEnergyStats(userId: string): Promise<{
     };
   }
 
-  const [row] = await prisma.$queryRaw<
+  const premiumExpiryLimit = new Date("9999-01-01");
+
+  // Sum free usage today.
+  const [freeRow] = await prisma.$queryRaw<
     Array<{
       amount: number | null;
       inputTokens: number | null;
@@ -222,18 +276,31 @@ export async function getEnergyStats(userId: string): Promise<{
     WHERE "userId" = ${userId}
       AND "createdAt" >= ${startOfDay}
       AND "createdAt" < ${endOfDay}
+      AND "expiresAt" < ${premiumExpiryLimit}
   `;
 
-  const used = Math.abs(row?.amount ?? 0);
-  const remaining = Math.max(0, DAILY_ENERGY_LIMIT - used);
+  // Sum premium balance (can cross day boundaries).
+  const [premiumRow] = await prisma.$queryRaw<Array<{ amount: number | null }>>`
+    SELECT SUM("amount")::int AS "amount"
+    FROM "UserCredit"
+    WHERE "userId" = ${userId}
+      AND "expiresAt" >= ${premiumExpiryLimit}
+  `;
+
+  const freeUsed = Math.abs(freeRow?.amount ?? 0);
+  const remainingFree = Math.max(0, DAILY_ENERGY_LIMIT - freeUsed);
+  const remainingPremium = Math.max(0, premiumRow?.amount ?? 0);
+  const remaining = remainingFree + remainingPremium;
 
   return {
     remaining,
-    used,
+    remainingFree,
+    remainingPremium,
+    used: freeUsed,
     limit: DAILY_ENERGY_LIMIT,
     resetsAt: endOfDay,
-    inputTokens: row?.inputTokens ?? 0,
-    outputTokens: row?.outputTokens ?? 0,
+    inputTokens: freeRow?.inputTokens ?? 0,
+    outputTokens: freeRow?.outputTokens ?? 0,
   };
 }
 

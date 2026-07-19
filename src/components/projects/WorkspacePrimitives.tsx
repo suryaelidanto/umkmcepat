@@ -2,6 +2,8 @@
 
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   Code2,
   ExternalLink,
   Globe2,
@@ -838,6 +840,7 @@ export function BuildProgressPanel({
   steps: BuildProgressStep[];
 }) {
   const [now, setNow] = useState(() => Date.now());
+  const [userToggles, setUserToggles] = useState<Record<string, boolean>>({});
 
   const hasActiveStep = steps.some(
     (step) => (step.status || "active") === "active",
@@ -868,17 +871,6 @@ export function BuildProgressPanel({
         },
       ];
 
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const shouldStickToBottomRef = useRef(true);
-
-  useEffect(() => {
-    const element = scrollRef.current;
-    if (!element || !shouldStickToBottomRef.current) {
-      return;
-    }
-    element.scrollTop = element.scrollHeight;
-  }, [visibleSteps.length]);
-
   return (
     <div className="overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#20201d] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
@@ -897,98 +889,126 @@ export function BuildProgressPanel({
         </div>
       </div>
 
-      <div
-        ref={scrollRef}
-        onScroll={(event) => {
-          const element = event.currentTarget;
-          const distanceFromBottom =
-            element.scrollHeight - element.scrollTop - element.clientHeight;
-          shouldStickToBottomRef.current = distanceFromBottom < 20;
-        }}
-        className="max-h-96 space-y-spacing-3 overflow-y-auto p-spacing-5"
-      >
+      <div className="space-y-spacing-3 p-spacing-5">
         <AnimatePresence initial={false}>
           {visibleSteps.map((step, index) => {
             const status = step.status || "active";
             const isActive = status === "active";
             const isError = status === "error";
+            const hasDiff = Boolean(step.diff && step.diff.length > 0);
+
+            const stepKey = `${step.label}-${index}`;
+            const defaultExpanded = isActive || isError;
+            const isExpanded =
+              !hasDiff ||
+              (userToggles[stepKey] !== undefined
+                ? userToggles[stepKey]
+                : defaultExpanded);
+
+            const toggleExpand = () => {
+              if (!hasDiff) {
+                return;
+              }
+              setUserToggles((prev) => ({
+                ...prev,
+                [stepKey]: !isExpanded,
+              }));
+            };
 
             return (
               <motion.div
-                key={`${step.label}-${index}`}
+                key={stepKey}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.22, ease: "easeOut" }}
-                className="flex gap-spacing-4 rounded-[18px] border border-surface-warm-white/8 bg-surface-warm-white/[0.035] p-spacing-4"
+                role={hasDiff ? "button" : undefined}
+                tabIndex={hasDiff ? 0 : undefined}
+                onClick={hasDiff ? toggleExpand : undefined}
+                onKeyDown={
+                  hasDiff
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          toggleExpand();
+                        }
+                      }
+                    : undefined
+                }
+                aria-expanded={hasDiff ? isExpanded : undefined}
+                className={`flex flex-col rounded-[18px] border border-surface-warm-white/8 bg-surface-warm-white/[0.035] p-spacing-4 select-none ${hasDiff ? "cursor-pointer hover:bg-surface-warm-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/30" : ""}`}
               >
-                <div
-                  className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border ${isError ? "border-[#ffb4a6]/40 bg-[#ffb4a6]/10 text-[#ffb4a6]" : isActive ? "border-surface-warm-white/18 bg-surface-warm-white/10 text-surface-warm-white" : "border-[#8ce99a]/30 bg-[#8ce99a]/10 text-[#8ce99a]"}`}
-                >
-                  <span
-                    className={`block ${isActive ? "size-3 animate-pulse rounded-full bg-current" : "size-2 bg-current"}`}
-                  />
+                <div className="flex items-start justify-between gap-spacing-3 w-full">
+                  <div className="flex items-start gap-spacing-4 min-w-0 flex-1">
+                    <div
+                      className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border ${isError ? "border-[#ffb4a6]/40 bg-[#ffb4a6]/10 text-[#ffb4a6]" : isActive ? "border-surface-warm-white/18 bg-surface-warm-white/10 text-surface-warm-white" : "border-[#8ce99a]/30 bg-[#8ce99a]/10 text-[#8ce99a]"}`}
+                    >
+                      <span
+                        className={`block ${isActive ? "size-3 animate-pulse rounded-full bg-current" : "size-2 bg-current"}`}
+                      />
+                    </div>
+                    <span className="text-sm font-semibold text-surface-warm-white text-left pt-1 leading-5">
+                      {step.label}
+                    </span>
+                  </div>
+                  {hasDiff && (
+                    <div className="mt-2 text-surface-warm-white/40 shrink-0">
+                      {isExpanded ? (
+                        <ChevronUp className="size-4" />
+                      ) : (
+                        <ChevronDown className="size-4" />
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-surface-warm-white">
-                    {step.label}
-                  </p>
-                  <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/54">
-                    {step.detail}
-                  </p>
-                  {step.diff?.length ? (
-                    <BuildProgressStepDiff diff={step.diff} />
-                  ) : null}
-                </div>
+
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pl-12 pt-spacing-2 text-left">
+                        <p className="text-xs leading-5 text-surface-warm-white/54">
+                          {step.detail}
+                        </p>
+                        {step.diff && step.diff.length > 0 && (
+                          <div className="mt-spacing-3">
+                            <pre className="max-h-64 overflow-auto rounded-[12px] border border-surface-warm-white/8 bg-black/20 p-spacing-3 text-xs leading-5 [scrollbar-width:thin]">
+                              {step.diff.map((line, lineIndex) => (
+                                <div
+                                  key={lineIndex}
+                                  className={
+                                    line.type === "add"
+                                      ? "bg-[#8ce99a]/10 text-[#8ce99a]"
+                                      : line.type === "delete"
+                                        ? "bg-[#ffb4a6]/10 text-[#ffb4a6]"
+                                        : "text-surface-warm-white/54"
+                                  }
+                                >
+                                  {line.type === "add"
+                                    ? "+ "
+                                    : line.type === "delete"
+                                      ? "- "
+                                      : "  "}
+                                  {line.text}
+                                </div>
+                              ))}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             );
           })}
         </AnimatePresence>
       </div>
-    </div>
-  );
-}
-
-function BuildProgressStepDiff({ diff }: { diff: DiffLine[] }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const changedCount = diff.filter((line) => line.type !== "normal").length;
-
-  if (!changedCount) {
-    return null;
-  }
-
-  return (
-    <div className="mt-spacing-2">
-      <button
-        type="button"
-        onClick={() => setIsOpen((value) => !value)}
-        className="text-xs font-medium text-surface-warm-white/60 underline-offset-2 hover:text-surface-warm-white hover:underline"
-      >
-        {isOpen ? "Sembunyikan perubahan" : `Lihat perubahan (${changedCount})`}
-      </button>
-      {isOpen ? (
-        <pre className="mt-spacing-2 max-h-64 overflow-auto rounded-[12px] border border-surface-warm-white/8 bg-black/20 p-spacing-3 text-xs leading-5">
-          {diff.map((line, index) => (
-            <div
-              key={index}
-              className={
-                line.type === "add"
-                  ? "bg-[#8ce99a]/10 text-[#8ce99a]"
-                  : line.type === "delete"
-                    ? "bg-[#ffb4a6]/10 text-[#ffb4a6]"
-                    : "text-surface-warm-white/54"
-              }
-            >
-              {line.type === "add"
-                ? "+ "
-                : line.type === "delete"
-                  ? "- "
-                  : "  "}
-              {line.text}
-            </div>
-          ))}
-        </pre>
-      ) : null}
     </div>
   );
 }

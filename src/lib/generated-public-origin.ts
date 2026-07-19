@@ -111,7 +111,7 @@ function createGeneratedPublicPath(slug: string, pathSegments: string[]) {
       ? `/${pathSegments
           .map((segment) => encodePathSegment(segment, "path"))
           .join("/")}`
-      : ""
+      : "/"
   }`;
 }
 

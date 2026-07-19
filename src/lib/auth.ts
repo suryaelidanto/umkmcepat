@@ -9,6 +9,20 @@ import { authConfig } from "@/lib/auth-config";
 // session, providers) via Auth.js Core. Mounted from the auth catch-all
 // server route.
 export function handleAuthRequest(request: Request): Promise<Response> {
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const forwardedHost = request.headers.get("x-forwarded-host");
+
+  if (forwardedProto || forwardedHost) {
+    const url = new URL(request.url);
+    const proto = forwardedProto || url.protocol.replace(":", "");
+    const host = forwardedHost || url.host;
+    const targetUrl = new URL(url.pathname + url.search, `${proto}://${host}`);
+
+    if (targetUrl.toString() !== request.url) {
+      return Auth(new Request(targetUrl.toString(), request), authConfig);
+    }
+  }
+
   return Auth(request, authConfig);
 }
 
@@ -23,9 +37,15 @@ export async function auth(): Promise<Session | null> {
     return null;
   }
 
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const proto =
+    forwardedProto === "https" || forwardedProto === "http"
+      ? forwardedProto
+      : new URL(request.url).protocol.replace(":", "");
+
   const url = createActionURL(
     "session",
-    new URL(request.url).protocol.replace(":", ""),
+    proto,
     request.headers,
     process.env,
     authConfig.basePath,

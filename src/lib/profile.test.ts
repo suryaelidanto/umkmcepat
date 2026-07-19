@@ -1,12 +1,15 @@
 import { expect, test } from "vitest";
 
-import { toPublicProfileImage } from "./profile";
+import { getDiceBearAvatarUrl } from "./profile";
 
-test("toPublicProfileImage parses avatar path correctly", () => {
-  expect(toPublicProfileImage("/api/profile/avatar")).toBe(
-    "/api/profile/avatar",
+test("getDiceBearAvatarUrl formats Lorelei SVG API URL correctly", () => {
+  expect(getDiceBearAvatarUrl("Surya")).toBe(
+    "https://api.dicebear.com/9.x/lorelei/svg?seed=Surya",
   );
-  expect(toPublicProfileImage("/api/profile/avatar?t=123")).toBe(
-    "/api/profile/avatar?t=123",
+  expect(getDiceBearAvatarUrl("  Surya  ")).toBe(
+    "https://api.dicebear.com/9.x/lorelei/svg?seed=Surya",
+  );
+  expect(getDiceBearAvatarUrl("")).toBe(
+    "https://api.dicebear.com/9.x/lorelei/svg?seed=default",
   );
 });

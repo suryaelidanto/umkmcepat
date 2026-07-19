@@ -2,40 +2,25 @@ import { cn } from "@/lib/utils";
 
 export function AvatarFrame({
   className,
-  image,
-  initial,
+  seed,
   imageClassName,
 }: {
   className?: string;
-  image: string;
+  seed: string;
   imageClassName?: string;
-  initial: string;
 }) {
-  if (image) {
-    return (
-      <span
-        className={cn("shrink-0 overflow-hidden rounded-full", className)}
-        aria-hidden="true"
-      >
-        <span
-          className={cn(
-            "block size-full scale-[1.12] bg-cover bg-center",
-            imageClassName,
-          )}
-          style={{ backgroundImage: `url(${JSON.stringify(image)})` }}
-        />
-      </span>
-    );
-  }
+  const url = `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(seed.trim() || "default")}`;
 
   return (
     <span
-      className={cn(
-        "flex shrink-0 items-center justify-center rounded-full",
-        className,
-      )}
+      className={cn("shrink-0 overflow-hidden rounded-full", className)}
+      aria-hidden="true"
     >
-      {initial}
+      <img
+        src={url}
+        alt={seed}
+        className={cn("size-full object-cover", imageClassName)}
+      />
     </span>
   );
 }
