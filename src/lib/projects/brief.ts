@@ -70,6 +70,10 @@ export type BriefQuestion = {
   selectionMode?: "single" | "multiple";
   placeholder?: string;
   whyThisQuestionMatters?: string;
+  // ponytail: when true, user must answer before advancing. AI marks mandatory
+  // fields (businessName, businessType, offer, targetCustomer) as required.
+  // Default false → user can skip with "Lewati" button.
+  required?: boolean;
   options: Array<{ label: string; description: string }>;
 };
 

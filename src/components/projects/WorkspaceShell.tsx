@@ -215,6 +215,18 @@ export function WorkspaceShell({
   const [latestBrief, setLatestBrief] = useState<ProjectBrief | null>(
     initialBrief ?? null,
   );
+  // ponytail: stepper for multi-question cards. Track which sub-question is
+  // active and buffer answers until the last step, then submit all at once.
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [pendingStepAnswers, setPendingStepAnswers] = useState<
+    WorkspaceAnswerPayload[]
+  >([]);
+
+  // ponytail: reset stepper whenever a new workspace card arrives.
+  useEffect(() => {
+    setCurrentQuestionIndex(0);
+    setPendingStepAnswers([]);
+  }, [workspaceCard]);
   const [
     heldBuildRecommendationSignature,
     setHeldBuildRecommendationSignature,
@@ -2171,12 +2183,90 @@ export function WorkspaceShell({
                 (workspaceCard.type === "question" ||
                   workspaceCard.type === "questions") ? (
                 workspaceCard.type === "questions" ? (
-                  <QuestionsComposer
-                    questions={workspaceCard.questions}
-                    onSubmit={(answers) =>
-                      submitChatText("", { workspaceAnswers: answers })
-                    }
-                  />
+                  (() => {
+                    // ponytail: stepper — show one question at a time, with
+                    // required validation + skip for non-required.
+                    const questions = workspaceCard.questions;
+                    const idx = Math.min(
+                      currentQuestionIndex,
+                      questions.length - 1,
+                    );
+                    const isLastStep = idx === questions.length - 1;
+                    const currentQ = questions[idx];
+                    const isRequired = currentQ.required === true;
+                    const advance = (answer: WorkspaceAnswerPayload) => {
+                      const next = [...pendingStepAnswers, answer];
+                      if (isLastStep) {
+                        setPendingStepAnswers(next);
+                        submitChatText("", { workspaceAnswers: next });
+                      } else {
+                        setPendingStepAnswers(next);
+                        setCurrentQuestionIndex(idx + 1);
+                      }
+                    };
+                    const skipCurrent = () => {
+                      const skipPayload: WorkspaceAnswerPayload = {
+                        answer: "",
+                        question: currentQ.question,
+                        questionId: currentQ.id,
+                        source: "custom",
+                      };
+                      advance(skipPayload);
+                    };
+                    return (
+                      <div>
+                        <div className="mb-spacing-3 flex items-baseline gap-spacing-2">
+                          <h3 className="text-base font-semibold text-surface-warm-white">
+                            {currentQ.question}
+                            {isRequired ? (
+                              <span
+                                aria-label="wajib diisi"
+                                className="ml-spacing-1 text-red-400"
+                              >
+                                *
+                              </span>
+                            ) : null}
+                          </h3>
+                        </div>
+                        <QuestionComposer
+                          question={currentQ}
+                          onSubmit={(_answer, workspaceAnswers) => {
+                            const first = workspaceAnswers?.[0];
+                            if (!first) {
+                              return;
+                            }
+                            if (isRequired && !first.answer.trim()) {
+                              return;
+                            }
+                            advance(first);
+                          }}
+                        />
+                        <div className="mt-spacing-3 flex items-center justify-between text-xs text-surface-warm-white/55">
+                          <span>
+                            Pertanyaan {idx + 1} dari {questions.length}
+                            {isRequired ? " · wajib" : " · opsional"}
+                          </span>
+                          <div className="flex items-center gap-spacing-3">
+                            {pendingStepAnswers.length > 0 ? (
+                              <span>
+                                {pendingStepAnswers.length} jawaban tersimpan
+                              </span>
+                            ) : null}
+                            {!isRequired ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={skipCurrent}
+                                className="rounded-full px-spacing-4 text-surface-warm-white/72 hover:bg-surface-warm-white/8"
+                              >
+                                Lewati
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
                 ) : (
                   <AnimatePresence mode="wait" initial={false}>
                     {questionComposerMode === "options" ? (

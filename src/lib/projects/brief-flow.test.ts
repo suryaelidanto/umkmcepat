@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import { createInitialBrief, parseProjectBrief } from "./brief";
 import {
   buildFallbackWorkspaceCardFromBrief,
+  decideRuleEngineDiscussPath,
+  detectAckMessage,
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
+  shouldEscapeRuleEngine,
 } from "./brief-flow";
 
 describe("normalizeWorkspaceTurn", () => {
@@ -780,5 +783,171 @@ describe("buildFallbackWorkspaceCardFromBrief", () => {
     brief.stylePreference = "Hangat";
     const card = buildFallbackWorkspaceCardFromBrief(brief);
     expect(card.type).toBe("none");
+  });
+});
+
+describe("shouldEscapeRuleEngine", () => {
+  it("returns false for short empty-brief turns", () => {
+    expect(shouldEscapeRuleEngine("halo")).toBe(false);
+    expect(shouldEscapeRuleEngine("halo bu")).toBe(false);
+  });
+
+  it("returns true for long messages", () => {
+    expect(
+      shouldEscapeRuleEngine(
+        "aku jualan kue di pasar dekat sekolah setiap pagi",
+      ),
+    ).toBe(true);
+  });
+
+  it("returns true when a URL is mentioned", () => {
+    expect(shouldEscapeRuleEngine("cek www.tokopedia.com ya")).toBe(true);
+    expect(shouldEscapeRuleEngine("lihat https://instagram.com/warungpedia")).toBe(
+      true,
+    );
+  });
+
+  it("returns true when a phone number is mentioned", () => {
+    expect(shouldEscapeRuleEngine("WA 081234567890")).toBe(true);
+  });
+
+  it("returns true for real questions with multiple words", () => {
+    expect(shouldEscapeRuleEngine("produknya apa saja?")).toBe(true);
+  });
+
+  it("returns false for single-word questions", () => {
+    expect(shouldEscapeRuleEngine("nama?")).toBe(false);
+  });
+});
+
+describe("detectAckMessage", () => {
+  const fullBrief = createInitialBrief("jualan katering sekolah");
+  fullBrief.businessName = "Dapur Bu Ani";
+  fullBrief.businessType = "fnb";
+  fullBrief.offer = "Nasi kotak";
+  fullBrief.targetCustomer = "Anak sekolah";
+  fullBrief.contactOrCta = "WhatsApp 08123";
+  fullBrief.stylePreference = "Hangat";
+
+  it("returns reply for thanks when brief is complete", () => {
+    const ack = detectAckMessage("thanks", fullBrief);
+    expect(ack).toEqual({ reply: "Sama-sama!" });
+  });
+
+  it("returns null for ack with question mark", () => {
+    expect(detectAckMessage("ok?", fullBrief)).toBeNull();
+  });
+
+  it("returns null for long acks", () => {
+    expect(
+      detectAckMessage(
+        "oke banget ya saya setuju kita lanjut ke tahap berikutnya sekarang",
+        fullBrief,
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null when there are still missing fields", () => {
+    const emptyBrief = createInitialBrief("jualan kue");
+    expect(detectAckMessage("oke", emptyBrief)).toBeNull();
+  });
+
+  it("returns null for messages with entities", () => {
+    expect(detectAckMessage("oke wa 0812", fullBrief)).toBeNull();
+  });
+
+  it("returns null for non-ack messages", () => {
+    expect(detectAckMessage("jualan kue", fullBrief)).toBeNull();
+  });
+});
+
+describe("decideRuleEngineDiscussPath", () => {
+  const emptyBrief = createInitialBrief("jualan katering");
+  const fullBrief = createInitialBrief("jualan katering sekolah");
+  fullBrief.businessName = "Dapur Bu Ani";
+  fullBrief.businessType = "fnb";
+  fullBrief.offer = "Nasi kotak";
+  fullBrief.targetCustomer = "Anak sekolah";
+  fullBrief.contactOrCta = "WhatsApp 08123";
+  fullBrief.stylePreference = "Hangat";
+
+  it("returns rule-engine for empty brief turn 0", () => {
+    const d = decideRuleEngineDiscussPath({
+      brief: emptyBrief,
+      confidence: 5,
+      existingUserTurns: 0,
+      incomingLength: 1,
+      text: "halo",
+    });
+    expect(d.path).toBe("rule-engine");
+  });
+
+  it("returns rule-engine for turn 1 still missing fields", () => {
+    const d = decideRuleEngineDiscussPath({
+      brief: emptyBrief,
+      confidence: 25,
+      existingUserTurns: 1,
+      incomingLength: 1,
+      text: "oke",
+    });
+    expect(d.path).toBe("rule-engine");
+  });
+
+  it("returns llm when user message is long", () => {
+    const d = decideRuleEngineDiscussPath({
+      brief: emptyBrief,
+      confidence: 5,
+      existingUserTurns: 0,
+      incomingLength: 1,
+      text: "aku jualan kue basah di pasar tradisional cibubur setiap subuh dan pesanan lewat wa",
+    });
+    expect(d.path).toBe("llm");
+  });
+
+  it("returns ack when ack and brief is complete at turn 0-1", () => {
+    const d = decideRuleEngineDiscussPath({
+      brief: fullBrief,
+      confidence: 95,
+      existingUserTurns: 1,
+      incomingLength: 1,
+      text: "ok",
+    });
+    expect(d.path).toBe("ack");
+    if (d.path === "ack") {
+      expect(d.reply).toMatch(/lanjut|oke|sama/i);
+    }
+  });
+
+  it("returns llm for mid-flow (turn > 1)", () => {
+    const d = decideRuleEngineDiscussPath({
+      brief: emptyBrief,
+      confidence: 20,
+      existingUserTurns: 5,
+      incomingLength: 1,
+      text: "oke",
+    });
+    expect(d.path).toBe("llm");
+  });
+
+  it("returns llm when user message contains URL", () => {
+    const d = decideRuleEngineDiscussPath({
+      brief: emptyBrief,
+      confidence: 5,
+      existingUserTurns: 0,
+      incomingLength: 1,
+      text: "https://instagram.com/warungpedia",
+    });
+    expect(d.path).toBe("llm");
+  });
+
+  it("returns llm for multi-message incoming", () => {
+    const d = decideRuleEngineDiscussPath({
+      brief: emptyBrief,
+      confidence: 5,
+      existingUserTurns: 0,
+      incomingLength: 3,
+      text: "halo",
+    });
+    expect(d.path).toBe("llm");
   });
 });
