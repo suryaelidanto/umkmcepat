@@ -473,4 +473,88 @@ describe("custom generated source agent", () => {
     // that stops broken UI from silently shipping.
     expect(findMissingCssClasses(files, css ?? "")).toContain("bakso-card");
   });
+
+  it("checkAgentSourceQuality fails when usePreviewReady is defined but never called", async () => {
+    // Generate valid files first
+    agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
+        find: "<h1>{starterMessage}</h1>",
+        replace: '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
+      });
+      await tools.replace_in_file.execute({
+        path: "src/content/site.ts",
+        find: "Bengkel Maju",
+        replace: "Bengkel Checklist",
+      });
+      await tools.replace_in_file.execute({
+        path: "src/styles.css",
+        find: "text-align:center",
+        replace: "text-align:center\n.agent-proof{display:block}",
+      });
+      await tools.check_app.execute({});
+      return { text: "ok" };
+    });
+
+    const result = await generateCustomProjectFilesWithAgent({
+      projectId: "project_quality_no_call",
+      schema: schema(),
+    });
+
+    // Remove the call site from the generated routes
+    const filesWithoutCall = result.files.map((file) => {
+      if (file.path === "src/routes/index.tsx") {
+        return {
+          ...file,
+          // Replace both the import and the call
+          content: file.content
+            .replace("usePreviewReady();", "")
+            .replace(/import.*usePreviewReady.*/, ""),
+        };
+      }
+      return file;
+    });
+
+    const quality = checkAgentSourceQuality(
+      filesWithoutCall,
+      new Set(["src/routes/index.tsx", "src/content/site.ts"]),
+    );
+    expect(quality.ok).toBe(false);
+    expect(quality.issues).toContain(
+      "preview-ready signal defined but never called (usePreviewReady must be invoked in a route/component)",
+    );
+  });
+
+  it("checkAgentSourceQuality passes when usePreviewReady is called outside its definition", async () => {
+    agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
+        find: "<h1>{starterMessage}</h1>",
+        replace: '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
+      });
+      await tools.replace_in_file.execute({
+        path: "src/content/site.ts",
+        find: "Bengkel Maju",
+        replace: "Bengkel Checklist",
+      });
+      await tools.replace_in_file.execute({
+        path: "src/styles.css",
+        find: "text-align:center",
+        replace: "text-align:center\n.agent-proof{display:block}",
+      });
+      await tools.check_app.execute({});
+      return { text: "ok" };
+    });
+
+    const result = await generateCustomProjectFilesWithAgent({
+      projectId: "project_quality_has_call",
+      schema: schema(),
+    });
+
+    const quality = checkAgentSourceQuality(
+      result.files,
+      new Set(["src/routes/index.tsx", "src/content/site.ts"]),
+    );
+    expect(quality.ok).toBe(true);
+  });
 });

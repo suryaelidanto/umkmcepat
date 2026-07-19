@@ -657,6 +657,26 @@ export function checkAgentSourceQuality(
 
   if (!allSourceText.includes("generated-app-preview-ready")) {
     issues.push("preview-ready signal missing");
+  } else {
+    // The signal string existing in a file (e.g. src/lib/preview-ready.ts)
+    // is not enough: Vite tree-shakes unused modules. Verify the hook is
+    // actually called somewhere outside its definition, otherwise the
+    // production bundle silently drops the postMessage and the preview
+    // iframe hangs forever on "Menyiapkan tampilan website".
+    const previewReadyDef = files.find((file) =>
+      file.path === "src/lib/preview-ready.ts" ||
+      file.content.includes("function usePreviewReady"),
+    );
+    const hasCallSite = files.some(
+      (file) =>
+        previewReadyDef?.path !== file.path &&
+        /usePreviewReady\s*\(/.test(file.content),
+    );
+    if (!hasCallSite) {
+      issues.push(
+        "preview-ready signal defined but never called (usePreviewReady must be invoked in a route/component)",
+      );
+    }
   }
 
   const styleFile = files.find((file) => file.path === "src/styles.css");
