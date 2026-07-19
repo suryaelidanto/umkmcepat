@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
@@ -12,6 +14,7 @@ import {
 import { z } from "zod";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getGenerationModel } from "@/lib/ai-models";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
@@ -28,11 +31,16 @@ import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import {
   mergeProjectBriefPatch,
   parseProjectBrief,
+  type ProjectBrief,
+  type WorkspaceCard,
 } from "@/lib/projects/brief";
+import { REQUIRED_BRIEF_FIELD_IDS } from "@/lib/projects/brief-flow";
 import {
   buildFallbackWorkspaceCardFromBrief,
+  decideRuleEngineDiscussPath,
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
+  prefaceTemplateForCard,
 } from "@/lib/projects/brief-flow";
 import { validateBrief } from "@/lib/projects/brief-rich-fields";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
@@ -304,6 +312,22 @@ async function handlePreviewPost(request: Request) {
     workspaceAnswerPatch,
   );
 
+  // ponytail: rule engine precompute has no LLM to set confidence, so derive
+  // it from filled required fields. Keeps brief_confidence_too_low 409 from
+  // firing when the user has actually filled all 4 mandatory fields via
+  // workspaceAnswers.
+  if (process.env.DISCUSS_RULE_ENGINE !== "off") {
+    const filledRequired = Array.from(REQUIRED_BRIEF_FIELD_IDS).filter(
+      (id: string) => Boolean((effectiveBrief as Record<string, unknown>)[id]),
+    ).length;
+    if (
+      filledRequired === REQUIRED_BRIEF_FIELD_IDS.size &&
+      (effectiveBrief.confidence ?? 0) < 95
+    ) {
+      effectiveBrief.confidence = 95;
+    }
+  }
+
   if (body.mode === "repair_card") {
     return repairWorkspaceCard({
       brief: effectiveBrief,
@@ -318,6 +342,23 @@ async function handlePreviewPost(request: Request) {
       { message: "Pesan tidak boleh kosong." },
       { status: 400 },
     );
+  }
+
+  // ponytail: precompute rule-engine branch (worth-to-try-lah).
+  // Skips the LLM entirely for low-confidence early turns or pure acks.
+  // Disable via env DISCUSS_RULE_ENGINE=off. See plan: worth-to-try-lah-linked-floyd.md
+  if (process.env.DISCUSS_RULE_ENGINE !== "off") {
+    const precomputed = await tryRuleEngineDiscussTurn({
+      brief: effectiveBrief,
+      incoming,
+      latestUserText,
+      project,
+      storedMessages,
+      userId,
+    });
+    if (precomputed) {
+      return precomputed;
+    }
   }
 
   await persistProjectBrief({
@@ -587,6 +628,229 @@ async function handleDiscussTurn({
   });
 }
 
+// ponytail: rule-engine precompute for discuss turns. Returns a Response when
+// the deterministic path can serve the turn (0 LLM calls); null to fall through.
+async function tryRuleEngineDiscussTurn({
+  brief,
+  incoming,
+  latestUserText,
+  project,
+  storedMessages,
+  userId,
+}: {
+  brief: ProjectBrief;
+  incoming: UIMessage[];
+  latestUserText: string;
+  project: { id: string };
+  storedMessages: UIMessage[];
+  userId: string;
+}): Promise<Response | null> {
+  if (incoming[0]?.role !== "user") {
+    return null;
+  }
+
+  const existingUserTurns = storedMessages.filter(
+    (m) => m.role === "user",
+  ).length;
+
+  const decision = decideRuleEngineDiscussPath({
+    brief,
+    confidence: brief.confidence ?? 0,
+    existingUserTurns,
+    incomingLength: incoming.length,
+    text: latestUserText,
+  });
+
+  if (decision.path === "ack") {
+    return synthesizePrecomputedStream({
+      chatText: decision.reply,
+      project,
+      storedMessages,
+      userId,
+      workspaceCard: { type: "none" },
+    });
+  }
+
+  if (decision.path === "rule-engine") {
+    const card = buildFallbackWorkspaceCardFromBrief(brief);
+    if (card.type === "none") {
+      return null;
+    }
+    // Resolve AI warm preface before opening the SSE stream so the client
+    // sees a single text part instead of an empty chunk followed by a fill.
+    const chatText = await generateWarmPreface(brief, card, latestUserText);
+    return synthesizePrecomputedStream({
+      chatText,
+      project,
+      storedMessages,
+      userId,
+      workspaceCard: card,
+    });
+  }
+
+  return null;
+}
+
+// ponytail: AI warm preface for rule-engine path. 1 short generateText call
+// to produce 1-2 sentences of warm Indonesian lead-in. Falls back to template
+// on any error so the user never sees a stuck card.
+async function generateWarmPreface(
+  brief: ProjectBrief,
+  card: WorkspaceCard,
+  userText: string,
+): Promise<string> {
+  const cardText = cardToPromptText(card);
+  if (!cardText) {
+    return prefaceTemplateForCard(card);
+  }
+  const system =
+    "You are a friendly assistant for an Indonesian small-business website builder. " +
+    "Given the user's last message and the next question the system will ask, " +
+    "write 1-2 short casual sentences in Indonesian (use 'aku' and 'kamu', no filler like 'Sure!'). " +
+    "Do NOT include the question itself — just a brief warm lead-in. " +
+    "Do NOT repeat the user's words. Keep it under 80 characters total.";
+  const prompt =
+    `User just said: "${userText.slice(0, 200)}"\n\n` +
+    `System will next ask: ${cardText}\n\n` +
+    `Brief so far: businessName=${brief.businessName || "?"}, ` +
+    `businessType=${brief.businessType || "?"}, ` +
+    `offer=${brief.offer || "?"}.\n\n` +
+    `Write the lead-in now.`;
+  try {
+    const abortController = new AbortController();
+    const timeout = setTimeout(
+      () => abortController.abort(),
+      Math.max(3000, Math.floor(getAiTimeoutMs("discussOneCall") / 4)),
+    );
+    let result;
+    try {
+      result = await generateText({
+        abortSignal: abortController.signal,
+        maxOutputTokens: 80,
+        model: getAiModel(getGenerationModel()),
+        prompt,
+        system,
+        temperature: 0.7,
+        telemetry: getAiTelemetry("project-rule-engine-preface", {
+          cardType: card.type,
+          projectId: undefined,
+          route: "api.projects.preview",
+        }),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    const text = result.text.trim();
+    if (!text) {
+      return prefaceTemplateForCard(card);
+    }
+    // ponytail: truncate to first 2 sentences if model overruns
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    return sentences.slice(0, 2).join(" ").slice(0, 200);
+  } catch (error) {
+    console.error(
+      "[preview-chat] warm preface error",
+      getSafeAiErrorLog(error),
+    );
+    return prefaceTemplateForCard(card);
+  }
+}
+
+function cardToPromptText(card: WorkspaceCard): string {
+  if (card.type === "question") {
+    return card.question.question;
+  }
+  if (card.type === "questions") {
+    return card.questions.map((q) => q.question).join("; ");
+  }
+  if (card.type === "build_recommendation") {
+    return "the build recommendation card";
+  }
+  return "";
+}
+
+async function synthesizePrecomputedStream({
+  chatText,
+  project,
+  storedMessages,
+  userId,
+  workspaceCard,
+}: {
+  chatText: string;
+  project: { id: string };
+  storedMessages: UIMessage[];
+  userId: string;
+  workspaceCard: WorkspaceCard;
+}): Promise<Response> {
+  const messageId = `discuss-${randomUUID()}`;
+  const toolCallId = `call-${randomUUID()}`;
+  const textId = "discuss-text";
+
+  const assistantMessage: UIMessage = {
+    id: messageId,
+    role: "assistant",
+    parts: [
+      { type: "step-start" },
+      { type: "text", text: chatText, state: "done" },
+      {
+        type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
+        toolCallId,
+        state: "output-available",
+        input: { workspaceCard },
+        output: { workspaceCard },
+      } as UIMessage["parts"][number],
+    ],
+  };
+
+  const allMessages = stripTransportDiagnosticMessages(
+    dedupeUiMessages([...storedMessages, ...[assistantMessage]]),
+  );
+
+  await persistProjectChatTurn({
+    messages: allMessages,
+    projectId: project.id,
+    userId,
+    workspaceCard,
+  });
+
+  await writeAiRequestLog({
+    briefConfidence: undefined,
+    didWorkspaceToolUpdate: true,
+    event: "discuss:finish",
+    model: "rule-engine",
+    mode: "precompute",
+    path: workspaceCard.type === "none" ? "ack" : "rule-engine",
+    primaryToolFailed: false,
+    projectId: project.id,
+    workspaceCard,
+  });
+
+  const stream = createUIMessageStream({
+    execute: async ({ writer }) => {
+      writer.write({ type: "start", messageId });
+      writer.write({ type: "text-start", id: textId });
+      writer.write({ type: "text-delta", delta: chatText, id: textId });
+      writer.write({ type: "text-end", id: textId });
+      writer.write({
+        type: "tool-input-available",
+        toolCallId,
+        input: { workspaceCard },
+        toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+      });
+      writer.write({
+        type: "tool-output-available",
+        toolCallId,
+        output: { workspaceCard },
+      });
+      writer.write({ type: "finish" });
+    },
+    onError: (error) =>
+      `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
+  });
+
+  return createUIMessageStreamResponse({ stream });
+}
+
 const PRESENT_WORKSPACE_CARD_TOOL_NAME = "presentWorkspaceCard";
 
 const presentWorkspaceCardTool = tool({
@@ -714,6 +978,7 @@ const presentWorkspaceCardTool = tool({
             answerMode: z.string().optional(),
             selectionMode: z.string().optional(),
             placeholder: z.string().optional(),
+            required: z.boolean().optional(),
             options: z.array(z.any()).optional(),
           })
           .optional(),
@@ -729,6 +994,7 @@ const presentWorkspaceCardTool = tool({
               placeholder: z.string().optional(),
               recommendedOptionLabel: z.string().optional(),
               whyThisQuestionMatters: z.string().optional(),
+              required: z.boolean().optional(),
               options: z.array(z.any()).optional(),
             }),
           )
@@ -807,7 +1073,9 @@ async function handleDiscussTurnOneCall({
     system: systemPrompt,
     messages: modelMessages,
     tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
-    toolChoice: "auto",
+    // ponytail: toolChoice: "required" → AI must call the tool every turn,
+    // so primaryToolFailed only fires on SDK/transport errors (not "forgot").
+    toolChoice: { type: "tool", toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME },
     maxRetries: 2,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discussOneCall"),

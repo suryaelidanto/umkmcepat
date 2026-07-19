@@ -202,12 +202,14 @@ const FALLBACK_FIELD_QUESTIONS: Record<
     question: string;
     answerMode: "choice" | "text";
     placeholder?: string;
+    required?: boolean;
     options: Array<{ label: string; description: string }>;
   }
 > = {
   businessType: {
     question: "Usahamu bidang apa?",
     answerMode: "choice",
+    required: true,
     options: [
       { label: "Kuliner/F&B", description: "Warung makan, kafe, jajanan." },
       { label: "Jasa lokal", description: "Laundry, barber, servis." },
@@ -219,17 +221,20 @@ const FALLBACK_FIELD_QUESTIONS: Record<
     question: "Produk/jasa utama yang dijual?",
     answerMode: "text",
     placeholder: "Contoh: nasi kotak harian",
+    required: true,
     options: [],
   },
   targetCustomer: {
     question: "Pelanggan utamanya siapa?",
     answerMode: "text",
     placeholder: "Contoh: anak sekolah sekitar",
+    required: true,
     options: [],
   },
   contactOrCta: {
     question: "Pakai apa buat dihubungi?",
     answerMode: "choice",
+    required: true,
     options: [
       { label: "WhatsApp", description: "Chat langsung." },
       { label: "Telepon", description: "Telepon dulu." },
@@ -248,6 +253,16 @@ const FALLBACK_FIELD_QUESTIONS: Record<
     ],
   },
 };
+
+// ponytail: required brief fields (AI must collect before build).
+// Precompute rule engine enforces this; soft fields (stylePreference, etc.)
+// are optional. The AI can mark additional fields required via tool-call.
+export const REQUIRED_BRIEF_FIELD_IDS: ReadonlySet<string> = new Set([
+  "businessType",
+  "offer",
+  "targetCustomer",
+  "contactOrCta",
+]);
 
 // Last-resort card when every AI path produced type none. Derives up to 3
 // questions from empty REQUIRED_BRIEF_FIELDS without calling the model, which
@@ -278,6 +293,7 @@ export function buildFallbackWorkspaceCardFromBrief(
       answerMode: spec.answerMode,
       options: spec.options,
       placeholder: spec.placeholder,
+      required: spec.required ?? false,
     });
     if (questions.length === 3) {
       break;
@@ -473,6 +489,10 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
       cleanText(aliasedQuestion.description, 180) ||
       cleanText(aliasedQuestion.hint, 180) ||
       undefined,
+    required:
+      typeof candidate.required === "boolean"
+        ? candidate.required
+        : REQUIRED_BRIEF_FIELD_IDS.has(aliasedQuestion.id ?? ""),
   };
 }
 
@@ -625,4 +645,138 @@ function cleanText(value: unknown, maxLength: number) {
   }
 
   return clipped.trim();
+}
+
+// ponytail: rule engine precompute helpers (worth-to-try-lah).
+// Returns true when the user message is too rich for a deterministic card —
+// long, has entities (URL/phone/price/handle), or is a real question.
+// In those cases the LLM path should run as before.
+const ESCAPE_LONG_WORD_THRESHOLD = 8;
+const ENTITY_HINT_RE =
+  /(?:https?:\/\/|www\.|\d{2,}|rp\s?\d|@\w+|#\w+|\b(?:wa|whatsapp|instagram|ig|tiktok|tokopedia|shopee|gojek|grab)\b)/i;
+
+export function shouldEscapeRuleEngine(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  const words = trimmed.split(/\s+/);
+  if (words.length >= ESCAPE_LONG_WORD_THRESHOLD) {
+    return true;
+  }
+  if (ENTITY_HINT_RE.test(trimmed)) {
+    return true;
+  }
+  if (trimmed.includes("?") && words.length > 2) {
+    return true;
+  }
+  return false;
+}
+
+const ACK_RE =
+  /^(?:ok+|oke|baik|siap|sip|mantap|mantul|noted|lanjut|ayo|gas|ya+|yoi|terima\s*kasih|makasih|thanks?|thank\s*you|👍|🙏)\.?$/i;
+const ACK_MAX_WORDS = 4;
+
+export type AckReply = { reply: string };
+
+// ponytail: ack short-circuit only when there is nothing left to ask. If
+// fields are still missing, return null so the rule-engine precompute path
+// runs instead and surfaces the next question.
+export function detectAckMessage(
+  text: string,
+  brief: ProjectBrief,
+): AckReply | null {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.includes("?")) {
+    return null;
+  }
+  if (ENTITY_HINT_RE.test(trimmed)) {
+    return null;
+  }
+  const words = trimmed.split(/\s+/);
+  if (words.length > ACK_MAX_WORDS) {
+    return null;
+  }
+  if (!ACK_RE.test(trimmed)) {
+    return null;
+  }
+  if (getMissingBriefFields(brief).length > 0) {
+    return null;
+  }
+  return { reply: pickAckReply(trimmed) };
+}
+
+function pickAckReply(text: string): string {
+  if (/terima|makasih|thanks/i.test(text)) {
+    return "Sama-sama!";
+  }
+  if (/lanjut|gas|ayo|noted|ok|oke|siap|sip/i.test(text)) {
+    return "Oke, kita lanjut.";
+  }
+  return "Oke.";
+}
+
+export type RuleEngineDecision =
+  { path: "ack"; reply: string } | { path: "rule-engine" } | { path: "llm" };
+
+// ponytail: pure decision function for the precompute branch.
+// Returns which path the discuss turn should take. Mirrors the inline logic
+// in api.projects.preview.ts so it can be unit-tested without route deps.
+export function decideRuleEngineDiscussPath({
+  brief,
+  confidence,
+  existingUserTurns,
+  incomingLength,
+  text,
+}: {
+  brief: ProjectBrief;
+  confidence: number;
+  existingUserTurns: number;
+  incomingLength: number;
+  text: string;
+}): RuleEngineDecision {
+  if (incomingLength !== 1) {
+    return { path: "llm" };
+  }
+  if (existingUserTurns > 1) {
+    return { path: "llm" };
+  }
+  if (!text.trim()) {
+    return { path: "llm" };
+  }
+
+  const ack = detectAckMessage(text, brief);
+  if (ack) {
+    return { path: "ack", reply: ack.reply };
+  }
+
+  if (confidence >= 30) {
+    return { path: "llm" };
+  }
+  if (shouldEscapeRuleEngine(text)) {
+    return { path: "llm" };
+  }
+  if (getMissingBriefFields(brief).length === 0) {
+    return { path: "llm" };
+  }
+  return { path: "rule-engine" };
+}
+
+// ponytail: template fallback for AI-generated warm preface. If the AI call
+// fails or times out, we still want a warm-but-templated lead-in. One short
+// Indonesian sentence per card shape — no filler, no questions, no card content.
+export function prefaceTemplateForCard(card: WorkspaceCard): string {
+  if (card.type === "question") {
+    return "Boleh aku tanya satu hal dulu?";
+  }
+  if (card.type === "questions") {
+    return "Boleh aku tanya beberapa hal dulu?";
+  }
+  if (card.type === "build_recommendation") {
+    return "Kira-kira udah siap nih. Mau gw bangun?";
+  }
+  return "Oke.";
 }
