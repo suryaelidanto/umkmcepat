@@ -1,4 +1,4 @@
-import { Auth, createActionURL } from "@auth/core";
+import { Auth } from "@auth/core";
 import { getRequest } from "@tanstack/react-start/server";
 
 import type { Session } from "@auth/core/types";
@@ -38,22 +38,41 @@ export async function auth(): Promise<Session | null> {
   }
 
   const forwardedProto = request.headers.get("x-forwarded-proto");
+  const forwardedHost = request.headers.get("x-forwarded-host");
+
+  const reqUrl = new URL(request.url);
   const proto =
     forwardedProto === "https" || forwardedProto === "http"
       ? forwardedProto
-      : new URL(request.url).protocol.replace(":", "");
+      : reqUrl.protocol.replace(":", "");
+  const host = forwardedHost || reqUrl.host;
 
-  const url = createActionURL(
-    "session",
-    proto,
-    request.headers,
-    process.env,
-    authConfig.basePath,
-  );
+  // Reconstruct headers to preserve cookies and proxy/TLS contexts.
+  const headers = new Headers(request.headers);
+  headers.delete("content-type");
+  headers.delete("content-length");
+  headers.delete("transfer-encoding");
+
+  if (forwardedProto) {
+    headers.set("x-forwarded-proto", forwardedProto);
+  }
+  if (forwardedHost) {
+    headers.set("x-forwarded-host", forwardedHost);
+  }
+
+  // Construct the target URL using the public base origin so Auth.js is run
+  // in the correct domain context (matching handleAuthRequest) and resolves
+  // secure cookies properly.
+  const publicBaseUrl = `${proto}://${host}`;
+  const actionUrl = new URL(
+    authConfig.basePath + "/session",
+    publicBaseUrl,
+  ).toString();
 
   const response = await Auth(
-    new Request(url, {
-      headers: { cookie: request.headers.get("cookie") ?? "" },
+    new Request(actionUrl, {
+      method: "GET",
+      headers,
     }),
     authConfig,
   );
