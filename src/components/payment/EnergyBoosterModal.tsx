@@ -186,7 +186,7 @@ export function EnergyBoosterModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md border border-[#d8d5cc]/60 bg-[#161614] text-[#fcfbf8]">
+      <DialogContent className="max-w-md border border-[#d8d5cc]/60 bg-[#161614] text-[#fcfbf8] rounded-radius-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold tracking-tight">
             <ZapIcon className="size-5 fill-[#ff7a59] text-[#ff7a59]" />
@@ -213,7 +213,7 @@ export function EnergyBoosterModal({
                     key={key}
                     type="button"
                     onClick={() => setSelectedPack(key)}
-                    className={`relative flex items-center justify-between rounded-xl border p-4 text-left transition cursor-pointer ${
+                    className={`relative flex items-center justify-between rounded-radius-lg border p-4 text-left transition cursor-pointer ${
                       isSelected
                         ? "border-[#ff7a59] bg-[#ff7a59]/5 text-white"
                         : "border-white/[0.08] bg-white/[0.01] hover:border-white/15"
@@ -256,7 +256,7 @@ export function EnergyBoosterModal({
               type="button"
               disabled={isCreating}
               onClick={() => handleBuy(selectedPack)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#fcfbf8] py-3 text-sm font-bold text-[#1c1c1c] transition duration-200 hover:bg-[#eceae4] active:scale-[0.98] cursor-pointer disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-radius-lg bg-[#fcfbf8] py-3 text-sm font-bold text-[#1c1c1c] transition duration-200 hover:bg-[#eceae4] active:scale-[0.98] cursor-pointer disabled:opacity-50"
             >
               {isCreating ? (
                 <>
