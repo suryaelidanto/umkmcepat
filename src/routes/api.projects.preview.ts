@@ -896,9 +896,11 @@ async function handleDiscussTurnOneCall({
     system: systemPrompt,
     messages: modelMessages,
     tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
-    // ponytail: toolChoice: "required" → AI must call the tool every turn,
-    // so primaryToolFailed only fires on SDK/transport errors (not "forgot").
-    toolChoice: { type: "tool", toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME },
+    // ponytail: auto lets the model stream real chat text AND call the card
+    // tool in the same turn. 9router returns no prose under forced tool mode,
+    // which produced the "Oke, biar aku tanya dulu." dummy. If the model skips
+    // the tool, repairDiscussCardWithTool fills the card (already exists).
+    toolChoice: "auto",
     maxRetries: 2,
     temperature: 0.35,
     timeout: getAiTimeoutMs("discussOneCall"),
@@ -987,17 +989,31 @@ async function handleDiscussTurnOneCall({
         }
 
         const chatText = fullText.trim();
-        if (hadError || !chatText) {
-          // ponytail: pure-AI path. When the stream errored or returned no
-          // text, retry once via repairDiscussCardWithTool (it internally
-          // retries up to DISCUSS_CARD_SEMANTIC_ATTEMPTS times). Accumulate
-          // its usage; charge once at the end. No deterministic fallback —
-          // if repair also fails, surface a clean error so the user can
-          // retry manually.
+        if (hadError) {
+          // Stream threw: no text, no tool. Charge once, surface a clean error.
+          // Never persist a dummy assistant turn.
+          await chargeEnergyForAiUsage({
+            userId,
+            modelId: discussModelId,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            reason: "discuss_turn",
+          });
+          writer.write({
+            type: "error",
+            errorText: "AI lagi gangguan. Coba lagi sebentar.",
+          });
+          return;
+        }
+
+        if (!chatText) {
+          // ponytail: tool-only response (no prose). Retry the card via
+          // repairDiscussCardWithTool, then persist a card-only assistant turn
+          // (no fake text). Never surface a dummy string.
           const repaired = await repairDiscussCardWithTool({
             brief: effectiveBrief,
             cardSystemPrompt,
-            chatText: chatText || "(AI belum menjawab)",
+            chatText: "",
             model,
             modelMessages,
             modelName,
@@ -1029,11 +1045,6 @@ async function handleDiscussTurnOneCall({
               id: messageId,
               role: "assistant",
               parts: [
-                {
-                  type: "text",
-                  text: "Oke, biar aku tanya dulu.",
-                  state: "done",
-                },
                 {
                   type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
                   toolCallId: repairedToolCallId,
@@ -1287,11 +1298,13 @@ Emit type="question" with a single question (never type="questions"), or type="b
 Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
           messages: [
             ...modelMessages,
-            { role: "assistant", content: chatText || "(no text)" },
+            ...(chatText
+              ? [{ role: "assistant" as const, content: chatText }]
+              : []),
             {
-              role: "user",
+              role: "user" as const,
               content:
-                "Perbaiki card-nya supaya valid. Satu pertanyaan jelas, opsi konkret, tanpa JSON di chat.",
+                'Berdasarkan jawaban terakhirku, buat ulang workspace card yang valid: satu pertanyaan jelas (type="question") dengan opsi konkret, atau build_recommendation kalau udah 95%+. Tanpa JSON di chat.',
             },
           ],
           tools: {
