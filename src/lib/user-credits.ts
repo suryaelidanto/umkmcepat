@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { getModelPricing } from "@/lib/model-pricing";
 import { prisma } from "@/lib/prisma";
 
@@ -281,4 +283,41 @@ export async function getProjectCount(userId: string): Promise<number> {
 
 export function isOverProjectLimit(count: number, limit: number): boolean {
   return count > limit;
+}
+
+export class ProjectLimitExceededError extends Error {
+  readonly code = "project_limit_exceeded" as const;
+
+  constructor(
+    readonly count: number,
+    readonly limit: number,
+  ) {
+    super(
+      `Project limit exceeded: ${count} >= ${limit}. Delete a project before creating a new one.`,
+    );
+    this.name = "ProjectLimitExceededError";
+  }
+}
+
+/**
+ * Throws ProjectLimitExceededError if the user already has `limit` or more
+ * projects. MUST be called inside a prisma.$transaction (or with an explicit
+ * Prisma TransactionClient) so the COUNT(*) and the subsequent INSERT are
+ * atomic — otherwise concurrent requests can race past the check.
+ */
+export async function assertUnderProjectLimit(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  userId: string,
+): Promise<{ count: number; limit: number }> {
+  const limit = getProjectLimit();
+  const [row] = await tx.$queryRaw<Array<{ count: number | bigint | null }>>`
+    SELECT COUNT(*)::int AS "count" FROM "Project" WHERE "userId" = ${userId}
+  `;
+  const count = Number(row?.count ?? 0);
+
+  if (count >= limit) {
+    throw new ProjectLimitExceededError(count, limit);
+  }
+
+  return { count, limit };
 }

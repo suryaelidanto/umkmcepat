@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   getModelPricingMock,
@@ -117,5 +117,74 @@ describe("chargeEnergyForAiUsage", () => {
     });
     expect(result?.energyUsed).toBe(900);
     expect(getModelPricingMock).toHaveBeenCalled();
+  });
+});
+
+describe("assertUnderProjectLimit", () => {
+  const txQueryRawMock = vi.fn();
+  const fakeTx = { $queryRaw: txQueryRawMock } as never;
+
+  const originalLimit = process.env.PROJECT_LIMIT;
+
+  beforeEach(() => {
+    txQueryRawMock.mockReset();
+    process.env.PROJECT_LIMIT = "3";
+  });
+
+  afterEach(() => {
+    if (originalLimit === undefined) {
+      delete process.env.PROJECT_LIMIT;
+    } else {
+      process.env.PROJECT_LIMIT = originalLimit;
+    }
+  });
+
+  it("resolves with count and limit when under the limit", async () => {
+    txQueryRawMock.mockResolvedValueOnce([{ count: 2 }]);
+
+    const { assertUnderProjectLimit } = await import("./user-credits");
+
+    await expect(assertUnderProjectLimit(fakeTx, "u1")).resolves.toEqual({
+      count: 2,
+      limit: 3,
+    });
+  });
+
+  it("throws ProjectLimitExceededError when count equals the limit", async () => {
+    txQueryRawMock.mockResolvedValue([{ count: 3 }]);
+
+    const { ProjectLimitExceededError, assertUnderProjectLimit } =
+      await import("./user-credits");
+
+    await expect(assertUnderProjectLimit(fakeTx, "u1")).rejects.toBeInstanceOf(
+      ProjectLimitExceededError,
+    );
+    await expect(assertUnderProjectLimit(fakeTx, "u1")).rejects.toMatchObject({
+      count: 3,
+      limit: 3,
+      code: "project_limit_exceeded",
+    });
+  });
+
+  it("throws when count is already over the limit (legacy users)", async () => {
+    txQueryRawMock.mockResolvedValueOnce([{ count: 5 }]);
+
+    const { ProjectLimitExceededError, assertUnderProjectLimit } =
+      await import("./user-credits");
+
+    await expect(assertUnderProjectLimit(fakeTx, "u1")).rejects.toBeInstanceOf(
+      ProjectLimitExceededError,
+    );
+  });
+
+  it("treats a zero/null COUNT result as 0 (defensive)", async () => {
+    txQueryRawMock.mockResolvedValueOnce([]);
+
+    const { assertUnderProjectLimit } = await import("./user-credits");
+
+    await expect(assertUnderProjectLimit(fakeTx, "u1")).resolves.toEqual({
+      count: 0,
+      limit: 3,
+    });
   });
 });
