@@ -113,7 +113,7 @@ export function ProjectList({
                 ...page,
                 projectCount: nextCount,
                 projects: page.projects.filter((p) => p.id !== projectId),
-                overProjectLimit: nextCount > limitForPage,
+                overProjectLimit: nextCount >= limitForPage,
               };
             }),
           };
@@ -182,8 +182,8 @@ export function ProjectList({
             <strong className="font-semibold text-surface-warm-white">
               {count} website
             </strong>
-            , melebihi batas {limit}. Kamu masih bisa menggunakannya semua, tapi
-            sebaiknya hapus yang tidak terpakai agar mudah dikelola.
+            , sudah mencapai batas {limit}. Kamu masih bisa menggunakan semua,
+            tapi hapus yang tidak terpakai dulu kalau mau membuat website baru.
           </div>
         </div>
       ) : null}

@@ -79,14 +79,28 @@ async function handleUnauthorizedError(
         : input.url;
 
   // Do not intercept auth calls (callbacks, sessions, CSRF token, Otp verification, etc)
-  if (!urlString.includes("/api/auth/")) {
-    try {
-      const { signOut } = await import("./auth-client");
-      // Clean sign out and redirect to home landing page
-      await signOut({ callbackUrl: "/" });
-    } catch (error) {
-      console.error("Failed to sign out on 401:", error);
-    }
+  if (urlString.includes("/api/auth/")) {
+    return;
+  }
+
+  // Endpoints that are designed to be guest-safe: they return 401 when the
+  // user is logged out, and the caller treats that as "no data" rather than
+  // "session corrupt". Without this skip, a guest visiting the site (e.g. on
+  // a fresh host where the auth cookie is for a different domain) would
+  // enter a signOut → reload → 401 → signOut loop.
+  if (
+    urlString.includes("/api/user/verification") ||
+    urlString.includes("/api/user/credits")
+  ) {
+    return;
+  }
+
+  try {
+    const { signOut } = await import("./auth-client");
+    // Clean sign out and redirect to home landing page
+    await signOut({ callbackUrl: "/" });
+  } catch (error) {
+    console.error("Failed to sign out on 401:", error);
   }
 }
 

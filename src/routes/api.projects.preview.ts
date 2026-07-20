@@ -64,6 +64,39 @@ import {
   MIN_ENERGY_DISCUSS,
 } from "@/lib/user-credits";
 
+// In-flight discuss lock: a single Node process serves all requests, so an
+// in-memory set is sufficient to dedupe concurrent discuss turns for the same
+// project. Prevents a client double-fire (e.g. remount, retry) from running
+// two LLM turns in parallel — which wastes energy and makes the workspace card
+// flicker between two non-deterministic answers. Released in onFinish of the
+// discuss stream (or immediately for the synchronous rule-engine path).
+const DISCUSS_LOCK_TTL_MS = 5 * 60 * 1000;
+const discussInFlight = new Set<string>();
+const discussLockTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function acquireDiscussLock(projectId: string): boolean {
+  if (discussInFlight.has(projectId)) {
+    return false;
+  }
+  discussInFlight.add(projectId);
+  // Safety valve: if onFinish never fires (client disconnect, uncaught throw
+  // before stream setup), auto-release so the project isn't stuck forever.
+  discussLockTimers.set(
+    projectId,
+    setTimeout(() => releaseDiscussLock(projectId), DISCUSS_LOCK_TTL_MS),
+  );
+  return true;
+}
+
+function releaseDiscussLock(projectId: string): void {
+  const timer = discussLockTimers.get(projectId);
+  if (timer) {
+    clearTimeout(timer);
+    discussLockTimers.delete(projectId);
+  }
+  discussInFlight.delete(projectId);
+}
+
 type PreviewRequest = {
   message?: UIMessage;
   messages?: UIMessage[];
@@ -380,50 +413,67 @@ async function handlePreviewPost(request: Request) {
     );
   }
 
+  // Dedupe concurrent discuss turns for the same project. A second in-flight
+  // turn (client double-fire) gets a 409 instead of burning a second LLM call
+  // and flickering the workspace card between two answers.
+  if (!acquireDiscussLock(project.id)) {
+    return sseError({
+      code: "discuss_in_flight",
+      message: "AI masih memproses jawaban sebelumnya. Tunggu sebentar ya.",
+    });
+  }
+
   // ponytail: precompute rule-engine branch (worth-to-try-lah).
   // Skips the LLM entirely for low-confidence early turns or pure acks.
   // Disable via env DISCUSS_RULE_ENGINE=off. See plan: worth-to-try-lah-linked-floyd.md
-  if (process.env.DISCUSS_RULE_ENGINE !== "off") {
-    const precomputed = await tryRuleEngineDiscussTurn({
+  try {
+    if (process.env.DISCUSS_RULE_ENGINE !== "off") {
+      const precomputed = await tryRuleEngineDiscussTurn({
+        brief: effectiveBrief,
+        incoming,
+        latestUserText,
+        project,
+        storedMessages,
+        userId,
+      });
+      if (precomputed) {
+        return precomputed;
+      }
+    }
+
+    await persistProjectBrief({
       brief: effectiveBrief,
-      incoming,
-      latestUserText,
-      project,
-      storedMessages,
+      projectId: project.id,
       userId,
     });
-    if (precomputed) {
-      return precomputed;
-    }
+
+    const messages = await validateUIMessages({
+      messages: dedupeUiMessages(
+        parseProjectChatMessages([...storedMessages, ...incoming]),
+      ),
+    });
+    const chatContext = buildProjectChatContext({
+      fieldState: {},
+      memoryFacts,
+      messages,
+      summary: chatSummary,
+    });
+
+    return handleDiscussTurn({
+      chatContext,
+      effectiveBrief,
+      memoryFacts,
+      messages,
+      project,
+      summary: chatSummary,
+      userId,
+    });
+  } catch (error) {
+    // Release the lock if anything threw before the stream registered its
+    // onFinish release — otherwise the project would be stuck forever.
+    releaseDiscussLock(project.id);
+    throw error;
   }
-
-  await persistProjectBrief({
-    brief: effectiveBrief,
-    projectId: project.id,
-    userId,
-  });
-
-  const messages = await validateUIMessages({
-    messages: dedupeUiMessages(
-      parseProjectChatMessages([...storedMessages, ...incoming]),
-    ),
-  });
-  const chatContext = buildProjectChatContext({
-    fieldState: {},
-    memoryFacts,
-    messages,
-    summary: chatSummary,
-  });
-
-  return handleDiscussTurn({
-    chatContext,
-    effectiveBrief,
-    memoryFacts,
-    messages,
-    project,
-    summary: chatSummary,
-    userId,
-  });
 }
 
 async function handleDiscussTurn({
@@ -660,6 +710,7 @@ async function handleDiscussTurn({
       },
       onError: (error) =>
         `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
+      onFinish: () => releaseDiscussLock(project.id),
     }),
   });
 }
@@ -700,6 +751,7 @@ async function tryRuleEngineDiscussTurn({
   if (decision.path === "ack") {
     return synthesizePrecomputedStream({
       chatText: decision.reply,
+      incoming,
       project,
       storedMessages,
       userId,
@@ -717,6 +769,7 @@ async function tryRuleEngineDiscussTurn({
     const chatText = await generateWarmPreface(brief, card, latestUserText);
     return synthesizePrecomputedStream({
       chatText,
+      incoming,
       project,
       storedMessages,
       userId,
@@ -807,12 +860,14 @@ function cardToPromptText(card: WorkspaceCard): string {
 
 async function synthesizePrecomputedStream({
   chatText,
+  incoming,
   project,
   storedMessages,
   userId,
   workspaceCard,
 }: {
   chatText: string;
+  incoming: UIMessage[];
   project: { id: string };
   storedMessages: UIMessage[];
   userId: string;
@@ -839,7 +894,7 @@ async function synthesizePrecomputedStream({
   };
 
   const allMessages = stripTransportDiagnosticMessages(
-    dedupeUiMessages([...storedMessages, ...[assistantMessage]]),
+    dedupeUiMessages([...storedMessages, ...incoming, assistantMessage]),
   );
 
   await persistProjectChatTurn({
@@ -882,6 +937,7 @@ async function synthesizePrecomputedStream({
     },
     onError: (error) =>
       `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
+    onFinish: () => releaseDiscussLock(project.id),
   });
 
   return createUIMessageStreamResponse({ stream });
@@ -1373,6 +1429,7 @@ async function handleDiscussTurnOneCall({
       },
       onError: (error) =>
         `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
+      onFinish: () => releaseDiscussLock(project.id),
     }),
   });
 }
