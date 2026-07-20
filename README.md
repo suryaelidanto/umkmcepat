@@ -54,19 +54,11 @@ bun run db:migrate
 bun run dev
 ```
 
-`bun run infra` starts Postgres, 9Router, Headroom, and Langfuse.
-
-After setting Langfuse credentials in `.env`, seed model pricing for trace cost mapping:
-
-```bash
-bun run langfuse:seed-models
-```
+`bun run infra` starts Postgres, 9Router, and Headroom.
 
 ```text
 App: http://localhost:3000
 9Router: http://localhost:20129
-Langfuse: http://localhost:3001
-MinIO console: http://localhost:9091
 ```
 
 Use `bun run infra:minimal` only when you need Postgres without AI/observability services.

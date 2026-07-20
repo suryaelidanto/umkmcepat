@@ -35,7 +35,7 @@ Local quality gates are automated:
 
 `bun run sweep:project-orphans` purges `.data/project-*` dirs whose IDs are not in the DB. Run after deleting projects via the DB / CLI (the homepage's delete path runs cleanup automatically).
 
-`bun run infra` starts Postgres, 9Router, Headroom, and Langfuse. Use `bun run infra:minimal` only when you need Postgres without AI/observability services.
+`bun run infra` starts Postgres, 9Router, and Headroom. Use `bun run infra:minimal` only when you need Postgres without AI/observability services.
 
 Optional Storybook:
 

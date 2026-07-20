@@ -17,23 +17,9 @@ bun run dev
 ```text
 App: http://localhost:3000
 9Router: http://localhost:20129
-Langfuse: http://localhost:3001
-MinIO console: http://localhost:9091
 ```
 
-`bun run infra` starts Postgres plus the local AI/observability stack: 9Router, Headroom, Langfuse, and Langfuse dependencies. Use `bun run infra:minimal` only when you need Postgres without AI/observability. Use `bun run infra:down` to stop every container attached to the project's Compose network and remove that network; named data volumes remain intact for the next startup.
-
-Set `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` in `.env`. Local `.env.example` uses the same deterministic project key for Langfuse bootstrap and app tracing so observability works after first startup; replace both keys before any shared environment. After changing tracing keys, restart `bun run dev`. Local ClickHouse loads `infra/langfuse-clickhouse-settings.xml`; it disables a ClickHouse 26.x lazy-materialization planner bug that breaks Langfuse trace joins, while preserving trace data.
-
-Langfuse local Compose disables public signup (`AUTH_DISABLE_SIGNUP=true`); use the bootstrap admin account only. In production, keep Langfuse behind Cloudflare Access/reverse-proxy auth and never expose its backing Postgres, ClickHouse, Redis, or MinIO services.
-
-After Langfuse boots and API keys are in `.env`, seed model pricing IDs used by 9Router:
-
-```bash
-bun run langfuse:seed-models
-```
-
-Run this whenever you change `AI_MODELS` or deploy to a fresh Langfuse database so traces can map usage to cost tiers.
+`bun run infra` starts Postgres plus the local AI/observability stack: 9Router and Headroom. Use `bun run infra:minimal` only when you need Postgres without AI/observability. Use `bun run infra:down` to stop every container attached to the project's Compose network and remove that network; named data volumes remain intact for the next startup.
 
 Use local Node/Bun for the Next.js dev server because bind-mounted Docker dev can make `.next` and file watching stale on some host filesystems.
 
@@ -55,7 +41,6 @@ app container:      Next.js production server after migration succeeds
 postgres container: database, unless using managed Postgres
 9router container:  AI gateway dashboard/API
 headroom container: optional context compression proxy
-langfuse stack:     optional AI trace storage/UI (web, worker, Postgres, ClickHouse, Redis, MinIO)
 uploads volume:     local upload persistence for OBJECT_STORAGE_PROVIDER=local
 project_artifacts:  canonical generated source/dist persistence for local artifact storage
 ```
@@ -96,9 +81,6 @@ OTP_SPACE_API_KEY="replace-with-otp-space-api-key"
 AI_PROVIDER="9router"
 NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 NINE_ROUTER_API_KEY="replace-with-9router-api-key"
-LANGFUSE_BASE_URL="https://langfuse.example.com"
-LANGFUSE_PUBLIC_KEY="replace-with-langfuse-public-key"
-LANGFUSE_SECRET_KEY="replace-with-langfuse-secret-key"
 RATE_LIMIT_PROVIDER="memory"
 OBJECT_STORAGE_PROVIDER="local"
 LOCAL_UPLOAD_DIR=".data/uploads"
@@ -192,8 +174,6 @@ SENTRY_AUTH_TOKEN="set-in-deployment-secrets"
 ```
 
 Never commit `SENTRY_AUTH_TOKEN`, `.env.sentry-build-plugin`, or real DSNs/tokens.
-
-Langfuse is optional for AI tracing. In local development, `bun run infra` starts it with the rest of the AI stack; open `http://localhost:3001`. In production, prefer a protected Langfuse hostname (for example `langfuse.umkmcepat.com`) or Langfuse Cloud; do not expose ClickHouse, Redis, Postgres, or MinIO directly. Set only server-side `LANGFUSE_*` env vars on the app container.
 
 ## Notes
 
