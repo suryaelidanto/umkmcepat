@@ -999,13 +999,23 @@ export function WorkspaceShell({
   ]);
 
   useEffect(() => {
-    if (hasStartedChat.current || !prompt || initialMessages.length) {
+    // Guard against double-fire on remount: the ref survives a re-render but
+    // resets on unmount, so a remount mid-turn could re-send the initial prompt.
+    // The `status` check adds a second barrier — if a turn is already in flight
+    // (e.g. the first mount's request is still streaming), don't fire again.
+    if (
+      hasStartedChat.current ||
+      !prompt ||
+      initialMessages.length ||
+      status === "submitted" ||
+      status === "streaming"
+    ) {
       return;
     }
 
     hasStartedChat.current = true;
     sendMessage({ text: prompt }, { body: { mode } });
-  }, [initialMessages.length, mode, prompt, sendMessage]);
+  }, [initialMessages.length, mode, prompt, sendMessage, status]);
 
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";

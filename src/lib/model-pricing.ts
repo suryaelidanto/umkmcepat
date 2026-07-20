@@ -8,8 +8,12 @@ import { prisma } from "@/lib/prisma";
  *   1. Single-model OpenRouter endpoint (small, fast).
  *   2. Full model list (covers id/alias mismatches).
  *   3. Existing stale cache row for this model, if any.
- *   4. MAX price across all cached models (pessimistic).
- *   5. CONSERVATIVE_DEFAULT_PRICE — never free (never {0,0}).
+ *   4. CONSERVATIVE_DEFAULT_PRICE — never free (never {0,0}).
+ *
+ * The previous "max-known fallback" (Math.max across all cached models) was
+ * removed: it combined the worst promptPrice from one model with the worst
+ * completionPrice from another, producing an unrealistic price that inflated
+ * energy estimates by orders of magnitude (e.g. gemini-3-flash → ~8.8M energy).
  */
 
 const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
@@ -125,17 +129,6 @@ async function getStaleCacheRow(modelId: string): Promise<ModelPrice | null> {
   };
 }
 
-async function getMaxKnownPrice(): Promise<ModelPrice | null> {
-  const rows = await prisma.modelPricing.findMany();
-  if (rows.length === 0) {
-    return null;
-  }
-  return {
-    promptPrice: Math.max(...rows.map((r) => Number(r.promptPrice))),
-    completionPrice: Math.max(...rows.map((r) => Number(r.completionPrice))),
-  };
-}
-
 async function upsertPrice(modelId: string, price: ModelPrice) {
   await prisma.modelPricing.upsert({
     where: { modelId },
@@ -173,16 +166,8 @@ async function refreshModelPrice(modelId: string): Promise<ModelPrice> {
     return stale;
   }
 
-  const fallback = await getMaxKnownPrice();
-  if (fallback) {
-    console.warn(
-      `[model-pricing] no price found for "${modelId}", using max-known fallback`,
-    );
-    return fallback;
-  }
-
   console.warn(
-    `[model-pricing] no price for "${modelId}" and empty cache — using conservative floor`,
+    `[model-pricing] no price for "${modelId}" — using conservative floor`,
   );
   // Do not upsert floor as if it were real OpenRouter data.
   return CONSERVATIVE_DEFAULT_PRICE;
