@@ -39,7 +39,9 @@ export type WorkspaceAnswerPayload = {
 export type BuildProgressStep = {
   detail: string;
   diff?: DiffLine[];
+  durationMs?: number;
   label: string;
+  startedAt?: number;
   status?: "active" | "done" | "error";
 };
 
@@ -830,6 +832,44 @@ export function ModePill({
   );
 }
 
+function StepDuration({
+  durationMs,
+  isActive,
+  now,
+  startedAt,
+}: {
+  durationMs?: number;
+  isActive: boolean;
+  now: number;
+  startedAt?: number;
+}) {
+  if (isActive && startedAt) {
+    const liveSec = Math.max(0, (now - startedAt) / 1000);
+    return (
+      <span className="text-xs font-medium tabular-nums text-surface-warm-white/40">
+        {liveSec.toFixed(1)}s
+      </span>
+    );
+  }
+
+  if (durationMs !== undefined) {
+    if (durationMs < 1000) {
+      return (
+        <span className="text-xs font-medium tabular-nums text-surface-warm-white/40">
+          {durationMs}ms
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs font-medium tabular-nums text-surface-warm-white/40">
+        {(durationMs / 1000).toFixed(1)}s
+      </span>
+    );
+  }
+
+  return null;
+}
+
 export function BuildProgressPanel({
   elapsedFrom,
   isBuilding,
@@ -853,7 +893,7 @@ export function BuildProgressPanel({
     }
 
     setNow(Date.now());
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    const interval = window.setInterval(() => setNow(Date.now()), 100);
 
     return () => window.clearInterval(interval);
   }, [isRunning]);
@@ -947,19 +987,33 @@ export function BuildProgressPanel({
                         className={`block ${isActive ? "size-3 animate-pulse rounded-full bg-current" : "size-2 bg-current"}`}
                       />
                     </div>
-                    <span className="text-sm font-semibold text-surface-warm-white text-left pt-1 leading-5">
-                      {step.label}
+                    <span className="text-sm text-surface-warm-white text-left pt-1 leading-5 min-w-0">
+                      <span className="font-semibold">{step.label}</span>
+                      {step.detail && step.detail !== step.label ? (
+                        <span className="font-normal text-surface-warm-white/50">
+                          {" "}
+                          — {step.detail}
+                        </span>
+                      ) : null}
                     </span>
                   </div>
-                  {hasDiff && (
-                    <div className="mt-2 text-surface-warm-white/40 shrink-0">
-                      {isExpanded ? (
-                        <ChevronUp className="size-4" />
-                      ) : (
-                        <ChevronDown className="size-4" />
-                      )}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-spacing-2 shrink-0 mt-1.5">
+                    <StepDuration
+                      durationMs={step.durationMs}
+                      isActive={isActive}
+                      now={now}
+                      startedAt={step.startedAt}
+                    />
+                    {hasDiff && (
+                      <div className="text-surface-warm-white/40">
+                        {isExpanded ? (
+                          <ChevronUp className="size-4" />
+                        ) : (
+                          <ChevronDown className="size-4" />
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <AnimatePresence initial={false}>
@@ -972,9 +1026,6 @@ export function BuildProgressPanel({
                       className="overflow-hidden"
                     >
                       <div className="pl-12 pt-spacing-2 text-left">
-                        <p className="text-xs leading-5 text-surface-warm-white/54">
-                          {step.detail}
-                        </p>
                         {step.diff && step.diff.length > 0 && (
                           <div className="mt-spacing-3">
                             <pre className="max-h-64 overflow-auto rounded-[12px] border border-surface-warm-white/8 bg-black/20 p-spacing-3 text-xs leading-5 [scrollbar-width:thin]">
