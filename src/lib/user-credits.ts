@@ -281,10 +281,6 @@ export async function getProjectCount(userId: string): Promise<number> {
   return prisma.project.count({ where: { userId } });
 }
 
-export function isOverProjectLimit(count: number, limit: number): boolean {
-  return count > limit;
-}
-
 /**
  * True once the user is at the configured ceiling (count >= limit), not just
  * over it. Use this in the UI so the prompt form / banner swap activates
