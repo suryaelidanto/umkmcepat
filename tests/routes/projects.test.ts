@@ -32,6 +32,7 @@ const {
   transactionMock: vi.fn(async (callback) =>
     callback({
       $executeRaw: executeRawMock,
+      $queryRaw: vi.fn(async () => [{ count: 0 }]),
       project: { create: prismaProjectCreateMock },
     }),
   ),
@@ -136,6 +137,7 @@ describe("projects route", () => {
     transactionMock.mockImplementation(async (callback) =>
       callback({
         $executeRaw: executeRawMock,
+        $queryRaw: vi.fn(async () => [{ count: 0 }]),
         project: { create: prismaProjectCreateMock },
       }),
     );

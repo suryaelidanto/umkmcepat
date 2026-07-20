@@ -20,12 +20,14 @@ import {
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
+  assertUnderProjectLimit,
   chargeEnergyForAiUsage,
   checkEnergy,
   getProjectCount,
   getProjectLimit,
   isOverProjectLimit,
   MIN_ENERGY_MODERATION,
+  ProjectLimitExceededError,
 } from "@/lib/user-credits";
 
 const CREATE_PROJECT_IDEMPOTENCY_ACTION = "project.create";
@@ -124,21 +126,6 @@ export const Route = createFileRoute("/api/projects")({
 
         if (rateLimitResponse) {
           return rateLimitResponse;
-        }
-
-        const projectLimit = getProjectLimit();
-        const projectCount = await getProjectCount(userId);
-
-        if (isOverProjectLimit(projectCount, projectLimit)) {
-          return Response.json(
-            {
-              code: "project_limit_exceeded",
-              message: `Kamu sudah punya ${projectCount} website (batas ${projectLimit}). Hapus yang tidak terpakai dulu.`,
-              projectCount,
-              projectLimit,
-            },
-            { status: 403 },
-          );
         }
 
         const energy = await checkEnergy(userId, MIN_ENERGY_MODERATION);
@@ -240,16 +227,35 @@ export const Route = createFileRoute("/api/projects")({
 
         const brief = createInitialBrief(validation.value);
         const workspaceCard = createPendingWorkspaceCard(brief);
-        const project = await createProjectOnce({
-          brief,
-          idempotencyKey,
-          mode,
-          prompt: validation.value,
-          sessionUserId: userId,
-          workspaceCard,
-        }).catch(async () =>
-          idempotencyKey ? findIdempotentProject(userId, idempotencyKey) : null,
-        );
+        let project: { id: string } | null;
+
+        try {
+          project = await createProjectOnce({
+            brief,
+            idempotencyKey,
+            mode,
+            prompt: validation.value,
+            sessionUserId: userId,
+            workspaceCard,
+          });
+        } catch (error) {
+          if (error instanceof ProjectLimitExceededError) {
+            return Response.json(
+              {
+                code: "project_limit_exceeded",
+                message: `Kamu sudah punya ${error.count} website (batas ${error.limit}). Hapus yang tidak terpakai dulu.`,
+                projectCount: error.count,
+                projectLimit: error.limit,
+              },
+              { status: 403 },
+            );
+          }
+          if (idempotencyKey) {
+            project = await findIdempotentProject(userId, idempotencyKey);
+          } else {
+            throw error;
+          }
+        }
 
         if (!project) {
           return apiError({
@@ -313,22 +319,13 @@ async function createProjectOnce({
   sessionUserId: string;
   workspaceCard: unknown;
 }) {
-  if (!idempotencyKey) {
-    return prisma.project.create({
-      data: createProjectData({
-        brief,
-        mode,
-        prompt,
-        sessionUserId,
-        workspaceCard,
-      }),
-      select: { id: true },
-    });
-  }
-
+  // Atomic: the COUNT(*) inside assertUnderProjectLimit and the project
+  // insert run in the same transaction, so two concurrent POSTs can't
+  // both observe count=limit and both create a 4th row.
   try {
     return await prisma.$transaction(async (tx) => {
-      const idempotencyRecordId = `idem_${randomUUID().replace(/-/g, "")}`;
+      await assertUnderProjectLimit(tx, sessionUserId);
+
       const project = await tx.project.create({
         data: createProjectData({
           brief,
@@ -340,28 +337,33 @@ async function createProjectOnce({
         select: { id: true },
       });
 
-      await tx.$executeRaw`
-        INSERT INTO "ProjectIdempotencyKey" (
-          "id",
-          "userId",
-          "projectId",
-          "action",
-          "key",
-          "createdAt"
-        ) VALUES (
-          ${idempotencyRecordId},
-          ${sessionUserId},
-          ${project.id},
-          ${CREATE_PROJECT_IDEMPOTENCY_ACTION},
-          ${idempotencyKey},
-          NOW()
-        )
-      `;
+      if (idempotencyKey) {
+        const idempotencyRecordId = `idem_${randomUUID().replace(/-/g, "")}`;
+        await tx.$executeRaw`
+          INSERT INTO "ProjectIdempotencyKey" (
+            "id",
+            "userId",
+            "projectId",
+            "action",
+            "key",
+            "createdAt"
+          ) VALUES (
+            ${idempotencyRecordId},
+            ${sessionUserId},
+            ${project.id},
+            ${CREATE_PROJECT_IDEMPOTENCY_ACTION},
+            ${idempotencyKey},
+            NOW()
+          )
+        `;
+      }
 
       return project;
     });
   } catch (error) {
-    if (isUniqueConstraintError(error)) {
+    // P2002: another request won the idempotency race → return the
+    // existing project, same as before.
+    if (isUniqueConstraintError(error) && idempotencyKey) {
       const project = await findIdempotentProject(
         sessionUserId,
         idempotencyKey,
