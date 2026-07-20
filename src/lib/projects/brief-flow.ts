@@ -167,11 +167,26 @@ export function applyBriefPatch(
 export function normalizeWorkspaceTurn(
   input: unknown,
   fallbackBrief: ProjectBrief,
+  options: { hasBuiltSite?: boolean } = {},
 ) {
   const value =
     input && typeof input === "object" ? (input as WorkspaceTurnToolInput) : {};
   const brief = applyBriefPatch(fallbackBrief, value.briefPatch);
-  const workspaceCard = normalizeWorkspaceCard(value.workspaceCard, brief);
+  let workspaceCard = normalizeWorkspaceCard(value.workspaceCard, brief);
+
+  // Server-side enforcement, not just prompt guidance: once the site is
+  // built, the model must never resurface the brief interview (question /
+  // build_recommendation cards), even if it ignores its system prompt and
+  // calls the tool with one anyway. The interview is over; this turn is an
+  // edit request.
+  if (
+    options.hasBuiltSite &&
+    (workspaceCard.type === "question" ||
+      workspaceCard.type === "build_recommendation")
+  ) {
+    workspaceCard = createFallbackWorkspaceCard(brief);
+  }
+
   // Card type is the single source of truth for buildability: derive
   // readyForBuild from it instead of trusting a separate AI-set flag that
   // can drift out of sync (build_recommendation shown, readyForBuild false).
@@ -340,9 +355,10 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
         .slice(0, 5)
     : [];
 
-  const answerMode = candidate.answerMode === "text" ? "text" : "choice";
+  const answerMode =
+    candidate.answerMode === "text" || options.length < 2 ? "text" : "choice";
 
-  if (!question || (answerMode === "choice" && options.length < 2)) {
+  if (!question) {
     return null;
   }
 

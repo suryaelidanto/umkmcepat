@@ -48,7 +48,7 @@ export function createLocalBuildWorker({
       if (activeBuilds >= getBuildConcurrencyLimit()) {
         return failed(
           "Build worker concurrency limit reached.",
-          "stale_worker",
+          "concurrency_limit",
         );
       }
 

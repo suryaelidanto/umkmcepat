@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { statSync } from "node:fs";
 import {
   mkdir,
   readdir,
@@ -8,6 +9,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
 
 import {
@@ -222,26 +224,52 @@ function resolveBundledRunner(): string {
   if (explicit) {
     return explicit;
   }
-  const candidates =
+
+  const candidateNames =
     process.platform === "win32" ? ["bun.exe", "bun"] : ["bun"];
-  const pathDirs = (process.env.PATH ?? "").split(path.delimiter);
-  for (const dir of pathDirs) {
-    if (!dir) {
-      continue;
-    }
-    for (const name of candidates) {
-      const full = path.join(dir, name);
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        require("node:fs").statSync(full);
-        return full;
-      } catch {
-        // keep searching
+
+  function firstExisting(dirs: string[]): string | null {
+    for (const dir of dirs) {
+      if (!dir) {
+        continue;
+      }
+      for (const name of candidateNames) {
+        const full = path.join(dir, name);
+        try {
+          statSync(full);
+          return full;
+        } catch {
+          // keep searching
+        }
       }
     }
+    return null;
   }
+
+  // If this process is itself running under bun (the normal `bun run dev`
+  // case), execPath is already an absolute path to the bun binary.
+  if (path.basename(process.execPath).toLowerCase().startsWith("bun")) {
+    return process.execPath;
+  }
+
+  // This code can also run inside a plain node subprocess spawned by the
+  // dev/SSR toolchain (e.g. Nitro), which may not inherit the shell's PATH.
+  // bun always installs to ~/.bun/bin regardless of OS or install method
+  // (official install script, Windows installer, Homebrew symlink target),
+  // so check that fixed location before falling back to PATH search.
+  const fromHome = firstExisting([path.join(homedir(), ".bun", "bin")]);
+  if (fromHome) {
+    return fromHome;
+  }
+
+  const pathDirs = (process.env.PATH ?? "").split(path.delimiter);
+  const fromPath = firstExisting(pathDirs);
+  if (fromPath) {
+    return fromPath;
+  }
+
   // Last resort: rely on PATH lookup with the OS-correct suffix.
-  return candidates[0];
+  return candidateNames[0];
 }
 
 const BUNDLED_RUNNER = resolveBundledRunner();

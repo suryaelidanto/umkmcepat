@@ -40,10 +40,9 @@ Growth: `socialLinks`, `currentPromo`, `secondaryCta`.
 Set `readyForBuild: true` only if:
 
 - All mandatory fields are filled (businessName, productOrService with at least 1 item), AND
-- You have asked at least 1 applicable soft field AND the user answered OR the user explicitly declined ("ga ada", "skip"), AND
-- At least 50% of the applicable soft fields for the user's UMKM type are filled or declined.
+- You have asked at least 1 applicable soft field AND the user answered OR the user explicitly declined ("ga ada", "skip").
 
-A user who explicitly opts out ("udah dulu", "cukup", "langsung bangun aja") makes the confidence rule satisfied by mandatory fields alone.
+Bias heavily toward recommending the build early. Once mandatory fields plus at least 2 soft fields (e.g. contact, USP) are known or explicitly declined, confidence must be 95+ and you must emit the build_recommendation. Let the user start the build fast rather than extracting every detail. A user who explicitly opts out ("udah dulu", "cukup", "langsung bangun aja") makes the confidence rule satisfied by mandatory fields alone.
 
 # Safety — DO NOT hallucinate
 

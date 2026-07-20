@@ -51,7 +51,7 @@ describe("normalizeWorkspaceTurn", () => {
           type: "question",
           question: {
             id: "offer",
-            question: "y",
+            question: "",
             options: [{ label: "", description: "" }],
           },
         },
@@ -60,6 +60,28 @@ describe("normalizeWorkspaceTurn", () => {
     );
 
     expect(turn.workspaceCard.type).toBe("none");
+  });
+
+  it("falls back to a text question when options are missing or less than 2", () => {
+    const brief = parseProjectBrief({}, "jualan katering");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "offer",
+            question: "y",
+            options: [{ label: "", description: "" }],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.answerMode).toBe("text");
+    }
   });
 
   it("migrates a legacy questions[] card to a single question", () => {
@@ -573,5 +595,77 @@ describe("normalizeWorkspaceTurn", () => {
     if (turn.workspaceCard.type === "build_recommendation") {
       expect(turn.workspaceCard.summary.length).toBeGreaterThan(0);
     }
+  });
+
+  it("suppresses a question card once the site is built, even if the model ignores its prompt and asks one anyway", () => {
+    const brief = parseProjectBrief(
+      { businessType: "Kopi Senja Roastery", offer: "Biji kopi roasting" },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "business_hours",
+            question: "Jam berapa biasanya buka?",
+            options: [
+              { label: "Setiap hari", description: "09:00 - 22:00" },
+              { label: "Senin - Jumat", description: "09:00 - 18:00" },
+            ],
+          },
+        },
+      },
+      brief,
+      { hasBuiltSite: true },
+    );
+
+    expect(turn.workspaceCard.type).toBe("none");
+    expect(turn.readyForBuild).toBe(false);
+  });
+
+  it("suppresses a build_recommendation card once the site is built (no re-triggering a rebuild via the interview path)", () => {
+    const brief = parseProjectBrief(
+      { businessType: "Kopi Senja Roastery", offer: "Biji kopi roasting" },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Siap dibangun ulang!",
+          summary: ["Ganti warna jadi lebih gelap"],
+        },
+      },
+      brief,
+      { hasBuiltSite: true },
+    );
+
+    expect(turn.workspaceCard.type).toBe("none");
+  });
+
+  it("still allows a question card pre-build (hasBuiltSite: false / omitted) — same input as the built-site test above", () => {
+    const brief = parseProjectBrief(
+      { businessType: "Kopi Senja Roastery", offer: "Biji kopi roasting" },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "business_hours",
+            question: "Jam berapa biasanya buka?",
+            options: [
+              { label: "Setiap hari", description: "09:00 - 22:00" },
+              { label: "Senin - Jumat", description: "09:00 - 18:00" },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
   });
 });

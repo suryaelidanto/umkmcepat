@@ -470,6 +470,7 @@ async function handleDiscussTurn({
   const chatSystemPrompt = buildChatSystemPrompt({
     context: chatContext.systemContext,
     brief: effectiveBrief,
+    hasBuiltSite: project.status === "ready",
   });
   const cardSystemPrompt = buildCardSystemPrompt();
   const modelMessages = await convertToModelMessages(chatContext.messages);
@@ -566,6 +567,7 @@ async function handleDiscussTurn({
           brief: effectiveBrief,
           cardSystemPrompt,
           chatText,
+          hasBuiltSite: project.status === "ready",
           model,
           modelMessages,
           modelName,
@@ -665,6 +667,10 @@ async function handleDiscussTurn({
           outputTokens: totalOutputTokens,
           reason: "discuss_turn",
         });
+
+        if (workspaceTurn?.workspaceCard.type === "build_recommendation") {
+          releaseDiscussLock(project.id);
+        }
 
         writer.write({ type: "finish" });
       },
@@ -829,17 +835,29 @@ const presentWorkspaceCardTool = tool({
   }),
 });
 
-function buildOneCallSystemPrompt({
+export function buildOneCallSystemPrompt({
   brief,
   context,
+  hasBuiltSite,
 }: {
   brief: unknown;
   context: string;
+  hasBuiltSite: boolean;
 }) {
-  return `${buildChatSystemPrompt({ brief, context })}
+  if (hasBuiltSite) {
+    return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}
 
 CRITICAL OUTPUT ORDER:
-1) Write 1-3 short Indonesian chat sentences first (aku/kamu only).
+1) Write EXACTLY ONE short Indonesian chat sentence first (max 20 words, aku/kamu only) acknowledging the edit request.
+2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with { type: "none" }. Do not ask a brief question and do not emit build_recommendation — the site is already built, this turn is an edit request, not an interview.
+
+Never put JSON in chat text. Never call the tool before chat text.`;
+  }
+
+  return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}
+
+CRITICAL OUTPUT ORDER:
+1) Write EXACTLY ONE short Indonesian chat sentence first (max 20 words, aku/kamu only) acknowledging the answer or greeting the user. Never write more.
 2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with the next workspace card.
 
 INTERVIEW DISCIPLINE — one question per turn:
@@ -847,13 +865,13 @@ INTERVIEW DISCIPLINE — one question per turn:
 - Pick the single most crucial question to move the build forward. Ask the next question next turn after the user answers.
 - The question sets recommendedOptionLabel (your default) — user can accept in one click.
 - Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
-- When all applicable fields are filled/declined AND confidence is 95+: emit build_recommendation instead of a question.
+- When all mandatory fields (businessName, product) and at least 2 soft fields are filled/declined: emit build_recommendation instead of a question and set confidence to 95+.
 
 Never put JSON in chat text. Never call the tool before chat text.
 Use type="question" with a single question (question.id is a short slug like business_name or services).
-Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is genuinely 95%+ and no open questions remain. Below that, keep asking a question. Never use any other card type.
+Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is 95%+ or mandatory + 2 soft fields are known. Below that, keep asking a question. Never use any other card type.
 
-Be relentless — extract every field, one question per turn. Ask only the applicable soft fields for the UMKM type, but do not skip them.`;
+Build early — do not extract every field. Once the basics are known, show the build_recommendation card.`;
 }
 
 async function handleDiscussTurnOneCall({
@@ -878,6 +896,7 @@ async function handleDiscussTurnOneCall({
   const systemPrompt = buildOneCallSystemPrompt({
     brief: effectiveBrief,
     context: chatContext.systemContext,
+    hasBuiltSite: project.status === "ready",
   });
   const cardSystemPrompt = buildCardSystemPrompt();
   const modelMessages = await convertToModelMessages(chatContext.messages);
@@ -902,7 +921,8 @@ async function handleDiscussTurnOneCall({
     // the tool, repairDiscussCardWithTool fills the card (already exists).
     toolChoice: "auto",
     maxRetries: 2,
-    temperature: 0.35,
+    temperature: 0.25,
+    maxOutputTokens: 1024,
     timeout: getAiTimeoutMs("discussOneCall"),
     telemetry: getAiTelemetry("project-guided-discuss-one-call", {
       briefConfidence: effectiveBrief.confidence,
@@ -1014,6 +1034,7 @@ async function handleDiscussTurnOneCall({
             brief: effectiveBrief,
             cardSystemPrompt,
             chatText: "",
+            hasBuiltSite: project.status === "ready",
             model,
             modelMessages,
             modelName,
@@ -1108,7 +1129,9 @@ async function handleDiscussTurnOneCall({
           return;
         }
 
-        let workspaceTurn = normalizeWorkspaceTurn(toolInput, effectiveBrief);
+        let workspaceTurn = normalizeWorkspaceTurn(toolInput, effectiveBrief, {
+          hasBuiltSite: project.status === "ready",
+        });
         let primaryToolFailed = workspaceTurn.workspaceCard.type === "none";
         let repairsUsed = 0;
 
@@ -1117,6 +1140,7 @@ async function handleDiscussTurnOneCall({
             brief: effectiveBrief,
             cardSystemPrompt,
             chatText,
+            hasBuiltSite: project.status === "ready",
             model,
             modelMessages,
             modelName,
@@ -1247,6 +1271,10 @@ async function handleDiscussTurnOneCall({
           reason: "discuss_turn",
         });
 
+        if (workspaceTurn?.workspaceCard.type === "build_recommendation") {
+          releaseDiscussLock(project.id);
+        }
+
         writer.write({ type: "finish" });
       },
       onError: (error) =>
@@ -1260,6 +1288,7 @@ async function repairDiscussCardWithTool({
   brief,
   cardSystemPrompt,
   chatText,
+  hasBuiltSite,
   model,
   modelMessages,
   modelName,
@@ -1269,6 +1298,7 @@ async function repairDiscussCardWithTool({
   brief: ReturnType<typeof parseProjectBrief>;
   cardSystemPrompt: string;
   chatText: string;
+  hasBuiltSite: boolean;
   model: ReturnType<typeof getAiModel>;
   modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
   modelName: string;
@@ -1333,7 +1363,7 @@ Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choi
         const toolCall = repaired.toolCalls?.[0] as
           { input?: unknown; args?: unknown } | undefined;
         const input = toolCall?.input ?? toolCall?.args ?? null;
-        const turn = normalizeWorkspaceTurn(input, brief);
+        const turn = normalizeWorkspaceTurn(input, brief, { hasBuiltSite });
         if (turn.workspaceCard.type !== "none") {
           return {
             ...turn,
@@ -1375,6 +1405,7 @@ async function generateWorkspaceTurn({
   brief,
   cardSystemPrompt,
   chatText,
+  hasBuiltSite,
   model,
   modelMessages,
   modelName,
@@ -1384,6 +1415,7 @@ async function generateWorkspaceTurn({
   brief: ReturnType<typeof parseProjectBrief>;
   cardSystemPrompt: string;
   chatText: string;
+  hasBuiltSite: boolean;
   model: ReturnType<typeof getAiModel>;
   modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
   modelName: string;
@@ -1434,7 +1466,7 @@ async function generateWorkspaceTurn({
           parsedPreview: JSON.stringify(parsed)?.slice(0, 200),
         });
 
-        const turn = normalizeWorkspaceTurn(parsed, brief);
+        const turn = normalizeWorkspaceTurn(parsed, brief, { hasBuiltSite });
 
         if (turn.workspaceCard.type !== "none") {
           return {
@@ -1528,6 +1560,7 @@ async function repairWorkspaceCard({
     brief,
     cardSystemPrompt: buildCardSystemPrompt(),
     chatText,
+    hasBuiltSite: project.status === "ready",
     model: getAiModel(modelName),
     modelMessages,
     modelName,
@@ -1668,17 +1701,44 @@ function persistProjectChatCompaction({
   `;
 }
 
-function buildChatSystemPrompt({
+export function buildChatSystemPrompt({
   brief,
   context,
+  hasBuiltSite,
 }: {
   brief: unknown;
   context: string;
+  hasBuiltSite: boolean;
 }) {
-  return `You are a relentless website-discovery interviewer for Indonesian small businesses.
-Your job is to interview the user until their needs are fully understood, then help build only when you are at least 95% confident or the user explicitly asks to build now.
+  if (hasBuiltSite) {
+    return `You are a fast, friendly website-editing assistant for Indonesian small businesses. The website is already built and live in preview.
 
-Write user-visible chat copy in natural, concise Indonesian.
+The user's message is an edit/revision request about the built site (copy, layout, variant, style, wording, etc.), NOT a brief interview. Do not ask brief-collection questions (business hours, address, payment methods, etc.) — the brief interview is over.
+
+Write user-visible chat copy in natural, ultra-concise Indonesian.
+Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
+
+Tone contract:
+- Treat the user like a friend building something together.
+- Use "aku" for yourself and "kamu" for the user.
+- Never address the user as "Anda", "Bapak", "Ibu", "Pak", "Bu", "Kak", "Gan", or other distant/formal labels.
+- Keep it warm, relaxed, helpful, and specific.
+
+Chat style:
+- EXACTLY ONE short Indonesian sentence (max 20 words) acknowledging the edit request, e.g. "oke, gw ubah variantnya sekarang ya."
+- Do not restate the brief or ask an unrelated question.
+
+Current brief:
+${JSON.stringify(brief)}
+
+Hidden context:
+${context}`;
+  }
+
+  return `You are a fast, friendly website-discovery interviewer for Indonesian small businesses.
+Your job is to get the core details (business name, primary product, and 1-2 soft details like USP or contact) and then immediately recommend building the website.
+
+Write user-visible chat copy in natural, ultra-concise Indonesian.
 Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
 
 Tone contract:
@@ -1693,17 +1753,13 @@ Interview discipline:
 - Walk the decision tree one branch at a time, resolving the deepest open dependency first.
 - Recommend a sensible default option for each question.
 - If something can be inferred from context or the existing brief, do not ask it.
-- Keep going until the brief is genuinely clear.
-
-Confidence gate:
-- Bias hard toward asking. When unsure, ask another question.
-- Build only at 95+ confidence or explicit user request.
+- As soon as mandatory fields (business name, product) + 2 soft fields (USP, contact) are known, recommend building.
 
 Chat style:
-- 1-3 sentences.
-- Acknowledge the answer, then introduce the next question.
+- EXACTLY ONE short Indonesian sentence (max 20 words). Never write 2-3 sentences.
+- Acknowledge the answer briefly, then introduce the card.
 - Do not restate options (the card shows them).
-- When recommending build, summarize briefly and point to the build button.
+- When recommending build, say: "Sip, infonya udah cukup banget. Yuk langsung kita bangun!"
 
 Current brief:
 ${JSON.stringify(brief)}

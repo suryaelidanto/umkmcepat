@@ -4,6 +4,7 @@ import {
   createLocalBuildWorker,
   isStaleBuildAttempt,
 } from "@/lib/projects/build-worker";
+import { type BuildGeneratedProjectResult } from "@/lib/projects/generated-types";
 
 describe("build worker", () => {
   it("returns succeeded with an artifact ref", async () => {
@@ -43,6 +44,41 @@ describe("build worker", () => {
       failureReason: "blocked_package",
       status: "failed",
     });
+  });
+
+  it("rejects a build with concurrency_limit (not stale_worker) when the cap is already hit — this is a distinct, correctly-labeled situation, not a build that stalled", async () => {
+    const release: { current: (() => void) | undefined } = {
+      current: undefined,
+    };
+    const worker = createLocalBuildWorker({
+      buildProject: vi.fn(() => {
+        return new Promise<BuildGeneratedProjectResult>((resolve) => {
+          release.current = () => {
+            resolve({
+              distFiles: [
+                { path: "index.html", content: "ok", contentType: "text/html" },
+              ],
+              log: "ok",
+              ok: true,
+            });
+          };
+        });
+      }),
+      writeArtifact: vi.fn(async () => "project-artifact:local:dist:build_1"),
+    });
+
+    const firstBuild = worker.runBuild({ buildId: "build_1", files: [] });
+    // The concurrency limit defaults to 1 (PROJECT_BUILD_CONCURRENCY), so a
+    // second build started while the first is still running must be rejected.
+    const second = await worker.runBuild({ buildId: "build_2", files: [] });
+
+    expect(second).toMatchObject({
+      failureReason: "concurrency_limit",
+      status: "failed",
+    });
+
+    release.current?.();
+    await firstBuild;
   });
 
   it("detects stale running attempts", () => {

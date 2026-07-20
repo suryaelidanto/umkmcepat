@@ -1,10 +1,13 @@
+import { type UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 
+import { DISCUSS_CARD_SERVER_DEADLINE_MS } from "@/lib/ai-timeouts";
 import { type WorkspaceCard } from "@/lib/projects/brief";
 import {
   getBuildRecommendationHoldSignature,
   getWorkspacePreviewIssue,
   getWorkspaceComposerState,
+  hasAnsweredWorkspaceQuestion,
   isBuildRecommendationConsumed,
   isBuildRecommendationHeld,
   isFreshWorkspaceCard,
@@ -443,5 +446,63 @@ describe("isFreshWorkspaceCard", () => {
   it("exposes bounded poll and timeout constants", () => {
     expect(PREPARING_POLL_INTERVAL_MS).toBeGreaterThan(0);
     expect(PREPARING_TIMEOUT_MS).toBeGreaterThan(PREPARING_POLL_INTERVAL_MS);
+  });
+
+  it("ensures the client-side poll timeout exceeds the server-side worst case AI deadline, preventing false-positive timeouts under slow but successful LLM generation", () => {
+    expect(PREPARING_TIMEOUT_MS).toBeGreaterThan(
+      DISCUSS_CARD_SERVER_DEADLINE_MS,
+    );
+  });
+});
+
+describe("hasAnsweredWorkspaceQuestion", () => {
+  const questionCard: WorkspaceCard = {
+    type: "question",
+    question: {
+      id: "business_hours",
+      question: "Jam berapa biasanya buka?",
+      options: [
+        { label: "Setiap hari", description: "09:00 - 22:00" },
+        { label: "Senin - Jumat", description: "09:00 - 18:00" },
+      ],
+    },
+  };
+
+  function userMessage(text: string): UIMessage {
+    return {
+      id: "msg-1",
+      role: "user",
+      parts: [{ type: "text", text }],
+    };
+  }
+
+  it("returns true once the user answers the exact question shown on the stored card", () => {
+    const messages = [
+      userMessage(
+        "Jam berapa biasanya buka?\nJawaban: Setiap hari (09:00 - 22:00)",
+      ),
+    ];
+
+    expect(
+      hasAnsweredWorkspaceQuestion({
+        card: questionCard,
+        messages,
+        mode: "discuss",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false once the site is built and the stored card is 'none' — the post-build 'waiting for next question' trap can never engage, since there is no question left to answer", () => {
+    const messages = [
+      userMessage("ganti varian warna dong\nJawaban: Dark Espresso"),
+    ];
+
+    expect(
+      hasAnsweredWorkspaceQuestion({
+        card: { type: "none" },
+        messages,
+        mode: "discuss",
+      }),
+    ).toBe(false);
   });
 });

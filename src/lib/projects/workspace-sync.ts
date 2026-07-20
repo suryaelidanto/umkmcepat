@@ -1,5 +1,6 @@
 import { type UIMessage } from "ai";
 
+import { DISCUSS_CARD_SERVER_DEADLINE_MS } from "@/lib/ai-timeouts";
 import { type WorkspaceCard } from "@/lib/projects/brief";
 
 export type WorkspaceChatStatus =
@@ -338,7 +339,12 @@ function getSafePreviewIssueDetail(value: string, fallback: string) {
 }
 
 export const PREPARING_POLL_INTERVAL_MS = 2000;
-export const PREPARING_TIMEOUT_MS = 30_000;
+// Must exceed the server's own worst-case deadline for producing the next
+// card (DISCUSS_CARD_SERVER_DEADLINE_MS — repair attempts included), plus
+// headroom for network latency. Giving up sooner than the server can
+// legitimately still be working shows a false "belum berhasil" error while
+// a real answer is still on its way.
+export const PREPARING_TIMEOUT_MS = DISCUSS_CARD_SERVER_DEADLINE_MS + 15_000;
 
 export function isFreshWorkspaceCard(
   next: WorkspaceCard,
