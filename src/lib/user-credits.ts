@@ -285,6 +285,16 @@ export function isOverProjectLimit(count: number, limit: number): boolean {
   return count > limit;
 }
 
+/**
+ * True once the user is at the configured ceiling (count >= limit), not just
+ * over it. Use this in the UI so the prompt form / banner swap activates
+ * the moment the user has as many projects as the limit allows — matching
+ * the strict gate in assertUnderProjectLimit.
+ */
+export function isAtOrOverProjectLimit(count: number, limit: number): boolean {
+  return count >= limit;
+}
+
 export class ProjectLimitExceededError extends Error {
   readonly code = "project_limit_exceeded" as const;
 

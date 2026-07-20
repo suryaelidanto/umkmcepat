@@ -25,7 +25,7 @@ import {
   checkEnergy,
   getProjectCount,
   getProjectLimit,
-  isOverProjectLimit,
+  isAtOrOverProjectLimit,
   MIN_ENERGY_MODERATION,
   ProjectLimitExceededError,
 } from "@/lib/user-credits";
@@ -97,7 +97,7 @@ export const Route = createFileRoute("/api/projects")({
               : null,
           projectCount,
           projectLimit,
-          overProjectLimit: isOverProjectLimit(projectCount, projectLimit),
+          overProjectLimit: isAtOrOverProjectLimit(projectCount, projectLimit),
         });
       },
       POST: async ({ request }) => {

@@ -751,6 +751,7 @@ async function tryRuleEngineDiscussTurn({
   if (decision.path === "ack") {
     return synthesizePrecomputedStream({
       chatText: decision.reply,
+      incoming,
       project,
       storedMessages,
       userId,
@@ -768,6 +769,7 @@ async function tryRuleEngineDiscussTurn({
     const chatText = await generateWarmPreface(brief, card, latestUserText);
     return synthesizePrecomputedStream({
       chatText,
+      incoming,
       project,
       storedMessages,
       userId,
@@ -858,12 +860,14 @@ function cardToPromptText(card: WorkspaceCard): string {
 
 async function synthesizePrecomputedStream({
   chatText,
+  incoming,
   project,
   storedMessages,
   userId,
   workspaceCard,
 }: {
   chatText: string;
+  incoming: UIMessage[];
   project: { id: string };
   storedMessages: UIMessage[];
   userId: string;
@@ -890,7 +894,7 @@ async function synthesizePrecomputedStream({
   };
 
   const allMessages = stripTransportDiagnosticMessages(
-    dedupeUiMessages([...storedMessages, ...[assistantMessage]]),
+    dedupeUiMessages([...storedMessages, ...incoming, assistantMessage]),
   );
 
   await persistProjectChatTurn({
