@@ -24,7 +24,7 @@ import {
 import {
   getProjectCount,
   getProjectLimit,
-  isOverProjectLimit,
+  isAtOrOverProjectLimit,
 } from "@/lib/user-credits";
 
 const loadHome = createServerFn({ method: "GET" }).handler(async () => {
@@ -62,7 +62,7 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
     ? await getProjectCount(session.user.id)
     : 0;
   const projectLimit = getProjectLimit();
-  const overProjectLimit = isOverProjectLimit(projectCount, projectLimit);
+  const overProjectLimit = isAtOrOverProjectLimit(projectCount, projectLimit);
   // Contributor cards only render for logged-out visitors; fetch server-side so
   // the GitHub token stays on the server and the component can stay synchronous.
   const contributors = session?.user?.id
