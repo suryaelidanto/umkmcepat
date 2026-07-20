@@ -171,6 +171,14 @@ type WorkspaceStateResponse = {
   workspaceCard: WorkspaceCard;
 };
 
+// React.StrictMode intentionally mounts -> unmounts -> remounts each
+// component once in dev, which resets useRef-backed guards and would
+// otherwise fire the auto-send prompt twice for the same project (the first
+// request stays in-flight while a second one starts, tripping the server's
+// discuss lock and leaving the local chat state empty). Module-scope state
+// survives the remount because it isn't tied to a component instance.
+const autoSentProjectIds = new Set<string>();
+
 export function WorkspaceShell({
   projectId,
   initialTitle,
@@ -999,12 +1007,18 @@ export function WorkspaceShell({
   ]);
 
   useEffect(() => {
-    // Guard against double-fire on remount: the ref survives a re-render but
-    // resets on unmount, so a remount mid-turn could re-send the initial prompt.
-    // The `status` check adds a second barrier — if a turn is already in flight
-    // (e.g. the first mount's request is still streaming), don't fire again.
+    // Guard against double-fire from React.StrictMode's dev-only
+    // mount -> cleanup -> remount cycle. Marking `autoSentProjectIds`
+    // synchronously (the previous approach) backfired: the *phantom* first
+    // mount marked the project as sent and got torn down before its request
+    // landed, so the *surviving* second mount saw "already sent" and skipped
+    // sending entirely — no card, no persisted prompt, nothing.
+    // Deferring the actual send to a macrotask fixes this: the phantom
+    // mount's cleanup cancels its pending timer before it fires, so only the
+    // surviving mount's timer ever runs `sendMessage`.
     if (
       hasStartedChat.current ||
+      autoSentProjectIds.has(projectId) ||
       !prompt ||
       initialMessages.length ||
       status === "submitted" ||
@@ -1014,8 +1028,16 @@ export function WorkspaceShell({
     }
 
     hasStartedChat.current = true;
-    sendMessage({ text: prompt }, { body: { mode } });
-  }, [initialMessages.length, mode, prompt, sendMessage, status]);
+    const timer = setTimeout(() => {
+      autoSentProjectIds.add(projectId);
+      sendMessage({ text: prompt }, { body: { mode } });
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      hasStartedChat.current = false;
+    };
+  }, [initialMessages.length, mode, prompt, projectId, sendMessage, status]);
 
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
@@ -2779,12 +2801,7 @@ function filterDiscussionMessagesWithWorkspaceUi(
 
 function ChatMessages({ messages }: { messages: UIMessage[] }) {
   if (!messages.length) {
-    return (
-      <div className="rounded-[22px] border border-surface-warm-white/10 bg-surface-warm-white/6 px-spacing-6 py-spacing-5 text-sm leading-6 text-surface-warm-white/70">
-        AI siap bantu merapikan brief. Tulis jawabanmu, lalu AI akan menentukan
-        pertanyaan berikutnya.
-      </div>
-    );
+    return null;
   }
 
   return (
