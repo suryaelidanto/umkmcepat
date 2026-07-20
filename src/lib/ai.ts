@@ -8,8 +8,7 @@ export function getAiTelemetry(
   functionId: string,
   metadata: Record<string, string | number | boolean | null | undefined> = {},
 ) {
-  // Telemetry inert after Langfuse removal. Re-add a tracer here if
-  // observability is reintroduced.
+  // Telemetry inert. Re-add a tracer here if observability is reintroduced.
   return {
     functionId,
     isEnabled: false,

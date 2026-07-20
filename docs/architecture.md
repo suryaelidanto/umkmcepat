@@ -15,7 +15,7 @@ One legacy shared renderer/preview fallback
 Many generated artifacts and supervised runtime deployments
 ```
 
-UMKM Cepat remains one platform/control-plane app. Generated project runtimes may run out-of-process as isolated deployments, but only through the source snapshot, build, deployment, runtime node, runtime supervisor, and proxy architecture documented in `docs/prds/isolated-project-runtime-prd.md`.
+UMKM Cepat remains one platform/control-plane app. Generated project runtimes may run out-of-process as isolated deployments, but only through the source snapshot, build, deployment, runtime node, runtime supervisor, and proxy architecture documented in `docs/architecture.md`.
 
 Platform Constraints:
 

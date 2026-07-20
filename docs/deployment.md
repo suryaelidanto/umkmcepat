@@ -118,7 +118,7 @@ http://headroom:8787
 
 ## Isolated runtime deployment
 
-The active architecture direction is an isolated generated project runtime, documented in `docs/prds/isolated-project-runtime-prd.md` and `docs/architecture.md`.
+The active architecture direction is an isolated generated project runtime, documented in `docs/architecture.md`.
 
 Current local/single-node behavior:
 
