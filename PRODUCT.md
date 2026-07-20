@@ -18,7 +18,7 @@ UMKM Cepat is an AI builder platform for Indonesian UMKM websites and full-stack
 
 The platform is one control-plane app that guides the user, stores project metadata, generates standalone source artifacts, builds previews, and supports review/edit/publish flows without locking generated source to UMKM Cepat internals.
 
-The platform is fully free for users and subsidized by the owner. Access is managed via a pilot whitelist with admin approval (initially capped at ~10 active UMKM businesses). Quota refills are enabled via an Energy Booster modal (1-column layout) integrated into the navbar profile dropdown.
+The platform is 100% free for users and subsidized by the owner — every feature is usable without paying. Access is managed via a pilot whitelist with admin approval (initially capped at ~10 active UMKM businesses). Users can optionally buy an Energy Booster (paid, non-expiring extra energy) via a modal in the navbar profile dropdown when the free daily quota runs out; paying never gates features, so the core stays free.
 
 ## Brand Personality
 
