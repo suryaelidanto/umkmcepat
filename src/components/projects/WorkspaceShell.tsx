@@ -222,18 +222,6 @@ export function WorkspaceShell({
   const [latestBrief, setLatestBrief] = useState<ProjectBrief | null>(
     initialBrief ?? null,
   );
-  // ponytail: stepper for multi-question cards. Track which sub-question is
-  // active and buffer answers until the last step, then submit all at once.
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [pendingStepAnswers, setPendingStepAnswers] = useState<
-    WorkspaceAnswerPayload[]
-  >([]);
-
-  // ponytail: reset stepper whenever a new workspace card arrives.
-  useEffect(() => {
-    setCurrentQuestionIndex(0);
-    setPendingStepAnswers([]);
-  }, [workspaceCard]);
   const [
     heldBuildRecommendationSignature,
     setHeldBuildRecommendationSignature,
@@ -1081,9 +1069,7 @@ export function WorkspaceShell({
   const activeQuestionKey =
     workspaceCard.type === "question"
       ? workspaceCard.question.id
-      : workspaceCard.type === "questions"
-        ? workspaceCard.questions.map((q) => q.id).join("|")
-        : workspaceCard.type;
+      : workspaceCard.type;
   const previewIssue = getWorkspacePreviewIssue({
     buildStatus,
     deploymentStatus: runtimeState?.deployment?.status,
@@ -1914,6 +1900,27 @@ export function WorkspaceShell({
     }
 
     setIsRetrying(true);
+    clearError();
+
+    // When a prior user turn exists, re-stream it via the normal chat path so
+    // a real chat bubble + card appears (visible feedback). Only fall back to
+    // the one-shot repair_card fetch when there is no user message to replay
+    // (e.g. initial-prepare failure before the user ever typed).
+    const hasUserTurn = messages.some((message) => message.role === "user");
+    if (hasUserTurn) {
+      setWorkspaceCardError(false);
+      setIsPreparingNextQuestion(true);
+      try {
+        await regenerate();
+      } catch {
+        setWorkspaceCardError(true);
+        setIsPreparingNextQuestion(false);
+      } finally {
+        setIsRetrying(false);
+      }
+      return;
+    }
+
     try {
       const response = await fetch("/api/projects/preview", {
         method: "POST",
@@ -1939,7 +1946,15 @@ export function WorkspaceShell({
     } finally {
       setIsRetrying(false);
     }
-  }, [isRetrying, projectId, reloadLatestChat, status]);
+  }, [
+    clearError,
+    isRetrying,
+    messages,
+    projectId,
+    regenerate,
+    reloadLatestChat,
+    status,
+  ]);
 
   useEffect(() => {
     if (error) {
@@ -2248,184 +2263,116 @@ export function WorkspaceShell({
               ) : isPreparingNextQuestion ||
                 workspaceCardError ? null : !hasAnsweredActiveQuestion &&
                 composerState === "question" &&
-                (workspaceCard.type === "question" ||
-                  workspaceCard.type === "questions") ? (
-                workspaceCard.type === "questions" ? (
-                  (() => {
-                    // ponytail: stepper — show one question at a time, with
-                    // required validation + skip for non-required.
-                    const questions = workspaceCard.questions;
-                    const idx = Math.min(
-                      currentQuestionIndex,
-                      questions.length - 1,
-                    );
-                    const isLastStep = idx === questions.length - 1;
-                    const currentQ = questions[idx];
-                    const isRequired = currentQ.required === true;
-                    const advance = (answer: WorkspaceAnswerPayload) => {
-                      const next = [...pendingStepAnswers, answer];
-                      // ponytail: always send each step's answer as a chat message
-                      // (matching the single-question UX where the user sees their
-                      // own "<question>\nJawaban: <answer>" bubble). Skip on
-                      // non-final steps where we just advance the index.
-                      if (isLastStep) {
-                        setPendingStepAnswers(next);
-                        const summary = next
-                          .map(
-                            (payload) =>
-                              `${payload.question}\nJawaban: ${payload.answer || "(lewati)"}`,
-                          )
-                          .join("\n\n");
-                        submitChatText(summary, { workspaceAnswers: next });
-                      } else {
-                        setPendingStepAnswers(next);
-                        setCurrentQuestionIndex(idx + 1);
-                      }
-                    };
-                    const skipCurrent = () => {
-                      const skipPayload: WorkspaceAnswerPayload = {
-                        answer: "",
-                        question: currentQ.question,
-                        questionId: currentQ.id,
-                        source: "custom",
-                      };
-                      advance(skipPayload);
-                    };
-                    return (
+                workspaceCard.type === "question" ? (
+                <AnimatePresence mode="wait" initial={false}>
+                  {questionComposerMode === "options" ? (
+                    <motion.div
+                      key="question-options"
+                      initial={{
+                        opacity: 0,
+                        y: 12,
+                        scale: 0.985,
+                        filter: "blur(6px)",
+                      }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                        filter: "blur(0px)",
+                      }}
+                      exit={{
+                        opacity: 0,
+                        y: -10,
+                        scale: 0.985,
+                        filter: "blur(6px)",
+                      }}
+                      transition={{
+                        duration: 0.22,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                    >
                       <QuestionComposer
-                        key={currentQ.id}
-                        question={currentQ}
-                        stepMeta={{
-                          current: idx + 1,
-                          total: questions.length,
-                          required: isRequired,
-                          savedCount: pendingStepAnswers.length,
-                        }}
-                        onSubmit={(_answer, workspaceAnswers) => {
-                          const first = workspaceAnswers?.[0];
-                          if (!first) {
-                            return;
-                          }
-                          if (isRequired && !first.answer.trim()) {
-                            return;
-                          }
-                          advance(first);
-                        }}
-                        onSkip={!isRequired ? skipCurrent : undefined}
+                        question={workspaceCard.question}
+                        onClose={() => setQuestionComposerMode("free")}
+                        onSubmit={(answer, workspaceAnswers) =>
+                          submitChatText(answer, { workspaceAnswers })
+                        }
                       />
-                    );
-                  })()
-                ) : (
-                  <AnimatePresence mode="wait" initial={false}>
-                    {questionComposerMode === "options" ? (
-                      <motion.div
-                        key="question-options"
-                        initial={{
-                          opacity: 0,
-                          y: 12,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                          scale: 1,
-                          filter: "blur(0px)",
-                        }}
-                        exit={{
-                          opacity: 0,
-                          y: -10,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        transition={{
-                          duration: 0.22,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                      >
-                        <QuestionComposer
-                          question={workspaceCard.question}
-                          onClose={() => setQuestionComposerMode("free")}
-                          onSubmit={(answer, workspaceAnswers) =>
-                            submitChatText(answer, { workspaceAnswers })
-                          }
-                        />
-                      </motion.div>
-                    ) : (
-                      <motion.form
-                        key="question-free"
-                        initial={{
-                          opacity: 0,
-                          y: 12,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                          scale: 1,
-                          filter: "blur(0px)",
-                        }}
-                        exit={{
-                          opacity: 0,
-                          y: -10,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        transition={{
-                          duration: 0.22,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                        onSubmit={handleMessageSubmit}
-                        className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
-                      >
-                        <div className="mb-spacing-2 flex items-center justify-between gap-spacing-3 px-spacing-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setQuestionComposerMode("options");
-                              setMessage("");
-                            }}
-                            className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-                          >
-                            Lihat pilihan
-                          </button>
-                        </div>
-                        <label htmlFor="workspace-message" className="sr-only">
-                          Pesan untuk AI
-                        </label>
-                        <textarea
-                          id="workspace-message"
-                          rows={3}
-                          value={message}
-                          onChange={(event) => setMessage(event.target.value)}
-                          onKeyDown={handleMessageKeyDown}
-                          placeholder={
-                            sessionExpired
-                              ? "Sesi habis, login ulang..."
-                              : "Tulis bebas..."
-                          }
-                          disabled={
-                            sessionExpired || authStatus !== "authenticated"
-                          }
-                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                        />
-                        <div className="flex items-center justify-between gap-spacing-4">
-                          <ModePill mode="Diskusi" tone="idle" />
-                          <Button
-                            type="submit"
-                            size="icon"
-                            disabled={!message.trim()}
-                            className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                            aria-label="Kirim pesan"
-                          >
-                            <ArrowUp className="size-4" />
-                          </Button>
-                        </div>
-                      </motion.form>
-                    )}
-                  </AnimatePresence>
-                )
+                    </motion.div>
+                  ) : (
+                    <motion.form
+                      key="question-free"
+                      initial={{
+                        opacity: 0,
+                        y: 12,
+                        scale: 0.985,
+                        filter: "blur(6px)",
+                      }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                        filter: "blur(0px)",
+                      }}
+                      exit={{
+                        opacity: 0,
+                        y: -10,
+                        scale: 0.985,
+                        filter: "blur(6px)",
+                      }}
+                      transition={{
+                        duration: 0.22,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      onSubmit={handleMessageSubmit}
+                      className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                    >
+                      <div className="mb-spacing-2 flex items-center justify-between gap-spacing-3 px-spacing-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuestionComposerMode("options");
+                            setMessage("");
+                          }}
+                          className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                        >
+                          Lihat pilihan
+                        </button>
+                      </div>
+                      <label htmlFor="workspace-message" className="sr-only">
+                        Pesan untuk AI
+                      </label>
+                      <textarea
+                        id="workspace-message"
+                        rows={3}
+                        value={message}
+                        onChange={(event) => setMessage(event.target.value)}
+                        onKeyDown={handleMessageKeyDown}
+                        placeholder={
+                          sessionExpired
+                            ? "Sesi habis, login ulang..."
+                            : "Tulis bebas..."
+                        }
+                        disabled={
+                          sessionExpired || authStatus !== "authenticated"
+                        }
+                        className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                      />
+                      <div className="flex items-center justify-between gap-spacing-4">
+                        <ModePill mode="Diskusi" tone="idle" />
+                        <Button
+                          type="submit"
+                          size="icon"
+                          disabled={!message.trim()}
+                          className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                          aria-label="Kirim pesan"
+                        >
+                          <ArrowUp className="size-4" />
+                        </Button>
+                      </div>
+                    </motion.form>
+                  )}
+                </AnimatePresence>
               ) : composerState === "build_recommendation" ? (
                 <WorkspaceCardView
                   canBuild={canStartBuildNow}

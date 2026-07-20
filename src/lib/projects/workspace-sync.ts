@@ -108,7 +108,7 @@ export function getWorkspaceComposerState({
         return "build_recommendation";
       }
 
-      if (card.type === "question" || card.type === "questions") {
+      if (card.type === "question") {
         return "question";
       }
 
@@ -126,7 +126,7 @@ export function getWorkspaceComposerState({
     return "build_recommendation";
   }
 
-  if (card.type === "question" || card.type === "questions") {
+  if (card.type === "question") {
     return "question";
   }
 
@@ -142,10 +142,7 @@ export function hasAnsweredWorkspaceQuestion({
   messages: UIMessage[];
   mode: string;
 }) {
-  if (
-    mode !== "discuss" ||
-    (card.type !== "question" && card.type !== "questions")
-  ) {
+  if (mode !== "discuss" || card.type !== "question") {
     return false;
   }
 
@@ -161,10 +158,7 @@ export function hasAnsweredWorkspaceQuestion({
   const latestUserText = getUiMessageText(messages[latestUserIndex]);
   const answeredQuestion = latestUserText.split(/\nJawaban:/i)[0]?.trim();
 
-  const cardQuestions =
-    card.type === "questions"
-      ? card.questions.map((q) => q.question.trim())
-      : [card.question.question.trim()];
+  const cardQuestions = [card.question.question.trim()];
 
   if (!answeredQuestion || !cardQuestions.includes(answeredQuestion)) {
     return false;
@@ -360,18 +354,6 @@ export function isFreshWorkspaceCard(
 
   if (next.type === "question" && previous.type === "question") {
     return next.question.id !== previous.question.id;
-  }
-
-  if (next.type === "questions" && previous.type === "questions") {
-    const nextIds = next.questions
-      .map((q) => q.id)
-      .sort()
-      .join("|");
-    const prevIds = previous.questions
-      .map((q) => q.id)
-      .sort()
-      .join("|");
-    return nextIds !== prevIds;
   }
 
   if (

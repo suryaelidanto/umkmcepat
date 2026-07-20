@@ -77,13 +77,12 @@ export type BriefQuestion = {
   options: Array<{ label: string; description: string }>;
 };
 
-// One decision per turn OR a round of up to 3 independent questions. The card
-// never batches dependent questions: if Q2 depends on Q1's answer, the AI asks
-// Q1 alone this turn and Q2 next turn. Server validates per-question.
+// One question per turn. The AI asks a single question, the user answers, the
+// next turn asks the next question. Legacy `type: "questions"` payloads stored
+// in the DB are collapsed to their first question by the normalizer.
 export type WorkspaceCard =
   | { type: "none" }
   | { type: "question"; question: BriefQuestion }
-  | { type: "questions"; questions: BriefQuestion[] }
   | { type: "build_recommendation"; title: string; summary: string[] };
 
 export type ProjectBriefPatch = Partial<

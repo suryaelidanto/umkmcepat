@@ -1062,8 +1062,6 @@ export function QuestionComposer({
   question,
   onClose,
   onSubmit,
-  onSkip,
-  stepMeta,
 }: {
   question: BriefQuestion;
   onClose?: () => void;
@@ -1071,13 +1069,6 @@ export function QuestionComposer({
     answer: string,
     workspaceAnswers?: WorkspaceAnswerPayload[],
   ) => void;
-  onSkip?: () => void;
-  stepMeta?: {
-    current: number;
-    total: number;
-    required: boolean;
-    savedCount: number;
-  };
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [source, setSource] = useState<"custom" | "option">("option");
@@ -1337,45 +1328,10 @@ export function QuestionComposer({
           >
             Tulis bebas
           </button>
-        ) : stepMeta ? (
-          <div className="flex items-center gap-spacing-2 text-xs text-surface-warm-white/55">
-            <span aria-hidden="true" className="flex items-center gap-1">
-              {Array.from({ length: stepMeta.total }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`h-1.5 w-1.5 rounded-full transition ${
-                    i < stepMeta.current
-                      ? "bg-surface-warm-white/70"
-                      : i === stepMeta.current - 1
-                        ? "bg-surface-warm-white"
-                        : "bg-surface-warm-white/18"
-                  }`}
-                />
-              ))}
-            </span>
-            <span>
-              {stepMeta.current} dari {stepMeta.total}
-              {stepMeta.savedCount > 0
-                ? ` · ${stepMeta.savedCount} tersimpan`
-                : stepMeta.required
-                  ? " · wajib"
-                  : " · opsional"}
-            </span>
-          </div>
         ) : (
           <span />
         )}
         <div className="flex items-center gap-spacing-2">
-          {onSkip ? (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onSkip}
-              className="rounded-full px-spacing-4 text-surface-warm-white/72 hover:bg-surface-warm-white/8"
-            >
-              Lewati
-            </Button>
-          ) : null}
           <Button
             type="button"
             disabled={!canSubmit}

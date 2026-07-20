@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
@@ -14,7 +12,6 @@ import {
 import { z } from "zod";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
-import { getGenerationModel } from "@/lib/ai-models";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
@@ -31,16 +28,10 @@ import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import {
   mergeProjectBriefPatch,
   parseProjectBrief,
-  type ProjectBrief,
-  type WorkspaceCard,
 } from "@/lib/projects/brief";
-import { REQUIRED_BRIEF_FIELD_IDS } from "@/lib/projects/brief-flow";
 import {
-  buildFallbackWorkspaceCardFromBrief,
-  decideRuleEngineDiscussPath,
   normalizeWorkspaceTurn,
   parseWorkspaceCard,
-  prefaceTemplateForCard,
 } from "@/lib/projects/brief-flow";
 import { validateBrief } from "@/lib/projects/brief-rich-fields";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
@@ -69,8 +60,10 @@ import {
 // project. Prevents a client double-fire (e.g. remount, retry) from running
 // two LLM turns in parallel — which wastes energy and makes the workspace card
 // flicker between two non-deterministic answers. Released in onFinish of the
-// discuss stream (or immediately for the synchronous rule-engine path).
-const DISCUSS_LOCK_TTL_MS = 5 * 60 * 1000;
+// discuss stream (or immediately for the synchronous path). Headroom above
+// the worst case (stream timeout + one repair deadline) so an auto-retry
+// never pushes the lock past TTL and re-admits a concurrent turn.
+const DISCUSS_LOCK_TTL_MS = 7.5 * 60 * 1000;
 const discussInFlight = new Set<string>();
 const discussLockTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -381,22 +374,6 @@ async function handlePreviewPost(request: Request) {
     workspaceAnswerPatch,
   );
 
-  // ponytail: rule engine precompute has no LLM to set confidence, so derive
-  // it from filled required fields. Keeps brief_confidence_too_low 409 from
-  // firing when the user has actually filled all 4 mandatory fields via
-  // workspaceAnswers.
-  if (process.env.DISCUSS_RULE_ENGINE !== "off") {
-    const filledRequired = Array.from(REQUIRED_BRIEF_FIELD_IDS).filter(
-      (id: string) => Boolean((effectiveBrief as Record<string, unknown>)[id]),
-    ).length;
-    if (
-      filledRequired === REQUIRED_BRIEF_FIELD_IDS.size &&
-      (effectiveBrief.confidence ?? 0) < 95
-    ) {
-      effectiveBrief.confidence = 95;
-    }
-  }
-
   if (body.mode === "repair_card") {
     return repairWorkspaceCard({
       brief: effectiveBrief,
@@ -423,24 +400,7 @@ async function handlePreviewPost(request: Request) {
     });
   }
 
-  // ponytail: precompute rule-engine branch (worth-to-try-lah).
-  // Skips the LLM entirely for low-confidence early turns or pure acks.
-  // Disable via env DISCUSS_RULE_ENGINE=off. See plan: worth-to-try-lah-linked-floyd.md
   try {
-    if (process.env.DISCUSS_RULE_ENGINE !== "off") {
-      const precomputed = await tryRuleEngineDiscussTurn({
-        brief: effectiveBrief,
-        incoming,
-        latestUserText,
-        project,
-        storedMessages,
-        userId,
-      });
-      if (precomputed) {
-        return precomputed;
-      }
-    }
-
     await persistProjectBrief({
       brief: effectiveBrief,
       projectId: project.id,
@@ -715,234 +675,6 @@ async function handleDiscussTurn({
   });
 }
 
-// ponytail: rule-engine precompute for discuss turns. Returns a Response when
-// the deterministic path can serve the turn (0 LLM calls); null to fall through.
-async function tryRuleEngineDiscussTurn({
-  brief,
-  incoming,
-  latestUserText,
-  project,
-  storedMessages,
-  userId,
-}: {
-  brief: ProjectBrief;
-  incoming: UIMessage[];
-  latestUserText: string;
-  project: { id: string };
-  storedMessages: UIMessage[];
-  userId: string;
-}): Promise<Response | null> {
-  if (incoming[0]?.role !== "user") {
-    return null;
-  }
-
-  const existingUserTurns = storedMessages.filter(
-    (m) => m.role === "user",
-  ).length;
-
-  const decision = decideRuleEngineDiscussPath({
-    brief,
-    confidence: brief.confidence ?? 0,
-    existingUserTurns,
-    incomingLength: incoming.length,
-    text: latestUserText,
-  });
-
-  if (decision.path === "ack") {
-    return synthesizePrecomputedStream({
-      chatText: decision.reply,
-      incoming,
-      project,
-      storedMessages,
-      userId,
-      workspaceCard: { type: "none" },
-    });
-  }
-
-  if (decision.path === "rule-engine") {
-    const card = buildFallbackWorkspaceCardFromBrief(brief);
-    if (card.type === "none") {
-      return null;
-    }
-    // Resolve AI warm preface before opening the SSE stream so the client
-    // sees a single text part instead of an empty chunk followed by a fill.
-    const chatText = await generateWarmPreface(brief, card, latestUserText);
-    return synthesizePrecomputedStream({
-      chatText,
-      incoming,
-      project,
-      storedMessages,
-      userId,
-      workspaceCard: card,
-    });
-  }
-
-  return null;
-}
-
-// ponytail: AI warm preface for rule-engine path. 1 short generateText call
-// to produce 1-2 sentences of warm Indonesian lead-in. Falls back to template
-// on any error so the user never sees a stuck card.
-async function generateWarmPreface(
-  brief: ProjectBrief,
-  card: WorkspaceCard,
-  userText: string,
-): Promise<string> {
-  const cardText = cardToPromptText(card);
-  if (!cardText) {
-    return prefaceTemplateForCard(card);
-  }
-  const system =
-    "You are a friendly assistant for an Indonesian small-business website builder. " +
-    "Given the user's last message and the next question the system will ask, " +
-    "write 1-2 short casual sentences in Indonesian (use 'aku' and 'kamu', no filler like 'Sure!'). " +
-    "Do NOT include the question itself — just a brief warm lead-in. " +
-    "Do NOT repeat the user's words. Keep it under 80 characters total.";
-  const prompt =
-    `User just said: "${userText.slice(0, 200)}"\n\n` +
-    `System will next ask: ${cardText}\n\n` +
-    `Brief so far: businessName=${brief.businessName || "?"}, ` +
-    `businessType=${brief.businessType || "?"}, ` +
-    `offer=${brief.offer || "?"}.\n\n` +
-    `Write the lead-in now.`;
-  try {
-    const abortController = new AbortController();
-    const timeout = setTimeout(
-      () => abortController.abort(),
-      Math.max(3000, Math.floor(getAiTimeoutMs("discussOneCall") / 4)),
-    );
-    let result;
-    try {
-      result = await generateText({
-        abortSignal: abortController.signal,
-        maxOutputTokens: 80,
-        model: getAiModel(getGenerationModel()),
-        prompt,
-        system,
-        temperature: 0.7,
-        telemetry: getAiTelemetry("project-rule-engine-preface", {
-          cardType: card.type,
-          projectId: undefined,
-          route: "api.projects.preview",
-        }),
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-    const text = result.text.trim();
-    if (!text) {
-      return prefaceTemplateForCard(card);
-    }
-    // ponytail: truncate to first 2 sentences if model overruns
-    const sentences = text.split(/(?<=[.!?])\s+/);
-    return sentences.slice(0, 2).join(" ").slice(0, 200);
-  } catch (error) {
-    console.error(
-      "[preview-chat] warm preface error",
-      getSafeAiErrorLog(error),
-    );
-    return prefaceTemplateForCard(card);
-  }
-}
-
-function cardToPromptText(card: WorkspaceCard): string {
-  if (card.type === "question") {
-    return card.question.question;
-  }
-  if (card.type === "questions") {
-    return card.questions.map((q) => q.question).join("; ");
-  }
-  if (card.type === "build_recommendation") {
-    return "the build recommendation card";
-  }
-  return "";
-}
-
-async function synthesizePrecomputedStream({
-  chatText,
-  incoming,
-  project,
-  storedMessages,
-  userId,
-  workspaceCard,
-}: {
-  chatText: string;
-  incoming: UIMessage[];
-  project: { id: string };
-  storedMessages: UIMessage[];
-  userId: string;
-  workspaceCard: WorkspaceCard;
-}): Promise<Response> {
-  const messageId = `discuss-${randomUUID()}`;
-  const toolCallId = `call-${randomUUID()}`;
-  const textId = "discuss-text";
-
-  const assistantMessage: UIMessage = {
-    id: messageId,
-    role: "assistant",
-    parts: [
-      { type: "step-start" },
-      { type: "text", text: chatText, state: "done" },
-      {
-        type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-        toolCallId,
-        state: "output-available",
-        input: { workspaceCard },
-        output: { workspaceCard },
-      } as UIMessage["parts"][number],
-    ],
-  };
-
-  const allMessages = stripTransportDiagnosticMessages(
-    dedupeUiMessages([...storedMessages, ...incoming, assistantMessage]),
-  );
-
-  await persistProjectChatTurn({
-    messages: allMessages,
-    projectId: project.id,
-    userId,
-    workspaceCard,
-  });
-
-  await writeAiRequestLog({
-    briefConfidence: undefined,
-    didWorkspaceToolUpdate: true,
-    event: "discuss:finish",
-    model: "rule-engine",
-    mode: "precompute",
-    path: workspaceCard.type === "none" ? "ack" : "rule-engine",
-    primaryToolFailed: false,
-    projectId: project.id,
-    workspaceCard,
-  });
-
-  const stream = createUIMessageStream({
-    execute: async ({ writer }) => {
-      writer.write({ type: "start", messageId });
-      writer.write({ type: "text-start", id: textId });
-      writer.write({ type: "text-delta", delta: chatText, id: textId });
-      writer.write({ type: "text-end", id: textId });
-      writer.write({
-        type: "tool-input-available",
-        toolCallId,
-        input: { workspaceCard },
-        toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-      });
-      writer.write({
-        type: "tool-output-available",
-        toolCallId,
-        output: { workspaceCard },
-      });
-      writer.write({ type: "finish" });
-    },
-    onError: (error) =>
-      `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
-    onFinish: () => releaseDiscussLock(project.id),
-  });
-
-  return createUIMessageStreamResponse({ stream });
-}
-
 const PRESENT_WORKSPACE_CARD_TOOL_NAME = "presentWorkspaceCard";
 
 const presentWorkspaceCardTool = tool({
@@ -1110,19 +842,18 @@ CRITICAL OUTPUT ORDER:
 1) Write 1-3 short Indonesian chat sentences first (aku/kamu only).
 2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with the next workspace card.
 
-INTERVIEW DISCIPLINE — rounds questions:
-- Emit 1-3 questions per turn. Mixed modes (choice/text, single/multiple) OK in one batch.
-- INDEPENDENCE GATE: batch ONLY questions whose answer does not change another question's framing, options, or whether it needs asking. If Q2 depends on Q1's answer, ask Q1 alone this turn; ask Q2 next turn.
-- Cap 3 per batch. Server enforces (dedupes id, slices surplus).
-- EACH question sets recommendedOptionLabel (your default) — user can accept in one click.
+INTERVIEW DISCIPLINE — one question per turn:
+- Emit EXACTLY ONE question per turn via type="question". Never use type="questions".
+- Pick the single most crucial question to move the build forward. Ask the next question next turn after the user answers.
+- The question sets recommendedOptionLabel (your default) — user can accept in one click.
 - Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
-- When all applicable fields are filled/declined AND confidence is 95+: emit build_recommendation instead of questions.
+- When all applicable fields are filled/declined AND confidence is 95+: emit build_recommendation instead of a question.
 
 Never put JSON in chat text. Never call the tool before chat text.
-For questions: type="questions" with questions[] (independent batch), or type="question" for a single question. question.id must be a short slug like business_name or services.
+Use type="question" with a single question (question.id is a short slug like business_name or services).
 Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is genuinely 95%+ and no open questions remain. Below that, keep asking a question. Never use any other card type.
 
-Be relentless — extract every field, batching independent questions aggressively to reach 95% fast. Slightly annoying upfront is fine; the 95% gate still protects the build. Ask only the applicable soft fields for the UMKM type, but do not skip them.`;
+Be relentless — extract every field, one question per turn. Ask only the applicable soft fields for the UMKM type, but do not skip them.`;
 }
 
 async function handleDiscussTurnOneCall({
@@ -1257,6 +988,101 @@ async function handleDiscussTurnOneCall({
 
         const chatText = fullText.trim();
         if (hadError || !chatText) {
+          // ponytail: pure-AI path. When the stream errored or returned no
+          // text, retry once via repairDiscussCardWithTool (it internally
+          // retries up to DISCUSS_CARD_SEMANTIC_ATTEMPTS times). Accumulate
+          // its usage; charge once at the end. No deterministic fallback —
+          // if repair also fails, surface a clean error so the user can
+          // retry manually.
+          const repaired = await repairDiscussCardWithTool({
+            brief: effectiveBrief,
+            cardSystemPrompt,
+            chatText: chatText || "(AI belum menjawab)",
+            model,
+            modelMessages,
+            modelName,
+            projectId: project.id,
+            userId,
+          });
+          totalInputTokens += repaired?.usage.inputTokens ?? 0;
+          totalOutputTokens += repaired?.usage.outputTokens ?? 0;
+
+          if (repaired) {
+            const repairedCard = repaired.workspaceCard;
+            const repairedToolCallId = streamToolCallId || toolCallId;
+            writer.write({
+              type: "tool-input-available",
+              toolCallId: repairedToolCallId,
+              toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+              input: {},
+            });
+            writer.write({
+              type: "tool-output-available",
+              toolCallId: repairedToolCallId,
+              output: {
+                workspaceCard: repairedCard,
+                projectTitle: repaired.projectTitle || project.title,
+                repairsUsed: repaired.repairsUsed,
+              },
+            });
+            const repairedAssistantMessage: UIMessage = {
+              id: messageId,
+              role: "assistant",
+              parts: [
+                {
+                  type: "text",
+                  text: "Oke, biar aku tanya dulu.",
+                  state: "done",
+                },
+                {
+                  type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
+                  toolCallId: repairedToolCallId,
+                  state: "output-available",
+                  input: {},
+                  output: {
+                    workspaceCard: repairedCard,
+                    projectTitle: repaired.projectTitle || project.title,
+                  },
+                } as UIMessage["parts"][number],
+              ],
+            };
+            const safeMessages = stripTransportDiagnosticMessages(
+              dedupeUiMessages([...messages, repairedAssistantMessage]),
+            );
+            await writeAiRequestLog({
+              event: "discuss:finish",
+              model: modelName,
+              mode: "one_call_tools",
+              projectId: project.id,
+              didWorkspaceToolUpdate: true,
+              primaryToolFailed: true,
+              repairsUsed: repaired.repairsUsed,
+              workspaceCard: repairedCard,
+            });
+            await persistProjectChatTurn({
+              brief: scrubBriefForStorage(
+                repaired.brief,
+                repaired.readyForBuild,
+                project.id,
+              ),
+              messages: safeMessages,
+              projectId: project.id,
+              title: repaired.projectTitle || project.title,
+              userId,
+              workspaceCard: repairedCard,
+            });
+            await chargeEnergyForAiUsage({
+              userId,
+              modelId: discussModelId,
+              inputTokens: totalInputTokens,
+              outputTokens: totalOutputTokens,
+              reason: "discuss_turn",
+            });
+            writer.write({ type: "finish" });
+            return;
+          }
+
+          // All repair attempts failed. Charge once, surface a clean error.
           await chargeEnergyForAiUsage({
             userId,
             modelId: discussModelId,
@@ -1266,9 +1092,7 @@ async function handleDiscussTurnOneCall({
           });
           writer.write({
             type: "error",
-            errorText: hadError
-              ? "Jawaban AI terputus. Coba lagi."
-              : "AI belum memberi jawaban. Coba lagi.",
+            errorText: "AI lagi gangguan. Coba lagi sebentar.",
           });
           return;
         }
@@ -1299,19 +1123,6 @@ async function handleDiscussTurnOneCall({
             repairsUsed = repaired.repairsUsed;
             totalInputTokens += repaired.usage.inputTokens;
             totalOutputTokens += repaired.usage.outputTokens;
-          }
-        }
-
-        if (workspaceTurn.workspaceCard.type === "none") {
-          const fallbackCard = buildFallbackWorkspaceCardFromBrief(
-            workspaceTurn.brief,
-          );
-          if (fallbackCard.type !== "none") {
-            workspaceTurn = {
-              ...workspaceTurn,
-              workspaceCard: fallbackCard,
-            };
-            primaryToolFailed = true; // still log as AI-failed, fallback covered
           }
         }
 
@@ -1472,7 +1283,7 @@ async function repairDiscussCardWithTool({
 
 REPAIR attempt ${semanticAttempt + 1}: previous card was invalid or missing.
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with a valid workspace card.
-Emit type="questions" with 1-3 independent questions[], or type="question" with a single question, or type="build_recommendation" only at 95%+ confidence.
+Emit type="question" with a single question (never type="questions"), or type="build_recommendation" only at 95%+ confidence.
 Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
           messages: [
             ...modelMessages,
