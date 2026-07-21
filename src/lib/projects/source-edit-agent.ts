@@ -176,6 +176,7 @@ Rules:
   * src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }"
   * Do NOT create new route files under src/routes/ (like tentang.tsx, kontak.tsx, or product detail pages).
   * If you need multiple pages/views, implement them as React state-based tab/view switching (e.g. const [activePage, setActivePage] = useState("home")) directly inside src/routes/index.tsx.
-  * Do NOT edit or overwrite src/router.tsx or src/routes/__root.tsx. Keep routing simple, standard, and encapsulated inside HomeRouteComponent.
+  * Do NOT edit or overwrite src/main.tsx, src/router.tsx, or src/routes/__root.tsx. Keep routing simple, standard, and encapsulated inside HomeRouteComponent.
   * Import usePreviewReady from "../lib/preview-ready" (NOT from hooks).
+  * Import the business data using: import { site } from "../content/site" (strictly named import, do NOT import it as default).
 - Always run check_app after source changes.`;
