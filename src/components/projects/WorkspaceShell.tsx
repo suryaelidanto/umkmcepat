@@ -49,11 +49,7 @@ import {
 } from "@/components/ui/resizable";
 import { signOut, useSession } from "@/lib/auth-client";
 import { clientOnly } from "@/lib/client-only";
-import {
-  isBriefReadyForBuild,
-  type ProjectBrief,
-  type WorkspaceCard,
-} from "@/lib/projects/brief";
+import { type ProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { buildHandoffLine } from "@/lib/projects/build-handoff";
 import {
   appendBuildProgressStep,
@@ -3511,5 +3507,5 @@ export function canStartBuild(brief: ProjectBrief | null | undefined): boolean {
   if (!brief) {
     return false;
   }
-  return isBriefReadyForBuild(brief);
+  return true;
 }

@@ -10,12 +10,7 @@ import { auth } from "@/lib/auth";
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
-import {
-  BRIEF_CONFIDENCE_THRESHOLD,
-  briefToBuildPrompt,
-  isBriefReady,
-  parseProjectBrief,
-} from "@/lib/projects/brief";
+import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
 import {
   generateCustomProjectFilesWithAgent,
   repairGeneratedProjectFiles,
@@ -24,6 +19,7 @@ import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
 } from "@/lib/projects/generated-source";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
   buildImplementationSpecPrompt,
   implementationSpecFromBrief,
@@ -31,6 +27,7 @@ import {
   implementationSpecToSiteSchema,
   parseImplementationSpec,
 } from "@/lib/projects/implementation-spec";
+import { createProgressiveSaver } from "@/lib/projects/progressive-save";
 import {
   claimProjectOperation,
   finalizeProjectOperation,
@@ -100,6 +97,11 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
   const userId = session.user.id;
 
+  const abortController = new AbortController();
+  request.signal?.addEventListener?.("abort", () => {
+    abortController.abort();
+  });
+
   const verified = await isUserVerified(userId);
   if (!verified) {
     return Response.json(
@@ -157,23 +159,6 @@ async function handleGeneratePost(request: Request, routeId: string) {
     return Response.json(
       { message: "Proyek tidak ditemukan." },
       { status: 404 },
-    );
-  }
-
-  const [briefGateRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
-    SELECT "brief" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
-  `;
-  const gateBrief = parseProjectBrief(briefGateRow?.brief, project.prompt);
-
-  if (!isBriefReady(gateBrief)) {
-    return Response.json(
-      {
-        code: "brief_confidence_too_low",
-        confidence: gateBrief.confidence,
-        message: `AI belum yakin ${BRIEF_CONFIDENCE_THRESHOLD}% bahwa kebutuhanmu sudah jelas. Lanjut diskusi dulu.`,
-        openQuestions: gateBrief.openQuestions,
-      },
-      { status: 409 },
     );
   }
 
@@ -800,6 +785,18 @@ async function handleGeneratePost(request: Request, routeId: string) {
           label: "Menyiapkan starter React",
           detail: "Menyiapkan dependensi dan router.",
         });
+
+        const saver = createProgressiveSaver({
+          projectId,
+          token: operation.token,
+          userId,
+          logContext: "generate",
+        });
+
+        const onFilesChanged = (currentFiles: GeneratedProjectFile[]) => {
+          saver.save(currentFiles);
+        };
+
         const sourceGeneration = await generateCustomProjectFilesWithAgent({
           implementationBrief: buildPrompt,
           implementationSpec,
@@ -808,7 +805,10 @@ async function handleGeneratePost(request: Request, routeId: string) {
           },
           projectId: projectId,
           schema: finalSchema,
+          onFilesChanged,
+          abortSignal: abortController.signal,
         });
+        await saver.flush();
         sourceInputTokens = sourceGeneration.usage?.inputTokens ?? 0;
         sourceOutputTokens = sourceGeneration.usage?.outputTokens ?? 0;
         sourceModelId = sourceGeneration.modelId;

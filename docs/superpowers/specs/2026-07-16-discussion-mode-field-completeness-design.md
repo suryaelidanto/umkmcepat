@@ -25,7 +25,7 @@ The fix is not to bolt on a rigid form — that fights the free-flow nature of t
 
 ### Persona
 
-Target user: UMKM Indonesia yang ingin go digital tapi tidak punya budget untuk hire desainer atau developer. Output harus terasa **seriously good and professional** — setara hasil kerja desainer + developer mahal. Itulah value proposition UMKM Cepat: hasil premium, gratis untuk user (subsidi owner).
+Target user: UMKM Indonesia yang ingin go digital tapi tidak punya budget untuk hire desainer atau developer. Output harus terasa **seriously good and professional** — setara hasil kerja desainer + developer mahal. Itulah value proposition UMKM Cepat: hasil premium, 100% gratis untuk user.
 
 Implikasi: "lempar semua data" tidak boleh terasa seperti formulir generik. AI harus memilih pertanyaan sesuai tipe usaha, sehingga yang ditanyakan terasa relevan dan berguna untuk membantu mereka berjualan, bukan untuk memenuhi database kita.
 
