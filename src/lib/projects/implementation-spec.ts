@@ -27,7 +27,7 @@ export const implementationSpecTool = tool({
       .min(2)
       .max(10),
     features: z.array(z.string()).min(1).max(10),
-    content: z.record(z.string(), z.unknown()),
+    content: z.object({}).passthrough(),
     style: z.object({
       direction: z.string(),
       palette: z.object({
