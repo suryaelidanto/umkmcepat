@@ -1940,6 +1940,12 @@ ${DESIGN_DIRECTIVE}
 
 The project uses Vite + React + TanStack Router.
 Static frontend only. User-facing copy in Indonesian.
+
+ROUTING CONTRACT (strict):
+- src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }"
+- Do NOT declare or create an "indexRoute" or "Route" object inside src/routes/index.tsx. It is already defined in src/router.tsx which imports HomeRouteComponent.
+- Do NOT edit or overwrite src/router.tsx or src/routes/__root.tsx unless absolutely necessary. Keep routing simple and standard.
+
 Call check_app after all writes.`;
 }
 
