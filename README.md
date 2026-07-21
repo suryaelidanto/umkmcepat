@@ -19,7 +19,7 @@ UMKM Cepat helps Indonesian small businesses turn plain Indonesian prompts into 
 
 The goal is practical: help sellers get a clean online presence without needing to understand design systems, routing, deployment, or AI tooling.
 
-The platform is 100% free for users — every feature is usable without paying. Operating costs are subsidized by the owner, and an optional paid Energy Booster exists for users who want extra energy beyond the free daily quota. Paying never locks out functionality, so the core experience stays free. Access is managed via a pilot whitelist with admin approval (targeting ~10 initial real UMKM businesses).
+The platform is 100% free for users — every feature is usable without paying. An optional paid Energy Booster exists for users who want extra energy beyond the free daily quota, but paying never locks out functionality, so the core experience stays free. Access is managed via a pilot whitelist with admin approval (targeting ~10 initial real UMKM businesses).
 
 ## Current direction
 

@@ -17,7 +17,7 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 - Added shared avatar/surface primitives and wired profile/legal/account UI to the atomic Storybook catalog.
 - Simplified Storybook into an atomic design-system catalog with foundations, reusable atoms/molecules/organisms, component tests, and optional Chromatic wiring.
 - Added login consent with Cloudflare Turnstile support and canonical Terms/Privacy agreement before Google sign-in.
-- Added a Terms clause clarifying service availability, subsidy limits, and funding dependence.
+- Added a Terms clause clarifying service availability and the optional paid Energy Booster.
 - Added local-first object storage for profile avatars, with env placeholders for future Cloudflare R2.
 - Added an account dropdown, dark profile page, editable display name/avatar, and personalized homepage greeting for signed-in users.
 - Changed primary chat composers to send with Enter while keeping Shift+Enter for new lines.

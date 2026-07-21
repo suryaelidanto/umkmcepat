@@ -55,12 +55,16 @@ export async function generateCustomProjectFilesWithAgent({
   projectId,
   implementationSpec,
   schema,
+  onFilesChanged,
+  abortSignal,
 }: {
   implementationBrief?: string;
   implementationSpec?: ImplementationSpec;
   onOperation?: (operation: GeneratedAppAgentOperation) => void;
   projectId: string;
   schema: ProjectSiteSchema;
+  onFilesChanged?: (files: GeneratedProjectFile[]) => void;
+  abortSignal?: AbortSignal;
 }): Promise<CustomGeneratedSourceResult> {
   const starterFiles = createGeneratedViteTanStackStarterFiles(
     projectId,
@@ -97,6 +101,7 @@ export async function generateCustomProjectFilesWithAgent({
           command.type === "replace_in_file"
         ) {
           agentEditedFiles.add(effect.path);
+          onFilesChanged?.(files);
         }
       }
     }
@@ -124,9 +129,27 @@ export async function generateCustomProjectFilesWithAgent({
       tools: createAgentTools(runCommand),
     });
 
+    const localAbortController = new AbortController();
+    if (abortSignal) {
+      abortSignal.addEventListener(
+        "abort",
+        () => localAbortController.abort(),
+        {
+          once: true,
+        },
+      );
+      if (abortSignal.aborted) {
+        localAbortController.abort();
+      }
+    }
+
     const result = await withAiTimeout(
-      agent.generate({ prompt: buildAgentPrompt(appSpec) }),
+      agent.generate({
+        prompt: buildAgentPrompt(appSpec),
+        abortSignal: localAbortController.signal,
+      }),
       "sourceGeneration",
+      localAbortController,
     ).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : "timeout";
       if (
@@ -170,6 +193,7 @@ export async function generateCustomProjectFilesWithAgent({
         projectId,
         runCommand,
         schema,
+        abortSignal,
       });
       // The rewrite may have replaced src/routes/index.tsx or src/router.tsx
       // with fresh components that drop necessary wiring. Re-heal both.
@@ -255,6 +279,7 @@ async function runForcedRewritePass({
   projectId,
   runCommand,
   schema,
+  abortSignal,
 }: {
   appSpec: string;
   implementationSpec?: ImplementationSpec;
@@ -262,6 +287,7 @@ async function runForcedRewritePass({
   projectId: string;
   runCommand: RunCommand;
   schema: ProjectSiteSchema;
+  abortSignal?: AbortSignal;
 }) {
   const rewriteSteps = Math.min(12, getAgentMaxSteps("repair"));
   const agent = new ToolLoopAgent({
@@ -278,6 +304,16 @@ async function runForcedRewritePass({
     stopWhen: isStepCount(rewriteSteps),
     tools: createAgentTools(runCommand),
   });
+
+  const localAbortController = new AbortController();
+  if (abortSignal) {
+    abortSignal.addEventListener("abort", () => localAbortController.abort(), {
+      once: true,
+    });
+    if (abortSignal.aborted) {
+      localAbortController.abort();
+    }
+  }
 
   const missingCssNote =
     missingCss.length > 0
@@ -301,8 +337,10 @@ ${missingCssNote}
 
 Build intent:
 ${appSpec}`,
+      abortSignal: localAbortController.signal,
     }),
     "sourceGeneration",
+    localAbortController,
   ).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     if (

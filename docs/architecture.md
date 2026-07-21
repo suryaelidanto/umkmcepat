@@ -19,7 +19,7 @@ UMKM Cepat remains one platform/control-plane app. Generated project runtimes ma
 
 Platform Constraints:
 
-- 100% free for users; operating costs (LLM inference, hosting) are subsidized by the owner. An optional paid Energy Booster (non-expiring extra energy) is available, but it only adds energy — it never gates features, so the platform stays fully free.
+- 100% free for users. An optional paid Energy Booster (non-expiring extra energy) is available, but it only adds energy — it never gates features, so the platform stays fully free.
 - Pilot whitelist with admin approval restricts registration and limits scale (initially targeting ~10 active UMKM businesses).
 - User quotas refills are enabled via an Energy Booster modal (1-column layout) integrated into the navbar profile dropdown.
 

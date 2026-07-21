@@ -18,11 +18,15 @@ export async function editGeneratedSourceWithAgent({
   instruction,
   model,
   onOperation,
+  onFilesChanged,
+  abortSignal,
 }: {
   files: GeneratedProjectFile[];
   instruction: string;
   model?: string;
   onOperation?: (operation: GeneratedAppAgentOperation) => void;
+  onFilesChanged?: (files: GeneratedProjectFile[]) => void;
+  abortSignal?: AbortSignal;
 }) {
   let currentFiles = files;
   const operationTrace: GeneratedAppAgentOperation[] = [];
@@ -38,6 +42,11 @@ export async function editGeneratedSourceWithAgent({
       },
     });
     currentFiles = result.files;
+
+    if (command.type === "write_file" || command.type === "replace_in_file") {
+      onFilesChanged?.(currentFiles);
+    }
+
     return result.outputs.at(-1) ?? { type: command.type };
   };
 
@@ -97,6 +106,16 @@ export async function editGeneratedSourceWithAgent({
     },
   });
 
+  const localAbortController = new AbortController();
+  if (abortSignal) {
+    abortSignal.addEventListener("abort", () => localAbortController.abort(), {
+      once: true,
+    });
+    if (abortSignal.aborted) {
+      localAbortController.abort();
+    }
+  }
+
   const result = await withAiTimeout(
     agent.generate({
       prompt: [
@@ -104,8 +123,10 @@ export async function editGeneratedSourceWithAgent({
         "Read files before editing. Make the smallest relevant source changes. Run check_app after edits.",
         instruction,
       ].join("\n\n"),
+      abortSignal: localAbortController.signal,
     }),
     model ? "editRepair" : "edit",
+    localAbortController,
   );
 
   const finalCheck = runGeneratedAppAgentTools({

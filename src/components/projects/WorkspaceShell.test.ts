@@ -41,7 +41,7 @@ function makeBrief(overrides: Partial<ProjectBrief>): ProjectBrief {
 }
 
 describe("canStartBuild", () => {
-  it("returns false when readyForBuild is false", () => {
+  it("returns true when brief is present, regardless of completeness gates", () => {
     expect(
       canStartBuild(
         makeBrief({
@@ -49,10 +49,8 @@ describe("canStartBuild", () => {
           readyForBuild: false,
         }),
       ),
-    ).toBe(false);
-  });
+    ).toBe(true);
 
-  it("returns true when all gates pass", () => {
     expect(
       canStartBuild(
         makeBrief({
@@ -62,9 +60,7 @@ describe("canStartBuild", () => {
         }),
       ),
     ).toBe(true);
-  });
 
-  it("returns false when productOrService is empty even if readyForBuild is true", () => {
     expect(
       canStartBuild(
         makeBrief({
@@ -72,10 +68,8 @@ describe("canStartBuild", () => {
           readyForBuild: true,
         }),
       ),
-    ).toBe(false);
-  });
+    ).toBe(true);
 
-  it("returns false when businessName is missing", () => {
     expect(
       canStartBuild(
         makeBrief({
@@ -84,7 +78,7 @@ describe("canStartBuild", () => {
           readyForBuild: true,
         }),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("returns false when brief is null or undefined", () => {

@@ -18,6 +18,8 @@ import {
   createGeneratedSourceSnapshotMetadata,
   parseGeneratedProjectFiles,
 } from "@/lib/projects/generated-source";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
+import { createProgressiveSaver } from "@/lib/projects/progressive-save";
 import {
   claimProjectOperation,
   finalizeProjectOperation,
@@ -72,6 +74,11 @@ async function handleEditPost(request: Request, routeId: string) {
   }
 
   const userId = session.user.id;
+
+  const abortController = new AbortController();
+  request.signal?.addEventListener?.("abort", () => {
+    abortController.abort();
+  });
   const rateLimitResponse = await checkRateLimit(request, "build", userId);
 
   if (rateLimitResponse) {
@@ -444,10 +451,23 @@ async function handleEditPost(request: Request, routeId: string) {
       title: "Merevisi website",
     });
 
+    const saver = createProgressiveSaver({
+      projectId: project.id,
+      token: operation.token,
+      userId: session.user.id,
+      logContext: "edit",
+    });
+
+    const onFilesChanged = (currentFiles: GeneratedProjectFile[]) => {
+      saver.save(currentFiles);
+    };
+
     const editResult = await editGeneratedSourceWithAgent({
       files: baseFiles,
       instruction,
       onOperation: persistEditProgress,
+      onFilesChanged,
+      abortSignal: abortController.signal,
     });
     totalEditInputTokens += editResult.usage?.inputTokens ?? 0;
     totalEditOutputTokens += editResult.usage?.outputTokens ?? 0;
@@ -472,6 +492,8 @@ async function handleEditPost(request: Request, routeId: string) {
         ].join("\n\n"),
         model: getDefaultAiModel(),
         onOperation: persistEditProgress,
+        onFilesChanged,
+        abortSignal: abortController.signal,
       });
       totalEditInputTokens += fallbackResult.usage?.inputTokens ?? 0;
       totalEditOutputTokens += fallbackResult.usage?.outputTokens ?? 0;
@@ -489,6 +511,8 @@ async function handleEditPost(request: Request, routeId: string) {
         editResult.sideEffects = fallbackResult.sideEffects;
       }
     }
+
+    await saver.flush();
 
     const editLeaseRenewed = await renewProjectOperation({
       projectId: project.id,
@@ -549,6 +573,8 @@ async function handleEditPost(request: Request, routeId: string) {
           `Validation issues: ${editValidation.blockingIssues.join("; ")}`,
         ].join("\n\n"),
         onOperation: persistEditProgress,
+        onFilesChanged,
+        abortSignal: abortController.signal,
       });
       totalEditInputTokens += repairResult.usage?.inputTokens ?? 0;
       totalEditOutputTokens += repairResult.usage?.outputTokens ?? 0;
@@ -580,6 +606,8 @@ async function handleEditPost(request: Request, routeId: string) {
         });
       }
     }
+
+    await saver.flush();
 
     const validationLeaseRenewed = await renewProjectOperation({
       projectId: project.id,
