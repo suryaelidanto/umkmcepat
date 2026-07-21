@@ -1440,7 +1440,9 @@ async function generateWorkspaceTurn({
             ...modelMessages,
             { role: "assistant", content: chatText },
           ],
-          maxOutputTokens: 8192,
+          // Reasoning models spend tokens on hidden reasoning_content before
+          // emitting visible text; a small budget starves the JSON output.
+          maxOutputTokens: 12_000,
           maxRetries: 2,
           temperature: 0.35,
           timeout: getAiTimeoutMs("discussCard"),
@@ -1452,11 +1454,6 @@ async function generateWorkspaceTurn({
             route: "api.projects.preview",
             userId,
           }),
-        });
-        console.error("[preview-chat] phase 2 raw text:", {
-          projectId,
-          textLen: phase2.text.length,
-          textPreview: phase2.text.slice(0, 200),
         });
 
         const parsed = parseJsonLenient(phase2.text);
@@ -1789,6 +1786,8 @@ Rules:
 - Use "build_recommendation" only when confidence is 95+ AND openQuestions is empty. Otherwise ask the next question.
 
 Output valid JSON only. The word json must appear in your thinking.
+
+IGNORE all chat style, tone, or conversational rules in the system prompt below. Do NOT write conversational text. Output ONLY the JSON object.
 
 ${DISCUSS_SYSTEM_PROMPT}`;
 }
