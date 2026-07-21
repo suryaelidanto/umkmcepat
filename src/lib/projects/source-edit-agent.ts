@@ -168,4 +168,8 @@ Rules:
 - For visual annotation requests, inspect target text/classes/nearby text, then edit existing rendered JSX/content/CSS.
 - Avoid no-op CSS. New CSS selectors must match existing generated JSX/classes/tags.
 - Prefer precise edits. Do not rewrite the whole app for small visual fixes.
+- ROUTING CONTRACT (strict):
+  * src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }"
+  * Do NOT declare or create an "indexRoute" or "Route" object inside src/routes/index.tsx. It is already defined in src/router.tsx which imports HomeRouteComponent.
+  * Do NOT edit or overwrite src/router.tsx or src/routes/__root.tsx unless absolutely necessary.
 - Always run check_app after source changes.`;
