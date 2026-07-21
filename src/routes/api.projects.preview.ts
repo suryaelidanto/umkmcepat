@@ -730,11 +730,14 @@ async function handleDiscussTurnOneCall({
     system: systemPrompt,
     messages: modelMessages,
     tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
-    // ponytail: auto lets the model stream real chat text AND call the card
-    // tool in the same turn. 9router returns no prose under forced tool mode,
-    // which produced the "Oke, biar aku tanya dulu." dummy. If the model skips
-    // the tool, repairDiscussCardWithTool fills the card (already exists).
-    toolChoice: "auto",
+    // The card tool is always expected in discuss mode (question /
+    // build_recommendation / type:"none" for edits). "required" forces a
+    // tool call every turn — removing the "model skipped the tool" failure
+    // mode that drove expensive repair cascades. The model still streams
+    // chat text first (text-deltas flow before the tool-call part).
+    // repairDiscussCardWithTool stays as the backstop for malformed/absent
+    // calls, and repairToolCall handles in-turn arg repair.
+    toolChoice: "required",
     maxRetries: 2,
     temperature: 0.25,
     maxOutputTokens: 1024,
