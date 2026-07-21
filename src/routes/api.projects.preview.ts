@@ -5,11 +5,10 @@ import {
   createUIMessageStreamResponse,
   generateText,
   streamText,
-  tool,
+  type ModelMessage,
   type UIMessage,
   validateUIMessages,
 } from "ai";
-import { z } from "zod";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
@@ -43,6 +42,12 @@ import {
   parseProjectChatSummary,
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
+import {
+  buildCardSystemPrompt,
+  buildOneCallSystemPrompt,
+  PRESENT_WORKSPACE_CARD_TOOL_NAME,
+  presentWorkspaceCardTool,
+} from "@/lib/projects/discuss-tool";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
@@ -54,6 +59,10 @@ import {
   isUserVerified,
   MIN_ENERGY_DISCUSS,
 } from "@/lib/user-credits";
+
+// Re-export so external importers (e.g. the preview test) keep resolving after
+// the discuss tool/prompt builders moved to the pure module.
+export { buildOneCallSystemPrompt } from "@/lib/projects/discuss-tool";
 
 // In-flight discuss lock: a single Node process serves all requests, so an
 // in-memory set is sufficient to dedupe concurrent discuss turns for the same
@@ -88,6 +97,76 @@ function releaseDiscussLock(projectId: string): void {
     discussLockTimers.delete(projectId);
   }
   discussInFlight.delete(projectId);
+}
+
+// In-turn repair layer: when the primary streamText emits a tool call with
+// malformed args, the AI SDK invokes `repairToolCall`. We re-prompt once with
+// the forced card tool and return a `LanguageModelV4ToolCall`-shaped value
+// (input as stringified JSON, since the SDK re-parses it via safeParseJSON).
+// Returning null leaves the call unrepaired → the stream emits no tool-call
+// part → toolInput stays null → existing Layer-3 `repairDiscussCardWithTool`
+// fires as the backstop. No new branch needed.
+type RepairedToolCall = {
+  type: "tool-call";
+  toolCallId: string;
+  toolName: string;
+  input: string;
+};
+
+async function repairToolCallInTurn({
+  error,
+  messages,
+  model,
+  modelName,
+  projectId,
+  toolCall,
+}: {
+  error: unknown;
+  messages: ModelMessage[];
+  model: ReturnType<typeof getAiModel>;
+  modelName: string;
+  projectId: string;
+  toolCall: { toolCallId: string; toolName: string; input?: unknown };
+}): Promise<RepairedToolCall | null> {
+  console.error("[preview-chat] invalid tool args, attempting in-turn repair", {
+    projectId,
+    model: modelName,
+    failedToolCallId: toolCall.toolCallId,
+    failedToolName: toolCall.toolName,
+    error: getSafeAiErrorLog(error),
+  });
+  try {
+    const result = await generateText({
+      model,
+      messages,
+      tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
+      toolChoice: { type: "tool", toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME },
+      maxRetries: 2,
+      temperature: 0.25,
+      maxOutputTokens: 1024,
+      timeout: getAiTimeoutMs("discussCard"),
+    });
+    const repaired = result.toolCalls[0];
+    if (!repaired) {
+      return null;
+    }
+    return {
+      type: "tool-call",
+      toolCallId: repaired.toolCallId,
+      toolName: repaired.toolName,
+      input:
+        typeof repaired.input === "string"
+          ? repaired.input
+          : JSON.stringify(repaired.input ?? {}),
+    };
+  } catch (repairError) {
+    console.error("[preview-chat] in-turn repair failed", {
+      projectId,
+      model: modelName,
+      error: getSafeAiErrorLog(repairError),
+    });
+    return null;
+  }
 }
 
 type PreviewRequest = {
@@ -517,14 +596,32 @@ async function handleDiscussTurn({
 
         let fullText = "";
         let hadError = false;
+        const phase1ResponsePromise = Promise.resolve(phase1.response).catch(
+          () => null,
+        );
 
         try {
           for await (const delta of phase1.textStream) {
             fullText += delta;
             writer.write({ type: "text-delta", id: textPartId, delta });
           }
-        } catch {
+        } catch (error) {
           hadError = true;
+          const servedModel =
+            (await phase1ResponsePromise)?.modelId ?? modelName;
+          const safeError = getSafeAiErrorLog(error);
+          console.error("[preview-chat] legacy stream consume error", {
+            projectId: project.id,
+            model: servedModel,
+            error: safeError,
+          });
+          await writeAiRequestLog({
+            event: "discuss:stream_error",
+            model: servedModel,
+            mode: "legacy",
+            projectId: project.id,
+            error: safeError,
+          });
         }
 
         writer.write({ type: "text-end", id: textPartId });
@@ -681,199 +778,6 @@ async function handleDiscussTurn({
   });
 }
 
-const PRESENT_WORKSPACE_CARD_TOOL_NAME = "presentWorkspaceCard";
-
-const presentWorkspaceCardTool = tool({
-  description:
-    "Present the next workspace card after your short Indonesian chat reply.",
-  inputSchema: z.object({
-    projectTitle: z.string().optional(),
-    readyForBuild: z.boolean().default(false),
-    briefPatch: z
-      .object({
-        confidence: z.number().optional(),
-        businessName: z.string().optional(),
-        businessType: z.string().optional(),
-        offer: z.string().optional(),
-        targetCustomer: z.string().optional(),
-        contactOrCta: z.string().optional(),
-        stylePreference: z.string().optional(),
-        notes: z.array(z.string()).optional(),
-        openQuestions: z.array(z.string()).optional(),
-        productOrService: z
-          .array(
-            z.object({
-              name: z.string(),
-              description: z.string().optional(),
-              priceRange: z.string().optional(),
-              isPrimary: z.boolean().optional(),
-            }),
-          )
-          .optional(),
-        contact: z
-          .object({
-            channel: z.enum([
-              "whatsapp",
-              "phone",
-              "instagram",
-              "maps",
-              "other",
-            ]),
-            value: z.string(),
-            label: z.string().optional(),
-          })
-          .optional(),
-        tagline: z.string().optional(),
-        usp: z.array(z.string()).optional(),
-        priceRange: z.string().optional(),
-        visuals: z.boolean().optional(),
-        hours: z
-          .array(
-            z.object({
-              dayRange: z.string(),
-              open: z.string(),
-              close: z.string(),
-              note: z.string().optional(),
-            }),
-          )
-          .optional(),
-        address: z.string().optional(),
-        deliveryArea: z.string().optional(),
-        since: z.string().optional(),
-        testimonials: z
-          .array(
-            z.object({
-              quote: z.string(),
-              author: z.string(),
-              context: z.string().optional(),
-              rating: z.union([z.number(), z.string()]).optional(),
-            }),
-          )
-          .optional(),
-        certifications: z
-          .array(
-            z.object({
-              name: z.string(),
-              issuer: z.string().optional(),
-            }),
-          )
-          .optional(),
-        paymentMethods: z
-          .array(
-            z.union([
-              z.enum(["cash", "transfer", "qris", "ewallet", "cod"]),
-              z.object({
-                method: z.enum(["cash", "transfer", "qris", "ewallet", "cod"]),
-                detail: z.string().optional(),
-              }),
-            ]),
-          )
-          .optional(),
-        socialLinks: z
-          .array(
-            z.object({
-              platform: z.enum([
-                "instagram",
-                "tiktok",
-                "facebook",
-                "youtube",
-                "x",
-                "other",
-              ]),
-              handle: z.string(),
-              url: z.string().optional(),
-            }),
-          )
-          .optional(),
-        currentPromo: z.string().optional(),
-        secondaryCta: z
-          .object({
-            label: z.string(),
-            action: z.string(),
-          })
-          .optional(),
-      })
-      .optional(),
-    workspaceCard: z
-      .object({
-        type: z.string(),
-        title: z.string().optional(),
-        summary: z.array(z.string()).optional(),
-        question: z
-          .object({
-            id: z.union([z.string(), z.number()]).optional(),
-            question: z.string().optional(),
-            text: z.string().optional(),
-            title: z.string().optional(),
-            answerMode: z.string().optional(),
-            selectionMode: z.string().optional(),
-            placeholder: z.string().optional(),
-            required: z.boolean().optional(),
-            options: z.array(z.any()).optional(),
-          })
-          .optional(),
-        questions: z
-          .array(
-            z.object({
-              id: z.union([z.string(), z.number()]).optional(),
-              question: z.string().optional(),
-              text: z.string().optional(),
-              title: z.string().optional(),
-              answerMode: z.string().optional(),
-              selectionMode: z.string().optional(),
-              placeholder: z.string().optional(),
-              recommendedOptionLabel: z.string().optional(),
-              whyThisQuestionMatters: z.string().optional(),
-              required: z.boolean().optional(),
-              options: z.array(z.any()).optional(),
-            }),
-          )
-          .optional(),
-        actions: z.array(z.any()).optional(),
-      })
-      .optional(),
-  }),
-});
-
-export function buildOneCallSystemPrompt({
-  brief,
-  context,
-  hasBuiltSite,
-}: {
-  brief: unknown;
-  context: string;
-  hasBuiltSite: boolean;
-}) {
-  if (hasBuiltSite) {
-    return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}
-
-CRITICAL OUTPUT ORDER:
-1) Write EXACTLY ONE short Indonesian chat sentence first (max 20 words, aku/kamu only) acknowledging the edit request.
-2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with { type: "none" }. Do not ask a brief question and do not emit build_recommendation — the site is already built, this turn is an edit request, not an interview.
-
-Never put JSON in chat text. Never call the tool before chat text.`;
-  }
-
-  return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}
-
-CRITICAL OUTPUT ORDER:
-1) Write EXACTLY ONE short Indonesian chat sentence first (max 20 words, aku/kamu only) acknowledging the answer or greeting the user. Never write more.
-2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with the next workspace card.
-
-INTERVIEW DISCIPLINE — one question per turn:
-- Emit EXACTLY ONE question per turn via type="question". Never use type="questions".
-- Pick the single most crucial question to move the build forward. Ask the next question next turn after the user answers.
-- The question sets recommendedOptionLabel (your default) — user can accept in one click.
-- Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
-- When all mandatory fields (businessName, product) and at least 2 soft fields are filled/declined: emit build_recommendation instead of a question and set confidence to 95+.
-
-Never put JSON in chat text. Never call the tool before chat text.
-Use type="question" with a single question (question.id is a short slug like business_name or services).
-Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is 95%+ or mandatory + 2 soft fields are known. Below that, keep asking a question. Never use any other card type.
-
-Build early — do not extract every field. Once the basics are known, show the build_recommendation card.`;
-}
-
 async function handleDiscussTurnOneCall({
   chatContext,
   effectiveBrief,
@@ -915,11 +819,22 @@ async function handleDiscussTurnOneCall({
     system: systemPrompt,
     messages: modelMessages,
     tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
-    // ponytail: auto lets the model stream real chat text AND call the card
-    // tool in the same turn. 9router returns no prose under forced tool mode,
-    // which produced the "Oke, biar aku tanya dulu." dummy. If the model skips
-    // the tool, repairDiscussCardWithTool fills the card (already exists).
+    // ponytail: "auto" lets the model stream real chat text AND call the card
+    // tool in the same turn. Sim (n=150/arm) showed toolChoice:"required"
+    // lifted cardOk (58%→86%) but collapsed textOk (100%→25%) — the model
+    // emits the tool call with zero chat prose when forced. So "auto" stays;
+    // malformed/absent calls are handled by repairToolCall (in-turn) +
+    // repairDiscussCardWithTool (backstop), not by forcing the call.
     toolChoice: "auto",
+    repairToolCall: async ({ toolCall, error, messages }) =>
+      repairToolCallInTurn({
+        error,
+        messages,
+        model,
+        modelName,
+        projectId: project.id,
+        toolCall,
+      }),
     maxRetries: 2,
     temperature: 0.25,
     maxOutputTokens: 1024,
@@ -954,6 +869,9 @@ async function handleDiscussTurnOneCall({
         let hadError = false;
         let toolInput: unknown = null;
         let streamToolCallId: string | null = null;
+        const primaryResponsePromise = Promise.resolve(primary.response).catch(
+          () => null,
+        );
 
         try {
           for await (const part of primary.stream) {
@@ -985,8 +903,23 @@ async function handleDiscussTurnOneCall({
                     : toolInput;
             }
           }
-        } catch {
+        } catch (error) {
           hadError = true;
+          const servedModel =
+            (await primaryResponsePromise)?.modelId ?? modelName;
+          const safeError = getSafeAiErrorLog(error);
+          console.error("[preview-chat] one-call stream consume error", {
+            projectId: project.id,
+            model: servedModel,
+            error: safeError,
+          });
+          await writeAiRequestLog({
+            event: "discuss:stream_error",
+            model: servedModel,
+            mode: "one_call_tools",
+            projectId: project.id,
+            error: safeError,
+          });
         }
 
         writer.write({ type: "text-end", id: textPartId });
@@ -1010,8 +943,82 @@ async function handleDiscussTurnOneCall({
 
         const chatText = fullText.trim();
         if (hadError) {
-          // Stream threw: no text, no tool. Charge once, surface a clean error.
-          // Never persist a dummy assistant turn.
+          if (chatText) {
+            // Stream threw mid-flight but text already reached the client.
+            // Degrade to a plain textbox (type:"none" card) instead of a
+            // blind error toast, mirroring the primaryToolFailed else-tail.
+            const resolvedToolCallId = streamToolCallId || toolCallId;
+            writer.write({
+              type: "tool-input-available",
+              toolCallId: resolvedToolCallId,
+              toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+              input: {},
+            });
+            writer.write({
+              type: "tool-output-available",
+              toolCallId: resolvedToolCallId,
+              output: {
+                workspaceCard: { type: "none" },
+                projectTitle: project.title,
+                repairsUsed: 0,
+              },
+            });
+            const assistantMessage: UIMessage = {
+              id: messageId,
+              role: "assistant",
+              parts: [
+                { type: "text", text: chatText, state: "done" },
+                {
+                  type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
+                  toolCallId: resolvedToolCallId,
+                  state: "output-available",
+                  input: {},
+                  output: {
+                    workspaceCard: { type: "none" },
+                    projectTitle: project.title,
+                  },
+                } as UIMessage["parts"][number],
+              ],
+            };
+            const safeMessages = stripTransportDiagnosticMessages(
+              dedupeUiMessages([...messages, assistantMessage]),
+            );
+            await writeAiRequestLog({
+              event: "discuss:finish",
+              model: modelName,
+              mode: "one_call_tools",
+              projectId: project.id,
+              didWorkspaceToolUpdate: false,
+              primaryToolFailed: true,
+              repairsUsed: 0,
+              workspaceCard: { type: "none" },
+            });
+            await persistProjectChatTurn({
+              messages: safeMessages,
+              projectId: project.id,
+              userId,
+              workspaceCard: { type: "none" },
+            });
+            await chargeEnergyForAiUsage({
+              userId,
+              modelId: discussModelId,
+              inputTokens: totalInputTokens,
+              outputTokens: totalOutputTokens,
+              reason: "discuss_turn",
+            });
+            await writeAiRequestLog({
+              event: "discuss:degraded",
+              model: modelName,
+              mode: "one_call_tools",
+              projectId: project.id,
+              hadText: true,
+            });
+            writer.write({ type: "finish" });
+            return;
+          }
+
+          // Stream threw immediately: no text, no tool. Charge once, surface
+          // a clean error. Never persist a dummy assistant turn.
           await chargeEnergyForAiUsage({
             userId,
             modelId: discussModelId,
@@ -1763,31 +1770,6 @@ ${JSON.stringify(brief)}
 
 Hidden context:
 ${context}
-
-${DISCUSS_SYSTEM_PROMPT}`;
-}
-
-function buildCardSystemPrompt() {
-  return `You are a card generator for an Indonesian small business website brief flow.
-Based on the conversation, output ONLY a JSON object. No markdown fences, no explanation.
-
-The JSON object must have these fields:
-- briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer})
-- workspaceCard: object with type (exactly "question" or "build_recommendation")
-  - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode)
-  - For type "build_recommendation": title (string), summary (string array)
-- projectTitle: concise Indonesian project name string
-
-Rules:
-- workspaceCard.type must be exactly one of: "question", "build_recommendation"
-- question.id must be a string (not a number)
-- question.options must be an array of objects with label and description strings (not plain strings)
-- Set confidence to 95+ only when genuinely build-ready
-- Use "build_recommendation" only when confidence is 95+ AND openQuestions is empty. Otherwise ask the next question.
-
-Output valid JSON only. The word json must appear in your thinking.
-
-IGNORE all chat style, tone, or conversational rules in the system prompt below. Do NOT write conversational text. Output ONLY the JSON object.
 
 ${DISCUSS_SYSTEM_PROMPT}`;
 }
