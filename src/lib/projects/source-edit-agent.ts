@@ -176,7 +176,8 @@ Rules:
   * src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }"
   * Do NOT create new route files under src/routes/ (like tentang.tsx, kontak.tsx, or product detail pages).
   * If you need multiple pages/views, implement them as React state-based tab/view switching (e.g. const [activePage, setActivePage] = useState("home")) directly inside src/routes/index.tsx.
+  * Do NOT use TanStack Router's <Link> component or routing tags (like Link from '@tanstack/react-router') for switching pages/tabs. Doing so causes compile errors since those paths are not registered in the static router. Use standard HTML tags (like <button> or <a>) with React state (onClick={() => setActivePage('...')}) instead.
   * Do NOT edit or overwrite src/main.tsx, src/router.tsx, or src/routes/__root.tsx. Keep routing simple, standard, and encapsulated inside HomeRouteComponent.
   * Import usePreviewReady from "../lib/preview-ready" (NOT from hooks).
-  * Import the business data using: import { site } from "../content/site" (strictly named import, do NOT import it as default).
+  * Import the business data using: import { site } from "../content/site" (or import site from "../content/site"). All files under src/content/site.ts must export 'site' as both named and default exports.
 - Always run check_app after source changes.`;
