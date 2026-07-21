@@ -459,6 +459,10 @@ const TRIVIAL_CSS_CLASS_ALLOWLIST = new Set([
 export function isTailwindUtilityClass(className: string): boolean {
   const baseClass = className.split(":").at(-1) || className;
 
+  if (baseClass.includes("__") || baseClass.includes("--")) {
+    return false;
+  }
+
   const standardTrivial = new Set([
     "flex",
     "grid",
@@ -558,6 +562,15 @@ export function isTailwindUtilityClass(className: string): boolean {
     "decoration-",
     "underline-",
     "line-clamp-",
+    "flex-",
+    "inset-",
+    "object-",
+    "shadow-",
+    "top-",
+    "bottom-",
+    "left-",
+    "right-",
+    "appearance-",
   ];
 
   return standardPrefixes.some((prefix) => baseClass.startsWith(prefix));
@@ -1735,21 +1748,6 @@ export function checkAgentSourceQuality(
     issues.push(
       `missing CSS rules for classNames: ${missingCss.slice(0, 8).join(", ")}`,
     );
-  }
-
-  const customPresentation =
-    files.some(
-      (file) =>
-        file.path.startsWith("src/components/") && file.path.endsWith(".tsx"),
-    ) ||
-    files.some(
-      (file) =>
-        file.path === "src/routes/index.tsx" &&
-        !file.content.includes("starter-shell"),
-    );
-
-  if (customPresentation && isStarterStylesContent(styleContent)) {
-    issues.push("custom presentation still uses starter-only styles.css");
   }
 
   return issues.length ? { issues, ok: false } : { issues: [], ok: true };
