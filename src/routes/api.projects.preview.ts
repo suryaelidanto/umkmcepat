@@ -819,14 +819,13 @@ async function handleDiscussTurnOneCall({
     system: systemPrompt,
     messages: modelMessages,
     tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
-    // The card tool is always expected in discuss mode (question /
-    // build_recommendation / type:"none" for edits). "required" forces a
-    // tool call every turn — removing the "model skipped the tool" failure
-    // mode that drove expensive repair cascades. The model still streams
-    // chat text first (text-deltas flow before the tool-call part).
-    // repairDiscussCardWithTool stays as the backstop for malformed/absent
-    // calls, and repairToolCall handles in-turn arg repair.
-    toolChoice: "required",
+    // ponytail: "auto" lets the model stream real chat text AND call the card
+    // tool in the same turn. Sim (n=150/arm) showed toolChoice:"required"
+    // lifted cardOk (58%→86%) but collapsed textOk (100%→25%) — the model
+    // emits the tool call with zero chat prose when forced. So "auto" stays;
+    // malformed/absent calls are handled by repairToolCall (in-turn) +
+    // repairDiscussCardWithTool (backstop), not by forcing the call.
+    toolChoice: "auto",
     repairToolCall: async ({ toolCall, error, messages }) =>
       repairToolCallInTurn({
         error,
