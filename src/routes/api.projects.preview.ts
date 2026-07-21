@@ -944,8 +944,82 @@ async function handleDiscussTurnOneCall({
 
         const chatText = fullText.trim();
         if (hadError) {
-          // Stream threw: no text, no tool. Charge once, surface a clean error.
-          // Never persist a dummy assistant turn.
+          if (chatText) {
+            // Stream threw mid-flight but text already reached the client.
+            // Degrade to a plain textbox (type:"none" card) instead of a
+            // blind error toast, mirroring the primaryToolFailed else-tail.
+            const resolvedToolCallId = streamToolCallId || toolCallId;
+            writer.write({
+              type: "tool-input-available",
+              toolCallId: resolvedToolCallId,
+              toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+              input: {},
+            });
+            writer.write({
+              type: "tool-output-available",
+              toolCallId: resolvedToolCallId,
+              output: {
+                workspaceCard: { type: "none" },
+                projectTitle: project.title,
+                repairsUsed: 0,
+              },
+            });
+            const assistantMessage: UIMessage = {
+              id: messageId,
+              role: "assistant",
+              parts: [
+                { type: "text", text: chatText, state: "done" },
+                {
+                  type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
+                  toolCallId: resolvedToolCallId,
+                  state: "output-available",
+                  input: {},
+                  output: {
+                    workspaceCard: { type: "none" },
+                    projectTitle: project.title,
+                  },
+                } as UIMessage["parts"][number],
+              ],
+            };
+            const safeMessages = stripTransportDiagnosticMessages(
+              dedupeUiMessages([...messages, assistantMessage]),
+            );
+            await writeAiRequestLog({
+              event: "discuss:finish",
+              model: modelName,
+              mode: "one_call_tools",
+              projectId: project.id,
+              didWorkspaceToolUpdate: false,
+              primaryToolFailed: true,
+              repairsUsed: 0,
+              workspaceCard: { type: "none" },
+            });
+            await persistProjectChatTurn({
+              messages: safeMessages,
+              projectId: project.id,
+              userId,
+              workspaceCard: { type: "none" },
+            });
+            await chargeEnergyForAiUsage({
+              userId,
+              modelId: discussModelId,
+              inputTokens: totalInputTokens,
+              outputTokens: totalOutputTokens,
+              reason: "discuss_turn",
+            });
+            await writeAiRequestLog({
+              event: "discuss:degraded",
+              model: modelName,
+              mode: "one_call_tools",
+              projectId: project.id,
+              hadText: true,
+            });
+            writer.write({ type: "finish" });
+            return;
+          }
+
+          // Stream threw immediately: no text, no tool. Charge once, surface
+          // a clean error. Never persist a dummy assistant turn.
           await chargeEnergyForAiUsage({
             userId,
             modelId: discussModelId,
