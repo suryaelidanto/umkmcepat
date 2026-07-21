@@ -1941,6 +1941,11 @@ ${DESIGN_DIRECTIVE}
 The project uses Vite + React + TanStack Router.
 Static frontend only. User-facing copy in Indonesian.
 
+STYLING CONTRACT (extremely strict):
+- Tailwind CSS v4 is pre-installed. You MUST write all styles using standard Tailwind utility classes directly in the TSX (e.g. className="flex flex-col gap-4 p-6 bg-slate-900 rounded-xl shadow-lg").
+- Do NOT write custom CSS classNames (like "btn-primary", "nav-link", "contact-form", "hero-section") or custom styles in src/styles.css. Keep styles.css unedited.
+- Do NOT use h-screen. Always use min-h-dvh or min-h-screen for full viewport sections.
+
 ROUTING & PAGE CONTRACT (strict):
 - src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }"
 - Do NOT create new route files under src/routes/ (like tentang.tsx, kontak.tsx, or product detail pages).
