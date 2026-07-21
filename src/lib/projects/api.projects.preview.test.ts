@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildChatSystemPrompt,
-  buildOneCallSystemPrompt,
-} from "@/routes/api.projects.preview";
+import { buildOneCallSystemPrompt } from "@/lib/projects/discuss-tool";
+import { buildChatSystemPrompt } from "@/routes/api.projects.preview";
 
 describe("discuss system prompts respect hasBuiltSite", () => {
   const args = { brief: {}, context: "" };
