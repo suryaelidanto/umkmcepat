@@ -525,14 +525,32 @@ async function handleDiscussTurn({
 
         let fullText = "";
         let hadError = false;
+        const phase1ResponsePromise = Promise.resolve(phase1.response).catch(
+          () => null,
+        );
 
         try {
           for await (const delta of phase1.textStream) {
             fullText += delta;
             writer.write({ type: "text-delta", id: textPartId, delta });
           }
-        } catch {
+        } catch (error) {
           hadError = true;
+          const servedModel =
+            (await phase1ResponsePromise)?.modelId ?? modelName;
+          const safeError = getSafeAiErrorLog(error);
+          console.error("[preview-chat] legacy stream consume error", {
+            projectId: project.id,
+            model: servedModel,
+            error: safeError,
+          });
+          await writeAiRequestLog({
+            event: "discuss:stream_error",
+            model: servedModel,
+            mode: "legacy",
+            projectId: project.id,
+            error: safeError,
+          });
         }
 
         writer.write({ type: "text-end", id: textPartId });
@@ -772,6 +790,9 @@ async function handleDiscussTurnOneCall({
         let hadError = false;
         let toolInput: unknown = null;
         let streamToolCallId: string | null = null;
+        const primaryResponsePromise = Promise.resolve(primary.response).catch(
+          () => null,
+        );
 
         try {
           for await (const part of primary.stream) {
@@ -803,8 +824,23 @@ async function handleDiscussTurnOneCall({
                     : toolInput;
             }
           }
-        } catch {
+        } catch (error) {
           hadError = true;
+          const servedModel =
+            (await primaryResponsePromise)?.modelId ?? modelName;
+          const safeError = getSafeAiErrorLog(error);
+          console.error("[preview-chat] one-call stream consume error", {
+            projectId: project.id,
+            model: servedModel,
+            error: safeError,
+          });
+          await writeAiRequestLog({
+            event: "discuss:stream_error",
+            model: servedModel,
+            mode: "one_call_tools",
+            projectId: project.id,
+            error: safeError,
+          });
         }
 
         writer.write({ type: "text-end", id: textPartId });
