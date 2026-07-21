@@ -5,6 +5,7 @@ import {
   createUIMessageStreamResponse,
   generateText,
   streamText,
+  type ModelMessage,
   type UIMessage,
   validateUIMessages,
 } from "ai";
@@ -96,6 +97,76 @@ function releaseDiscussLock(projectId: string): void {
     discussLockTimers.delete(projectId);
   }
   discussInFlight.delete(projectId);
+}
+
+// In-turn repair layer: when the primary streamText emits a tool call with
+// malformed args, the AI SDK invokes `repairToolCall`. We re-prompt once with
+// the forced card tool and return a `LanguageModelV4ToolCall`-shaped value
+// (input as stringified JSON, since the SDK re-parses it via safeParseJSON).
+// Returning null leaves the call unrepaired → the stream emits no tool-call
+// part → toolInput stays null → existing Layer-3 `repairDiscussCardWithTool`
+// fires as the backstop. No new branch needed.
+type RepairedToolCall = {
+  type: "tool-call";
+  toolCallId: string;
+  toolName: string;
+  input: string;
+};
+
+async function repairToolCallInTurn({
+  error,
+  messages,
+  model,
+  modelName,
+  projectId,
+  toolCall,
+}: {
+  error: unknown;
+  messages: ModelMessage[];
+  model: ReturnType<typeof getAiModel>;
+  modelName: string;
+  projectId: string;
+  toolCall: { toolCallId: string; toolName: string; input?: unknown };
+}): Promise<RepairedToolCall | null> {
+  console.error("[preview-chat] invalid tool args, attempting in-turn repair", {
+    projectId,
+    model: modelName,
+    failedToolCallId: toolCall.toolCallId,
+    failedToolName: toolCall.toolName,
+    error: getSafeAiErrorLog(error),
+  });
+  try {
+    const result = await generateText({
+      model,
+      messages,
+      tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
+      toolChoice: { type: "tool", toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME },
+      maxRetries: 2,
+      temperature: 0.25,
+      maxOutputTokens: 1024,
+      timeout: getAiTimeoutMs("discussCard"),
+    });
+    const repaired = result.toolCalls[0];
+    if (!repaired) {
+      return null;
+    }
+    return {
+      type: "tool-call",
+      toolCallId: repaired.toolCallId,
+      toolName: repaired.toolName,
+      input:
+        typeof repaired.input === "string"
+          ? repaired.input
+          : JSON.stringify(repaired.input ?? {}),
+    };
+  } catch (repairError) {
+    console.error("[preview-chat] in-turn repair failed", {
+      projectId,
+      model: modelName,
+      error: getSafeAiErrorLog(repairError),
+    });
+    return null;
+  }
 }
 
 type PreviewRequest = {
@@ -756,6 +827,15 @@ async function handleDiscussTurnOneCall({
     // repairDiscussCardWithTool stays as the backstop for malformed/absent
     // calls, and repairToolCall handles in-turn arg repair.
     toolChoice: "required",
+    repairToolCall: async ({ toolCall, error, messages }) =>
+      repairToolCallInTurn({
+        error,
+        messages,
+        model,
+        modelName,
+        projectId: project.id,
+        toolCall,
+      }),
     maxRetries: 2,
     temperature: 0.25,
     maxOutputTokens: 1024,
