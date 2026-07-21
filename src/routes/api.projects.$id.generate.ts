@@ -269,6 +269,18 @@ async function handleGeneratePost(request: Request, routeId: string) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      let isClosed = false;
+      const safeClose = () => {
+        if (!isClosed) {
+          isClosed = true;
+          try {
+            controller.close();
+          } catch {
+            // ignore
+          }
+        }
+      };
+
       let runtimeBuildFinalized = false;
       let runtimeBuildId: string | null = earlyBuildId;
       let lastPersistedProgressLabel: string | null = null;
@@ -585,7 +597,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
             userId,
           }).catch(() => false);
           await flushGenerateEnergy();
-          controller.close();
+          safeClose();
           return;
         }
 
@@ -1263,7 +1275,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
       } finally {
         // Always debit if AI already ran (success or failure).
         await flushGenerateEnergy();
-        controller.close();
+        safeClose();
       }
     },
   });
