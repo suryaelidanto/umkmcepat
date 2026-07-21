@@ -773,9 +773,11 @@ export function createGeneratedViteTanStackStarterFiles(
           "lucide-react": "^0.575.0",
           react: "^19.2.7",
           "react-dom": "^19.2.7",
+          tailwindcss: "^4.0.0",
         },
         devDependencies: {
           "@eslint/js": "^10.0.1",
+          "@tailwindcss/vite": "^4.0.0",
           "@types/node": "^24.13.2",
           "@types/react": "^19.2.17",
           "@types/react-dom": "^19.2.3",
@@ -792,7 +794,7 @@ export function createGeneratedViteTanStackStarterFiles(
     },
     {
       path: "vite.config.ts",
-      content: `import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  base: './',\n  plugins: [react()],\n})\n`,
+      content: `import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\nimport tailwindcss from '@tailwindcss/vite'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  base: './',\n  plugins: [tailwindcss(), react()],\n})\n`,
     },
     {
       path: "tsconfig.json",
@@ -889,7 +891,7 @@ export function createGeneratedViteTanStackStarterFiles(
 /** Theme tokens + layout contract the agent should reuse (not invent from zero). */
 export function createStarterContractStyles(schema: ProjectSiteSchema) {
   const { background, foreground, muted, accent } = schema.theme;
-  return `:root{--bg:${background};--fg:${foreground};--muted:${muted};--accent:${accent};font-family:Plus Jakarta Sans,Inter,ui-sans-serif,system-ui,sans-serif;color:var(--fg);background:var(--bg)}*{box-sizing:border-box}body{margin:0;min-width:320px;background:var(--bg);color:var(--fg)}a{color:inherit;text-decoration:none}img,svg{display:block;max-width:100%}button{font:inherit}.page{min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);color:var(--fg)}.starter-shell{min-height:100dvh;display:grid;place-content:center;padding:40px;text-align:center}.starter-shell h1{max-width:720px;font-size:clamp(32px,5vw,64px);line-height:1}.site-header{position:sticky;top:0;z-index:20;border-bottom:1px solid color-mix(in srgb,var(--fg) 10%,transparent);background:color-mix(in srgb,var(--bg) 92%,white 8%);backdrop-filter:blur(10px)}.site-header__inner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px clamp(16px,4vw,48px)}.site-header__brand{display:flex;align-items:center;gap:10px;min-width:0}.site-header__mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}.site-header__brandText{display:flex;flex-direction:column;gap:2px;min-width:0}.site-header__name{font-weight:800;line-height:1.1}.site-header__tagline{color:var(--muted);font-size:12px}.site-header__nav{display:none;gap:16px;font-weight:650}@media(min-width:760px){.site-header__nav{display:flex}}.site-header__cta,.primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;background:var(--fg);color:var(--bg);font-weight:750}.hero{padding:40px clamp(16px,4vw,48px) 28px}.hero__inner{display:grid;gap:24px}@media(min-width:900px){.hero__inner{grid-template-columns:1.1fr .9fr;align-items:center;gap:40px}}.hero__text{display:grid;gap:14px}.eyebrow{margin:0;color:var(--accent);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}.hero__title,h1{margin:0;font-size:clamp(34px,6vw,64px);line-height:1.02;letter-spacing:-.04em}.section{padding:28px clamp(16px,4vw,48px)}.section__title{margin:0 0 16px;font-size:clamp(22px,3vw,32px)}.primary,.secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:14px;font-weight:750}.secondary{border:1px solid color-mix(in srgb,var(--fg) 14%,transparent);background:transparent;color:var(--fg)}.fab-wa{position:fixed;right:16px;bottom:16px;z-index:30;display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border-radius:999px;background:#25d366;color:#fff;font-weight:800;box-shadow:0 12px 30px color-mix(in srgb,#25d366 35%,transparent)}.fab-wa__text{display:flex;flex-direction:column;line-height:1.15}.fab-wa__label{font-size:12px;opacity:.9}.fab-wa__num{font-size:14px}\n`;
+  return `@import "tailwindcss";\n:root{--bg:${background};--fg:${foreground};--muted:${muted};--accent:${accent};font-family:Plus Jakarta Sans,Inter,ui-sans-serif,system-ui,sans-serif;color:var(--fg);background:var(--bg)}*{box-sizing:border-box}body{margin:0;min-width:320px;background:var(--bg);color:var(--fg)}a{color:inherit;text-decoration:none}img,svg{display:block;max-width:100%}button{font:inherit}.page{min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);color:var(--fg)}.starter-shell{min-height:100dvh;display:grid;place-content:center;padding:40px;text-align:center}.starter-shell h1{max-width:720px;font-size:clamp(32px,5vw,64px);line-height:1}.site-header{position:sticky;top:0;z-index:20;border-bottom:1px solid color-mix(in srgb,var(--fg) 10%,transparent);background:color-mix(in srgb,var(--bg) 92%,white 8%);backdrop-filter:blur(10px)}.site-header__inner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px clamp(16px,4vw,48px)}.site-header__brand{display:flex;align-items:center;gap:10px;min-width:0}.site-header__mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}.site-header__brandText{display:flex;flex-direction:column;gap:2px;min-width:0}.site-header__name{font-weight:800;line-height:1.1}.site-header__tagline{color:var(--muted);font-size:12px}.site-header__nav{display:none;gap:16px;font-weight:650}@media(min-width:760px){.site-header__nav{display:flex}}.site-header__cta,.primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;background:var(--fg);color:var(--bg);font-weight:750}.hero{padding:40px clamp(16px,4vw,48px) 28px}.hero__inner{display:grid;gap:24px}@media(min-width:900px){.hero__inner{grid-template-columns:1.1fr .9fr;align-items:center;gap:40px}}.hero__text{display:grid;gap:14px}.eyebrow{margin:0;color:var(--accent);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}.hero__title,h1{margin:0;font-size:clamp(34px,6vw,64px);line-height:1.02;letter-spacing:-.04em}.section{padding:28px clamp(16px,4vw,48px)}.section__title{margin:0 0 16px;font-size:clamp(22px,3vw,32px)}.primary,.secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:14px;font-weight:750}.secondary{border:1px solid color-mix(in srgb,var(--fg) 14%,transparent);background:transparent;color:var(--fg)}.fab-wa{position:fixed;right:16px;bottom:16px;z-index:30;display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border-radius:999px;background:#25d366;color:#fff;font-weight:800;box-shadow:0 12px 30px color-mix(in srgb,#25d366 35%,transparent)}.fab-wa__text{display:flex;flex-direction:column;line-height:1.15}.fab-wa__label{font-size:12px;opacity:.9}.fab-wa__num{font-size:14px}\n`;
 }
 
 export function createGeneratedProjectFiles(
@@ -927,9 +929,11 @@ export function createGeneratedViteTanStackProjectFiles(
           "lucide-react": "^0.575.0",
           react: "^19.2.7",
           "react-dom": "^19.2.7",
+          tailwindcss: "^4.0.0",
         },
         devDependencies: {
           "@eslint/js": "^10.0.1",
+          "@tailwindcss/vite": "^4.0.0",
           "@types/node": "^24.13.2",
           "@types/react": "^19.2.17",
           "@types/react-dom": "^19.2.3",
@@ -946,7 +950,7 @@ export function createGeneratedViteTanStackProjectFiles(
     },
     {
       path: "vite.config.ts",
-      content: `import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  base: './',\n  plugins: [react()],\n})\n`,
+      content: `import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\nimport tailwindcss from '@tailwindcss/vite'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  base: './',\n  plugins: [tailwindcss(), react()],\n})\n`,
     },
     {
       path: "tsconfig.json",
