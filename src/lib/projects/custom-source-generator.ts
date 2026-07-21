@@ -213,7 +213,7 @@ export async function generateCustomProjectFilesWithAgent({
       files.find((file) => file.path === "src/styles.css")?.content ?? "",
     );
     if (finalMissing.length > 0) {
-      const STUB_HARD_CAP = 5;
+      const STUB_HARD_CAP = 30;
       devLog("generate", "css.fallback-stubs", {
         missingCount: finalMissing.length,
         missing: finalMissing.slice(0, 12),
@@ -1941,10 +1941,12 @@ ${DESIGN_DIRECTIVE}
 The project uses Vite + React + TanStack Router.
 Static frontend only. User-facing copy in Indonesian.
 
-ROUTING CONTRACT (strict):
+ROUTING & PAGE CONTRACT (strict):
 - src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }"
-- Do NOT declare or create an "indexRoute" or "Route" object inside src/routes/index.tsx. It is already defined in src/router.tsx which imports HomeRouteComponent.
-- Do NOT edit or overwrite src/router.tsx or src/routes/__root.tsx unless absolutely necessary. Keep routing simple and standard.
+- Do NOT create new route files under src/routes/ (like tentang.tsx, kontak.tsx, or product detail pages).
+- If the spec requires multiple pages or views, implement them as React state-based tab/view switching (e.g. const [activePage, setActivePage] = useState("home")) directly inside src/routes/index.tsx or by importing custom helper components.
+- Do NOT edit or overwrite src/router.tsx or src/routes/__root.tsx. Keep routing simple, standard, and encapsulated inside HomeRouteComponent.
+- Import usePreviewReady from "../lib/preview-ready" (NOT from hooks).
 
 Call check_app after all writes.`;
 }
