@@ -21,12 +21,11 @@ export function buildBriefPatchFromWorkspaceAnswers({
   fallbackText: string;
   workspaceAnswers: unknown;
 }): ProjectBriefPatch {
-  if (card.type !== "question" && card.type !== "questions") {
+  if (card.type !== "question") {
     return {};
   }
 
-  const questions =
-    card.type === "questions" ? card.questions : [card.question];
+  const questions = [card.question];
   const answers = parseWorkspaceAnswers(workspaceAnswers);
   const normalizedAnswers = answers.length
     ? answers

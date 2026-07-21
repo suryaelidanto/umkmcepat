@@ -43,13 +43,23 @@ describe("appendBuildProgressStep", () => {
     expect(steps).toHaveLength(12);
   });
 
-  it("marks previous active as done when appending", () => {
-    const steps = appendBuildProgressStep(
-      [{ detail: "x", label: "Membaca file", status: "active" as const }],
-      { detail: "y", label: "Menulis file", status: "active" as const },
+  it("marks previous active as done and computes duration when appending", () => {
+    const now = Date.now();
+    const steps = appendBuildProgressStep<ProgressStepLike>(
+      [
+        {
+          detail: "x",
+          label: "Membaca file",
+          status: "active",
+          startedAt: now - 5000,
+        },
+      ],
+      { detail: "y", label: "Menulis file", status: "active" },
     );
     expect(steps[0].status).toBe("done");
+    expect(steps[0].durationMs).toBeGreaterThanOrEqual(5000);
     expect(steps[1].status).toBe("active");
+    expect(steps[1].startedAt).toBeGreaterThanOrEqual(now);
   });
 
   it("preserves error status on prior steps", () => {

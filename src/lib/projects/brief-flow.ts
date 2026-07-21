@@ -13,7 +13,6 @@ import {
   type ProjectBrief,
   type WorkspaceCard,
   getBriefReadiness,
-  getMissingBriefFields,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
 const OPTION_LABEL_MAX_LENGTH = 120;
@@ -168,11 +167,26 @@ export function applyBriefPatch(
 export function normalizeWorkspaceTurn(
   input: unknown,
   fallbackBrief: ProjectBrief,
+  options: { hasBuiltSite?: boolean } = {},
 ) {
   const value =
     input && typeof input === "object" ? (input as WorkspaceTurnToolInput) : {};
   const brief = applyBriefPatch(fallbackBrief, value.briefPatch);
-  const workspaceCard = normalizeWorkspaceCard(value.workspaceCard, brief);
+  let workspaceCard = normalizeWorkspaceCard(value.workspaceCard, brief);
+
+  // Server-side enforcement, not just prompt guidance: once the site is
+  // built, the model must never resurface the brief interview (question /
+  // build_recommendation cards), even if it ignores its system prompt and
+  // calls the tool with one anyway. The interview is over; this turn is an
+  // edit request.
+  if (
+    options.hasBuiltSite &&
+    (workspaceCard.type === "question" ||
+      workspaceCard.type === "build_recommendation")
+  ) {
+    workspaceCard = createFallbackWorkspaceCard(brief);
+  }
+
   // Card type is the single source of truth for buildability: derive
   // readyForBuild from it instead of trusting a separate AI-set flag that
   // can drift out of sync (build_recommendation shown, readyForBuild false).
@@ -196,64 +210,6 @@ export function createPendingWorkspaceCard(brief: ProjectBrief): WorkspaceCard {
   return createFallbackWorkspaceCard(brief);
 }
 
-const FALLBACK_FIELD_QUESTIONS: Record<
-  string,
-  {
-    question: string;
-    answerMode: "choice" | "text";
-    placeholder?: string;
-    required?: boolean;
-    options: Array<{ label: string; description: string }>;
-  }
-> = {
-  businessType: {
-    question: "Usahamu bidang apa?",
-    answerMode: "choice",
-    required: true,
-    options: [
-      { label: "Kuliner/F&B", description: "Warung makan, kafe, jajanan." },
-      { label: "Jasa lokal", description: "Laundry, barber, servis." },
-      { label: "Jasa online", description: "Desain, tulis, freelance." },
-      { label: "Lainnya", description: "Tulis sendiri." },
-    ],
-  },
-  offer: {
-    question: "Produk/jasa utama yang dijual?",
-    answerMode: "text",
-    placeholder: "Contoh: nasi kotak harian",
-    required: true,
-    options: [],
-  },
-  targetCustomer: {
-    question: "Pelanggan utamanya siapa?",
-    answerMode: "text",
-    placeholder: "Contoh: anak sekolah sekitar",
-    required: true,
-    options: [],
-  },
-  contactOrCta: {
-    question: "Pakai apa buat dihubungi?",
-    answerMode: "choice",
-    required: true,
-    options: [
-      { label: "WhatsApp", description: "Chat langsung." },
-      { label: "Telepon", description: "Telepon dulu." },
-      { label: "Instagram", description: "DM Instagram." },
-      { label: "Lainnya", description: "Tulis sendiri." },
-    ],
-  },
-  stylePreference: {
-    question: "Arah tampilan yang kamu suka?",
-    answerMode: "choice",
-    options: [
-      { label: "Hangat & ramah", description: "Warna earthy, cozy." },
-      { label: "Bersih & modern", description: "Minimalis, putih." },
-      { label: "Ceria & cerah", description: "Warna terang, playful." },
-      { label: "Lainnya", description: "Tulis sendiri." },
-    ],
-  },
-};
-
 // ponytail: required brief fields (AI must collect before build).
 // Precompute rule engine enforces this; soft fields (stylePreference, etc.)
 // are optional. The AI can mark additional fields required via tool-call.
@@ -263,51 +219,6 @@ export const REQUIRED_BRIEF_FIELD_IDS: ReadonlySet<string> = new Set([
   "targetCustomer",
   "contactOrCta",
 ]);
-
-// Last-resort card when every AI path produced type none. Derives up to 3
-// questions from empty REQUIRED_BRIEF_FIELDS without calling the model, which
-// matches the grilling principle that an inferable fact should not be re-asked
-// of the AI. Never returns build_recommendation.
-export function buildFallbackWorkspaceCardFromBrief(
-  brief: ProjectBrief,
-): WorkspaceCard {
-  const missing = getMissingBriefFields(brief);
-  if (missing.length === 0) {
-    return createFallbackWorkspaceCard(brief);
-  }
-
-  const seen = new Set<string>();
-  const questions: BriefQuestion[] = [];
-  for (const field of missing) {
-    if (seen.has(field)) {
-      continue;
-    }
-    const spec = FALLBACK_FIELD_QUESTIONS[field];
-    if (!spec) {
-      continue;
-    }
-    seen.add(field);
-    questions.push({
-      id: field,
-      question: spec.question,
-      answerMode: spec.answerMode,
-      options: spec.options,
-      placeholder: spec.placeholder,
-      required: spec.required ?? false,
-    });
-    if (questions.length === 3) {
-      break;
-    }
-  }
-
-  if (questions.length === 0) {
-    return createFallbackWorkspaceCard(brief);
-  }
-  if (questions.length === 1) {
-    return { type: "question", question: questions[0] };
-  }
-  return { type: "questions", questions };
-}
 
 export function parseWorkspaceCard(
   value: unknown,
@@ -326,6 +237,8 @@ export function parseWorkspaceCard(
   return normalizeWorkspaceCard(card, brief);
 }
 
+// Legacy tolerance: older stored cards used a `type: "questions"` array.
+// Collapse to the first valid question (single-question-per-turn model).
 function normalizeQuestionsArray(
   raw: unknown,
   brief: ProjectBrief,
@@ -333,31 +246,13 @@ function normalizeQuestionsArray(
   if (!Array.isArray(raw)) {
     return createFallbackWorkspaceCard(brief);
   }
-
-  const seenIds = new Set<string>();
-  const questions: BriefQuestion[] = [];
   for (const item of raw) {
     const question = normalizeQuestion(item);
-    if (!question) {
-      continue;
-    }
-    if (seenIds.has(question.id)) {
-      continue;
-    }
-    seenIds.add(question.id);
-    questions.push(question);
-    if (questions.length === 3) {
-      break;
+    if (question) {
+      return { type: "question", question };
     }
   }
-
-  if (questions.length === 0) {
-    return createFallbackWorkspaceCard(brief);
-  }
-  if (questions.length === 1) {
-    return { type: "question", question: questions[0] };
-  }
-  return { type: "questions", questions };
+  return createFallbackWorkspaceCard(brief);
 }
 
 function normalizeWorkspaceCard(
@@ -368,8 +263,10 @@ function normalizeWorkspaceCard(
     return createFallbackWorkspaceCard(brief);
   }
 
+  // type is kept loose (string) so legacy `type: "questions"` payloads from
+  // the DB still match the runtime compare below for tolerance collapsing.
   const value = card as {
-    type?: WorkspaceCard["type"] | "brief_review";
+    type?: string;
     question?: unknown;
     // Backward compatibility: older stored cards used a questions[] array.
     questions?: unknown;
@@ -458,9 +355,10 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
         .slice(0, 5)
     : [];
 
-  const answerMode = candidate.answerMode === "text" ? "text" : "choice";
+  const answerMode =
+    candidate.answerMode === "text" || options.length < 2 ? "text" : "choice";
 
-  if (!question || (answerMode === "choice" && options.length < 2)) {
+  if (!question) {
     return null;
   }
 
@@ -645,138 +543,4 @@ function cleanText(value: unknown, maxLength: number) {
   }
 
   return clipped.trim();
-}
-
-// ponytail: rule engine precompute helpers (worth-to-try-lah).
-// Returns true when the user message is too rich for a deterministic card —
-// long, has entities (URL/phone/price/handle), or is a real question.
-// In those cases the LLM path should run as before.
-const ESCAPE_LONG_WORD_THRESHOLD = 8;
-const ENTITY_HINT_RE =
-  /(?:https?:\/\/|www\.|\d{2,}|rp\s?\d|@\w+|#\w+|\b(?:wa|whatsapp|instagram|ig|tiktok|tokopedia|shopee|gojek|grab)\b)/i;
-
-export function shouldEscapeRuleEngine(text: string): boolean {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return false;
-  }
-  const words = trimmed.split(/\s+/);
-  if (words.length >= ESCAPE_LONG_WORD_THRESHOLD) {
-    return true;
-  }
-  if (ENTITY_HINT_RE.test(trimmed)) {
-    return true;
-  }
-  if (trimmed.includes("?") && words.length > 2) {
-    return true;
-  }
-  return false;
-}
-
-const ACK_RE =
-  /^(?:ok+|oke|baik|siap|sip|mantap|mantul|noted|lanjut|ayo|gas|ya+|yoi|terima\s*kasih|makasih|thanks?|thank\s*you|👍|🙏)\.?$/i;
-const ACK_MAX_WORDS = 4;
-
-export type AckReply = { reply: string };
-
-// ponytail: ack short-circuit only when there is nothing left to ask. If
-// fields are still missing, return null so the rule-engine precompute path
-// runs instead and surfaces the next question.
-export function detectAckMessage(
-  text: string,
-  brief: ProjectBrief,
-): AckReply | null {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return null;
-  }
-  if (trimmed.includes("?")) {
-    return null;
-  }
-  if (ENTITY_HINT_RE.test(trimmed)) {
-    return null;
-  }
-  const words = trimmed.split(/\s+/);
-  if (words.length > ACK_MAX_WORDS) {
-    return null;
-  }
-  if (!ACK_RE.test(trimmed)) {
-    return null;
-  }
-  if (getMissingBriefFields(brief).length > 0) {
-    return null;
-  }
-  return { reply: pickAckReply(trimmed) };
-}
-
-function pickAckReply(text: string): string {
-  if (/terima|makasih|thanks/i.test(text)) {
-    return "Sama-sama!";
-  }
-  if (/lanjut|gas|ayo|noted|ok|oke|siap|sip/i.test(text)) {
-    return "Oke, kita lanjut.";
-  }
-  return "Oke.";
-}
-
-export type RuleEngineDecision =
-  { path: "ack"; reply: string } | { path: "rule-engine" } | { path: "llm" };
-
-// ponytail: pure decision function for the precompute branch.
-// Returns which path the discuss turn should take. Mirrors the inline logic
-// in api.projects.preview.ts so it can be unit-tested without route deps.
-export function decideRuleEngineDiscussPath({
-  brief,
-  confidence,
-  existingUserTurns,
-  incomingLength,
-  text,
-}: {
-  brief: ProjectBrief;
-  confidence: number;
-  existingUserTurns: number;
-  incomingLength: number;
-  text: string;
-}): RuleEngineDecision {
-  if (incomingLength !== 1) {
-    return { path: "llm" };
-  }
-  if (existingUserTurns > 1) {
-    return { path: "llm" };
-  }
-  if (!text.trim()) {
-    return { path: "llm" };
-  }
-
-  const ack = detectAckMessage(text, brief);
-  if (ack) {
-    return { path: "ack", reply: ack.reply };
-  }
-
-  if (confidence >= 30) {
-    return { path: "llm" };
-  }
-  if (shouldEscapeRuleEngine(text)) {
-    return { path: "llm" };
-  }
-  if (getMissingBriefFields(brief).length === 0) {
-    return { path: "llm" };
-  }
-  return { path: "rule-engine" };
-}
-
-// ponytail: template fallback for AI-generated warm preface. If the AI call
-// fails or times out, we still want a warm-but-templated lead-in. One short
-// Indonesian sentence per card shape — no filler, no questions, no card content.
-export function prefaceTemplateForCard(card: WorkspaceCard): string {
-  if (card.type === "question") {
-    return "Boleh aku tanya satu hal dulu?";
-  }
-  if (card.type === "questions") {
-    return "Boleh aku tanya beberapa hal dulu?";
-  }
-  if (card.type === "build_recommendation") {
-    return "Kira-kira udah siap nih. Mau gw bangun?";
-  }
-  return "Oke.";
 }

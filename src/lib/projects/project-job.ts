@@ -4,7 +4,9 @@ export type ProjectJobStep = {
   at: string;
   detail: string;
   diff?: DiffLine[];
+  durationMs?: number;
   label: string;
+  startedAt?: number;
   status: "active" | "done" | "error";
 };
 
@@ -270,6 +272,24 @@ function stepsFromEvents(
     }
   }
 
+  // Compute startedAt / durationMs from adjacent event timestamps.
+  for (let i = 0; i < steps.length; i += 1) {
+    const t = new Date(steps[i].at).getTime();
+    if (!Number.isNaN(t)) {
+      steps[i] = { ...steps[i], startedAt: t };
+      if (steps[i].status !== "active" && i + 1 < steps.length) {
+        const tNext = new Date(steps[i + 1].at).getTime();
+        if (!Number.isNaN(tNext)) {
+          steps[i] = {
+            ...steps[i],
+            startedAt: t,
+            durationMs: Math.max(0, tNext - t),
+          };
+        }
+      }
+    }
+  }
+
   return steps;
 }
 
@@ -359,13 +379,17 @@ export function mapActiveJobStepsToBuildProgress(
 ): Array<{
   detail: string;
   diff?: DiffLine[];
+  durationMs?: number;
   label: string;
+  startedAt?: number;
   status?: ProjectJobStep["status"];
 }> {
   return steps.map((step) => ({
     detail: step.detail,
     diff: step.diff,
+    durationMs: step.durationMs,
     label: step.label,
+    startedAt: step.startedAt,
     status: step.status,
   }));
 }

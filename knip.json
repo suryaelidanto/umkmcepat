@@ -21,7 +21,7 @@
     "powershell.exe",
     "taskkill"
   ],
-  "ignoreDependencies": ["tailwindcss"],
+  "ignoreDependencies": ["agent-browser", "tailwindcss"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     "src/components/ui/**": ["exports"],

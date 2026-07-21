@@ -54,6 +54,7 @@ export type GeneratedAppAgentCheckResult = {
 export type GeneratedAppAgentOperation = {
   detail: string;
   diff?: DiffLine[];
+  durationMs?: number;
   id: string;
   path?: string;
   state: "failed" | "succeeded";
@@ -77,6 +78,7 @@ export function runGeneratedAppAgentTools({
   const operations: GeneratedAppAgentOperation[] = [];
   const outputs: GeneratedAppAgentToolOutput[] = [];
   const sideEffects: GeneratedAppAgentToolSideEffect[] = [];
+  let commandStart = Date.now();
 
   function emit(operation: Omit<GeneratedAppAgentOperation, "id">) {
     if (operations.length >= MAX_OPERATION_TRACE) {
@@ -86,6 +88,8 @@ export function runGeneratedAppAgentTools({
     const next = {
       ...operation,
       detail: truncate(operation.detail, MAX_OPERATION_DETAIL_LENGTH),
+      durationMs:
+        operation.durationMs ?? Math.max(1, Date.now() - commandStart),
       id: `${operations.length + 1}`,
     };
     operations.push(next);
@@ -98,6 +102,7 @@ export function runGeneratedAppAgentTools({
   }
 
   for (const command of commands) {
+    commandStart = Date.now();
     if (command.type === "list_files") {
       const safePathPrefix = getSafeOptionalPathPrefix(command.pathPrefix);
 

@@ -148,7 +148,7 @@ export function getTextFromUIMessage(message: UIMessage) {
 
 export function dedupeUiMessages(messages: UIMessage[]): UIMessage[] {
   const seen = new Set<string>();
-  return messages.filter((message) => {
+  const deduped = messages.filter((message) => {
     const text = getTextFromUIMessage(message);
     const key = message.id || `${message.role}:${text}`;
 
@@ -159,6 +159,34 @@ export function dedupeUiMessages(messages: UIMessage[]): UIMessage[] {
     seen.add(key);
     return true;
   });
+
+  return normalizeModelMessages(deduped);
+}
+
+function normalizeModelMessages(messages: UIMessage[]): UIMessage[] {
+  if (messages.length === 0) {
+    return [];
+  }
+
+  const normalized: UIMessage[] = [messages[0]!];
+
+  for (let i = 1; i < messages.length; i++) {
+    const current = messages[i]!;
+    const previous = normalized[normalized.length - 1]!;
+
+    if (current.role === previous.role) {
+      // Merge consecutive same-role messages into the previous one
+      previous.parts = [...previous.parts, ...current.parts];
+      // Discard empty text parts created during merge
+      previous.parts = previous.parts.filter(
+        (p) => p.type !== "text" || (p.type === "text" && p.text.trim()),
+      );
+    } else {
+      normalized.push({ ...current, parts: [...current.parts] });
+    }
+  }
+
+  return normalized;
 }
 
 function sanitizeStoredUiMessage(value: unknown): unknown {

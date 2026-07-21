@@ -73,10 +73,9 @@ echo "Project created: $PROJECT_ID"
 step "2. Drive discussion turns"
 
 # Each turn: send user text + workspaceAnswers for the previous card.
-# We accept a JSON array of answers so we can answer multi-question cards.
-# The script reads the previous turn's card and answers its first missing question.
+# The script reads the previous turn's card and answers its single question.
 
-# Map of canned answers per question id (covers all FALLBACK_FIELD_QUESTIONS).
+# Map of canned answers per question id (covers the AI's standard brief fields).
 read_answers_for_card() {
   local prev_log="$1"
   # Extract every question id from the previous turn's tool-input-available event.

@@ -45,15 +45,9 @@ Open:
 ```text
 App: http://localhost:3000
 9Router: http://localhost:20129
-Langfuse: http://localhost:3001
-MinIO console: http://localhost:9091
 ```
 
-`bun run infra` starts Postgres plus the local AI/observability stack: 9Router, Headroom, Langfuse, and Langfuse dependencies. Use `bun run infra:minimal` only when you need Postgres without AI/observability.
-
-For Langfuse traces, local bootstrap and tracer keys in `.env.example` intentionally match. After `cp .env.example .env`, restart `bun run dev` once Langfuse is healthy. Shared/production environments must replace both `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` with environment-specific project keys.
-
-Langfuse local Compose disables public signup (`AUTH_DISABLE_SIGNUP=true`); use the bootstrap admin account only. In production, keep Langfuse behind Cloudflare Access/reverse-proxy auth and never expose its backing Postgres, ClickHouse, Redis, or MinIO services.
+`bun run infra` starts Postgres plus the local AI/observability stack: 9Router and Headroom. Use `bun run infra:minimal` only when you need Postgres without AI/observability.
 
 Useful infrastructure commands:
 
@@ -63,7 +57,7 @@ bun run infra:logs
 bun run infra:down
 ```
 
-`bun run infra:down` removes the Compose services, any stopped/orphaned container still attached to this project's Docker network, then the network itself. It never removes volumes, so PostgreSQL, 9Router, and Langfuse data survive the next `bun run infra`.
+`bun run infra:down` removes the Compose services, any stopped/orphaned container still attached to this project's Docker network, then the network itself. It never removes volumes, so PostgreSQL and 9Router data survive the next `bun run infra`.
 
 Daily workflow:
 

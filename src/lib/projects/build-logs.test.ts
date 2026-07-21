@@ -42,4 +42,13 @@ describe("build logs", () => {
       "paket",
     );
   });
+
+  it("gives concurrency_limit its own message, distinct from stale_worker — hitting the concurrency cap is not the same situation as a build stalling out, and telling the user to 'run again' when the real issue is 'server is busy right now' is misleading", () => {
+    const concurrencyMessage =
+      getIndonesianBuildFailureSummary("concurrency_limit");
+    const staleMessage = getIndonesianBuildFailureSummary("stale_worker");
+
+    expect(concurrencyMessage).not.toBe(staleMessage);
+    expect(concurrencyMessage).toMatch(/build lain|tunggu/i);
+  });
 });

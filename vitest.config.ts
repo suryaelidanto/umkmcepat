@@ -20,6 +20,12 @@ export default defineConfig({
     // full rerun. We want `--changed HEAD~1` to filter by source diff only so
     // the pre-commit gate stays fast on config-only commits.
     forceRerunTriggers: [],
+    // Some unit tests import route modules (e.g. `api.projects.preview.ts`)
+    // whose cold-transform + module-graph cost exceeds the 5s default on
+    // first run. Tests themselves stay well under a second; this only buys
+    // headroom for the import phase. ponytail: cap at 30s and add per-file
+    // `vi.setConfig({ testTimeout })` if a single test needs more.
+    testTimeout: 20_000,
     coverage: {
       watermarks: {
         statements: [0, 40],

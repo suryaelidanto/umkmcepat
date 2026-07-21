@@ -4,6 +4,7 @@ export type BuildFailureReason =
   | "artifact_write_failure"
   | "blocked_package"
   | "compile_error"
+  | "concurrency_limit"
   | "manifest_failure"
   | "stale_worker"
   | "timeout"
@@ -66,6 +67,8 @@ export function getIndonesianBuildFailureSummary(reason: BuildFailureReason) {
     compile_error:
       "Build gagal karena kode website belum valid. Coba minta edit yang lebih sederhana atau build ulang.",
     manifest_failure: "Build ditolak karena kontrak website belum lengkap.",
+    concurrency_limit:
+      "Server lagi memproses build lain. Tunggu sebentar lalu coba lagi.",
     stale_worker: "Build terhenti terlalu lama. Coba jalankan ulang.",
     timeout: "Build terlalu lama dan dihentikan. Coba sederhanakan permintaan.",
     unknown: "Build belum berhasil. Coba ulangi atau ubah instruksi.",

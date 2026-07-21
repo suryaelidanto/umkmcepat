@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createInitialBrief, parseProjectBrief } from "./brief";
-import {
-  buildFallbackWorkspaceCardFromBrief,
-  decideRuleEngineDiscussPath,
-  detectAckMessage,
-  normalizeWorkspaceTurn,
-  parseWorkspaceCard,
-  shouldEscapeRuleEngine,
-} from "./brief-flow";
+import { normalizeWorkspaceTurn } from "./brief-flow";
 
 describe("normalizeWorkspaceTurn", () => {
   it("never throws and falls back when the tool input is empty", () => {
@@ -58,7 +51,7 @@ describe("normalizeWorkspaceTurn", () => {
           type: "question",
           question: {
             id: "offer",
-            question: "y",
+            question: "",
             options: [{ label: "", description: "" }],
           },
         },
@@ -67,6 +60,28 @@ describe("normalizeWorkspaceTurn", () => {
     );
 
     expect(turn.workspaceCard.type).toBe("none");
+  });
+
+  it("falls back to a text question when options are missing or less than 2", () => {
+    const brief = parseProjectBrief({}, "jualan katering");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "offer",
+            question: "y",
+            options: [{ label: "", description: "" }],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.answerMode).toBe("text");
+    }
   });
 
   it("migrates a legacy questions[] card to a single question", () => {
@@ -581,373 +596,76 @@ describe("normalizeWorkspaceTurn", () => {
       expect(turn.workspaceCard.summary.length).toBeGreaterThan(0);
     }
   });
-});
 
-describe("parseWorkspaceCard questions variant", () => {
-  it("parses a valid questions[] card", () => {
-    const brief = createInitialBrief("warung kopi");
-    const card = parseWorkspaceCard(
+  it("suppresses a question card once the site is built, even if the model ignores its prompt and asks one anyway", () => {
+    const brief = parseProjectBrief(
+      { businessType: "Kopi Senja Roastery", offer: "Biji kopi roasting" },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
       {
-        type: "questions",
-        questions: [
-          {
-            id: "jam_buka",
-            question: "Jam buka hari kerja?",
-            answerMode: "text",
-            options: [],
-          },
-          {
-            id: "kontak",
-            question: "Pakai apa buat order?",
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "business_hours",
+            question: "Jam berapa biasanya buka?",
             options: [
-              { label: "WhatsApp", description: "Chat langsung." },
-              { label: "Telepon", description: "Telepon dulu." },
+              { label: "Setiap hari", description: "09:00 - 22:00" },
+              { label: "Senin - Jumat", description: "09:00 - 18:00" },
             ],
           },
-        ],
+        },
       },
       brief,
+      { hasBuiltSite: true },
     );
-    expect(card.type).toBe("questions");
-    if (card.type === "questions") {
-      expect(card.questions).toHaveLength(2);
-      expect(card.questions[0].id).toBe("jam_buka");
-    }
+
+    expect(turn.workspaceCard.type).toBe("none");
+    expect(turn.readyForBuild).toBe(false);
   });
 
-  it("drops an invalid question but keeps valid ones", () => {
-    const brief = createInitialBrief("warung kopi");
-    const card = parseWorkspaceCard(
+  it("suppresses a build_recommendation card once the site is built (no re-triggering a rebuild via the interview path)", () => {
+    const brief = parseProjectBrief(
+      { businessType: "Kopi Senja Roastery", offer: "Biji kopi roasting" },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
       {
-        type: "questions",
-        questions: [
-          {
-            id: "jam_buka",
-            question: "Jam buka?",
-            answerMode: "text",
-            options: [],
-          },
-          {
-            id: "bad",
-            question: "y",
-            options: [{ label: "", description: "" }],
-          },
-          {
-            id: "kontak",
-            question: "Order via?",
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Siap dibangun ulang!",
+          summary: ["Ganti warna jadi lebih gelap"],
+        },
+      },
+      brief,
+      { hasBuiltSite: true },
+    );
+
+    expect(turn.workspaceCard.type).toBe("none");
+  });
+
+  it("still allows a question card pre-build (hasBuiltSite: false / omitted) — same input as the built-site test above", () => {
+    const brief = parseProjectBrief(
+      { businessType: "Kopi Senja Roastery", offer: "Biji kopi roasting" },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "business_hours",
+            question: "Jam berapa biasanya buka?",
             options: [
-              { label: "WhatsApp", description: "Chat." },
-              { label: "Telepon", description: "Call." },
+              { label: "Setiap hari", description: "09:00 - 22:00" },
+              { label: "Senin - Jumat", description: "09:00 - 18:00" },
             ],
           },
-        ],
+        },
       },
       brief,
     );
-    expect(card.type).toBe("questions");
-    if (card.type === "questions") {
-      expect(card.questions.map((q) => q.id)).toEqual(["jam_buka", "kontak"]);
-    }
-  });
 
-  it("collapses single valid question to type:question", () => {
-    const brief = createInitialBrief("warung kopi");
-    const card = parseWorkspaceCard(
-      {
-        type: "questions",
-        questions: [
-          {
-            id: "bad",
-            question: "y",
-            options: [{ label: "", description: "" }],
-          },
-          {
-            id: "kontak",
-            question: "Order via?",
-            options: [
-              { label: "WhatsApp", description: "" },
-              { label: "Telepon", description: "" },
-            ],
-          },
-        ],
-      },
-      brief,
-    );
-    expect(card.type).toBe("question");
-    if (card.type === "question") {
-      expect(card.question.id).toBe("kontak");
-    }
-  });
-
-  it("dedupes by id keeping the first occurrence", () => {
-    const brief = createInitialBrief("warung kopi");
-    const card = parseWorkspaceCard(
-      {
-        type: "questions",
-        questions: [
-          {
-            id: "kontak",
-            question: "Order via?",
-            options: [
-              { label: "WA", description: "" },
-              { label: "Telp", description: "" },
-            ],
-          },
-          {
-            id: "kontak",
-            question: "Order via? (dup)",
-            options: [
-              { label: "WA", description: "" },
-              { label: "Telp", description: "" },
-            ],
-          },
-          {
-            id: "jam_buka",
-            question: "Jam buka?",
-            answerMode: "text",
-            options: [],
-          },
-        ],
-      },
-      brief,
-    );
-    expect(card.type).toBe("questions");
-    if (card.type === "questions") {
-      expect(card.questions.map((q) => q.id)).toEqual(["kontak", "jam_buka"]);
-    }
-  });
-
-  it("caps at 3 questions", () => {
-    const brief = createInitialBrief("warung kopi");
-    const card = parseWorkspaceCard(
-      {
-        type: "questions",
-        questions: Array.from({ length: 5 }, (_, i) => ({
-          id: `q${i}`,
-          question: `Q${i}?`,
-          answerMode: "text" as const,
-          options: [],
-        })),
-      },
-      brief,
-    );
-    expect(card.type).toBe("questions");
-    if (card.type === "questions") {
-      expect(card.questions).toHaveLength(3);
-    }
-  });
-
-  it("returns type:none when all questions are invalid", () => {
-    const brief = createInitialBrief("warung kopi");
-    const card = parseWorkspaceCard(
-      {
-        type: "questions",
-        questions: [
-          {
-            id: "bad",
-            question: "y",
-            options: [{ label: "", description: "" }],
-          },
-        ],
-      },
-      brief,
-    );
-    expect(card.type).toBe("none");
-  });
-});
-
-describe("buildFallbackWorkspaceCardFromBrief", () => {
-  it("builds a questions card from missing required fields", () => {
-    const brief = createInitialBrief("jualan");
-    brief.businessType = "Katering";
-    // offer, targetCustomer, contactOrCta, stylePreference still empty
-    const card = buildFallbackWorkspaceCardFromBrief(brief);
-    expect(card.type).toBe("questions");
-    if (card.type === "questions") {
-      expect(card.questions.length).toBeGreaterThan(0);
-      expect(card.questions.length).toBeLessThanOrEqual(3);
-      expect(
-        card.questions.every(
-          (q) => q.options.length >= 2 || q.answerMode === "text",
-        ),
-      ).toBe(true);
-    }
-  });
-
-  it("returns none when no required fields are missing", () => {
-    const brief = createInitialBrief("jualan");
-    brief.businessType = "Katering";
-    brief.offer = "Nasi kotak";
-    brief.targetCustomer = "Anak sekolah";
-    brief.contactOrCta = "WhatsApp";
-    brief.stylePreference = "Hangat";
-    const card = buildFallbackWorkspaceCardFromBrief(brief);
-    expect(card.type).toBe("none");
-  });
-});
-
-describe("shouldEscapeRuleEngine", () => {
-  it("returns false for short empty-brief turns", () => {
-    expect(shouldEscapeRuleEngine("halo")).toBe(false);
-    expect(shouldEscapeRuleEngine("halo bu")).toBe(false);
-  });
-
-  it("returns true for long messages", () => {
-    expect(
-      shouldEscapeRuleEngine(
-        "aku jualan kue di pasar dekat sekolah setiap pagi",
-      ),
-    ).toBe(true);
-  });
-
-  it("returns true when a URL is mentioned", () => {
-    expect(shouldEscapeRuleEngine("cek www.tokopedia.com ya")).toBe(true);
-    expect(
-      shouldEscapeRuleEngine("lihat https://instagram.com/warungpedia"),
-    ).toBe(true);
-  });
-
-  it("returns true when a phone number is mentioned", () => {
-    expect(shouldEscapeRuleEngine("WA 081234567890")).toBe(true);
-  });
-
-  it("returns true for real questions with multiple words", () => {
-    expect(shouldEscapeRuleEngine("produknya apa saja?")).toBe(true);
-  });
-
-  it("returns false for single-word questions", () => {
-    expect(shouldEscapeRuleEngine("nama?")).toBe(false);
-  });
-});
-
-describe("detectAckMessage", () => {
-  const fullBrief = createInitialBrief("jualan katering sekolah");
-  fullBrief.businessName = "Dapur Bu Ani";
-  fullBrief.businessType = "fnb";
-  fullBrief.offer = "Nasi kotak";
-  fullBrief.targetCustomer = "Anak sekolah";
-  fullBrief.contactOrCta = "WhatsApp 08123";
-  fullBrief.stylePreference = "Hangat";
-
-  it("returns reply for thanks when brief is complete", () => {
-    const ack = detectAckMessage("thanks", fullBrief);
-    expect(ack).toEqual({ reply: "Sama-sama!" });
-  });
-
-  it("returns null for ack with question mark", () => {
-    expect(detectAckMessage("ok?", fullBrief)).toBeNull();
-  });
-
-  it("returns null for long acks", () => {
-    expect(
-      detectAckMessage(
-        "oke banget ya saya setuju kita lanjut ke tahap berikutnya sekarang",
-        fullBrief,
-      ),
-    ).toBeNull();
-  });
-
-  it("returns null when there are still missing fields", () => {
-    const emptyBrief = createInitialBrief("jualan kue");
-    expect(detectAckMessage("oke", emptyBrief)).toBeNull();
-  });
-
-  it("returns null for messages with entities", () => {
-    expect(detectAckMessage("oke wa 0812", fullBrief)).toBeNull();
-  });
-
-  it("returns null for non-ack messages", () => {
-    expect(detectAckMessage("jualan kue", fullBrief)).toBeNull();
-  });
-});
-
-describe("decideRuleEngineDiscussPath", () => {
-  const emptyBrief = createInitialBrief("jualan katering");
-  const fullBrief = createInitialBrief("jualan katering sekolah");
-  fullBrief.businessName = "Dapur Bu Ani";
-  fullBrief.businessType = "fnb";
-  fullBrief.offer = "Nasi kotak";
-  fullBrief.targetCustomer = "Anak sekolah";
-  fullBrief.contactOrCta = "WhatsApp 08123";
-  fullBrief.stylePreference = "Hangat";
-
-  it("returns rule-engine for empty brief turn 0", () => {
-    const d = decideRuleEngineDiscussPath({
-      brief: emptyBrief,
-      confidence: 5,
-      existingUserTurns: 0,
-      incomingLength: 1,
-      text: "halo",
-    });
-    expect(d.path).toBe("rule-engine");
-  });
-
-  it("returns rule-engine for turn 1 still missing fields", () => {
-    const d = decideRuleEngineDiscussPath({
-      brief: emptyBrief,
-      confidence: 25,
-      existingUserTurns: 1,
-      incomingLength: 1,
-      text: "oke",
-    });
-    expect(d.path).toBe("rule-engine");
-  });
-
-  it("returns llm when user message is long", () => {
-    const d = decideRuleEngineDiscussPath({
-      brief: emptyBrief,
-      confidence: 5,
-      existingUserTurns: 0,
-      incomingLength: 1,
-      text: "aku jualan kue basah di pasar tradisional cibubur setiap subuh dan pesanan lewat wa",
-    });
-    expect(d.path).toBe("llm");
-  });
-
-  it("returns ack when ack and brief is complete at turn 0-1", () => {
-    const d = decideRuleEngineDiscussPath({
-      brief: fullBrief,
-      confidence: 95,
-      existingUserTurns: 1,
-      incomingLength: 1,
-      text: "ok",
-    });
-    expect(d.path).toBe("ack");
-    if (d.path === "ack") {
-      expect(d.reply).toMatch(/lanjut|oke|sama/i);
-    }
-  });
-
-  it("returns llm for mid-flow (turn > 1)", () => {
-    const d = decideRuleEngineDiscussPath({
-      brief: emptyBrief,
-      confidence: 20,
-      existingUserTurns: 5,
-      incomingLength: 1,
-      text: "oke",
-    });
-    expect(d.path).toBe("llm");
-  });
-
-  it("returns llm when user message contains URL", () => {
-    const d = decideRuleEngineDiscussPath({
-      brief: emptyBrief,
-      confidence: 5,
-      existingUserTurns: 0,
-      incomingLength: 1,
-      text: "https://instagram.com/warungpedia",
-    });
-    expect(d.path).toBe("llm");
-  });
-
-  it("returns llm for multi-message incoming", () => {
-    const d = decideRuleEngineDiscussPath({
-      brief: emptyBrief,
-      confidence: 5,
-      existingUserTurns: 0,
-      incomingLength: 3,
-      text: "halo",
-    });
-    expect(d.path).toBe("llm");
+    expect(turn.workspaceCard.type).toBe("question");
   });
 });

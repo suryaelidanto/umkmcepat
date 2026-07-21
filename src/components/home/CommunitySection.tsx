@@ -60,7 +60,7 @@ const faqs = [
   {
     question: "Apakah UMKM Cepat benar-benar gratis?",
     answer:
-      "Iya. Tujuan awalnya membantu usaha kecil mulai punya website tanpa biaya development.",
+      "Iya, semua fitur bisa kamu pakai tanpa biaya. Cukup daftar dan mulai buat websitemu.",
   },
   {
     question: "Website saya dibuat oleh AI saja?",

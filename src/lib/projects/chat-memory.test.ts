@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildProjectChatContext,
+  dedupeUiMessages,
   getProjectChatContext,
   getProjectChatPage,
   MAX_CONTEXT_MESSAGES,
@@ -18,6 +19,57 @@ import {
 } from "./chat-memory";
 
 describe("project chat memory", () => {
+  it("deduplicates messages and normalizes consecutive same-role messages (defense against strict Gemini validation)", () => {
+    const messages = [
+      {
+        id: "m1",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Halo" }],
+      },
+      {
+        id: "m1",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Halo" }],
+      }, // exact dup id
+      {
+        id: "m2",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Bikinin web" }],
+      }, // consecutive user role
+      {
+        id: "m3",
+        role: "assistant" as const,
+        parts: [{ type: "text" as const, text: "Siap!" }],
+      },
+      {
+        id: "m4",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Ganti warna" }],
+      },
+      {
+        id: "m5",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Warna biru ya" }],
+      }, // consecutive user role
+    ];
+
+    const result = dedupeUiMessages(messages);
+
+    expect(result).toHaveLength(3);
+    expect(result[0].role).toBe("user");
+    expect(result[0].parts).toEqual([
+      { type: "text", text: "Halo" },
+      { type: "text", text: "Bikinin web" },
+    ]);
+    expect(result[1].role).toBe("assistant");
+    expect(result[1].parts).toEqual([{ type: "text", text: "Siap!" }]);
+    expect(result[2].role).toBe("user");
+    expect(result[2].parts).toEqual([
+      { type: "text", text: "Ganti warna" },
+      { type: "text", text: "Warna biru ya" },
+    ]);
+  });
+
   it("keeps only valid UI messages", () => {
     expect(
       parseProjectChatMessages([

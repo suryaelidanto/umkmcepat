@@ -1,8 +1,8 @@
 let registered = false;
 
 // One-time server startup: validate production configuration and artifact
-// storage, then load AI observability (Langfuse OpenTelemetry). Invoked from
-// the server entry. Idempotent so repeated imports do not re-run it.
+// storage, then warm OpenRouter pricing. Invoked from the server entry.
+// Idempotent so repeated imports do not re-run it.
 export async function register() {
   if (registered) {
     return;
@@ -19,7 +19,6 @@ export async function register() {
 
   assertProductionConfigReady();
   await assertProjectArtifactStorageReady();
-  await import("@/lib/ai-observability");
 
   // Warm OpenRouter pricing cache + schedule 24h refresh (non-blocking).
   const { startModelPricingRefresh } = await import("@/lib/model-pricing");
