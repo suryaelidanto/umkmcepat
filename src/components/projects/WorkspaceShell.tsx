@@ -958,7 +958,7 @@ export function WorkspaceShell({
         id: `handoff-${Date.now()}`,
         metadata: undefined,
         parts: [{ text: buildHandoffLine(handoffBrief), type: "text" }],
-        role: "user",
+        role: "assistant",
       },
     ]);
     shouldStickToBottomRef.current = true;
