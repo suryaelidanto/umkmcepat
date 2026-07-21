@@ -1844,20 +1844,18 @@ ${implementationBrief}
 ${DESIGN_DIRECTIVE}
 
 SPEED RULES (you have limited steps — write immediately):
-1. FIRST STEP: write_file src/content/site.ts with real business data
-2. SECOND STEP: write_file src/routes/index.tsx with full page layout
-3. THIRD STEP: write_file src/styles.css with complete CSS for every className you used
-4. Then write any extra components/routes you need
-5. LAST STEP: check_app once
+1. FIRST STEP: write_file src/routes/index.tsx with full page layout using Tailwind classes
+2. SECOND STEP: write any extra components/helpers you need under src/components/
+3. LAST STEP: check_app once
 
 DO NOT read_skill. DO NOT read_file before writing — starter files are predictable.
 DO NOT spend steps exploring. Write complete files from the start.
+Do NOT edit, overwrite or modify src/content/site.ts. It is already fully populated with the business data. Only read from it using named import: "import { site } from '../content/site'".
 
 STATIC ONLY: no auth/DB/payment gateway/fake /api. Use WA/contact CTA and real Indonesian business copy.
 Do not add dependencies. package.json is platform-owned.
 
-Keep usePreviewReady() called in the rendered route.
-If you invent new classNames, write their CSS rules immediately — never leave unstyled classes.`;
+Keep usePreviewReady() called in the rendered route.`;
 }
 
 export function buildGeneratedAppBuildSpec(
