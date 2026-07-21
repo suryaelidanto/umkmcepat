@@ -13,6 +13,7 @@ const ALLOWED_PACKAGES_BY_PROFILE: Record<string, Set<string>> = {
   ]),
   "vite-react-tanstack-v1": new Set([
     "@eslint/js",
+    "@tailwindcss/vite",
     "@tanstack/react-query",
     "@tanstack/react-router",
     "@types/node",
@@ -25,8 +26,10 @@ const ALLOWED_PACKAGES_BY_PROFILE: Record<string, Set<string>> = {
     "eslint-plugin-react-refresh",
     "globals",
     "lucide-react",
+    "postcss",
     "react",
     "react-dom",
+    "tailwindcss",
     "typescript",
     "typescript-eslint",
     "vite",

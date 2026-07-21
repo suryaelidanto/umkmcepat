@@ -213,7 +213,7 @@ export async function generateCustomProjectFilesWithAgent({
       files.find((file) => file.path === "src/styles.css")?.content ?? "",
     );
     if (finalMissing.length > 0) {
-      const STUB_HARD_CAP = 100;
+      const STUB_HARD_CAP = 5;
       devLog("generate", "css.fallback-stubs", {
         missingCount: finalMissing.length,
         missing: finalMissing.slice(0, 12),
@@ -221,7 +221,7 @@ export async function generateCustomProjectFilesWithAgent({
       });
       if (finalMissing.length > STUB_HARD_CAP) {
         throw new Error(
-          `AI source generation failed: too many unstyled components (${finalMissing.length}). Missing CSS for: ${finalMissing.slice(0, 20).join(", ")}`,
+          `AI source generation failed: too many unstyled custom components (${finalMissing.length}). Missing CSS for: ${finalMissing.slice(0, 20).join(", ")}. Ensure you write CSS rules for custom classNames in src/styles.css.`,
         );
       }
       const stubbed = applyStylesCoverStubs(files);
@@ -456,6 +456,113 @@ const TRIVIAL_CSS_CLASS_ALLOWLIST = new Set([
   "small",
 ]);
 
+export function isTailwindUtilityClass(className: string): boolean {
+  const baseClass = className.split(":").at(-1) || className;
+
+  const standardTrivial = new Set([
+    "flex",
+    "grid",
+    "hidden",
+    "block",
+    "inline",
+    "inline-block",
+    "inline-flex",
+    "inline-grid",
+    "absolute",
+    "relative",
+    "fixed",
+    "sticky",
+    "isolate",
+    "truncate",
+    "border",
+    "shadow",
+    "underline",
+    "uppercase",
+    "lowercase",
+    "capitalize",
+    "antialiased",
+    "italic",
+    "transition",
+    "sr-only",
+    "not-sr-only",
+    "visible",
+    "invisible",
+    "collapse",
+  ]);
+
+  if (standardTrivial.has(baseClass)) {
+    return true;
+  }
+
+  const standardPrefixes = [
+    "p-",
+    "m-",
+    "w-",
+    "h-",
+    "gap-",
+    "bg-",
+    "text-",
+    "border-",
+    "rounded-",
+    "grid-",
+    "col-",
+    "row-",
+    "items-",
+    "justify-",
+    "align-",
+    "px-",
+    "py-",
+    "mx-",
+    "my-",
+    "pt-",
+    "pb-",
+    "pl-",
+    "pr-",
+    "mt-",
+    "mb-",
+    "ml-",
+    "mr-",
+    "font-",
+    "leading-",
+    "tracking-",
+    "transition-",
+    "duration-",
+    "ease-",
+    "z-",
+    "delay-",
+    "opacity-",
+    "scale-",
+    "rotate-",
+    "translate-",
+    "min-w-",
+    "max-w-",
+    "min-h-",
+    "max-h-",
+    "aspect-",
+    "shrink-",
+    "grow-",
+    "self-",
+    "place-",
+    "overflow-",
+    "whitespace-",
+    "break-",
+    "cursor-",
+    "select-",
+    "pointer-",
+    "stroke-",
+    "fill-",
+    "animate-",
+    "ring-",
+    "divide-",
+    "space-",
+    "decoration-",
+    "underline-",
+    "line-clamp-",
+  ];
+
+  return standardPrefixes.some((prefix) => baseClass.startsWith(prefix));
+}
+
 /**
  * A class is "covered" only if it has a rule whose declaration block is
  * meaningful — i.e. not a bare 'color:...' stub. A rule counts if it has
@@ -468,6 +575,9 @@ const TRIVIAL_CSS_CLASS_ALLOWLIST = new Set([
  * only a color declaration.
  */
 export function cssCoversClassName(styleContent: string, className: string) {
+  if (isTailwindUtilityClass(className)) {
+    return true;
+  }
   const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   if (!new RegExp(`\\.${escaped}(?![a-zA-Z0-9_-])`).test(styleContent)) {
     return false;
