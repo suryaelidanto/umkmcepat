@@ -878,7 +878,7 @@ export function createGeneratedViteTanStackStarterFiles(
     },
     {
       path: "src/content/site.ts",
-      content: `export const site = ${json(schema)} as const;\n`,
+      content: `export const site = ${json(schema)} as const;\nexport default site;\n`,
     },
     {
       path: "src/lib/preview-ready.ts",
@@ -1038,7 +1038,7 @@ export function createGeneratedViteTanStackProjectFiles(
     ...routeModule.files,
     {
       path: "src/content/site.ts",
-      content: `export const site = ${json(schema)} as const;\n`,
+      content: `export const site = ${json(schema)} as const;\nexport default site;\n`,
     },
     {
       path: `src/content/${variant}.ts`,
