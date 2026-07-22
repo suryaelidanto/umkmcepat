@@ -222,7 +222,7 @@ export async function buildGeneratedProject(
 // generated workspace). Resolve once at module init and reuse the absolute
 // path for every spawn so this works on Windows + POSIX and is independent
 // of the calling process's CWD.
-function resolveBundledRunner(): string {
+export function resolveBundledRunner(): string {
   const explicit = process.env.PROJECT_BUILD_BUN_PATH?.trim();
   if (explicit) {
     return explicit;
@@ -396,7 +396,7 @@ async function buildGeneratedProjectInWorkspace(
   return result;
 }
 
-async function runCommand(
+export async function runCommand(
   command: string[],
   cwd: string,
 ): Promise<BuildCommandResult> {
