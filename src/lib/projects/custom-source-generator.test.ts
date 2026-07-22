@@ -185,6 +185,11 @@ describe("custom generated source agent", () => {
       });
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
+        find: "// Replace this with the real home page built from the brief",
+        replace: "// Agent-authored bengkel home route",
+      });
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
         find: "{site.headline}",
         replace:
           '<h1>Servis motor harian yang jelas sebelum dibongkar.</h1>\n      <section className="agent-proof">Servis motor harian, aki, ban, dan kelistrikan.</section>',
@@ -231,6 +236,11 @@ describe("custom generated source agent", () => {
 
   it("keeps valid custom output even when the agent uses CSS instead of a component file", async () => {
     agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
+        find: "// Replace this with the real home page built from the brief",
+        replace: "// Agent-authored rental PS home route",
+      });
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
         find: "{site.headline}",
@@ -299,6 +309,11 @@ describe("custom generated source agent", () => {
       .mockImplementationOnce(async (tools) => {
         await tools.replace_in_file.execute({
           path: "src/routes/index.tsx",
+          find: "// Replace this with the real home page built from the brief",
+          replace: "// Agent-authored bengkel home route",
+        });
+        await tools.replace_in_file.execute({
+          path: "src/routes/index.tsx",
           find: "{site.headline}",
           replace:
             '<h1>Servis motor harian yang jelas.</h1>\n      <section className="agent-proof">Oli, ban, aki.</section>',
@@ -335,6 +350,11 @@ describe("custom generated source agent", () => {
 
   it("checkAgentSourceQuality does not fail on payment/login business copy", async () => {
     agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
+        find: "// Replace this with the real home page built from the brief",
+        replace: "// Agent-authored home route",
+      });
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
         find: "{site.headline}",
@@ -381,13 +401,33 @@ describe("custom generated source agent", () => {
     const quality = checkAgentSourceQuality(files, onlyAuto);
     expect(quality.ok).toBe(false);
     if (!quality.ok) {
-      // index.css alone counts as presentation path but fails size < 2.
-      expect(quality.issues).toContain("agent did not edit enough files");
+      // index.css alone leaves the starter placeholder in place; the
+      // stale-starter marker is the real reason styles-only touches fail
+      // now that size<2 is relaxed to size<1.
+      expect(quality.issues).toContain(
+        "home route is still the starter placeholder",
+      );
     }
+  });
+
+  it("checkAgentSourceQuality fails when index.tsx is still the starter placeholder", () => {
+    const files = createGeneratedViteTanStackStarterFiles("p1", schema());
+    // Agent "touched" the route but left the starter content in place.
+    const edited = new Set<string>(["src/routes/index.tsx"]);
+    const quality = checkAgentSourceQuality(files, edited);
+    expect(quality.ok).toBe(false);
+    expect(quality.issues).toContain(
+      "home route is still the starter placeholder",
+    );
   });
 
   it("checkAgentSourceQuality passes when content + route were agent-edited", async () => {
     agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
+        find: "// Replace this with the real home page built from the brief",
+        replace: "// Agent-authored home route",
+      });
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
         find: "{site.headline}",
@@ -434,13 +474,15 @@ describe("custom generated source agent", () => {
       "site-header",
     ]);
 
-    const legacyStarter =
-      ":root{color:#111}.starter-shell{min-height:100dvh;display:grid}";
-    expect(isStarterStylesContent(legacyStarter)).toBe(true);
+    const customCss =
+      ":root{color:#111}.layout{min-height:100dvh;display:grid}";
+    // Non-empty CSS with real rules is not starter content under the
+    // Tailwind-only contract (the `.starter-shell` legacy marker retired).
+    expect(isStarterStylesContent(customCss)).toBe(false);
     expect(
       findMissingCssClasses(
         [{ path: "src/routes/index.tsx", content: tsx }],
-        legacyStarter,
+        customCss,
       ),
     ).toEqual(["fab-wa", "hero", "site-header"]);
   });
@@ -453,11 +495,7 @@ describe("custom generated source agent", () => {
           content:
             'export function Home(){return <div className="bakso-card">ok</div>}',
         },
-        {
-          path: "src/index.css",
-          content:
-            ":root{color:#111}.starter-shell{min-height:100dvh;display:grid}",
-        },
+        { path: "src/index.css", content: "" },
       ],
       schema(),
     );
@@ -479,6 +517,11 @@ describe("custom generated source agent", () => {
   it("checkAgentSourceQuality fails when usePreviewReady is defined but never called", async () => {
     // Generate valid files first
     agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
+        find: "// Replace this with the real home page built from the brief",
+        replace: "// Agent-authored home route",
+      });
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
         find: "{site.headline}",
@@ -531,6 +574,11 @@ describe("custom generated source agent", () => {
 
   it("checkAgentSourceQuality passes when usePreviewReady is called outside its definition", async () => {
     agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/routes/index.tsx",
+        find: "// Replace this with the real home page built from the brief",
+        replace: "// Agent-authored home route",
+      });
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
         find: "{site.headline}",

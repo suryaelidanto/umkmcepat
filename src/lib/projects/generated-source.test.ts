@@ -196,7 +196,7 @@ describe("generated project source", () => {
     const outputs = fixtures.map((fixture) => {
       const files = createFiles(`project_${fixture.key}`, fixture.input);
       const app = readGeneratedFile(files, "src/routes/index.tsx");
-      const css = readGeneratedFile(files, "src/styles.css");
+      const css = readGeneratedFile(files, "src/index.css");
       const manifest = validateGeneratedAppManifest(files);
 
       expect(app).toContain(`variant-${fixture.variant}`);
@@ -227,7 +227,7 @@ describe("generated project source", () => {
     expect(readGeneratedFile(files, "src/routes/index.tsx")).toContain(
       "variant-automotive",
     );
-    expect(readGeneratedFile(files, "src/styles.css")).toContain(
+    expect(readGeneratedFile(files, "src/index.css")).toContain(
       "variant-automotive",
     );
   });

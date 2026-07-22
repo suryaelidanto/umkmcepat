@@ -25,6 +25,7 @@ const AUTO_STYLE_PATH = "src/index.css";
 const NO_MEANINGFUL_EDIT_ISSUES = [
   "agent did not edit enough files",
   "agent did not edit any presentation or content files",
+  "home route is still the starter placeholder",
 ] as const;
 
 /**
@@ -747,24 +748,11 @@ export function findMissingCssClasses(
 
 /** Starter seed before agent; also detects legacy tiny starter CSS. */
 export function isStarterStylesContent(styleContent: string) {
-  const trimmed = styleContent.trim();
-  if (!trimmed) {
-    return true;
-  }
-  // Legacy tiny starter: only shell + no design tokens.
-  // ponytail: the `.starter-shell` branch is dead on the new shadcn scaffold
-  // (starter emits shadcnThemeCss, not .starter-shell). Kept until Task 5
-  // retires the missing-CSS machinery for the Tailwind-only stack. Ceiling:
-  // dead branch.
-  if (
-    trimmed.includes(".starter-shell") &&
-    !trimmed.includes("--accent") &&
-    !trimmed.includes(".page{") &&
-    !trimmed.includes(".page {")
-  ) {
-    return true;
-  }
-  return false;
+  // The new shadcn starter emits shadcnThemeCss (real theme tokens); the
+  // legacy `.starter-shell` branch is retired. An empty stylesheet still
+  // counts as starter-only so ensureStylesFileExists replaces it with the
+  // starter contract.
+  return styleContent.trim().length === 0;
 }
 
 /**
@@ -1742,13 +1730,34 @@ export function checkAgentSourceQuality(
     issues.push("agent check failed");
   }
 
-  // Meaningful agent edits only (auto styles.css alone must fail).
-  if (agentEditedFiles.size < 2) {
+  // Meaningful agent edits: at least one touched file. The real signal is
+  // the presentationEdited/contentEdited check below (a styles-only touch
+  // still fails there). size<2 was a holdover from the old edit-site.ts
+  // + styles.css workflow; shadcn-only agents legitimately edit one route.
+  if (agentEditedFiles.size < 1) {
     issues.push("agent did not edit enough files");
   }
 
   if (!files.some((file) => file.path.startsWith("src/routes/"))) {
     issues.push("missing route files");
+  }
+
+  // Stale-starter detector: if the agent left the scaffold's placeholder
+  // home route in place (it compiles + has preview-ready, so size/route
+  // checks pass), fail the gate and trip the forced-rewrite path via
+  // NO_MEANINGFUL_EDIT_ISSUES. The marker lives in the starter's
+  // src/routes/index.tsx (see vite-tanstack-shadcn-starter.ts).
+  const homeRoute = files.find((file) => file.path === "src/routes/index.tsx");
+  const STARTER_MARKERS = [
+    "Replace this with the real home page built from the brief",
+    "Replace real home page built from brief",
+    "Replace this starter route",
+  ];
+  if (
+    homeRoute &&
+    STARTER_MARKERS.some((marker) => homeRoute.content.includes(marker))
+  ) {
+    issues.push("home route is still the starter placeholder");
   }
 
   const presentationEdited = [...agentEditedFiles].some(

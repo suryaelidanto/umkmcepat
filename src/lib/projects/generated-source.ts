@@ -760,13 +760,12 @@ export function createGeneratedViteTanStackStarterFiles(
 
 /**
  * Legacy re-export kept so existing imports (custom-source-generator.ts)
- * don't break during the locked-stack migration. Emits the shadcn Tailwind
- * v4 theme CSS — the starter contract CSS is gone. Downstream code that
- * looked for `.starter-shell` / `src/styles.css` is repointed to
- * `src/index.css` and made a no-op under the Tailwind-only stack by Task 2.
+ * don't break. Emits the shadcn Tailwind v4 theme CSS — the starter contract
+ * CSS is gone. Downstream code is repointed to `src/index.css` under the
+ * Tailwind-only stack.
  *
  * ponytail: delete once custom-source-generator stops referencing this
- * symbol (Task 5 rewrites the missing-CSS machinery).
+ * symbol.
  */
 export function createStarterContractStyles(schema: ProjectSiteSchema) {
   return shadcnThemeCss(schema);
@@ -779,11 +778,9 @@ export function createGeneratedProjectFiles(
   return createGeneratedViteTanStackProjectFiles(projectId, schema);
 }
 
-// ponytail: this variant generator still emits src/styles.css (contract CSS) +
-// main.tsx importing ./styles.css; the starter path migrated to src/index.css +
-// shadcnThemeCss. Migrate this path in Task 5 of the locked-stack plan so the
-// missing-CSS machinery (findMissingCssClasses etc.) can be retired for the
-// Tailwind-only stack. Ceiling: split-brain stylesheet contract until then.
+// Emits ONE stylesheet contract (src/index.css) matching the starter: the
+// shadcn theme (shadcnThemeCss) prepended to the variant's custom classes.
+// main.tsx imports ./index.css. The legacy src/styles.css is retired.
 export function createGeneratedViteTanStackProjectFiles(
   projectId: string,
   schema: ProjectSiteSchema,
@@ -901,7 +898,7 @@ export function createGeneratedViteTanStackProjectFiles(
     },
     {
       path: "src/main.tsx",
-      content: `import { RouterProvider } from "@tanstack/react-router";\nimport { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\n\nimport { router } from "./router";\nimport "./styles.css";\n\ncreateRoot(document.getElementById("root")!).render(\n  <StrictMode>\n    <RouterProvider router={router} />\n  </StrictMode>,\n);\n`,
+      content: `import { RouterProvider } from "@tanstack/react-router";\nimport { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\n\nimport { router } from "./router";\nimport "./index.css";\n\ncreateRoot(document.getElementById("root")!).render(\n  <StrictMode>\n    <RouterProvider router={router} />\n  </StrictMode>,\n);\n`,
     },
     {
       path: "src/router.tsx",
@@ -929,8 +926,8 @@ export function createGeneratedViteTanStackProjectFiles(
       content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "generated-app-preview-ready" }, "*");\n  }, []);\n}\n`,
     },
     {
-      path: "src/styles.css",
-      content: createCustomProjectStyles(variant, schema),
+      path: "src/index.css",
+      content: `${shadcnThemeCss(schema)}\n${createCustomProjectStyles(variant, schema)}`,
     },
     ...createGeneratedDesignContextFiles(schema),
   ];

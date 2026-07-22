@@ -116,7 +116,7 @@ describe("generated app agent tool runner", () => {
   it("isAgentEditablePath allows only src/ and brief docs", () => {
     for (const path of [
       "src/routes/index.tsx",
-      "src/styles.css",
+      "src/index.css",
       "src/lib/preview-ready.ts",
       "PRODUCT.md",
       "DESIGN.md",
