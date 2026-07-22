@@ -1133,7 +1133,8 @@ export function createGeneratedSourceSnapshotMetadata(
   schema: ProjectSiteSchema,
   generation?: {
     buildSpec?: string;
-    generationMode?: "agent-custom" | "agent-partial" | "retry_build";
+    generationMode?:
+      "agent-custom" | "agent-partial" | "loop-detected" | "retry_build";
     operationTrace?: Array<{
       detail: string;
       path?: string;

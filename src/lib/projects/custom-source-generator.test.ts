@@ -376,6 +376,55 @@ describe("custom generated source agent", () => {
     expect(agentGenerate).toHaveBeenCalledTimes(2);
   });
 
+  it("hard-caps a looping generation (5 exact read_file repeats) as loop-detected", async () => {
+    // First pass: agent loops on read_file 5x with identical args → hard-cap
+    // on the 5th call. No writes, so the quality gate trips a forced rewrite.
+    agentGenerate
+      .mockImplementationOnce(async (tools) => {
+        for (let i = 0; i < 5; i++) {
+          await tools.read_file.execute({ path: "src/routes/index.tsx" });
+        }
+        return { text: "looped" };
+      })
+      // Forced rewrite: produces valid edits so the gate passes, but
+      // loopHardCapped from the first pass still marks the result partial.
+      .mockImplementationOnce(async (tools) => {
+        await tools.replace_in_file.execute({
+          path: "src/routes/index.tsx",
+          find: "// Replace this with the real home page built from the brief",
+          replace: "// Agent-authored home route",
+        });
+        await tools.replace_in_file.execute({
+          path: "src/routes/index.tsx",
+          find: "{site.headline}",
+          replace:
+            '<h1>Recovered from loop.</h1>\n      <section className="agent-proof">ok</section>',
+        });
+        await tools.replace_in_file.execute({
+          path: "src/content/site.ts",
+          find: "Bengkel Maju",
+          replace: "Bengkel Recovered",
+        });
+        await tools.replace_in_file.execute({
+          path: "src/index.css",
+          find: "--background:",
+          replace:
+            "--background: #f7f7f7; /* agent-proof */\n.agent-proof{display:block}",
+        });
+        await tools.check_app.execute({});
+        return { text: "recovered" };
+      });
+
+    const result = await generateCustomProjectFilesWithAgent({
+      projectId: "project_loop_cap",
+      schema: schema(),
+    });
+
+    expect(result.partial).toBe(true);
+    expect(result.generationMode).toBe("loop-detected");
+    expect(agentGenerate).toHaveBeenCalledTimes(2);
+  });
+
   it("checkAgentSourceQuality does not fail on payment/login business copy", async () => {
     agentGenerate.mockImplementation(async (tools) => {
       await tools.replace_in_file.execute({
