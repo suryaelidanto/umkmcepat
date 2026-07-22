@@ -1861,16 +1861,17 @@ ${implementationBrief}
 ${DESIGN_DIRECTIVE}
 
 SPEED RULES (you have limited steps — write immediately):
-1. FIRST STEP: write_file src/routes/index.tsx with full page layout using Tailwind classes
-2. SECOND STEP: write any extra components/helpers you need under src/components/
-3. LAST STEP: check_app once
+1. FIRST STEP: write_file src/routes/index.tsx with the full page layout using shadcn components + Tailwind utilities.
+2. SECOND STEP: write any extra components/helpers you need under src/components/custom/.
+3. LAST STEP: check_app once.
 
-DO NOT read_skill. DO NOT read_file before writing — starter files are predictable.
+DO NOT read_file before writing — starter files are predictable.
 DO NOT spend steps exploring. Write complete files from the start.
-Do NOT edit, overwrite or modify src/content/site.ts. It is already fully populated with the business data. Only read from it using named import: "import { site } from '../content/site'".
+Do NOT edit, overwrite, or modify src/content/site.ts. It is already fully populated with the business data. Only read from it using named import: "import { site } from '@/content/site'".
+Do NOT edit src/index.css — it is platform-owned and pre-wired with shadcn theme vars.
 
-STATIC ONLY: no auth/DB/payment gateway/fake /api. Use WA/contact CTA and real Indonesian business copy.
-Do not add dependencies. package.json is platform-owned.
+STATIC ONLY: no auth, no backend, no DB, no payment gateway, no fake /api routes. Use WhatsApp/contact CTA and real Indonesian business copy.
+Do not add or remove dependencies — package.json is platform-owned.
 
 Keep usePreviewReady() called in the rendered route.`;
 }
@@ -1932,19 +1933,19 @@ export function buildGeneratedAppBuildSpec(
     .join("\n");
 }
 
-function buildGeneratedAppAgentInstructions(
+export function buildGeneratedAppAgentInstructions(
   schema: ProjectSiteSchema,
   implementationSpec?: ImplementationSpec,
   mode: "generate" | "repair" | "rewrite" = "generate",
 ) {
   const skillsBlock =
     mode === "generate"
-      ? `\nDo NOT call read_skill — write files directly. You already know the stack.
-WRITE first: src/content/site.ts, src/routes/index.tsx, src/index.css.
-Never call check_app before at least one write_file or replace_in_file.
-Minimize read_file calls — starter structure is predictable.`
+      ? `\nWrite files directly; you already know the stack. You MAY call read_skill "tailwind-v4", "tanstack-router-static", or "shadcn-ui" if unsure, but do not stall on exploration.
+WRITE first: src/routes/index.tsx (the home page, composing shadcn components + Tailwind utilities).
+Then add any extra routes under src/routes/ and business-specific components under src/components/custom/.
+Never call check_app before at least one write_file.`
       : mode === "rewrite"
-        ? `\nFORCED REWRITE MODE: no read_skill. Write core files immediately, then check_app.`
+        ? `\nFORCED REWRITE MODE: write core routes/components immediately, then check_app.`
         : "";
 
   return `You are a frontend coding agent for UMKM Cepat generated apps.
@@ -1953,22 +1954,27 @@ Business: ${implementationSpec?.businessName || schema.businessName} — ${imple
 ${skillsBlock}
 ${DESIGN_DIRECTIVE}
 
-The project uses Vite + React + TanStack Router.
-Static frontend only. User-facing copy in Indonesian.
+STACK (locked — do not change tooling):
+- Vite + React 19 + TypeScript + TanStack Router (hash history, static).
+- Tailwind CSS v4 (utility classes inline; src/index.css pre-wires theme vars — do not edit it).
+- shadcn/ui components in src/components/ui/ are platform-owned — do not edit them; compose them.
+- package.json is platform-owned — do not add or remove dependencies.
 
-STYLING CONTRACT (extremely strict):
-- Tailwind CSS v4 is pre-installed. You MUST write all styles using standard Tailwind utility classes directly in the TSX (e.g. className="flex flex-col gap-4 p-6 bg-slate-900 rounded-xl shadow-lg").
-- Do NOT write custom CSS classNames (like "btn-primary", "nav-link", "contact-form", "hero-section") or custom styles in src/index.css. Keep index.css unedited.
-- Do NOT use h-screen. Always use min-h-dvh or min-h-screen for full viewport sections.
+STYLING (shadcn + Tailwind only — no custom CSS):
+- All styling uses Tailwind utility classes inline in the TSX, using theme tokens (bg-background, text-foreground, bg-primary, text-primary-foreground, bg-muted, text-muted-foreground, bg-accent, text-accent-foreground, border-border, ring-ring).
+- Do NOT write custom CSS class names (no .btn-primary / .nav-link / .hero-section / etc.) and do NOT edit src/index.css.
+- If you need a shadcn component not pre-seeded, write its source into src/components/ui/<name>.tsx (canonical new-york + Tailwind v4 shape, import cn from "@/lib/utils"). No CLI at build time.
+- Use min-h-dvh for full-height sections, never h-screen.
 
-ROUTING & PAGE CONTRACT (strict):
-- src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }"
-- Do NOT create new route files under src/routes/ (like tentang.tsx, kontak.tsx, or product detail pages).
-- If the spec requires multiple pages or views, implement them as React state-based tab/view switching (e.g. const [activePage, setActivePage] = useState("home")) directly inside src/routes/index.tsx.
-- Do NOT use TanStack Router's <Link> component or routing tags (like Link from '@tanstack/react-router') for switching pages/tabs. Doing so causes compile errors since those paths are not registered in the static router. Use standard HTML tags (like <button> or <a>) with React state (onClick={() => setActivePage('...')}) instead.
-- Do NOT edit or overwrite src/main.tsx, src/router.tsx, or src/routes/__root.tsx. Keep routing simple, standard, and encapsulated inside HomeRouteComponent.
-- Import usePreviewReady from "../lib/preview-ready" (NOT from hooks).
-- Import the business data using: import { site } from "../content/site" (or import site from "../content/site"). All files under src/content/site.ts must export 'site' as both named and default exports.
+ROUTING & PAGE CONTRACT:
+- src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }".
+- src/router.tsx is platform-owned and registers only index + 404. Do NOT edit src/main.tsx, src/router.tsx, or src/routes/__root.tsx.
+- For multi-section pages, build one composed page in src/routes/index.tsx with in-page anchor sections (e.g. <a href="#kontak">). Do NOT create new route files under src/routes/.
+- Import usePreviewReady from "@/lib/preview-ready".
+- Import the business data using: import { site } from "@/content/site". Do NOT edit src/content/site.ts — it is fully populated and exports site as both named and default exports.
+
+STATIC ONLY: no auth, no backend, no database, no payment gateway, no fake /api routes. Use WhatsApp/contact CTAs and real Indonesian business copy.
+Do not add or remove dependencies — package.json is platform-owned.
 
 Call check_app after all writes.`;
 }

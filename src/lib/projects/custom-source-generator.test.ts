@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyStylesCoverStubs,
+  buildGeneratedAppAgentInstructions,
   buildGeneratedAppBuildSpec,
   checkAgentSourceQuality,
   cssCoversClassName,
@@ -15,7 +16,10 @@ import {
   isStarterStylesContent,
 } from "@/lib/projects/custom-source-generator";
 import { createGeneratedViteTanStackStarterFiles } from "@/lib/projects/generated-source";
-import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
+import {
+  createProjectSiteSchemaFromBrief,
+  type ProjectSiteSchema,
+} from "@/lib/projects/site-schema";
 
 const agentGenerate = vi.fn();
 
@@ -685,5 +689,37 @@ export const router = createRouter({ routeTree });`,
         ),
       ).toBe(false);
     });
+  });
+});
+
+describe("buildGeneratedAppAgentInstructions (prompt coherence)", () => {
+  const schema = { businessName: "Test" } as unknown as ProjectSiteSchema;
+  const instructions = buildGeneratedAppAgentInstructions(
+    schema,
+    undefined,
+    "generate",
+  );
+
+  it("does not contradict itself about site.ts or styles", () => {
+    expect(instructions).not.toContain("WRITE first: src/content/site.ts");
+    expect(instructions).not.toContain(
+      "WRITE first: src/content/site.ts, src/routes/index.tsx, src/styles.css",
+    );
+  });
+
+  it("permits real multi-page routing with <Link>", () => {
+    expect(instructions).not.toContain("Do NOT use TanStack Router's <Link>");
+    expect(instructions).not.toContain(
+      "implement them as React state-based tab",
+    );
+  });
+
+  it("directs the agent to use shadcn components", () => {
+    expect(instructions).toContain("shadcn");
+  });
+
+  it("still forbids backend/auth/db", () => {
+    expect(instructions.toLowerCase()).toContain("no auth");
+    expect(instructions.toLowerCase()).toContain("no backend");
   });
 });
