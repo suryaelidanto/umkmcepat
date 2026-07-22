@@ -303,6 +303,34 @@ describe("custom generated source agent", () => {
     expect(agentGenerate).toHaveBeenCalledTimes(2);
   });
 
+  it("blocks check_app until src/routes/index.tsx is written, even if other files exist", async () => {
+    // Agent writes src/content/site.ts but NOT src/routes/index.tsx, then
+    // calls check_app. The guard must block it and name src/routes/index.tsx.
+    const checkAppResults: { error?: string }[] = [];
+    agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/content/site.ts",
+        find: "Bengkel Maju",
+        replace: "Bengkel Skip Index",
+      });
+      checkAppResults.push(
+        (await tools.check_app.execute({})) as { error?: string },
+      );
+      return { text: "done without index" };
+    });
+
+    await expect(
+      generateCustomProjectFilesWithAgent({
+        projectId: "project_check_app_guard",
+        schema: schema(),
+      }),
+    ).rejects.toThrow();
+
+    expect(checkAppResults.at(0)?.error ?? "").toContain(
+      "src/routes/index.tsx",
+    );
+  });
+
   it("recovers via forced rewrite when first pass has no meaningful edits", async () => {
     agentGenerate
       .mockImplementationOnce(async () => ({ text: "only reads" }))

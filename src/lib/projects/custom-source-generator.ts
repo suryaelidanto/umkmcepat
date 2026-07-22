@@ -83,14 +83,19 @@ export async function generateCustomProjectFilesWithAgent({
   const agentEditedFiles = new Set<string>();
 
   const runCommand: RunCommand = (command) => {
-    // Guard: if the agent calls check_app before writing any custom files,
-    // return an error forcing it to write code first. This prevents the
-    // agent from seeing the starter compiles and exiting without edits.
-    if (command.type === "check_app" && agentEditedFiles.size === 0) {
+    // Guard: block check_app until the agent has written the home page.
+    // The agent can satisfy the old "any file" gate by writing decoration
+    // files (src/content/site.ts, src/index.css) and skip the visible page
+    // entirely — then the stale-starter detector trips the forced rewrite,
+    // which repeats the same skip. Require src/routes/index.tsx by name.
+    if (
+      command.type === "check_app" &&
+      !agentEditedFiles.has("src/routes/index.tsx")
+    ) {
       return {
         type: command.type,
         error:
-          "No custom source files written yet. You MUST call write_file on src/routes/index.tsx with your custom page layout BEFORE calling check_app.",
+          "No home page written yet. You MUST call write_file on src/routes/index.tsx with your custom page layout BEFORE calling check_app.",
       };
     }
 
