@@ -1,9 +1,9 @@
 ---
-name: fix-cicd
-description: Use when a GitHub Actions / CI run is failing (red X, "failure", "cancelled") on the current branch, when the user asks to "fix CI/CD", "perbaiki CI", "CI merah", "workflow gagal", or when a push/PR shows failing checks. Use before any patch when the failure cause is unknown — read the failing log first, never guess the symptom. Covers gh CLI, failed workflow logs, Storybook/a11y/color-contrast, lint, typecheck, build, and test failures in the UMKM Cepat `Quality` workflow.
+name: fix-ci
+description: Use when a GitHub Actions / CI run is failing (red X, "failure", "cancelled") on the current branch, when the user asks to "fix CI", "perbaiki CI", "CI merah", "workflow gagal", or when a push/PR shows failing checks. Use before any patch when the failure cause is unknown — read the failing log first, never guess the symptom. Covers gh CLI, failed workflow logs, Storybook/a11y/color-contrast, lint, typecheck, build, and test failures in the UMKM Cepat `Quality` workflow.
 ---
 
-# Fix CI/CD
+# Fix CI
 
 Red CI → root cause → minimal fix → push to the same branch. Never guess from the run name.
 

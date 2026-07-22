@@ -103,7 +103,6 @@
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/browser-playwright": "^4.1.9",
     "@vitest/coverage-v8": "^4.1.9",
-    "agent-browser": "^0.32.3",
     "chromatic": "^17.7.1",
     "eslint": "^9",
     "eslint-plugin-import": "^2.32.0",
