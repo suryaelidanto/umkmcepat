@@ -82,6 +82,17 @@ export async function generateCustomProjectFilesWithAgent({
   const agentEditedFiles = new Set<string>();
 
   const runCommand: RunCommand = (command) => {
+    // Guard: if the agent calls check_app before writing any custom files,
+    // return an error forcing it to write code first. This prevents the
+    // agent from seeing the starter compiles and exiting without edits.
+    if (command.type === "check_app" && agentEditedFiles.size === 0) {
+      return {
+        type: command.type,
+        error:
+          "No custom source files written yet. You MUST call write_file on src/routes/index.tsx with your custom page layout BEFORE calling check_app.",
+      };
+    }
+
     const result = runGeneratedAppAgentTools({
       commands: [command],
       files,

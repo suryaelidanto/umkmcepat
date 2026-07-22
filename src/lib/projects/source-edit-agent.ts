@@ -30,8 +30,18 @@ export async function editGeneratedSourceWithAgent({
 }) {
   let currentFiles = files;
   const operationTrace: GeneratedAppAgentOperation[] = [];
+  let hasEditedFiles = false;
 
   const runCommand = (command: GeneratedAppAgentToolCommand) => {
+    // Guard: block check_app before any edits for edit agent too
+    if (command.type === "check_app" && !hasEditedFiles) {
+      return {
+        type: command.type,
+        error:
+          "No source files edited yet. You MUST call write_file or replace_in_file BEFORE calling check_app.",
+      };
+    }
+
     const result = runGeneratedAppAgentTools({
       commands: [command],
       files: currentFiles,
@@ -44,6 +54,7 @@ export async function editGeneratedSourceWithAgent({
     currentFiles = result.files;
 
     if (command.type === "write_file" || command.type === "replace_in_file") {
+      hasEditedFiles = true;
       onFilesChanged?.(currentFiles);
     }
 
