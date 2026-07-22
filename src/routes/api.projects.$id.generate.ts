@@ -444,7 +444,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
             });
           }
 
-          let finalBuildResult = await buildGeneratedProject(sourceFiles);
+          let finalBuildResult = await buildGeneratedProject(sourceFiles, {
+            workspaceKey: projectId,
+          });
 
           if (!finalBuildResult.ok) {
             for (let repairAttempt = 0; repairAttempt < 2; repairAttempt++) {
@@ -495,7 +497,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
                   artifactId: snapshot.id,
                   files: sourceFiles,
                 }).catch(() => undefined);
-                finalBuildResult = await buildGeneratedProject(sourceFiles);
+                finalBuildResult = await buildGeneratedProject(sourceFiles, {
+                  workspaceKey: projectId,
+                });
                 if (finalBuildResult.ok) {
                   break;
                 }
@@ -932,7 +936,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
             type: "build.started",
           }),
         });
-        const buildResult = await buildGeneratedProject(sourceFiles);
+        const buildResult = await buildGeneratedProject(sourceFiles, {
+          workspaceKey: projectId,
+        });
         devLog("generate", "build.finished", {
           ok: buildResult.ok,
           projectId: projectId,
@@ -990,7 +996,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
                 files: sourceFiles,
               });
 
-              const retryBuild = await buildGeneratedProject(sourceFiles);
+              const retryBuild = await buildGeneratedProject(sourceFiles, {
+                workspaceKey: projectId,
+              });
               finalBuildResult = retryBuild;
               devLog("generate", "build.retry.finished", {
                 attempt: repairAttempt + 1,

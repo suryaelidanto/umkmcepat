@@ -411,6 +411,48 @@ describe("generated project source", () => {
     expect(second.log).toContain('"installSkipped":true');
   });
 
+  it("reuses the same workspace across rebuilds when workspaceKey is stable", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const commands: string[] = [];
+    const commandRunner = async (command: string[], cwd: string) => {
+      const normalized = normalizeCommand(command);
+      commands.push(normalized);
+
+      if (normalized === "<bun> install --ignore-scripts") {
+        await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+      }
+
+      if (normalized === "<bun> run build") {
+        await writeDist(cwd, "stable-key");
+      }
+
+      return { ok: true, log: command.join(" ") };
+    };
+
+    // First build: AI-produced manifest.projectId is "slug-a"; install runs.
+    await buildGeneratedProject(buildableFiles("slug-a"), {
+      commandRunner,
+      workspaceRoot: tempDir,
+      workspaceKey: "project-stable-id",
+    });
+
+    // Second build: AI regenerates with a different slug "slug-b"; workspaceKey
+    // keeps the workspace stable so install is skipped.
+    const second = await buildGeneratedProject(buildableFiles("slug-b"), {
+      commandRunner,
+      workspaceRoot: tempDir,
+      workspaceKey: "project-stable-id",
+    });
+
+    expect(second.ok).toBe(true);
+    expect(commands).toEqual([
+      "<bun> install --ignore-scripts",
+      "<bun> run build",
+      "<bun> run build",
+    ]);
+    expect(second.log).toContain('"installSkipped":true');
+  });
+
   it("reinstalls when the generated package changes", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
     const commands: string[] = [];

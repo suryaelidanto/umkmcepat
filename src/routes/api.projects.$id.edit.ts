@@ -732,6 +732,7 @@ async function handleEditPost(request: Request, routeId: string) {
     const buildResult = await createLocalBuildWorker().runBuild({
       buildId: build.id,
       files: editResult.files,
+      workspaceKey: project.id,
     });
     devLog("edit", "build.finished", {
       projectId: project.id,

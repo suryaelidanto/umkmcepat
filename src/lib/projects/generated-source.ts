@@ -36,6 +36,7 @@ type BuildGeneratedProjectOptions = {
     cwd: string,
   ) => Promise<BuildCommandResult>;
   workspaceRoot?: string;
+  workspaceKey?: string;
 };
 
 type BuildCacheMetadata = {
@@ -206,11 +207,10 @@ export async function buildGeneratedProject(
     };
   }
 
-  return buildGeneratedProjectInWorkspace(
-    files,
-    manifestResult.manifest,
-    options,
-  );
+  return buildGeneratedProjectInWorkspace(files, manifestResult.manifest, {
+    ...options,
+    workspaceKey: options.workspaceKey ?? manifestResult.manifest.projectId,
+  });
 }
 
 // node:child_process.spawn on Windows requires an absolute path or an
@@ -290,7 +290,7 @@ async function buildGeneratedProjectInWorkspace(
   const workspaceRoot = resolveBuildWorkspaceRoot(options.workspaceRoot);
   const workspace = path.join(
     workspaceRoot,
-    toSafeWorkspacePart(manifest.projectId),
+    toSafeWorkspacePart(options.workspaceKey ?? manifest.projectId),
     toSafeWorkspacePart(manifest.runtimeProfile),
   );
   const metadataPath = path.join(
