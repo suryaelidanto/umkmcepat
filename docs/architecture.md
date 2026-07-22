@@ -152,6 +152,39 @@ Payment link
 
 AI may configure these modules. The platform executes them. Arbitrary user backend code is not part of the MVP.
 
+## Generated project stack (locked)
+
+The generated Vite app is a locked, platform-owned stack. Do not swap frameworks, add a CSS framework, or introduce a CLI-driven component pipeline without changing this section first.
+
+Stack:
+
+- **Vite + React 19 + TypeScript** as the build/runtime base.
+- **TanStack Router** with `createHashHistory()` (static, sandboxed-iframe-safe). Multi-page is a valid outcome, not a forced default — when the brief has distinct sections, the agent writes one route file per page under `src/routes/` (e.g. `katalog.tsx`, `kontak.tsx`) and registers it in `src/router.tsx` via `createRoute({ getParentRoute: () => rootRoute, path, component })` + `rootRoute.addChildren([...])`, then navigates with `<Link to="...">` from `@tanstack/react-router`. A landing page is still a valid single-page outcome.
+- **Tailwind CSS v4** via `@tailwindcss/vite`, CSS-first config (`@import "tailwindcss";` + `@theme inline` + `:root` in `src/index.css`). No `tailwind.config.js`. All styling is Tailwind utility classes inline in TSX; no custom CSS class names (no `.btn-primary`/`.hero-section`). Full-height sections use `min-h-dvh`, never `h-screen`.
+- **shadcn/ui "new-york"** components, source-copied verbatim from the canonical shadcn registry into `src/components/ui/*` at scaffold time (button, card, badge, input, label, separator). No shadcn CLI runs at build time. The AI writes any extra shadcn primitives directly into `src/components/ui/<name>.tsx` following the canonical new-york + Tailwind v4 shape (`import { cn } from "@/lib/utils"`, Radix primitives, Tailwind utilities + theme vars).
+
+Agent tool runner:
+
+- The constrained server-owned agent tool runner exposes only file operations: `check_app`, `list_files`, `read_file`, `search_files`, `write_file`, `replace_in_file`, `read_skill`. There is no shell access. The runner enforces project file boundaries, blocks platform-owned executable files, records side effects, emits operation trace events, and blocks success when app/policy checks fail.
+- Platform-owned files the agent must not edit: `package.json`, `vite.config.ts`, `tsconfig.app.json`, `tsconfig.node.json`, `components.json`, `src/main.tsx`, `src/router.tsx` (beyond adding routes), `src/routes/__root.tsx` (beyond a shared layout), `src/routes/not-found.tsx`, `src/lib/utils.ts`, `src/index.css`, `src/content/site.ts`. Business data lives in `src/content/site.ts` as TS objects, not a database.
+
+Build workspace caching:
+
+- Build workspaces are keyed by the real project id via a stable `workspaceKey` option (defaults to the generated app manifest's `projectId`). Repeat builds with an unchanged dependency signature skip `bun install` by reusing `node_modules` and the `.cache/generated-app/build-cache.json` metadata in the workspace. Source snapshots and `dist` artifacts remain canonical; a workspace may be deleted and rebuilt.
+- `PROJECT_BUILD_WORKSPACE_DIR` stores rebuildable local build workspaces under `.data/project-build-workspaces` by default.
+
+Styling and theme:
+
+- Theme tokens come from the brief (`schema.theme`: `background`, `foreground`, `muted`, `accent`) and are mapped to shadcn CSS vars in `src/index.css` (`--background`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--muted-foreground`, `--accent`, `--accent-foreground`, `--destructive`, `--destructive-foreground`, `--border`, `--input`, `--ring`, `--radius`, plus the `--color-*` Tailwind v4 `@theme inline` mapping). The agent consumes these via Tailwind utilities (`bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `bg-muted`, `text-muted-foreground`, `bg-accent`, `text-accent-foreground`, `border-border`, `ring-ring`). `src/index.css` and `src/content/site.ts` are read-only to the agent.
+
+Verify-before-ship gate:
+
+- `checkAgentSourceQuality` runs after the agent's source writes. If the starter placeholder marker (`// Replace this with the real home page built from the brief`) is still present in `src/routes/index.tsx`, the gate fails the build and triggers one bounded forced-rewrite pass (evaluator-optimizer pattern) before falling back to last-resort stub injection. The gate also requires at least one edited presentation or content file, route files under `src/routes/`, content files under `src/content/`, and the `usePreviewReady()` signal actually called from a rendered route.
+
+Static-frontend constraint:
+
+- Generated apps are static-frontend-only. Backend, database, auth, payments, checkout, fake persistence, browser automation, and native dependencies are future work, not present scope. `localStorage` may hold only ephemeral drafts, never durable business data.
+
 ## Provider boundaries
 
 Provider selection is explicit, env-driven, and behind internal adapters.

@@ -20,11 +20,12 @@ import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 /** Paths auto-touched by ensureStylesCoverClassNames — not agent edits. */
-const AUTO_STYLE_PATH = "src/styles.css";
+const AUTO_STYLE_PATH = "src/index.css";
 
 const NO_MEANINGFUL_EDIT_ISSUES = [
   "agent did not edit enough files",
   "agent did not edit any presentation or content files",
+  "home route is still the starter placeholder",
 ] as const;
 
 /**
@@ -182,7 +183,7 @@ export async function generateCustomProjectFilesWithAgent({
     files = ensureRouterRouteWired(files);
     files = ensurePreviewReadyCalled(files);
 
-    // Ensure a styles.css file exists (starter contract if absent), but do
+    // Ensure a index.css file exists (starter contract if absent), but do
     // NOT inject per-class stubs here — stubs would mask the missing-CSS gap
     // and defeat the quality gate below. Stubs are a last-resort fallback
     // only, applied after a rewrite pass has been attempted.
@@ -195,7 +196,7 @@ export async function generateCustomProjectFilesWithAgent({
       // agent writes real layout CSS, not color-only stubs.
       const missingCss = findMissingCssClasses(
         files,
-        files.find((file) => file.path === "src/styles.css")?.content ?? "",
+        files.find((file) => file.path === "src/index.css")?.content ?? "",
       );
       await runForcedRewritePass({
         appSpec,
@@ -221,7 +222,7 @@ export async function generateCustomProjectFilesWithAgent({
     // hard instead of shipping a half-styled UI (the original silent-broken bug).
     const finalMissing = findMissingCssClasses(
       files,
-      files.find((file) => file.path === "src/styles.css")?.content ?? "",
+      files.find((file) => file.path === "src/index.css")?.content ?? "",
     );
     if (finalMissing.length > 0) {
       const STUB_HARD_CAP = 30;
@@ -232,7 +233,7 @@ export async function generateCustomProjectFilesWithAgent({
       });
       if (finalMissing.length > STUB_HARD_CAP) {
         throw new Error(
-          `AI source generation failed: too many unstyled custom components (${finalMissing.length}). Missing CSS for: ${finalMissing.slice(0, 20).join(", ")}. Ensure you write CSS rules for custom classNames in src/styles.css.`,
+          `AI source generation failed: too many unstyled custom components (${finalMissing.length}). Missing CSS for: ${finalMissing.slice(0, 20).join(", ")}. Ensure you write CSS rules for custom classNames in src/index.css.`,
         );
       }
       const stubbed = applyStylesCoverStubs(files);
@@ -328,7 +329,7 @@ async function runForcedRewritePass({
 
   const missingCssNote =
     missingCss.length > 0
-      ? `\n\nMISSING CSS — these classNames are used in TSX but have NO real CSS rule (only a color stub or nothing):\n${missingCss.join(", ")}\nFor EACH one, write a complete rule in src/styles.css with layout (display/padding/gap/grid/background/border-radius). Do NOT emit single color-only rules.`
+      ? `\n\nMISSING CSS — these classNames are used in TSX but have NO real CSS rule (only a color stub or nothing):\n${missingCss.join(", ")}\nFor EACH one, write a complete rule in src/index.css with layout (display/padding/gap/grid/background/border-radius). Do NOT emit single color-only rules.`
       : "";
 
   await withAiTimeout(
@@ -338,7 +339,7 @@ async function runForcedRewritePass({
 You MUST call write_file or replace_in_file on at least:
 - src/content/site.ts
 - src/routes/index.tsx
-- src/styles.css (if you add classNames)
+- src/index.css (if you add classNames)
 
 Do NOT call read_skill. Prefer write over endless reads.
 Then call check_app once.
@@ -619,6 +620,7 @@ export function isTailwindUtilityClass(className: string): boolean {
     "bottom-",
     "left-",
     "right-",
+    "size-",
     "appearance-",
     "list-",
     "from-",
@@ -746,24 +748,15 @@ export function findMissingCssClasses(
 
 /** Starter seed before agent; also detects legacy tiny starter CSS. */
 export function isStarterStylesContent(styleContent: string) {
-  const trimmed = styleContent.trim();
-  if (!trimmed) {
-    return true;
-  }
-  // Legacy tiny starter: only shell + no design tokens.
-  if (
-    trimmed.includes(".starter-shell") &&
-    !trimmed.includes("--accent") &&
-    !trimmed.includes(".page{") &&
-    !trimmed.includes(".page {")
-  ) {
-    return true;
-  }
-  return false;
+  // The new shadcn starter emits shadcnThemeCss (real theme tokens); the
+  // legacy `.starter-shell` branch is retired. An empty stylesheet still
+  // counts as starter-only so ensureStylesFileExists replaces it with the
+  // starter contract.
+  return styleContent.trim().length === 0;
 }
 
 /**
- * Ensure a 'src/styles.css' file exists (starter contract if absent or legacy
+ * Ensure a 'src/index.css' file exists (starter contract if absent or legacy
  * starter-only). Does NOT inject per-class stubs -- stubbing is a separate
  * last-resort step (see applyStylesCoverStubs) so the quality gate sees the
  * real missing-class gap and can trigger a rewrite pass instead of being
@@ -773,11 +766,11 @@ export function ensureStylesFileExists(
   files: GeneratedProjectFile[],
   schema: ProjectSiteSchema,
 ): GeneratedProjectFile[] {
-  const styleIndex = files.findIndex((file) => file.path === "src/styles.css");
+  const styleIndex = files.findIndex((file) => file.path === "src/index.css");
   if (styleIndex < 0) {
     return [
       ...files,
-      { path: "src/styles.css", content: createStarterContractStyles(schema) },
+      { path: "src/index.css", content: createStarterContractStyles(schema) },
     ];
   }
   const current = files[styleIndex].content;
@@ -1679,7 +1672,7 @@ export function applyStylesCoverStubs(files: GeneratedProjectFile[]): {
   files: GeneratedProjectFile[];
   missing: string[];
 } {
-  const styleIndex = files.findIndex((file) => file.path === "src/styles.css");
+  const styleIndex = files.findIndex((file) => file.path === "src/index.css");
   if (styleIndex < 0) {
     return { files, missing: [] };
   }
@@ -1737,8 +1730,11 @@ export function checkAgentSourceQuality(
     issues.push("agent check failed");
   }
 
-  // Meaningful agent edits only (auto styles.css alone must fail).
-  if (agentEditedFiles.size < 2) {
+  // Meaningful agent edits: at least one touched file. The real signal is
+  // the presentationEdited/contentEdited check below (a styles-only touch
+  // still fails there). size<2 was a holdover from the old edit-site.ts
+  // + styles.css workflow; shadcn-only agents legitimately edit one route.
+  if (agentEditedFiles.size < 1) {
     issues.push("agent did not edit enough files");
   }
 
@@ -1746,11 +1742,29 @@ export function checkAgentSourceQuality(
     issues.push("missing route files");
   }
 
+  // Stale-starter detector: if the agent left the scaffold's placeholder
+  // home route in place (it compiles + has preview-ready, so size/route
+  // checks pass), fail the gate and trip the forced-rewrite path via
+  // NO_MEANINGFUL_EDIT_ISSUES. The marker lives in the starter's
+  // src/routes/index.tsx (see vite-tanstack-shadcn-starter.ts).
+  const homeRoute = files.find((file) => file.path === "src/routes/index.tsx");
+  const STARTER_MARKERS = [
+    "Replace this with the real home page built from the brief",
+    "Replace real home page built from brief",
+    "Replace this starter route",
+  ];
+  if (
+    homeRoute &&
+    STARTER_MARKERS.some((marker) => homeRoute.content.includes(marker))
+  ) {
+    issues.push("home route is still the starter placeholder");
+  }
+
   const presentationEdited = [...agentEditedFiles].some(
     (path) =>
       path.startsWith("src/components/") ||
       path.startsWith("src/routes/") ||
-      path === "src/styles.css",
+      path === "src/index.css",
   );
   const contentEdited = [...agentEditedFiles].some((path) =>
     path.startsWith("src/content/"),
@@ -1766,7 +1780,7 @@ export function checkAgentSourceQuality(
 
   const allSourceText = files
     .filter((file) =>
-      /^(src\/(routes|components|content|lib)\/|src\/styles\.css)/.test(
+      /^(src\/(routes|components|content|lib)\/|src\/(styles|index)\.css)/.test(
         file.path,
       ),
     )
@@ -1799,7 +1813,7 @@ export function checkAgentSourceQuality(
     }
   }
 
-  const styleFile = files.find((file) => file.path === "src/styles.css");
+  const styleFile = files.find((file) => file.path === "src/index.css");
   const styleContent = styleFile?.content || "";
   const missingCss = findMissingCssClasses(files, styleContent);
 
@@ -1844,7 +1858,7 @@ MOTION:
 
 CONTENT:
 - Real, specific Indonesian copy ("Sewa PS Rp 5.000/jam", not "Harga terjangkau"). No "Lorem ipsum" / "Coming soon".
-- Use design tokens from src/styles.css (--bg/--fg/--muted/--accent) as the single source of truth.`;
+- Use design tokens from src/index.css (--background/--foreground/--muted/--accent) as the single source of truth.`;
 
 function buildAgentPrompt(implementationBrief: string) {
   return `Build a custom standalone app from starter files.
@@ -1855,16 +1869,18 @@ ${implementationBrief}
 ${DESIGN_DIRECTIVE}
 
 SPEED RULES (you have limited steps — write immediately):
-1. FIRST STEP: write_file src/routes/index.tsx with full page layout using Tailwind classes
-2. SECOND STEP: write any extra components/helpers you need under src/components/
-3. LAST STEP: check_app once
+1. FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities.
+2. SECOND STEP: if the brief has distinct sections, write extra route files under src/routes/ (e.g. katalog.tsx, kontak.tsx) and register them in src/router.tsx with <Link> nav. Otherwise keep the single composed page.
+3. THIRD STEP: write any extra shadcn components you need under src/components/ui/ — canonical new-york + Tailwind v4 shape, import cn from "@/lib/utils".
+4. LAST STEP: check_app once.
 
-DO NOT read_skill. DO NOT read_file before writing — starter files are predictable.
+DO NOT read_file before writing — starter files are predictable.
 DO NOT spend steps exploring. Write complete files from the start.
-Do NOT edit, overwrite or modify src/content/site.ts. It is already fully populated with the business data. Only read from it using named import: "import { site } from '../content/site'".
+Do NOT edit, overwrite, or modify src/content/site.ts. It is already fully populated with the business data. Only read from it using named import: "import { site } from '@/content/site'".
+Do NOT edit src/index.css — it is platform-owned and pre-wired with shadcn theme vars.
 
-STATIC ONLY: no auth/DB/payment gateway/fake /api. Use WA/contact CTA and real Indonesian business copy.
-Do not add dependencies. package.json is platform-owned.
+STATIC ONLY: no auth, no backend, no DB, no payment gateway, no fake /api routes. Use WhatsApp/contact CTA and real Indonesian business copy.
+Do not add or remove dependencies — package.json is platform-owned.
 
 Keep usePreviewReady() called in the rendered route.`;
 }
@@ -1926,19 +1942,19 @@ export function buildGeneratedAppBuildSpec(
     .join("\n");
 }
 
-function buildGeneratedAppAgentInstructions(
+export function buildGeneratedAppAgentInstructions(
   schema: ProjectSiteSchema,
   implementationSpec?: ImplementationSpec,
   mode: "generate" | "repair" | "rewrite" = "generate",
 ) {
   const skillsBlock =
     mode === "generate"
-      ? `\nDo NOT call read_skill — write files directly. You already know the stack.
-WRITE first: src/content/site.ts, src/routes/index.tsx, src/styles.css.
-Never call check_app before at least one write_file or replace_in_file.
-Minimize read_file calls — starter structure is predictable.`
+      ? `\nWrite files directly; you already know the stack. You MAY call read_skill "tailwind-v4", "tanstack-router-static", or "shadcn-ui" if unsure, but do not stall on exploration.
+WRITE first: src/routes/index.tsx (the home page, composing shadcn components + Tailwind utilities).
+Then add any extra routes under src/routes/ and business-specific components under src/components/custom/.
+Never call check_app before at least one write_file.`
       : mode === "rewrite"
-        ? `\nFORCED REWRITE MODE: no read_skill. Write core files immediately, then check_app.`
+        ? `\nFORCED REWRITE MODE: write core routes/components immediately, then check_app.`
         : "";
 
   return `You are a frontend coding agent for UMKM Cepat generated apps.
@@ -1947,22 +1963,28 @@ Business: ${implementationSpec?.businessName || schema.businessName} — ${imple
 ${skillsBlock}
 ${DESIGN_DIRECTIVE}
 
-The project uses Vite + React + TanStack Router.
-Static frontend only. User-facing copy in Indonesian.
+STACK (locked — do not change tooling):
+- Vite + React 19 + TypeScript + TanStack Router (hash history, static).
+- Tailwind CSS v4 (utility classes inline; src/index.css pre-wires theme vars — do not edit it).
+- shadcn/ui components in src/components/ui/ are platform-owned — do not edit them; compose them.
+- package.json is platform-owned — do not add or remove dependencies.
 
-STYLING CONTRACT (extremely strict):
-- Tailwind CSS v4 is pre-installed. You MUST write all styles using standard Tailwind utility classes directly in the TSX (e.g. className="flex flex-col gap-4 p-6 bg-slate-900 rounded-xl shadow-lg").
-- Do NOT write custom CSS classNames (like "btn-primary", "nav-link", "contact-form", "hero-section") or custom styles in src/styles.css. Keep styles.css unedited.
-- Do NOT use h-screen. Always use min-h-dvh or min-h-screen for full viewport sections.
+STYLING (shadcn + Tailwind only — no custom CSS):
+- All styling uses Tailwind utility classes inline in the TSX, using theme tokens (bg-background, text-foreground, bg-primary, text-primary-foreground, bg-muted, text-muted-foreground, bg-accent, text-accent-foreground, border-border, ring-ring).
+- Do NOT write custom CSS class names (no .btn-primary / .nav-link / .hero-section / etc.) and do NOT edit src/index.css.
+- If you need a shadcn component not pre-seeded, write its source into src/components/ui/<name>.tsx (canonical new-york + Tailwind v4 shape, import cn from "@/lib/utils"). No CLI at build time.
+- Use min-h-dvh for full-height sections, never h-screen.
 
-ROUTING & PAGE CONTRACT (strict):
-- src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }"
-- Do NOT create new route files under src/routes/ (like tentang.tsx, kontak.tsx, or product detail pages).
-- If the spec requires multiple pages or views, implement them as React state-based tab/view switching (e.g. const [activePage, setActivePage] = useState("home")) directly inside src/routes/index.tsx.
-- Do NOT use TanStack Router's <Link> component or routing tags (like Link from '@tanstack/react-router') for switching pages/tabs. Doing so causes compile errors since those paths are not registered in the static router. Use standard HTML tags (like <button> or <a>) with React state (onClick={() => setActivePage('...')}) instead.
-- Do NOT edit or overwrite src/main.tsx, src/router.tsx, or src/routes/__root.tsx. Keep routing simple, standard, and encapsulated inside HomeRouteComponent.
-- Import usePreviewReady from "../lib/preview-ready" (NOT from hooks).
-- Import the business data using: import { site } from "../content/site" (or import site from "../content/site"). All files under src/content/site.ts must export 'site' as both named and default exports.
+ROUTING & PAGE CONTRACT:
+- src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }".
+- Prefer REAL multi-page routing when the brief has distinct sections (Home, Catalog, Contact, Product detail, etc.). Add one route file per page under src/routes/ (e.g. katalog.tsx, kontak.tsx) and register each in src/router.tsx via createRoute({ getParentRoute: () => rootRoute, path: "/katalog", component: ... }) then add it to rootRoute.addChildren([...]). Keep the existing index route and the path:"*" 404 catch-all.
+- Navigate between pages with <Link to="/katalog"> from "@tanstack/react-router". Do NOT fake routing with useState tabs.
+- Do NOT edit src/main.tsx or src/routes/__root.tsx (you may add a shared layout in __root.tsx if the brief calls for header/footer, but keep <Outlet />). You MAY edit src/router.tsx to register your extra routes — nothing else there.
+- Import usePreviewReady from "@/lib/preview-ready".
+- Import the business data using: import { site } from "@/content/site". Do NOT edit src/content/site.ts — it is fully populated and exports site as both named and default exports.
+
+STATIC ONLY: no auth, no backend, no database, no payment gateway, no fake /api routes. Use WhatsApp/contact CTAs and real Indonesian business copy.
+Do not add or remove dependencies — package.json is platform-owned.
 
 Call check_app after all writes.`;
 }
@@ -2056,7 +2078,7 @@ Steps:
   // a repaired site doesn't silently ship half-styled.
   const repairMissing = findMissingCssClasses(
     currentFiles,
-    currentFiles.find((file) => file.path === "src/styles.css")?.content ?? "",
+    currentFiles.find((file) => file.path === "src/index.css")?.content ?? "",
   );
   if (repairMissing.length > 0) {
     const STUB_HARD_CAP = 100;

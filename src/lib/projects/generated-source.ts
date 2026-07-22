@@ -23,10 +23,13 @@ import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
 import { sanitizeBuildLog } from "@/lib/projects/build-logs";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
 import { validateGeneratedBuildPolicy } from "@/lib/projects/generated-build-policy";
+import { PLATFORM_VITE_CONFIG } from "@/lib/projects/generated-build-policy";
 import {
   assertGeneratedResourceBudget,
   getGeneratedResourceBudget,
 } from "@/lib/projects/generated-resource-budget";
+import { shadcnThemeCss } from "@/lib/projects/scaffold/shadcn-theme";
+import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
 type BuildCommandResult = Omit<BuildGeneratedProjectResult, "distFiles">;
 
@@ -36,6 +39,7 @@ type BuildGeneratedProjectOptions = {
     cwd: string,
   ) => Promise<BuildCommandResult>;
   workspaceRoot?: string;
+  workspaceKey?: string;
 };
 
 type BuildCacheMetadata = {
@@ -206,11 +210,10 @@ export async function buildGeneratedProject(
     };
   }
 
-  return buildGeneratedProjectInWorkspace(
-    files,
-    manifestResult.manifest,
-    options,
-  );
+  return buildGeneratedProjectInWorkspace(files, manifestResult.manifest, {
+    ...options,
+    workspaceKey: options.workspaceKey ?? manifestResult.manifest.projectId,
+  });
 }
 
 // node:child_process.spawn on Windows requires an absolute path or an
@@ -290,7 +293,7 @@ async function buildGeneratedProjectInWorkspace(
   const workspaceRoot = resolveBuildWorkspaceRoot(options.workspaceRoot);
   const workspace = path.join(
     workspaceRoot,
-    toSafeWorkspacePart(manifest.projectId),
+    toSafeWorkspacePart(options.workspaceKey ?? manifest.projectId),
     toSafeWorkspacePart(manifest.runtimeProfile),
   );
   const metadataPath = path.join(
@@ -752,149 +755,20 @@ export function createGeneratedViteTanStackStarterFiles(
   projectId: string,
   schema: ProjectSiteSchema,
 ): GeneratedProjectFile[] {
-  return [
-    {
-      path: "package.json",
-      content: json({
-        name: toPackageName(schema.businessName),
-        private: true,
-        version: "0.0.0",
-        type: "module",
-        scripts: {
-          dev: "vite",
-          build: "tsc -b && vite build",
-          lint: "eslint .",
-          preview: "vite preview",
-        },
-        dependencies: {
-          "@tanstack/react-query": "^5.101.2",
-          "@tanstack/react-router": "^1.170.17",
-          clsx: "^2.1.1",
-          "lucide-react": "^0.575.0",
-          react: "^19.2.7",
-          "react-dom": "^19.2.7",
-          tailwindcss: "^4.0.0",
-        },
-        devDependencies: {
-          "@eslint/js": "^10.0.1",
-          "@tailwindcss/vite": "^4.0.0",
-          "@types/node": "^24.13.2",
-          "@types/react": "^19.2.17",
-          "@types/react-dom": "^19.2.3",
-          "@vitejs/plugin-react": "^6.0.3",
-          eslint: "^10.6.0",
-          "eslint-plugin-react-hooks": "^7.1.1",
-          "eslint-plugin-react-refresh": "^0.5.3",
-          globals: "^17.7.0",
-          typescript: "~6.0.2",
-          "typescript-eslint": "^8.62.0",
-          vite: "^8.1.1",
-        },
-      }),
-    },
-    {
-      path: "vite.config.ts",
-      content: `import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\nimport tailwindcss from '@tailwindcss/vite'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  base: './',\n  plugins: [tailwindcss(), react()],\n})\n`,
-    },
-    {
-      path: "tsconfig.json",
-      content: json({
-        files: [],
-        references: [
-          { path: "./tsconfig.app.json" },
-          { path: "./tsconfig.node.json" },
-        ],
-      }),
-    },
-    {
-      path: "tsconfig.app.json",
-      content: json({
-        compilerOptions: {
-          tsBuildInfoFile: "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-          target: "es2023",
-          lib: ["ES2023", "DOM"],
-          module: "esnext",
-          types: ["vite/client"],
-          allowArbitraryExtensions: true,
-          skipLibCheck: true,
-          moduleResolution: "bundler",
-          allowImportingTsExtensions: true,
-          verbatimModuleSyntax: true,
-          moduleDetection: "force",
-          noEmit: true,
-          jsx: "react-jsx",
-          strict: true,
-          noImplicitAny: false,
-          strictNullChecks: true,
-          noUnusedLocals: false,
-          noUnusedParameters: false,
-          erasableSyntaxOnly: true,
-          noFallthroughCasesInSwitch: true,
-        },
-        include: ["src"],
-      }),
-    },
-    {
-      path: "tsconfig.node.json",
-      content: json({
-        compilerOptions: {
-          tsBuildInfoFile: "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
-          target: "es2023",
-          lib: ["ES2023"],
-          types: ["node"],
-          skipLibCheck: true,
-          module: "nodenext",
-          allowImportingTsExtensions: true,
-          verbatimModuleSyntax: true,
-          moduleDetection: "force",
-          noEmit: true,
-        },
-        include: ["vite.config.ts"],
-      }),
-    },
-    {
-      path: "eslint.config.js",
-      content: `import js from '@eslint/js'\nimport globals from 'globals'\nimport reactHooks from 'eslint-plugin-react-hooks'\nimport reactRefresh from 'eslint-plugin-react-refresh'\nimport tseslint from 'typescript-eslint'\nimport { defineConfig, globalIgnores } from 'eslint/config'\n\nexport default defineConfig([\n  globalIgnores(['dist']),\n  {\n    files: ['**/*.{ts,tsx}'],\n    extends: [\n      js.configs.recommended,\n      tseslint.configs.recommended,\n      reactHooks.configs.flat.recommended,\n      reactRefresh.configs.vite,\n    ],\n    languageOptions: {\n      globals: globals.browser,\n    },\n  },\n])\n`,
-    },
-    {
-      path: "index.html",
-      content: `<div id="root"></div><script type="module" src="/src/main.tsx"></script>\n`,
-    },
-    {
-      path: "src/main.tsx",
-      content: `import { RouterProvider } from "@tanstack/react-router";\nimport { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\n\nimport { router } from "./router";\nimport "./styles.css";\n\ncreateRoot(document.getElementById("root")!).render(\n  <StrictMode>\n    <RouterProvider router={router} />\n  </StrictMode>,\n);\n`,
-    },
-    {
-      path: "src/router.tsx",
-      content: `import { createHashHistory, createRoute, createRouter } from "@tanstack/react-router";\n\nimport { rootRoute } from "./routes/__root";\nimport { HomeRouteComponent } from "./routes/index";\n\nconst indexRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/",\n  component: HomeRouteComponent,\n});\n\nconst routeTree = rootRoute.addChildren([indexRoute]);\nconst history = createHashHistory();\n\nexport const router = createRouter({ history, routeTree });\n\ndeclare module "@tanstack/react-router" {\n  interface Register {\n    router: typeof router;\n  }\n}\n`,
-    },
-    {
-      path: "src/routes/__root.tsx",
-      content: `import { createRootRoute, Outlet } from "@tanstack/react-router";\n\nexport const rootRoute = createRootRoute({\n  component: () => <Outlet />,\n});\n`,
-    },
-    {
-      path: "src/routes/index.tsx",
-      content: `import { site } from "../content/site";\nimport { usePreviewReady } from "../lib/preview-ready";\n\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  const starterMessage = "Replace this starter route with a custom UMKM app.";\n\n  return (\n    <main className="starter-shell">\n      <p>{site.businessName}</p>\n      <h1>{starterMessage}</h1>\n    </main>\n  );\n}\n`,
-    },
-    {
-      path: "src/content/site.ts",
-      content: `export const site = ${json(schema)} as const;\nexport default site;\n`,
-    },
-    {
-      path: "src/lib/preview-ready.ts",
-      content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "generated-app-preview-ready" }, "*");\n  }, []);\n}\n`,
-    },
-    {
-      path: "src/styles.css",
-      content: createStarterContractStyles(schema),
-    },
-  ];
+  return createViteTanStackShadcnStarterFiles(projectId, schema);
 }
 
-/** Theme tokens + layout contract the agent should reuse (not invent from zero). */
+/**
+ * Legacy re-export kept so existing imports (custom-source-generator.ts)
+ * don't break. Emits the shadcn Tailwind v4 theme CSS — the starter contract
+ * CSS is gone. Downstream code is repointed to `src/index.css` under the
+ * Tailwind-only stack.
+ *
+ * ponytail: delete once custom-source-generator stops referencing this
+ * symbol.
+ */
 export function createStarterContractStyles(schema: ProjectSiteSchema) {
-  const { background, foreground, muted, accent } = schema.theme;
-  return `@import "tailwindcss";\n:root{--bg:${background};--fg:${foreground};--muted:${muted};--accent:${accent};font-family:Plus Jakarta Sans,Inter,ui-sans-serif,system-ui,sans-serif;color:var(--fg);background:var(--bg)}*{box-sizing:border-box}body{margin:0;min-width:320px;background:var(--bg);color:var(--fg)}a{color:inherit;text-decoration:none}img,svg{display:block;max-width:100%}button{font:inherit}.page{min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);color:var(--fg)}.starter-shell{min-height:100dvh;display:grid;place-content:center;padding:40px;text-align:center}.starter-shell h1{max-width:720px;font-size:clamp(32px,5vw,64px);line-height:1}.site-header{position:sticky;top:0;z-index:20;border-bottom:1px solid color-mix(in srgb,var(--fg) 10%,transparent);background:color-mix(in srgb,var(--bg) 92%,white 8%);backdrop-filter:blur(10px)}.site-header__inner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px clamp(16px,4vw,48px)}.site-header__brand{display:flex;align-items:center;gap:10px;min-width:0}.site-header__mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}.site-header__brandText{display:flex;flex-direction:column;gap:2px;min-width:0}.site-header__name{font-weight:800;line-height:1.1}.site-header__tagline{color:var(--muted);font-size:12px}.site-header__nav{display:none;gap:16px;font-weight:650}@media(min-width:760px){.site-header__nav{display:flex}}.site-header__cta,.primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;background:var(--fg);color:var(--bg);font-weight:750}.hero{padding:40px clamp(16px,4vw,48px) 28px}.hero__inner{display:grid;gap:24px}@media(min-width:900px){.hero__inner{grid-template-columns:1.1fr .9fr;align-items:center;gap:40px}}.hero__text{display:grid;gap:14px}.eyebrow{margin:0;color:var(--accent);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}.hero__title,h1{margin:0;font-size:clamp(34px,6vw,64px);line-height:1.02;letter-spacing:-.04em}.section{padding:28px clamp(16px,4vw,48px)}.section__title{margin:0 0 16px;font-size:clamp(22px,3vw,32px)}.primary,.secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:14px;font-weight:750}.secondary{border:1px solid color-mix(in srgb,var(--fg) 14%,transparent);background:transparent;color:var(--fg)}.fab-wa{position:fixed;right:16px;bottom:16px;z-index:30;display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border-radius:999px;background:#25d366;color:#fff;font-weight:800;box-shadow:0 12px 30px color-mix(in srgb,#25d366 35%,transparent)}.fab-wa__text{display:flex;flex-direction:column;line-height:1.15}.fab-wa__label{font-size:12px;opacity:.9}.fab-wa__num{font-size:14px}\n`;
+  return shadcnThemeCss(schema);
 }
 
 export function createGeneratedProjectFiles(
@@ -904,6 +778,9 @@ export function createGeneratedProjectFiles(
   return createGeneratedViteTanStackProjectFiles(projectId, schema);
 }
 
+// Emits ONE stylesheet contract (src/index.css) matching the starter: the
+// shadcn theme (shadcnThemeCss) prepended to the variant's custom classes.
+// main.tsx imports ./index.css. The legacy src/styles.css is retired.
 export function createGeneratedViteTanStackProjectFiles(
   projectId: string,
   schema: ProjectSiteSchema,
@@ -953,7 +830,7 @@ export function createGeneratedViteTanStackProjectFiles(
     },
     {
       path: "vite.config.ts",
-      content: `import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\nimport tailwindcss from '@tailwindcss/vite'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  base: './',\n  plugins: [tailwindcss(), react()],\n})\n`,
+      content: PLATFORM_VITE_CONFIG,
     },
     {
       path: "tsconfig.json",
@@ -1021,7 +898,7 @@ export function createGeneratedViteTanStackProjectFiles(
     },
     {
       path: "src/main.tsx",
-      content: `import { RouterProvider } from "@tanstack/react-router";\nimport { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\n\nimport { router } from "./router";\nimport "./styles.css";\n\ncreateRoot(document.getElementById("root")!).render(\n  <StrictMode>\n    <RouterProvider router={router} />\n  </StrictMode>,\n);\n`,
+      content: `import { RouterProvider } from "@tanstack/react-router";\nimport { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\n\nimport { router } from "./router";\nimport "./index.css";\n\ncreateRoot(document.getElementById("root")!).render(\n  <StrictMode>\n    <RouterProvider router={router} />\n  </StrictMode>,\n);\n`,
     },
     {
       path: "src/router.tsx",
@@ -1049,8 +926,8 @@ export function createGeneratedViteTanStackProjectFiles(
       content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "generated-app-preview-ready" }, "*");\n  }, []);\n}\n`,
     },
     {
-      path: "src/styles.css",
-      content: createCustomProjectStyles(variant, schema),
+      path: "src/index.css",
+      content: `${shadcnThemeCss(schema)}\n${createCustomProjectStyles(variant, schema)}`,
     },
     ...createGeneratedDesignContextFiles(schema),
   ];

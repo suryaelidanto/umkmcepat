@@ -40,7 +40,7 @@ describe("generated project source", () => {
     ]);
   });
 
-  it("starter contract CSS includes theme tokens and shared layout classes", () => {
+  it("starter contract CSS includes shadcn theme tokens and Tailwind v4 import", () => {
     const schema = createProjectSiteSchemaFromBrief({
       businessName: "Toko Contoh",
       businessType: "Retail",
@@ -70,11 +70,15 @@ describe("generated project source", () => {
       readyForBuild: false,
     });
     const css = createStarterContractStyles(schema);
+    expect(css).toContain('@import "tailwindcss"');
+    expect(css).toContain("--background");
+    expect(css).toContain("--foreground");
+    expect(css).toContain("--primary");
     expect(css).toContain("--accent");
-    expect(css).toContain(".page{");
-    expect(css).toContain(".site-header");
-    expect(css).toContain(".hero");
-    expect(css).toContain(".fab-wa");
+    expect(css).toContain("--border");
+    expect(css).toContain("--ring");
+    expect(css).toContain("--card");
+    expect(css).not.toContain(".starter-shell");
   });
 
   it("rejects unsafe paths", () => {
@@ -192,7 +196,7 @@ describe("generated project source", () => {
     const outputs = fixtures.map((fixture) => {
       const files = createFiles(`project_${fixture.key}`, fixture.input);
       const app = readGeneratedFile(files, "src/routes/index.tsx");
-      const css = readGeneratedFile(files, "src/styles.css");
+      const css = readGeneratedFile(files, "src/index.css");
       const manifest = validateGeneratedAppManifest(files);
 
       expect(app).toContain(`variant-${fixture.variant}`);
@@ -223,7 +227,7 @@ describe("generated project source", () => {
     expect(readGeneratedFile(files, "src/routes/index.tsx")).toContain(
       "variant-automotive",
     );
-    expect(readGeneratedFile(files, "src/styles.css")).toContain(
+    expect(readGeneratedFile(files, "src/index.css")).toContain(
       "variant-automotive",
     );
   });
@@ -403,6 +407,48 @@ describe("generated project source", () => {
       { commandRunner, workspaceRoot: tempDir },
     );
 
+    expect(commands).toEqual([
+      "<bun> install --ignore-scripts",
+      "<bun> run build",
+      "<bun> run build",
+    ]);
+    expect(second.log).toContain('"installSkipped":true');
+  });
+
+  it("reuses the same workspace across rebuilds when workspaceKey is stable", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const commands: string[] = [];
+    const commandRunner = async (command: string[], cwd: string) => {
+      const normalized = normalizeCommand(command);
+      commands.push(normalized);
+
+      if (normalized === "<bun> install --ignore-scripts") {
+        await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+      }
+
+      if (normalized === "<bun> run build") {
+        await writeDist(cwd, "stable-key");
+      }
+
+      return { ok: true, log: command.join(" ") };
+    };
+
+    // First build: AI-produced manifest.projectId is "slug-a"; install runs.
+    await buildGeneratedProject(buildableFiles("slug-a"), {
+      commandRunner,
+      workspaceRoot: tempDir,
+      workspaceKey: "project-stable-id",
+    });
+
+    // Second build: AI regenerates with a different slug "slug-b"; workspaceKey
+    // keeps the workspace stable so install is skipped.
+    const second = await buildGeneratedProject(buildableFiles("slug-b"), {
+      commandRunner,
+      workspaceRoot: tempDir,
+      workspaceKey: "project-stable-id",
+    });
+
+    expect(second.ok).toBe(true);
     expect(commands).toEqual([
       "<bun> install --ignore-scripts",
       "<bun> run build",

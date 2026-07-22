@@ -35,9 +35,11 @@ export function createLocalBuildWorker({
     async runBuild({
       buildId,
       files,
+      workspaceKey,
     }: {
       buildId: string;
       files: GeneratedProjectFile[];
+      workspaceKey?: string;
     }): Promise<BuildWorkerResult> {
       devLog("build-worker", "start", {
         activeBuilds,
@@ -55,7 +57,10 @@ export function createLocalBuildWorker({
       activeBuilds += 1;
 
       try {
-        const result = await buildProject(files);
+        const result = await buildProject(
+          files,
+          workspaceKey ? { workspaceKey } : {},
+        );
         const logText = sanitizeBuildLog(result.log);
 
         if (!result.ok) {

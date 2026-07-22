@@ -181,14 +181,13 @@ Rules:
 - Prefer precise edits. Do not rewrite the whole app for small visual fixes.
 - STYLING CONTRACT (extremely strict):
   * Tailwind CSS v4 is pre-installed. You MUST write all styles using standard Tailwind utility classes directly in the TSX (e.g. className="flex flex-col gap-4 p-6 bg-slate-900 rounded-xl shadow-lg").
-  * Do NOT write custom CSS classNames (like "btn-primary", "nav-link", "contact-form", "hero-section") or custom styles in src/styles.css. Keep styles.css unedited.
+  * Do NOT write custom CSS classNames (like "btn-primary", "nav-link", "contact-form", "hero-section") or custom styles in src/index.css. Keep index.css unedited.
   * Do NOT use h-screen. Always use min-h-dvh or min-h-screen for full viewport sections.
-- ROUTING & PAGE CONTRACT (strict):
-  * src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }"
-  * Do NOT create new route files under src/routes/ (like tentang.tsx, kontak.tsx, or product detail pages).
-  * If you need multiple pages/views, implement them as React state-based tab/view switching (e.g. const [activePage, setActivePage] = useState("home")) directly inside src/routes/index.tsx.
-  * Do NOT use TanStack Router's <Link> component or routing tags (like Link from '@tanstack/react-router') for switching pages/tabs. Doing so causes compile errors since those paths are not registered in the static router. Use standard HTML tags (like <button> or <a>) with React state (onClick={() => setActivePage('...')}) instead.
-  * Do NOT edit or overwrite src/main.tsx, src/router.tsx, or src/routes/__root.tsx. Keep routing simple, standard, and encapsulated inside HomeRouteComponent.
-  * Import usePreviewReady from "../lib/preview-ready" (NOT from hooks).
-  * Import the business data using: import { site } from "../content/site" (or import site from "../content/site"). All files under src/content/site.ts must export 'site' as both named and default exports.
+- ROUTING & PAGE CONTRACT:
+  * src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }".
+  * Prefer REAL multi-page routing when the edit needs distinct pages (Home, Catalog, Contact, Product detail, etc.). Add one route file per page under src/routes/ (e.g. katalog.tsx, kontak.tsx) and register each in src/router.tsx via createRoute({ getParentRoute: () => rootRoute, path: "/katalog", component: ... }) then add it to rootRoute.addChildren([...]). Keep the existing index route and the path:"*" 404 catch-all.
+  * Navigate between pages with <Link to="/katalog"> from "@tanstack/react-router". Do NOT fake routing with useState tabs.
+  * Do NOT edit src/main.tsx or src/routes/__root.tsx (you may add a shared layout in __root.tsx if the edit calls for header/footer, but keep <Outlet />). You MAY edit src/router.tsx to register your extra routes — nothing else there.
+  * Import usePreviewReady from "@/lib/preview-ready".
+  * Import the business data using: import { site } from "@/content/site". Do NOT edit src/content/site.ts — it is fully populated and exports site as both named and default exports.
 - Always run check_app after source changes.`;
