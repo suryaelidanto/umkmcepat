@@ -7,6 +7,10 @@ import { getGenerationModel } from "@/lib/ai-models";
 import { withAiTimeout } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 import {
+  createLoopDetector,
+  createStepTimer,
+} from "@/lib/projects/agent-loop-detector";
+import {
   runGeneratedAppAgentTools,
   type GeneratedAppAgentOperation,
   type GeneratedAppAgentToolCommand,
@@ -26,6 +30,7 @@ const NO_MEANINGFUL_EDIT_ISSUES = [
   "agent did not edit enough files",
   "agent did not edit any presentation or content files",
   "home route is still the starter placeholder",
+  "home route was not written by the agent",
 ] as const;
 
 /**
@@ -38,7 +43,7 @@ const REWRITE_RECOVERABLE_PREFIXES = ["missing CSS rules for classNames:"];
 export type CustomGeneratedSourceResult = {
   buildSpec: string;
   files: GeneratedProjectFile[];
-  generationMode: "agent-custom" | "agent-partial";
+  generationMode: "agent-custom" | "agent-partial" | "loop-detected";
   modelId?: string;
   operationTrace: GeneratedAppAgentOperation[];
   partial?: boolean;
@@ -81,16 +86,36 @@ export async function generateCustomProjectFilesWithAgent({
   const touchedFiles = new Set<string>();
   /** Paths the agent actually write/replace'd (excludes auto CSS ensure). */
   const agentEditedFiles = new Set<string>();
+  const loopDetector = createLoopDetector();
+  const stepTimer = createStepTimer();
+  let loopHardCapped = false;
 
   const runCommand: RunCommand = (command) => {
-    // Guard: if the agent calls check_app before writing any custom files,
-    // return an error forcing it to write code first. This prevents the
-    // agent from seeing the starter compiles and exiting without edits.
-    if (command.type === "check_app" && agentEditedFiles.size === 0) {
+    // Guard: block check_app until the agent has written the home page.
+    // The agent can satisfy the old "any file" gate by writing decoration
+    // files (src/content/site.ts, src/index.css) and skip the visible page
+    // entirely — then the stale-starter detector trips the forced rewrite,
+    // which repeats the same skip. Require src/routes/index.tsx by name.
+    if (
+      command.type === "check_app" &&
+      !agentEditedFiles.has("src/routes/index.tsx")
+    ) {
       return {
         type: command.type,
         error:
-          "No custom source files written yet. You MUST call write_file on src/routes/index.tsx with your custom page layout BEFORE calling check_app.",
+          "No home page written yet. You MUST call write_file on src/routes/index.tsx with your custom page layout BEFORE calling check_app.",
+      };
+    }
+
+    // Loop detection + per-step timing.
+    const tick = stepTimer.start();
+    const { nudge, hardCap } = loopDetector.track(command.type, command);
+    if (hardCap) {
+      loopHardCapped = true;
+      devLog("agent-loop", "hard-cap", { command: command.type });
+      return {
+        type: command.type,
+        error: `Loop hard-cap reached on ${command.type}. Stop and finish.`,
       };
     }
 
@@ -118,7 +143,18 @@ export async function generateCustomProjectFilesWithAgent({
       }
     }
 
-    return result.outputs.at(-1) ?? { type: command.type };
+    const ms = tick.end();
+    devLog("agent-step", "tool", { tool: command.type, ms });
+
+    const output = result.outputs.at(-1) ?? { type: command.type };
+    if (nudge) {
+      // Append the nudge to the result string the model reads — the SDK
+      // JSON-stringifies the tool output, and `result` is the field the model
+      // consumes. Appending an extra field risks being silently dropped.
+      const baseResult = output.result ?? "";
+      return { ...output, result: `${baseResult}\n\n${nudge}` };
+    }
+    return output;
   };
 
   try {
@@ -176,7 +212,8 @@ export async function generateCustomProjectFilesWithAgent({
       throw error;
     });
 
-    const isPartialResult = "partial" in result && result.partial === true;
+    const isPartialResult =
+      ("partial" in result && result.partial === true) || loopHardCapped;
 
     // Auto-heal the router wiring if the agent shadowed rootRoute
     // and auto-heal the usePreviewReady signal so the preview iframe never hangs.
@@ -198,6 +235,10 @@ export async function generateCustomProjectFilesWithAgent({
         files,
         files.find((file) => file.path === "src/index.css")?.content ?? "",
       );
+      // Reset the loop detector before the forced-rewrite pass so legitimate
+      // re-reads in the rewrite (e.g. verifying a replacement) are not
+      // falsely hard-capped by counts carried over from pass 1.
+      loopDetector.reset();
       await runForcedRewritePass({
         appSpec,
         implementationSpec,
@@ -251,10 +292,15 @@ export async function generateCustomProjectFilesWithAgent({
     }
 
     // Structural partial (timeout) is OK only after CSS/quality gate passes.
+    devLog("agent-loop", "summary", { summary: loopDetector.summary() });
     return {
       buildSpec: appSpec,
       files,
-      generationMode: isPartialResult ? "agent-partial" : "agent-custom",
+      generationMode: isPartialResult
+        ? loopHardCapped
+          ? "loop-detected"
+          : "agent-partial"
+        : "agent-custom",
       modelId:
         "response" in result && result.response
           ? result.response.modelId
@@ -336,11 +382,8 @@ async function runForcedRewritePass({
     agent.generate({
       prompt: `FORCED REWRITE — previous pass produced no meaningful file edits.
 
-You MUST call write_file or replace_in_file on at least:
-- src/content/site.ts
-- src/routes/index.tsx
-- src/index.css (if you add classNames)
-
+STEP 1 (required): write_file src/routes/index.tsx — the full home page. The build fails without it.
+STEP 2: write_file src/content/site.ts and src/index.css (if you add classNames) as needed.
 Do NOT call read_skill. Prefer write over endless reads.
 Then call check_app once.
 
@@ -1742,6 +1785,15 @@ export function checkAgentSourceQuality(
     issues.push("missing route files");
   }
 
+  // Active assertion (defense-in-depth): even if the starter's index.tsx is
+  // present and the stale-marker check below doesn't trip (e.g. the agent
+  // rewrote the placeholder but never actually edited the home route), require
+  // src/routes/index.tsx to be in agentEditedFiles. This trips the forced
+  // rewrite via NO_MEANINGFUL_EDIT_ISSUES, not just passive detection.
+  if (!agentEditedFiles.has("src/routes/index.tsx")) {
+    issues.push("home route was not written by the agent");
+  }
+
   // Stale-starter detector: if the agent left the scaffold's placeholder
   // home route in place (it compiles + has preview-ready, so size/route
   // checks pass), fail the gate and trip the forced-rewrite path via
@@ -1950,11 +2002,13 @@ export function buildGeneratedAppAgentInstructions(
   const skillsBlock =
     mode === "generate"
       ? `\nWrite files directly; you already know the stack. You MAY call read_skill "tailwind-v4", "tanstack-router-static", or "shadcn-ui" if unsure, but do not stall on exploration.
-WRITE first: src/routes/index.tsx (the home page, composing shadcn components + Tailwind utilities).
+FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities. The build fails without this file — do not skip it.
 Then add any extra routes under src/routes/ and business-specific components under src/components/custom/.
 Never call check_app before at least one write_file.`
       : mode === "rewrite"
-        ? `\nFORCED REWRITE MODE: write core routes/components immediately, then check_app.`
+        ? `\nFORCED REWRITE MODE:
+FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities. The build fails without this file — do not skip it.
+Then add any extra routes/components as needed, then check_app.`
         : "";
 
   return `You are a frontend coding agent for UMKM Cepat generated apps.

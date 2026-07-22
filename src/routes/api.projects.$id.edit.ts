@@ -743,68 +743,71 @@ async function handleEditPost(request: Request, routeId: string) {
 
     const deploymentStatus: ProjectDeploymentStatus =
       buildResult.status === "succeeded" ? "created" : "failed";
-    const deployment = await prisma.$transaction(async (transaction) => {
-      const finalized = await finalizeProjectOperation({
-        data:
-          buildResult.status === "succeeded"
-            ? {
-                buildLog: buildResult.logText,
-                buildStatus: "passed",
-                builtAt: new Date(),
-                distFiles: buildResult.distFiles,
-                sourceFiles: editResult.files,
-                status: "ready",
-              }
-            : {
-                buildLog: buildResult.logText,
-                buildStatus: "failed",
-                status: "ready",
-              },
-        projectId: project.id,
-        store: transaction,
-        token: operation.token,
-        userId,
-      });
-
-      if (!finalized) {
-        throw new Error("Edit operation lease was superseded.");
-      }
-
-      await transaction.projectBuild.update({
-        where: { id: build.id },
-        data: {
-          artifactRef,
-          finishedAt: new Date(),
-          logText: buildResult.logText,
-          status: buildStatus,
-        },
-      });
-      const committedDeployment = await transaction.projectDeployment.create({
-        data: {
-          buildId: build.id,
-          kind: "preview",
-          projectId: project.id,
-          publicPath: `/api/projects/${project.id}/preview`,
-          snapshotId: snapshot.id,
-          status: deploymentStatus,
-        },
-        select: { id: true },
-      });
-      await transaction.projectEditAttempt.update({
-        where: { id: attempt.id },
-        data: {
-          advisoryIssues: editValidation.advisoryIssues,
-          errorMessage:
+    const deployment = await prisma.$transaction(
+      async (transaction) => {
+        const finalized = await finalizeProjectOperation({
+          data:
             buildResult.status === "succeeded"
-              ? null
-              : buildResult.logText?.slice(-2000),
-          finishedAt: new Date(),
-          status: buildResult.status === "succeeded" ? "succeeded" : "failed",
-        },
-      });
+              ? {
+                  buildLog: buildResult.logText,
+                  buildStatus: "passed",
+                  builtAt: new Date(),
+                  distFiles: buildResult.distFiles,
+                  sourceFiles: editResult.files,
+                  status: "ready",
+                }
+              : {
+                  buildLog: buildResult.logText,
+                  buildStatus: "failed",
+                  status: "ready",
+                },
+          projectId: project.id,
+          store: transaction,
+          token: operation.token,
+          userId,
+        });
 
-      return committedDeployment;
-    });
+        if (!finalized) {
+          throw new Error("Edit operation lease was superseded.");
+        }
+
+        await transaction.projectBuild.update({
+          where: { id: build.id },
+          data: {
+            artifactRef,
+            finishedAt: new Date(),
+            logText: buildResult.logText,
+            status: buildStatus,
+          },
+        });
+        const committedDeployment = await transaction.projectDeployment.create({
+          data: {
+            buildId: build.id,
+            kind: "preview",
+            projectId: project.id,
+            publicPath: `/api/projects/${project.id}/preview`,
+            snapshotId: snapshot.id,
+            status: deploymentStatus,
+          },
+          select: { id: true },
+        });
+        await transaction.projectEditAttempt.update({
+          where: { id: attempt.id },
+          data: {
+            advisoryIssues: editValidation.advisoryIssues,
+            errorMessage:
+              buildResult.status === "succeeded"
+                ? null
+                : buildResult.logText?.slice(-2000),
+            finishedAt: new Date(),
+            status: buildResult.status === "succeeded" ? "succeeded" : "failed",
+          },
+        });
+
+        return committedDeployment;
+      },
+      { timeout: 30_000 },
+    );
 
     await Promise.allSettled([
       prisma.runtimeEvent.create({

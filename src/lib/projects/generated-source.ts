@@ -20,6 +20,7 @@ import {
 import { type ProjectSiteSchema } from "./site-schema";
 
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
+import { devLog } from "@/lib/dev-log";
 import { sanitizeBuildLog } from "@/lib/projects/build-logs";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
 import { validateGeneratedBuildPolicy } from "@/lib/projects/generated-build-policy";
@@ -30,6 +31,10 @@ import {
 } from "@/lib/projects/generated-resource-budget";
 import { shadcnThemeCss } from "@/lib/projects/scaffold/shadcn-theme";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
+import {
+  ensureSharedNodeModules,
+  linkSharedNodeModules,
+} from "@/lib/projects/shared-node-modules";
 
 type BuildCommandResult = Omit<BuildGeneratedProjectResult, "distFiles">;
 
@@ -222,7 +227,7 @@ export async function buildGeneratedProject(
 // generated workspace). Resolve once at module init and reuse the absolute
 // path for every spawn so this works on Windows + POSIX and is independent
 // of the calling process's CWD.
-function resolveBundledRunner(): string {
+export function resolveBundledRunner(): string {
   const explicit = process.env.PROJECT_BUILD_BUN_PATH?.trim();
   if (explicit) {
     return explicit;
@@ -319,10 +324,41 @@ async function buildGeneratedProjectInWorkspace(
     await mkdir(workspace, { recursive: true });
     await syncGeneratedProjectFiles(workspace, files);
 
+    // Link the shared golden node_modules (read-only) before the install check.
+    // On repeat builds the link keeps node_modules present so shouldInstall
+    // stays false; a broken golden falls through to the normal install path.
+    let goldenLinked = false;
+    try {
+      const sharedNm = await ensureSharedNodeModules(
+        workspaceRoot,
+        dependencySignature,
+        {
+          installRunner: (cwd) =>
+            commandRunner([BUNDLED_RUNNER, "install", "--ignore-scripts"], cwd),
+        },
+      );
+      goldenLinked = await linkSharedNodeModules(workspace, sharedNm);
+      if (!goldenLinked) {
+        devLog("generate", "shared-nm.link-skipped", { workspace });
+      }
+    } catch (error) {
+      devLog("generate", "shared-nm.error", {
+        workspace,
+        error: String(error),
+      });
+    }
+
+    // A successful golden link is authoritative: ensureSharedNodeModules
+    // provisions the golden for EXACTLY dependencySignature (re-provisioning
+    // on sig mismatch), so the linked node_modules matches the sig by
+    // construction. Skip the workspace install, and write cache metadata so
+    // the next repeat build also skips via the sig-match path. A broken link
+    // falls through to the normal install path below.
     const shouldInstall =
-      resetBeforeBuild ||
-      cacheMetadata?.dependencySignature !== dependencySignature ||
-      !(await pathExists(path.join(workspace, "node_modules")));
+      !goldenLinked &&
+      (resetBeforeBuild ||
+        cacheMetadata?.dependencySignature !== dependencySignature ||
+        !(await pathExists(path.join(workspace, "node_modules"))));
     let installMs = 0;
     let install: BuildCommandResult = { ok: true, log: "" };
 
@@ -340,6 +376,13 @@ async function buildGeneratedProjectInWorkspace(
         return { ...install, distFiles: [] };
       }
 
+      await writeBuildCacheMetadata(metadataPath, {
+        dependencySignature,
+        runtimeProfile: manifest.runtimeProfile,
+        schemaVersion: 1,
+      });
+    } else if (goldenLinked) {
+      // Mirror the install-success path so repeat builds skip via sig-match.
       await writeBuildCacheMetadata(metadataPath, {
         dependencySignature,
         runtimeProfile: manifest.runtimeProfile,
@@ -396,7 +439,7 @@ async function buildGeneratedProjectInWorkspace(
   return result;
 }
 
-async function runCommand(
+export async function runCommand(
   command: string[],
   cwd: string,
 ): Promise<BuildCommandResult> {
@@ -537,7 +580,7 @@ function resolveSafeBuildWorkspacePath(root: string, filePath: string) {
   return target;
 }
 
-function createDependencySignature(
+export function createDependencySignature(
   files: GeneratedProjectFile[],
   manifest: {
     packageManager: "bun";
@@ -1102,7 +1145,8 @@ export function createGeneratedSourceSnapshotMetadata(
   schema: ProjectSiteSchema,
   generation?: {
     buildSpec?: string;
-    generationMode?: "agent-custom" | "agent-partial" | "retry_build";
+    generationMode?:
+      "agent-custom" | "agent-partial" | "loop-detected" | "retry_build";
     operationTrace?: Array<{
       detail: string;
       path?: string;

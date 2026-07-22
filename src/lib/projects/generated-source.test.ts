@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -8,12 +15,14 @@ import { validateGeneratedAppManifest } from "./generated-app-manifest";
 import {
   assertSafeProjectFilePath,
   buildGeneratedProject,
+  createDependencySignature,
   createGeneratedProjectFiles,
   createGeneratedSourceSnapshotMetadata,
   createStarterContractStyles,
   parseGeneratedProjectFiles,
 } from "./generated-source";
 import { type GeneratedProjectFile } from "./generated-types";
+import { ensureSharedNodeModules } from "./shared-node-modules";
 import { createProjectSiteSchemaFromBrief } from "./site-schema";
 
 let tempDir = "";
@@ -375,6 +384,55 @@ describe("generated project source", () => {
     ]);
   });
 
+  it("first build skips workspace bun install when golden link succeeds", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const files = buildableFiles("project_shared_link");
+    const manifest = validateGeneratedAppManifest(files).manifest;
+    if (!manifest) {
+      throw new Error("fixture manifest invalid");
+    }
+    const signature = createDependencySignature(files, manifest);
+    const goldenInstall = vi.fn(async (cwd: string) => {
+      await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+      return { ok: true as const, log: "" };
+    });
+    await ensureSharedNodeModules(tempDir, signature, {
+      installRunner: goldenInstall,
+    });
+
+    const commands: string[] = [];
+    const commandRunner = async (command: string[], cwd: string) => {
+      const normalized = normalizeCommand(command);
+      commands.push(normalized);
+      if (normalized === "<bun> run build") {
+        await writeDist(cwd, "shared");
+      }
+      return { ok: true, log: command.join(" ") };
+    };
+
+    const build = await buildGeneratedProject(files, {
+      commandRunner,
+      workspaceRoot: tempDir,
+      workspaceKey: "shared-link",
+    });
+    expect(build.ok).toBe(true);
+
+    // The per-workspace node_modules must be the linked golden (junction or
+    // symlink), not a directory the install mock would have created.
+    const workspace = path.join(
+      tempDir,
+      "shared-link",
+      "vite-react-tanstack-v1",
+    );
+    const nmStat = await lstat(path.join(workspace, "node_modules"));
+    expect(nmStat.isSymbolicLink() || nmStat.isDirectory()).toBe(true);
+    // Golden provisioning ran once (pre-provision); buildGeneratedProject
+    // must NOT invoke bun install on the workspace itself — the golden link
+    // short-circuits shouldInstall on a true first build.
+    expect(goldenInstall).toHaveBeenCalledTimes(1);
+    expect(commands).toEqual(["<bun> run build"]);
+  });
+
   it("skips dependency install for repeat workspace builds with unchanged packages", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
     const files = buildableFiles("project_cached");
@@ -585,7 +643,6 @@ describe("generated project source", () => {
       "<bun> install --ignore-scripts",
       "<bun> run build",
       "<bun> run build",
-      "<bun> install --ignore-scripts",
       "<bun> run build",
     ]);
     expect(result.log).toContain('"cacheReset":true');

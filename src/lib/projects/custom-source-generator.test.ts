@@ -303,6 +303,34 @@ describe("custom generated source agent", () => {
     expect(agentGenerate).toHaveBeenCalledTimes(2);
   });
 
+  it("blocks check_app until src/routes/index.tsx is written, even if other files exist", async () => {
+    // Agent writes src/content/site.ts but NOT src/routes/index.tsx, then
+    // calls check_app. The guard must block it and name src/routes/index.tsx.
+    const checkAppResults: { error?: string }[] = [];
+    agentGenerate.mockImplementation(async (tools) => {
+      await tools.replace_in_file.execute({
+        path: "src/content/site.ts",
+        find: "Bengkel Maju",
+        replace: "Bengkel Skip Index",
+      });
+      checkAppResults.push(
+        (await tools.check_app.execute({})) as { error?: string },
+      );
+      return { text: "done without index" };
+    });
+
+    await expect(
+      generateCustomProjectFilesWithAgent({
+        projectId: "project_check_app_guard",
+        schema: schema(),
+      }),
+    ).rejects.toThrow();
+
+    expect(checkAppResults.at(0)?.error ?? "").toContain(
+      "src/routes/index.tsx",
+    );
+  });
+
   it("recovers via forced rewrite when first pass has no meaningful edits", async () => {
     agentGenerate
       .mockImplementationOnce(async () => ({ text: "only reads" }))
@@ -345,6 +373,55 @@ describe("custom generated source agent", () => {
         "src/index.css",
       ]),
     );
+    expect(agentGenerate).toHaveBeenCalledTimes(2);
+  });
+
+  it("hard-caps a looping generation (5 exact read_file repeats) as loop-detected", async () => {
+    // First pass: agent loops on read_file 5x with identical args → hard-cap
+    // on the 5th call. No writes, so the quality gate trips a forced rewrite.
+    agentGenerate
+      .mockImplementationOnce(async (tools) => {
+        for (let i = 0; i < 5; i++) {
+          await tools.read_file.execute({ path: "src/routes/index.tsx" });
+        }
+        return { text: "looped" };
+      })
+      // Forced rewrite: produces valid edits so the gate passes, but
+      // loopHardCapped from the first pass still marks the result partial.
+      .mockImplementationOnce(async (tools) => {
+        await tools.replace_in_file.execute({
+          path: "src/routes/index.tsx",
+          find: "// Replace this with the real home page built from the brief",
+          replace: "// Agent-authored home route",
+        });
+        await tools.replace_in_file.execute({
+          path: "src/routes/index.tsx",
+          find: "{site.headline}",
+          replace:
+            '<h1>Recovered from loop.</h1>\n      <section className="agent-proof">ok</section>',
+        });
+        await tools.replace_in_file.execute({
+          path: "src/content/site.ts",
+          find: "Bengkel Maju",
+          replace: "Bengkel Recovered",
+        });
+        await tools.replace_in_file.execute({
+          path: "src/index.css",
+          find: "--background:",
+          replace:
+            "--background: #f7f7f7; /* agent-proof */\n.agent-proof{display:block}",
+        });
+        await tools.check_app.execute({});
+        return { text: "recovered" };
+      });
+
+    const result = await generateCustomProjectFilesWithAgent({
+      projectId: "project_loop_cap",
+      schema: schema(),
+    });
+
+    expect(result.partial).toBe(true);
+    expect(result.generationMode).toBe("loop-detected");
     expect(agentGenerate).toHaveBeenCalledTimes(2);
   });
 
@@ -419,6 +496,15 @@ describe("custom generated source agent", () => {
     expect(quality.issues).toContain(
       "home route is still the starter placeholder",
     );
+  });
+
+  it("fails the gate when the agent did not edit src/routes/index.tsx", () => {
+    const files = createGeneratedViteTanStackStarterFiles("p1", schema());
+    // Agent edited site.ts only — NOT index.tsx.
+    const edited = new Set<string>(["src/content/site.ts"]);
+    const quality = checkAgentSourceQuality(files, edited);
+    expect(quality.ok).toBe(false);
+    expect(quality.issues).toContain("home route was not written by the agent");
   });
 
   it("checkAgentSourceQuality passes when content + route were agent-edited", async () => {
@@ -772,5 +858,18 @@ describe("buildGeneratedAppAgentInstructions (prompt coherence)", () => {
   it("still forbids backend/auth/db", () => {
     expect(instructions.toLowerCase()).toContain("no auth");
     expect(instructions.toLowerCase()).toContain("no backend");
+  });
+
+  it("prompts name index.tsx as the first required write", () => {
+    expect(instructions).toContain("src/routes/index.tsx");
+    expect(instructions).toMatch(/FIRST STEP.*src\/routes\/index\.tsx/);
+
+    const rewrite = buildGeneratedAppAgentInstructions(
+      schema,
+      undefined,
+      "rewrite",
+    );
+    expect(rewrite).toContain("src/routes/index.tsx");
+    expect(rewrite).toMatch(/FIRST STEP.*src\/routes\/index\.tsx/);
   });
 });

@@ -1061,32 +1061,35 @@ async function handleGeneratePost(request: Request, routeId: string) {
         });
 
         if (latestProject?.status === "stopping") {
-          await prisma.$transaction(async (transaction) => {
-            const finalized = await finalizeProjectOperation({
-              data: { buildStatus: "stopped", status: "draft" },
-              projectId,
-              store: transaction,
-              token: operation.token,
-              userId,
-            });
+          await prisma.$transaction(
+            async (transaction) => {
+              const finalized = await finalizeProjectOperation({
+                data: { buildStatus: "stopped", status: "draft" },
+                projectId,
+                store: transaction,
+                token: operation.token,
+                userId,
+              });
 
-            if (!finalized) {
-              throw new Error("Build operation lease was superseded.");
-            }
+              if (!finalized) {
+                throw new Error("Build operation lease was superseded.");
+              }
 
-            await transaction.projectBuild.update({
-              where: { id: build.id },
-              data: {
-                finishedAt: new Date(),
-                logText: buildResult.log,
-                status: "canceled" satisfies ProjectBuildStatus,
-              },
-            });
-            await transaction.projectEditAttempt.update({
-              where: { id: operationAttemptId },
-              data: { finishedAt: new Date(), status: "canceled" },
-            });
-          });
+              await transaction.projectBuild.update({
+                where: { id: build.id },
+                data: {
+                  finishedAt: new Date(),
+                  logText: buildResult.log,
+                  status: "canceled" satisfies ProjectBuildStatus,
+                },
+              });
+              await transaction.projectEditAttempt.update({
+                where: { id: operationAttemptId },
+                data: { finishedAt: new Date(), status: "canceled" },
+              });
+            },
+            { timeout: 30_000 },
+          );
           runtimeBuildFinalized = true;
           await prisma.runtimeEvent
             .create({
@@ -1114,61 +1117,64 @@ async function handleGeneratePost(request: Request, routeId: string) {
         const deploymentStatus: ProjectDeploymentStatus = finalBuildResult.ok
           ? "created"
           : "failed";
-        const deployment = await prisma.$transaction(async (transaction) => {
-          const finalized = await finalizeProjectOperation({
-            data: {
-              buildLog: finalBuildResult.log,
-              buildStatus: finalBuildResult.ok ? "passed" : "failed",
-              builtAt: new Date(),
-              distFiles: finalBuildResult.distFiles,
-              siteSchema: finalSchema,
-              sourceFiles,
-              status: finalBuildResult.ok ? "ready" : "failed",
-            },
-            projectId,
-            store: transaction,
-            token: operation.token,
-            userId,
-          });
-
-          if (!finalized) {
-            throw new Error("Build operation lease was superseded.");
-          }
-
-          await transaction.projectBuild.update({
-            where: { id: build.id },
-            data: {
-              artifactRef,
-              finishedAt: new Date(),
-              logText: finalBuildResult.log,
-              status: projectBuildStatus,
-            },
-          });
-          const committedDeployment =
-            await transaction.projectDeployment.create({
+        const deployment = await prisma.$transaction(
+          async (transaction) => {
+            const finalized = await finalizeProjectOperation({
               data: {
-                buildId: build.id,
-                kind: PREVIEW_DEPLOYMENT_KIND,
-                projectId: projectId,
-                publicPath: `/api/projects/${projectId}/preview`,
-                snapshotId: snapshot.id,
-                status: deploymentStatus,
+                buildLog: finalBuildResult.log,
+                buildStatus: finalBuildResult.ok ? "passed" : "failed",
+                builtAt: new Date(),
+                distFiles: finalBuildResult.distFiles,
+                siteSchema: finalSchema,
+                sourceFiles,
+                status: finalBuildResult.ok ? "ready" : "failed",
               },
-              select: { id: true },
+              projectId,
+              store: transaction,
+              token: operation.token,
+              userId,
             });
-          await transaction.projectEditAttempt.update({
-            where: { id: operationAttemptId },
-            data: {
-              errorMessage: finalBuildResult.ok
-                ? null
-                : "Generated build failed.",
-              finishedAt: new Date(),
-              status: finalBuildResult.ok ? "succeeded" : "failed",
-            },
-          });
 
-          return committedDeployment;
-        });
+            if (!finalized) {
+              throw new Error("Build operation lease was superseded.");
+            }
+
+            await transaction.projectBuild.update({
+              where: { id: build.id },
+              data: {
+                artifactRef,
+                finishedAt: new Date(),
+                logText: finalBuildResult.log,
+                status: projectBuildStatus,
+              },
+            });
+            const committedDeployment =
+              await transaction.projectDeployment.create({
+                data: {
+                  buildId: build.id,
+                  kind: PREVIEW_DEPLOYMENT_KIND,
+                  projectId: projectId,
+                  publicPath: `/api/projects/${projectId}/preview`,
+                  snapshotId: snapshot.id,
+                  status: deploymentStatus,
+                },
+                select: { id: true },
+              });
+            await transaction.projectEditAttempt.update({
+              where: { id: operationAttemptId },
+              data: {
+                errorMessage: finalBuildResult.ok
+                  ? null
+                  : "Generated build failed.",
+                finishedAt: new Date(),
+                status: finalBuildResult.ok ? "succeeded" : "failed",
+              },
+            });
+
+            return committedDeployment;
+          },
+          { timeout: 30_000 },
+        );
         runtimeBuildFinalized = true;
 
         // Charge whether build ok or not — AI tokens already spent.
