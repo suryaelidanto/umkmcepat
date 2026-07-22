@@ -265,11 +265,18 @@ export const nineRouterFetch: FetchFunction = async (input, init) => {
     return response;
   }
 
+  // Streaming requests return the live body untouched so tokens reach the
+  // caller as they arrive. The defect repair below only applies to
+  // non-streaming calls that 9Router mislabels as `text/event-stream`.
+  if (isRequestStreaming(init)) {
+    return response;
+  }
+
   const body = await response.text();
 
   const objEnd = detectNineRouterDefect(body);
   if (objEnd === -1) {
-    if (!isRequestStreaming(init) && body.includes("data: {")) {
+    if (body.includes("data: {")) {
       const jsonText = reconstructChatCompletionFromSse(body);
       const headers = new Headers(response.headers);
       headers.set("content-type", "application/json");
