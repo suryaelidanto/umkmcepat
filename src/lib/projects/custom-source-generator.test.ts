@@ -810,4 +810,17 @@ describe("buildGeneratedAppAgentInstructions (prompt coherence)", () => {
     expect(instructions.toLowerCase()).toContain("no auth");
     expect(instructions.toLowerCase()).toContain("no backend");
   });
+
+  it("prompts name index.tsx as the first required write", () => {
+    expect(instructions).toContain("src/routes/index.tsx");
+    expect(instructions).toMatch(/FIRST STEP.*src\/routes\/index\.tsx/);
+
+    const rewrite = buildGeneratedAppAgentInstructions(
+      schema,
+      undefined,
+      "rewrite",
+    );
+    expect(rewrite).toContain("src/routes/index.tsx");
+    expect(rewrite).toMatch(/FIRST STEP.*src\/routes\/index\.tsx/);
+  });
 });

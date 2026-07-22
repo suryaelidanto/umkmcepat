@@ -342,11 +342,8 @@ async function runForcedRewritePass({
     agent.generate({
       prompt: `FORCED REWRITE — previous pass produced no meaningful file edits.
 
-You MUST call write_file or replace_in_file on at least:
-- src/content/site.ts
-- src/routes/index.tsx
-- src/index.css (if you add classNames)
-
+STEP 1 (required): write_file src/routes/index.tsx — the full home page. The build fails without it.
+STEP 2: write_file src/content/site.ts and src/index.css (if you add classNames) as needed.
 Do NOT call read_skill. Prefer write over endless reads.
 Then call check_app once.
 
@@ -1965,11 +1962,13 @@ export function buildGeneratedAppAgentInstructions(
   const skillsBlock =
     mode === "generate"
       ? `\nWrite files directly; you already know the stack. You MAY call read_skill "tailwind-v4", "tanstack-router-static", or "shadcn-ui" if unsure, but do not stall on exploration.
-WRITE first: src/routes/index.tsx (the home page, composing shadcn components + Tailwind utilities).
+FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities. The build fails without this file — do not skip it.
 Then add any extra routes under src/routes/ and business-specific components under src/components/custom/.
 Never call check_app before at least one write_file.`
       : mode === "rewrite"
-        ? `\nFORCED REWRITE MODE: write core routes/components immediately, then check_app.`
+        ? `\nFORCED REWRITE MODE:
+FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities. The build fails without this file — do not skip it.
+Then add any extra routes/components as needed, then check_app.`
         : "";
 
   return `You are a frontend coding agent for UMKM Cepat generated apps.
