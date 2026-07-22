@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { validateGeneratedPackagePolicy } from "@/lib/projects/generated-package-policy";
 import { createGeneratedProjectFiles } from "@/lib/projects/generated-source";
+import { SHADCN_COMPONENT_FILES } from "@/lib/projects/scaffold/shadcn-components";
+import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 
 function packageFile(packageJson: unknown) {
@@ -326,5 +328,74 @@ describe("generated package policy", () => {
     expect(denied.issues).toContain(
       "Package is not allowed for static-react-v1: @tanstack/react-router",
     );
+  });
+});
+
+describe("shadcn seed allowlist (vite-react-tanstack-v1)", () => {
+  // Shared schema + scaffold package.json fixture.
+  function scaffoldPkg() {
+    const schema = createProjectSiteSchemaFromBrief({
+      businessName: "Test Biz",
+      businessType: "Coffee shop",
+      contactOrCta: "WhatsApp",
+      notes: [],
+      offer: "Menu kopi dan lokasi",
+      prompt: "buat website coffee shop",
+      stylePreference: "Hangat",
+      targetCustomer: "Mahasiswa",
+      version: 1,
+      productOrService: null,
+      contact: null,
+      tagline: null,
+      usp: null,
+      priceRange: null,
+      visuals: null,
+      hours: null,
+      address: null,
+      deliveryArea: null,
+      since: null,
+      testimonials: null,
+      certifications: null,
+      paymentMethods: null,
+      socialLinks: null,
+      currentPromo: null,
+      secondaryCta: null,
+      readyForBuild: false,
+    });
+    const files = createViteTanStackShadcnStarterFiles("proj_1", schema);
+    const pkg = JSON.parse(
+      files.find((f) => f.path === "package.json")?.content ?? "{}",
+    );
+    return { files, pkg };
+  }
+
+  it("scaffold package.json passes the build-policy gate", () => {
+    const { files } = scaffoldPkg();
+    const result = validateGeneratedPackagePolicy(
+      files,
+      "vite-react-tanstack-v1",
+    );
+    expect(result.ok).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
+  it("every import in seeded component sources is in scaffold package.json (no un-allowlisted dep)", () => {
+    const importRe =
+      /from\s+["'](@radix-ui\/[^"']+|cmdk|embla-carousel-react|input-otp|next-themes|react-day-picker|react-resizable-panels|sonner|vaul|react-hook-form|zod|@hookform\/resolvers)["']/g;
+    const imported = new Set<string>();
+    for (const f of SHADCN_COMPONENT_FILES) {
+      if (!f.path.endsWith(".tsx")) {
+        continue;
+      }
+      for (const m of f.content.matchAll(importRe)) {
+        imported.add(m[1]);
+      }
+    }
+    // Every imported dep must appear in the scaffold's package.json —
+    // if not, the build-policy gate rejects the generated project.
+    const { pkg } = scaffoldPkg();
+    for (const dep of imported) {
+      expect(pkg.dependencies).toHaveProperty(dep);
+    }
   });
 });
