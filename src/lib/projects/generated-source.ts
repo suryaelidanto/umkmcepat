@@ -325,9 +325,11 @@ async function buildGeneratedProjectInWorkspace(
     await syncGeneratedProjectFiles(workspace, files);
 
     // Link the shared golden node_modules (read-only) before the install check.
-    // If the link succeeds, pathExists(node_modules) is true → install skipped
-    // for first builds of new projects, not just repeats. Non-fatal: any
-    // failure falls through to the normal install path below.
+    // On repeat builds the link keeps node_modules present so shouldInstall
+    // stays false; a broken golden falls through to the normal install path.
+    // ponytail: a true first build (resetBeforeBuild=true) still installs
+    // because shouldInstall short-circuits on reset; first-build skip is
+    // impossible while the gate resets. Revisit if the gate logic is relaxed.
     try {
       const sharedNm = await ensureSharedNodeModules(
         workspaceRoot,
