@@ -123,7 +123,7 @@ describe("findMissingCssClasses (meaningful rule semantics)", () => {
         content: `export function Card(){return <div className="product-card">x</div>}`,
       },
       {
-        path: "src/styles.css",
+        path: "src/index.css",
         content: `.product-card{color:var(--fg)}`,
       },
     ];
@@ -139,7 +139,7 @@ describe("findMissingCssClasses (meaningful rule semantics)", () => {
         content: `export function Card(){return <div className="product-card">x</div>}`,
       },
       {
-        path: "src/styles.css",
+        path: "src/index.css",
         content: `.product-card{display:grid;gap:16px;padding:12px}`,
       },
     ];
@@ -155,7 +155,7 @@ describe("findMissingCssClasses (meaningful rule semantics)", () => {
         content: `export function Mute(){return <span className="muted small">y</span>}`,
       },
       {
-        path: "src/styles.css",
+        path: "src/index.css",
         content: `.muted{color:var(--muted)}.small{color:var(--muted)}`,
       },
     ];
@@ -324,9 +324,9 @@ describe("custom generated source agent", () => {
           replace: "Bengkel Maju Rewrite",
         });
         await tools.replace_in_file.execute({
-          path: "src/styles.css",
-          find: "text-align:center",
-          replace: "text-align:center\n.agent-proof{display:block}",
+          path: "src/index.css",
+          find: "--primary:",
+          replace: "--primary: #ff0000\n.agent-proof{display:block}",
         });
         await tools.check_app.execute({});
         return { text: "forced rewrite ok" };

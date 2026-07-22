@@ -1764,7 +1764,6 @@ export function checkAgentSourceQuality(
     (path) =>
       path.startsWith("src/components/") ||
       path.startsWith("src/routes/") ||
-      path === "src/styles.css" ||
       path === "src/index.css",
   );
   const contentEdited = [...agentEditedFiles].some((path) =>
