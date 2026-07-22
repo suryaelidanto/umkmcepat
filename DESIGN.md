@@ -247,6 +247,16 @@ Navigation should be minimal and transparent on brand surfaces, then task-orient
 
 Build progress, preview failures, runtime state, and edit attempts are product states. Show what happened, what changed, and what the user can do next. Generated sites should receive portable context files (`PRODUCT.md`, `DESIGN.md`, `.agents/skills/impeccable`) and should not include platform-branded metadata in source.
 
+### Generated App Design System (locked stack)
+
+Generated UMKM apps use a separate, locked design system from the platform control plane. This section is the canonical record; do not introduce a new generated-app visual language without updating it first.
+
+- **System:** shadcn/ui "new-york" + Tailwind CSS v4 (CSS-first, no `tailwind.config.js`). Components live in `src/components/ui/*`; pre-seeded primitives are `button`, `card`, `badge`, `input`, `label`, `separator`. The AI composes these and writes any extras as source into `src/components/ui/<name>.tsx` (canonical new-york + Tailwind v4 shape). No shadcn CLI at build time.
+- **Theme tokens:** the brief's `schema.theme` (`background`, `foreground`, `muted`, `accent`) is mapped to shadcn CSS variables in `src/index.css`. The variable names must match what the seeded shadcn components reference: `--background`, `--foreground`, `--card`, `--card-foreground`, `--popover`, `--popover-foreground`, `--primary`, `--primary-foreground`, `--secondary`, `--secondary-foreground`, `--muted`, `--muted-foreground`, `--accent`, `--accent-foreground`, `--destructive`, `--destructive-foreground`, `--border`, `--input`, `--ring`, `--radius`. Tailwind v4 `@theme inline` maps each to `--color-*` so utilities like `bg-background` resolve. Only light mode is seeded; dark mode is a future upgrade.
+- **Composition:** components consume the theme via Tailwind utilities — `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `bg-secondary`, `bg-muted`, `text-muted-foreground`, `bg-accent`, `text-accent-foreground`, `border-border`, `ring-ring`. `cn()` from `@/lib/utils` merges classes conditionally.
+- **No custom CSS classes:** all styling is Tailwind utility classes inline in TSX. If a reusable style is needed, make a React component, not a CSS class. `src/index.css` and `src/content/site.ts` are read-only to the agent.
+- **Taste layer:** `DESIGN_DIRECTIVE` (distilled from anti-slop, design-quality, and the 3-dial taste skill) applies on top of the utility classes — tinted neutrals (no pure black/gray), one deliberate accent ≤10% of surface, varied section rhythm, no purple-blue gradients or gradient text, `min-h-dvh` for full-height sections. Generated copy is real Indonesian business-specific text, never placeholders.
+
 ## Do's and Don'ts
 
 ### Do
