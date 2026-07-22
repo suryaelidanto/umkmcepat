@@ -29,6 +29,9 @@ export function createLoopDetector() {
       }
       return { hardCap: false };
     },
+    reset(): void {
+      counts.clear();
+    },
     summary(): string {
       const repeated = [...counts.entries()].filter(([, n]) => {
         return n > 1;
@@ -46,10 +49,7 @@ export function createLoopDetector() {
 
 export type StepTimer = { start(): { end(): number } };
 
-// ponytail: wired in Task 8 — StepTimer logs per-call wall-clock ms via devLog/trace.
-export function createStepTimer(
-  _log: (msg: string, meta: Record<string, unknown>) => void,
-): StepTimer {
+export function createStepTimer(): StepTimer {
   return {
     start() {
       const t = Date.now();

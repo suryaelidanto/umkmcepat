@@ -384,7 +384,7 @@ describe("generated project source", () => {
     ]);
   });
 
-  it("links the shared golden node_modules into the workspace on first build", async () => {
+  it("first build skips workspace bun install when golden link succeeds", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
     const files = buildableFiles("project_shared_link");
     const manifest = validateGeneratedAppManifest(files).manifest;
@@ -392,16 +392,18 @@ describe("generated project source", () => {
       throw new Error("fixture manifest invalid");
     }
     const signature = createDependencySignature(files, manifest);
-    const install = vi.fn(async (cwd: string) => {
+    const goldenInstall = vi.fn(async (cwd: string) => {
       await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       return { ok: true as const, log: "" };
     });
     await ensureSharedNodeModules(tempDir, signature, {
-      installRunner: install,
+      installRunner: goldenInstall,
     });
 
+    const commands: string[] = [];
     const commandRunner = async (command: string[], cwd: string) => {
       const normalized = normalizeCommand(command);
+      commands.push(normalized);
       if (normalized === "<bun> run build") {
         await writeDist(cwd, "shared");
       }
@@ -424,9 +426,11 @@ describe("generated project source", () => {
     );
     const nmStat = await lstat(path.join(workspace, "node_modules"));
     expect(nmStat.isSymbolicLink() || nmStat.isDirectory()).toBe(true);
-    // The shared golden install runner runs during provisioning only; the build
-    // never invokes bun install on the workspace itself for this scenario.
-    expect(install).toHaveBeenCalledTimes(1);
+    // Golden provisioning ran once (pre-provision); buildGeneratedProject
+    // must NOT invoke bun install on the workspace itself — the golden link
+    // short-circuits shouldInstall on a true first build.
+    expect(goldenInstall).toHaveBeenCalledTimes(1);
+    expect(commands).toEqual(["<bun> run build"]);
   });
 
   it("skips dependency install for repeat workspace builds with unchanged packages", async () => {
@@ -462,7 +466,6 @@ describe("generated project source", () => {
     );
 
     expect(commands).toEqual([
-      "<bun> install --ignore-scripts",
       "<bun> install --ignore-scripts",
       "<bun> run build",
       "<bun> run build",
@@ -505,7 +508,6 @@ describe("generated project source", () => {
 
     expect(second.ok).toBe(true);
     expect(commands).toEqual([
-      "<bun> install --ignore-scripts",
       "<bun> install --ignore-scripts",
       "<bun> run build",
       "<bun> run build",
@@ -555,9 +557,7 @@ describe("generated project source", () => {
 
     expect(commands).toEqual([
       "<bun> install --ignore-scripts",
-      "<bun> install --ignore-scripts",
       "<bun> run build",
-      "<bun> install --ignore-scripts",
       "<bun> install --ignore-scripts",
       "<bun> run build",
     ]);
@@ -641,10 +641,8 @@ describe("generated project source", () => {
     expect(result.ok).toBe(true);
     expect(commands).toEqual([
       "<bun> install --ignore-scripts",
-      "<bun> install --ignore-scripts",
       "<bun> run build",
       "<bun> run build",
-      "<bun> install --ignore-scripts",
       "<bun> run build",
     ]);
     expect(result.log).toContain('"cacheReset":true');

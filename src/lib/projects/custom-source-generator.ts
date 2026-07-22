@@ -87,9 +87,7 @@ export async function generateCustomProjectFilesWithAgent({
   /** Paths the agent actually write/replace'd (excludes auto CSS ensure). */
   const agentEditedFiles = new Set<string>();
   const loopDetector = createLoopDetector();
-  const stepTimer = createStepTimer((msg, meta) =>
-    devLog("agent-step", msg, meta),
-  );
+  const stepTimer = createStepTimer();
   let loopHardCapped = false;
 
   const runCommand: RunCommand = (command) => {
@@ -237,6 +235,10 @@ export async function generateCustomProjectFilesWithAgent({
         files,
         files.find((file) => file.path === "src/index.css")?.content ?? "",
       );
+      // Reset the loop detector before the forced-rewrite pass so legitimate
+      // re-reads in the rewrite (e.g. verifying a replacement) are not
+      // falsely hard-capped by counts carried over from pass 1.
+      loopDetector.reset();
       await runForcedRewritePass({
         appSpec,
         implementationSpec,
@@ -290,6 +292,7 @@ export async function generateCustomProjectFilesWithAgent({
     }
 
     // Structural partial (timeout) is OK only after CSS/quality gate passes.
+    devLog("agent-loop", "summary", { summary: loopDetector.summary() });
     return {
       buildSpec: appSpec,
       files,

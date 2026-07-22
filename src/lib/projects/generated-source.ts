@@ -327,9 +327,7 @@ async function buildGeneratedProjectInWorkspace(
     // Link the shared golden node_modules (read-only) before the install check.
     // On repeat builds the link keeps node_modules present so shouldInstall
     // stays false; a broken golden falls through to the normal install path.
-    // ponytail: a true first build (resetBeforeBuild=true) still installs
-    // because shouldInstall short-circuits on reset; first-build skip is
-    // impossible while the gate resets. Revisit if the gate logic is relaxed.
+    let goldenLinked = false;
     try {
       const sharedNm = await ensureSharedNodeModules(
         workspaceRoot,
@@ -339,8 +337,8 @@ async function buildGeneratedProjectInWorkspace(
             commandRunner([BUNDLED_RUNNER, "install", "--ignore-scripts"], cwd),
         },
       );
-      const linked = await linkSharedNodeModules(workspace, sharedNm);
-      if (!linked) {
+      goldenLinked = await linkSharedNodeModules(workspace, sharedNm);
+      if (!goldenLinked) {
         devLog("generate", "shared-nm.link-skipped", { workspace });
       }
     } catch (error) {
@@ -350,10 +348,17 @@ async function buildGeneratedProjectInWorkspace(
       });
     }
 
+    // A successful golden link is authoritative: ensureSharedNodeModules
+    // provisions the golden for EXACTLY dependencySignature (re-provisioning
+    // on sig mismatch), so the linked node_modules matches the sig by
+    // construction. Skip the workspace install, and write cache metadata so
+    // the next repeat build also skips via the sig-match path. A broken link
+    // falls through to the normal install path below.
     const shouldInstall =
-      resetBeforeBuild ||
-      cacheMetadata?.dependencySignature !== dependencySignature ||
-      !(await pathExists(path.join(workspace, "node_modules")));
+      !goldenLinked &&
+      (resetBeforeBuild ||
+        cacheMetadata?.dependencySignature !== dependencySignature ||
+        !(await pathExists(path.join(workspace, "node_modules"))));
     let installMs = 0;
     let install: BuildCommandResult = { ok: true, log: "" };
 
@@ -371,6 +376,13 @@ async function buildGeneratedProjectInWorkspace(
         return { ...install, distFiles: [] };
       }
 
+      await writeBuildCacheMetadata(metadataPath, {
+        dependencySignature,
+        runtimeProfile: manifest.runtimeProfile,
+        schemaVersion: 1,
+      });
+    } else if (goldenLinked) {
+      // Mirror the install-success path so repeat builds skip via sig-match.
       await writeBuildCacheMetadata(metadataPath, {
         dependencySignature,
         runtimeProfile: manifest.runtimeProfile,

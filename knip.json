@@ -27,7 +27,6 @@
     "src/components/ui/**": ["exports"],
     "src/lib/provider-registry.ts": ["exports"],
     "src/lib/storage/index.ts": ["exports"],
-    "src/lib/zod-schemas.ts": ["exports", "types"],
-    "src/lib/projects/agent-loop-detector.ts": ["exports"]
+    "src/lib/zod-schemas.ts": ["exports", "types"]
   }
 }

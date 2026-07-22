@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createLoopDetector } from "./agent-loop-detector";
+import { createLoopDetector, createStepTimer } from "./agent-loop-detector";
 
 describe("createLoopDetector", () => {
   it("does not nudge before 3 exact repeats", () => {
@@ -37,5 +37,25 @@ describe("createLoopDetector", () => {
     d.track("read_file", { path: "b.tsx" });
     const third = d.track("read_file", { path: "a.tsx" });
     expect(third.nudge).toBeUndefined(); // only 2 of a.tsx
+  });
+
+  it("reset() clears counts so prior repeats do not nudge", () => {
+    const d = createLoopDetector();
+    d.track("read_file", { path: "a.tsx" });
+    d.track("read_file", { path: "a.tsx" });
+    d.track("read_file", { path: "a.tsx" });
+    d.reset();
+    // After reset, a single call must not nudge or hard-cap.
+    const first = d.track("read_file", { path: "a.tsx" });
+    expect(first).toEqual({ hardCap: false });
+  });
+});
+
+describe("createStepTimer", () => {
+  it("measures elapsed wall-clock ms", () => {
+    const timer = createStepTimer();
+    const span = timer.start();
+    expect(typeof span.end()).toBe("number");
+    expect(span.end()).toBeGreaterThanOrEqual(0);
   });
 });
