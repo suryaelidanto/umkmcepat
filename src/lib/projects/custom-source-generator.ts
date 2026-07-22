@@ -1861,9 +1861,10 @@ ${implementationBrief}
 ${DESIGN_DIRECTIVE}
 
 SPEED RULES (you have limited steps — write immediately):
-1. FIRST STEP: write_file src/routes/index.tsx with the full page layout using shadcn components + Tailwind utilities.
-2. SECOND STEP: write any extra components/helpers you need under src/components/custom/.
-3. LAST STEP: check_app once.
+1. FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities.
+2. SECOND STEP: if the brief has distinct sections, write extra route files under src/routes/ (e.g. katalog.tsx, kontak.tsx) and register them in src/router.tsx with <Link> nav. Otherwise keep the single composed page.
+3. THIRD STEP: write any extra shadcn components you need under src/components/ui/ (canonical new-york + Tailwind v4 shape, import cn from "@/lib/utils").
+4. LAST STEP: check_app once.
 
 DO NOT read_file before writing — starter files are predictable.
 DO NOT spend steps exploring. Write complete files from the start.
@@ -1968,8 +1969,9 @@ STYLING (shadcn + Tailwind only — no custom CSS):
 
 ROUTING & PAGE CONTRACT:
 - src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }".
-- src/router.tsx is platform-owned and registers only index + 404. Do NOT edit src/main.tsx, src/router.tsx, or src/routes/__root.tsx.
-- For multi-section pages, build one composed page in src/routes/index.tsx with in-page anchor sections (e.g. <a href="#kontak">). Do NOT create new route files under src/routes/.
+- Prefer REAL multi-page routing when the brief has distinct sections (Home, Catalog, Contact, Product detail, etc.). Add one route file per page under src/routes/ (e.g. katalog.tsx, kontak.tsx) and register each in src/router.tsx via createRoute({ getParentRoute: () => rootRoute, path: "/katalog", component: ... }) then add it to rootRoute.addChildren([...]). Keep the existing index route and the path:"*" 404 catch-all.
+- Navigate between pages with <Link to="/katalog"> from "@tanstack/react-router". Do NOT fake routing with useState tabs.
+- Do NOT edit src/main.tsx or src/routes/__root.tsx (you may add a shared layout in __root.tsx if the brief calls for header/footer, but keep <Outlet />). You MAY edit src/router.tsx to register your extra routes — nothing else there.
 - Import usePreviewReady from "@/lib/preview-ready".
 - Import the business data using: import { site } from "@/content/site". Do NOT edit src/content/site.ts — it is fully populated and exports site as both named and default exports.
 
