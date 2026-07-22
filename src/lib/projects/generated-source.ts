@@ -20,6 +20,7 @@ import {
 import { type ProjectSiteSchema } from "./site-schema";
 
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
+import { devLog } from "@/lib/dev-log";
 import { sanitizeBuildLog } from "@/lib/projects/build-logs";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
 import { validateGeneratedBuildPolicy } from "@/lib/projects/generated-build-policy";
@@ -30,6 +31,10 @@ import {
 } from "@/lib/projects/generated-resource-budget";
 import { shadcnThemeCss } from "@/lib/projects/scaffold/shadcn-theme";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
+import {
+  ensureSharedNodeModules,
+  linkSharedNodeModules,
+} from "@/lib/projects/shared-node-modules";
 
 type BuildCommandResult = Omit<BuildGeneratedProjectResult, "distFiles">;
 
@@ -319,6 +324,30 @@ async function buildGeneratedProjectInWorkspace(
     await mkdir(workspace, { recursive: true });
     await syncGeneratedProjectFiles(workspace, files);
 
+    // Link the shared golden node_modules (read-only) before the install check.
+    // If the link succeeds, pathExists(node_modules) is true → install skipped
+    // for first builds of new projects, not just repeats. Non-fatal: any
+    // failure falls through to the normal install path below.
+    try {
+      const sharedNm = await ensureSharedNodeModules(
+        workspaceRoot,
+        dependencySignature,
+        {
+          installRunner: (cwd) =>
+            commandRunner([BUNDLED_RUNNER, "install", "--ignore-scripts"], cwd),
+        },
+      );
+      const linked = await linkSharedNodeModules(workspace, sharedNm);
+      if (!linked) {
+        devLog("generate", "shared-nm.link-skipped", { workspace });
+      }
+    } catch (error) {
+      devLog("generate", "shared-nm.error", {
+        workspace,
+        error: String(error),
+      });
+    }
+
     const shouldInstall =
       resetBeforeBuild ||
       cacheMetadata?.dependencySignature !== dependencySignature ||
@@ -537,7 +566,7 @@ function resolveSafeBuildWorkspacePath(root: string, filePath: string) {
   return target;
 }
 
-function createDependencySignature(
+export function createDependencySignature(
   files: GeneratedProjectFile[],
   manifest: {
     packageManager: "bun";
