@@ -8,7 +8,8 @@ export type GeneratedBuildPolicyFile = {
 export type GeneratedBuildPolicyResult =
   { issues: string[]; ok: false } | { issues: []; ok: true };
 
-export const PLATFORM_VITE_CONFIG = `import { defineConfig } from 'vite'
+export const PLATFORM_VITE_CONFIG = `import path from "path"
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -16,10 +17,16 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   base: './',
   plugins: [tailwindcss(), react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
 })
 `;
 
 const PLATFORM_OWNED_PATHS = new Set([
+  "components.json",
   "generated-app.manifest.json",
   "package.json",
   "vite.config.ts",

@@ -181,7 +181,7 @@ describe("custom generated source agent", () => {
       });
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
-        find: "<h1>{starterMessage}</h1>",
+        find: "{site.headline}",
         replace:
           '<h1>Servis motor harian yang jelas sebelum dibongkar.</h1>\n      <section className="agent-proof">Servis motor harian, aki, ban, dan kelistrikan.</section>',
       });
@@ -191,9 +191,10 @@ describe("custom generated source agent", () => {
         replace: "Bengkel Maju Presisi",
       });
       await tools.replace_in_file.execute({
-        path: "src/styles.css",
-        find: "text-align:center",
-        replace: "text-align:center\n.agent-proof{display:block}",
+        path: "src/index.css",
+        find: "--background:",
+        replace:
+          "--background: #f7f7f7; /* agent-proof */\n.agent-proof{display:block}",
       });
       await tools.check_app.execute({});
 
@@ -228,7 +229,7 @@ describe("custom generated source agent", () => {
     agentGenerate.mockImplementation(async (tools) => {
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
-        find: "<h1>{starterMessage}</h1>",
+        find: "{site.headline}",
         replace:
           '<h1>Rental PS dengan paket konsol dan game siap main.</h1>\n      <section className="agent-proof">Paket remaja, booking WhatsApp, dan jadwal sewa jelas.</section>',
       });
@@ -238,9 +239,10 @@ describe("custom generated source agent", () => {
         replace: "Rental PS Neon",
       });
       await tools.replace_in_file.execute({
-        path: "src/styles.css",
-        find: "text-align:center",
-        replace: "text-align:center\n.agent-proof{display:block}",
+        path: "src/index.css",
+        find: "--background:",
+        replace:
+          "--background: #f7f7f7; /* agent-proof */\n.agent-proof{display:block}",
       });
       await tools.check_app.execute({});
 
@@ -257,7 +259,7 @@ describe("custom generated source agent", () => {
       expect.arrayContaining([
         "src/content/site.ts",
         "src/routes/index.tsx",
-        "src/styles.css",
+        "src/index.css",
       ]),
     );
   });
@@ -293,7 +295,7 @@ describe("custom generated source agent", () => {
       .mockImplementationOnce(async (tools) => {
         await tools.replace_in_file.execute({
           path: "src/routes/index.tsx",
-          find: "<h1>{starterMessage}</h1>",
+          find: "{site.headline}",
           replace:
             '<h1>Servis motor harian yang jelas.</h1>\n      <section className="agent-proof">Oli, ban, aki.</section>',
         });
@@ -321,7 +323,7 @@ describe("custom generated source agent", () => {
       expect.arrayContaining([
         "src/content/site.ts",
         "src/routes/index.tsx",
-        "src/styles.css",
+        "src/index.css",
       ]),
     );
     expect(agentGenerate).toHaveBeenCalledTimes(2);
@@ -331,7 +333,7 @@ describe("custom generated source agent", () => {
     agentGenerate.mockImplementation(async (tools) => {
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
-        find: "<h1>{starterMessage}</h1>",
+        find: "{site.headline}",
         replace:
           '<h1>Cara payment & login member info.</h1>\n      <section className="agent-proof">checkout register api/orders ok as copy</section>',
       });
@@ -341,9 +343,10 @@ describe("custom generated source agent", () => {
         replace: "Bengkel Payment Copy",
       });
       await tools.replace_in_file.execute({
-        path: "src/styles.css",
-        find: "text-align:center",
-        replace: "text-align:center\n.agent-proof{display:block}",
+        path: "src/index.css",
+        find: "--background:",
+        replace:
+          "--background: #f7f7f7; /* agent-proof */\n.agent-proof{display:block}",
       });
       await tools.check_app.execute({});
       return { text: "ok" };
@@ -356,11 +359,7 @@ describe("custom generated source agent", () => {
 
     const quality = checkAgentSourceQuality(
       result.files,
-      new Set([
-        "src/content/site.ts",
-        "src/routes/index.tsx",
-        "src/styles.css",
-      ]),
+      new Set(["src/content/site.ts", "src/routes/index.tsx", "src/index.css"]),
     );
     expect(quality.issues ?? []).not.toContain(
       "unsupported fake backend/auth/payment language detected",
@@ -374,11 +373,11 @@ describe("custom generated source agent", () => {
       createGeneratedViteTanStackStarterFiles("p_quality", site),
       site,
     );
-    const onlyAuto = new Set<string>(["src/styles.css"]);
+    const onlyAuto = new Set<string>(["src/index.css"]);
     const quality = checkAgentSourceQuality(files, onlyAuto);
     expect(quality.ok).toBe(false);
     if (!quality.ok) {
-      // styles.css alone counts as presentation path but fails size < 2.
+      // index.css alone counts as presentation path but fails size < 2.
       expect(quality.issues).toContain("agent did not edit enough files");
     }
   });
@@ -387,7 +386,7 @@ describe("custom generated source agent", () => {
     agentGenerate.mockImplementation(async (tools) => {
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
-        find: "<h1>{starterMessage}</h1>",
+        find: "{site.headline}",
         replace:
           '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
       });
@@ -397,9 +396,10 @@ describe("custom generated source agent", () => {
         replace: "Bengkel Checklist",
       });
       await tools.replace_in_file.execute({
-        path: "src/styles.css",
-        find: "text-align:center",
-        replace: "text-align:center\n.agent-proof{display:block}",
+        path: "src/index.css",
+        find: "--background:",
+        replace:
+          "--background: #f7f7f7; /* agent-proof */\n.agent-proof{display:block}",
       });
       await tools.check_app.execute({});
       return { text: "ok" };
@@ -411,16 +411,12 @@ describe("custom generated source agent", () => {
     });
 
     const agentEdited = new Set(
-      result.touchedFiles.filter((path) => path !== "src/styles.css" || true),
+      result.touchedFiles.filter((path) => path !== "src/index.css" || true),
     );
     // Use paths the agent actually edited in the mock (all three + auto).
     const quality = checkAgentSourceQuality(
       result.files,
-      new Set([
-        "src/content/site.ts",
-        "src/routes/index.tsx",
-        "src/styles.css",
-      ]),
+      new Set(["src/content/site.ts", "src/routes/index.tsx", "src/index.css"]),
     );
     expect(quality.ok).toBe(true);
     expect(agentEdited.size).toBeGreaterThan(0);
@@ -451,10 +447,10 @@ describe("custom generated source agent", () => {
         {
           path: "src/routes/index.tsx",
           content:
-            'export function Home(){return <div className="page bakso-card">ok</div>}',
+            'export function Home(){return <div className="bakso-card">ok</div>}',
         },
         {
-          path: "src/styles.css",
+          path: "src/index.css",
           content:
             ":root{color:#111}.starter-shell{min-height:100dvh;display:grid}",
         },
@@ -465,9 +461,8 @@ describe("custom generated source agent", () => {
     // then stub only as fallback).
     files = applyStylesCoverStubs(files).files;
 
-    const css = files.find((file) => file.path === "src/styles.css")?.content;
+    const css = files.find((file) => file.path === "src/index.css")?.content;
     expect(css).toContain("--accent");
-    expect(css).toContain(".page{");
     expect(css).toContain(".bakso-card{");
     expect(isStarterStylesContent(css ?? "")).toBe(false);
     // Stubs now include a non-color declaration (display: inline-block) so
@@ -482,7 +477,7 @@ describe("custom generated source agent", () => {
     agentGenerate.mockImplementation(async (tools) => {
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
-        find: "<h1>{starterMessage}</h1>",
+        find: "{site.headline}",
         replace:
           '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
       });
@@ -492,9 +487,10 @@ describe("custom generated source agent", () => {
         replace: "Bengkel Checklist",
       });
       await tools.replace_in_file.execute({
-        path: "src/styles.css",
-        find: "text-align:center",
-        replace: "text-align:center\n.agent-proof{display:block}",
+        path: "src/index.css",
+        find: "--background:",
+        replace:
+          "--background: #f7f7f7; /* agent-proof */\n.agent-proof{display:block}",
       });
       await tools.check_app.execute({});
       return { text: "ok" };
@@ -533,7 +529,7 @@ describe("custom generated source agent", () => {
     agentGenerate.mockImplementation(async (tools) => {
       await tools.replace_in_file.execute({
         path: "src/routes/index.tsx",
-        find: "<h1>{starterMessage}</h1>",
+        find: "{site.headline}",
         replace:
           '<h1>Checklist pass.</h1>\n      <section className="agent-proof">ok</section>',
       });
@@ -543,9 +539,10 @@ describe("custom generated source agent", () => {
         replace: "Bengkel Checklist",
       });
       await tools.replace_in_file.execute({
-        path: "src/styles.css",
-        find: "text-align:center",
-        replace: "text-align:center\n.agent-proof{display:block}",
+        path: "src/index.css",
+        find: "--background:",
+        replace:
+          "--background: #f7f7f7; /* agent-proof */\n.agent-proof{display:block}",
       });
       await tools.check_app.execute({});
       return { text: "ok" };

@@ -20,7 +20,7 @@ import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 /** Paths auto-touched by ensureStylesCoverClassNames — not agent edits. */
-const AUTO_STYLE_PATH = "src/styles.css";
+const AUTO_STYLE_PATH = "src/index.css";
 
 const NO_MEANINGFUL_EDIT_ISSUES = [
   "agent did not edit enough files",
@@ -182,7 +182,7 @@ export async function generateCustomProjectFilesWithAgent({
     files = ensureRouterRouteWired(files);
     files = ensurePreviewReadyCalled(files);
 
-    // Ensure a styles.css file exists (starter contract if absent), but do
+    // Ensure a index.css file exists (starter contract if absent), but do
     // NOT inject per-class stubs here — stubs would mask the missing-CSS gap
     // and defeat the quality gate below. Stubs are a last-resort fallback
     // only, applied after a rewrite pass has been attempted.
@@ -195,7 +195,7 @@ export async function generateCustomProjectFilesWithAgent({
       // agent writes real layout CSS, not color-only stubs.
       const missingCss = findMissingCssClasses(
         files,
-        files.find((file) => file.path === "src/styles.css")?.content ?? "",
+        files.find((file) => file.path === "src/index.css")?.content ?? "",
       );
       await runForcedRewritePass({
         appSpec,
@@ -221,7 +221,7 @@ export async function generateCustomProjectFilesWithAgent({
     // hard instead of shipping a half-styled UI (the original silent-broken bug).
     const finalMissing = findMissingCssClasses(
       files,
-      files.find((file) => file.path === "src/styles.css")?.content ?? "",
+      files.find((file) => file.path === "src/index.css")?.content ?? "",
     );
     if (finalMissing.length > 0) {
       const STUB_HARD_CAP = 30;
@@ -232,7 +232,7 @@ export async function generateCustomProjectFilesWithAgent({
       });
       if (finalMissing.length > STUB_HARD_CAP) {
         throw new Error(
-          `AI source generation failed: too many unstyled custom components (${finalMissing.length}). Missing CSS for: ${finalMissing.slice(0, 20).join(", ")}. Ensure you write CSS rules for custom classNames in src/styles.css.`,
+          `AI source generation failed: too many unstyled custom components (${finalMissing.length}). Missing CSS for: ${finalMissing.slice(0, 20).join(", ")}. Ensure you write CSS rules for custom classNames in src/index.css.`,
         );
       }
       const stubbed = applyStylesCoverStubs(files);
@@ -328,7 +328,7 @@ async function runForcedRewritePass({
 
   const missingCssNote =
     missingCss.length > 0
-      ? `\n\nMISSING CSS — these classNames are used in TSX but have NO real CSS rule (only a color stub or nothing):\n${missingCss.join(", ")}\nFor EACH one, write a complete rule in src/styles.css with layout (display/padding/gap/grid/background/border-radius). Do NOT emit single color-only rules.`
+      ? `\n\nMISSING CSS — these classNames are used in TSX but have NO real CSS rule (only a color stub or nothing):\n${missingCss.join(", ")}\nFor EACH one, write a complete rule in src/index.css with layout (display/padding/gap/grid/background/border-radius). Do NOT emit single color-only rules.`
       : "";
 
   await withAiTimeout(
@@ -338,7 +338,7 @@ async function runForcedRewritePass({
 You MUST call write_file or replace_in_file on at least:
 - src/content/site.ts
 - src/routes/index.tsx
-- src/styles.css (if you add classNames)
+- src/index.css (if you add classNames)
 
 Do NOT call read_skill. Prefer write over endless reads.
 Then call check_app once.
@@ -619,6 +619,7 @@ export function isTailwindUtilityClass(className: string): boolean {
     "bottom-",
     "left-",
     "right-",
+    "size-",
     "appearance-",
     "list-",
     "from-",
@@ -763,7 +764,7 @@ export function isStarterStylesContent(styleContent: string) {
 }
 
 /**
- * Ensure a 'src/styles.css' file exists (starter contract if absent or legacy
+ * Ensure a 'src/index.css' file exists (starter contract if absent or legacy
  * starter-only). Does NOT inject per-class stubs -- stubbing is a separate
  * last-resort step (see applyStylesCoverStubs) so the quality gate sees the
  * real missing-class gap and can trigger a rewrite pass instead of being
@@ -773,11 +774,11 @@ export function ensureStylesFileExists(
   files: GeneratedProjectFile[],
   schema: ProjectSiteSchema,
 ): GeneratedProjectFile[] {
-  const styleIndex = files.findIndex((file) => file.path === "src/styles.css");
+  const styleIndex = files.findIndex((file) => file.path === "src/index.css");
   if (styleIndex < 0) {
     return [
       ...files,
-      { path: "src/styles.css", content: createStarterContractStyles(schema) },
+      { path: "src/index.css", content: createStarterContractStyles(schema) },
     ];
   }
   const current = files[styleIndex].content;
@@ -1679,7 +1680,7 @@ export function applyStylesCoverStubs(files: GeneratedProjectFile[]): {
   files: GeneratedProjectFile[];
   missing: string[];
 } {
-  const styleIndex = files.findIndex((file) => file.path === "src/styles.css");
+  const styleIndex = files.findIndex((file) => file.path === "src/index.css");
   if (styleIndex < 0) {
     return { files, missing: [] };
   }
@@ -1750,7 +1751,8 @@ export function checkAgentSourceQuality(
     (path) =>
       path.startsWith("src/components/") ||
       path.startsWith("src/routes/") ||
-      path === "src/styles.css",
+      path === "src/styles.css" ||
+      path === "src/index.css",
   );
   const contentEdited = [...agentEditedFiles].some((path) =>
     path.startsWith("src/content/"),
@@ -1766,7 +1768,7 @@ export function checkAgentSourceQuality(
 
   const allSourceText = files
     .filter((file) =>
-      /^(src\/(routes|components|content|lib)\/|src\/styles\.css)/.test(
+      /^(src\/(routes|components|content|lib)\/|src\/(styles|index)\.css)/.test(
         file.path,
       ),
     )
@@ -1799,7 +1801,7 @@ export function checkAgentSourceQuality(
     }
   }
 
-  const styleFile = files.find((file) => file.path === "src/styles.css");
+  const styleFile = files.find((file) => file.path === "src/index.css");
   const styleContent = styleFile?.content || "";
   const missingCss = findMissingCssClasses(files, styleContent);
 
@@ -1844,7 +1846,7 @@ MOTION:
 
 CONTENT:
 - Real, specific Indonesian copy ("Sewa PS Rp 5.000/jam", not "Harga terjangkau"). No "Lorem ipsum" / "Coming soon".
-- Use design tokens from src/styles.css (--bg/--fg/--muted/--accent) as the single source of truth.`;
+- Use design tokens from src/index.css (--background/--foreground/--muted/--accent) as the single source of truth.`;
 
 function buildAgentPrompt(implementationBrief: string) {
   return `Build a custom standalone app from starter files.
@@ -1934,7 +1936,7 @@ function buildGeneratedAppAgentInstructions(
   const skillsBlock =
     mode === "generate"
       ? `\nDo NOT call read_skill — write files directly. You already know the stack.
-WRITE first: src/content/site.ts, src/routes/index.tsx, src/styles.css.
+WRITE first: src/content/site.ts, src/routes/index.tsx, src/index.css.
 Never call check_app before at least one write_file or replace_in_file.
 Minimize read_file calls — starter structure is predictable.`
       : mode === "rewrite"
@@ -1952,7 +1954,7 @@ Static frontend only. User-facing copy in Indonesian.
 
 STYLING CONTRACT (extremely strict):
 - Tailwind CSS v4 is pre-installed. You MUST write all styles using standard Tailwind utility classes directly in the TSX (e.g. className="flex flex-col gap-4 p-6 bg-slate-900 rounded-xl shadow-lg").
-- Do NOT write custom CSS classNames (like "btn-primary", "nav-link", "contact-form", "hero-section") or custom styles in src/styles.css. Keep styles.css unedited.
+- Do NOT write custom CSS classNames (like "btn-primary", "nav-link", "contact-form", "hero-section") or custom styles in src/index.css. Keep index.css unedited.
 - Do NOT use h-screen. Always use min-h-dvh or min-h-screen for full viewport sections.
 
 ROUTING & PAGE CONTRACT (strict):
@@ -2056,7 +2058,7 @@ Steps:
   // a repaired site doesn't silently ship half-styled.
   const repairMissing = findMissingCssClasses(
     currentFiles,
-    currentFiles.find((file) => file.path === "src/styles.css")?.content ?? "",
+    currentFiles.find((file) => file.path === "src/index.css")?.content ?? "",
   );
   if (repairMissing.length > 0) {
     const STUB_HARD_CAP = 100;

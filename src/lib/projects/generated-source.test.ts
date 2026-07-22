@@ -40,7 +40,7 @@ describe("generated project source", () => {
     ]);
   });
 
-  it("starter contract CSS includes theme tokens and shared layout classes", () => {
+  it("starter contract CSS includes shadcn theme tokens and Tailwind v4 import", () => {
     const schema = createProjectSiteSchemaFromBrief({
       businessName: "Toko Contoh",
       businessType: "Retail",
@@ -70,11 +70,15 @@ describe("generated project source", () => {
       readyForBuild: false,
     });
     const css = createStarterContractStyles(schema);
+    expect(css).toContain('@import "tailwindcss"');
+    expect(css).toContain("--background");
+    expect(css).toContain("--foreground");
+    expect(css).toContain("--primary");
     expect(css).toContain("--accent");
-    expect(css).toContain(".page{");
-    expect(css).toContain(".site-header");
-    expect(css).toContain(".hero");
-    expect(css).toContain(".fab-wa");
+    expect(css).toContain("--border");
+    expect(css).toContain("--ring");
+    expect(css).toContain("--card");
+    expect(css).not.toContain(".starter-shell");
   });
 
   it("rejects unsafe paths", () => {
