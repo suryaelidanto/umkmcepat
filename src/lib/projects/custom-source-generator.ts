@@ -26,6 +26,7 @@ const NO_MEANINGFUL_EDIT_ISSUES = [
   "agent did not edit enough files",
   "agent did not edit any presentation or content files",
   "home route is still the starter placeholder",
+  "home route was not written by the agent",
 ] as const;
 
 /**
@@ -1745,6 +1746,15 @@ export function checkAgentSourceQuality(
 
   if (!files.some((file) => file.path.startsWith("src/routes/"))) {
     issues.push("missing route files");
+  }
+
+  // Active assertion (defense-in-depth): even if the starter's index.tsx is
+  // present and the stale-marker check below doesn't trip (e.g. the agent
+  // rewrote the placeholder but never actually edited the home route), require
+  // src/routes/index.tsx to be in agentEditedFiles. This trips the forced
+  // rewrite via NO_MEANINGFUL_EDIT_ISSUES, not just passive detection.
+  if (!agentEditedFiles.has("src/routes/index.tsx")) {
+    issues.push("home route was not written by the agent");
   }
 
   // Stale-starter detector: if the agent left the scaffold's placeholder

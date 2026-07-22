@@ -449,6 +449,15 @@ describe("custom generated source agent", () => {
     );
   });
 
+  it("fails the gate when the agent did not edit src/routes/index.tsx", () => {
+    const files = createGeneratedViteTanStackStarterFiles("p1", schema());
+    // Agent edited site.ts only — NOT index.tsx.
+    const edited = new Set<string>(["src/content/site.ts"]);
+    const quality = checkAgentSourceQuality(files, edited);
+    expect(quality.ok).toBe(false);
+    expect(quality.issues).toContain("home route was not written by the agent");
+  });
+
   it("checkAgentSourceQuality passes when content + route were agent-edited", async () => {
     agentGenerate.mockImplementation(async (tools) => {
       await tools.replace_in_file.execute({
