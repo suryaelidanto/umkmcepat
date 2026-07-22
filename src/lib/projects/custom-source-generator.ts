@@ -1863,7 +1863,7 @@ ${DESIGN_DIRECTIVE}
 SPEED RULES (you have limited steps — write immediately):
 1. FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities.
 2. SECOND STEP: if the brief has distinct sections, write extra route files under src/routes/ (e.g. katalog.tsx, kontak.tsx) and register them in src/router.tsx with <Link> nav. Otherwise keep the single composed page.
-3. THIRD STEP: write any extra shadcn components you need under src/components/ui/ (canonical new-york + Tailwind v4 shape, import cn from "@/lib/utils").
+3. THIRD STEP: write any extra shadcn components you need under src/components/ui/ — canonical new-york + Tailwind v4 shape, import cn from "@/lib/utils".
 4. LAST STEP: check_app once.
 
 DO NOT read_file before writing — starter files are predictable.

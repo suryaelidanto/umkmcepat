@@ -712,6 +712,9 @@ describe("buildGeneratedAppAgentInstructions (prompt coherence)", () => {
     expect(instructions).not.toContain(
       "implement them as React state-based tab",
     );
+    expect(instructions).toContain("<Link to=");
+    expect(instructions).toContain("createRoute({ getParentRoute");
+    expect(instructions).toContain("rootRoute.addChildren");
   });
 
   it("directs the agent to use shadcn components", () => {
