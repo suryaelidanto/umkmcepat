@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { SHADCN_COMPONENT_FILES } from "./shadcn-components";
 import { createViteTanStackShadcnStarterFiles } from "./vite-tanstack-shadcn-starter";
 
 import {
@@ -171,5 +172,55 @@ describe("createGeneratedViteTanStackStarterFiles (delegation re-export)", () =>
     // The function is kept as a thin re-export so downstream imports don't
     // break during the transition (custom-source-generator still imports it).
     expect(typeof createStarterContractStyles).toBe("function");
+  });
+});
+
+describe("SHADCN_COMPONENT_FILES (full shadcn seed)", () => {
+  it("seeds the full shadcn component set", () => {
+    const paths = SHADCN_COMPONENT_FILES.map((f) => f.path);
+    // Representative — the count guard catches missing additions.
+    expect(
+      paths.filter((p) => p.startsWith("src/components/ui/")).length,
+    ).toBeGreaterThanOrEqual(30);
+    for (const name of [
+      "button",
+      "card",
+      "dialog",
+      "accordion",
+      "tabs",
+      "dropdown-menu",
+      "tooltip",
+      "table",
+      "form",
+      "select",
+      "checkbox",
+      "command",
+      "calendar",
+      "carousel",
+      "sonner",
+      "drawer",
+    ]) {
+      expect(paths).toContain(`src/components/ui/${name}.tsx`);
+    }
+  });
+
+  it("uses split @radix-ui/react-* imports, never unified radix-ui", () => {
+    for (const f of SHADCN_COMPONENT_FILES) {
+      if (!f.path.endsWith(".tsx")) {
+        continue;
+      }
+      expect(f.content).not.toContain('from "radix-ui"');
+    }
+  });
+
+  it("imports cn from @/lib/utils where cn is used", () => {
+    for (const f of SHADCN_COMPONENT_FILES) {
+      if (!f.path.endsWith(".tsx")) {
+        continue;
+      }
+      if (f.content.includes("cn(")) {
+        expect(f.content).toContain('from "@/lib/utils"');
+      }
+    }
   });
 });
