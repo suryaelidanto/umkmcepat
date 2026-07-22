@@ -752,6 +752,10 @@ export function isStarterStylesContent(styleContent: string) {
     return true;
   }
   // Legacy tiny starter: only shell + no design tokens.
+  // ponytail: the `.starter-shell` branch is dead on the new shadcn scaffold
+  // (starter emits shadcnThemeCss, not .starter-shell). Kept until Task 5
+  // retires the missing-CSS machinery for the Tailwind-only stack. Ceiling:
+  // dead branch.
   if (
     trimmed.includes(".starter-shell") &&
     !trimmed.includes("--accent") &&

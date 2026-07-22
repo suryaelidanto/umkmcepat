@@ -779,6 +779,11 @@ export function createGeneratedProjectFiles(
   return createGeneratedViteTanStackProjectFiles(projectId, schema);
 }
 
+// ponytail: this variant generator still emits src/styles.css (contract CSS) +
+// main.tsx importing ./styles.css; the starter path migrated to src/index.css +
+// shadcnThemeCss. Migrate this path in Task 5 of the locked-stack plan so the
+// missing-CSS machinery (findMissingCssClasses etc.) can be retired for the
+// Tailwind-only stack. Ceiling: split-brain stylesheet contract until then.
 export function createGeneratedViteTanStackProjectFiles(
   projectId: string,
   schema: ProjectSiteSchema,
