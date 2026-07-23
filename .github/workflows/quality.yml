@@ -39,14 +39,6 @@ jobs:
       CI: true
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/umkmcepat?schema=public
       NEXT_PUBLIC_APP_URL: http://localhost:3000
-      NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: ci-nextauth-secret-minimum-32-characters
-      GOOGLE_CLIENT_ID: test-google-client-id
-      GOOGLE_CLIENT_SECRET: test-google-client-secret
-      AI_PROVIDER: 9router
-      AI_MODELS: cmc/deepseek/deepseek-v4-pro,cmc/deepseek/deepseek-v4-flash,cmc/moonshotai/Kimi-K2.6
-      NINE_ROUTER_BASE_URL: http://localhost:20129/v1
-      NINE_ROUTER_API_KEY: test
       OBJECT_STORAGE_PROVIDER: local
       LOCAL_UPLOAD_DIR: .data/uploads
       PROJECT_ARTIFACT_STORAGE_PROVIDER: local
@@ -55,9 +47,6 @@ jobs:
       PROJECT_RUNTIME_DIR: .data/project-runtimes
       PROJECT_RUNTIME_SUPERVISOR: noop
       PROJECT_THUMBNAIL_DIR: .data/project-thumbnails
-      PROJECT_THUMBNAIL_CAPTURE_ENABLED: false
-      GENERATED_BUILD_EXECUTION_ENABLED: true
-      GENERATED_PUBLIC_EXECUTION_ENABLED: true
       RATE_LIMIT_PROVIDER: memory
       CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
 
