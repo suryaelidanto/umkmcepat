@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { ProjectChatTurn, ProjectChatTurnStatus } from "@prisma/client";
 
+import { devLog } from "@/lib/dev-log";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
 export const DISCUSS_TURN_TTL_MS = 7.5 * 60_000;
@@ -54,10 +55,15 @@ export async function claimDiscussTurn({
       select: { id: true },
     });
     if (existing) {
+      devLog("discuss-turn", "duplicate-rejected", {
+        projectId,
+        activeTurnId: existing.id,
+      });
       return { claimed: false, turnId: null };
     }
 
     const turnId = `ct_${randomUUID().replace(/-/g, "")}`;
+    devLog("discuss-turn", "claim", { projectId, turnId });
     await tx.projectChatTurn.create({
       data: {
         id: turnId,
@@ -87,6 +93,11 @@ export async function finalizeDiscussTurn({
   await store.projectChatTurn.update({
     where: { id: turnId },
     data: { status, finishedAt: now, errorMessage: errorMessage ?? null },
+  });
+  devLog("discuss-turn", "finalize", {
+    turnId,
+    status,
+    hasError: Boolean(errorMessage),
   });
 }
 
