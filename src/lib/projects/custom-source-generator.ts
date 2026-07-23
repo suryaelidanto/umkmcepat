@@ -72,6 +72,7 @@ export async function generateCustomProjectFilesWithAgent({
   onFilesChanged?: (files: GeneratedProjectFile[]) => void;
   abortSignal?: AbortSignal;
 }): Promise<CustomGeneratedSourceResult> {
+  devLog("generate", "source-start", { projectId });
   const starterFiles = createGeneratedViteTanStackStarterFiles(
     projectId,
     schema,
@@ -273,6 +274,11 @@ export async function generateCustomProjectFilesWithAgent({
         projectId: projectId,
       });
       if (finalMissing.length > STUB_HARD_CAP) {
+        devLog("generate", "source-finish", {
+          projectId,
+          ok: false,
+          reason: "too many unstyled custom components",
+        });
         throw new Error(
           `AI source generation failed: too many unstyled custom components (${finalMissing.length}). Missing CSS for: ${finalMissing.slice(0, 20).join(", ")}. Ensure you write CSS rules for custom classNames in src/index.css.`,
         );
@@ -286,6 +292,11 @@ export async function generateCustomProjectFilesWithAgent({
     quality = checkAgentSourceQuality(files, agentEditedFiles);
 
     if (!quality.ok) {
+      devLog("generate", "source-finish", {
+        projectId,
+        ok: false,
+        reason: "agent produced invalid source",
+      });
       throw new Error(
         `AI agent produced invalid source: ${quality.issues.join(", ")}`,
       );
@@ -293,6 +304,7 @@ export async function generateCustomProjectFilesWithAgent({
 
     // Structural partial (timeout) is OK only after CSS/quality gate passes.
     devLog("agent-loop", "summary", { summary: loopDetector.summary() });
+    devLog("generate", "source-finish", { projectId, ok: true });
     return {
       buildSpec: appSpec,
       files,
@@ -316,6 +328,11 @@ export async function generateCustomProjectFilesWithAgent({
       },
     };
   } catch (error) {
+    devLog("generate", "source-finish", {
+      projectId,
+      ok: false,
+      reason: error instanceof Error ? error.message : "agent failed",
+    });
     throw new Error(
       `AI source generation failed: ${error instanceof Error ? error.message : "agent failed"}`,
     );
@@ -2058,6 +2075,7 @@ export async function repairGeneratedProjectFiles({
   schema: ProjectSiteSchema;
   implementationSpec?: ImplementationSpec;
 }): Promise<CustomGeneratedSourceResult> {
+  devLog("generate", "repair-attempt", { projectId });
   const operationTrace: GeneratedAppAgentOperation[] = [];
   const touchedFiles = new Set<string>();
   let currentFiles = files;
@@ -2142,6 +2160,11 @@ Steps:
       projectId,
     });
     if (repairMissing.length > STUB_HARD_CAP) {
+      devLog("generate", "source-finish", {
+        projectId,
+        ok: false,
+        reason: "too many unstyled components",
+      });
       throw new Error(
         `AI source generation failed: too many unstyled components (${repairMissing.length}).`,
       );
