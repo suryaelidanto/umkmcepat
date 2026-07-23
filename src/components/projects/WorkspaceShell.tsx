@@ -277,6 +277,12 @@ export function WorkspaceShell({
   // Synchronous lock so the same `submitChatText` call within one tick can't
   // fire `sendMessage` twice when `isProcessing` state hasn't propagated yet.
   const submitInFlightRef = useRef(false);
+  // Resume state for the last unanswered user message detected on mount.
+  // Null until a GET /chat/turn lands a failed/expired/cancelled turn.
+  const [resumeError, setResumeError] = useState<{
+    message: string;
+    retryText: string;
+  } | null>(null);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
   // Survives refresh: if user sent visual comments, clear them when server job ends OK.
@@ -1490,6 +1496,63 @@ export function WorkspaceShell({
     }
   }, [status]);
 
+  // Mount-only reset: a reload always starts with a clean submit lock so a
+  // mid-turn disconnect that never returned to `ready`/`error` can't wedge the
+  // composer. The status-driven reset above handles steady-state; this covers
+  // the cold-start case.
+  useEffect(() => {
+    submitInFlightRef.current = false;
+  }, []);
+
+  // Auto-resume on cold start: if the last local message is an unanswered user
+  // message, query the server-side turn state and reconcile. Running → poll
+  // until terminal then reload chat. Succeeded → reload chat (persisted reply
+  // is in the DB). Failed/expired/cancelled → surface the error + retry. None
+  // (404) → composer stays ready. Never calls `sendMessage` for a running
+  // turn — that would create a second turn. ponytail: if useChat v4 grows a
+  // clean transport-resume API, swap the poll loop for it; the helper stays.
+  useEffect(() => {
+    const last = messages.at(-1);
+    if (!last || last.role !== "user") {
+      return;
+    }
+
+    let canceled = false;
+    const poll = async () => {
+      const result = await resolveDiscussResumeFromServer(projectId);
+      if (canceled) {
+        return;
+      }
+      switch (result.kind) {
+        case "reload":
+          await reloadLatestChat();
+          setResumeError(null);
+          return;
+        case "poll":
+          await new Promise((resolve) =>
+            window.setTimeout(resolve, RESUME_POLL_INTERVAL_MS),
+          );
+          if (!canceled) {
+            void poll();
+          }
+          return;
+        case "retry":
+          setResumeError({
+            message: result.errorMessage,
+            retryText: result.retryText,
+          });
+          return;
+        case "idle":
+          setResumeError(null);
+          return;
+      }
+    };
+    void poll();
+    return () => {
+      canceled = true;
+    };
+  }, [messages, projectId, reloadLatestChat]);
+
   useEffect(() => {
     const previous = previousChatStatus.current;
 
@@ -2246,6 +2309,21 @@ export function WorkspaceShell({
                       className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
                     >
                       Kirim ulang
+                    </Button>
+                  ) : null}
+                </div>
+              ) : resumeError ? (
+                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                  <p className="text-sm font-medium text-[#ffb4a6]">
+                    {resumeError.message}
+                  </p>
+                  {!isRetrying ? (
+                    <Button
+                      type="button"
+                      onClick={() => void retryChat()}
+                      className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                    >
+                      {resumeError.retryText}
                     </Button>
                   ) : null}
                 </div>
@@ -3508,4 +3586,68 @@ export function canStartBuild(brief: ProjectBrief | null | undefined): boolean {
     return false;
   }
   return true;
+}
+
+// Resume poll interval for a running discuss turn. ponytail: if useChat v4
+// grows a clean transport-resume API, swap the poll loop for it; the helper
+// stays.
+export const RESUME_POLL_INTERVAL_MS = 1_500;
+
+// Fetch the server-side turn state. Returns `null` on a 404 (no turn row for
+// this project — the pre-fix bug where a turn crashed before persist). The
+// caller treats `null` as `idle`.
+type TurnState = {
+  turnId: string;
+  status: "running" | "succeeded" | "failed" | "cancelled" | "expired";
+  userMessageId: string;
+  errorMessage?: string;
+};
+
+async function fetchDiscussTurn(projectId: string): Promise<TurnState | null> {
+  try {
+    const res = await fetch(`/api/projects/${projectId}/chat/turn`);
+    if (!res.ok) {
+      return null;
+    }
+    return (await res.json()) as TurnState;
+  } catch {
+    return null;
+  }
+}
+
+// Pure resume decision: given the server-side turn state, what should the
+// client do? Extracted so the branches are unit-testable without a DOM.
+export type DiscussResume =
+  | { kind: "idle" }
+  | { kind: "reload" }
+  | { kind: "poll" }
+  | { kind: "retry"; errorMessage: string; retryText: string };
+
+export function resolveDiscussResume(turn: TurnState | null): DiscussResume {
+  if (!turn) {
+    return { kind: "idle" };
+  }
+  if (turn.status === "running") {
+    return { kind: "poll" };
+  }
+  if (turn.status === "succeeded") {
+    return { kind: "reload" };
+  }
+  const message =
+    turn.errorMessage && turn.errorMessage.length > 0
+      ? turn.errorMessage
+      : "Putaran AI sebelumnya gagal. Coba kirim ulang ya.";
+  return {
+    kind: "retry",
+    errorMessage: message,
+    retryText: "Kirim ulang",
+  };
+}
+
+// Wrapper kept for the effect: fetch then resolve. Separate so the pure
+// resolver stays trivially testable.
+async function resolveDiscussResumeFromServer(
+  projectId: string,
+): Promise<DiscussResume> {
+  return resolveDiscussResume(await fetchDiscussTurn(projectId));
 }
