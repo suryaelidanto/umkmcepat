@@ -72,7 +72,7 @@ describe("devLog", () => {
     writeFileSync(LOG_FILE, "x".repeat(5 * 1024 * 1024 - 10));
     devLog("test-scope", "trigger-rotation", {});
     await new Promise((r) => setTimeout(r, 100));
-    expect(statSync(ROTATED).size).toBeGreaterThan(0);
+    expect(statSync(ROTATED).size).toBe(5 * 1024 * 1024 - 10);
     // New dev.log exists and contains the new event.
     const fresh = readFileSync(LOG_FILE, "utf8");
     expect(fresh).toContain("trigger-rotation");

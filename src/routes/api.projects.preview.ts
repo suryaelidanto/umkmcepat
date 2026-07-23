@@ -475,7 +475,7 @@ async function handleDiscussTurnOneCall({
 
         // DB-state fallback: server restarted, in-memory channel gone.
         if (readTurnState(turnId) === "gone") {
-          devLog("discuss", "auto-resume", {
+          devLog("discuss-turn", "auto-resume", {
             turnId,
             projectId: project.id,
             reason: "gone",
@@ -497,7 +497,7 @@ async function handleDiscussTurnOneCall({
           // a missing terminal event means the server restarted mid-turn â€”
           // fall back to DB state instead of hanging the tail forever.
           if (readTurnState(turnId) === "gone") {
-            devLog("discuss", "auto-resume", {
+            devLog("discuss-turn", "auto-resume", {
               turnId,
               projectId: project.id,
               reason: "gone",
@@ -526,7 +526,7 @@ async function replayTurnFromDb(
   projectId: string,
   writeSafe: (event: { type: string; [k: string]: unknown }) => void,
 ) {
-  devLog("discuss", "replay-from-db", { turnId, projectId });
+  devLog("discuss-turn", "replay-from-db", { turnId, projectId });
   const rows = (await prisma.$queryRaw<
     Array<{
       status: string;

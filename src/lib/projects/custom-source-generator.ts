@@ -274,11 +274,6 @@ export async function generateCustomProjectFilesWithAgent({
         projectId: projectId,
       });
       if (finalMissing.length > STUB_HARD_CAP) {
-        devLog("generate", "source-finish", {
-          projectId,
-          ok: false,
-          reason: "too many unstyled custom components",
-        });
         throw new Error(
           `AI source generation failed: too many unstyled custom components (${finalMissing.length}). Missing CSS for: ${finalMissing.slice(0, 20).join(", ")}. Ensure you write CSS rules for custom classNames in src/index.css.`,
         );
@@ -292,11 +287,6 @@ export async function generateCustomProjectFilesWithAgent({
     quality = checkAgentSourceQuality(files, agentEditedFiles);
 
     if (!quality.ok) {
-      devLog("generate", "source-finish", {
-        projectId,
-        ok: false,
-        reason: "agent produced invalid source",
-      });
       throw new Error(
         `AI agent produced invalid source: ${quality.issues.join(", ")}`,
       );
