@@ -135,7 +135,7 @@ model Project {
 }
 
 model ProjectChatTurn {
-  id            String                @id @db.VarChar(32)
+  id            String                @id @db.VarChar(64)
   projectId     String
   userMessageId String                @db.VarChar(64)
   status        ProjectChatTurnStatus
