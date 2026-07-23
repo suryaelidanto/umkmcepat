@@ -82,12 +82,7 @@ export const Route = createFileRoute("/api/payment/create")({
         } catch (error) {
           console.error("[payment-create] Failed to create payment:", error);
           return Response.json(
-            {
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to initiate payment.",
-            },
+            { message: "Failed to initiate payment." },
             { status: 500 },
           );
         }
