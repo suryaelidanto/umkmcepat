@@ -217,7 +217,7 @@ describe("runDiscussTurn worker", () => {
     );
     expect(publishProgressMock).toHaveBeenCalledWith(
       "ct_fail",
-      expect.objectContaining({ type: "error", message: "model down" }),
+      expect.objectContaining({ type: "error", errorText: "model down" }),
     );
     expect(prismaExecuteRawMock).not.toHaveBeenCalled();
   });
