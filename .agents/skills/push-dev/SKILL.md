@@ -49,9 +49,12 @@ Push your branch to origin:
 git push origin dev
 ```
 
-### 4. Watch CI
-After pushing, run:
+### 4. Watch CI (blocking — do not stop until green/red)
+After pushing, find the newest run and **block on it** so you never stop mid-run waiting for a re-prompt:
 ```bash
-gh run list --branch dev --limit 3
+RUN_ID=$(gh run list --branch dev --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch "$RUN_ID" --exit-status      # blocks until run finishes; exits non-zero on failure
 ```
-If the run is failing, invoke `@.agents/skills/fix-cicd` to view logs (`gh run view <run-id> --log-failed`), apply a minimal fix, and push again.
+`gh run watch --exit-status` is the gate. Do not `gh run list` and stop — that snapshot returns while the run is still in progress and forces the user to re-prompt you. Always block until the run reports a terminal state.
+
+If the run failed, invoke `@.agents/skills/fix-ci` to view logs (`gh run view "$RUN_ID" --log-failed`), apply a minimal fix, push again, then **watch the new run to completion** — loop until green.

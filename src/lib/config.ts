@@ -19,10 +19,6 @@ export function isGeneratedPublicExecutionEnabled() {
   return getCapabilityFlag("GENERATED_PUBLIC_EXECUTION_ENABLED");
 }
 
-export function isDiscussOneCallToolsEnabled() {
-  return getCapabilityFlag("DISCUSS_ONE_CALL_TOOLS");
-}
-
 function getCapabilityFlag(name: string) {
   const raw = getEnv(name).trim().toLowerCase();
 

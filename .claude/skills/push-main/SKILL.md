@@ -36,12 +36,15 @@ Push the newly merged `main` branch to origin:
 git push origin main
 ```
 
-### 5. Watch CI
-Verify the deploy/workflow succeeds on `main`:
+### 5. Watch CI (blocking — do not stop until green/red)
+Verify the deploy/workflow succeeds on `main`. Find the newest run and **block on it** so you never stop mid-run waiting for a re-prompt:
 ```bash
-gh run list --branch main --limit 3
+RUN_ID=$(gh run list --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch "$RUN_ID" --exit-status      # blocks until run finishes; exits non-zero on failure
 ```
-If CI fails, follow the `fix-cicd` procedures. View failing logs (`gh run view <run-id> --log-failed`), commit a minimal fix, and push again.
+`gh run watch --exit-status` is the gate. Do not `gh run list` and stop — that snapshot returns while the run is still in progress and forces the user to re-prompt you. Always block until the run reports a terminal state.
+
+If CI fails, follow the `@.agents/skills/fix-ci` procedures. View failing logs (`gh run view "$RUN_ID" --log-failed`), commit a minimal fix, push again, then **watch the new run to completion** — loop until green.
 
 ### 6. Return to Dev
 Always leave the local worktree in the active development branch:

@@ -124,6 +124,7 @@ model Project {
   idempotencyKeys           ProjectIdempotencyKey[]
   runtimeEvents             RuntimeEvent[]
   editAttempts              ProjectEditAttempt[]
+  chatTurns                 ProjectChatTurn[]
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
 
@@ -131,6 +132,28 @@ model Project {
   @@index([updatedAt])
   @@index([activeOperationExpiresAt])
   @@index([userId, updatedAt, id])
+}
+
+model ProjectChatTurn {
+  id            String                @id @db.VarChar(32)
+  projectId     String
+  userMessageId String                @db.VarChar(64)
+  status        ProjectChatTurnStatus
+  startedAt     DateTime              @default(now())
+  finishedAt    DateTime?
+  expiresAt     DateTime
+  errorMessage  String?
+  project       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([expiresAt])
+}
+
+enum ProjectChatTurnStatus {
+  running
+  succeeded
+  failed
+  cancelled
 }
 
 model ProjectIdempotencyKey {

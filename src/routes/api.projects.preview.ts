@@ -1,39 +1,23 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  generateText,
-  streamText,
-  type ModelMessage,
   type UIMessage,
   validateUIMessages,
 } from "ai";
 
-import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getAiModel } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
-import { writeAiRequestLog } from "@/lib/ai-request-log";
-import {
-  DISCUSS_CARD_SEMANTIC_ATTEMPTS,
-  DISCUSS_CARD_SERVER_DEADLINE_MS,
-  getAiTimeoutMs,
-} from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
-import { isDiscussOneCallToolsEnabled } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
-import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import {
   mergeProjectBriefPatch,
   parseProjectBrief,
 } from "@/lib/projects/brief";
-import {
-  normalizeWorkspaceTurn,
-  parseWorkspaceCard,
-} from "@/lib/projects/brief-flow";
-import { validateBrief } from "@/lib/projects/brief-rich-fields";
-import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
+import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
@@ -42,15 +26,20 @@ import {
   parseProjectChatSummary,
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
+import { buildCardSystemPrompt } from "@/lib/projects/discuss-tool";
+import { claimDiscussTurn } from "@/lib/projects/discuss-turn";
 import {
-  buildCardSystemPrompt,
-  buildOneCallSystemPrompt,
-  PRESENT_WORKSPACE_CARD_TOOL_NAME,
-  presentWorkspaceCardTool,
-} from "@/lib/projects/discuss-tool";
+  readTurnState,
+  subscribeProgress,
+} from "@/lib/projects/discuss-turn-pubsub";
+import {
+  persistProjectChatTurn,
+  repairDiscussCardWithTool,
+  scrubBriefForStorage,
+} from "@/lib/projects/discuss-turn-shared";
+import { runDiscussTurn } from "@/lib/projects/discuss-turn-worker";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
-import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -63,111 +52,6 @@ import {
 // Re-export so external importers (e.g. the preview test) keep resolving after
 // the discuss tool/prompt builders moved to the pure module.
 export { buildOneCallSystemPrompt } from "@/lib/projects/discuss-tool";
-
-// In-flight discuss lock: a single Node process serves all requests, so an
-// in-memory set is sufficient to dedupe concurrent discuss turns for the same
-// project. Prevents a client double-fire (e.g. remount, retry) from running
-// two LLM turns in parallel — which wastes energy and makes the workspace card
-// flicker between two non-deterministic answers. Released in onFinish of the
-// discuss stream (or immediately for the synchronous path). Headroom above
-// the worst case (stream timeout + one repair deadline) so an auto-retry
-// never pushes the lock past TTL and re-admits a concurrent turn.
-const DISCUSS_LOCK_TTL_MS = 7.5 * 60 * 1000;
-const discussInFlight = new Set<string>();
-const discussLockTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-function acquireDiscussLock(projectId: string): boolean {
-  if (discussInFlight.has(projectId)) {
-    return false;
-  }
-  discussInFlight.add(projectId);
-  // Safety valve: if onFinish never fires (client disconnect, uncaught throw
-  // before stream setup), auto-release so the project isn't stuck forever.
-  discussLockTimers.set(
-    projectId,
-    setTimeout(() => releaseDiscussLock(projectId), DISCUSS_LOCK_TTL_MS),
-  );
-  return true;
-}
-
-function releaseDiscussLock(projectId: string): void {
-  const timer = discussLockTimers.get(projectId);
-  if (timer) {
-    clearTimeout(timer);
-    discussLockTimers.delete(projectId);
-  }
-  discussInFlight.delete(projectId);
-}
-
-// In-turn repair layer: when the primary streamText emits a tool call with
-// malformed args, the AI SDK invokes `repairToolCall`. We re-prompt once with
-// the forced card tool and return a `LanguageModelV4ToolCall`-shaped value
-// (input as stringified JSON, since the SDK re-parses it via safeParseJSON).
-// Returning null leaves the call unrepaired → the stream emits no tool-call
-// part → toolInput stays null → existing Layer-3 `repairDiscussCardWithTool`
-// fires as the backstop. No new branch needed.
-type RepairedToolCall = {
-  type: "tool-call";
-  toolCallId: string;
-  toolName: string;
-  input: string;
-};
-
-async function repairToolCallInTurn({
-  error,
-  messages,
-  model,
-  modelName,
-  projectId,
-  toolCall,
-}: {
-  error: unknown;
-  messages: ModelMessage[];
-  model: ReturnType<typeof getAiModel>;
-  modelName: string;
-  projectId: string;
-  toolCall: { toolCallId: string; toolName: string; input?: unknown };
-}): Promise<RepairedToolCall | null> {
-  console.error("[preview-chat] invalid tool args, attempting in-turn repair", {
-    projectId,
-    model: modelName,
-    failedToolCallId: toolCall.toolCallId,
-    failedToolName: toolCall.toolName,
-    error: getSafeAiErrorLog(error),
-  });
-  try {
-    const result = await generateText({
-      model,
-      messages,
-      tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
-      toolChoice: { type: "tool", toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME },
-      maxRetries: 2,
-      temperature: 0.25,
-      maxOutputTokens: 1024,
-      timeout: getAiTimeoutMs("discussCard"),
-    });
-    const repaired = result.toolCalls[0];
-    if (!repaired) {
-      return null;
-    }
-    return {
-      type: "tool-call",
-      toolCallId: repaired.toolCallId,
-      toolName: repaired.toolName,
-      input:
-        typeof repaired.input === "string"
-          ? repaired.input
-          : JSON.stringify(repaired.input ?? {}),
-    };
-  } catch (repairError) {
-    console.error("[preview-chat] in-turn repair failed", {
-      projectId,
-      model: modelName,
-      error: getSafeAiErrorLog(repairError),
-    });
-    return null;
-  }
-}
 
 type PreviewRequest = {
   message?: UIMessage;
@@ -471,310 +355,35 @@ async function handlePreviewPost(request: Request) {
 
   // Dedupe concurrent discuss turns for the same project. A second in-flight
   // turn (client double-fire) gets a 409 instead of burning a second LLM call
-  // and flickering the workspace card between two answers.
-  if (!acquireDiscussLock(project.id)) {
-    return sseError({
-      code: "discuss_in_flight",
-      message: "AI masih memproses jawaban sebelumnya. Tunggu sebentar ya.",
-    });
-  }
-
-  try {
-    await persistProjectBrief({
-      brief: effectiveBrief,
-      projectId: project.id,
-      userId,
-    });
-
-    const messages = await validateUIMessages({
-      messages: dedupeUiMessages(
-        parseProjectChatMessages([...storedMessages, ...incoming]),
-      ),
-    });
-    const chatContext = buildProjectChatContext({
-      fieldState: {},
-      memoryFacts,
-      messages,
-      summary: chatSummary,
-    });
-
-    return handleDiscussTurn({
-      chatContext,
-      effectiveBrief,
-      memoryFacts,
-      messages,
-      project,
-      summary: chatSummary,
-      userId,
-    });
-  } catch (error) {
-    // Release the lock if anything threw before the stream registered its
-    // onFinish release — otherwise the project would be stuck forever.
-    releaseDiscussLock(project.id);
-    throw error;
-  }
-}
-
-async function handleDiscussTurn({
-  chatContext,
-  effectiveBrief,
-  memoryFacts,
-  messages,
-  project,
-  summary,
-  userId,
-}: {
-  chatContext: ReturnType<typeof buildProjectChatContext>;
-  effectiveBrief: ReturnType<typeof parseProjectBrief>;
-  memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
-  messages: UIMessage[];
-  project: { id: string; prompt: string; status: string; title: string };
-  summary: ReturnType<typeof parseProjectChatSummary>;
-  userId: string;
-}) {
-  if (isDiscussOneCallToolsEnabled()) {
-    return handleDiscussTurnOneCall({
-      chatContext,
-      effectiveBrief,
-      memoryFacts,
-      messages,
-      project,
-      summary,
-      userId,
-    });
-  }
-
-  const modelName = getDefaultAiModel();
-  const model = getAiModel(modelName);
-  const chatSystemPrompt = buildChatSystemPrompt({
-    context: chatContext.systemContext,
+  // and flickering the workspace card between two answers. The DB turn lease
+  // (`claimDiscussTurn` inside `handleDiscussTurnOneCall`) is the single source
+  // of truth for "one turn at a time" and survives restarts.
+  await persistProjectBrief({
     brief: effectiveBrief,
-    hasBuiltSite: project.status === "ready",
-  });
-  const cardSystemPrompt = buildCardSystemPrompt();
-  const modelMessages = await convertToModelMessages(chatContext.messages);
-
-  await writeAiRequestLog({
-    event: "discuss:start",
-    model: modelName,
     projectId: project.id,
-    messageCount: messages.length,
-    briefConfidence: effectiveBrief.confidence,
+    userId,
   });
 
-  const phase1 = streamText({
-    model,
-    system: chatSystemPrompt,
-    messages: modelMessages,
-    maxRetries: 2,
-    temperature: 0.35,
-    timeout: getAiTimeoutMs("discuss"),
-    telemetry: getAiTelemetry("project-guided-discuss", {
-      briefConfidence: effectiveBrief.confidence,
-      mode: "discuss",
-      model: modelName,
-      projectId: project.id,
-      route: "api.projects.preview",
-      userId,
-    }),
-    onError({ error }) {
-      console.error(
-        "[preview-chat] phase 1 stream error",
-        getSafeAiErrorLog(error),
-      );
-    },
+  const messages = await validateUIMessages({
+    messages: dedupeUiMessages(
+      parseProjectChatMessages([...storedMessages, ...incoming]),
+    ),
+  });
+  const chatContext = buildProjectChatContext({
+    fieldState: {},
+    memoryFacts,
+    messages,
+    summary: chatSummary,
   });
 
-  return createUIMessageStreamResponse({
-    stream: createUIMessageStream({
-      execute: async ({ writer }) => {
-        const messageId = `discuss-${crypto.randomUUID()}`;
-        const textPartId = "discuss-text";
-
-        writer.write({ type: "start", messageId });
-        writer.write({ type: "text-start", id: textPartId });
-
-        let fullText = "";
-        let hadError = false;
-        const phase1ResponsePromise = Promise.resolve(phase1.response).catch(
-          () => null,
-        );
-
-        try {
-          for await (const delta of phase1.textStream) {
-            fullText += delta;
-            writer.write({ type: "text-delta", id: textPartId, delta });
-          }
-        } catch (error) {
-          hadError = true;
-          const servedModel =
-            (await phase1ResponsePromise)?.modelId ?? modelName;
-          const safeError = getSafeAiErrorLog(error);
-          console.error("[preview-chat] legacy stream consume error", {
-            projectId: project.id,
-            model: servedModel,
-            error: safeError,
-          });
-          await writeAiRequestLog({
-            event: "discuss:stream_error",
-            model: servedModel,
-            mode: "legacy",
-            projectId: project.id,
-            error: safeError,
-          });
-        }
-
-        writer.write({ type: "text-end", id: textPartId });
-
-        // Capture phase1 (chat) token usage + actual model that served it
-        const phase1Usage = await phase1.usage;
-        const phase1Response = await Promise.resolve(phase1.response).catch(
-          () => null,
-        );
-        let totalInputTokens = phase1Usage?.inputTokens ?? 0;
-        let totalOutputTokens = phase1Usage?.outputTokens ?? 0;
-        const discussModelId = phase1Response?.modelId || modelName;
-
-        if (hadError || !fullText.trim()) {
-          // AI already ran — charge even on stream error / empty text.
-          await chargeEnergyForAiUsage({
-            userId,
-            modelId: discussModelId,
-            inputTokens: totalInputTokens,
-            outputTokens: totalOutputTokens,
-            reason: "discuss_turn",
-          });
-          writer.write({
-            type: "error",
-            errorText: hadError
-              ? "Jawaban AI terputus. Coba lagi."
-              : "AI belum memberi jawaban. Coba lagi.",
-          });
-          return;
-        }
-
-        const chatText = fullText.trim();
-        const assistantMessage: UIMessage = {
-          id: messageId,
-          role: "assistant",
-          parts: [{ type: "text", text: chatText, state: "done" }],
-        };
-
-        const workspaceTurn = await generateWorkspaceTurn({
-          brief: effectiveBrief,
-          cardSystemPrompt,
-          chatText,
-          hasBuiltSite: project.status === "ready",
-          model,
-          modelMessages,
-          modelName,
-          projectId: project.id,
-          userId,
-        });
-
-        // Capture phase2 (card) token usage
-        if (workspaceTurn && "usage" in workspaceTurn) {
-          totalInputTokens +=
-            (
-              workspaceTurn as {
-                usage?: { inputTokens: number; outputTokens: number };
-              }
-            ).usage?.inputTokens ?? 0;
-          totalOutputTokens +=
-            (
-              workspaceTurn as {
-                usage?: { inputTokens: number; outputTokens: number };
-              }
-            ).usage?.outputTokens ?? 0;
-        }
-
-        const phase2Failed = !workspaceTurn;
-
-        const hasCard =
-          workspaceTurn !== null && workspaceTurn.workspaceCard.type !== "none";
-
-        const safeMessages = stripTransportDiagnosticMessages(
-          dedupeUiMessages([...messages, assistantMessage]),
-        );
-
-        if (hasCard && workspaceTurn) {
-          const title = workspaceTurn.projectTitle || project.title;
-
-          await writeAiRequestLog({
-            event: "discuss:finish",
-            model: modelName,
-            projectId: project.id,
-            didWorkspaceToolUpdate: true,
-            primaryToolFailed: phase2Failed,
-            workspaceCard: workspaceTurn.workspaceCard,
-          });
-
-          await persistProjectChatTurn({
-            brief: scrubBriefForStorage(
-              workspaceTurn.brief,
-              workspaceTurn.readyForBuild,
-              project.id,
-            ),
-            messages: safeMessages,
-            projectId: project.id,
-            title,
-            userId,
-            workspaceCard: workspaceTurn.workspaceCard,
-          });
-        } else {
-          await writeAiRequestLog({
-            event: "discuss:finish",
-            model: modelName,
-            projectId: project.id,
-            didWorkspaceToolUpdate: false,
-            primaryToolFailed: phase2Failed,
-            workspaceCard: { type: "none" },
-          });
-
-          await persistProjectChatTurn({
-            messages: safeMessages,
-            projectId: project.id,
-            userId,
-            workspaceCard: { type: "none" },
-          });
-        }
-
-        const compaction = await maybeCompactProjectChat({
-          memoryFacts,
-          messages: safeMessages,
-          summary,
-        }).catch(() => null);
-
-        if (compaction) {
-          await persistProjectChatCompaction({
-            compactedMessageCount: compaction.compactedMessageCount,
-            memoryFacts: compaction.memoryFacts,
-            projectId: project.id,
-            summary: compaction.summary,
-            userId,
-          });
-          totalInputTokens += compaction.usage?.inputTokens ?? 0;
-          totalOutputTokens += compaction.usage?.outputTokens ?? 0;
-        }
-
-        await chargeEnergyForAiUsage({
-          userId,
-          modelId: discussModelId,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          reason: "discuss_turn",
-        });
-
-        if (workspaceTurn?.workspaceCard.type === "build_recommendation") {
-          releaseDiscussLock(project.id);
-        }
-
-        writer.write({ type: "finish" });
-      },
-      onError: (error) =>
-        `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
-      onFinish: () => releaseDiscussLock(project.id),
-    }),
+  return handleDiscussTurnOneCall({
+    chatContext,
+    effectiveBrief,
+    memoryFacts,
+    messages,
+    project,
+    summary: chatSummary,
+    userId,
   });
 }
 
@@ -795,724 +404,152 @@ async function handleDiscussTurnOneCall({
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
-  const modelName = getDefaultAiModel();
-  const model = getAiModel(modelName);
-  const systemPrompt = buildOneCallSystemPrompt({
-    brief: effectiveBrief,
-    context: chatContext.systemContext,
-    hasBuiltSite: project.status === "ready",
-  });
-  const cardSystemPrompt = buildCardSystemPrompt();
-  const modelMessages = await convertToModelMessages(chatContext.messages);
+  // Server-side discuss flow: persist the user message first so the reply is
+  // never lost even if generation never starts, claim the DB turn lease, fire
+  // the detached worker, then return a tail stream that replays the worker's
+  // pub/sub events. Generation runs in `runDiscussTurn` (detached).
 
-  await writeAiRequestLog({
-    event: "discuss:start",
-    model: modelName,
-    mode: "one_call_tools",
+  const userMessage = messages[messages.length - 1];
+  if (!userMessage) {
+    return sseError({ message: "Pesan tidak boleh kosong." });
+  }
+
+  // 1. Persist the user message immediately â€” the reply is never lost even
+  //    if the worker never starts (server crash mid-dispatch, etc.).
+  await persistProjectChatTurn({
+    messages,
     projectId: project.id,
-    messageCount: messages.length,
-    briefConfidence: effectiveBrief.confidence,
+    userId,
+    workspaceCard: null,
   });
 
-  const primary = streamText({
-    model,
-    system: systemPrompt,
-    messages: modelMessages,
-    tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
-    // ponytail: "auto" lets the model stream real chat text AND call the card
-    // tool in the same turn. Sim (n=150/arm) showed toolChoice:"required"
-    // lifted cardOk (58%→86%) but collapsed textOk (100%→25%) — the model
-    // emits the tool call with zero chat prose when forced. So "auto" stays;
-    // malformed/absent calls are handled by repairToolCall (in-turn) +
-    // repairDiscussCardWithTool (backstop), not by forcing the call.
-    toolChoice: "auto",
-    repairToolCall: async ({ toolCall, error, messages }) =>
-      repairToolCallInTurn({
-        error,
-        messages,
-        model,
-        modelName,
-        projectId: project.id,
-        toolCall,
-      }),
-    maxRetries: 2,
-    temperature: 0.25,
-    maxOutputTokens: 1024,
-    timeout: getAiTimeoutMs("discussOneCall"),
-    telemetry: getAiTelemetry("project-guided-discuss-one-call", {
-      briefConfidence: effectiveBrief.confidence,
-      mode: "discuss-one-call",
-      model: modelName,
-      projectId: project.id,
-      route: "api.projects.preview",
-      userId,
-    }),
-    onError({ error }) {
-      console.error(
-        "[preview-chat] one-call stream error",
-        getSafeAiErrorLog(error),
-      );
-    },
+  // 2. Claim the DB turn lease. A second concurrent POST gets a 409.
+  const { claimed, turnId } = await claimDiscussTurn({
+    projectId: project.id,
+    userId,
+    userMessageId: userMessage.id,
   });
+  if (!claimed || !turnId) {
+    return Response.json(
+      {
+        code: "project_chat_in_progress",
+        message: "Obrolan masih berjalan untuk proyek ini.",
+      },
+      { status: 409 },
+    );
+  }
 
+  // 3. Fire the detached worker. NOT awaited â€” the POST returns the tail
+  //    stream immediately. The worker publishes progress to the pub/sub
+  //    channel; this route subscribes below. If the worker rejects, log +
+  //    let the client's reconnect-after-restart path surface the error.
+  void runDiscussTurn({
+    turnId,
+    project,
+    chatContext,
+    effectiveBrief,
+    memoryFacts,
+    messages,
+    summary,
+    userId,
+  }).catch((error) =>
+    console.error("[discuss] worker rejected", { turnId, error }),
+  );
+
+  // 4. Tail stream: replay the worker's pub/sub events to the client. On
+  //    reconnect-after-restart (in-memory channel gone), fall back to DB
+  //    state: replay the persisted assistant reply if the turn succeeded,
+  //    emit an error if it failed/cancelled/stalled.
   return createUIMessageStreamResponse({
     stream: createUIMessageStream({
       execute: async ({ writer }) => {
-        const messageId = `discuss-${crypto.randomUUID()}`;
-        const textPartId = "discuss-text";
-        const toolCallId = `tool-${crypto.randomUUID()}`;
-
-        writer.write({ type: "start", messageId });
-        writer.write({ type: "text-start", id: textPartId });
-
-        let fullText = "";
-        let hadError = false;
-        let toolInput: unknown = null;
-        let streamToolCallId: string | null = null;
-        const primaryResponsePromise = Promise.resolve(primary.response).catch(
-          () => null,
-        );
-
-        try {
-          for await (const part of primary.stream) {
-            if (part.type === "text-delta") {
-              const delta =
-                "text" in part && typeof part.text === "string"
-                  ? part.text
-                  : "delta" in part && typeof part.delta === "string"
-                    ? part.delta
-                    : "";
-              if (!delta) {
-                continue;
-              }
-              fullText += delta;
-              writer.write({ type: "text-delta", id: textPartId, delta });
-              continue;
-            }
-
-            if (part.type === "tool-call") {
-              streamToolCallId =
-                "toolCallId" in part && typeof part.toolCallId === "string"
-                  ? part.toolCallId
-                  : streamToolCallId;
-              toolInput =
-                "input" in part
-                  ? part.input
-                  : "args" in part
-                    ? (part as { args?: unknown }).args
-                    : toolInput;
-            }
+        const writeSafe = (event: { type: string; [k: string]: unknown }) => {
+          try {
+            writer.write(event as never);
+          } catch {
+            // Client disconnected mid-tail. The worker keeps running
+            // detached + persists; the client's reload auto-resumes.
           }
-        } catch (error) {
-          hadError = true;
-          const servedModel =
-            (await primaryResponsePromise)?.modelId ?? modelName;
-          const safeError = getSafeAiErrorLog(error);
-          console.error("[preview-chat] one-call stream consume error", {
-            projectId: project.id,
-            model: servedModel,
-            error: safeError,
-          });
-          await writeAiRequestLog({
-            event: "discuss:stream_error",
-            model: servedModel,
-            mode: "one_call_tools",
-            projectId: project.id,
-            error: safeError,
-          });
-        }
-
-        writer.write({ type: "text-end", id: textPartId });
-
-        let totalInputTokens = 0;
-        let totalOutputTokens = 0;
-        let discussModelId = modelName;
-        try {
-          const primaryUsage = await primary.usage;
-          totalInputTokens = primaryUsage?.inputTokens ?? 0;
-          totalOutputTokens = primaryUsage?.outputTokens ?? 0;
-          const primaryResponse = await Promise.resolve(primary.response).catch(
-            () => null,
-          );
-          if (primaryResponse?.modelId) {
-            discussModelId = primaryResponse.modelId;
-          }
-        } catch {
-          // usage is best-effort
-        }
-
-        const chatText = fullText.trim();
-        if (hadError) {
-          if (chatText) {
-            // Stream threw mid-flight but text already reached the client.
-            // Degrade to a plain textbox (type:"none" card) instead of a
-            // blind error toast, mirroring the primaryToolFailed else-tail.
-            const resolvedToolCallId = streamToolCallId || toolCallId;
-            writer.write({
-              type: "tool-input-available",
-              toolCallId: resolvedToolCallId,
-              toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-              input: {},
-            });
-            writer.write({
-              type: "tool-output-available",
-              toolCallId: resolvedToolCallId,
-              output: {
-                workspaceCard: { type: "none" },
-                projectTitle: project.title,
-                repairsUsed: 0,
-              },
-            });
-            const assistantMessage: UIMessage = {
-              id: messageId,
-              role: "assistant",
-              parts: [
-                { type: "text", text: chatText, state: "done" },
-                {
-                  type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-                  toolCallId: resolvedToolCallId,
-                  state: "output-available",
-                  input: {},
-                  output: {
-                    workspaceCard: { type: "none" },
-                    projectTitle: project.title,
-                  },
-                } as UIMessage["parts"][number],
-              ],
-            };
-            const safeMessages = stripTransportDiagnosticMessages(
-              dedupeUiMessages([...messages, assistantMessage]),
-            );
-            await writeAiRequestLog({
-              event: "discuss:finish",
-              model: modelName,
-              mode: "one_call_tools",
-              projectId: project.id,
-              didWorkspaceToolUpdate: false,
-              primaryToolFailed: true,
-              repairsUsed: 0,
-              workspaceCard: { type: "none" },
-            });
-            await persistProjectChatTurn({
-              messages: safeMessages,
-              projectId: project.id,
-              userId,
-              workspaceCard: { type: "none" },
-            });
-            await chargeEnergyForAiUsage({
-              userId,
-              modelId: discussModelId,
-              inputTokens: totalInputTokens,
-              outputTokens: totalOutputTokens,
-              reason: "discuss_turn",
-            });
-            await writeAiRequestLog({
-              event: "discuss:degraded",
-              model: modelName,
-              mode: "one_call_tools",
-              projectId: project.id,
-              hadText: true,
-            });
-            writer.write({ type: "finish" });
-            return;
-          }
-
-          // Stream threw immediately: no text, no tool. Charge once, surface
-          // a clean error. Never persist a dummy assistant turn.
-          await chargeEnergyForAiUsage({
-            userId,
-            modelId: discussModelId,
-            inputTokens: totalInputTokens,
-            outputTokens: totalOutputTokens,
-            reason: "discuss_turn",
-          });
-          writer.write({
-            type: "error",
-            errorText: "AI lagi gangguan. Coba lagi sebentar.",
-          });
-          return;
-        }
-
-        if (!chatText) {
-          // ponytail: tool-only response (no prose). Retry the card via
-          // repairDiscussCardWithTool, then persist a card-only assistant turn
-          // (no fake text). Never surface a dummy string.
-          const repaired = await repairDiscussCardWithTool({
-            brief: effectiveBrief,
-            cardSystemPrompt,
-            chatText: "",
-            hasBuiltSite: project.status === "ready",
-            model,
-            modelMessages,
-            modelName,
-            projectId: project.id,
-            userId,
-          });
-          totalInputTokens += repaired?.usage.inputTokens ?? 0;
-          totalOutputTokens += repaired?.usage.outputTokens ?? 0;
-
-          if (repaired) {
-            const repairedCard = repaired.workspaceCard;
-            const repairedToolCallId = streamToolCallId || toolCallId;
-            writer.write({
-              type: "tool-input-available",
-              toolCallId: repairedToolCallId,
-              toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-              input: {},
-            });
-            writer.write({
-              type: "tool-output-available",
-              toolCallId: repairedToolCallId,
-              output: {
-                workspaceCard: repairedCard,
-                projectTitle: repaired.projectTitle || project.title,
-                repairsUsed: repaired.repairsUsed,
-              },
-            });
-            const repairedAssistantMessage: UIMessage = {
-              id: messageId,
-              role: "assistant",
-              parts: [
-                {
-                  type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-                  toolCallId: repairedToolCallId,
-                  state: "output-available",
-                  input: {},
-                  output: {
-                    workspaceCard: repairedCard,
-                    projectTitle: repaired.projectTitle || project.title,
-                  },
-                } as UIMessage["parts"][number],
-              ],
-            };
-            const safeMessages = stripTransportDiagnosticMessages(
-              dedupeUiMessages([...messages, repairedAssistantMessage]),
-            );
-            await writeAiRequestLog({
-              event: "discuss:finish",
-              model: modelName,
-              mode: "one_call_tools",
-              projectId: project.id,
-              didWorkspaceToolUpdate: true,
-              primaryToolFailed: true,
-              repairsUsed: repaired.repairsUsed,
-              workspaceCard: repairedCard,
-            });
-            await persistProjectChatTurn({
-              brief: scrubBriefForStorage(
-                repaired.brief,
-                repaired.readyForBuild,
-                project.id,
-              ),
-              messages: safeMessages,
-              projectId: project.id,
-              title: repaired.projectTitle || project.title,
-              userId,
-              workspaceCard: repairedCard,
-            });
-            await chargeEnergyForAiUsage({
-              userId,
-              modelId: discussModelId,
-              inputTokens: totalInputTokens,
-              outputTokens: totalOutputTokens,
-              reason: "discuss_turn",
-            });
-            writer.write({ type: "finish" });
-            return;
-          }
-
-          // All repair attempts failed. Charge once, surface a clean error.
-          await chargeEnergyForAiUsage({
-            userId,
-            modelId: discussModelId,
-            inputTokens: totalInputTokens,
-            outputTokens: totalOutputTokens,
-            reason: "discuss_turn",
-          });
-          writer.write({
-            type: "error",
-            errorText: "AI lagi gangguan. Coba lagi sebentar.",
-          });
-          return;
-        }
-
-        let workspaceTurn = normalizeWorkspaceTurn(toolInput, effectiveBrief, {
-          hasBuiltSite: project.status === "ready",
-        });
-        let primaryToolFailed = workspaceTurn.workspaceCard.type === "none";
-        let repairsUsed = 0;
-
-        if (primaryToolFailed) {
-          const repaired = await repairDiscussCardWithTool({
-            brief: effectiveBrief,
-            cardSystemPrompt,
-            chatText,
-            hasBuiltSite: project.status === "ready",
-            model,
-            modelMessages,
-            modelName,
-            projectId: project.id,
-            userId,
-          });
-          if (repaired) {
-            workspaceTurn = {
-              brief: repaired.brief,
-              projectTitle: repaired.projectTitle,
-              workspaceCard: repaired.workspaceCard,
-              readyForBuild: repaired.readyForBuild,
-            };
-            primaryToolFailed = false;
-            repairsUsed = repaired.repairsUsed;
-            totalInputTokens += repaired.usage.inputTokens;
-            totalOutputTokens += repaired.usage.outputTokens;
-          }
-        }
-
-        const hasCard = workspaceTurn.workspaceCard.type !== "none";
-        const resolvedToolCallId = streamToolCallId || toolCallId;
-
-        writer.write({
-          type: "tool-input-available",
-          toolCallId: resolvedToolCallId,
-          toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-          input: toolInput ?? {},
-        });
-        writer.write({
-          type: "tool-output-available",
-          toolCallId: resolvedToolCallId,
-          output: {
-            workspaceCard: workspaceTurn.workspaceCard,
-            projectTitle: workspaceTurn.projectTitle || project.title,
-            repairsUsed,
-          },
-        });
-
-        const assistantMessage: UIMessage = {
-          id: messageId,
-          role: "assistant",
-          parts: [
-            { type: "text", text: chatText, state: "done" },
-            {
-              type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-              toolCallId: resolvedToolCallId,
-              state: "output-available",
-              input: toolInput ?? {},
-              output: {
-                workspaceCard: workspaceTurn.workspaceCard,
-                projectTitle: workspaceTurn.projectTitle || project.title,
-              },
-            } as UIMessage["parts"][number],
-          ],
         };
 
-        const safeMessages = stripTransportDiagnosticMessages(
-          dedupeUiMessages([...messages, assistantMessage]),
-        );
-
-        if (hasCard) {
-          const title = workspaceTurn.projectTitle || project.title;
-          await writeAiRequestLog({
-            event: "discuss:finish",
-            model: modelName,
-            mode: "one_call_tools",
-            projectId: project.id,
-            didWorkspaceToolUpdate: true,
-            primaryToolFailed,
-            repairsUsed,
-            workspaceCard: workspaceTurn.workspaceCard,
-          });
-          await persistProjectChatTurn({
-            brief: scrubBriefForStorage(
-              workspaceTurn.brief,
-              workspaceTurn.readyForBuild,
-              project.id,
-            ),
-            messages: safeMessages,
-            projectId: project.id,
-            title,
-            userId,
-            workspaceCard: workspaceTurn.workspaceCard,
-          });
-        } else {
-          await writeAiRequestLog({
-            event: "discuss:finish",
-            model: modelName,
-            mode: "one_call_tools",
-            projectId: project.id,
-            didWorkspaceToolUpdate: false,
-            primaryToolFailed: true,
-            repairsUsed,
-            workspaceCard: { type: "none" },
-          });
-          await persistProjectChatTurn({
-            messages: safeMessages,
-            projectId: project.id,
-            userId,
-            workspaceCard: { type: "none" },
-          });
+        // DB-state fallback: server restarted, in-memory channel gone.
+        if (readTurnState(turnId) === "gone") {
+          await replayTurnFromDb(turnId, project.id, writeSafe);
+          return;
         }
 
-        const compaction = await maybeCompactProjectChat({
-          memoryFacts,
-          messages: safeMessages,
-          summary,
-        }).catch(() => null);
-
-        if (compaction) {
-          await persistProjectChatCompaction({
-            compactedMessageCount: compaction.compactedMessageCount,
-            memoryFacts: compaction.memoryFacts,
-            projectId: project.id,
-            summary: compaction.summary,
-            userId,
+        let unsubscribe: (() => void) | undefined;
+        const settled = await new Promise<void>((resolve) => {
+          unsubscribe = subscribeProgress(turnId, (event) => {
+            writeSafe(event);
+            if (event.type === "finish" || event.type === "error") {
+              resolve();
+            }
           });
-          totalInputTokens += compaction.usage?.inputTokens ?? 0;
-          totalOutputTokens += compaction.usage?.outputTokens ?? 0;
-        }
-
-        await chargeEnergyForAiUsage({
-          userId,
-          modelId: discussModelId,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          reason: "discuss_turn",
+          // If the channel was torn down between the liveness check above
+          // and subscribe, subscribe replays any buffered events then waits;
+          // a missing terminal event means the server restarted mid-turn â€”
+          // fall back to DB state instead of hanging the tail forever.
+          if (readTurnState(turnId) === "gone") {
+            void replayTurnFromDb(turnId, project.id, writeSafe).finally(() =>
+              resolve(),
+            );
+          }
         });
-
-        if (workspaceTurn?.workspaceCard.type === "build_recommendation") {
-          releaseDiscussLock(project.id);
-        }
-
-        writer.write({ type: "finish" });
+        unsubscribe?.();
+        void settled;
       },
       onError: (error) =>
         `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
-      onFinish: () => releaseDiscussLock(project.id),
     }),
   });
 }
 
-async function repairDiscussCardWithTool({
-  brief,
-  cardSystemPrompt,
-  chatText,
-  hasBuiltSite,
-  model,
-  modelMessages,
-  modelName,
-  projectId,
-  userId,
-}: {
-  brief: ReturnType<typeof parseProjectBrief>;
-  cardSystemPrompt: string;
-  chatText: string;
-  hasBuiltSite: boolean;
-  model: ReturnType<typeof getAiModel>;
-  modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
-  modelName: string;
-  projectId: string;
-  userId: string;
-}) {
-  const abortController = new AbortController();
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  let totalInputTokens = 0;
-  let totalOutputTokens = 0;
-
-  const attempts = (async () => {
-    for (
-      let semanticAttempt = 0;
-      semanticAttempt < DISCUSS_CARD_SEMANTIC_ATTEMPTS;
-      semanticAttempt += 1
-    ) {
-      try {
-        const repaired = await generateText({
-          abortSignal: abortController.signal,
-          model,
-          system: `${cardSystemPrompt}
-
-REPAIR attempt ${semanticAttempt + 1}: previous card was invalid or missing.
-Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with a valid workspace card.
-Emit type="question" with a single question (never type="questions"), or type="build_recommendation" only at 95%+ confidence.
-Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
-          messages: [
-            ...modelMessages,
-            ...(chatText
-              ? [{ role: "assistant" as const, content: chatText }]
-              : []),
-            {
-              role: "user" as const,
-              content:
-                'Berdasarkan jawaban terakhirku, buat ulang workspace card yang valid: satu pertanyaan jelas (type="question") dengan opsi konkret, atau build_recommendation kalau udah 95%+. Tanpa JSON di chat.',
-            },
-          ],
-          tools: {
-            [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool,
-          },
-          toolChoice: {
-            type: "tool",
-            toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-          },
-          temperature: 0.2,
-          maxRetries: 1,
-          timeout: getAiTimeoutMs("discussCard"),
-          telemetry: getAiTelemetry("project-guided-discuss-one-call-repair", {
-            mode: "discuss-one-call-repair",
-            model: modelName,
-            phase: semanticAttempt === 0 ? "repair" : "repair-retry",
-            projectId,
-            route: "api.projects.preview",
-            userId,
-          }),
-        });
-
-        totalInputTokens += repaired.usage?.inputTokens ?? 0;
-        totalOutputTokens += repaired.usage?.outputTokens ?? 0;
-
-        const toolCall = repaired.toolCalls?.[0] as
-          { input?: unknown; args?: unknown } | undefined;
-        const input = toolCall?.input ?? toolCall?.args ?? null;
-        const turn = normalizeWorkspaceTurn(input, brief, { hasBuiltSite });
-        if (turn.workspaceCard.type !== "none") {
-          return {
-            ...turn,
-            repairsUsed: semanticAttempt + 1,
-            usage: {
-              inputTokens: totalInputTokens,
-              outputTokens: totalOutputTokens,
-            },
-          };
-        }
-      } catch (error) {
-        console.error(
-          "[preview-chat] one-call repair error",
-          getSafeAiErrorLog(error),
-        );
-      }
-    }
-    return null;
-  })();
-
-  try {
-    return await Promise.race([
-      attempts,
-      new Promise<null>((resolve) => {
-        deadline = setTimeout(() => {
-          abortController.abort();
-          resolve(null);
-        }, DISCUSS_CARD_SERVER_DEADLINE_MS);
-      }),
-    ]);
-  } finally {
-    if (deadline) {
-      clearTimeout(deadline);
-    }
+// Reconnect-after-restart fallback: the in-memory pub/sub channel is gone
+// (server restarted). Read the turn row + the persisted chat messages; if the
+// turn succeeded, replay the last assistant message's parts as a batch; if it
+// failed/cancelled/stalled (running but channel gone = lost to restart), emit
+// an error so the client can offer retry.
+async function replayTurnFromDb(
+  turnId: string,
+  projectId: string,
+  writeSafe: (event: { type: string; [k: string]: unknown }) => void,
+) {
+  const rows = (await prisma.$queryRaw<
+    Array<{
+      status: string;
+      errorMessage: string | null;
+      chatMessages: unknown;
+    }>
+  >`
+    SELECT t.status, t."errorMessage", p."chatMessages"
+    FROM "ProjectChatTurn" t
+    JOIN "Project" p ON p.id = t."projectId"
+    WHERE t.id = ${turnId}
+  `) as Array<{
+    status: string;
+    errorMessage: string | null;
+    chatMessages: unknown;
+  }>;
+  const row = rows[0];
+  if (!row) {
+    writeSafe({ type: "error", errorText: "Turn not found." });
+    return;
   }
-}
-
-async function generateWorkspaceTurn({
-  brief,
-  cardSystemPrompt,
-  chatText,
-  hasBuiltSite,
-  model,
-  modelMessages,
-  modelName,
-  projectId,
-  userId,
-}: {
-  brief: ReturnType<typeof parseProjectBrief>;
-  cardSystemPrompt: string;
-  chatText: string;
-  hasBuiltSite: boolean;
-  model: ReturnType<typeof getAiModel>;
-  modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
-  modelName: string;
-  projectId: string;
-  userId: string;
-}) {
-  const abortController = new AbortController();
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-
-  const attempts = (async () => {
-    for (
-      let semanticAttempt = 0;
-      semanticAttempt < DISCUSS_CARD_SEMANTIC_ATTEMPTS;
-      semanticAttempt += 1
-    ) {
-      try {
-        const phase2 = await generateText({
-          abortSignal: abortController.signal,
-          model,
-          system: cardSystemPrompt,
-          messages: [
-            ...modelMessages,
-            { role: "assistant", content: chatText },
-          ],
-          // Reasoning models spend tokens on hidden reasoning_content before
-          // emitting visible text; a small budget starves the JSON output.
-          maxOutputTokens: 12_000,
-          maxRetries: 2,
-          temperature: 0.35,
-          timeout: getAiTimeoutMs("discussCard"),
-          telemetry: getAiTelemetry("project-guided-discuss-card", {
-            mode: "discuss",
-            model: modelName,
-            phase: semanticAttempt === 0 ? "card" : "card-repair",
-            projectId,
-            route: "api.projects.preview",
-            userId,
-          }),
-        });
-
-        const parsed = parseJsonLenient(phase2.text);
-        console.error("[preview-chat] phase 2 parsed:", {
-          projectId,
-          parsedType: typeof parsed,
-          parsedPreview: JSON.stringify(parsed)?.slice(0, 200),
-        });
-
-        const turn = normalizeWorkspaceTurn(parsed, brief, { hasBuiltSite });
-
-        if (turn.workspaceCard.type !== "none") {
-          return {
-            ...turn,
-            usage: {
-              inputTokens: phase2.usage?.inputTokens ?? 0,
-              outputTokens: phase2.usage?.outputTokens ?? 0,
-            },
-          };
-        }
-
-        console.error("[preview-chat] phase 2 returned no valid card", {
-          projectId,
-          semanticAttempt,
-          cardType: turn.workspaceCard.type,
-        });
-      } catch (error) {
-        console.error(
-          "[preview-chat] phase 2 card error",
-          getSafeAiErrorLog(error),
-        );
-      }
-    }
-
-    return null;
-  })();
-
-  try {
-    return await Promise.race([
-      attempts,
-      new Promise<null>((resolve) => {
-        deadline = setTimeout(() => {
-          abortController.abort();
-          resolve(null);
-        }, DISCUSS_CARD_SERVER_DEADLINE_MS);
-      }),
-    ]);
-  } finally {
-    if (deadline) {
-      clearTimeout(deadline);
-    }
+  if (row.status === "succeeded") {
+    // ponytail: client's auto-resume sees `succeeded` via the GET /chat route
+    // and recovers the reply through `reloadLatestChat` (setMessages). SSE only
+    // needs to emit a terminal `finish` so the tail stream closes; emitting raw
+    // UIMessage.parts here is dropped by `processUIMessageStream` (no `text`
+    // case), which would render an empty assistant message on reconnect.
+    writeSafe({ type: "finish" });
+    return;
   }
+  // running but channel gone = lost to a restart; failed/cancelled = surfaced.
+  const reason =
+    row.errorMessage ??
+    (row.status === "running" ? "turn_stalled" : row.status);
+  writeSafe({ type: "error", errorText: `Turn unavailable: ${reason}` });
 }
 
 async function repairWorkspaceCard({
@@ -1610,44 +647,6 @@ function findLastMessageIndex(
   return -1;
 }
 
-function parseJsonLenient(text: string): unknown {
-  const cleaned = text
-    .replace(/^```json\s*/i, "")
-    .replace(/```\s*$/i, "")
-    .trim();
-
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-
-    if (start >= 0 && end > start) {
-      return JSON.parse(cleaned.slice(start, end + 1));
-    }
-
-    throw new Error("No JSON object found in response");
-  }
-}
-
-function scrubBriefForStorage(
-  brief: ReturnType<typeof parseProjectBrief>,
-  readyForBuild: boolean,
-  projectId: string,
-): ReturnType<typeof parseProjectBrief> {
-  const { cleaned, dropped } = validateBrief(brief);
-  if (dropped.length > 0) {
-    console.warn("brief: dropped hallucinated fields", { dropped, projectId });
-  }
-  return {
-    ...brief,
-    ...cleaned,
-    businessName: cleaned.businessName ?? brief.businessName,
-    targetCustomer: cleaned.targetCustomer ?? brief.targetCustomer,
-    readyForBuild,
-  };
-}
-
 function persistProjectBrief({
   brief,
   projectId,
@@ -1659,49 +658,6 @@ function persistProjectBrief({
 }) {
   return prisma.$executeRaw`
     UPDATE "Project" SET "brief" = ${JSON.stringify(brief)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
-  `;
-}
-
-function persistProjectChatTurn({
-  brief,
-  messages,
-  projectId,
-  title,
-  userId,
-  workspaceCard,
-}: {
-  brief?: unknown;
-  messages: UIMessage[];
-  projectId: string;
-  title?: string;
-  userId: string;
-  workspaceCard: unknown;
-}) {
-  if (brief !== undefined && title !== undefined) {
-    return prisma.$executeRaw`
-      UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
-    `;
-  }
-  return prisma.$executeRaw`
-    UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
-  `;
-}
-
-function persistProjectChatCompaction({
-  compactedMessageCount,
-  memoryFacts,
-  projectId,
-  summary,
-  userId,
-}: {
-  compactedMessageCount: number;
-  memoryFacts: unknown;
-  projectId: string;
-  summary: unknown;
-  userId: string;
-}) {
-  return prisma.$executeRaw`
-    UPDATE "Project" SET "chatSummary" = ${JSON.stringify(summary)}::jsonb, "memoryFacts" = ${JSON.stringify(memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compactedMessageCount} WHERE id = ${projectId} AND "userId" = ${userId}
   `;
 }
 
@@ -1717,7 +673,7 @@ export function buildChatSystemPrompt({
   if (hasBuiltSite) {
     return `You are a fast, friendly website-editing assistant for Indonesian small businesses. The website is already built and live in preview.
 
-The user's message is an edit/revision request about the built site (copy, layout, variant, style, wording, etc.), NOT a brief interview. Do not ask brief-collection questions (business hours, address, payment methods, etc.) — the brief interview is over.
+The user's message is an edit/revision request about the built site (copy, layout, variant, style, wording, etc.), NOT a brief interview. Do not ask brief-collection questions (business hours, address, payment methods, etc.) â€” the brief interview is over.
 
 Write user-visible chat copy in natural, ultra-concise Indonesian.
 Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
