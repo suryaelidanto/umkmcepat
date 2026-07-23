@@ -3,35 +3,21 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  generateText,
-  streamText,
   type UIMessage,
   validateUIMessages,
 } from "ai";
 
-import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getAiModel } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
-import { writeAiRequestLog } from "@/lib/ai-request-log";
-import {
-  DISCUSS_CARD_SEMANTIC_ATTEMPTS,
-  DISCUSS_CARD_SERVER_DEADLINE_MS,
-  getAiTimeoutMs,
-} from "@/lib/ai-timeouts";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
-import { isDiscussOneCallToolsEnabled } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
-import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import {
   mergeProjectBriefPatch,
   parseProjectBrief,
 } from "@/lib/projects/brief";
-import {
-  normalizeWorkspaceTurn,
-  parseWorkspaceCard,
-} from "@/lib/projects/brief-flow";
-import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
+import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
@@ -47,7 +33,6 @@ import {
   subscribeProgress,
 } from "@/lib/projects/discuss-turn-pubsub";
 import {
-  persistProjectChatCompaction,
   persistProjectChatTurn,
   repairDiscussCardWithTool,
   scrubBriefForStorage,
@@ -55,7 +40,6 @@ import {
 import { runDiscussTurn } from "@/lib/projects/discuss-turn-worker";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
-import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -68,31 +52,6 @@ import {
 // Re-export so external importers (e.g. the preview test) keep resolving after
 // the discuss tool/prompt builders moved to the pure module.
 export { buildOneCallSystemPrompt } from "@/lib/projects/discuss-tool";
-
-// In-flight discuss lock: a single Node process serves all requests, so an
-// in-memory set is sufficient to dedupe concurrent discuss turns for the same
-// project. Prevents a client double-fire (e.g. remount, retry) from running
-// two LLM turns in parallel â€” which wastes energy and makes the workspace card
-// flicker between two non-deterministic answers. Released in onFinish of the
-// discuss stream (or immediately for the synchronous path). Headroom above
-// the worst case (stream timeout + one repair deadline) so an auto-retry
-// never pushes the lock past TTL and re-admits a concurrent turn.
-// ponytail: the in-memory discuss lock is superseded by the DB turn lease
-// (`claimDiscussTurn`/`finalizeDiscussTurn`) as of Task 5. `acquireDiscussLock`
-// was removed; `releaseDiscussLock` stays only because the legacy two-call
-// `handleDiscussTurn` body (dead under the one-call flag) still calls it.
-// Task 8 removes the legacy body + `releaseDiscussLock` + these maps.
-const discussInFlight = new Set<string>();
-const discussLockTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-function releaseDiscussLock(projectId: string): void {
-  const timer = discussLockTimers.get(projectId);
-  if (timer) {
-    clearTimeout(timer);
-    discussLockTimers.delete(projectId);
-  }
-  discussInFlight.delete(projectId);
-}
 
 type PreviewRequest = {
   message?: UIMessage;
@@ -396,13 +355,9 @@ async function handlePreviewPost(request: Request) {
 
   // Dedupe concurrent discuss turns for the same project. A second in-flight
   // turn (client double-fire) gets a 409 instead of burning a second LLM call
-  // and flickering the workspace card between two answers.
-  // ponytail: the in-memory discuss lock (acquireDiscussLock/releaseDiscussLock
-  // defined above) used to guard this POST. Task 5 moved the dedup gate to the
-  // DB turn lease (`claimDiscussTurn` inside `handleDiscussTurnOneCall`), which
-  // survives restarts + is the single source of truth for "one turn at a time".
-  // The legacy two-call `handleDiscussTurn` body still calls releaseDiscussLock
-  // below; Task 8 removes both the call sites + the definitions.
+  // and flickering the workspace card between two answers. The DB turn lease
+  // (`claimDiscussTurn` inside `handleDiscussTurnOneCall`) is the single source
+  // of truth for "one turn at a time" and survives restarts.
   await persistProjectBrief({
     brief: effectiveBrief,
     projectId: project.id,
@@ -421,7 +376,7 @@ async function handlePreviewPost(request: Request) {
     summary: chatSummary,
   });
 
-  return handleDiscussTurn({
+  return handleDiscussTurnOneCall({
     chatContext,
     effectiveBrief,
     memoryFacts,
@@ -429,269 +384,6 @@ async function handlePreviewPost(request: Request) {
     project,
     summary: chatSummary,
     userId,
-  });
-}
-
-async function handleDiscussTurn({
-  chatContext,
-  effectiveBrief,
-  memoryFacts,
-  messages,
-  project,
-  summary,
-  userId,
-}: {
-  chatContext: ReturnType<typeof buildProjectChatContext>;
-  effectiveBrief: ReturnType<typeof parseProjectBrief>;
-  memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
-  messages: UIMessage[];
-  project: { id: string; prompt: string; status: string; title: string };
-  summary: ReturnType<typeof parseProjectChatSummary>;
-  userId: string;
-}) {
-  if (isDiscussOneCallToolsEnabled()) {
-    return handleDiscussTurnOneCall({
-      chatContext,
-      effectiveBrief,
-      memoryFacts,
-      messages,
-      project,
-      summary,
-      userId,
-    });
-  }
-
-  const modelName = getDefaultAiModel();
-  const model = getAiModel(modelName);
-  const chatSystemPrompt = buildChatSystemPrompt({
-    context: chatContext.systemContext,
-    brief: effectiveBrief,
-    hasBuiltSite: project.status === "ready",
-  });
-  const cardSystemPrompt = buildCardSystemPrompt();
-  const modelMessages = await convertToModelMessages(chatContext.messages);
-
-  await writeAiRequestLog({
-    event: "discuss:start",
-    model: modelName,
-    projectId: project.id,
-    messageCount: messages.length,
-    briefConfidence: effectiveBrief.confidence,
-  });
-
-  const phase1 = streamText({
-    model,
-    system: chatSystemPrompt,
-    messages: modelMessages,
-    maxRetries: 2,
-    temperature: 0.35,
-    timeout: getAiTimeoutMs("discuss"),
-    telemetry: getAiTelemetry("project-guided-discuss", {
-      briefConfidence: effectiveBrief.confidence,
-      mode: "discuss",
-      model: modelName,
-      projectId: project.id,
-      route: "api.projects.preview",
-      userId,
-    }),
-    onError({ error }) {
-      console.error(
-        "[preview-chat] phase 1 stream error",
-        getSafeAiErrorLog(error),
-      );
-    },
-  });
-
-  return createUIMessageStreamResponse({
-    stream: createUIMessageStream({
-      execute: async ({ writer }) => {
-        const messageId = `discuss-${crypto.randomUUID()}`;
-        const textPartId = "discuss-text";
-
-        writer.write({ type: "start", messageId });
-        writer.write({ type: "text-start", id: textPartId });
-
-        let fullText = "";
-        let hadError = false;
-        const phase1ResponsePromise = Promise.resolve(phase1.response).catch(
-          () => null,
-        );
-
-        try {
-          for await (const delta of phase1.textStream) {
-            fullText += delta;
-            writer.write({ type: "text-delta", id: textPartId, delta });
-          }
-        } catch (error) {
-          hadError = true;
-          const servedModel =
-            (await phase1ResponsePromise)?.modelId ?? modelName;
-          const safeError = getSafeAiErrorLog(error);
-          console.error("[preview-chat] legacy stream consume error", {
-            projectId: project.id,
-            model: servedModel,
-            error: safeError,
-          });
-          await writeAiRequestLog({
-            event: "discuss:stream_error",
-            model: servedModel,
-            mode: "legacy",
-            projectId: project.id,
-            error: safeError,
-          });
-        }
-
-        writer.write({ type: "text-end", id: textPartId });
-
-        // Capture phase1 (chat) token usage + actual model that served it
-        const phase1Usage = await phase1.usage;
-        const phase1Response = await Promise.resolve(phase1.response).catch(
-          () => null,
-        );
-        let totalInputTokens = phase1Usage?.inputTokens ?? 0;
-        let totalOutputTokens = phase1Usage?.outputTokens ?? 0;
-        const discussModelId = phase1Response?.modelId || modelName;
-
-        if (hadError || !fullText.trim()) {
-          // AI already ran â€” charge even on stream error / empty text.
-          await chargeEnergyForAiUsage({
-            userId,
-            modelId: discussModelId,
-            inputTokens: totalInputTokens,
-            outputTokens: totalOutputTokens,
-            reason: "discuss_turn",
-          });
-          writer.write({
-            type: "error",
-            errorText: hadError
-              ? "Jawaban AI terputus. Coba lagi."
-              : "AI belum memberi jawaban. Coba lagi.",
-          });
-          return;
-        }
-
-        const chatText = fullText.trim();
-        const assistantMessage: UIMessage = {
-          id: messageId,
-          role: "assistant",
-          parts: [{ type: "text", text: chatText, state: "done" }],
-        };
-
-        const workspaceTurn = await generateWorkspaceTurn({
-          brief: effectiveBrief,
-          cardSystemPrompt,
-          chatText,
-          hasBuiltSite: project.status === "ready",
-          model,
-          modelMessages,
-          modelName,
-          projectId: project.id,
-          userId,
-        });
-
-        // Capture phase2 (card) token usage
-        if (workspaceTurn && "usage" in workspaceTurn) {
-          totalInputTokens +=
-            (
-              workspaceTurn as {
-                usage?: { inputTokens: number; outputTokens: number };
-              }
-            ).usage?.inputTokens ?? 0;
-          totalOutputTokens +=
-            (
-              workspaceTurn as {
-                usage?: { inputTokens: number; outputTokens: number };
-              }
-            ).usage?.outputTokens ?? 0;
-        }
-
-        const phase2Failed = !workspaceTurn;
-
-        const hasCard =
-          workspaceTurn !== null && workspaceTurn.workspaceCard.type !== "none";
-
-        const safeMessages = stripTransportDiagnosticMessages(
-          dedupeUiMessages([...messages, assistantMessage]),
-        );
-
-        if (hasCard && workspaceTurn) {
-          const title = workspaceTurn.projectTitle || project.title;
-
-          await writeAiRequestLog({
-            event: "discuss:finish",
-            model: modelName,
-            projectId: project.id,
-            didWorkspaceToolUpdate: true,
-            primaryToolFailed: phase2Failed,
-            workspaceCard: workspaceTurn.workspaceCard,
-          });
-
-          await persistProjectChatTurn({
-            brief: scrubBriefForStorage(
-              workspaceTurn.brief,
-              workspaceTurn.readyForBuild,
-              project.id,
-            ),
-            messages: safeMessages,
-            projectId: project.id,
-            title,
-            userId,
-            workspaceCard: workspaceTurn.workspaceCard,
-          });
-        } else {
-          await writeAiRequestLog({
-            event: "discuss:finish",
-            model: modelName,
-            projectId: project.id,
-            didWorkspaceToolUpdate: false,
-            primaryToolFailed: phase2Failed,
-            workspaceCard: { type: "none" },
-          });
-
-          await persistProjectChatTurn({
-            messages: safeMessages,
-            projectId: project.id,
-            userId,
-            workspaceCard: { type: "none" },
-          });
-        }
-
-        const compaction = await maybeCompactProjectChat({
-          memoryFacts,
-          messages: safeMessages,
-          summary,
-        }).catch(() => null);
-
-        if (compaction) {
-          await persistProjectChatCompaction({
-            compactedMessageCount: compaction.compactedMessageCount,
-            memoryFacts: compaction.memoryFacts,
-            projectId: project.id,
-            summary: compaction.summary,
-            userId,
-          });
-          totalInputTokens += compaction.usage?.inputTokens ?? 0;
-          totalOutputTokens += compaction.usage?.outputTokens ?? 0;
-        }
-
-        await chargeEnergyForAiUsage({
-          userId,
-          modelId: discussModelId,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          reason: "discuss_turn",
-        });
-
-        if (workspaceTurn?.workspaceCard.type === "build_recommendation") {
-          releaseDiscussLock(project.id);
-        }
-
-        writer.write({ type: "finish" });
-      },
-      onError: (error) =>
-        `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
-      onFinish: () => releaseDiscussLock(project.id),
-    }),
   });
 }
 
@@ -712,12 +404,10 @@ async function handleDiscussTurnOneCall({
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
-  // Server-side discuss flow (Task 5): persist the user message first so the
-  // reply is never lost even if generation never starts, claim the DB turn
-  // lease, fire the detached worker, then return a tail stream that replays
-  // the worker's pub/sub events. The old in-stream streamText + persist-from-
-  // execute path moved to `runDiscussTurn`. The legacy two-call `handleDiscussTurn`
-  // body below stays as dead code under the one-call flag; Task 8 removes it.
+  // Server-side discuss flow: persist the user message first so the reply is
+  // never lost even if generation never starts, claim the DB turn lease, fire
+  // the detached worker, then return a tail stream that replays the worker's
+  // pub/sub events. Generation runs in `runDiscussTurn` (detached).
 
   const userMessage = messages[messages.length - 1];
   if (!userMessage) {
@@ -866,113 +556,6 @@ async function replayTurnFromDb(
   writeSafe({ type: "error", errorText: `Turn unavailable: ${reason}` });
 }
 
-async function generateWorkspaceTurn({
-  brief,
-  cardSystemPrompt,
-  chatText,
-  hasBuiltSite,
-  model,
-  modelMessages,
-  modelName,
-  projectId,
-  userId,
-}: {
-  brief: ReturnType<typeof parseProjectBrief>;
-  cardSystemPrompt: string;
-  chatText: string;
-  hasBuiltSite: boolean;
-  model: ReturnType<typeof getAiModel>;
-  modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
-  modelName: string;
-  projectId: string;
-  userId: string;
-}) {
-  const abortController = new AbortController();
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-
-  const attempts = (async () => {
-    for (
-      let semanticAttempt = 0;
-      semanticAttempt < DISCUSS_CARD_SEMANTIC_ATTEMPTS;
-      semanticAttempt += 1
-    ) {
-      try {
-        const phase2 = await generateText({
-          abortSignal: abortController.signal,
-          model,
-          system: cardSystemPrompt,
-          messages: [
-            ...modelMessages,
-            { role: "assistant", content: chatText },
-          ],
-          // Reasoning models spend tokens on hidden reasoning_content before
-          // emitting visible text; a small budget starves the JSON output.
-          maxOutputTokens: 12_000,
-          maxRetries: 2,
-          temperature: 0.35,
-          timeout: getAiTimeoutMs("discussCard"),
-          telemetry: getAiTelemetry("project-guided-discuss-card", {
-            mode: "discuss",
-            model: modelName,
-            phase: semanticAttempt === 0 ? "card" : "card-repair",
-            projectId,
-            route: "api.projects.preview",
-            userId,
-          }),
-        });
-
-        const parsed = parseJsonLenient(phase2.text);
-        console.error("[preview-chat] phase 2 parsed:", {
-          projectId,
-          parsedType: typeof parsed,
-          parsedPreview: JSON.stringify(parsed)?.slice(0, 200),
-        });
-
-        const turn = normalizeWorkspaceTurn(parsed, brief, { hasBuiltSite });
-
-        if (turn.workspaceCard.type !== "none") {
-          return {
-            ...turn,
-            usage: {
-              inputTokens: phase2.usage?.inputTokens ?? 0,
-              outputTokens: phase2.usage?.outputTokens ?? 0,
-            },
-          };
-        }
-
-        console.error("[preview-chat] phase 2 returned no valid card", {
-          projectId,
-          semanticAttempt,
-          cardType: turn.workspaceCard.type,
-        });
-      } catch (error) {
-        console.error(
-          "[preview-chat] phase 2 card error",
-          getSafeAiErrorLog(error),
-        );
-      }
-    }
-
-    return null;
-  })();
-
-  try {
-    return await Promise.race([
-      attempts,
-      new Promise<null>((resolve) => {
-        deadline = setTimeout(() => {
-          abortController.abort();
-          resolve(null);
-        }, DISCUSS_CARD_SERVER_DEADLINE_MS);
-      }),
-    ]);
-  } finally {
-    if (deadline) {
-      clearTimeout(deadline);
-    }
-  }
-}
-
 async function repairWorkspaceCard({
   brief,
   messages,
@@ -1066,26 +649,6 @@ function findLastMessageIndex(
     }
   }
   return -1;
-}
-
-function parseJsonLenient(text: string): unknown {
-  const cleaned = text
-    .replace(/^```json\s*/i, "")
-    .replace(/```\s*$/i, "")
-    .trim();
-
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-
-    if (start >= 0 && end > start) {
-      return JSON.parse(cleaned.slice(start, end + 1));
-    }
-
-    throw new Error("No JSON object found in response");
-  }
 }
 
 function persistProjectBrief({
