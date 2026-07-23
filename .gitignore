@@ -57,6 +57,8 @@ graphify-out/
 
 # Dev/runtime logs
 *.log
+/dev.log
+/dev.log.1
 *.err.log
 # Local dev process files
 *.pid
