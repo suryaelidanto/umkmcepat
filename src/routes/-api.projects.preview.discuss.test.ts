@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
@@ -107,8 +107,6 @@ vi.mock("ai", async () => {
   };
 });
 
-const originalOneCall = process.env.DISCUSS_ONE_CALL_TOOLS;
-
 async function callDiscussPost() {
   const { Route } = await import("./api.projects.preview");
   const handler = (
@@ -143,7 +141,6 @@ async function callDiscussPost() {
 describe("POST /api/projects/preview (discuss) — server-side turn flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.DISCUSS_ONE_CALL_TOOLS = "true";
     authMock.mockResolvedValue({ user: { id: "u_test" } });
     isUserVerifiedMock.mockResolvedValue(true);
     checkRateLimitMock.mockResolvedValue(null);
@@ -200,14 +197,6 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     );
     // Detached worker returns a settled promise; the POST must not await it.
     runDiscussTurnMock.mockResolvedValue(undefined);
-  });
-
-  afterEach(() => {
-    if (originalOneCall === undefined) {
-      delete process.env.DISCUSS_ONE_CALL_TOOLS;
-    } else {
-      process.env.DISCUSS_ONE_CALL_TOOLS = originalOneCall;
-    }
   });
 
   it("claims the turn + fires the detached worker + returns a tail stream that emits the worker's pub/sub deltas + finish", async () => {
