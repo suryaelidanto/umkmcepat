@@ -59,8 +59,3 @@ async function maybeRotate(line: string) {
 function stableJson(value: Record<string, unknown>) {
   return JSON.stringify(value, Object.keys(value).sort());
 }
-
-// Transitional wrapper — removed in Task 2 once ai-request-log migrates.
-export function isVerboseDevLoggingEnabled() {
-  return isDevLoggingActive();
-}
