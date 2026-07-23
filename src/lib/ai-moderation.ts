@@ -3,6 +3,7 @@ import { generateText } from "ai";
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
+import { devLog } from "@/lib/dev-log";
 
 export type ModerationResult =
   | {
@@ -42,6 +43,11 @@ export async function moderateProjectRequest(
     };
   }
 
+  devLog("moderation", "request-start", {
+    promptHash: hashPrompt(key),
+    model: getDefaultAiModel(),
+  });
+
   const abortController = new AbortController();
   const result = await withAiTimeout(
     generateText({
@@ -69,9 +75,10 @@ export async function moderateProjectRequest(
   const modelId = result.response?.modelId || getDefaultAiModel();
   const label = result.text.trim().toUpperCase();
   if (!["ALLOW", "BLOCK", "CLARIFY"].includes(label)) {
-    console.warn(
-      `[moderation] unexpected model response: ${JSON.stringify(result.text)} — defaulting to ALLOW`,
-    );
+    devLog("moderation", "unexpected-response", {
+      raw: result.text,
+      model: modelId,
+    });
     return { allowed: true, modelId, usage };
   }
 
@@ -96,4 +103,13 @@ export function getModerationTimeoutMs() {
 
 function normalizePrompt(prompt: string) {
   return prompt.trim().replace(/\s+/g, " ").slice(0, 1_200);
+}
+
+function hashPrompt(prompt: string) {
+  // Simple, stable fingerprint for correlation without logging raw prompt.
+  let h = 0;
+  for (let i = 0; i < prompt.length; i++) {
+    h = (Math.imul(31, h) + prompt.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(16);
 }
