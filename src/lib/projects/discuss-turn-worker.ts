@@ -815,11 +815,21 @@ export async function runDiscussTurn({
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "discuss turn failed";
-    await finalizeDiscussTurn({
-      turnId,
-      status: "failed",
-      errorMessage: message,
-    });
-    publishProgress(turnId, { type: "error", message });
+    try {
+      await finalizeDiscussTurn({
+        turnId,
+        status: "failed",
+        errorMessage: message,
+      });
+      publishProgress(turnId, { type: "error", message });
+    } catch (finalizeError) {
+      console.error("[discuss-turn-worker] finalize failed", {
+        turnId,
+        finalizeError:
+          finalizeError instanceof Error
+            ? finalizeError.message
+            : String(finalizeError),
+      });
+    }
   }
 }
