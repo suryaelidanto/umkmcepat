@@ -12,6 +12,7 @@ import { getDefaultAiModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
+import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import {
   mergeProjectBriefPatch,
@@ -474,6 +475,11 @@ async function handleDiscussTurnOneCall({
 
         // DB-state fallback: server restarted, in-memory channel gone.
         if (readTurnState(turnId) === "gone") {
+          devLog("discuss", "auto-resume", {
+            turnId,
+            projectId: project.id,
+            reason: "gone",
+          });
           await replayTurnFromDb(turnId, project.id, writeSafe);
           return;
         }
@@ -491,6 +497,11 @@ async function handleDiscussTurnOneCall({
           // a missing terminal event means the server restarted mid-turn â€”
           // fall back to DB state instead of hanging the tail forever.
           if (readTurnState(turnId) === "gone") {
+            devLog("discuss", "auto-resume", {
+              turnId,
+              projectId: project.id,
+              reason: "gone",
+            });
             void replayTurnFromDb(turnId, project.id, writeSafe).finally(() =>
               resolve(),
             );
@@ -515,6 +526,7 @@ async function replayTurnFromDb(
   projectId: string,
   writeSafe: (event: { type: string; [k: string]: unknown }) => void,
 ) {
+  devLog("discuss", "replay-from-db", { turnId, projectId });
   const rows = (await prisma.$queryRaw<
     Array<{
       status: string;
