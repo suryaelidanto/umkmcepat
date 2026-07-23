@@ -537,15 +537,11 @@ async function replayTurnFromDb(
     return;
   }
   if (row.status === "succeeded") {
-    const stored = parseProjectChatMessages(row.chatMessages);
-    const lastAssistant = [...stored]
-      .reverse()
-      .find((m) => m.role === "assistant");
-    if (lastAssistant) {
-      for (const part of lastAssistant.parts) {
-        writeSafe(part as { type: string; [k: string]: unknown });
-      }
-    }
+    // ponytail: client's auto-resume sees `succeeded` via the GET /chat route
+    // and recovers the reply through `reloadLatestChat` (setMessages). SSE only
+    // needs to emit a terminal `finish` so the tail stream closes; emitting raw
+    // UIMessage.parts here is dropped by `processUIMessageStream` (no `text`
+    // case), which would render an empty assistant message on reconnect.
     writeSafe({ type: "finish" });
     return;
   }

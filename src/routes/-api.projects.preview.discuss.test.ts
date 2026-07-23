@@ -278,8 +278,11 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     // stream reads from the DB, not the (gone) pub/sub channel.
     expect(prismaQueryRawMock).toHaveBeenCalled();
     const text = await response.text();
-    expect(text).toContain("Halo balik dari DB!");
+    // ponytail: SSE only emits a terminal `finish` for the succeeded case —
+    // the client recovers the reply via `reloadLatestChat` (GET /chat), not
+    // via raw parts (which `processUIMessageStream` would silently drop).
     expect(text).toContain("finish");
+    expect(text).not.toContain("Halo balik dari DB!");
   });
 
   it("emits an error when the channel is gone + the turn stalled (running but lost to restart)", async () => {

@@ -560,13 +560,16 @@ export async function runDiscussTurn({
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "discuss turn failed";
+    // Emit the error BEFORE finalizing: if finalize throws, the connected
+    // client's tail stream still receives the terminal `error` event instead
+    // of hanging until disconnect.
+    publishProgress(turnId, { type: "error", errorText: message });
     try {
       await finalizeDiscussTurn({
         turnId,
         status: "failed",
         errorMessage: message,
       });
-      publishProgress(turnId, { type: "error", errorText: message });
     } catch (finalizeError) {
       console.error("[discuss-turn-worker] finalize failed", {
         turnId,
