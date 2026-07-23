@@ -23,6 +23,8 @@ bun run check      # fast manual gate: parallel format/lint/typecheck/affected t
 bun run verify     # locks + route regen + format/lint/typecheck/full tests/Knip (CI also runs build + Storybook)
 ```
 
+- When debugging, read `dev.log` at repo root and `docker compose logs`; see `DEV.md`'s Debugging section for the full workflow.
+
 Local quality gates are automated:
 
 - **Pre-commit** runs `bun run check:commit`: lockfile guard plus prettier/eslint on staged files only. No typecheck, no tests, no Knip at commit time.
@@ -57,7 +59,7 @@ bun run test:storybook
 - User-facing product UI copy uses Indonesian; developer-facing docs/code/logs/errors use English.
 - Follow `PRODUCT.md`, `DESIGN.md`, and `.agents/skills/impeccable` before frontend design work; do not introduce new visual language without updating the canonical design context.
 - New reusable UI or repeated visual patterns must be added to Storybook first or in the same change.
-- Use Graphify for non-trivial codebase discovery when available; do not add it as a project dependency.
+- Run `bun run graph:update` and navigate the source tree before blind grep/search; Graphify is the default discovery step for non-trivial work. Do not add it as a project dependency.
 - Docs are part of the change: if behavior, setup, env, architecture, provider, storage, deployment, UI system, or product flow changes, update the canonical doc in the same diff or state why docs did not change.
 - Pre-commit runs `bun run check:commit`; CI runs `bun run verify`. Never bypass a failing gate. Before handoff without a push, run `bun run check` explicitly.
 - Do not run `bun run build` unless requested or touching build/deployment behavior.

@@ -24,13 +24,11 @@ bun run db:migrate
 bun run dev
 ```
 
-Verbose development mode:
+Server logs are written to `dev.log` at the repo root automatically during `bun run dev` (no toggle). Tail it live in a second terminal:
 
 ```bash
-bun run dev:verbose
+bun run dev:logs
 ```
-
-Use verbose mode whenever debugging project generation, generated runtime previews, auth/session flow, storage/artifacts, build workers, AI request parsing, or any bug that is not immediately obvious from the UI. It sets `UMKM_VERBOSE_DEV=1` and prints structured terminal lines like `[umkm:scope] event {"key":"value"}`. AI request traces are also appended to `.data/tmp/ai-debug/requests.ndjson` while the local server is running. Keep normal `bun run dev` quiet; add new verbose logs through `src/lib/dev-log.ts` or `src/lib/ai-request-log.ts` instead of raw `console.log`.
 
 If port 3000 is already used by a repo-owned Next dev process, reset it safely:
 
@@ -68,6 +66,17 @@ bun run infra:ps    # inspect status
 ```
 
 If Docker is missing, install/start Docker Desktop or Docker Engine. If `.next` gets stale, stop the dev server, remove `.next`, then restart `bun run dev`.
+
+## Debugging
+
+When something breaks, an agent (or you) reconstructs the causal chain without copy-pasting logs:
+
+1. **Read `dev.log` at repo root.** Grep for the project id or error string; read the matching `[umkm:scope] event {json}` lines in order. Every event carries a correlation id (`projectId` + `turnId` or request scope) so one id surfaces the full chain — e.g. a discuss turn: `discuss-turn:claim` → `[umkm:ai] discuss:start` → `discuss-turn:finalize`.
+2. **Cross-reference infra with Docker logs** for 9Router / Headroom / Postgres failures: `bun run infra:logs` (or `docker compose logs -f`).
+3. **Cross-reference raw AI payloads** in `.data/tmp/ai-debug/requests.ndjson` when a model call looks wrong (full request/response bodies that would bloat `dev.log`).
+4. **Navigate before you grep.** Run `bun run graph:update` then read the source tree Graphify returns — non-trivial discovery goes through Graphify first, never blind search.
+
+`dev.log` rotates at ~5 MB to `dev.log.1`; it is never deleted on crash (a crash is when it matters most). Both are gitignored.
 
 ## Environment
 
