@@ -12,8 +12,6 @@ const {
   claimDiscussTurnMock,
   runDiscussTurnMock,
   subscribeProgressMock,
-  readTurnStateMock,
-  publishProgressMock,
   parseProjectChatMessagesMock,
   validateUIMessagesMock,
   isUserVerifiedMock,
@@ -32,8 +30,6 @@ const {
   claimDiscussTurnMock: vi.fn(),
   runDiscussTurnMock: vi.fn(),
   subscribeProgressMock: vi.fn(),
-  readTurnStateMock: vi.fn(),
-  publishProgressMock: vi.fn(),
   parseProjectChatMessagesMock: vi.fn(),
   validateUIMessagesMock: vi.fn(),
   isUserVerifiedMock: vi.fn(),
@@ -85,8 +81,6 @@ vi.mock("@/lib/projects/discuss-turn-worker", () => ({
 
 vi.mock("@/lib/projects/discuss-turn-pubsub", () => ({
   subscribeProgress: subscribeProgressMock,
-  readTurnState: readTurnStateMock,
-  publishProgress: publishProgressMock,
 }));
 
 vi.mock("@/lib/projects/chat-memory", async () => {
@@ -176,7 +170,6 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     );
     validateUIMessagesMock.mockImplementation(async ({ messages }) => messages);
     // Live channel by default; the worker publishes to it async.
-    readTurnStateMock.mockReturnValue("live");
     // Default subscriber: immediately replay a text delta + finish so the tail
     // stream resolves without hanging.
     subscribeProgressMock.mockImplementation(
@@ -245,64 +238,33 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     expect(subscribeProgressMock).not.toHaveBeenCalled();
   });
 
-  it("replays the persisted assistant reply on reconnect-after-restart (channel gone + turn succeeded)", async () => {
+  // Regression: on a fresh POST the worker is dispatched detached and has
+  // not created the pub/sub channel yet (it is created lazily on its first
+  // `publishProgress`, after convertToModelMessages + writeAiRequestLog +
+  // streamText). At tail-start the channel is absent for EVERY normal turn —
+  // the normal startup state, not a "lost to restart" state. The old
+  // `readTurnState === "gone"` DB-replay fallback misread that as a stall and
+  // emitted a spurious `turn_stalled` error while the worker was about to
+  // succeed (the user's symptom: "it's actually working, just shows error;
+  // refresh fixes it"). The tail must relay the worker's real terminal event.
+  it("does NOT emit turn_stalled when the worker is still starting — relays the worker's events instead", async () => {
     claimDiscussTurnMock.mockResolvedValue({
       claimed: true,
-      turnId: "ct_done",
+      turnId: "ct_fresh",
     });
-    // Channel gone (server restarted). The DB fallback path reads the turn
-    // row + chatMessages + replays the last assistant message.
-    readTurnStateMock.mockReturnValue("gone");
-    prismaQueryRawMock.mockResolvedValue([
-      {
-        status: "succeeded",
-        errorMessage: null,
-        chatMessages: [
-          {
-            id: "u1",
-            role: "user",
-            parts: [{ type: "text", text: "Halo" }],
-          },
-          {
-            id: "a1",
-            role: "assistant",
-            parts: [{ type: "text", text: "Halo balik dari DB!" }],
-          },
-        ],
-      },
-    ]);
 
     const response = await callDiscussPost();
     expect(response.status).toBe(200);
-    // Worker still fired (the POST always claims + detaches), but the tail
-    // stream reads from the DB, not the (gone) pub/sub channel.
-    expect(prismaQueryRawMock).toHaveBeenCalled();
     const text = await response.text();
-    // ponytail: SSE only emits a terminal `finish` for the succeeded case —
-    // the client recovers the reply via `reloadLatestChat` (GET /chat), not
-    // via raw parts (which `processUIMessageStream` would silently drop).
+    // No spurious error; the tail relays the worker's deltas + finish.
+    expect(text).not.toContain("turn_stalled");
+    expect(text).not.toContain("Turn unavailable");
+    expect(text).toContain("Halo balik!");
     expect(text).toContain("finish");
-    expect(text).not.toContain("Halo balik dari DB!");
-  });
-
-  it("emits an error when the channel is gone + the turn stalled (running but lost to restart)", async () => {
-    claimDiscussTurnMock.mockResolvedValue({
-      claimed: true,
-      turnId: "ct_stall",
-    });
-    readTurnStateMock.mockReturnValue("gone");
-    prismaQueryRawMock.mockResolvedValue([
-      {
-        status: "running",
-        errorMessage: null,
-        chatMessages: [],
-      },
-    ]);
-
-    const response = await callDiscussPost();
-    expect(response.status).toBe(200);
-    const text = await response.text();
-    expect(text).toContain("error");
-    expect(text).toContain("turn_stalled");
+    // The tail subscribed to the worker's pub/sub channel.
+    expect(subscribeProgressMock).toHaveBeenCalledWith(
+      "ct_fresh",
+      expect.any(Function),
+    );
   });
 });

@@ -12,7 +12,6 @@ import { getDefaultAiModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
-import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import {
   mergeProjectBriefPatch,
@@ -29,10 +28,7 @@ import {
 } from "@/lib/projects/chat-memory";
 import { buildCardSystemPrompt } from "@/lib/projects/discuss-tool";
 import { claimDiscussTurn } from "@/lib/projects/discuss-turn";
-import {
-  readTurnState,
-  subscribeProgress,
-} from "@/lib/projects/discuss-turn-pubsub";
+import { subscribeProgress } from "@/lib/projects/discuss-turn-pubsub";
 import {
   persistProjectChatTurn,
   repairDiscussCardWithTool,
@@ -457,10 +453,23 @@ async function handleDiscussTurnOneCall({
     console.error("[discuss] worker rejected", { turnId, error }),
   );
 
-  // 4. Tail stream: replay the worker's pub/sub events to the client. On
-  //    reconnect-after-restart (in-memory channel gone), fall back to DB
-  //    state: replay the persisted assistant reply if the turn succeeded,
-  //    emit an error if it failed/cancelled/stalled.
+  // 4. Tail stream: relay the worker's pub/sub events to the client. The
+  //    worker runs detached (`void runDiscussTurn` above) and publishes a
+  //    terminal `finish`/`error` in every path; `subscribeProgress` replays
+  //    any events buffered before we subscribed. So the tail simply waits
+  //    for that terminal event — it never needs to second-guess the channel.
+  //
+  //    The pub/sub channel is created lazily on the worker's FIRST
+  //    `publishProgress`, which happens after `convertToModelMessages` +
+  //    `writeAiRequestLog` + the `streamText` network call. So at tail-start
+  //    the channel almost always does not exist yet — that is the NORMAL
+  //    startup state of a fresh turn, not a "lost to restart" state. The old
+  //    `readTurnState === "gone"` DB-replay fallback misread that as a stall
+  //    and emitted a spurious `turn_stalled` error while the worker was
+  //    still (successfully) starting up — the user's "it works but shows
+  //    error; refresh fixes it" symptom. Restart recovery (a `running` row
+  //    left dangling by a crash) is handled by the client's GET /chat/turn
+  //    poll path, not by this SSE tail.
   return createUIMessageStreamResponse({
     stream: createUIMessageStream({
       execute: async ({ writer }) => {
@@ -473,95 +482,29 @@ async function handleDiscussTurnOneCall({
           }
         };
 
-        // DB-state fallback: server restarted, in-memory channel gone.
-        if (readTurnState(turnId) === "gone") {
-          devLog("discuss-turn", "auto-resume", {
-            turnId,
-            projectId: project.id,
-            reason: "gone",
-          });
-          await replayTurnFromDb(turnId, project.id, writeSafe);
-          return;
-        }
-
-        let unsubscribe: (() => void) | undefined;
-        const settled = await new Promise<void>((resolve) => {
-          unsubscribe = subscribeProgress(turnId, (event) => {
-            writeSafe(event);
-            if (event.type === "finish" || event.type === "error") {
-              resolve();
-            }
-          });
-          // If the channel was torn down between the liveness check above
-          // and subscribe, subscribe replays any buffered events then waits;
-          // a missing terminal event means the server restarted mid-turn â€”
-          // fall back to DB state instead of hanging the tail forever.
-          if (readTurnState(turnId) === "gone") {
-            devLog("discuss-turn", "auto-resume", {
-              turnId,
-              projectId: project.id,
-              reason: "gone",
-            });
-            void replayTurnFromDb(turnId, project.id, writeSafe).finally(() =>
-              resolve(),
-            );
+        let resolveTail: () => void;
+        const tailDone = new Promise<void>((resolve) => {
+          resolveTail = resolve;
+        });
+        const unsubscribe = subscribeProgress(turnId, (event) => {
+          writeSafe(event);
+          if (event.type === "finish" || event.type === "error") {
+            resolveTail();
           }
         });
-        unsubscribe?.();
-        void settled;
+        // Subscribe returns after replaying any buffered events; if a
+        // terminal event was already in the buffer the resolve above fired.
+        // Otherwise wait for the worker's live terminal event. A missing
+        // terminal only happens if the process crashed mid-turn — but a
+        // crash also drops this SSE connection, and the client's GET
+        // /chat/turn poll job is the recovery path for that case.
+        await tailDone;
+        unsubscribe();
       },
       onError: (error) =>
         `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
     }),
   });
-}
-
-// Reconnect-after-restart fallback: the in-memory pub/sub channel is gone
-// (server restarted). Read the turn row + the persisted chat messages; if the
-// turn succeeded, replay the last assistant message's parts as a batch; if it
-// failed/cancelled/stalled (running but channel gone = lost to restart), emit
-// an error so the client can offer retry.
-async function replayTurnFromDb(
-  turnId: string,
-  projectId: string,
-  writeSafe: (event: { type: string; [k: string]: unknown }) => void,
-) {
-  devLog("discuss-turn", "replay-from-db", { turnId, projectId });
-  const rows = (await prisma.$queryRaw<
-    Array<{
-      status: string;
-      errorMessage: string | null;
-      chatMessages: unknown;
-    }>
-  >`
-    SELECT t.status, t."errorMessage", p."chatMessages"
-    FROM "ProjectChatTurn" t
-    JOIN "Project" p ON p.id = t."projectId"
-    WHERE t.id = ${turnId}
-  `) as Array<{
-    status: string;
-    errorMessage: string | null;
-    chatMessages: unknown;
-  }>;
-  const row = rows[0];
-  if (!row) {
-    writeSafe({ type: "error", errorText: "Turn not found." });
-    return;
-  }
-  if (row.status === "succeeded") {
-    // ponytail: client's auto-resume sees `succeeded` via the GET /chat route
-    // and recovers the reply through `reloadLatestChat` (setMessages). SSE only
-    // needs to emit a terminal `finish` so the tail stream closes; emitting raw
-    // UIMessage.parts here is dropped by `processUIMessageStream` (no `text`
-    // case), which would render an empty assistant message on reconnect.
-    writeSafe({ type: "finish" });
-    return;
-  }
-  // running but channel gone = lost to a restart; failed/cancelled = surfaced.
-  const reason =
-    row.errorMessage ??
-    (row.status === "running" ? "turn_stalled" : row.status);
-  writeSafe({ type: "error", errorText: `Turn unavailable: ${reason}` });
 }
 
 async function repairWorkspaceCard({
