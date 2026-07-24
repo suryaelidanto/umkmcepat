@@ -71,7 +71,6 @@ export const Route = createFileRoute("/api/projects/$id/assets")({
         try {
           const asset = await uploadProjectAsset({
             bytes,
-            contentType: file.type || "application/octet-stream",
             projectId: project.id,
             purpose,
             userId: session.user.id,

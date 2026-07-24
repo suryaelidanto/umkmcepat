@@ -14,6 +14,23 @@ const PURPOSE_TO_KIND: Record<string, ProjectAssetKind> = {
 
 const ALLOWED_PURPOSES = Object.keys(PURPOSE_TO_KIND);
 
+const EXT_CONTENT_TYPE: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+/**
+ * Derive the authoritative content type from the byte-detected extension in
+ * the ref, NOT from the client-supplied file.type (which can lie). The ref's
+ * extension is set by writeProjectAsset from magic-byte detection.
+ */
+export function contentTypeFromRef(ref: string): string {
+  const ext = ref.slice(ref.lastIndexOf(".") + 1).toLowerCase();
+  return EXT_CONTENT_TYPE[ext] ?? "application/octet-stream";
+}
+
 export type UploadedProjectAsset = {
   id: string;
   ref: string;
@@ -35,13 +52,11 @@ export function isAllowedAssetPurpose(purpose: string): purpose is string {
  */
 export async function uploadProjectAsset({
   bytes,
-  contentType,
   projectId,
   purpose,
   userId,
 }: {
   bytes: Buffer;
-  contentType: string;
   projectId: string;
   purpose: string;
   userId: string;
@@ -60,9 +75,13 @@ export async function uploadProjectAsset({
     userId,
   });
 
+  // Derive the content type from the byte-detected extension in the ref, not
+  // from the client-supplied contentType (which can lie about the bytes).
+  const storedContentType = contentTypeFromRef(ref);
+
   const asset = await prisma.projectAsset.create({
     data: {
-      contentType,
+      contentType: storedContentType,
       projectId,
       purpose,
       ref,
@@ -82,7 +101,7 @@ export async function uploadProjectAsset({
   });
 
   return {
-    contentType,
+    contentType: storedContentType,
     id: asset.id,
     ref: asset.ref,
     sizeBytes: bytes.length,
