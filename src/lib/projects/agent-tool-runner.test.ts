@@ -553,4 +553,22 @@ describe("generated app agent tool runner", () => {
       }),
     );
   });
+
+  it("treats a valid query with no matches as a successful empty search, not a tool error", () => {
+    const result = runGeneratedAppAgentTools({
+      commands: [
+        { query: "ZZZ-NOT-PRESENT-XYZ-123", type: "search_files" },
+        { type: "check_app" },
+      ],
+      files: createFixtureFiles(),
+    });
+    const searchOutput = result.outputs.find(
+      (output) => output.type === "search_files",
+    );
+    expect(searchOutput?.error).toBeUndefined();
+    expect(searchOutput?.matches ?? []).toEqual([]);
+    expect(searchOutput?.paths ?? []).toEqual([]);
+    // ok is driven by check_app, not the empty search result.
+    expect(result.ok).toBe(true);
+  });
 });
