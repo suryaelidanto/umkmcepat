@@ -3,6 +3,7 @@ services:
     image: docker.io/postgres:16-alpine
     container_name: umkmcepat-postgres
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -22,6 +23,9 @@ services:
     image: docker.io/decolua/9router:latest
     container_name: umkmcepat-9router
     restart: unless-stopped
+    # Public DNS: rootless podman aardvark-dns can't forward to the host's
+    # systemd-resolved (127.0.0.53); pin resolvers reachable by IP.
+    dns: ["1.1.1.1", "8.8.8.8"]
     profiles:
       - ai
     depends_on:
@@ -42,6 +46,7 @@ services:
       dockerfile: Dockerfile.headroom
     container_name: umkmcepat-headroom
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     profiles:
       - ai
     environment:
@@ -53,6 +58,7 @@ services:
     image: docker.io/redis:7-alpine
     container_name: umkmcepat-redis
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     profiles:
       - redis
       - firecrawl
@@ -71,6 +77,7 @@ services:
     image: ghcr.io/firecrawl/firecrawl:latest
     container_name: umkmcepat-firecrawl-api
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     profiles:
       - firecrawl
     depends_on:
@@ -89,6 +96,7 @@ services:
     image: ghcr.io/firecrawl/firecrawl:latest
     container_name: umkmcepat-firecrawl-worker
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     profiles:
       - firecrawl
     depends_on:
@@ -104,6 +112,7 @@ services:
     image: ghcr.io/firecrawl/playwright-service:latest
     container_name: umkmcepat-firecrawl-browser
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     profiles:
       - firecrawl
     environment:

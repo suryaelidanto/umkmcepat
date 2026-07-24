@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: umkmcepat-app
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -68,6 +69,7 @@ services:
     image: umkmcepat-app:local
     container_name: umkmcepat-migrate
     restart: "no"
+    dns: ["1.1.1.1", "8.8.8.8"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,6 +83,7 @@ services:
     image: docker.io/decolua/9router:latest
     container_name: umkmcepat-9router
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     depends_on:
       - headroom
     environment:
@@ -99,6 +102,7 @@ services:
       dockerfile: Dockerfile.headroom
     container_name: umkmcepat-headroom
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     environment:
       HEADROOM_TELEMETRY: off
 
@@ -106,6 +110,7 @@ services:
     image: docker.io/postgres:16-alpine
     container_name: umkmcepat-postgres
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -132,6 +137,7 @@ services:
     image: docker.io/redis:7-alpine
     container_name: umkmcepat-firecrawl-redis
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     volumes:
       - firecrawl_redis_data:/data
 
@@ -139,6 +145,7 @@ services:
     image: ghcr.io/firecrawl/firecrawl:latest
     container_name: umkmcepat-firecrawl-api
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     depends_on:
       - firecrawl-redis
     environment:
@@ -152,6 +159,7 @@ services:
     image: ghcr.io/firecrawl/firecrawl:latest
     container_name: umkmcepat-firecrawl-worker
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     depends_on:
       - firecrawl-redis
       - firecrawl-browser
@@ -165,6 +173,7 @@ services:
     image: ghcr.io/firecrawl/playwright-service:latest
     container_name: umkmcepat-firecrawl-browser
     restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
     environment:
       PORT: 3000
 
