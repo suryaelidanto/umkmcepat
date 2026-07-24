@@ -205,7 +205,6 @@ Provider selection is explicit, env-driven, and behind internal adapters.
 | Rate limit | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`      |
 | Storage    | `OBJECT_STORAGE_PROVIDER`             | `local`                   | `src/lib/object-storage.ts`  |
 | Runtime    | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*` |
-| Monitoring | Sentry env                            | disabled unless env set   | Sentry config files          |
 
 Rules:
 

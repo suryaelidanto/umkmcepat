@@ -1,4 +1,3 @@
-import { sentryGlobalRequestMiddleware } from "@sentry/tanstackstart-react";
 import {
   createCsrfMiddleware,
   createStart,
@@ -89,10 +88,6 @@ const csrfMiddleware = createCsrfMiddleware({
 
 export const startInstance = createStart(() => {
   return {
-    requestMiddleware: [
-      sentryGlobalRequestMiddleware,
-      csrfMiddleware,
-      securityMiddleware,
-    ],
+    requestMiddleware: [csrfMiddleware, securityMiddleware],
   };
 });

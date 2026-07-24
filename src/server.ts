@@ -1,9 +1,6 @@
 import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
 
 import { register } from "@/lib/instrumentation";
-import { initSentry } from "@/lib/sentry";
-
-initSentry();
 
 // Run one-time startup validation + observability setup at server boot.
 const ready = register().catch((error) => {

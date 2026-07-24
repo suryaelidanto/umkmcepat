@@ -153,27 +153,7 @@ Rules for that deployment shape:
 
 ## Monitoring
 
-Sentry is optional locally. Leave Sentry env vars empty unless testing monitoring.
-
-```env
-SENTRY_DSN=""
-NEXT_PUBLIC_SENTRY_DSN=""
-```
-
-Production uses deployment secrets:
-
-```env
-SENTRY_DSN="https://example.ingest.sentry.io/project-id"
-NEXT_PUBLIC_SENTRY_DSN="https://example.ingest.sentry.io/project-id"
-```
-
-If source maps are uploaded during production builds, set the auth token only in CI/deployment secrets:
-
-```env
-SENTRY_AUTH_TOKEN="set-in-deployment-secrets"
-```
-
-Never commit `SENTRY_AUTH_TOKEN`, `.env.sentry-build-plugin`, or real DSNs/tokens.
+Error tracking is intentionally not wired (Sentry was removed). If error tracking is needed later, GlitchTip is Sentry-API-compatible and slots in behind a fresh adapter without rewriting call sites.
 
 ## Notes
 
