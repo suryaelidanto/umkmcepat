@@ -11,8 +11,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { devLog, isDevLoggingActive } from "./dev-log";
 
-const LOG_FILE = path.join(process.cwd(), "dev.log");
-const ROTATED = path.join(process.cwd(), "dev.log.1");
+// Use a process-unique log file so concurrent fire-and-forget devLog writes
+// from OTHER test files (which target the default ./dev.log) can never race
+// this file's assertions. DEV_LOG_FILE is read lazily by dev-log.ts.
+const LOG_FILE = path.join(process.cwd(), `dev.test-${process.pid}.log`);
+const ROTATED = `${LOG_FILE}.1`;
 
 function reset() {
   for (const f of [LOG_FILE, ROTATED]) {
@@ -25,8 +28,14 @@ function reset() {
 }
 
 describe("devLog", () => {
-  beforeEach(reset);
-  afterEach(reset);
+  beforeEach(() => {
+    process.env.DEV_LOG_FILE = LOG_FILE;
+    reset();
+  });
+  afterEach(() => {
+    reset();
+    delete process.env.DEV_LOG_FILE;
+  });
 
   it("is active when NODE_ENV is not production", () => {
     const orig = process.env.NODE_ENV;

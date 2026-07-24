@@ -1,10 +1,24 @@
 import { appendFile, rename, stat } from "node:fs/promises";
 import path from "node:path";
 
-const LOG_FILE = path.join(process.cwd(), "dev.log");
-const ROTATED_FILE = path.join(process.cwd(), "dev.log.1");
 const ROTATE_AT_BYTES = 5 * 1024 * 1024;
 let rotating = false;
+
+/**
+ * Resolve the log file lazily so tests can isolate from concurrent writers by
+ * setting DEV_LOG_FILE to a unique path. Defaults to ./dev.log (production).
+ * Read at call time (not module load) so env changes in tests take effect.
+ */
+function logFile(): string {
+  const name = process.env.DEV_LOG_FILE || "dev.log";
+  return path.isAbsolute(name) ? name : path.join(process.cwd(), name);
+}
+
+function rotatedFile(): string {
+  const name = process.env.DEV_LOG_FILE || "dev.log";
+  const base = path.isAbsolute(name) ? name : path.join(process.cwd(), name);
+  return `${base}.1`;
+}
 
 export function isDevLoggingActive() {
   return process.env.NODE_ENV !== "production";
@@ -27,7 +41,7 @@ export function devLog(
 async function writeToFile(line: string) {
   try {
     await maybeRotate(line);
-    await appendFile(LOG_FILE, line, "utf8");
+    await appendFile(logFile(), line, "utf8");
   } catch {
     // Best-effort: a logging failure must never break the request.
   }
@@ -37,9 +51,10 @@ async function maybeRotate(line: string) {
   if (rotating) {
     return;
   }
+  const file = logFile();
   let size: number;
   try {
-    size = (await stat(LOG_FILE)).size;
+    size = (await stat(file)).size;
   } catch {
     return; // file does not exist yet
   }
@@ -48,9 +63,9 @@ async function maybeRotate(line: string) {
   }
   rotating = true;
   try {
-    await rename(LOG_FILE, ROTATED_FILE); // overwrites prior .1
+    await rename(file, rotatedFile()); // overwrites prior .1
   } catch {
-    // ignore — next write recreates dev.log
+    // ignore — next write recreates the log file
   } finally {
     rotating = false;
   }
