@@ -24,7 +24,6 @@
     "graph:update": "graphify update . && graphify cluster-only . --no-label && graphify tree --label umkmcepat",
     "infra": "docker compose --profile ai up -d",
     "infra:down": "bun scripts/infra-down.ts",
-    "infra:firecrawl": "docker compose --profile firecrawl up -d",
     "infra:logs": "docker compose logs -f",
     "infra:minimal": "docker compose up -d",
     "infra:ps": "docker compose ps",

@@ -38,14 +38,6 @@ services:
       PROJECT_RUNTIME_ALLOWED_HOSTS: ${PROJECT_RUNTIME_ALLOWED_HOSTS:-127.0.0.1,localhost}
       PROJECT_RUNTIME_HEALTH_TIMEOUT_MS: ${PROJECT_RUNTIME_HEALTH_TIMEOUT_MS:-2000}
       PROJECT_RUNTIME_PROXY_TIMEOUT_MS: ${PROJECT_RUNTIME_PROXY_TIMEOUT_MS:-15000}
-      # Agent web search. Default off; when WEBSEARCH_PROVIDER=firecrawl, the
-      # app reaches the in-compose firecrawl-api service by Docker DNS name
-      # (NOT localhost — inside a container localhost is the app itself).
-      WEBSEARCH_PROVIDER: ${WEBSEARCH_PROVIDER:-none}
-      FIRECRAWL_BASE_URL: ${FIRECRAWL_BASE_URL:-http://firecrawl-api:3002}
-      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
-      WEBSEARCH_ALLOWLIST: ${WEBSEARCH_ALLOWLIST:-}
-      WEBSEARCH_DENYLIST: ${WEBSEARCH_DENYLIST:-}
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
@@ -128,59 +120,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Self-hosted Firecrawl for the source-generation agent's read-only web_search
-  # tool. Dedicated to this stack (NOT the personal Firecrawl on :3002) so the
-  # whole platform is self-contained. The app reaches firecrawl-api by Docker
-  # DNS name. Only needed when WEBSEARCH_PROVIDER=firecrawl; the app is fail-
-  # closed otherwise, so leaving these off does not block startup.
-  firecrawl-redis:
-    image: docker.io/redis:7-alpine
-    container_name: umkmcepat-firecrawl-redis
-    restart: unless-stopped
-    dns: ["1.1.1.1", "8.8.8.8"]
-    volumes:
-      - firecrawl_redis_data:/data
-
-  firecrawl-api:
-    image: ghcr.io/firecrawl/firecrawl:latest
-    container_name: umkmcepat-firecrawl-api
-    restart: unless-stopped
-    dns: ["1.1.1.1", "8.8.8.8"]
-    depends_on:
-      - firecrawl-redis
-    environment:
-      REDIS_URL: redis://firecrawl-redis:6379
-      PORT: 3002
-      HOST: 0.0.0.0
-      BETA_AUTH_ENABLED: "true"
-    # No host port published — only the app container reaches it in-network.
-
-  firecrawl-worker:
-    image: ghcr.io/firecrawl/firecrawl:latest
-    container_name: umkmcepat-firecrawl-worker
-    restart: unless-stopped
-    dns: ["1.1.1.1", "8.8.8.8"]
-    depends_on:
-      - firecrawl-redis
-      - firecrawl-browser
-    environment:
-      REDIS_URL: redis://firecrawl-redis:6379
-      WORKER_CONCURRENCY: "2"
-      BROWSER_BASE_URL: http://firecrawl-browser:3000
-    command: ["pnpm", "run", "workers"]
-
-  firecrawl-browser:
-    image: ghcr.io/firecrawl/playwright-service:latest
-    container_name: umkmcepat-firecrawl-browser
-    restart: unless-stopped
-    dns: ["1.1.1.1", "8.8.8.8"]
-    environment:
-      PORT: 3000
-
 volumes:
   postgres_data:
   nine_router_data:
   project_artifacts:
   project_thumbnails:
   uploads:
-  firecrawl_redis_data:

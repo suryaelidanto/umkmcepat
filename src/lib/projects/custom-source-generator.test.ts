@@ -878,7 +878,7 @@ describe("buildGeneratedAppAgentInstructions (prompt coherence)", () => {
 describe("read-only sub-agent toolset", () => {
   it("exposes only read-only tools (no writes, no further fan-out)", () => {
     const runCommand = vi.fn();
-    const tools = createReadOnlyAgentTools(runCommand, "project-1");
+    const tools = createReadOnlyAgentTools(runCommand);
     const names = Object.keys(tools).sort();
 
     // Present: inspection + research tools only.
@@ -887,12 +887,12 @@ describe("read-only sub-agent toolset", () => {
     expect(names).toContain("search_files");
     expect(names).toContain("check_app");
     expect(names).toContain("read_skill");
-    expect(names).toContain("web_search");
 
     // Absent by construction — a sub-agent may not mutate files or spawn
     // further sub-agents (one nesting level).
     expect(names).not.toContain("write_file");
     expect(names).not.toContain("replace_in_file");
     expect(names).not.toContain("spawn_subagent");
+    expect(names).not.toContain("web_search");
   });
 });

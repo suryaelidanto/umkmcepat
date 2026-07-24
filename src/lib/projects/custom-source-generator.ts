@@ -22,7 +22,6 @@ import {
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
-import { search } from "@/lib/websearch";
 
 /** Paths auto-touched by ensureStylesCoverClassNames — not agent edits. */
 const AUTO_STYLE_PATH = "src/index.css";
@@ -419,7 +418,7 @@ ${appSpec}`,
 }
 
 function createAgentTools(runCommand: RunCommand, projectId: string) {
-  const readOnlyTools = createReadOnlyAgentTools(runCommand, projectId);
+  const readOnlyTools = createReadOnlyAgentTools(runCommand);
   return {
     ...readOnlyTools,
     write_file: tool({
@@ -454,10 +453,7 @@ function createAgentTools(runCommand: RunCommand, projectId: string) {
  * sub-agents. No write_file/replace_in_file/spawn_subagent — a sub-agent may
  * only inspect + research, never mutate files or fan out further.
  */
-export function createReadOnlyAgentTools(
-  runCommand: RunCommand,
-  projectId: string,
-) {
+export function createReadOnlyAgentTools(runCommand: RunCommand) {
   return {
     list_files: tool({
       description: "List generated project files.",
@@ -502,26 +498,6 @@ export function createReadOnlyAgentTools(
         "Validate manifest, package policy, and source safety after edits.",
       inputSchema: z.object({}),
       execute: () => runCommand({ type: "check_app" }),
-    }),
-    web_search: tool({
-      description:
-        "Search the public web for business/reference context (e.g. a real business's domain, public info). Read-only: results are sanitized text returned to you, never written to files or executed. Disabled unless WEBSEARCH_PROVIDER is configured.",
-      inputSchema: z.object({ query: z.string() }),
-      execute: async ({ query }: { query: string }) => {
-        const outcome = await search(query, { projectId });
-        if (!outcome.ok) {
-          return outcome.reason;
-        }
-        if (outcome.result.results.length === 0) {
-          return "No web results.";
-        }
-        return outcome.result.results
-          .map(
-            (entry, index) =>
-              `${index + 1}. ${entry.title}\n${entry.url}\n${entry.excerpt}`,
-          )
-          .join("\n\n");
-      },
     }),
   };
 }

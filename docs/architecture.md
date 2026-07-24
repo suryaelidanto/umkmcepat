@@ -172,7 +172,7 @@ Stack:
 
 Agent tool runner:
 
-- The constrained server-owned agent tool runner exposes only file operations: `check_app`, `list_files`, `read_file`, `search_files`, `write_file`, `replace_in_file`, `read_skill`. There is no shell access. The runner enforces project file boundaries, blocks platform-owned executable files, records side effects, emits operation trace events, and blocks success when app/policy checks fail. Two platform-side read-only research tools (`web_search`, `spawn_subagent`) are defined directly in `createAgentTools` (async `execute`, no file side effects) rather than the synchronous file runner.
+- The constrained server-owned agent tool runner exposes only file operations: `check_app`, `list_files`, `read_file`, `search_files`, `write_file`, `replace_in_file`, `read_skill`. There is no shell access. The runner enforces project file boundaries, blocks platform-owned executable files, records side effects, emits operation trace events, and blocks success when app/policy checks fail. One platform-side read-only research tool (`spawn_subagent`) is defined directly in `createAgentTools` (async `execute`, no file side effects) rather than the synchronous file runner.
 - Platform-owned files the agent must not edit: `package.json`, `vite.config.ts`, `tsconfig.app.json`, `tsconfig.node.json`, `components.json`, `src/main.tsx`, `src/router.tsx` (beyond adding routes), `src/routes/__root.tsx` (beyond a shared layout), `src/routes/not-found.tsx`, `src/lib/utils.ts`, `src/index.css`, `src/content/site.ts`. Business data lives in `src/content/site.ts` as TS objects, not a database.
 - **Read-only sub-agents (`spawn_subagent`):** the source-generation agent may spawn a nested `ToolLoopAgent` for research fan-out (e.g. "find every CTA", "audit all images"). The sub-agent is **strictly read-only** — its tool set (`createReadOnlyAgentTools`) omits `write_file`, `replace_in_file`, and `spawn_subagent`, enforced by construction. **One nesting level**: a sub-agent cannot spawn further sub-agents. Bounded by `AI_AGENT_SUBAGENT_MAX_STEPS` (default 8, clamp 2–15). Parallelism comes from the SDK's native parallel tool calls within a step (the parent may call `spawn_subagent` multiple times in one step); the executor is re-entrant (no shared mutable state across concurrent calls, since the read-only subset is stateless). The single write authority stays with the parent's `write_file`/`replace_in_file`. Every spawn logged (`agent-loop` scope).
 
@@ -205,7 +205,6 @@ Provider selection is explicit, env-driven, and behind internal adapters.
 | Rate limit | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`      |
 | Storage    | `OBJECT_STORAGE_PROVIDER`             | `local`                   | `src/lib/object-storage.ts`  |
 | Runtime    | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*` |
-| Web search | `WEBSEARCH_PROVIDER`                  | `none` (disabled)         | `src/lib/websearch.ts`       |
 | Monitoring | Sentry env                            | disabled unless env set   | Sentry config files          |
 
 Rules:
@@ -244,10 +243,6 @@ AI requests go through Vercel AI SDK and 9Router:
 ```text
 UMKM Cepat UI -> UMKM Cepat API -> Vercel AI SDK -> 9Router -> provider -> model
 ```
-
-### Agent web search tool
-
-The source-generation agent may call a read-only `web_search` tool to gather public business/reference context. It is a **platform-side** tool (`src/lib/websearch.ts`) executed in the control plane and surfaced to the agent as sanitized text — never imported into generated source (the Phase-0 undeclared-import gate blocks that). It ships **disabled by default** (`WEBSEARCH_PROVIDER=none`); when `none`/unconfigured, `execute` returns a fail-closed "unavailable" string and never errors the build. Enabling points `FIRECRAWL_BASE_URL` at a **self-hosted** Firecrawl (no hosted/paid key is wired). Guardrails: SSRF/private-host block (loopback, RFC1918, link-local, cloud-metadata, malformed input), curated allowlist with deny-by-default + denylist override, HTML sanitize (strips script/style/iframe + remaining tags), per-result truncation, and devLog checkpoints. Results are plain text returned to the model; they are never written to files or executed.
 
 Local AI/observability stack:
 

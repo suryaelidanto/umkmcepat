@@ -38,7 +38,7 @@ bun run prod:down      # stop production stack (volumes persist)
 bun run prod:rebuild   # rebuild + restart (after code changes)
 ```
 
-The app binds `127.0.0.1:3000`; put Cloudflare Tunnel / Nginx / Caddy in front for TLS. A DEDICATED self-hosted Firecrawl stack (api + worker + browser + redis) runs in the same compose so the app reaches it at `http://firecrawl-api:3002` (set `WEBSEARCH_PROVIDER=firecrawl` in `.env` to activate the agent `web_search` tool). It does NOT touch any personal Firecrawl on port 3002. `.github/workflows/deploy.yml` is a backup/disabled deploy workflow (manual-only); uncomment its `push:` trigger when the VPS is provisioned.
+The app binds `127.0.0.1:3000`; put Cloudflare Tunnel / Nginx / Caddy in front for TLS. `.github/workflows/deploy.yml` is a backup/disabled deploy workflow (manual-only); uncomment its `push:` trigger when the VPS is provisioned.
 
 Server logs are written to `dev.log` at the repo root automatically during `bun run dev` (no toggle). Tail it live in a second terminal:
 
@@ -62,14 +62,6 @@ App: http://localhost:3000
 ```
 
 `bun run infra` starts Postgres plus the local AI/observability stack: 9Router and Headroom. Use `bun run infra:minimal` only when you need Postgres without AI/observability.
-
-Optional self-hosted Firecrawl for the source-generation agent's `web_search` tool (off by default; only needed to let the agent research the public web):
-
-```bash
-docker compose --profile firecrawl up -d   # host port 38383 -> container 3002
-```
-
-Then set `WEBSEARCH_PROVIDER=firecrawl` and `FIRECRAWL_BASE_URL=http://localhost:38383` in `.env` to activate the tool. The tool is fail-closed otherwise.
 
 Useful infrastructure commands:
 
