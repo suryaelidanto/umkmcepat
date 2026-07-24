@@ -5,6 +5,7 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 ## Core rules
 
 - Keep changes small and reviewable.
+- **Prefer self-explanatory code over comments.** Write code that says what it does through clear names and structure. Only add a comment when it explains a non-obvious _why_ — an invariant, a guarded edge case, a decision that would otherwise look wrong. Never write a comment that restates the code ("// loop over items" above `for`), narrates the obvious, or splits a section that a function name already communicates. When a comment becomes unnecessary, delete it; do not leave it "just in case."
 - Keep every developer-facing or internal-facing surface in English: docs, system prompts, agent prompts, code names, comments, logs, errors, test names, commits, scripts, and internal tooling copy.
 - Keep only consumer-facing product UI copy in Indonesian unless an i18n layer is introduced.
 - Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, uploads, or generated junk.

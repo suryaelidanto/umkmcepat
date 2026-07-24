@@ -280,7 +280,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
           try {
             controller.close();
           } catch {
-            // ignore
+            // stream already torn down
           }
         }
       };

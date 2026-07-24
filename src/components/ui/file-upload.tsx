@@ -17,13 +17,9 @@ export type FileUploadProps = {
   endpoint: string;
   /** Allowlisted upload purpose sent to the server. */
   purpose: string;
-  /** Called when the upload completes. */
   onUploaded?: (result: FileUploadResult) => void;
-  /** Called when the upload fails. */
   onError?: (message: string) => void;
-  /** Label shown in the dropzone. */
   label?: string;
-  /** Hint shown under the label. */
   hint?: string;
   className?: string;
   disabled?: boolean;

@@ -224,7 +224,6 @@ export async function getEnergyStats(userId: string): Promise<{
 
   const premiumExpiryLimit = new Date("9999-01-01");
 
-  // Sum free usage today.
   const [freeRow] = await prisma.$queryRaw<
     Array<{
       amount: number | null;
@@ -243,7 +242,6 @@ export async function getEnergyStats(userId: string): Promise<{
       AND "expiresAt" < ${premiumExpiryLimit}
   `;
 
-  // Sum premium balance (can cross day boundaries).
   const [premiumRow] = await prisma.$queryRaw<Array<{ amount: number | null }>>`
     SELECT SUM("amount")::int AS "amount"
     FROM "UserCredit"

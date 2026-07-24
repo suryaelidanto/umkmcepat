@@ -42,7 +42,6 @@ export async function cleanupProjectResources(
       message: error instanceof Error ? error.message : String(error),
     });
 
-  // 1. Stop running deployments before removing their materialized files.
   if (input.supervisor) {
     await Promise.all(
       input.deploymentIds.map(async (deploymentId) => {
@@ -55,7 +54,6 @@ export async function cleanupProjectResources(
     );
   }
 
-  // 2. Delete source/dist artifacts (local + R2).
   await Promise.all(
     input.artifactRefs.map(async (ref) => {
       if (!ref) {
@@ -93,7 +91,6 @@ export async function cleanupProjectResources(
     }),
   );
 
-  // 4. Delete the project thumbnail.
   if (input.thumbnailRef) {
     try {
       await deleteProjectThumbnail(input.thumbnailRef);

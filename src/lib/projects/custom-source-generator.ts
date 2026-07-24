@@ -1083,7 +1083,6 @@ export function ensurePreviewReadyCalled(
  * visually correct.
  */
 export function getTailwindCssRule(className: string): string | null {
-  // Spacing/sibling utilities
   const spaceY = className.match(/^space-y-(\d+|px|\[[^\]]+\])$/);
   if (spaceY) {
     const value = twSpacingValue(spaceY[1]);
@@ -1095,7 +1094,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}>*+*{margin-left:${value}}`;
   }
 
-  // Margin/padding (p, m with optional direction)
   const boxMatch = className.match(/^([pm])([tblrxy]?)-(\d+|px|\[[^\]]+\])$/);
   if (boxMatch) {
     const property = boxMatch[1] === "p" ? "padding" : "margin";
@@ -1107,7 +1105,6 @@ export function getTailwindCssRule(className: string): string | null {
     }
   }
 
-  // Text size (text-xs, text-2xl, …)
   const textSize = className.match(
     /^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl|8xl|9xl)$/,
   );
@@ -1118,13 +1115,11 @@ export function getTailwindCssRule(className: string): string | null {
     }
   }
 
-  // Text alignment (text-left, text-center, text-right, text-justify)
   const textAlign = className.match(/^text-(left|center|right|justify)$/);
   if (textAlign) {
     return `.${className}{text-align:${textAlign[1]}}`;
   }
 
-  // Font weight
   const fontWeight = className.match(
     /^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)$/,
   );
@@ -1143,7 +1138,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{font-weight:${weights[fontWeight[1]]}}`;
   }
 
-  // Colors (text-/bg-/border-{color}-{shade})
   const color = className.match(/^(text|bg|border)-([a-z]+)-(\d{2,3})$/);
   if (color) {
     const hex = twColorHex(color[2], color[3]);
@@ -1158,7 +1152,6 @@ export function getTailwindCssRule(className: string): string | null {
     }
   }
 
-  // Layout primitives
   const layoutSimple: Record<string, string> = {
     flex: "display:flex",
     "inline-flex": "display:inline-flex",
@@ -1173,7 +1166,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{${layoutSimple[className]}}`;
   }
 
-  // Alignment helpers
   const items = className.match(/^items-(start|end|center|baseline|stretch)$/);
   if (items) {
     const map: Record<string, string> = {
@@ -1196,7 +1188,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{justify-content:${map[justify[1]] ?? justify[1]}}`;
   }
 
-  // Flex direction / wrap
   const flexDir = className.match(/^flex-(row|row-reverse|col|col-reverse)$/);
   if (flexDir) {
     const map: Record<string, string> = {
@@ -1212,7 +1203,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{flex-wrap:${flexWrap[1]}}`;
   }
 
-  // Sizing helpers
   if (className === "w-full") {
     return `.${className}{width:100%}`;
   }
@@ -1229,7 +1219,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{max-width:100%}`;
   }
 
-  // Border / radius
   const rounded = className.match(/^rounded(-(sm|md|lg|xl|2xl|3xl))?$/);
   if (rounded) {
     const size = rounded[2] ?? "DEFAULT";
@@ -1251,7 +1240,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{border-width:1px;border-style:solid}`;
   }
 
-  // Opacity
   const opacity = className.match(/^opacity-(\d+)$/);
   if (opacity) {
     const n = Number(opacity[1]);
@@ -1260,7 +1248,6 @@ export function getTailwindCssRule(className: string): string | null {
     }
   }
 
-  // Position
   const positionSimple: Record<string, string> = {
     static: "position:static",
     relative: "position:relative",
@@ -1283,7 +1270,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{${insetDir[1]}:${twSpacingValue(insetDir[2])}}`;
   }
 
-  // Aspect ratio
   const aspect = className.match(/^aspect-(video|square|auto)$/);
   if (aspect) {
     const ratios: Record<string, string> = {
@@ -1294,7 +1280,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{aspect-ratio:${ratios[aspect[1]]}}`;
   }
 
-  // Backdrop blur
   const backdrop = className.match(/^backdrop-blur(-(sm|md|lg|xl|2xl|3xl))?$/);
   if (backdrop) {
     const size = backdrop[2] ?? "DEFAULT";
@@ -1371,7 +1356,6 @@ export function getTailwindCssRule(className: string): string | null {
       return `.${className}{${cssProperty[wideColor[1]]}:${hex}}`;
     }
   }
-  // Solid border colors (border-white, border-black, border-transparent)
   const solidBorder = className.match(/^border-(white|black|transparent)$/);
   if (solidBorder) {
     const map: Record<string, string> = {
@@ -1382,7 +1366,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{border-color:${map[solidBorder[1]]}}`;
   }
 
-  // Shadows
   const shadow = className.match(/^shadow(-(sm|md|lg|xl|2xl|inner))?$/);
   if (shadow) {
     const size = shadow[2] ?? "DEFAULT";
@@ -1398,7 +1381,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{box-shadow:${shadows[size] ?? shadows.DEFAULT}}`;
   }
 
-  // Transitions
   if (className === "transition") {
     return `.${className}{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-timing-function:cubic-bezier(0.4,0,0.2,1);transition-duration:150ms}`;
   }
@@ -1419,7 +1401,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{transition-timing-function:cubic-bezier(0,0,0.2,1)}`;
   }
 
-  // Form / interaction utilities
   if (className === "appearance-none") {
     return `.${className}{appearance:none;-webkit-appearance:none}`;
   }
@@ -1430,7 +1411,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{user-select:none;-webkit-user-select:none}`;
   }
 
-  // Overflow helpers
   if (className === "overflow-hidden") {
     return `.${className}{overflow:hidden}`;
   }
@@ -1450,7 +1430,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{overflow-y:auto}`;
   }
 
-  // Sizing
   const size = className.match(
     /^(w|h|min-w|min-h|max-w|max-h)-(\d+|px|\[[^\]]+\])$/,
   );
@@ -1458,7 +1437,6 @@ export function getTailwindCssRule(className: string): string | null {
     return `.${className}{${size[1]}:${twSpacingValue(size[2])}}`;
   }
 
-  // Whitespace / word-break
   if (className === "truncate") {
     return `.${className}{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}`;
   }
