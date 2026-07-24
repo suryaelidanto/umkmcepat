@@ -2145,7 +2145,7 @@ export function WorkspaceShell({
     <div className="flex h-dvh flex-col overflow-hidden bg-[#10100f] text-surface-warm-white">
       <nav
         aria-label="Pilih tampilan ruang kerja"
-        className="flex h-12 shrink-0 items-center gap-spacing-2 border-b border-surface-warm-white/10 bg-[#1b1b19] px-spacing-4 md:hidden"
+        className="sticky bottom-0 z-20 flex h-14 shrink-0 items-stretch gap-spacing-2 border-t border-surface-warm-white/10 bg-[#1b1b19] px-spacing-3 pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <button
           type="button"
@@ -2157,12 +2157,27 @@ export function WorkspaceShell({
         </button>
         <button
           type="button"
-          aria-pressed={mobileSurface === "preview"}
+          aria-pressed={mobileSurface === "preview" && activeTab === "preview"}
           disabled={!hasPreview && !isBuilding}
-          onClick={openPreviewPanel}
+          onClick={() => {
+            setActiveTab("preview");
+            openPreviewPanel();
+          }}
           className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary disabled:opacity-40"
         >
           Tampilan
+        </button>
+        <button
+          type="button"
+          aria-pressed={mobileSurface === "preview" && activeTab === "code"}
+          disabled={!hasPreview && !isBuilding}
+          onClick={() => {
+            setActiveTab("code");
+            openPreviewPanel();
+          }}
+          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary disabled:opacity-40"
+        >
+          Kode
         </button>
       </nav>
       <ResizablePanelGroup
@@ -3525,8 +3540,8 @@ function CodeView({
   }
 
   return (
-    <div className="grid h-full min-h-0 overflow-hidden border-t border-surface-warm-white/10 bg-[#10100f] text-surface-warm-white md:grid-cols-[280px_1fr]">
-      <aside className="min-h-0 overflow-y-auto border-r border-surface-warm-white/10 bg-[#181816] py-spacing-3">
+    <div className="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden border-t border-surface-warm-white/10 bg-[#10100f] text-surface-warm-white md:grid-cols-[280px_1fr] md:grid-rows-1">
+      <aside className="max-h-[38dvh] min-h-0 overflow-y-auto border-b border-surface-warm-white/10 bg-[#181816] py-spacing-3 md:max-h-none md:border-b-0 md:border-r">
         <div className="border-b border-surface-warm-white/8 px-spacing-4 pb-spacing-3">
           <p className="text-[11px] uppercase tracking-[0.16em] text-surface-warm-white/34">
             Explorer
