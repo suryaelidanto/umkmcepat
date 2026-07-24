@@ -55,10 +55,59 @@ services:
     restart: unless-stopped
     profiles:
       - redis
+      - firecrawl
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+
+  # Self-hosted Firecrawl for the source-generation agent's read-only
+  # web_search tool. Opt-in via the `firecrawl` profile
+  # (`docker compose --profile firecrawl up -d`). The app talks to firecrawl-api;
+  # the worker + browser service back the search/scrape. The host-side port
+  # (38383) is deliberately unusual to avoid colliding with a personal Firecrawl
+  # or any common OS-bound port; the container still listens on its default 3002.
+  firecrawl-api:
+    image: ghcr.io/firecrawl/firecrawl:latest
+    container_name: umkmcepat-firecrawl-api
+    restart: unless-stopped
+    profiles:
+      - firecrawl
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://redis:6379
+      PORT: 3002
+      HOST: 0.0.0.0
+      # Self-hosted: no Firecrawl-cloud key. The app authenticates with
+      # FIRECRAWL_API_KEY (set in .env) which the self-host image honors.
+      BETA_AUTH_ENABLED: "true"
+    ports:
+      - "38383:3002"
+
+  firecrawl-worker:
+    image: ghcr.io/firecrawl/firecrawl:latest
+    container_name: umkmcepat-firecrawl-worker
+    restart: unless-stopped
+    profiles:
+      - firecrawl
+    depends_on:
+      - redis
+      - firecrawl-browser
+    environment:
+      REDIS_URL: redis://redis:6379
+      WORKER_CONCURRENCY: "2"
+      BROWSER_BASE_URL: http://firecrawl-browser:3000
+    command: ["pnpm", "run", "workers"]
+
+  firecrawl-browser:
+    image: ghcr.io/firecrawl/playwright-service:latest
+    container_name: umkmcepat-firecrawl-browser
+    restart: unless-stopped
+    profiles:
+      - firecrawl
+    environment:
+      PORT: 3000
 
 volumes:
   postgres_data:

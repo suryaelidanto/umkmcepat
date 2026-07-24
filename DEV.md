@@ -47,6 +47,14 @@ App: http://localhost:3000
 
 `bun run infra` starts Postgres plus the local AI/observability stack: 9Router and Headroom. Use `bun run infra:minimal` only when you need Postgres without AI/observability.
 
+Optional self-hosted Firecrawl for the source-generation agent's `web_search` tool (off by default; only needed to let the agent research the public web):
+
+```bash
+docker compose --profile firecrawl up -d   # host port 38383 -> container 3002
+```
+
+Then set `WEBSEARCH_PROVIDER=firecrawl` and `FIRECRAWL_BASE_URL=http://localhost:38383` in `.env` to activate the tool. The tool is fail-closed otherwise.
+
 Useful infrastructure commands:
 
 ```bash
