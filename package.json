@@ -48,6 +48,7 @@
     "storybook:build": "storybook build",
     "storybook:ci": "bun run storybook:build && bun run test:storybook",
     "sweep:project-orphans": "bun scripts/sweep-orphan-project-resources.ts",
+    "sync:env": "bun scripts/sync-env.ts",
     "test": "vitest run --project unit",
     "test:changed": "vitest run --project unit --changed HEAD~1",
     "test:full": "vitest run --project unit",
