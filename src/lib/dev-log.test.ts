@@ -58,9 +58,21 @@ describe("devLog", () => {
   it("does not write in production", async () => {
     const orig = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
-    devLog("test-scope", "event", { projectId: "p2" });
+    // Unique marker so a concurrent async write from another test file (devLog
+    // is fire-and-forget) can't be mistaken for this call's output.
+    const marker = `prod-no-write-${Math.random().toString(36).slice(2)}`;
+    devLog("test-scope", marker, { projectId: "p2" });
     await new Promise((r) => setTimeout(r, 50));
-    expect(() => readFileSync(LOG_FILE, "utf8")).toThrow();
+    // In production, devLog returns before writeToFile, so the marker must
+    // never reach the file — regardless of whether the file exists from other
+    // tests' pending writes.
+    let contents = "";
+    try {
+      contents = readFileSync(LOG_FILE, "utf8");
+    } catch {
+      // File absent is also fine — the marker is definitely not present.
+    }
+    expect(contents).not.toContain(marker);
     process.env.NODE_ENV = orig;
   });
 
