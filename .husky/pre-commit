@@ -1,1 +1,1 @@
-bun run check:commit
+bun scripts/check-staged-fix.ts
