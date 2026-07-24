@@ -12,6 +12,7 @@ import {
   isBuildRecommendationHeld,
   isFreshWorkspaceCard,
   isWorkspaceBuildComplete,
+  messagesEqualForRender,
   PREPARING_POLL_INTERVAL_MS,
   PREPARING_TIMEOUT_MS,
   shouldShowBuildRecommendationComposer,
@@ -504,5 +505,95 @@ describe("hasAnsweredWorkspaceQuestion", () => {
         mode: "discuss",
       }),
     ).toBe(false);
+  });
+});
+
+describe("messagesEqualForRender", () => {
+  function userMsg(id: string, text: string): UIMessage {
+    return { id, role: "user", parts: [{ type: "text", text }] };
+  }
+
+  function assistantMsg(
+    id: string,
+    opts: {
+      text?: string;
+      toolCallId?: string;
+      toolState?: string;
+      toolOutput?: unknown;
+    } = {},
+  ): UIMessage {
+    const parts: UIMessage["parts"] = [];
+    if (opts.text !== undefined) {
+      parts.push({ type: "text", text: opts.text });
+    }
+    if (opts.toolCallId) {
+      parts.push({
+        type: "tool-presentWorkspaceCard",
+        toolCallId: opts.toolCallId,
+        state: opts.toolState ?? "output-available",
+        input: {},
+        output: opts.toolOutput ?? { workspaceCard: { type: "none" } },
+      } as UIMessage["parts"][number]);
+    }
+    return { id, role: "assistant", parts };
+  }
+
+  it("treats the same array as equal (lets reloadLatestChat skip a no-op replace)", () => {
+    const a = [
+      userMsg("u1", "Halo"),
+      assistantMsg("a1", { text: "Halo balik" }),
+    ];
+    expect(messagesEqualForRender(a, a)).toBe(true);
+    expect(messagesEqualForRender(a, [...a])).toBe(true);
+  });
+
+  it("returns false when the last assistant text differs (stream grew)", () => {
+    const current = [assistantMsg("a1", { text: "Ha" })];
+    const incoming = [assistantMsg("a1", { text: "Halo balik!" })];
+    expect(messagesEqualForRender(current, incoming)).toBe(false);
+  });
+
+  it("returns false when the server has an extra message (turn persisted a reply)", () => {
+    const current = [userMsg("u1", "Halo")];
+    const incoming = [
+      userMsg("u1", "Halo"),
+      assistantMsg("a1", { text: "balik" }),
+    ];
+    expect(messagesEqualForRender(current, incoming)).toBe(false);
+  });
+
+  it("returns false when ids or roles mismatch at the same index", () => {
+    const current = [userMsg("u1", "Halo")];
+    const incoming = [userMsg("u2", "Halo")];
+    expect(messagesEqualForRender(current, incoming)).toBe(false);
+  });
+
+  it("returns false when the tool-card part identity differs (new card arrived)", () => {
+    const current = [
+      assistantMsg("a1", {
+        text: "x",
+        toolCallId: "t1",
+        toolState: "input-available",
+      }),
+    ];
+    const incoming = [
+      assistantMsg("a1", {
+        text: "x",
+        toolCallId: "t1",
+        toolState: "output-available",
+      }),
+    ];
+    expect(messagesEqualForRender(current, incoming)).toBe(false);
+  });
+
+  it("returns true when only non-render-affecting fields change (metadata) — no re-key", () => {
+    const current = [assistantMsg("a1", { text: "x", toolCallId: "t1" })];
+    const incoming = [
+      {
+        ...assistantMsg("a1", { text: "x", toolCallId: "t1" }),
+        metadata: { ts: 1 },
+      },
+    ];
+    expect(messagesEqualForRender(current, incoming)).toBe(true);
   });
 });

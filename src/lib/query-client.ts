@@ -52,7 +52,12 @@ export async function fetchJson<T>(
   });
 
   if (response.status === 401) {
-    void handleUnauthorizedError(input);
+    // Await so the signOut + redirect completes before `parseApiResponse`
+    // throws below. Fire-and-forget (`void ...`) races the throw: the error
+    // propagates (and the request unwinds) before the dynamic import +
+    // signOut land, so a 401 could fail to sign the user out. The test
+    // "triggers signOut when a request returns 401" depends on this ordering.
+    await handleUnauthorizedError(input);
   }
 
   const result = await parseApiResponse<T>(response);

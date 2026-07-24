@@ -12,6 +12,10 @@ import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
 import {
+  classifyBuildFailure,
+  getIndonesianBuildFailureSummary,
+} from "@/lib/projects/build-logs";
+import {
   generateCustomProjectFilesWithAgent,
   repairGeneratedProjectFiles,
 } from "@/lib/projects/custom-source-generator";
@@ -587,7 +591,14 @@ async function handleGeneratePost(request: Request, routeId: string) {
             });
             send("error", {
               message: "AI belum bisa membangun website ini.",
-              detail: finalBuildResult.log?.slice(0, 500) || "Build gagal.",
+              // Never leak raw build logs (TS errors, [umkm:*] internals) to
+              // the end user. Send the safe Indonesian summary derived from
+              // the classified failure reason; the full log stays in the DB
+              // logText for the operator's "Kode" tab.
+              detail:
+                getIndonesianBuildFailureSummary(
+                  classifyBuildFailure(finalBuildResult.log ?? ""),
+                ) ?? "Build gagal.",
             });
           }
 
@@ -1284,7 +1295,10 @@ async function handleGeneratePost(request: Request, routeId: string) {
         ]);
         send("error", {
           message: "AI belum bisa membangun website ini.",
-          detail: rawErrorMessage,
+          // Never surface raw exception text to the end user (may contain
+          // internal paths/stack fragments). The raw message is already
+          // preserved in devLog + the ProjectBuild logText for operators.
+          detail: "Coba ulangi atau perbaiki deskripsi usahanya dulu.",
         });
       } finally {
         // Always debit if AI already ran (success or failure).

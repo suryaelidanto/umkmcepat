@@ -16,6 +16,74 @@ export function shouldRefreshWorkspaceAfterChatStatus(
   );
 }
 
+// Render-equivalence for two chat message arrays. `reloadLatestChat` does a
+// full `setMessages(serverMessages)` replace after a successful turn; if the
+// server copy is already what the client rendered from the stream, the
+// replace just re-keys the thread + resets scroll (the "chat reorders /
+// flickers every turn" symptom). This gate lets the reload skip the no-op
+// replace. Compares by length, per-index id+role, per-message part count, and
+// the last text + last workspace-card tool output of each message — enough to
+// detect the only differences that matter for rendering, without a deep JSON
+// walk of every part.
+export function messagesEqualForRender(
+  current: UIMessage[],
+  incoming: UIMessage[],
+) {
+  if (current === incoming) {
+    return true;
+  }
+  if (current.length !== incoming.length) {
+    return false;
+  }
+
+  for (let index = 0; index < current.length; index += 1) {
+    const a = current[index];
+    const b = incoming[index];
+    if (!a || !b) {
+      return false;
+    }
+    if (a.id !== b.id || a.role !== b.role) {
+      return false;
+    }
+    if (a.parts.length !== b.parts.length) {
+      return false;
+    }
+    if (lastMessageTextSignature(a) !== lastMessageTextSignature(b)) {
+      return false;
+    }
+    if (lastToolCardSignature(a) !== lastToolCardSignature(b)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function lastMessageTextSignature(message: UIMessage) {
+  for (let index = message.parts.length - 1; index >= 0; index -= 1) {
+    const part = message.parts[index];
+    if (part.type === "text") {
+      return part.text ?? "";
+    }
+  }
+  return "";
+}
+
+function lastToolCardSignature(message: UIMessage) {
+  for (let index = message.parts.length - 1; index >= 0; index -= 1) {
+    const part = message.parts[index] as {
+      type?: string;
+      state?: string;
+      toolCallId?: string;
+      output?: { workspaceCard?: unknown };
+    };
+    if (part.type?.startsWith("tool-")) {
+      return `${part.type}:${part.state ?? ""}:${part.toolCallId ?? ""}`;
+    }
+  }
+  return "";
+}
+
 export function getBuildRecommendationHoldSignature(card: WorkspaceCard) {
   if (card.type !== "build_recommendation") {
     return "";

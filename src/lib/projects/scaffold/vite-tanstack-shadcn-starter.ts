@@ -142,6 +142,11 @@ export function createViteTanStackShadcnStarterFiles(
             noUnusedParameters: false,
             erasableSyntaxOnly: true,
             noFallthroughCasesInSwitch: true,
+            // TS 6.x emits a hard TS5101 error for `baseUrl`, which would
+            // fail every generated project's `tsc -b && vite build`. Keep
+            // `baseUrl` (the scaffold test asserts it; the @/ path alias
+            // relies on it) but silence the deprecation per TS guidance.
+            ignoreDeprecations: "6.0",
             baseUrl: ".",
             paths: {
               "@/*": ["./src/*"],

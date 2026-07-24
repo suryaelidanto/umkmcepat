@@ -71,6 +71,7 @@ import {
   isBuildRecommendationHeld,
   isFreshWorkspaceCard,
   isWorkspaceBuildComplete,
+  messagesEqualForRender,
   PREPARING_POLL_INTERVAL_MS,
   PREPARING_TIMEOUT_MS,
   shouldRefreshWorkspaceAfterChatStatus,
@@ -1046,6 +1047,31 @@ export function WorkspaceShell({
   useEffect(() => {
     allMessagesRef.current = allMessages;
   }, [allMessages]);
+
+  // Drive the workspace card from the streamed assistant tool output as it
+  // arrives, not only on the `status` → `ready` transition. This makes the
+  // card appear in the same render cycle as the AI text instead of after an
+  // extra fetch, and removes the "card flashes old/empty then snaps to new"
+  // gap between stream-end and the post-status effect. Guarded by
+  // isFreshWorkspaceCard so we never redundantly re-set the same card.
+  useEffect(() => {
+    const toolCard = getWorkspaceCardFromMessages(allMessages);
+    if (!toolCard || toolCard.workspaceCard.type === "none") {
+      return;
+    }
+    if (
+      !isFreshWorkspaceCard(toolCard.workspaceCard, workspaceCardRef.current) &&
+      toolCard.workspaceCard.type === workspaceCardRef.current.type
+    ) {
+      return;
+    }
+    setWorkspaceCard(toolCard.workspaceCard);
+    if (toolCard.projectTitle) {
+      setProjectTitle(toolCard.projectTitle);
+      setDraftTitle(toolCard.projectTitle);
+    }
+    setWorkspaceCardError(false);
+  }, [allMessages, setWorkspaceCard, setProjectTitle, setDraftTitle]);
   const visibleMessages = useMemo(
     () =>
       filterDiscussionMessagesWithWorkspaceUi(allMessages, mode === "discuss"),
@@ -1198,8 +1224,18 @@ export function WorkspaceShell({
       return;
     }
 
-    setMessages(result.messages || []);
-    setOlderMessages([]);
+    const incoming = result.messages || [];
+
+    // After a successful turn the streamed assistant message already IS the
+    // rendered state. A full `setMessages(server)` replace here would re-key
+    // the thread + reset scroll (the "chat reorders / flickers every turn"
+    // symptom). Skip the no-op replace when the server copy is
+    // render-equivalent to what's already on screen. Still update pagination
+    // cursors — those are cheap and the server is the authority for them.
+    if (!messagesEqualForRender(allMessagesRef.current, incoming)) {
+      setMessages(incoming);
+      setOlderMessages([]);
+    }
     setChatCursor(result.nextCursor ?? null);
     setHasMoreChat(Boolean(result.hasMore));
   }, [projectId, setMessages]);
@@ -1511,7 +1547,21 @@ export function WorkspaceShell({
   // (404) → composer stays ready. Never calls `sendMessage` for a running
   // turn — that would create a second turn. ponytail: if useChat v4 grows a
   // clean transport-resume API, swap the poll loop for it; the helper stays.
+  //
+  // Skip while THIS client is actively driving a turn (submitted/streaming).
+  // The optimistic user message that `sendMessage` pushes re-triggers this
+  // effect (deps include `messages`), and the poll races the in-flight POST:
+  // if the GET /chat/turn lands before the POST claims the new running turn,
+  // it sees the PREVIOUS completed turn (`succeeded` → reload) and
+  // `reloadLatestChat` replaces `messages` with a DB copy that doesn't yet
+  // contain the just-sent user message — wiping the user's chat bubble until
+  // the AI finishes replying. Only the cold-start path (`status === ready`
+  // with a trailing user message) is the resume's job.
   useEffect(() => {
+    if (status === "submitted" || status === "streaming") {
+      return;
+    }
+
     const last = messages.at(-1);
     if (!last || last.role !== "user") {
       return;
@@ -1551,7 +1601,7 @@ export function WorkspaceShell({
     return () => {
       canceled = true;
     };
-  }, [messages, projectId, reloadLatestChat]);
+  }, [messages, projectId, reloadLatestChat, status]);
 
   useEffect(() => {
     const previous = previousChatStatus.current;
@@ -1582,7 +1632,11 @@ export function WorkspaceShell({
         }
         setWorkspaceCardError(false);
         setIsPreparingNextQuestion(false);
-        void reloadLatestChat();
+        // The streamed assistant message is already the rendered source of
+        // truth — a `reloadLatestChat()` here would fetch the server copy and
+        // re-replace the thread (re-key + scroll reset = the reorder flicker).
+        // reloadLatestChat is now a no-op when render-equal anyway, but skipping
+        // the round-trip avoids the render entirely.
         // Card from tool is instant; brief for Mulai build lives on server only.
         void loadWorkspaceState({ preserveCard: true });
         return;
