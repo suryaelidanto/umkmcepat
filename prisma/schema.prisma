@@ -84,6 +84,7 @@ model User {
   projects        Project[]
   editAttempts    ProjectEditAttempt[]
   assets          ProjectAsset[]
+  waitlistEntries WaitlistEntry[]
   credits         UserCredit[]
   otpRequests     OtpRequest[]
   payments        Payment[]
@@ -396,20 +397,44 @@ model VerificationToken {
 }
 
 model Payment {
-  id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orderId        String   @unique
-  amount         Int      // Rupiah (cth: 2900)
-  energyGranted  Int      // Jumlah energi (cth: 50000)
-  status         String   @default("PENDING") // PENDING, COMPLETED, FAILED
-  paymentMethod  String?  // qris, va, cimb_niaga_va, dll
-  paymentNumber  String?  // QRIS payload / Nomor VA
-  type           String   @default("ENERGY_BOOSTER")
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId       String   @unique
+  amount        Int // Rupiah (cth: 2900)
+  energyGranted Int // Jumlah energi (cth: 50000)
+  status        String   @default("PENDING") // PENDING, COMPLETED, FAILED
+  paymentMethod String? // qris, va, cimb_niaga_va, dll
+  paymentNumber String? // QRIS payload / Nomor VA
+  type          String   @default("ENERGY_BOOSTER")
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([userId])
   @@index([status])
+}
+
+/// Pre-auth pilot waitlist entry. Admin approval gates product access; a
+/// signed-up user whose email matches an approved entry is let through, others
+/// are redirected to /waitlist. The image (optional) uses the project-asset
+/// upload primitive; story is required for approval confidence.
+model WaitlistEntry {
+  id              String    @id @default(cuid())
+  email           String    @unique @db.VarChar(160)
+  phone           String?   @db.VarChar(40)
+  businessName    String    @db.VarChar(160)
+  businessType    String?   @db.VarChar(120)
+  story           String    @db.Text
+  imageRef        String?   @db.Text
+  status          String    @default("pending") @db.VarChar(24)
+  submittedAt     DateTime  @default(now())
+  reviewedAt      DateTime?
+  reviewerId      String?   @db.VarChar(160)
+  rejectionReason String?   @db.Text
+  linkedUserId    String?   @db.VarChar(160)
+  user            User?     @relation(fields: [linkedUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([linkedUserId])
 }

@@ -24,6 +24,8 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   const isWorkspace =
     pathname.startsWith("/projects/") && pathname !== "/projects/new";
   const isVerifyPage = pathname === "/verify" || targetPathname === "/verify";
+  const isWaitlistPage =
+    pathname === "/waitlist" || targetPathname === "/waitlist";
 
   const verificationQuery = useQuery({
     queryKey: queryKeys.verification,
@@ -41,8 +43,26 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     refetchOnReconnect: false,
   });
 
+  // Waitlist gate: only meaningful once verified. Anonymous users get status
+  // null and are left alone (landing + /waitlist are reachable). A signed-in,
+  // verified, non-approved user is redirected to /waitlist.
+  const isVerified = Boolean(verificationQuery.data?.verified);
+  const waitlistQuery = useQuery({
+    queryKey: queryKeys.waitlistStatus,
+    queryFn: () =>
+      fetchJson<{ status: string | null }>("/api/user/waitlist", {
+        cache: "no-store",
+      }),
+    enabled: isVerified && !isVerifyPage && !isWaitlistPage,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
   useEffect(() => {
-    if (isVerifyPage) {
+    if (isVerifyPage || isWaitlistPage) {
       return;
     }
 
@@ -50,15 +70,30 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     // Errors should not bounce the user (matches previous allow-on-error).
     if (verificationQuery.isSuccess && !verificationQuery.data.verified) {
       router.replace("/verify");
+      return;
+    }
+
+    // Waitlist gate: a signed-in verified user without an approved entry is
+    // sent to /waitlist. null = no entry; pending/rejected = not yet approved.
+    if (
+      isVerified &&
+      waitlistQuery.isSuccess &&
+      waitlistQuery.data.status !== "approved"
+    ) {
+      router.replace("/waitlist");
     }
   }, [
     isVerifyPage,
+    isWaitlistPage,
+    isVerified,
     router,
     verificationQuery.data,
     verificationQuery.isSuccess,
+    waitlistQuery.data,
+    waitlistQuery.isSuccess,
   ]);
 
-  if (isVerifyPage) {
+  if (isVerifyPage || isWaitlistPage) {
     return <>{children}</>;
   }
 

@@ -22,6 +22,7 @@ export const queryKeys = {
   projectSnapshots: (projectId: string) =>
     ["projects", projectId, "snapshots"] as const,
   projectChat: (projectId: string) => ["projects", projectId, "chat"] as const,
+  waitlistStatus: ["waitlist-status"] as const,
 };
 
 export function createAppQueryClient() {

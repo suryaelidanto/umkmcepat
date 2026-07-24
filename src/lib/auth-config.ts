@@ -6,6 +6,7 @@ import type { AuthConfig } from "@auth/core";
 
 import { prisma } from "@/lib/prisma";
 import { getDiceBearAvatarUrl } from "@/lib/profile";
+import { linkApprovedWaitlistOnSignup } from "@/lib/waitlist";
 
 const googleConfigured = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
@@ -65,6 +66,18 @@ export const authConfig: AuthConfig = {
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
+  // When a user links an OAuth account (first sign-in), connect them to any
+  // approved pilot waitlist entry whose email matches, so the waitlist gate
+  // lets approved applicants through. Best-effort; never blocks sign-in.
+  events: {
+    async linkAccount({ user }) {
+      if (user?.id && user?.email) {
+        await linkApprovedWaitlistOnSignup(user.id, user.email).catch(
+          () => undefined,
+        );
+      }
+    },
+  },
   // The control plane sits behind a TLS-terminating proxy in production; trust
   // the forwarded host so OAuth callback URLs resolve to the public origin.
   trustHost: true,

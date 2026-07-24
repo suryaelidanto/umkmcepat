@@ -319,6 +319,14 @@ TURNSTILE_SECRET_KEY=""
 
 Leave both empty in local development to use the dev check. Set both in production if Turnstile should be enforced.
 
+### Pilot waitlist gate
+
+Access is gated by a pilot waitlist with admin approval (`src/lib/waitlist.ts`). A pre-auth `WaitlistEntry` model records email, phone, business name/type, a required business story (min 80 chars, validated), and an optional evidence image stored via the object-storage image path. Submission (`POST /api/waitlist`) is Turnstile-guarded, rate-limited, and idempotent on email (re-submit updates, doesn't dupe). An Auth.js `events.linkAccount` callback links an approved entry to the signing-in user (`linkedUserId`); `MainChrome` then checks `GET /api/user/waitlist` and redirects signed-in verified users whose entry isn't `approved` to `/waitlist`. Anonymous visitors are left alone so the landing page + waitlist form stay reachable. Admin is an env-driven email allowlist (`ADMIN_EMAILS`, no Role model): `requireAdmin` returns 401 for anonymous, 403 for non-admin, and the admin routes (`GET/POST /api/admin/waitlist`) list pending + approve/reject. Existing pilot users should be seeded as `approved` `WaitlistEntry` rows in the migration so no one is locked out.
+
+```env
+ADMIN_EMAILS="owner@example.com,admin@umkmcepat.com"
+```
+
 ## Safety checklist
 
 Before changing project, renderer, publishing, generated artifacts, providers, auth, storage, or AI behavior:
