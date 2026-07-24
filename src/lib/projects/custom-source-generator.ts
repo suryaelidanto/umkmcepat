@@ -442,13 +442,15 @@ function createAgentTools(runCommand: RunCommand) {
         }),
     }),
     search_files: tool({
-      description: "Search generated project files by exact text.",
+      description:
+        "Search generated project files by exact text. Returns matching file paths plus per-match line numbers and bounded context snippets (default 0 context lines). Use contextLines (0-5) to see surrounding lines without reading whole files, then range-read with read_file's startLineOneIndexed.",
       inputSchema: z.object({
+        contextLines: z.number().int().min(0).max(5).optional(),
         pathPrefix: z.string().optional(),
         query: z.string(),
       }),
-      execute: ({ pathPrefix, query }) =>
-        runCommand({ pathPrefix, query, type: "search_files" }),
+      execute: ({ contextLines, pathPrefix, query }) =>
+        runCommand({ contextLines, pathPrefix, query, type: "search_files" }),
     }),
     write_file: tool({
       description: "Create or overwrite a generated project file.",

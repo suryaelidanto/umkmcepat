@@ -23,7 +23,12 @@ export type GeneratedAppAgentToolCommand =
       startLineOneIndexed?: number;
       type: "read_file";
     }
-  | { query: string; pathPrefix?: string; type: "search_files" }
+  | {
+      contextLines?: number;
+      pathPrefix?: string;
+      query: string;
+      type: "search_files";
+    }
   | { content: string; path: string; type: "write_file" }
   | { find: string; path: string; replace: string; type: "replace_in_file" }
   | { name: string; type: "read_skill" };
@@ -38,12 +43,21 @@ const MAX_OPERATION_DETAIL_LENGTH = 500;
 const MAX_LIST_PATHS = 200;
 const MAX_READ_CHARS = 20_000;
 const MAX_SEARCH_PATHS = 100;
+const MAX_SEARCH_CONTEXT_LINES = 5;
+const MAX_SEARCH_MATCHES = 50;
 
 export type GeneratedAppAgentToolOutput = {
   error?: string;
+  matches?: GeneratedAppAgentSearchMatch[];
   paths?: string[];
   result?: string;
   type: GeneratedAppAgentToolCommand["type"];
+};
+
+export type GeneratedAppAgentSearchMatch = {
+  line: number;
+  path: string;
+  snippet: string;
 };
 
 export type GeneratedAppAgentCheckResult = {
@@ -196,15 +210,49 @@ export function runGeneratedAppAgentTools({
         continue;
       }
 
+      // An empty query is meaningless (String.includes("") is true everywhere)
+      // and would silently "match" every file. Reject it like replace_in_file
+      // rejects an empty find target.
+      if (!command.query) {
+        hasToolError = true;
+        const error = "Search query cannot be empty.";
+        emitFailed("Gagal mencari file", error, command.type);
+        outputs.push({ error, type: command.type });
+        continue;
+      }
+
       const pathPrefix = safePathPrefix.pathPrefix;
-      const allPaths = currentFiles
+      const contextLines = clampContextLines(command.contextLines);
+      const matchingFiles = currentFiles
         .filter((file) =>
           pathPrefix ? file.path.startsWith(pathPrefix) : true,
         )
         .filter((file) => file.content.includes(command.query))
-        .map((file) => file.path)
-        .sort();
+        .sort((a, b) => a.path.localeCompare(b.path));
+      const allPaths = matchingFiles.map((file) => file.path);
       const paths = allPaths.slice(0, MAX_SEARCH_PATHS);
+
+      // Per-match line numbers + bounded snippets so the agent can range-read
+      // the exact lines instead of whole files. Backward-compatible: `paths`
+      // still returns the matching file list.
+      const matches: GeneratedAppAgentSearchMatch[] = [];
+      for (const file of matchingFiles) {
+        if (matches.length >= MAX_SEARCH_MATCHES) {
+          break;
+        }
+        for (const match of findLineMatches(
+          file.content,
+          file.path,
+          command.query,
+          contextLines,
+        )) {
+          matches.push(match);
+          if (matches.length >= MAX_SEARCH_MATCHES) {
+            break;
+          }
+        }
+      }
+
       emit({
         detail:
           allPaths.length > paths.length
@@ -215,7 +263,7 @@ export function runGeneratedAppAgentTools({
         title: "Mencari file",
         type: command.type,
       });
-      outputs.push({ paths, type: command.type });
+      outputs.push({ matches, paths, type: command.type });
       continue;
     }
 
@@ -629,4 +677,52 @@ function lineReadDetail(fullContent: string, result: string) {
   return readLines === totalLines
     ? `${totalLines} baris dibaca.`
     : `${readLines} dari ${totalLines} baris dibaca.`;
+}
+
+function clampContextLines(value: number | undefined) {
+  if (value == null || Number.isNaN(value) || value <= 0) {
+    return 0;
+  }
+  return Math.min(Math.floor(value), MAX_SEARCH_CONTEXT_LINES);
+}
+
+function findLineMatches(
+  content: string,
+  path: string,
+  query: string,
+  contextLines: number,
+): GeneratedAppAgentSearchMatch[] {
+  if (!query) {
+    return [];
+  }
+
+  const hasTrailingNewline = content.endsWith("\n");
+  const lines = (hasTrailingNewline ? content.slice(0, -1) : content).split(
+    "\n",
+  );
+  const matches: GeneratedAppAgentSearchMatch[] = [];
+  const seenLines = new Set<number>();
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (matches.length >= MAX_SEARCH_MATCHES) {
+      break;
+    }
+    if (!lines[index].includes(query)) {
+      continue;
+    }
+    // A single source line may contain the query multiple times; dedupe per
+    // line so the model gets one match entry per line, not per occurrence.
+    if (seenLines.has(index)) {
+      continue;
+    }
+    seenLines.add(index);
+
+    const startIndex = Math.max(0, index - contextLines);
+    const endIndex = Math.min(lines.length - 1, index + contextLines);
+    const snippet = lines.slice(startIndex, endIndex + 1).join("\n");
+
+    matches.push({ line: index + 1, path, snippet });
+  }
+
+  return matches;
 }

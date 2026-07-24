@@ -416,6 +416,120 @@ describe("generated app agent tool runner", () => {
     expect(result.check?.ok).toBe(true);
   });
 
+  it("search_files returns per-match line numbers and context when requested", () => {
+    const result = runGeneratedAppAgentTools({
+      commands: [
+        { query: "Menu kopi", contextLines: 2, type: "search_files" },
+        { type: "check_app" },
+      ],
+      files: createFixtureFiles(),
+    });
+
+    expect(result.ok).toBe(true);
+
+    const matches = result.outputs[0]?.matches ?? [];
+    expect(matches.length).toBeGreaterThanOrEqual(1);
+
+    // Every match carries a 1-indexed line number, a path, and a snippet
+    // containing the query.
+    for (const match of matches) {
+      expect(typeof match.line).toBe("number");
+      expect(match.line).toBeGreaterThanOrEqual(1);
+      expect(typeof match.path).toBe("string");
+      expect(match.path.length).toBeGreaterThan(0);
+      expect(match.snippet).toContain("Menu kopi");
+    }
+
+    // Backward-compat: paths still lists every matching file (sorted).
+    const paths = result.outputs[0]?.paths ?? [];
+    expect(paths.length).toBeGreaterThanOrEqual(1);
+    const matchPaths = new Set(matches.map((match) => match.path));
+    for (const path of paths) {
+      expect(matchPaths.has(path)).toBe(true);
+    }
+
+    // With contextLines=2, at least one snippet is multi-line (context is
+    // present) — unless the match is on line 1 of a single-line file.
+    const multiLine = matches.some((match) => match.snippet.includes("\n"));
+    expect(multiLine).toBe(true);
+
+    // No single snippet exceeds the bounded size: 2 context lines per side +
+    // the match line => at most 5 lines.
+    for (const match of matches) {
+      expect(match.snippet.split("\n").length).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("search_files defaults to no context and caps it", () => {
+    // No contextLines requested: each snippet is exactly the matching line.
+    const noContext = runGeneratedAppAgentTools({
+      commands: [{ query: "Menu kopi", type: "search_files" }],
+      files: createFixtureFiles(),
+    });
+    const noContextMatches = noContext.outputs[0]?.matches ?? [];
+    expect(noContextMatches.length).toBeGreaterThanOrEqual(1);
+    for (const match of noContextMatches) {
+      expect(match.snippet).toContain("Menu kopi");
+      // A single line should not contain newlines when contextLines is 0.
+      expect(match.snippet.includes("\n")).toBe(false);
+    }
+
+    // contextLines clamped to the cap (5): requesting 100 still yields ≤ 5
+    // surrounding lines per side + the match line => ≤ 11 lines total.
+    const big = runGeneratedAppAgentTools({
+      commands: [
+        { query: "Menu kopi", contextLines: 100, type: "search_files" },
+      ],
+      files: createFixtureFiles(),
+    });
+    const bigMatches = big.outputs[0]?.matches ?? [];
+    expect(bigMatches.length).toBeGreaterThanOrEqual(1);
+    for (const match of bigMatches) {
+      expect(match.snippet.split("\n").length).toBeLessThanOrEqual(11);
+    }
+  });
+
+  it("search_files dedupes multiple matches on the same line", () => {
+    // Write a file where the query appears twice on one line, once on another,
+    // then scope the search to that file so other fixture content (which also
+    // contains "kopi") doesn't pollute the match count.
+    const result = runGeneratedAppAgentTools({
+      commands: [
+        {
+          content: "kopi kopi\nlatte\nkopi\n",
+          path: "src/lib/dup.ts",
+          type: "write_file",
+        },
+        {
+          query: "kopi",
+          contextLines: 0,
+          pathPrefix: "src/lib/dup.ts",
+          type: "search_files",
+        },
+      ],
+      files: createFixtureFiles(),
+    });
+
+    const matches =
+      result.outputs.find((output) => output.type === "search_files")
+        ?.matches ?? [];
+    // Lines 1 and 3 match, but line 1 has the query twice -> one entry.
+    expect(matches).toHaveLength(2);
+    expect(matches.map((match) => match.line)).toEqual([1, 3]);
+  });
+
+  it("search_files rejects an empty query instead of matching everything", () => {
+    const result = runGeneratedAppAgentTools({
+      commands: [{ query: "", type: "search_files" }],
+      files: createFixtureFiles(),
+    });
+    // Fail-closed: an empty query must error, not silently list every file.
+    expect(result.ok).toBe(false);
+    expect(result.outputs[0]?.error).toBe("Search query cannot be empty.");
+    expect(result.outputs[0]?.matches).toBeUndefined();
+    expect(result.outputs[0]?.paths).toBeUndefined();
+  });
+
   it("rejects unsafe list and search prefixes", () => {
     const result = runGeneratedAppAgentTools({
       commands: [
