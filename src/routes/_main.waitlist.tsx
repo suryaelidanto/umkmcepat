@@ -55,7 +55,7 @@ function WaitlistPage() {
         <h1 className="text-heading-lg font-[600] tracking-[-0.9px]">
           Terima kasih, {businessName || "kamu"}!
         </h1>
-        <p className="text-body-large text-secondary">
+        <p className="text-body-large text-muted-foreground">
           Permintaan kamu masuk antrian pilot. Kami akan meninjau cerita usaha
           kamu dan menghubungi lewat email begitu disetujui.
         </p>
@@ -69,7 +69,7 @@ function WaitlistPage() {
         <h1 className="text-heading-xl font-[600] tracking-[-1.2px]">
           Gabung antrian pilot UMKM Cepat
         </h1>
-        <p className="text-body-large text-secondary">
+        <p className="text-body-large text-muted-foreground">
           Kami membuka pilot bertahap untuk UMKM Indonesia. Ceritakan usaha kamu
           — semakin jelas, semakin yakin kami menyetujui. Gambar usaha opsional
           tapi membantu.
@@ -143,12 +143,12 @@ function WaitlistPage() {
             name="file"
             type="file"
             accept="image/png,image/jpeg,image/webp"
-            className="text-body-small text-secondary"
+            className="text-body-small text-muted-foreground"
           />
         </Field>
 
         {hasTurnstile ? (
-          <p className="text-body-small text-secondary">
+          <p className="text-body-small text-muted-foreground">
             Verifikasi keamanan akan muncul sebelum submit.
           </p>
         ) : null}
@@ -185,7 +185,7 @@ function Field({
       </span>
       {children}
       {hint ? (
-        <span className="text-body-small text-secondary">{hint}</span>
+        <span className="text-body-small text-muted-foreground">{hint}</span>
       ) : null}
     </label>
   );

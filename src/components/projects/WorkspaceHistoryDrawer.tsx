@@ -142,7 +142,9 @@ export function WorkspaceHistoryDrawer({
         </DialogHeader>
 
         {isLoading ? (
-          <p className="text-body-small text-secondary">Memuat riwayat...</p>
+          <p className="text-body-small text-muted-foreground">
+            Memuat riwayat...
+          </p>
         ) : null}
 
         {error ? (
@@ -152,7 +154,7 @@ export function WorkspaceHistoryDrawer({
         ) : null}
 
         {!isLoading && !error && snapshots.length === 0 ? (
-          <p className="text-body-small text-secondary">
+          <p className="text-body-small text-muted-foreground">
             Belum ada riwayat tersimpan.
           </p>
         ) : null}
@@ -176,7 +178,7 @@ export function WorkspaceHistoryDrawer({
                       ? ` · ${snapshot.fileCount} file`
                       : ""}
                   </span>
-                  <span className="text-body-small text-secondary">
+                  <span className="text-body-small text-muted-foreground">
                     {formatDate(snapshot.createdAt)} · {buildLabel}
                   </span>
                   {!snapshot.restorable ? (
