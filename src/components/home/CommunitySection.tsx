@@ -35,11 +35,13 @@ type ContributorCard = {
   recentCommits: number;
   recentAdditions: number;
   recentDeletions: number;
-  weeks: ContributionWeek[];
+  weeks?: ContributionWeek[];
 };
 
 const STATS_URL =
   "https://api.github.com/repos/suryaelidanto/umkmcepat/stats/contributors";
+const CONTRIBUTORS_URL =
+  "https://api.github.com/repos/suryaelidanto/umkmcepat/contributors";
 const ALL_CONTRIBUTORS_URL =
   "https://github.com/suryaelidanto/umkmcepat/graphs/contributors";
 const REPOSITORY_URL = "https://github.com/suryaelidanto/umkmcepat";
@@ -120,15 +122,29 @@ function formatCompact(value: number) {
 
 async function getTopContributors(): Promise<ContributorCard[]> {
   try {
-    const response = await fetch(STATS_URL, {
-      headers: getGithubHeaders(),
-    });
-
-    if (!response.ok) {
-      return [];
+    // GitHub computes /stats/contributors lazily: the first call often
+    // returns 202 with an empty body while the cache builds. Retry a couple
+    // times before giving up.
+    let stats: GithubStatsContributor[] | null = null;
+    for (let attempt = 0; attempt < 3 && stats === null; attempt += 1) {
+      const response = await fetch(STATS_URL, {
+        headers: getGithubHeaders(),
+      });
+      if (response.status === 202) {
+        // Still computing; wait briefly and retry.
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        continue;
+      }
+      if (!response.ok) {
+        return [];
+      }
+      const body = (await response.json()) as GithubStatsContributor[];
+      stats = Array.isArray(body) ? body : [];
     }
 
-    const stats = (await response.json()) as GithubStatsContributor[];
+    if (!stats || stats.length === 0) {
+      return [];
+    }
 
     return stats
       .filter(
@@ -179,6 +195,46 @@ async function getTopContributors(): Promise<ContributorCard[]> {
   }
 }
 
+// Fallback when /stats/contributors is stuck on GitHub's lazy 202: the plain
+// /contributors endpoint returns immediately but has no weekly breakdown, so
+// the card renders without the mini-chart (just avatar + login + total).
+type GithubContributor = {
+  login: string;
+  contributions: number;
+  avatar_url: string;
+  html_url: string;
+};
+
+async function getContributorsFallback(): Promise<ContributorCard[]> {
+  try {
+    const response = await fetch(CONTRIBUTORS_URL, {
+      headers: getGithubHeaders(),
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const body = (await response.json()) as GithubContributor[];
+    if (!Array.isArray(body)) {
+      return [];
+    }
+    return body
+      .filter((contributor) => contributor.login.toLowerCase() !== "claude")
+      .map((contributor) => ({
+        login: contributor.login,
+        avatarUrl: `${contributor.avatar_url}&s=104`,
+        profileUrl: contributor.html_url,
+        totalCommits: contributor.contributions,
+        recentCommits: contributor.contributions,
+        recentAdditions: 0,
+        recentDeletions: 0,
+      }))
+      .sort((left, right) => right.totalCommits - left.totalCommits)
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
 function MiniChart({
   weeks,
   maxCommits,
@@ -221,7 +277,8 @@ function MiniChart({
 }
 
 export async function getCommunityContributors(): Promise<ContributorCard[]> {
-  return getTopContributors();
+  const stats = await getTopContributors();
+  return stats.length > 0 ? stats : getContributorsFallback();
 }
 
 export function CommunitySection({
@@ -232,7 +289,7 @@ export function CommunitySection({
   const maxCommits = Math.max(
     1,
     ...contributors.flatMap((contributor) =>
-      contributor.weeks.map((week) => week.commits),
+      (contributor.weeks ?? []).map((week) => week.commits),
     ),
   );
 
@@ -301,30 +358,31 @@ export function CommunitySection({
                         </a>
                         <p className="mt-spacing-1 text-xs text-surface-warm-white/50">
                           <span>{contributor.recentCommits} commits</span>
-                          <span className="ml-spacing-3 text-github-blue">
-                            +{formatCompact(contributor.recentAdditions)}
-                          </span>
-                          <span className="ml-spacing-2 text-github-red">
-                            -{formatCompact(contributor.recentDeletions)}
-                          </span>
+                          {contributor.weeks ? (
+                            <>
+                              <span className="ml-spacing-3 text-github-blue">
+                                +{formatCompact(contributor.recentAdditions)}
+                              </span>
+                              <span className="ml-spacing-2 text-github-red">
+                                -{formatCompact(contributor.recentDeletions)}
+                              </span>
+                            </>
+                          ) : null}
                         </p>
                       </div>
                     </div>
-                    <div className="w-full sm:w-48">
-                      <MiniChart
-                        weeks={contributor.weeks}
-                        maxCommits={maxCommits}
-                      />
-                    </div>
+                    {contributor.weeks ? (
+                      <div className="w-full sm:w-48">
+                        <MiniChart
+                          weeks={contributor.weeks}
+                          maxCommits={maxCommits}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="mt-spacing-8 border-t border-white/[0.07] pt-spacing-7 text-sm leading-6 text-surface-warm-white/68">
-                Data kontributor belum bisa dibaca. Tambahkan GITHUB_TOKEN di
-                env server untuk menaikkan batas akses Github API.
-              </div>
-            )}
+            ) : null}
           </div>
         </ScrollReveal>
 
