@@ -37,7 +37,7 @@ bun run prod:down      # stop production stack (volumes persist)
 bun run prod:rebuild   # rebuild + restart (after code changes)
 ```
 
-The app binds `127.0.0.1:3000`; put Cloudflare Tunnel / Nginx / Caddy in front for TLS. The app joins the external `firecrawl_backend` Docker network so it can reach your self-hosted Firecrawl at `http://firecrawl-api-1:3002` (set `WEBSEARCH_PROVIDER=firecrawl` in `.env` to activate the agent `web_search` tool). `.github/workflows/deploy.yml` is a backup/disabled deploy workflow (manual-only); uncomment its `push:` trigger when the VPS is provisioned.
+The app binds `127.0.0.1:3000`; put Cloudflare Tunnel / Nginx / Caddy in front for TLS. A DEDICATED self-hosted Firecrawl stack (api + worker + browser + redis) runs in the same compose so the app reaches it at `http://firecrawl-api:3002` (set `WEBSEARCH_PROVIDER=firecrawl` in `.env` to activate the agent `web_search` tool). It does NOT touch any personal Firecrawl on port 3002. `.github/workflows/deploy.yml` is a backup/disabled deploy workflow (manual-only); uncomment its `push:` trigger when the VPS is provisioned.
 
 Server logs are written to `dev.log` at the repo root automatically during `bun run dev` (no toggle). Tail it live in a second terminal:
 
