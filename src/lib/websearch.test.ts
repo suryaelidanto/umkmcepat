@@ -41,6 +41,17 @@ describe("websearch guards", () => {
       expect(isPrivateHost("")).toBe(true);
       expect(isPrivateHost("not a host !!!")).toBe(true);
     });
+
+    it("blocks SSRF IP-encoding bypasses (decimal, hex, octal)", () => {
+      // Decimal 2130706433 == 127.0.0.1.
+      expect(isPrivateHost("2130706433")).toBe(true);
+      // Hex 0x7f000001 == 127.0.0.1.
+      expect(isPrivateHost("0x7f000001")).toBe(true);
+      // Octal dotted-quad 0177.0.0.1 == 127.0.0.1.
+      expect(isPrivateHost("0177.0.0.1")).toBe(true);
+      // Hex octet in a dotted-quad.
+      expect(isPrivateHost("0x7f.0.0.1")).toBe(true);
+    });
   });
 
   describe("sanitizeSearchResult", () => {

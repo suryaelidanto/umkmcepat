@@ -77,10 +77,36 @@ export function isPrivateHost(host: string): boolean {
     return true;
   }
 
+  // SSRF bypass encodings: a bare all-numeric host is a decimal IP (e.g.
+  // 2130706433 == 127.0.0.1); a 0x-prefixed host is hex. Both are unparseable
+  // as a hostname and must never reach the network — treat as private.
+  if (/^\d+$/.test(normalized) || /^0x[0-9a-f]+$/.test(normalized)) {
+    return true;
+  }
+
+  // Octal/hex dotted-quad bypass (e.g. 0177.0.0.1 == 127.0.0.1, 0x7f.0.0.1).
+  // Any octet with a leading zero (length > 1) or 0x prefix is fail-closed.
+  const octetBypass = normalized.match(
+    /^(0x[0-9a-f]+|0\d+|\d+)\.(0x[0-9a-f]+|0\d+|\d+)\.(0x[0-9a-f]+|0\d+|\d+)\.(0x[0-9a-f]+|0\d+|\d+)$/,
+  );
+  if (octetBypass) {
+    const octets = [
+      octetBypass[1],
+      octetBypass[2],
+      octetBypass[3],
+      octetBypass[4],
+    ];
+    if (octets.some((octet) => /^0\d/.test(octet) || /^0x/.test(octet))) {
+      return true;
+    }
+  }
+
   // IPv4 dotted-quad checks.
   const v4 = normalized.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (v4) {
     const [a, b] = [Number(v4[1]), Number(v4[2])];
+    const c = Number(v4[3]);
+    const d = Number(v4[4]);
     if (a === 127 || a === 0 || a === 10) {
       return true;
     }
@@ -95,7 +121,7 @@ export function isPrivateHost(host: string): boolean {
     }
     // Anything that doesn't parse as a valid public quad (e.g. 999.999.999.999)
     // is treated as private/fail-closed.
-    if (a > 255 || b > 255 || Number(v4[3]) > 255 || Number(v4[4]) > 255) {
+    if (a > 255 || b > 255 || c > 255 || d > 255) {
       return true;
     }
     return false;
