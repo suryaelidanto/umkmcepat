@@ -16,15 +16,15 @@ Five concerns the user raised: (1) the chrome is supposed to be dark `#151515` b
 
 ### Polish
 1. **Roll back TO dark.** Body root (`__root.tsx:103`), `MainChrome.tsx:109,122`, NotFound (`__root.tsx:69`) → dark `#151515` (the established Header/Footer/Hero chrome). The `bg-white` buttons + preview iframe stay (intentional accents). No theme toggle (none exists; not adding one).
-2. **Homepage copy = Direction B, SEO-grounded** (built on keyword research, 2026-07-25):
-   - **H1:** `Website yang bikin usahamu ketemu pembeli. 100% gratis.` — with an animated gradient underline on `100% gratis` (scroll-in draw) so the freeness visually lands.
-   - **Sub:** `Tulis aja usahamu — warung, toko, jasa. AI susun website yang siap dibagikan ke Google & WhatsApp, terima QRIS, dan bikin pelanggan gampang nemu kamu. Tanpa ngoding.` (no "100% gratis" repeat; LSI woven: Google, WhatsApp, QRIS, toko, dibagikan, tanpa ngoding).
-   - **`<title>`:** `Buat Website UMKM Gratis – AI 5 Menit | UMKM Cepat` (55 chars ≤58; keyword front-loaded; en-dash; brand last).
-   - **Meta description:** `Buat website UMKM gratis yang datangkan pembeli dari Google & WhatsApp, terima QRIS. AI susun 5 menit, tanpa ngoding. Mulai — gratis.` (147 chars ≤152; "gratis" qualified once).
-   - **Tagline:** `Website UMKM yang ketemu pembeli.` (outcome-led; for wordmark/footer/social).
-   - Primary keyword: `buat website UMKM gratis` (high demand, transactional, less saturated than "jasa website"). Exploitable gap: competitors sell *a website*; UMKM Cepat sells the *outcome* (buyers).
+2. **Homepage copy = locked set (SEO-grounded, user-finalized)** (built on keyword research, 2026-07-25):
+   - **H1:** `Bikin Website UMKM Biar Ketemu Pembeli. Cuma 5 Menit, 100% Gratis.` — with an animated gradient underline on `100% Gratis` (scroll-in draw) so the freeness visually lands. **No subheadline** — the H1 carries it all (cleaner, less to read).
+   - **`<title>`:** `Website UMKM Gratis dalam 5 Menit - Tanpa Ngoding | UMKM Cepat`
+   - **Meta description:** `Bikin website UMKM gratis dalam 5 menit pakai AI. Tanpa ngoding, siap dibagikan ke WhatsApp, gampang dicari pembeli. Coba UMKM Cepat!`
+   - **Tagline:** `Website Usaha Instan, Ketemu Pembeli.`
+   - **Honesty constraints baked in:** UMKM Cepat is a *static frontend builder* — NO payment-gateway/QRIS promises (removed everywhere); WhatsApp is the lead channel (the UMKM channel); Google appears only as the *discovery* outcome (SEO makes published sites indexable — true), never as an integration.
+   - Primary keyword: `buat website UMKM gratis` / `website UMKM gratis` (high demand, transactional, less saturated than "jasa website"). Exploitable gap: competitors sell *a website*; UMKM Cepat sells the *outcome* (ketemu pembeli) + speed (5 menit) + free.
 3. **JSON-LD `@graph` upgrade** (replaces the `WebSite`-only block in `__root.tsx`): `Organization` (name, url, logo, sameAs→GitHub) + `WebSite` + `SearchAction` (sitelinks search-box eligibility) + `SoftwareApplication` (operatingSystem:`Web`, applicationCategory:`BusinessApplication`, offers.price:`0`, priceCurrency:`IDR`). **No `aggregateRating` until real reviews exist** (Google manual-penalty risk).
-4. **LSI woven, not stuffed:** `UMKM` (title/H1/meta), `gratis` (qualified), `toko` (sub), `pelanggan/pembeli` (H1/sub), `Google` (sub/meta), `WhatsApp` (sub/meta), `QRIS` (sub/meta), `dibagikan` (sub), `tanpa ngoding` (sub/meta), `5 menit` (title/meta), `warung/jasa` (sub examples).
+4. **LSI woven, not stuffed:** `UMKM` (title/H1/meta), `gratis` (qualified), `pembeli` (H1/title/meta/tagline), `WhatsApp` (meta), `Google`/`dicari` (meta — discovery sense only), `dibagikan` (meta), `tanpa ngoding` (title/meta), `5 menit` (H1/title/meta), `usaha instan` (tagline). No QRIS/payment-gateway terms.
 
 ### Security (audit-driven; the big architecture is sound — no real secret leak found)
 5. **No secret leak (confirmed).** All 7 secrets server-only; no `NEXT_PUBLIC_*SECRET*`; build logs scrub secrets (`build-logs.ts:13-21`); no source maps shipped; no IDOR (every project route re-checks ownership); generated sites in prod are static-only (supervisor `noop`, build exec off — zero runtime-escape surface). No action needed beyond keeping it that way.
@@ -40,6 +40,8 @@ Five concerns the user raised: (1) the chrome is supposed to be dark `#151515` b
    - `runtime-proxy.ts:451,461` — `postMessage(..., '*')` → target the control-plane origin.
    - `generated-source.ts:450` — narrow the build child `PATH` to the bun bin dir + system dirs (today it inherits the full `PATH`).
    - `generated-source.ts:370` — enforce `bun install --frozen-lockfile` after validating a lockfile (or enforce lockfile presence).
+9. **Analytics — Umami + Uptime Kuma (self-hosted, both):** Umami = usage/behavior (pageviews + custom click events — the user's stated need), sharing the platform Postgres. Uptime Kuma = availability monitoring (is the site up; standalone SQLite, one container). They don't overlap (Umami watches *people*; Kuma watches *the server*). Both fit the 4GB VPS. Client-side `src/lib/analytics.ts` → `track(event, props)` gated: dev-off (no events), prod-on, **never on `/api/*` server routes or `/p/<slug>` published sites** (generated sites are the user's, not the platform's to instrument). Empty Umami key in dev = no-op.
+10. **SEO deepening (legitimate maximize — no black-hat):** (a) per-page SEO for published UMKM sites (`/p/<slug>`) — unique `<title>`/meta/og/canonical + **`LocalBusiness` JSON-LD** (gold for UMKM, enables Google Business features); each published site = a new indexable landing page. (b) expand `src/routes/sitemap[.]xml.ts` (today single-URL homepage only) to enumerate published deployments → every `/p/<slug>` in the sitemap with `<lastmod>`. (c) `robots.txt` already correct, confirm only. (d) internal linking homepage → `/projects/new` → published examples. **NOT done (black-hat → domain deindexed):** PBNs, bought backlinks, cloaking, doorway pages, hidden text, scraped content. GSC registration is the user's at go-live (not code).
 
 ## Architecture
 

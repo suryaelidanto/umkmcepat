@@ -177,3 +177,4 @@ git commit -m "docs(changelog): 8-topic batch summary"
 
 - The roadmap is fully shipped + documented. The autonomous phase is complete.
 - `docs/research/*` + `docs/superpowers/specs+plans` stay as the decision trail (don't prune unless obviously stale).
+- **Deferred go-live infra (documented, not code):** domain + Cloudflare DNS/HTTPS + `GENERATED_PUBLIC_ORIGIN` + Google Search Console registration + generated-runtime-in-prod gate (intentionally off, static-only is correct for UMKM). GLM-4.7-Flash combo: SKIP (user confirmed current combo is fine).

@@ -287,11 +287,161 @@ git commit -m "fix(security): postMessage origin + narrow build PATH + frozen-lo
 
 Not committed — verification.
 
-- [ ] **Step 1:** Homepage renders dark (no cream); H1 + animated `100% gratis` underline; sub copy; `<title>`/meta via view-source; JSON-LD `@graph` validates at search.google.com/test/rich-results.
+- [ ] **Step 1:** Homepage renders dark (no cream); H1 + animated `100% Gratis` underline; `<title>`/meta via view-source; JSON-LD `@graph` validates at search.google.com/test/rich-results.
 - [ ] **Step 2:** Trigger a Pakasir error + a preview stream error → user sees Indonesian generic, never raw internals.
 - [ ] **Step 3:** OTP code is 6 digits, generated via `crypto.randomInt` (inspect devLog).
 - [ ] **Step 4:** Upload a non-image claiming `image/png` to `/api/waitlist` → rejected.
 - [ ] **Step 5:** `bun run check` green.
+
+---
+
+### Task 8: Umami + Uptime Kuma compose services
+
+**Files:**
+- Modify: `docker-compose.prod.yml`
+- Modify: `.env` + `.env.example` (add `UMAMI_WEBSITE_ID` + `UMAMI_SCRIPT_SRC` in OPTIONAL section, 1:1)
+- Create: `src/lib/analytics.ts`
+- Create: `src/lib/analytics.test.ts`
+
+**Interfaces:**
+- Produces: `track(event: string, props?: Record<string, string|number|boolean>): void` — calls `window.umami.track(event, props)` when the Umami script is loaded + `UMAMI_WEBSITE_ID` set + in prod; no-op in dev or on server. Never called from `/api/*` or `/p/<slug>`.
+
+- [ ] **Step 1: Add Umami + Uptime Kuma to docker-compose.prod.yml**
+
+```yaml
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/umami
+      UMAMI_SCRIPT: /script.js
+    depends_on: [postgres]
+    ports: ["3001:3000"]
+    restart: unless-stopped
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    volumes: [uptime-kuma:/app/data]
+    ports: ["3002:3001"]
+    restart: unless-stopped
+
+volumes:
+  uptime-kuma:
+```
+
+(Confirm the Umami image tag + DB-sharing approach with the official Umami docker docs at impl; lean a separate `umami` DB on the same Postgres instance to avoid schema collision. Uptime Kuma uses its own SQLite.)
+
+- [ ] **Step 2: Add env vars (1:1)** — `.env` + `.env.example` OPTIONAL section:
+
+```env
+# Umami analytics (empty = dev no-op; set website id + script src in prod).
+UMAMI_WEBSITE_ID=""
+UMAMI_SCRIPT_SRC=""
+```
+
+- [ ] **Step 3: Create src/lib/analytics.ts**
+
+```ts
+export function track(
+  event: string,
+  props?: Record<string, string | number | boolean>,
+): void {
+  if (process.env.NODE_ENV !== "production") return;
+  if (typeof window === "undefined") return;
+  const w = window as unknown as { umami?: { track?: (e: string, p?: unknown) => void } };
+  if (!process.env.UMAMI_WEBSITE_ID) return;
+  w.umami?.track?.(event, props);
+}
+```
+
+- [ ] **Step 4: Write the failing test** — `track` is a no-op when `NODE_ENV !== production` or `UMAMI_WEBSITE_ID` empty; calls `window.umami.track` when both set. Mock `window.umami`.
+
+- [ ] **Step 5: Wire the Umami script tag** in `__root.tsx` `head()` (prod-only, `UMAMI_SCRIPT_SRC`): `<script defer src={UMAMI_SCRIPT_SRC} data-website-id={UMAMI_WEBSITE_ID} />`.
+
+- [ ] **Step 6: Sprinkle `track()` calls** on key user actions (hero CTA click, project create, publish, mode toggle) — a few high-signal events, not every click.
+
+- [ ] **Step 7: Run the fast gate + verify 1:1**
+
+Run: `bun run check` + `diff <(sed 's/=".*"/=""/' .env.example) <(sed 's/=".*"/=""/' .env)`
+Expected: all green + no diff output.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add docker-compose.prod.yml .env.example src/lib/analytics.ts src/lib/analytics.test.ts src/routes/__root.tsx <component files>
+git commit -m "feat(analytics): Umami + Uptime Kuma self-hosted; client track helper"
+```
+
+---
+
+### Task 9: Per-page SEO for published sites (`/p/<slug>`)
+
+**Files:**
+- Modify: `src/routes/p.$slug.$.ts` (add per-page head) OR the deployment-serving path that emits HTML
+- Modify: `src/lib/projects/runtime-proxy.ts` (inject `<title>`/meta/og/canonical/JSON-LD into the served published HTML)
+
+**Interfaces:**
+- Consumes: the published deployment's metadata (business name, slug, `GENERATED_PUBLIC_ORIGIN`).
+- Produces: each published site serves a unique `<title>` (`<businessName> — <tagline>`), meta description, og:title/description/image/canonical, and `LocalBusiness` JSON-LD.
+
+- [ ] **Step 1: Write the per-page head injector** — a function that takes `{businessName, slug, description?, image?}` and returns the `<head>` fragment string (title, meta, og, canonical `https://<GENERATED_PUBLIC_ORIGIN>/p/<slug>`, `LocalBusiness` JSON-LD with name + url + the WhatsApp/IG `sameAs` if present).
+
+- [ ] **Step 2: Wire it into the published-site serve path** — when serving `/p/<slug>/*`, inject the head into the dist's `index.html` (or emit it server-side). Confirm the exact injection point in `p.$slug.$.ts` + `runtime-proxy.ts`.
+
+- [ ] **Step 3: Run the fast gate**
+
+Run: `bun run check`
+Expected: all green.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/routes/p.\$slug.\$.ts src/lib/projects/runtime-proxy.ts
+git commit -m "feat(seo): per-page title/meta/og/canonical + LocalBusiness JSON-LD on /p/<slug>"
+```
+
+---
+
+### Task 10: Expand sitemap to list published sites
+
+**Files:**
+- Modify: `src/routes/sitemap[.]xml.ts`
+
+**Interfaces:**
+- Consumes: `prisma.projectDeployment.findMany({where:{kind:"published"}})` for slugs + `updatedAt`.
+- Produces: a `<urlset>` with the homepage (priority 1) + every published `/p/<slug>` (priority 0.8, `<lastmod>` from deployment).
+
+- [ ] **Step 1: Replace the single-URL sitemap** with a dynamic one enumerating published deployments:
+
+```ts
+export const Route = createFileRoute("/sitemap.xml")({
+  server: { handlers: { GET: async () => {
+    const siteUrl = process.env.GENERATED_PUBLIC_ORIGIN || "https://umkmcepat.com";
+    const deployments = await prisma.projectDeployment.findMany({
+      where: { kind: "published" },
+      select: { slug: true, updatedAt: true },
+    });
+    const urls = [
+      `  <url><loc>${siteUrl}</loc><changefreq>weekly</changefreq><priority>1</priority></url>`,
+      ...deployments.map(d =>
+        `  <url><loc>${siteUrl}/p/${encodeURIComponent(d.slug)}</loc><lastmod>${d.updatedAt.toISOString()}</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>`),
+    ].join("\n");
+    const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
+    return new Response(body, { headers: { "Content-Type": "application/xml" } });
+  } } },
+});
+```
+
+- [ ] **Step 2: Run the fast gate**
+
+Run: `bun run check`
+Expected: all green.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/routes/sitemap\[.\]xml.ts
+git commit -m "feat(seo): sitemap enumerates published /p/<slug> deployments"
+```
 
 ---
 

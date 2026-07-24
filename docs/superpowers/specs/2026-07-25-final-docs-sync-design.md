@@ -48,6 +48,7 @@ N/A.
 - Any code change (docs + `.env.example` only).
 - Re-deriving the SEO strategy (that's topic 8).
 - New features.
+- **Deferred to go-live (infra, not code — documented in deployment.md, not implemented):** (a) domain purchase + Cloudflare DNS + HTTPS (Cloudflare Tunnel) + `GENERATED_PUBLIC_ORIGIN` hostname for published sites; (b) Google Search Console registration + sitemap submission; (c) the generated-runtime-in-prod gate (`PROJECT_RUNTIME_SUPERVISOR=noop`, `GENERATED_BUILD_EXECUTION_ENABLED=false` — intentionally off; static-only serving is correct for UMKM brochure sites; revisit only if a generated site needs server-side logic). (d) **GLM-4.7-Flash in the 9Router combo — SKIP (user confirmed the current combo is fine).**
 
 ## Open questions for implementation
 
