@@ -24,6 +24,7 @@ import {
 import { type PanelImperativeHandle } from "react-resizable-panels";
 
 import { EnergyDisplay } from "@/components/common/EnergyDisplay";
+import { WorkspaceHistoryButton } from "@/components/projects/WorkspaceHistoryDrawer";
 import {
   BuildProgressPanel,
   EmptyPreviewState,
@@ -2639,6 +2640,9 @@ export function WorkspaceShell({
                     closeChatPanel={closeChatPanel}
                     runtime={runtimeControl}
                   />
+                  <div className="flex items-center gap-spacing-3 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:px-spacing-4">
+                    <WorkspaceHistoryButton projectId={projectId} />
+                  </div>
                   <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
                     {activeTab === "preview" ? (
                       <div

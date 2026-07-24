@@ -19,6 +19,8 @@ export const queryKeys = {
     ["projects", projectId, "workspace"] as const,
   projectSource: (projectId: string) =>
     ["projects", projectId, "source"] as const,
+  projectSnapshots: (projectId: string) =>
+    ["projects", projectId, "snapshots"] as const,
   projectChat: (projectId: string) => ["projects", projectId, "chat"] as const,
 };
 
