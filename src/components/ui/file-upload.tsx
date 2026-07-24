@@ -123,18 +123,18 @@ export function FileUpload({
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
       >
-        {preview ? (
+        {preview && !uploading ? (
           <img
             alt="Pratinjau unggahan"
             src={preview}
             className="max-h-32 max-w-full rounded-radius-md object-contain"
           />
         ) : (
-          <span className="text-body-small text-secondary">
+          <span className="text-body-small text-muted-foreground">
             {uploading ? "Mengunggah..." : label}
           </span>
         )}
-        <span className="text-body-small text-secondary">{hint}</span>
+        <span className="text-body-small text-muted-foreground">{hint}</span>
         <input
           ref={inputRef}
           id="file-upload-input"
