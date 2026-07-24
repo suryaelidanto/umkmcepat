@@ -458,7 +458,7 @@ function weightedPick(seeds, unit) {
   let target = unit * total;
   for (let i = 0; i < seeds.length; i++) {
     target -= weights[i];
-    if (target < 0) {return seeds[i];}
+    if (target < 0) return seeds[i];
   }
   return seeds[seeds.length - 1];
 }
@@ -480,18 +480,18 @@ function fmtOklch([L, C, H]) {
 }
 
 function hueWord(H) {
-  if (H < 15 || H >= 345) {return 'pure red';}
-  if (H < 35)  {return 'warm red / crimson';}
-  if (H < 55)  {return 'warm coral / burnt orange';}
-  if (H < 80)  {return 'orange / honey';}
-  if (H < 105) {return 'warm amber / honey-gold';}
-  if (H < 135) {return 'yellow-green / olive';}
-  if (H < 170) {return 'green';}
-  if (H < 200) {return 'teal';}
-  if (H < 230) {return 'sky blue';}
-  if (H < 265) {return 'cobalt / indigo';}
-  if (H < 295) {return 'violet / purple';}
-  if (H < 330) {return 'magenta / pink';}
+  if (H < 15 || H >= 345) return 'pure red';
+  if (H < 35)  return 'warm red / crimson';
+  if (H < 55)  return 'warm coral / burnt orange';
+  if (H < 80)  return 'orange / honey';
+  if (H < 105) return 'warm amber / honey-gold';
+  if (H < 135) return 'yellow-green / olive';
+  if (H < 170) return 'green';
+  if (H < 200) return 'teal';
+  if (H < 230) return 'sky blue';
+  if (H < 265) return 'cobalt / indigo';
+  if (H < 295) return 'violet / purple';
+  if (H < 330) return 'magenta / pink';
   return 'deep pink / rose';
 }
 

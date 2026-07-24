@@ -13,7 +13,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { isGeneratedFile } from './lib/is-generated.mjs';
 import { readBuffer as readManualEditsBuffer } from './live/manual-edits-buffer.mjs';
 import {
@@ -97,7 +96,7 @@ The agent should insert variant HTML at insertLine.`);
       let generatedHit = null;
       for (const q of queries) {
         generatedHit = findFileWithQuery(q, process.cwd(), { ...genOpts, includeGenerated: true });
-        if (generatedHit) {break;}
+        if (generatedHit) break;
       }
       if (generatedHit) {
         console.error(JSON.stringify({
@@ -148,7 +147,7 @@ The agent should insert variant HTML at insertLine.`);
       // Once a more-specific query (ID, full className combo) yielded a unique
       // result, stop — falling through to the loose tag+single-class query
       // would readmit the siblings we just disambiguated past.
-      if (candidates.length === 1) {break;}
+      if (candidates.length === 1) break;
     }
     if (candidates.length === 0) {
       console.error(JSON.stringify({ error: 'Found file but could not locate element in ' + targetFile + '. Searched for: ' + queries.join(', ') }));
@@ -186,7 +185,7 @@ The agent should insert variant HTML at insertLine.`);
   } else {
     for (const q of queries) {
       match = findElement(lines, q, tag);
-      if (match) {break;}
+      if (match) break;
     }
     if (!match) {
       console.error(JSON.stringify({ error: 'Found file but could not locate element in ' + targetFile + '. Searched for: ' + queries.join(', ') }));
@@ -236,7 +235,7 @@ The agent should insert variant HTML at insertLine.`);
   if (pageUrl) {
     const failedBufferedOps = [];
     for (const entry of pendingBuffer.entries || []) {
-      if (entry.pageUrl !== pageUrl) {continue;}
+      if (entry.pageUrl !== pageUrl) continue;
       for (const op of entry.ops || []) {
         const mayAffectWrap = manualEditMayAffectWrap(op, targetFile, originalLines, startLine, process.cwd());
         const result = applyBufferedManualEditToLines(originalLines, startLine, op);
@@ -244,7 +243,7 @@ The agent should insert variant HTML at insertLine.`);
           originalLines = result.lines;
           continue;
         }
-        if (!mayAffectWrap) {continue;}
+        if (!mayAffectWrap) continue;
         failedBufferedOps.push({
           entryId: entry.id,
           ref: op?.ref || null,
@@ -390,7 +389,7 @@ The agent should insert variant HTML at insertLine.`);
 function argVal(args, flag) {
   const prefix = flag + '=';
   for (const arg of args) {
-    if (arg.startsWith(prefix)) {return arg.slice(prefix.length);}
+    if (arg.startsWith(prefix)) return arg.slice(prefix.length);
   }
   const idx = args.indexOf(flag);
   return idx !== -1 && idx + 1 < args.length ? args[idx + 1] : null;
@@ -407,8 +406,8 @@ function pendingEntriesThatMayAffectWrap(entries, targetFile, originalLines, sel
 
 function manualEditMayAffectWrap(op, targetFile, originalLines, selectionStartLine, cwd) {
   const targetAbs = path.resolve(cwd, targetFile);
-  if (manualEditHintFallsInsideSelection(op, targetAbs, originalLines, selectionStartLine, cwd)) {return true;}
-  if (manualEditLocatorMatchesSelection(op, originalLines)) {return true;}
+  if (manualEditHintFallsInsideSelection(op, targetAbs, originalLines, selectionStartLine, cwd)) return true;
+  if (manualEditLocatorMatchesSelection(op, originalLines)) return true;
   if (typeof op?.originalText === 'string' && op.originalText.length > 0) {
     return originalLines.join('\n').includes(op.originalText);
   }
@@ -418,9 +417,9 @@ function manualEditMayAffectWrap(op, targetFile, originalLines, selectionStartLi
 function manualEditHintFallsInsideSelection(op, targetAbs, originalLines, selectionStartLine, cwd) {
   const hintFile = op?.sourceHint?.file;
   const hintedLine = Number(op?.sourceHint?.line);
-  if (!hintFile || !Number.isFinite(hintedLine)) {return false;}
+  if (!hintFile || !Number.isFinite(hintedLine)) return false;
   const hintAbs = path.isAbsolute(hintFile) ? hintFile : path.resolve(cwd, hintFile);
-  if (path.resolve(hintAbs) !== targetAbs) {return false;}
+  if (path.resolve(hintAbs) !== targetAbs) return false;
   const hintedIndex = hintedLine - 1 - selectionStartLine;
   return hintedIndex >= 0
     && hintedIndex < originalLines.length
@@ -429,7 +428,7 @@ function manualEditHintFallsInsideSelection(op, targetAbs, originalLines, select
 }
 
 function manualEditLocatorMatchesSelection(op, originalLines) {
-  if (!op || typeof op.originalText !== 'string' || op.originalText.length === 0) {return false;}
+  if (!op || typeof op.originalText !== 'string' || op.originalText.length === 0) return false;
   return originalLines.some((line) => (
     line.includes(op.originalText) && lineMatchesManualEditLocator(line, op)
   ));
@@ -463,11 +462,11 @@ function applyBufferedManualEditToLines(originalLines, selectionStartLine, op) {
   const locatorMatches = [];
   for (let index = 0; index < originalLines.length; index += 1) {
     const line = originalLines[index];
-    if (!line.includes(op.originalText)) {continue;}
-    if (!lineMatchesManualEditLocator(line, op)) {continue;}
+    if (!line.includes(op.originalText)) continue;
+    if (!lineMatchesManualEditLocator(line, op)) continue;
     locatorMatches.push(index);
   }
-  if (locatorMatches.length === 1) {return replaceLine(locatorMatches[0]);}
+  if (locatorMatches.length === 1) return replaceLine(locatorMatches[0]);
 
   const originalBlock = originalLines.join('\n');
   if (countOccurrences(originalBlock, op.originalText) === 1) {
@@ -483,18 +482,18 @@ function applyBufferedManualEditToLines(originalLines, selectionStartLine, op) {
 function lineMatchesManualEditLocator(line, op) {
   if (op.tag) {
     const tagRe = new RegExp('<\\s*' + escapeRegExp(op.tag) + '(?=[\\s>/]|$)', 'i');
-    if (!tagRe.test(line)) {return false;}
+    if (!tagRe.test(line)) return false;
   }
 
   if (op.elementId) {
     const id = escapeRegExp(op.elementId);
     const idRe = new RegExp('\\bid\\s*=\\s*["\']' + id + '["\']');
-    if (!idRe.test(line)) {return false;}
+    if (!idRe.test(line)) return false;
   }
 
   const classes = Array.isArray(op.classes) ? op.classes.filter(Boolean) : [];
   for (const className of classes) {
-    if (!line.includes(className)) {return false;}
+    if (!line.includes(className)) return false;
   }
 
   return true;
@@ -502,17 +501,17 @@ function lineMatchesManualEditLocator(line, op) {
 
 function replaceOnce(value, needle, replacement) {
   const index = value.indexOf(needle);
-  if (index === -1) {return value;}
+  if (index === -1) return value;
   return value.slice(0, index) + replacement + value.slice(index + needle.length);
 }
 
 function countOccurrences(value, needle) {
-  if (!needle) {return 0;}
+  if (!needle) return 0;
   let count = 0;
   let index = 0;
   while (true) {
     index = value.indexOf(needle, index);
-    if (index === -1) {return count;}
+    if (index === -1) return count;
     count += 1;
     index += needle.length;
   }
@@ -604,7 +603,7 @@ function detectStyleMode(filePath) {
 }
 
 function buildCssSelectorPrefixExamples(styleMode, count) {
-  if (styleMode !== 'astro-global-prefixed') {return [];}
+  if (styleMode !== 'astro-global-prefixed') return [];
   return Array.from({ length: count }, (_, i) => `[data-impeccable-variant="${i + 1}"]`);
 }
 
@@ -658,17 +657,17 @@ function findFileWithQuery(query, cwd, genOpts = {}) {
 
   for (const dir of searchDirs) {
     const absDir = path.join(cwd, dir);
-    if (!fs.existsSync(absDir)) {continue;}
+    if (!fs.existsSync(absDir)) continue;
     const result = searchDir(absDir, query, seen, 0, genOpts);
-    if (result) {return result;}
+    if (result) return result;
   }
   return null;
 }
 
 function searchDir(dir, query, seen, depth, genOpts) {
-  if (depth > 5) {return null;} // don't go too deep
+  if (depth > 5) return null; // don't go too deep
   const realDir = fs.realpathSync(dir);
-  if (seen.has(realDir)) {return null;}
+  if (seen.has(realDir)) return null;
   seen.add(realDir);
 
   let entries;
@@ -677,15 +676,15 @@ function searchDir(dir, query, seen, depth, genOpts) {
 
   // Check files first
   for (const entry of entries) {
-    if (!entry.isFile()) {continue;}
+    if (!entry.isFile()) continue;
     const ext = path.extname(entry.name).toLowerCase();
-    if (!EXTENSIONS.includes(ext)) {continue;}
+    if (!EXTENSIONS.includes(ext)) continue;
 
     const filePath = path.join(dir, entry.name);
-    if (!genOpts.includeGenerated && isGeneratedFile(filePath, genOpts)) {continue;}
+    if (!genOpts.includeGenerated && isGeneratedFile(filePath, genOpts)) continue;
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
-      if (content.includes(query)) {return filePath;}
+      if (content.includes(query)) return filePath;
     } catch { /* skip unreadable files */ }
   }
 
@@ -694,10 +693,10 @@ function searchDir(dir, query, seen, depth, genOpts) {
   // the includeGenerated second-pass can still find the element there and
   // report `generatedMatch`.
   for (const entry of entries) {
-    if (!entry.isDirectory()) {continue;}
-    if (entry.name === 'node_modules' || entry.name === '.git') {continue;}
+    if (!entry.isDirectory()) continue;
+    if (entry.name === 'node_modules' || entry.name === '.git') continue;
     const result = searchDir(path.join(dir, entry.name), query, seen, depth + 1, genOpts);
-    if (result) {return result;}
+    if (result) return result;
   }
 
   return null;
@@ -729,9 +728,9 @@ const OPENER_RE = /<([A-Za-z][A-Za-z0-9]*)(?=[\s/>]|$)/;
 function minLeadingSpaces(lines) {
   let min = Infinity;
   for (const l of lines) {
-    if (l.trim() === '') {continue;}
+    if (l.trim() === '') continue;
     const m = l.match(/^(\s*)/);
-    if (m && m[1].length < min) {min = m[1].length;}
+    if (m && m[1].length < min) min = m[1].length;
   }
   return min === Infinity ? 0 : min;
 }
@@ -739,15 +738,15 @@ function minLeadingSpaces(lines) {
 function findElement(lines, query, tag = null) {
   // Iterate all matches — the first substring hit isn't always the right one.
   for (let i = 0; i < lines.length; i++) {
-    if (!lines[i].includes(query)) {continue;}
+    if (!lines[i].includes(query)) continue;
 
     const stripped = lines[i].trim();
-    if (stripped.startsWith('<!--') || stripped.startsWith('{/*') || stripped.startsWith('//')) {continue;}
+    if (stripped.startsWith('<!--') || stripped.startsWith('{/*') || stripped.startsWith('//')) continue;
     // Skip lines already inside a variant wrapper
-    if (lines[i].includes('data-impeccable-variant')) {continue;}
+    if (lines[i].includes('data-impeccable-variant')) continue;
 
     const openerLine = findOpenerLine(lines, i, tag);
-    if (openerLine === -1) {continue;}
+    if (openerLine === -1) continue;
 
     const endLine = findClosingLine(lines, openerLine);
     return { startLine: openerLine, endLine };
@@ -767,13 +766,13 @@ function findAllElements(lines, query, tag = null) {
   const out = [];
   const seen = new Set();
   for (let i = 0; i < lines.length; i++) {
-    if (!lines[i].includes(query)) {continue;}
+    if (!lines[i].includes(query)) continue;
     const stripped = lines[i].trim();
-    if (stripped.startsWith('<!--') || stripped.startsWith('{/*') || stripped.startsWith('//')) {continue;}
-    if (lines[i].includes('data-impeccable-variant')) {continue;}
+    if (stripped.startsWith('<!--') || stripped.startsWith('{/*') || stripped.startsWith('//')) continue;
+    if (lines[i].includes('data-impeccable-variant')) continue;
     const openerLine = findOpenerLine(lines, i, tag);
-    if (openerLine === -1) {continue;}
-    if (seen.has(openerLine)) {continue;} // multiple matches inside the same element
+    if (openerLine === -1) continue;
+    if (seen.has(openerLine)) continue; // multiple matches inside the same element
     seen.add(openerLine);
     const endLine = findClosingLine(lines, openerLine);
     out.push({ startLine: openerLine, endLine });
@@ -803,7 +802,7 @@ function filterByText(candidates, lines, text) {
   // `candidates.slice()` return forced `filtered.length > 1` and surfaced
   // a spurious `element_ambiguous` error on every short-text picker event
   // with multiple candidates.
-  if (trimmed.length < 8) {return [];}
+  if (trimmed.length < 8) return [];
   const targetSpaced = trimmed;
   const targetCompact = trimmed.replace(/\s+/g, '');
 
@@ -831,14 +830,14 @@ function filterByText(candidates, lines, text) {
 function findOpenerLine(lines, matchLine, tag) {
   const self = lines[matchLine].match(OPENER_RE);
   if (self) {
-    if (!tag || self[1] === tag) {return matchLine;}
+    if (!tag || self[1] === tag) return matchLine;
     return -1;
   }
   const MAX_BACKWALK = 10;
   for (let i = matchLine - 1; i >= Math.max(0, matchLine - MAX_BACKWALK); i--) {
     const opener = lines[i].match(OPENER_RE);
-    if (!opener) {continue;}
-    if (!tag || opener[1] === tag) {return i;}
+    if (!opener) continue;
+    if (!tag || opener[1] === tag) return i;
     // Different tag name than requested — abort; we're inside a non-target opener.
     return -1;
   }
@@ -851,7 +850,7 @@ function findOpenerLine(lines, matchLine, tag) {
  */
 function findClosingLine(lines, start) {
   const openMatch = lines[start].match(OPENER_RE);
-  if (!openMatch) {return start;} // caller passed a non-opener; nothing to span
+  if (!openMatch) return start; // caller passed a non-opener; nothing to span
 
   const tagName = openMatch[1];
   let depth = 0;
@@ -867,7 +866,7 @@ function findClosingLine(lines, start) {
 
     depth += opens - selfCloses - closes;
 
-    if (depth <= 0) {return i;}
+    if (depth <= 0) return i;
   }
 
   // If we can't find the close, return a reasonable guess

@@ -9,9 +9,9 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const require = createRequire(import.meta.url);
@@ -98,7 +98,7 @@ export async function runCopyEditBatchAgent(batch, opts = {}) {
   const provider = opts.provider || chooseCopyEditAgent({ env, chatAvailable: opts.chatAvailable });
   if (provider === 'mock') {
     const delayMs = Number(env.IMPECCABLE_LIVE_COPY_AGENT_MOCK_DELAY_MS || 0);
-    if (delayMs > 0) {await new Promise((resolve) => setTimeout(resolve, delayMs));}
+    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     return mockBatchResult(batch, env, cwd);
   }
   if (provider === 'chat') {
@@ -128,7 +128,7 @@ export async function runCopyEditBatchAgent(batch, opts = {}) {
 
   const output = fs.existsSync(resultPath) ? fs.readFileSync(resultPath, 'utf-8') : '';
   const parsed = parseCopyEditBatchResult(output);
-  if (parsed) {return parsed;}
+  if (parsed) return parsed;
 
   const tail = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf-8').slice(-1200) : output.slice(-1200);
   throw new Error('AI copy-edit batch did not return a valid completion payload. ' + tail.trim());
@@ -150,7 +150,7 @@ export function runCopyEditPostApplyChecks({ cwd = process.cwd(), files = [] } =
       continue;
     }
     const markerMatch = findLeftoverImpeccableMarker(content);
-    if (markerMatch) {failures.push({ file: relativeFile, reason: 'leftover_impeccable_marker', marker: markerMatch });}
+    if (markerMatch) failures.push({ file: relativeFile, reason: 'leftover_impeccable_marker', marker: markerMatch });
     if (/\.json$/.test(relativeFile)) {
       try {
         JSON.parse(content);
@@ -163,8 +163,8 @@ export function runCopyEditPostApplyChecks({ cwd = process.cwd(), files = [] } =
       }
     }
     const syntaxCheck = checkFrameworkSourceSyntax(relativeFile, content);
-    if (syntaxCheck?.failure) {failures.push(syntaxCheck.failure);}
-    if (syntaxCheck?.warning) {warnings.push(syntaxCheck.warning);}
+    if (syntaxCheck?.failure) failures.push(syntaxCheck.failure);
+    if (syntaxCheck?.warning) warnings.push(syntaxCheck.warning);
     if (/\.(mjs|cjs|js)$/.test(relativeFile)) {
       const check = spawnSync(process.execPath, ['--check', file], { cwd, encoding: 'utf-8' });
       if (check.status !== 0) {
@@ -177,13 +177,13 @@ export function runCopyEditPostApplyChecks({ cwd = process.cwd(), files = [] } =
     }
   }
   const validation = runManualEditValidationScript(cwd);
-  if (validation?.failure) {failures.push(validation.failure);}
-  if (validation?.warning) {warnings.push(validation.warning);}
+  if (validation?.failure) failures.push(validation.failure);
+  if (validation?.warning) warnings.push(validation.warning);
   return { ok: failures.length === 0, failures, warnings };
 }
 
 function checkFrameworkSourceSyntax(relativeFile, content) {
-  if (!/\.(jsx|tsx|ts)$/.test(relativeFile)) {return null;}
+  if (!/\.(jsx|tsx|ts)$/.test(relativeFile)) return null;
   let parser;
   try {
     parser = require('@babel/parser');
@@ -191,7 +191,7 @@ function checkFrameworkSourceSyntax(relativeFile, content) {
     return { warning: { file: relativeFile, reason: 'syntax_parser_unavailable' } };
   }
   const plugins = ['jsx'];
-  if (/\.(ts|tsx)$/.test(relativeFile)) {plugins.push('typescript');}
+  if (/\.(ts|tsx)$/.test(relativeFile)) plugins.push('typescript');
   try {
     parser.parse(content, {
       sourceType: 'module',
@@ -212,14 +212,14 @@ function checkFrameworkSourceSyntax(relativeFile, content) {
 
 function findLeftoverImpeccableMarker(content) {
   const commentMarker = content.match(/^\s*(?:<!--|\{\/\*)\s*impeccable-carbonize-(?:start|end)\b|^\s*(?:<!--|\{\/\*)\s*impeccable-variants-(?:start|end)\b/m);
-  if (commentMarker) {return commentMarker[0];}
+  if (commentMarker) return commentMarker[0];
 
   const attrPattern = /\bdata-impeccable-(?:variants?|original-text|editable|text-wrap)\s*=/g;
   for (const line of content.split(/\r?\n/)) {
     attrPattern.lastIndex = 0;
     let match;
     while ((match = attrPattern.exec(line))) {
-      if (!isInsideQuotedLiteral(line, match.index)) {return match[0];}
+      if (!isInsideQuotedLiteral(line, match.index)) return match[0];
     }
   }
   return null;
@@ -239,17 +239,17 @@ function isInsideQuotedLiteral(line, index) {
       continue;
     }
     if (quote) {
-      if (ch === quote) {quote = null;}
+      if (ch === quote) quote = null;
       continue;
     }
-    if (ch === '"' || ch === "'" || ch === '`') {quote = ch;}
+    if (ch === '"' || ch === "'" || ch === '`') quote = ch;
   }
   return quote !== null;
 }
 
 function runManualEditValidationScript(cwd) {
   const script = readManualEditValidationScript(cwd);
-  if (!script) {return null;}
+  if (!script) return null;
   const validation = spawnSync(script, {
     cwd,
     encoding: 'utf-8',
@@ -279,7 +279,7 @@ function runManualEditValidationScript(cwd) {
 
 function readManualEditValidationScript(cwd) {
   const pkgPath = path.join(cwd, 'package.json');
-  if (!fs.existsSync(pkgPath)) {return null;}
+  if (!fs.existsSync(pkgPath)) return null;
   try {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
     const script = pkg?.scripts?.['impeccable:manual-edit-validate'];
@@ -324,7 +324,7 @@ function compactBatchOp(op) {
 }
 
 function compactContextForBatch(value) {
-  if (!value || typeof value !== 'object') {return value || null;}
+  if (!value || typeof value !== 'object') return value || null;
   return {
     ref: value.ref,
     tagName: value.tagName,
@@ -336,7 +336,7 @@ function compactContextForBatch(value) {
 }
 
 function stripLiveRuntimeHtml(html) {
-  if (typeof html !== 'string') {return html || null;}
+  if (typeof html !== 'string') return html || null;
   return html
     .replace(/\sdata-impeccable-(?:original-text|editable|text-wrap)(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?/g, '')
     .replace(/\scontenteditable(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?/g, '')
@@ -379,7 +379,7 @@ function mockBatchResult(batch, env, cwd = process.cwd()) {
   const raw = env.IMPECCABLE_LIVE_COPY_AGENT_MOCK_RESULT;
   if (raw) {
     const parsed = parseCopyEditBatchResult(raw);
-    if (parsed) {return parsed;}
+    if (parsed) return parsed;
     throw new Error('Invalid IMPECCABLE_LIVE_COPY_AGENT_MOCK_RESULT JSON');
   }
   return {
@@ -393,15 +393,15 @@ function mockBatchResult(batch, env, cwd = process.cwd()) {
 
 function applyMockWrites(env, cwd) {
   const raw = env.IMPECCABLE_LIVE_COPY_AGENT_MOCK_WRITES;
-  if (!raw) {return;}
+  if (!raw) return;
   const writes = tryParseJson(raw);
   if (!writes || typeof writes !== 'object' || Array.isArray(writes)) {
     throw new Error('Invalid IMPECCABLE_LIVE_COPY_AGENT_MOCK_WRITES JSON');
   }
   for (const [relativeFile, content] of Object.entries(writes)) {
-    if (typeof relativeFile !== 'string' || typeof content !== 'string') {continue;}
+    if (typeof relativeFile !== 'string' || typeof content !== 'string') continue;
     const absolute = path.resolve(cwd, relativeFile);
-    if (!isPathInsideOrEqual(cwd, absolute)) {continue;}
+    if (!isPathInsideOrEqual(cwd, absolute)) continue;
     fs.mkdirSync(path.dirname(absolute), { recursive: true });
     fs.writeFileSync(absolute, content, 'utf-8');
   }
@@ -409,21 +409,21 @@ function applyMockWrites(env, cwd) {
 
 export function parseCopyEditAgentResult(text) {
   const trimmed = String(text || '').trim();
-  if (!trimmed) {return null;}
+  if (!trimmed) return null;
 
   const parsedOuter = tryParseJson(trimmed);
   if (parsedOuter) {
     if (typeof parsedOuter.result === 'string') {
       const nested = parseCopyEditAgentResult(parsedOuter.result);
-      if (nested) {return nested;}
+      if (nested) return nested;
     }
-    if (parsedOuter.status === 'done' || parsedOuter.status === 'partial' || parsedOuter.status === 'error') {return parsedOuter;}
+    if (parsedOuter.status === 'done' || parsedOuter.status === 'partial' || parsedOuter.status === 'error') return parsedOuter;
   }
 
   const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {return null;}
+  if (!jsonMatch) return null;
   const parsed = tryParseJson(jsonMatch[0]);
-  if (parsed?.status === 'done' || parsed?.status === 'partial' || parsed?.status === 'error') {return parsed;}
+  if (parsed?.status === 'done' || parsed?.status === 'partial' || parsed?.status === 'error') return parsed;
   return null;
 }
 
@@ -433,15 +433,15 @@ export function chooseCopyEditAgent({
   chatAvailable = () => false,
 } = {}) {
   const mode = (env.IMPECCABLE_LIVE_COPY_AGENT || 'auto').trim().toLowerCase();
-  if (mode === '0' || mode === 'false' || mode === 'off' || mode === 'none') {return null;}
-  if (mode === 'mock') {return 'mock';}
-  if (mode === 'chat') {return chatAvailable() ? 'chat' : null;}
-  if (mode === 'codex') {return commandExists('codex') ? 'codex' : null;}
-  if (mode === 'claude') {return commandExists('claude') ? 'claude' : null;}
-  if (mode !== 'auto') {return null;}
-  if (authCheck('codex')) {return 'codex';}
-  if (authCheck('claude')) {return 'claude';}
-  if (chatAvailable()) {return 'chat';}
+  if (mode === '0' || mode === 'false' || mode === 'off' || mode === 'none') return null;
+  if (mode === 'mock') return 'mock';
+  if (mode === 'chat') return chatAvailable() ? 'chat' : null;
+  if (mode === 'codex') return commandExists('codex') ? 'codex' : null;
+  if (mode === 'claude') return commandExists('claude') ? 'claude' : null;
+  if (mode !== 'auto') return null;
+  if (authCheck('codex')) return 'codex';
+  if (authCheck('claude')) return 'claude';
+  if (chatAvailable()) return 'chat';
   return null;
 }
 
@@ -494,17 +494,17 @@ function runAgentProcess(command, args, stdin, { cwd, env, logPath, timeoutMs, m
     }, timeoutMs);
 
     const rejectOnce = (err) => {
-      if (settled) {return;}
+      if (settled) return;
       settled = true;
       clearTimeout(timer);
       log.end();
       reject(err);
     };
     const resolveOnce = () => {
-      if (settled) {return;}
+      if (settled) return;
       settled = true;
       clearTimeout(timer);
-      if (mirrorOutputPath) {fs.writeFileSync(mirrorOutputPath, output);}
+      if (mirrorOutputPath) fs.writeFileSync(mirrorOutputPath, output);
       log.end();
       resolve();
     };
@@ -528,8 +528,8 @@ function runAgentProcess(command, args, stdin, { cwd, env, logPath, timeoutMs, m
         rejectOnce(new Error(hint || `${command} exited with ${signal || code}`));
       }
     });
-    if (stdin) {child.stdin.end(stdin);}
-    else {child.stdin.end();}
+    if (stdin) child.stdin.end(stdin);
+    else child.stdin.end();
   });
 }
 
@@ -543,8 +543,8 @@ function tryParseJson(text) {
 }
 
 function truncate(value, max) {
-  if (typeof value !== 'string') {return value;}
-  if (value.length <= max) {return value;}
+  if (typeof value !== 'string') return value;
+  if (value.length <= max) return value;
   return value.slice(0, max) + `... [truncated ${value.length - max} chars]`;
 }
 
@@ -601,17 +601,17 @@ export function describeNoProviderError({
  */
 export function extractRunnerErrorMessage(output, command) {
   const text = String(output || '').trim();
-  if (!text) {return null;}
+  if (!text) return null;
   const candidates = [];
   const direct = tryParseJson(text);
-  if (direct) {candidates.push(direct);}
+  if (direct) candidates.push(direct);
   const trailingMatch = text.match(/\{[\s\S]*\}\s*$/);
   if (trailingMatch) {
     const tail = tryParseJson(trailingMatch[0]);
-    if (tail && tail !== direct) {candidates.push(tail);}
+    if (tail && tail !== direct) candidates.push(tail);
   }
   for (const parsed of candidates) {
-    if (!parsed || typeof parsed !== 'object') {continue;}
+    if (!parsed || typeof parsed !== 'object') continue;
     if (parsed.is_error === true && typeof parsed.result === 'string' && parsed.result.trim()) {
       return `${command} CLI: ${parsed.result.trim()}`;
     }
@@ -625,7 +625,7 @@ export function extractRunnerErrorMessage(output, command) {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (lines.length > 0) {
     const last = lines[lines.length - 1];
-    if (last.length > 0 && last.length < 400) {return `${command}: ${last}`;}
+    if (last.length > 0 && last.length < 400) return `${command}: ${last}`;
   }
   return null;
 }
@@ -646,16 +646,16 @@ export function extractRunnerErrorMessage(output, command) {
 const COMMAND_AUTH_CACHE = new Map();
 
 function commandAuthed(command) {
-  if (COMMAND_AUTH_CACHE.has(command)) {return COMMAND_AUTH_CACHE.get(command);}
+  if (COMMAND_AUTH_CACHE.has(command)) return COMMAND_AUTH_CACHE.get(command);
   const ok = computeCommandAuthed(command);
   COMMAND_AUTH_CACHE.set(command, ok);
   return ok;
 }
 
 function computeCommandAuthed(command) {
-  if (!commandExists(command)) {return false;}
-  if (command === 'codex') {return true;}
-  if (command !== 'claude') {return false;}
+  if (!commandExists(command)) return false;
+  if (command === 'codex') return true;
+  if (command !== 'claude') return false;
   let result;
   try {
     result = spawnSync('claude', [
@@ -670,14 +670,14 @@ function computeCommandAuthed(command) {
   } catch {
     return false;
   }
-  if (result.error || result.signal) {return false;}
+  if (result.error || result.signal) return false;
   const stdout = String(result.stdout || '').trim();
   if (result.status !== 0) {
     // Non-zero exit: probably an auth or config error. Definitely not usable.
     return false;
   }
-  if (!stdout) {return true;}
+  if (!stdout) return true;
   const parsed = tryParseJson(stdout) || tryParseJson(stdout.match(/\{[\s\S]*\}\s*$/)?.[0] || '');
-  if (parsed && parsed.is_error === true) {return false;}
+  if (parsed && parsed.is_error === true) return false;
   return true;
 }

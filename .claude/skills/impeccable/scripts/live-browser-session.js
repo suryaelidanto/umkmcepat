@@ -9,7 +9,7 @@
   'use strict';
 
   function createLiveBrowserSessionState({ prefix, storage, idFactory }) {
-    if (!prefix) {throw new Error('prefix required');}
+    if (!prefix) throw new Error('prefix required');
     const store = storage || root.localStorage;
     const makeId = idFactory || function () { return Math.random().toString(16).slice(2, 10); };
     const sessionKey = prefix + '-session';
@@ -33,7 +33,7 @@
     function loadSession() {
       try {
         const raw = safeRead(sessionKey);
-        if (!raw) {return null;}
+        if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (Number.isInteger(parsed.checkpointRevision)) {
           checkpointRevision = Math.max(checkpointRevision, parsed.checkpointRevision);
@@ -43,7 +43,7 @@
     }
 
     function saveSession(session) {
-      if (!session || !session.id) {return;}
+      if (!session || !session.id) return;
       const payload = {
         ...session,
         checkpointRevision,
@@ -58,12 +58,12 @@
     function nextCheckpointRevision() {
       checkpointRevision += 1;
       const existing = loadSession();
-      if (existing?.id) {saveSession(existing);}
+      if (existing?.id) saveSession(existing);
       return checkpointRevision;
     }
 
     function seedCheckpointRevision(value) {
-      if (Number.isInteger(value)) {checkpointRevision = Math.max(checkpointRevision, value);}
+      if (Number.isInteger(value)) checkpointRevision = Math.max(checkpointRevision, value);
       return checkpointRevision;
     }
 
@@ -72,7 +72,7 @@
     }
 
     function markHandled(id) {
-      if (!id) {return;}
+      if (!id) return;
       safeWrite(handledKey, id);
     }
 
@@ -90,7 +90,7 @@
 
     function readScrollY() {
       const raw = safeRead(scrollKey);
-      if (raw == null) {return null;}
+      if (raw == null) return null;
       const n = parseFloat(raw);
       return isFinite(n) ? n : null;
     }

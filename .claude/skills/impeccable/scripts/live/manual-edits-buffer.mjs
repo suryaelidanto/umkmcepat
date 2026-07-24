@@ -12,7 +12,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { getLiveDir } from '../lib/impeccable-paths.mjs';
 
 const BUFFER_VERSION = 1;
@@ -36,7 +35,7 @@ function readBufferInternal(cwd, { strict }) {
     const raw = fs.readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.entries)) {
-      if (strict) {throw new Error('manual_edit_buffer_invalid_schema');}
+      if (strict) throw new Error('manual_edit_buffer_invalid_schema');
       return { version: BUFFER_VERSION, entries: [] };
     }
     return { version: BUFFER_VERSION, entries: parsed.entries };
@@ -68,7 +67,7 @@ export function stageEntry(cwd, newEntry) {
   for (const newOp of newEntry.ops) {
     let mergedIntoExisting = false;
     for (const existing of buf.entries) {
-      if (existing.pageUrl !== pageUrl) {continue;}
+      if (existing.pageUrl !== pageUrl) continue;
       const existingOpIdx = existing.ops.findIndex((op) => op.ref === newOp.ref);
       if (existingOpIdx >= 0) {
         // Keep the original source text but refresh the latest DOM/source evidence.
@@ -78,13 +77,13 @@ export function stageEntry(cwd, newEntry) {
           newText: newOp.newText,
           deleted: newOp.deleted || false,
         };
-        if (newEntry.element) {existing.element = newEntry.element;}
+        if (newEntry.element) existing.element = newEntry.element;
         existing.stagedAt = new Date().toISOString();
         mergedIntoExisting = true;
         break;
       }
     }
-    if (mergedIntoExisting) {continue;}
+    if (mergedIntoExisting) continue;
     // No existing op for this (pageUrl, ref). Find or create an entry to hold it.
     let entry = buf.entries.find((e) => e.pageUrl === pageUrl && e.id === newEntry.id);
     if (!entry) {
@@ -147,7 +146,7 @@ export function countByPage(cwd = process.cwd()) {
 export function truncateBuffer(cwd) {
   const buf = readBuffer(cwd);
   let removed = 0;
-  for (const entry of buf.entries) {removed += entry.ops.length;}
+  for (const entry of buf.entries) removed += entry.ops.length;
   writeBuffer(cwd, { version: BUFFER_VERSION, entries: [] });
   return removed;
 }

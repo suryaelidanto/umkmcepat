@@ -23,10 +23,10 @@ function walkDir(dir) {
   let entries;
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return files; }
   for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) {continue;}
+    if (SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {files.push(...walkDir(full));}
-    else if (SCANNABLE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {files.push(full);}
+    if (entry.isDirectory()) files.push(...walkDir(full));
+    else if (SCANNABLE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) files.push(full);
   }
   return files;
 }
@@ -37,17 +37,17 @@ function walkDir(dir) {
 // ---------------------------------------------------------------------------
 
 function resolveImport(specifier, fromDir, fileSet) {
-  if (!/^[./]/.test(specifier)) {return null;} // skip bare specifiers
+  if (!/^[./]/.test(specifier)) return null; // skip bare specifiers
   const base = path.resolve(fromDir, specifier);
-  if (fileSet.has(base)) {return base;}
+  if (fileSet.has(base)) return base;
   for (const ext of SCANNABLE_EXTENSIONS) {
     const withExt = base + ext;
-    if (fileSet.has(withExt)) {return withExt;}
+    if (fileSet.has(withExt)) return withExt;
   }
   // index file convention
   for (const ext of SCANNABLE_EXTENSIONS) {
     const indexFile = path.join(base, 'index' + ext);
-    if (fileSet.has(indexFile)) {return indexFile;}
+    if (fileSet.has(indexFile)) return indexFile;
   }
   return null;
 }
@@ -66,21 +66,21 @@ function buildImportGraph(files) {
     let m;
     while ((m = esRe.exec(content)) !== null) {
       const resolved = resolveImport(m[1], dir, fileSet);
-      if (resolved) {imports.add(resolved);}
+      if (resolved) imports.add(resolved);
     }
 
     // CSS @import
     const cssRe = /@import\s+(?:url\(\s*)?['"]?([^'");\s]+)['"]?\s*\)?/g;
     while ((m = cssRe.exec(content)) !== null) {
       const resolved = resolveImport(m[1], dir, fileSet);
-      if (resolved) {imports.add(resolved);}
+      if (resolved) imports.add(resolved);
     }
 
     // SCSS @use / @forward
     const scssRe = /@(?:use|forward)\s+['"]([^'"]+)['"]/g;
     while ((m = scssRe.exec(content)) !== null) {
       const resolved = resolveImport(m[1], dir, fileSet);
-      if (resolved) {imports.add(resolved);}
+      if (resolved) imports.add(resolved);
     }
 
     graph.set(file, imports);
@@ -123,14 +123,14 @@ function detectFrameworkConfig(dir) {
 
   for (const cfg of FRAMEWORK_CONFIGS) {
     const match = cfg.files.find(f => entrySet.has(f));
-    if (!match) {continue;}
+    if (!match) continue;
 
     const configPath = path.join(dir, match);
     let port = cfg.defaultPort;
     try {
       const content = fs.readFileSync(configPath, 'utf-8');
       const portMatch = content.match(cfg.portRe);
-      if (portMatch) {port = parseInt(portMatch[1], 10);}
+      if (portMatch) port = parseInt(portMatch[1], 10);
     } catch { /* use default */ }
 
     return { name: cfg.name, port, configPath, fingerprint: cfg.fingerprint };

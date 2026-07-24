@@ -13,16 +13,25 @@
  *   node <scripts_path>/live-server.mjs --help
  */
 
-import { spawn, execFileSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
-import fs from 'node:fs';
 import http from 'node:http';
-import net from 'node:net';
+import { randomUUID } from 'node:crypto';
+import { spawn, execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
+import net from 'node:net';
 import { fileURLToPath } from 'node:url';
-
-import { loadContext } from './context.mjs';
 import { parseDesignMd } from './lib/design-parser.mjs';
+import { loadContext } from './context.mjs';
+import {
+  assembleLiveBrowserScript,
+  assertLiveBrowserScriptParts,
+  readLiveBrowserScriptParts,
+  resolveLiveBrowserScriptParts,
+} from './live/browser-script-parts.mjs';
+import { createLiveSessionStore } from './live/session-store.mjs';
+import { validateEvent } from './live/event-validation.mjs';
+import { createManualEditRoutes } from './live/manual-edit-routes.mjs';
+import { LIVE_COMMANDS } from './live/vocabulary.mjs';
 import {
   getDesignSidecarPath,
   getLiveDir,
@@ -32,25 +41,15 @@ import {
   resolveDesignSidecarPath,
   writeLiveServerInfo,
 } from './lib/impeccable-paths.mjs';
-import {
-  assembleLiveBrowserScript,
-  assertLiveBrowserScriptParts,
-  readLiveBrowserScriptParts,
-  resolveLiveBrowserScriptParts,
-} from './live/browser-script-parts.mjs';
-import { validateEvent } from './live/event-validation.mjs';
+import { countByPage as countPendingByPage } from './live/manual-edits-buffer.mjs';
 import {
   createManualApplyController,
   summarizeManualApplyFailures,
 } from './live/manual-apply.mjs';
-import { createManualEditRoutes } from './live/manual-edit-routes.mjs';
-import { countByPage as countPendingByPage } from './live/manual-edits-buffer.mjs';
-import { createLiveSessionStore } from './live/session-store.mjs';
 import {
   applyDeferredSvelteComponentAccepts,
   removeAllSvelteComponentSessions,
 } from './live/svelte-component.mjs';
-import { LIVE_COMMANDS } from './live/vocabulary.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // PRODUCT.md / DESIGN.md live wherever context.mjs resolves. The generated
@@ -134,8 +133,8 @@ const manualEditRoutes = createManualEditRoutes({
 });
 
 function chatAgentLikelyActive() {
-  if (state.pendingPolls.length > 0) {return true;}
-  if (!state.lastPollAt) {return false;}
+  if (state.pendingPolls.length > 0) return true;
+  if (!state.lastPollAt) return false;
   return Date.now() - state.lastPollAt < CHAT_POLL_FRESHNESS_MS;
 }
 
@@ -144,21 +143,21 @@ function chatAgentLikelyActive() {
 const MAX_ANNOTATION_BYTES = 10 * 1024 * 1024;
 
 function enqueueEvent(event) {
-  if (!event || (event.id && state.pendingEvents.some((entry) => entry.event?.id === event.id && entry.event?.type === event.type))) {return;}
+  if (!event || (event.id && state.pendingEvents.some((entry) => entry.event?.id === event.id && entry.event?.type === event.type))) return;
   state.pendingEvents.push({ event, leaseUntil: 0, seq: state.nextEventSeq++ });
   flushPendingPolls();
 }
 
 function restorePendingEventsFromStore() {
-  if (!state.sessionStore) {return;}
+  if (!state.sessionStore) return;
   for (const snapshot of state.sessionStore.listActiveSessions()) {
-    if (snapshot.pendingEvent) {enqueueEvent(snapshot.pendingEvent);}
+    if (snapshot.pendingEvent) enqueueEvent(snapshot.pendingEvent);
   }
 }
 
 function findAvailablePendingEvent(now = Date.now()) {
   for (const entry of state.pendingEvents) {
-    if (entry.leaseUntil && entry.leaseUntil > now) {continue;}
+    if (entry.leaseUntil && entry.leaseUntil > now) continue;
     return entry;
   }
   return null;
@@ -167,7 +166,7 @@ function findAvailablePendingEvent(now = Date.now()) {
 function leaseEvent(entry, leaseMs) {
   if (!entry.event?.id) {
     const idx = state.pendingEvents.indexOf(entry);
-    if (idx !== -1) {state.pendingEvents.splice(idx, 1);}
+    if (idx !== -1) state.pendingEvents.splice(idx, 1);
     return entry.event;
   }
   entry.leaseUntil = Date.now() + leaseMs;
@@ -177,9 +176,9 @@ function leaseEvent(entry, leaseMs) {
 }
 
 function acknowledgePendingEvent(id) {
-  if (!id) {return false;}
+  if (!id) return false;
   const idx = state.pendingEvents.findIndex((entry) => entry.event?.id === id);
-  if (idx === -1) {return false;}
+  if (idx === -1) return false;
   const acknowledged = state.pendingEvents[idx].event;
   state.pendingEvents.splice(idx, 1);
   scheduleLeaseFlush();
@@ -188,7 +187,7 @@ function acknowledgePendingEvent(id) {
 }
 
 function findPendingEventById(id) {
-  if (!id) {return null;}
+  if (!id) return null;
   const entry = state.pendingEvents.find((item) => item.event?.id === id);
   return entry?.event || null;
 }
@@ -229,7 +228,7 @@ function summarizeActiveSessionForClient(snapshot = {}) {
 }
 
 function activeSessionSummaries() {
-  if (!state.sessionStore) {return [];}
+  if (!state.sessionStore) return [];
   return state.sessionStore.listActiveSessions().map((snapshot) => summarizeActiveSessionForClient(snapshot));
 }
 
@@ -237,7 +236,7 @@ function cancelQueuedAnonymousExitEvents() {
   let removed = 0;
   for (let i = state.pendingEvents.length - 1; i >= 0; i -= 1) {
     const event = state.pendingEvents[i]?.event;
-    if (event?.type !== 'exit' || event.id) {continue;}
+    if (event?.type !== 'exit' || event.id) continue;
     state.pendingEvents.splice(i, 1);
     removed += 1;
   }
@@ -258,7 +257,7 @@ function scheduleLeaseFlush() {
     .map((entry) => entry.leaseUntil || 0)
     .filter((leaseUntil) => leaseUntil > now)
     .sort((a, b) => a - b)[0];
-  if (!nextLeaseUntil) {return;}
+  if (!nextLeaseUntil) return;
   state.leaseTimer = setTimeout(() => {
     state.leaseTimer = null;
     flushPendingPolls();
@@ -280,7 +279,7 @@ function flushPendingPolls() {
     changed = true;
   }
   scheduleLeaseFlush();
-  if (changed) {broadcastAgentPollingIfChanged();}
+  if (changed) broadcastAgentPollingIfChanged();
 }
 
 function agentPollingConnected() {
@@ -291,7 +290,7 @@ function agentPollingConnected() {
 
 function broadcastAgentPollingIfChanged() {
   const connected = agentPollingConnected();
-  if (state.lastAgentPollingBroadcast === connected) {return;}
+  if (state.lastAgentPollingBroadcast === connected) return;
   state.lastAgentPollingBroadcast = connected;
   broadcast({ type: 'agent_polling', connected });
 }
@@ -475,7 +474,7 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
       let total = 0;
       let aborted = false;
       req.on('data', (c) => {
-        if (aborted) {return;}
+        if (aborted) return;
         total += c.length;
         if (total > MAX_ANNOTATION_BYTES) {
           aborted = true;
@@ -487,7 +486,7 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
         chunks.push(c);
       });
       req.on('end', () => {
-        if (aborted) {return;}
+        if (aborted) return;
         const absPath = path.join(state.sessionDir, eventId + '.png');
         try {
           fs.writeFileSync(absPath, Buffer.concat(chunks));
@@ -645,14 +644,14 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
         if (state.sseClients.size === 0) {
           clearTimeout(state.exitTimer);
           state.exitTimer = setTimeout(() => {
-            if (state.sseClients.size === 0) {enqueueEvent({ type: 'exit' });}
+            if (state.sseClients.size === 0) enqueueEvent({ type: 'exit' });
           }, 8000);
         }
       });
       return;
     }
 
-    if (manualEditRoutes(req, res, url)) {return;}
+    if (manualEditRoutes(req, res, url)) return;
 
     // --- Browser→server events (replaces WebSocket messages) ---
     if (p === '/events' && req.method === 'POST') {
@@ -756,7 +755,7 @@ function handlePollGet(req, res, url) {
   const poll = { resolve, leaseMs };
   const timer = setTimeout(() => {
     const idx = state.pendingPolls.indexOf(poll);
-    if (idx !== -1) {state.pendingPolls.splice(idx, 1);}
+    if (idx !== -1) state.pendingPolls.splice(idx, 1);
     broadcastAgentPollingIfChanged();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ type: 'timeout' }));
@@ -773,30 +772,30 @@ function handlePollGet(req, res, url) {
   req.on('close', () => {
     clearTimeout(timer);
     const idx = state.pendingPolls.indexOf(poll);
-    if (idx !== -1) {state.pendingPolls.splice(idx, 1);}
+    if (idx !== -1) state.pendingPolls.splice(idx, 1);
     broadcastAgentPollingIfChanged();
   });
 }
 
 function sessionFileMetadataFromPollReply(file) {
-  if (!file || typeof file !== 'string') {return { file };}
+  if (!file || typeof file !== 'string') return { file };
   const normalized = file.split(path.sep).join('/');
   const base = { file: normalized };
-  if (!normalized.endsWith('/manifest.json') && normalized !== 'manifest.json') {return base;}
-  if (!normalized.includes('node_modules/.impeccable-live/') && !normalized.includes('src/lib/impeccable/')) {return base;}
+  if (!normalized.endsWith('/manifest.json') && normalized !== 'manifest.json') return base;
+  if (!normalized.includes('node_modules/.impeccable-live/') && !normalized.includes('src/lib/impeccable/')) return base;
 
   let full;
   try {
     full = path.resolve(process.cwd(), normalized);
     const rel = path.relative(process.cwd(), full);
-    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {return base;}
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return base;
   } catch {
     return base;
   }
 
   try {
     const manifest = JSON.parse(fs.readFileSync(full, 'utf-8'));
-    if (manifest?.previewMode !== 'svelte-component' || !manifest.sourceFile) {return base;}
+    if (manifest?.previewMode !== 'svelte-component' || !manifest.sourceFile) return base;
     return {
       file: String(manifest.sourceFile).split(path.sep).join('/'),
       sourceFile: String(manifest.sourceFile).split(path.sep).join('/'),
@@ -884,7 +883,7 @@ function handlePollPost(req, res) {
     if (!acknowledgedEvent && state.sessionStore && msg.id) {
       try {
         existingSession = state.sessionStore.getSnapshot(msg.id, { includeCompleted: true });
-        if (!existingSession?.updatedAt) {existingSession = null;}
+        if (!existingSession?.updatedAt) existingSession = null;
         skipJournalReply = existingSession?.phase === 'completed' || existingSession?.phase === 'discarded';
       } catch { /* fall through and record the reply normally */ }
     }
@@ -951,16 +950,16 @@ let httpServer = null;
 function shutdown() {
   cleanupSvelteComponentSessionsBeforeExit();
   removeLiveServerInfo(process.cwd());
-  if (state.leaseTimer) {clearTimeout(state.leaseTimer);}
+  if (state.leaseTimer) clearTimeout(state.leaseTimer);
   state.leaseTimer = null;
   if (state.sessionDir) {
     try { fs.rmSync(state.sessionDir, { recursive: true, force: true }); } catch {}
   }
   for (const res of state.sseClients) { try { res.end(); } catch {} }
   state.sseClients.clear();
-  for (const poll of state.pendingPolls) {poll.resolve({ type: 'exit' });}
+  for (const poll of state.pendingPolls) poll.resolve({ type: 'exit' });
   state.pendingPolls.length = 0;
-  if (httpServer) {httpServer.close();}
+  if (httpServer) httpServer.close();
   process.exit(0);
 }
 
@@ -1026,7 +1025,7 @@ if (args.includes('stop')) {
   try {
     const { info } = readLiveServerInfo(process.cwd()) || {};
     const res = await fetch(`http://localhost:${info.port}/stop?token=${info.token}`);
-    if (res.ok) {console.log(`Stopped live server on port ${info.port}.`);}
+    if (res.ok) console.log(`Stopped live server on port ${info.port}.`);
   } catch {
     console.log('No running live server found.');
   }

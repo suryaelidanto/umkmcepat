@@ -1,20 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import {
-  StaticDocument,
-  buildStaticStyleMap,
-  buildStaticWindow,
-  collectStaticCssText,
-} from './css-cascade.mjs';
+import { GENERIC_FONTS, OVERUSED_FONTS } from '../../shared/constants.mjs';
 import {
   checkSourceDesignSystem,
   collectStaticDesignSystemFindings,
   mergeDesignSystemFindings,
 } from '../../design-system.mjs';
+import { isFullPage } from '../../shared/page.mjs';
+import { applyInlineIgnores } from '../../shared/inline-ignores.mjs';
 import { finding } from '../../findings.mjs';
 import { profileFindings, profileStep, profileStepAsync } from '../../profile/profiler.mjs';
-import { filterByProviders } from '../../registry/antipatterns.mjs';
 import {
   checkElementBorders,
   checkElementClippedOverflow,
@@ -35,10 +31,14 @@ import {
   resolveBackground,
   resolveBorderRadiusPx,
 } from '../../rules/checks.mjs';
-import { GENERIC_FONTS, OVERUSED_FONTS } from '../../shared/constants.mjs';
-import { applyInlineIgnores } from '../../shared/inline-ignores.mjs';
-import { isFullPage } from '../../shared/page.mjs';
+import { filterByProviders } from '../../registry/antipatterns.mjs';
 import { detectText, runTextContentAnalyzers } from '../regex/detect-text.mjs';
+import {
+  StaticDocument,
+  buildStaticStyleMap,
+  buildStaticWindow,
+  collectStaticCssText,
+} from './css-cascade.mjs';
 
 function checkStaticPageTypography(document, window) {
   const findings = [];
@@ -46,13 +46,13 @@ function checkStaticPageTypography(document, window) {
   const overusedFound = new Set();
   for (const el of document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, dd, blockquote, figcaption, a, button, label, span, div')) {
     const hasText = el.childNodes.some(n => n.nodeType === 3 && n.textContent.trim().length > 0);
-    if (!hasText) {continue;}
+    if (!hasText) continue;
     const ff = window.getComputedStyle(el).fontFamily || '';
     const stack = ff.split(',').map(f => f.trim().replace(/^['"]|['"]$/g, '').toLowerCase());
     const primary = stack.find(f => f && !GENERIC_FONTS.has(f));
-    if (!primary) {continue;}
+    if (!primary) continue;
     fonts.add(primary);
-    if (OVERUSED_FONTS.has(primary)) {overusedFound.add(primary);}
+    if (OVERUSED_FONTS.has(primary)) overusedFound.add(primary);
   }
   for (const font of overusedFound) {
     findings.push({ id: 'overused-font', snippet: `Primary font: ${font}` });
@@ -63,7 +63,7 @@ function checkStaticPageTypography(document, window) {
   const sizes = new Set();
   for (const el of document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, a, li, td, th, label, button, div')) {
     const fontSize = parseFloat(window.getComputedStyle(el).fontSize);
-    if (fontSize >= 8 && fontSize < 200) {sizes.add(Math.round(fontSize * 10) / 10);}
+    if (fontSize >= 8 && fontSize < 200) sizes.add(Math.round(fontSize * 10) / 10);
   }
   if (sizes.size >= 3) {
     const sorted = [...sizes].sort((a, b) => a - b);

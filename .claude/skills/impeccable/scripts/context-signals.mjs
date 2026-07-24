@@ -16,20 +16,19 @@
  *   - git:       branch + files changed vs the default branch (a scope hint)
  *   - devServer: whether a local dev server answers on a common port (gates live)
  */
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
+import { execFileSync } from 'node:child_process';
 import { loadContext, extractRegister, extractPlatform } from './context.mjs';
 import { getCritiqueDir } from './lib/impeccable-paths.mjs';
 
 /** Is there code here at all, or just context files / an empty repo? */
 function hasCode(cwd) {
-  if (fs.existsSync(path.join(cwd, 'package.json'))) {return true;}
+  if (fs.existsSync(path.join(cwd, 'package.json'))) return true;
   for (const d of ['src', 'app', 'pages', 'site', 'public', 'components', 'lib']) {
-    if (fs.existsSync(path.join(cwd, d))) {return true;}
+    if (fs.existsSync(path.join(cwd, d))) return true;
   }
   return false;
 }
@@ -42,9 +41,9 @@ function hasCode(cwd) {
 function latestCritique(cwd) {
   try {
     const dir = getCritiqueDir(cwd);
-    if (!fs.existsSync(dir)) {return null;}
+    if (!fs.existsSync(dir)) return null;
     const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
-    if (!files.length) {return null;}
+    if (!files.length) return null;
     const newest = files[files.length - 1];
     const text = fs.readFileSync(path.join(dir, newest), 'utf-8');
     const front = text.split('---')[1] || '';
@@ -127,7 +126,7 @@ function probePort(port, timeout = 250) {
     const sock = new net.Socket();
     let settled = false;
     const finish = (ok) => {
-      if (settled) {return;}
+      if (settled) return;
       settled = true;
       try { sock.destroy(); } catch { /* ignore */ }
       resolve(ok);
@@ -144,7 +143,7 @@ async function devServerSignals() {
   const open = [];
   await Promise.all(
     COMMON_DEV_PORTS.map(async (p) => {
-      if (await probePort(p)) {open.push(p);}
+      if (await probePort(p)) open.push(p);
     }),
   );
   open.sort((a, b) => a - b);
@@ -175,15 +174,15 @@ function scanTargets(cwd, git) {
     const changed = git.changedFiles
       .filter((f) => SCANNABLE_EXT.has(path.extname(f).toLowerCase()))
       .filter((f) => fs.existsSync(path.join(cwd, f)));
-    if (changed.length) {return { targets: changed.slice(0, 50), via: 'git-changes' };}
+    if (changed.length) return { targets: changed.slice(0, 50), via: 'git-changes' };
   }
   // 2. Otherwise scan the local source dirs that exist.
   const dirs = SOURCE_DIRS.filter((d) => fs.existsSync(path.join(cwd, d)));
-  if (dirs.length) {return { targets: dirs, via: 'source-dir' };}
+  if (dirs.length) return { targets: dirs, via: 'source-dir' };
   // 3. A root HTML entry, or the project root as a last resort when there's
   //    code but no conventional source dir (walkDir still skips heavy dirs).
-  if (fs.existsSync(path.join(cwd, 'index.html'))) {return { targets: ['index.html'], via: 'html' };}
-  if (hasCode(cwd)) {return { targets: ['.'], via: 'root' };}
+  if (fs.existsSync(path.join(cwd, 'index.html'))) return { targets: ['index.html'], via: 'html' };
+  if (hasCode(cwd)) return { targets: ['.'], via: 'root' };
   return { targets: [], via: null };
 }
 
@@ -214,7 +213,7 @@ async function cli() {
 
 function invokedAsScript() {
   const arg = process.argv[1];
-  if (!arg) {return false;}
+  if (!arg) return false;
   try {
     return fs.realpathSync(arg) === fs.realpathSync(fileURLToPath(import.meta.url));
   } catch {

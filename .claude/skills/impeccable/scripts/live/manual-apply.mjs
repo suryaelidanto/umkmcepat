@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-
-import { readBuffer as readManualEditsBuffer } from './manual-edits-buffer.mjs';
 import { getLiveDir } from '../lib/impeccable-paths.mjs';
+import { readBuffer as readManualEditsBuffer } from './manual-edits-buffer.mjs';
 
 const APPLY_EVENT_HARD_TIMEOUT_MS = Number(process.env.IMPECCABLE_LIVE_APPLY_EVENT_HARD_TIMEOUT_MS || 150_000);
 const APPLY_EVENT_SOFT_DEADLINE_MS = Number(process.env.IMPECCABLE_LIVE_APPLY_EVENT_SOFT_DEADLINE_MS || 120_000);
@@ -26,9 +25,9 @@ export function createManualApplyController({
   const projectCwd = () => typeof cwd === 'function' ? cwd() : cwd || process.cwd();
 
   function tombstoneTimedOutApplyId(eventId, details = {}) {
-    if (!eventId) {return;}
+    if (!eventId) return;
     timedOutApplyIds.set(eventId, details);
-    if (timedOutApplyIds.size <= 200) {return;}
+    if (timedOutApplyIds.size <= 200) return;
     const oldest = timedOutApplyIds.keys().next().value;
     timedOutApplyIds.delete(oldest);
   }
@@ -47,8 +46,8 @@ export function createManualApplyController({
       schemaVersion: 1,
       deadlineMs: APPLY_EVENT_SOFT_DEADLINE_MS,
     };
-    if (chunk) {event.chunk = chunk;}
-    if (repair) {event.repair = repair;}
+    if (chunk) event.chunk = chunk;
+    if (repair) event.repair = repair;
     const rollbackSnapshot = snapshotApplyEventFiles(batch, cwdValue);
     recordManualEditActivity('manual_edit_apply_dispatched', {
       id: eventId,
@@ -81,9 +80,9 @@ export function createManualApplyController({
 
   async function pushBatchInChunksAndWait(batch, pageUrl, context = {}) {
     const repair = context?.repair || batch?.repair || null;
-    if (repair) {return pushApplyEventAndWait(batch, pageUrl, null, repair);}
+    if (repair) return pushApplyEventAndWait(batch, pageUrl, null, repair);
     const chunks = splitManualApplyBatch(batch, manualEditApplyChunkSize());
-    if (chunks.length <= 1) {return pushApplyEventAndWait(batch, pageUrl);}
+    if (chunks.length <= 1) return pushApplyEventAndWait(batch, pageUrl);
 
     const expectedOpsByEntry = new Map();
     for (const entry of batch?.entries || []) {
@@ -111,13 +110,13 @@ export function createManualApplyController({
         continue;
       }
 
-      for (const file of result.files) {files.add(file);}
+      for (const file of result.files) files.add(file);
       notes.push(...result.notes);
 
       const chunkFailedIds = new Set();
       for (const item of result.failed) {
         const entryId = item.entryId || item.id;
-        if (!entryId) {continue;}
+        if (!entryId) continue;
         chunkFailedIds.add(entryId);
         if (!failedByEntry.has(entryId)) {
           failedByEntry.set(entryId, {
@@ -136,12 +135,12 @@ export function createManualApplyController({
 
       const reportedAppliedIds = new Set(result.appliedEntryIds);
       for (const entryId of reportedAppliedIds) {
-        if (!chunk.entryIds.has(entryId) || chunkFailedIds.has(entryId)) {continue;}
+        if (!chunk.entryIds.has(entryId) || chunkFailedIds.has(entryId)) continue;
         appliedOpsByEntry.set(entryId, (appliedOpsByEntry.get(entryId) || 0) + (chunk.opCountsByEntry.get(entryId) || 0));
       }
 
       for (const entryId of chunk.entryIds) {
-        if (reportedAppliedIds.has(entryId) || chunkFailedIds.has(entryId)) {continue;}
+        if (reportedAppliedIds.has(entryId) || chunkFailedIds.has(entryId)) continue;
         if (!failedByEntry.has(entryId)) {
           failedByEntry.set(entryId, { entryId, reason: 'not_reported_applied', candidates: [] });
         }
@@ -150,7 +149,7 @@ export function createManualApplyController({
 
     const appliedEntryIds = [];
     for (const [entryId, expectedOps] of expectedOpsByEntry.entries()) {
-      if (failedByEntry.has(entryId)) {continue;}
+      if (failedByEntry.has(entryId)) continue;
       if ((appliedOpsByEntry.get(entryId) || 0) === expectedOps && expectedOps > 0) {
         appliedEntryIds.push(entryId);
       } else if (!failedByEntry.has(entryId)) {
@@ -178,7 +177,7 @@ export function createManualApplyController({
 
   function resolveDeferred(eventId, body) {
     const deferred = pendingApplyDeferreds.get(eventId);
-    if (!deferred) {return false;}
+    if (!deferred) return false;
     pendingApplyDeferreds.delete(eventId);
     clearTimeout(deferred.timer);
     removeManualApplyEvidence(deferred.event?.evidencePath, deferred.cwd || projectCwd());
@@ -188,7 +187,7 @@ export function createManualApplyController({
 
   function rejectDeferred(eventId, reason) {
     const deferred = pendingApplyDeferreds.get(eventId);
-    if (!deferred) {return false;}
+    if (!deferred) return false;
     pendingApplyDeferreds.delete(eventId);
     clearTimeout(deferred.timer);
     removeManualApplyEvidence(deferred.event?.evidencePath, deferred.cwd || projectCwd());
@@ -200,22 +199,22 @@ export function createManualApplyController({
     const referenced = new Set();
     const add = (event) => {
       const fullPath = normalizeManualApplyEvidencePath(event?.evidencePath, cwdValue);
-      if (fullPath) {referenced.add(fullPath);}
+      if (fullPath) referenced.add(fullPath);
     };
-    for (const entry of pendingEvents) {add(entry.event);}
-    for (const deferred of pendingApplyDeferreds.values()) {add(deferred.event);}
+    for (const entry of pendingEvents) add(entry.event);
+    for (const deferred of pendingApplyDeferreds.values()) add(deferred.event);
     return referenced;
   }
 
   function pruneStaleEvidence(cwdValue = projectCwd()) {
     const dir = manualApplyEvidenceDir(cwdValue);
-    if (!fs.existsSync(dir)) {return [];}
+    if (!fs.existsSync(dir)) return [];
     const referenced = referencedManualApplyEvidencePaths(cwdValue);
     const removed = [];
     for (const name of fs.readdirSync(dir)) {
-      if (!name.endsWith('.json')) {continue;}
+      if (!name.endsWith('.json')) continue;
       const fullPath = path.join(dir, name);
-      if (referenced.has(fullPath)) {continue;}
+      if (referenced.has(fullPath)) continue;
       try {
         fs.unlinkSync(fullPath);
         removed.push(fullPath);
@@ -229,7 +228,7 @@ export function createManualApplyController({
 
   function rollbackTimedOutReply(msg) {
     const details = timedOutApplyIds.get(msg.id);
-    if (!details) {return { rolledBackFiles: [], rollbackFailures: [] };}
+    if (!details) return { rolledBackFiles: [], rollbackFailures: [] };
     timedOutApplyIds.delete(msg.id);
     return rollbackApplySnapshot(
       details.batch,
@@ -246,7 +245,7 @@ export function createManualApplyController({
 
     for (let i = pendingEvents.length - 1; i >= 0; i -= 1) {
       const event = pendingEvents[i]?.event;
-      if (!shouldCancel(event)) {continue;}
+      if (!shouldCancel(event)) continue;
       pendingEvents.splice(i, 1);
       removeManualApplyEvidence(event.evidencePath, projectCwd());
       canceledById.set(event.id, {
@@ -257,7 +256,7 @@ export function createManualApplyController({
     }
 
     for (const [eventId, deferred] of [...pendingApplyDeferreds.entries()]) {
-      if (!shouldCancel(deferred.event)) {continue;}
+      if (!shouldCancel(deferred.event)) continue;
       pendingApplyDeferreds.delete(eventId);
       clearTimeout(deferred.timer);
       const cwdValue = deferred.cwd || projectCwd();
@@ -279,7 +278,7 @@ export function createManualApplyController({
       deferred.reject(new Error(reason));
     }
 
-    if (canceledById.size > 0) {flushPendingPolls();}
+    if (canceledById.size > 0) flushPendingPolls();
     return [...canceledById.values()];
   }
 
@@ -309,7 +308,7 @@ export function createManualApplyController({
 
 export function manualEditApplyChunkSize(env = process.env) {
   const raw = Number(env.IMPECCABLE_LIVE_MANUAL_EDIT_CHUNK_SIZE);
-  if (!Number.isFinite(raw)) {return DEFAULT_MANUAL_EDIT_APPLY_CHUNK_SIZE;}
+  if (!Number.isFinite(raw)) return DEFAULT_MANUAL_EDIT_APPLY_CHUNK_SIZE;
   const size = Math.trunc(raw);
   return Math.max(MIN_MANUAL_EDIT_APPLY_CHUNK_SIZE, Math.min(MAX_MANUAL_EDIT_APPLY_CHUNK_SIZE, size));
 }
@@ -319,7 +318,7 @@ export function countManualApplyOps(entriesOrBatch) {
     ? entriesOrBatch
     : Array.isArray(entriesOrBatch?.entries) ? entriesOrBatch.entries : [];
   let count = 0;
-  for (const entry of entries) {count += Array.isArray(entry.ops) ? entry.ops.length : 0;}
+  for (const entry of entries) count += Array.isArray(entry.ops) ? entry.ops.length : 0;
   return count;
 }
 
@@ -336,18 +335,18 @@ export function manualApplyEvidenceDir(cwd = process.cwd()) {
 }
 
 export function normalizeManualApplyEvidencePath(evidencePath, cwd = process.cwd()) {
-  if (!evidencePath || typeof evidencePath !== 'string') {return null;}
+  if (!evidencePath || typeof evidencePath !== 'string') return null;
   const fullPath = path.isAbsolute(evidencePath) ? evidencePath : path.resolve(cwd, evidencePath);
   const evidenceDir = manualApplyEvidenceDir(cwd);
   const relative = path.relative(evidenceDir, fullPath);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {return null;}
-  if (path.extname(relative) !== '.json') {return null;}
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  if (path.extname(relative) !== '.json') return null;
   return fullPath;
 }
 
 export function removeManualApplyEvidence(evidencePath, cwd = process.cwd()) {
   const fullPath = normalizeManualApplyEvidencePath(evidencePath, cwd);
-  if (!fullPath) {return false;}
+  if (!fullPath) return false;
   try {
     fs.unlinkSync(fullPath);
     return true;
@@ -399,9 +398,9 @@ function compactManualApplySourceMatches(matches, limit, cwd) {
 }
 
 function compactManualApplySourceMatch(match, cwd) {
-  if (!match || typeof match !== 'object') {return null;}
+  if (!match || typeof match !== 'object') return null;
   const file = match.relativeFile || match.file;
-  if (!file && !match.line) {return null;}
+  if (!file && !match.line) return null;
   return {
     file: summarizeManualLogFile(file, cwd),
     line: match.line || null,
@@ -441,7 +440,7 @@ function compactManualApplyOp(op = {}) {
 }
 
 function compactManualApplyContext(value) {
-  if (!value || typeof value !== 'object') {return null;}
+  if (!value || typeof value !== 'object') return null;
   return {
     ref: value.ref,
     tagName: value.tagName || value.tag || null,
@@ -463,7 +462,7 @@ function compactNearbyManualEditTexts(items) {
 }
 
 function truncateManualApplyText(value, max) {
-  if (typeof value !== 'string') {return value || null;}
+  if (typeof value !== 'string') return value || null;
   return value.length > max ? value.slice(0, max) : value;
 }
 
@@ -496,7 +495,7 @@ function invalidManualApplyResult(reason, eventId, extra = {}) {
 }
 
 export function validateManualApplyResultMessage(msg, deferred) {
-  const data = msg?.data;
+  let data = msg?.data;
   const eventId = msg?.id || deferred?.event?.id || 'EVENT_ID';
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return invalidManualApplyResult('missing_result_data', eventId);
@@ -588,7 +587,7 @@ function firstFailureReason(result) {
 
 function markChunkEntriesFailed(failedByEntry, chunk, reason) {
   for (const entryId of chunk.entryIds) {
-    if (failedByEntry.has(entryId)) {continue;}
+    if (failedByEntry.has(entryId)) continue;
     failedByEntry.set(entryId, { entryId, reason, candidates: [] });
   }
 }
@@ -613,7 +612,7 @@ export function splitManualApplyBatch(batch, maxOps) {
         rawChunks.push(current);
         current = createManualApplyChunkBuilder();
       }
-      for (const op of ops) {addOpToManualApplyChunk(current, entry, op);}
+      for (const op of ops) addOpToManualApplyChunk(current, entry, op);
       continue;
     }
     if (current.opCount > 0) {
@@ -628,7 +627,7 @@ export function splitManualApplyBatch(batch, maxOps) {
       addOpToManualApplyChunk(current, entry, op);
     }
   }
-  if (current.opCount > 0) {rawChunks.push(current);}
+  if (current.opCount > 0) rawChunks.push(current);
 
   return rawChunks.map((chunk, index) => ({
     batch: {
@@ -679,8 +678,8 @@ function addOpToManualApplyChunk(chunk, entry, op) {
   }
   chunkEntry.ops.push(op);
   chunk.ops.push({ ...op, entryId: op.entryId || entry.id });
-  if (!chunk.refsByEntry.has(entry.id)) {chunk.refsByEntry.set(entry.id, new Set());}
-  if (op.ref) {chunk.refsByEntry.get(entry.id).add(op.ref);}
+  if (!chunk.refsByEntry.has(entry.id)) chunk.refsByEntry.set(entry.id, new Set());
+  if (op.ref) chunk.refsByEntry.get(entry.id).add(op.ref);
   chunk.opCountsByEntry.set(entry.id, (chunk.opCountsByEntry.get(entry.id) || 0) + 1);
   chunk.opCount += 1;
 }
@@ -688,8 +687,8 @@ function addOpToManualApplyChunk(chunk, entry, op) {
 function filterManualApplyChunkCandidates(batch, refsByEntry) {
   return (batch?.candidates || []).filter((candidate) => {
     const refs = refsByEntry.get(candidate.entryId);
-    if (!refs) {return false;}
-    if (!candidate.ref) {return true;}
+    if (!refs) return false;
+    if (!candidate.ref) return true;
     return refs.has(candidate.ref);
   });
 }
@@ -716,7 +715,7 @@ export function manualApplyTransactionPath(cwd = process.cwd()) {
 
 export function readManualApplyTransaction(cwd = process.cwd()) {
   const file = manualApplyTransactionPath(cwd);
-  if (!fs.existsSync(file)) {return null;}
+  if (!fs.existsSync(file)) return null;
   try {
     return JSON.parse(fs.readFileSync(file, 'utf-8'));
   } catch {
@@ -751,10 +750,10 @@ export function writeManualApplyTransaction({ cwd = process.cwd(), pageUrl = nul
 
 export function clearManualApplyTransaction(cwd = process.cwd(), transactionId = null) {
   const file = manualApplyTransactionPath(cwd);
-  if (!fs.existsSync(file)) {return false;}
+  if (!fs.existsSync(file)) return false;
   if (transactionId) {
     const existing = readManualApplyTransaction(cwd);
-    if (existing?.id && existing.id !== transactionId) {return false;}
+    if (existing?.id && existing.id !== transactionId) return false;
   }
   try {
     fs.unlinkSync(file);
@@ -771,8 +770,8 @@ export function rollbackManualApplyTransaction({
   recordManualEditActivity = null,
 } = {}) {
   const transaction = readManualApplyTransaction(cwd);
-  if (!transaction) {return null;}
-  if (pageUrl && transaction.pageUrl && transaction.pageUrl !== pageUrl) {return null;}
+  if (!transaction) return null;
+  if (pageUrl && transaction.pageUrl && transaction.pageUrl !== pageUrl) return null;
 
   let pendingIds = new Set();
   try {
@@ -791,7 +790,7 @@ export function rollbackManualApplyTransaction({
   const rollbackFailures = [];
   for (const item of transaction.files || []) {
     const relativeFile = normalizeProjectFile(item.file, cwd);
-    if (!relativeFile) {continue;}
+    if (!relativeFile) continue;
     const absolute = path.resolve(cwd, relativeFile);
     try {
       if (item.exists) {
@@ -820,14 +819,14 @@ export function rollbackManualApplyTransaction({
 export function collectManualApplyFiles(batch, extraFiles = [], cwd = process.cwd()) {
   const files = [];
   for (const entry of batch?.entries || []) {
-    for (const op of entry.ops || []) {files.push(op.sourceHint?.file);}
+    for (const op of entry.ops || []) files.push(op.sourceHint?.file);
   }
   for (const candidate of batch?.candidates || []) {
     files.push(candidate.sourceHint?.relativeFile, candidate.sourceHint?.file);
-    for (const item of candidate.textMatches || []) {files.push(item.file);}
-    for (const item of candidate.objectKeyMatches || []) {files.push(item.file);}
-    for (const item of candidate.locatorMatches || []) {files.push(item.file);}
-    for (const item of candidate.contextTextMatches || []) {files.push(item.file);}
+    for (const item of candidate.textMatches || []) files.push(item.file);
+    for (const item of candidate.objectKeyMatches || []) files.push(item.file);
+    for (const item of candidate.locatorMatches || []) files.push(item.file);
+    for (const item of candidate.contextTextMatches || []) files.push(item.file);
   }
   files.push(...(extraFiles || []));
   return [...new Set(files)]
@@ -836,10 +835,10 @@ export function collectManualApplyFiles(batch, extraFiles = [], cwd = process.cw
 }
 
 function normalizeProjectFile(file, cwd = process.cwd()) {
-  if (!file || typeof file !== 'string') {return null;}
+  if (!file || typeof file !== 'string') return null;
   const absolute = path.isAbsolute(file) ? file : path.resolve(cwd, file);
   const relative = path.relative(cwd, absolute);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {return null;}
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
   return relative;
 }
 
@@ -855,7 +854,7 @@ export function rollbackApplySnapshot(
   const rollbackFailures = [];
   for (const relativeFile of scope) {
     const before = rollbackSnapshot?.get(relativeFile);
-    if (!before) {continue;}
+    if (!before) continue;
     const absolute = path.resolve(cwd, relativeFile);
     try {
       if (before.exists) {
@@ -899,7 +898,7 @@ export function summarizeManualApplyEvent(event = {}, batch = event.batch, cwd =
 }
 
 export function summarizeManualApplyFailures(failed, cwd = process.cwd()) {
-  if (!Array.isArray(failed)) {return [];}
+  if (!Array.isArray(failed)) return [];
   return failed.slice(0, 20).map((item) => ({
     id: item.id || item.entryId || null,
     reason: item.reason || item.message || 'failed',
@@ -912,7 +911,7 @@ export function summarizeManualApplyFailures(failed, cwd = process.cwd()) {
 }
 
 export function summarizeManualDiagnostics(items, cwd = process.cwd()) {
-  if (!Array.isArray(items) || items.length === 0) {return undefined;}
+  if (!Array.isArray(items) || items.length === 0) return undefined;
   return items.slice(0, 12).map((item) => ({
     reason: item.reason || item.kind || undefined,
     detail: compactManualLogText(item.detail, 220),
@@ -926,15 +925,15 @@ export function summarizeManualDiagnostics(items, cwd = process.cwd()) {
 }
 
 export function summarizeManualLogFile(file, cwd = process.cwd()) {
-  if (!file || typeof file !== 'string') {return undefined;}
-  if (!path.isAbsolute(file)) {return file;}
+  if (!file || typeof file !== 'string') return undefined;
+  if (!path.isAbsolute(file)) return file;
   const relative = path.relative(cwd, file);
   return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : file;
 }
 
 export function compactManualLogText(value, max = 200) {
-  if (typeof value !== 'string') {return undefined;}
+  if (typeof value !== 'string') return undefined;
   const normalized = value.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= max) {return normalized;}
+  if (normalized.length <= max) return normalized;
   return normalized.slice(0, max) + `... [truncated ${normalized.length - max} chars]`;
 }

@@ -21,10 +21,9 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
 import { loadContext, resolveTargetSelection } from './context.mjs';
-import { readLiveServerInfo } from './lib/impeccable-paths.mjs';
 import { resolveFiles } from './live-inject.mjs';
+import { readLiveServerInfo } from './lib/impeccable-paths.mjs';
 import { resolveLiveTarget } from './live-target.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -152,8 +151,8 @@ The agent should then:
 
 function missingLiveContext(ctx) {
   const missing = [];
-  if (!ctx.hasProduct) {missing.push('PRODUCT.md');}
-  if (!ctx.hasDesign) {missing.push('DESIGN.md');}
+  if (!ctx.hasProduct) missing.push('PRODUCT.md');
+  if (!ctx.hasDesign) missing.push('DESIGN.md');
   return missing;
 }
 
@@ -191,11 +190,11 @@ function scanForDrift(rootDir, resolvedFiles, config) {
     for (const e of entries) {
       const rel = relBase ? `${relBase}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        if (IGNORE_DIRS.has(e.name) || e.name.startsWith('.')) {continue;}
+        if (IGNORE_DIRS.has(e.name) || e.name.startsWith('.')) continue;
         walk(path.join(dir, e.name), rel);
       } else if (e.isFile() && e.name.endsWith('.html')) {
-        if (resolvedSet.has(rel)) {continue;}
-        if (isUserExcluded(rel)) {continue;}
+        if (resolvedSet.has(rel)) continue;
+        if (isUserExcluded(rel)) continue;
         orphans.push(rel);
       }
     }
@@ -208,7 +207,7 @@ function scanForDrift(rootDir, resolvedFiles, config) {
     }
   }
 
-  if (orphans.length === 0) {return null;}
+  if (orphans.length === 0) return null;
   const capped = orphans.slice(0, 20);
   return {
     orphans: capped,

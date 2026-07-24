@@ -1,15 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { loadDesignSystemForCwd } from '../design-system.mjs';
+import { createBrowserDetector, detectUrl } from '../engines/browser/detect-url.mjs';
+import { detectHtml } from '../engines/static-html/detect-html.mjs';
+import { detectText } from '../engines/regex/detect-text.mjs';
 import {
   filterDetectionFindings,
   readDetectionConfig,
   shouldIgnoreDetectionFile,
 } from '../../lib/impeccable-config.mjs';
-import { loadDesignSystemForCwd } from '../design-system.mjs';
-import { createBrowserDetector, detectUrl } from '../engines/browser/detect-url.mjs';
-import { detectText } from '../engines/regex/detect-text.mjs';
-import { detectHtml } from '../engines/static-html/detect-html.mjs';
 import {
   HTML_EXTENSIONS,
   buildImportGraph,
@@ -27,11 +27,11 @@ function formatFindingSummary(count) {
 }
 
 function formatFindings(findings, jsonMode) {
-  if (jsonMode) {return JSON.stringify(findings, null, 2);}
+  if (jsonMode) return JSON.stringify(findings, null, 2);
 
   const grouped = {};
   for (const f of findings) {
-    if (!grouped[f.file]) {grouped[f.file] = [];}
+    if (!grouped[f.file]) grouped[f.file] = [];
     grouped[f.file].push(f);
   }
   const out = [];
@@ -53,7 +53,7 @@ function formatFindings(findings, jsonMode) {
 
 async function handleStdin(options = {}) {
   const chunks = [];
-  for await (const chunk of process.stdin) {chunks.push(chunk);}
+  for await (const chunk of process.stdin) chunks.push(chunk);
   const input = Buffer.concat(chunks).toString('utf-8');
   try {
     const parsed = JSON.parse(input);
@@ -127,11 +127,11 @@ Examples:
 
 async function detectCli() {
   let args = process.argv.slice(2).map(arg => {
-    if (arg === '-json') {return '--json';}
-    if (arg === '-fast') {return '--fast';}
+    if (arg === '-json') return '--json';
+    if (arg === '-fast') return '--fast';
     return arg;
   });
-  if (args[0] === 'detect') {args = args.slice(1);}
+  if (args[0] === 'detect') args = args.slice(1);
   const jsonMode = args.includes('--json');
   const quietMode = args.includes('--quiet');
   const helpMode = args.includes('--help');
@@ -149,8 +149,8 @@ async function detectCli() {
     ? readDetectionConfig(process.cwd())
     : { ignoreRules: [], ignoreFiles: [], ignoreValues: [] };
   const providers = [];
-  if (args.includes('--gpt')) {providers.push('gpt');}
-  if (args.includes('--gemini')) {providers.push('gemini');}
+  if (args.includes('--gpt')) providers.push('gpt');
+  if (args.includes('--gemini')) providers.push('gemini');
   const designSystemEnabled = configEnabled && !args.includes('--no-design-system') && detectionConfig.designSystem?.enabled !== false;
   const designSystem = designSystemEnabled ? loadDesignSystemForCwd(process.cwd()) : null;
   // Inline `impeccable-disable*` waivers are part of the scanned file, so they
@@ -158,7 +158,7 @@ async function detectCli() {
   // `--no-inline-ignores` both turn them off.
   const inlineIgnoresEnabled = configEnabled && !args.includes('--no-inline-ignores');
   const scanOptions = { providers, inlineIgnores: inlineIgnoresEnabled };
-  if (designSystem) {scanOptions.designSystem = designSystem;}
+  if (designSystem) scanOptions.designSystem = designSystem;
   const targets = args.filter(a => !a.startsWith('--'));
 
   if (helpMode) { printUsage(); process.exit(0); }
@@ -237,7 +237,7 @@ async function detectCli() {
           const importedByMap = new Map();
           for (const [importer, imports] of graph) {
             for (const imported of imports) {
-              if (!importedByMap.has(imported)) {importedByMap.set(imported, new Set());}
+              if (!importedByMap.has(imported)) importedByMap.set(imported, new Set());
               importedByMap.get(imported).add(importer);
             }
           }
@@ -261,7 +261,7 @@ async function detectCli() {
             allFindings.push(...fileFindings);
           }
         } else if (stat.isFile()) {
-          if (shouldIgnoreDetectionFile(resolved, process.cwd(), detectionConfig)) {continue;}
+          if (shouldIgnoreDetectionFile(resolved, process.cwd(), detectionConfig)) continue;
           const ext = path.extname(resolved).toLowerCase();
           if (HTML_EXTENSIONS.has(ext)) {
             allFindings.push(...await detectHtml(resolved, scanOptions));
@@ -271,19 +271,19 @@ async function detectCli() {
         }
       }
     } finally {
-      if (browserDetector) {await browserDetector.close();}
+      if (browserDetector) await browserDetector.close();
     }
   }
 
   allFindings = filterDetectionFindings(allFindings, detectionConfig);
 
   if (allFindings.length > 0) {
-    if (jsonMode) {process.stdout.write(formatFindings(allFindings, true) + '\n');}
-    else if (quietMode) {process.stderr.write(formatFindingSummary(allFindings.length) + '\n');}
-    else {process.stderr.write(formatFindings(allFindings, false) + '\n');}
+    if (jsonMode) process.stdout.write(formatFindings(allFindings, true) + '\n');
+    else if (quietMode) process.stderr.write(formatFindingSummary(allFindings.length) + '\n');
+    else process.stderr.write(formatFindings(allFindings, false) + '\n');
     process.exit(2);
   }
-  if (jsonMode) {process.stdout.write('[]\n');}
+  if (jsonMode) process.stdout.write('[]\n');
   process.exit(0);
 }
 

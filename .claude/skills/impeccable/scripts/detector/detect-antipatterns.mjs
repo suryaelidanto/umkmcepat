@@ -47,4 +47,4 @@ export { formatFindings, detectCli } from './cli/main.mjs';
 
 const isMainModule = process.argv[1]?.endsWith('detect-antipatterns.mjs') ||
   process.argv[1]?.endsWith('detect-antipatterns.mjs/');
-if (isMainModule) {detectCli();}
+if (isMainModule) detectCli();

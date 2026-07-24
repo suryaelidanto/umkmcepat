@@ -17,17 +17,17 @@ export const SVELTE_ROOT_IMPORT = "import ImpeccableLiveRoot from '$lib/impeccab
 
 export function detectSvelteKitProject(cwd = process.cwd(), config = null) {
   const appHtml = findSvelteKitAppHtml(cwd, config);
-  if (!appHtml) {return null;}
+  if (!appHtml) return null;
   const hasTemplateMarkers = fileIncludes(path.join(cwd, appHtml), '%sveltekit.body%')
     && fileIncludes(path.join(cwd, appHtml), '%sveltekit.head%');
-  if (!hasTemplateMarkers) {return null;}
+  if (!hasTemplateMarkers) return null;
 
   const hasSvelteConfig = fs.existsSync(path.join(cwd, 'svelte.config.js'))
     || fs.existsSync(path.join(cwd, 'svelte.config.mjs'))
     || fs.existsSync(path.join(cwd, 'svelte.config.cjs'))
     || fs.existsSync(path.join(cwd, 'svelte.config.ts'));
   const hasKitPackage = packageHasSvelteKit(cwd);
-  if (!hasSvelteConfig && !hasKitPackage) {return null;}
+  if (!hasSvelteConfig && !hasKitPackage) return null;
 
   return {
     appHtml,
@@ -41,7 +41,7 @@ export function applySvelteKitLiveAdapter({ cwd = process.cwd(), port, config = 
     throw new Error('SvelteKit live adapter requires a numeric port');
   }
   const detected = detectSvelteKitProject(cwd, config);
-  if (!detected) {return null;}
+  if (!detected) return null;
 
   ensureSvelteLiveRootComponent(cwd, Number(port));
 
@@ -64,7 +64,7 @@ export function applySvelteKitLiveAdapter({ cwd = process.cwd(), port, config = 
 
 export function removeSvelteKitLiveAdapter({ cwd = process.cwd(), config = null } = {}) {
   const detected = detectSvelteKitProject(cwd, config);
-  if (!detected) {return null;}
+  if (!detected) return null;
 
   const layoutAbs = path.join(cwd, detected.layoutFile);
   let removed = false;
@@ -207,11 +207,11 @@ export function buildSvelteLiveRootComponent(port) {
 function findSvelteKitAppHtml(cwd, config) {
   const files = Array.isArray(config?.files) ? config.files : ['src/app.html'];
   for (const rel of files) {
-    if (rel.includes('*')) {continue;}
+    if (rel.includes('*')) continue;
     const normalized = rel.split(path.sep).join('/');
-    if (!normalized.endsWith('app.html')) {continue;}
+    if (!normalized.endsWith('app.html')) continue;
     const abs = path.join(cwd, normalized);
-    if (fs.existsSync(abs)) {return normalized;}
+    if (fs.existsSync(abs)) return normalized;
   }
   const fallback = 'src/app.html';
   return fs.existsSync(path.join(cwd, fallback)) ? fallback : null;
@@ -223,7 +223,7 @@ function findSvelteKitLayout(cwd) {
     'src/routes/(app)/+layout.svelte',
   ];
   for (const rel of candidates) {
-    if (fs.existsSync(path.join(cwd, rel))) {return rel;}
+    if (fs.existsSync(path.join(cwd, rel))) return rel;
   }
   return 'src/routes/+layout.svelte';
 }
@@ -234,7 +234,7 @@ function defaultSvelteLayout() {
 
 function packageHasSvelteKit(cwd) {
   const file = path.join(cwd, 'package.json');
-  if (!fs.existsSync(file)) {return false;}
+  if (!fs.existsSync(file)) return false;
   try {
     const pkg = JSON.parse(fs.readFileSync(file, 'utf-8'));
     const deps = {
@@ -260,7 +260,7 @@ function pruneEmptyDir(dir, stopDir) {
   let current = dir;
   while (current.startsWith(stopDir) && current !== stopDir) {
     try {
-      if (fs.readdirSync(current).length > 0) {return;}
+      if (fs.readdirSync(current).length > 0) return;
       fs.rmdirSync(current);
       current = path.dirname(current);
     } catch {

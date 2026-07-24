@@ -1,5 +1,5 @@
 function sanitizeScreenshotClip(clip, viewport) {
-  if (!clip) {return null;}
+  if (!clip) return null;
   const x = Math.max(0, Math.floor(clip.x || 0));
   const y = Math.max(0, Math.floor(clip.y || 0));
   const width = Math.min(
@@ -10,7 +10,7 @@ function sanitizeScreenshotClip(clip, viewport) {
     Math.max(1, Math.ceil(clip.height || 0)),
     320,
   );
-  if (width < 1 || height < 1) {return null;}
+  if (width < 1 || height < 1) return null;
   return { x, y, width, height };
 }
 
@@ -25,13 +25,13 @@ async function compareScreenshotContrast(page, beforeBase64, afterBase64, candid
     const [before, after] = await Promise.all([loadImage(beforeBase64), loadImage(afterBase64)]);
     const width = Math.min(before.width, after.width);
     const height = Math.min(before.height, after.height);
-    if (width < 1 || height < 1) {return null;}
+    if (width < 1 || height < 1) return null;
 
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) {return null;}
+    if (!ctx) return null;
 
     ctx.drawImage(before, 0, 0, width, height);
     const beforePixels = ctx.getImageData(0, 0, width, height).data;
@@ -68,7 +68,7 @@ async function compareScreenshotContrast(page, beforeBase64, afterBase64, candid
         + Math.abs(beforePixels[i + 2] - afterPixels[i + 2])
         + Math.abs(beforePixels[i + 3] - afterPixels[i + 3]);
       strongestDelta = Math.max(strongestDelta, delta);
-      if (delta < 10) {continue;}
+      if (delta < 10) continue;
       glyphPixels++;
       const fg = cssTextColor || {
         r: beforePixels[i],
@@ -107,7 +107,7 @@ async function compareScreenshotContrast(page, beforeBase64, afterBase64, candid
 
 async function captureVisualContrastCandidate(page, candidate, viewport) {
   const clip = sanitizeScreenshotClip(candidate.clip, viewport);
-  if (!clip) {return null;}
+  if (!clip) return null;
 
   const beforeBase64 = await page.screenshot({
     encoding: 'base64',
@@ -122,7 +122,7 @@ async function captureVisualContrastCandidate(page, candidate, viewport) {
     } catch {
       return false;
     }
-    if (!el) {return false;}
+    if (!el) return false;
     let style = document.getElementById('impeccable-visual-contrast-hide-style');
     if (!style) {
       style = document.createElement('style');
@@ -140,14 +140,14 @@ async function captureVisualContrastCandidate(page, candidate, viewport) {
       document.head.appendChild(style);
     }
     el.setAttribute('data-impeccable-visual-contrast-target', token);
-    if (backgroundClipText) {el.setAttribute('data-impeccable-bgclip-text', 'true');}
+    if (backgroundClipText) el.setAttribute('data-impeccable-bgclip-text', 'true');
     return true;
   }, {
     selector: candidate.selector,
     token,
     backgroundClipText: candidate.backgroundClipText,
   });
-  if (!applied) {return null;}
+  if (!applied) return null;
 
   let afterBase64;
   try {
@@ -171,9 +171,9 @@ async function captureVisualContrastCandidate(page, candidate, viewport) {
   }
 
   const metrics = await compareScreenshotContrast(page, beforeBase64, afterBase64, candidate);
-  if (!metrics || !Number.isFinite(metrics.p10Ratio) || metrics.glyphPixels < 8) {return null;}
+  if (!metrics || !Number.isFinite(metrics.p10Ratio) || metrics.glyphPixels < 8) return null;
   const measuredRatio = metrics.p10Ratio;
-  if (measuredRatio >= candidate.threshold) {return null;}
+  if (measuredRatio >= candidate.threshold) return null;
   const textLabel = candidate.text ? ` "${candidate.text}"` : '';
   const reasonLabel = (candidate.reasons || []).slice(0, 3).join(', ') || 'visual background';
   return {

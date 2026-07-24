@@ -15,16 +15,15 @@
  *   { applied, failed, files, cleared, count, pageUrl }
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-
-import { isGeneratedFile } from './lib/is-generated.mjs';
+import { buildManualEditEvidence } from './live-manual-edit-evidence.mjs';
 import { readBuffer, readBufferStrict, writeBuffer, countByPage } from './live/manual-edits-buffer.mjs';
+import { isGeneratedFile } from './lib/is-generated.mjs';
 import {
   runCopyEditBatchAgent,
   runCopyEditPostApplyChecks,
 } from './live-copy-edit-agent.mjs';
-import { buildManualEditEvidence } from './live-manual-edit-evidence.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const ROLLBACK_EXTENSIONS = new Set([
   '.astro',
@@ -66,15 +65,15 @@ const DEFAULT_REPAIR_ATTEMPTS = 3;
 function argVal(args, name) {
   const prefix = name + '=';
   for (const arg of args) {
-    if (arg === name) {return true;}
-    if (arg.startsWith(prefix)) {return arg.slice(prefix.length);}
+    if (arg === name) return true;
+    if (arg.startsWith(prefix)) return arg.slice(prefix.length);
   }
   return null;
 }
 
 function countOps(entries) {
   let count = 0;
-  for (const entry of entries || []) {count += Array.isArray(entry.ops) ? entry.ops.length : 0;}
+  for (const entry of entries || []) count += Array.isArray(entry.ops) ? entry.ops.length : 0;
   return count;
 }
 
@@ -82,7 +81,7 @@ function summarizeAppliedEntries(entries, appliedEntryIds) {
   const ids = new Set(appliedEntryIds);
   const out = [];
   for (const entry of entries || []) {
-    if (!ids.has(entry.id)) {continue;}
+    if (!ids.has(entry.id)) continue;
     for (const op of entry.ops || []) {
       out.push({
         id: entry.id,
@@ -100,13 +99,13 @@ function normalizeFailedEntries(batch, result, fallbackReason) {
   const failedByEntryId = new Map();
   for (const item of result?.failed || []) {
     const entryId = item.entryId || item.id || null;
-    if (!entryId) {continue;}
+    if (!entryId) continue;
     failedByEntryId.set(entryId, item);
   }
 
   for (const entry of batch.entries || []) {
     const item = failedByEntryId.get(entry.id);
-    if (!item) {continue;}
+    if (!item) continue;
     failed.push({
       id: entry.id,
       reason: item.reason || item.message || fallbackReason || 'failed',
@@ -122,7 +121,7 @@ function mergeFailedEntries(...groups) {
   const out = [];
   const indexById = new Map();
   for (const item of groups.flatMap((group) => Array.isArray(group) ? group : [])) {
-    if (!item || typeof item !== 'object') {continue;}
+    if (!item || typeof item !== 'object') continue;
     const id = typeof item.id === 'string' && item.id ? item.id : null;
     if (!id) {
       out.push(item);
@@ -171,7 +170,7 @@ function mergeUniqueStrings(...groups) {
 
 function repairAttemptLimit(env = process.env) {
   const value = Number(env.IMPECCABLE_LIVE_MANUAL_EDIT_REPAIR_ATTEMPTS || DEFAULT_REPAIR_ATTEMPTS);
-  if (!Number.isFinite(value)) {return DEFAULT_REPAIR_ATTEMPTS;}
+  if (!Number.isFinite(value)) return DEFAULT_REPAIR_ATTEMPTS;
   return Math.max(1, Math.min(10, Math.trunc(value)));
 }
 
@@ -180,13 +179,13 @@ function summarizeRepairFailures(failures = []) {
     const out = {
       reason: failure.reason || failure.detail || 'validation_failed',
     };
-    if (failure.id || failure.entryId) {out.entryId = failure.id || failure.entryId;}
-    if (failure.ref) {out.ref = failure.ref;}
-    if (failure.detail) {out.detail = failure.detail;}
-    if (failure.file) {out.file = failure.file;}
-    if (failure.message) {out.message = failure.message;}
-    if (failure.marker) {out.marker = failure.marker;}
-    if (Array.isArray(failure.files)) {out.files = failure.files.slice(0, 8);}
+    if (failure.id || failure.entryId) out.entryId = failure.id || failure.entryId;
+    if (failure.ref) out.ref = failure.ref;
+    if (failure.detail) out.detail = failure.detail;
+    if (failure.file) out.file = failure.file;
+    if (failure.message) out.message = failure.message;
+    if (failure.marker) out.marker = failure.marker;
+    if (Array.isArray(failure.files)) out.files = failure.files.slice(0, 8);
     if (Array.isArray(failure.candidates)) {
       out.candidates = failure.candidates.slice(0, 8).map((candidate) => ({
         file: candidate.file,
@@ -210,7 +209,7 @@ function summarizeRepairFailures(failures = []) {
           : undefined,
       }));
     }
-    if (failure.checks) {out.checks = failure.checks;}
+    if (failure.checks) out.checks = failure.checks;
     return out;
   }).slice(0, 20);
 }
@@ -223,12 +222,12 @@ function buildRepairBatch(batch, repair) {
 }
 
 function normalizeProjectSourcePath(cwd, file, opts = {}) {
-  if (!file || typeof file !== 'string') {return null;}
+  if (!file || typeof file !== 'string') return null;
   const absolute = path.isAbsolute(file) ? file : path.resolve(cwd, file);
   const relative = path.relative(cwd, absolute);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {return null;}
-  if (opts.requireExists && !fs.existsSync(absolute)) {return null;}
-  if (isGeneratedFile(absolute, { cwd })) {return null;}
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  if (opts.requireExists && !fs.existsSync(absolute)) return null;
+  if (isGeneratedFile(absolute, { cwd })) return null;
   return relative;
 }
 
@@ -238,9 +237,9 @@ function normalizeRelativeFile(cwd, file) {
 
 function sourceHintWindowFailure(cwd, op) {
   const hint = op?.sourceHint;
-  if (!hint?.file || !hint.line) {return null;}
+  if (!hint?.file || !hint.line) return null;
   const relative = normalizeRelativeFile(cwd, hint.file);
-  if (!relative) {return null;}
+  if (!relative) return null;
   const absolute = path.resolve(cwd, relative);
   let content;
   try { content = fs.readFileSync(absolute, 'utf-8'); } catch { return null; }
@@ -261,7 +260,7 @@ function sourceHintWindowFailure(cwd, op) {
       reason: 'source_hint_still_contains_original_text',
     };
   }
-  if (lines.slice(start, end).some((candidateLine) => lineShowsAppliedOp(candidateLine, op))) {return null;}
+  if (lines.slice(start, end).some((candidateLine) => lineShowsAppliedOp(candidateLine, op))) return null;
   return null;
 }
 
@@ -272,25 +271,25 @@ function verificationTargetsForOp(batch, op, reportedFiles, cwd) {
   const add = (file, line, kind) => {
     const relativeFile = normalizeRelativeFile(cwd, file);
     const lineNumber = Number(line);
-    if (!relativeFile || !Number.isFinite(lineNumber) || lineNumber < 1) {return;}
+    if (!relativeFile || !Number.isFinite(lineNumber) || lineNumber < 1) return;
     out.push({ file: relativeFile, line: lineNumber, kind, reported: reportedFileSet.has(relativeFile) });
   };
 
   add(op.sourceHint?.file, op.sourceHint?.line, 'source_hint');
   add(candidate?.sourceHint?.relativeFile || candidate?.sourceHint?.file, candidate?.sourceHint?.line, 'candidate_source_hint');
-  for (const item of candidate?.textMatches || []) {add(item.file, item.line, 'text_match');}
-  for (const item of candidate?.objectKeyMatches || []) {add(item.file, item.line, 'object_key_match');}
-  for (const item of candidate?.locatorMatches || []) {add(item.file, item.line, 'locator_match');}
-  for (const item of candidate?.contextTextMatches || []) {add(item.file, item.line, 'context_text_match');}
+  for (const item of candidate?.textMatches || []) add(item.file, item.line, 'text_match');
+  for (const item of candidate?.objectKeyMatches || []) add(item.file, item.line, 'object_key_match');
+  for (const item of candidate?.locatorMatches || []) add(item.file, item.line, 'locator_match');
+  for (const item of candidate?.contextTextMatches || []) add(item.file, item.line, 'context_text_match');
 
   // Manual copy edits often stage coupled leaves from the same UI object, e.g.
   // a card label plus its count. Dynamic source stores both on the label/key
   // line, so the count op may need the sibling label's data candidates.
   for (const siblingCandidate of siblingCandidatesForEntry(batch, op)) {
     add(siblingCandidate.sourceHint?.relativeFile || siblingCandidate.sourceHint?.file, siblingCandidate.sourceHint?.line, 'entry_source_hint');
-    for (const item of siblingCandidate.textMatches || []) {add(item.file, item.line, 'entry_text_match');}
-    for (const item of siblingCandidate.objectKeyMatches || []) {add(item.file, item.line, 'entry_object_key_match');}
-    for (const item of siblingCandidate.contextTextMatches || []) {add(item.file, item.line, 'entry_context_text_match');}
+    for (const item of siblingCandidate.textMatches || []) add(item.file, item.line, 'entry_text_match');
+    for (const item of siblingCandidate.objectKeyMatches || []) add(item.file, item.line, 'entry_object_key_match');
+    for (const item of siblingCandidate.contextTextMatches || []) add(item.file, item.line, 'entry_context_text_match');
   }
 
   for (const relativeFile of reportedFiles || []) {
@@ -302,7 +301,7 @@ function verificationTargetsForOp(batch, op, reportedFiles, cwd) {
   const seen = new Set();
   return out.filter((target) => {
     const key = target.file + ':' + target.line + ':' + target.kind;
-    if (seen.has(key)) {return false;}
+    if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
@@ -315,11 +314,11 @@ function objectKeyCandidatesForOp(batch, op) {
 }
 
 function lineHasObjectKey(line, text) {
-  if (typeof text !== 'string' || text.length === 0) {return false;}
+  if (typeof text !== 'string' || text.length === 0) return false;
   const quotedKey = new RegExp('(^|[\\s,{])([\'"`])' + escapeRegExp(text) + '\\2\\s*:');
-  if (quotedKey.test(line)) {return true;}
+  if (quotedKey.test(line)) return true;
   const identifierSafe = /^[A-Za-z_$][\w$]*$/.test(text);
-  if (!identifierSafe) {return false;}
+  if (!identifierSafe) return false;
   const bareKey = new RegExp('(^|[\\s,{])' + escapeRegExp(text) + '\\s*:');
   return bareKey.test(line);
 }
@@ -327,13 +326,13 @@ function lineHasObjectKey(line, text) {
 function objectKeyMatchStillUsesOriginal(cwd, match, op) {
   const relative = normalizeRelativeFile(cwd, match?.file);
   const lineNumber = Number(match?.line);
-  if (!relative || !Number.isFinite(lineNumber) || lineNumber < 1) {return false;}
+  if (!relative || !Number.isFinite(lineNumber) || lineNumber < 1) return false;
   let lines;
   try { lines = fs.readFileSync(path.resolve(cwd, relative), 'utf-8').split('\n'); } catch { return false; }
   const start = Math.max(0, lineNumber - 4);
   const end = Math.min(lines.length, lineNumber + 3);
   const windowLines = lines.slice(start, end);
-  if (windowLines.some((line) => lineHasObjectKey(line, op.newText))) {return false;}
+  if (windowLines.some((line) => lineHasObjectKey(line, op.newText))) return false;
   return windowLines.some((line) => lineHasObjectKey(line, op.originalText));
 }
 
@@ -342,7 +341,7 @@ function coupledObjectKeyFailuresForOp(batch, op, cwd) {
     typeof op?.originalText !== 'string'
     || typeof op?.newText !== 'string'
     || op.originalText === op.newText
-  ) {return [];}
+  ) return [];
   return objectKeyCandidatesForOp(batch, op)
     .filter((match) => objectKeyMatchStillUsesOriginal(cwd, match, op))
     .map((match) => ({
@@ -359,20 +358,20 @@ function coupledObjectKeyFailuresForOp(batch, op, cwd) {
 }
 
 function siblingCandidatesForEntry(batch, op) {
-  if (!op?.entryId) {return [];}
+  if (!op?.entryId) return [];
   return (batch.candidates || []).filter((item) => item.entryId === op.entryId && item.ref !== op.ref);
 }
 
 function locatorTargetsInFile(cwd, relativeFile, op) {
-  if (!opHasLocator(op)) {return [];}
+  if (!opHasLocator(op)) return [];
   const absolute = path.resolve(cwd, relativeFile);
   let lines;
   try { lines = fs.readFileSync(absolute, 'utf-8').split('\n'); } catch { return []; }
   const out = [];
   for (let index = 0; index < lines.length; index += 1) {
-    if (!lineMatchesManualEditLocator(lines[index], op)) {continue;}
+    if (!lineMatchesManualEditLocator(lines[index], op)) continue;
     out.push({ file: relativeFile, line: index + 1, kind: 'reported_locator_match' });
-    if (out.length >= 20) {break;}
+    if (out.length >= 20) break;
   }
   return out;
 }
@@ -385,33 +384,33 @@ function verificationTargetPasses(cwd, target, op) {
 
 function verificationTargetPassesLines(lines, target, op) {
   const line = lines[target.line - 1] || '';
-  if (lineShowsAppliedOp(line, op)) {return true;}
+  if (lineShowsAppliedOp(line, op)) return true;
   const originalText = typeof op?.originalText === 'string' ? op.originalText : '';
-  if (originalText && line.includes(originalText)) {return false;}
+  if (originalText && line.includes(originalText)) return false;
   const kind = String(target.kind || '');
   const canSearchWindow = target.reported
     || kind.includes('context_text_match')
     || kind.includes('object_key_match')
     || kind.includes('text_match');
-  if (!canSearchWindow) {return false;}
+  if (!canSearchWindow) return false;
   const radius = kind.includes('context_text_match') ? 20 : 4;
   const start = Math.max(0, target.line - radius - 1);
   const end = Math.min(lines.length, target.line + radius);
   const windowLines = lines.slice(start, end);
-  if (windowLines.some((candidateLine) => lineShowsAppliedOp(candidateLine, op))) {return true;}
-  if (windowShowsAppliedOp(windowLines, op)) {return true;}
+  if (windowLines.some((candidateLine) => lineShowsAppliedOp(candidateLine, op))) return true;
+  if (windowShowsAppliedOp(windowLines, op)) return true;
   return false;
 }
 
 function windowShowsAppliedOp(lines, op) {
   const newText = typeof op?.newText === 'string' ? op.newText : '';
-  if (!newText) {return false;}
+  if (!newText) return false;
   const originalText = typeof op?.originalText === 'string' ? op.originalText : '';
   const normalizedNew = normalizeVerificationText(newText);
   const normalizedOriginal = normalizeVerificationText(originalText);
   const normalizedWindow = normalizeVerificationText(lines.join('\n'));
-  if (!normalizedNew || !normalizedWindow.includes(normalizedNew)) {return false;}
-  if (normalizedOriginal && !normalizedNew.includes(normalizedOriginal) && normalizedWindow.includes(normalizedOriginal)) {return false;}
+  if (!normalizedNew || !normalizedWindow.includes(normalizedNew)) return false;
+  if (normalizedOriginal && !normalizedNew.includes(normalizedOriginal) && normalizedWindow.includes(normalizedOriginal)) return false;
   return true;
 }
 
@@ -423,9 +422,9 @@ function lineShowsAppliedOp(line, op) {
   const originalText = typeof op?.originalText === 'string' ? op.originalText : '';
   const newText = typeof op?.newText === 'string' ? op.newText : '';
   const deletion = op?.deleted === true || newText.length === 0;
-  if (deletion) {return !!originalText && !line.includes(originalText);}
-  if (!line.includes(newText)) {return false;}
-  if (originalText && !newText.includes(originalText) && line.includes(originalText)) {return false;}
+  if (deletion) return !!originalText && !line.includes(originalText);
+  if (!line.includes(newText)) return false;
+  if (originalText && !newText.includes(originalText) && line.includes(originalText)) return false;
   return true;
 }
 
@@ -440,17 +439,17 @@ function opHasLocator(op) {
 function lineMatchesManualEditLocator(line, op) {
   if (op.tag) {
     const tagRe = new RegExp('<\\s*' + escapeRegExp(op.tag) + '(?=[\\s>/]|$)', 'i');
-    if (!tagRe.test(line)) {return false;}
+    if (!tagRe.test(line)) return false;
   }
 
   if (op.elementId) {
     const idRe = new RegExp('\\bid\\s*=\\s*["\']' + escapeRegExp(op.elementId) + '["\']');
-    if (!idRe.test(line)) {return false;}
+    if (!idRe.test(line)) return false;
   }
 
   const classes = Array.isArray(op.classes) ? op.classes.filter(Boolean) : [];
   for (const className of classes) {
-    if (!line.includes(className)) {return false;}
+    if (!line.includes(className)) return false;
   }
 
   return true;
@@ -460,7 +459,7 @@ function verifyAppliedEntry({ batch, entry, reportedFiles, cwd }) {
   const failures = [];
   for (const rawOp of entry.ops || []) {
     const op = { ...rawOp, entryId: entry.id };
-    if (op.deleted === true && typeof op.newText !== 'string') {op.newText = '';}
+    if (op.deleted === true && typeof op.newText !== 'string') op.newText = '';
     if (typeof op.newText !== 'string') {
       failures.push({
         ref: op.ref,
@@ -475,7 +474,7 @@ function verifyAppliedEntry({ batch, entry, reportedFiles, cwd }) {
     if (
       coupledObjectKeyFailures.length === 0
       && targets.some((target) => verificationTargetPasses(cwd, target, op))
-    ) {continue;}
+    ) continue;
 
     if (coupledObjectKeyFailures.length > 0) {
       failures.push(...coupledObjectKeyFailures.map((failure) => ({
@@ -512,7 +511,7 @@ function verifyAppliedEntry({ batch, entry, reportedFiles, cwd }) {
 
 function snapshotTargetPasses(snapshot, target, op) {
   const before = snapshot.get(target.file)?.content;
-  if (typeof before !== 'string') {return false;}
+  if (typeof before !== 'string') return false;
   return verificationTargetPassesLines(before.split('\n'), target, op);
 }
 
@@ -521,13 +520,13 @@ function findUnappliedEntrySourceChanges({ batch, entries, reportedFiles, cwd, r
   for (const entry of entries || []) {
     for (const rawOp of entry.ops || []) {
       const op = { ...rawOp, entryId: entry.id };
-      if (typeof op.newText !== 'string' || op.newText.length === 0) {continue;}
+      if (typeof op.newText !== 'string' || op.newText.length === 0) continue;
       const targets = verificationTargetsForOp(batch, op, reportedFiles, cwd);
       const leakedTargets = targets.filter((target) =>
         verificationTargetPasses(cwd, target, op)
         && !snapshotTargetPasses(rollbackSnapshot, target, op)
       );
-      if (leakedTargets.length === 0) {continue;}
+      if (leakedTargets.length === 0) continue;
       failures.push({
         id: entry.id,
         reason: 'failed_entry_source_changed',
@@ -555,7 +554,7 @@ function verificationFailuresForEntries(batch, entries, reason, extra = {}) {
 
 function clearAppliedEntries(cwd, appliedEntryIds) {
   const ids = new Set(appliedEntryIds);
-  if (ids.size === 0) {return 0;}
+  if (ids.size === 0) return 0;
   const buffer = readBuffer(cwd);
   let cleared = 0;
   const kept = [];
@@ -601,30 +600,30 @@ function collectRollbackFiles(cwd) {
 }
 
 function scanRollbackDir(dir, cwd, out, seenDirs, seenFiles, depth) {
-  if (depth > 10) {return;}
+  if (depth > 10) return;
   let realDir;
   try { realDir = fs.realpathSync(dir); } catch { return; }
-  if (seenDirs.has(realDir)) {return;}
+  if (seenDirs.has(realDir)) return;
   seenDirs.add(realDir);
 
   let entries;
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      if (ROLLBACK_SKIP_DIRS.has(entry.name)) {continue;}
+      if (ROLLBACK_SKIP_DIRS.has(entry.name)) continue;
       scanRollbackDir(path.join(dir, entry.name), cwd, out, seenDirs, seenFiles, depth + 1);
       continue;
     }
-    if (!entry.isFile()) {continue;}
-    if (!ROLLBACK_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {continue;}
+    if (!entry.isFile()) continue;
+    if (!ROLLBACK_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue;
     const absolute = path.join(dir, entry.name);
-    if (isGeneratedFile(absolute, { cwd })) {continue;}
+    if (isGeneratedFile(absolute, { cwd })) continue;
     let realFile;
     try { realFile = fs.realpathSync(absolute); } catch { continue; }
-    if (seenFiles.has(realFile)) {continue;}
+    if (seenFiles.has(realFile)) continue;
     seenFiles.add(realFile);
     const relative = path.relative(cwd, absolute);
-    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {continue;}
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) continue;
     out.push(relative);
   }
 }
@@ -636,10 +635,10 @@ function changedFilesSinceSnapshot(cwd, snapshot, scopeFiles = null) {
     : null;
   const currentFiles = new Set(scopedFiles || collectRollbackFiles(cwd));
   for (const [relativeFile, before] of snapshot.entries()) {
-    if (scopedFiles && !currentFiles.has(relativeFile)) {continue;}
+    if (scopedFiles && !currentFiles.has(relativeFile)) continue;
     const absolute = path.resolve(cwd, relativeFile);
     if (before?.existed === false) {
-      if (fs.existsSync(absolute)) {changed.set(relativeFile, { file: relativeFile, kind: 'added' });}
+      if (fs.existsSync(absolute)) changed.set(relativeFile, { file: relativeFile, kind: 'added' });
       continue;
     }
     if (!fs.existsSync(absolute)) {
@@ -678,7 +677,7 @@ function rollbackChangedFiles(cwd, snapshot, extraFiles = [], scopeFiles = []) {
   const rolledBackFiles = [];
   const rollbackFailures = [];
   for (const item of byFile.values()) {
-    if (!scope.has(item.file)) {continue;}
+    if (!scope.has(item.file)) continue;
     const absolute = path.resolve(cwd, item.file);
     const before = snapshot.get(item.file);
     try {
@@ -702,14 +701,14 @@ function rollbackChangedFiles(cwd, snapshot, extraFiles = [], scopeFiles = []) {
 function collectApplyOwnedFiles(batch, cwd, extraFiles = []) {
   const files = [];
   for (const entry of batch?.entries || []) {
-    for (const op of entry.ops || []) {files.push(op.sourceHint?.file);}
+    for (const op of entry.ops || []) files.push(op.sourceHint?.file);
   }
   for (const candidate of batch?.candidates || []) {
     files.push(candidate.sourceHint?.relativeFile, candidate.sourceHint?.file);
-    for (const item of candidate.textMatches || []) {files.push(item.file);}
-    for (const item of candidate.objectKeyMatches || []) {files.push(item.file);}
-    for (const item of candidate.locatorMatches || []) {files.push(item.file);}
-    for (const item of candidate.contextTextMatches || []) {files.push(item.file);}
+    for (const item of candidate.textMatches || []) files.push(item.file);
+    for (const item of candidate.objectKeyMatches || []) files.push(item.file);
+    for (const item of candidate.locatorMatches || []) files.push(item.file);
+    for (const item of candidate.contextTextMatches || []) files.push(item.file);
   }
   files.push(...(extraFiles || []));
   return uniqueStrings(files)

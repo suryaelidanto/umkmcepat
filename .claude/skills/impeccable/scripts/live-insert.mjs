@@ -9,13 +9,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { isGeneratedFile } from './lib/is-generated.mjs';
-import {
-  buildSvelteComponentCssAuthoring,
-  scaffoldSvelteComponentInsertSession,
-  shouldUseSvelteComponentInjection,
-} from './live/svelte-component.mjs';
 import {
   buildSearchQueries,
   findElement,
@@ -27,6 +21,11 @@ import {
   buildCssAuthoring,
   buildCssSelectorPrefixExamples,
 } from './live-wrap.mjs';
+import {
+  buildSvelteComponentCssAuthoring,
+  scaffoldSvelteComponentInsertSession,
+  shouldUseSvelteComponentInjection,
+} from './live/svelte-component.mjs';
 
 const INSERT_POSITIONS = new Set(['before', 'after']);
 
@@ -76,21 +75,21 @@ function resolveElementMatch({ lines, queries, tag, text }) {
     for (const q of queries) {
       const all = findAllElements(lines, q, tag);
       for (const c of all) {
-        if (!candidates.some((x) => x.startLine === c.startLine)) {candidates.push(c);}
+        if (!candidates.some((x) => x.startLine === c.startLine)) candidates.push(c);
       }
-      if (candidates.length === 1) {break;}
+      if (candidates.length === 1) break;
     }
-    if (candidates.length === 0) {return { error: 'element_not_found' };}
-    if (candidates.length === 1) {return { match: candidates[0] };}
+    if (candidates.length === 0) return { error: 'element_not_found' };
+    if (candidates.length === 1) return { match: candidates[0] };
     const filtered = filterByText(candidates, lines, text);
-    if (filtered.length === 1) {return { match: filtered[0] };}
-    if (filtered.length === 0) {return { match: candidates[0] };}
+    if (filtered.length === 1) return { match: filtered[0] };
+    if (filtered.length === 0) return { match: candidates[0] };
     return { error: 'element_ambiguous', candidates: filtered };
   }
 
   for (const q of queries) {
     const match = findElement(lines, q, tag);
-    if (match) {return { match };}
+    if (match) return { match };
   }
   return { error: 'element_not_found' };
 }
@@ -148,13 +147,13 @@ Output (JSON):
   if (!targetFile) {
     for (const q of queries) {
       targetFile = findFileWithQuery(q, process.cwd(), genOpts);
-      if (targetFile) {break;}
+      if (targetFile) break;
     }
     if (!targetFile) {
       let generatedHit = null;
       for (const q of queries) {
         generatedHit = findFileWithQuery(q, process.cwd(), { ...genOpts, includeGenerated: true });
-        if (generatedHit) {break;}
+        if (generatedHit) break;
       }
       console.error(JSON.stringify({
         error: generatedHit ? 'element_not_in_source' : 'element_not_found',

@@ -13,11 +13,11 @@ function manualApplyReplyCommand(eventOrId = 'EVENT_ID') {
 export function manualApplyResumeHint(event = {}) {
   const summary = event.manualApplySummary || summarizeManualApplyEvent(event);
   const parts = [];
-  if (summary.pageUrl) {parts.push(`page ${summary.pageUrl}`);}
-  if (summary.chunk) {parts.push(`chunk ${summary.chunk.index}/${summary.chunk.total}`);}
-  if (Number.isFinite(summary.opCount)) {parts.push(`${summary.opCount} op(s)`);}
-  if (Number.isFinite(summary.entryCount)) {parts.push(`${summary.entryCount} entr${summary.entryCount === 1 ? 'y' : 'ies'}`);}
-  if (summary.files?.length) {parts.push(`likely files: ${summary.files.join(', ')}`);}
+  if (summary.pageUrl) parts.push(`page ${summary.pageUrl}`);
+  if (summary.chunk) parts.push(`chunk ${summary.chunk.index}/${summary.chunk.total}`);
+  if (Number.isFinite(summary.opCount)) parts.push(`${summary.opCount} op(s)`);
+  if (Number.isFinite(summary.entryCount)) parts.push(`${summary.entryCount} entr${summary.entryCount === 1 ? 'y' : 'ies'}`);
+  if (summary.files?.length) parts.push(`likely files: ${summary.files.join(', ')}`);
   const scope = parts.length ? ` (${parts.join(', ')})` : '';
   return `Manual Apply pending${scope}. If you have not already leased it, run live-poll.mjs. Apply the source edits from the manual_edit_apply batch, then reply with ${manualApplyReplyCommand(event.id)}. Polling only leases this work item; it does not commit source edits. Do not run live-commit-manual-edits.mjs for this leased event. Do not poll again before replying.`;
 }
@@ -37,14 +37,14 @@ function summarizeManualApplyEvent(event = {}) {
 function collectManualApplyFiles(batch) {
   const files = [];
   for (const entry of batch?.entries || []) {
-    for (const op of entry.ops || []) {files.push(op.sourceHint?.file);}
+    for (const op of entry.ops || []) files.push(op.sourceHint?.file);
   }
   for (const candidate of batch?.candidates || []) {
     files.push(candidate.sourceHint?.relativeFile, candidate.sourceHint?.file);
-    for (const item of candidate.textMatches || []) {files.push(item.file);}
-    for (const item of candidate.objectKeyMatches || []) {files.push(item.file);}
-    for (const item of candidate.locatorMatches || []) {files.push(item.file);}
-    for (const item of candidate.contextTextMatches || []) {files.push(item.file);}
+    for (const item of candidate.textMatches || []) files.push(item.file);
+    for (const item of candidate.objectKeyMatches || []) files.push(item.file);
+    for (const item of candidate.locatorMatches || []) files.push(item.file);
+    for (const item of candidate.contextTextMatches || []) files.push(item.file);
   }
   return [...new Set(files.filter((file) => typeof file === 'string' && file.length > 0))].sort();
 }
@@ -53,9 +53,9 @@ function parseArgs(argv) {
   const out = { id: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--id') {out.id = argv[++i];}
-    else if (arg.startsWith('--id=')) {out.id = arg.slice('--id='.length);}
-    else if (arg === '--help' || arg === '-h') {out.help = true;}
+    if (arg === '--id') out.id = argv[++i];
+    else if (arg.startsWith('--id=')) out.id = arg.slice('--id='.length);
+    else if (arg === '--help' || arg === '-h') out.help = true;
   }
   return out;
 }

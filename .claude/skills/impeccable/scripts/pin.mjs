@@ -13,7 +13,7 @@
  * in the project root and creates/removes the pin in all of them.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -51,7 +51,7 @@ function findProjectRoot(startDir = process.cwd()) {
       return dir;
     }
     const parent = resolve(dir, '..');
-    if (parent === dir) {break;}
+    if (parent === dir) break;
     dir = parent;
   }
   return resolve(startDir);
@@ -158,10 +158,10 @@ function unpin(command, projectRoot) {
 
   for (const skillsDir of harnessDirs) {
     const skillDir = join(skillsDir, command);
-    if (!existsSync(skillDir)) {continue;}
+    if (!existsSync(skillDir)) continue;
 
     const skillMd = join(skillDir, 'SKILL.md');
-    if (!existsSync(skillMd)) {continue;}
+    if (!existsSync(skillMd)) continue;
 
     // Safety: only remove if it's a pinned skill
     const content = readFileSync(skillMd, 'utf-8');

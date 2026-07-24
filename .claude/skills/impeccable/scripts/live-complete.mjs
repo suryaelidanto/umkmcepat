@@ -3,19 +3,19 @@
  * Canonical durable completion acknowledgement for Impeccable live sessions.
  */
 
-import { readLiveServerInfo } from './lib/impeccable-paths.mjs';
 import { createLiveSessionStore } from './live/session-store.mjs';
+import { readLiveServerInfo } from './lib/impeccable-paths.mjs';
 
 function parseArgs(argv) {
   const out = { status: 'complete' };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--id') {out.id = argv[++i];}
-    else if (arg.startsWith('--id=')) {out.id = arg.slice('--id='.length);}
-    else if (arg === '--discarded' || arg === '--discard') {out.status = 'discarded';}
+    if (arg === '--id') out.id = argv[++i];
+    else if (arg.startsWith('--id=')) out.id = arg.slice('--id='.length);
+    else if (arg === '--discarded' || arg === '--discard') out.status = 'discarded';
     else if (arg === '--error') { out.status = 'agent_error'; out.message = argv[++i] || 'unknown error'; }
     else if (arg.startsWith('--error=')) { out.status = 'agent_error'; out.message = arg.slice('--error='.length); }
-    else if (arg === '--help' || arg === '-h') {out.help = true;}
+    else if (arg === '--help' || arg === '-h') out.help = true;
   }
   return out;
 }
@@ -62,7 +62,7 @@ async function completeThroughServer(info, args) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: info.token, id: args.id, type, message: args.message }),
     });
-    if (!res.ok) {return null;}
+    if (!res.ok) return null;
     return await res.json();
   } catch {
     return null;

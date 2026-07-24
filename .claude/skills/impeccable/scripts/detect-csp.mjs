@@ -162,7 +162,7 @@ export function detectCsp(cwd = process.cwd()) {
 }
 
 function walk(root, dir, depth, visit) {
-  if (depth > MAX_DEPTH) {return;}
+  if (depth > MAX_DEPTH) return;
   let entries;
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
   catch { return; }
@@ -170,13 +170,13 @@ function walk(root, dir, depth, visit) {
   for (const entry of entries) {
     const abs = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) {continue;}
+      if (SKIP_DIRS.has(entry.name)) continue;
       walk(root, abs, depth + 1, visit);
       continue;
     }
-    if (!entry.isFile()) {continue;}
+    if (!entry.isFile()) continue;
     const ext = path.extname(entry.name);
-    if (!SCAN_EXTS.has(ext) && !LAYOUT_EXTS.has(ext)) {continue;}
+    if (!SCAN_EXTS.has(ext) && !LAYOUT_EXTS.has(ext)) continue;
     let body;
     try {
       const fd = fs.openSync(abs, 'r');

@@ -127,28 +127,28 @@ export function resolveLiveUiRoot(env = globalThis) {
   const doc = env?.document;
   const explicit = env?.__IMPECCABLE_LIVE_UI_ROOT__
     || env?.window?.__IMPECCABLE_LIVE_UI_ROOT__;
-  if (explicit && typeof explicit.appendChild === 'function') {return explicit;}
+  if (explicit && typeof explicit.appendChild === 'function') return explicit;
   return doc?.body || null;
 }
 
 export function getLiveUiElementById(id, env = globalThis) {
   const doc = env?.document;
   const root = resolveLiveUiRoot(env);
-  if (!id) {return null;}
+  if (!id) return null;
   if (root?.getElementById) {
     const found = root.getElementById(id);
-    if (found) {return found;}
+    if (found) return found;
   }
   if (root?.querySelector) {
     const found = root.querySelector('#' + escapeCssIdent(id));
-    if (found) {return found;}
+    if (found) return found;
   }
   return doc?.getElementById?.(id) || null;
 }
 
 export function appendToLiveUiRoot(el, env = globalThis) {
   const root = resolveLiveUiRoot(env);
-  if (!root) {throw new Error('Impeccable live UI root is not available');}
+  if (!root) throw new Error('Impeccable live UI root is not available');
   root.appendChild(el);
   return el;
 }

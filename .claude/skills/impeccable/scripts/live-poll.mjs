@@ -12,9 +12,8 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { readLiveServerInfo } from './lib/impeccable-paths.mjs';
 import { completionAckForAcceptResult, completionTypeForAcceptResult } from './live/completion.mjs';
+import { readLiveServerInfo } from './lib/impeccable-paths.mjs';
 
 // Absolute path to a sibling script in this skill's scripts dir, so runtime
 // error hints print a directly-runnable command instead of a placeholder.
@@ -61,7 +60,7 @@ export function manualApplyPollBanner(event = {}) {
  */
 export function parseReplyArgs(args) {
   const replyIdx = args.indexOf('--reply');
-  if (replyIdx === -1) {return null;}
+  if (replyIdx === -1) return null;
   const id = args[replyIdx + 1];
   const status = args[replyIdx + 2];
   validateReplyArgs({ id, status });
@@ -147,7 +146,7 @@ export async function waitForEventAck(base, token, eventId, {
   const deadline = Date.now() + maxWaitMs;
   while (Date.now() < deadline) {
     const status = await fetchServerStatus(base, token);
-    if (!isEventPending(status, eventId)) {return true;}
+    if (!isEventPending(status, eventId)) return true;
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
   return false;
@@ -177,8 +176,8 @@ export async function fetchNextEvent(base, token, { totalDeadline } = {}) {
 
     const next = await res.json();
     if (next?.type === 'timeout') {
-      if (totalDeadline && Date.now() < totalDeadline) {continue;}
-      if (!totalDeadline) {continue;}
+      if (totalDeadline && Date.now() < totalDeadline) continue;
+      if (!totalDeadline) continue;
       return next;
     }
     return next;
@@ -186,7 +185,7 @@ export async function fetchNextEvent(base, token, { totalDeadline } = {}) {
 }
 
 export async function augmentEventWithAcceptHandling(event, base, token) {
-  if (event.type !== 'accept' && event.type !== 'discard') {return event;}
+  if (event.type !== 'accept' && event.type !== 'discard') return event;
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const acceptScript = path.join(__dirname, 'live-accept.mjs');
@@ -226,7 +225,7 @@ export function buildAcceptScriptArgs(event) {
   const scriptArgs = event.type === 'discard'
     ? ['--id', String(event.id), '--discard']
     : ['--id', String(event.id), '--variant', String(event.variantId)];
-  if (event.pageUrl) {scriptArgs.push('--page-url', String(event.pageUrl));}
+  if (event.pageUrl) scriptArgs.push('--page-url', String(event.pageUrl));
   if (event.type === 'accept' && event.paramValues && Object.keys(event.paramValues).length > 0) {
     scriptArgs.push('--param-values', JSON.stringify(event.paramValues));
   }
@@ -268,7 +267,7 @@ export async function runPollStream(base, token, {
     writeCarbonizeBanner(event);
     printPollEvent(event);
 
-    if (event.type === 'exit') {return event;}
+    if (event.type === 'exit') return event;
 
     if (requiresAgentReply(event)) {
       const acked = await waitForEventAck(base, token, event.id, {

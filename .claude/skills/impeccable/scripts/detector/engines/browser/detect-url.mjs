@@ -3,12 +3,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { finding } from '../../findings.mjs';
-import { profileFindingsAsync, profileStep, profileStepAsync } from '../../profile/profiler.mjs';
 import { filterByProviders } from '../../registry/antipatterns.mjs';
+import { profileFindingsAsync, profileStep, profileStepAsync } from '../../profile/profiler.mjs';
 import { captureVisualContrastCandidate } from '../visual/screenshot-contrast.mjs';
 
 function serializeDesignSystemForBrowser(designSystem) {
-  if (!designSystem?.present) {return null;}
+  if (!designSystem?.present) return null;
   return {
     present: true,
     hasFonts: designSystem.hasFonts === true,
@@ -27,7 +27,7 @@ function serializeDesignSystemForBrowser(designSystem) {
 }
 
 async function runVisualContrastFallback(page, serializedGroups, options, profile, target) {
-  if (options?.visualContrast === false) {return [];}
+  if (options?.visualContrast === false) return [];
   const maxCandidates = Number.isFinite(options?.visualContrastMaxCandidates)
     ? options.visualContrastMaxCandidates
     : 12;
@@ -49,7 +49,7 @@ async function runVisualContrastFallback(page, serializedGroups, options, profil
       target,
     }, async () => {
       browserAnalyses = await page.evaluate(async ({ maxCandidates, scrollOffscreen }) => {
-        if (typeof window.impeccableAnalyzeVisualContrast !== 'function') {return [];}
+        if (typeof window.impeccableAnalyzeVisualContrast !== 'function') return [];
         return window.impeccableAnalyzeVisualContrast({ maxCandidates, scrollOffscreen });
       }, { maxCandidates, scrollOffscreen });
       return browserAnalyses
@@ -67,7 +67,7 @@ async function runVisualContrastFallback(page, serializedGroups, options, profil
       ruleId: 'collect-candidates',
       target,
     }, () => page.evaluate(({ maxCandidates }) => {
-      if (typeof window.impeccableCollectVisualContrastCandidates !== 'function') {return [];}
+      if (typeof window.impeccableCollectVisualContrastCandidates !== 'function') return [];
       return window.impeccableCollectVisualContrastCandidates({ maxCandidates });
     }, { maxCandidates }));
   }
@@ -83,7 +83,7 @@ async function runVisualContrastFallback(page, serializedGroups, options, profil
     !existingLowContrastSelectors.has(candidate.selector) &&
     !browserResolvedSelectors.has(candidate.selector)
   );
-  if (options?.visualContrastPixel === false) {return findings;}
+  if (options?.visualContrastPixel === false) return findings;
   for (const candidate of filtered) {
     const result = await profileFindingsAsync(profile, {
       engine: 'browser',
@@ -209,7 +209,7 @@ async function detectUrl(url, options = {}) {
       target: url,
     }, async () => {
       serializedGroups = await page.evaluate(() => {
-        if (!window.impeccableDetect) {return [];}
+        if (!window.impeccableDetect) return [];
         return window.impeccableDetect({ decorate: false, serialize: true });
       });
       return serializedGroups.flatMap(({ findings }) =>
@@ -236,7 +236,7 @@ async function detectUrl(url, options = {}) {
   }
   return filterByProviders(results.map(f => {
     const item = finding(f.id, url, f.snippet);
-    if (f.ignoreValue) {item.ignoreValue = f.ignoreValue;}
+    if (f.ignoreValue) item.ignoreValue = f.ignoreValue;
     return item;
   }), options.providers);
 }
@@ -269,7 +269,7 @@ async function createBrowserDetector(options = {}) {
       });
     },
     async close() {
-      if (ownsBrowser) {await browser.close().catch(() => {});}
+      if (ownsBrowser) await browser.close().catch(() => {});
     },
   };
 }

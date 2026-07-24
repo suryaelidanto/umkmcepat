@@ -23,11 +23,11 @@ export function detectInsertAxisFromStyle(style) {
   }
   if (display === 'grid' || display === 'inline-grid') {
     const flow = style.gridAutoFlow || 'row';
-    if (flow.includes('column')) {return 'column';}
+    if (flow.includes('column')) return 'column';
     const cols = (style.gridTemplateColumns || '').trim();
     if (cols && cols !== 'none') {
       const colCount = cols.split(/\s+/).filter(Boolean).length;
-      if (colCount > 1) {return 'row';}
+      if (colCount > 1) return 'row';
     }
     return 'row';
   }
@@ -43,13 +43,13 @@ export function detectInsertAxisFromStyle(style) {
  * @returns {InsertPosition}
  */
 export function computeInsertPosition(clientX, clientY, rect, axis = 'column') {
-  if (!rect) {return 'after';}
+  if (!rect) return 'after';
   if (axis === 'row') {
-    if (!Number.isFinite(rect.left) || !Number.isFinite(rect.width) || rect.width <= 0) {return 'after';}
+    if (!Number.isFinite(rect.left) || !Number.isFinite(rect.width) || rect.width <= 0) return 'after';
     const mid = rect.left + rect.width / 2;
     return clientX < mid ? 'before' : 'after';
   }
-  if (!Number.isFinite(rect.top) || !Number.isFinite(rect.height) || rect.height <= 0) {return 'after';}
+  if (!Number.isFinite(rect.top) || !Number.isFinite(rect.height) || rect.height <= 0) return 'after';
   const mid = rect.top + rect.height / 2;
   return clientY < mid ? 'before' : 'after';
 }
@@ -69,7 +69,7 @@ export function canCreateInsert({ prompt, comments, strokes }) {
 
 /** Tooltip/title when Create is disabled. */
 export function insertCreateDisabledReason({ prompt, comments, strokes }) {
-  if (canCreateInsert({ prompt, comments, strokes })) {return null;}
+  if (canCreateInsert({ prompt, comments, strokes })) return null;
   return 'Add a prompt or annotate the placeholder to create';
 }
 
@@ -107,7 +107,7 @@ function groupSiblingRows(siblings, rowThreshold = 8) {
         break;
       }
     }
-    if (!placed) {rows.push([entry]);}
+    if (!placed) rows.push([entry]);
   }
   return rows;
 }
@@ -126,30 +126,30 @@ function horizontalOverlap(a, b) {
  * @param {{ slop?: number, minOverlap?: number }} [opts]
  */
 export function hitSiblingInsertGap(clientX, clientY, siblings, opts = {}) {
-  if (!Array.isArray(siblings) || siblings.length < 2) {return null;}
+  if (!Array.isArray(siblings) || siblings.length < 2) return null;
   const slop = opts.slop ?? 12;
   const minOverlap = opts.minOverlap ?? 0.25;
 
   for (const row of groupSiblingRows(siblings)) {
-    if (row.length < 2) {continue;}
+    if (row.length < 2) continue;
     const sorted = [...row].sort((a, b) => a.rect.left - b.rect.left);
     for (let i = 0; i < sorted.length - 1; i++) {
       const a = sorted[i];
       const b = sorted[i + 1];
       const aRight = a.rect.right ?? a.rect.left + a.rect.width;
       const bLeft = b.rect.left;
-      if (bLeft <= aRight) {continue;}
+      if (bLeft <= aRight) continue;
       const top = Math.max(a.rect.top, b.rect.top);
       const aBottom = a.rect.bottom ?? a.rect.top + a.rect.height;
       const bBottom = b.rect.bottom ?? b.rect.top + b.rect.height;
       const bottom = Math.min(aBottom, bBottom);
       const span = bottom - top;
       const minH = Math.min(a.rect.height, b.rect.height);
-      if (span < minH * minOverlap) {continue;}
+      if (span < minH * minOverlap) continue;
 
       const inX = clientX >= aRight - slop && clientX <= bLeft + slop;
       const inY = clientY >= top - slop && clientY <= bottom + slop;
-      if (!inX || !inY) {continue;}
+      if (!inX || !inY) continue;
 
       const midX = (aRight + bLeft) / 2;
       return {
@@ -167,12 +167,12 @@ export function hitSiblingInsertGap(clientX, clientY, siblings, opts = {}) {
     const b = sortedCol[i + 1];
     const overlap = horizontalOverlap(a.rect, b.rect);
     const minW = Math.min(a.rect.width, b.rect.width);
-    if (overlap < minW * minOverlap) {continue;}
+    if (overlap < minW * minOverlap) continue;
 
     const aBottom = a.rect.bottom ?? a.rect.top + a.rect.height;
     const gapTop = aBottom;
     const gapBottom = b.rect.top;
-    if (gapBottom <= gapTop) {continue;}
+    if (gapBottom <= gapTop) continue;
 
     const overlapLeft = Math.max(a.rect.left, b.rect.left);
     const overlapRight = Math.min(
@@ -181,7 +181,7 @@ export function hitSiblingInsertGap(clientX, clientY, siblings, opts = {}) {
     );
     const inY = clientY >= gapTop - slop && clientY <= gapBottom + slop;
     const inX = clientX >= overlapLeft - slop && clientX <= overlapRight + slop;
-    if (!inY || !inX) {continue;}
+    if (!inY || !inX) continue;
 
     const midY = (gapTop + gapBottom) / 2;
     return {
@@ -200,7 +200,7 @@ export function hitSiblingInsertGap(clientX, clientY, siblings, opts = {}) {
  */
 export function resolveInsertHover({ clientX, clientY, target, rect, axis, siblings }) {
   const gap = hitSiblingInsertGap(clientX, clientY, siblings);
-  if (gap) {return gap;}
+  if (gap) return gap;
 
   const position = computeInsertPosition(clientX, clientY, rect, axis);
   const line = insertLineCoords(rect, position, axis);
@@ -258,8 +258,8 @@ export function clampPlaceholderSize(width, height, parentWidth, opts = {}) {
 
 /** CSS cursor for a placeholder edge resize handle. */
 export function cursorForPlaceholderEdge(edge) {
-  if (edge === 'n' || edge === 's') {return 'ns-resize';}
-  if (edge === 'e' || edge === 'w') {return 'ew-resize';}
+  if (edge === 'n' || edge === 's') return 'ns-resize';
+  if (edge === 'e' || edge === 'w') return 'ew-resize';
   return 'default';
 }
 
@@ -278,11 +278,11 @@ export function resizePlaceholderFromEdge(start, edge, dx, dy, parentWidth, opts
     marginLeft: start.marginLeft ?? 0,
     marginTop: start.marginTop ?? 0,
   };
-  if (edge === 'e') {base.width = start.width + dx;}
+  if (edge === 'e') base.width = start.width + dx;
   else if (edge === 'w') {
     base.width = start.width - dx;
     base.marginLeft = start.marginLeft + dx;
-  } else if (edge === 's') {base.height = start.height + dy;}
+  } else if (edge === 's') base.height = start.height + dy;
   else if (edge === 'n') {
     base.height = start.height - dy;
     base.marginTop = start.marginTop + dy;
@@ -348,9 +348,9 @@ export function buildInsertGeneratePayload({
     placeholder,
     freeformPrompt: freeformPrompt?.trim() || undefined,
   };
-  if (comments?.length) {payload.comments = comments;}
-  if (strokes?.length) {payload.strokes = strokes;}
-  if (screenshotPath) {payload.screenshotPath = screenshotPath;}
+  if (comments?.length) payload.comments = comments;
+  if (strokes?.length) payload.strokes = strokes;
+  if (screenshotPath) payload.screenshotPath = screenshotPath;
   return payload;
 }
 
@@ -359,9 +359,9 @@ export function buildInsertGeneratePayload({
  * @param {{ hidden?: boolean, style?: { display?: string } } | null | undefined} el
  */
 export function isVariantShown(el) {
-  if (!el) {return false;}
-  if (el.hidden) {return false;}
-  if (el.style?.display === 'none') {return false;}
+  if (!el) return false;
+  if (el.hidden) return false;
+  if (el.style?.display === 'none') return false;
   return true;
 }
 
@@ -371,13 +371,13 @@ export function isVariantShown(el) {
  * @param {boolean} shown
  */
 export function setVariantShown(el, shown) {
-  if (!el) {return;}
+  if (!el) return;
   if (shown) {
     el.removeAttribute?.('hidden');
-    if (el.style) {el.style.display = '';}
+    if (el.style) el.style.display = '';
   } else {
     el.setAttribute?.('hidden', '');
-    if (el.style) {el.style.display = 'none';}
+    if (el.style) el.style.display = 'none';
   }
 }
 
@@ -403,7 +403,7 @@ export function resolveInsertSessionAnchor(opts) {
   } = opts || {};
   if (wrapper && variantCount > 0 && visibleVariant > 0 && pickVariantContent) {
     const vis = pickVariantContent(wrapper, visibleVariant);
-    if (vis) {return vis;}
+    if (vis) return vis;
   }
   return placeholder || insertAnchor || null;
 }
@@ -443,15 +443,15 @@ export function buildInsertPlaceholderSnapshot(anchor, placeholder, { position, 
  * @param {Element | null | undefined} liveAnchor
  */
 export function findInsertAnchorInDom(doc, snapshot, liveAnchor = null) {
-  if (liveAnchor && doc.body.contains(liveAnchor)) {return liveAnchor;}
-  if (!snapshot) {return null;}
+  if (liveAnchor && doc.body.contains(liveAnchor)) return liveAnchor;
+  if (!snapshot) return null;
   const tag = (snapshot.anchorTag || 'div').toLowerCase();
   const cls = (snapshot.anchorClasses || '').split(/\s+/).filter(Boolean)[0];
   const needle = snapshot.anchorText || '';
   const sel = cls ? `${tag}.${cls}` : tag;
   const candidates = doc.querySelectorAll(sel);
   for (const candidate of candidates) {
-    if (needle && !(candidate.textContent || '').includes(needle.slice(0, 40))) {continue;}
+    if (needle && !(candidate.textContent || '').includes(needle.slice(0, 40))) continue;
     return candidate;
   }
   return null;

@@ -28,7 +28,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-
 import { getCritiqueDir } from './lib/impeccable-paths.mjs';
 
 const SLUG_MAX = 50;
@@ -42,9 +41,9 @@ const SLUG_MAX = 50;
  * phrase.
  */
 export function slugFromTarget(resolved, { cwd = process.cwd() } = {}) {
-  if (!resolved || typeof resolved !== 'string') {return null;}
+  if (!resolved || typeof resolved !== 'string') return null;
   const trimmed = resolved.trim();
-  if (!trimmed) {return null;}
+  if (!trimmed) return null;
 
   // URL
   if (/^https?:\/\//i.test(trimmed)) {
@@ -64,7 +63,7 @@ export function slugFromTarget(resolved, { cwd = process.cwd() } = {}) {
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
     rel = path.basename(abs);
   }
-  if (!rel || rel === '.' || rel === '') {return null;}
+  if (!rel || rel === '.' || rel === '') return null;
   return kebab(rel);
 }
 
@@ -75,7 +74,7 @@ function kebab(s) {
     .replace(/[^a-z0-9-]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
-  if (!slug) {return null;}
+  if (!slug) return null;
   // Cap from the tail — the tail (filename) is more identifying than the
   // top-level directory.
   return slug.length <= SLUG_MAX ? slug : slug.slice(slug.length - SLUG_MAX).replace(/^-/, '');
@@ -98,7 +97,7 @@ export function nowFilenameStamp(date = new Date()) {
  * Returns the absolute path written.
  */
 export function writeSnapshot({ slug, meta, body, cwd = process.cwd(), now = new Date() }) {
-  if (!slug) {throw new Error('writeSnapshot requires a slug');}
+  if (!slug) throw new Error('writeSnapshot requires a slug');
   const dir = getCritiqueDir(cwd);
   fs.mkdirSync(dir, { recursive: true });
   const timestamp = nowFilenameStamp(now);
@@ -115,7 +114,7 @@ export function writeSnapshot({ slug, meta, body, cwd = process.cwd(), now = new
 function serializeFrontmatter(obj) {
   const lines = ['---'];
   for (const [key, value] of Object.entries(obj)) {
-    if (value === undefined || value === null) {continue;}
+    if (value === undefined || value === null) continue;
     const str = typeof value === 'string' ? value : String(value);
     // Quote strings that contain : or # to keep parsing simple.
     const needsQuotes = typeof value === 'string' && /[:#]/.test(str);
@@ -127,11 +126,11 @@ function serializeFrontmatter(obj) {
 
 function parseFrontmatter(text) {
   const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) {return {};}
+  if (!match) return {};
   const out = {};
   for (const line of match[1].split(/\r?\n/)) {
     const colon = line.indexOf(':');
-    if (colon < 0) {continue;}
+    if (colon < 0) continue;
     const key = line.slice(0, colon).trim();
     let value = line.slice(colon + 1).trim();
     if (/^".*"$/.test(value)) {
@@ -149,7 +148,7 @@ function parseFrontmatter(text) {
  */
 function listSnapshotsForSlug(slug, cwd) {
   const dir = getCritiqueDir(cwd);
-  if (!fs.existsSync(dir)) {return [];}
+  if (!fs.existsSync(dir)) return [];
   const suffix = `__${slug}.md`;
   return fs.readdirSync(dir)
     .filter((f) => f.endsWith(suffix))
@@ -163,7 +162,7 @@ function listSnapshotsForSlug(slug, cwd) {
  */
 export function readLatestSnapshot(slug, { cwd = process.cwd() } = {}) {
   const all = listSnapshotsForSlug(slug, cwd);
-  if (!all.length) {return null;}
+  if (!all.length) return null;
   const latest = all[all.length - 1];
   const body = fs.readFileSync(latest, 'utf-8');
   return { path: latest, body, meta: parseFrontmatter(body) };
@@ -224,7 +223,7 @@ function main(argv) {
 }
 
 function isMainModule() {
-  if (!process.argv[1]) {return false;}
+  if (!process.argv[1]) return false;
   try {
     return fs.realpathSync(fileURLToPath(import.meta.url)) === fs.realpathSync(process.argv[1]);
   } catch {

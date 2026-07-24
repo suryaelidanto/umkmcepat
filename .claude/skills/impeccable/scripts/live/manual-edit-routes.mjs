@@ -1,18 +1,18 @@
 import { validateEvent } from './event-validation.mjs';
 import {
-  summarizeManualApplyFailures,
-  summarizeManualDiagnostics,
-  summarizeManualLogFile,
-} from './manual-apply.mjs';
-import {
   countByPage as countPendingByPage,
   readBuffer as readManualEditsBuffer,
   removeEntries as removeManualEditEntries,
   stageEntry as stageManualEditEntry,
   truncateBuffer as truncateManualEditsBuffer,
 } from './manual-edits-buffer.mjs';
-import { commitManualEdits } from '../live-commit-manual-edits.mjs';
+import {
+  summarizeManualApplyFailures,
+  summarizeManualDiagnostics,
+  summarizeManualLogFile,
+} from './manual-apply.mjs';
 import { buildManualEditEvidence } from '../live-manual-edit-evidence.mjs';
+import { commitManualEdits } from '../live-commit-manual-edits.mjs';
 
 export function createManualEditRoutes({
   getToken,
@@ -207,7 +207,7 @@ export function createManualEditRoutes({
         } finally {
           if (transaction) {
             const shouldKeepTransaction = result?.needsManualDecision === true;
-            if (!shouldKeepTransaction) {manualApply.clearTransaction(transaction.id);}
+            if (!shouldKeepTransaction) manualApply.clearTransaction(transaction.id);
           }
         }
         const { totalCount, perPage } = countPendingByPage(projectCwd());

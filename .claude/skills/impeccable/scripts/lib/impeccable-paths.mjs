@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { resolveProjectRoot } from '../context.mjs';
 
 export const IMPECCABLE_DIR = '.impeccable';
@@ -22,7 +21,7 @@ export function getDesignSidecarCandidates(cwd = process.cwd(), contextDir = cwd
     path.join(projectRoot, 'DESIGN.json'),
   ];
   const contextLegacy = path.join(contextDir, 'DESIGN.json');
-  if (!candidates.includes(contextLegacy)) {candidates.push(contextLegacy);}
+  if (!candidates.includes(contextLegacy)) candidates.push(contextLegacy);
   return candidates;
 }
 
@@ -48,10 +47,10 @@ export function resolveLiveConfigPath({ cwd = process.cwd(), scriptsDir, env = p
     return path.isAbsolute(configured) ? configured : path.resolve(cwd, configured);
   }
   const primary = getLiveConfigPath(cwd, { targetPath });
-  if (fs.existsSync(primary)) {return primary;}
+  if (fs.existsSync(primary)) return primary;
   if (scriptsDir) {
     const legacy = getLegacyLiveConfigPath(scriptsDir);
-    if (fs.existsSync(legacy)) {return legacy;}
+    if (fs.existsSync(legacy)) return legacy;
   }
   return primary;
 }

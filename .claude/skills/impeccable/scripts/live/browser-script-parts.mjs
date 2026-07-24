@@ -8,7 +8,7 @@ export const LIVE_BROWSER_SCRIPT_PARTS = Object.freeze([
 ]);
 
 export function resolveLiveBrowserScriptParts(scriptsDir, parts = LIVE_BROWSER_SCRIPT_PARTS) {
-  if (!scriptsDir) {throw new Error('scriptsDir is required');}
+  if (!scriptsDir) throw new Error('scriptsDir is required');
   return parts.map((part, index) => ({
     ...part,
     index,

@@ -50,7 +50,7 @@ const NAMED_COLORS = {
 };
 
 function normalizeColorForCheck(value) {
-  if (!value) {return value;}
+  if (!value) return value;
   const v = value.trim();
   const hex6 = v.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
   if (hex6) {
@@ -67,7 +67,7 @@ function normalizeColorForCheck(value) {
     return `rgb(${r}, ${g}, ${b})`;
   }
   const named = NAMED_COLORS[v.toLowerCase()];
-  if (named) {return `rgb(${named[0]}, ${named[1]}, ${named[2]})`;}
+  if (named) return `rgb(${named[0]}, ${named[1]}, ${named[2]})`;
   return v;
 }
 
@@ -76,13 +76,13 @@ function buildBorderOverrideMap(document, window) {
   const rootStyle = window.getComputedStyle(document.documentElement);
 
   function resolveVar(value, depth = 0) {
-    if (!value || depth > 10 || !value.includes('var(')) {return value;}
+    if (!value || depth > 10 || !value.includes('var(')) return value;
     return value.replace(
       /var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\s*\)/g,
       (_, name, fallback) => {
         const v = rootStyle.getPropertyValue(name).trim();
-        if (v) {return resolveVar(v, depth + 1);}
-        if (fallback) {return resolveVar(fallback.trim(), depth + 1);}
+        if (v) return resolveVar(v, depth + 1);
+        if (fallback) return resolveVar(fallback.trim(), depth + 1);
         return '';
       }
     );
@@ -90,7 +90,7 @@ function buildBorderOverrideMap(document, window) {
 
   function parseShorthand(text) {
     const m = text.trim().match(BORDER_SHORTHAND_RE);
-    if (!m) {return null;}
+    if (!m) return null;
     return { width: parseFloat(m[1]), color: normalizeColorForCheck(m[3]) };
   }
 
@@ -112,15 +112,15 @@ function buildBorderOverrideMap(document, window) {
     try { rules = sheet.cssRules || []; } catch { continue; }
     for (const rule of rules) {
       // CSSStyleRule only; skip @media / @keyframes / @supports wrappers.
-      if (rule.type !== 1 || !rule.style || !rule.selectorText) {continue;}
+      if (rule.type !== 1 || !rule.style || !rule.selectorText) continue;
 
       const perSide = {};
 
       for (const [prop, side] of SIDE_PROPS) {
         const val = rule.style[prop];
-        if (!val || !val.includes('var(')) {continue;}
+        if (!val || !val.includes('var(')) continue;
         const parsed = parseShorthand(resolveVar(val));
-        if (parsed && parsed.color) {perSide[side] = parsed;}
+        if (parsed && parsed.color) perSide[side] = parsed;
       }
 
       // Uniform `border: <w> <style> var(...)` applies to every side the
@@ -130,7 +130,7 @@ function buildBorderOverrideMap(document, window) {
         const parsed = parseShorthand(resolveVar(borderAll));
         if (parsed && parsed.color) {
           for (const s of ['Top', 'Right', 'Bottom', 'Left']) {
-            if (!perSide[s]) {perSide[s] = parsed;}
+            if (!perSide[s]) perSide[s] = parsed;
           }
         }
       }
@@ -144,16 +144,16 @@ function buildBorderOverrideMap(document, window) {
         ['borderBottomColor', 'Bottom'],
       ]) {
         const val = rule.style[prop];
-        if (!val || !val.includes('var(')) {continue;}
+        if (!val || !val.includes('var(')) continue;
         const resolved = resolveVar(val).trim();
-        if (!resolved) {continue;}
+        if (!resolved) continue;
         // Width may or may not come from this rule — that's fine; the
         // adapter only substitutes the color when jsdom left it as a
         // literal var() string.
-        if (!perSide[side]) {perSide[side] = { width: 0, color: normalizeColorForCheck(resolved) };}
+        if (!perSide[side]) perSide[side] = { width: 0, color: normalizeColorForCheck(resolved) };
       }
 
-      if (Object.keys(perSide).length === 0) {continue;}
+      if (Object.keys(perSide).length === 0) continue;
 
       let matched;
       try { matched = document.querySelectorAll(rule.selectorText); }
@@ -185,7 +185,7 @@ function buildBorderOverrideMap(document, window) {
 // styles. We walk the source character-by-character, balancing braces
 // so we correctly handle nested style rules inside the layer block.
 function unwrapCssAtLayer(source) {
-  if (!source || !source.includes('@layer')) {return source;}
+  if (!source || !source.includes('@layer')) return source;
   // Find `@layer <name>? {` openers. The match starts at the @, and
   // we then balance braces from the opening { onward.
   const re = /@layer\b[^{;]*\{/g;
@@ -199,8 +199,8 @@ function unwrapCssAtLayer(source) {
     let i = openEnd;
     while (i < source.length && depth > 0) {
       const c = source.charCodeAt(i);
-      if (c === 0x7b /* { */) {depth++;}
-      else if (c === 0x7d /* } */) {depth--;}
+      if (c === 0x7b /* { */) depth++;
+      else if (c === 0x7d /* } */) depth--;
       i++;
     }
     if (depth !== 0) {
@@ -357,19 +357,19 @@ function splitCssList(value) {
   for (let i = 0; i < value.length; i++) {
     const ch = value[i];
     if (quote) {
-      if (ch === quote && value[i - 1] !== '\\') {quote = '';}
+      if (ch === quote && value[i - 1] !== '\\') quote = '';
       continue;
     }
     if (ch === '"' || ch === "'") { quote = ch; continue; }
-    if (ch === '(' || ch === '[') {depth++;}
-    else if (ch === ')' || ch === ']') {depth = Math.max(0, depth - 1);}
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth = Math.max(0, depth - 1);
     else if (ch === ',' && depth === 0) {
       parts.push(value.slice(start, i).trim());
       start = i + 1;
     }
   }
   const tail = value.slice(start).trim();
-  if (tail) {parts.push(tail);}
+  if (tail) parts.push(tail);
   return parts;
 }
 
@@ -380,7 +380,7 @@ function splitCssTokens(value) {
     const ch = value[i];
     if (quote) {
       current += ch;
-      if (ch === quote && value[i - 1] !== '\\') {quote = '';}
+      if (ch === quote && value[i - 1] !== '\\') quote = '';
       continue;
     }
     if (ch === '"' || ch === "'") { quote = ch; current += ch; continue; }
@@ -392,70 +392,70 @@ function splitCssTokens(value) {
     }
     current += ch;
   }
-  if (current) {tokens.push(current);}
+  if (current) tokens.push(current);
   return tokens;
 }
 
 function cssPropToCamel(prop) {
-  if (!prop) {return prop;}
+  if (!prop) return prop;
   const mapped = STATIC_PROP_MAP[prop];
-  if (mapped) {return mapped;}
+  if (mapped) return mapped;
   return prop.replace(/-([a-z])/g, (_m, ch) => ch.toUpperCase());
 }
 
 function staticColorToCss(c) {
-  if (!c) {return '';}
-  if (c.a != null && c.a < 1) {return `rgba(${c.r}, ${c.g}, ${c.b}, ${Number(c.a.toFixed(3))})`;}
+  if (!c) return '';
+  if (c.a != null && c.a < 1) return `rgba(${c.r}, ${c.g}, ${c.b}, ${Number(c.a.toFixed(3))})`;
   return `rgb(${c.r}, ${c.g}, ${c.b})`;
 }
 
 function parseStaticColor(value) {
   const parsed = parseAnyColor(value);
-  if (parsed) {return parsed;}
+  if (parsed) return parsed;
   const named = STATIC_NAMED_COLORS[String(value || '').trim().toLowerCase()];
   return named ? { ...named } : null;
 }
 
 function extractStaticColor(value) {
-  if (!value) {return '';}
+  if (!value) return '';
   const raw = String(value).trim();
-  if (/^var\(/i.test(raw)) {return raw;}
+  if (/^var\(/i.test(raw)) return raw;
   const colorLike = raw.match(/(?:rgba?\([^)]+\)|oklch\([^)]+\)|oklab\([^)]+\)|lch\([^)]+\)|lab\([^)]+\)|hsla?\([^)]+\)|hwb\([^)]+\)|#[0-9a-f]{3,8}\b|\b(?:black|white|gray|grey|silver|red|green|blue|transparent)\b)/i);
-  if (!colorLike) {return '';}
+  if (!colorLike) return '';
   return colorLike[0];
 }
 
 function normalizeStaticCssValue(prop, value, customProps, parentStyle, currentStyle = null) {
   let resolved = resolveVarRefs(String(value || '').trim(), customProps);
-  if (resolved === 'inherit') {return parentStyle?.[prop] || STATIC_DEFAULT_STYLE[prop] || '';}
+  if (resolved === 'inherit') return parentStyle?.[prop] || STATIC_DEFAULT_STYLE[prop] || '';
   const isModernBorderColor = /^border[A-Z][a-z]+Color$/.test(prop) && /^(?:oklch|oklab|lch|lab|hsl|hwb)\(/i.test(resolved);
   if (!isModernBorderColor && (/color$/i.test(prop) || prop === 'color' || prop === 'backgroundColor')) {
     const parsed = parseStaticColor(resolved);
-    if (parsed) {resolved = staticColorToCss(parsed);}
+    if (parsed) resolved = staticColorToCss(parsed);
   }
   if (prop === 'fontSize') {
     const base = parseFloat(parentStyle?.fontSize) || 16;
     const px = resolveLengthPx(resolved, base);
-    if (px != null) {resolved = `${px}px`;}
+    if (px != null) resolved = `${px}px`;
   }
   if (prop === 'letterSpacing') {
     const base = parseFloat(currentStyle?.fontSize || parentStyle?.fontSize) || 16;
     const px = resolveLengthPx(resolved, base);
-    if (px != null) {resolved = `${px}px`;}
+    if (px != null) resolved = `${px}px`;
   }
   if (prop === 'lineHeight' && resolved !== 'normal') {
     const base = parseFloat(currentStyle?.fontSize || parentStyle?.fontSize) || 16;
     const px = resolveLengthPx(resolved, base);
-    if (px != null) {resolved = `${px}px`;}
+    if (px != null) resolved = `${px}px`;
   }
   return resolved;
 }
 
 function expandStaticBoxValues(tokens) {
-  if (tokens.length === 0) {return ['0px', '0px', '0px', '0px'];}
-  if (tokens.length === 1) {return [tokens[0], tokens[0], tokens[0], tokens[0]];}
-  if (tokens.length === 2) {return [tokens[0], tokens[1], tokens[0], tokens[1]];}
-  if (tokens.length === 3) {return [tokens[0], tokens[1], tokens[2], tokens[1]];}
+  if (tokens.length === 0) return ['0px', '0px', '0px', '0px'];
+  if (tokens.length === 1) return [tokens[0], tokens[0], tokens[0], tokens[0]];
+  if (tokens.length === 2) return [tokens[0], tokens[1], tokens[0], tokens[1]];
+  if (tokens.length === 3) return [tokens[0], tokens[1], tokens[2], tokens[1]];
   return [tokens[0], tokens[1], tokens[2], tokens[3]];
 }
 
@@ -463,8 +463,8 @@ function parseStaticBorder(value) {
   const tokens = splitCssTokens(value);
   let width = '', color = '';
   for (const token of tokens) {
-    if (!width && /^-?[\d.]+(?:px|rem|em|%)$/.test(token)) {width = token;}
-    if (!color) {color = extractStaticColor(token);}
+    if (!width && /^-?[\d.]+(?:px|rem|em|%)$/.test(token)) width = token;
+    if (!color) color = extractStaticColor(token);
   }
   return { width, color };
 }
@@ -472,15 +472,15 @@ function parseStaticBorder(value) {
 function parseStaticFont(value) {
   const out = [];
   const slashParts = value.match(/(?:^|\s)([\d.]+(?:px|rem|em|%))(?:\/([^\s]+))?/);
-  if (/\bitalic\b/i.test(value)) {out.push(['fontStyle', 'italic']);}
+  if (/\bitalic\b/i.test(value)) out.push(['fontStyle', 'italic']);
   const weight = value.match(/\b([1-9]00|bold|normal|lighter|bolder)\b/i);
-  if (weight) {out.push(['fontWeight', weight[1]]);}
+  if (weight) out.push(['fontWeight', weight[1]]);
   if (slashParts) {
     out.push(['fontSize', slashParts[1]]);
-    if (slashParts[2]) {out.push(['lineHeight', slashParts[2]]);}
+    if (slashParts[2]) out.push(['lineHeight', slashParts[2]]);
     const familyStart = value.indexOf(slashParts[0]) + slashParts[0].length;
     const family = value.slice(familyStart).trim();
-    if (family) {out.push(['fontFamily', family]);}
+    if (family) out.push(['fontFamily', family]);
   }
   return out;
 }
@@ -491,9 +491,9 @@ function parseStaticTransition(value) {
   for (const item of splitCssList(value)) {
     const tokens = splitCssTokens(item);
     const timing = tokens.find(token => /^(?:ease|linear|step-|cubic-bezier\()/i.test(token));
-    if (timing) {timings.push(timing);}
+    if (timing) timings.push(timing);
     const prop = tokens.find(token => /^[a-z-]+$/i.test(token) && !/^(?:ease|linear|infinite|alternate|forwards|backwards|both|normal|none)$/.test(token) && !/s$/.test(token));
-    if (prop) {props.push(prop);}
+    if (prop) props.push(prop);
   }
   return {
     property: props.join(', '),
@@ -507,12 +507,12 @@ function parseStaticAnimation(value) {
   for (const item of splitCssList(value)) {
     const tokens = splitCssTokens(item);
     const timing = tokens.find(token => /^(?:ease|linear|step-|cubic-bezier\()/i.test(token));
-    if (timing) {timings.push(timing);}
+    if (timing) timings.push(timing);
     const name = tokens.find(token =>
       /^[a-z_-][\w-]*$/i.test(token) &&
       !/^(?:ease|linear|infinite|alternate|forwards|backwards|both|normal|none|running|paused)$/.test(token)
     );
-    if (name) {names.push(name);}
+    if (name) names.push(name);
   }
   return {
     name: names.join(', '),
@@ -523,23 +523,23 @@ function parseStaticAnimation(value) {
 function expandStaticDeclaration(prop, value) {
   const p = prop.toLowerCase();
   const v = String(value || '').trim();
-  if (!v) {return [];}
-  if (p.startsWith('--')) {return [[p, v]];}
+  if (!v) return [];
+  if (p.startsWith('--')) return [[p, v]];
   if (p === 'background') {
     const out = [];
     const hasImage = /gradient|url\(/i.test(v);
-    if (hasImage) {out.push(['backgroundImage', v]);}
+    if (hasImage) out.push(['backgroundImage', v]);
     const beforeImage = hasImage ? v.split(/(?:repeating-)?(?:linear|radial|conic)-gradient\(|url\(/i)[0] : v;
     const color = extractStaticColor(hasImage ? beforeImage : v);
-    if (color) {out.push(['backgroundColor', color]);}
+    if (color) out.push(['backgroundColor', color]);
     return out;
   }
   if (p === 'border') {
     const parsed = parseStaticBorder(v);
     const out = [];
     for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
-      if (parsed.width) {out.push([`border${side}Width`, parsed.width]);}
-      if (parsed.color) {out.push([`border${side}Color`, parsed.color]);}
+      if (parsed.width) out.push([`border${side}Width`, parsed.width]);
+      if (parsed.color) out.push([`border${side}Color`, parsed.color]);
     }
     return out;
   }
@@ -554,9 +554,9 @@ function expandStaticDeclaration(prop, value) {
       /^(none|hidden|solid|dashed|dotted|double|groove|ridge|inset|outset)$/i.test(t)
     );
     const out = [];
-    if (parsed.width) {out.push(['outlineWidth', parsed.width]);}
-    if (parsed.color) {out.push(['outlineColor', parsed.color]);}
-    if (styleToken) {out.push(['outlineStyle', styleToken.toLowerCase()]);}
+    if (parsed.width) out.push(['outlineWidth', parsed.width]);
+    if (parsed.color) out.push(['outlineColor', parsed.color]);
+    if (styleToken) out.push(['outlineStyle', styleToken.toLowerCase()]);
     // `outline: 0` with no other tokens: explicit zero width.
     if (!parsed.width && /^0(?:px|rem|em|%)?$/.test(v.trim())) {
       out.push(['outlineWidth', '0px']);
@@ -608,7 +608,7 @@ function expandStaticDeclaration(prop, value) {
       ['marginLeft', vals[3]],
     ];
   }
-  if (p === 'font') {return parseStaticFont(v);}
+  if (p === 'font') return parseStaticFont(v);
   if (p === 'transition') {
     const parsed = parseStaticTransition(v);
     return [
@@ -631,9 +631,9 @@ function expandStaticDeclaration(prop, value) {
 }
 
 function compareStaticPriority(a, b) {
-  if (!a) {return true;}
-  if (!!b.important !== !!a.important) {return !!b.important;}
-  if (!!b.inline !== !!a.inline) {return !!b.inline;}
+  if (!a) return true;
+  if (!!b.important !== !!a.important) return !!b.important;
+  if (!!b.inline !== !!a.inline) return !!b.inline;
   for (let i = 0; i < 3; i++) {
     if ((b.specificity[i] || 0) !== (a.specificity[i] || 0)) {
       return (b.specificity[i] || 0) > (a.specificity[i] || 0);
@@ -660,7 +660,7 @@ function applyStaticDeclaration(specified, node, prop, value, meta) {
   for (const [expandedProp, expandedValue] of expandStaticDeclaration(prop, value)) {
     const existing = map.get(expandedProp);
     const next = { ...meta, prop: expandedProp, value: expandedValue };
-    if (compareStaticPriority(existing, next)) {map.set(expandedProp, next);}
+    if (compareStaticPriority(existing, next)) map.set(expandedProp, next);
   }
 }
 
@@ -668,7 +668,7 @@ function parseStaticStyleAttribute(styleText, orderBase = 0) {
   const decls = [];
   for (const part of String(styleText || '').split(';')) {
     const idx = part.indexOf(':');
-    if (idx <= 0) {continue;}
+    if (idx <= 0) continue;
     const prop = part.slice(0, idx).trim();
     let value = part.slice(idx + 1).trim();
     const important = /!important\s*$/i.test(value);
@@ -690,11 +690,11 @@ function collectStaticCssRules(cssText, csstree) {
   const walkList = (list, atRuleStack = []) => {
     list?.forEach?.(node => {
       if (node.type === 'Rule' && node.block) {
-        if (atRuleStack.some(name => /keyframes$/i.test(name))) {return;}
+        if (atRuleStack.some(name => /keyframes$/i.test(name))) return;
         const selectorText = csstree.generate(node.prelude).trim();
         const declarations = [];
         node.block.children?.forEach?.(child => {
-          if (child.type !== 'Declaration') {return;}
+          if (child.type !== 'Declaration') return;
           declarations.push({
             prop: child.property,
             value: csstree.generate(child.value).trim(),
@@ -702,7 +702,7 @@ function collectStaticCssRules(cssText, csstree) {
           });
         });
         for (const selector of splitCssList(selectorText)) {
-          if (selector) {rules.push({ selector, declarations, specificity: staticSpecificity(selector), order: order++ });}
+          if (selector) rules.push({ selector, declarations, specificity: staticSpecificity(selector), order: order++ });
         }
         return;
       }
@@ -728,12 +728,12 @@ class StaticElement {
   }
   get parentElement() {
     let cur = this.node.parent;
-    while (cur && cur.type !== 'tag') {cur = cur.parent;}
+    while (cur && cur.type !== 'tag') cur = cur.parent;
     return cur ? this._doc.wrap(cur) : null;
   }
   get previousElementSibling() {
     let cur = this.node.prev;
-    while (cur && cur.type !== 'tag') {cur = cur.prev;}
+    while (cur && cur.type !== 'tag') cur = cur.prev;
     return cur ? this._doc.wrap(cur) : null;
   }
   get children() {
@@ -741,8 +741,8 @@ class StaticElement {
   }
   get childNodes() {
     return (this.node.children || []).map(child => {
-      if (child.type === 'text') {return { nodeType: 3, textContent: child.data || '' };}
-      if (child.type === 'tag') {return this._doc.wrap(child);}
+      if (child.type === 'text') return { nodeType: 3, textContent: child.data || '' };
+      if (child.type === 'tag') return this._doc.wrap(child);
       return { nodeType: 8, textContent: child.data || '' };
     });
   }
@@ -777,19 +777,19 @@ class StaticElement {
     let cur = this.node;
     while (cur && cur.type === 'tag') {
       try {
-        if (this._doc.is(cur, selector)) {return this._doc.wrap(cur);}
+        if (this._doc.is(cur, selector)) return this._doc.wrap(cur);
       } catch {
         return null;
       }
       cur = cur.parent;
-      while (cur && cur.type !== 'tag') {cur = cur.parent;}
+      while (cur && cur.type !== 'tag') cur = cur.parent;
     }
     return null;
   }
   contains(other) {
     let cur = other?.node || null;
     while (cur) {
-      if (cur === this.node) {return true;}
+      if (cur === this.node) return true;
       cur = cur.parent;
     }
     return false;
@@ -868,7 +868,7 @@ function collectStaticCssText(root, fileDir, profile, filePath, modules) {
   for (const link of links) {
     const rel = link.attribs?.rel || '';
     const href = link.attribs?.href || '';
-    if (!/\bstylesheet\b/i.test(rel) || !href || /^(https?:)?\/\//i.test(href)) {continue;}
+    if (!/\bstylesheet\b/i.test(rel) || !href || /^(https?:)?\/\//i.test(href)) continue;
     const cssPath = path.resolve(fileDir, href);
     try {
       const css = profileStep(profile, {
@@ -931,7 +931,7 @@ function buildStaticStyleMap(root, staticDoc, cssText, modules, profile, filePat
     let inlineOrder = rules.length + 1;
     for (const node of allNodes) {
       const styleText = node.attribs?.style;
-      if (!styleText) {continue;}
+      if (!styleText) continue;
       for (const decl of parseStaticStyleAttribute(styleText, inlineOrder)) {
         applyStaticDeclaration(specified, node, decl.prop, decl.value, {
           important: decl.important,
@@ -948,21 +948,21 @@ function buildStaticStyleMap(root, staticDoc, cssText, modules, profile, filePat
     const specifiedMap = specified.get(node) || new Map();
     const customProps = new Map(parentCustom);
     for (const [prop, decl] of specifiedMap) {
-      if (prop.startsWith('--')) {customProps.set(prop, resolveVarRefs(decl.value, customProps));}
+      if (prop.startsWith('--')) customProps.set(prop, resolveVarRefs(decl.value, customProps));
     }
     const values = {};
     for (const prop of Object.keys(STATIC_DEFAULT_STYLE)) {
-      if (STATIC_INHERITED_PROPS.has(prop) && parentStyle?.[prop] != null) {values[prop] = parentStyle[prop];}
-      else {values[prop] = STATIC_DEFAULT_STYLE[prop];}
+      if (STATIC_INHERITED_PROPS.has(prop) && parentStyle?.[prop] != null) values[prop] = parentStyle[prop];
+      else values[prop] = STATIC_DEFAULT_STYLE[prop];
     }
     for (const [prop, decl] of specifiedMap) {
-      if (prop.startsWith('--')) {continue;}
+      if (prop.startsWith('--')) continue;
       values[prop] = normalizeStaticCssValue(prop, decl.value, customProps, parentStyle, values);
     }
     const style = makeStaticStyle(values);
     staticDoc.setStyle(node, style);
     for (const child of node.children || []) {
-      if (child.type === 'tag') {computeNode(child, style, customProps);}
+      if (child.type === 'tag') computeNode(child, style, customProps);
     }
   };
 
@@ -973,7 +973,7 @@ function buildStaticStyleMap(root, staticDoc, cssText, modules, profile, filePat
     target: filePath,
   }, () => {
     for (const child of root.children || []) {
-      if (child.type === 'tag') {computeNode(child);}
+      if (child.type === 'tag') computeNode(child);
     }
   });
 }

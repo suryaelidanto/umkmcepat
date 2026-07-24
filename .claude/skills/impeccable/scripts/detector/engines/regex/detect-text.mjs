@@ -1,12 +1,12 @@
-import { checkSourceDesignSystem } from '../../design-system.mjs';
-import { finding } from '../../findings.mjs';
-import { profileFindings, profileStep } from '../../profile/profiler.mjs';
-import { filterByProviders } from '../../registry/antipatterns.mjs';
-import { isNeutralColor } from '../../shared/color.mjs';
 import { GENERIC_FONTS, OVERUSED_FONTS } from '../../shared/constants.mjs';
+import { isNeutralColor } from '../../shared/color.mjs';
 import { extractGoogleFontFamilies } from '../../shared/fonts.mjs';
-import { applyInlineIgnores } from '../../shared/inline-ignores.mjs';
+import { checkSourceDesignSystem } from '../../design-system.mjs';
 import { isFullPage } from '../../shared/page.mjs';
+import { applyInlineIgnores } from '../../shared/inline-ignores.mjs';
+import { finding } from '../../findings.mjs';
+import { filterByProviders } from '../../registry/antipatterns.mjs';
+import { profileFindings, profileStep } from '../../profile/profiler.mjs';
 
 // ---------------------------------------------------------------------------
 // Regex fallback (non-HTML files: CSS, JSX, TSX, etc.)
@@ -34,7 +34,7 @@ function extFromFilePath(filePath) {
 }
 
 function shouldRunPageAnalyzers(content, filePath) {
-  if (!isFullPage(content)) {return false;}
+  if (!isFullPage(content)) return false;
   const ext = extFromFilePath(filePath);
   return !ext || PAGE_ANALYZER_EXTS.has(ext);
 }
@@ -45,10 +45,10 @@ function firstOverusedGoogleFont(text) {
 
 function isNeutralBorderColor(str) {
   const m = str.match(/solid\s+((?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\([^)]*\)|#[0-9a-f]{3,8}\b|[a-z]+)/i);
-  if (!m) {return false;}
+  if (!m) return false;
   const c = m[1].toLowerCase();
-  if (['gray', 'grey', 'silver', 'white', 'black', 'transparent', 'currentcolor'].includes(c)) {return true;}
-  if (/^(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb)\(/i.test(c)) {return isNeutralColor(c);}
+  if (['gray', 'grey', 'silver', 'white', 'black', 'transparent', 'currentcolor'].includes(c)) return true;
+  if (/^(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb)\(/i.test(c)) return isNeutralColor(c);
   const hex = c.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/);
   if (hex) {
     const [r, g, b] = [parseInt(hex[1], 16), parseInt(hex[2], 16), parseInt(hex[3], 16)];
@@ -68,7 +68,7 @@ const REGEX_MATCHERS = [
     test: (m, line) => { const n = +m[1]; return hasRounded(line) ? n >= 2 : n >= 4; },
     fmt: (m) => m[0] },
   { id: 'side-tab', regex: /border-(?:left|right)\s*:\s*(\d+)px\s+solid[^;]*/gi,
-    test: (m, line) => { if (isSafeElement(line)) {return false;} if (isNeutralBorderColor(m[0])) {return false;} const n = +m[1]; return hasBorderRadius(line) ? n >= 2 : n >= 3; },
+    test: (m, line) => { if (isSafeElement(line)) return false; if (isNeutralBorderColor(m[0])) return false; const n = +m[1]; return hasBorderRadius(line) ? n >= 2 : n >= 3; },
     fmt: (m) => m[0].replace(/\s*;?\s*$/, '') },
   { id: 'side-tab', regex: /border-(?:left|right)-width\s*:\s*(\d+)px/gi,
     test: (m, line) => !isSafeElement(line) && +m[1] >= 3,
@@ -140,7 +140,7 @@ const REGEX_MATCHERS = [
   { id: 'layout-transition', regex: /transition\s*:\s*([^;{}]+)/gi,
     test: (m) => {
       const val = m[1].toLowerCase();
-      if (/\ball\b/.test(val)) {return false;}
+      if (/\ball\b/.test(val)) return false;
       return /\b(?:(?:max|min)-)?(?:width|height)\b|\bpadding\b|\bmargin\b/.test(val);
     },
     fmt: (m) => {
@@ -150,7 +150,7 @@ const REGEX_MATCHERS = [
   { id: 'layout-transition', regex: /transition-property\s*:\s*([^;{}]+)/gi,
     test: (m) => {
       const val = m[1].toLowerCase();
-      if (/\ball\b/.test(val)) {return false;}
+      if (/\ball\b/.test(val)) return false;
       return /\b(?:(?:max|min)-)?(?:width|height)\b|\bpadding\b|\bmargin\b/.test(val);
     },
     fmt: (m) => {
@@ -175,11 +175,11 @@ const REGEX_ANALYZERS = [
     let m;
     while ((m = fontFamilyRe.exec(content)) !== null) {
       for (const f of m[1].split(',').map(f => f.trim().replace(/^['"]|['"]$/g, '').toLowerCase())) {
-        if (f && !GENERIC_FONTS.has(f)) {fonts.add(f);}
+        if (f && !GENERIC_FONTS.has(f)) fonts.add(f);
       }
     }
-    for (const f of extractGoogleFontFamilies(content)) {fonts.add(f);}
-    if (fonts.size !== 1 || content.split('\n').length < 20) {return [];}
+    for (const f of extractGoogleFontFamilies(content)) fonts.add(f);
+    if (fonts.size !== 1 || content.split('\n').length < 20) return [];
     const name = [...fonts][0];
     const lines = content.split('\n');
     let line = 1;
@@ -194,7 +194,7 @@ const REGEX_ANALYZERS = [
     const sizeRe = /font-size\s*:\s*([\d.]+)(px|rem|em)\b/gi;
     while ((m = sizeRe.exec(content)) !== null) {
       const px = m[2] === 'px' ? +m[1] : +m[1] * REM;
-      if (px > 0 && px < 200) {sizes.add(Math.round(px * 10) / 10);}
+      if (px > 0 && px < 200) sizes.add(Math.round(px * 10) / 10);
     }
     const clampRe = /font-size\s*:\s*clamp\(\s*([\d.]+)(px|rem|em)\s*,\s*[^,]+,\s*([\d.]+)(px|rem|em)\s*\)/gi;
     while ((m = clampRe.exec(content)) !== null) {
@@ -202,11 +202,11 @@ const REGEX_ANALYZERS = [
       sizes.add(Math.round((m[4] === 'px' ? +m[3] : +m[3] * REM) * 10) / 10);
     }
     const TW = { 'text-xs': 12, 'text-sm': 14, 'text-base': 16, 'text-lg': 18, 'text-xl': 20, 'text-2xl': 24, 'text-3xl': 30, 'text-4xl': 36, 'text-5xl': 48, 'text-6xl': 60, 'text-7xl': 72, 'text-8xl': 96, 'text-9xl': 128 };
-    for (const [cls, px] of Object.entries(TW)) { if (new RegExp(`\\b${cls}\\b`).test(content)) {sizes.add(px);} }
-    if (sizes.size < 3) {return [];}
+    for (const [cls, px] of Object.entries(TW)) { if (new RegExp(`\\b${cls}\\b`).test(content)) sizes.add(px); }
+    if (sizes.size < 3) return [];
     const sorted = [...sizes].sort((a, b) => a - b);
     const ratio = sorted[sorted.length - 1] / sorted[0];
-    if (ratio >= 2.0) {return [];}
+    if (ratio >= 2.0) return [];
     const lines = content.split('\n');
     let line = 1;
     for (let i = 0; i < lines.length; i++) { if (/font-size/i.test(lines[i]) || /\btext-(?:xs|sm|base|lg|xl|\d)/i.test(lines[i])) { line = i + 1; break; } }
@@ -217,21 +217,21 @@ const REGEX_ANALYZERS = [
     const vals = [];
     let m;
     const pxRe = /(?:padding|margin)(?:-(?:top|right|bottom|left))?\s*:\s*(\d+)px/gi;
-    while ((m = pxRe.exec(content)) !== null) { const v = +m[1]; if (v > 0 && v < 200) {vals.push(v);} }
+    while ((m = pxRe.exec(content)) !== null) { const v = +m[1]; if (v > 0 && v < 200) vals.push(v); }
     const remRe = /(?:padding|margin)(?:-(?:top|right|bottom|left))?\s*:\s*([\d.]+)rem/gi;
-    while ((m = remRe.exec(content)) !== null) { const v = Math.round(parseFloat(m[1]) * 16); if (v > 0 && v < 200) {vals.push(v);} }
+    while ((m = remRe.exec(content)) !== null) { const v = Math.round(parseFloat(m[1]) * 16); if (v > 0 && v < 200) vals.push(v); }
     const gapRe = /gap\s*:\s*(\d+)px/gi;
-    while ((m = gapRe.exec(content)) !== null) {vals.push(+m[1]);}
+    while ((m = gapRe.exec(content)) !== null) vals.push(+m[1]);
     const twRe = /\b(?:p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap)-(\d+)\b/g;
-    while ((m = twRe.exec(content)) !== null) {vals.push(+m[1] * 4);}
+    while ((m = twRe.exec(content)) !== null) vals.push(+m[1] * 4);
     const rounded = vals.map(v => Math.round(v / 4) * 4);
-    if (rounded.length < 10) {return [];}
+    if (rounded.length < 10) return [];
     const counts = {};
-    for (const v of rounded) {counts[v] = (counts[v] || 0) + 1;}
+    for (const v of rounded) counts[v] = (counts[v] || 0) + 1;
     const maxCount = Math.max(...Object.values(counts));
     const pct = maxCount / rounded.length;
     const unique = [...new Set(rounded)].filter(v => v > 0);
-    if (pct <= 0.6 || unique.length > 3) {return [];}
+    if (pct <= 0.6 || unique.length > 3) return [];
     const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
     return [finding('monotonous-spacing', filePath, `~${dominant}px used ${maxCount}/${rounded.length} times (${Math.round(pct * 100)}%)`)];
   },
@@ -242,8 +242,8 @@ const REGEX_ANALYZERS = [
     const text = stripHtmlToText(content);
     let count = 0;
     const re = /[—]|--(?=\S)/g;
-    while (re.exec(text) !== null) {count++;}
-    if (count < 5) {return [];}
+    while (re.exec(text) !== null) count++;
+    if (count < 5) return [];
     return [finding('em-dash-overuse', filePath, `${count} em-dashes in body text`)];
   },
   // Marketing buzzwords: SaaS phrase list
@@ -268,7 +268,7 @@ const REGEX_ANALYZERS = [
       let from = 0;
       while (true) {
         const idx = lower.indexOf(phrase, from);
-        if (idx === -1) {break;}
+        if (idx === -1) break;
         count++;
         if (!firstSample) {
           firstSample = text.slice(Math.max(0, idx - 12), Math.min(text.length, idx + phrase.length + 12)).trim();
@@ -276,7 +276,7 @@ const REGEX_ANALYZERS = [
         from = idx + phrase.length;
       }
     }
-    if (count === 0) {return [];}
+    if (count === 0) return [];
     return [finding('marketing-buzzword', filePath, `${count} buzzword phrase${count === 1 ? '' : 's'}: "${firstSample}"`)];
   },
   // Numbered section markers (01 / 02 / 03 ...)
@@ -285,14 +285,14 @@ const REGEX_ANALYZERS = [
     const re = /\b(0[1-9]|1[0-2])\b/g;
     const seen = new Set();
     let m;
-    while ((m = re.exec(text)) !== null) {seen.add(m[1]);}
-    if (seen.size < 3) {return [];}
+    while ((m = re.exec(text)) !== null) seen.add(m[1]);
+    if (seen.size < 3) return [];
     const sorted = [...seen].sort();
     let sequential = 0;
     for (let i = 1; i < sorted.length; i++) {
-      if (parseInt(sorted[i], 10) === parseInt(sorted[i - 1], 10) + 1) {sequential++;}
+      if (parseInt(sorted[i], 10) === parseInt(sorted[i - 1], 10) + 1) sequential++;
     }
-    if (sequential < 2) {return [];}
+    if (sequential < 2) return [];
     return [finding('numbered-section-markers', filePath, `Sequence: ${sorted.slice(0, 6).join(', ')}`)];
   },
   // Aphoristic cadence: manufactured-contrast + short-rebuttal
@@ -306,14 +306,14 @@ const REGEX_ANALYZERS = [
     NOT_A_RE.lastIndex = 0;
     while ((m = NOT_A_RE.exec(text)) !== null) {
       count++;
-      if (!firstSample) {firstSample = m[0].trim().slice(0, 80);}
+      if (!firstSample) firstSample = m[0].trim().slice(0, 80);
     }
     SHORT_REBUTTAL_RE.lastIndex = 0;
     while ((m = SHORT_REBUTTAL_RE.exec(text)) !== null) {
       count++;
-      if (!firstSample) {firstSample = m[0].trim().slice(0, 80);}
+      if (!firstSample) firstSample = m[0].trim().slice(0, 80);
     }
-    if (count < 3) {return [];}
+    if (count < 3) return [];
     return [finding('aphoristic-cadence', filePath, `${count} aphoristic constructions: "${firstSample}"`)];
   },
   // Dark glow (page-level: dark bg + colored box-shadow with blur)
@@ -322,7 +322,7 @@ const REGEX_ANALYZERS = [
     const darkBgRe = /background(?:-color)?\s*:\s*(?:#(?:0[0-9a-f]|1[0-9a-f]|2[0-3])[0-9a-f]{4}\b|#(?:0|1)[0-9a-f]{2}\b|rgb\(\s*(\d{1,2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\))/gi;
     const twDarkBg = /\bbg-(?:gray|slate|zinc|neutral|stone)-(?:9\d{2}|800)\b/;
     const hasDarkBg = darkBgRe.test(content) || twDarkBg.test(content);
-    if (!hasDarkBg) {return [];}
+    if (!hasDarkBg) return [];
 
     // Check for colored box-shadow with blur > 4px
     const shadowRe = /box-shadow\s*:\s*([^;{}]+)/gi;
@@ -330,9 +330,9 @@ const REGEX_ANALYZERS = [
     while ((m = shadowRe.exec(content)) !== null) {
       const val = m[1];
       const colorMatch = val.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-      if (!colorMatch) {continue;}
+      if (!colorMatch) continue;
       const [r, g, b] = [+colorMatch[1], +colorMatch[2], +colorMatch[3]];
-      if ((Math.max(r, g, b) - Math.min(r, g, b)) < 30) {continue;} // skip gray
+      if ((Math.max(r, g, b) - Math.min(r, g, b)) < 30) continue; // skip gray
       // Check blur: look for pattern like "0 0 20px" (third number > 4)
       const pxVals = [...val.matchAll(/(\d+)px|(?<![.\d])\b(0)\b(?![.\d])/g)].map(p => +(p[1] || p[2]));
       if (pxVals.length >= 3 && pxVals[2] > 4) {
@@ -350,7 +350,7 @@ const REGEX_ANALYZERS = [
 
 function extractStyleBlocks(content, ext) {
   ext = ext.toLowerCase();
-  if (ext !== '.vue' && ext !== '.svelte') {return [];}
+  if (ext !== '.vue' && ext !== '.svelte') return [];
   const blocks = [];
   const re = /<style[^>]*>([\s\S]*?)<\/style>/gi;
   let m;
@@ -370,7 +370,7 @@ const CSS_IN_JS_EXTENSIONS = new Set(['.js', '.ts', '.jsx', '.tsx']);
 
 function extractCSSinJS(content, ext) {
   ext = ext.toLowerCase();
-  if (!CSS_IN_JS_EXTENSIONS.has(ext)) {return [];}
+  if (!CSS_IN_JS_EXTENSIONS.has(ext)) return [];
   const blocks = [];
   const re = /(?:styled(?:\.\w+|\([^)]+\))|css)\s*`([\s\S]*?)`/g;
   let m;
@@ -448,7 +448,7 @@ const TEXT_CONTENT_ANALYZER_IDS = [
 
 function runTextContentAnalyzers(content, filePath, options = {}) {
   const profile = options?.profile;
-  if (!shouldRunPageAnalyzers(content, filePath)) {return [];}
+  if (!shouldRunPageAnalyzers(content, filePath)) return [];
   // The 4 text-content analyzers are at indices 3-6 in REGEX_ANALYZERS.
   const findings = [];
   for (let i = 0; i < TEXT_CONTENT_ANALYZER_IDS.length; i++) {
@@ -529,7 +529,7 @@ function detectText(content, filePath, options = {}) {
       d.snippet === f.snippet &&
       Math.abs(d.line - f.line) <= 2
     );
-    if (!isDupe) {deduped.push(f);}
+    if (!isDupe) deduped.push(f);
   }
 
   // Page-level analyzers only run on full pages

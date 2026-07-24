@@ -6,10 +6,10 @@
  * variant back into the route source with props mapped to original bindings.
  */
 
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import os from 'node:os';
+import { createHash } from 'node:crypto';
 
 export const SVELTE_COMPONENT_ROOT = 'node_modules/.impeccable-live';
 export const SVELTE_RUNTIME_FILE = `${SVELTE_COMPONENT_ROOT}/__runtime.js`;
@@ -18,7 +18,7 @@ export const DEFERRED_ACCEPTS_FILE = '.impeccable/live/deferred-svelte-component
 const MUSTACHE_RE = /\{([^{}]+)\}/g;
 
 export function shouldUseSvelteComponentInjection(filePath) {
-  if (/^(0|false|no)$/i.test(process.env.IMPECCABLE_LIVE_SVELTE_COMPONENT || '')) {return false;}
+  if (/^(0|false|no)$/i.test(process.env.IMPECCABLE_LIVE_SVELTE_COMPONENT || '')) return false;
   return path.extname(filePath).toLowerCase() === '.svelte';
 }
 
@@ -32,7 +32,7 @@ export function manifestPathForSession(id, cwd = process.cwd()) {
 
 export function ensureRuntimeHelper(cwd = process.cwd()) {
   const file = path.join(cwd, SVELTE_RUNTIME_FILE);
-  if (fs.existsSync(file)) {return file;}
+  if (fs.existsSync(file)) return file;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `export { mount, unmount } from 'svelte';\n`, 'utf-8');
   return file;
@@ -47,12 +47,12 @@ export function extractMustacheExpressions(text) {
   const lines = String(text || '').split('\n');
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.startsWith('<!--')) {continue;}
+    if (trimmed.startsWith('<!--')) continue;
     let match;
     MUSTACHE_RE.lastIndex = 0;
     while ((match = MUSTACHE_RE.exec(line)) !== null) {
       const expr = match[1].trim();
-      if (!expr || seen.has(expr)) {continue;}
+      if (!expr || seen.has(expr)) continue;
       seen.add(expr);
       expressions.push(expr);
     }
@@ -111,8 +111,8 @@ export function parseSvelteComponentFile(content) {
       .split('\n')
       .map((line) => line.trimEnd())
     : [];
-  while (cssLines.length > 0 && cssLines[0].trim() === '') {cssLines.shift();}
-  while (cssLines.length > 0 && cssLines[cssLines.length - 1].trim() === '') {cssLines.pop();}
+  while (cssLines.length > 0 && cssLines[0].trim() === '') cssLines.shift();
+  while (cssLines.length > 0 && cssLines[cssLines.length - 1].trim() === '') cssLines.pop();
   return { markup, cssLines, styleBlock };
 }
 
@@ -239,14 +239,14 @@ export function findSvelteComponentManifest(id, cwd = process.cwd()) {
     return readManifest(direct);
   }
   const root = path.join(cwd, SVELTE_COMPONENT_ROOT);
-  if (!fs.existsSync(root)) {return null;}
+  if (!fs.existsSync(root)) return null;
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-    if (!entry.isDirectory()) {continue;}
+    if (!entry.isDirectory()) continue;
     const candidate = path.join(root, entry.name, 'manifest.json');
-    if (!fs.existsSync(candidate)) {continue;}
+    if (!fs.existsSync(candidate)) continue;
     try {
       const manifest = readManifest(candidate);
-      if (manifest?.id === id) {return { ...manifest, manifestPath: candidate };}
+      if (manifest?.id === id) return { ...manifest, manifestPath: candidate };
     } catch { /* skip */ }
   }
   return null;
@@ -290,13 +290,13 @@ function appendCssToSvelteStyle(lines, cssLines) {
 
 function findLastStyleCloseLine(lines) {
   for (let i = lines.length - 1; i >= 0; i--) {
-    if (/<\/style\s*>/.test(lines[i])) {return i;}
+    if (/<\/style\s*>/.test(lines[i])) return i;
   }
   return -1;
 }
 
 function bakeParamValuesInCss(cssLines, paramValues) {
-  if (!paramValues || Object.keys(paramValues).length === 0) {return cssLines;}
+  if (!paramValues || Object.keys(paramValues).length === 0) return cssLines;
   return cssLines.map((line) => {
     let out = line;
     for (const [key, value] of Object.entries(paramValues)) {
@@ -309,7 +309,7 @@ function bakeParamValuesInCss(cssLines, paramValues) {
 
 function sanitizeAcceptedSvelteCss(cssLines, variantNum, paramValues = null, rootTag = 'div') {
   const css = String((cssLines || []).join('\n'));
-  if (!/data-impeccable-variant|impeccable-variant-ready/.test(css)) {return cssLines;}
+  if (!/data-impeccable-variant|impeccable-variant-ready/.test(css)) return cssLines;
 
   const rules = parseCssRules(css);
   const output = [];
@@ -325,21 +325,21 @@ function sanitizeAcceptedSvelteCss(cssLines, variantNum, paramValues = null, roo
 function appendSanitizedCssRule(output, rule, variantNum, paramValues, rootTag) {
   const prelude = rule.prelude.trim();
   const body = rule.body.trim();
-  if (!prelude || !body || /--impeccable-variant-ready\s*:/.test(body)) {return;}
+  if (!prelude || !body || /--impeccable-variant-ready\s*:/.test(body)) return;
 
   if (/^@scope\b/i.test(prelude)) {
-    if (/data-impeccable-variant/.test(prelude) && !selectorHasVariant(prelude, variantNum)) {return;}
+    if (/data-impeccable-variant/.test(prelude) && !selectorHasVariant(prelude, variantNum)) return;
     const inner = parseCssRules(body);
     for (const innerRule of inner) {
       const rewrittenPrelude = rewriteAcceptedSvelteSelector(innerRule.prelude, variantNum, paramValues, rootTag, true);
-      if (!rewrittenPrelude || /--impeccable-variant-ready\s*:/.test(innerRule.body)) {continue;}
+      if (!rewrittenPrelude || /--impeccable-variant-ready\s*:/.test(innerRule.body)) continue;
       output.push(formatCssRule(rewrittenPrelude, innerRule.body.trim()));
     }
     return;
   }
 
   const rewrittenPrelude = rewriteAcceptedSvelteSelector(prelude, variantNum, paramValues, rootTag, false);
-  if (!rewrittenPrelude) {return;}
+  if (!rewrittenPrelude) return;
   output.push(formatCssRule(rewrittenPrelude, body));
 }
 
@@ -348,10 +348,10 @@ function parseCssRules(css) {
   const text = String(css || '');
   let i = 0;
   while (i < text.length) {
-    while (i < text.length && /\s/.test(text[i])) {i++;}
+    while (i < text.length && /\s/.test(text[i])) i++;
     const preludeStart = i;
-    while (i < text.length && text[i] !== '{') {i++;}
-    if (i >= text.length) {break;}
+    while (i < text.length && text[i] !== '{') i++;
+    if (i >= text.length) break;
     const prelude = text.slice(preludeStart, i).trim();
     i++;
     const bodyStart = i;
@@ -375,7 +375,7 @@ function parseCssRules(css) {
           i += 2;
           continue;
         }
-        if (ch === quote) {quote = null;}
+        if (ch === quote) quote = null;
         i++;
         continue;
       }
@@ -389,12 +389,12 @@ function parseCssRules(css) {
         i++;
         continue;
       }
-      if (ch === '{') {depth++;}
-      else if (ch === '}') {depth--;}
+      if (ch === '{') depth++;
+      else if (ch === '}') depth--;
       i++;
     }
     const body = text.slice(bodyStart, Math.max(bodyStart, i - 1));
-    if (prelude) {rules.push({ prelude, body });}
+    if (prelude) rules.push({ prelude, body });
   }
   return rules;
 }
@@ -404,7 +404,7 @@ function rewriteAcceptedSvelteSelector(prelude, variantNum, paramValues, rootTag
   const rewritten = [];
   for (const selector of selectors) {
     const next = rewriteAcceptedSvelteSelectorPart(selector, variantNum, paramValues, rootTag, fromScope);
-    if (next) {rewritten.push(next);}
+    if (next) rewritten.push(next);
   }
   return rewritten.join(', ');
 }
@@ -412,14 +412,14 @@ function rewriteAcceptedSvelteSelector(prelude, variantNum, paramValues, rootTag
 function rewriteAcceptedSvelteSelectorPart(selector, variantNum, paramValues, rootTag, fromScope) {
   let out = selector.trim();
   const hasVariant = /data-impeccable-variant/.test(out);
-  if (hasVariant && !selectorHasVariant(out, variantNum)) {return '';}
+  if (hasVariant && !selectorHasVariant(out, variantNum)) return '';
   if (hasVariant) {
     out = out.replace(variantSelectorRegex(variantNum), '');
     out = out.replace(/\[data-impeccable-variant=(["']).*?\1\]/g, '');
   }
 
   const paramResult = rewriteParamSelectors(out, paramValues);
-  if (!paramResult.keep) {return '';}
+  if (!paramResult.keep) return '';
   out = paramResult.selector;
 
   out = out
@@ -429,14 +429,14 @@ function rewriteAcceptedSvelteSelectorPart(selector, variantNum, paramValues, ro
     .trim();
 
   out = out.replace(/^[>+~]\s*/, '').trim();
-  if (!out && (hasVariant || fromScope)) {return rootTag || ':global(*)';}
+  if (!out && (hasVariant || fromScope)) return rootTag || ':global(*)';
   return out;
 }
 
 function rewriteParamSelectors(selector, paramValues) {
   let keep = true;
   const next = selector.replace(/\[data-p-([A-Za-z0-9_-]+)(?:=(["'])(.*?)\2)?\]/g, (_match, key, _quote, expected) => {
-    if (!paramValues || !Object.prototype.hasOwnProperty.call(paramValues, key)) {return '';}
+    if (!paramValues || !Object.prototype.hasOwnProperty.call(paramValues, key)) return '';
     const actual = paramValues[key];
     if (expected != null && String(actual) !== String(expected)) {
       keep = false;
@@ -460,18 +460,18 @@ function splitSelectorList(prelude) {
   for (let i = 0; i < prelude.length; i++) {
     const ch = prelude[i];
     if (quote) {
-      if (ch === '\\') {i++;}
-      else if (ch === quote) {quote = null;}
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
       continue;
     }
     if (ch === '"' || ch === "'") {
       quote = ch;
       continue;
     }
-    if (ch === '[') {bracket++;}
-    else if (ch === ']') {bracket = Math.max(0, bracket - 1);}
-    else if (ch === '(') {paren++;}
-    else if (ch === ')') {paren = Math.max(0, paren - 1);}
+    if (ch === '[') bracket++;
+    else if (ch === ']') bracket = Math.max(0, bracket - 1);
+    else if (ch === '(') paren++;
+    else if (ch === ')') paren = Math.max(0, paren - 1);
     else if (ch === ',' && bracket === 0 && paren === 0) {
       selectors.push(prelude.slice(start, i));
       start = i + 1;
@@ -542,7 +542,7 @@ export function inlineSvelteComponentAccept(manifest, variantNum, paramValues = 
 
   const indent = sourceLines[start].match(/^(\s*)/)?.[1] || '';
   const indentedMarkup = restoredMarkup.map((line) => {
-    if (line.trim() === '') {return '';}
+    if (line.trim() === '') return '';
     return indent + line.trimStart();
   });
 
@@ -602,7 +602,7 @@ function inlineSvelteComponentInsertAccept({
   const nearbyLine = sourceLines[insertIndex] ?? sourceLines[insertIndex - 1] ?? '';
   const indent = nearbyLine.match(/^(\s*)/)?.[1] || '';
   const indentedMarkup = restoredMarkup.map((line) => {
-    if (line.trim() === '') {return '';}
+    if (line.trim() === '') return '';
     return indent + line.trimStart();
   });
 
@@ -639,15 +639,15 @@ function svelteMarkupHasVisibleContent(markup) {
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  if (text.length > 0) {return true;}
+  if (text.length > 0) return true;
   return /<(img|svg|canvas|video|audio|picture|input|button|select|textarea)\b/i.test(markup || '');
 }
 
 function mergeOriginalTopLevelAttrs(markup, originalMarkup) {
   const variantOpen = matchOpeningTag(markup);
   const originalOpen = matchOpeningTag(originalMarkup);
-  if (!variantOpen || !originalOpen) {return markup;}
-  if (variantOpen.tag.toLowerCase() !== originalOpen.tag.toLowerCase()) {return markup;}
+  if (!variantOpen || !originalOpen) return markup;
+  if (variantOpen.tag.toLowerCase() !== originalOpen.tag.toLowerCase()) return markup;
 
   const variantAttrs = parseAttrSegments(variantOpen.attrs);
   const originalAttrs = parseAttrSegments(originalOpen.attrs);
@@ -667,11 +667,11 @@ function mergeOriginalTopLevelAttrs(markup, originalMarkup) {
   }
 
   for (const [name, attr] of originalAttrs) {
-    if (name === 'class') {continue;}
-    if (!variantAttrs.has(name)) {additions.push(attr.raw);}
+    if (name === 'class') continue;
+    if (!variantAttrs.has(name)) additions.push(attr.raw);
   }
 
-  if (additions.length === 0 && attrs === variantOpen.attrs) {return markup;}
+  if (additions.length === 0 && attrs === variantOpen.attrs) return markup;
   const nextOpen = variantOpen.prefix
     + variantOpen.tag
     + attrs
@@ -682,7 +682,7 @@ function mergeOriginalTopLevelAttrs(markup, originalMarkup) {
 
 function matchOpeningTag(markup) {
   const match = String(markup || '').match(/^(\s*<)([A-Za-z][\w:-]*)([^>]*?)(\/?>)/);
-  if (!match) {return null;}
+  if (!match) return null;
   return {
     raw: match[0],
     prefix: match[1],
@@ -713,7 +713,7 @@ function parseAttrSegments(attrs) {
 function mergeStaticClassAttr(originalClass, variantClass) {
   const originalValue = originalClass.raw.match(/class\s*=\s*(["'])(.*?)\1/);
   const variantValue = variantClass.raw.match(/class\s*=\s*(["'])(.*?)\1/);
-  if (!originalValue || !variantValue) {return null;}
+  if (!originalValue || !variantValue) return null;
   const quote = variantValue[1];
   const classes = [
     ...variantValue[2].split(/\s+/),
@@ -731,10 +731,10 @@ export function removeSvelteComponentSession(id, cwd = process.cwd()) {
 
 export function removeAllSvelteComponentSessions(cwd = process.cwd()) {
   const root = path.join(cwd, SVELTE_COMPONENT_ROOT);
-  if (!fs.existsSync(root)) {return;}
+  if (!fs.existsSync(root)) return;
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-    if (!entry.isDirectory()) {continue;}
-    if (entry.name.startsWith('__')) {continue;}
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith('__')) continue;
     try {
       fs.rmSync(path.join(root, entry.name), { recursive: true, force: true });
     } catch { /* non-fatal */ }
@@ -785,7 +785,7 @@ export function applyDeferredSvelteComponentAccepts(cwd = process.cwd()) {
         cwd,
       );
       results.push({ id: entry.id, ok: result.handled !== false, result });
-      if (result.handled === false) {remaining.push(entry);}
+      if (result.handled === false) remaining.push(entry);
     } catch (err) {
       results.push({ id: entry.id, ok: false, error: err.message });
       remaining.push(entry);
