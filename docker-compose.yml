@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: docker.io/postgres:16-alpine
     container_name: umkmcepat-postgres
     restart: unless-stopped
     environment:
@@ -19,7 +19,7 @@ services:
       retries: 5
 
   9router:
-    image: decolua/9router:latest
+    image: docker.io/decolua/9router:latest
     container_name: umkmcepat-9router
     restart: unless-stopped
     profiles:
@@ -50,7 +50,7 @@ services:
       - "8787:8787"
 
   redis:
-    image: redis:7-alpine
+    image: docker.io/redis:7-alpine
     container_name: umkmcepat-redis
     restart: unless-stopped
     profiles:

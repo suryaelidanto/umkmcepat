@@ -37,6 +37,17 @@ services:
       PROJECT_RUNTIME_ALLOWED_HOSTS: ${PROJECT_RUNTIME_ALLOWED_HOSTS:-127.0.0.1,localhost}
       PROJECT_RUNTIME_HEALTH_TIMEOUT_MS: ${PROJECT_RUNTIME_HEALTH_TIMEOUT_MS:-2000}
       PROJECT_RUNTIME_PROXY_TIMEOUT_MS: ${PROJECT_RUNTIME_PROXY_TIMEOUT_MS:-15000}
+      # Agent web search. Default off; when WEBSEARCH_PROVIDER=firecrawl, point
+      # FIRECRAWL_BASE_URL at the in-network firecrawl-api service by Docker DNS
+      # name (NOT localhost — inside a container localhost is the app itself).
+      WEBSEARCH_PROVIDER: ${WEBSEARCH_PROVIDER:-none}
+      FIRECRAWL_BASE_URL: ${FIRECRAWL_BASE_URL:-http://firecrawl-api-1:3002}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      WEBSEARCH_ALLOWLIST: ${WEBSEARCH_ALLOWLIST:-}
+      WEBSEARCH_DENYLIST: ${WEBSEARCH_DENYLIST:-}
+    networks:
+      - default
+      - firecrawl_backend
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
@@ -70,7 +81,7 @@ services:
     command: ["bunx", "prisma", "migrate", "deploy"]
 
   9router:
-    image: decolua/9router:latest
+    image: docker.io/decolua/9router:latest
     container_name: umkmcepat-9router
     restart: unless-stopped
     depends_on:
@@ -95,7 +106,7 @@ services:
       HEADROOM_TELEMETRY: off
 
   postgres:
-    image: postgres:16-alpine
+    image: docker.io/postgres:16-alpine
     container_name: umkmcepat-postgres
     restart: unless-stopped
     environment:
@@ -121,3 +132,9 @@ volumes:
   project_artifacts:
   project_thumbnails:
   uploads:
+
+networks:
+  firecrawl_backend:
+    # The user's self-hosted Firecrawl stack runs on the `firecrawl_backend`
+    # network. Join it (external) so the app can reach firecrawl-api-1 by name.
+    external: true

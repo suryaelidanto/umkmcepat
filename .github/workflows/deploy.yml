@@ -1,0 +1,97 @@
+name: Deploy
+
+# BACKUP / DISABLED — ready for when the VPS is provisioned.
+# This workflow is manual-only (workflow_dispatch) so it stays inert on every
+# push. When the VPS is ready, uncomment the `push:` block below (or a tag
+# trigger like `on: push: tags: ["v*"]`) to auto-deploy on release. Until then
+# it does nothing unless you click "Run workflow" in the Actions tab (and even
+# then it needs DEPLOY_* secrets configured for a real VPS).
+#
+# on:
+#   push:
+#     branches: [main]
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (branch/tag/sha) to deploy"
+        required: false
+        default: "main"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  # Job 1: build the production image and push it to GHCR so the VPS can pull
+  # a prebuilt image instead of building on the (small) VPS.
+  build-and-push:
+    name: Build & push image (GHCR)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Install deps
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Quality gate (format/lint/typecheck/test/knip)
+        run: bun run verify
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/umkmcepat-app:latest
+            ghcr.io/${{ github.repository_owner }}/umkmcepat-app:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Job 2: SSH into the VPS, pull the new image, and roll the prod compose.
+  # Stays inert until DEPLOY_HOST / DEPLOY_SSH_KEY / DEPLOY_USER secrets exist
+  # and the VPS is provisioned.
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    timeout-minutes: 15
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            git pull --ff-only
+            docker compose -f docker-compose.prod.yml pull app
+            docker compose -f docker-compose.prod.yml up -d
+            docker image prune -f

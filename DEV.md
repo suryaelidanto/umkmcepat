@@ -24,6 +24,21 @@ bun run db:migrate
 bun run dev
 ```
 
+## Production build & run
+
+The app runs in Docker via `docker-compose.prod.yml` (TanStack Start Nitro server, image `umkmcepat-app:local`). Build once, then run:
+
+```bash
+bun run prod:build     # build the production app image (docker compose -f docker-compose.prod.yml build)
+bun run prod:up        # bring up app + migrate + postgres + 9router + headroom
+bun run prod:logs      # tail production logs
+bun run prod:ps        # list production containers
+bun run prod:down      # stop production stack (volumes persist)
+bun run prod:rebuild   # rebuild + restart (after code changes)
+```
+
+The app binds `127.0.0.1:3000`; put Cloudflare Tunnel / Nginx / Caddy in front for TLS. The app joins the external `firecrawl_backend` Docker network so it can reach your self-hosted Firecrawl at `http://firecrawl-api-1:3002` (set `WEBSEARCH_PROVIDER=firecrawl` in `.env` to activate the agent `web_search` tool). `.github/workflows/deploy.yml` is a backup/disabled deploy workflow (manual-only); uncomment its `push:` trigger when the VPS is provisioned.
+
 Server logs are written to `dev.log` at the repo root automatically during `bun run dev` (no toggle). Tail it live in a second terminal:
 
 ```bash

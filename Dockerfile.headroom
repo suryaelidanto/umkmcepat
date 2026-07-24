@@ -1,4 +1,6 @@
-FROM python:3.11-slim
+# Fully-qualified registry prefix so the base image resolves under podman as
+# well as Docker.
+FROM docker.io/python:3.11-slim
 
 ENV HEADROOM_TELEMETRY=off \
   PYTHONDONTWRITEBYTECODE=1 \
