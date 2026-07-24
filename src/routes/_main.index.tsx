@@ -101,7 +101,7 @@ const deleteProjectFn = createServerFn({ method: "POST" })
     // DB cascade removes snapshots/builds/deployments; resource cleanup must
     // run first while the refs are still queryable.
     if (project) {
-      const [snapshots, builds, deployments] = await Promise.all([
+      const [snapshots, builds, deployments, assets] = await Promise.all([
         prisma.projectSnapshot.findMany({
           where: { projectId },
           select: { sourceRef: true },
@@ -114,11 +114,18 @@ const deleteProjectFn = createServerFn({ method: "POST" })
           where: { projectId },
           select: { id: true },
         }),
+        prisma.projectAsset.findMany({
+          where: { projectId },
+          select: { ref: true },
+        }),
       ]);
       const artifactRefs = [
         ...snapshots.map((snapshot) => snapshot.sourceRef),
         ...builds.map((build) => build.artifactRef),
       ].filter((ref): ref is string => Boolean(ref));
+      const assetRefs = assets
+        .map((asset) => asset.ref)
+        .filter((ref): ref is string => Boolean(ref));
       const { cleanupProjectResources } =
         await import("@/lib/projects/project-cleanup");
       const { getRuntimeSupervisor } =
@@ -126,6 +133,7 @@ const deleteProjectFn = createServerFn({ method: "POST" })
       await cleanupProjectResources({
         projectId: project.id,
         artifactRefs,
+        assetRefs,
         deploymentIds: deployments.map((deployment) => deployment.id),
         thumbnailRef: project.thumbnailRef,
         supervisor: getRuntimeSupervisor(),

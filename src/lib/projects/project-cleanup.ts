@@ -4,6 +4,7 @@ import path from "node:path";
 import type { RuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 
 import { getEnv } from "@/lib/config";
+import { deleteProjectAsset } from "@/lib/projects/project-assets";
 import { deleteProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import { deleteProjectArtifact } from "@/lib/projects/runtime-artifacts";
 
@@ -12,8 +13,10 @@ export type ProjectCleanupInput = {
   artifactRefs: string[];
   deploymentIds: string[];
   thumbnailRef?: string | null;
+  assetRefs?: string[];
   supervisor?: Pick<RuntimeSupervisor, "stopDeployment">;
   artifactRootDir?: string;
+  assetRootDir?: string;
   runtimeRootDir?: string;
   buildWorkspaceRootDir?: string;
 };
@@ -97,6 +100,25 @@ export async function cleanupProjectResources(
     } catch (error) {
       note("delete-thumbnail", error);
     }
+  }
+
+  // 5. Delete owner-uploaded project assets (business images / references /
+  //    logos) stored under .data/project-assets. Best-effort, idempotent.
+  if (input.assetRefs?.length) {
+    await Promise.all(
+      input.assetRefs.map(async (ref) => {
+        if (!ref) {
+          return;
+        }
+        try {
+          await deleteProjectAsset(ref, {
+            rootDir: input.assetRootDir,
+          });
+        } catch (error) {
+          note("delete-asset", error);
+        }
+      }),
+    );
   }
 
   return { errors };

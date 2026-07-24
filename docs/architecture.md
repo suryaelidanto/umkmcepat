@@ -281,6 +281,10 @@ LOCAL_UPLOAD_DIR=".data/uploads"
 
 `local` writes uploads under `LOCAL_UPLOAD_DIR`. For VPS/Docker, mount that path as a persistent volume.
 
+### Owner-scoped project asset uploads
+
+The platform stores owner-uploaded project assets (business images / references / logos used by the builder and the waitlist evidence flow) separately from generic uploads, under `PROJECT_ASSET_DIR` (default `.data/project-assets`). The `project-asset:local:<projectId>/<kind>/<ulid>.<ext>` ref encodes the on-disk path; `src/lib/projects/project-assets.ts` is the read/write/delete authority and validates content by magic bytes (PNG/JPEG/WEBP), not by client-supplied extension. A `ProjectAsset` row persists the ref for cleanup-on-delete; `project-cleanup.ts` deletes stored objects best-effort alongside the DB cascade. Uploads go through `POST /api/projects/$id/assets` (auth + owner + allowlisted `purpose` + size cap), and assets are served owner-scoped at `GET /api/projects/$id/asset/$assetId` behind auth. The `r2` provider path for these assets is intentionally not wired yet (local-only per the 2026-07-24 batch constraint); the local adapter is the only path exercised.
+
 Reserved future provider:
 
 ```env

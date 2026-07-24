@@ -83,6 +83,7 @@ model User {
   landingPages    LandingPage[]
   projects        Project[]
   editAttempts    ProjectEditAttempt[]
+  assets          ProjectAsset[]
   credits         UserCredit[]
   otpRequests     OtpRequest[]
   payments        Payment[]
@@ -124,6 +125,7 @@ model Project {
   idempotencyKeys           ProjectIdempotencyKey[]
   runtimeEvents             RuntimeEvent[]
   editAttempts              ProjectEditAttempt[]
+  assets                    ProjectAsset[]
   chatTurns                 ProjectChatTurn[]
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
@@ -169,6 +171,25 @@ model ProjectIdempotencyKey {
   @@unique([userId, action, key])
   @@index([projectId])
   @@index([createdAt])
+}
+
+/// Owner-scoped uploaded asset (business image / reference / logo) stored under
+/// .data/project-assets. The `ref` encodes the on-disk path; cleanup deletes
+/// the stored object best-effort alongside the DB row on project delete.
+model ProjectAsset {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ref         String   @db.Text
+  purpose     String   @db.VarChar(32)
+  contentType String   @db.VarChar(64)
+  sizeBytes   Int
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([userId])
 }
 
 model ProjectEditAttempt {
