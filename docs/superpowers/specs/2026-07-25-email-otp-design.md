@@ -68,7 +68,7 @@ A shared `src/lib/provider-startup-check.ts` (or extend the existing `src/lib/in
 - Email templates / HTML design (just the adapter; templates when a feature needs them).
 - Self-hosted email (non-viable in 2026; ruled out).
 - Surfacing OTPSpace credit count to the admin UI (the admin page is topic 3; a credit-reminder is a later enhancement).
-- Live tier-number re-verification (Firecrawl scrape down; re-check at wire-up — already wired + verified).
+- Live tier-number re-verification (Firecrawl scrape still down 2026-07-25, but **search works** and confirmed: Resend Free = $0, 3,000/mo, 100/day, 1 domain; Pro = $20/mo. Matches the spec. No further re-check needed — creds already verified working.)
 
 ## Open questions for implementation
 
