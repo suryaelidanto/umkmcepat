@@ -22,6 +22,7 @@ import {
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
+import { search } from "@/lib/websearch";
 
 /** Paths auto-touched by ensureStylesCoverClassNames — not agent edits. */
 const AUTO_STYLE_PATH = "src/index.css";
@@ -175,9 +176,8 @@ export async function generateCustomProjectFilesWithAgent({
       }),
       // Step cap is a brake only — outcome still comes from quality checklist.
       stopWhen: isStepCount(generateSteps),
-      tools: createAgentTools(runCommand),
+      tools: createAgentTools(runCommand, projectId),
     });
-
     const localAbortController = new AbortController();
     if (abortSignal) {
       abortSignal.addEventListener(
@@ -367,7 +367,7 @@ async function runForcedRewritePass({
       projectId,
     }),
     stopWhen: isStepCount(rewriteSteps),
-    tools: createAgentTools(runCommand),
+    tools: createAgentTools(runCommand, projectId),
   });
 
   const localAbortController = new AbortController();
@@ -418,7 +418,7 @@ ${appSpec}`,
   });
 }
 
-function createAgentTools(runCommand: RunCommand) {
+function createAgentTools(runCommand: RunCommand, projectId: string) {
   return {
     list_files: tool({
       description: "List generated project files.",
@@ -479,6 +479,26 @@ function createAgentTools(runCommand: RunCommand) {
         "Validate manifest, package policy, and source safety after edits.",
       inputSchema: z.object({}),
       execute: () => runCommand({ type: "check_app" }),
+    }),
+    web_search: tool({
+      description:
+        "Search the public web for business/reference context (e.g. a real business's domain, public info). Read-only: results are sanitized text returned to you, never written to files or executed. Disabled unless WEBSEARCH_PROVIDER is configured.",
+      inputSchema: z.object({ query: z.string() }),
+      execute: async ({ query }: { query: string }) => {
+        const outcome = await search(query, { projectId });
+        if (!outcome.ok) {
+          return outcome.reason;
+        }
+        if (outcome.result.results.length === 0) {
+          return "No web results.";
+        }
+        return outcome.result.results
+          .map(
+            (entry, index) =>
+              `${index + 1}. ${entry.title}\n${entry.url}\n${entry.excerpt}`,
+          )
+          .join("\n\n");
+      },
     }),
   };
 }
@@ -2106,7 +2126,7 @@ export async function repairGeneratedProjectFiles({
       projectId,
     }),
     stopWhen: isStepCount(repairSteps),
-    tools: createAgentTools(runCommand),
+    tools: createAgentTools(runCommand, projectId),
   });
 
   const result = await withAiTimeout(
