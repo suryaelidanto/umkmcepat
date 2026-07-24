@@ -1,6 +1,6 @@
 import { getEnv } from "@/lib/config";
 
-export type AiAgentStepKey = "generate" | "repair";
+export type AiAgentStepKey = "generate" | "repair" | "subagent";
 
 type AiAgentStepConfig = {
   defaultSteps: number;
@@ -21,6 +21,12 @@ const AI_AGENT_STEPS = {
     defaultSteps: 12,
     minSteps: 4,
     maxSteps: 40,
+  },
+  subagent: {
+    env: "AI_AGENT_SUBAGENT_MAX_STEPS",
+    defaultSteps: 8,
+    minSteps: 2,
+    maxSteps: 15,
   },
 } satisfies Record<AiAgentStepKey, AiAgentStepConfig>;
 

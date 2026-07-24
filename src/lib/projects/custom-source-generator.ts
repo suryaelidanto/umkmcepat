@@ -419,6 +419,45 @@ ${appSpec}`,
 }
 
 function createAgentTools(runCommand: RunCommand, projectId: string) {
+  const readOnlyTools = createReadOnlyAgentTools(runCommand, projectId);
+  return {
+    ...readOnlyTools,
+    write_file: tool({
+      description: "Create or overwrite a generated project file.",
+      inputSchema: z.object({ content: z.string(), path: z.string() }),
+      execute: ({ content, path }) =>
+        runCommand({ content, path, type: "write_file" }),
+    }),
+    replace_in_file: tool({
+      description: "Replace exact text in a generated project file.",
+      inputSchema: z.object({
+        find: z.string(),
+        path: z.string(),
+        replace: z.string(),
+      }),
+      execute: ({ find, path, replace }) =>
+        runCommand({ find, path, replace, type: "replace_in_file" }),
+    }),
+    spawn_subagent: tool({
+      description:
+        "Spawn a read-only sub-agent to research the codebase in parallel (e.g. find every CTA, audit all images, gather all copy). Returns a summary string. Read-only: the sub-agent cannot write files or spawn further sub-agents. Bounded step budget.",
+      inputSchema: z.object({ goal: z.string() }),
+      execute: async ({ goal }: { goal: string }) => {
+        return runSubagent({ goal, projectId, readOnlyTools });
+      },
+    }),
+  };
+}
+
+/**
+ * The read-only tool subset shared by the writable agent and spawned
+ * sub-agents. No write_file/replace_in_file/spawn_subagent — a sub-agent may
+ * only inspect + research, never mutate files or fan out further.
+ */
+export function createReadOnlyAgentTools(
+  runCommand: RunCommand,
+  projectId: string,
+) {
   return {
     list_files: tool({
       description: "List generated project files.",
@@ -451,22 +490,6 @@ function createAgentTools(runCommand: RunCommand, projectId: string) {
       }),
       execute: ({ contextLines, pathPrefix, query }) =>
         runCommand({ contextLines, pathPrefix, query, type: "search_files" }),
-    }),
-    write_file: tool({
-      description: "Create or overwrite a generated project file.",
-      inputSchema: z.object({ content: z.string(), path: z.string() }),
-      execute: ({ content, path }) =>
-        runCommand({ content, path, type: "write_file" }),
-    }),
-    replace_in_file: tool({
-      description: "Replace exact text in a generated project file.",
-      inputSchema: z.object({
-        find: z.string(),
-        path: z.string(),
-        replace: z.string(),
-      }),
-      execute: ({ find, path, replace }) =>
-        runCommand({ find, path, replace, type: "replace_in_file" }),
     }),
     read_skill: tool({
       description:
@@ -501,6 +524,57 @@ function createAgentTools(runCommand: RunCommand, projectId: string) {
       },
     }),
   };
+}
+
+async function runSubagent({
+  goal,
+  projectId,
+  readOnlyTools,
+}: {
+  goal: string;
+  projectId: string;
+  readOnlyTools: ReturnType<typeof createReadOnlyAgentTools>;
+}): Promise<string> {
+  if (!goal.trim()) {
+    return "Empty sub-agent goal.";
+  }
+
+  const subagentSteps = getAgentMaxSteps("subagent");
+  devLog("agent-loop", "subagent-spawn", {
+    goalLength: goal.length,
+    projectId,
+    steps: subagentSteps,
+  });
+
+  try {
+    const subagent = new ToolLoopAgent({
+      maxOutputTokens: 8_000,
+      model: getAiModel(getGenerationModel()),
+      instructions:
+        "You are a read-only research sub-agent for a generated Vite + React project. " +
+        "Investigate the codebase using the read-only tools and return a concise summary. " +
+        "Do NOT write or edit files. Do NOT attempt to spawn further sub-agents.",
+      stopWhen: isStepCount(subagentSteps),
+      // The sub-agent's tool set is strictly read-only (no write_file,
+      // replace_in_file, or spawn_subagent) — enforced by construction. The
+      // tools close over the parent's runCommand so their calls route through
+      // the same operation-tracing runner as the parent (audit trail).
+      tools: readOnlyTools,
+    });
+    const result = await subagent.generate({ prompt: goal });
+    const text = result?.text?.trim() ?? "";
+    devLog("agent-loop", "subagent-finish", {
+      projectId,
+      resultLength: text.length,
+    });
+    return text || "Sub-agent returned no summary.";
+  } catch (error) {
+    devLog("agent-loop", "subagent.error", {
+      error: error instanceof Error ? error.message : String(error),
+      projectId,
+    });
+    return "Sub-agent failed to complete.";
+  }
 }
 
 export function extractClassNamesFromTsx(source: string) {

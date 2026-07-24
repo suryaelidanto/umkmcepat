@@ -5,6 +5,7 @@ import { getAgentMaxSteps } from "./ai-agent-steps";
 const ENV_KEYS = [
   "AI_AGENT_GENERATE_MAX_STEPS",
   "AI_AGENT_REPAIR_MAX_STEPS",
+  "AI_AGENT_SUBAGENT_MAX_STEPS",
 ] as const;
 
 function clearEnv() {
@@ -41,5 +42,15 @@ describe("getAgentMaxSteps", () => {
   it("falls back on invalid values", () => {
     process.env.AI_AGENT_GENERATE_MAX_STEPS = "nope";
     expect(getAgentMaxSteps("generate")).toBe(30);
+  });
+
+  it("defaults subagent to 8 and clamps to [2, 15]", () => {
+    expect(getAgentMaxSteps("subagent")).toBe(8);
+    process.env.AI_AGENT_SUBAGENT_MAX_STEPS = "1";
+    expect(getAgentMaxSteps("subagent")).toBe(2);
+    process.env.AI_AGENT_SUBAGENT_MAX_STEPS = "100";
+    expect(getAgentMaxSteps("subagent")).toBe(15);
+    process.env.AI_AGENT_SUBAGENT_MAX_STEPS = "10";
+    expect(getAgentMaxSteps("subagent")).toBe(10);
   });
 });
