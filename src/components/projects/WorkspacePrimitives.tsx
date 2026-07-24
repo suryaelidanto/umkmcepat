@@ -234,6 +234,7 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
           href={runtime.publishedPath}
           target="_blank"
           rel="noreferrer"
+          aria-label="Buka website yang diterbitkan"
           className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
         >
           <ExternalLink className="size-4" />
