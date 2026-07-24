@@ -668,4 +668,44 @@ describe("normalizeWorkspaceTurn", () => {
 
     expect(turn.workspaceCard.type).toBe("question");
   });
+
+  // Regression: the combo model sometimes double-encodes briefPatch and
+  // workspaceCard as JSON strings (e.g. briefPatch: "{\"businessType\":\"retail\"}")
+  // instead of nested objects. The tool schema must tolerate this and the server
+  // must un-stringify before applying, or the SDK rejects the call (AI_TypeValidationError)
+  // and every repair attempt churns on the same shape. See brief-flow.ts design note.
+  it("un-stringifies a JSON-string briefPatch and workspaceCard from the combo model", () => {
+    const brief = createInitialBrief("jual baju thrifting");
+    const turn = normalizeWorkspaceTurn(
+      {
+        // Model emitted briefPatch as a JSON string, not an object.
+        briefPatch: JSON.stringify({
+          businessName: "Surya Thrift",
+          businessType: "retail",
+        }),
+        // Model emitted workspaceCard as a JSON string, not an object.
+        workspaceCard: JSON.stringify({
+          type: "question",
+          question: {
+            id: "business_name",
+            question: "Nama brand thriftnya apa?",
+            options: [
+              { label: "Surya Thrift", description: "Pakai nama ini." },
+              { label: "Lainnya", description: "Tulis sendiri." },
+            ],
+          },
+        }),
+      },
+      brief,
+    );
+
+    expect(turn.brief.businessName).toBe("Surya Thrift");
+    expect(turn.brief.businessType).toBe("retail");
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.question).toBe(
+        "Nama brand thriftnya apa?",
+      );
+    }
+  });
 });

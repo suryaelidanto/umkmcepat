@@ -26,6 +26,10 @@ import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
 import { type DiffLine } from "@/lib/projects/diff";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
+import {
+  previewReadyState,
+  PREVIEW_STUCK_MAX_ATTEMPTS,
+} from "@/lib/projects/workspace-sync";
 
 export type BuildTab = "preview" | "code";
 
@@ -393,6 +397,7 @@ export function GeneratedPreviewFrame({
   onAnnotationTarget,
   onLoad,
   onRecover,
+  onStuck,
   pendingAnnotation,
   projectId,
   reloadKey,
@@ -408,6 +413,7 @@ export function GeneratedPreviewFrame({
   onAnnotationTarget?: (target: unknown) => void;
   onLoad?: () => void;
   onRecover?: () => void;
+  onStuck?: () => void;
   pendingAnnotation?: {
     comment: string;
     onCancel: () => void;
@@ -421,14 +427,28 @@ export function GeneratedPreviewFrame({
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
+  // Consecutive 12s silent-recovery timeouts that fired without the generated app
+  // ever posting its preview-ready signal. Capped so a preview that can never
+  // start (e.g. `noop` runtime supervisor in production, or the generated app
+  // never calls usePreviewReady()) escalates to an actionable error instead of
+  // reloading the iframe forever and showing an endless spinner.
+  const [silentRecoveries, setSilentRecoveries] = useState(0);
 
   useEffect(() => {
     setReady(false);
+    setSilentRecoveries(0);
 
-    // Cold starts can exceed a single frame load. Retry quietly so the preview
-    // stays a loading state until a build failure supplies a terminal state.
+    // Cold starts can exceed a single frame load. Retry quietly up to the
+    // bounded budget; once exhausted, stop reloading and let the stuck state
+    // surface (it would just reload into the same un-servable preview again).
     const recovery = window.setTimeout(() => {
-      onRecover?.();
+      setSilentRecoveries((current) => {
+        const next = current + 1;
+        if (next < PREVIEW_STUCK_MAX_ATTEMPTS) {
+          onRecover?.();
+        }
+        return next;
+      });
     }, 12_000);
 
     function handleMessage(event: MessageEvent) {
@@ -446,6 +466,7 @@ export function GeneratedPreviewFrame({
         readyTypes.has(event.data.type);
       if (isReadySignal) {
         setReady(true);
+        setSilentRecoveries(0);
         window.clearTimeout(recovery);
         return;
       }
@@ -470,6 +491,19 @@ export function GeneratedPreviewFrame({
       window.removeEventListener("message", handleMessage);
     };
   }, [onAnnotationTarget, onRecover, projectId, reloadKey]);
+
+  const previewState = previewReadyState({
+    readyReached: ready,
+    silentRecoveries,
+  });
+
+  // Surface the terminal stuck state so the parent can refresh runtime state;
+  // the frame renders its own actionable retry/rebuild panel while stuck.
+  useEffect(() => {
+    if (previewState === "stuck") {
+      onStuck?.();
+    }
+  }, [onStuck, previewState]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -515,7 +549,15 @@ export function GeneratedPreviewFrame({
           />
         ) : null}
       </div>
-      {!ready ? (
+      {previewState === "stuck" ? (
+        <div className="absolute inset-0">
+          <PreviewIssueState
+            detail="Tampilan belum bisa dimuat otomatis. Mungkin server preview sedang dimatikan atau website belum sempat selesai render. Coba muat ulang, atau build ulang kalau masih gagal."
+            onRetry={onRecover}
+            title="Tampilan tidak bisa dimuat"
+          />
+        </div>
+      ) : !ready ? (
         <div className="absolute inset-0 grid place-items-center bg-[#10100f]">
           <div className="flex flex-col items-center gap-spacing-4 text-center">
             <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />

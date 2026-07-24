@@ -15,6 +15,8 @@ import {
   messagesEqualForRender,
   PREPARING_POLL_INTERVAL_MS,
   PREPARING_TIMEOUT_MS,
+  PREVIEW_STUCK_MAX_ATTEMPTS,
+  previewReadyState,
   shouldShowBuildRecommendationComposer,
   shouldRefreshWorkspaceAfterChatStatus,
   shouldUseGeneratedPreviewFrame,
@@ -595,5 +597,42 @@ describe("messagesEqualForRender", () => {
       },
     ];
     expect(messagesEqualForRender(current, incoming)).toBe(true);
+  });
+});
+
+// Regression: when the preview runtime cannot serve (e.g. PROJECT_RUNTIME_SUPERVISOR=noop
+// in production, or the generated app never calls usePreviewReady()), the iframe never
+// posts the preview-ready signal. The old loader reloaded the iframe every 12s forever,
+// showing an endless spinner. The ready state must escalate to a terminal "stuck" state
+// after a bounded number of silent recoveries so the UI can fail honestly.
+describe("previewReadyState", () => {
+  it("stays loading before the silent-recovery budget is exhausted", () => {
+    for (
+      let attempts = 0;
+      attempts < PREVIEW_STUCK_MAX_ATTEMPTS;
+      attempts += 1
+    ) {
+      expect(
+        previewReadyState({ readyReached: false, silentRecoveries: attempts }),
+      ).toBe("loading");
+    }
+  });
+
+  it("escalates to stuck once the recovery budget is exhausted without a ready signal", () => {
+    expect(
+      previewReadyState({
+        readyReached: false,
+        silentRecoveries: PREVIEW_STUCK_MAX_ATTEMPTS,
+      }),
+    ).toBe("stuck");
+  });
+
+  it("never reports stuck once the ready signal has actually arrived", () => {
+    expect(
+      previewReadyState({
+        readyReached: true,
+        silentRecoveries: PREVIEW_STUCK_MAX_ATTEMPTS + 5,
+      }),
+    ).toBe("ready");
   });
 });

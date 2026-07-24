@@ -2671,6 +2671,7 @@ export function WorkspaceShell({
                             onAnnotationTarget={handleAnnotationTarget}
                             onLoad={() => void loadRuntimeState()}
                             onRecover={recoverPreviewRuntime}
+                            onStuck={() => void loadRuntimeState()}
                             pendingAnnotation={
                               annotationMode && pendingAnnotationTarget
                                 ? {

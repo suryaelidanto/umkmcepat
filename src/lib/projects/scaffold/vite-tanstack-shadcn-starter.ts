@@ -71,6 +71,7 @@ export function createViteTanStackShadcnStarterFiles(
             "embla-carousel-react": "^8.6.0",
             "input-otp": "^1.4.2",
             "lucide-react": "^0.575.0",
+            motion: "^12.42.0",
             "next-themes": "^0.4.6",
             react: "^19.2.7",
             "react-day-picker": "^10.0.1",

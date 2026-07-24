@@ -161,6 +161,24 @@ export function applyBriefPatch(
   return next;
 }
 
+// Tolerate the combo model double-encoding a nested object field as a JSON
+// string (e.g. briefPatch: "{\"businessType\":\"retail\"}"). Returns the parsed
+// object when the input is a parseable JSON string, otherwise the value as-is.
+function unstringifyJsonObject<T>(value: T): T {
+  if (typeof value !== "string") {
+    return value;
+  }
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    return value;
+  }
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch {
+    return value;
+  }
+}
+
 // Single authority for turning best-effort model output into a valid turn.
 // Never throws: malformed input becomes an explicit missing-card state so the
 // caller can retry or surface recovery instead of inventing user-facing data.
@@ -171,8 +189,18 @@ export function normalizeWorkspaceTurn(
 ) {
   const value =
     input && typeof input === "object" ? (input as WorkspaceTurnToolInput) : {};
-  const brief = applyBriefPatch(fallbackBrief, value.briefPatch);
-  let workspaceCard = normalizeWorkspaceCard(value.workspaceCard, brief);
+  // The combo model sometimes double-encodes briefPatch/workspaceCard as JSON
+  // strings instead of nested objects. Un-stringify before applying so the
+  // patch data isn't silently dropped (the tool schema also tolerates this shape,
+  // but the server is the authority — see the design note above applyBriefPatch).
+  const brief = applyBriefPatch(
+    fallbackBrief,
+    unstringifyJsonObject(value.briefPatch),
+  );
+  let workspaceCard = normalizeWorkspaceCard(
+    unstringifyJsonObject(value.workspaceCard),
+    brief,
+  );
 
   // Server-side enforcement, not just prompt guidance: once the site is
   // built, the model must never resurface the brief interview (question /

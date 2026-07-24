@@ -304,6 +304,28 @@ export type WorkspacePreviewIssue = {
   title: string;
 };
 
+// Bounded number of silent iframe reloads the preview loader tolerates before
+// escalating to a terminal "stuck" state. The generated app signals readiness via a
+// `generated-app-preview-ready` postMessage once React renders. When that signal
+// never arrives — e.g. the runtime supervisor is `noop` in production and the preview
+// route returns a 503 error page, or the generated app never calls `usePreviewReady()` —
+// the old loader reloaded the iframe every 12s forever and showed an endless spinner.
+// A bounded budget turns that into an actionable error instead of an infinite hang.
+export const PREVIEW_STUCK_MAX_ATTEMPTS = 3;
+
+export function previewReadyState({
+  readyReached,
+  silentRecoveries,
+}: {
+  readyReached: boolean;
+  silentRecoveries: number;
+}): "loading" | "ready" | "stuck" {
+  if (readyReached) {
+    return "ready";
+  }
+  return silentRecoveries >= PREVIEW_STUCK_MAX_ATTEMPTS ? "stuck" : "loading";
+}
+
 export function getWorkspacePreviewIssue({
   buildStatus,
   deploymentStatus,

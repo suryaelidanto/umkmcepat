@@ -398,4 +398,64 @@ describe("shadcn seed allowlist (vite-react-tanstack-v1)", () => {
       expect(pkg.dependencies).toHaveProperty(dep);
     }
   });
+
+  // Regression: the AI emitted `import { motion } from "motion/react"` into generated
+  // components but never added `motion` to package.json. Vite hoisted `motion` from the
+  // platform's own node_modules, bundling a second React copy (framer-motion's internal
+  // React ≠ the app's React) → `Cannot read properties of null (reading 'useContext')` at
+  // runtime → the app crashed before usePreviewReady fired → the preview iframe spun forever.
+  // The policy must reject source that imports a package not declared in package.json.
+  function filesWith(
+    packageJson: unknown,
+    routes: Array<{ path: string; content: string }>,
+  ) {
+    return [
+      { content: JSON.stringify(packageJson), path: "package.json" },
+      ...routes.map((r) => ({ content: r.content, path: r.path })),
+    ];
+  }
+
+  it("rejects source importing a package not declared in package.json (the motion/react hoist bug)", () => {
+    const result = validateGeneratedPackagePolicy(
+      filesWith(
+        {
+          dependencies: { react: "^19.2.7", "react-dom": "^19.2.7" },
+          devDependencies: { vite: "^8.1.1", "@vitejs/plugin-react": "^6.0.3" },
+          scripts: { build: "vite build" },
+        },
+        [
+          {
+            path: "src/routes/index.tsx",
+            content: `import { motion } from "motion/react";\nexport function Home(){return <motion.div/>;}\n`,
+          },
+        ],
+      ),
+      "vite-react-tanstack-v1",
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.issues.some((i) => i.includes("motion"))).toBe(true);
+  });
+
+  it("allows source imports that are declared in package.json", () => {
+    const result = validateGeneratedPackagePolicy(
+      filesWith(
+        {
+          dependencies: { react: "^19.2.7", "react-dom": "^19.2.7" },
+          devDependencies: { vite: "^8.1.1", "@vitejs/plugin-react": "^6.0.3" },
+          scripts: { build: "vite build" },
+        },
+        [
+          {
+            path: "src/routes/index.tsx",
+            content: `import { useState } from "react";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function Home(){const [x]=useState(0);usePreviewReady();return <div>{x}</div>;}\n`,
+          },
+        ],
+      ),
+      "vite-react-tanstack-v1",
+    );
+
+    // react is declared, @/ is the platform alias (not a package), so no undeclared-import issue.
+    expect(result.ok).toBe(true);
+  });
 });

@@ -56,6 +56,7 @@ const ALLOWED_PACKAGES_BY_PROFILE: Record<string, Set<string>> = {
     "globals",
     "input-otp",
     "lucide-react",
+    "motion",
     "next-themes",
     "react",
     "react-day-picker",
@@ -137,9 +138,158 @@ export function validateGeneratedPackagePolicy(
     ...getDependencyIssues(packageJson.optionalDependencies, runtimeProfile),
     ...getDependencyIssues(packageJson.peerDependencies, runtimeProfile),
     ...getScriptIssues(packageJson.scripts, runtimeProfile),
+    ...getUndeclaredImportIssues(files, packageJson),
   ];
 
   return issues.length ? invalid(issues) : { issues: [], ok: true };
+}
+
+// Imports the generated app may use without declaring them in package.json. Vite resolves
+// these by walking up to the platform's node_modules (which declares react/motion/etc. for
+// its own use), silently bundling a second copy of react (or the dependency's own react)
+// and crashing the generated app at runtime. Keep this minimal and platform-owned only.
+const IMPLICIT_ALLOWED_PACKAGES = new Set<string>([
+  "react",
+  "react-dom",
+  "react/jsx-runtime",
+  "react-dom/client",
+]);
+
+// Node built-in modules (and their `node:` aliases) that Vite/polyfills resolve without an
+// npm package. The scaffold's platform-owned vite.config.ts imports `path` bare, and the
+// app's own server/runtime scripts may `import "node:fs"`. These never hoist a second copy.
+const NODE_BUILTIN_PACKAGES = new Set<string>([
+  "assert",
+  "buffer",
+  "child_process",
+  "cluster",
+  "console",
+  "constants",
+  "crypto",
+  "dgram",
+  "dns",
+  "domain",
+  "events",
+  "fs",
+  "http",
+  "http2",
+  "https",
+  "inspector",
+  "module",
+  "net",
+  "os",
+  "path",
+  "perf_hooks",
+  "process",
+  "punycode",
+  "querystring",
+  "readline",
+  "repl",
+  "stream",
+  "string_decoder",
+  "sys",
+  "timers",
+  "tls",
+  "trace_events",
+  "tty",
+  "url",
+  "util",
+  "v8",
+  "vm",
+  "wasi",
+  "worker_threads",
+  "zlib",
+]);
+
+const SOURCE_FILE_PATTERN = /\.[mc]?[tj]sx?$/;
+// Captures the module specifier in `import ... from "X"` / `export ... from "X"`.
+const IMPORT_FROM_PATTERN =
+  /\b(?:import|export)[\s\S]*?\bfrom\s+["']([^"']+)["']/g;
+
+function getUndeclaredImportIssues(
+  files: GeneratedProjectFile[],
+  packageJson: {
+    dependencies?: unknown;
+    devDependencies?: unknown;
+    optionalDependencies?: unknown;
+    peerDependencies?: unknown;
+  },
+): string[] {
+  const declared = new Set<string>([
+    ...dependencyKeys(packageJson.dependencies),
+    ...dependencyKeys(packageJson.devDependencies),
+    ...dependencyKeys(packageJson.optionalDependencies),
+    ...dependencyKeys(packageJson.peerDependencies),
+  ]);
+
+  const issues: string[] = [];
+  const flagged = new Set<string>();
+
+  for (const file of files) {
+    if (!SOURCE_FILE_PATTERN.test(file.path)) {
+      continue;
+    }
+
+    for (const match of file.content.matchAll(IMPORT_FROM_PATTERN)) {
+      const specifier = match[1];
+
+      // Skip the platform alias, relative imports, URL imports, and node: built-ins —
+      // none of these are npm packages that could hoist from the platform node_modules.
+      if (
+        specifier.startsWith("@/") ||
+        specifier.startsWith(".") ||
+        specifier.startsWith("/") ||
+        specifier.startsWith("node:") ||
+        /^(https?:|file:)/.test(specifier)
+      ) {
+        continue;
+      }
+
+      const packageName = packageNameOf(specifier);
+      if (!packageName) {
+        continue;
+      }
+
+      if (
+        declared.has(packageName) ||
+        IMPLICIT_ALLOWED_PACKAGES.has(packageName) ||
+        NODE_BUILTIN_PACKAGES.has(packageName)
+      ) {
+        continue;
+      }
+
+      if (flagged.has(packageName)) {
+        continue;
+      }
+      flagged.add(packageName);
+      issues.push(
+        `Source imports package not declared in package.json: ${packageName}`,
+      );
+    }
+  }
+
+  return issues;
+}
+
+function dependencyKeys(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+  return Object.keys(value as Record<string, unknown>);
+}
+
+// "motion/react" -> "motion", "@tanstack/react-router" -> "@tanstack/react-router",
+// "react/jsx-runtime" -> "react/jsx-runtime" (kept so it maps to the react allow entry).
+function packageNameOf(specifier: string): string | null {
+  if (specifier.startsWith("@")) {
+    const [scope, name] = specifier.split("/");
+    if (!scope || !name) {
+      return null;
+    }
+    return `${scope}/${name}`;
+  }
+  const [name] = specifier.split("/");
+  return name || null;
 }
 
 function getPackageFieldIssues(value: Record<string, unknown>) {
