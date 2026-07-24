@@ -1,6 +1,29 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
 export function HeroAuroraBackground() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        el.classList.toggle("hero-aurora-paused", !entry.isIntersecting);
+      },
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
+      ref={ref}
       aria-hidden="true"
       className="hero-aurora-orbs absolute inset-0 -z-10 overflow-hidden"
     >

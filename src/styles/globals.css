@@ -390,8 +390,7 @@
   .hero-aurora-orb {
     position: absolute;
     border-radius: 9999px;
-    filter: blur(64px);
-    will-change: transform, opacity;
+    will-change: transform;
   }
 
   .hero-aurora-orb-1 {
@@ -463,6 +462,10 @@
     .hero-aurora-orb {
       animation: none !important;
     }
+  }
+
+  .hero-aurora-paused .hero-aurora-orb {
+    animation-play-state: paused;
   }
 
   .type-display-hero {

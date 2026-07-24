@@ -14,13 +14,13 @@ import {
   RefreshCw,
   Send,
   Smartphone,
-  Square,
   Trash2,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
+import { WorkspaceHistoryButton } from "@/components/projects/WorkspaceHistoryDrawer";
 import { Button } from "@/components/ui/button";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
 import { type DiffLine } from "@/lib/projects/diff";
@@ -50,13 +50,8 @@ export type BuildProgressStep = {
 };
 
 export type WorkspaceRuntimeControl = {
-  buildStatus?: string | null;
   canPublish?: boolean;
-  deploymentStatus?: string | null;
-  errorMessage?: string | null;
-  isCanceling?: boolean;
   isPublishing?: boolean;
-  onCancel?: () => void;
   onPublish?: () => void;
   publishedPath?: string | null;
 };
@@ -73,6 +68,7 @@ export function WorkspaceTopBar({
   annotationAvailable = false,
   onToggleAnnotation,
   runtime,
+  projectId,
 }: {
   activeTab: BuildTab;
   setActiveTab: (tab: BuildTab) => void;
@@ -85,6 +81,7 @@ export function WorkspaceTopBar({
   annotationAvailable?: boolean;
   onToggleAnnotation?: () => void;
   runtime?: WorkspaceRuntimeControl;
+  projectId?: string;
 }) {
   return (
     <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
@@ -162,6 +159,7 @@ export function WorkspaceTopBar({
       </div>
 
       <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
+        {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
         {runtime ? <RuntimeControl runtime={runtime} /> : null}
 
         {activeTab === "preview" ? (
@@ -229,33 +227,8 @@ function TabButton({
 }
 
 function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
-  const status = getRuntimeLabel(runtime);
-
   return (
     <div className="flex min-w-0 items-center gap-spacing-1 sm:gap-spacing-2">
-      <span
-        title={runtime.errorMessage || status.label}
-        className={`inline-flex max-w-24 items-center gap-spacing-2 truncate rounded-radius-md border px-spacing-2 py-spacing-2 text-xs sm:max-w-[13rem] sm:px-spacing-3 ${status.className}`}
-      >
-        <span className={`size-2 shrink-0 rounded-full ${status.dot}`} />
-        <span className="truncate">{status.label}</span>
-      </span>
-
-      {isBuildActive(runtime.buildStatus) ? (
-        <button
-          type="button"
-          disabled={runtime.isCanceling}
-          onClick={runtime.onCancel}
-          aria-label="Hentikan build"
-          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-[#ffb4a6]/24 px-spacing-3 py-spacing-2 text-xs text-[#ffb4a6] transition hover:bg-[#ffb4a6]/10 disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          <Square className="size-4" />
-          <span className="hidden sm:inline">
-            {runtime.isCanceling ? "Menghentikan..." : "Hentikan Build"}
-          </span>
-        </button>
-      ) : null}
-
       {runtime.publishedPath ? (
         <a
           href={runtime.publishedPath}
@@ -286,109 +259,6 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
       )}
     </div>
   );
-}
-
-function isBuildActive(buildStatus?: string | null) {
-  return (
-    buildStatus === "queued" ||
-    buildStatus === "running" ||
-    buildStatus === "building"
-  );
-}
-
-function getRuntimeLabel(runtime: WorkspaceRuntimeControl) {
-  if (runtime.errorMessage) {
-    return {
-      className: "border-[#ffb4a6]/24 bg-[#ffb4a6]/10 text-[#ffb4a6]",
-      dot: "bg-[#ffb4a6]",
-      label: "Runtime gagal",
-    };
-  }
-
-  if (runtime.buildStatus === "queued") {
-    return {
-      className:
-        "border-surface-warm-white/10 bg-surface-warm-white/[0.055] text-surface-warm-white/68",
-      dot: "bg-surface-warm-white/52",
-      label: "Build antre",
-    };
-  }
-
-  if (runtime.buildStatus === "running" || runtime.buildStatus === "building") {
-    return {
-      className:
-        "border-surface-warm-white/14 bg-surface-warm-white/[0.075] text-surface-warm-white/78",
-      dot: "animate-pulse bg-surface-warm-white",
-      label: "Build berjalan",
-    };
-  }
-
-  if (runtime.buildStatus === "failed") {
-    return {
-      className: "border-[#ffb4a6]/24 bg-[#ffb4a6]/10 text-[#ffb4a6]",
-      dot: "bg-[#ffb4a6]",
-      label: "Build gagal",
-    };
-  }
-
-  if (runtime.buildStatus === "canceled" || runtime.buildStatus === "stopped") {
-    return {
-      className:
-        "border-surface-warm-white/10 bg-surface-warm-white/[0.045] text-surface-warm-white/58",
-      dot: "bg-surface-warm-white/42",
-      label: "Build dihentikan",
-    };
-  }
-
-  if (runtime.deploymentStatus === "starting") {
-    return {
-      className:
-        "border-surface-warm-white/14 bg-surface-warm-white/[0.075] text-surface-warm-white/78",
-      dot: "animate-pulse bg-surface-warm-white",
-      label: "Menyiapkan tampilan",
-    };
-  }
-
-  if (runtime.deploymentStatus === "running") {
-    return {
-      className: "border-[#8ce99a]/24 bg-[#8ce99a]/10 text-[#c7f8cf]",
-      dot: "bg-[#8ce99a]",
-      label: "Tampilan aktif",
-    };
-  }
-
-  if (runtime.deploymentStatus === "stopped") {
-    return {
-      className:
-        "border-surface-warm-white/10 bg-surface-warm-white/[0.045] text-surface-warm-white/58",
-      dot: "bg-surface-warm-white/42",
-      label: "Tampilan belum aktif",
-    };
-  }
-
-  if (runtime.deploymentStatus === "failed") {
-    return {
-      className: "border-[#ffb4a6]/24 bg-[#ffb4a6]/10 text-[#ffb4a6]",
-      dot: "bg-[#ffb4a6]",
-      label: "Runtime gagal",
-    };
-  }
-
-  if (runtime.buildStatus === "succeeded" || runtime.buildStatus === "passed") {
-    return {
-      className:
-        "border-surface-warm-white/10 bg-surface-warm-white/[0.055] text-surface-warm-white/68",
-      dot: "bg-[#8ce99a]",
-      label: "Website siap",
-    };
-  }
-
-  return {
-    className:
-      "border-surface-warm-white/10 bg-surface-warm-white/[0.04] text-surface-warm-white/52",
-    dot: "bg-surface-warm-white/32",
-    label: "Belum dibuild",
-  };
 }
 
 export function GeneratedPreviewFrame({

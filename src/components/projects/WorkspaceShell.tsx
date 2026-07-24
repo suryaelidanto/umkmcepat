@@ -24,7 +24,6 @@ import {
 import { type PanelImperativeHandle } from "react-resizable-panels";
 
 import { EnergyDisplay } from "@/components/common/EnergyDisplay";
-import { WorkspaceHistoryButton } from "@/components/projects/WorkspaceHistoryDrawer";
 import {
   BuildProgressPanel,
   EmptyPreviewState,
@@ -1127,12 +1126,9 @@ export function WorkspaceShell({
   });
   const runtimeControl = createRuntimeControl({
     buildStatus,
-    isCanceling,
     isPublishing,
-    onCancel: cancelBuild,
     onPublish: publishProject,
     publishedPath,
-    runtimeError,
     runtimeState,
     sourceStatus,
   });
@@ -1282,10 +1278,8 @@ export function WorkspaceShell({
 
     buildAbortRef.current?.abort();
     buildAbortRef.current = null;
-    void fetch(`/api/projects/${projectId}/stop`, { method: "POST" });
-    setBuildStatus("failed");
     setMode("discuss");
-    void loadRuntimeState();
+    void cancelBuild();
   }
 
   useEffect(() => {
@@ -2635,6 +2629,7 @@ export function WorkspaceShell({
                   <WorkspaceTopBar
                     annotationActive={annotationMode}
                     annotationAvailable={shouldRenderGeneratedPreview}
+                    projectId={projectId}
                     onToggleAnnotation={() => {
                       setAnnotationMode((current) => {
                         if (current) {
@@ -2655,9 +2650,6 @@ export function WorkspaceShell({
                     closeChatPanel={closeChatPanel}
                     runtime={runtimeControl}
                   />
-                  <div className="flex items-center gap-spacing-3 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:px-spacing-4">
-                    <WorkspaceHistoryButton projectId={projectId} />
-                  </div>
                   <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
                     {activeTab === "preview" ? (
                       <div
@@ -2767,22 +2759,16 @@ export function WorkspaceShell({
 
 function createRuntimeControl({
   buildStatus,
-  isCanceling,
   isPublishing,
-  onCancel,
   onPublish,
   publishedPath,
-  runtimeError,
   runtimeState,
   sourceStatus,
 }: {
   buildStatus: string;
-  isCanceling: boolean;
   isPublishing: boolean;
-  onCancel: () => void;
   onPublish: () => void;
   publishedPath: string | null;
-  runtimeError: string | null;
   runtimeState: RuntimeWorkspaceState | null;
   sourceStatus: string;
 }): WorkspaceRuntimeControl {
@@ -2799,14 +2785,9 @@ function createRuntimeControl({
     publishedPath || runtimeState?.publishedDeployment?.publicPath || null;
 
   return {
-    buildStatus: runtimeBuildStatus,
     canPublish:
       runtimeBuildStatus === "succeeded" || runtimeBuildStatus === "passed",
-    deploymentStatus: runtimeState?.deployment?.status ?? null,
-    errorMessage: runtimeError,
-    isCanceling,
     isPublishing,
-    onCancel,
     onPublish,
     publishedPath: runtimePublishedPath,
   };

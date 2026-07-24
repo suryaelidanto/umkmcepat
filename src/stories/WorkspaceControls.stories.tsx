@@ -67,11 +67,11 @@ export const TopBarNarrowMobile: Story = {
         openChatPanel={() => undefined}
         closeChatPanel={() => undefined}
         annotationAvailable
+        projectId="story"
         runtime={{
-          buildStatus: "succeeded",
           canPublish: true,
-          deploymentStatus: "running",
           onPublish: () => undefined,
+          publishedPath: "https://example.test",
         }}
       />
       <div id="workspace-preview-panel" role="tabpanel" hidden />
@@ -91,10 +91,9 @@ export const TopBarRuntimeRunning: Story = {
         chatCollapsed={false}
         openChatPanel={() => undefined}
         closeChatPanel={() => undefined}
+        projectId="story"
         runtime={{
-          buildStatus: "succeeded",
           canPublish: true,
-          deploymentStatus: "running",
           onPublish: () => undefined,
         }}
       />
@@ -113,10 +112,9 @@ export const TopBarRuntimeStopped: Story = {
         chatCollapsed={false}
         openChatPanel={() => undefined}
         closeChatPanel={() => undefined}
+        projectId="story"
         runtime={{
-          buildStatus: "succeeded",
           canPublish: true,
-          deploymentStatus: "stopped",
           onPublish: () => undefined,
         }}
       />
