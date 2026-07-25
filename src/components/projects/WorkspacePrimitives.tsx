@@ -749,10 +749,15 @@ export function ModePill({
   tone: "idle" | "busy";
 }) {
   return (
-    <span className="inline-flex items-center gap-spacing-2 text-xs font-medium text-surface-warm-white/48">
-      <span
-        className={`h-px w-5 ${tone === "busy" ? "animate-pulse bg-surface-warm-white/70" : "bg-[#8ce99a]"}`}
-      />
+    <span className="inline-flex items-center gap-spacing-2 rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.045] px-spacing-3 py-1 text-xs font-medium text-surface-warm-white/60">
+      <span className="relative flex size-1.5">
+        {tone === "busy" ? (
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-surface-warm-white/60" />
+        ) : null}
+        <span
+          className={`relative inline-flex size-1.5 rounded-full ${tone === "busy" ? "bg-surface-warm-white/70" : "bg-[#8ce99a]"}`}
+        />
+      </span>
       Mode {mode}
     </span>
   );
