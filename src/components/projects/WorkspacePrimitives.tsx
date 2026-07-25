@@ -755,14 +755,10 @@ export function ModePill({
 
   return (
     <span
-      className="inline-flex items-center gap-spacing-2 rounded-full border py-1 pl-2 pr-spacing-3 text-xs font-medium transition"
-      style={{
-        borderColor: `${accent}33`,
-        backgroundColor: `${accent}14`,
-        color: `${accent}e6`,
-      }}
+      className="inline-flex items-center gap-spacing-2 text-xs font-medium text-surface-warm-white/48"
+      style={{ color: `${accent}b3` }}
     >
-      <span className="relative flex size-4 shrink-0 items-center justify-center">
+      <span className="relative flex size-3.5 shrink-0 items-center justify-center">
         {tone === "busy" ? (
           <span
             className="absolute inline-flex size-full animate-ping rounded-full opacity-40"
@@ -771,7 +767,7 @@ export function ModePill({
         ) : null}
         <Icon className="relative size-3" strokeWidth={2.25} />
       </span>
-      {mode}
+      Mode {mode}
     </span>
   );
 }
