@@ -372,6 +372,10 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     const rect = selection ? selection.rect : element.getBoundingClientRect();
     const text = clean(element.innerText || element.textContent || '');
     const selected = selection ? selection.text : '';
+    const tag = element.tagName.toLowerCase();
+    const src = /^(img|picture|svg)$/.test(tag)
+      ? (element.currentSrc || element.getAttribute('src') || element.src || '')
+      : '';
     return {
       label: labelFor(element, selected || text),
       selectedText: selected || undefined,
@@ -380,7 +384,8 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
         classes: typeof element.className === 'string' ? clean(element.className).slice(0, 300) : '',
         nearbyText: nearbyText(element),
         selectorPath: selectorPath(element),
-        tag: element.tagName.toLowerCase(),
+        ...(src ? { src } : {}),
+        tag,
         text: text.slice(0, 300),
       },
     };

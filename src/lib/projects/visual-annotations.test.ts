@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createImageReplaceEditInstruction,
   createVisualAnnotationEditInstruction,
   createVisualAnnotationSummary,
   sanitizeVisualAnnotations,
@@ -54,5 +55,25 @@ describe("visual annotations", () => {
     expect(instruction).toContain("Judul utama");
     expect(instruction).toContain("selectorPath");
     expect(instruction).toContain("main > section.hero > h1");
+  });
+});
+
+describe("image-replace edit instruction", () => {
+  it("carries the exact target.src + the replacement mediaPaths, never raw R2 URLs", () => {
+    const instruction = createImageReplaceEditInstruction({
+      replaceWith: [{ alt: "kue", mediaPath: "/media/a1" }],
+      target: { src: "https://pub.r2.dev/x.png", tag: "img" },
+    });
+    expect(instruction).toContain('src="https://pub.r2.dev/x.png"');
+    expect(instruction).toContain("/media/a1");
+  });
+
+  it("rejects a non-image target (no src)", () => {
+    expect(() =>
+      createImageReplaceEditInstruction({
+        replaceWith: [{ alt: "x", mediaPath: "/media/a1" }],
+        target: { tag: "div" },
+      }),
+    ).toThrow(/image/);
   });
 });

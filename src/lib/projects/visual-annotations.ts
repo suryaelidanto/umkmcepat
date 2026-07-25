@@ -3,6 +3,7 @@ export type VisualAnnotationTarget = {
   classes?: string;
   nearbyText?: string;
   selectorPath: string;
+  src?: string;
   tag: string;
   text: string;
 };
@@ -136,6 +137,7 @@ export function sanitizeVisualAnnotations(input: unknown) {
               ? trim(String(target.nearbyText), 500)
               : undefined,
             selectorPath: trim(String(target.selectorPath), 300),
+            src: target.src ? trim(String(target.src), 500) : undefined,
             tag: trim(String(target.tag), 40).toLowerCase(),
             text: target.text ? trim(String(target.text), 300) : "",
           },
@@ -143,6 +145,30 @@ export function sanitizeVisualAnnotations(input: unknown) {
       ];
     })
     .slice(0, MAX_VISUAL_ANNOTATIONS);
+}
+
+export function createImageReplaceEditInstruction({
+  replaceWith,
+  target,
+}: {
+  replaceWith: { alt: string; mediaPath: string }[];
+  target: { src?: string; tag: string };
+}): string {
+  if (!target.src) {
+    throw new Error(
+      "Image-replace requires an image target with a src (img/picture/svg).",
+    );
+  }
+  return [
+    "Replace the owner image in the generated source.",
+    `Find the <img src="${target.src}"> exactly and replace its src with the first mediaPath below. Provide a short, accurate alt.`,
+    "Replacements (mediaPath + alt):",
+    JSON.stringify(
+      replaceWith.map((r) => ({ alt: r.alt, mediaPath: r.mediaPath })),
+      null,
+      2,
+    ),
+  ].join("\n\n");
 }
 
 export function createVisualAnnotationId() {
