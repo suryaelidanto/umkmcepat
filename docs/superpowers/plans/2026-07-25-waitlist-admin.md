@@ -46,7 +46,7 @@
 **Interfaces:**
 - Produces: `isWaitlistEnabled(): boolean` — reads `process.env.WAITLIST_ENABLED`; `"false"` (case-insensitive) → `false`; anything else (including unset/empty/invalid) → `true` (fail-safe).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/waitlist-enabled.test.ts`:
 
@@ -88,12 +88,12 @@ describe("isWaitlistEnabled", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bunx vitest run src/lib/waitlist-enabled.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement the helper**
+- [x] **Step 3: Implement the helper**
 
 Create `src/lib/waitlist-enabled.ts`:
 
@@ -106,12 +106,12 @@ export function isWaitlistEnabled(): boolean {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bunx vitest run src/lib/waitlist-enabled.test.ts`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/waitlist-enabled.ts src/lib/waitlist-enabled.test.ts
@@ -130,7 +130,7 @@ git commit -m "feat(waitlist): isWaitlistEnabled toggle (unset defaults true)"
 - Consumes: `prisma` from `@/lib/prisma`, `normalizeEmail` from `@/lib/waitlist`.
 - Produces: `getOwnWaitlistEntry(email): Promise<OwnEntry | null>` where `OwnEntry = { businessName, phone, businessType, story, imageRef, status }`. `null` when no entry or invalid email.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/waitlist-own-entry.test.ts` (mock `prisma.waitlistEntry.findUnique`):
 
@@ -177,12 +177,12 @@ describe("getOwnWaitlistEntry", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bunx vitest run src/lib/waitlist-own-entry.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement the helper**
+- [x] **Step 3: Implement the helper**
 
 Create `src/lib/waitlist-own-entry.ts`:
 
@@ -221,12 +221,12 @@ export async function getOwnWaitlistEntry(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bunx vitest run src/lib/waitlist-own-entry.test.ts`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/waitlist-own-entry.ts src/lib/waitlist-own-entry.test.ts
@@ -245,7 +245,7 @@ git commit -m "feat(waitlist): getOwnWaitlistEntry for pre-fill on rejection"
 - Consumes: `isWaitlistEnabled` (Task 1), `getOwnWaitlistEntry` (Task 2), `isAdminEmail` + `isWaitlistApproved` from `@/lib/waitlist`, `auth`.
 - Produces: `GET /api/user/waitlist` → `{ status: "approved" | string | null, own?: OwnEntry }`. When `WAITLIST_ENABLED=false`, returns `{status:"approved"}` for signed-in non-admins (pass-through). When true, behaves as today (null gates). When unset → true (fail-safe). Always includes `own` for a signed-in user (for pre-fill) unless admin.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/routes/api.user.waitlist.test.ts`. The route handler logic is testable via an extraction; mirror the `resolveMediaRedirect` pattern from the photo-upload plan — extract the decision into a pure helper:
 
@@ -299,12 +299,12 @@ describe("resolveUserWaitlistStatus", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bunx vitest run src/routes/api.user.waitlist.test.ts`
 Expected: FAIL — `resolveUserWaitlistStatus` not exported.
 
-- [ ] **Step 3: Refactor the route to use the toggle + own-entry**
+- [x] **Step 3: Refactor the route to use the toggle + own-entry**
 
 Modify `src/routes/api.user.waitlist.ts`:
 
@@ -370,21 +370,21 @@ export const Route = createFileRoute("/api/user/waitlist")({
 
 This removes the `NODE_ENV === "production"` branch entirely (the toggle replaces it). `null` now gates when enabled + no entry; the dev-bypass comes from `WAITLIST_ENABLED="false"` in `.env`.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bunx vitest run src/routes/api.user.waitlist.test.ts`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Update MainChrome to carry the `own` payload (no logic change)**
+- [x] **Step 5: Update MainChrome to carry the `own` payload (no logic change)**
 
 The client gate in `src/components/common/MainChrome.tsx` reads `status` only — unchanged. But the waitlist page (Task 5) needs `own`, which now comes from the same endpoint. Confirm `fetchJson<{ status: string | null }>` can be widened to `fetchJson<{ status: string | null; own?: OwnEntry }>` where the page consumes it (Task 5 handles that). No MainChrome change needed here — it ignores `own`.
 
-- [ ] **Step 6: Run the fast gate**
+- [x] **Step 6: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/routes/api.user.waitlist.ts src/routes/api.user.waitlist.test.ts
@@ -403,7 +403,7 @@ git commit -m "feat(waitlist): WAITLIST_ENABLED gate + own-entry in api.user.wai
 - Consumes: `requireAdmin` (server-side gate), `GET /api/admin/waitlist` (list-pending), `POST /api/admin/waitlist {entryId, action, reason?}`.
 - Produces: `/admin` — server `requireAdmin()` 403 for non-admins; client list of pending entries with approve + decline (with reason) actions; mobile-first stacked cards, sticky bottom actions.
 
-- [ ] **Step 1: Create the admin page**
+- [x] **Step 1: Create the admin page**
 
 Create `src/routes/_main.admin.tsx`:
 
@@ -509,21 +509,21 @@ function AdminPage() {
 
 Note: confirm `fetchJson`'s exact path + signature with `grep -rn "export function fetchJson\|export const fetchJson" src/` and match it (the workspace uses it elsewhere). Confirm `requireAdmin().status` shape from `src/lib/auth-admin.ts`.
 
-- [ ] **Step 2: Add Storybook stories for the dashboard states**
+- [x] **Step 2: Add Storybook stories for the dashboard states**
 
 Create `src/stories/AdminWaitlist.stories.tsx` with `Pending` (3 entries), `Empty`, and `DeclineWithReason` states, following the existing story patterns. Use mock data; no live API.
 
-- [ ] **Step 3: Regenerate routes + typecheck**
+- [x] **Step 3: Regenerate routes + typecheck**
 
 Run: `bunx tsr generate && bunx tsc --noEmit`
 Expected: `/admin` registered, no type errors.
 
-- [ ] **Step 4: Run the fast gate**
+- [x] **Step 4: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/routes/_main.admin.tsx src/stories/AdminWaitlist.stories.tsx
@@ -541,7 +541,7 @@ git commit -m "feat(admin): /admin waitlist dashboard (approve/decline, mobile-f
 - Consumes: `GET /api/user/waitlist` now returns `{ status, own? }` (Task 3), the existing `POST /api/waitlist` submit (unchanged).
 - Produces: on mount, the form fetches own-entry; if present, pre-fills `businessName`/`phone`/`story` + shows the existing image thumbnail with a "Ganti gambar" affordance. A re-submit hits the same POST → the existing upsert updates + resets to pending.
 
-- [ ] **Step 1: Add the own-entry fetch + pre-fill**
+- [x] **Step 1: Add the own-entry fetch + pre-fill**
 
 In `src/routes/_main.waitlist.tsx`, add a `useQuery` for `/api/user/waitlist` (returning `{ status, own? }`) and pre-fill the existing `useState` fields (`businessName`, `phone`, `story`) from `own` when present. Show the existing image thumbnail (resolved from `own.imageRef` via the existing object-storage read path used by admin — confirm the waitlist evidence serve path with `grep -n "imageRef\|object:" src/routes/api.waitlist.ts src/lib/waitlist.ts`).
 
@@ -563,17 +563,17 @@ useEffect(() => {
 
 Render the existing image thumbnail (if `own.imageRef`) above the file input with a "Ganti gambar" affordance that opens the existing file input.
 
-- [ ] **Step 2: Typecheck + lint**
+- [x] **Step 2: Typecheck + lint**
 
 Run: `bunx tsc --noEmit && bun run lint`
 Expected: no errors.
 
-- [ ] **Step 3: Run the fast gate**
+- [x] **Step 3: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/routes/_main.waitlist.tsx
@@ -586,31 +586,31 @@ git commit -m "feat(waitlist): pre-fill form with last submission on rejection"
 
 Not committed code — a verification checklist.
 
-- [ ] **Step 1: Toggle off — gate is pass-through**
+- [x] **Step 1: Toggle off — gate is pass-through**
 
 `.env`: `WAITLIST_ENABLED="false"`. `bun run dev`. Sign in as a non-admin with no entry → you are NOT redirected to `/waitlist`. ✅
 
-- [ ] **Step 2: Toggle on — gate works**
+- [x] **Step 2: Toggle on — gate works**
 
 `.env`: `WAITLIST_ENABLED="true"`. Sign in as a non-admin with no entry → redirected to `/waitlist`. Submit → entry pending → still gated. ✅
 
-- [ ] **Step 3: Admin approve flow**
+- [x] **Step 3: Admin approve flow**
 
 Sign in as `ADMIN_EMAILS` user → visit `/admin` → see the pending entry → "Setujui" → the entry leaves the list. The applicant (re-sign-in) now passes the gate. ✅
 
-- [ ] **Step 4: Admin decline → refill → re-pending**
+- [x] **Step 4: Admin decline → refill → re-pending**
 
 Sign in as admin → "Tolak" on an entry (with reason) → status `rejected`. Sign in as the applicant → land on `/waitlist` with the form pre-filled → edit → submit → status back to `pending` (re-appears in admin list). ✅
 
-- [ ] **Step 5: Non-admin hits /admin → 403**
+- [x] **Step 5: Non-admin hits /admin → 403**
 
 Sign in as a non-admin → visit `/admin` → 403. ✅
 
-- [ ] **Step 6: Unset toggle → fail-safe on**
+- [x] **Step 6: Unset toggle → fail-safe on**
 
 `.env`: delete `WAITLIST_ENABLED`. Sign in as non-admin with no entry → gated to `/waitlist` (default true). ✅
 
-- [ ] **Step 7: No regression**
+- [x] **Step 7: No regression**
 
 Run: `bun run check`
 Expected: all green.
