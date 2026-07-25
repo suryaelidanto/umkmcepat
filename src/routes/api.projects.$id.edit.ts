@@ -14,6 +14,7 @@ import { parseProjectChatMessages } from "@/lib/projects/chat-memory";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { type DiffLine } from "@/lib/projects/diff";
 import { validateGeneratedEdit } from "@/lib/projects/edit-validation";
+import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
   createGeneratedSourceSnapshotMetadata,
   parseGeneratedProjectFiles,
@@ -28,6 +29,7 @@ import {
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import {
   readProjectSourceArtifact,
+  resolveArtifactFilesDir,
   writeProjectSourceArtifact,
 } from "@/lib/projects/runtime-artifacts";
 import { createRuntimeEventData } from "@/lib/projects/runtime-events";
@@ -839,6 +841,7 @@ async function handleEditPost(request: Request, routeId: string) {
     ]);
 
     if (artifactRef && buildResult.status === "succeeded") {
+      const sourceDir = sourceRef ? resolveArtifactFilesDir(sourceRef) : null;
       await Promise.allSettled([
         refreshProjectThumbnail({
           artifactRef,
@@ -849,6 +852,9 @@ async function handleEditPost(request: Request, routeId: string) {
           activeDeploymentId: deployment.id,
           projectId: project.id,
         }),
+        // Best-effort prettier sweep over the edited source so the code tab
+        // shows polished code. Fire-and-forget; never fails the turn.
+        ...(sourceDir ? [formatGeneratedSource(sourceDir)] : []),
       ]);
     }
 
