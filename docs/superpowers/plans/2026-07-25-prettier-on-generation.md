@@ -40,7 +40,7 @@
 - Consumes: the artifact directory resolution from `runtime-artifacts.ts` (the `files/` dir under `<PROJECT_ARTIFACT_DIR>/source/<artifactId>/`); the platform `.prettierrc.json` + `.prettierignore`.
 - Produces: `formatGeneratedSource(artifactRef: string): Promise<{ formatted: number; failed: boolean }>` — spawns `prettier --write --cache --cache-location <dir>/.prettiercache "**/*.{ts,tsx,js,jsx,css,json,md}"` in the artifact dir; `failed: true` + `formatted: 0` on non-zero exit / timeout / missing dir; never throws.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src/lib/projects/format-generated-source.test.ts` (temp dir fixture):
 
@@ -90,12 +90,12 @@ describe("formatGeneratedSource", () => {
 
 Note: the helper takes the **directory path** directly in the test (the route resolves the artifact dir from the ref, then calls the helper with the path). This keeps the helper pure + testable without artifact-ref parsing.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bunx vitest run src/lib/projects/format-generated-source.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement the helper**
+- [x] **Step 3: Implement the helper**
 
 Create `src/lib/projects/format-generated-source.ts`:
 
@@ -162,12 +162,12 @@ export async function formatGeneratedSource(
 
 (Confirm `devLog`'s exact signature at impl via `grep -n "export function devLog\|export const devLog" src/lib/dev-log.ts`; the prettier stdout "formatted Xms)" count is a coarse telemetry — refine if a structured `--list-different` pass is cleaner.)
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `bunx vitest run src/lib/projects/format-generated-source.test.ts`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/format-generated-source.ts src/lib/projects/format-generated-source.test.ts
@@ -185,7 +185,7 @@ git commit -m "feat(gen): formatGeneratedSource helper (cached, fire-and-forget)
 - Consumes: `formatGeneratedSource` (Task 1), `finalized.sourceRef` (the new source artifact ref), the artifact-dir resolution from `runtime-artifacts.ts`.
 - Produces: the post-commit `allSettled` batch includes the prettier sweep over the new source artifact's `files/` dir.
 
-- [ ] **Step 1: Resolve the artifact dir from the ref + add to allSettled**
+- [x] **Step 1: Resolve the artifact dir from the ref + add to allSettled**
 
 In the generate route's post-commit block (~line 1219-1225), extend the existing `Promise.allSettled`:
 
@@ -200,17 +200,17 @@ void Promise.allSettled([
 
 `resolveArtifactFilesDir(ref)` — add a small helper to `runtime-artifacts.ts` (or reuse the internal path builder) that returns `<PROJECT_ARTIFACT_DIR>/source/<artifactId>/files` from a `project-artifact:local:source:<id>` ref. (Confirm the ref shape via `writeProjectSourceArtifact`'s output; if the ref is already the dir, skip the resolver.)
 
-- [ ] **Step 2: Run the generate-route tests + typecheck**
+- [x] **Step 2: Run the generate-route tests + typecheck**
 
 Run: `bunx vitest run src/routes/-api.projects 2>/dev/null; bunx tsc --noEmit`
 Expected: no type errors; existing generate tests still pass.
 
-- [ ] **Step 3: Run the fast gate**
+- [x] **Step 3: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/routes/api.projects.\$id.generate.ts src/lib/projects/runtime-artifacts.ts
@@ -227,7 +227,7 @@ git commit -m "feat(gen): prettier sweep in post-commit allSettled (generate)"
 **Interfaces:**
 - Consumes: `formatGeneratedSource` (Task 1), the new edit snapshot's sourceRef, the artifact-dir resolver (Task 2).
 
-- [ ] **Step 1: Add the sweep after the edit's build succeeds**
+- [x] **Step 1: Add the sweep after the edit's build succeeds**
 
 In `api.projects.$id.edit.ts`, after the new `ProjectBuild` succeeds + the new `preview` deployment is created, add:
 
@@ -238,12 +238,12 @@ void formatGeneratedSource(sourceDir).catch(() => {});
 
 (Fire-and-forget here too — the edit turn already returned; the sweep is best-effort polish for the code tab.)
 
-- [ ] **Step 2: Run edit-route tests + typecheck**
+- [x] **Step 2: Run edit-route tests + typecheck**
 
 Run: `bunx tsc --noEmit && bun run check`
 Expected: all green.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/routes/api.projects.\$id.edit.ts
@@ -259,21 +259,21 @@ git commit -m "feat(gen): prettier sweep after edit build"
 
 **Interfaces:** N/A — a verification step resolving the spec's open question: does the code tab read from the on-disk artifact or the DB `snapshot.files`?
 
-- [ ] **Step 1: Find the code-tab data source**
+- [x] **Step 1: Find the code-tab data source**
 
 Run: `grep -rln "source.*files\|snapshot.files\|readProjectSourceArtifact\|ProjectSnapshot.*files" src/components/projects/ src/routes/api.projects.\$id.source.ts`
 Expected: identify whether the tab reads disk (`readProjectSourceArtifact`) or DB (`snapshot.files`).
 
-- [ ] **Step 2: If DB-backed — extend the sweep to also update the snapshot**
+- [x] **Step 2: If DB-backed — extend the sweep to also update the snapshot**
 
 If the tab reads `snapshot.files`, the disk sweep alone isn't enough — the DB blob must be re-serialized after formatting. Add to `formatGeneratedSource`: after prettier, read the formatted files back + `prisma.projectSnapshot.update({data:{files}})`. If the tab reads disk, skip (the sweep already covers it).
 
-- [ ] **Step 3: Run the fast gate**
+- [x] **Step 3: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 4: Commit (only if Task 4 Step 2 changed code)**
+- [x] **Step 4: Commit (only if Task 4 Step 2 changed code)**
 
 ```bash
 git add <files changed>
@@ -286,10 +286,10 @@ git commit -m "feat(gen): sweep also syncs DB snapshot files for the code tab"
 
 Not committed — verification.
 
-- [ ] **Step 1: Generate a project** → after "done", open the code tab → assert the source is prettier-formatted (consistent indentation, semicolons, trailing commas per `.prettierrc.json`).
-- [ ] **Step 2: Edit the project** ("ubah judul jadi X") → after the rebuild, re-open the code tab → still formatted.
-- [ ] **Step 3: Confirm no generation-turn failure** when a file is unparseable (prettier logs, turn still succeeds).
-- [ ] **Step 4: `bun run check`** green.
+- [x] **Step 1: Generate a project** → after "done", open the code tab → assert the source is prettier-formatted (consistent indentation, semicolons, trailing commas per `.prettierrc.json`).
+- [x] **Step 2: Edit the project** ("ubah judul jadi X") → after the rebuild, re-open the code tab → still formatted.
+- [x] **Step 3: Confirm no generation-turn failure** when a file is unparseable (prettier logs, turn still succeeds).
+- [x] **Step 4: `bun run check`** green.
 
 ---
 
