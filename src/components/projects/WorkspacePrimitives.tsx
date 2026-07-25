@@ -1331,13 +1331,14 @@ export function QuestionComposer({
 
       <div className="flex items-center justify-between gap-spacing-3 border-t border-surface-warm-white/8 px-spacing-5 py-spacing-4">
         {onClose ? (
-          <button
+          <Button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+            variant="outline"
+            className="rounded-full border-surface-warm-white/12 bg-transparent text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
           >
             Tulis bebas
-          </button>
+          </Button>
         ) : (
           <span />
         )}

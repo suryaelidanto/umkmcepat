@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Check,
+  ChevronUp,
   PanelRightClose,
   PanelRightOpen,
   Pencil,
@@ -2578,72 +2579,73 @@ export function WorkspaceShell({
                         ease: [0.22, 1, 0.36, 1],
                       }}
                       onSubmit={handleMessageSubmit}
-                      className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                      className="relative mt-spacing-3 min-w-0"
                     >
-                      <div className="mb-spacing-2 flex items-center justify-between gap-spacing-3 px-spacing-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setQuestionComposerMode("options");
-                            setMessage("");
-                          }}
-                          className="rounded-full border border-surface-warm-white/12 px-spacing-4 py-spacing-2 text-xs font-medium text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-                        >
-                          Lihat pilihan
-                        </button>
-                      </div>
-                      <label htmlFor="workspace-message" className="sr-only">
-                        Pesan untuk AI
-                      </label>
-                      {pendingAttachments.length > 0 ? (
-                        <ComposerAttachments
-                          attachments={pendingAttachments}
-                          onRemove={(id) =>
-                            setPendingAttachments((cur) =>
-                              removeAttachment(cur, id),
-                            )
-                          }
-                        />
-                      ) : null}
-                      <textarea
-                        id="workspace-message"
-                        rows={3}
-                        value={message}
-                        onChange={(event) => setMessage(event.target.value)}
-                        onKeyDown={handleMessageKeyDown}
-                        placeholder={
-                          sessionExpired
-                            ? "Sesi habis, login ulang..."
-                            : "Tulis bebas..."
-                        }
-                        disabled={
-                          sessionExpired || authStatus !== "authenticated"
-                        }
-                        className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                      />
-                      <div className="flex items-center justify-between gap-spacing-4">
-                        <ModePill mode="Diskusi" tone="idle" />
-                        <div className="flex items-center gap-spacing-2">
-                          <ComposerAttachButton
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuestionComposerMode("options");
+                          setMessage("");
+                        }}
+                        className="group absolute inset-x-spacing-3 -top-spacing-2 flex items-center justify-center gap-spacing-2 rounded-t-[20px] border border-b-0 border-surface-warm-white/10 bg-[#20201d] py-spacing-2 text-xs font-medium text-surface-warm-white/54 transition hover:text-surface-warm-white/80"
+                      >
+                        <ChevronUp className="size-3.5 transition group-hover:-translate-y-0.5" />
+                        Lihat pilihan
+                      </button>
+                      <div className="relative rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+                        <label htmlFor="workspace-message" className="sr-only">
+                          Pesan untuk AI
+                        </label>
+                        {pendingAttachments.length > 0 ? (
+                          <ComposerAttachments
                             attachments={pendingAttachments}
-                            onAdd={(next, rejected) => {
-                              setPendingAttachments(next);
-                              if (rejected.length) {
-                                toast.error(
-                                  `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
-                                );
-                              }
-                            }}
+                            onRemove={(id) =>
+                              setPendingAttachments((cur) =>
+                                removeAttachment(cur, id),
+                              )
+                            }
                           />
-                          <Button
-                            type="submit"
-                            size="icon"
-                            disabled={!message.trim()}
-                            className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                            aria-label="Kirim pesan"
-                          >
-                            <ArrowUp className="size-4" />
-                          </Button>
+                        ) : null}
+                        <textarea
+                          id="workspace-message"
+                          rows={3}
+                          value={message}
+                          onChange={(event) => setMessage(event.target.value)}
+                          onKeyDown={handleMessageKeyDown}
+                          placeholder={
+                            sessionExpired
+                              ? "Sesi habis, login ulang..."
+                              : "Tulis bebas..."
+                          }
+                          disabled={
+                            sessionExpired || authStatus !== "authenticated"
+                          }
+                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                        />
+                        <div className="flex items-center justify-between gap-spacing-4">
+                          <ModePill mode="Diskusi" tone="idle" />
+                          <div className="flex items-center gap-spacing-2">
+                            <ComposerAttachButton
+                              attachments={pendingAttachments}
+                              onAdd={(next, rejected) => {
+                                setPendingAttachments(next);
+                                if (rejected.length) {
+                                  toast.error(
+                                    `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                                  );
+                                }
+                              }}
+                            />
+                            <Button
+                              type="submit"
+                              size="icon"
+                              disabled={!message.trim()}
+                              className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                              aria-label="Kirim pesan"
+                            >
+                              <ArrowUp className="size-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </motion.form>
