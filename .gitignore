@@ -88,4 +88,4 @@ _sse*.txt
 auth.env
 *.env
 
-.omc
+.omc__captures__/

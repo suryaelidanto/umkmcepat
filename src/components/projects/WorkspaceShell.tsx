@@ -2212,8 +2212,37 @@ export function WorkspaceShell({
     "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#1b1b19] p-spacing-5";
   const previewPanelClass = "h-full min-h-0 min-w-0";
 
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  function handleTouchStart(event: React.TouchEvent) {
+    const touch = event.touches[0];
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+  function handleTouchEnd(event: React.TouchEvent) {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start) {
+      return;
+    }
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    // Only horizontal swipes (dx dominant + vertical small) past 60px trigger.
+    if (Math.abs(dx) < 60 || Math.abs(dy) > 40) {
+      return;
+    }
+    if (dx < 0 && mobileSurface === "chat") {
+      openPreviewPanel();
+    } else if (dx > 0 && mobileSurface === "preview") {
+      openChatPanel();
+    }
+  }
+
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#10100f] text-surface-warm-white">
+    <div
+      className="flex h-dvh flex-col overflow-hidden bg-[#10100f] text-surface-warm-white"
+      onTouchEnd={handleTouchEnd}
+      onTouchStart={handleTouchStart}
+    >
       <nav
         aria-label="Pilih tampilan ruang kerja"
         className="sticky bottom-0 z-20 flex h-14 shrink-0 items-stretch gap-spacing-2 border-t border-surface-warm-white/10 bg-[#1b1b19] px-spacing-3 pb-[env(safe-area-inset-bottom)] md:hidden"

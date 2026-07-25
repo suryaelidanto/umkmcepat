@@ -305,18 +305,18 @@ git commit -m "test(mobile): tier-2 Playwright device-capture + overflow asserts
 - Consumes: tier-1 heuristics, tier-2 captures (Task 5), `MobileSheet` (Task 1).
 - Produces: each route passes tier-1 (no <44px targets, inputs ≥16px, no overflow) + tier-2 (captures green) at all 3 device viewports.
 
-- [ ] **Step 1: Audit each route** — run the Playwright suite; for each failing route, fix: stack vertically, full-bleed, ≥16px inputs, ≥44px targets, bottom-nav padding (`pb-16 md:pb-0`).
+- [x] **Step 1: Audit each route** — run the Playwright suite; for each failing route, fix: stack vertically, full-bleed, ≥16px inputs, ≥44px targets, bottom-nav padding (`pb-16 md:pb-0`).
 
-- [ ] **Step 2: Re-run the suite** until all routes × devices pass tier-1 + tier-2.
+- [x] **Step 2: Re-run the suite** until all routes × devices pass tier-1 + tier-2.
 
-- [ ] **Step 3: Commit per route or as one pass**
+- [x] **Step 3: Commit per route or as one pass**
 
 ```bash
 git add src/routes/_main.index.tsx src/routes/_main.projects.$id.tsx ...
 git commit -m "feat(mobile): mobile-first pass on public + account routes"
 ```
 
-- [ ] **Step 4: Hand tier-3 screenshots to the user** for native-feel sign-off. Iterate per the user's feedback. (This is the human-review loop — not a code step.)
+- [x] **Step 4: Hand tier-3 screenshots to the user** for native-feel sign-off. Iterate per the user's feedback. (This is the human-review loop — not a code step.)
 
 ---
 
@@ -329,18 +329,18 @@ git commit -m "feat(mobile): mobile-first pass on public + account routes"
 - Consumes: Framer Motion (`motion`, already imported).
 - Produces: the Diskusi/Tampilan/Kode panels swap with a slide transition; a left/right swipe gesture cycles the three panels.
 
-- [ ] **Step 1: Add slide transitions** to the panel swap (wrap the active panel in `motion.div` with `initial={{x: dir*20}} animate={{x:0}}` keyed by `mobileSurface`).
+- [x] **Step 1: Add slide transitions** to the panel swap (wrap the active panel in `motion.div` with `initial={{x: dir*20}} animate={{x:0}}` keyed by `mobileSurface`).
 
-- [ ] **Step 2: Add swipe gesture** — a `motion.div` with `drag="x"` `onDragEnd` cycling `mobileSurface` (0→1→2→0) when `|offset.x| > 60`.
+- [x] **Step 2: Add swipe gesture** — a `motion.div` with `drag="x"` `onDragEnd` cycling `mobileSurface` (0→1→2→0) when `|offset.x| > 60`.
 
-- [ ] **Step 3: Run workspace tests + fast gate**
+- [x] **Step 3: Run workspace tests + fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 4: Capture workspace on iPhone 12 + hand to user** for tier-3 sign-off.
+- [x] **Step 4: Capture workspace on iPhone 12 + hand to user** for tier-3 sign-off.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/projects/WorkspaceShell.tsx
@@ -353,10 +353,10 @@ git commit -m "feat(mobile): workspace panel slide transitions + swipe gesture"
 
 Not committed code — the final gate.
 
-- [ ] **Step 1: Open `__captures__/mobile/`** (all routes × devices) + the workspace capture.
-- [ ] **Step 2: User reviews each surface** for native-feel (gestures snappy, spacing app-like, bottom-nav reachable, sheets slide naturally).
-- [ ] **Step 3: Iterate** any rejected surface back through Task 6/7 until signed off.
-- [ ] **Step 4: Final `bun run check` + `bun run verify`** green.
+- [x] **Step 1: Open `__captures__/mobile/`** (all routes × devices) + the workspace capture.
+- [x] **Step 2: User reviews each surface** for native-feel (gestures snappy, spacing app-like, bottom-nav reachable, sheets slide naturally).
+- [x] **Step 3: Iterate** any rejected surface back through Task 6/7 until signed off.
+- [x] **Step 4: Final `bun run check` + `bun run verify`** green.
 
 ---
 
