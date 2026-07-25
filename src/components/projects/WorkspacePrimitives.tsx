@@ -1282,9 +1282,9 @@ export function QuestionComposer({
                 </span>
               </button>
               <span
-                className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswer.trim() ? "" : "border-surface-warm-white/24 bg-transparent"}`}
+                className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswerSelected ? "" : "border-surface-warm-white/24 bg-transparent"}`}
                 style={
-                  customAnswer.trim()
+                  customAnswerSelected
                     ? {
                         backgroundColor: isMultiple
                           ? modeTone.accent
@@ -1294,7 +1294,7 @@ export function QuestionComposer({
                     : undefined
                 }
               >
-                {customAnswer.trim() ? (
+                {customAnswerSelected ? (
                   isMultiple ? (
                     <Check className="size-3 text-[#10100f]" strokeWidth={3} />
                   ) : (
