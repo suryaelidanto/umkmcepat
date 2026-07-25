@@ -7,7 +7,9 @@ import {
   Code2,
   ExternalLink,
   Globe2,
+  Hammer,
   ImagePlus,
+  MessageCircle,
   MessageSquarePlus,
   Monitor,
   PanelLeftClose,
@@ -748,17 +750,28 @@ export function ModePill({
   mode: "Diskusi" | "Buat";
   tone: "idle" | "busy";
 }) {
+  const accent = mode === "Buat" ? "#ffcb7a" : "#8ce99a";
+  const Icon = mode === "Buat" ? Hammer : MessageCircle;
+
   return (
-    <span className="inline-flex items-center gap-spacing-2 rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.045] px-spacing-3 py-1 text-xs font-medium text-surface-warm-white/60">
-      <span className="relative flex size-1.5">
+    <span
+      className="inline-flex items-center gap-spacing-2 rounded-full border py-1 pl-2 pr-spacing-3 text-xs font-medium transition"
+      style={{
+        borderColor: `${accent}33`,
+        backgroundColor: `${accent}14`,
+        color: `${accent}e6`,
+      }}
+    >
+      <span className="relative flex size-4 shrink-0 items-center justify-center">
         {tone === "busy" ? (
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-surface-warm-white/60" />
+          <span
+            className="absolute inline-flex size-full animate-ping rounded-full opacity-40"
+            style={{ backgroundColor: accent }}
+          />
         ) : null}
-        <span
-          className={`relative inline-flex size-1.5 rounded-full ${tone === "busy" ? "bg-surface-warm-white/70" : "bg-[#8ce99a]"}`}
-        />
+        <Icon className="relative size-3" strokeWidth={2.25} />
       </span>
-      Mode {mode}
+      {mode}
     </span>
   );
 }
