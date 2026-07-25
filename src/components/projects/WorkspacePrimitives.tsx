@@ -21,6 +21,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
+import { EnergyLedgerButton } from "@/components/common/EnergyLedgerButton";
 import { WorkspaceHistoryButton } from "@/components/projects/WorkspaceHistoryDrawer";
 import { Button } from "@/components/ui/button";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
@@ -159,6 +160,7 @@ export function WorkspaceTopBar({
 
       <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
         {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
+        {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
         {runtime ? <RuntimeControl runtime={runtime} /> : null}
 
         {activeTab === "preview" ? (
