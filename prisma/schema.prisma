@@ -187,6 +187,7 @@ model ProjectAsset {
   purpose     String   @db.VarChar(32)
   contentType String   @db.VarChar(64)
   sizeBytes   Int
+  publicUrl   String?  @db.Text
   createdAt   DateTime @default(now())
 
   @@index([projectId, createdAt])
