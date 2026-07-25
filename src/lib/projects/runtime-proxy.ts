@@ -157,7 +157,8 @@ function encodeRuntimePath(pathSegments: string[]) {
 }
 
 export function injectPreviewAnnotationBridge(html: string) {
-  const script = `<script data-umkm-annotation-bridge>${PREVIEW_ANNOTATION_BRIDGE}</script>`;
+  const origin = process.env.NEXT_PUBLIC_APP_URL || "";
+  const script = `<script data-umkm-annotation-bridge data-umkm-origin="${origin}">${PREVIEW_ANNOTATION_BRIDGE}</script>`;
 
   if (html.includes("data-umkm-annotation-bridge")) {
     return html;
@@ -217,6 +218,12 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
 (() => {
   if (window.__umkmAnnotationBridge) return;
   window.__umkmAnnotationBridge = true;
+
+  // The control-plane origin (set by the parent via data-umkm-origin).
+  // postMessage targets this instead of '*' so annotation payloads stay
+  // scoped to the UMKM Cepat parent, not any listener.
+  const bridgeScript = document.currentScript || document.querySelector('script[data-umkm-annotation-bridge]');
+  const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
 
   let active = false;
   let hoverBox = null;
@@ -453,7 +460,7 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
       return;
     }
     setHoverBox(selection ? selection.rect : element.getBoundingClientRect());
-    window.parent.postMessage({ type: 'umkmcepat-annotation-hover', payload: targetData(element, selection) }, '*');
+    window.parent.postMessage({ type: 'umkmcepat-annotation-hover', payload: targetData(element, selection) }, PARENT_ORIGIN);
   }
 
   function handleClick(event) {
@@ -463,7 +470,7 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     const selection = selectionAt(event.clientX, event.clientY);
     const element = selection ? selection.target : elementAt(event.clientX, event.clientY);
     if (!element) return;
-    window.parent.postMessage({ type: 'umkmcepat-annotation-target', payload: targetData(element, selection) }, '*');
+    window.parent.postMessage({ type: 'umkmcepat-annotation-target', payload: targetData(element, selection) }, PARENT_ORIGIN);
   }
 
   window.addEventListener('message', (event) => {
