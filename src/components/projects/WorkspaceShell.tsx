@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
 import {
   ArrowLeft,
   ArrowUp,
@@ -22,8 +22,10 @@ import {
   useState,
 } from "react";
 import { type PanelImperativeHandle } from "react-resizable-panels";
+import { toast } from "sonner";
 
 import { EnergyDisplay } from "@/components/common/EnergyDisplay";
+import { ComposerAttachments } from "@/components/projects/ComposerAttachments";
 import {
   BuildProgressPanel,
   EmptyPreviewState,
@@ -56,6 +58,13 @@ import {
   completeBuildProgressSteps,
 } from "@/lib/projects/build-progress-steps";
 import { dedupeUiMessages } from "@/lib/projects/chat-memory";
+import {
+  MAX_COMPOSER_IMAGES,
+  removeAttachment,
+  revokeAll,
+  toUploadPlan,
+  type PendingAttachment,
+} from "@/lib/projects/composer-attachments";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
   createVisualAnnotationEditInstruction,
@@ -290,6 +299,9 @@ export function WorkspaceShell({
   const pendingVisualRevisionRef = useRef(false);
   const [annotationMode, setAnnotationMode] = useState(false);
   const [annotationInstruction, setAnnotationInstruction] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<
+    PendingAttachment[]
+  >([]);
   const [annotations, setAnnotations] = useState<VisualAnnotationDraft[]>([]);
   const [pendingAnnotationTarget, setPendingAnnotationTarget] = useState<Omit<
     VisualAnnotationDraft,
@@ -1900,7 +1912,7 @@ export function WorkspaceShell({
   }
 
   const submitChatText = useCallback(
-    (
+    async (
       text: string,
       options: { workspaceAnswers?: WorkspaceAnswerPayload[] } = {},
     ) => {
@@ -1908,7 +1920,7 @@ export function WorkspaceShell({
       const hasAnswers = Boolean(options.workspaceAnswers?.length);
 
       if (
-        (!trimmed && !hasAnswers) ||
+        (!trimmed && !hasAnswers && pendingAttachments.length === 0) ||
         isProcessing ||
         rateLimitError ||
         authStatus !== "authenticated" ||
@@ -1916,6 +1928,56 @@ export function WorkspaceShell({
         submitInFlightRef.current
       ) {
         return;
+      }
+
+      // Upload attached images to R2 (commit-on-send; nothing left the browser
+      // until now). On failure, keep the attachments so the user can retry.
+      let fileParts: FileUIPart[] = [];
+      let mediaPaths: string[] = [];
+      if (pendingAttachments.length) {
+        try {
+          const parts: FileUIPart[] = [];
+          const paths: string[] = [];
+          for (const item of toUploadPlan(pendingAttachments)) {
+            const form = new FormData();
+            form.append("file", item.file);
+            form.append("purpose", "business-image");
+            const res = await fetch(`/api/projects/${projectId}/assets`, {
+              body: form,
+              method: "POST",
+            });
+            if (!res.ok) {
+              throw new Error(`Gagal mengunggah ${item.file.name}`);
+            }
+            const asset = (await res.json()) as {
+              id: string;
+              publicUrl: string | null;
+            };
+            if (!asset.publicUrl) {
+              throw new Error(
+                `Gambar belum tersedia (${item.file.name}). Aktifkan R2.`,
+              );
+            }
+            // Inline the image bytes as a data URL so the model reads them
+            // without fetching R2; small (<=5 MiB) so base64 is fine.
+            const bytes = new Uint8Array(await item.file.arrayBuffer());
+            const base64 = btoa(String.fromCharCode(...bytes));
+            parts.push({
+              filename: item.file.name,
+              mediaType: item.file.type || "image/png",
+              type: "file",
+              url: `data:${item.file.type || "image/png"};base64,${base64}`,
+            });
+            paths.push(`/media/${asset.id}`);
+          }
+          fileParts = parts;
+          mediaPaths = paths;
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : "Gagal mengunggah gambar.",
+          );
+          return;
+        }
       }
 
       // Lock the channel for the duration of the request so a synchronous
@@ -1933,21 +1995,34 @@ export function WorkspaceShell({
 
       // Post-build "Chat dengan AI" is discuss-only. Rebuilds use the
       // build_recommendation card ("Mulai build"), not an auto /edit build.
+      // Attached images ride as `files` (the SDK carries image content to the
+      // model); mediaPaths tells the agent which /media/<id> to bake in.
       sendMessage(
-        { text: trimmed },
+        {
+          files: fileParts.length ? fileParts : undefined,
+          text: trimmed,
+        },
         {
           body: {
+            mediaPaths: mediaPaths.length ? mediaPaths : undefined,
             mode: composerState === "post_build_chat" ? "discuss" : mode,
             workspaceAnswers: options.workspaceAnswers,
           },
         },
       );
+
+      if (pendingAttachments.length) {
+        revokeAll(pendingAttachments);
+        setPendingAttachments([]);
+      }
     },
     [
       authStatus,
       composerState,
       isProcessing,
       mode,
+      pendingAttachments,
+      projectId,
       rateLimitError,
       scrollChatToBottom,
       sendMessage,
@@ -2486,6 +2561,22 @@ export function WorkspaceShell({
                       <label htmlFor="workspace-message" className="sr-only">
                         Pesan untuk AI
                       </label>
+                      <ComposerAttachments
+                        attachments={pendingAttachments}
+                        onAdd={(next, rejected) => {
+                          setPendingAttachments(next);
+                          if (rejected.length) {
+                            toast.error(
+                              `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                            );
+                          }
+                        }}
+                        onRemove={(id) =>
+                          setPendingAttachments((cur) =>
+                            removeAttachment(cur, id),
+                          )
+                        }
+                      />
                       <textarea
                         id="workspace-message"
                         rows={3}
