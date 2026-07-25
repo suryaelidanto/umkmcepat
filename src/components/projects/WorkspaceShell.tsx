@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ArrowUp,
   Check,
-  ChevronUp,
   PanelRightClose,
   PanelRightOpen,
   Pencil,
@@ -2518,140 +2517,173 @@ export function WorkspaceShell({
                 workspaceCardError ? null : !hasAnsweredActiveQuestion &&
                 composerState === "question" &&
                 workspaceCard.type === "question" ? (
-                <AnimatePresence mode="wait" initial={false}>
-                  {questionComposerMode === "options" ? (
-                    <motion.div
-                      key="question-options"
-                      initial={{
-                        opacity: 0,
-                        y: 12,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: "blur(0px)",
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -10,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      transition={{
-                        duration: 0.22,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                    >
-                      <QuestionComposer
-                        question={workspaceCard.question}
-                        onClose={() => setQuestionComposerMode("free")}
-                        onSubmit={(answer, workspaceAnswers) =>
-                          submitChatText(answer, { workspaceAnswers })
-                        }
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.form
-                      key="question-free"
-                      initial={{
-                        opacity: 0,
-                        y: 12,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: "blur(0px)",
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -10,
-                        scale: 0.985,
-                        filter: "blur(6px)",
-                      }}
-                      transition={{
-                        duration: 0.22,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                      onSubmit={handleMessageSubmit}
-                      className="mt-spacing-3 min-w-0"
-                    >
-                      <Button
+                <div className="mt-spacing-3">
+                  <div className="mb-spacing-2 inline-flex rounded-full border border-surface-warm-white/10 bg-[#1d1d1a] p-0.5">
+                    {(
+                      [
+                        { label: "Pilihan", value: "options" },
+                        { label: "Tulis bebas", value: "free" },
+                      ] as const
+                    ).map((tab) => (
+                      <button
+                        key={tab.value}
                         type="button"
                         onClick={() => {
-                          setQuestionComposerMode("options");
-                          setMessage("");
+                          setQuestionComposerMode(tab.value);
+                          if (tab.value === "options") {
+                            setMessage("");
+                          }
                         }}
-                        variant="outline"
-                        className="mb-spacing-2 rounded-full border-surface-warm-white/12 bg-transparent text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                        className="relative rounded-full px-spacing-4 py-spacing-2 text-xs font-medium transition"
                       >
-                        <ChevronUp className="size-4" />
-                        Lihat pilihan
-                      </Button>
-                      <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
-                        <label htmlFor="workspace-message" className="sr-only">
-                          Pesan untuk AI
-                        </label>
-                        {pendingAttachments.length > 0 ? (
-                          <ComposerAttachments
-                            attachments={pendingAttachments}
-                            onRemove={(id) =>
-                              setPendingAttachments((cur) =>
-                                removeAttachment(cur, id),
-                              )
-                            }
+                        {questionComposerMode === tab.value ? (
+                          <motion.span
+                            layoutId="question-composer-tab"
+                            className="absolute inset-0 rounded-full bg-surface-warm-white/10"
+                            transition={{
+                              type: "spring",
+                              stiffness: 500,
+                              damping: 34,
+                            }}
                           />
                         ) : null}
-                        <textarea
-                          id="workspace-message"
-                          rows={3}
-                          value={message}
-                          onChange={(event) => setMessage(event.target.value)}
-                          onKeyDown={handleMessageKeyDown}
-                          placeholder={
-                            sessionExpired
-                              ? "Sesi habis, login ulang..."
-                              : "Tulis bebas..."
+                        <span
+                          className={`relative ${
+                            questionComposerMode === tab.value
+                              ? "text-surface-warm-white"
+                              : "text-surface-warm-white/54 hover:text-surface-warm-white/80"
+                          }`}
+                        >
+                          {tab.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {questionComposerMode === "options" ? (
+                      <motion.div
+                        key="question-options"
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                          scale: 1,
+                          filter: "blur(0px)",
+                        }}
+                        exit={{
+                          opacity: 0,
+                          y: -10,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        transition={{
+                          duration: 0.22,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                      >
+                        <QuestionComposer
+                          question={workspaceCard.question}
+                          onSubmit={(answer, workspaceAnswers) =>
+                            submitChatText(answer, { workspaceAnswers })
                           }
-                          disabled={
-                            sessionExpired || authStatus !== "authenticated"
-                          }
-                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         />
-                        <div className="flex items-center justify-between gap-spacing-4">
-                          <ModePill mode="Diskusi" tone="idle" />
-                          <div className="flex items-center gap-spacing-2">
-                            <ComposerAttachButton
+                      </motion.div>
+                    ) : (
+                      <motion.form
+                        key="question-free"
+                        initial={{
+                          opacity: 0,
+                          y: 12,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                          scale: 1,
+                          filter: "blur(0px)",
+                        }}
+                        exit={{
+                          opacity: 0,
+                          y: -10,
+                          scale: 0.985,
+                          filter: "blur(6px)",
+                        }}
+                        transition={{
+                          duration: 0.22,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        onSubmit={handleMessageSubmit}
+                        className="min-w-0"
+                      >
+                        <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+                          <label
+                            htmlFor="workspace-message"
+                            className="sr-only"
+                          >
+                            Pesan untuk AI
+                          </label>
+                          {pendingAttachments.length > 0 ? (
+                            <ComposerAttachments
                               attachments={pendingAttachments}
-                              onAdd={(next, rejected) => {
-                                setPendingAttachments(next);
-                                if (rejected.length) {
-                                  toast.error(
-                                    `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
-                                  );
-                                }
-                              }}
+                              onRemove={(id) =>
+                                setPendingAttachments((cur) =>
+                                  removeAttachment(cur, id),
+                                )
+                              }
                             />
-                            <Button
-                              type="submit"
-                              size="icon"
-                              disabled={!message.trim()}
-                              className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                              aria-label="Kirim pesan"
-                            >
-                              <ArrowUp className="size-4" />
-                            </Button>
+                          ) : null}
+                          <textarea
+                            id="workspace-message"
+                            rows={3}
+                            value={message}
+                            onChange={(event) => setMessage(event.target.value)}
+                            onKeyDown={handleMessageKeyDown}
+                            placeholder={
+                              sessionExpired
+                                ? "Sesi habis, login ulang..."
+                                : "Tulis bebas..."
+                            }
+                            disabled={
+                              sessionExpired || authStatus !== "authenticated"
+                            }
+                            className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                          />
+                          <div className="flex items-center justify-between gap-spacing-4">
+                            <ModePill mode="Diskusi" tone="idle" />
+                            <div className="flex items-center gap-spacing-2">
+                              <ComposerAttachButton
+                                attachments={pendingAttachments}
+                                onAdd={(next, rejected) => {
+                                  setPendingAttachments(next);
+                                  if (rejected.length) {
+                                    toast.error(
+                                      `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                                    );
+                                  }
+                                }}
+                              />
+                              <Button
+                                type="submit"
+                                size="icon"
+                                disabled={!message.trim()}
+                                className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                                aria-label="Kirim pesan"
+                              >
+                                <ArrowUp className="size-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </motion.form>
-                  )}
-                </AnimatePresence>
+                      </motion.form>
+                    )}
+                  </AnimatePresence>
+                </div>
               ) : composerState === "build_recommendation" ? (
                 <WorkspaceCardView
                   canBuild={canStartBuildNow}
