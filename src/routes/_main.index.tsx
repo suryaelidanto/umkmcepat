@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { motion } from "motion/react";
 import { useState } from "react";
 
 import {
@@ -148,6 +149,58 @@ const deleteProjectFn = createServerFn({ method: "POST" })
     });
   });
 
+const HERO_LEAD_WORDS = ["Bikin", "Website", "UMKM", "dalam", "5", "Menit,"];
+const HERO_ACCENT = "100% Gratis.";
+
+function HeroHeadline() {
+  return (
+    <span className="flex flex-wrap justify-center gap-x-[0.13em] gap-y-1">
+      {HERO_LEAD_WORDS.map((word, i) => (
+        <motion.span
+          key={word}
+          initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{
+            opacity: { duration: 0.5, delay: 0.09 * i },
+            y: { type: "spring", stiffness: 140, damping: 16, delay: 0.09 * i },
+            filter: { duration: 0.4, delay: 0.09 * i },
+          }}
+        >
+          {word}
+        </motion.span>
+      ))}
+      <motion.span
+        className="relative"
+        initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
+        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+        transition={{
+          opacity: { duration: 0.5, delay: 0.09 * HERO_LEAD_WORDS.length },
+          y: {
+            type: "spring",
+            stiffness: 140,
+            damping: 16,
+            delay: 0.09 * HERO_LEAD_WORDS.length,
+          },
+          filter: { duration: 0.4, delay: 0.09 * HERO_LEAD_WORDS.length },
+        }}
+      >
+        {HERO_ACCENT}
+        <motion.span
+          aria-hidden
+          className="absolute inset-x-0 -bottom-1 h-[5px] origin-left rounded-full bg-emerald-400"
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{
+            duration: 0.55,
+            delay: 0.09 * HERO_LEAD_WORDS.length + 0.55,
+            ease: "easeOut",
+          }}
+        />
+      </motion.span>
+    </span>
+  );
+}
+
 export const Route = createFileRoute("/_main/")({
   loader: () => loadHome(),
   component: HomePage,
@@ -186,11 +239,15 @@ function HomePage() {
               id="hero-heading"
               className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white"
             >
-              {hasUser
-                ? greetingName
-                  ? `Hai, ${greetingName}. Mau buat website apa hari ini?`
-                  : "Website apa yang mau kamu buat?"
-                : "Bikin Website UMKM dalam 5 Menit, 100% Gratis."}
+              {hasUser ? (
+                greetingName ? (
+                  `Hai, ${greetingName}. Mau buat website apa hari ini?`
+                ) : (
+                  "Website apa yang mau kamu buat?"
+                )
+              ) : (
+                <HeroHeadline />
+              )}
             </h1>
           </HeroMotionItem>
           <HeroMotionItem className="w-full">
