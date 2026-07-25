@@ -432,6 +432,19 @@ function resolveProjectArtifactDir(
   return path.join(getProjectArtifactRoot(rootDir), kind, artifactId);
 }
 
+// Resolve the on-disk files dir for a local artifact ref (null for r2 refs
+// or unparseable). Used by the post-generation prettier sweep.
+export function resolveArtifactFilesDir(ref: string): string | null {
+  const parsed = parseProjectArtifactRef(ref);
+  if (!parsed || parsed.provider !== "local") {
+    return null;
+  }
+  return path.join(
+    resolveProjectArtifactDir(parsed.kind, parsed.artifactId),
+    "files",
+  );
+}
+
 function getProjectArtifactRoot(rootDir?: string) {
   return path.resolve(
     rootDir || getEnv("PROJECT_ARTIFACT_DIR", ".data/project-artifacts"),

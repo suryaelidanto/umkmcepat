@@ -19,6 +19,7 @@ import {
   generateCustomProjectFilesWithAgent,
   repairGeneratedProjectFiles,
 } from "@/lib/projects/custom-source-generator";
+import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
@@ -41,6 +42,7 @@ import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
 import {
   readProjectSourceArtifact,
+  resolveArtifactFilesDir,
   writeProjectDistArtifact,
   writeProjectSourceArtifact,
 } from "@/lib/projects/runtime-artifacts";
@@ -1216,6 +1218,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
         ]);
 
         if (artifactRef) {
+          const sourceDir = sourceRef
+            ? resolveArtifactFilesDir(sourceRef)
+            : null;
           await Promise.allSettled([
             refreshProjectThumbnail({
               artifactRef,
@@ -1226,6 +1231,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
               activeDeploymentId: deployment.id,
               projectId,
             }),
+            // Best-effort prettier sweep over the generated source so the code
+            // tab shows polished code. Fire-and-forget; never fails the turn.
+            ...(sourceDir ? [formatGeneratedSource(sourceDir)] : []),
           ]);
         }
 
