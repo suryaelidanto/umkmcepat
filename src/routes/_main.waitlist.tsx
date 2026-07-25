@@ -1,9 +1,10 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { fetchJson } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
 
 export const Route = createFileRoute("/_main/waitlist")({
@@ -14,7 +15,36 @@ function WaitlistPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const [submitted, setSubmitted] = useState(false);
   const [businessName, setBusinessName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [story, setStory] = useState("");
   const hasTurnstile = Boolean(getTurnstileSiteKey());
+
+  // Pre-fill from the user's last submission (e.g. after rejection) so they
+  // can edit + resend instead of retyping.
+  const ownQuery = useQuery({
+    queryFn: () =>
+      fetchJson<{
+        own?: {
+          businessName: string;
+          businessType: string | null;
+          phone: string | null;
+          story: string;
+        } | null;
+      }>("/api/user/waitlist"),
+    queryKey: ["user", "waitlist", "own"],
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    const own = ownQuery.data?.own;
+    if (own) {
+      setBusinessName(own.businessName);
+      setPhone(own.phone ?? "");
+      setBusinessType(own.businessType ?? "");
+      setStory(own.story);
+    }
+  }, [ownQuery.data]);
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -111,6 +141,8 @@ function WaitlistPage() {
             <input
               name="phone"
               type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
               className="h-11 w-full rounded-radius-lg border border-foreground-primary/12 bg-surface-warm-white px-spacing-5 text-body-base outline-none focus:ring-2 focus:ring-action-primary"
               placeholder="0812..."
             />
@@ -119,6 +151,8 @@ function WaitlistPage() {
             <input
               name="businessType"
               type="text"
+              value={businessType}
+              onChange={(event) => setBusinessType(event.target.value)}
               className="h-11 w-full rounded-radius-lg border border-foreground-primary/12 bg-surface-warm-white px-spacing-5 text-body-base outline-none focus:ring-2 focus:ring-action-primary"
               placeholder="Kedai kopi"
             />
@@ -130,6 +164,8 @@ function WaitlistPage() {
             name="story"
             required
             rows={5}
+            value={story}
+            onChange={(event) => setStory(event.target.value)}
             className="w-full rounded-radius-lg border border-foreground-primary/12 bg-surface-warm-white px-spacing-5 py-spacing-4 text-body-base outline-none focus:ring-2 focus:ring-action-primary"
             placeholder="Ceritakan usaha kamu — apa yang dijual, untuk siapa, sejak kapan, dan kenapa butuh website."
           />
