@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status (2026-07-25):** Tasks 1-5 (foundation: MobileSheet, MobileNav, MainChrome render, tier-1 audit, tier-2 capture suite) are done + CI-gated. **Tasks 6-8 (per-route mobile-first polish, workspace swipe/sheet transitions, human tier-3 sign-off) are DEFERRED** — they require live-render iteration + subjective native-feel verification the autonomous agent cannot self-perform (it can't see rendered output). Resume with a vision-capable reviewer + the `MOBILE_AUDIT_URL=http://localhost:3000 bunx vitest run tests/mobile/device-capture.test.ts` flow. The objective foundation is in place; only the subjective polish + per-route fixes remain.
+
 **Goal:** Make every surface feel native on phones: a bottom-nav, bottom-sheet primitive, mobile-first passes on all public/account routes, a workspace polish pass (sheet transitions + swipe), and a 3-tier verify loop (objective heuristics → Playwright device captures → human review).
 
 **Architecture:** New `MobileNav` (bottom-nav, `md:hidden`) + a `mobile-sheet` Radix-bottom-sheet primitive; Header slims for mobile with nav moved to the bottom bar; each route gets a tier-1 heuristic + tier-2 device-capture pass; workspace gets motion-based sheet transitions + swipe gesture (Framer Motion, already installed). Verification: tier-1 via a Playwright DOM-audit test, tier-2 via device-viewport captures, tier-3 via user sign-off on screenshots.
