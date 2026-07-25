@@ -52,6 +52,14 @@ export const Route = createFileRoute("/api/waitlist")({
           }
           try {
             const bytes = Buffer.from(await file.arrayBuffer());
+            // Magic-byte validation: don't trust file.type (can lie). Reject
+            // non-images even if the client claims image/png.
+            if (!isImageMagicBytes(bytes)) {
+              return Response.json(
+                { message: "File bukan gambar (PNG/JPEG/WEBP)." },
+                { status: 400 },
+              );
+            }
             // object-storage enforces image-only keys + path safety.
             imageRef = await putStoredObject({
               body: bytes,
@@ -90,3 +98,41 @@ export const Route = createFileRoute("/api/waitlist")({
     },
   },
 });
+
+// PNG/JPEG/WEBP magic-byte check (defense vs file.type spoofing).
+function isImageMagicBytes(bytes: Buffer): boolean {
+  if (bytes.length < 12) {
+    return false;
+  }
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return true;
+  }
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return true;
+  }
+  // WEBP: "RIFF" .... "WEBP"
+  if (
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return true;
+  }
+  return false;
+}
