@@ -47,7 +47,7 @@
 - Consumes: Radix Dialog (`@radix-ui/react-dialog`, confirm installed), Framer Motion (`motion`, already imported by WorkspaceShell).
 - Produces: `<MobileSheet open onOpenChange title?>` — bottom-anchored, slide-up, `max-h-[85dvh]`, drag handle, swipe-to-dismiss when dragged past 100px / 30% height.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/components/ui/mobile-sheet.test.ts`:
 
@@ -79,12 +79,12 @@ describe("MobileSheet", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bunx vitest run src/components/ui/mobile-sheet.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement the primitive**
+- [x] **Step 3: Implement the primitive**
 
 Create `src/components/ui/mobile-sheet.tsx` (Radix Dialog + Framer Motion drag, bottom-anchored, `max-h-[85dvh]`, slide-up). Use the existing shadcn Dialog as the structural reference (`src/components/ui/dialog.tsx`) but anchor bottom. Swipe-to-dismiss: `onDragEnd` closes if `offset.y > 100`.
 
@@ -135,14 +135,14 @@ export function MobileSheet({
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bunx vitest run src/components/ui/mobile-sheet.test.ts`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Add a Storybook story** for open/closed/swipe states (follow `src/stories/` patterns).
+- [x] **Step 5: Add a Storybook story** for open/closed/swipe states (follow `src/stories/` patterns).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/ui/mobile-sheet.tsx src/components/ui/mobile-sheet.test.ts src/stories/MobileSheet.stories.tsx
@@ -161,7 +161,7 @@ git commit -m "feat(mobile): bottom-sheet primitive (slide-up, swipe-to-dismiss)
 - Consumes: TanStack Router `useMatch`/`useRouterState`, the `MobileSheet` (Task 1) for the "Lainnya" overflow.
 - Produces: `<MobileNav />` — fixed bottom bar, `md:hidden`, 4 items (Beranda `/`, Proyek `/projects`, Buat `/projects/new`, Akun `/profile`) + "Lainnya" sheet (terms, privacy).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/components/common/MobileNav.test.tsx`:
 
@@ -183,21 +183,21 @@ describe("MobileNav", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bunx vitest run src/components/common/MobileNav.test.tsx`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement the nav**
+- [x] **Step 3: Implement the nav**
 
 Create `src/components/common/MobileNav.tsx` — fixed bottom bar, `md:hidden`, `h-16`, `pb-[env(safe-area-inset-bottom)]`, backdrop blur. Active state via `useRouterState({select: s => s.location.pathname})` (confirm the hook name at impl). Icons from `lucide-react` (already used). "Lainnya" opens a `<MobileSheet>` with terms/privacy links.
 
-- [ ] **Step 4: Run the test + typecheck**
+- [x] **Step 4: Run the test + typecheck**
 
 Run: `bunx vitest run src/components/common/MobileNav.test.tsx && bunx tsc --noEmit`
 Expected: PASS + no errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/common/MobileNav.tsx src/components/common/MobileNav.test.tsx
@@ -216,20 +216,20 @@ git commit -m "feat(mobile): bottom-nav (Beranda/Proyek/Buat/Akun + Lainnya)"
 - Consumes: `MobileNav` (Task 2).
 - Produces: Header keeps desktop grid for `md:`; mobile (`md:hidden`) slims to logo + Energy + Auth with nav moved to MobileNav. MainChrome renders `<MobileNav className="md:hidden" />` so it appears on mobile across all routes.
 
-- [ ] **Step 1: Slim the Header for mobile**
+- [x] **Step 1: Slim the Header for mobile**
 
 In `Header.tsx`, wrap the controls row so it stays a 3-col grid but confirm the AuthButton/EnergyDisplay hit ≥44px (add `min-h-11` if missing). No hamburger — nav is the bottom bar.
 
-- [ ] **Step 2: Render MobileNav in MainChrome**
+- [x] **Step 2: Render MobileNav in MainChrome**
 
 In `MainChrome.tsx`, add `<MobileNav />` inside the layout (it's `md:hidden` itself). Add bottom padding to the main content (`pb-16 md:pb-0`) so content clears the nav.
 
-- [ ] **Step 3: Typecheck + fast gate**
+- [x] **Step 3: Typecheck + fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/common/Header.tsx src/components/common/MainChrome.tsx
@@ -250,15 +250,15 @@ git commit -m "feat(mobile): Header slims, MobileNav rendered in MainChrome"
   - `auditInputFontSizes(doc: Document): { selector: string; px: number }[]` — returns `<input>/<textarea>/<select>` with computed font-size <16.
   - `auditHorizontalOverflow(doc: Document): boolean` — `docElement.scrollWidth > window.innerWidth`.
 
-- [ ] **Step 1: Write failing tests** for each auditor over a fixture DOM (jsdom).
+- [x] **Step 1: Write failing tests** for each auditor over a fixture DOM (jsdom).
 
-- [ ] **Step 2: Run to verify they fail.**
+- [x] **Step 2: Run to verify they fail.**
 
-- [ ] **Step 3: Implement** the three auditors (`getBoundingClientRect`, `getComputedStyle`).
+- [x] **Step 3: Implement** the three auditors (`getBoundingClientRect`, `getComputedStyle`).
 
-- [ ] **Step 4: Run to verify they pass.**
+- [x] **Step 4: Run to verify they pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/mobile-audit.ts src/lib/mobile-audit.test.ts
@@ -276,16 +276,16 @@ git commit -m "feat(mobile): tier-1 audit helpers (touch targets, input font, ov
 - Consumes: the app running at `localhost:3000` (dev server), the routes list.
 - Produces: for each route × each device (iPhone 12, Pixel 7, iPad): navigate, assert `auditHorizontalOverflow === false`, assert no `<44px` touch targets via the auditors (imported), save screenshot to `__captures__/mobile/<route>-<device>.png` (gitignored).
 
-- [ ] **Step 1: Write the capture spec** iterating `["/", "/projects", "/projects/new", "/waitlist", "/profile", "/privacy", "/terms", "/verify", "/admin"]` × `[devices["iPhone 12"], devices["Pixel 7"], devices["iPad 11"])]`. Use `page.screenshot({ fullPage: true })`. Assert `page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)`.
+- [x] **Step 1: Write the capture spec** iterating `["/", "/projects", "/projects/new", "/waitlist", "/profile", "/privacy", "/terms", "/verify", "/admin"]` × `[devices["iPhone 12"], devices["Pixel 7"], devices["iPad 11"])]`. Use `page.screenshot({ fullPage: true })`. Assert `page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)`.
 
-- [ ] **Step 2: Run against a live dev server**
+- [x] **Step 2: Run against a live dev server**
 
 Run: `bun run dev &` (background), then `bunx playwright test tests/mobile/device-capture.spec.ts`.
 Expected: all routes × devices pass the overflow assertion; screenshots saved.
 
-- [ ] **Step 3: Add `__captures__/` to `.gitignore`** (if not already ignored — `.browser/`-style artifacts).
+- [x] **Step 3: Add `__captures__/` to `.gitignore`** (if not already ignored — `.browser/`-style artifacts).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tests/mobile/device-capture.spec.ts .gitignore
