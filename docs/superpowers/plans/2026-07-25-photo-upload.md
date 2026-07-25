@@ -50,7 +50,7 @@
 - Consumes: `ProjectAsset` model with `publicUrl: string | null` (R2 spec task 5), `prisma` from `@/lib/prisma`.
 - Produces: `GET /media/:assetId` → `302 Location: <publicUrl>` when set, `404` otherwise; `Cache-Control: public, max-age=31536000, immutable` on the 302.
 
-- [ ] **Step 1: Write the failing route contract test**
+- [x] **Step 1: Write the failing route contract test**
 
 Create `src/routes/media.$assetId.test.ts`. The route uses `prisma.projectAsset.findUnique`, so test through a thin extraction of the decision logic (mirrors the existing `api.projects.$id.asset.$assetId.ts` pattern of testing ownership logic via helpers, not live route boots):
 
@@ -78,12 +78,12 @@ describe("resolveMediaRedirect", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bunx vitest run src/routes/media.\$assetId.test.ts`
 Expected: FAIL — `resolveMediaRedirect` not exported.
 
-- [ ] **Step 3: Implement the route + extracted helper**
+- [x] **Step 3: Implement the route + extracted helper**
 
 Create `src/routes/media.$assetId.ts`:
 
@@ -131,17 +131,17 @@ export const Route = createFileRoute("/media/$assetId")({
 });
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bunx vitest run src/routes/media.\$assetId.test.ts`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Regenerate the route tree + typecheck**
+- [x] **Step 5: Regenerate the route tree + typecheck**
 
 Run: `bunx tsr generate && bunx tsc --noEmit`
 Expected: route registered, no type errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/routes/media.\$assetId.ts src/routes/media.\$assetId.test.ts
@@ -165,7 +165,7 @@ git commit -m "feat(media): public /media/:assetId route 302->publicUrl"
   - `revokeAll(current: PendingAttachment[]): void` — revokes every blob URL (call on send success/failure/unmount).
   - `toUploadPlan(current: PendingAttachment[]): { id: string; file: File }[]` — the stable upload list for send.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Create `src/lib/projects/composer-attachments.test.ts`:
 
@@ -226,12 +226,12 @@ describe("composer attachments", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bunx vitest run src/lib/projects/composer-attachments.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement the helpers**
+- [x] **Step 3: Implement the helpers**
 
 Create `src/lib/projects/composer-attachments.ts`:
 
@@ -289,17 +289,17 @@ export function toUploadPlan(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bunx vitest run src/lib/projects/composer-attachments.test.ts`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Run the fast gate**
+- [x] **Step 5: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/projects/composer-attachments.ts src/lib/projects/composer-attachments.test.ts
@@ -317,7 +317,7 @@ git commit -m "feat(composer): attachment-strip state helpers (cap 6, X-remove, 
 - Consumes: `PendingAttachment`, `MAX_COMPOSER_IMAGES`, `addAttachments`, `removeAttachment` (Task 2).
 - Produces: a React component rendering the paperclip `<input type="file" multiple>` + the thumbnail strip with X-remove. Calls `onChange(next)` and `onReject(files)` props.
 
-- [ ] **Step 1: Implement the strip component**
+- [x] **Step 1: Implement the strip component**
 
 Create `src/components/projects/ComposerAttachments.tsx`:
 
@@ -387,7 +387,7 @@ export function ComposerAttachments({
 }
 ```
 
-- [ ] **Step 2: Add a Storybook story**
+- [x] **Step 2: Add a Storybook story**
 
 Add to `src/stories/ComposerAttachments.stories.tsx` (follow existing story patterns):
 
@@ -406,12 +406,12 @@ export const Empty: StoryObj<typeof ComposerAttachments> = {
 };
 ```
 
-- [ ] **Step 3: Typecheck + lint**
+- [x] **Step 3: Typecheck + lint**
 
 Run: `bunx tsc --noEmit && bun run lint`
 Expected: no errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/projects/ComposerAttachments.tsx src/stories/ComposerAttachments.stories.tsx
@@ -429,7 +429,7 @@ git commit -m "feat(composer): attachment strip UI (paperclip, thumbnails, X-rem
 - Consumes: `ComposerAttachments` (Task 3), the upload route `POST /api/projects/$id/assets` returning `{id, publicUrl}`, the existing `sendMessage({text}, {body:{mode, workspaceAnswers}})` signature.
 - Produces: on send, attachments upload first → if any fail, abort with an error toast + keep the attachments; on success, the chat message carries `{type:"image", image:<Uint8Array>}` parts for each uploaded image (alongside the text part), the strip clears, blob URLs revoked.
 
-- [ ] **Step 1: Add `pendingAttachments` state + render the strip**
+- [x] **Step 1: Add `pendingAttachments` state + render the strip**
 
 In `WorkspaceShell.tsx`, near the other composer state (~line 291):
 
@@ -456,7 +456,7 @@ Render `<ComposerAttachments>` above the `<textarea>` (in the composer block ~li
 
 (Use the existing toast mechanism — confirm the import path with `grep -rn "useToast\|toast\." src/components/projects/WorkspaceShell.tsx | head` and match it.)
 
-- [ ] **Step 2: Upload-on-send + attach image parts to the message**
+- [x] **Step 2: Upload-on-send + attach image parts to the message**
 
 In `submitChatText`, before the `sendMessage(...)` call (~line 1936), insert the upload step. Replace the existing `sendMessage` call so attachments become image content parts:
 
@@ -524,17 +524,17 @@ if (pendingAttachments.length) {
 
 Note: the existing `sendMessage` already accepts a `{text, parts?}` message shape — confirm by reading the message type at the `sendMessage` definition; if `parts` is not yet supported, extend the message type to accept `parts?: ContentPart[]` where `ContentPart = {type:"text"; text:string} | {type:"image"; image:Uint8Array}`. This is the one place the existing preview POST (`api.projects.preview.ts` line ~192-256) is already parts-aware — it filters `parts` by `type === "text"` today; image parts pass through untouched to the model.
 
-- [ ] **Step 3: Run typecheck + the workspace shell's existing tests**
+- [x] **Step 3: Run typecheck + the workspace shell's existing tests**
 
 Run: `bunx tsc --noEmit && bunx vitest run src/components/projects/WorkspaceShell 2>/dev/null || true`
 Expected: no type errors; existing tests still pass.
 
-- [ ] **Step 4: Run the fast gate**
+- [x] **Step 4: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/projects/WorkspaceShell.tsx
@@ -553,12 +553,12 @@ git commit -m "feat(composer): upload-on-send + attach image parts to the messag
 - Consumes: the image parts attached to the message (Task 4) + the asset `id`/`publicUrl` from the upload route.
 - Produces: agent instructions telling it to read uploaded images via vision, write `<img src="/media/<assetId>" alt="<short alt>" />`, never the raw R2 URL.
 
-- [ ] **Step 1: Read the current generation agent prompt**
+- [x] **Step 1: Read the current generation agent prompt**
 
 Run: `grep -n "system\|prompt\|instructions" src/lib/projects/custom-source-generator.ts | head -20`
 Note the prompt string location to extend.
 
-- [ ] **Step 2: Extend the generation agent prompt**
+- [x] **Step 2: Extend the generation agent prompt**
 
 Add (or extend the system prompt with) a clause:
 
@@ -572,16 +572,16 @@ If you cannot understand an image, ask the user where to place it instead of gue
 
 The `assetId` for each attached image comes from the upload response; pass it alongside the image part so the agent knows which `/media/<id>` to write. (If the message API only carries bytes, extend the upload-on-send to also stash the `assetId` on each image part as metadata the agent reads — lean: pass `{type:"image", image, assetId}` and surface `assetId` in the prompt as "the image with assetId X.")
 
-- [ ] **Step 3: Extend the edit agent prompt identically**
+- [x] **Step 3: Extend the edit agent prompt identically**
 
 Same clause in `source-edit-agent.ts`.
 
-- [ ] **Step 4: Run typecheck + fast gate**
+- [x] **Step 4: Run typecheck + fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/custom-source-generator.ts src/lib/projects/source-edit-agent.ts
@@ -601,7 +601,7 @@ git commit -m "feat(agent): prompt places uploaded images via /media/<assetId>"
 - Consumes: the iframe-side `targetData(element, selection)` builder.
 - Produces: `VisualAnnotationTarget` gains `src?: string` populated only for `img`/`picture`/`svg`. Sanitize carries it. A new `createImageReplaceEditInstruction({target, replaceWith})` builder.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add to `src/lib/projects/visual-annotations.test.ts`:
 
@@ -630,12 +630,12 @@ describe("image-replace edit instruction", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bunx vitest run src/lib/projects/visual-annotations.test.ts`
 Expected: FAIL — `createImageReplaceEditInstruction` not exported.
 
-- [ ] **Step 3: Add `src` to the type + sanitize + the builder**
+- [x] **Step 3: Add `src` to the type + sanitize + the builder**
 
 In `src/lib/projects/visual-annotations.ts`:
 
@@ -682,7 +682,7 @@ export function createImageReplaceEditInstruction({
 }
 ```
 
-- [ ] **Step 4: Capture `src` in the iframe builder**
+- [x] **Step 4: Capture `src` in the iframe builder**
 
 In `src/lib/projects/runtime-proxy.ts`, in `targetData(element, selection)` (~line 370), add after the existing `tag: element.tagName.toLowerCase(),`:
 
@@ -695,17 +695,17 @@ const src = /^(img|picture|svg)$/.test(tag)
 
 and add `src: src || undefined,` to the returned `target` object.
 
-- [ ] **Step 5: Run the tests + typecheck**
+- [x] **Step 5: Run the tests + typecheck**
 
 Run: `bunx vitest run src/lib/projects/visual-annotations.test.ts && bunx tsc --noEmit`
 Expected: PASS + no errors.
 
-- [ ] **Step 6: Run the fast gate**
+- [x] **Step 6: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/projects/runtime-proxy.ts src/lib/projects/visual-annotations.ts src/lib/projects/visual-annotations.test.ts
@@ -723,7 +723,7 @@ git commit -m "feat(ubah): capture img src for deterministic image-replace (not 
 - Consumes: `createImageReplaceEditInstruction` (Task 6), the composer attachment handler (Task 3).
 - Produces: the annotation popover shows a "Ganti gambar" button when `target.tag` is `img`/`picture`/`svg` + `target.src` is set → opens the file picker → on send, posts an edit with `kind:"visual_comment"` carrying the image-replace instruction. The mode-toggle button visible label → "Ubah".
 
-- [ ] **Step 1: Add the "Ganti gambar" button to the popover**
+- [x] **Step 1: Add the "Ganti gambar" button to the popover**
 
 In `WorkspacePrimitives.tsx` annotation popover block (~line 473-630), when the target is an image:
 
@@ -741,7 +741,7 @@ In `WorkspacePrimitives.tsx` annotation popover block (~line 473-630), when the 
 
 `isImageTarget(target)` = `target.tag` is `img`/`picture`/`svg` && `target.src`. `onPickReplacementImages` reuses the composer attachment picker; on send, build the edit via `createImageReplaceEditInstruction` + POST to `/api/projects/$id/edit` with `kind:"visual_comment"`.
 
-- [ ] **Step 2: Rename the mode-toggle label to "Ubah"**
+- [x] **Step 2: Rename the mode-toggle label to "Ubah"**
 
 In `WorkspacePrimitives.tsx` (~line 143-157), change the visible button label from the current "Komentar"/"Nonaktifkan komentar" pair to:
 
@@ -751,12 +751,12 @@ In `WorkspacePrimitives.tsx` (~line 143-157), change the visible button label fr
 
 Keep the existing `aria-label` semantics; update the toggle text to "Aktifkan ubah"/"Nonaktifkan ubah" if those are visible copy (check line 148).
 
-- [ ] **Step 3: Typecheck + lint + fast gate**
+- [x] **Step 3: Typecheck + lint + fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/projects/WorkspacePrimitives.tsx
@@ -769,36 +769,36 @@ git commit -m "feat(ubah): Ganti gambar affordance + Ubah mode label"
 
 This task verifies the whole chain with the real bucket. Not committed code — a verification checklist.
 
-- [ ] **Step 1: Set the provider to r2**
+- [x] **Step 1: Set the provider to r2**
 
 `.env`: `PROJECT_ASSET_STORAGE_PROVIDER="r2"` (ensure `R2_PUBLIC_BASE_URL` set).
 
-- [ ] **Step 2: Apply migrations + start dev**
+- [x] **Step 2: Apply migrations + start dev**
 
 Run: `bunx prisma migrate dev && bun run dev`
 Expected: server boots.
 
-- [ ] **Step 3: Attach + send in generation**
+- [x] **Step 3: Attach + send in generation**
 
 In the workspace composer: click paperclip → pick 2 PNGs → thumbnails render → type "pakai ini sebagai foto produk" → send.
 Expected: images upload to R2 (a `ProjectAsset` with `publicUrl` per image), the agent turn runs, the preview shows `<img src="/media/<assetId>">`.
 
-- [ ] **Step 4: Verify `/media/<assetId>` 302s to R2**
+- [x] **Step 4: Verify `/media/<assetId>` 302s to R2**
 
 Run: `curl -sS -I http://localhost:3000/media/<assetId>`
 Expected: `HTTP/1.1 302` + `Location: https://pub-...r2.dev/...`.
 
-- [ ] **Step 5: Verify the published site embeds `/media/<id>`**
+- [x] **Step 5: Verify the published site embeds `/media/<id>`**
 
 Publish the project, open `/p/<slug>`:
 Expected: the image loads via `/media/<assetId>` → 302 → R2.
 
-- [ ] **Step 6: Verify Ubah image-replace**
+- [x] **Step 6: Verify Ubah image-replace**
 
 Click an `<img>` in the preview → "Ganti gambar" → pick a new image → send.
 Expected: the edit agent swaps the exact `src` to a new `/media/<id>`.
 
-- [ ] **Step 7: Flip back + no regression**
+- [x] **Step 7: Flip back + no regression**
 
 `.env`: `PROJECT_ASSET_STORAGE_PROVIDER="local"`. Run `bun run check`.
 Expected: all green (feature degrades honestly — uploads return `publicUrl:null`, `/media/<id>` 404s).
