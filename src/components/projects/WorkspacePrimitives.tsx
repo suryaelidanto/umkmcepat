@@ -1028,7 +1028,6 @@ export function ProcessingControl({
               <p className="text-sm font-semibold text-surface-warm-white">
                 {title}
               </p>
-              <ModePill mode={mode} tone="busy" />
             </div>
             <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/50">
               {detail}
