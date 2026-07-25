@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/projects/$id/asset/$assetId")({
         // requesting user must own the project.
         const asset = await prisma.projectAsset.findUnique({
           where: { id: assetId },
-          select: { projectId: true, userId: true },
+          select: { projectId: true, publicUrl: true, userId: true },
         });
         if (
           !asset ||
@@ -35,6 +35,19 @@ export const Route = createFileRoute("/api/projects/$id/asset/$assetId")({
             { message: "Aset tidak ditemukan." },
             { status: 404 },
           );
+        }
+
+        // Display media with a public R2 URL: redirect the browser to R2
+        // directly (zero server egress). Ownership is already checked above;
+        // the unguessable ULID URL is defense-in-depth, not the access control.
+        if (asset.publicUrl) {
+          return new Response(null, {
+            status: 302,
+            headers: {
+              Location: asset.publicUrl,
+              "Cache-Control": "private, max-age=31536000, immutable",
+            },
+          });
         }
 
         try {
