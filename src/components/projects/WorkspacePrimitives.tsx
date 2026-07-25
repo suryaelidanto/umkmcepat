@@ -7,6 +7,7 @@ import {
   Code2,
   ExternalLink,
   Globe2,
+  ImagePlus,
   MessageSquarePlus,
   Monitor,
   PanelLeftClose,
@@ -144,15 +145,13 @@ export function WorkspaceTopBar({
           <button
             type="button"
             onClick={onToggleAnnotation}
-            aria-label={
-              annotationActive ? "Nonaktifkan komentar" : "Aktifkan komentar"
-            }
+            aria-label={annotationActive ? "Nonaktifkan ubah" : "Aktifkan ubah"}
             aria-pressed={annotationActive}
             className={`inline-flex min-h-11 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
           >
             <MessageSquarePlus className="size-4" />
             <span className="hidden sm:inline">
-              {annotationActive ? "Komentar aktif" : "Komentar"}
+              {annotationActive ? "Ubah aktif" : "Ubah"}
             </span>
           </button>
         ) : null}
@@ -289,6 +288,7 @@ export function GeneratedPreviewFrame({
     comment: string;
     onCancel: () => void;
     onChange: (value: string) => void;
+    onReplaceImage?: () => void;
     onSave: () => void;
     target: Omit<VisualAnnotationDraft, "comment" | "id">;
   } | null;
@@ -415,6 +415,7 @@ export function GeneratedPreviewFrame({
             comment={pendingAnnotation.comment}
             onCancel={pendingAnnotation.onCancel}
             onChange={pendingAnnotation.onChange}
+            onReplaceImage={pendingAnnotation.onReplaceImage}
             onSave={pendingAnnotation.onSave}
             target={pendingAnnotation.target}
           />
@@ -451,12 +452,14 @@ function PreviewAnnotationPopover({
   comment,
   onCancel,
   onChange,
+  onReplaceImage,
   onSave,
   target,
 }: {
   comment: string;
   onCancel: () => void;
   onChange: (value: string) => void;
+  onReplaceImage?: () => void;
   onSave: () => void;
   target: Omit<VisualAnnotationDraft, "comment" | "id">;
 }) {
@@ -483,6 +486,16 @@ function PreviewAnnotationPopover({
             <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/50">
               Teks dipilih: {target.selectedText}
             </p>
+          ) : null}
+          {target.target.tag === "img" && target.target.src ? (
+            <button
+              type="button"
+              onClick={onReplaceImage}
+              className="mt-spacing-2 inline-flex items-center gap-spacing-1 rounded-radius-md border border-surface-warm-white/15 px-spacing-2 py-spacing-1 text-xs text-surface-warm-white/80 hover:bg-surface-warm-white/8"
+            >
+              <ImagePlus className="size-3.5" />
+              Ganti gambar
+            </button>
           ) : null}
         </div>
         <button
