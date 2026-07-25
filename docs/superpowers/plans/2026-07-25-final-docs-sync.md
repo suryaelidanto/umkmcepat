@@ -33,7 +33,7 @@
 **Files:**
 - Modify: `.env.example`, `.env`
 
-- [ ] **Step 1: Add `PROJECT_ASSET_STORAGE_PROVIDER` + `PROJECT_ASSET_R2_PREFIX`** to `.env.example` OPTIONAL section (after the R2 block, before AI timeouts), one-liner comments matching the R2 plan's declared shape:
+- [x] **Step 1: Add `PROJECT_ASSET_STORAGE_PROVIDER` + `PROJECT_ASSET_R2_PREFIX`** to `.env.example` OPTIONAL section (after the R2 block, before AI timeouts), one-liner comments matching the R2 plan's declared shape:
 
 ```env
 # Project display-media storage (local | r2; r2 = public R2 for business-image/logo).
@@ -42,19 +42,19 @@ PROJECT_ASSET_STORAGE_PROVIDER="local"
 PROJECT_ASSET_R2_PREFIX="project-assets"
 ```
 
-- [ ] **Step 2: Add the same block to `.env`** (1:1; `.env` may have `PROJECT_ASSET_STORAGE_PROVIDER="local"` real value).
+- [x] **Step 2: Add the same block to `.env`** (1:1; `.env` may have `PROJECT_ASSET_STORAGE_PROVIDER="local"` real value).
 
-- [ ] **Step 3: Verify 1:1**
+- [x] **Step 3: Verify 1:1**
 
 Run: `diff <(sed 's/=".*"/=""/' .env.example) <(sed 's/=".*"/=""/' .env)`
 Expected: no output.
 
-- [ ] **Step 4: Run the fast gate**
+- [x] **Step 4: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .env.example
@@ -67,9 +67,9 @@ git commit -m "docs(env): add PROJECT_ASSET_STORAGE_PROVIDER + PROJECT_ASSET_R2_
 
 **Files:** `docs/architecture.md`
 
-- [ ] **Step 1: Read** the architecture doc + the shipped code for each new surface.
-- [ ] **Step 2: Update** the provider-boundary table (add the R2 display-media boundary → `src/lib/r2-client.ts`; add the email/OTP rows; confirm the storage/runtime/auth rows reflect the Sentry removal + the new `/media/<assetId>` public route + `/admin` page). Add a one-line "Cleanliness contract" pointer to DEV.md if not already there.
-- [ ] **Step 3: Commit**
+- [x] **Step 1: Read** the architecture doc + the shipped code for each new surface.
+- [x] **Step 2: Update** the provider-boundary table (add the R2 display-media boundary → `src/lib/r2-client.ts`; add the email/OTP rows; confirm the storage/runtime/auth rows reflect the Sentry removal + the new `/media/<assetId>` public route + `/admin` page). Add a one-line "Cleanliness contract" pointer to DEV.md if not already there.
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/architecture.md
@@ -82,9 +82,9 @@ git commit -m "docs(arch): reconcile boundaries (r2-client, /media, /admin, emai
 
 **Files:** `docs/deployment.md`
 
-- [ ] **Step 1: Confirm** the monitoring section (GlitchTip note from the Sentry removal) is accurate.
-- [ ] **Step 2: Add/confirm** the R2 env vars (`OBJECT_STORAGE_PROVIDER`, `PROJECT_ASSET_STORAGE_PROVIDER`, `PROJECT_ARTIFACT_STORAGE_PROVIDER`) in the prod env list; confirm the prod-Compose R2 bucket + `umkmcepat-prod` config-only swap is documented.
-- [ ] **Step 3: Commit**
+- [x] **Step 1: Confirm** the monitoring section (GlitchTip note from the Sentry removal) is accurate.
+- [x] **Step 2: Add/confirm** the R2 env vars (`OBJECT_STORAGE_PROVIDER`, `PROJECT_ASSET_STORAGE_PROVIDER`, `PROJECT_ARTIFACT_STORAGE_PROVIDER`) in the prod env list; confirm the prod-Compose R2 bucket + `umkmcepat-prod` config-only swap is documented.
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/deployment.md
@@ -97,9 +97,9 @@ git commit -m "docs(deploy): reconcile R2 vars + GlitchTip note"
 
 **Files:** `DEV.md`
 
-- [ ] **Step 1: Confirm** the "Cleanliness contract" section (topic 6) is present; if not, add it (per the topic-6 plan's DEV.md task).
-- [ ] **Step 2: Confirm** the self-explanatory-code rule (line 8) is intact.
-- [ ] **Step 3: Commit**
+- [x] **Step 1: Confirm** the "Cleanliness contract" section (topic 6) is present; if not, add it (per the topic-6 plan's DEV.md task).
+- [x] **Step 2: Confirm** the self-explanatory-code rule (line 8) is intact.
+- [x] **Step 3: Commit**
 
 ```bash
 git add DEV.md
@@ -112,8 +112,8 @@ git commit -m "docs(dev): confirm cleanliness contract + self-explanatory-code r
 
 **Files:** `CLAUDE.md`/`AGENTS.md`
 
-- [ ] **Step 1: Update** the "Read first" list to mention the new surfaces an agent must read before touching them: R2 client (`src/lib/r2-client.ts`), `/media/<assetId>` route, `/admin` waitlist page, mobile chrome (`MobileNav` + `mobile-sheet`), email/OTP adapters (`src/lib/email.ts`, `src/lib/otp.ts`), the cleanliness contract in DEV.md.
-- [ ] **Step 2: Commit**
+- [x] **Step 1: Update** the "Read first" list to mention the new surfaces an agent must read before touching them: R2 client (`src/lib/r2-client.ts`), `/media/<assetId>` route, `/admin` waitlist page, mobile chrome (`MobileNav` + `mobile-sheet`), email/OTP adapters (`src/lib/email.ts`, `src/lib/otp.ts`), the cleanliness contract in DEV.md.
+- [x] **Step 2: Commit**
 
 ```bash
 git add CLAUDE.md AGENTS.md
@@ -126,8 +126,8 @@ git commit -m "docs(agents): boot instructions reference new surfaces (r2/media/
 
 **Files:** `README.md`
 
-- [ ] **Step 1: Update** the intro to the SEO-grounded positioning (`Website UMKM yang ketemu pembeli`) + the actual feature set (AI builder, free, R2-backed media, mobile-native, waitlist, QRIS/Pakasir). Keep it concise.
-- [ ] **Step 2: Commit**
+- [x] **Step 1: Update** the intro to the SEO-grounded positioning (`Website UMKM yang ketemu pembeli`) + the actual feature set (AI builder, free, R2-backed media, mobile-native, waitlist, QRIS/Pakasir). Keep it concise.
+- [x] **Step 2: Commit**
 
 ```bash
 git add README.md
@@ -140,9 +140,9 @@ git commit -m "docs(readme): SEO-grounded positioning + feature set"
 
 **Files:** `PRODUCT.md`, `DESIGN.md`
 
-- [ ] **Step 1: Read** PRODUCT.md + DESIGN.md against shipped reality.
-- [ ] **Step 2: Update** only stale claims (e.g. design tokens if the dark-rollback changed the surface, product positioning if it drifted from the SEO copy). If nothing's stale, skip + note.
-- [ ] **Step 3: Commit** (only if changed)
+- [x] **Step 1: Read** PRODUCT.md + DESIGN.md against shipped reality.
+- [x] **Step 2: Update** only stale claims (e.g. design tokens if the dark-rollback changed the surface, product positioning if it drifted from the SEO copy). If nothing's stale, skip + note.
+- [x] **Step 3: Commit** (only if changed)
 
 ```bash
 git add PRODUCT.md DESIGN.md
@@ -155,8 +155,8 @@ git commit -m "docs(product/design): reconcile with shipped reality"
 
 **Files:** `CHANGELOG.md`
 
-- [ ] **Step 1: Append** a single entry summarizing the 8-topic batch (R2, photo-upload, waitlist admin, mobile, prettier-on-gen, cleanliness, email/OTP, polish+security). Keep it a high-level summary, not a commit log.
-- [ ] **Step 2: Commit**
+- [x] **Step 1: Append** a single entry summarizing the 8-topic batch (R2, photo-upload, waitlist admin, mobile, prettier-on-gen, cleanliness, email/OTP, polish+security). Keep it a high-level summary, not a commit log.
+- [x] **Step 2: Commit**
 
 ```bash
 git add CHANGELOG.md
@@ -167,9 +167,9 @@ git commit -m "docs(changelog): 8-topic batch summary"
 
 ### Task 9: Final 1:1 + gate
 
-- [ ] **Step 1:** `diff <(sed 's/=".*"/=""/' .env.example) <(sed 's/=".*"/=""/' .env)` → no output.
-- [ ] **Step 2:** `bun run check` green.
-- [ ] **Step 3:** Manual 0-context read of `CLAUDE.md` + `DEV.md` + `docs/architecture.md` correctly predicts where R2, `/media`, `/admin`, mobile chrome, email/OTP live.
+- [x] **Step 1:** `diff <(sed 's/=".*"/=""/' .env.example) <(sed 's/=".*"/=""/' .env)` → no output.
+- [x] **Step 2:** `bun run check` green.
+- [x] **Step 3:** Manual 0-context read of `CLAUDE.md` + `DEV.md` + `docs/architecture.md` correctly predicts where R2, `/media`, `/admin`, mobile chrome, email/OTP live.
 
 ---
 
