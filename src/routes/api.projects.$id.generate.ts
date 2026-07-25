@@ -581,7 +581,10 @@ async function handleGeneratePost(request: Request, routeId: string) {
               buildId: runtimeBuildId ?? snapshot.id,
               projectId,
             }).catch(() => undefined);
-          } else {
+          } else if (!sourceStepCharger.isExhausted()) {
+            // ponytail: when energy halted the build mid-loop, the
+            // energy_exhausted informational event is the user-facing truth;
+            // skip the contradicting "Build website gagal" failure message.
             send("progress", {
               label: "Build website gagal",
               detail: "File disimpan. Silakan cek log di tab Kode.",
@@ -1057,7 +1060,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
             label: "Build website berhasil",
             detail: "File website berhasil divalidasi.",
           });
-        } else {
+        } else if (!sourceGeneration.energyExhausted) {
+          // ponytail: on energy exhaustion the energy_exhausted event at :836
+          // is the user-facing truth; skip the contradicting "gagal" progress.
           send("progress", {
             label: "Build website gagal",
             detail: "File disimpan. Silakan cek log di tab Kode.",
@@ -1232,11 +1237,17 @@ async function handleGeneratePost(request: Request, routeId: string) {
           ]);
         }
 
-        if (!finalBuildOk) {
+        if (!finalBuildOk && !sourceGeneration.energyExhausted) {
+          // ponytail: when energy halted the build, the energy_exhausted event
+          // already told the user; don't emit a contradicting failure error.
           send("error", {
             message:
               "Build website belum berhasil. Coba build ulang setelah cek brief.",
           });
+          return;
+        }
+
+        if (!finalBuildOk) {
           return;
         }
 
