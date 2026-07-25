@@ -16,16 +16,45 @@ import { cn } from "@/lib/utils";
 import globalCss from "@/styles/globals.css?url";
 
 const siteUrl = "https://umkmcepat.com";
+const siteTitle =
+  "Website UMKM Gratis dalam 5 Menit - Tanpa Ngoding | UMKM Cepat";
 const siteDescription =
-  "AI Website Builder untuk UMKM. Buat website dan alat digital dari kebutuhan usahamu, cepat, rapi, dan siap dipakai.";
-const siteTitle = "UMKM Cepat - AI Website Builder untuk UMKM";
+  "Bikin website UMKM gratis dalam 5 menit pakai AI. Tanpa ngoding, siap dibagikan ke WhatsApp, gampang dicari pembeli. Coba UMKM Cepat!";
 
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: "UMKM Cepat",
-  url: siteUrl,
-  description: siteDescription,
+  "@graph": [
+    {
+      "@type": "Organization",
+      logo: `${siteUrl}/brand/umkmcepat-logo.svg`,
+      name: "UMKM Cepat",
+      sameAs: ["https://github.com/suryaelidanto/umkmcepat"],
+      url: siteUrl,
+    },
+    {
+      "@type": "WebSite",
+      description: siteDescription,
+      name: "UMKM Cepat",
+      potentialAction: {
+        "@type": "SearchAction",
+        "query-input": "required name=search_term_string",
+        target: `${siteUrl}/?q={search_term_string}`,
+      },
+      url: siteUrl,
+    },
+    {
+      "@type": "SoftwareApplication",
+      applicationCategory: "BusinessApplication",
+      name: "UMKM Cepat",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "IDR",
+      },
+      operatingSystem: "Web",
+      url: siteUrl,
+    },
+  ],
 };
 
 export const Route = createRootRoute({
