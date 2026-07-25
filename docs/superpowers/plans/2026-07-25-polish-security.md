@@ -48,20 +48,20 @@
 
 **Interfaces:** N/A — bg class swap.
 
-- [ ] **Step 1: Body root → dark**
+- [x] **Step 1: Body root → dark**
 
 `__root.tsx:103` body className: `bg-surface-warm-white` → `bg-[#151515]`. Keep `text-surface-warm-white` so text stays light. NotFound (`:69`) same swap.
 
-- [ ] **Step 2: MainChrome → dark**
+- [x] **Step 2: MainChrome → dark**
 
 `MainChrome.tsx:109` (spinner) + `:122` (chrome wrapper): `bg-surface-warm-white` → `bg-[#151515]`.
 
-- [ ] **Step 3: Run the fast gate**
+- [x] **Step 3: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green (no test asserts bg color, but typecheck/lint/format/Knip must pass).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/routes/__root.tsx src/components/common/MainChrome.tsx
@@ -79,7 +79,7 @@ git commit -m "fix(chrome): roll back to dark #151515 (body/MainChrome/NotFound)
 
 **Interfaces:** N/A — copy + schema swap.
 
-- [ ] **Step 1: Title + meta + JSON-LD in __root.tsx**
+- [x] **Step 1: Title + meta + JSON-LD in __root.tsx**
 
 Replace the `siteTitle`/`siteDescription`/`jsonLd` block (`__root.tsx:17-26`):
 
@@ -128,7 +128,7 @@ const jsonLd = {
 
 Confirm the `siteTitle`/`siteDescription` are referenced in the `head()` `meta`/`title` block; update those references to the new strings.
 
-- [ ] **Step 2: H1 + sub in _main.index.tsx**
+- [x] **Step 2: H1 + sub in _main.index.tsx**
 
 Logged-out H1 (`_main.index.tsx:185-202`): replace with:
 
@@ -142,14 +142,14 @@ Logged-out H1 (`_main.index.tsx:185-202`): replace with:
 
 Add the `draw` keyframe to `src/styles/globals.css` if not present (or use Framer Motion `whileInView` on the underline span — confirm the existing H1 wrapper's animation approach in `HeroContentMotion.tsx` and match it).
 
-- [ ] **Step 3: Tagline** — add `Website UMKM yang ketemu pembeli.` near the wordmark/footer if a tagline slot exists; if not, skip (the `<title>` carries it).
+- [x] **Step 3: Tagline** — add `Website UMKM yang ketemu pembeli.` near the wordmark/footer if a tagline slot exists; if not, skip (the `<title>` carries it).
 
-- [ ] **Step 4: Run the fast gate**
+- [x] **Step 4: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/routes/__root.tsx src/routes/_main.index.tsx src/components/home/HeroContentMotion.tsx src/styles/globals.css
@@ -167,7 +167,7 @@ git commit -m "feat(seo): homepage copy (Direction B) + JSON-LD @graph"
 **Interfaces:**
 - Produces: `mapToUserFacingError(reason: string): string` — known backend reason → Indonesian; unknown → `Permintaan belum bisa diproses. Coba lagi nanti.` (never the raw string).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -188,13 +188,13 @@ describe("mapToUserFacingError", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails.**
+- [x] **Step 2: Run to verify it fails.**
 
-- [ ] **Step 3: Implement** `mapToUserFacingError` — a map of known reason substrings → Indonesian strings; default fallback. (Keep it small; extend as leak sites surface patterns.)
+- [x] **Step 3: Implement** `mapToUserFacingError` — a map of known reason substrings → Indonesian strings; default fallback. (Keep it small; extend as leak sites surface patterns.)
 
-- [ ] **Step 4: Run to verify it passes.**
+- [x] **Step 4: Run to verify it passes.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/user-facing-error.ts src/lib/user-facing-error.test.ts
@@ -213,18 +213,18 @@ git commit -m "feat(error): mapToUserFacingError (generic Indonesian, never raw)
 **Interfaces:**
 - Consumes: `mapToUserFacingError` (Task 3).
 
-- [ ] **Step 1: api.payment.create.ts** — replace `error.message` echo with `mapToUserFacingError(error.message)` + log raw server-side.
+- [x] **Step 1: api.payment.create.ts** — replace `error.message` echo with `mapToUserFacingError(error.message)` + log raw server-side.
 
-- [ ] **Step 2: api.projects.preview.ts:505** — `onError` returns `mapToUserFacingError(error.message)` in prod; raw only in dev logs.
+- [x] **Step 2: api.projects.preview.ts:505** — `onError` returns `mapToUserFacingError(error.message)` in prod; raw only in dev logs.
 
-- [ ] **Step 3: api.projects.$id.runtime-events.ts:40** — drop `message` from the `select` (or sanitize via `getIndonesianBuildFailureSummary`); confirm no client consumes it first (`grep -rn "event.message\|\.message" src/components/projects/WorkspaceShell.tsx`).
+- [x] **Step 3: api.projects.$id.runtime-events.ts:40** — drop `message` from the `select` (or sanitize via `getIndonesianBuildFailureSummary`); confirm no client consumes it first (`grep -rn "event.message\|\.message" src/components/projects/WorkspaceShell.tsx`).
 
-- [ ] **Step 4: Run the fast gate**
+- [x] **Step 4: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/routes/api.payment.create.ts src/routes/api.projects.preview.ts src/routes/api.projects.\$id.runtime-events.ts
@@ -239,16 +239,16 @@ git commit -m "fix(error): route leak sites through mapToUserFacingError"
 - Modify: `src/lib/otp.ts:8`
 - Modify: `src/routes/api.waitlist.ts` (image upload block)
 
-- [ ] **Step 1: OTP crypto** — `Math.random()` → `crypto.randomInt(0, 1_000_000).toString().padStart(6, "0")` (import `randomInt` from `node:crypto`).
+- [x] **Step 1: OTP crypto** — `Math.random()` → `crypto.randomInt(0, 1_000_000).toString().padStart(6, "0")` (import `randomInt` from `node:crypto`).
 
-- [ ] **Step 2: Waitlist magic-byte** — in `api.waitlist.ts` after the size check, reuse `detectImageFormat` from `@/lib/projects/project-assets`; reject non-images even if `file.type` claims `image/png`.
+- [x] **Step 2: Waitlist magic-byte** — in `api.waitlist.ts` after the size check, reuse `detectImageFormat` from `@/lib/projects/project-assets`; reject non-images even if `file.type` claims `image/png`.
 
-- [ ] **Step 3: Run the fast gate**
+- [x] **Step 3: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/lib/otp.ts src/routes/api.waitlist.ts
@@ -263,18 +263,18 @@ git commit -m "fix(security): crypto.randomInt OTP + waitlist image magic-byte v
 - Modify: `src/lib/projects/runtime-proxy.ts:451,461`
 - Modify: `src/lib/projects/generated-source.ts:450,370`
 
-- [ ] **Step 1: postMessage origin** — replace `postMessage(payload, '*')` with `postMessage(payload, controlPlaneOrigin)` where `controlPlaneOrigin` is the parent window origin (pass it in via the bridge script's data attribute or `NEXT_PUBLIC_APP_URL`).
+- [x] **Step 1: postMessage origin** — replace `postMessage(payload, '*')` with `postMessage(payload, controlPlaneOrigin)` where `controlPlaneOrigin` is the parent window origin (pass it in via the bridge script's data attribute or `NEXT_PUBLIC_APP_URL`).
 
-- [ ] **Step 2: Narrow build PATH** — in the build child `env`, set `PATH` to the bun bin dir + standard system dirs (`/usr/local/bin:/usr/bin:/bin`) rather than inheriting the full `process.env.PATH`.
+- [x] **Step 2: Narrow build PATH** — in the build child `env`, set `PATH` to the bun bin dir + standard system dirs (`/usr/local/bin:/usr/bin:/bin`) rather than inheriting the full `process.env.PATH`.
 
-- [ ] **Step 3: Frozen lockfile** — after package-policy validation, if a `bun.lock` exists in the workspace, run `bun install --frozen-lockfile`; else enforce lockfile presence before install.
+- [x] **Step 3: Frozen lockfile** — after package-policy validation, if a `bun.lock` exists in the workspace, run `bun install --frozen-lockfile`; else enforce lockfile presence before install.
 
-- [ ] **Step 4: Run the fast gate**
+- [x] **Step 4: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/runtime-proxy.ts src/lib/projects/generated-source.ts
@@ -287,11 +287,11 @@ git commit -m "fix(security): postMessage origin + narrow build PATH + frozen-lo
 
 Not committed — verification.
 
-- [ ] **Step 1:** Homepage renders dark (no cream); H1 + animated `100% Gratis` underline; `<title>`/meta via view-source; JSON-LD `@graph` validates at search.google.com/test/rich-results.
-- [ ] **Step 2:** Trigger a Pakasir error + a preview stream error → user sees Indonesian generic, never raw internals.
-- [ ] **Step 3:** OTP code is 6 digits, generated via `crypto.randomInt` (inspect devLog).
-- [ ] **Step 4:** Upload a non-image claiming `image/png` to `/api/waitlist` → rejected.
-- [ ] **Step 5:** `bun run check` green.
+- [x] **Step 1:** Homepage renders dark (no cream); H1 + animated `100% Gratis` underline; `<title>`/meta via view-source; JSON-LD `@graph` validates at search.google.com/test/rich-results.
+- [x] **Step 2:** Trigger a Pakasir error + a preview stream error → user sees Indonesian generic, never raw internals.
+- [x] **Step 3:** OTP code is 6 digits, generated via `crypto.randomInt` (inspect devLog).
+- [x] **Step 4:** Upload a non-image claiming `image/png` to `/api/waitlist` → rejected.
+- [x] **Step 5:** `bun run check` green.
 
 ---
 
@@ -306,7 +306,7 @@ Not committed — verification.
 **Interfaces:**
 - Produces: `track(event: string, props?: Record<string, string|number|boolean>): void` — calls `window.umami.track(event, props)` when the Umami script is loaded + `UMAMI_WEBSITE_ID` set + in prod; no-op in dev or on server. Never called from `/api/*` or `/p/<slug>`.
 
-- [ ] **Step 1: Add Umami + Uptime Kuma to docker-compose.prod.yml**
+- [x] **Step 1: Add Umami + Uptime Kuma to docker-compose.prod.yml**
 
 ```yaml
   umami:
@@ -330,7 +330,7 @@ volumes:
 
 (Confirm the Umami image tag + DB-sharing approach with the official Umami docker docs at impl; lean a separate `umami` DB on the same Postgres instance to avoid schema collision. Uptime Kuma uses its own SQLite.)
 
-- [ ] **Step 2: Add env vars (1:1)** — `.env` + `.env.example` OPTIONAL section:
+- [x] **Step 2: Add env vars (1:1)** — `.env` + `.env.example` OPTIONAL section:
 
 ```env
 # Umami analytics (empty = dev no-op; set website id + script src in prod).
@@ -338,7 +338,7 @@ UMAMI_WEBSITE_ID=""
 UMAMI_SCRIPT_SRC=""
 ```
 
-- [ ] **Step 3: Create src/lib/analytics.ts**
+- [x] **Step 3: Create src/lib/analytics.ts**
 
 ```ts
 export function track(
@@ -353,18 +353,18 @@ export function track(
 }
 ```
 
-- [ ] **Step 4: Write the failing test** — `track` is a no-op when `NODE_ENV !== production` or `UMAMI_WEBSITE_ID` empty; calls `window.umami.track` when both set. Mock `window.umami`.
+- [x] **Step 4: Write the failing test** — `track` is a no-op when `NODE_ENV !== production` or `UMAMI_WEBSITE_ID` empty; calls `window.umami.track` when both set. Mock `window.umami`.
 
-- [ ] **Step 5: Wire the Umami script tag** in `__root.tsx` `head()` (prod-only, `UMAMI_SCRIPT_SRC`): `<script defer src={UMAMI_SCRIPT_SRC} data-website-id={UMAMI_WEBSITE_ID} />`.
+- [x] **Step 5: Wire the Umami script tag** in `__root.tsx` `head()` (prod-only, `UMAMI_SCRIPT_SRC`): `<script defer src={UMAMI_SCRIPT_SRC} data-website-id={UMAMI_WEBSITE_ID} />`.
 
-- [ ] **Step 6: Sprinkle `track()` calls** on key user actions (hero CTA click, project create, publish, mode toggle) — a few high-signal events, not every click.
+- [x] **Step 6: Sprinkle `track()` calls** on key user actions (hero CTA click, project create, publish, mode toggle) — a few high-signal events, not every click.
 
-- [ ] **Step 7: Run the fast gate + verify 1:1**
+- [x] **Step 7: Run the fast gate + verify 1:1**
 
 Run: `bun run check` + `diff <(sed 's/=".*"/=""/' .env.example) <(sed 's/=".*"/=""/' .env)`
 Expected: all green + no diff output.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add docker-compose.prod.yml .env.example src/lib/analytics.ts src/lib/analytics.test.ts src/routes/__root.tsx <component files>
@@ -383,16 +383,16 @@ git commit -m "feat(analytics): Umami + Uptime Kuma self-hosted; client track he
 - Consumes: the published deployment's metadata (business name, slug, `GENERATED_PUBLIC_ORIGIN`).
 - Produces: each published site serves a unique `<title>` (`<businessName> — <tagline>`), meta description, og:title/description/image/canonical, and `LocalBusiness` JSON-LD.
 
-- [ ] **Step 1: Write the per-page head injector** — a function that takes `{businessName, slug, description?, image?}` and returns the `<head>` fragment string (title, meta, og, canonical `https://<GENERATED_PUBLIC_ORIGIN>/p/<slug>`, `LocalBusiness` JSON-LD with name + url + the WhatsApp/IG `sameAs` if present).
+- [x] **Step 1: Write the per-page head injector** — a function that takes `{businessName, slug, description?, image?}` and returns the `<head>` fragment string (title, meta, og, canonical `https://<GENERATED_PUBLIC_ORIGIN>/p/<slug>`, `LocalBusiness` JSON-LD with name + url + the WhatsApp/IG `sameAs` if present).
 
-- [ ] **Step 2: Wire it into the published-site serve path** — when serving `/p/<slug>/*`, inject the head into the dist's `index.html` (or emit it server-side). Confirm the exact injection point in `p.$slug.$.ts` + `runtime-proxy.ts`.
+- [x] **Step 2: Wire it into the published-site serve path** — when serving `/p/<slug>/*`, inject the head into the dist's `index.html` (or emit it server-side). Confirm the exact injection point in `p.$slug.$.ts` + `runtime-proxy.ts`.
 
-- [ ] **Step 3: Run the fast gate**
+- [x] **Step 3: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/routes/p.\$slug.\$.ts src/lib/projects/runtime-proxy.ts
@@ -410,7 +410,7 @@ git commit -m "feat(seo): per-page title/meta/og/canonical + LocalBusiness JSON-
 - Consumes: `prisma.projectDeployment.findMany({where:{kind:"published"}})` for slugs + `updatedAt`.
 - Produces: a `<urlset>` with the homepage (priority 1) + every published `/p/<slug>` (priority 0.8, `<lastmod>` from deployment).
 
-- [ ] **Step 1: Replace the single-URL sitemap** with a dynamic one enumerating published deployments:
+- [x] **Step 1: Replace the single-URL sitemap** with a dynamic one enumerating published deployments:
 
 ```ts
 export const Route = createFileRoute("/sitemap.xml")({
@@ -431,12 +431,12 @@ export const Route = createFileRoute("/sitemap.xml")({
 });
 ```
 
-- [ ] **Step 2: Run the fast gate**
+- [x] **Step 2: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/routes/sitemap\[.\]xml.ts
