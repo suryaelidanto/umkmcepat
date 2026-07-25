@@ -23,6 +23,7 @@ vi.mock("@/lib/model-pricing", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $queryRaw: prismaQueryRawMock,
     $transaction: prismaTransactionMock,
   },
 }));
@@ -30,6 +31,7 @@ vi.mock("@/lib/prisma", () => ({
 import {
   calculateEnergyCost,
   chargeEnergyForAiUsage,
+  chargeEnergyForStep,
   DAILY_ENERGY_LIMIT,
   getDayBoundaries,
   MIN_ENERGY_BUILD,
@@ -186,5 +188,65 @@ describe("assertUnderProjectLimit", () => {
       count: 0,
       limit: 3,
     });
+  });
+});
+
+describe("chargeEnergyForStep", () => {
+  beforeEach(() => {
+    getModelPricingMock.mockReset();
+    getModelPricingMock.mockResolvedValue({
+      promptPrice: 0.0000003,
+      completionPrice: 0.0000012,
+    });
+    prismaQueryRawMock.mockReset();
+    prismaExecuteRawMock.mockReset();
+    prismaExecuteRawMock.mockResolvedValue(1);
+  });
+
+  it("returns null and writes nothing when usage is zero", async () => {
+    const result = await chargeEnergyForStep({
+      userId: "u1",
+      modelId: "m1",
+      inputTokens: 0,
+      outputTokens: 0,
+      reason: "build:step",
+    });
+
+    expect(result).toBeNull();
+    expect(prismaExecuteRawMock).not.toHaveBeenCalled();
+  });
+
+  it("charges and reports remaining balance", async () => {
+    // First query: free energy used today. Later queries: balance stats.
+    prismaQueryRawMock.mockResolvedValue([{ used: 0 }]);
+
+    const result = await chargeEnergyForStep({
+      userId: "u1",
+      modelId: "m1",
+      inputTokens: 1_000_000,
+      outputTokens: 0,
+      reason: "build:step",
+      projectId: "p1",
+    });
+
+    // 1e6 input tokens * $0.0000003 = $0.30 -> 300_000 energy
+    expect(result?.energyUsed).toBe(300_000);
+    expect(typeof result?.remaining).toBe("number");
+    expect(prismaExecuteRawMock).toHaveBeenCalled();
+  });
+
+  it("returns null instead of throwing when the ledger write fails", async () => {
+    prismaQueryRawMock.mockResolvedValue([{ used: 0 }]);
+    prismaExecuteRawMock.mockRejectedValue(new Error("db down"));
+
+    const result = await chargeEnergyForStep({
+      userId: "u1",
+      modelId: "m1",
+      inputTokens: 1000,
+      outputTokens: 1000,
+      reason: "build:step",
+    });
+
+    expect(result).toBeNull();
   });
 });

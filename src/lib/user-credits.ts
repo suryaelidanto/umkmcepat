@@ -91,6 +91,7 @@ export async function addEnergyUsage(
   inputTokens: number,
   outputTokens: number,
   reason: string,
+  options: { projectId?: string | null } = {},
 ): Promise<{ energyUsed: number; inputTokens: number; outputTokens: number }> {
   const input = Math.max(0, Math.floor(inputTokens));
   const output = Math.max(0, Math.floor(outputTokens));
@@ -136,10 +137,11 @@ export async function addEnergyUsage(
 
     if (freeDeduction > 0) {
       await tx.$executeRaw`
-        INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+        INSERT INTO "UserCredit" ("id", "userId", "projectId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
         VALUES (
           ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
           ${userId},
+          ${options.projectId ?? null},
           ${-freeDeduction},
           ${Math.round(input * freeRatio)},
           ${Math.round(output * freeRatio)},
@@ -153,10 +155,11 @@ export async function addEnergyUsage(
     if (premiumDeduction > 0) {
       const premiumExpiry = new Date("9999-12-31T23:59:59.999Z");
       await tx.$executeRaw`
-        INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+        INSERT INTO "UserCredit" ("id", "userId", "projectId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
         VALUES (
           ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
           ${userId},
+          ${options.projectId ?? null},
           ${-premiumDeduction},
           ${input - Math.round(input * freeRatio)},
           ${output - Math.round(output * freeRatio)},
@@ -202,6 +205,46 @@ export async function chargeEnergyForAiUsage(opts: {
     );
   } catch (error) {
     console.warn("[energy] chargeEnergyForAiUsage failed", {
+      reason: opts.reason,
+      userId: opts.userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+/**
+ * Per-step debit. Same accounting as `chargeEnergyForAiUsage`, but also
+ * reports the post-charge balance so agent loops can halt at zero.
+ * Never throws into the request path.
+ */
+export async function chargeEnergyForStep(opts: {
+  userId: string;
+  modelId?: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  reason: string;
+  projectId?: string | null;
+}): Promise<{ energyUsed: number; remaining: number } | null> {
+  const input = Math.max(0, Math.floor(opts.inputTokens));
+  const output = Math.max(0, Math.floor(opts.outputTokens));
+  if (input <= 0 && output <= 0) {
+    return null;
+  }
+
+  try {
+    const charged = await addEnergyUsage(
+      opts.userId,
+      opts.modelId?.trim() || "unknown",
+      input,
+      output,
+      opts.reason,
+      { projectId: opts.projectId ?? null },
+    );
+    const remaining = await getRemainingEnergy(opts.userId);
+    return { energyUsed: charged.energyUsed, remaining };
+  } catch (error) {
+    console.warn("[energy] chargeEnergyForStep failed", {
       reason: opts.reason,
       userId: opts.userId,
       error: error instanceof Error ? error.message : String(error),
