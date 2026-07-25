@@ -49,6 +49,8 @@ A second agent with **no context** of this work must be able to read the output 
 
 ## Output format (REQUIRED)
 
+Keep the goal tight: ideally ~1500 characters, hard max 4000 characters. If you're over, cut the worked-example-style prose, not the slot fills.
+
 Output exactly this, filled, then stop:
 
 > **Goal:** [one-line outcome + numeric threshold]
