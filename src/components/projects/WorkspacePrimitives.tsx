@@ -1221,7 +1221,12 @@ export function QuestionComposer({
         {!isTextQuestion && !customAnswerOpen ? (
           <button
             type="button"
-            onClick={() => setCustomAnswerOpen(true)}
+            onClick={() => {
+              setCustomAnswerOpen(true);
+              if (customAnswer.trim()) {
+                chooseAnswer(customAnswer.trim(), "custom");
+              }
+            }}
             className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 border-b px-spacing-5 py-spacing-4 text-left transition last:border-b-0 ${customAnswerSelected ? modeTone.selected : modeTone.option}`}
           >
             <span className="min-w-0">
