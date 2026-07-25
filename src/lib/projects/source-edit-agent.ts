@@ -192,4 +192,5 @@ Rules:
   * Do NOT edit src/main.tsx or src/routes/__root.tsx (you may add a shared layout in __root.tsx if the edit calls for header/footer, but keep <Outlet />). You MAY edit src/router.tsx to register your extra routes — nothing else there.
   * Import usePreviewReady from "@/lib/preview-ready".
   * Import the business data using: import { site } from "@/content/site". Do NOT edit src/content/site.ts — it is fully populated and exports site as both named and default exports.
-- Always run check_app after source changes.`;
+- Always run check_app after source changes.
+- UPLOADED IMAGES: when the owner attaches images, read each (vision) + place it where it fits. Reference each via the mediaPath given in the turn metadata as <img src="/media/<assetId>" alt="<short alt>" /> — NEVER the raw cloud URL. If you cannot understand an image, ask the user where to place it instead of guessing.`;

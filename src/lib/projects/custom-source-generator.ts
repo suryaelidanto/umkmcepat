@@ -2097,6 +2097,8 @@ ROUTING & PAGE CONTRACT:
 STATIC ONLY: no auth, no backend, no database, no payment gateway, no fake /api routes. Use WhatsApp/contact CTAs and real Indonesian business copy.
 Do not add or remove dependencies — package.json is platform-owned.
 
+UPLOADED IMAGES: when the owner attaches images, read each (vision) + place it where it fits (hero, gallery, product card). Reference each via the mediaPath given in the turn metadata as <img src="/media/<assetId>" alt="<short alt>" /> — NEVER the raw cloud URL. If you cannot understand an image, ask the user where to place it instead of guessing.
+
 Call check_app after all writes.`;
 }
 
