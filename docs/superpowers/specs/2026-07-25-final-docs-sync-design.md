@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-25
 **Topic:** 9 (the very last phase) of the eight-topic roadmap (extended to 9 with polish+security).
-**Status:** Design approved; pending plan + implementation. Must run **last** — after topics 1–8 land.
+**Status:** Shipped — `d3ee444` (architecture/deployment/README/CLAUDE/CHANGELOG reconciled); plan complete (`54d95c3`). The 2 R2 env vars (`PROJECT_ASSET_STORAGE_PROVIDER`, `PROJECT_ASSET_R2_PREFIX`) + Umami vars are declared. Must run **last** — after topics 1–8 land.
 
 ## Goal
 

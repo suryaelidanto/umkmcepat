@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-25
 **Topic:** 5 of the eight-topic roadmap (see `umkmcepat-eight-topic-roadmap` memory)
-**Status:** Design approved; pending plan + implementation. Small spec — no forks.
+**Status:** Shipped — plan complete (`f780ddb`). `src/lib/projects/format-generated-source.ts` (cached, fire-and-forget, scoped `prettier --write --cache`) wired into both `api.projects.$id.generate.ts` and `api.projects.$id.edit.ts` via `Promise.allSettled`. No new dependency (`prettier` already present). Small spec — no forks.
 
 ## Goal
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-25
 **Topic:** 4 of the eight-topic roadmap (see `umkmcepat-eight-topic-roadmap` memory)
-**Status:** Design approved; pending plan + implementation. **Highest-risk topic** — see Verify Model.
+**Status:** Foundation shipped — `MobileNav.tsx` (4 items + Lainnya overflow), `mobile-sheet.tsx` primitive, workspace swipe gesture, tier-1 audit helpers, tier-2 captures (`cbca748`..`0cb2d33`). Tasks 6-8 deferred per plan `cdc2e07` (live-render-dependent); tier-3 subjective human-review sign-off outstanding. **Highest-risk topic** — see Verify Model.
 
 ## Goal
 

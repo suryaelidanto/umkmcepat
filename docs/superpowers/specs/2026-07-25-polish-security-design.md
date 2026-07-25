@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-25
 **Topic:** 8 of the eight-topic roadmap (see `umkmcepat-eight-topic-roadmap` memory); added late per user's polish + security concerns.
-**Status:** Design approved; pending plan + implementation.
+**Status:** Mostly shipped — plan complete (`d7107a7`); dark chrome, `mapToUserFacingError` on the 4 leak sites, JSON-LD `@graph` (no `aggregateRating`), locked homepage copy, sitemap enumerating `/p/<slug>`, Umami `track()`, OTP crypto, waitlist magic-byte, `runtime-proxy.ts` postMessage origin-targeting. **Unshipped (decision 8):** `generated-source.ts:450` build-child `PATH` still inherits full `process.env.PATH` (narrowing not applied); `:370` `--frozen-lockfile` enforcement not added. Both hardening items remain open.
 
 ## Goal
 

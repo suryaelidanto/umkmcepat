@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-24
 **Topic:** 1 of the eight-topic roadmap (see `umkmcepat-eight-topic-roadmap` memory)
-**Status:** Design approved; pending plan + implementation.
+**Status:** Shipped — serve route 302-redirects to `publicUrl` (`577003e`); live round-trip test (`f4429b4`); plan marked complete (`8d0f792`). `src/lib/r2-client.ts` is the consolidated Sig V4 home; `publicUrl` column on `prisma/schema.prisma`; `PROJECT_ASSET_STORAGE_PROVIDER` in `.env.example`.
 
 ## Goal
 

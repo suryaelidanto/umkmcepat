@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-25
 **Topic:** 2 of the eight-topic roadmap (see `umkmcepat-eight-topic-roadmap` memory)
-**Status:** Design approved; pending plan + implementation.
+**Status:** Shipped — plan complete (`4ca14ee`). `src/routes/media.$assetId.ts` (302 to `publicUrl`, 404 on miss, immutable cache), `ComposerAttachments.tsx` with `MAX_COMPOSER_IMAGES` cap, commit-on-send to R2 via `pendingAttachments` in `WorkspaceShell.tsx`.
 **Depends on:** R2 display-media storage (topic 1) — uses `ProjectAsset.publicUrl` + the R2 client.
 
 ## Goal

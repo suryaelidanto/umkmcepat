@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-25
 **Topic:** 6 of the eight-topic roadmap (see `umkmcepat-eight-topic-roadmap` memory)
-**Status:** Design approved; pending plan + implementation.
+**Status:** Design approved. Plan committed (`dc58f5f`), tasks marked complete (`d66c95e`), DEV.md Cleanliness contract landed (`a55ecd7`). Phase B (comment sweep) + Phase D (DEV.md) shipped; Phase C deepening refactors are not yet committed — see the candidate list in the plan.
 
 ## Goal
 

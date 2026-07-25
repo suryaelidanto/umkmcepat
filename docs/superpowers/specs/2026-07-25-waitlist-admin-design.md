@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-25
 **Topic:** 3 of the eight-topic roadmap (see `umkmcepat-eight-topic-roadmap` memory)
-**Status:** Design approved; pending plan + implementation.
+**Status:** Shipped — plan complete (`73e4c4f`). `src/routes/_main.admin.tsx` (requireAdmin), `api.admin.waitlist.ts`, own-entry pre-fill on `api.user.waitlist.ts` GET, `WAITLIST_ENABLED` in `.env.example`, `_main.waitlist.tsx` pre-fills from `own`. Admin route shipped as `_main.admin.tsx` (the spec's first of its two open alternatives).
 
 ## Goal
 

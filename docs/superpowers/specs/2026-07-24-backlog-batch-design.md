@@ -186,6 +186,8 @@ Unit: `restoreSnapshot` produces a new row with correct `parentSnapshotId` and c
 
 ## Phase 5 — Websearch tool (Firecrawl) + guardrails (#7)
 
+> **SUPERSEDED 2026-07-24 (commit `cd010b8`).** The websearch feature + self-hosted Firecrawl stack were removed; the user clarified "search engine for token efficiency" meant web search, which is moot. No `WEBSEARCH_*` / `FIRECRAWL_*` env vars exist in `.env.example`, and that is now **correct** — they were never added because the feature was deleted before this Phase's env-var step ran. The design text below is retained as a historical record; do not re-implement or re-add the env vars without a new spec.
+
 ### Current state
 
 No websearch capability in the engine. The platform already uses Firecrawl as an MCP for *my* dev work; the user self-hosts Firecrawl. The source-generation agent (`createAgentTools`) has no research tool.

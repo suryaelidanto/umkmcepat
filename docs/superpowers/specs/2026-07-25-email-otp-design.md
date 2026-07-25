@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-25
 **Topic:** 7 of the eight-topic roadmap (see `umkmcepat-eight-topic-roadmap` memory)
-**Status:** Design approved; pending plan + implementation. Standalone (no dependency on other topics).
+**Status:** Shipped — plan complete (`3c317bb`). `src/lib/email.ts` (Resend REST, mock-in-dev, throw-in-prod), `src/lib/otp.ts` (OTPSpace `/v1/send`, `crypto.randomInt`), `src/lib/provider-startup-check.ts` asserts both keys in prod. Standalone (no dependency on other topics).
 
 ## Goal
 

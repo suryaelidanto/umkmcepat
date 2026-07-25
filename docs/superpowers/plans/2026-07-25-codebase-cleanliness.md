@@ -38,15 +38,15 @@ Run: `git log --oneline -40` and note the files/subsystems that recur (generatio
 
 Run the skill (`.claude/skills/improve-codebase-architecture/SKILL.md`): Explore-agent walk of the hot spots, note friction (shallow modules, leaking seams, pure-functions-extracted-for-testability-but-bugs-in-calls), apply the deletion test to anything suspected shallow.
 
-- [x] **Step 3: Render the candidate HTML report**
+- [x] **Step 3: Write the candidate list**
 
-Per `HTML-REPORT.md`: self-contained HTML in OS temp (Tailwind + Mermaid CDNs), one `<article>` per candidate with files/problem/solution/wins/before-after diagram/strength badge (`Strong`/`Worth exploring`/`Speculative`). End with a Top-recommendation section.
+Delivered as a committed markdown doc instead of the spec's OS-temp HTML (user chose a reviewable committed artifact over an ephemeral one). Output: `docs/superpowers/plans/2026-07-25-codebase-cleanliness-candidates.md` — one entry per candidate with files/problem/solution/risk badge (`Strong`/`Worth exploring`/`Speculative`) + behavior-proof (the test file that catches a regression). Candidates are grouped: A shallow wrappers, B degenerate helpers, C single-file dups, E cross-route guard dups, F pure-cluster extraction, S security-consistency.
 
-- [x] **Step 4: Open the report for the user + pick candidates**
+- [x] **Step 4: Pick candidates with the user**
 
-Open the HTML (`xdg-open <path>` on Linux). With the user, pick which candidates to deepen in Task 3. Note: the report itself is not committed (it's OS temp); only the picked candidates + their rationale carry into Task 3's commits.
+User reviews the candidate doc and selects which to deepen in Task 3. The doc's "Recommended pick order" section pre-ranks them safest-first (S1 security → Tier 1 → Tier 2 → Tier 3/defer).
 
-- [x] **Step 5: No commit** (discovery output lives in OS temp; nothing lands in the repo yet).
+- [x] **Step 5: No code commit** (the candidate doc is the discovery output; deepening commits land in Task 3).
 
 ---
 
@@ -90,35 +90,37 @@ git commit -m "chore(clean): remove obvious/restating comments in <chunk>"
 - Modify: per candidate (e.g. consolidate a duplicated helper, delete a shallow wrapper, deepen a module's interface).
 
 **Interfaces:**
-- Consumes: the picked candidates from Task 1.
+- Consumes: the picked candidates from **`2026-07-25-codebase-cleanliness-candidates.md`** (this directory) — the canonical candidate list surfaced by Phase A: shallow wrappers (A1–A6), degenerate helpers (B1–B2), single-file dups (C1–C5), cross-route guard dups (E1–E8), pure-cluster extraction (F1–F3), and a security-consistency leak fix (S1). Each entry has files / problem / solution / risk badge / behavior-proof.
 - Produces: deeper modules / consolidated helpers / removed wrappers — behavior unchanged, gate green.
 
 - [x] **Step 1: Order candidates by risk (lowest-risk, highest-leverage first)**
 
-e.g. delete a shallow wrapper (lowest risk) → consolidate a duplicated helper → deepen a module's interface (higher risk). Each candidate is its own atomic commit.
+The pick order lives in the candidate doc's "Recommended pick order" section. S1 (security) first, then Tier 1 (E1 session guard ×28, E2 owned-project ×~19, C3 repair-helper merge — author-approved via ponytail L2262, E3 escapeHtml, A1/A2/A4/A5 inline wrappers, C1 toPackageName), then Tier 2 (F1/F2 pure-cluster extraction + mid-leverage dups), then Tier 3 (judgment calls — defer unless requested). C4/E6 are deferred: adjacent to the in-flight energy-metering WIP.
 
-- [x] **Step 2: For the first candidate — confirm gate green before**
+- [ ] **Step 2: For the first candidate — confirm gate green before**
 
 Run: `bun run check`
 Expected: green.
 
-- [x] **Step 3: Apply the deepening refactor**
+- [ ] **Step 3: Apply the deepening refactor**
 
-The exact change depends on the candidate (this is discovery-time output, not a known transform now). Examples: extract a shared `r2-client.ts`-style consolidation (the R2 plan already did one for Sig V4 — if Phase A surfaces another dup, consolidate it); delete a one-impl interface; inline a pass-through wrapper.
+The exact change per candidate is in the candidate doc. Examples: inline a pass-through wrapper (A1–A6), extract the session-guard helper (E1), merge the two 130-line repair functions via `runRepairAgent` (C3), extract `escapeHtml` (E3).
 
-- [x] **Step 4: Run the gate after**
+- [ ] **Step 4: Run the gate after**
 
 Run: `bun run check`
 Expected: green. If not green → revert, defer the candidate.
 
-- [x] **Step 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add <files>
 git commit -m "refactor(clean): <deepening one-liner> (behavior unchanged)"
 ```
 
-- [x] **Step 6: Repeat** for each picked candidate, each its own atomic commit. Stop when a candidate can't be proven behavior-preserving — defer it (note in the discovery report).
+S1 uses `fix(security):` (it changes error-message content, not cosmetic).
+
+- [ ] **Step 6: Repeat** for each picked candidate, each its own atomic commit. Stop when a candidate can't be proven behavior-preserving — defer it (note in the candidate doc).
 
 ---
 
@@ -161,14 +163,14 @@ git commit -m "docs(clean): DEV.md cleanliness contract for future agents"
 
 ### Task 5: Final verification
 
-- [x] **Step 1: Full verify gate**
+- [ ] **Step 1: Full verify gate** (runs after Task 3 ships)
 
 Run: `bun run verify`
 Expected: green (locks + route regen + format/lint/typecheck/full tests/Knip).
 
-- [x] **Step 2: Confirm no behavior change** — the test suite passing is the proof; spot-check a generation + edit + publish flow manually if the refactors touched those paths.
+- [ ] **Step 2: Confirm no behavior change** — the test suite passing is the proof; spot-check a generation + edit + publish flow manually if the refactors touched those paths. (Phase A discovery + Phase B comment sweep + Phase D DEV.md contract are verified-shipped; Phase C deepening is not yet shipped, so this step is gated on Task 3.)
 
-- [x] **Step 3: Hand off** — the codebase is cleaner; future agents inherit the DEV.md contract.
+- [ ] **Step 3: Hand off** — the codebase is cleaner; future agents inherit the DEV.md contract.
 
 ---
 
