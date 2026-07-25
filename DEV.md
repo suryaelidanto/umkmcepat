@@ -13,6 +13,15 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 - Recovery order is bounded automatic retry for safe transient failures, then an explicit user-triggered retry. Semantic AI failures (empty text, invalid structured output, incomplete source) must remain failures; never convert them into fabricated success. Manual repair must retry only the failed stage when replaying the full user action could duplicate messages, charges, builds, or side effects.
 - Development-only mocks must be explicit and impossible in production. Missing providers, moderation, OTP delivery, storage, or other trust-boundary dependencies must fail clearly instead of returning success.
 
+## Cleanliness contract
+
+- Refactors are behavior-preserving only. `bun run check` green before + after every change; a refactor that breaks the gate is reverted, not "fixed forward."
+- Comments explain a non-obvious _why_, never restate the code. Delete obvious/restating/now-unnecessary comments; do not leave them "just in case." One-liner preferred.
+- Prefer deletion over addition: a shallow wrapper removed is a win; a new abstraction for a single implementation or a "later" config value is a loss.
+- No new dependencies for what a few lines can do. No interface with one implementation, no factory for one product.
+- `ponytail:` comments mark deliberate simplifications and their upgrade ceiling — keep them.
+- Deepening opportunities (shallow modules, leaking seams) are surfaced via the `improve-codebase-architecture` skill; each picked candidate is an atomic, gated commit.
+
 ## Local runtime
 
 Use Bun only. The version is pinned in `package.json`, and `bun.lock` is canonical.
