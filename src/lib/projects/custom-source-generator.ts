@@ -15,7 +15,10 @@ import {
   type GeneratedAppAgentOperation,
   type GeneratedAppAgentToolCommand,
 } from "@/lib/projects/agent-tool-runner";
-import { type StepCharger } from "@/lib/projects/energy-step-charger";
+import {
+  createStepCharger,
+  type StepCharger,
+} from "@/lib/projects/energy-step-charger";
 import {
   createGeneratedViteTanStackStarterFiles,
   createStarterContractStyles,
@@ -184,7 +187,7 @@ export async function generateCustomProjectFilesWithAgent({
         isStepCount(generateSteps),
         () => stepCharger?.isExhausted() ?? false,
       ],
-      tools: createAgentTools(runCommand, projectId),
+      tools: createAgentTools(runCommand, projectId, stepCharger),
     });
     const localAbortController = new AbortController();
     if (abortSignal) {
@@ -385,7 +388,7 @@ async function runForcedRewritePass({
       isStepCount(rewriteSteps),
       () => stepCharger?.isExhausted() ?? false,
     ],
-    tools: createAgentTools(runCommand, projectId),
+    tools: createAgentTools(runCommand, projectId, stepCharger),
   });
 
   const localAbortController = new AbortController();
@@ -436,7 +439,11 @@ ${appSpec}`,
   });
 }
 
-function createAgentTools(runCommand: RunCommand, projectId: string) {
+function createAgentTools(
+  runCommand: RunCommand,
+  projectId: string,
+  subagentCharger?: StepCharger,
+) {
   const readOnlyTools = createReadOnlyAgentTools(runCommand);
   return {
     ...readOnlyTools,
@@ -461,7 +468,21 @@ function createAgentTools(runCommand: RunCommand, projectId: string) {
         "Spawn a read-only sub-agent to research the codebase in parallel (e.g. find every CTA, audit all images, gather all copy). Returns a summary string. Read-only: the sub-agent cannot write files or spawn further sub-agents. Bounded step budget.",
       inputSchema: z.object({ goal: z.string() }),
       execute: async ({ goal }: { goal: string }) => {
-        return runSubagent({ goal, projectId, readOnlyTools });
+        const charger = subagentCharger
+          ? createStepCharger({
+              userId: subagentCharger.userId,
+              projectId,
+              reason: "build:subagent",
+              modelId: subagentCharger.modelId,
+              onCharge: subagentCharger.onCharge,
+            })
+          : undefined;
+        return runSubagent({
+          goal,
+          projectId,
+          readOnlyTools,
+          subagentCharger: charger,
+        });
       },
     }),
   };
@@ -525,10 +546,12 @@ async function runSubagent({
   goal,
   projectId,
   readOnlyTools,
+  subagentCharger,
 }: {
   goal: string;
   projectId: string;
   readOnlyTools: ReturnType<typeof createReadOnlyAgentTools>;
+  subagentCharger?: StepCharger;
 }): Promise<string> {
   if (!goal.trim()) {
     return "Empty sub-agent goal.";
@@ -549,7 +572,11 @@ async function runSubagent({
         "You are a read-only research sub-agent for a generated Vite + React project. " +
         "Investigate the codebase using the read-only tools and return a concise summary. " +
         "Do NOT write or edit files. Do NOT attempt to spawn further sub-agents.",
-      stopWhen: isStepCount(subagentSteps),
+      onStepFinish: subagentCharger?.onStepFinish,
+      stopWhen: [
+        isStepCount(subagentSteps),
+        () => subagentCharger?.isExhausted() ?? false,
+      ],
       // The sub-agent's tool set is strictly read-only (no write_file,
       // replace_in_file, or spawn_subagent) — enforced by construction. The
       // tools close over the parent's runCommand so their calls route through
@@ -2181,7 +2208,7 @@ export async function repairGeneratedProjectFiles({
       isStepCount(repairSteps),
       () => stepCharger?.isExhausted() ?? false,
     ],
-    tools: createAgentTools(runCommand, projectId),
+    tools: createAgentTools(runCommand, projectId, stepCharger),
   });
 
   const result = await withAiTimeout(
@@ -2320,7 +2347,7 @@ export async function repairRuntimeErrors({
       isStepCount(repairSteps),
       () => stepCharger?.isExhausted() ?? false,
     ],
-    tools: createAgentTools(runCommand, projectId),
+    tools: createAgentTools(runCommand, projectId, stepCharger),
   });
 
   const errorsBlock = runtimeErrors.length
