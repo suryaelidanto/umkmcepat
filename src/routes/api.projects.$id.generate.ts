@@ -19,6 +19,7 @@ import {
   generateCustomProjectFilesWithAgent,
   repairGeneratedProjectFiles,
 } from "@/lib/projects/custom-source-generator";
+import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
   buildGeneratedProject,
@@ -326,10 +327,17 @@ async function handleGeneratePost(request: Request, routeId: string) {
       let specInputTokens = 0;
       let specOutputTokens = 0;
       let specModelId: string | undefined;
-      let sourceInputTokens = 0;
-      let sourceOutputTokens = 0;
-      let sourceModelId: string | undefined;
       let energyCharged = false;
+
+      const sourceStepCharger = createStepCharger({
+        userId,
+        projectId,
+        reason: "build:step",
+        modelId: getGenerationModel(),
+        onCharge(event) {
+          send("energy", event);
+        },
+      });
 
       const flushGenerateEnergy = async () => {
         if (energyCharged) {
@@ -344,15 +352,6 @@ async function handleGeneratePost(request: Request, routeId: string) {
             inputTokens: specInputTokens,
             outputTokens: specOutputTokens,
             reason: "build:spec",
-          });
-        }
-        if (sourceInputTokens > 0 || sourceOutputTokens > 0) {
-          await chargeEnergyForAiUsage({
-            userId,
-            modelId: sourceModelId || fallbackModelId,
-            inputTokens: sourceInputTokens,
-            outputTokens: sourceOutputTokens,
-            reason: "build:source",
           });
         }
       };
@@ -477,12 +476,8 @@ async function handleGeneratePost(request: Request, routeId: string) {
                   },
                   projectId,
                   schema: retrySchema,
+                  stepCharger: sourceStepCharger,
                 });
-                sourceInputTokens += repair.usage?.inputTokens ?? 0;
-                sourceOutputTokens += repair.usage?.outputTokens ?? 0;
-                if (repair.modelId) {
-                  sourceModelId = repair.modelId;
-                }
                 sourceFiles = repair.files;
                 await prisma.projectSnapshot.update({
                   where: { id: snapshot.id },
@@ -836,11 +831,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
           schema: finalSchema,
           onFilesChanged,
           abortSignal: abortController.signal,
+          stepCharger: sourceStepCharger,
         });
         await saver.flush();
-        sourceInputTokens = sourceGeneration.usage?.inputTokens ?? 0;
-        sourceOutputTokens = sourceGeneration.usage?.outputTokens ?? 0;
-        sourceModelId = sourceGeneration.modelId;
         devLog("generate", "source.generated", {
           buildSpecLength: sourceGeneration.buildSpec.length,
           files: sourceGeneration.files.length,
@@ -985,12 +978,8 @@ async function handleGeneratePost(request: Request, routeId: string) {
                 },
                 projectId: projectId,
                 schema: finalSchema,
+                stepCharger: sourceStepCharger,
               });
-              sourceInputTokens += repair.usage?.inputTokens ?? 0;
-              sourceOutputTokens += repair.usage?.outputTokens ?? 0;
-              if (repair.modelId) {
-                sourceModelId = repair.modelId;
-              }
               sourceFiles = repair.files;
 
               await prisma.projectSnapshot.update({

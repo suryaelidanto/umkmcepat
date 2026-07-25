@@ -1,3 +1,4 @@
+import type { StepCharger } from "@/lib/projects/energy-step-charger";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
@@ -37,6 +38,7 @@ export async function runRuntimeSelfHeal({
   onProgress,
   projectId,
   schema,
+  stepCharger,
   deps = {},
 }: {
   artifactRef: string;
@@ -45,6 +47,7 @@ export async function runRuntimeSelfHeal({
   onProgress?: (event: { label: string; detail?: string }) => void;
   projectId: string;
   schema: ProjectSiteSchema;
+  stepCharger?: StepCharger;
   deps?: RuntimeSelfHealDeps;
 }): Promise<RuntimeSelfHealResult> {
   if (!isGeneratedBuildExecutionEnabled()) {
@@ -108,6 +111,7 @@ export async function runRuntimeSelfHeal({
     projectId,
     runtimeErrors: errors,
     schema,
+    stepCharger,
   });
 
   onProgress?.({ detail: "Membangun ulang...", label: "runtime-rebuild" });

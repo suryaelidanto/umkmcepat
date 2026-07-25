@@ -15,6 +15,7 @@ import {
   type GeneratedAppAgentOperation,
   type GeneratedAppAgentToolCommand,
 } from "@/lib/projects/agent-tool-runner";
+import { type StepCharger } from "@/lib/projects/energy-step-charger";
 import {
   createGeneratedViteTanStackStarterFiles,
   createStarterContractStyles,
@@ -42,6 +43,7 @@ const REWRITE_RECOVERABLE_PREFIXES = ["missing CSS rules for classNames:"];
 
 export type CustomGeneratedSourceResult = {
   buildSpec: string;
+  energyExhausted: boolean;
   files: GeneratedProjectFile[];
   generationMode: "agent-custom" | "agent-partial" | "loop-detected";
   modelId?: string;
@@ -63,6 +65,7 @@ export async function generateCustomProjectFilesWithAgent({
   schema,
   onFilesChanged,
   abortSignal,
+  stepCharger,
 }: {
   implementationBrief?: string;
   implementationSpec?: ImplementationSpec;
@@ -71,6 +74,7 @@ export async function generateCustomProjectFilesWithAgent({
   schema: ProjectSiteSchema;
   onFilesChanged?: (files: GeneratedProjectFile[]) => void;
   abortSignal?: AbortSignal;
+  stepCharger?: StepCharger;
 }): Promise<CustomGeneratedSourceResult> {
   devLog("generate", "source-start", { projectId });
   const starterFiles = createGeneratedViteTanStackStarterFiles(
@@ -173,8 +177,13 @@ export async function generateCustomProjectFilesWithAgent({
       telemetry: getAiTelemetry("project-source-generation-agent", {
         projectId,
       }),
+      onStepFinish: stepCharger?.onStepFinish,
       // Step cap is a brake only — outcome still comes from quality checklist.
-      stopWhen: isStepCount(generateSteps),
+      // Energy exhaustion is a hard stop: the user has nothing left to spend.
+      stopWhen: [
+        isStepCount(generateSteps),
+        () => stepCharger?.isExhausted() ?? false,
+      ],
       tools: createAgentTools(runCommand, projectId),
     });
     const localAbortController = new AbortController();
@@ -239,15 +248,18 @@ export async function generateCustomProjectFilesWithAgent({
       // re-reads in the rewrite (e.g. verifying a replacement) are not
       // falsely hard-capped by counts carried over from pass 1.
       loopDetector.reset();
-      await runForcedRewritePass({
-        appSpec,
-        implementationSpec,
-        missingCss,
-        projectId,
-        runCommand,
-        schema,
-        abortSignal,
-      });
+      if (!stepCharger?.isExhausted()) {
+        await runForcedRewritePass({
+          appSpec,
+          implementationSpec,
+          missingCss,
+          projectId,
+          runCommand,
+          schema,
+          abortSignal,
+          stepCharger,
+        });
+      }
       // The rewrite may have replaced src/routes/index.tsx or src/router.tsx
       // with fresh components that drop necessary wiring. Re-heal both.
       files = ensureRouterRouteWired(files);
@@ -296,6 +308,7 @@ export async function generateCustomProjectFilesWithAgent({
     devLog("generate", "source-finish", { projectId, ok: true });
     return {
       buildSpec: appSpec,
+      energyExhausted: stepCharger?.isExhausted() ?? false,
       files,
       generationMode: isPartialResult
         ? loopHardCapped
@@ -344,6 +357,7 @@ async function runForcedRewritePass({
   runCommand,
   schema,
   abortSignal,
+  stepCharger,
 }: {
   appSpec: string;
   implementationSpec?: ImplementationSpec;
@@ -352,6 +366,7 @@ async function runForcedRewritePass({
   runCommand: RunCommand;
   schema: ProjectSiteSchema;
   abortSignal?: AbortSignal;
+  stepCharger?: StepCharger;
 }) {
   const rewriteSteps = Math.min(12, getAgentMaxSteps("repair"));
   const agent = new ToolLoopAgent({
@@ -365,7 +380,11 @@ async function runForcedRewritePass({
     telemetry: getAiTelemetry("project-source-generation-agent-rewrite", {
       projectId,
     }),
-    stopWhen: isStepCount(rewriteSteps),
+    onStepFinish: stepCharger?.onStepFinish,
+    stopWhen: [
+      isStepCount(rewriteSteps),
+      () => stepCharger?.isExhausted() ?? false,
+    ],
     tools: createAgentTools(runCommand, projectId),
   });
 
@@ -2109,6 +2128,7 @@ export async function repairGeneratedProjectFiles({
   projectId,
   schema,
   implementationSpec,
+  stepCharger,
 }: {
   files: GeneratedProjectFile[];
   buildLog: string;
@@ -2116,6 +2136,7 @@ export async function repairGeneratedProjectFiles({
   projectId: string;
   schema: ProjectSiteSchema;
   implementationSpec?: ImplementationSpec;
+  stepCharger?: StepCharger;
 }): Promise<CustomGeneratedSourceResult> {
   devLog("generate", "repair-attempt", { projectId });
   const operationTrace: GeneratedAppAgentOperation[] = [];
@@ -2155,7 +2176,11 @@ export async function repairGeneratedProjectFiles({
     telemetry: getAiTelemetry("project-source-generation-agent-repair", {
       projectId,
     }),
-    stopWhen: isStepCount(repairSteps),
+    onStepFinish: stepCharger?.onStepFinish,
+    stopWhen: [
+      isStepCount(repairSteps),
+      () => stepCharger?.isExhausted() ?? false,
+    ],
     tools: createAgentTools(runCommand, projectId),
   });
 
@@ -2216,6 +2241,7 @@ Steps:
 
   return {
     buildSpec: buildGeneratedAppBuildSpec({ implementationSpec, schema }),
+    energyExhausted: stepCharger?.isExhausted() ?? false,
     files: currentFiles,
     generationMode: "agent-custom",
     modelId: result.response?.modelId,
@@ -2242,6 +2268,7 @@ export async function repairRuntimeErrors({
   projectId,
   schema,
   implementationSpec,
+  stepCharger,
 }: {
   files: GeneratedProjectFile[];
   runtimeErrors: string[];
@@ -2249,6 +2276,7 @@ export async function repairRuntimeErrors({
   projectId: string;
   schema: ProjectSiteSchema;
   implementationSpec?: ImplementationSpec;
+  stepCharger?: StepCharger;
 }): Promise<CustomGeneratedSourceResult> {
   devLog("generate", "runtime-repair-attempt", {
     projectId,
@@ -2287,7 +2315,11 @@ export async function repairRuntimeErrors({
       "repair",
     ),
     telemetry: getAiTelemetry("project-source-runtime-repair", { projectId }),
-    stopWhen: isStepCount(repairSteps),
+    onStepFinish: stepCharger?.onStepFinish,
+    stopWhen: [
+      isStepCount(repairSteps),
+      () => stepCharger?.isExhausted() ?? false,
+    ],
     tools: createAgentTools(runCommand, projectId),
   });
 
@@ -2320,6 +2352,7 @@ Steps:
 
   return {
     buildSpec: buildGeneratedAppBuildSpec({ implementationSpec, schema }),
+    energyExhausted: stepCharger?.isExhausted() ?? false,
     files: currentFiles,
     generationMode: "agent-custom",
     modelId: result.response?.modelId,
