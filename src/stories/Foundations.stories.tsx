@@ -61,11 +61,6 @@ export const Typography: Story = {
           text="Lanjutkan website terakhir."
         />
         <TextSample
-          label="Body"
-          className="max-w-2xl text-base leading-6 text-text-secondary"
-          text="Tulis kebutuhan usahamu. AI bantu susun website yang cocok untuk pelangganmu."
-        />
-        <TextSample
           label="Small"
           className="text-sm leading-6 text-text-secondary"
           text="Gunakan teks kecil untuk metadata, helper, dan status sekunder."

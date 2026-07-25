@@ -186,31 +186,13 @@ function HomePage() {
               id="hero-heading"
               className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white"
             >
-              {hasUser ? (
-                greetingName ? (
-                  `Hai, ${greetingName}. Mau buat website apa hari ini?`
-                ) : (
-                  "Website apa yang mau kamu buat?"
-                )
-              ) : (
-                <>
-                  Bikin Website UMKM Biar Ketemu Pembeli. Cuma 5 Menit,{" "}
-                  <span className="relative inline-block">
-                    <span className="relative z-10">100% Gratis.</span>
-                    <span className="absolute inset-x-0 bottom-1 h-2 bg-gradient-to-r from-emerald-400 to-cyan-400 motion-safe:animate-[draw_0.6s_ease-out_both]" />
-                  </span>
-                </>
-              )}
+              {hasUser
+                ? greetingName
+                  ? `Hai, ${greetingName}. Mau buat website apa hari ini?`
+                  : "Website apa yang mau kamu buat?"
+                : "Bikin Website UMKM dalam 5 Menit, 100% Gratis."}
             </h1>
           </HeroMotionItem>
-          <HeroMotionItem className={siblingClass}>
-            <p className="mt-spacing-7 max-w-2xl text-balance text-lg leading-7 text-surface-warm-white/72 sm:text-xl">
-              {hasUser
-                ? "Tulis kebutuhan usahamu. AI bantu susun website yang cocok untuk pelangganmu."
-                : null}
-            </p>
-          </HeroMotionItem>
-
           <HeroMotionItem className="w-full">
             <HomePromptForm onFocusChange={setPromptFocused} />
           </HeroMotionItem>
