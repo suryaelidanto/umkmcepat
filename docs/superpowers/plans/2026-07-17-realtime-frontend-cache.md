@@ -53,7 +53,7 @@
   - `useCacheMutation<TData, TVariables>(options: CacheMutationOptions<TData, TVariables>)` returning a `UseMutationResult` whose `mutate(variables)` first snapshots every `optimisticPatches[*].queryKey` cache entry, applies the updaters, then runs `mutationFn`; on `onSuccess` invalidates every `invalidateKeys` entry with `refetchType: "active"`; on `onError` restores snapshots and toasts `errorMessage`.
   - Pure helper `applyPatches<T>(snapshot: T, patches: CachePatch[]): T` and `restoreSnapshots(snapshots: Map<string, unknown>, client: QueryClient): void` — both exported for testing.
 
-- [ ] **Step 1: Write the failing test for the pure patch + restore helpers**
+- [x] **Step 1: Write the failing test for the pure patch + restore helpers**
 
 Create `src/lib/query-client.test.ts`:
 
@@ -98,12 +98,12 @@ describe("useCacheMutation helpers", () => {
 });
 ```
 
-- [ ] **Step 2: Run test, expect it to fail (imports not yet defined)**
+- [x] **Step 2: Run test, expect it to fail (imports not yet defined)**
 
 Run: `bun run test -- src/lib/query-client.test.ts`
 Expected: FAIL — module `./query-client` does not export `applyPatches`, `restoreSnapshots`, or `CachePatch`.
 
-- [ ] **Step 3: Add the helpers to `src/lib/query-client.ts`**
+- [x] **Step 3: Add the helpers to `src/lib/query-client.ts`**
 
 Append to the end of the file:
 
@@ -215,12 +215,12 @@ export function useCacheMutation<TData, TVariables>(
 }
 ```
 
-- [ ] **Step 4: Run test, expect it to pass**
+- [x] **Step 4: Run test, expect it to pass**
 
 Run: `bun run test -- src/lib/query-client.test.ts`
 Expected: PASS — 2 tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/query-client.ts src/lib/query-client.test.ts
@@ -243,7 +243,7 @@ Commit message: `feat(query-client): add useCacheMutation helper`
   - `readProjectLimitFromCache(cache: { pages: Array<{ projectCount?: number; projectLimit?: number; overProjectLimit?: boolean }> } | undefined): { count: number; limit: number; overLimit: boolean } | null` — returns the first page's triplet, or `null` when cache is empty.
   - `useProjectLimit(): { count: number; limit: number; overLimit: boolean }` — reads cache via `useQueryClient().getQueryCache().find(...)`, falls back to `Route.useLoaderData()` for first-paint SSR.
 
-- [ ] **Step 1: Write the failing test for the pure read function**
+- [x] **Step 1: Write the failing test for the pure read function**
 
 Create `src/lib/projects/use-project-limit.test.ts`:
 
@@ -280,12 +280,12 @@ describe("readProjectLimitFromCache", () => {
 });
 ```
 
-- [ ] **Step 2: Run test, expect it to fail**
+- [x] **Step 2: Run test, expect it to fail**
 
 Run: `bun run test -- src/lib/projects/use-project-limit.test.ts`
 Expected: FAIL — module `./use-project-limit` does not export `readProjectLimitFromCache`.
 
-- [ ] **Step 3: Implement the hook**
+- [x] **Step 3: Implement the hook**
 
 Create `src/lib/projects/use-project-limit.ts`:
 
@@ -355,12 +355,12 @@ export function useProjectLimit(): ProjectLimitInfo {
 }
 ```
 
-- [ ] **Step 4: Run test, expect it to pass**
+- [x] **Step 4: Run test, expect it to pass**
 
 Run: `bun run test -- src/lib/projects/use-project-limit.test.ts`
 Expected: PASS — 3 tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/use-project-limit.ts src/lib/projects/use-project-limit.test.ts
@@ -380,7 +380,7 @@ Commit message: `feat(projects): add useProjectLimit hook`
 - Consumes: `useProjectLimit` from `@/lib/projects/use-project-limit`; `useCacheMutation`, `queryKeys` from `@/lib/query-client`; `createProjectMark` from `./project-mark`.
 - Produces: Same public component, but with `projectCount`, `projectLimit`, `overProjectLimit` props removed.
 
-- [ ] **Step 1: Update the imports and prop type**
+- [x] **Step 1: Update the imports and prop type**
 
 In `src/components/projects/ProjectList.tsx`:
 
@@ -409,7 +409,7 @@ import { fetchJson, queryKeys, useCacheMutation } from "@/lib/query-client";
 import { useProjectLimit } from "@/lib/projects/use-project-limit";
 ```
 
-- [ ] **Step 2: Drop the three props from the type and the function signature**
+- [x] **Step 2: Drop the three props from the type and the function signature**
 
 In `src/components/projects/ProjectList.tsx`, replace the `ProjectListProps` type (lines 34-41) with:
 
@@ -434,7 +434,7 @@ export function ProjectList({
   const { count, limit, overLimit } = useProjectLimit();
 ```
 
-- [ ] **Step 3: Replace the `deleteMutation` with `useCacheMutation`**
+- [x] **Step 3: Replace the `deleteMutation` with `useCacheMutation`**
 
 In `src/components/projects/ProjectList.tsx`, replace the `deleteMutation` block (lines 84-122) with:
 
@@ -496,7 +496,7 @@ In `src/components/projects/ProjectList.tsx`, replace the `deleteMutation` block
   });
 ```
 
-- [ ] **Step 4: Use `useProjectLimit` values for the over-limit banner**
+- [x] **Step 4: Use `useProjectLimit` values for the over-limit banner**
 
 In `src/components/projects/ProjectList.tsx`, replace the banner JSX (lines 168-184) with:
 
@@ -518,7 +518,7 @@ In `src/components/projects/ProjectList.tsx`, replace the banner JSX (lines 168-
       ) : null}
 ```
 
-- [ ] **Step 5: Run typecheck and unit tests**
+- [x] **Step 5: Run typecheck and unit tests**
 
 Run: `bun run typecheck`
 Expected: 0 errors. (The unused `useQueryClient` import may surface as a lint warning — keep it; `ProjectList` still calls `useQueryClient` for the `useInfiniteQuery` cache. Confirm it is not flagged as unused.)
@@ -526,7 +526,7 @@ Expected: 0 errors. (The unused `useQueryClient` import may surface as a lint wa
 Run: `bun run test -- src/components/projects/ProjectList.test.ts` (or omit `.test.ts` if it does not exist; the file currently has no dedicated test.)
 Expected: PASS (existing tests unaffected).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/projects/ProjectList.tsx
@@ -546,7 +546,7 @@ Commit message: `feat(projects): live project limit + optimistic delete in Proje
 - Consumes: `useProjectLimit` from `@/lib/projects/use-project-limit`; `useCacheMutation`, `queryKeys` from `@/lib/query-client`.
 - Produces: Same public component, but with the `overProjectLimit` prop removed.
 
-- [ ] **Step 1: Update imports**
+- [x] **Step 1: Update imports**
 
 In `src/components/projects/HomePromptForm.tsx`, replace line 28:
 
@@ -561,7 +561,7 @@ import { queryKeys, useCacheMutation } from "@/lib/query-client";
 import { useProjectLimit } from "@/lib/projects/use-project-limit";
 ```
 
-- [ ] **Step 2: Drop the `overProjectLimit` prop and use the hook**
+- [x] **Step 2: Drop the `overProjectLimit` prop and use the hook**
 
 In `src/components/projects/HomePromptForm.tsx`, replace lines 52-56:
 
@@ -580,7 +580,7 @@ export function HomePromptForm() {
   const { overLimit } = useProjectLimit();
 ```
 
-- [ ] **Step 3: Replace the `createMutation` with `useCacheMutation` and switch `removeQueries` to `invalidateQueries`**
+- [x] **Step 3: Replace the `createMutation` with `useCacheMutation` and switch `removeQueries` to `invalidateQueries`**
 
 In `src/components/projects/HomePromptForm.tsx`, replace the `createMutation` block (lines 100-150) with:
 
@@ -620,7 +620,7 @@ In `src/components/projects/HomePromptForm.tsx`, replace the `createMutation` bl
   });
 ```
 
-- [ ] **Step 4: Use `overLimit` for the banner**
+- [x] **Step 4: Use `overLimit` for the banner**
 
 In `src/components/projects/HomePromptForm.tsx`, replace line 230:
 
@@ -634,12 +634,12 @@ with:
   if (overLimit) {
 ```
 
-- [ ] **Step 5: Typecheck**
+- [x] **Step 5: Typecheck**
 
 Run: `bun run typecheck`
 Expected: 0 errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/projects/HomePromptForm.tsx
@@ -659,7 +659,7 @@ Commit message: `feat(prompt): live project limit + optimistic create invalidati
 - Consumes: existing route loader.
 - Produces: `ProjectList` and `HomePromptForm` no longer receive `projectCount`, `projectLimit`, `overProjectLimit`.
 
-- [ ] **Step 1: Drop the props from `ProjectList`**
+- [x] **Step 1: Drop the props from `ProjectList`**
 
 In `src/routes/_main.index.tsx`, replace the `<ProjectList>` invocation (lines 214-221) with:
 
@@ -673,7 +673,7 @@ In `src/routes/_main.index.tsx`, replace the `<ProjectList>` invocation (lines 2
                 </div>
 ```
 
-- [ ] **Step 2: Drop the prop from `HomePromptForm`**
+- [x] **Step 2: Drop the prop from `HomePromptForm`**
 
 In `src/routes/_main.index.tsx`, replace line 192:
 
@@ -691,12 +691,12 @@ with:
           </HeroMotionItem>
 ```
 
-- [ ] **Step 3: Typecheck and lint**
+- [x] **Step 3: Typecheck and lint**
 
 Run: `bun run typecheck && bun run lint`
 Expected: 0 errors, 0 warnings.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/routes/_main.index.tsx
@@ -716,7 +716,7 @@ Commit message: `refactor(home): drop limit props from ProjectList and HomePromp
 - Consumes: `useCacheMutation`, `queryKeys` from `@/lib/query-client`; existing `projectId`, `projectTitle`, `setProjectTitle`, `setDraftTitle`, `setIsRenaming`.
 - Produces: A mutation that, on success, patches the matching project entry in `queryKeys.projects` page 0 (`title` field) and invalidates the key.
 
-- [ ] **Step 1: Add imports**
+- [x] **Step 1: Add imports**
 
 In `src/components/projects/WorkspaceShell.tsx`, add the import at the top of the third-party import block:
 
@@ -724,7 +724,7 @@ In `src/components/projects/WorkspaceShell.tsx`, add the import at the top of th
 import { useCacheMutation, queryKeys } from "@/lib/query-client";
 ```
 
-- [ ] **Step 2: Replace the title-save call with `useCacheMutation`**
+- [x] **Step 2: Replace the title-save call with `useCacheMutation`**
 
 In `src/components/projects/WorkspaceShell.tsx`, replace the `saveProjectTitle` function (lines 1525-1554) with:
 
@@ -810,12 +810,12 @@ In `src/components/projects/WorkspaceShell.tsx`, replace the `saveProjectTitle` 
   }
 ```
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run: `bun run typecheck`
 Expected: 0 errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/projects/WorkspaceShell.tsx
@@ -835,7 +835,7 @@ Commit message: `feat(workspace): optimistic title patch on saveProjectTitle`
 - Consumes: existing build-done handler at line 768 and edit-done at line 1511.
 - Produces: A shared pure helper `patchProjectInList(client, projectId, patch)` that the two handlers call after success, plus `invalidateQueries` to reconcile.
 
-- [ ] **Step 1: Add a shared helper near the top of the component**
+- [x] **Step 1: Add a shared helper near the top of the component**
 
 After the existing `useQueryClient` declaration (search for the existing `useQueryClient()` call in the file), add:
 
@@ -880,7 +880,7 @@ After the existing `useQueryClient` declaration (search for the existing `useQue
   }
 ```
 
-- [ ] **Step 2: Call `patchProjectInList` on build-done**
+- [x] **Step 2: Call `patchProjectInList` on build-done**
 
 In `src/components/projects/WorkspaceShell.tsx`, inside the `if (eventName === "done")` block (around line 768), insert this call directly after `setBuildStatus("ready")`:
 
@@ -894,7 +894,7 @@ In `src/components/projects/WorkspaceShell.tsx`, inside the `if (eventName === "
 
 (The lines after `setBuildStatus("ready")` in the existing file already include `void loadRuntimeState();` and the energy event/invalidation. Add the two new lines after them; do not duplicate.)
 
-- [ ] **Step 3: Call `patchProjectInList` on edit-done**
+- [x] **Step 3: Call `patchProjectInList` on edit-done**
 
 In `src/components/projects/WorkspaceShell.tsx`, inside the edit-done success path (around line 1511), insert this call directly after `setBuildStatus("ready")`:
 
@@ -908,12 +908,12 @@ In `src/components/projects/WorkspaceShell.tsx`, inside the edit-done success pa
 
 (The lines after `setBuildStatus("ready")` in the existing file already include `setBuildProgress(...)`, `setActiveTab("preview")`, `setPreviewCollapsed(false)`, `void loadRuntimeState()`, the energy event, and the energy invalidation. Add the two new lines after them; do not duplicate.)
 
-- [ ] **Step 4: Typecheck and lint**
+- [x] **Step 4: Typecheck and lint**
 
 Run: `bun run typecheck && bun run lint`
 Expected: 0 errors, 0 warnings.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/projects/WorkspaceShell.tsx
@@ -933,7 +933,7 @@ Commit message: `feat(workspace): patch list cache on build-done and edit-done`
 - Consumes: `useCacheMutation`, `applyPatches`, `restoreSnapshots` from `@/lib/query-client`; `QueryClient` from `@tanstack/react-query`.
 - Produces: A node-env Vitest test that exercises the patch + invalidate + rollback flow against an in-memory `QueryClient` with a fake mutation function.
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 Create `tests/integration/homepage-cache.test.ts`:
 
@@ -1066,12 +1066,12 @@ describe("homepage cache consistency", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test, expect it to pass**
+- [x] **Step 2: Run the test, expect it to pass**
 
 Run: `bun run test -- tests/integration/homepage-cache.test.ts`
 Expected: PASS — 3 tests green.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/integration/homepage-cache.test.ts
@@ -1086,16 +1086,16 @@ Commit message: `test(cache): integration coverage for homepage cache consistenc
 
 **Files:** none modified.
 
-- [ ] **Step 1: Run `bun run check`**
+- [x] **Step 1: Run `bun run check`**
 
 Run: `bun run check`
 Expected: 0 errors across `check:locks`, `routes:generate`, `format`, `lint`, `typecheck`, `test`, `knip`.
 
-- [ ] **Step 2: Manual smoke**
+- [x] **Step 2: Manual smoke**
 
 Run `bun run dev`. Open `http://localhost:3000`. Log in. Click delete on a project while over the limit. Confirm both banners disappear without a full reload. Rename a project in the workspace, navigate to `/`, confirm the list card shows the new title.
 
-- [ ] **Step 3: Final commit if any formatting fix-ups were needed**
+- [x] **Step 3: Final commit if any formatting fix-ups were needed**
 
 ```bash
 git add -A

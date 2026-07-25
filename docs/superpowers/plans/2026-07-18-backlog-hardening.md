@@ -28,7 +28,7 @@
 - Consumes: `OBJECT_STORAGE_PROVIDER` from env.
 - Produces: `replaceStoredObject` and `toPublicProfileImage` handling both AWS S3/R2 signatures and `/api/profile/avatar` paths without returning empty strings.
 
-- [ ] **Step 1: Write a test verifying that `toPublicProfileImage` handles `/api/profile/avatar` path**
+- [x] **Step 1: Write a test verifying that `toPublicProfileImage` handles `/api/profile/avatar` path**
 Add test in `src/lib/profile.test.ts`:
 ```ts
 import { expect, test } from "vitest";
@@ -39,11 +39,11 @@ test("toPublicProfileImage parses avatar path correctly", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 Run: `bun test src/lib/profile.test.ts`
 Expected: FAIL or verify matches correctly.
 
-- [ ] **Step 3: Modify `src/lib/profile.ts` to allow `/api/profile/avatar` to pass through**
+- [x] **Step 3: Modify `src/lib/profile.ts` to allow `/api/profile/avatar` to pass through**
 Change `toPublicProfileImage` to:
 ```ts
 export function toPublicProfileImage(value: unknown) {
@@ -64,7 +64,7 @@ export function toPublicProfileImage(value: unknown) {
 }
 ```
 
-- [ ] **Step 4: Implement R2 storage client in `src/lib/object-storage.ts` using `@aws-sdk/client-s3` (already available via prisma/other plugins or standard HTTP calls)**
+- [x] **Step 4: Implement R2 storage client in `src/lib/object-storage.ts` using `@aws-sdk/client-s3` (already available via prisma/other plugins or standard HTTP calls)**
 If `@aws-sdk/client-s3` is not imported, use raw S3 HTTP REST API using standard Fetch to keep it package-free, or check if it's already installed. Let's write S3 client configuration for R2:
 ```ts
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -82,7 +82,7 @@ function getR2Client() {
 ```
 Update `putStoredObject` in `src/lib/object-storage.ts` to perform actual R2 put operations when provider is `"r2"`.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 Run: `bun run check`
 Expected: PASS
 Commit:
@@ -103,13 +103,13 @@ git commit -m "fix(profile): enable hybrid r2 storage & preserve avatar route in
 **Interfaces:**
 - Consumes: `useCacheMutation` from `@/lib/query-client`.
 
-- [ ] **Step 1: Modify `ProfileNameForm.tsx` to use `useCacheMutation`**
+- [x] **Step 1: Modify `ProfileNameForm.tsx` to use `useCacheMutation`**
 Refactor the profile update mutation to hook into `useCacheMutation` for invalidating session queries and showing consistent toasts.
 
-- [ ] **Step 2: Modify `ProjectList.tsx` to handle Project deletion invalidations**
+- [x] **Step 2: Modify `ProjectList.tsx` to handle Project deletion invalidations**
 Use `useCacheMutation` to ensure that deleting a project automatically updates the home page limits and project grid without requiring manual refreshes.
 
-- [ ] **Step 3: Run check suite to verify it works**
+- [x] **Step 3: Run check suite to verify it works**
 Run: `bun run check`
 Expected: PASS
 Commit:
@@ -128,7 +128,7 @@ git commit -m "refactor(mutations): use useCacheMutation for consistent cache up
 - Modify: `src/components/projects/WorkspacePrimitives.tsx`
 - Test: `src/lib/projects/diff.test.ts`
 
-- [ ] **Step 1: Create a lightweight line-by-line diff engine in `src/lib/projects/diff.ts`**
+- [x] **Step 1: Create a lightweight line-by-line diff engine in `src/lib/projects/diff.ts`**
 Write a simple function:
 ```ts
 export type DiffLine = { type: "add" | "delete" | "normal"; text: string };
@@ -141,16 +141,16 @@ export function generateDiff(oldStr: string, newStr: string): DiffLine[] {
 }
 ```
 
-- [ ] **Step 2: Add unit tests for `diff.ts`**
+- [x] **Step 2: Add unit tests for `diff.ts`**
 Write unit test cases verifying output formats.
 
-- [ ] **Step 3: Modify `agent-tool-runner.ts` to log file diffs**
+- [x] **Step 3: Modify `agent-tool-runner.ts` to log file diffs**
 In the edit loop, when a file is edited/written, calculate the line-by-line diff and append it to the `build.progress` event metadata in the database.
 
-- [ ] **Step 4: Update `BuildProgressPanel` in `WorkspacePrimitives.tsx` to render the diff dropdown**
+- [x] **Step 4: Update `BuildProgressPanel` in `WorkspacePrimitives.tsx` to render the diff dropdown**
 Create an Accordion/FAQ style toggle inside the steps. If `step.metadata.diff` exists, render green (added) and red (removed) lines inside the expandable dropdown.
 
-- [ ] **Step 5: Run verify and commit**
+- [x] **Step 5: Run verify and commit**
 Run: `bun run check`
 Expected: PASS
 Commit:
@@ -168,16 +168,16 @@ git commit -m "feat(diff): generate and display code progression diffs inline"
 - Modify: `src/routes/api.projects.preview.ts` (discussion endpoint)
 - Modify: `src/components/projects/WorkspacePrimitives.tsx` (TopBar buttons)
 
-- [ ] **Step 1: Create the POST route `/api/projects/$id/cancel`**
+- [x] **Step 1: Create the POST route `/api/projects/$id/cancel`**
 Handle cancellation requests by locating running builds/edit attempts and forcing them to `"failed"` / `"canceled"`, then calling `finalizeProjectOperation` to release the locked lease token.
 
-- [ ] **Step 2: Implement Auto-unlock Middleware check**
+- [x] **Step 2: Implement Auto-unlock Middleware check**
 In `src/routes/api.projects.preview.ts`, check if a lease token was claimed more than 3 minutes ago without any update. If so, automatically prune the lease and set project status back to `"ready"`.
 
-- [ ] **Step 3: Add "Hentikan Build" cancellation button in `WorkspaceTopBar`**
+- [x] **Step 3: Add "Hentikan Build" cancellation button in `WorkspaceTopBar`**
 Expose a button that sends a POST to `/api/projects/$id/cancel` when build state is active.
 
-- [ ] **Step 4: Run verify and commit**
+- [x] **Step 4: Run verify and commit**
 Run: `bun run check`
 Expected: PASS
 Commit:
@@ -194,13 +194,13 @@ git commit -m "feat(lock): cancel stuck builds and prune stale leases automatica
 - Modify: `src/routes/api.projects.$id.edit.ts`
 - Modify: `src/routes/api.projects.preview.ts`
 
-- [ ] **Step 1: Wrap edit operations with try-finally for energy debiting**
+- [x] **Step 1: Wrap edit operations with try-finally for energy debiting**
 Ensure `chargeEnergyForAiUsage` runs inside the `finally` block in `edit.ts` to charge users under all conditions.
 
-- [ ] **Step 2: Add request-level moderation in Preview/Discuss route**
+- [x] **Step 2: Add request-level moderation in Preview/Discuss route**
 Intersect all incoming preview chats with `moderateProjectRequest` first. If blocked, return safety warning directly and debit the moderation credits.
 
-- [ ] **Step 3: Run verify and commit**
+- [x] **Step 3: Run verify and commit**
 Run: `bun run check`
 Expected: PASS
 Commit:
@@ -217,13 +217,13 @@ git commit -m "security(billing): try-finally energy debiting and preview modera
 - Modify: `src/components/projects/WorkspacePrimitives.tsx`
 - Modify: `src/routes/p.$slug.$.ts`
 
-- [ ] **Step 1: Implement hybrid sticky scroll in `BuildProgressPanel`**
+- [x] **Step 1: Implement hybrid sticky scroll in `BuildProgressPanel`**
 Add scrolling height check. If user scroll position is within `20px` of container bottom, trigger a smooth scroll to bottom when new steps arrive. If they scroll up, suspend auto-scroll.
 
-- [ ] **Step 2: Implement HTML error panel fallback on failed previews**
+- [x] **Step 2: Implement HTML error panel fallback on failed previews**
 Update `/p/$slug` and `/api/projects/$id/preview` routes so that on 503 or missing build outputs, they return a clean HTML error frame containing a detailed Indonesian description instead of a blank page or raw JSON.
 
-- [ ] **Step 3: Run verify and commit**
+- [x] **Step 3: Run verify and commit**
 Run: `bun run check`
 Expected: PASS
 Commit:

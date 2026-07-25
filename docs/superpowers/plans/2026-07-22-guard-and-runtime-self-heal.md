@@ -58,7 +58,7 @@
 - Consumes: `agentEditedFiles: Set<string>` (already in scope in `runCommand`).
 - Produces: the guard blocks `check_app` until `src/routes/index.tsx` is in `agentEditedFiles`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `src/lib/projects/custom-source-generator.test.ts` (find an existing describe block for the guard or `check_app`; if none, add one). The test asserts: when the agent has written `src/content/site.ts` but NOT `src/routes/index.tsx`, calling `check_app` returns an error naming `index.tsx`.
 
@@ -75,12 +75,12 @@ it("blocks check_app until src/routes/index.tsx is written, even if other files 
 
 Read the existing test file first to reuse its real harness (mock model, command sequence, assertion style). Do NOT invent helpers. The test's intent is fixed: `check_app` before `index.tsx` is written → error naming `index.tsx`.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: FAIL — the current guard (`agentEditedFiles.size === 0`) lets `check_app` through once `site.ts` is written.
 
-- [ ] **Step 3: Tighten the guard**
+- [x] **Step 3: Tighten the guard**
 
 In `src/lib/projects/custom-source-generator.ts`, replace the guard at `:89`:
 
@@ -97,12 +97,12 @@ In `src/lib/projects/custom-source-generator.ts`, replace the guard at `:89`:
     }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green. (Other tests that called `check_app` after writing only `site.ts` may now fail — fix them in this step by making them write `index.tsx` first, since that's the new contract. Do NOT weaken the guard to satisfy stale tests.)
@@ -128,7 +128,7 @@ page. Require src/routes/index.tsx in agentEditedFiles before check_app."
 - Consumes: `agentEditedFiles: Set<string>`, `files: GeneratedProjectFile[]`.
 - Produces: gate pushes `"home route was not written by the agent"` when `index.tsx` is absent from `agentEditedFiles`; that issue is in `NO_MEANINGFUL_EDIT_ISSUES` so the forced-rewrite path trips.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `src/lib/projects/custom-source-generator.test.ts`, add (reusing the real `checkAgentSourceQuality` + `createViteTanStackShadcnStarterFiles` imports already used there):
 
@@ -143,12 +143,12 @@ it("fails the gate when the agent did not edit src/routes/index.tsx", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: FAIL — no such issue is pushed today.
 
-- [ ] **Step 3: Add the assertion + wire the issue**
+- [x] **Step 3: Add the assertion + wire the issue**
 
 In `src/lib/projects/custom-source-generator.ts`, add `"home route was not written by the agent"` to the `NO_MEANINGFUL_EDIT_ISSUES` array (`:25-29`).
 
@@ -160,12 +160,12 @@ In `checkAgentSourceQuality`, after the existing `src/routes/` presence check (`
   }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green. (Happy-path tests that assert `quality.ok === true` must write `index.tsx` into `agentEditedFiles` — fix any that don't, since that's the new contract.)
@@ -190,7 +190,7 @@ when the agent skips the home page even if it wrote other files."
 - Consumes: none new.
 - Produces: prompts that name `index.tsx` as the non-negotiable first write.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `src/lib/projects/custom-source-generator.test.ts`, add positive assertions to the existing prompt-coherence test (find it; it already checks `buildGeneratedAppAgentInstructions` content). Add:
 
@@ -205,12 +205,12 @@ it("prompts name index.tsx as the first required write", () => {
 
 And for the rewrite prompt, add a test that `runForcedRewritePass`'s prompt (read via the function's source or a snapshot — read the existing test style for how prompts are asserted) names `index.tsx` as step 1. If the rewrite prompt isn't directly exported, assert via the generate-instructions `rewrite` mode containing it.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: FAIL — `index.tsx` isn't named as "FIRST STEP" today.
 
-- [ ] **Step 3: Make `index.tsx` step-1 in both prompts**
+- [x] **Step 3: Make `index.tsx` step-1 in both prompts**
 
 In `buildAgentPrompt` SPEED RULES (`:~1863`), make step 1 explicitly:
 
@@ -235,12 +235,12 @@ Build intent:
 ${appSpec}`,
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -267,7 +267,7 @@ the forced-rewrite prompt."
 - Consumes: `readProjectDistArtifact(artifactRef)`, `startArtifactServer` (already in `project-thumbnail.ts` — export or reuse; if not exported, factor a shared helper).
 - Produces: `captureRuntimeErrors(artifactRef: string): Promise<{ errors: string[]; ok: boolean }>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/projects/runtime-capture.test.ts`:
 
@@ -297,12 +297,12 @@ describe("captureRuntimeErrors", () => {
 
 Reuse the real dist-fixture helpers from `project-thumbnail.test.ts` (read it first). If the script can't run headless in CI (no browser), gate the test behind `RUNTIME_CAPTURE_TESTS=1` env or skip on CI — match how `project-thumbnail.test.ts` handles browser availability (read its skip condition first).
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/runtime-capture.test.ts`
 Expected: FAIL — `captureRuntimeErrors` doesn't exist.
 
-- [ ] **Step 3: Add the console-errors mode to the capture script**
+- [x] **Step 3: Add the console-errors mode to the capture script**
 
 In `scripts/capture-project-thumbnail.cjs`, read the current argv parsing (lines ~1-30). Add a `mode` argv (position 5 or a `--mode` flag — match the existing style). When `mode === "console-errors"`:
 - Skip the screenshot.
@@ -312,7 +312,7 @@ In `scripts/capture-project-thumbnail.cjs`, read the current argv parsing (lines
 
 Keep the existing screenshot mode byte-identical. The sandbox context: the script already loads via `startArtifactServer`'s origin + the generated app's `base: './'` — verify that origin mirrors the preview iframe's sandbox-safe context (architecture.md:82). If the existing thumbnail capture already loads correctly (it produces valid thumbnails), the same load path is fine for console-error collection.
 
-- [ ] **Step 4: Write the TS wrapper**
+- [x] **Step 4: Write the TS wrapper**
 
 Create `src/lib/projects/runtime-capture.ts`:
 
@@ -345,12 +345,12 @@ function runConsoleErrorCapture(origin: string): Promise<RuntimeCaptureResult> {
 
 If `startArtifactServer` isn't exported from `project-thumbnail.ts`, export it (it's already used internally — making it shared is a one-line `export`). If it can't be cleanly exported, factor the server start into a small shared helper in the same file. Match the existing `captureWithNode` shape (spawn the `.cjs` script, collect stdout, timeout, terminate process tree).
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/runtime-capture.test.ts`
 Expected: PASS (or skip if no browser in CI — the skip must be explicit, not a silent pass).
 
-- [ ] **Step 6: Run the full gate + commit**
+- [x] **Step 6: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -376,7 +376,7 @@ returns { errors, ok }. Reuses the thumbnail artifact-server + browser launch."
 - Consumes: `buildGeneratedAppAgentInstructions(schema, implementationSpec, "repair")` (existing — the repair mode already exists), `createAgentTools(runCommand)`, `getAiModel`, `getAgentMaxSteps("repair")`, `withAiTimeout`.
 - Produces: `repairRuntimeErrors({ runtimeErrors, files, schema, projectId, implementationSpec?, onOperation? }): Promise<CustomGeneratedSourceResult>` — same return type as `repairGeneratedProjectFiles`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `src/lib/projects/custom-source-generator.test.ts`, add a test that `repairRuntimeErrors` is callable and returns the `CustomGeneratedSourceResult` shape, using a mocked `getAiModel` (reuse the existing mock harness used by `repairGeneratedProjectFiles` tests — read the file first). Assert the prompt contains the runtime errors string.
 
@@ -393,12 +393,12 @@ it("repairRuntimeErrors feeds runtime errors into the agent and returns files", 
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: FAIL — `repairRuntimeErrors` not exported.
 
-- [ ] **Step 3: Implement `repairRuntimeErrors`**
+- [x] **Step 3: Implement `repairRuntimeErrors`**
 
 In `src/lib/projects/custom-source-generator.ts`, copy the shape of `repairGeneratedProjectFiles` (`:1992+`) but replace the `buildLog` plumbing with `runtimeErrors`:
 
@@ -432,12 +432,12 @@ export async function repairRuntimeErrors({
 
 Reuse `buildGeneratedAppBuildSpec` for the `appSpec` (same as the generate path). Do NOT duplicate the agent/tool/timeout setup — if `repairGeneratedProjectFiles`'s setup is extractable, extract a shared `runRepairAgent` helper to avoid verbatim duplication (DRY); otherwise mirror it and leave a `ponytail:` comment naming the duplication as the ceiling.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -463,7 +463,7 @@ runtime crash strings back into the agent to fix the source."
 - Consumes: `captureRuntimeErrors(artifactRef)` (Task 4), `repairRuntimeErrors(...)` (Task 5), `buildGeneratedProject(files, { workspaceKey })` (existing), `writeProjectDistArtifact({ artifactId, files })` (existing).
 - Produces: `runRuntimeSelfHeal({ artifactRef, projectId, schema, files, implementationSpec?, onProgress?, abortSignal? }): Promise<RuntimeSelfHealResult>` where `RuntimeSelfHealResult = { ok: boolean; files: GeneratedProjectFile[]; artifactRef: string | null; runtimeErrors: string[]; repairUsed: boolean; usage?: { inputTokens: number; outputTokens: number } }`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/projects/runtime-self-heal.test.ts`. Inject the capture + repair + build deps so the test doesn't need a real browser:
 
@@ -506,12 +506,12 @@ describe("runRuntimeSelfHeal", () => {
 
 Accept deps as an injected object so the loop is testable without a browser. The production caller (Task 7) wires the real deps.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/runtime-self-heal.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `runRuntimeSelfHeal`**
+- [x] **Step 3: Implement `runRuntimeSelfHeal`**
 
 Create `src/lib/projects/runtime-self-heal.ts`:
 
@@ -610,12 +610,12 @@ export async function runRuntimeSelfHeal({
 
 Note: `Date.now()` is used inside an async function body (not module scope) — fine here. If the repo forbids `Date.now()` in non-test code, pass a timestamp via the caller; check the codebase convention first. `artifactId` shape must match what `writeProjectDistArtifact` expects (cuid-ish) — if it requires a real cuid, use the project's existing cuid generator instead of the timestamp string.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/runtime-self-heal.test.ts`
 Expected: PASS (all 3 cases).
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -641,7 +641,7 @@ browser. Streams progress events to the caller (SSE in the route)."
 - Consumes: `runRuntimeSelfHeal(...)` (Task 6), `send("progress", ...)` (existing, `:288`), `isGeneratedBuildExecutionEnabled()` (existing).
 - Produces: on a successful build, the runtime self-heal runs and emits `progress` events; its result drives the final build status + artifact ref.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In the generate-route test file, add a test that a successful build triggers a runtime-check progress event. Reuse the existing test harness (mocked build, captured SSE events). Assert the SSE stream contains an event with label `Menjalankan tampilan` (or `Tampilan sehat`).
 
@@ -656,12 +656,12 @@ it("runs the runtime self-heal after a successful build and streams progress", a
 
 If the route doesn't support deps injection for the runtime capture, inject via a module-level seam (e.g. `getRuntimeSelfHealDeps()` exported + overridable in tests, matching any existing test-seam pattern in the route — read the file first). Do NOT add a new env-var seam if an existing one fits.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/routes/api.projects.$id.generate.test.ts`
 Expected: FAIL — no runtime-check events today.
 
-- [ ] **Step 3: Wire the hook into both success paths**
+- [x] **Step 3: Wire the hook into both success paths**
 
 In `src/routes/api.projects.$id.generate.ts`, after `finalBuildResult.ok` is true AND the dist artifact is written (find the artifact-write site on each path — primary ~`:500-505`, retry-edit ~`:1000-1005`; the primary path writes the artifact after the build loop, the retry-edit path after its build), add (guard with `isGeneratedBuildExecutionEnabled()`):
 
@@ -695,12 +695,12 @@ if (isGeneratedBuildExecutionEnabled() && finalBuildResult.ok) {
 
 Find the exact `distArtifactRef` variable name on each path by reading the artifact-write call on that path. Both paths must get the hook (DRY: if the two paths share enough structure, extract a shared `runGenerateBuildAndSelfHeal` helper; if they diverge too much, duplicate the hook with a `ponytail:` comment naming the duplication ceiling — judge by reading both paths).
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/routes/api.projects.$id.generate.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -727,19 +727,19 @@ generate paths, guarded by build-execution-enabled."
 - Consumes: the runtime self-heal result/status from the generate SSE stream (Task 7).
 - Produces: a visible runtime-errors panel when `selfHeal.ok === false`.
 
-- [ ] **Step 1: Find the existing build-failure/error panel**
+- [x] **Step 1: Find the existing build-failure/error panel**
 
 Read `src/components/projects/` for the panel that renders build errors / "Tampilan website belum berhasil dimulai" (architecture.md:84). Reuse its shape — do NOT invent a new panel.
 
-- [ ] **Step 2: Add the runtime-errors state to that panel**
+- [x] **Step 2: Add the runtime-errors state to that panel**
 
 When the generate stream emits the runtime-not-healthy status (from Task 7's honest-fail), render the existing error panel with: title "Tampilan website bermasalah saat dijalankan", the runtime errors (first 3-5), and the existing manual-retry button. Mirror the missing-card state pattern (architecture.md:51). No new visual language.
 
-- [ ] **Step 3: Update `docs/architecture.md`**
+- [x] **Step 3: Update `docs/architecture.md`**
 
 In the generated-project section, add a short subsection: after a successful build, a bounded runtime self-heal runs (capture console errors → 1 repair → rebuild → re-capture → ok | honest-fail). Bounded 1+1. Reuses the thumbnail headless capture + the `repairGeneratedProjectFiles` shape + the build-step progress events. Honest-fail surfaces an actionable preview panel; never silently ships a runtime-broken app. Click-through / vision diff are future (Stage C).
 
-- [ ] **Step 4: Run the full gate + commit**
+- [x] **Step 4: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.

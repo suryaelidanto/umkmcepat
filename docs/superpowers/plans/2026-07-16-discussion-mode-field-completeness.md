@@ -50,7 +50,7 @@ Modified:
 - Consumes: nothing.
 - Produces: `ContactValue`, `SocialLinkValue`, `PaymentMethodValue`, `CertificationValue`, `HoursValue`, `TestimonialValue`, `ProductOrServiceItem`, `RichBrief` discriminated shapes. Exports `parseContact`, `parseSocialLink`, `parsePaymentMethod`, `parseCertification`, `parseHours`, `parseTestimonial`, `parseProductOrServiceItem`. All accept `unknown` and return either a parsed value or `null`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -137,12 +137,12 @@ describe("brief rich-field parsers", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun test src/lib/projects/brief-rich-fields.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the minimal implementation**
+- [x] **Step 3: Write the minimal implementation**
 
 ```ts
 // src/lib/projects/brief-rich-fields.ts
@@ -307,12 +307,12 @@ export function parseProductOrServiceItem(input: unknown): ProductOrServiceItem 
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun test src/lib/projects/brief-rich-fields.test.ts`
 Expected: PASS — 11 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/brief-rich-fields.ts src/lib/projects/brief-rich-fields.test.ts
@@ -337,7 +337,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: nothing new.
 - Produces: `UmkmType`, `SOFT_FIELDS`, `FIELD_APPLICABILITY: Record<UmkmType, readonly SoftFieldId[]>`, `getApplicableFields(type: UmkmType)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `src/lib/projects/brief-rich-fields.test.ts`:
 
@@ -383,12 +383,12 @@ describe("field applicability", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun test src/lib/projects/brief-rich-fields.test.ts`
 Expected: FAIL — `FIELD_APPLICABILITY` not exported.
 
-- [ ] **Step 3: Add the map**
+- [x] **Step 3: Add the map**
 
 Append to `src/lib/projects/brief-rich-fields.ts`:
 
@@ -454,12 +454,12 @@ export function getApplicableFields(type: UmkmType): readonly SoftFieldId[] {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun test src/lib/projects/brief-rich-fields.test.ts`
 Expected: PASS — 15 tests total.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/brief-rich-fields.ts src/lib/projects/brief-rich-fields.test.ts
@@ -484,7 +484,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `parseContact`, etc. from Task 1.
 - Produces: `validateBrief(brief: unknown): { cleaned: CleanedBrief; dropped: string[] }`. Drops hallucinated values to null, returns a list of field ids that were dropped.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append:
 
@@ -535,12 +535,12 @@ describe("validateBrief", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fail**
+- [x] **Step 2: Run the test to verify it fail**
 
 Run: `bun test src/lib/projects/brief-rich-fields.test.ts`
 Expected: FAIL — `validateBrief` not exported.
 
-- [ ] **Step 3: Implement the validator**
+- [x] **Step 3: Implement the validator**
 
 Append:
 
@@ -723,12 +723,12 @@ export function validateBrief(input: unknown): { cleaned: CleanedBrief; dropped:
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun test src/lib/projects/brief-rich-fields.test.ts`
 Expected: PASS — 21 tests total.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/brief-rich-fields.ts src/lib/projects/brief-rich-fields.test.ts
@@ -753,11 +753,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `CleanedBrief` shape from Task 3.
 - Produces: Extended `ProjectBrief` carrying the new fields and `readyForBuild: boolean`. New helpers: `isBriefReadyForBuild(brief)`, `applyBriefValidator(input)`.
 
-- [ ] **Step 1: Read the existing brief.test.ts to understand current expectations**
+- [x] **Step 1: Read the existing brief.test.ts to understand current expectations**
 
 Read `src/lib/projects/brief.test.ts` end-to-end. Note the helpers it imports. (Manual step — done by the implementer at run time. Listed here so the implementer is not surprised.)
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Append to `src/lib/projects/brief.test.ts`:
 
@@ -812,12 +812,12 @@ describe("applyBriefValidator + isBriefReadyForBuild", () => {
 });
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `bun test src/lib/projects/brief.test.ts`
 Expected: FAIL — `applyBriefValidator` not exported.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 In `src/lib/projects/brief.ts`:
 
@@ -876,17 +876,17 @@ export function isBriefReadyForBuild(brief: ProjectBrief): boolean {
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `bun test src/lib/projects/brief.test.ts`
 Expected: PASS — existing tests + 4 new ones. If any existing test broke because the brief now has more fields, update it minimally (do not change the assertion intent; only add the missing defaults).
 
-- [ ] **Step 6: Run the full project tests to catch downstream breakage**
+- [x] **Step 6: Run the full project tests to catch downstream breakage**
 
 Run: `bun run test`
 Expected: PASS. If route tests fail because they construct a `ProjectBrief` literal without the new fields, add the missing fields with `null` defaults. Do not remove existing assertions.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/projects/brief.ts src/lib/projects/brief.test.ts
@@ -910,7 +910,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: nothing.
 - Produces: a string constant `DISCUSS_SYSTEM_PROMPT` exported from a sibling `.ts` file. The `.md` file holds the content. The `.ts` re-exports it. Tests assert content.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // src/lib/projects/prompts/discuss-system.test.ts
@@ -970,12 +970,12 @@ describe("DISCUSS_SYSTEM_PROMPT", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun test src/lib/projects/prompts/discuss-system.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the prompt content**
+- [x] **Step 3: Write the prompt content**
 
 ```ts
 // src/lib/projects/prompts/discuss-system.ts
@@ -1058,12 +1058,12 @@ Kalau setelah turn pertama user belum kasih nama usaha, tanya langsung. Kalau us
 Kalau user menyebut lebih dari satu produk/jasa di satu message, tanya: "beberapa produk nih — fokus satu dulu, atau list semuanya?" Ikuti alur, set `isPrimary: true` pada item yang user tunjuk sebagai headline.
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun test src/lib/projects/prompts/discuss-system.test.ts`
 Expected: PASS — 7 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/prompts/prompts/ src/lib/projects/prompts/discuss-system.test.ts
@@ -1088,9 +1088,9 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `SoftFieldId` from Task 2.
 - Produces: `FieldStateMap` (`Record<SoftFieldId, "asked" | "answered" | "declined" | "explicitly_empty">`), helpers `recordFieldAsk`, `recordFieldAnswer`, `recordFieldDecline`, `recordFieldEmpty`, `summarizeFieldState(map)`. New hidden context block: `buildFieldStateBlock(map, dominantLanguage)`.
 
-- [ ] **Step 1: Read chat-memory.test.ts to understand the existing test surface.**
+- [x] **Step 1: Read chat-memory.test.ts to understand the existing test surface.**
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Append:
 
@@ -1149,12 +1149,12 @@ describe("field state tracking", () => {
 });
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `bun test src/lib/projects/chat-memory.test.ts`
 Expected: FAIL — exports missing.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 In `src/lib/projects/chat-memory.ts`:
 
@@ -1231,12 +1231,12 @@ export function detectDominantLanguage(messages: ReadonlyArray<{ role: string; c
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `bun test src/lib/projects/chat-memory.test.ts`
 Expected: PASS — existing tests + 5 new.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/projects/chat-memory.ts src/lib/projects/chat-memory.test.ts
@@ -1259,11 +1259,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `DISCUSS_SYSTEM_PROMPT` from Task 5; helpers from Task 6; `validateBrief` from Task 3.
 - Produces: discuss responses now include `readyForBuild: boolean`. The server-side `validateBrief` runs on the extracted brief before it is stored or rendered.
 
-- [ ] **Step 1: Locate the discuss prompt construction**
+- [x] **Step 1: Locate the discuss prompt construction**
 
 In `src/routes/api.projects.preview.ts`, find the existing `buildChatSystemPrompt`, `buildCardSystemPrompt`, and `buildOneCallSystemPrompt` (or the equivalent strings being passed to the LLM tool calls). Read those functions to understand how the existing prompt is composed.
 
-- [ ] **Step 2: Append the new prompt to the existing system prompts**
+- [x] **Step 2: Append the new prompt to the existing system prompts**
 
 Add a constant at the top of the file (after imports):
 
@@ -1274,7 +1274,7 @@ import { validateBrief } from "@/lib/projects/brief-rich-fields";
 
 In `buildChatSystemPrompt` and `buildCardSystemPrompt` and `buildOneCallSystemPrompt`, append `\n\n${DISCUSS_SYSTEM_PROMPT}` to the returned string. Do not rewrite the existing prompt text. (This is intentionally a string concatenation so the new prompt is additive; if a later task wants a full rewrite, that's a separate change.)
 
-- [ ] **Step 3: Extend the extracted card schema with `readyForBuild`**
+- [x] **Step 3: Extend the extracted card schema with `readyForBuild`**
 
 Find where the AI is asked to return a card / patch object (the `ProjectBriefPatch` and any tool input schemas). Add a new boolean field to the schema:
 
@@ -1284,7 +1284,7 @@ readyForBuild: z.boolean().default(false),
 
 Keep all existing fields. This applies to whichever extraction function emits the patch (likely `handleDiscussTurnOneCall` or `repairDiscussCardWithTool`).
 
-- [ ] **Step 4: Run the validator on the extracted brief before storage**
+- [x] **Step 4: Run the validator on the extracted brief before storage**
 
 Find where the extracted patch is applied to the project's stored brief. Just before the brief is saved, call `validateBrief` on the patch's full field set and replace the patch's typed fields with the cleaned values. Pseudo:
 
@@ -1301,12 +1301,12 @@ const finalPatch: ProjectBriefPatch = { ...patch, ...cleaned, readyForBuild: pat
 
 Keep the existing `businessName` / `businessType` etc. flow intact; the validator only scrubs the new typed fields. The legacy `contactOrCta` field stays as-is for backward compatibility with the existing build prompt — we are not deleting it.
 
-- [ ] **Step 5: Run the project tests**
+- [x] **Step 5: Run the project tests**
 
 Run: `bun run test`
 Expected: PASS. If a test constructs a brief patch without `readyForBuild`, the `.default(false)` covers it. If a test asserts a specific value for a now-validated field and the validator drops it, update the test to use a well-formed value (e.g. a real-looking phone number for contact).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/routes/api.projects.preview.ts
@@ -1331,7 +1331,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `ProjectBrief` from Task 4.
 - Produces: `buildHandoffLine(brief: ProjectBrief): string`. Returns the one-line confirmation the chat shows when the user clicks "Mulai build".
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1406,12 +1406,12 @@ describe("buildHandoffLine", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun test src/lib/projects/build-handoff.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 // src/lib/projects/build-handoff.ts
@@ -1452,12 +1452,12 @@ export function buildHandoffLine(brief: ProjectBrief): string {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun test src/lib/projects/build-handoff.test.ts`
 Expected: PASS — 4 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/build-handoff.ts src/lib/projects/build-handoff.test.ts
@@ -1480,13 +1480,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `isBriefReadyForBuild` from Task 4; `buildHandoffLine` from Task 8.
 - Produces: the build button is disabled unless the latest extracted brief has `readyForBuild: true`. When clicked, a one-line handoff message appears in the chat.
 
-- [ ] **Step 1: Locate the build button and the discuss-card state**
+- [x] **Step 1: Locate the build button and the discuss-card state**
 
 In `src/components/projects/WorkspaceShell.tsx`, find:
 - The build button (its `disabled` prop, its `onClick` handler).
 - The discuss-card / latest-extracted-brief state. Likely stored in component state or a React Query cache.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 `WorkspaceShell.tsx` is large. Prefer a small, focused test that exercises the gating logic in isolation. Add `src/components/projects/WorkspaceShell.test.tsx` (or co-locate in the existing test file if one exists) with:
 
@@ -1507,7 +1507,7 @@ describe("canStartBuild", () => {
 });
 ```
 
-- [ ] **Step 3: Export `canStartBuild` from WorkspaceShell**
+- [x] **Step 3: Export `canStartBuild` from WorkspaceShell**
 
 Add at the bottom of `src/components/projects/WorkspaceShell.tsx`:
 
@@ -1521,12 +1521,12 @@ export function canStartBuild(brief: ProjectBrief | null | undefined): boolean {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun test src/components/projects/WorkspaceShell.test.tsx`
 Expected: PASS — 3 tests.
 
-- [ ] **Step 5: Wire the button and handoff in the component**
+- [x] **Step 5: Wire the button and handoff in the component**
 
 In the build button's props:
 - Set `disabled={!canStartBuild(latestBrief)}`.
@@ -1534,11 +1534,11 @@ In the build button's props:
 
 (If the file does not export a chat-append helper, find where the existing chat message is added on user input and reuse that path. The point is: the handoff line lands in the chat, then the build runs.)
 
-- [ ] **Step 6: Manual smoke test**
+- [x] **Step 6: Manual smoke test**
 
 Run: `bun run dev` and click through. Verify the button stays disabled until the AI sets `readyForBuild: true`, and that the handoff line appears in chat on click.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/components/projects/WorkspaceShell.tsx src/components/projects/WorkspaceShell.test.tsx
@@ -1563,11 +1563,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: the new typed fields from Task 4.
 - Produces: every soft-field section in the rendered preview is conditionally rendered. No "—", "Belum diisi", or button-without-target anywhere.
 
-- [ ] **Step 1: Find every section in ProjectSitePreview**
+- [x] **Step 1: Find every section in ProjectSitePreview**
 
 Read `src/components/projects/renderer/ProjectSitePreview.tsx` end to end. List every section that renders a soft field: USP, since, paymentMethods, deliveryArea, secondaryCta, currentPromo, testimonials, certifications, multi-product list, plus the existing contact, hours, address, social. For each, confirm it currently returns `null` (or its parent gates the render) when the underlying value is empty.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 In `src/components/projects/renderer/ProjectSitePreview.test.tsx` (create if absent):
 
@@ -1631,12 +1631,12 @@ function baseBrief(over: Partial<ProjectBrief>): ProjectBrief {
 
 Use a shared `defaultBrief` fixture imported from a test helper. (Create `src/components/projects/renderer/__fixtures__/default-brief.ts` if no shared fixture exists yet — keep it minimal.)
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `bun test src/components/projects/renderer/ProjectSitePreview.test.tsx`
 Expected: FAIL — sections either don't exist yet, or they render unconditionally, or they render with placeholders.
 
-- [ ] **Step 4: Implement the gating**
+- [x] **Step 4: Implement the gating**
 
 For each section in `ProjectSitePreview.tsx`:
 - Wrap the section in `if (value is empty) return null;` (or its JSX equivalent).
@@ -1656,17 +1656,17 @@ Also add the new sections that the 18-field catalog implies but the renderer doe
 
 For each: the section reads from the typed brief field; if the array is empty or the string is null, the section hides entirely.
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `bun test src/components/projects/renderer/ProjectSitePreview.test.tsx`
 Expected: PASS — 6 tests.
 
-- [ ] **Step 6: Run the full project tests**
+- [x] **Step 6: Run the full project tests**
 
 Run: `bun run test`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/components/projects/renderer/ProjectSitePreview.tsx src/components/projects/renderer/ProjectSitePreview.test.tsx src/components/projects/renderer/__fixtures__/ src/lib/projects/site-schema.ts
@@ -1691,7 +1691,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `applyBriefValidator`, `isBriefReadyForBuild`, the validator, the new system prompt.
 - Produces: an integration test that simulates a discuss turn producing a brief patch with `readyForBuild: true`, runs it through the validator and the readiness check, and confirms the gate opens.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append (or create):
 
@@ -1733,21 +1733,21 @@ describe("discussion readiness end-to-end", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun test tests/integration/discussion-readiness.test.ts`
 Expected: FAIL on the first test (the brief is not yet ready because no `readyForBuild` exists in this code path) — confirming the test exercises the gate we are about to add.
 
-- [ ] **Step 3: No implementation here — this test passes once Tasks 4–7 land**
+- [x] **Step 3: No implementation here — this test passes once Tasks 4–7 land**
 
 If it does not pass after Tasks 4–7 are merged, the most likely culprit is that the validator or readiness check has a regression. Fix in `brief.ts` / `brief-rich-fields.ts`, not in the test.
 
-- [ ] **Step 4: Run all tests + typecheck + lint**
+- [x] **Step 4: Run all tests + typecheck + lint**
 
 Run: `bun run format && bun run lint && bun run typecheck && bun run test`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/integration/discussion-readiness.test.ts
@@ -1766,12 +1766,12 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 **Files:** none modified.
 
-- [ ] **Step 1: Run the full pre-push chain**
+- [x] **Step 1: Run the full pre-push chain**
 
 Run: `bun run format && bun run lint && bun run typecheck && bun run test && bun run knip`
 Expected: all PASS, no new knip warnings.
 
-- [ ] **Step 2: Manual smoke test in dev**
+- [x] **Step 2: Manual smoke test in dev**
 
 Run: `bun run dev` and walk through one happy path:
 1. Open a new project.
@@ -1784,11 +1784,11 @@ Run: `bun run dev` and walk through one happy path:
 8. Click build — handoff line appears, preview shows the new sections (USP, since, payment methods if filled), hidden sections are absent.
 9. Open the chat again, add hours, click build again — handoff line updates to mention hours, re-render shows hours.
 
-- [ ] **Step 3: Update the spec status**
+- [x] **Step 3: Update the spec status**
 
 Edit `docs/superpowers/specs/2026-07-16-discussion-mode-field-completeness-design.md`: change `Status: Draft` to `Status: Implemented`. Commit.
 
-- [ ] **Step 4: Push**
+- [x] **Step 4: Push**
 
 ```bash
 git push origin dev

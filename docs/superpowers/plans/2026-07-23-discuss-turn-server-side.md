@@ -64,7 +64,7 @@
 **Interfaces:**
 - Produces: the `ProjectChatTurn` table in the DB.
 
-- [ ] **Step 1: Add the model + enum + relation to `prisma/schema.prisma`**
+- [x] **Step 1: Add the model + enum + relation to `prisma/schema.prisma`**
 
 In `prisma/schema.prisma`, after the `Project` model (line ~134), add:
 
@@ -96,17 +96,17 @@ Add a relation field to the `Project` model (near the other relations, line ~121
   chatTurns                  ProjectChatTurn[]
 ```
 
-- [ ] **Step 2: Generate + apply the migration**
+- [x] **Step 2: Generate + apply the migration**
 
 Run: `bun run db:migrate` (the repo's migration script — verify the exact command in `package.json`; it likely runs `prisma migrate dev`). Name it `add_project_chat_turn`.
 Expected: a new migration file under `prisma/migrations/` + the table created in the local DB.
 
-- [ ] **Step 3: Verify the schema compiles + Prisma client regenerates**
+- [x] **Step 3: Verify the schema compiles + Prisma client regenerates**
 
 Run: `bunx prisma generate` (or whatever the repo uses) + `bun run check`.
 Expected: green (the new model is in the Prisma client types; nothing uses it yet, so no test changes needed here).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add prisma/schema.prisma prisma/migrations/<the-new-migration>/
@@ -124,7 +124,7 @@ git commit -m "feat(db): add ProjectChatTurn table for server-side discuss turns
 **Interfaces:**
 - Produces: `claimDiscussTurn`, `finalizeDiscussTurn`, `releaseDiscussTurn`, `getActiveDiscussTurn` (+ the `ProjectChatTurn` type re-export).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src/lib/projects/discuss-turn.test.ts`. Use a real test DB (the repo has one — check how other `*.test.ts` query the DB; if tests use a mock prisma, mirror it). 4 tests:
 
@@ -163,12 +163,12 @@ it("finalizeDiscussTurn marks the turn done + clears running", async () => {
 
 Adapt to the repo's real test-DB harness (read how `project-operation.test.ts` or similar tests the lease). The intent is fixed.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/discuss-turn.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `discuss-turn.ts`**
+- [x] **Step 3: Implement `discuss-turn.ts`**
 
 Create `src/lib/projects/discuss-turn.ts`:
 
@@ -280,12 +280,12 @@ export async function getActiveDiscussTurn({
 
 Note: the `claimDiscussTurn` "atomic" claim isn't a true DB transaction here (the find-then-create is a check-then-act). For correctness under concurrency, mirror `claimProjectOperation`'s `updateMany`-style atomic claim if the repo requires it — read `project-operation.ts` + decide. The check-then-create is fine at pilot scale; flag in the report.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/discuss-turn.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -306,7 +306,7 @@ git commit -m "feat(discuss): DB-backed discuss turn lease (claim/finalize/relea
 **Interfaces:**
 - Produces: `publishProgress(turnId, event)`, `subscribeProgress(turnId, onEvent): () => void`, `readTurnState(turnId): TurnState`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src/lib/projects/discuss-turn-pubsub.test.ts`:
 
@@ -348,12 +348,12 @@ describe("discuss-turn pub/sub", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/discuss-turn-pubsub.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `discuss-turn-pubsub.ts`**
+- [x] **Step 3: Implement `discuss-turn-pubsub.ts`**
 
 Create `src/lib/projects/discuss-turn-pubsub.ts`:
 
@@ -404,12 +404,12 @@ export function readTurnState(turnId: string): TurnState {
 
 Note: `setTimeout` is fine (not module-scope `Date.now`). The 30s replay window handles a quick reconnect; the DB-state fallback (Section 3) handles reconnect-after-restart (channel gone).
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/discuss-turn-pubsub.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -431,7 +431,7 @@ git commit -m "feat(discuss): in-process pub/sub progress channel for turns"
 - Consumes: `claimDiscussTurn`/`finalizeDiscussTurn` (Task 2), `publishProgress` (Task 3), the existing one-call discuss logic (currently in `api.projects.preview.ts` `handleDiscussTurnOneCall` — the prompt building + `streamText` + persist).
 - Produces: `runDiscussTurn(...): Promise<void>` (detached; persists + finalizes internally).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/projects/discuss-turn-worker.test.ts`. The test asserts the worker persists the reply + finalizes the turn even if the "client" (the caller) never reads the stream. Use a mocked model (reuse the discuss-route's mock harness if extractable; otherwise a minimal mock `streamText` that yields a fixed delta + a tool call).
 
@@ -450,12 +450,12 @@ it("persists the assistant reply + finalizes the turn even without a stream cons
 
 If the full `runDiscussTurn` is too coupled to mock, test the invariant via: call `runDiscussTurn` with a mock `streamText` that yields one delta + finish, assert `persistProjectChatTurn` was called + `finalizeDiscussTurn` ran. Reuse the existing discuss-route test mocks — read them first.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/discuss-turn-worker.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `runDiscussTurn`**
+- [x] **Step 3: Implement `runDiscussTurn`**
 
 Create `src/lib/projects/discuss-turn-worker.ts`. Move the one-call discuss logic from `api.projects.preview.ts:817-1280` (the `handleDiscussTurnOneCall` body: prompt build → `streamText` → consume `primary.stream` → `persistProjectChatTurn` → energy charge → log) into this function, BUT:
 - Replace the `writer.write(...)` calls with `publishProgress(turnId, {...})` (same event shapes — `start`/`text-delta`/`tool-call`/`text-end`/`finish`/`error`).
@@ -492,12 +492,12 @@ export async function runDiscussTurn({
 
 This is the largest move — read `handleDiscussTurnOneCall` fully + reproduce its logic with `publishProgress` instead of `writer`. Keep the legacy `handleDiscussTurn` (two-call) path untouched for now (it's inactive; the one-call flag is on). If time-bound, scope to the one-call path only + leave a `ponytail:` on the legacy path.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/discuss-turn-worker.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green. (The route still calls the old `handleDiscussTurnOneCall` — that's fine until Task 5 rewires it. No regression: the old path still works.)
@@ -519,16 +519,16 @@ git commit -m "feat(discuss): detached runDiscussTurn worker (generation persist
 - Consumes: `claimDiscussTurn`, `runDiscussTurn`, `subscribeProgress`, `readTurnState`, `getActiveDiscussTurn`.
 - Produces: POST `/api/projects/preview` returns a stream that tails the turn (live or DB-replay).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In the discuss-route test, add: POST with a user message → 200 with a stream that emits the persisted reply deltas (from the worker's pub/sub), then `finish`. AND: a second POST while one is running → 409 `project_chat_in_progress`. Reuse the existing harness.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/routes/api.projects.preview.test.ts`
 Expected: FAIL — the route still calls the old in-stream `handleDiscussTurnOneCall`.
 
-- [ ] **Step 3: Rewire POST**
+- [x] **Step 3: Rewire POST**
 
 In `src/routes/api.projects.preview.ts` `handleDiscussTurn`/`handleDiscussTurnOneCall` (the POST entry, ~line 501/536/781):
 1. **Before generation:** write the user message to `chatMessages` immediately (`persistProjectChatTurn` with the user message appended, or a lighter `appendUserMessage` helper — verify the persist helper's shape).
@@ -538,12 +538,12 @@ In `src/routes/api.projects.preview.ts` `handleDiscussTurn`/`handleDiscussTurnOn
 
 Remove the old in-stream generation (`handleDiscussTurnOneCall`'s `streamText` + `for await` + persist-from-execute) — it's now in `runDiscussTurn`. The legacy `handleDiscussTurn` (two-call) path: leave a `ponytail:` or remove if unused (judge by whether anything calls it with the flag off).
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/routes/api.projects.preview.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green. (Existing discuss tests may need updating to the new flow — adapt them, don't weaken invariants.)
@@ -564,7 +564,7 @@ git commit -m "feat(discuss): POST claims turn + detached worker + tail stream"
 **Interfaces:**
 - Produces: `GET /api/projects/[id]/chat/turn` → `{ turnId, status, userMessageId }` (the active/last turn) or `404` if none.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/routes/api.projects.$id.chat.turn.test.ts`:
 - `running` turn → 200 `{ status: "running", turnId, userMessageId }`.
@@ -572,21 +572,21 @@ Create `src/routes/api.projects.$id.chat.turn.test.ts`:
 - no turn → 404.
 - not-owner → 403/404.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/routes/api.projects.\$id.chat.turn.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement the route**
+- [x] **Step 3: Implement the route**
 
 Create `src/routes/api.projects.$id.chat.turn.ts`: auth → `getActiveDiscussTurn({ projectId })` (+ last finished if no running) → respond. Mirror the existing `api.projects.$id.chat.ts` GET route's auth + shape.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/routes/api.projects.\$id.chat.turn.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -607,7 +607,7 @@ git commit -m "feat(discuss): GET active/last turn state for client resume"
 **Interfaces:**
 - Consumes: `GET /api/projects/[id]/chat/turn`, the existing `useChat` transport.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `WorkspaceShell.test.ts`, add:
 - Mount with a last user message + no assistant reply + a `running` turn on the server → the client opens the tail stream (asserts a fetch to `/api/projects/preview` with the turn).
@@ -617,12 +617,12 @@ In `WorkspaceShell.test.ts`, add:
 
 Reuse the existing component-test harness (read it first).
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/components/projects/WorkspaceShell.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement auto-resume + mount reset**
+- [x] **Step 3: Implement auto-resume + mount reset**
 
 In `src/components/projects/WorkspaceShell.tsx`:
 1. **Mount effect:** `useEffect(() => { submitInFlightRef.current = false; /* reset on mount */ }, [])`.
@@ -646,12 +646,12 @@ useEffect(() => {
 The exact resume mechanism (transport-level stream resume vs a chat-history reload) depends on `useChat`'s API — read the existing `reloadLatestChat` (line ~1483 region) + reuse it for `succeeded`; for `running`, the cleanest is a history reload + re-tail. Judge by the `useChat` version.
 3. The `submitInFlightRef` reset on mount (step 1) is the wedge fix.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/components/projects/WorkspaceShell.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -670,19 +670,19 @@ git commit -m "feat(discuss): client auto-resume on reload + submitInFlightRef m
 - Modify: `docs/architecture.md` — record the server-side discuss turn.
 - Test: `src/routes/api.projects.preview.test.ts` — the 409 dedupe test now tests the DB lease, not the in-memory Set.
 
-- [ ] **Step 1: Verify the DB lease fully replaces the in-process lock**
+- [x] **Step 1: Verify the DB lease fully replaces the in-process lock**
 
 Grep for `acquireDiscussLock`/`releaseDiscussLock`/`discussInFlight` — all call sites should now route through `claimDiscussTurn`/`releaseDiscussTurn`. Remove the old Set + timers + helpers.
 
-- [ ] **Step 2: Update the 409 dedupe test**
+- [x] **Step 2: Update the 409 dedupe test**
 
 The existing test that asserts a second concurrent discuss turn is deduped should now assert the DB lease rejects it (the 409 from Task 5). Adapt.
 
-- [ ] **Step 3: Update `docs/architecture.md`**
+- [x] **Step 3: Update `docs/architecture.md`**
 
 Record: the discuss turn is server-side work (DB-backed `ProjectChatTurn` lease + detached `runDiscussTurn` worker + stream-is-a-tail + client auto-resume). Leaving mid-turn never loses the reply; the composer never wedges. The in-process lock is removed. Survives restart (DB); reconnect-after-restart falls to DB-state replay.
 
-- [ ] **Step 4: Run the full gate + commit**
+- [x] **Step 4: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.

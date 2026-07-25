@@ -63,7 +63,7 @@
 - Consumes: the shadcn registry (stable JSON endpoints, MIT).
 - Produces: `SHADCN_COMPONENT_FILES` expanded to ~40 entries, each `{ path: "src/components/ui/<name>.tsx", content: <canonical source> }`.
 
-- [ ] **Step 1: Write the failing test for the expanded set**
+- [x] **Step 1: Write the failing test for the expanded set**
 
 In `src/lib/projects/scaffold/scaffold.test.ts`, add assertions that the full set is present (a representative subset — don't list all 40, assert the key ones + the count is ≥30):
 
@@ -78,12 +78,12 @@ it("seeds the full shadcn component set", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/scaffold/scaffold.test.ts`
 Expected: FAIL — only 6 components seeded today.
 
-- [ ] **Step 3: Write the fetch script**
+- [x] **Step 3: Write the fetch script**
 
 Create `scripts/fetch-shadcn-components.mjs`. It fetches each shadcn component's canonical source from the shadcn registry (the v4 "new-york" style JSON endpoints, e.g. `https://ui.shadcn.com/r/styles/new-york-v4/<name>.json` — verify the exact endpoint shape by fetching one first), for the full list (~40 names). For each: parse the JSON's file content, apply the same `radix-ui` → `@radix-ui/react-*` import split the existing 6 use (the file header comment at `shadcn-components.ts:6-14` documents this transform), and emit a `CONST` + `SHADCN_COMPONENT_FILES` entry. Write the result to `src/lib/projects/scaffold/shadcn-components.ts` (overwrite, preserving the file header comment + `UTILS_TS` + `COMPONENTS_JSON`).
 
@@ -92,17 +92,17 @@ The component list to fetch (verify against the live registry; add any the regis
 
 The script is **maintainer-run, one-time** — NOT run at project build time. It writes committed source. After running it once, the sources are local forever.
 
-- [ ] **Step 4: Run the fetch script + commit the result**
+- [x] **Step 4: Run the fetch script + commit the result**
 
 Run: `node scripts/fetch-shadcn-components.mjs` (or `bun scripts/fetch-shadcn-components.mjs`).
 Verify `shadcn-components.ts` now has ~40 entries. Spot-check 2-3 components that the source is valid (compiles, imports `cn` from `@/lib/utils`, uses `@radix-ui/react-*` not `radix-ui`).
 
-- [ ] **Step 5: Run the scaffold test to verify it passes**
+- [x] **Step 5: Run the scaffold test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/scaffold/scaffold.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Run the full gate + commit**
+- [x] **Step 6: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green. (Typecheck may flag a component with a dep not yet allowlisted — that's Task 2; if typecheck fails ONLY on an un-allowlisted dep, that's expected and Task 2 fixes it. If it fails on a syntax error, fix the fetch output.)
@@ -130,7 +130,7 @@ commit."
 - Consumes: the seeded component sources (Task 1) — their `import` statements name the deps to allowlist.
 - Produces: every dep any seeded component imports is allowlisted + present in the scaffold `package.json`.
 
-- [ ] **Step 1: Extract the dep list from the seeded sources**
+- [x] **Step 1: Extract the dep list from the seeded sources**
 
 Grep the seeded component sources for every `import ... from "@radix-ui/..."` / `"cmdk"` / `"react-day-picker"` / `"react-resizable-panels"` / `"embla-carousel-react"` / `"input-otp"` / `"sonner"` / `"vaul"` / `"next-themes"` etc.:
 
@@ -140,7 +140,7 @@ grep -hoE 'from "(@radix-ui/[^"]+|cmdk|react-day-picker|react-resizable-panels|e
 
 This is the exact dep set to allowlist. No guessing.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 In `src/lib/projects/generated-package-policy.test.ts`, add a test that the scaffold `package.json` deps are all allowlisted (no build-policy rejection). Reuse the existing `validateGeneratedPackagePolicy` harness:
 
@@ -154,23 +154,23 @@ it("the scaffold package.json deps are all allowlisted", () => {
 
 Also add a scaffold test asserting every seeded component's imports resolve to an allowlisted dep (grep each import, assert it's in the allowlist) — catches a missed dep before build time.
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/generated-package-policy.test.ts src/lib/projects/scaffold/scaffold.test.ts`
 Expected: FAIL — deps the full set imports aren't allowlisted yet.
 
-- [ ] **Step 4: Add the deps to the allowlist + scaffold package.json**
+- [x] **Step 4: Add the deps to the allowlist + scaffold package.json**
 
 In `src/lib/projects/generated-package-policy.ts`, add to the `vite-react-tanstack-v1` `Set` (line 14-36) every dep from Step 1, with semver specifiers matching the canonical shadcn Vite guide (e.g. `@radix-ui/react-dialog: ^1.1.x`).
 
 In `src/lib/projects/scaffold/vite-tanstack-shadcn-starter.ts` `package.json` deps (~line 39-52), add the same deps + specifiers.
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/generated-package-policy.test.ts src/lib/projects/scaffold/scaffold.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Run the full gate + commit**
+- [x] **Step 6: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green. (If typecheck fails on a missing dep type, add `@types/...` if needed — but most Radix deps ship their own types.)
@@ -194,11 +194,11 @@ any seeded component."
 
 **Interfaces:** none new.
 
-- [ ] **Step 1: Update the skill**
+- [x] **Step 1: Update the skill**
 
 Rewrite `src/lib/projects/skills/shadcn-ui.md` to state: the full shadcn set is pre-seeded in `src/components/ui/*` (list the categories: forms, overlays, navigation, data-display, feedback); pick + `import` any; do NOT run a CLI; if a component somehow isn't seeded (shouldn't happen), write its source per the canonical pattern. Drop the "pre-seeded: button, card, badge, input, label, separator" line (now it's the full set).
 
-- [ ] **Step 2: Run the full gate + commit**
+- [x] **Step 2: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -208,7 +208,7 @@ git add -A
 git commit -m "docs(skill): shadcn-ui skill reflects the full pre-seeded set"
 ```
 
-- [ ] **Step 3: User tests Section 1**
+- [x] **Step 3: User tests Section 1**
 
 Hand off to the user: generate a project, confirm the AI can pick any shadcn component + the build passes. (This is the dopamine checkpoint for Section 1.)
 
@@ -224,7 +224,7 @@ Hand off to the user: generate a project, confirm the AI can pick any shadcn com
 - Consumes: `createDependencySignature` (existing, in `generated-source.ts`), `runCommand`/`BUNDLED_RUNNER` (existing).
 - Produces: `ensureSharedNodeModules(workspaceRoot, depSignature): Promise<string>` + `linkSharedNodeModules(workspace, sharedNodeModulesPath): Promise<boolean>`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src/lib/projects/shared-node-modules.test.ts`. Use a tmp dir (reuse the tmp helpers from `generated-source.test.ts` — read it first for the real names). Inject the install runner so the test doesn't hit the real `bun install` unless desired.
 
@@ -266,12 +266,12 @@ describe("shared node_modules", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/shared-node-modules.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `shared-node-modules.ts`**
+- [x] **Step 3: Implement `shared-node-modules.ts`**
 
 Create `src/lib/projects/shared-node-modules.ts`:
 
@@ -340,12 +340,12 @@ async function defaultInstallRunner(cwd: string) {
 
 Note: `symlink(target, link, "junction")` on Windows creates a junction (privilege-free). Verify `resolveBundledRunner` is exported from `generated-source.ts` — if not, export it (it's used internally at `:278`). The `defaultInstallRunner` lazy-imports to avoid a cycle.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/shared-node-modules.test.ts`
 Expected: PASS (all 4 cases). The link test should pass on your OS — verify the `lstat` correctly identifies symlink/junction on Windows.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -372,7 +372,7 @@ the golden is missing or linking fails. Never blocks a build."
 - Consumes: `ensureSharedNodeModules` + `linkSharedNodeModules` (Task 4), `createDependencySignature` (existing).
 - Produces: `attemptBuild` links the golden before `shouldInstall`; `pathExists(node_modules)` is true → install skipped.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `src/lib/projects/generated-source.test.ts`, add (reuse the real build-cache test harness + tmp helpers):
 
@@ -397,12 +397,12 @@ it("first build skips bun install when the shared golden node_modules is linked"
 
 Read the existing harness to get the real `makeRecordingRunner`/`buildableFiles`/`tmpRoot` names + how the signature is computed (you may need to compute the same signature the build produces). Adapt the test to real helpers.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/generated-source.test.ts`
 Expected: FAIL — `attemptBuild` runs `bun install` on the first build (no golden link).
 
-- [ ] **Step 3: Wire the link into `attemptBuild`**
+- [x] **Step 3: Wire the link into `attemptBuild`**
 
 In `src/lib/projects/generated-source.ts`, in `attemptBuild` (line 313), after `await syncGeneratedProjectFiles(workspace, files)` (line 320) + before the `shouldInstall` computation (line 322), add:
 
@@ -426,12 +426,12 @@ In `src/lib/projects/generated-source.ts`, in `attemptBuild` (line 313), after `
 
 The existing `shouldInstall` gate (line 322) now sees `node_modules` present → `installSkipped = true`. Gate logic untouched.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/generated-source.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green. (The existing repeat-build-skip test must still pass — the golden link is additive.)
@@ -452,7 +452,7 @@ if the golden isn't ready or the link fails."
 
 **Files:** none (verification).
 
-- [ ] **Step 1: User tests Section 2**
+- [x] **Step 1: User tests Section 2**
 
 Hand off: clear `.data/project-build-workspaces/_shared/` (so the golden re-provisions), then generate a project. The first build provisions the golden (one install), the second project's first build should be near-instant on the install step. Confirm cross-OS: if on Windows, verify the junction (not admin) was used in the logs.
 
@@ -467,7 +467,7 @@ Hand off: clear `.data/project-build-workspaces/_shared/` (so the golden re-prov
 **Interfaces:**
 - Produces: `createLoopDetector()` + `StepTimer` (see File Structure).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `src/lib/projects/agent-loop-detector.test.ts`:
 
@@ -510,12 +510,12 @@ describe("createLoopDetector", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/agent-loop-detector.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `agent-loop-detector.ts`**
+- [x] **Step 3: Implement `agent-loop-detector.ts`**
 
 Create `src/lib/projects/agent-loop-detector.ts`:
 
@@ -597,12 +597,12 @@ function sortKeys(value: unknown): unknown {
 
 Note: `Date.now()` is used inside function bodies (not module scope) — fine here. `createStepTimer` returns a timer whose `end()` returns ms; the caller logs it.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/agent-loop-detector.test.ts`
 Expected: PASS (all 4).
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -628,7 +628,7 @@ Pure harness — no behavior change until wired into runCommand (next commit)."
 - Consumes: `createLoopDetector` + `createStepTimer` (Task 7).
 - Produces: a generation that nudges/hard-caps on repeated tool calls + logs per-step timing; hard-cap surfaces a `loop_detected` partial result.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `src/lib/projects/custom-source-generator.test.ts`, add a test (reusing the mocked-model harness) where the agent repeats `read_file` on the same path 5 times → the generation returns a partial `loop_detected` result, not running the full step budget. Assert the result's `generationMode` or a new `loopDetected: true` flag.
 
@@ -643,12 +643,12 @@ it("hard-caps a looping generation (5 exact repeats) as loop_detected", async ()
 
 Reuse the real mocked-model harness; if it's hard to make the model emit exactly 5 identical calls, instead unit-test the `runCommand` wrapper directly with a fake command sequence (lower-level, more reliable). Judge by reading the existing harness.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: FAIL — no loop-cap behavior today.
 
-- [ ] **Step 3: Wire the detector + timer into `runCommand`**
+- [x] **Step 3: Wire the detector + timer into `runCommand`**
 
 In `src/lib/projects/custom-source-generator.ts`, at the top of `generateCustomProjectFilesWithAgent` (after the `agentEditedFiles` declaration, ~line 84), instantiate:
 
@@ -708,12 +708,12 @@ And in the final return (~line 256), surface it:
 
 Read the real code first — the `runCommand` return shape + the `onOperation` closure must stay intact; the nudge-appending must not break the `outputs.at(-1)` consumer. If appending to the output is fragile (the SDK may not pass through extra fields), instead inject the nudge by prepending it to the *next* prompt — but try the output-append first (simpler).
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -734,11 +734,11 @@ the 601s-no-output thrash case."
 
 **Files:** none (verification + handoff note).
 
-- [ ] **Step 1: User tests Section 3**
+- [x] **Step 1: User tests Section 3**
 
 Hand off: generate a project; confirm per-step timing appears in `devLog`; confirm a looping generation (if reproducible) gets nudged/capped, not 10min-stale.
 
-- [ ] **Step 2: Update the ledger + note Stage B resumption**
+- [x] **Step 2: Update the ledger + note Stage B resumption**
 
 Record that the speed phase is complete; the Stage B runtime self-heal plan (`docs/superpowers/plans/2026-07-22-guard-and-runtime-self-heal.md`) is unblocked + resumes next.
 

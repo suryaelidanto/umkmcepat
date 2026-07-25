@@ -2229,3 +2229,107 @@ Steps:
     },
   };
 }
+
+// Sibling of repairGeneratedProjectFiles that takes runtime errors (from a
+// headless browser console) instead of a build log. Same ToolLoopAgent + bounded
+// repair steps; feeds the runtime crash strings back into the agent.
+// ponytail: mirrors repairGeneratedProjectFiles structure verbatim; if a 3rd
+// repair variant appears, extract a shared runRepairAgent helper.
+export async function repairRuntimeErrors({
+  files,
+  runtimeErrors,
+  onOperation,
+  projectId,
+  schema,
+  implementationSpec,
+}: {
+  files: GeneratedProjectFile[];
+  runtimeErrors: string[];
+  onOperation?: (operation: GeneratedAppAgentOperation) => void;
+  projectId: string;
+  schema: ProjectSiteSchema;
+  implementationSpec?: ImplementationSpec;
+}): Promise<CustomGeneratedSourceResult> {
+  devLog("generate", "runtime-repair-attempt", {
+    projectId,
+    errorCount: runtimeErrors.length,
+  });
+  const operationTrace: GeneratedAppAgentOperation[] = [];
+  const touchedFiles = new Set<string>();
+  let currentFiles = files;
+
+  const runCommand: RunCommand = (command) => {
+    const result = runGeneratedAppAgentTools({
+      commands: [command],
+      files: currentFiles,
+      onOperation(operation) {
+        const traced = { ...operation, id: `${operationTrace.length + 1}` };
+        operationTrace.push(traced);
+        onOperation?.(traced);
+      },
+    });
+    currentFiles = result.files;
+    for (const effect of result.sideEffects) {
+      if (effect.path) {
+        touchedFiles.add(effect.path);
+      }
+    }
+    return result.outputs.at(-1) ?? { type: command.type };
+  };
+
+  const repairSteps = getAgentMaxSteps("repair");
+  const agent = new ToolLoopAgent({
+    model: getAiModel(getGenerationModel()),
+    maxOutputTokens: 12_000,
+    instructions: buildGeneratedAppAgentInstructions(
+      schema,
+      implementationSpec,
+      "repair",
+    ),
+    telemetry: getAiTelemetry("project-source-runtime-repair", { projectId }),
+    stopWhen: isStepCount(repairSteps),
+    tools: createAgentTools(runCommand, projectId),
+  });
+
+  const errorsBlock = runtimeErrors.length
+    ? `\nThe built app threw these RUNTIME errors when loaded in a headless browser:\n${runtimeErrors.map((e) => `- ${e}`).join("\n")}\nFix the source so the app loads without these errors. Edit the file(s) that cause each error.`
+    : "";
+
+  const result = await withAiTimeout(
+    agent.generate({
+      prompt: `RUNTIME REPAIR — the built app crashes on load.${errorsBlock}
+
+Rules:
+- Edit only under src/ (or PRODUCT.md / DESIGN.md / AGENTS.md). Never package.json, locks, vite/tsconfig/eslint, netlify/vercel, .npmrc.
+- Prefer replace_in_file on paths mentioned in the errors. Do not add dependencies or deploy configs.
+- check_app validates policy only — it is NOT proof the runtime is clean.
+
+Steps:
+1. read_file the files mentioned in the errors
+2. Fix the specific runtime issues
+3. run check_app once
+4. Brief summary of what you fixed`,
+    }),
+    "sourceGeneration",
+  );
+
+  currentFiles = ensureRouterRouteWired(currentFiles);
+  currentFiles = ensurePreviewReadyCalled(currentFiles);
+  currentFiles = ensureStylesFileExists(currentFiles, schema);
+  touchedFiles.add(AUTO_STYLE_PATH);
+
+  return {
+    buildSpec: buildGeneratedAppBuildSpec({ implementationSpec, schema }),
+    files: currentFiles,
+    generationMode: "agent-custom",
+    modelId: result.response?.modelId,
+    operationTrace,
+    repairAttempts: 1,
+    summary: result.text || "AI agent repaired runtime errors.",
+    touchedFiles: [...touchedFiles].sort(),
+    usage: {
+      inputTokens: "usage" in result ? (result.usage?.inputTokens ?? 0) : 0,
+      outputTokens: "usage" in result ? (result.usage?.outputTokens ?? 0) : 0,
+    },
+  };
+}

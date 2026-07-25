@@ -48,7 +48,7 @@
 - Consumes: `process.env.NODE_ENV`, `process.cwd()`, node `fs/promises` (`appendFile`, `stat`, `rename`), node `path`.
 - Produces: `devLog(scope: string, event: string, metadata?: Record<string, unknown>): void` and `isDevLoggingActive(): boolean`. The file path is `<cwd>/dev.log`; rotation cap is 5 MB.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/dev-log.test.ts`:
 
@@ -129,12 +129,12 @@ describe("devLog", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bunx vitest run src/lib/dev-log.test.ts`
 Expected: FAIL — `devLog`/`isDevLoggingActive` still no-op (current `dev-log.ts` gates on `UMKM_VERBOSE_DEV`, so writes never happen; rotation undefined).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Rewrite `src/lib/dev-log.ts`:
 
@@ -202,12 +202,12 @@ function stableJson(value: Record<string, unknown>) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `bunx vitest run src/lib/dev-log.test.ts`
 Expected: PASS (5 tests).
 
-- [ ] **Step 5: Add gitignore lines**
+- [x] **Step 5: Add gitignore lines**
 
 In `.gitignore`, add (near the existing `*.log` line):
 
@@ -216,7 +216,7 @@ In `.gitignore`, add (near the existing `*.log` line):
 /dev.log.1
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/dev-log.ts src/lib/dev-log.test.ts .gitignore
@@ -238,7 +238,7 @@ UMKM_VERBOSE_DEV toggle surface (callers updated next)."
 - Consumes: `isDevLoggingActive()` from `@/lib/dev-log`.
 - Produces: `writeAiRequestLog(event: Record<string, unknown>): Promise<void>` — now always writes in dev; `discuss-turn-worker.ts` (8 call sites) inherits this automatically with no changes.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/ai-request-log.test.ts`:
 
@@ -283,12 +283,12 @@ describe("writeAiRequestLog", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bunx vitest run src/lib/ai-request-log.test.ts`
 Expected: FAIL — `writeAiRequestLog` still gates on `isVerboseDevLoggingEnabled` (now removed); import fails.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Rewrite `src/lib/ai-request-log.ts`:
 
@@ -320,12 +320,12 @@ export async function writeAiRequestLog(event: Record<string, unknown>) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `bunx vitest run src/lib/ai-request-log.test.ts`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Verify discuss events now hit dev.log automatically**
+- [x] **Step 5: Verify discuss events now hit dev.log automatically**
 
 Manual check — start server, trigger a discuss turn, confirm `dev.log` contains `discuss:start` / `discuss:finish`:
 
@@ -337,12 +337,12 @@ tail -n 20 dev.log
 ```
 Expected: `[umkm:ai] discuss:start {...}` and `[umkm:ai] discuss:finish {...}` appear in `dev.log`. (The 8 existing `writeAiRequestLog` call sites in `discuss-turn-worker.ts` now write automatically.)
 
-- [ ] **Step 6: Run full gate**
+- [x] **Step 6: Run full gate**
 
 Run: `bun run check`
 Expected: PASS (format/lint/typecheck/test/knip). No Knip warning for removed `isVerboseDevLoggingEnabled` import.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/ai-request-log.ts src/lib/ai-request-log.test.ts
@@ -365,7 +365,7 @@ dev.log automatically. Removes the UMKM_VERBOSE_DEV gate."
 **Interfaces:**
 - Produces: `bun run dev:logs` — tails `dev.log` at repo root.
 
-- [ ] **Step 1: Create the tail script**
+- [x] **Step 1: Create the tail script**
 
 Create `scripts/dev-logs.ts`:
 
@@ -417,7 +417,7 @@ async function main() {
 void main();
 ```
 
-- [ ] **Step 2: Update package.json scripts**
+- [x] **Step 2: Update package.json scripts**
 
 In `package.json`, remove the line:
 ```json
@@ -428,23 +428,23 @@ and add (next to `dev`):
 "dev:logs": "bun scripts/dev-logs.ts",
 ```
 
-- [ ] **Step 3: Delete the verbose script**
+- [x] **Step 3: Delete the verbose script**
 
 ```bash
 git rm scripts/dev-verbose.ts
 ```
 
-- [ ] **Step 4: Verify the script runs**
+- [x] **Step 4: Verify the script runs**
 
 Run: `bun run dev:logs`
 Expected: prints "No dev.log yet..." (server not running) OR streams existing content. No crash.
 
-- [ ] **Step 5: Run gate**
+- [x] **Step 5: Run gate**
 
 Run: `bun run check`
 Expected: PASS — Knip must not flag `dev-logs.ts`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add scripts/dev-logs.ts package.json
@@ -465,7 +465,7 @@ tails dev.log live for when you want to watch the server stream."
 - Consumes: `devLog` from `@/lib/dev-log`, `getDefaultAiModel()`.
 - Produces: no new exports; adds `[umkm:moderation]` events to `dev.log`.
 
-- [ ] **Step 1: Add the import**
+- [x] **Step 1: Add the import**
 
 In `src/lib/ai-moderation.ts`, ensure the import block includes:
 
@@ -473,7 +473,7 @@ In `src/lib/ai-moderation.ts`, ensure the import block includes:
 import { devLog } from "@/lib/dev-log";
 ```
 
-- [ ] **Step 2: Add a request-start checkpoint**
+- [x] **Step 2: Add a request-start checkpoint**
 
 Inside `moderateProjectRequest`, right after the cache miss (before `const abortController`), add:
 
@@ -497,7 +497,7 @@ function hashPrompt(prompt: string) {
 }
 ```
 
-- [ ] **Step 3: Add an unexpected-response checkpoint**
+- [x] **Step 3: Add an unexpected-response checkpoint**
 
 In the existing `if (!["ALLOW", "BLOCK", "CLARIFY"].includes(label))` block, the code already does `console.warn("[moderation] unexpected model response...")`. Replace that `console.warn` with:
 
@@ -510,16 +510,16 @@ devLog("moderation", "unexpected-response", {
 
 (Removes a raw `console.warn` — keeps terminal quiet, lands in `dev.log`.)
 
-- [ ] **Step 4: Add a catch-path checkpoint in the callers**
+- [x] **Step 4: Add a catch-path checkpoint in the callers**
 
 The moderation throw is caught in `src/routes/api.projects.preview.ts:269` and `src/routes/api.projects.ts:195`. For now, the `discuss`/`ai-request-log` paths already cover the flow; leave the route catch as-is (Task 5 covers discuss). No change here.
 
-- [ ] **Step 5: Run gate**
+- [x] **Step 5: Run gate**
 
 Run: `bun run check`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/ai-moderation.ts
@@ -540,7 +540,7 @@ safety call (the Unauthorized/timeout/unexpected-response paths)."
 - Consumes: `devLog` from `@/lib/dev-log`.
 - Produces: `[umkm:discuss-turn]` events: `claim`, `duplicate-rejected`, `finalize`.
 
-- [ ] **Step 1: Add the import**
+- [x] **Step 1: Add the import**
 
 In `src/lib/projects/discuss-turn.ts`, add:
 
@@ -548,7 +548,7 @@ In `src/lib/projects/discuss-turn.ts`, add:
 import { devLog } from "@/lib/dev-log";
 ```
 
-- [ ] **Step 2: Add claim + duplicate-rejected checkpoints**
+- [x] **Step 2: Add claim + duplicate-rejected checkpoints**
 
 In `claimDiscussTurn`, inside the `$transaction`, after `existing` is found (the `if (existing)` block), add before `return`:
 
@@ -568,7 +568,7 @@ And after `const turnId = ...` / before `await tx.projectChatTurn.create`, add:
 devLog("discuss-turn", "claim", { projectId, turnId });
 ```
 
-- [ ] **Step 3: Add finalize checkpoint**
+- [x] **Step 3: Add finalize checkpoint**
 
 In `finalizeDiscussTurn`, after `await store.projectChatTurn.update(...)`, add:
 
@@ -580,13 +580,13 @@ devLog("discuss-turn", "finalize", {
 });
 ```
 
-- [ ] **Step 4: Run gate**
+- [x] **Step 4: Run gate**
 
 Run: `bunx vitest run src/lib/projects/discuss-turn`
 Then: `bun run check`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/discuss-turn.ts
@@ -607,7 +607,7 @@ full lifecycle: claim -> (writeAiRequestLog start/finish) -> finalize."
 - Consumes: `devLog` from `@/lib/dev-log`, existing `readTurnState`/`replayTurnFromDb`.
 - Produces: `[umkm:discuss]` events: `replay-from-db`, `auto-resume`.
 
-- [ ] **Step 1: Add the import**
+- [x] **Step 1: Add the import**
 
 Ensure `src/routes/api.projects.preview.ts` imports:
 
@@ -615,7 +615,7 @@ Ensure `src/routes/api.projects.preview.ts` imports:
 import { devLog } from "@/lib/dev-log";
 ```
 
-- [ ] **Step 2: Add replay-from-db checkpoint**
+- [x] **Step 2: Add replay-from-db checkpoint**
 
 In `replayTurnFromDb`, as the first line of the function body, add:
 
@@ -623,7 +623,7 @@ In `replayTurnFromDb`, as the first line of the function body, add:
 devLog("discuss", "replay-from-db", { turnId, projectId });
 ```
 
-- [ ] **Step 3: Add auto-resume checkpoint**
+- [x] **Step 3: Add auto-resume checkpoint**
 
 At the two `readTurnState(turnId) === "gone"` branches (lines ~476 and ~493), add before each `replayTurnFromDb` call:
 
@@ -631,12 +631,12 @@ At the two `readTurnState(turnId) === "gone"` branches (lines ~476 and ~493), ad
 devLog("discuss", "auto-resume", { turnId, projectId: project.id, reason: "gone" });
 ```
 
-- [ ] **Step 4: Run gate**
+- [x] **Step 4: Run gate**
 
 Run: `bun run check`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/routes/api.projects.preview.ts
@@ -657,12 +657,12 @@ see when a client resumed a finished/failed turn from DB state."
 - Consumes: `devLog` from `@/lib/dev-log` (already imported).
 - Produces: `[umkm:generate]` events: `source-start`, `source-finish`, `repair-attempt`.
 
-- [ ] **Step 1: Locate the generation entry/exit**
+- [x] **Step 1: Locate the generation entry/exit**
 
 Run: `grep -n 'export async function' src/lib/projects/custom-source-generator.ts`
 Identify the main generation function and its `return` / `throw` points.
 
-- [ ] **Step 2: Add source-start checkpoint**
+- [x] **Step 2: Add source-start checkpoint**
 
 At the top of the main generation function body (after input validation), add:
 
@@ -670,7 +670,7 @@ At the top of the main generation function body (after input validation), add:
 devLog("generate", "source-start", { projectId });
 ```
 
-- [ ] **Step 3: Add source-finish checkpoint**
+- [x] **Step 3: Add source-finish checkpoint**
 
 Before each successful `return` of generated output, add:
 
@@ -684,7 +684,7 @@ And in the existing failure `throw`/`catch` (the `AI source generation failed:` 
 devLog("generate", "source-finish", { projectId, ok: false, reason: error instanceof Error ? error.message : "agent failed" });
 ```
 
-- [ ] **Step 4: Add repair-attempt checkpoint**
+- [x] **Step 4: Add repair-attempt checkpoint**
 
 At the existing repair entry point (where the in-turn repair runs — search `repair` in the file), add:
 
@@ -692,12 +692,12 @@ At the existing repair entry point (where the in-turn repair runs — search `re
 devLog("generate", "repair-attempt", { projectId });
 ```
 
-- [ ] **Step 5: Run gate**
+- [x] **Step 5: Run gate**
 
 Run: `bun run check`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/projects/custom-source-generator.ts
@@ -715,7 +715,7 @@ and repair attempts — the 'AI source generation failed' failure path."
 - Modify: `DEV.md` (lines ~27-33 trim; add Debugging section)
 - Modify: `AGENTS.md` (Graphify rule + debugging pointer)
 
-- [ ] **Step 1: Trim the dev:verbose block in DEV.md**
+- [x] **Step 1: Trim the dev:verbose block in DEV.md**
 
 Replace lines 27-33 (the `Verbose development mode:` block through the `bun run dev` quiet paragraph) with:
 
@@ -727,7 +727,7 @@ bun run dev:logs
 ```
 ```
 
-- [ ] **Step 2: Add the Debugging section to DEV.md**
+- [x] **Step 2: Add the Debugging section to DEV.md**
 
 Insert a new `## Debugging` section after the `## Local runtime` section:
 
@@ -744,7 +744,7 @@ When something breaks, an agent (or you) reconstructs the causal chain without c
 `dev.log` rotates at ~5 MB to `dev.log.1`; it is never deleted on crash (a crash is when it matters most). Both are gitignored.
 ```
 
-- [ ] **Step 3: Sharpen the Graphify rule in AGENTS.md**
+- [x] **Step 3: Sharpen the Graphify rule in AGENTS.md**
 
 In `AGENTS.md`, replace line 60:
 
@@ -758,7 +758,7 @@ with:
 - Run `bun run graph:update` and navigate the source tree before blind grep/search; Graphify is the default discovery step for non-trivial work. Do not add it as a project dependency.
 ```
 
-- [ ] **Step 4: Add a debugging pointer in AGENTS.md**
+- [x] **Step 4: Add a debugging pointer in AGENTS.md**
 
 In `AGENTS.md`'s `## Commands` section, after the `bun run check` / `bun run verify` block, add:
 
@@ -766,12 +766,12 @@ In `AGENTS.md`'s `## Commands` section, after the `bun run check` / `bun run ver
 - When debugging, read `dev.log` at repo root and `docker compose logs`; see `DEV.md`'s Debugging section for the full workflow.
 ```
 
-- [ ] **Step 5: Run gate**
+- [x] **Step 5: Run gate**
 
 Run: `bun run check`
 Expected: PASS (docs are prettier-checked).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add DEV.md AGENTS.md
@@ -788,7 +788,7 @@ debugging pointer. dev:verbose prose removed."
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Confirm no stale `UMKM_VERBOSE_DEV` / `isVerboseDevLoggingEnabled` refs**
+- [x] **Step 1: Confirm no stale `UMKM_VERBOSE_DEV` / `isVerboseDevLoggingEnabled` refs**
 
 Run:
 ```bash
@@ -796,7 +796,7 @@ grep -rn 'UMKM_VERBOSE_DEV\|isVerboseDevLoggingEnabled' src/ scripts/ .env.examp
 ```
 Expected: no matches.
 
-- [ ] **Step 2: Confirm `dev:verbose` is gone and `dev:logs` exists**
+- [x] **Step 2: Confirm `dev:verbose` is gone and `dev:logs` exists**
 
 Run:
 ```bash
@@ -804,12 +804,12 @@ grep -nE '"dev:verbose"|"dev:logs"' package.json
 ```
 Expected: only `"dev:logs"` matches.
 
-- [ ] **Step 3: Run the full gate**
+- [x] **Step 3: Run the full gate**
 
 Run: `bun run check`
 Expected: PASS.
 
-- [ ] **Step 4: Smoke-test end-to-end**
+- [x] **Step 4: Smoke-test end-to-end**
 
 ```bash
 bun run dev &
@@ -820,7 +820,7 @@ bun run dev:logs   # confirm it streams
 ```
 Expected: `dev.log` contains `[umkm:...]` events; `dev:logs` streams new appends; killing the server leaves `dev.log` intact.
 
-- [ ] **Step 5: Commit any remaining cleanup (if smoke test surfaced issues)**
+- [x] **Step 5: Commit any remaining cleanup (if smoke test surfaced issues)**
 
 If the smoke test found nothing to fix, skip. Otherwise:
 

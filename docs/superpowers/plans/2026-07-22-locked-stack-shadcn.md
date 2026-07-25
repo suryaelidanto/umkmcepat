@@ -66,7 +66,7 @@
 **Interfaces:**
 - Produces: `BuildGeneratedProjectOptions.workspaceKey?: string` — when set, the workspace dir is `<root>/<workspaceKey>/<runtimeProfile>/`; when unset, falls back to `manifest.projectId` (preserves existing tests that don't pass it).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `src/lib/projects/generated-source.test.ts` (inside the existing describe for build caching, near the `:393` reuse test):
 
@@ -97,12 +97,12 @@ it("reuses the same workspace across rebuilds when workspaceKey is stable", asyn
 
 If the existing test helpers (`makeRecordingRunner`, `tmpRoot`, `buildableFiles`) differ in name, reuse the actual helpers already in that file — do not invent new ones. The assertion's intent: a second build with the same `workspaceKey` does NOT run `bun install`.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/generated-source.test.ts`
 Expected: FAIL — `workspaceKey` option does not exist yet (type error) and/or install still runs because key is unstable.
 
-- [ ] **Step 3: Add `workspaceKey` to the options + workspace path**
+- [x] **Step 3: Add `workspaceKey` to the options + workspace path**
 
 In `src/lib/projects/generated-source.ts`, change:
 
@@ -137,7 +137,7 @@ In `buildGeneratedProjectInWorkspace` (line ~291), use it:
   );
 ```
 
-- [ ] **Step 4: Thread `workspaceKey: projectId` through call sites**
+- [x] **Step 4: Thread `workspaceKey: projectId` through call sites**
 
 In `src/routes/api.projects.$id.generate.ts`, each of the 4 `buildGeneratedProject(sourceFiles)` calls becomes `buildGeneratedProject(sourceFiles, { workspaceKey: projectId })`. (`projectId` is already in scope at each call site — confirmed at lines 447, 498, 935, 993.)
 
@@ -167,12 +167,12 @@ const buildResult = await createLocalBuildWorker().runBuild({
 });
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/generated-source.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Run the full gate + commit**
+- [x] **Step 6: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: all green (format, lint, typecheck, test, knip).
@@ -206,7 +206,7 @@ skipped on repeat builds with unchanged dependency signature."
 - Consumes: `ProjectSiteSchema` (from `generated-types` / wherever defined) — its `.theme { background, foreground, muted, accent }`.
 - Produces: `createViteTanStackShadcnStarterFiles(projectId: string, schema: ProjectSiteSchema): GeneratedProjectFile[]` — the full starter file set.
 
-- [ ] **Step 1: Write the failing test for the scaffold file set**
+- [x] **Step 1: Write the failing test for the scaffold file set**
 
 Create `src/lib/projects/scaffold/scaffold.test.ts`:
 
@@ -250,12 +250,12 @@ describe("createViteTanStackShadcnStarterFiles", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/scaffold/scaffold.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Create `shadcn-theme.ts` — schema → CSS vars**
+- [x] **Step 3: Create `shadcn-theme.ts` — schema → CSS vars**
 
 Create `src/lib/projects/scaffold/shadcn-theme.ts`:
 
@@ -298,7 +298,7 @@ body {
 
 Exact var names must match what the seeded shadcn components reference (shadcn "new-york" uses `bg-background text-foreground border-border` etc.). If a seeded component references a var not set here, add it.
 
-- [ ] **Step 4: Create `shadcn-components.ts` — `cn()` + `components.json` + seeded components**
+- [x] **Step 4: Create `shadcn-components.ts` — `cn()` + `components.json` + seeded components**
 
 Create `src/lib/projects/scaffold/shadcn-components.ts`. Export an array of `{ path, content }` for: `src/lib/utils.ts`, `components.json`, and `src/components/ui/{button,card,badge,input,label,separator}.tsx`. Use canonical shadcn "new-york" + Tailwind v4 source (from `ui.shadcn.com/docs/components/<name>` — these are MIT-licensed source, copy verbatim). Example for `utils.ts`:
 
@@ -338,7 +338,7 @@ export function cn(...inputs: ClassValue[]) {
 
 Each component imports `cn` from `@/lib/utils` and Radix primitives where needed (`@radix-ui/react-slot` for `button`, `@radix-ui/react-label` for `label`, `@radix-ui/react-separator` for `separator`). Export as `SHADCN_COMPONENT_FILES: GeneratedProjectFile[]`.
 
-- [ ] **Step 5: Update the package allowlist + vite config policy**
+- [x] **Step 5: Update the package allowlist + vite config policy**
 
 In `src/lib/projects/generated-package-policy.ts`, add to the `"vite-react-tanstack-v1"` set:
 
@@ -377,7 +377,7 @@ export default defineConfig({
 
 Add `components.json` to `PLATFORM_OWNED_PATHS` (AI must not rewrite it; it may add new `src/components/ui/*` files but must not edit the seeded ones — enforced by the gate in Task 5, not here).
 
-- [ ] **Step 6: Create the starter generator**
+- [x] **Step 6: Create the starter generator**
 
 Create `src/lib/projects/scaffold/vite-tanstack-shadcn-starter.ts` producing `GeneratedProjectFile[]` with:
 - `package.json` — same deps as the old starter (`generated-source.ts:757-793`) PLUS the new shadcn deps, with `name: toPackageName(schema.businessName)` (slug stays in package.json, NOT used as workspace key anymore — Task 1 decoupled that).
@@ -426,7 +426,7 @@ declare module "@tanstack/react-router" {
 - `src/content/site.ts` — `export const site = ... as const; export default site;` (same as old).
 - NO `src/styles.css` (removed — replaced by `index.css`).
 
-- [ ] **Step 7: Wire the new starter into the scaffold call site**
+- [x] **Step 7: Wire the new starter into the scaffold call site**
 
 In `src/lib/projects/generated-source.ts`, replace the body of `createGeneratedViteTanStackStarterFiles` (lines 751-892) with a delegation:
 
@@ -441,12 +441,12 @@ export function createGeneratedViteTanStackStarterFiles(
 
 Delete `createStarterContractStyles` (line 895-898) — replaced by `shadcnThemeCss`. Keep `createGeneratedProjectFiles` / `createGeneratedViteTanStackProjectFiles` working (they call into the starter; verify their bodies at lines 900-914 still compile against the new file set, fixing any references to removed files like `src/styles.css`).
 
-- [ ] **Step 8: Run the scaffold + policy tests**
+- [x] **Step 8: Run the scaffold + policy tests**
 
 Run: `bun run test:changed -- src/lib/projects/scaffold/scaffold.test.ts src/lib/projects/generated-build-policy.test.ts src/lib/projects/generated-package-policy.test.ts`
 Expected: PASS.
 
-- [ ] **Step 9: Run the full gate + commit**
+- [x] **Step 9: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green. (Some downstream tests in `generated-source.test.ts` / `custom-source-generator` tests may reference `src/styles.css` or `.starter-shell` — fix them in this step, not deferred.)
@@ -479,7 +479,7 @@ stale-placeholder output."
 - Consumes: the `read_skill` tool (`name` = filename without `.md`).
 - Produces: markdown content returned to the agent as `result`.
 
-- [ ] **Step 1: Write `tailwind-v4.md`**
+- [x] **Step 1: Write `tailwind-v4.md`**
 
 ```markdown
 ---
@@ -497,7 +497,7 @@ description: Tailwind CSS v4 conventions for UMKM Cepat generated apps — utili
 - Colors: use the theme vars (`bg-background`, `text-foreground`, `bg-primary`, `text-muted-foreground`) so the brief's palette applies. Avoid raw hex except in `index.css` vars.
 ```
 
-- [ ] **Step 2: Write `tanstack-router-static.md`**
+- [x] **Step 2: Write `tanstack-router-static.md`**
 
 ```markdown
 ---
@@ -517,7 +517,7 @@ description: TanStack Router conventions for static multi-page UMKM Cepat apps �
 - Read business data via `import { site } from "@/content/site"`.
 ```
 
-- [ ] **Step 3: Write `shadcn-ui.md`**
+- [x] **Step 3: Write `shadcn-ui.md`**
 
 ```markdown
 ---
@@ -535,7 +535,7 @@ description: shadcn/ui conventions for UMKM Cepat generated apps — compose pre
 - No CLI at build time. You write component source files directly with `write_file`.
 ```
 
-- [ ] **Step 4: Run the gate + commit**
+- [x] **Step 4: Run the gate + commit**
 
 Run: `bun run check`
 Expected: green (skills are inert markdown; only knip/lint on .md is minimal).
@@ -564,7 +564,7 @@ so the agent does not drift from the locked stack."
 - Consumes: the new scaffold (Task 2) + skills (Task 3).
 - Produces: a single coherent instruction string fed to `ToolLoopAgent.instructions`.
 
-- [ ] **Step 1: Write the failing test for the prompt content**
+- [x] **Step 1: Write the failing test for the prompt content**
 
 Create `src/lib/projects/custom-source-generator.test.ts`:
 
@@ -599,12 +599,12 @@ describe("buildGeneratedAppAgentInstructions", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: FAIL — current prompt still contains the banned lines.
 
-- [ ] **Step 3: Rewrite `buildAgentPrompt` + `buildGeneratedAppAgentInstructions` + `skillsBlock`**
+- [x] **Step 3: Rewrite `buildAgentPrompt` + `buildGeneratedAppAgentInstructions` + `skillsBlock`**
 
 In `src/lib/projects/custom-source-generator.ts`, replace the `skillsBlock` block (lines 1934-1942) and the prompt body (1944-1967) with a coherent version. The new `skillsBlock` (generate mode) drops the contradiction and points at skills:
 
@@ -658,16 +658,16 @@ Call check_app after all writes.`;
 
 Keep `DESIGN_DIRECTIVE` as-is (it is taste guidance, not stack-contradicting) — but scan it for `src/styles.css` token references (line 1847 mentions `--bg/--fg/--muted/--accent` from `src/styles.css`); update that one line to reference `src/index.css` theme vars instead.
 
-- [ ] **Step 4: Run the prompt test to verify it passes**
+- [x] **Step 4: Run the prompt test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Rewrite `generated-app-builder.md` to the locked stack**
+- [x] **Step 5: Rewrite `generated-app-builder.md` to the locked stack**
 
 Rewrite `src/lib/projects/skills/generated-app-builder.md` so it agrees with the new prompt (stack = shadcn + Tailwind v4 + TanStack Router; styling = utility classes only, `index.css` untouched; routing = multi-page with `<Link>`; no backend; package.json platform-owned). Remove the lines that contradicted: "No Tailwind CSS (custom CSS only)" (old line 99), "styles.css — every className needs a rule" (old line 20/56), "rewrite styles.css fully" (old line 58). Add a "Direct tools, not design" note: the AI picks pages/sections from the brief — no forced contact/footer/testimonials.
 
-- [ ] **Step 6: Run the full gate + commit**
+- [x] **Step 6: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green. (The `api.projects.preview.test.ts` assertions on `buildChatSystemPrompt` are unrelated; but `custom-source-generator`-adjacent tests that asserted old prompt strings or `src/styles.css` presence must be updated here.)
@@ -699,7 +699,7 @@ output."
 - Consumes: the new scaffold's `index.tsx` (whose placeholder uses a `// Replace this` comment, NOT a `starterMessage` string — so the gate must detect the *comment marker*, not a hardcoded business string).
 - Produces: `checkAgentSourceQuality` adds issue `"home route is still the starter placeholder"` when `src/routes/index.tsx` contains the starter marker.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `src/lib/projects/custom-source-generator.test.ts`, add:
 
@@ -716,12 +716,12 @@ it("fails the gate when index.tsx is still the starter placeholder", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: FAIL — gate currently passes a stale starter (it compiles + has preview-ready).
 
-- [ ] **Step 3: Add the stale-starter check + wire it into the recoverable set**
+- [x] **Step 3: Add the stale-starter check + wire it into the recoverable set**
 
 In `checkAgentSourceQuality` (after the `agentEditedFiles.size` block, ~line 1743), add:
 
@@ -745,12 +745,12 @@ Add `"home route is still the starter placeholder"` to `NO_MEANINGFUL_EDIT_ISSUE
 
 Also relax the hard `size < 2`: change line 1741 from `if (agentEditedFiles.size < 2)` to `if (agentEditedFiles.size < 1)` — the real "meaningful edit" signal is the `presentationEdited`/`contentEdited` check below it (line 1749-1761), which already requires a presentation or content file. The `< 2` rule was the old "edit site.ts + styles.css" expectation that the new stack abandons. (Keep the `presentationEdited`/`contentEdited` checks — they're the real bar.)
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `bun run test:changed -- src/lib/projects/custom-source-generator.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Run the full gate + commit**
+- [x] **Step 5: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.
@@ -782,7 +782,7 @@ workflow) to size<1; the real bar is the presentation/content-edit check."
 - Consumes: the implementation from Tasks 1-5.
 - Produces: canonical docs reflecting the locked stack.
 
-- [ ] **Step 1: Update `docs/architecture.md`**
+- [x] **Step 1: Update `docs/architecture.md`**
 
 In the generated-project / styling sections, record:
 - Locked stack: Vite + React 19 + TanStack Router (hash history, static, multi-page) + Tailwind CSS v4 (`@tailwindcss/vite`, CSS-first, no `tailwind.config.js`) + shadcn/ui ("new-york", source-copied, no CLI at build time).
@@ -792,15 +792,15 @@ In the generated-project / styling sections, record:
 - Static-frontend-only remains the constraint; backend/DB/auth/payments are future, not now.
 - A landing page is one valid outcome, not the forced default; multi-page is encouraged when the brief has distinct sections.
 
-- [ ] **Step 2: Update `DESIGN.md`**
+- [x] **Step 2: Update `DESIGN.md`**
 
 Add a short section: the generated-app design system is shadcn "new-york" + Tailwind v4; theme tokens come from the brief (`schema.theme`) and are emitted as CSS vars in `src/index.css` (`--background`, `--foreground`, `--muted`, `--primary`, `--accent`); components compose `bg-background`/`text-foreground`/`bg-primary`. No custom CSS classes; `DESIGN_DIRECTIVE` (taste guidance) still applies on top of the utility classes.
 
-- [ ] **Step 3: Check `PRODUCT.md`**
+- [x] **Step 3: Check `PRODUCT.md`**
 
 Grep `PRODUCT.md` for "custom CSS" / "styles.css" / "Tailwind". If it asserts the old styling, align it to the locked stack. If it's silent on styling, no change.
 
-- [ ] **Step 4: Run the full gate + commit**
+- [x] **Step 4: Run the full gate + commit**
 
 Run: `bun run check`
 Expected: green.

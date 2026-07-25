@@ -55,7 +55,7 @@
 - Consumes: existing `BriefQuestion` type (brief.ts:63-74).
 - Produces: `WorkspaceCard` now accepts `{ type: "questions"; questions: BriefQuestion[] }`. Downstream `parseWorkspaceCard`, `normalizeWorkspaceCard`, consumers must handle it (Tasks 2, 4).
 
-- [ ] **Step 1: Write the failing type-guard test**
+- [x] **Step 1: Write the failing type-guard test**
 
 Add to `src/lib/projects/brief-flow.test.ts`:
 
@@ -96,12 +96,12 @@ describe("parseWorkspaceCard questions variant", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bun test src/lib/projects/brief-flow.test.ts -t "questions variant"`
 Expected: FAIL — `normalizeWorkspaceCard` reads `questions[0]` and returns `type:"question"` (current `[0]` behavior), so `card.type` is `"question"` not `"questions"`.
 
-- [ ] **Step 3: Add the variant to the type**
+- [x] **Step 3: Add the variant to the type**
 
 In `src/lib/projects/brief.ts`, replace the `WorkspaceCard` type (lines 76-82):
 
@@ -116,12 +116,12 @@ export type WorkspaceCard =
   | { type: "build_recommendation"; title: string; summary: string[] };
 ```
 
-- [ ] **Step 4: Run test to verify it still fails (normalize not yet updated)**
+- [x] **Step 4: Run test to verify it still fails (normalize not yet updated)**
 
 Run: `bun test src/lib/projects/brief-flow.test.ts -t "questions variant"`
 Expected: FAIL — type compiles but `normalizeWorkspaceCard` still collapses to `question`. Confirms Task 2 is needed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/brief.ts src/lib/projects/brief-flow.test.ts
@@ -142,7 +142,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `WorkspaceCard` `questions` variant (Task 1), existing `normalizeQuestion` (brief-flow.ts:272).
 - Produces: `normalizeWorkspaceCard` returns `type:"questions"` for 2-3 valid questions, collapses to `type:"question"` for 1 valid, `type:"none"` for 0 valid. Dedupes by id, caps at 3.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add to `src/lib/projects/brief-flow.test.ts` (extend the `parseWorkspaceCard questions variant` describe block):
 
@@ -249,12 +249,12 @@ Add to `src/lib/projects/brief-flow.test.ts` (extend the `parseWorkspaceCard que
   });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bun test src/lib/projects/brief-flow.test.ts -t "questions variant"`
 Expected: FAIL — current `normalizeWorkspaceCard` reads `value.question ?? value.questions[0]` and returns single `question`.
 
-- [ ] **Step 3: Implement `normalizeWorkspaceCard` questions branch**
+- [x] **Step 3: Implement `normalizeWorkspaceCard` questions branch**
 
 In `src/lib/projects/brief-flow.ts`, add a helper and branch. Replace the body of `normalizeWorkspaceCard` (lines 215-270) so it first checks for an explicit `questions` array. Insert near the top of the function, after the `value` destructuring (after line ~230):
 
@@ -301,17 +301,17 @@ function normalizeQuestionsArray(
 
 Ensure `BriefQuestion` is in the existing imports at the top of `brief-flow.ts` (it already imports `type BriefQuestion` from `./brief` — verify; if not, add it).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bun test src/lib/projects/brief-flow.test.ts`
 Expected: PASS — all existing tests + new questions-variant tests green.
 
-- [ ] **Step 5: Run full brief-flow regression**
+- [x] **Step 5: Run full brief-flow regression**
 
 Run: `bun test src/lib/projects/brief-flow.test.ts src/lib/projects/brief.test.ts`
 Expected: PASS — no regressions (existing `question` and `build_recommendation` paths untouched).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/projects/brief-flow.ts src/lib/projects/brief-flow.test.ts
@@ -335,7 +335,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `WorkspaceCard` `questions` variant (Task 1).
 - Produces: `buildBriefPatchFromWorkspaceAnswers` accepts a `questions` card and applies every answered question's payload to the brief patch.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add to `src/lib/projects/workspace-answers.test.ts`:
 
@@ -395,12 +395,12 @@ describe("buildBriefPatchFromWorkspaceAnswers questions card", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bun test src/lib/projects/workspace-answers.test.ts -t "questions card"`
 Expected: FAIL — `buildBriefPatchFromWorkspaceAnswers` returns `{}` for a `questions` card because the guard `card.type !== "question"` short-circuits (line 24).
 
-- [ ] **Step 3: Change the active-questions source**
+- [x] **Step 3: Change the active-questions source**
 
 In `src/lib/projects/workspace-answers.ts`, replace lines 24-28 (the `questions` derivation):
 
@@ -413,12 +413,12 @@ In `src/lib/projects/workspace-answers.ts`, replace lines 24-28 (the `questions`
     card.type === "questions" ? card.questions : [card.question];
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bun test src/lib/projects/workspace-answers.test.ts`
 Expected: PASS — all existing single-question tests + new batch tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/workspace-answers.ts src/lib/projects/workspace-answers.test.ts
@@ -438,7 +438,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `WorkspaceCard` `questions` variant.
 - Produces: composer-state machine, freshness, and answered-detection all treat a `questions` card like a `question` card (composer state `"question"`, freshness compares id sets, answered-detection checks the latest user text against any question in the batch).
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 Create or extend a test file. Check if `workspace-sync.test.ts` exists; if so add there, else create `src/lib/projects/workspace-sync-rounds.test.ts`:
 
@@ -479,12 +479,12 @@ describe("workspace-sync questions variant", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bun test src/lib/projects/workspace-sync-rounds.test.ts`
 Expected: FAIL — `getWorkspaceComposerState` falls through to `"free_chat"` for `type:"questions"`; `isFreshWorkspaceCard` returns false (no `questions` branch).
 
-- [ ] **Step 3: Update `getWorkspaceComposerState`**
+- [x] **Step 3: Update `getWorkspaceComposerState`**
 
 In `src/lib/projects/workspace-sync.ts`, the function has branches `card.type === "question"` (lines 111-113 and 129-131). Add `questions` to both comparisons:
 
@@ -502,7 +502,7 @@ In `src/lib/projects/workspace-sync.ts`, the function has branches `card.type ==
 ```
 (after the build_recommendation branches).
 
-- [ ] **Step 4: Update `isFreshWorkspaceCard`**
+- [x] **Step 4: Update `isFreshWorkspaceCard`**
 
 Add a `questions` branch in `isFreshWorkspaceCard` (after the `question` branch, ~line 353):
 
@@ -518,7 +518,7 @@ Add a `questions` branch in `isFreshWorkspaceCard` (after the `question` branch,
   }
 ```
 
-- [ ] **Step 5: Update `hasAnsweredWorkspaceQuestion`**
+- [x] **Step 5: Update `hasAnsweredWorkspaceQuestion`**
 
 In `hasAnsweredWorkspaceQuestion` (line 145), widen the guard and detection. Replace the guard:
 
@@ -544,12 +544,12 @@ After computing `answeredQuestion` (the text before `\nJawaban:`), compare again
 
 (Replace the existing single `answeredQuestion !== card.question.question.trim()` check.)
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `bun test src/lib/projects/workspace-sync-rounds.test.ts src/lib/projects/workspace-sync.test.ts`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/projects/workspace-sync.ts src/lib/projects/workspace-sync-rounds.test.ts
@@ -570,7 +570,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: none.
 - Produces: AI emits 1-3 independent questions via `questions[]` tool field, or a single `question`, or `build_recommendation`. Per-question `recommendedOptionLabel`.
 
-- [ ] **Step 1: Update `buildOneCallSystemPrompt`**
+- [x] **Step 1: Update `buildOneCallSystemPrompt`**
 
 In `src/routes/api.projects.preview.ts`, replace the `CRITICAL OUTPUT ORDER` block (lines 685-690) with:
 
@@ -599,7 +599,7 @@ question.id must be a short slug like business_name or services.
 Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is genuinely 95%+ and no open questions remain. Below that, keep asking. Never use any other card type.`;
 ```
 
-- [ ] **Step 2: Flip tone in `discuss-system.md`**
+- [x] **Step 2: Flip tone in `discuss-system.md`**
 
 In `src/lib/projects/prompts/discuss-system.md`, replace the line:
 
@@ -613,7 +613,7 @@ with:
 Be relentless — extract every applicable field, batching independent questions aggressively to reach 95% fast. Slightly annoying upfront is fine; the 95% gate still protects the build. Ask only the applicable soft fields for the UMKM type, but do not skip them.
 ```
 
-- [ ] **Step 3: Add a Rounds section to `discuss-system.md`**
+- [x] **Step 3: Add a Rounds section to `discuss-system.md`**
 
 Append at the end of the file:
 
@@ -630,11 +630,11 @@ Example dependent (single): [tampilin harga?] → only if "ya": [range harga?]
 Always recommend a default per question (recommendedOptionLabel). Max 3 per batch.
 ```
 
-- [ ] **Step 4: Verify file builds (typecheck-ish)**
+- [x] **Step 4: Verify file builds (typecheck-ish)**
 
 Run: `bunx tsc --noEmit -p tsconfig.json 2>&1 | grep -E "preview.ts|discuss-system" | head` (or the repo's typecheck script). Expected: no errors in edited files. If the repo uses `bun run check:types`, run that instead.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/prompts/discuss-system.md src/routes/api.projects.preview.ts
@@ -654,7 +654,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `WorkspaceCard` `questions` variant.
 - Produces: tool accepts a properly-shaped `questions[]` (still permissive — server validates via Task 2).
 
-- [ ] **Step 1: Widen the `questions` field in the tool schema**
+- [x] **Step 1: Widen the `questions` field in the tool schema**
 
 In `src/routes/api.projects.preview.ts`, in `presentWorkspaceCardTool`'s `workspaceCard` schema (lines 652-672), replace the `questions: z.array(z.any()).optional()` line with a permissive-but-shaped array:
 
@@ -679,12 +679,12 @@ In `src/routes/api.projects.preview.ts`, in `presentWorkspaceCardTool`'s `worksp
 
 (Keep the existing `question` single-object field alongside it — AI may emit either.)
 
-- [ ] **Step 2: Run brief-flow tests (schema feeds normalize)**
+- [x] **Step 2: Run brief-flow tests (schema feeds normalize)**
 
 Run: `bun test src/lib/projects/brief-flow.test.ts`
 Expected: PASS (no behavioral change; schema only widens accepted input).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/routes/api.projects.preview.ts
@@ -704,7 +704,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: existing `presentWorkspaceCardTool`.
 - Produces: if the AI streams chat text without calling the tool, the SDK runs one more step so the model can self-correct. Tool is pure-present (no side effect), safe to loop.
 
-- [ ] **Step 1: Add `maxSteps` to the primary `streamText`**
+- [x] **Step 1: Add `maxSteps` to the primary `streamText`**
 
 In `src/routes/api.projects.preview.ts` `handleDiscussTurnOneCall`, the `primary = streamText({...})` block (lines 728-751). Add `maxSteps: 2` next to `toolChoice: "auto"`:
 
@@ -738,15 +738,15 @@ In `src/routes/api.projects.preview.ts` `handleDiscussTurnOneCall`, the `primary
 
 Note: this also lands Fix 3 (`maxRetries: 1` → `2`) in the same edit.
 
-- [ ] **Step 2: Verify the stream loop handles multiple tool-call parts**
+- [x] **Step 2: Verify the stream loop handles multiple tool-call parts**
 
 The existing `for await (const part of primary.stream)` loop (lines 769-797) already captures the latest `tool-call` part into `toolInput`/`streamToolCallId`. With `maxSteps: 2`, a second step may emit a second `tool-call`; the loop keeps the last one. That is the desired behavior (first valid tool call wins, last-write of the stream var is fine because step 2 only runs when step 1 produced no tool call). No code change needed — confirm by reading the loop.
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run the repo typecheck (`bun run check:types` or `bunx tsc --noEmit`). Expected: no new errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/routes/api.projects.preview.ts
@@ -770,7 +770,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `DISCUSS_CARD_SERVER_DEADLINE_MS` derived constant.
 - Produces: repair path gets a third semantic attempt; server deadline rises to 135s automatically.
 
-- [ ] **Step 1: Bump the constant**
+- [x] **Step 1: Bump the constant**
 
 In `src/lib/ai-timeouts.ts`, change line 16:
 
@@ -780,12 +780,12 @@ export const DISCUSS_CARD_SEMANTIC_ATTEMPTS = 3;
 
 `DISCUSS_CARD_SERVER_DEADLINE_MS` (line 18-19) is derived: `45_000 * 3 = 135_000`. No other change.
 
-- [ ] **Step 2: Verify no test pins the old value**
+- [x] **Step 2: Verify no test pins the old value**
 
 Run: `bun test src/lib/ai-timeouts.test.ts 2>/dev/null || echo "no ai-timeouts test"`
 Expected: either PASS or "no ai-timeouts test" (no assertion on the old constant).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/ai-timeouts.ts
@@ -807,7 +807,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `getMissingBriefFields` (brief.ts:322), `REQUIRED_BRIEF_FIELDS` (brief.ts:118), `createInitialBrief`/`parseProjectBrief`.
 - Produces: `buildFallbackWorkspaceCardFromBrief(brief): WorkspaceCard` returns a `questions` (or `question`) card derived from up to 3 missing required fields. Never returns `build_recommendation`. Caller uses it only when all AI paths produced `type:"none"`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 Add to `src/lib/projects/brief-flow.test.ts`:
 
@@ -841,12 +841,12 @@ describe("buildFallbackWorkspaceCardFromBrief", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bun test src/lib/projects/brief-flow.test.ts -t "buildFallbackWorkspaceCardFromBrief"`
 Expected: FAIL — function not exported.
 
-- [ ] **Step 3: Implement the helper**
+- [x] **Step 3: Implement the helper**
 
 In `src/lib/projects/brief-flow.ts`, add the export near `createFallbackWorkspaceCard` (~line 188):
 
@@ -944,12 +944,12 @@ export function buildFallbackWorkspaceCardFromBrief(
 
 Ensure imports include `getMissingBriefFields` from `./brief` (add if missing). `ProjectBrief` and `BriefQuestion` already imported.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bun test src/lib/projects/brief-flow.test.ts -t "buildFallbackWorkspaceCardFromBrief"`
 Expected: PASS.
 
-- [ ] **Step 5: Wire the fallback into the one-call turn**
+- [x] **Step 5: Wire the fallback into the one-call turn**
 
 In `src/routes/api.projects.preview.ts` `handleDiscussTurnOneCall`, after the repair block (the `if (primaryToolFailed) { ... }` block ending ~line 866), insert the fallback when still none:
 
@@ -978,12 +978,12 @@ import {
 } from "@/lib/projects/brief-flow";
 ```
 
-- [ ] **Step 6: Typecheck + run full brief-flow suite**
+- [x] **Step 6: Typecheck + run full brief-flow suite**
 
 Run: `bun run check:types` (or `bunx tsc --noEmit`) then `bun test src/lib/projects/brief-flow.test.ts`
 Expected: no type errors; all tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/projects/brief-flow.ts src/lib/projects/brief-flow.test.ts src/routes/api.projects.preview.ts
@@ -1008,7 +1008,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `WorkspaceCard` `questions` variant, existing `QuestionComposer`, `WorkspaceAnswerPayload`.
 - Produces: a batch of N `QuestionComposer` blocks with a single "Kirim semua" submit that emits the filled `WorkspaceAnswerPayload[]`.
 
-- [ ] **Step 1: Add `QuestionsComposer` to `WorkspacePrimitives.tsx`**
+- [x] **Step 1: Add `QuestionsComposer` to `WorkspacePrimitives.tsx`**
 
 Append after the existing `QuestionComposer` export (after line ~1199):
 
@@ -1071,11 +1071,11 @@ export function QuestionsComposer({
 
 Note: `QuestionComposer`'s existing `onSubmit(answer, workspaceAnswers?)` already builds the `WorkspaceAnswerPayload[]` per question (WorkspacePrimitives.tsx:1017-1024). We take `[0]`. The child composer also sends a chat text per question internally; we override by NOT calling the parent chat send — `QuestionsComposer` owns submit and calls `onSubmit(answers)` with the collected payloads. The caller (WorkspaceShell) turns those payloads into one chat send (Task 11).
 
-- [ ] **Step 2: Import `useRef` if not present**
+- [x] **Step 2: Import `useRef` if not present**
 
 Check the existing imports in `WorkspacePrimitives.tsx` (line 18: `import { useEffect, useRef, useState } from "react";`). `useRef` is already imported. No change.
 
-- [ ] **Step 3: Make `activeQuestionKey` composite in `WorkspaceShell.tsx`**
+- [x] **Step 3: Make `activeQuestionKey` composite in `WorkspaceShell.tsx`**
 
 In `src/components/projects/WorkspaceShell.tsx`, replace the `activeQuestionKey` computation (~line 1002):
 
@@ -1088,7 +1088,7 @@ In `src/components/projects/WorkspaceShell.tsx`, replace the `activeQuestionKey`
         : workspaceCard.type;
 ```
 
-- [ ] **Step 4: Render `QuestionsComposer` for a `questions` card**
+- [x] **Step 4: Render `QuestionsComposer` for a `questions` card**
 
 In `src/components/projects/WorkspaceShell.tsx`, find the existing `<QuestionComposer ... />` render (~line 2159, inside the `composerState === "question"` block). Add a branch above it:
 
@@ -1113,7 +1113,7 @@ In `src/components/projects/WorkspaceShell.tsx`, find the existing `<QuestionCom
 
 Add `QuestionsComposer` to the import from `@/components/projects/WorkspacePrimitives` (line ~28-42).
 
-- [ ] **Step 5: Handle empty-text send in `submitChatText`**
+- [x] **Step 5: Handle empty-text send in `submitChatText`**
 
 `submitChatText` (WorkspaceShell.tsx:1693) guards `if (!trimmed ...) return;`. With `QuestionsComposer` we call `submitChatText("", { workspaceAnswers: answers })` — empty text but with answers. Update the guard so an empty text WITH workspaceAnswers is allowed. In `submitChatText`, change the guard:
 
@@ -1130,20 +1130,20 @@ Add `QuestionsComposer` to the import from `@/components/projects/WorkspacePrimi
       }
 ```
 
-- [ ] **Step 6: Verify the server path accepts empty text + answers**
+- [x] **Step 6: Verify the server path accepts empty text + answers**
 
 In `src/routes/api.projects.preview.ts` `handlePreviewPost`, the empty-incoming guard (lines 265-270) returns 400 if `!incoming.length`. With `submitChatText("", { workspaceAnswers })`, the chat transport sends `message: { parts: [{ type: "text", text: "" }] }` — so `incoming.length` is 1 (not empty), passing the guard. The `latestUserText` (lines 215-219) is `""`, and `buildBriefPatchFromWorkspaceAnswers` is called with `workspaceAnswers: body.workspaceAnswers` (line 228) which takes precedence. Confirm by re-reading lines 187-254: `workspaceAnswerPatch` is built from `workspaceAnswers` first, fallback to text. Empty text + answers works. No server change needed.
 
-- [ ] **Step 7: Typecheck**
+- [x] **Step 7: Typecheck**
 
 Run: `bun run check:types` (or `bunx tsc --noEmit`). Expected: no errors. Fix any JSX/prop type issues in the new component.
 
-- [ ] **Step 8: Run Prettier + lint on touched files**
+- [x] **Step 8: Run Prettier + lint on touched files**
 
 Run: `bunx prettier --write src/components/projects/WorkspacePrimitives.tsx src/components/projects/WorkspaceShell.tsx`
 Then: `bun run check:commit` (dry — stage first if it requires staged files).
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/components/projects/WorkspacePrimitives.tsx src/components/projects/WorkspaceShell.tsx
@@ -1163,7 +1163,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: Task 2 validation, Task 9 fallback.
 - Produces: repair prompt reminds the model to emit a valid `questions[]` batch or single `question`.
 
-- [ ] **Step 1: Update the repair system prompt**
+- [x] **Step 1: Update the repair system prompt**
 
 In `src/routes/api.projects.preview.ts` `repairDiscussCardWithTool`, the repair system string (lines 1020-1024):
 
@@ -1176,22 +1176,22 @@ Emit type="questions" with 1-3 independent questions[], or type="question" with 
 Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
 ```
 
-- [ ] **Step 2: Run the full discuss-related test suite**
+- [x] **Step 2: Run the full discuss-related test suite**
 
 Run: `bun test src/lib/projects/brief-flow.test.ts src/lib/projects/workspace-answers.test.ts src/lib/projects/workspace-sync-rounds.test.ts src/lib/projects/workspace-sync.test.ts`
 Expected: all PASS.
 
-- [ ] **Step 3: Run the whole project test suite**
+- [x] **Step 3: Run the whole project test suite**
 
 Run: `bun test`
 Expected: PASS (no regressions across modules).
 
-- [ ] **Step 4: Run typecheck + lint gate**
+- [x] **Step 4: Run typecheck + lint gate**
 
 Run: `bun run check:types` then `bun run check:commit` (with all touched files staged).
 Expected: clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/routes/api.projects.preview.ts
@@ -1211,15 +1211,15 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - Consumes: `QuestionsComposer` (Task 10).
 - Produces: a visual story for a 3-question batch.
 
-- [ ] **Step 1: Read the existing stories file and mirror its pattern**
+- [x] **Step 1: Read the existing stories file and mirror its pattern**
 
 Run: `head -40 src/stories/WorkspaceDecisionCards.stories.tsx` to see the export shape. Add a new story exporting a `questions` card sample (3 questions, mixed modes) rendering `<QuestionsComposer questions={[...]} onSubmit={() => {}} />`.
 
-- [ ] **Step 2: Run storybook smoke (if available)**
+- [x] **Step 2: Run storybook smoke (if available)**
 
 Run: `bunx storybook build --test 2>&1 | tail -5` or skip if storybook isn't part of CI. Optional — only if the repo runs storybook in CI.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/stories/WorkspaceDecisionCards.stories.tsx
