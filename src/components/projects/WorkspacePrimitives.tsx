@@ -1166,7 +1166,12 @@ export function QuestionComposer({
               <button
                 key={option.label}
                 type="button"
-                onClick={() => chooseAnswer(option.label, "option")}
+                onClick={() => {
+                  chooseAnswer(option.label, "option");
+                  if (!isMultiple) {
+                    setCustomAnswerOpen(false);
+                  }
+                }}
                 className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 border-b px-spacing-5 py-spacing-4 text-left transition last:border-b-0 ${isSelected ? modeTone.selected : modeTone.option}`}
               >
                 <span className="min-w-0">
