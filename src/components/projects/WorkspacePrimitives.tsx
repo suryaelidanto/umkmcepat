@@ -1070,7 +1070,7 @@ export function QuestionComposer({
   const answer = isTextQuestion
     ? customAnswer.trim()
     : formatWorkspaceAnswerSelection(question, selected, source);
-  const customAnswerSelected = Boolean(selected.length) && source === "custom";
+  const customAnswerSelected = source === "custom";
   const [isSubmitting, setIsSubmitting] = useState(false);
   // ponytail: synchronous lock against double-submit within the same tick.
   // `isSubmitting` state lags by one render; a ref flips instantly so a second
@@ -1223,9 +1223,8 @@ export function QuestionComposer({
             type="button"
             onClick={() => {
               setCustomAnswerOpen(true);
-              if (customAnswer.trim()) {
-                chooseAnswer(customAnswer.trim(), "custom");
-              }
+              setSource("custom");
+              setSelected(customAnswer.trim() ? [customAnswer.trim()] : []);
             }}
             className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 border-b px-spacing-5 py-spacing-4 text-left transition last:border-b-0 ${customAnswerSelected ? modeTone.selected : modeTone.option}`}
           >
@@ -1318,12 +1317,10 @@ export function QuestionComposer({
               value={customAnswer}
               onChange={(event) => {
                 setCustomAnswer(event.target.value);
-                if (event.target.value.trim()) {
-                  chooseAnswer(event.target.value.trim(), "custom");
-                } else if (customAnswerSelected) {
-                  setSelected([]);
-                  setSource("option");
-                }
+                setSource("custom");
+                setSelected(
+                  event.target.value.trim() ? [event.target.value.trim()] : [],
+                );
               }}
               placeholder="Tulis jawabanmu sendiri..."
               className="mt-spacing-3 w-full resize-none rounded-radius-md border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
