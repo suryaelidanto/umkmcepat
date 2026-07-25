@@ -6,6 +6,7 @@ import {
   isAllowedAssetPurpose,
   uploadProjectAsset,
 } from "@/lib/projects/project-asset-upload";
+import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
@@ -77,8 +78,9 @@ export const Route = createFileRoute("/api/projects/$id/assets")({
           });
           return Response.json(asset, { status: 201 });
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Upload gagal.";
+          const message = mapToUserFacingError(
+            error instanceof Error ? error.message : "",
+          );
           return Response.json({ message }, { status: 400 });
         }
       },

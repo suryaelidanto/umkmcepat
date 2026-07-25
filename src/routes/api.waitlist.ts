@@ -6,6 +6,7 @@ import { devLog } from "@/lib/dev-log";
 import { putStoredObject } from "@/lib/object-storage";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { mapToUserFacingError } from "@/lib/user-facing-error";
 import { submitWaitlist } from "@/lib/waitlist";
 
 const MAX_WAITLIST_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -88,10 +89,9 @@ export const Route = createFileRoute("/api/waitlist")({
           });
           return Response.json(entry, { status: 201 });
         } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "Gagal mengirim pendaftaran.";
+          const message = mapToUserFacingError(
+            error instanceof Error ? error.message : "",
+          );
           return Response.json({ message }, { status: 400 });
         }
       },
