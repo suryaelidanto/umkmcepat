@@ -49,6 +49,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { track } from "@/lib/analytics";
 import { signOut, useSession } from "@/lib/auth-client";
 import { clientOnly } from "@/lib/client-only";
 import { type ProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
@@ -696,6 +697,7 @@ export function WorkspaceShell({
       return;
     }
 
+    track("publish_project", { projectId });
     setIsPublishing(true);
     setRuntimeError(null);
 

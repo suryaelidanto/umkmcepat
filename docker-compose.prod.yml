@@ -120,9 +120,31 @@ services:
       timeout: 5s
       retries: 5
 
+  # Usage/behavior analytics (shares the platform Postgres).
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/umami
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+  # Availability monitoring (standalone SQLite; pings the app + key endpoints).
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    volumes:
+      - uptime_kuma_data:/app/data
+    ports:
+      - "3002:3001"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   nine_router_data:
   project_artifacts:
   project_thumbnails:
   uploads:
+  uptime_kuma_data:

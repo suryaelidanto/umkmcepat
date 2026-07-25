@@ -134,6 +134,14 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        {process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC &&
+        process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID ? (
+          <script
+            defer
+            src={process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC}
+            data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+          />
+        ) : null}
         <AppProviders>{children}</AppProviders>
         <Toaster richColors position="bottom-right" />
         <Scripts />
