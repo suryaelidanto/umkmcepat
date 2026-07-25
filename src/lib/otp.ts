@@ -1,14 +1,14 @@
+import { randomInt } from "node:crypto";
+
 import { prisma } from "@/lib/prisma";
 
 const OTP_EXPIRY_MINUTES = 5;
 const MAX_ATTEMPTS = 3;
 const OTP_LENGTH = 6;
+const OTPSPACE_ENDPOINT = "https://api.otpspace.com/v1/send";
 
 export function generateOtpCode(): string {
-  return Math.random()
-    .toString()
-    .slice(2, 2 + OTP_LENGTH)
-    .padStart(OTP_LENGTH, "0");
+  return randomInt(0, 1_000_000).toString().padStart(OTP_LENGTH, "0");
 }
 
 export async function createOtpRequest(
@@ -88,24 +88,23 @@ export async function sendOtpViaSms(
   const apiKey = process.env.OTP_SPACE_API_KEY;
 
   if (!apiKey) {
-    return {
-      success: false,
-      error: "Layanan OTP belum dikonfigurasi. Coba lagi nanti.",
-    };
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "OTP_SPACE_API_KEY is required to send OTP in production.",
+      );
+    }
+    console.warn("[otp] mock", { code, phone });
+    return { success: true };
   }
 
   try {
-    const response = await fetch("https://api.otpspace.com/v1/otp/send", {
+    const response = await fetch(OTPSPACE_ENDPOINT, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        to: phone,
-        message: `Kode verifikasi UMKM Cepat: ${code}. Berlaku ${OTP_EXPIRY_MINUTES} menit.`,
-        channel: "whatsapp",
-      }),
+      body: JSON.stringify({ app_name: "UMKM Cepat", phone }),
     });
 
     if (!response.ok) {
