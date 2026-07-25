@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { getR2Config, publicUrlFor } from "@/lib/r2-client";
+import { getR2Config, publicUrlFor, signedR2Fetch } from "@/lib/r2-client";
 
 const BASE_ENV = {
   R2_ACCESS_KEY_ID: "AKIA-test",
@@ -84,5 +84,39 @@ describe("r2-client", () => {
     delete process.env.R2_PREFIX;
     const config = getR2Config({ prefixFallback: "" });
     expect(config.prefix).toBe("");
+  });
+});
+
+// Env-gated live round-trip against the real umkmcepat-dev bucket. Off by
+// default + in CI (no creds); run with R2_LIVE_TEST=1 to verify the real
+// Sig V4 + public-URL path. Self-cleans in finally.
+const LIVE = process.env.R2_LIVE_TEST === "1";
+
+describe.skipIf(!LIVE)("r2-client live round-trip", () => {
+  it("PUTs, GETs, and DELETEs a test object against the real bucket", async () => {
+    const config = getR2Config({
+      prefixEnv: "R2_PREFIX",
+      prefixFallback: "objects",
+    });
+    const key = `__test__/round-trip-live.txt`;
+    const body = Buffer.from("r2-client live round-trip self-check");
+
+    try {
+      const put = await signedR2Fetch(config, key, {
+        body,
+        contentType: "text/plain",
+        method: "PUT",
+      });
+      expect(put.ok).toBe(true);
+
+      const got = await signedR2Fetch(config, key, { method: "GET" });
+      expect(got.ok).toBe(true);
+      const fetched = Buffer.from(await got.arrayBuffer()).toString("utf8");
+      expect(fetched).toBe(body.toString("utf8"));
+    } finally {
+      const del = await signedR2Fetch(config, key, { method: "DELETE" });
+      // 204 success; 404 if the PUT failed earlier — either is acceptable cleanup.
+      expect([204, 404]).toContain(del.status);
+    }
   });
 });
