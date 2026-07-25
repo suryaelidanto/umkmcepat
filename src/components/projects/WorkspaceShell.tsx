@@ -2579,20 +2579,21 @@ export function WorkspaceShell({
                         ease: [0.22, 1, 0.36, 1],
                       }}
                       onSubmit={handleMessageSubmit}
-                      className="relative mt-spacing-3 min-w-0"
+                      className="mt-spacing-3 min-w-0"
                     >
-                      <button
+                      <Button
                         type="button"
                         onClick={() => {
                           setQuestionComposerMode("options");
                           setMessage("");
                         }}
-                        className="group absolute inset-x-spacing-3 -top-spacing-2 flex items-center justify-center gap-spacing-2 rounded-t-[20px] border border-b-0 border-surface-warm-white/10 bg-[#20201d] py-spacing-2 text-xs font-medium text-surface-warm-white/54 transition hover:text-surface-warm-white/80"
+                        variant="outline"
+                        className="mb-spacing-2 rounded-full border-surface-warm-white/12 bg-transparent text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
                       >
-                        <ChevronUp className="size-3.5 transition group-hover:-translate-y-0.5" />
+                        <ChevronUp className="size-4" />
                         Lihat pilihan
-                      </button>
-                      <div className="relative rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+                      </Button>
+                      <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
                         <label htmlFor="workspace-message" className="sr-only">
                           Pesan untuk AI
                         </label>
