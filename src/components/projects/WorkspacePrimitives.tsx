@@ -1388,10 +1388,7 @@ export function WorkspaceCardView({
       <div className="border-y border-surface-warm-white/10 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
         <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-surface-warm-white/56">
-              Rancangan build
-            </p>
-            <h2 className="mt-spacing-2 text-base font-semibold leading-6 text-surface-warm-white">
+            <h2 className="text-base font-semibold leading-6 text-surface-warm-white">
               {card.title}
             </h2>
             <ul className="mt-spacing-4 divide-y divide-surface-warm-white/8 text-sm leading-6 text-surface-warm-white/66">
