@@ -7,9 +7,7 @@ import {
   Code2,
   ExternalLink,
   Globe2,
-  Hammer,
   ImagePlus,
-  MessageCircle,
   MessageSquarePlus,
   Monitor,
   PanelLeftClose,
@@ -751,21 +749,20 @@ export function ModePill({
   tone: "idle" | "busy";
 }) {
   const accent = mode === "Buat" ? "#ffcb7a" : "#8ce99a";
-  const Icon = mode === "Buat" ? Hammer : MessageCircle;
 
   return (
-    <span
-      className="inline-flex items-center gap-spacing-2 text-xs font-medium text-surface-warm-white/48"
-      style={{ color: `${accent}b3` }}
-    >
-      <span className="relative flex size-3.5 shrink-0 items-center justify-center">
+    <span className="inline-flex items-center gap-spacing-2 text-xs font-medium text-surface-warm-white/48">
+      <span className="relative flex size-1.5 shrink-0 items-center justify-center">
         {tone === "busy" ? (
           <span
             className="absolute inline-flex size-full animate-ping rounded-full opacity-40"
             style={{ backgroundColor: accent }}
           />
         ) : null}
-        <Icon className="relative size-3" strokeWidth={2.25} />
+        <span
+          className="relative inline-flex size-1.5 rounded-full"
+          style={{ backgroundColor: accent }}
+        />
       </span>
       Mode {mode}
     </span>
