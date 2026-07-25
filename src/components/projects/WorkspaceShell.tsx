@@ -190,6 +190,13 @@ type WorkspaceStateResponse = {
 // survives the remount because it isn't tied to a component instance.
 const autoSentProjectIds = new Set<string>();
 
+const COMPOSER_TRANSITION = {
+  initial: { opacity: 0, y: 12, scale: 0.985, filter: "blur(6px)" },
+  animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+  exit: { opacity: 0, y: -10, scale: 0.985, filter: "blur(6px)" },
+  transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const },
+};
+
 export function WorkspaceShell({
   projectId,
   initialTitle,
@@ -2503,268 +2510,295 @@ export function WorkspaceShell({
             </div>
 
             <div className="mt-spacing-5">
-              {isProcessing ? (
-                <ProcessingControl
-                  mode={isBuilding ? "Buat" : "Diskusi"}
-                  onStop={stopCurrentJob}
-                />
-              ) : rateLimitError ? (
-                <div className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62">
-                  Tunggu sebentar sebelum mengirim jawaban berikutnya.
-                </div>
-              ) : isPreparingNextQuestion ||
-                workspaceCardError ? null : !hasAnsweredActiveQuestion &&
-                composerState === "question" &&
-                workspaceCard.type === "question" ? (
-                <div className="mt-spacing-3">
-                  <div className="mb-spacing-2 inline-flex rounded-full border border-surface-warm-white/10 bg-[#1d1d1a] p-0.5">
-                    {(
-                      [
-                        { label: "Pilihan", value: "options" },
-                        { label: "Tulis bebas", value: "free" },
-                      ] as const
-                    ).map((tab) => (
-                      <button
-                        key={tab.value}
-                        type="button"
-                        onClick={() => {
-                          setQuestionComposerMode(tab.value);
-                          if (tab.value === "options") {
-                            setMessage("");
-                          }
-                        }}
-                        className="relative rounded-full px-spacing-4 py-spacing-2 text-xs font-medium transition"
-                      >
-                        {questionComposerMode === tab.value ? (
-                          <motion.span
-                            layoutId="question-composer-tab"
-                            className="absolute inset-0 rounded-full bg-surface-warm-white/10"
-                            transition={{
-                              type: "spring",
-                              stiffness: 500,
-                              damping: 34,
-                            }}
-                          />
-                        ) : null}
-                        <span
-                          className={`relative ${
-                            questionComposerMode === tab.value
-                              ? "text-surface-warm-white"
-                              : "text-surface-warm-white/54 hover:text-surface-warm-white/80"
-                          }`}
+              <AnimatePresence mode="wait" initial={false}>
+                {isProcessing ? (
+                  <motion.div
+                    key="composer-processing"
+                    {...COMPOSER_TRANSITION}
+                  >
+                    <ProcessingControl
+                      mode={isBuilding ? "Buat" : "Diskusi"}
+                      onStop={stopCurrentJob}
+                    />
+                  </motion.div>
+                ) : rateLimitError ? (
+                  <motion.div
+                    key="composer-rate-limit"
+                    {...COMPOSER_TRANSITION}
+                    className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62"
+                  >
+                    Tunggu sebentar sebelum mengirim jawaban berikutnya.
+                  </motion.div>
+                ) : isPreparingNextQuestion ||
+                  workspaceCardError ? null : !hasAnsweredActiveQuestion &&
+                  composerState === "question" &&
+                  workspaceCard.type === "question" ? (
+                  <motion.div
+                    key="composer-question"
+                    {...COMPOSER_TRANSITION}
+                    className="mt-spacing-3"
+                  >
+                    <div className="mb-spacing-2 inline-flex rounded-full border border-surface-warm-white/10 bg-[#1d1d1a] p-0.5">
+                      {(
+                        [
+                          { label: "Pilihan", value: "options" },
+                          { label: "Tulis bebas", value: "free" },
+                        ] as const
+                      ).map((tab) => (
+                        <button
+                          key={tab.value}
+                          type="button"
+                          onClick={() => {
+                            setQuestionComposerMode(tab.value);
+                            if (tab.value === "options") {
+                              setMessage("");
+                            }
+                          }}
+                          className="relative rounded-full px-spacing-4 py-spacing-2 text-xs font-medium transition"
                         >
-                          {tab.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  <AnimatePresence mode="wait" initial={false}>
-                    {questionComposerMode === "options" ? (
-                      <motion.div
-                        key="question-options"
-                        initial={{
-                          opacity: 0,
-                          y: 12,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                          scale: 1,
-                          filter: "blur(0px)",
-                        }}
-                        exit={{
-                          opacity: 0,
-                          y: -10,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        transition={{
-                          duration: 0.22,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                      >
-                        <QuestionComposer
-                          question={workspaceCard.question}
-                          onSubmit={(answer, workspaceAnswers) =>
-                            submitChatText(answer, { workspaceAnswers })
-                          }
-                        />
-                      </motion.div>
-                    ) : (
-                      <motion.form
-                        key="question-free"
-                        initial={{
-                          opacity: 0,
-                          y: 12,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                          scale: 1,
-                          filter: "blur(0px)",
-                        }}
-                        exit={{
-                          opacity: 0,
-                          y: -10,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        transition={{
-                          duration: 0.22,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                        onSubmit={handleMessageSubmit}
-                        className="min-w-0"
-                      >
-                        <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
-                          <label
-                            htmlFor="workspace-message"
-                            className="sr-only"
-                          >
-                            Pesan untuk AI
-                          </label>
-                          {pendingAttachments.length > 0 ? (
-                            <ComposerAttachments
-                              attachments={pendingAttachments}
-                              onRemove={(id) =>
-                                setPendingAttachments((cur) =>
-                                  removeAttachment(cur, id),
-                                )
-                              }
+                          {questionComposerMode === tab.value ? (
+                            <motion.span
+                              layoutId="question-composer-tab"
+                              className="absolute inset-0 rounded-full bg-surface-warm-white/10"
+                              transition={{
+                                type: "spring",
+                                stiffness: 500,
+                                damping: 34,
+                              }}
                             />
                           ) : null}
-                          <textarea
-                            id="workspace-message"
-                            rows={3}
-                            value={message}
-                            onChange={(event) => setMessage(event.target.value)}
-                            onKeyDown={handleMessageKeyDown}
-                            placeholder={
-                              sessionExpired
-                                ? "Sesi habis, login ulang..."
-                                : "Tulis bebas..."
+                          <span
+                            className={`relative ${
+                              questionComposerMode === tab.value
+                                ? "text-surface-warm-white"
+                                : "text-surface-warm-white/54 hover:text-surface-warm-white/80"
+                            }`}
+                          >
+                            {tab.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <AnimatePresence mode="wait" initial={false}>
+                      {questionComposerMode === "options" ? (
+                        <motion.div
+                          key="question-options"
+                          initial={{
+                            opacity: 0,
+                            y: 12,
+                            scale: 0.985,
+                            filter: "blur(6px)",
+                          }}
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                            scale: 1,
+                            filter: "blur(0px)",
+                          }}
+                          exit={{
+                            opacity: 0,
+                            y: -10,
+                            scale: 0.985,
+                            filter: "blur(6px)",
+                          }}
+                          transition={{
+                            duration: 0.22,
+                            ease: [0.22, 1, 0.36, 1],
+                          }}
+                        >
+                          <QuestionComposer
+                            question={workspaceCard.question}
+                            onSubmit={(answer, workspaceAnswers) =>
+                              submitChatText(answer, { workspaceAnswers })
                             }
-                            disabled={
-                              sessionExpired || authStatus !== "authenticated"
-                            }
-                            className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                           />
-                          <div className="flex items-center justify-end gap-spacing-4">
-                            <div className="flex items-center gap-spacing-2">
-                              <ComposerAttachButton
+                        </motion.div>
+                      ) : (
+                        <motion.form
+                          key="question-free"
+                          initial={{
+                            opacity: 0,
+                            y: 12,
+                            scale: 0.985,
+                            filter: "blur(6px)",
+                          }}
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                            scale: 1,
+                            filter: "blur(0px)",
+                          }}
+                          exit={{
+                            opacity: 0,
+                            y: -10,
+                            scale: 0.985,
+                            filter: "blur(6px)",
+                          }}
+                          transition={{
+                            duration: 0.22,
+                            ease: [0.22, 1, 0.36, 1],
+                          }}
+                          onSubmit={handleMessageSubmit}
+                          className="min-w-0"
+                        >
+                          <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+                            <label
+                              htmlFor="workspace-message"
+                              className="sr-only"
+                            >
+                              Pesan untuk AI
+                            </label>
+                            {pendingAttachments.length > 0 ? (
+                              <ComposerAttachments
                                 attachments={pendingAttachments}
-                                onAdd={(next, rejected) => {
-                                  setPendingAttachments(next);
-                                  if (rejected.length) {
-                                    toast.error(
-                                      `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
-                                    );
-                                  }
-                                }}
+                                onRemove={(id) =>
+                                  setPendingAttachments((cur) =>
+                                    removeAttachment(cur, id),
+                                  )
+                                }
                               />
-                              <Button
-                                type="submit"
-                                size="icon"
-                                disabled={!message.trim()}
-                                className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                                aria-label="Kirim pesan"
-                              >
-                                <ArrowUp className="size-4" />
-                              </Button>
+                            ) : null}
+                            <textarea
+                              id="workspace-message"
+                              rows={3}
+                              value={message}
+                              onChange={(event) =>
+                                setMessage(event.target.value)
+                              }
+                              onKeyDown={handleMessageKeyDown}
+                              placeholder={
+                                sessionExpired
+                                  ? "Sesi habis, login ulang..."
+                                  : "Tulis bebas..."
+                              }
+                              disabled={
+                                sessionExpired || authStatus !== "authenticated"
+                              }
+                              className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                            />
+                            <div className="flex items-center justify-end gap-spacing-4">
+                              <div className="flex items-center gap-spacing-2">
+                                <ComposerAttachButton
+                                  attachments={pendingAttachments}
+                                  onAdd={(next, rejected) => {
+                                    setPendingAttachments(next);
+                                    if (rejected.length) {
+                                      toast.error(
+                                        `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                                      );
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  type="submit"
+                                  size="icon"
+                                  disabled={!message.trim()}
+                                  className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                                  aria-label="Kirim pesan"
+                                >
+                                  <ArrowUp className="size-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </motion.form>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ) : composerState === "build_recommendation" ? (
-                <WorkspaceCardView
-                  canBuild={canStartBuildNow}
-                  card={workspaceCard}
-                  onBuild={() => void handleStartBuild()}
-                  onDiscuss={holdBuildRecommendation}
-                />
-              ) : composerState === "post_build_review" ||
-                composerState === "build_failed_with_last_good" ? (
-                <CompletedBuildNotice
-                  onDiscuss={() => {
-                    // Park the current build recommendation so free discuss
-                    // opens first; a fresh recommendation can surface later.
-                    if (buildRecommendationSignature) {
-                      window.localStorage.setItem(
-                        buildRecommendationStorageKey,
-                        buildRecommendationSignature,
-                      );
-                      setHeldBuildRecommendationSignature(
-                        buildRecommendationSignature,
-                      );
-                    }
-                    setMode("discuss");
-                    setPostBuildChatOpen(true);
-                  }}
-                  onPreview={() => {
-                    setActiveTab("preview");
-                    openPreviewPanel();
-                  }}
-                  variant={
-                    composerState === "build_failed_with_last_good"
-                      ? "recovery"
-                      : "ready"
-                  }
-                />
-              ) : (
-                <>
-                  {composerState === "held_build_recommendation" ? (
-                    <HeldBuildRecommendationNotice
-                      canBuild={canStartBuildNow}
-                      onBuild={() => void handleStartBuild()}
-                      onOpen={openBuildRecommendation}
-                    />
-                  ) : null}
-                  <form
-                    onSubmit={handleMessageSubmit}
-                    className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                        </motion.form>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ) : composerState === "build_recommendation" ? (
+                  <motion.div
+                    key="composer-build-recommendation"
+                    {...COMPOSER_TRANSITION}
                   >
-                    <label htmlFor="workspace-message" className="sr-only">
-                      Pesan untuk AI
-                    </label>
-                    <textarea
-                      id="workspace-message"
-                      rows={3}
-                      value={message}
-                      onChange={(event) => setMessage(event.target.value)}
-                      onKeyDown={handleMessageKeyDown}
-                      placeholder={
-                        sessionExpired
-                          ? "Sesi habis, login ulang..."
-                          : mode === "build"
-                            ? "Minta perubahan, contoh: buat lebih premium..."
-                            : "Jawab pilihan atau tulis kebutuhanmu..."
-                      }
-                      className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                      disabled={
-                        sessionExpired || authStatus !== "authenticated"
+                    <WorkspaceCardView
+                      canBuild={canStartBuildNow}
+                      card={workspaceCard}
+                      onBuild={() => void handleStartBuild()}
+                      onDiscuss={holdBuildRecommendation}
+                    />
+                  </motion.div>
+                ) : composerState === "post_build_review" ||
+                  composerState === "build_failed_with_last_good" ? (
+                  <motion.div
+                    key="composer-post-build"
+                    {...COMPOSER_TRANSITION}
+                  >
+                    <CompletedBuildNotice
+                      onDiscuss={() => {
+                        // Park the current build recommendation so free discuss
+                        // opens first; a fresh recommendation can surface later.
+                        if (buildRecommendationSignature) {
+                          window.localStorage.setItem(
+                            buildRecommendationStorageKey,
+                            buildRecommendationSignature,
+                          );
+                          setHeldBuildRecommendationSignature(
+                            buildRecommendationSignature,
+                          );
+                        }
+                        setMode("discuss");
+                        setPostBuildChatOpen(true);
+                      }}
+                      onPreview={() => {
+                        setActiveTab("preview");
+                        openPreviewPanel();
+                      }}
+                      variant={
+                        composerState === "build_failed_with_last_good"
+                          ? "recovery"
+                          : "ready"
                       }
                     />
-                    <div className="flex items-center justify-end gap-spacing-4">
-                      <Button
-                        type="submit"
-                        size="icon"
-                        disabled={!message.trim()}
-                        className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                        aria-label="Kirim pesan"
-                      >
-                        <ArrowUp className="size-4" />
-                      </Button>
-                    </div>
-                  </form>
-                </>
-              )}
+                  </motion.div>
+                ) : (
+                  <motion.div key="composer-free" {...COMPOSER_TRANSITION}>
+                    {composerState === "held_build_recommendation" ? (
+                      <HeldBuildRecommendationNotice
+                        canBuild={canStartBuildNow}
+                        onBuild={() => void handleStartBuild()}
+                        onOpen={openBuildRecommendation}
+                      />
+                    ) : null}
+                    <form
+                      onSubmit={handleMessageSubmit}
+                      className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                    >
+                      <label htmlFor="workspace-message" className="sr-only">
+                        Pesan untuk AI
+                      </label>
+                      <textarea
+                        id="workspace-message"
+                        rows={3}
+                        value={message}
+                        onChange={(event) => setMessage(event.target.value)}
+                        onKeyDown={handleMessageKeyDown}
+                        placeholder={
+                          sessionExpired
+                            ? "Sesi habis, login ulang..."
+                            : mode === "build"
+                              ? "Minta perubahan, contoh: buat lebih premium..."
+                              : "Jawab pilihan atau tulis kebutuhanmu..."
+                        }
+                        className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                        disabled={
+                          sessionExpired || authStatus !== "authenticated"
+                        }
+                      />
+                      <div className="flex items-center justify-end gap-spacing-4">
+                        <Button
+                          type="submit"
+                          size="icon"
+                          disabled={!message.trim()}
+                          className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                          aria-label="Kirim pesan"
+                        >
+                          <ArrowUp className="size-4" />
+                        </Button>
+                      </div>
+                    </form>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </aside>
         </ResizablePanel>
