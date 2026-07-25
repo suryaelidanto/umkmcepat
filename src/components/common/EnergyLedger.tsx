@@ -112,7 +112,7 @@ export function EnergyLedger({
           className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-foreground-primary/10 bg-surface-warm-white px-spacing-6 py-spacing-5"
         >
           <div className="flex min-w-0 flex-col gap-spacing-1">
-            <span className="text-body-small font-[480] text-foreground-primary">
+            <span className="text-body-small font-medium text-foreground-primary">
               {reasonLabel(entry.reason)}
             </span>
             <span className="text-body-small text-muted-foreground">
@@ -121,7 +121,7 @@ export function EnergyLedger({
               {formatNumber(entry.outputTokens)} token
             </span>
           </div>
-          <span className="text-body-small font-[480] text-foreground-primary tabular-nums">
+          <span className="text-body-small font-medium text-foreground-primary tabular-nums">
             −{formatNumber(Math.abs(entry.amount))}
           </span>
         </li>

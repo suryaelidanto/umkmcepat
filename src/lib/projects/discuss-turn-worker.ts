@@ -270,7 +270,7 @@ export async function runDiscussTurn({
           modelId: discussModelId,
           inputTokens: totalInputTokens,
           outputTokens: totalOutputTokens,
-          reason: "discuss_turn",
+          reason: "discuss:step",
         });
         await writeAiRequestLog({
           event: "discuss:degraded",
@@ -291,7 +291,7 @@ export async function runDiscussTurn({
         modelId: discussModelId,
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
-        reason: "discuss_turn",
+        reason: "discuss:step",
       });
       publishProgress(turnId, {
         type: "error",
@@ -387,7 +387,7 @@ export async function runDiscussTurn({
           modelId: discussModelId,
           inputTokens: totalInputTokens,
           outputTokens: totalOutputTokens,
-          reason: "discuss_turn",
+          reason: "discuss:step",
         });
         publishProgress(turnId, { type: "finish" });
         await finalizeDiscussTurn({ turnId, status: "succeeded" });
@@ -400,7 +400,7 @@ export async function runDiscussTurn({
         modelId: discussModelId,
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
-        reason: "discuss_turn",
+        reason: "discuss:step",
       });
       publishProgress(turnId, {
         type: "error",
@@ -553,7 +553,7 @@ export async function runDiscussTurn({
       modelId: discussModelId,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
-      reason: "discuss_turn",
+      reason: "discuss:step",
     });
 
     publishProgress(turnId, { type: "finish" });
