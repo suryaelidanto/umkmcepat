@@ -30,7 +30,10 @@ import {
   getGeneratedResourceBudget,
 } from "@/lib/projects/generated-resource-budget";
 import { shadcnThemeCss } from "@/lib/projects/scaffold/shadcn-theme";
-import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
+import {
+  createViteTanStackShadcnStarterFiles,
+  toPackageName,
+} from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 import {
   ensureSharedNodeModules,
   linkSharedNodeModules,
@@ -982,15 +985,6 @@ type BusinessRouteModule = {
   routeNames: string[];
   routes: Array<{ path: string; title: string }>;
 };
-
-function toPackageName(value: string) {
-  return (
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "generated-app"
-  );
-}
 
 type ProjectSiteVariant =
   | "angkringan"

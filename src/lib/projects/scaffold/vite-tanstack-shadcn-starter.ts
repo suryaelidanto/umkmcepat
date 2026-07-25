@@ -222,7 +222,7 @@ export function createViteTanStackShadcnStarterFiles(
   ];
 }
 
-function toPackageName(value: string) {
+export function toPackageName(value: string) {
   return (
     value
       .toLowerCase()
