@@ -1,3 +1,5 @@
+import { escapeHtml } from "@/lib/escape-html";
+
 export function createPreviewIssueHtml({
   detail,
   title,
@@ -55,12 +57,4 @@ export function createPreviewIssueHtml({
     </main>
   </body>
 </html>`;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

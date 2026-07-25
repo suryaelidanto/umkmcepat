@@ -1,4 +1,5 @@
 import { devLog } from "@/lib/dev-log";
+import { escapeHtml } from "@/lib/escape-html";
 import {
   createPreviewAssetToken,
   PREVIEW_ASSET_TOKEN_PARAM,
@@ -261,14 +262,6 @@ export function injectPublishedHead(
     .filter(Boolean)
     .join("\n    ");
   return html.replace(/<head>/i, `<head>\n    ${headInjection}`);
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 const PREVIEW_ANNOTATION_BRIDGE = String.raw`
