@@ -14,6 +14,7 @@ type ProxyDeploymentRequestInput = {
   assetRewrite?: {
     projectId: string;
   };
+  businessName?: string | null;
   deploymentId: string;
   deploymentStatus: string;
   noindex?: boolean;
@@ -118,7 +119,14 @@ export async function proxyDeploymentRequest(
           }),
         )
       : input.publicAssetRewrite
-        ? rewritePublicAssetUrls(originalHtml, input.publicAssetRewrite.slug)
+        ? injectPublishedHead(
+            rewritePublicAssetUrls(originalHtml, input.publicAssetRewrite.slug),
+            {
+              businessName: input.businessName,
+              noindex: input.noindex ?? false,
+              slug: input.publicAssetRewrite.slug,
+            },
+          )
         : originalHtml;
 
     return new Response(rewrittenHtml, {
@@ -212,6 +220,55 @@ export function rewritePublicAssetUrls(html: string, slug: string) {
       return `${attribute}="/p/${encodeURIComponent(slug)}/assets/${encodedPath}"`;
     },
   );
+}
+
+// Inject a per-page <title>/meta/og/canonical/LocalBusiness JSON-LD into the
+// published site's <head> so each published UMKM site is an indexable landing
+// page (long-tail organic surface). No-op if <head> is absent.
+export function injectPublishedHead(
+  html: string,
+  {
+    businessName,
+    noindex,
+    slug,
+  }: { businessName?: string | null; noindex: boolean; slug: string },
+) {
+  const origin =
+    process.env.GENERATED_PUBLIC_ORIGIN ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "";
+  const name = businessName || "UMKM Cepat";
+  const title = `${name} — Website UMKM Cepat`;
+  const description = `Website usaha ${name}. Dibuat dengan UMKM Cepat.`;
+  const url = `${origin}/p/${encodeURIComponent(slug)}`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name,
+    url,
+  };
+  const headInjection = [
+    `<title>${escapeHtml(title)}</title>`,
+    `<meta name="description" content="${escapeHtml(description)}" />`,
+    `<meta property="og:title" content="${escapeHtml(title)}" />`,
+    `<meta property="og:description" content="${escapeHtml(description)}" />`,
+    `<meta property="og:url" content="${escapeHtml(url)}" />`,
+    `<meta property="og:type" content="website" />`,
+    `<link rel="canonical" href="${escapeHtml(url)}" />`,
+    noindex ? `<meta name="robots" content="noindex" />` : "",
+    `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`,
+  ]
+    .filter(Boolean)
+    .join("\n    ");
+  return html.replace(/<head>/i, `<head>\n    ${headInjection}`);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 const PREVIEW_ANNOTATION_BRIDGE = String.raw`

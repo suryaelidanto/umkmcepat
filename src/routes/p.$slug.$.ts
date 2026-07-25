@@ -78,6 +78,11 @@ export const Route = createFileRoute("/p/$slug/$")({
                 artifactRef: true,
                 createdAt: true,
                 id: true,
+                snapshot: {
+                  select: {
+                    project: { select: { title: true } },
+                  },
+                },
                 snapshotId: true,
                 status: true,
                 updatedAt: true,
@@ -103,6 +108,7 @@ export const Route = createFileRoute("/p/$slug/$")({
         }
 
         const response = await proxyDeploymentRequest({
+          businessName: deployment.build?.snapshot?.project?.title,
           deploymentId: deployment.id,
           deploymentStatus: deployment.status,
           noindex: false,
