@@ -210,7 +210,7 @@ INTERVIEW DISCIPLINE — one question per turn:
 
 Never put JSON in chat text. Never call the tool before chat text.
 Use type="question" with a single question (question.id is a short slug like business_name or services).
-Prefer choice options with label+description (2-5). Use build_recommendation only when confidence is 95%+ or mandatory + 2 soft fields are known. Below that, keep asking a question. Never use any other card type.
+Prefer choice options with label+description (2-5). Never include a catch-all option like "Lainnya", "Sebut sendiri", "Sebutkan sendiri", or any other custom-answer option — the UI already appends one automatically. Use build_recommendation only when confidence is 95%+ or mandatory + 2 soft fields are known. Below that, keep asking a question. Never use any other card type.
 
 Build early — do not extract every field. Once the basics are known, show the build_recommendation card.`;
 }
@@ -230,6 +230,7 @@ Rules:
 - workspaceCard.type must be exactly one of: "question", "build_recommendation"
 - question.id must be a string (not a number)
 - question.options must be an array of objects with label and description strings (not plain strings)
+- Never include a "Lainnya"/"Sebut sendiri"/custom-answer option in question.options — the UI already appends a "Sebutkan sendiri" option automatically
 - Set confidence to 95+ only when genuinely build-ready
 - Use "build_recommendation" only when confidence is 95+ AND openQuestions is empty. Otherwise ask the next question.
 - briefPatch and workspaceCard MUST be JSON objects (nested inside the tool call), NOT JSON-encoded strings. Never put a stringified JSON blob where an object belongs.
