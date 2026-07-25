@@ -19,12 +19,10 @@ import {
   createStepCharger,
   type StepCharger,
 } from "@/lib/projects/energy-step-charger";
-import {
-  createGeneratedViteTanStackStarterFiles,
-  createStarterContractStyles,
-} from "@/lib/projects/generated-source";
+import { createGeneratedViteTanStackStarterFiles } from "@/lib/projects/generated-source";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { type ImplementationSpec } from "@/lib/projects/implementation-spec";
+import { shadcnThemeCss } from "@/lib/projects/scaffold/shadcn-theme";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 /** Paths auto-touched by ensureStylesCoverClassNames — not agent edits. */
@@ -938,14 +936,14 @@ export function ensureStylesFileExists(
   if (styleIndex < 0) {
     return [
       ...files,
-      { path: "src/index.css", content: createStarterContractStyles(schema) },
+      { path: "src/index.css", content: shadcnThemeCss(schema) },
     ];
   }
   const current = files[styleIndex].content;
   if (isStarterStylesContent(current)) {
     return files.map((file, index) =>
       index === styleIndex
-        ? { ...file, content: createStarterContractStyles(schema) }
+        ? { ...file, content: shadcnThemeCss(schema) }
         : file,
     );
   }

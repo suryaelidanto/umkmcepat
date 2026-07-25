@@ -18,12 +18,13 @@ import {
   createDependencySignature,
   createGeneratedProjectFiles,
   createGeneratedSourceSnapshotMetadata,
-  createStarterContractStyles,
   parseGeneratedProjectFiles,
 } from "./generated-source";
 import { type GeneratedProjectFile } from "./generated-types";
 import { ensureSharedNodeModules } from "./shared-node-modules";
 import { createProjectSiteSchemaFromBrief } from "./site-schema";
+
+import { shadcnThemeCss } from "@/lib/projects/scaffold/shadcn-theme";
 
 let tempDir = "";
 
@@ -78,7 +79,7 @@ describe("generated project source", () => {
       secondaryCta: null,
       readyForBuild: false,
     });
-    const css = createStarterContractStyles(schema);
+    const css = shadcnThemeCss(schema);
     expect(css).toContain('@import "tailwindcss"');
     expect(css).toContain("--background");
     expect(css).toContain("--foreground");

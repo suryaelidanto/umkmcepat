@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SHADCN_COMPONENT_FILES } from "./shadcn-components";
 import { createViteTanStackShadcnStarterFiles } from "./vite-tanstack-shadcn-starter";
 
-import {
-  createGeneratedViteTanStackStarterFiles,
-  createStarterContractStyles,
-} from "@/lib/projects/generated-source";
+import { createGeneratedViteTanStackStarterFiles } from "@/lib/projects/generated-source";
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 
 function schema() {
@@ -166,12 +163,6 @@ describe("createGeneratedViteTanStackStarterFiles (delegation re-export)", () =>
     );
     const direct = createViteTanStackShadcnStarterFiles("proj_2", schema());
     expect(delegated.map((f) => f.path)).toEqual(direct.map((f) => f.path));
-  });
-
-  it("createStarterContractStyles still exists (legacy re-export)", () => {
-    // The function is kept as a thin re-export so downstream imports don't
-    // break during the transition (custom-source-generator still imports it).
-    expect(typeof createStarterContractStyles).toBe("function");
   });
 });
 

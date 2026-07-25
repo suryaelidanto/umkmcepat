@@ -804,19 +804,6 @@ export function createGeneratedViteTanStackStarterFiles(
   return createViteTanStackShadcnStarterFiles(projectId, schema);
 }
 
-/**
- * Legacy re-export kept so existing imports (custom-source-generator.ts)
- * don't break. Emits the shadcn Tailwind v4 theme CSS — the starter contract
- * CSS is gone. Downstream code is repointed to `src/index.css` under the
- * Tailwind-only stack.
- *
- * ponytail: delete once custom-source-generator stops referencing this
- * symbol.
- */
-export function createStarterContractStyles(schema: ProjectSiteSchema) {
-  return shadcnThemeCss(schema);
-}
-
 export function createGeneratedProjectFiles(
   projectId: string,
   schema: ProjectSiteSchema,
