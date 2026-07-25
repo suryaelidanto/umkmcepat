@@ -51,7 +51,7 @@
   - `publicUrlFor(config, key): string` — returns `${R2_PUBLIC_BASE_URL}/{prefix}/{key}` (reads `R2_PUBLIC_BASE_URL`).
   - `r2ObjectUrl(config, key): string` — the S3 API endpoint URL (internal, used by `signedR2Fetch`).
 
-- [ ] **Step 1: Write failing unit tests for `publicUrlFor` + `getR2Config`**
+- [x] **Step 1: Write failing unit tests for `publicUrlFor` + `getR2Config`**
 
 Create `src/lib/r2-client.test.ts`:
 
@@ -140,12 +140,12 @@ describe("r2-client", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bunx vitest run src/lib/r2-client.test.ts`
 Expected: FAIL — module `@/lib/r2-client` does not exist.
 
-- [ ] **Step 3: Write `src/lib/r2-client.ts`**
+- [x] **Step 3: Write `src/lib/r2-client.ts`**
 
 ```ts
 import { createHash, createHmac } from "node:crypto";
@@ -279,12 +279,12 @@ function getSignatureKey(secret: string, dateStamp: string) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bunx vitest run src/lib/r2-client.test.ts`
 Expected: PASS (5 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/r2-client.ts src/lib/r2-client.test.ts
@@ -303,12 +303,12 @@ git commit -m "feat(r2): add shared r2-client with config, signedR2Fetch, public
 - Consumes: `getR2Config`, `signedR2Fetch` from `r2-client.ts`.
 - Produces: unchanged `getObjectStorageProvider`, `getStoredObject`, `putStoredObject` signatures. The `OBJECT_STORAGE_R2_PREFIX` env still controls the prefix — pass it via `getR2Config({ prefixEnv: "OBJECT_STORAGE_R2_PREFIX", prefixFallback: "objects" })`.
 
-- [ ] **Step 1: Confirm existing object-storage tests are green first**
+- [x] **Step 1: Confirm existing object-storage tests are green first**
 
 Run: `bunx vitest run src/lib/object-storage.test.ts`
 Expected: PASS (baseline).
 
-- [ ] **Step 2: Replace the local R2 helpers with imports**
+- [x] **Step 2: Replace the local R2 helpers with imports**
 
 At the top of `src/lib/object-storage.ts`, replace the `node:crypto` import (now unused here) and add the import; remove the local `R2Config`, `getR2Config`, `requiredEnv`, `signedR2Fetch`, `toAmzDate`, `sha256`, `hmac`, `hmacHex`, `getSignatureKey` definitions.
 
@@ -325,12 +325,12 @@ Replace the body of the old `getR2Config()` call sites (`getR2StoredObject`, `pu
 
 Delete lines 118-266 (the local copies). Keep `getR2StoredObject`/`putR2StoredObject` bodies, only swapping the local `getR2Config()` call for the parameterized one.
 
-- [ ] **Step 3: Run object-storage tests + typecheck**
+- [x] **Step 3: Run object-storage tests + typecheck**
 
 Run: `bunx vitest run src/lib/object-storage.test.ts && bunx tsc --noEmit`
 Expected: PASS + no type errors. (Behavior unchanged — refactor only.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/lib/object-storage.ts
@@ -349,12 +349,12 @@ git commit -m "refactor(r2): object-storage uses shared r2-client (no behavior c
 - Consumes: `getR2Config`, `signedR2Fetch` from `r2-client.ts`.
 - Produces: unchanged artifact read/write/delete signatures. The artifact prefix env is `PROJECT_ARTIFACT_R2_PREFIX` with fallback `project-artifacts` — pass via `getR2Config({ prefixEnv: "PROJECT_ARTIFACT_R2_PREFIX", prefixFallback: "project-artifacts" })`. Note the runtime-artifacts `signedR2Fetch` accepted `DELETE`; the shared one does too.
 
-- [ ] **Step 1: Find runtime-artifacts tests**
+- [x] **Step 1: Find runtime-artifacts tests**
 
 Run: `bunx vitest run src/lib/projects/runtime-artifacts 2>/dev/null; ls src/lib/projects/runtime-artifacts*.test.ts`
 Expected: list the test files (baseline; note pass/fail).
 
-- [ ] **Step 2: Replace local R2 helpers with imports**
+- [x] **Step 2: Replace local R2 helpers with imports**
 
 In `src/lib/projects/runtime-artifacts.ts`: remove its local `R2Config` type, `getR2Config`, `requiredEnv`, `signedR2Fetch`, `getSignatureKey`, `toAmzDate`, `sha256`, `hmac`, `hmacHex`. Add:
 
@@ -365,17 +365,17 @@ import type { R2Config } from "@/lib/r2-client";
 
 At every former `getR2Config()` call site (lines ~251, 322, 345, 498, 507, 519, 528), use `getR2Config({ prefixEnv: "PROJECT_ARTIFACT_R2_PREFIX", prefixFallback: "project-artifacts" })`. Keep the local `getR2Object`/`deleteR2Object` wrappers but have them call the imported `signedR2Fetch`. The artifact code built keys as `${config.prefix}/${kind}/${artifactId}/${suffix}` — keep that key construction; `signedR2Fetch` in `r2-client.ts` already prepends `${config.prefix}/`.
 
-- [ ] **Step 3: Run runtime-artifacts tests + typecheck**
+- [x] **Step 3: Run runtime-artifacts tests + typecheck**
 
 Run: `bunx vitest run src/lib/projects/runtime-artifacts && bunx tsc --noEmit`
 Expected: PASS + no type errors.
 
-- [ ] **Step 4: Run the full fast gate**
+- [x] **Step 4: Run the full fast gate**
 
 Run: `bun run check`
 Expected: all green (format/lint/typecheck/test/knip).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/projects/runtime-artifacts.ts
@@ -392,7 +392,7 @@ git commit -m "refactor(r2): runtime-artifacts uses shared r2-client (no behavio
 
 Place it in the OPTIONAL section, right after the R2 block (which ends with `R2_PUBLIC_BASE_URL`), before the AI timeouts block. One-liner comment, identical in both files.
 
-- [ ] **Step 1: Add the var to `.env.example`**
+- [x] **Step 1: Add the var to `.env.example`**
 
 After the `R2_PUBLIC_BASE_URL` line, insert:
 
@@ -403,16 +403,16 @@ PROJECT_ASSET_STORAGE_PROVIDER="local"
 PROJECT_ASSET_R2_PREFIX="project-assets"
 ```
 
-- [ ] **Step 2: Add the same block to `.env`**
+- [x] **Step 2: Add the same block to `.env`**
 
 Identical lines (same comment, same default value).
 
-- [ ] **Step 3: Verify 1:1 structure**
+- [x] **Step 3: Verify 1:1 structure**
 
 Run: `diff <(sed 's/=".*"/=""/' .env.example) <(sed 's/=".*"/=""/' .env)`
 Expected: no output (identical structure).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .env.example
@@ -430,7 +430,7 @@ git commit -m "feat(r2): add PROJECT_ASSET_STORAGE_PROVIDER env (local default)"
 **Interfaces:**
 - Produces: `ProjectAsset.publicUrl: string | null` (nullable, optional). Set on R2 display-media uploads; null for local + references.
 
-- [ ] **Step 1: Add the column to the schema**
+- [x] **Step 1: Add the column to the schema**
 
 In `prisma/schema.prisma`, inside `model ProjectAsset`, add after `sizeBytes Int`:
 
@@ -438,7 +438,7 @@ In `prisma/schema.prisma`, inside `model ProjectAsset`, add after `sizeBytes Int
   publicUrl   String?  @db.Text
 ```
 
-- [ ] **Step 2: Create the migration**
+- [x] **Step 2: Create the migration**
 
 Run: `bunx prisma migrate dev --name add_project_asset_public_url --create-only`
 Expected: creates `prisma/migrations/<timestamp>_add_project_asset_public_url/migration.sql` with:
@@ -447,17 +447,17 @@ Expected: creates `prisma/migrations/<timestamp>_add_project_asset_public_url/mi
 ALTER TABLE "ProjectAsset" ADD COLUMN "publicUrl" TEXT;
 ```
 
-- [ ] **Step 3: Apply the migration**
+- [x] **Step 3: Apply the migration**
 
 Run: `bunx prisma migrate dev`
 Expected: migration applied, Prisma client regenerated.
 
-- [ ] **Step 4: Typecheck**
+- [x] **Step 4: Typecheck**
 
 Run: `bunx tsc --noEmit`
 Expected: no errors (`ProjectAsset.publicUrl` now on the generated client type).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add prisma/schema.prisma prisma/migrations
@@ -480,7 +480,7 @@ git commit -m "feat(r2): add nullable publicUrl to ProjectAsset"
   - `readProjectAsset` + `deleteProjectAsset` handle the `project-asset:r2:` ref prefix.
   - `DISPLAY_KINDS = ["business-image", "logo"]` — only these go public; `reference` stays local.
 
-- [ ] **Step 1: Write failing tests for the provider switch + boundary**
+- [x] **Step 1: Write failing tests for the provider switch + boundary**
 
 Add to `src/lib/projects/project-assets.test.ts`:
 
@@ -526,12 +526,12 @@ describe("project asset provider + boundary", () => {
 
 Import `parseProjectAssetRef` at the top of the test file if not already imported.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `bunx vitest run src/lib/projects/project-assets.test.ts`
 Expected: FAIL — `getProjectAssetStorageProvider` undefined; r2 ref prefix not parsed.
 
-- [ ] **Step 3: Implement the provider + ref prefix + R2 branch**
+- [x] **Step 3: Implement the provider + ref prefix + R2 branch**
 
 In `src/lib/projects/project-assets.ts`:
 
@@ -597,24 +597,24 @@ import { getR2Config, publicUrlFor, signedR2Fetch } from "@/lib/r2-client";
 import { getEnv } from "@/lib/config";
 ```
 
-- [ ] **Step 4: Update callers of writeProjectAsset (return-type change)**
+- [x] **Step 4: Update callers of writeProjectAsset (return-type change)**
 
 `writeProjectAsset` now returns an object. Find its callers in `src/lib/projects/project-asset-upload.ts` and update them to destructure `{ ref, publicUrl }` and persist `publicUrl` on the `ProjectAsset` row.
 
 Run: `grep -rn "writeProjectAsset" src/`
 Expected: list call sites to update.
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `bunx vitest run src/lib/projects/project-assets.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Run the fast gate**
+- [x] **Step 6: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/projects/project-assets.ts src/lib/projects/project-assets.test.ts src/lib/projects/project-asset-upload.ts
@@ -632,7 +632,7 @@ git commit -m "feat(r2): project-assets R2 branch for display media + provider s
 - Consumes: `ProjectAsset.publicUrl` (Task 5), ownership check already present.
 - Produces: GET returns `302` to `publicUrl` when set (after ownership check); else proxies bytes (unchanged).
 
-- [ ] **Step 1: Write failing test for the redirect contract**
+- [x] **Step 1: Write failing test for the redirect contract**
 
 Add to `src/lib/projects/project-assets.test.ts` (unit-level — documents the serve-route contract; route handlers here are not unit-tested directly per existing `src/routes/` patterns):
 ```ts
@@ -644,12 +644,12 @@ it("publicUrl-bearing asset serves via redirect, not proxy", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to confirm it passes trivially (documents contract)**
+- [x] **Step 2: Run the test to confirm it passes trivially (documents contract)**
 
 Run: `bunx vitest run src/lib/projects/project-assets.test.ts`
 Expected: PASS (contract doc).
 
-- [ ] **Step 3: Add the 302 branch to the serve route**
+- [x] **Step 3: Add the 302 branch to the serve route**
 
 In `src/routes/api.projects.$id.asset.$assetId.ts`, change the `prisma.projectAsset.findUnique` `select` to include `publicUrl: true`, and after the ownership check, before the proxy:
 
@@ -679,17 +679,17 @@ In `src/routes/api.projects.$id.asset.$assetId.ts`, change the `prisma.projectAs
 
 Keep the existing try/catch proxy path for the no-`publicUrl` case unchanged.
 
-- [ ] **Step 4: Typecheck + lint**
+- [x] **Step 4: Typecheck + lint**
 
 Run: `bunx tsc --noEmit && bun run lint`
 Expected: no errors.
 
-- [ ] **Step 5: Run the fast gate**
+- [x] **Step 5: Run the fast gate**
 
 Run: `bun run check`
 Expected: all green.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/routes/api.projects.\$id.asset.\$assetId.ts src/lib/projects/project-assets.test.ts
@@ -706,7 +706,7 @@ git commit -m "feat(r2): serve route 302-redirects to publicUrl for display medi
 **Interfaces:**
 - Consumes: `getR2Config`, `signedR2Fetch` against the real `umkmcepat-dev` bucket (creds in `.env`).
 
-- [ ] **Step 1: Add the env-gated live round-trip test**
+- [x] **Step 1: Add the env-gated live round-trip test**
 
 Append to `src/lib/r2-client.test.ts`:
 
@@ -745,22 +745,22 @@ describe.skipIf(!LIVE)("r2-client live round-trip", () => {
 });
 ```
 
-- [ ] **Step 2: Confirm it skips by default**
+- [x] **Step 2: Confirm it skips by default**
 
 Run: `bunx vitest run src/lib/r2-client.test.ts`
 Expected: PASS, with the live suite reported as skipped.
 
-- [ ] **Step 3: Run the live test against the real bucket**
+- [x] **Step 3: Run the live test against the real bucket**
 
 Run: `R2_LIVE_TEST=1 bunx vitest run src/lib/r2-client.test.ts`
 Expected: PASS — the live test PUT/GET/DELETEs a `__test__/round-trip-*.txt` object on `umkmcepat-dev` and cleans up.
 
-- [ ] **Step 4: Run the fast gate (live off)**
+- [x] **Step 4: Run the fast gate (live off)**
 
 Run: `bun run check`
 Expected: all green (live test skipped).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/r2-client.test.ts
@@ -773,7 +773,7 @@ git commit -m "test(r2): env-gated live round-trip against umkmcepat-dev"
 
 This task is a verification step, not committed code. It proves the whole path works with the real bucket + public URL.
 
-- [ ] **Step 1: Set the provider to r2 in `.env`**
+- [x] **Step 1: Set the provider to r2 in `.env`**
 
 Change `.env`:
 ```env
@@ -781,17 +781,17 @@ PROJECT_ASSET_STORAGE_PROVIDER="r2"
 ```
 Ensure `R2_PUBLIC_BASE_URL` is set (it is — `https://pub-...r2.dev`).
 
-- [ ] **Step 2: Apply the migration if not already**
+- [x] **Step 2: Apply the migration if not already**
 
 Run: `bunx prisma migrate dev`
 Expected: up to date.
 
-- [ ] **Step 3: Start the dev server**
+- [x] **Step 3: Start the dev server**
 
 Run: `bun run dev`
 Expected: server boots (no startup error about missing R2 vars).
 
-- [ ] **Step 4: Upload a business-image via the API**
+- [x] **Step 4: Upload a business-image via the API**
 
 Run (with a real session cookie from signing in as the project owner):
 ```bash
@@ -802,7 +802,7 @@ curl -sS -X POST http://localhost:3000/api/projects/<a-project-id>/assets \
 ```
 Expected: a JSON response with the new `ProjectAsset` row, including a non-null `publicUrl` pointing at `https://pub-...r2.dev/project-assets/.../business-image/....png`.
 
-- [ ] **Step 5: Verify the public URL serves the bytes directly from R2**
+- [x] **Step 5: Verify the public URL serves the bytes directly from R2**
 
 Run:
 ```bash
@@ -810,7 +810,7 @@ curl -sS -I <the publicUrl from step 4>
 ```
 Expected: `HTTP/2 200` from `pub-...r2.dev` (browser hits R2 directly, zero server egress).
 
-- [ ] **Step 6: Verify the serve route 302-redirects**
+- [x] **Step 6: Verify the serve route 302-redirects**
 
 Run:
 ```bash
@@ -818,7 +818,7 @@ curl -sS -I http://localhost:3000/api/projects/<id>/asset/<assetId> -H "Cookie: 
 ```
 Expected: `HTTP/1.1 302` with `Location: <publicUrl>`. (With a non-owner cookie or none → 401/404, no redirect.)
 
-- [ ] **Step 7: Flip the provider back to local**
+- [x] **Step 7: Flip the provider back to local**
 
 Change `.env`:
 ```env
@@ -826,7 +826,7 @@ PROJECT_ASSET_STORAGE_PROVIDER="local"
 ```
 (no commit — `.env` is gitignored; this is a local toggle.)
 
-- [ ] **Step 8: Confirm no regression**
+- [x] **Step 8: Confirm no regression**
 
 Run: `bun run check`
 Expected: all green.
