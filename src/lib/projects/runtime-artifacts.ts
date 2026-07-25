@@ -1,7 +1,8 @@
-import { createHmac, createHash } from "node:crypto";
 import { cpSync, rmSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+import type { R2Config } from "@/lib/r2-client";
 
 import { getEnv } from "@/lib/config";
 import { assertGeneratedResourceBudget } from "@/lib/projects/generated-resource-budget";
@@ -10,6 +11,7 @@ import {
   type GeneratedDistFile,
   type GeneratedProjectFile,
 } from "@/lib/projects/generated-types";
+import { getR2Config, signedR2Fetch } from "@/lib/r2-client";
 
 const PROJECT_ARTIFACT_REF_PREFIX = "project-artifact:";
 const LOCAL_PROJECT_ARTIFACT_REF_PREFIX = `${PROJECT_ARTIFACT_REF_PREFIX}local:`;
@@ -43,14 +45,6 @@ type ParsedProjectArtifactRef = {
   artifactId: string;
   kind: ProjectArtifactKind;
   provider: ProjectArtifactProvider;
-};
-
-type R2Config = {
-  accessKeyId: string;
-  accountId: string;
-  bucket: string;
-  prefix: string;
-  secretAccessKey: string;
 };
 
 export function createProjectArtifactRef(
@@ -248,7 +242,7 @@ async function writeLocalProjectArtifact<
 async function writeR2ProjectArtifact<
   TFile extends GeneratedDistFile | GeneratedProjectFile,
 >(input: WriteArtifactInput<TFile>, manifest: ProjectArtifactManifest) {
-  const config = getR2Config();
+  const config = artifactR2Config();
 
   for (const file of input.files) {
     await putR2Object(
@@ -319,7 +313,7 @@ async function readLocalProjectArtifact(
 }
 
 async function readR2ProjectArtifact(parsed: ParsedProjectArtifactRef) {
-  const config = getR2Config();
+  const config = artifactR2Config();
   const manifest = parseManifest(
     await getR2Object(
       config,
@@ -342,7 +336,7 @@ async function readR2ProjectArtifact(parsed: ParsedProjectArtifactRef) {
 }
 
 async function deleteR2ProjectArtifact(parsed: ParsedProjectArtifactRef) {
-  const config = getR2Config();
+  const config = artifactR2Config();
   const manifestKey = getR2ArtifactKey(
     parsed.kind,
     parsed.artifactId,
@@ -463,30 +457,11 @@ function assertSafeArtifactId(artifactId: string) {
   }
 }
 
-function getR2Config(): R2Config {
-  return {
-    accessKeyId: requiredEnv("R2_ACCESS_KEY_ID"),
-    accountId: requiredEnv("R2_ACCOUNT_ID"),
-    bucket: requiredEnv("R2_BUCKET"),
-    prefix: normalizeR2Prefix(
-      getEnv("PROJECT_ARTIFACT_R2_PREFIX", "project-artifacts"),
-    ),
-    secretAccessKey: requiredEnv("R2_SECRET_ACCESS_KEY"),
-  };
-}
-
-function requiredEnv(name: string) {
-  const value = getEnv(name);
-
-  if (!value) {
-    throw new Error(`${name} is required for R2 project artifact storage.`);
-  }
-
-  return value;
-}
-
-function normalizeR2Prefix(value: string) {
-  return value.replace(/^\/+|\/+$/g, "") || "project-artifacts";
+function artifactR2Config(): R2Config {
+  return getR2Config({
+    prefixEnv: "PROJECT_ARTIFACT_R2_PREFIX",
+    prefixFallback: "project-artifacts",
+  });
 }
 
 function getR2ArtifactKey(
@@ -495,17 +470,20 @@ function getR2ArtifactKey(
   suffix: string,
 ) {
   assertSafeArtifactId(artifactId);
-  return `${getR2Config().prefix}/${kind}/${artifactId}/${suffix}`;
+  return `${artifactR2Config().prefix}/${kind}/${artifactId}/${suffix}`;
 }
 
+// Wrappers over the shared r2-client signedR2Fetch. Artifact keys are built
+// fully-prefixed by getR2ArtifactKey, so we pass a prefix-less config to
+// avoid double-prefixing. Body coerced string -> Buffer for the shared API.
 async function putR2Object(
   config: R2Config,
   key: string,
   body: string,
   contentType: string,
 ) {
-  const response = await signedR2Fetch(config, key, {
-    body,
+  const response = await signedR2Fetch({ ...config, prefix: "" }, key, {
+    body: Buffer.from(body),
     contentType,
     method: "PUT",
   });
@@ -516,7 +494,9 @@ async function putR2Object(
 }
 
 async function getR2Object(config: R2Config, key: string) {
-  const response = await signedR2Fetch(config, key, { method: "GET" });
+  const response = await signedR2Fetch({ ...config, prefix: "" }, key, {
+    method: "GET",
+  });
 
   if (!response.ok) {
     throw new Error(`R2 project artifact read failed: ${response.status}`);
@@ -526,97 +506,12 @@ async function getR2Object(config: R2Config, key: string) {
 }
 
 async function deleteR2Object(config: R2Config, key: string) {
-  const response = await signedR2Fetch(config, key, { method: "DELETE" });
+  const response = await signedR2Fetch({ ...config, prefix: "" }, key, {
+    method: "DELETE",
+  });
 
   // 204 success; 404 means the object is already gone — treat as success.
   if (!response.ok && response.status !== 404) {
     throw new Error(`R2 project artifact delete failed: ${response.status}`);
   }
-}
-
-async function signedR2Fetch(
-  config: R2Config,
-  key: string,
-  input: {
-    body?: string;
-    contentType?: string;
-    method: "GET" | "PUT" | "DELETE";
-  },
-) {
-  const encodedKey = key
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-  const url = `https://${config.accountId}.r2.cloudflarestorage.com/${config.bucket}/${encodedKey}`;
-  const now = new Date();
-  const amzDate = toAmzDate(now);
-  const dateStamp = amzDate.slice(0, 8);
-  const payloadHash = sha256(input.body ?? "");
-  const host = `${config.accountId}.r2.cloudflarestorage.com`;
-  const headers: Record<string, string> = {
-    host,
-    "x-amz-content-sha256": payloadHash,
-    "x-amz-date": amzDate,
-  };
-
-  if (input.contentType) {
-    headers["content-type"] = input.contentType;
-  }
-
-  const signedHeaders = Object.keys(headers).sort().join(";");
-  const canonicalHeaders = Object.keys(headers)
-    .sort()
-    .map((name) => `${name}:${headers[name]}\n`)
-    .join("");
-  const canonicalRequest = [
-    input.method,
-    `/${config.bucket}/${encodedKey}`,
-    "",
-    canonicalHeaders,
-    signedHeaders,
-    payloadHash,
-  ].join("\n");
-  const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
-  const stringToSign = [
-    "AWS4-HMAC-SHA256",
-    amzDate,
-    credentialScope,
-    sha256(canonicalRequest),
-  ].join("\n");
-  const signature = hmacHex(
-    getSignatureKey(config.secretAccessKey, dateStamp),
-    stringToSign,
-  );
-
-  return fetch(url, {
-    body: input.body,
-    headers: {
-      ...headers,
-      Authorization: `AWS4-HMAC-SHA256 Credential=${config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-    },
-    method: input.method,
-  });
-}
-
-function toAmzDate(date: Date) {
-  return date.toISOString().replace(/[:-]|\.\d{3}/g, "");
-}
-
-function sha256(value: string) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function hmac(key: Buffer | string, value: string) {
-  return createHmac("sha256", key).update(value).digest();
-}
-
-function hmacHex(key: Buffer, value: string) {
-  return createHmac("sha256", key).update(value).digest("hex");
-}
-
-function getSignatureKey(secret: string, dateStamp: string) {
-  const dateKey = hmac(`AWS4${secret}`, dateStamp);
-  const dateRegionKey = hmac(dateKey, "auto");
-  const dateRegionServiceKey = hmac(dateRegionKey, "s3");
-  return hmac(dateRegionServiceKey, "aws4_request");
 }

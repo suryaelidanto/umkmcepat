@@ -15,6 +15,26 @@ import {
 let tempDir = "";
 const originalEnv = { ...process.env };
 
+// Decode a fetch body the way a real R2 store would when read back via
+// response.text(): bytes -> utf8 string. String(Uint8Array) mangles bytes,
+// so Buffer-backed bodies (the shared signedR2Fetch sends Uint8Array) must
+// be decoded here.
+function bodyToString(body: BodyInit | null | undefined): string {
+  if (body == null) {
+    return "";
+  }
+  if (typeof body === "string") {
+    return body;
+  }
+  if (body instanceof Uint8Array) {
+    return Buffer.from(body).toString("utf8");
+  }
+  if (body instanceof ArrayBuffer) {
+    return Buffer.from(body).toString("utf8");
+  }
+  return String(body);
+}
+
 describe("project runtime artifacts", () => {
   afterEach(async () => {
     if (tempDir) {
@@ -107,7 +127,7 @@ describe("project runtime artifacts", () => {
         );
 
         if (init?.method === "PUT") {
-          objects.set(key, String(init.body));
+          objects.set(key, bodyToString(init?.body));
           return new Response(null, { status: 200 });
         }
 
@@ -152,7 +172,7 @@ describe("project runtime artifacts", () => {
         );
 
         if (init?.method === "PUT") {
-          objects.set(key, String(init.body));
+          objects.set(key, bodyToString(init?.body));
           return new Response(null, { status: 200 });
         }
 
@@ -184,6 +204,12 @@ describe("project runtime artifacts", () => {
 
   it("requires R2 env before writing project artifacts", async () => {
     process.env.PROJECT_ARTIFACT_STORAGE_PROVIDER = "r2";
+    // bun auto-loads .env (which has real R2 creds in dev); delete them so
+    // the missing-cred throw is deterministic, not .env-dependent.
+    delete process.env.R2_ACCESS_KEY_ID;
+    delete process.env.R2_ACCOUNT_ID;
+    delete process.env.R2_BUCKET;
+    delete process.env.R2_SECRET_ACCESS_KEY;
 
     await expect(
       writeProjectSourceArtifact({

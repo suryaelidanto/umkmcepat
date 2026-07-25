@@ -46,7 +46,7 @@ export async function signedR2Fetch(
     method: "GET" | "PUT" | "DELETE";
   },
 ): Promise<Response> {
-  const objectKey = `${config.prefix}/${key}`;
+  const objectKey = config.prefix ? `${config.prefix}/${key}` : key;
   const encodedKey = objectKey
     .split("/")
     .map((part) => encodeURIComponent(part))

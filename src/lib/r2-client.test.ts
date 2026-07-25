@@ -79,4 +79,10 @@ describe("r2-client", () => {
     const config = getR2Config();
     expect(() => publicUrlFor(config, "x")).toThrow(/R2_PUBLIC_BASE_URL/);
   });
+
+  it("getR2Config with empty prefix fallback keeps the key bare", () => {
+    delete process.env.R2_PREFIX;
+    const config = getR2Config({ prefixFallback: "" });
+    expect(config.prefix).toBe("");
+  });
 });
