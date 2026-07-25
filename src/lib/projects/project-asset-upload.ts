@@ -35,6 +35,7 @@ export type UploadedProjectAsset = {
   id: string;
   ref: string;
   url: string;
+  publicUrl: string | null;
   contentType: string;
   sizeBytes: number;
 };
@@ -68,7 +69,7 @@ export async function uploadProjectAsset({
     );
   }
 
-  const ref = await writeProjectAsset({
+  const { publicUrl, ref } = await writeProjectAsset({
     bytes,
     kind,
     projectId,
@@ -83,12 +84,13 @@ export async function uploadProjectAsset({
     data: {
       contentType: storedContentType,
       projectId,
+      publicUrl,
       purpose,
       ref,
       sizeBytes: bytes.length,
       userId,
     },
-    select: { id: true, ref: true },
+    select: { id: true, publicUrl: true, ref: true },
   });
 
   devLog("project-asset", "upload", {
@@ -103,6 +105,7 @@ export async function uploadProjectAsset({
   return {
     contentType: storedContentType,
     id: asset.id,
+    publicUrl: asset.publicUrl,
     ref: asset.ref,
     sizeBytes: bytes.length,
     url: `/api/projects/${projectId}/assets/${asset.id}`,

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createProjectAssetRef,
   deleteProjectAsset,
+  getProjectAssetStorageProvider,
   parseProjectAssetRef,
   readProjectAsset,
   writeProjectAsset,
@@ -125,7 +126,7 @@ describe("project assets", () => {
       process.env.PROJECT_ASSET_DIR = tempDir;
       const opts = { rootDir: tempDir };
 
-      const ref = await writeProjectAsset({
+      const { ref } = await writeProjectAsset({
         bytes: pngBytes(),
         kind: "business-image",
         projectId: "proj-png",
@@ -145,7 +146,7 @@ describe("project assets", () => {
       tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-assets-"));
       const opts = { rootDir: tempDir };
 
-      const jpegRef = await writeProjectAsset({
+      const { ref: jpegRef } = await writeProjectAsset({
         bytes: jpegBytes(),
         kind: "logo",
         projectId: "proj-jpg",
@@ -156,7 +157,7 @@ describe("project assets", () => {
         "image/jpeg",
       );
 
-      const webpRef = await writeProjectAsset({
+      const { ref: webpRef } = await writeProjectAsset({
         bytes: webpBytes(),
         kind: "reference",
         projectId: "proj-webp",
@@ -205,7 +206,7 @@ describe("project assets", () => {
       // A real PNG never becomes executable just because the caller lies about
       // content; the ref is server-generated and content-type derived from
       // magic bytes, not from any client-supplied filename.
-      const ref = await writeProjectAsset({
+      const { ref } = await writeProjectAsset({
         bytes: pngBytes(),
         kind: "logo",
         projectId: "proj-lie",
@@ -232,6 +233,43 @@ describe("project assets", () => {
           userId: USER,
         }),
       ).rejects.toThrow(/kind|invalid/i);
+    });
+  });
+
+  describe("provider switch + R2 boundary", () => {
+    afterEach(() => {
+      delete process.env.PROJECT_ASSET_STORAGE_PROVIDER;
+      delete process.env.R2_PUBLIC_BASE_URL;
+    });
+
+    it("getProjectAssetStorageProvider defaults to local", () => {
+      delete process.env.PROJECT_ASSET_STORAGE_PROVIDER;
+      expect(getProjectAssetStorageProvider()).toBe("local");
+    });
+
+    it("getProjectAssetStorageProvider returns r2 when set", () => {
+      process.env.PROJECT_ASSET_STORAGE_PROVIDER = "r2";
+      expect(getProjectAssetStorageProvider()).toBe("r2");
+    });
+
+    it("getProjectAssetStorageProvider rejects unknown values", () => {
+      process.env.PROJECT_ASSET_STORAGE_PROVIDER = "s3";
+      expect(() => getProjectAssetStorageProvider()).toThrow(
+        /PROJECT_ASSET_STORAGE_PROVIDER/,
+      );
+    });
+
+    it("parseProjectAssetRef accepts the r2 prefix", () => {
+      const parsed = parseProjectAssetRef(
+        "project-asset:r2:p1/u1/business-image/abc.png",
+      );
+      expect(parsed).toMatchObject({
+        ext: "png",
+        kind: "business-image",
+        projectId: "p1",
+        ulid: "abc",
+        userId: "u1",
+      });
     });
   });
 });
