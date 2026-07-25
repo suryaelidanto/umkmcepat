@@ -8,6 +8,7 @@ import {
   type BoosterPackId,
 } from "@/lib/pakasir";
 import { prisma } from "@/lib/prisma";
+import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export { BOOSTER_PACKS, type BoosterPackId };
 
@@ -83,10 +84,9 @@ export const Route = createFileRoute("/api/payment/create")({
           console.error("[payment-create] Failed to create payment:", error);
           return Response.json(
             {
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to initiate payment.",
+              message: mapToUserFacingError(
+                error instanceof Error ? error.message : "",
+              ),
             },
             { status: 500 },
           );

@@ -45,6 +45,7 @@ import {
   isUserVerified,
   MIN_ENERGY_DISCUSS,
 } from "@/lib/user-credits";
+import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 // Re-export so external importers (e.g. the preview test) keep resolving after
 // the discuss tool/prompt builders moved to the pure module.
@@ -501,8 +502,11 @@ async function handleDiscussTurnOneCall({
         await tailDone;
         unsubscribe();
       },
-      onError: (error) =>
-        `Stream error: ${error instanceof Error ? error.message : "unknown"}`,
+      onError: (error) => {
+        const reason = error instanceof Error ? error.message : "unknown";
+        console.error("[preview] stream error:", reason);
+        return mapToUserFacingError(reason);
+      },
     }),
   });
 }

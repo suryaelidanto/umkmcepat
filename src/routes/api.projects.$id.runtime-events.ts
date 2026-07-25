@@ -37,7 +37,6 @@ export const Route = createFileRoute("/api/projects/$id/runtime-events")({
             createdAt: true,
             deploymentId: true,
             id: true,
-            message: true,
             type: true,
           },
           take: 50,
