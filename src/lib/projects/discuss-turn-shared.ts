@@ -26,6 +26,7 @@ import {
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
   presentWorkspaceCardTool,
 } from "@/lib/projects/discuss-tool";
+import { chargeEnergyForAiUsage } from "@/lib/user-credits";
 
 export type RepairedToolCall = {
   type: "tool-call";
@@ -226,6 +227,7 @@ export async function repairToolCallInTurn({
   modelName,
   projectId,
   toolCall,
+  userId,
 }: {
   error: unknown;
   messages: ModelMessage[];
@@ -233,6 +235,7 @@ export async function repairToolCallInTurn({
   modelName: string;
   projectId: string;
   toolCall: { toolCallId: string; toolName: string; input?: unknown };
+  userId: string;
 }): Promise<RepairedToolCall | null> {
   console.error("[preview-chat] invalid tool args, attempting in-turn repair", {
     projectId,
@@ -251,6 +254,14 @@ export async function repairToolCallInTurn({
       temperature: 0.25,
       maxOutputTokens: 1024,
       timeout: getAiTimeoutMs("discussCard"),
+    });
+    void chargeEnergyForAiUsage({
+      userId,
+      projectId,
+      modelId: modelName,
+      inputTokens: result.usage?.inputTokens ?? 0,
+      outputTokens: result.usage?.outputTokens ?? 0,
+      reason: "discuss:repair",
     });
     const repaired = result.toolCalls[0];
     if (!repaired) {

@@ -184,6 +184,7 @@ export async function chargeEnergyForAiUsage(opts: {
   inputTokens: number;
   outputTokens: number;
   reason: string;
+  projectId?: string | null;
 }): Promise<{
   energyUsed: number;
   inputTokens: number;
@@ -202,6 +203,7 @@ export async function chargeEnergyForAiUsage(opts: {
       input,
       output,
       opts.reason,
+      { projectId: opts.projectId ?? null },
     );
   } catch (error) {
     console.warn("[energy] chargeEnergyForAiUsage failed", {

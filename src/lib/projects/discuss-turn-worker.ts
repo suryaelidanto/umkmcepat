@@ -97,6 +97,7 @@ export async function runDiscussTurn({
           messages,
           model,
           modelName,
+          userId,
           projectId: project.id,
           toolCall,
         }),

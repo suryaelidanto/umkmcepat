@@ -587,6 +587,14 @@ async function repairWorkspaceCard({
     userId,
     workspaceCard: turn.workspaceCard,
   });
+  await chargeEnergyForAiUsage({
+    userId,
+    projectId: project.id,
+    modelId: modelName,
+    inputTokens: turn.usage?.inputTokens ?? 0,
+    outputTokens: turn.usage?.outputTokens ?? 0,
+    reason: "discuss:repair",
+  });
 
   return Response.json({
     projectTitle: title,
