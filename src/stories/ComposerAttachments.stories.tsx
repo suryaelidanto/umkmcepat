@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ComposerAttachments } from "@/components/projects/ComposerAttachments";
 
 const meta = {
-  args: { attachments: [], onAdd: () => {}, onRemove: () => {} },
+  args: { attachments: [], onRemove: () => {} },
   component: ComposerAttachments,
 } satisfies Meta<typeof ComposerAttachments>;
 

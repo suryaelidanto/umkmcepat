@@ -25,7 +25,10 @@ import { type PanelImperativeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
 
 import { EnergyDisplay } from "@/components/common/EnergyDisplay";
-import { ComposerAttachments } from "@/components/projects/ComposerAttachments";
+import {
+  ComposerAttachButton,
+  ComposerAttachments,
+} from "@/components/projects/ComposerAttachments";
 import {
   BuildProgressPanel,
   EmptyPreviewState,
@@ -2592,22 +2595,16 @@ export function WorkspaceShell({
                       <label htmlFor="workspace-message" className="sr-only">
                         Pesan untuk AI
                       </label>
-                      <ComposerAttachments
-                        attachments={pendingAttachments}
-                        onAdd={(next, rejected) => {
-                          setPendingAttachments(next);
-                          if (rejected.length) {
-                            toast.error(
-                              `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
-                            );
+                      {pendingAttachments.length > 0 ? (
+                        <ComposerAttachments
+                          attachments={pendingAttachments}
+                          onRemove={(id) =>
+                            setPendingAttachments((cur) =>
+                              removeAttachment(cur, id),
+                            )
                           }
-                        }}
-                        onRemove={(id) =>
-                          setPendingAttachments((cur) =>
-                            removeAttachment(cur, id),
-                          )
-                        }
-                      />
+                        />
+                      ) : null}
                       <textarea
                         id="workspace-message"
                         rows={3}
@@ -2626,15 +2623,28 @@ export function WorkspaceShell({
                       />
                       <div className="flex items-center justify-between gap-spacing-4">
                         <ModePill mode="Diskusi" tone="idle" />
-                        <Button
-                          type="submit"
-                          size="icon"
-                          disabled={!message.trim()}
-                          className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                          aria-label="Kirim pesan"
-                        >
-                          <ArrowUp className="size-4" />
-                        </Button>
+                        <div className="flex items-center gap-spacing-2">
+                          <ComposerAttachButton
+                            attachments={pendingAttachments}
+                            onAdd={(next, rejected) => {
+                              setPendingAttachments(next);
+                              if (rejected.length) {
+                                toast.error(
+                                  `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                                );
+                              }
+                            }}
+                          />
+                          <Button
+                            type="submit"
+                            size="icon"
+                            disabled={!message.trim()}
+                            className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                            aria-label="Kirim pesan"
+                          >
+                            <ArrowUp className="size-4" />
+                          </Button>
+                        </div>
                       </div>
                     </motion.form>
                   )}
