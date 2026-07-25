@@ -88,6 +88,13 @@ GENERATED_BUILD_EXECUTION_ENABLED="false"
 GENERATED_PUBLIC_EXECUTION_ENABLED="false"
 GENERATED_PUBLIC_ORIGIN="https://generated.example.net"
 PROJECT_ARTIFACT_STORAGE_PROVIDER="local"
+PROJECT_ASSET_STORAGE_PROVIDER="local"
+WAITLIST_ENABLED="true"
+RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="no-reply@yourdomain.com"
+OTP_SPACE_API_KEY="sk_live_..."
+NEXT_PUBLIC_UMAMI_WEBSITE_ID="..."
+NEXT_PUBLIC_UMAMI_SCRIPT_SRC="https://umami.example.com/script.js"
 PROJECT_ARTIFACT_DIR="/app/.data/project-artifacts"
 PROJECT_THUMBNAIL_DIR="/app/.data/project-thumbnails"
 PROJECT_THUMBNAIL_CAPTURE_ENABLED="true"
@@ -154,6 +161,10 @@ Rules for that deployment shape:
 ## Monitoring
 
 Error tracking is intentionally not wired (Sentry was removed). If error tracking is needed later, GlitchTip is Sentry-API-compatible and slots in behind a fresh adapter without rewriting call sites.
+
+Usage/behavior analytics: **Umami** (self-hosted in `docker-compose.prod.yml`, shares the platform Postgres) — pageviews + custom events via `src/lib/analytics.ts` `track()`. Dev-off; prod-on via `NEXT_PUBLIC_UMAMI_*`. Never on `/api/*` or `/p/<slug>` (generated sites are the user's, not the platform's to instrument).
+
+Availability monitoring: **Uptime Kuma** (self-hosted, standalone SQLite) — pings the app + key endpoints, alerts on downtime. Configure monitors at `http://<server>:3002` after first boot.
 
 ## Notes
 

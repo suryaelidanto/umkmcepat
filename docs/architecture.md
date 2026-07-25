@@ -197,14 +197,20 @@ Static-frontend constraint:
 
 Provider selection is explicit, env-driven, and behind internal adapters.
 
-| Capability | Env                                   | Current default           | Boundary                     |
-| ---------- | ------------------------------------- | ------------------------- | ---------------------------- |
-| Database   | `DATABASE_URL`                        | PostgreSQL via Prisma     | `prisma/schema.prisma`       |
-| AI         | `AI_PROVIDER`                         | 9Router via Vercel AI SDK | `src/lib/ai.ts`              |
-| Auth       | Google OAuth + Turnstile              | Google                    | `src/lib/auth.ts`, Auth.js   |
-| Rate limit | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`      |
-| Storage    | `OBJECT_STORAGE_PROVIDER`             | `local`                   | `src/lib/object-storage.ts`  |
-| Runtime    | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*` |
+| Capability    | Env                                   | Current default           | Boundary                                                     |
+| ------------- | ------------------------------------- | ------------------------- | ------------------------------------------------------------ |
+| Database      | `DATABASE_URL`                        | PostgreSQL via Prisma     | `prisma/schema.prisma`                                       |
+| AI            | `AI_PROVIDER`                         | 9Router via Vercel AI SDK | `src/lib/ai.ts`                                              |
+| Auth          | Google OAuth + Turnstile              | Google                    | `src/lib/auth.ts`, Auth.js                                   |
+| Rate limit    | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`                                      |
+| Storage       | `OBJECT_STORAGE_PROVIDER`             | `local`                   | `src/lib/object-storage.ts`                                  |
+| Display media | `PROJECT_ASSET_STORAGE_PROVIDER`      | `local`                   | `src/lib/r2-client.ts`, `src/lib/projects/project-assets.ts` |
+| Source/dist   | `PROJECT_ARTIFACT_STORAGE_PROVIDER`   | `local`                   | `src/lib/projects/runtime-artifacts.ts`                      |
+| Email         | `RESEND_API_KEY`                      | Resend (mock in dev)      | `src/lib/email.ts`                                           |
+| WhatsApp OTP  | `OTP_SPACE_API_KEY`                   | OTPSpace (mock in dev)    | `src/lib/otp.ts`                                             |
+| Analytics     | `NEXT_PUBLIC_UMAMI_*`                 | Umami (off in dev)        | `src/lib/analytics.ts`                                       |
+| Waitlist gate | `WAITLIST_ENABLED`                    | `true` (fail-safe)        | `src/lib/waitlist-enabled.ts`                                |
+| Runtime       | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*`                                 |
 
 Rules:
 

@@ -5,11 +5,11 @@ Boot instructions for AI agents working on UMKM Cepat.
 ## Read first
 
 - `PRINCIPLES.md`: operating taste and quality bar.
-- `DEV.md`: local workflow, commands, quality gate.
+- `DEV.md`: local workflow, commands, quality gate, + the **Cleanliness contract** (behavior-preserving refactors, comment hygiene).
 - `PRODUCT.md`: required before product positioning, builder flow, generated-project UX, or design-system decisions.
 - `DESIGN.md`: required before UI, styling, layout, typography, colors, or components.
-- `docs/architecture.md`: required before project, workspace, renderer, publishing, provider, storage, auth, or AI gateway work.
-- `docs/deployment.md`: required before Docker, VPS, storage persistence, CI, or monitoring work.
+- `docs/architecture.md`: required before project, workspace, renderer, publishing, provider, storage, auth, or AI gateway work. New boundaries: `src/lib/r2-client.ts` (R2 Sig V4), `src/lib/email.ts` (Resend), `src/lib/otp.ts` (OTPSpace), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), the public `/media/<assetId>` route, the `/admin` waitlist dashboard, `MobileNav` + `mobile-sheet` (mobile chrome).
+- `docs/deployment.md`: required before Docker, VPS, storage persistence, CI, or monitoring work (incl. Umami + Uptime Kuma).
 
 ## Commands
 

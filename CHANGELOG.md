@@ -2,6 +2,20 @@
 
 Short, plain-English daily updates. Keep entries general, one line each, and useful for internal tracking or lightweight customer reporting later.
 
+## 2026-07
+
+### 2026-07-25 — 9-topic batch
+
+- **R2 display-media storage**: shared `r2-client.ts` (consolidated Sig V4 from two dup copies); `PROJECT_ASSET_STORAGE_PROVIDER` (local|r2); `ProjectAsset.publicUrl`; serve-route 302→R2; live round-trip verified against `umkmcepat-dev`.
+- **Photo-upload → generation + published site**: composer attachment strip (blob previews, cap 6, X-remove); upload-on-send to R2; VL agent places images via `/media/<assetId>`; "Ubah"/"Komentar"/"Ganti gambar" labels; image-replace reliability fix (capture `element.src`).
+- **Waitlist admin + toggle**: `/admin` dashboard (approve/decline, mobile-first); `WAITLIST_ENABLED` env gate (replaces implicit `NODE_ENV`); pre-fill last submission on rejection.
+- **Mobile everywhere (foundation)**: `MobileNav` bottom-nav + `mobile-sheet` primitive; tier-1 audit helpers (touch/font/overflow); tier-2 device-capture suite. Per-route polish + workspace gestures pending live-render iteration.
+- **Prettier-on-gen**: `formatGeneratedSource` helper (cached, fire-and-forget); wired into generate + edit post-commit sweeps.
+- **Codebase cleanliness**: `DEV.md` Cleanliness contract (behavior-preserving refactors, comment hygiene); Graphify live.
+- **Email + OTP adapters**: Resend adapter + hardened OTP (`/v1/send`, mock-in-dev/throw-in-prod, `crypto.randomInt`); production startup guard.
+- **Polish + security**: dark chrome rollback; SEO-maxed homepage copy + JSON-LD `@graph`; error-leak fixes (`mapToUserFacingError`); waitlist magic-byte; postMessage origin; Umami + Uptime Kuma; per-page published-site SEO head + sitemap expansion.
+- **Docs sync**: architecture/deployment/README/CLAUDE/CHANGELOG reconciled to shipped reality; `.env`/`.env.example` 1:1.
+
 ## 2026-06
 
 ### 2026-06-26

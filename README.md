@@ -5,7 +5,7 @@
 <h1 align="center">UMKM Cepat</h1>
 
 <p align="center">
-  AI builder open-source untuk membantu UMKM Indonesia membuat website dan alat digital dari prompt sederhana.
+  Website UMKM yang ketemu pembeli. Bikin website usaha gratis dalam 5 menit pakai AI — tanpa ngoding, siap dibagikan ke WhatsApp, gampang dicari pembeli.
 </p>
 
 <p align="center">
@@ -15,9 +15,7 @@
 
 ## What is UMKM Cepat?
 
-UMKM Cepat helps Indonesian small businesses turn plain Indonesian prompts into useful websites. The product is chat-first: users describe the business, AI clarifies the brief, then the workspace builds previewable frontend output.
-
-The goal is practical: help sellers get a clean online presence without needing to understand design systems, routing, deployment, or AI tooling.
+UMKM Cepat helps Indonesian small businesses turn plain Indonesian prompts into useful websites — the outcome is buyers, not just a website. The product is chat-first: users describe the business, AI clarifies the brief, then the workspace builds previewable frontend output. Photos attach in the chat; the vision-capable agent places them. Published sites are indexable landing pages (per-page SEO + sitemap + `LocalBusiness` schema). Free, R2-backed media, mobile-native.
 
 The platform is 100% free for users — every feature is usable without paying. An optional paid Energy Booster exists for users who want extra energy beyond the free daily quota, but paying never locks out functionality, so the core experience stays free. Access is managed via a pilot whitelist with admin approval (targeting ~10 initial real UMKM businesses).
 
