@@ -15,6 +15,7 @@ import {
   getBriefReadiness,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
+import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
 const OPTION_LABEL_MAX_LENGTH = 120;
 const OPTION_DESCRIPTION_MAX_LENGTH = 180;
 
@@ -159,24 +160,6 @@ export function applyBriefPatch(
   }
 
   return next;
-}
-
-// Tolerate the combo model double-encoding a nested object field as a JSON
-// string (e.g. briefPatch: "{\"businessType\":\"retail\"}"). Returns the parsed
-// object when the input is a parseable JSON string, otherwise the value as-is.
-function unstringifyJsonObject<T>(value: T): T {
-  if (typeof value !== "string") {
-    return value;
-  }
-  const trimmed = value.trim();
-  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
-    return value;
-  }
-  try {
-    return JSON.parse(trimmed) as T;
-  } catch {
-    return value;
-  }
 }
 
 // Single authority for turning best-effort model output into a valid turn.

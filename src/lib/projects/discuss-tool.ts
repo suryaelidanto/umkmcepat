@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { buildChatSystemPrompt } from "@/routes/api.projects.preview";
 
@@ -12,20 +13,7 @@ export const PRESENT_WORKSPACE_CARD_TOOL_NAME = "presentWorkspaceCard";
 // Accept either an object or a JSON string; the server (normalizeWorkspaceTurn)
 // re-applies the same un-stringify as the single authority.
 function jsonObjectOrString<T extends z.ZodTypeAny>(shape: T) {
-  return z.preprocess((value) => {
-    if (typeof value !== "string") {
-      return value;
-    }
-    const trimmed = value.trim();
-    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
-      return value;
-    }
-    try {
-      return JSON.parse(trimmed);
-    } catch {
-      return value;
-    }
-  }, shape);
+  return z.preprocess(unstringifyJsonObject, shape);
 }
 
 export const presentWorkspaceCardInputSchema = z.object({
