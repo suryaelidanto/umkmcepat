@@ -65,7 +65,7 @@ export function applyBriefPatch(
   }
 
   const next = { ...brief, notes: [...brief.notes] };
-  for (const field of getBriefPatchFields()) {
+  for (const field of BRIEF_PATCH_FIELDS) {
     const value = cleanText(patch[field], 160);
 
     if (value) {
@@ -485,10 +485,6 @@ const BRIEF_PATCH_FIELDS = [
   "contactOrCta",
   "stylePreference",
 ] as const;
-
-function getBriefPatchFields() {
-  return BRIEF_PATCH_FIELDS;
-}
 
 function removeUnansweredActiveQuestionMemory(
   brief: ProjectBrief,

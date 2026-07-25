@@ -972,7 +972,6 @@ export function createGeneratedViteTanStackProjectFiles(
       path: "src/index.css",
       content: `${shadcnThemeCss(schema)}\n${createCustomProjectStyles(variant, schema)}`,
     },
-    ...createGeneratedDesignContextFiles(schema),
   ];
 }
 
@@ -983,12 +982,6 @@ type BusinessRouteModule = {
   routeNames: string[];
   routes: Array<{ path: string; title: string }>;
 };
-
-function createGeneratedDesignContextFiles(
-  _schema: ProjectSiteSchema,
-): GeneratedProjectFile[] {
-  return [];
-}
 
 function toPackageName(value: string) {
   return (
