@@ -58,6 +58,19 @@ export type CustomGeneratedSourceResult = {
 
 type RunCommand = (command: GeneratedAppAgentToolCommand) => unknown;
 
+function bridgeAbortSignal(
+  parent: AbortSignal | undefined,
+  child: AbortController,
+): void {
+  if (!parent) {
+    return;
+  }
+  parent.addEventListener("abort", () => child.abort(), { once: true });
+  if (parent.aborted) {
+    child.abort();
+  }
+}
+
 export async function generateCustomProjectFilesWithAgent({
   implementationBrief,
   onOperation,
@@ -188,18 +201,7 @@ export async function generateCustomProjectFilesWithAgent({
       tools: createAgentTools(runCommand, projectId, stepCharger),
     });
     const localAbortController = new AbortController();
-    if (abortSignal) {
-      abortSignal.addEventListener(
-        "abort",
-        () => localAbortController.abort(),
-        {
-          once: true,
-        },
-      );
-      if (abortSignal.aborted) {
-        localAbortController.abort();
-      }
-    }
+    bridgeAbortSignal(abortSignal, localAbortController);
 
     const result = await withAiTimeout(
       agent.generate({
@@ -390,14 +392,7 @@ async function runForcedRewritePass({
   });
 
   const localAbortController = new AbortController();
-  if (abortSignal) {
-    abortSignal.addEventListener("abort", () => localAbortController.abort(), {
-      once: true,
-    });
-    if (abortSignal.aborted) {
-      localAbortController.abort();
-    }
-  }
+  bridgeAbortSignal(abortSignal, localAbortController);
 
   const missingCssNote =
     missingCss.length > 0
