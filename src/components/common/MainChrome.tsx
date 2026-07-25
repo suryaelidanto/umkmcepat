@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
+import { MobileNav } from "@/components/common/MobileNav";
 import {
   useIsRoutePending,
   usePathname,
@@ -121,8 +122,9 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-h-screen flex-col bg-surface-warm-white">
       <Header />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 pb-16 md:pb-0">{children}</main>
       <Footer />
+      <MobileNav />
     </div>
   );
 }
