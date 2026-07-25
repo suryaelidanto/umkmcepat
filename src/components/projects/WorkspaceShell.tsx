@@ -33,7 +33,6 @@ import {
   BuildProgressPanel,
   EmptyPreviewState,
   GeneratedPreviewFrame,
-  ModePill,
   PreviewIssueState,
   ProcessingControl,
   QuestionComposer,
@@ -2654,8 +2653,7 @@ export function WorkspaceShell({
                             }
                             className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                           />
-                          <div className="flex items-center justify-between gap-spacing-4">
-                            <ModePill mode="Diskusi" tone="idle" />
+                          <div className="flex items-center justify-end gap-spacing-4">
                             <div className="flex items-center gap-spacing-2">
                               <ComposerAttachButton
                                 attachments={pendingAttachments}
@@ -2753,8 +2751,7 @@ export function WorkspaceShell({
                         sessionExpired || authStatus !== "authenticated"
                       }
                     />
-                    <div className="flex items-center justify-between gap-spacing-4">
-                      <ModePill mode="Diskusi" tone="idle" />
+                    <div className="flex items-center justify-end gap-spacing-4">
                       <Button
                         type="submit"
                         size="icon"
