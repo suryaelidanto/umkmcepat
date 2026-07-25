@@ -891,6 +891,21 @@ export function WorkspaceShell({
             );
           }
 
+          if (
+            eventName === "energy_exhausted" &&
+            typeof data.message === "string"
+          ) {
+            const message = data.message;
+            setBuildProgress((current) =>
+              appendBuildProgressStep(current, {
+                detail: message,
+                label: "Energi habis",
+                status: "done",
+              }),
+            );
+            window.dispatchEvent(new Event("umkm:energy-changed"));
+          }
+
           if (eventName === "operation" && data.title) {
             const title = data.title;
             setBuildProgress((current) =>

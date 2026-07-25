@@ -453,7 +453,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
             workspaceKey: projectId,
           });
 
-          if (!finalBuildResult.ok) {
+          if (!finalBuildResult.ok && !sourceStepCharger.isExhausted()) {
             for (let repairAttempt = 0; repairAttempt < 2; repairAttempt++) {
               const renewed = await renewProjectOperation({
                 projectId,
@@ -833,6 +833,12 @@ async function handleGeneratePost(request: Request, routeId: string) {
           abortSignal: abortController.signal,
           stepCharger: sourceStepCharger,
         });
+        if (sourceGeneration.energyExhausted) {
+          send("energy_exhausted", {
+            message:
+              "Energi kamu habis di tengah proses. File yang sudah dibuat tetap tersimpan — isi ulang energi untuk melanjutkan.",
+          });
+        }
         await saver.flush();
         devLog("generate", "source.generated", {
           buildSpecLength: sourceGeneration.buildSpec.length,
@@ -952,7 +958,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
         let finalBuildResult = buildResult;
 
-        if (!buildResult.ok) {
+        if (!buildResult.ok && !sourceGeneration.energyExhausted) {
           for (let repairAttempt = 0; repairAttempt < 2; repairAttempt++) {
             const renewed = await renewProjectOperation({
               projectId,
