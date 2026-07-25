@@ -99,7 +99,7 @@ vi.mock("@/lib/user-credits", async () => {
   };
 });
 vi.mock("@/lib/projects/brief-flow", () => ({
-  createPendingWorkspaceCard: vi.fn(() => ({
+  createFallbackWorkspaceCard: vi.fn(() => ({
     type: "questions",
     questions: [
       {

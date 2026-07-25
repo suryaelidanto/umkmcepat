@@ -10,7 +10,7 @@ import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { prisma } from "@/lib/prisma";
 import { createInitialBrief } from "@/lib/projects/brief";
-import { createPendingWorkspaceCard } from "@/lib/projects/brief-flow";
+import { createFallbackWorkspaceCard } from "@/lib/projects/brief-flow";
 import { validateProjectRequest } from "@/lib/projects/input";
 import {
   decodeProjectCursor,
@@ -226,7 +226,7 @@ export const Route = createFileRoute("/api/projects")({
         }
 
         const brief = createInitialBrief(validation.value);
-        const workspaceCard = createPendingWorkspaceCard(brief);
+        const workspaceCard = createFallbackWorkspaceCard(brief);
         let project: { id: string } | null;
 
         try {

@@ -234,10 +234,6 @@ export function createFallbackWorkspaceCard(
   return { type: "none" };
 }
 
-export function createPendingWorkspaceCard(brief: ProjectBrief): WorkspaceCard {
-  return createFallbackWorkspaceCard(brief);
-}
-
 // ponytail: required brief fields (AI must collect before build).
 // Precompute rule engine enforces this; soft fields (stylePreference, etc.)
 // are optional. The AI can mark additional fields required via tool-call.
