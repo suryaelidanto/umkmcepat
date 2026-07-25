@@ -14,6 +14,7 @@ import { parseProjectChatMessages } from "@/lib/projects/chat-memory";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { type DiffLine } from "@/lib/projects/diff";
 import { validateGeneratedEdit } from "@/lib/projects/edit-validation";
+import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
   createGeneratedSourceSnapshotMetadata,
@@ -44,7 +45,6 @@ import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
-  chargeEnergyForAiUsage,
   checkEnergy,
   isUserVerified,
   MIN_ENERGY_EDIT,
@@ -428,24 +428,12 @@ async function handleEditPost(request: Request, routeId: string) {
     }
   }
 
-  let totalEditInputTokens = 0;
-  let totalEditOutputTokens = 0;
-  let editModelId: string | undefined;
-  let energyCharged = false;
-
-  const flushEditEnergy = async () => {
-    if (energyCharged) {
-      return;
-    }
-    energyCharged = true;
-    await chargeEnergyForAiUsage({
-      userId,
-      modelId: editModelId || getDefaultAiModel(),
-      inputTokens: totalEditInputTokens,
-      outputTokens: totalEditOutputTokens,
-      reason: "edit_turn",
-    });
-  };
+  const editStepCharger = createStepCharger({
+    userId,
+    projectId: project.id,
+    reason: "edit:step",
+    modelId: getDefaultAiModel(),
+  });
 
   try {
     persistEditProgress({
@@ -469,13 +457,9 @@ async function handleEditPost(request: Request, routeId: string) {
       instruction,
       onOperation: persistEditProgress,
       onFilesChanged,
+      stepCharger: editStepCharger,
       abortSignal: abortController.signal,
     });
-    totalEditInputTokens += editResult.usage?.inputTokens ?? 0;
-    totalEditOutputTokens += editResult.usage?.outputTokens ?? 0;
-    if (editResult.modelId) {
-      editModelId = editResult.modelId;
-    }
     devLog("edit", "tools.finished", {
       ok: editResult.ok,
       operations: editResult.operations.length,
@@ -495,13 +479,9 @@ async function handleEditPost(request: Request, routeId: string) {
         model: getDefaultAiModel(),
         onOperation: persistEditProgress,
         onFilesChanged,
+        stepCharger: editStepCharger,
         abortSignal: abortController.signal,
       });
-      totalEditInputTokens += fallbackResult.usage?.inputTokens ?? 0;
-      totalEditOutputTokens += fallbackResult.usage?.outputTokens ?? 0;
-      if (fallbackResult.modelId) {
-        editModelId = fallbackResult.modelId;
-      }
 
       if (fallbackResult.ok) {
         editResult.files = fallbackResult.files;
@@ -576,13 +556,9 @@ async function handleEditPost(request: Request, routeId: string) {
         ].join("\n\n"),
         onOperation: persistEditProgress,
         onFilesChanged,
+        stepCharger: editStepCharger,
         abortSignal: abortController.signal,
       });
-      totalEditInputTokens += repairResult.usage?.inputTokens ?? 0;
-      totalEditOutputTokens += repairResult.usage?.outputTokens ?? 0;
-      if (repairResult.modelId) {
-        editModelId = repairResult.modelId;
-      }
 
       if (repairResult.ok) {
         editResult.files = repairResult.files;
@@ -902,9 +878,6 @@ async function handleEditPost(request: Request, routeId: string) {
       },
       { status: 503, headers: { "Retry-After": "3" } },
     );
-  } finally {
-    // Charge whether the edit succeeded or not — AI tokens already spent.
-    await flushEditEnergy();
   }
 }
 

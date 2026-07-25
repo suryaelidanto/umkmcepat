@@ -12,6 +12,7 @@ import { type GeneratedProjectFile } from "./generated-types";
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { withAiTimeout } from "@/lib/ai-timeouts";
+import { type StepCharger } from "@/lib/projects/energy-step-charger";
 
 export async function editGeneratedSourceWithAgent({
   files,
@@ -19,6 +20,7 @@ export async function editGeneratedSourceWithAgent({
   model,
   onOperation,
   onFilesChanged,
+  stepCharger,
   abortSignal,
 }: {
   files: GeneratedProjectFile[];
@@ -26,6 +28,7 @@ export async function editGeneratedSourceWithAgent({
   model?: string;
   onOperation?: (operation: GeneratedAppAgentOperation) => void;
   onFilesChanged?: (files: GeneratedProjectFile[]) => void;
+  stepCharger?: StepCharger;
   abortSignal?: AbortSignal;
 }) {
   let currentFiles = files;
@@ -71,7 +74,8 @@ export async function editGeneratedSourceWithAgent({
       fileCount: files.length,
       model: model || getDefaultAiModel(),
     }),
-    stopWhen: isStepCount(18),
+    onStepFinish: stepCharger?.onStepFinish,
+    stopWhen: [isStepCount(18), () => stepCharger?.isExhausted() ?? false],
     tools: {
       list_files: tool({
         description: "List generated project files.",
