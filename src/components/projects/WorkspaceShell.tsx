@@ -871,9 +871,12 @@ export function WorkspaceShell({
             detail?: string;
             diff?: BuildProgressStep["diff"];
             durationMs?: number;
+            energyUsed?: number;
             label?: string;
             message?: string;
             path?: string;
+            reason?: string;
+            remaining?: number;
             state?: "failed" | "succeeded";
             title?: string;
             type?: string;
@@ -889,6 +892,12 @@ export function WorkspaceShell({
                 status: "active",
               }),
             );
+          }
+
+          if (eventName === "energy" && typeof data.remaining === "number") {
+            // Per-step energy event: refresh the meter so it visibly decrements
+            // during a build, not only at the end (or on exhaustion).
+            window.dispatchEvent(new Event("umkm:energy-changed"));
           }
 
           if (
