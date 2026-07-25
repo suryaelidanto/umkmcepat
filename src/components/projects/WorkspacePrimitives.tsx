@@ -1105,15 +1105,6 @@ export function QuestionComposer({
     });
   }
 
-  function useCustomAnswer() {
-    const answer = customAnswer.trim();
-    if (!answer) {
-      return;
-    }
-    chooseAnswer(answer, "custom");
-    setCustomAnswerOpen(false);
-  }
-
   function submitAnswer() {
     if (!canSubmit) {
       return;
@@ -1266,39 +1257,67 @@ export function QuestionComposer({
         ) : null}
 
         {!isTextQuestion && customAnswerOpen ? (
-          <div className="space-y-spacing-3 border-b px-spacing-5 py-spacing-4 last:border-b-0">
-            <textarea
-              id={`custom-answer-${question.id}`}
-              rows={3}
-              value={customAnswer}
-              onChange={(event) => setCustomAnswer(event.target.value)}
-              placeholder="Tulis jawabanmu sendiri..."
-              className="w-full resize-none rounded-radius-md border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
-            />
-            <div className="flex items-center justify-end gap-spacing-2">
+          <div className="border-b px-spacing-5 py-spacing-4 last:border-b-0">
+            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4">
               <button
                 type="button"
                 onClick={() => {
                   setCustomAnswerOpen(false);
-                  if (!customAnswerSelected) {
-                    setCustomAnswer("");
-                    setSelected([]);
-                    setSource("option");
-                  }
+                  setCustomAnswer("");
+                  setSelected([]);
+                  setSource("option");
                 }}
-                className="rounded-radius-md px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
+                className="min-w-0 text-left"
               >
-                Batal
+                <span className="block whitespace-normal break-words text-sm font-semibold text-surface-warm-white [overflow-wrap:anywhere]">
+                  Sebutkan sendiri
+                </span>
+                <span className="mt-spacing-1 block text-xs text-surface-warm-white/54">
+                  Tulis jawabanmu sendiri...
+                </span>
               </button>
-              <Button
-                type="button"
-                disabled={!customAnswer.trim()}
-                onClick={useCustomAnswer}
-                className="h-9 rounded-radius-md bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+              <span
+                className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswer.trim() ? "" : "border-surface-warm-white/24 bg-transparent"}`}
+                style={
+                  customAnswer.trim()
+                    ? {
+                        backgroundColor: isMultiple
+                          ? modeTone.accent
+                          : "transparent",
+                        borderColor: modeTone.accent,
+                      }
+                    : undefined
+                }
               >
-                Pilih jawaban ini
-              </Button>
+                {customAnswer.trim() ? (
+                  isMultiple ? (
+                    <Check className="size-3 text-[#10100f]" strokeWidth={3} />
+                  ) : (
+                    <span
+                      className="size-2.5 rounded-full"
+                      style={{ backgroundColor: modeTone.accent }}
+                    />
+                  )
+                ) : null}
+              </span>
             </div>
+            <textarea
+              id={`custom-answer-${question.id}`}
+              rows={3}
+              autoFocus
+              value={customAnswer}
+              onChange={(event) => {
+                setCustomAnswer(event.target.value);
+                if (event.target.value.trim()) {
+                  chooseAnswer(event.target.value.trim(), "custom");
+                } else if (customAnswerSelected) {
+                  setSelected([]);
+                  setSource("option");
+                }
+              }}
+              placeholder="Tulis jawabanmu sendiri..."
+              className="mt-spacing-3 w-full resize-none rounded-radius-md border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
+            />
           </div>
         ) : null}
       </div>
