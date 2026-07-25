@@ -12,6 +12,7 @@ import {
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   RefreshCw,
   Send,
   Smartphone,
@@ -1106,16 +1107,10 @@ export function QuestionComposer({
   }
 
   function useCustomAnswer() {
-    if (!canSubmit) {
-      return;
-    }
-    submitLockRef.current = true;
     const answer = customAnswer.trim();
     if (!answer) {
-      submitLockRef.current = false;
       return;
     }
-    setIsSubmitting(true);
     chooseAnswer(answer, "custom");
     setCustomAnswerOpen(false);
   }
@@ -1230,23 +1225,26 @@ export function QuestionComposer({
         )}
         {!isTextQuestion ? (
           <div
-            className={`px-spacing-5 py-spacing-4 transition ${customAnswerOpen || customAnswerSelected ? "bg-surface-warm-white/[0.075]" : "bg-transparent"}`}
+            className={`rounded-radius-lg border px-spacing-4 py-spacing-3 transition ${customAnswerOpen || customAnswerSelected ? "border-surface-warm-white/12 bg-surface-warm-white/[0.04]" : "border-transparent bg-transparent hover:bg-surface-warm-white/[0.025]"}`}
           >
             {customAnswerOpen ? (
               <div className="space-y-spacing-3">
-                <label
-                  htmlFor={`custom-answer-${question.id}`}
-                  className="text-xs font-medium text-surface-warm-white/58"
-                >
-                  Tulis jawabanmu
-                </label>
+                <div className="flex items-center gap-spacing-2">
+                  <Pencil className="size-4 text-surface-warm-white/48" />
+                  <label
+                    htmlFor={`custom-answer-${question.id}`}
+                    className="text-xs font-medium text-surface-warm-white/58"
+                  >
+                    Sebutkan sendiri
+                  </label>
+                </div>
                 <textarea
                   id={`custom-answer-${question.id}`}
                   rows={3}
                   value={customAnswer}
                   onChange={(event) => setCustomAnswer(event.target.value)}
                   placeholder="Tulis jawabanmu sendiri..."
-                  className="w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
+                  className="w-full resize-none rounded-radius-md border border-surface-warm-white/10 bg-[#181817] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
                 />
                 <div className="flex items-center justify-end gap-spacing-2">
                   <button
@@ -1257,17 +1255,17 @@ export function QuestionComposer({
                       setSelected([]);
                       setSource("option");
                     }}
-                    className="rounded-full px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
+                    className="rounded-radius-md px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/54 hover:bg-surface-warm-white/8"
                   >
-                    Kembali ke pilihan
+                    Batal
                   </button>
                   <Button
                     type="button"
                     disabled={!customAnswer.trim()}
                     onClick={useCustomAnswer}
-                    className="h-9 rounded-full bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                    className="h-9 rounded-radius-md bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
                   >
-                    Pakai jawaban ini
+                    Pilih jawaban ini
                   </Button>
                 </div>
               </div>
@@ -1275,21 +1273,31 @@ export function QuestionComposer({
               <button
                 type="button"
                 onClick={() => setCustomAnswerOpen(true)}
-                className="flex w-full items-center justify-between gap-spacing-4 text-left"
+                className="group flex w-full items-center gap-spacing-3 text-left"
               >
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-surface-warm-white/84">
-                    Jawab manual
+                <span className="grid size-5 shrink-0 place-items-center rounded-full border-2 border-surface-warm-white/24 transition group-hover:border-surface-warm-white/48">
+                  {customAnswerSelected ? (
+                    <Check className="size-3 text-[#10100f]" strokeWidth={3} />
+                  ) : null}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-spacing-1.5">
+                    <Pencil className="size-3.5 text-surface-warm-white/48" />
+                    <span className="text-sm font-semibold text-surface-warm-white/84">
+                      Sebutkan sendiri
+                    </span>
                   </span>
-                  <span className="mt-spacing-1 block break-words text-xs leading-5 text-surface-warm-white/58 [overflow-wrap:anywhere]">
+                  <span className="mt-spacing-0.5 block break-words text-xs leading-5 text-surface-warm-white/52 [overflow-wrap:anywhere]">
                     {customAnswerSelected
                       ? answer
                       : "Pakai ini kalau pilihan di atas belum pas."}
                   </span>
                 </span>
-                <span className="shrink-0 border-b border-surface-warm-white/20 pb-0.5 text-xs text-surface-warm-white/56">
-                  {customAnswerSelected ? "Ganti" : "Isi"}
-                </span>
+                {customAnswerSelected ? (
+                  <span className="shrink-0 text-xs text-surface-warm-white/56">
+                    Ganti
+                  </span>
+                ) : null}
               </button>
             )}
           </div>
