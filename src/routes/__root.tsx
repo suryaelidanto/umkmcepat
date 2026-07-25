@@ -66,7 +66,7 @@ export const Route = createRootRoute({
 
 function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-surface-warm-white px-4 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#151515] px-4 text-center">
       <AlertTriangle className="mb-6 size-16 text-yellow-600" />
       <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground-primary sm:text-6xl">
         404 - Halaman tidak ditemukan
@@ -99,9 +99,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </head>
       <body
         suppressHydrationWarning
-        className={cn(
-          "min-h-screen bg-surface-warm-white font-sans antialiased",
-        )}
+        className={cn("min-h-screen bg-[#151515] font-sans antialiased")}
       >
         <script
           type="application/ld+json"

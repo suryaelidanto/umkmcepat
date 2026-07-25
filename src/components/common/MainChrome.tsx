@@ -107,7 +107,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
 
   if (firstLoadChecking || blockingUnverified) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-warm-white">
+      <div className="flex min-h-screen items-center justify-center bg-[#151515]">
         <div className="size-8 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
       </div>
     );
@@ -120,7 +120,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-surface-warm-white">
+    <div className="relative flex min-h-screen flex-col bg-[#151515]">
       <Header />
       <main className="flex-1 pb-16 md:pb-0">{children}</main>
       <Footer />
