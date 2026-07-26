@@ -1,4 +1,5 @@
-import { randomInt } from "node:crypto";
+import { Buffer } from "node:buffer";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
 
@@ -11,18 +12,23 @@ export function generateOtpCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(OTP_LENGTH, "0");
 }
 
+function hashOtp(code: string): string {
+  return createHash("sha256").update(code).digest("hex");
+}
+
 export async function createOtpRequest(
   userId: string,
   phone: string,
 ): Promise<{ code: string; expiresAt: Date }> {
   const code = generateOtpCode();
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+  const codeHash = hashOtp(code);
 
   await prisma.otpRequest.create({
     data: {
       userId,
       phone,
-      code,
+      codeHash,
       expiresAt,
     },
   });
@@ -35,21 +41,50 @@ export async function verifyOtp(
   phone: string,
   code: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const request = await prisma.otpRequest.findFirst({
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { otpAttempts: true, otpLockedUntil: true },
+  });
+
+  if (user?.otpLockedUntil && user.otpLockedUntil > new Date()) {
+    return {
+      success: false,
+      error:
+        "Akun Anda dikunci sementara karena terlalu banyak percobaan salah. Silakan coba lagi nanti.",
+    };
+  }
+
+  const inputHash = hashOtp(code);
+  let request = await prisma.otpRequest.findFirst({
     where: {
       userId,
       phone,
+      codeHash: inputHash,
       used: false,
       expiresAt: { gt: new Date() },
     },
     orderBy: { createdAt: "desc" },
   });
 
+  let isCorrect = true;
   if (!request) {
-    return {
-      success: false,
-      error: "Kode OTP tidak ditemukan atau sudah kedaluwarsa.",
-    };
+    request = await prisma.otpRequest.findFirst({
+      where: {
+        userId,
+        phone,
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!request) {
+      return {
+        success: false,
+        error: "Kode OTP tidak ditemukan atau sudah kedaluwarsa.",
+      };
+    }
+    isCorrect = false;
   }
 
   if (request.attempts >= MAX_ATTEMPTS) {
@@ -59,11 +94,50 @@ export async function verifyOtp(
     };
   }
 
-  if (request.code !== code) {
+  const storedHashBuf = Buffer.from(request.codeHash, "hex");
+  const inputHashBuf = Buffer.from(inputHash, "hex");
+  const match =
+    storedHashBuf.length === inputHashBuf.length &&
+    timingSafeEqual(storedHashBuf, inputHashBuf);
+
+  if (!match || !isCorrect) {
+    const newAttempts = request.attempts + 1;
+
     await prisma.otpRequest.update({
       where: { id: request.id },
-      data: { attempts: { increment: 1 } },
+      data: { attempts: newAttempts },
     });
+
+    if (newAttempts >= MAX_ATTEMPTS) {
+      const newOtpAttempts = (user?.otpAttempts ?? 0) + 1;
+      let otpLockedUntil: Date | null = null;
+
+      if (newOtpAttempts >= 5) {
+        otpLockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+      }
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          otpAttempts: newOtpAttempts,
+          ...(otpLockedUntil ? { otpLockedUntil } : {}),
+        },
+      });
+
+      if (newOtpAttempts >= 5) {
+        return {
+          success: false,
+          error:
+            "Akun Anda dikunci sementara karena terlalu banyak percobaan salah. Silakan coba lagi nanti.",
+        };
+      }
+
+      return {
+        success: false,
+        error: "Terlalu banyak percobaan. Minta kode baru.",
+      };
+    }
+
     return { success: false, error: "Kode OTP salah." };
   }
 
@@ -74,7 +148,11 @@ export async function verifyOtp(
     }),
     prisma.user.update({
       where: { id: userId },
-      data: { phone, verifiedAt: new Date() },
+      data: {
+        phone,
+        verifiedAt: new Date(),
+        otpAttempts: 0,
+      },
     }),
   ]);
 
