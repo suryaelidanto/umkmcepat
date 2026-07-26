@@ -154,14 +154,34 @@ function parseFormattedWorkspaceAnswers(
     });
   }
 
-  if (
-    !answers.length &&
-    questions.length === 1 &&
-    !/^\s*\d+\./m.test(normalizedText)
-  ) {
-    const answer = normalizedText.match(/Jawaban:\s*([\s\S]+)$/i)?.[1];
+  if (!answers.length && questions.length === 1) {
+    const hasNumberedQuestion = /^\s*\d+\./m.test(normalizedText);
+    const answerMatch = normalizedText.match(/Jawaban:\s*([\s\S]+)$/i);
+    const answer = answerMatch ? answerMatch[1] : normalizedText;
 
     if (answer) {
+      if (hasNumberedQuestion) {
+        // If it starts with a numbered question block, we must only parse it if the question text matches or matches structurally
+        const firstBlock = normalizedText.split(/\n\s*\n/g)[0]?.trim();
+        const match = firstBlock?.match(
+          /^\s*(\d+)\.\s*(.*?)\s*\n\s*Jawaban:\s*([\s\S]+)$/i,
+        );
+        if (match) {
+          const questionText = normalizeAnswer(match[2]);
+          const storedQuestionText = normalizeAnswer(questions[0].question);
+          if (
+            !questionText ||
+            !storedQuestionText ||
+            (questionText !== storedQuestionText &&
+              !questionTextLooksLikeField(questionText, questions[0].id))
+          ) {
+            return [];
+          }
+        } else {
+          return [];
+        }
+      }
+
       answers.push({
         answer: normalizeAnswer(answer),
         question: normalizeAnswer(questions[0].question),
