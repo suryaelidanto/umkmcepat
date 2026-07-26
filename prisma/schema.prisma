@@ -77,8 +77,11 @@ model User {
   image           String?                 @db.Text
   phone           String?                 @db.VarChar(20)
   verifiedAt      DateTime?
+  otpAttempts     Int                     @default(0)
+  otpLockedUntil  DateTime?
   accounts        Account[]
   sessions        Session[]
+  refreshTokens   RefreshToken[]
   idempotencyKeys ProjectIdempotencyKey[]
   landingPages    LandingPage[]
   projects        Project[]
@@ -383,7 +386,7 @@ model OtpRequest {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   phone     String   @db.VarChar(20)
-  code      String   @db.VarChar(6)
+  codeHash  String   @db.VarChar(64)
   attempts  Int      @default(0)
   used      Boolean  @default(false)
   expiresAt DateTime
@@ -391,6 +394,17 @@ model OtpRequest {
 
   @@index([userId, phone])
   @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique @db.VarChar(128)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {
