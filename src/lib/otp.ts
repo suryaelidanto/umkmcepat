@@ -83,7 +83,7 @@ export async function verifyOtp(
 
 export async function sendOtpViaSms(
   phone: string,
-  code: string,
+  _code: string,
 ): Promise<{ success: boolean; error?: string }> {
   const apiKey = process.env.OTP_SPACE_API_KEY;
 
@@ -93,7 +93,9 @@ export async function sendOtpViaSms(
         "OTP_SPACE_API_KEY is required to send OTP in production.",
       );
     }
-    console.warn("[otp] mock", { code, phone });
+    console.warn(
+      "[otp] mock mode — OTP code omitted from logs for security purposes",
+    );
     return { success: true };
   }
 

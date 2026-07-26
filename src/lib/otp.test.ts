@@ -21,6 +21,7 @@ describe("sendOtpViaSms", () => {
     const r = await sendOtpViaSms("+628123", "123456");
     expect(r.success).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("mock mode"));
     log.mockRestore();
   });
 

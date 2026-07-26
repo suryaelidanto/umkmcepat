@@ -83,7 +83,7 @@ describe("security headers", () => {
 
     expect(headers.get("X-Frame-Options")).toBeNull();
     expect(headers.get("Content-Security-Policy")).toBe(
-      "object-src 'none'; base-uri 'none'",
+      "object-src 'none'; base-uri 'none'; script-src 'self'",
     );
   });
 });

@@ -52,7 +52,7 @@ export function applySecurityHeaders(
   if (generatedOrigin) {
     headers.set(
       "Content-Security-Policy",
-      "object-src 'none'; base-uri 'none'",
+      "object-src 'none'; base-uri 'none'; script-src 'self'",
     );
     headers.delete("X-Frame-Options");
     return headers;
@@ -64,13 +64,13 @@ export function applySecurityHeaders(
   if (privatePreview) {
     headers.set(
       "Content-Security-Policy",
-      "sandbox allow-scripts; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
+      "sandbox allow-scripts; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; script-src 'self'",
     );
     headers.set("X-Frame-Options", "SAMEORIGIN");
   } else {
     headers.set(
       "Content-Security-Policy",
-      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; script-src 'self'",
     );
     headers.set("X-Frame-Options", "DENY");
   }

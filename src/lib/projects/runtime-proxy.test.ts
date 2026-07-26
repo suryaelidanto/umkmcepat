@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyPreviewSandboxHeaders,
   injectPreviewAnnotationBridge,
+  injectPublishedHead,
   proxyDeploymentRequest,
   rewritePreviewAssetUrls,
   rewritePublicAssetUrls,
@@ -173,6 +174,18 @@ describe("runtime proxy", () => {
       "sandbox allow-scripts",
     );
     expect(headers.get("X-Robots-Tag")).toBe("noindex");
+  });
+
+  it("escapes JSON-LD script tags inside head injection to prevent XSS", () => {
+    const html = "<html><head></head><body></body></html>";
+    const res = injectPublishedHead(html, {
+      businessName: "Usaha </script><script>alert(1)</script>",
+      noindex: false,
+      slug: "test-shop",
+    });
+    expect(res).toContain('<script type="application/ld+json">');
+    expect(res).toContain("Usaha <\\/script><script>alert(1)<\\/script>");
+    expect(res).not.toContain("</script><script>");
   });
 });
 

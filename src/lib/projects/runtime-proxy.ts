@@ -257,7 +257,7 @@ export function injectPublishedHead(
     `<meta property="og:type" content="website" />`,
     `<link rel="canonical" href="${escapeHtml(url)}" />`,
     noindex ? `<meta name="robots" content="noindex" />` : "",
-    `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`,
+    `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/<\/script>/gi, "<\\/script>")}</script>`,
   ]
     .filter(Boolean)
     .join("\n    ");
