@@ -79,5 +79,11 @@ export function validateGeneratedBuildPolicy(
 }
 
 function normalizeConfig(value: string) {
-  return value.replace(/\r\n/g, "\n").trim();
+  return value
+    .replace(/\r\n/g, "\n")
+    .replace(/["']/g, "'")
+    .replace(/;/g, "")
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }

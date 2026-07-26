@@ -8,6 +8,7 @@ import {
 const packageJson = JSON.stringify({
   dependencies: { react: "19.2.0" },
   devDependencies: {
+    "@tailwindcss/vite": "4.0.0",
     "@vitejs/plugin-react": "6.0.3",
     vite: "8.1.1",
   },
@@ -56,5 +57,30 @@ export default defineConfig({});`,
     expect(result.issues).toContain(
       "Vite configuration must match the platform-owned configuration.",
     );
+  });
+
+  it("accepts a formatted/prettified platform-owned Vite configuration", () => {
+    const formattedConfig = `import path from "path";
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+// https://vite.dev/config/
+export default defineConfig({
+  base: "./",
+  plugins: [tailwindcss(), react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+});
+`;
+    const result = validateGeneratedBuildPolicy(
+      files(formattedConfig),
+      "vite-react-tanstack-v1",
+    );
+
+    expect(result.ok).toBe(true);
   });
 });
