@@ -64,9 +64,36 @@ export async function readBoundedJson(
   }
 
   try {
-    return JSON.parse(text) as unknown;
-  } catch {
+    const parsed = JSON.parse(text) as unknown;
+    sanitizePrototype(parsed);
+    return parsed;
+  } catch (err) {
+    if (err instanceof BoundedJsonError) {
+      throw err;
+    }
     throw new BoundedJsonError("request_body_invalid_json", maxBytes);
+  }
+}
+
+function sanitizePrototype(value: unknown): void {
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      sanitizePrototype(item);
+    }
+    return;
+  }
+
+  const obj = value as Record<string, unknown>;
+
+  for (const key of Object.keys(obj)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      throw new BoundedJsonError("request_body_invalid_json", 0);
+    }
+    sanitizePrototype(obj[key]);
   }
 }
 

@@ -49,4 +49,17 @@ describe("bounded JSON request reader", () => {
       }),
     );
   });
+
+  it("rejects prototype pollution payload keys", async () => {
+    const request = new Request("http://localhost/test", {
+      body: '{"__proto__": {"admin": true}}',
+      method: "POST",
+    });
+
+    await expect(readBoundedJson(request, { maxBytes: 64 })).rejects.toEqual(
+      expect.objectContaining<Partial<BoundedJsonError>>({
+        code: "request_body_invalid_json",
+      }),
+    );
+  });
 });
