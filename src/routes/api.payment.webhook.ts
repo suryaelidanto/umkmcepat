@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { verifyPakasirTransaction } from "@/lib/pakasir";
 import { prisma } from "@/lib/prisma";
+import { logCreditTransaction } from "@/lib/user-credits";
 
 interface WebhookPayload {
   amount: number;
@@ -76,14 +77,14 @@ export const Route = createFileRoute("/api/payment/webhook")({
           }
 
           // 3. Process completed payment inside transaction to guarantee consistency and prevent duplicates
-          await prisma.$transaction(async (tx) => {
+          const result = await prisma.$transaction(async (tx) => {
             // Re-fetch inside transaction and lock the row to prevent race conditions
             const txPayment = await tx.payment.findUnique({
               where: { orderId },
             });
 
             if (!txPayment || txPayment.status !== "PENDING") {
-              return;
+              return null;
             }
 
             // Update payment status
@@ -115,7 +116,23 @@ export const Route = createFileRoute("/api/payment/webhook")({
                 NOW()
               )
             `;
+
+            return {
+              userId: txPayment.userId,
+              energyGranted: txPayment.energyGranted,
+              packageName,
+            };
           });
+
+          if (result) {
+            logCreditTransaction({
+              type: "credit",
+              userId: result.userId,
+              amount: result.energyGranted,
+              reason: `Top-up: ${result.packageName}`,
+              projectId: null,
+            });
+          }
 
           // eslint-disable-next-line no-console
           console.log(

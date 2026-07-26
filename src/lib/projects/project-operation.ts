@@ -34,7 +34,7 @@ export async function claimProjectOperation({
       id: projectId,
       userId,
       buildStatus: { not: "running" },
-      status: { not: "building" },
+      status: { notIn: ["building", "stopping"] },
       OR: [
         { activeOperationToken: null },
         { activeOperationExpiresAt: { lt: now } },

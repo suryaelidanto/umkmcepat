@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { devLog } from "@/lib/dev-log";
 import { getModelPricing } from "@/lib/model-pricing";
 import { prisma } from "@/lib/prisma";
 
@@ -169,6 +170,14 @@ export async function addEnergyUsage(
         )
       `;
     }
+  });
+
+  logCreditTransaction({
+    type: "debit",
+    userId,
+    amount: -energyUsed,
+    reason,
+    projectId: options.projectId,
   });
 
   return { energyUsed, inputTokens: input, outputTokens: output };
@@ -369,4 +378,24 @@ export async function assertUnderProjectLimit(
   }
 
   return { count, limit };
+}
+
+/**
+ * Helper to log credit transactions (debits and top-ups) to devLog/trace.
+ * Standardizes format ensuring userId, amount, reason, and timestamp are present.
+ */
+export function logCreditTransaction(opts: {
+  type: "debit" | "credit";
+  userId: string;
+  amount: number;
+  reason: string;
+  projectId?: string | null;
+}) {
+  devLog("energy", opts.type, {
+    userId: opts.userId,
+    amount: opts.amount,
+    reason: opts.reason,
+    timestamp: new Date().toISOString(),
+    projectId: opts.projectId ?? null,
+  });
 }

@@ -178,6 +178,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
   if (
     latestProjectState?.status === "building" ||
+    latestProjectState?.status === "stopping" ||
     latestProjectState?.buildStatus === "running"
   ) {
     return Response.json(
@@ -526,52 +527,63 @@ async function handleGeneratePost(request: Request, routeId: string) {
             });
           }
 
-          await prisma.project.update({
-            where: { id: projectId },
-            data: {
-              buildLog: finalBuildResult.log ?? "",
-              buildStatus: buildOk ? "ready" : "failed",
-              sourceFiles: sourceFiles as object,
-              status: buildOk ? "ready" : "failed",
+          await prisma.$transaction(
+            async (transaction) => {
+              const finalized = await finalizeProjectOperation({
+                data: {
+                  buildLog: finalBuildResult.log ?? "",
+                  buildStatus: buildOk ? "ready" : "failed",
+                  sourceFiles: sourceFiles as object,
+                  status: buildOk ? "ready" : "failed",
+                },
+                projectId,
+                store: transaction,
+                token: operation.token,
+                userId,
+              });
+
+              if (!finalized) {
+                throw new Error("Build operation lease was superseded.");
+              }
+
+              if (runtimeBuildId) {
+                await transaction.projectBuild.update({
+                  where: { id: runtimeBuildId },
+                  data: {
+                    finishedAt: new Date(),
+                    logText: finalBuildResult.log ?? "",
+                    status: buildOk ? "succeeded" : "failed",
+                    ...(distRef ? { artifactRef: distRef } : {}),
+                  },
+                });
+              }
+
+              await transaction.projectEditAttempt.update({
+                where: { id: operationAttemptId },
+                data: {
+                  errorMessage: buildOk ? null : "Retry build failed.",
+                  finishedAt: new Date(),
+                  status: buildOk ? "succeeded" : "failed",
+                },
+              });
+
+              if (buildOk) {
+                await transaction.projectDeployment.create({
+                  data: {
+                    buildId: runtimeBuildId,
+                    kind: PREVIEW_DEPLOYMENT_KIND,
+                    projectId,
+                    snapshotId: snapshot.id,
+                    status: "running" satisfies ProjectDeploymentStatus,
+                  },
+                });
+              }
             },
-          });
-
-          if (runtimeBuildId) {
-            await prisma.projectBuild.update({
-              where: { id: runtimeBuildId },
-              data: {
-                finishedAt: new Date(),
-                logText: finalBuildResult.log ?? "",
-                status: buildOk ? "succeeded" : "failed",
-                ...(distRef ? { artifactRef: distRef } : {}),
-              },
-            });
-            runtimeBuildFinalized = true;
-          }
-
-          await prisma.projectEditAttempt
-            .update({
-              where: { id: operationAttemptId },
-              data: {
-                errorMessage: buildOk ? null : "Retry build failed.",
-                finishedAt: new Date(),
-                status: buildOk ? "succeeded" : "failed",
-              },
-            })
-            .catch(() => undefined);
+            { timeout: 30_000 },
+          );
+          runtimeBuildFinalized = true;
 
           if (buildOk) {
-            await prisma.projectDeployment
-              .create({
-                data: {
-                  buildId: runtimeBuildId,
-                  kind: PREVIEW_DEPLOYMENT_KIND,
-                  projectId,
-                  snapshotId: snapshot.id,
-                  status: "running" satisfies ProjectDeploymentStatus,
-                },
-              })
-              .catch(() => undefined);
             send("done", {
               message: "Build ulang berhasil.",
               projectId,
@@ -602,15 +614,6 @@ async function handleGeneratePost(request: Request, routeId: string) {
             });
           }
 
-          await finalizeProjectOperation({
-            data: {
-              buildStatus: buildOk ? "ready" : "failed",
-              status: buildOk ? "ready" : "failed",
-            },
-            projectId,
-            token: operation.token,
-            userId,
-          }).catch(() => false);
           await flushGenerateEnergy();
           safeClose();
           return;

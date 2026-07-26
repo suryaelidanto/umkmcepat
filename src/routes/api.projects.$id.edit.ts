@@ -305,6 +305,7 @@ async function handleEditPost(request: Request, routeId: string) {
 
   if (
     latestProjectState?.status === "building" ||
+    latestProjectState?.status === "stopping" ||
     latestProjectState?.buildStatus === "running"
   ) {
     await updateProjectEditAttempt(attempt.id, {
