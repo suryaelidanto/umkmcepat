@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import {
   isAllowedAssetPurpose,
   uploadProjectAsset,
 } from "@/lib/projects/project-asset-upload";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
+import { verifyProjectOwnership } from "@/middleware/ownership";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
@@ -25,11 +25,8 @@ export const Route = createFileRoute("/api/projects/$id/assets")({
         }
 
         const { id } = params;
-        const project = await prisma.project.findFirst({
-          where: { id, userId: session.user.id },
-          select: { id: true },
-        });
-        if (!project) {
+        const isOwner = await verifyProjectOwnership(id, session.user.id);
+        if (!isOwner) {
           return Response.json(
             { message: "Proyek tidak ditemukan." },
             { status: 404 },
@@ -72,7 +69,7 @@ export const Route = createFileRoute("/api/projects/$id/assets")({
         try {
           const asset = await uploadProjectAsset({
             bytes,
-            projectId: project.id,
+            projectId: id,
             purpose,
             userId: session.user.id,
           });

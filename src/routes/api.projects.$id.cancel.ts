@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyProjectOwnership } from "@/middleware/ownership";
 
 export const Route = createFileRoute("/api/projects/$id/cancel")({
   server: {
@@ -17,12 +18,9 @@ export const Route = createFileRoute("/api/projects/$id/cancel")({
         }
 
         const { id } = params;
-        const project = await prisma.project.findFirst({
-          where: { id, userId: session.user.id },
-          select: { id: true },
-        });
+        const isOwner = await verifyProjectOwnership(id, session.user.id);
 
-        if (!project) {
+        if (!isOwner) {
           return Response.json(
             { message: "Proyek tidak ditemukan." },
             { status: 404 },
@@ -30,7 +28,7 @@ export const Route = createFileRoute("/api/projects/$id/cancel")({
         }
 
         await prisma.project.updateMany({
-          where: { id: project.id, userId: session.user.id },
+          where: { id, userId: session.user.id },
           data: {
             activeOperationExpiresAt: null,
             activeOperationKind: null,
@@ -43,7 +41,7 @@ export const Route = createFileRoute("/api/projects/$id/cancel")({
 
         await prisma.projectBuild.updateMany({
           where: {
-            projectId: project.id,
+            projectId: id,
             status: { in: ["queued", "running"] },
           },
           data: {
@@ -56,7 +54,7 @@ export const Route = createFileRoute("/api/projects/$id/cancel")({
         await prisma.projectEditAttempt.updateMany({
           where: {
             finishedAt: null,
-            projectId: project.id,
+            projectId: id,
             status: { in: ["generating", "editing", "repairing", "building"] },
           },
           data: {

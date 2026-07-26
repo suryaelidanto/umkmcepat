@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyProjectOwnership } from "@/middleware/ownership";
 
 export const Route = createFileRoute("/api/projects/$id/title")({
   server: {
@@ -29,12 +30,9 @@ export const Route = createFileRoute("/api/projects/$id/title")({
           );
         }
 
-        const project = await prisma.project.findFirst({
-          where: { id, userId: session.user.id },
-          select: { id: true },
-        });
+        const isOwner = await verifyProjectOwnership(id, session.user.id);
 
-        if (!project) {
+        if (!isOwner) {
           return Response.json(
             { message: "Proyek tidak ditemukan." },
             { status: 404 },
@@ -42,7 +40,7 @@ export const Route = createFileRoute("/api/projects/$id/title")({
         }
 
         await prisma.project.update({
-          where: { id: project.id },
+          where: { id },
           data: { title },
         });
 

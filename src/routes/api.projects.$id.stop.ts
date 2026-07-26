@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
+import { verifyProjectOwnership } from "@/middleware/ownership";
 
 export const Route = createFileRoute("/api/projects/$id/stop")({
   server: {
@@ -18,12 +19,9 @@ export const Route = createFileRoute("/api/projects/$id/stop")({
         }
 
         const { id } = params;
-        const project = await prisma.project.findFirst({
-          where: { id, userId: session.user.id },
-          select: { id: true },
-        });
+        const isOwner = await verifyProjectOwnership(id, session.user.id);
 
-        if (!project) {
+        if (!isOwner) {
           return Response.json(
             { message: "Proyek tidak ditemukan." },
             { status: 404 },
@@ -31,13 +29,13 @@ export const Route = createFileRoute("/api/projects/$id/stop")({
         }
 
         await prisma.project.update({
-          where: { id: project.id },
+          where: { id },
           data: { status: "stopping" },
         });
         const deployment = await prisma.projectDeployment.findFirst({
           where: {
             kind: "preview",
-            projectId: project.id,
+            projectId: id,
             status: { in: ["running", "starting"] },
           },
           orderBy: { createdAt: "desc" },
