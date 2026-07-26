@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Globe2,
   ImagePlus,
+  Loader2,
   MessageSquarePlus,
   Monitor,
   PanelLeftClose,
@@ -32,6 +33,7 @@ import {
   previewReadyState,
   PREVIEW_STUCK_MAX_ATTEMPTS,
 } from "@/lib/projects/workspace-sync";
+import { cn } from "@/lib/utils";
 
 export type BuildTab = "preview" | "code";
 
@@ -91,7 +93,7 @@ export function WorkspaceTopBar({
         <button
           type="button"
           onClick={chatCollapsed ? openChatPanel : closeChatPanel}
-          className="hidden min-h-11 min-w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white md:inline-flex"
+          className="hidden h-9 w-9 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white md:inline-flex cursor-pointer"
           aria-label={chatCollapsed ? "Buka chat" : "Tutup chat"}
         >
           {chatCollapsed ? (
@@ -103,7 +105,7 @@ export function WorkspaceTopBar({
         <div
           role="tablist"
           aria-label="Konten tampilan"
-          className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs"
+          className="flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
         >
           <TabButton
             active={activeTab === "preview"}
@@ -120,6 +122,7 @@ export function WorkspaceTopBar({
               }
             }}
             icon={<Globe2 className="size-4" />}
+            layoutId="workspace-active-tab"
           >
             Tampilan
           </TabButton>
@@ -138,6 +141,7 @@ export function WorkspaceTopBar({
               }
             }}
             icon={<Code2 className="size-4" />}
+            layoutId="workspace-active-tab"
           >
             Kode
           </TabButton>
@@ -148,7 +152,7 @@ export function WorkspaceTopBar({
             onClick={onToggleAnnotation}
             aria-label={annotationActive ? "Nonaktifkan ubah" : "Aktifkan ubah"}
             aria-pressed={annotationActive}
-            className={`inline-flex min-h-11 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+            className={`inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
           >
             <MessageSquarePlus className="size-4" />
             <span className="hidden sm:inline">
@@ -164,27 +168,49 @@ export function WorkspaceTopBar({
         {runtime ? <RuntimeControl runtime={runtime} /> : null}
 
         {activeTab === "preview" ? (
-          <div className="flex rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-1 text-xs">
-            <button
-              type="button"
+          <div
+            role="tablist"
+            aria-label="Tampilan viewport"
+            className="flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+          >
+            <TabButton
+              active={viewport === "desktop"}
+              id="viewport-desktop-tab"
+              controls="viewport-desktop"
               onClick={() => setViewport("desktop")}
-              aria-label="Tampilan komputer"
-              aria-pressed={viewport === "desktop"}
-              className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "desktop" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowRight") {
+                  event.preventDefault();
+                  setViewport("mobile");
+                  (
+                    event.currentTarget.nextElementSibling as HTMLElement
+                  )?.focus();
+                }
+              }}
+              icon={<Monitor className="size-4" />}
+              layoutId="workspace-viewport-tab"
             >
-              <Monitor className="size-4" aria-hidden="true" />
-              <span className="hidden md:inline">Komputer</span>
-            </button>
-            <button
-              type="button"
+              Komputer
+            </TabButton>
+            <TabButton
+              active={viewport === "mobile"}
+              id="viewport-mobile-tab"
+              controls="viewport-mobile"
               onClick={() => setViewport("mobile")}
-              aria-label="Tampilan HP"
-              aria-pressed={viewport === "mobile"}
-              className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${viewport === "mobile" ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowLeft") {
+                  event.preventDefault();
+                  setViewport("desktop");
+                  (
+                    event.currentTarget.previousElementSibling as HTMLElement
+                  )?.focus();
+                }
+              }}
+              icon={<Smartphone className="size-4" />}
+              layoutId="workspace-viewport-tab"
             >
-              <Smartphone className="size-4" aria-hidden="true" />
-              <span className="hidden md:inline">HP</span>
-            </button>
+              HP
+            </TabButton>
           </div>
         ) : null}
       </div>
@@ -200,6 +226,7 @@ function TabButton({
   onKeyDown,
   icon,
   children,
+  layoutId,
 }: {
   active: boolean;
   controls: string;
@@ -208,6 +235,7 @@ function TabButton({
   onKeyDown: React.KeyboardEventHandler<HTMLButtonElement>;
   icon: React.ReactNode;
   children: React.ReactNode;
+  layoutId: string;
 }) {
   return (
     <button
@@ -219,10 +247,26 @@ function TabButton({
       tabIndex={active ? 0 : -1}
       onClick={onClick}
       onKeyDown={onKeyDown}
-      className={`flex min-h-11 items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-2 transition ${active ? "bg-surface-warm-white text-foreground-primary" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+      className="relative flex h-8 items-center gap-spacing-2 rounded-radius-sm px-spacing-3 py-spacing-1.5 transition text-xs font-medium focus-visible:outline-none cursor-pointer"
     >
-      {icon}
-      {children}
+      {active && (
+        <motion.span
+          layoutId={layoutId}
+          className="absolute inset-0 rounded-radius-sm bg-surface-warm-white"
+          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        />
+      )}
+      <span
+        className={cn(
+          "relative z-10 flex items-center gap-spacing-2",
+          active
+            ? "text-foreground-primary"
+            : "text-surface-warm-white/58 hover:text-surface-warm-white",
+        )}
+      >
+        {icon}
+        {children}
+      </span>
     </button>
   );
 }
@@ -236,7 +280,7 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
           target="_blank"
           rel="noreferrer"
           aria-label="Buka website yang diterbitkan"
-          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          className="inline-flex h-9 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
         >
           <ExternalLink className="size-4" />
           <span className="hidden sm:inline">Buka</span>
@@ -248,12 +292,16 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
           onClick={runtime.onPublish}
           aria-label={
             runtime.isPublishing
-              ? "Sedang menerbitkan website"
-              : "Terbitkan website"
+              ? "Sedang menerbitkan website..."
+              : "Terbitkan website ke domain publik"
           }
-          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/70 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-35"
+          className="inline-flex h-9 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 text-xs text-surface-warm-white/70 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-35 cursor-pointer"
         >
-          <Globe2 className="size-4" />
+          {runtime.isPublishing ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Globe2 className="size-4" />
+          )}
           <span className="hidden sm:inline">
             {runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}
           </span>
