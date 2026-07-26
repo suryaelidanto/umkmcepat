@@ -129,7 +129,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     restart: unless-stopped
 
   # Availability monitoring (standalone SQLite; pings the app + key endpoints).
@@ -138,7 +138,7 @@ services:
     volumes:
       - uptime_kuma_data:/app/data
     ports:
-      - "3002:3001"
+      - "127.0.0.1:3002:3001"
     restart: unless-stopped
 
 volumes:
