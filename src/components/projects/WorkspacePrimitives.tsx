@@ -176,7 +176,7 @@ export function WorkspaceTopBar({
             <TabButton
               active={viewport === "desktop"}
               id="viewport-desktop-tab"
-              controls="viewport-desktop"
+              controls="workspace-preview-panel"
               onClick={() => setViewport("desktop")}
               onKeyDown={(event) => {
                 if (event.key === "ArrowRight") {
@@ -195,7 +195,7 @@ export function WorkspaceTopBar({
             <TabButton
               active={viewport === "mobile"}
               id="viewport-mobile-tab"
-              controls="viewport-mobile"
+              controls="workspace-preview-panel"
               onClick={() => setViewport("mobile")}
               onKeyDown={(event) => {
                 if (event.key === "ArrowLeft") {
@@ -252,7 +252,7 @@ function TabButton({
       {active && (
         <motion.span
           layoutId={layoutId}
-          className="absolute inset-0 rounded-radius-sm bg-surface-warm-white"
+          className="absolute inset-0 rounded-radius-sm bg-surface-warm-white/10"
           transition={{ type: "spring", stiffness: 500, damping: 30 }}
         />
       )}
@@ -260,7 +260,7 @@ function TabButton({
         className={cn(
           "relative z-10 flex items-center gap-spacing-2",
           active
-            ? "text-foreground-primary"
+            ? "text-surface-warm-white"
             : "text-surface-warm-white/58 hover:text-surface-warm-white",
         )}
       >
