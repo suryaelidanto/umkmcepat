@@ -91,6 +91,7 @@ import {
   isUserVisibleAssistantText,
 } from "@/lib/projects/workspace-sync";
 import { fetchJson, queryKeys, useCacheMutation } from "@/lib/query-client";
+import { cn } from "@/lib/utils";
 
 const MonacoEditor = clientOnly(() => import("@monaco-editor/react"));
 
@@ -2562,7 +2563,7 @@ export function WorkspaceShell({
                     {...COMPOSER_TRANSITION}
                     className="mt-spacing-3"
                   >
-                    <div className="mb-spacing-2 inline-flex rounded-full border border-surface-warm-white/10 bg-[#1d1d1a] p-0.5">
+                    <div className="mb-spacing-2 inline-flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs w-fit">
                       {(
                         [
                           { label: "Pilihan", value: "options" },
@@ -2578,25 +2579,26 @@ export function WorkspaceShell({
                               setMessage("");
                             }
                           }}
-                          className="relative rounded-full px-spacing-4 py-spacing-2 text-xs font-medium transition"
+                          className="relative flex h-8 items-center justify-center gap-spacing-2 rounded-radius-sm px-spacing-4 text-xs font-medium transition focus-visible:outline-none cursor-pointer"
                         >
-                          {questionComposerMode === tab.value ? (
+                          {questionComposerMode === tab.value && (
                             <motion.span
                               layoutId="question-composer-tab"
-                              className="absolute inset-0 rounded-full bg-surface-warm-white/10"
+                              className="absolute inset-0 rounded-radius-sm bg-surface-warm-white"
                               transition={{
                                 type: "spring",
                                 stiffness: 500,
-                                damping: 34,
+                                damping: 30,
                               }}
                             />
-                          ) : null}
+                          )}
                           <span
-                            className={`relative ${
+                            className={cn(
+                              "relative z-10 flex items-center gap-spacing-2",
                               questionComposerMode === tab.value
-                                ? "text-surface-warm-white"
-                                : "text-surface-warm-white/54 hover:text-surface-warm-white/80"
-                            }`}
+                                ? "text-foreground-primary"
+                                : "text-surface-warm-white/58 hover:text-surface-warm-white",
+                            )}
                           >
                             {tab.label}
                           </span>
@@ -2790,6 +2792,16 @@ export function WorkspaceShell({
                       <label htmlFor="workspace-message" className="sr-only">
                         Pesan untuk AI
                       </label>
+                      {pendingAttachments.length > 0 ? (
+                        <ComposerAttachments
+                          attachments={pendingAttachments}
+                          onRemove={(id) =>
+                            setPendingAttachments((cur) =>
+                              removeAttachment(cur, id),
+                            )
+                          }
+                        />
+                      ) : null}
                       <textarea
                         id="workspace-message"
                         rows={3}
@@ -2809,15 +2821,28 @@ export function WorkspaceShell({
                         }
                       />
                       <div className="flex items-center justify-end gap-spacing-4">
-                        <Button
-                          type="submit"
-                          size="icon"
-                          disabled={!message.trim()}
-                          className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                          aria-label="Kirim pesan"
-                        >
-                          <ArrowUp className="size-4" />
-                        </Button>
+                        <div className="flex items-center gap-spacing-2">
+                          <ComposerAttachButton
+                            attachments={pendingAttachments}
+                            onAdd={(next, rejected) => {
+                              setPendingAttachments(next);
+                              if (rejected.length) {
+                                toast.error(
+                                  `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                                );
+                              }
+                            }}
+                          />
+                          <Button
+                            type="submit"
+                            size="icon"
+                            disabled={!message.trim()}
+                            className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                            aria-label="Kirim pesan"
+                          >
+                            <ArrowUp className="size-4" />
+                          </Button>
+                        </div>
                       </div>
                     </form>
                   </motion.div>
