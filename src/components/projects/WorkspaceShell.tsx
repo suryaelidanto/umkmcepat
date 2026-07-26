@@ -4,6 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowUp,
   Check,
@@ -210,6 +211,7 @@ export function WorkspaceShell({
   initialBrief,
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [message, setMessage] = useState("");
   const [projectTitle, setProjectTitle] = useState(initialTitle);
@@ -2407,131 +2409,149 @@ export function WorkspaceShell({
               </div>
             </div>
 
-            <div
-              ref={chatScrollRef}
-              onWheel={(event) => {
-                // Immediate unstick when user scrolls up, even mid smooth-follow.
-                if (event.deltaY < 0) {
-                  shouldStickToBottomRef.current = false;
-                }
-              }}
-              onTouchStart={() => {
-                // Touch drag intent: stop forcing until they return to bottom.
-                const element = chatScrollRef.current;
-                if (element && !isChatNearBottom(element)) {
-                  shouldStickToBottomRef.current = false;
-                }
-              }}
-              onScroll={(event) => {
-                if (ignoreNextScrollRef.current) {
-                  return;
-                }
+            <div className="relative flex min-h-0 flex-1 flex-col mt-spacing-5">
+              <div
+                ref={chatScrollRef}
+                onWheel={(event) => {
+                  // Immediate unstick when user scrolls up, even mid smooth-follow.
+                  if (event.deltaY < 0) {
+                    shouldStickToBottomRef.current = false;
+                  }
+                }}
+                onTouchStart={() => {
+                  // Touch drag intent: stop forcing until they return to bottom.
+                  const element = chatScrollRef.current;
+                  if (element && !isChatNearBottom(element)) {
+                    shouldStickToBottomRef.current = false;
+                  }
+                }}
+                onScroll={(event) => {
+                  if (ignoreNextScrollRef.current) {
+                    return;
+                  }
 
-                const element = event.currentTarget;
-                shouldStickToBottomRef.current = isChatNearBottom(element);
-              }}
-              className="mt-spacing-5 min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
-            >
-              {hasMoreChat ? (
-                <div
-                  ref={olderChatSentinelRef}
-                  className="py-spacing-3 text-center"
-                >
-                  {isLoadingOlderChat ? (
-                    <span className="text-xs text-surface-warm-white/50">
-                      Memuat chat lama...
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
-              <ChatMessages messages={visibleMessages} />
-
-              {isBuilding || buildProgress.length ? (
-                <BuildProgressPanel
-                  elapsedFrom={buildStartedAt}
-                  isBuilding={isBuilding}
-                  steps={buildProgress}
-                />
-              ) : null}
-
-              {isResponding ? (
-                <p className="text-sm text-surface-warm-white/46">
-                  AI sedang menyiapkan jawaban...
-                </p>
-              ) : null}
-              {rateLimitError ? (
-                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                  <p className="text-sm font-medium text-[#ffb4a6]">
-                    {rateLimitError.message}
-                  </p>
-                </div>
-              ) : sessionExpired ? (
-                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                  <p className="text-sm font-medium text-[#ffb4a6]">
-                    Sesi kamu sudah habis.
-                  </p>
-                  <Button
-                    type="button"
-                    onClick={() => void signOut({ callbackUrl: "/" })}
-                    className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                  const element = event.currentTarget;
+                  const nearBottom = isChatNearBottom(element);
+                  shouldStickToBottomRef.current = nearBottom;
+                  setShowScrollToBottom(!nearBottom);
+                }}
+                className="min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
+              >
+                {hasMoreChat ? (
+                  <div
+                    ref={olderChatSentinelRef}
+                    className="py-spacing-3 text-center"
                   >
-                    Login ulang
-                  </Button>
-                </div>
-              ) : isPreparingNextQuestion ? (
-                <p className="text-sm text-surface-warm-white/46">
-                  Menyiapkan pertanyaan berikutnya...
-                </p>
-              ) : workspaceCardError ? (
-                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                  <p className="text-sm font-medium text-[#ffb4a6]">
-                    {isRetrying
-                      ? "Mencoba menyiapkan pertanyaan lagi..."
-                      : "Pertanyaan berikutnya belum berhasil dibuat."}
+                    {isLoadingOlderChat ? (
+                      <span className="text-xs text-surface-warm-white/50">
+                        Memuat chat lama...
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+                <ChatMessages messages={visibleMessages} />
+
+                {isBuilding || buildProgress.length ? (
+                  <BuildProgressPanel
+                    elapsedFrom={buildStartedAt}
+                    isBuilding={isBuilding}
+                    steps={buildProgress}
+                  />
+                ) : null}
+
+                {isResponding ? (
+                  <p className="text-sm text-surface-warm-white/46">
+                    AI sedang menyiapkan jawaban...
                   </p>
-                  {!isRetrying ? (
+                ) : null}
+                {rateLimitError ? (
+                  <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                    <p className="text-sm font-medium text-[#ffb4a6]">
+                      {rateLimitError.message}
+                    </p>
+                  </div>
+                ) : sessionExpired ? (
+                  <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                    <p className="text-sm font-medium text-[#ffb4a6]">
+                      Sesi kamu sudah habis.
+                    </p>
                     <Button
                       type="button"
-                      onClick={() => void retryWorkspaceCard()}
+                      onClick={() => void signOut({ callbackUrl: "/" })}
                       className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
                     >
-                      Coba lagi
+                      Login ulang
                     </Button>
-                  ) : null}
-                </div>
-              ) : error ? (
-                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                  <p className="text-sm font-medium text-[#ffb4a6]">
-                    {isRetrying
-                      ? "AI sempat terputus. Mencoba menyambung ulang..."
-                      : "AI sempat terputus. Coba kirim ulang pesanmu."}
+                  </div>
+                ) : isPreparingNextQuestion ? (
+                  <p className="text-sm text-surface-warm-white/46">
+                    Menyiapkan pertanyaan berikutnya...
                   </p>
-                  {!isRetrying ? (
-                    <Button
-                      type="button"
-                      onClick={() => void retryChat()}
-                      className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
-                    >
-                      Kirim ulang
-                    </Button>
-                  ) : null}
-                </div>
-              ) : resumeError ? (
-                <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                  <p className="text-sm font-medium text-[#ffb4a6]">
-                    {resumeError.message}
-                  </p>
-                  {!isRetrying ? (
-                    <Button
-                      type="button"
-                      onClick={() => void retryChat()}
-                      className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
-                    >
-                      {resumeError.retryText}
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
+                ) : workspaceCardError ? (
+                  <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                    <p className="text-sm font-medium text-[#ffb4a6]">
+                      {isRetrying
+                        ? "Mencoba menyiapkan pertanyaan lagi..."
+                        : "Pertanyaan berikutnya belum berhasil dibuat."}
+                    </p>
+                    {!isRetrying ? (
+                      <Button
+                        type="button"
+                        onClick={() => void retryWorkspaceCard()}
+                        className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                      >
+                        Coba lagi
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : error ? (
+                  <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                    <p className="text-sm font-medium text-[#ffb4a6]">
+                      {isRetrying
+                        ? "AI sempat terputus. Mencoba menyambung ulang..."
+                        : "AI sempat terputus. Coba kirim ulang pesanmu."}
+                    </p>
+                    {!isRetrying ? (
+                      <Button
+                        type="button"
+                        onClick={() => void retryChat()}
+                        className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                      >
+                        Kirim ulang
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : resumeError ? (
+                  <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+                    <p className="text-sm font-medium text-[#ffb4a6]">
+                      {resumeError.message}
+                    </p>
+                    {!isRetrying ? (
+                      <Button
+                        type="button"
+                        onClick={() => void retryChat()}
+                        className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                      >
+                        {resumeError.retryText}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              {showScrollToBottom && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    shouldStickToBottomRef.current = true;
+                    scrollChatToBottom({ force: true, behavior: "smooth" });
+                    setShowScrollToBottom(false);
+                  }}
+                  className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 flex items-center gap-2 rounded-full border border-surface-warm-white/10 bg-surface-warm-white px-4 py-2 text-xs font-semibold text-foreground-primary shadow-lg hover:bg-surface-warm-white/90 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ArrowDown className="size-3.5" />
+                  <span>Lompat ke Bawah</span>
+                </button>
+              )}
             </div>
 
             <div className="mt-spacing-5">
