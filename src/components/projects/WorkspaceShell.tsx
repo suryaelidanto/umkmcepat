@@ -2906,13 +2906,12 @@ export function WorkspaceShell({
                         className="h-full min-h-0"
                       >
                         {isBuilding ? (
-                          <div className="grid min-h-full place-items-center p-spacing-6">
-                            <div className="w-full max-w-3xl">
-                              <BuildProgressPanel
-                                elapsedFrom={buildStartedAt}
-                                isBuilding={isBuilding}
-                                steps={buildProgress}
-                              />
+                          <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
+                            <div className="flex flex-col items-center gap-spacing-4 text-center">
+                              <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
+                              <p className="text-sm font-medium text-surface-warm-white/78">
+                                Menyiapkan pratinjau website...
+                              </p>
                             </div>
                           </div>
                         ) : previewIssue ? (
@@ -3479,8 +3478,14 @@ function FileTreeItem({
     );
   }
 
+  const isParent = selectedPath.startsWith(node.path + "/");
+
   return (
-    <details open className="group">
+    <details
+      key={node.path + "-" + isParent}
+      {...({ defaultOpen: isParent } as Record<string, unknown>)}
+      className="group"
+    >
       <summary className="cursor-pointer list-none px-spacing-4 py-spacing-1.5 text-sm font-medium text-surface-warm-white/72 hover:bg-surface-warm-white/7 hover:text-surface-warm-white [&::-webkit-details-marker]:hidden">
         <span className="mr-spacing-2 inline-block text-surface-warm-white/38 group-open:rotate-90">
           ›
