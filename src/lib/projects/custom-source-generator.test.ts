@@ -167,6 +167,22 @@ describe("findMissingCssClasses (meaningful rule semantics)", () => {
       "small",
     );
   });
+
+  it("does not flag outline-none/group as missing (real Tailwind JIT utilities, not custom classes)", () => {
+    const files = [
+      {
+        path: "src/components/ui/button.tsx",
+        content: `export function Button(){return <button className="inline-flex outline-none group">x</button>}`,
+      },
+      {
+        path: "src/index.css",
+        content: `@import "tailwindcss";`,
+      },
+    ];
+    const missing = findMissingCssClasses(files, files[1].content);
+    expect(missing).not.toContain("outline-none");
+    expect(missing).not.toContain("group");
+  });
 });
 
 describe("custom generated source agent", () => {

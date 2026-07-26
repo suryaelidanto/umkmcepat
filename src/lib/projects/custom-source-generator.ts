@@ -703,6 +703,8 @@ export function isTailwindUtilityClass(className: string): boolean {
     "flex-shrink-0",
     "grow-0",
     "shrink-0",
+    "outline-none",
+    "group",
   ]);
 
   if (standardTrivial.has(baseClass)) {
@@ -793,6 +795,7 @@ export function isTailwindUtilityClass(className: string): boolean {
     "duration-",
     "ease-",
     "origin-",
+    "blur-",
   ];
 
   return standardPrefixes.some((prefix) => baseClass.startsWith(prefix));
