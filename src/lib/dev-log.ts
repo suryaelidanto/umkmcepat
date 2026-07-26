@@ -33,9 +33,30 @@ export function devLog(
     return;
   }
 
-  const suffix = metadata ? ` ${stableJson(metadata)}` : "";
+  const maskedMetadata = metadata ? maskPii(metadata) : undefined;
+  const suffix = maskedMetadata ? ` ${stableJson(maskedMetadata)}` : "";
   const line = `[umkm:${scope}] ${event}${suffix}\n`;
   void writeToFile(line);
+}
+
+function maskPii(metadata: Record<string, unknown>): Record<string, unknown> {
+  const piiKeys = new Set([
+    "email",
+    "phone",
+    "code",
+    "password",
+    "token",
+    "whatsappNumber",
+  ]);
+  const masked = { ...metadata };
+  for (const key of Object.keys(masked)) {
+    if (piiKeys.has(key)) {
+      masked[key] = "[REDACTED]";
+    } else if (masked[key] && typeof masked[key] === "object") {
+      masked[key] = maskPii(masked[key] as Record<string, unknown>);
+    }
+  }
+  return masked;
 }
 
 async function writeToFile(line: string) {

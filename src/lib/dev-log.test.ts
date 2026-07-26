@@ -56,11 +56,16 @@ describe("devLog", () => {
   it("appends a structured line to dev.log in dev", async () => {
     const orig = process.env.NODE_ENV;
     process.env.NODE_ENV = "development";
-    devLog("test-scope", "event", { projectId: "p1" });
+    devLog("test-scope", "event", {
+      projectId: "p1",
+      email: "secret@example.com",
+    });
     await new Promise((r) => setTimeout(r, 50));
     const contents = readFileSync(LOG_FILE, "utf8");
     expect(contents).toContain("[umkm:test-scope] event");
     expect(contents).toContain('"projectId":"p1"');
+    expect(contents).toContain('"email":"[REDACTED]"');
+    expect(contents).not.toContain("secret@example.com");
     process.env.NODE_ENV = orig;
   });
 
