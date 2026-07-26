@@ -112,14 +112,12 @@ export function getRateLimitConfig(
  * Default pilot: skip ai|build when userId is known unless RATE_LIMIT_ENFORCE_PRODUCT=1.
  */
 export function shouldEnforceProductRateLimit(
-  type: RateLimitType,
-  userId?: string,
+  _type: RateLimitType,
+  _userId?: string,
 ) {
-  if (!userId || (type !== "ai" && type !== "build")) {
-    return true;
-  }
-
-  return process.env.RATE_LIMIT_ENFORCE_PRODUCT === "1";
+  // Always enforce rate limiting, even for authenticated users on product routes.
+  // Daily energy is the primary economic gate; rate limits prevent burst abuse.
+  return true;
 }
 
 export async function checkRateLimit(

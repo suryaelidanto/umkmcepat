@@ -59,28 +59,27 @@ describe("getRateLimitConfig", () => {
   });
 });
 
-describe("energy-first product rate limits", () => {
-  it("skips ai/build buckets for authenticated users by default", () => {
-    delete process.env.RATE_LIMIT_ENFORCE_PRODUCT;
-    expect(shouldEnforceProductRateLimit("build", "user_1")).toBe(false);
-    expect(shouldEnforceProductRateLimit("ai", "user_1")).toBe(false);
+describe("product rate limits always enforced", () => {
+  it("enforces limits on all routes and subjects", () => {
+    expect(shouldEnforceProductRateLimit("build", "user_1")).toBe(true);
+    expect(shouldEnforceProductRateLimit("ai", "user_1")).toBe(true);
     expect(shouldEnforceProductRateLimit("global", "user_1")).toBe(true);
     expect(shouldEnforceProductRateLimit("build", undefined)).toBe(true);
   });
 
-  it("re-enables product buckets when RATE_LIMIT_ENFORCE_PRODUCT=1", () => {
-    process.env.RATE_LIMIT_ENFORCE_PRODUCT = "1";
-    expect(shouldEnforceProductRateLimit("build", "user_1")).toBe(true);
-  });
-
-  it("does not 429 authenticated build retries when energy-first is on", async () => {
-    delete process.env.RATE_LIMIT_ENFORCE_PRODUCT;
+  it("429s authenticated build retries when limit exceeded", async () => {
     process.env.RATE_LIMIT_PROVIDER = "memory";
     const request = new Request("http://localhost/api/projects/x/generate");
 
+    let blockedResponse = null;
     for (let i = 0; i < 20; i += 1) {
-      const blocked = await checkRateLimit(request, "build", "user_retry");
-      expect(blocked).toBeNull();
+      const res = await checkRateLimit(request, "build", "user_retry");
+      if (res) {
+        blockedResponse = res;
+        break;
+      }
     }
+    expect(blockedResponse).not.toBeNull();
+    expect(blockedResponse?.status).toBe(429);
   });
 });
