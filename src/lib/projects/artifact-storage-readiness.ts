@@ -3,22 +3,12 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { getEnv } from "@/lib/config";
+import { getStorageProvider } from "@/lib/storage-provider";
 
 export async function assertProjectArtifactStorageReady() {
-  const provider = getEnv(
-    "PROJECT_ARTIFACT_STORAGE_PROVIDER",
-    "local",
-  ).toLowerCase();
-
-  if (provider === "r2") {
+  if (getStorageProvider() === "r2") {
     assertRequiredR2Config();
     return;
-  }
-
-  if (provider !== "local") {
-    throw new Error(
-      `Invalid PROJECT_ARTIFACT_STORAGE_PROVIDER '${provider}'. Supported values: local, r2.`,
-    );
   }
 
   const configuredRoot = getEnv("PROJECT_ARTIFACT_DIR").trim();
@@ -63,7 +53,8 @@ function assertRequiredR2Config() {
     "R2_ACCOUNT_ID",
     "R2_ACCESS_KEY_ID",
     "R2_SECRET_ACCESS_KEY",
-    "R2_BUCKET",
+    "R2_PUBLIC_BUCKET",
+    "R2_PRIVATE_BUCKET",
   ]) {
     if (!getEnv(name)) {
       throw new Error(`${name} is required for R2 project artifact storage.`);
