@@ -1,17 +1,20 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import path from "node:path";
 
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
-import { getR2Config, signedR2Fetch } from "@/lib/r2-client";
+import {
+  deleteS3Object,
+  getS3Object,
+  putS3Object,
+  S3_PREFIXES,
+} from "@/lib/s3-client";
 import { getStorageProvider } from "@/lib/storage-provider";
 
-const REF_PREFIX = "project-thumbnail:local:";
-const R2_REF_PREFIX = "project-thumbnail:r2-private:";
+const S3_REF_PREFIX = "project-thumbnail:s3-private:";
 const MAX_BYTES = 1024 * 1024;
 const latestRequestedBuild = new Map<string, string>();
 let activeCaptures = 0;
@@ -20,100 +23,63 @@ export type ProjectThumbnailOptions = { rootDir?: string };
 
 export function createProjectThumbnailRef(projectId: string) {
   assertSafeId(projectId);
-  return `${REF_PREFIX}${projectId}`;
+  return `${S3_REF_PREFIX}${projectId}`;
 }
 
 export function parseProjectThumbnailRef(ref: string): string | null {
-  const isR2 = ref.startsWith(R2_REF_PREFIX);
-  const isLocal = !isR2 && ref.startsWith(REF_PREFIX);
-  if (!isR2 && !isLocal) {
+  if (!ref.startsWith(S3_REF_PREFIX)) {
     return null;
   }
-  const id = ref.slice((isR2 ? R2_REF_PREFIX : REF_PREFIX).length);
+  const id = ref.slice(S3_REF_PREFIX.length);
   if (!/^[A-Za-z0-9_-]{1,160}$/.test(id)) {
     return null;
   }
   return id;
 }
 
-function thumbnailR2Config() {
-  return getR2Config({ bucket: "private", prefix: "project-thumbnails" });
-}
-
 export async function writeProjectThumbnail({
   bytes,
   projectId,
-  rootDir,
 }: ProjectThumbnailOptions & { bytes: Buffer; projectId: string }) {
   assertSafeId(projectId);
   assertJpeg(bytes);
+  void getStorageProvider(); // single storage path; s3-client resolves local|r2
 
-  if (getStorageProvider() === "r2") {
-    const config = thumbnailR2Config();
-    const key = `${projectId}.jpg`;
-    const response = await signedR2Fetch(config, key, {
-      body: bytes,
-      contentType: "image/jpeg",
-      method: "PUT",
-    });
-    if (!response.ok) {
-      throw new Error(`R2 thumbnail write failed: ${response.status}`);
-    }
-    return `${R2_REF_PREFIX}${projectId}`;
-  }
-
-  const root = resolveRoot(rootDir);
-  const target = path.join(root, `${projectId}.jpg`);
-  const temporary = path.join(root, `.${projectId}.${crypto.randomUUID()}.tmp`);
-
-  await mkdir(root, { recursive: true });
-  try {
-    await writeFile(temporary, bytes, { flag: "wx" });
-    await rename(temporary, target);
-  } finally {
-    await rm(temporary, { force: true }).catch(() => undefined);
-  }
-
-  return createProjectThumbnailRef(projectId);
+  const key = `${S3_PREFIXES.thumbnail}/${projectId}.jpg`;
+  await putS3Object("private", key, bytes, "image/jpeg");
+  return `${S3_REF_PREFIX}${projectId}`;
 }
 
 export async function readProjectThumbnail(
   ref: string,
-  { rootDir }: ProjectThumbnailOptions = {},
+  _options: ProjectThumbnailOptions = {},
 ) {
-  const projectId = parseRef(ref);
-  if (ref.startsWith(R2_REF_PREFIX)) {
-    const config = thumbnailR2Config();
-    const response = await signedR2Fetch(config, `${projectId}.jpg`, {
-      method: "GET",
-    });
-    if (!response.ok) {
-      throw new Error(`R2 thumbnail read failed: ${response.status}`);
-    }
-    return Buffer.from(await response.arrayBuffer());
+  if (!ref.startsWith(S3_REF_PREFIX)) {
+    throw new Error("Invalid project thumbnail ref.");
   }
-  return readFile(path.join(resolveRoot(rootDir), `${projectId}.jpg`));
+  const projectId = parseProjectThumbnailRef(ref);
+  if (!projectId) {
+    throw new Error("Invalid project thumbnail ref.");
+  }
+  // Copy into a fresh ArrayBuffer-backed Uint8Array so the route's
+  // `new Response(bytes)` picks the ArrayBufferView BodyInit branch
+  // (TS lib otherwise widens Buffer<ArrayBufferLike> into URLSearchParams).
+  const bytes = await getS3Object(
+    "private",
+    `${S3_PREFIXES.thumbnail}/${projectId}.jpg`,
+  );
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
 }
 
 export async function deleteProjectThumbnail(
   ref: string,
-  { rootDir }: ProjectThumbnailOptions = {},
+  _options: ProjectThumbnailOptions = {},
 ) {
   const projectId = parseRef(ref);
-  if (ref.startsWith(R2_REF_PREFIX)) {
-    const config = thumbnailR2Config();
-    const response = await signedR2Fetch(config, `${projectId}.jpg`, {
-      method: "DELETE",
-    });
-    // 204 success; 404 means already gone — treat as success.
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`R2 thumbnail delete failed: ${response.status}`);
-    }
-    return;
-  }
-  await rm(path.join(resolveRoot(rootDir), `${projectId}.jpg`), {
-    force: true,
-  });
+  // deleteS3Object treats NoSuchKey as success, so missing thumbnails are fine.
+  await deleteS3Object("private", `${S3_PREFIXES.thumbnail}/${projectId}.jpg`);
 }
 
 export async function refreshProjectThumbnail({
@@ -350,16 +316,6 @@ function resolveBrowserExecutablePath() {
   }
 
   return undefined;
-}
-
-export function getProjectThumbnailDir(rootDir?: string) {
-  return resolveRoot(rootDir);
-}
-
-function resolveRoot(rootDir?: string) {
-  return path.resolve(
-    rootDir || process.env.PROJECT_THUMBNAIL_DIR || ".data/project-thumbnails",
-  );
 }
 
 function parseRef(ref: string) {
