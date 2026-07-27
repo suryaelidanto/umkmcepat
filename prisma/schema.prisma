@@ -80,6 +80,7 @@ model User {
   otpAttempts     Int                     @default(0)
   otpLockedUntil  DateTime?
   bannedAt        DateTime?
+  createdAt       DateTime @default(now())
   accounts        Account[]
   sessions        Session[]
   refreshTokens   RefreshToken[]
@@ -96,6 +97,7 @@ model User {
   @@index([email])
   @@index([name])
   @@index([verifiedAt])
+  @@index([createdAt])
 }
 
 model Project {
