@@ -62,6 +62,9 @@ describe("project artifact storage readiness", () => {
 
   it("throws when the private bucket var is missing under r2", async () => {
     vi.stubEnv("STORAGE_PROVIDER", "r2");
+    vi.stubEnv("R2_ACCOUNT_ID", "acct");
+    vi.stubEnv("R2_ACCESS_KEY_ID", "a");
+    vi.stubEnv("R2_SECRET_ACCESS_KEY", "s");
     vi.stubEnv("R2_PUBLIC_BUCKET", "pub");
     delete process.env.R2_PRIVATE_BUCKET;
     await expect(assertProjectArtifactStorageReady()).rejects.toThrow(
