@@ -13,6 +13,7 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d umkmcepat"]
       interval: 10s
@@ -66,14 +67,15 @@ services:
     volumes:
       - redis_data:/data
 
-  rustfs:
-    image: ghcr.io/rustfs/rustfs:latest
-    container_name: umkmcepat-rustfs
+  minio:
+    image: docker.io/minio/minio:latest
+    container_name: umkmcepat-minio
     restart: unless-stopped
     dns: ["1.1.1.1", "8.8.8.8"]
     environment:
-      RUSTFS_ROOT_USER: ${RUSTFS_ROOT_USER:-umkmcepat}
-      RUSTFS_ROOT_PASSWORD: ${RUSTFS_ROOT_PASSWORD:-umkmcepat}
+      MINIO_ROOT_USER: ${RUSTFS_ROOT_USER:-umkmcepat}
+      MINIO_ROOT_PASSWORD: ${RUSTFS_ROOT_PASSWORD:-umkmcepat}
+    command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
       - "9001:9001"

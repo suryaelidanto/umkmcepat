@@ -110,6 +110,7 @@ services:
       TZ: UTC
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         [
