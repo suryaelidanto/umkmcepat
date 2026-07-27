@@ -3,6 +3,7 @@ import {
   HeadContent,
   Scripts,
   createRootRoute,
+  useRouter,
 } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
 
@@ -113,14 +114,23 @@ function NotFound() {
 }
 
 function RootComponent() {
+  const router = useRouter();
+  const nonce = router.options.ssr?.nonce;
+
   return (
-    <RootDocument>
+    <RootDocument nonce={nonce}>
       <Outlet />
     </RootDocument>
   );
 }
 
-function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+function RootDocument({
+  children,
+  nonce,
+}: Readonly<{
+  children: ReactNode;
+  nonce?: string;
+}>) {
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
@@ -131,12 +141,14 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         className={cn("min-h-screen bg-[#151515] font-sans antialiased")}
       >
         <script
+          nonce={nonce}
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         {process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC &&
         process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID ? (
           <script
+            nonce={nonce}
             defer
             src={process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC}
             data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}

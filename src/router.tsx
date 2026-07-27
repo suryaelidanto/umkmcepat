@@ -2,7 +2,11 @@ import { createRouter } from "@tanstack/react-router";
 
 import { routeTree } from "./routeTree.gen";
 
+import { getNonce } from "@/lib/csp-nonce";
+
 export function getRouter() {
+  const nonce = typeof window === "undefined" ? getNonce() : undefined;
+
   const router = createRouter({
     routeTree,
     scrollRestoration: true,
@@ -11,6 +15,7 @@ export function getRouter() {
     // project ↔ home navigations don't flash a blank main content area.
     defaultPendingMs: 200,
     defaultPendingMinMs: 0,
+    ...(nonce ? { ssr: { nonce } } : {}),
   });
 
   return router;
