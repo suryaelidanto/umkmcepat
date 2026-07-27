@@ -1,9 +1,14 @@
 import indexDoc from "./_index.md?raw";
+import educationCourse from "./education-course.md?raw";
 import fnbLight from "./fnb-light.md?raw";
 import fnbMenu from "./fnb-menu.md?raw";
 import genericFallback from "./generic-fallback.md?raw";
+import professionalCredibility from "./professional-credibility.md?raw";
 import retailCatalog from "./retail-catalog.md?raw";
 import retailGrocery from "./retail-grocery.md?raw";
+import serviceAppointment from "./service-appointment.md?raw";
+import serviceArea from "./service-area.md?raw";
+import serviceOnline from "./service-online.md?raw";
 
 /**
  * Every valid archetype id, independent of whether its guide `.md` exists yet.
@@ -42,6 +47,11 @@ const GUIDE_BY_ID: Record<string, string> = {
   "fnb-light": fnbLight,
   "retail-catalog": retailCatalog,
   "retail-grocery": retailGrocery,
+  "service-area": serviceArea,
+  "service-appointment": serviceAppointment,
+  "service-online": serviceOnline,
+  "education-course": educationCourse,
+  "professional-credibility": professionalCredibility,
 };
 
 const INDEX_DOC: string = indexDoc;
