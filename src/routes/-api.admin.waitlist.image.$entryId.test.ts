@@ -44,6 +44,17 @@ describe("GET /api/admin/waitlist/image/$entryId", () => {
     expect(findUniqueMock).not.toHaveBeenCalled();
   });
 
+  it("403s when requireAdmin denies an authenticated non-admin", async () => {
+    requireAdminMock.mockResolvedValueOnce({
+      message: "Akses admin diperlukan.",
+      ok: false,
+      status: 403,
+    });
+    const res = await callGet("has-img");
+    expect(res.status).toBe(403);
+    expect(findUniqueMock).not.toHaveBeenCalled();
+  });
+
   it("404s when the entry is missing", async () => {
     requireAdminMock.mockResolvedValueOnce({
       admin: { email: "a@x", userId: "u" },

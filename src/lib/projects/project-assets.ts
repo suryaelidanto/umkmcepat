@@ -33,6 +33,11 @@ function assetR2Config(bucket: "public" | "private") {
   return getR2Config({ bucket, prefix: "project-assets" });
 }
 
+// R2 object key for a parsed asset ref — `<projectId>/<userId>/<kind>/<ulid>[.<ext>]`.
+function assetR2Key(parsed: ParsedProjectAssetRef): string {
+  return `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`;
+}
+
 const MAX_BYTES = 5 * 1024 * 1024;
 
 type ImageFormat = "png" | "jpeg" | "webp";
@@ -225,11 +230,9 @@ export async function readProjectAsset(
   const parsed = parseProjectAssetRefOrThrow(ref);
   if (ref.startsWith(R2_PRIVATE_REF_PREFIX)) {
     const config = assetR2Config("private");
-    const response = await signedR2Fetch(
-      config,
-      `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`,
-      { method: "GET" },
-    );
+    const response = await signedR2Fetch(config, assetR2Key(parsed), {
+      method: "GET",
+    });
     if (!response.ok) {
       throw new Error(`R2 asset read failed: ${response.status}`);
     }
@@ -242,11 +245,9 @@ export async function readProjectAsset(
   }
   if (ref.startsWith(R2_REF_PREFIX)) {
     const config = assetR2Config("public");
-    const response = await signedR2Fetch(
-      config,
-      `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`,
-      { method: "GET" },
-    );
+    const response = await signedR2Fetch(config, assetR2Key(parsed), {
+      method: "GET",
+    });
     if (!response.ok) {
       throw new Error(`R2 asset read failed: ${response.status}`);
     }
@@ -272,11 +273,9 @@ export async function deleteProjectAsset(
   const parsed = parseProjectAssetRefOrThrow(ref);
   if (ref.startsWith(R2_PRIVATE_REF_PREFIX)) {
     const config = assetR2Config("private");
-    const response = await signedR2Fetch(
-      config,
-      `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`,
-      { method: "DELETE" },
-    );
+    const response = await signedR2Fetch(config, assetR2Key(parsed), {
+      method: "DELETE",
+    });
     if (!response.ok && response.status !== 404) {
       throw new Error(`R2 asset delete failed: ${response.status}`);
     }
@@ -284,11 +283,9 @@ export async function deleteProjectAsset(
   }
   if (ref.startsWith(R2_REF_PREFIX)) {
     const config = assetR2Config("public");
-    const response = await signedR2Fetch(
-      config,
-      `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`,
-      { method: "DELETE" },
-    );
+    const response = await signedR2Fetch(config, assetR2Key(parsed), {
+      method: "DELETE",
+    });
     // 204 success; 404 means already gone — treat as success.
     if (!response.ok && response.status !== 404) {
       throw new Error(`R2 asset delete failed: ${response.status}`);
