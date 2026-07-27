@@ -10,19 +10,17 @@ export type R2Config = {
   secretAccessKey: string;
 };
 
-export function getR2Config(opts?: {
-  prefixEnv?: string;
-  prefixFallback?: string;
+export function getR2Config(opts: {
+  bucket: "public" | "private";
+  prefix: string;
 }): R2Config {
-  const prefixEnv = opts?.prefixEnv ?? "R2_PREFIX";
-  const prefixFallback = opts?.prefixFallback ?? "objects";
+  const bucketEnv =
+    opts.bucket === "public" ? "R2_PUBLIC_BUCKET" : "R2_PRIVATE_BUCKET";
   return {
     accessKeyId: requiredEnv("R2_ACCESS_KEY_ID"),
     accountId: requiredEnv("R2_ACCOUNT_ID"),
-    bucket: requiredEnv("R2_BUCKET"),
-    prefix: getEnv(prefixEnv, prefixFallback)
-      .trim()
-      .replace(/^\/+|\/+$/g, ""),
+    bucket: requiredEnv(bucketEnv),
+    prefix: opts.prefix.trim().replace(/^\/+|\/+$/g, ""),
     secretAccessKey: requiredEnv("R2_SECRET_ACCESS_KEY"),
   };
 }
