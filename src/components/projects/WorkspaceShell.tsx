@@ -2504,6 +2504,18 @@ export function WorkspaceShell({
                       </Button>
                     ) : null}
                   </div>
+                ) : error &&
+                  (error as ChatError).code === "project_request_blocked" ? (
+                  <div className="rounded-[18px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-5 py-spacing-4">
+                    <div className="flex items-start gap-spacing-3">
+                      <span className="mt-0.5 text-yellow-400" aria-hidden>
+                        ⚠️
+                      </span>
+                      <p className="text-sm leading-6 text-surface-warm-white/78">
+                        {error.message}
+                      </p>
+                    </div>
+                  </div>
                 ) : error ? (
                   <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                     <p className="text-sm font-medium text-[#ffb4a6]">
@@ -3333,7 +3345,8 @@ function stripDecorativeSymbols(text: string) {
   );
 }
 
-type RateLimitChatError = Error & {
+type ChatError = Error & {
+  code?: string;
   retryAfter?: number;
   status?: number;
 };
@@ -3344,31 +3357,47 @@ async function rateLimitAwareFetch(
 ) {
   const response = await fetch(input, init);
 
-  if (response.status !== 429) {
-    return response;
+  if (response.status === 429) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+      retryAfter?: number;
+    } | null;
+    const retryAfter =
+      (body?.retryAfter ?? Number(response.headers.get("Retry-After"))) || 60;
+    const error = new Error(
+      body?.message ||
+        `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.`,
+    ) as ChatError;
+
+    error.status = 429;
+    error.retryAfter = retryAfter;
+    throw error;
   }
 
-  const body = (await response.json().catch(() => null)) as {
-    message?: string;
-    retryAfter?: number;
-  } | null;
-  const retryAfter =
-    (body?.retryAfter ?? Number(response.headers.get("Retry-After"))) || 60;
-  const error = new Error(
-    body?.message ||
-      `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.`,
-  ) as RateLimitChatError;
+  if (response.status === 400) {
+    const clone = response.clone();
+    const body = (await clone.json().catch(() => null)) as {
+      code?: string;
+      message?: string;
+    } | null;
+    if (body?.code === "project_request_blocked") {
+      const error = new Error(
+        body.message || "Permintaan belum bisa diproses.",
+      ) as ChatError;
+      error.status = 400;
+      error.code = "project_request_blocked";
+      throw error;
+    }
+  }
 
-  error.status = 429;
-  error.retryAfter = retryAfter;
-  throw error;
+  return response;
 }
 
 function captureRateLimitError(
   error: unknown,
   setRateLimitError: (value: { message: string; retryAfter: number }) => void,
 ) {
-  const candidate = error as RateLimitChatError;
+  const candidate = error as ChatError;
 
   if (candidate?.status !== 429) {
     return false;
