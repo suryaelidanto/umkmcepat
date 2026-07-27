@@ -49,7 +49,7 @@ export const Route = createFileRoute("/api/user/waitlist")({
         const session = await auth();
         const email = session?.user?.email ?? null;
         const isAdmin = email ? isAdminEmail(email) : false;
-        const waitlistEnabled = isWaitlistEnabled();
+        const waitlistEnabled = await isWaitlistEnabled();
         const isApproved = email ? await isWaitlistApproved(email) : null;
         const resolved = resolveUserWaitlistStatus({
           email,

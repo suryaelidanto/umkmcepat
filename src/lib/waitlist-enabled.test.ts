@@ -1,5 +1,15 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+// Mock prisma so getSetting's DB read returns nothing → env/fallback path.
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    appSetting: {
+      findUnique: vi.fn(async () => null),
+    },
+  },
+}));
+
+import { invalidateSettingCache } from "@/lib/app-settings";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
 
 describe("isWaitlistEnabled", () => {
@@ -10,26 +20,27 @@ describe("isWaitlistEnabled", () => {
     } else {
       process.env.WAITLIST_ENABLED = original;
     }
+    invalidateSettingCache();
   });
 
-  it("returns true when set to 'true'", () => {
+  it("returns true when set to 'true'", async () => {
     process.env.WAITLIST_ENABLED = "true";
-    expect(isWaitlistEnabled()).toBe(true);
+    expect(await isWaitlistEnabled()).toBe(true);
   });
 
-  it("returns false only when set to 'false' (case-insensitive)", () => {
+  it("returns false only when set to 'false' (case-insensitive)", async () => {
     process.env.WAITLIST_ENABLED = "false";
-    expect(isWaitlistEnabled()).toBe(false);
+    expect(await isWaitlistEnabled()).toBe(false);
     process.env.WAITLIST_ENABLED = "FALSE";
-    expect(isWaitlistEnabled()).toBe(false);
+    expect(await isWaitlistEnabled()).toBe(false);
   });
 
-  it("defaults true (fail-safe) when unset or invalid", () => {
+  it("defaults true (fail-safe) when unset or invalid", async () => {
     delete process.env.WAITLIST_ENABLED;
-    expect(isWaitlistEnabled()).toBe(true);
+    expect(await isWaitlistEnabled()).toBe(true);
     process.env.WAITLIST_ENABLED = "";
-    expect(isWaitlistEnabled()).toBe(true);
+    expect(await isWaitlistEnabled()).toBe(true);
     process.env.WAITLIST_ENABLED = "nope";
-    expect(isWaitlistEnabled()).toBe(true);
+    expect(await isWaitlistEnabled()).toBe(true);
   });
 });
