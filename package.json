@@ -37,6 +37,7 @@
     "prod:ps": "docker compose -f docker-compose.prod.yml ps",
     "prod:rebuild": "docker compose -f docker-compose.prod.yml up -d --build",
     "prod:up": "docker compose -f docker-compose.prod.yml up -d",
+    "provision:analytics": "bunx tsx scripts/provision-analytics.ts",
     "routes:generate": "node scripts/generate-route-tree.mjs",
     "runtime:idle-stop": "bun src/lib/projects/runtime-idle-runner.ts",
     "setup:agent": "bun run graph:index",
