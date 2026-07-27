@@ -15,8 +15,6 @@ export type ProjectCleanupInput = {
   thumbnailRef?: string | null;
   assetRefs?: string[];
   supervisor?: Pick<RuntimeSupervisor, "stopDeployment">;
-  artifactRootDir?: string;
-  assetRootDir?: string;
   runtimeRootDir?: string;
   buildWorkspaceRootDir?: string;
 };
@@ -26,11 +24,11 @@ export type ProjectCleanupOutcome = {
 };
 
 /**
- * Stop runtime deployments and delete every on-disk/R2 resource tied to a
- * project: source/dist artifacts, materialized runtime dirs, build workspace
- * dirs, and the project thumbnail. Best-effort: each failure is recorded and
- * never blocks the next step or the caller's DB row delete. Idempotent: re-running
- * after a partial failure safely clears whatever remains.
+ * Stop runtime deployments and delete every resource tied to a project:
+ * source/dist artifacts (S3), materialized runtime dirs, build workspace
+ * dirs, and the project thumbnail (S3). Best-effort: each failure is recorded
+ * and never blocks the next step or the caller's DB row delete. Idempotent:
+ * re-running after a partial failure safely clears whatever remains.
  */
 export async function cleanupProjectResources(
   input: ProjectCleanupInput,
@@ -60,15 +58,15 @@ export async function cleanupProjectResources(
         return;
       }
       try {
-        await deleteProjectArtifact(ref, { rootDir: input.artifactRootDir });
+        await deleteProjectArtifact(ref);
       } catch (error) {
         note("delete-artifact", error);
       }
     }),
   );
 
-  // 3. Delete materialized runtime dirs (per deployment) and the build
-  //    workspace dir (per project). Safe to rm missing dirs (force: true).
+  // Delete materialized runtime dirs (per deployment) and the build
+  // workspace dir (per project). Safe to rm missing dirs (force: true).
   const runtimeRoot = path.resolve(
     input.runtimeRootDir ||
       getEnv("PROJECT_RUNTIME_DIR", ".data/project-runtimes"),
@@ -99,8 +97,8 @@ export async function cleanupProjectResources(
     }
   }
 
-  // 5. Delete owner-uploaded project assets (business images / references /
-  //    logos) stored under .data/project-assets. Best-effort, idempotent.
+  // Delete owner-uploaded project assets (business images / references /
+  // logos) stored in S3. Best-effort, idempotent.
   if (input.assetRefs?.length) {
     await Promise.all(
       input.assetRefs.map(async (ref) => {
@@ -108,9 +106,7 @@ export async function cleanupProjectResources(
           return;
         }
         try {
-          await deleteProjectAsset(ref, {
-            rootDir: input.assetRootDir,
-          });
+          await deleteProjectAsset(ref);
         } catch (error) {
           note("delete-asset", error);
         }

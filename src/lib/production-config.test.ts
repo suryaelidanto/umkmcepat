@@ -11,7 +11,6 @@ const validProductionEnv = {
   NEXTAUTH_URL: "https://umkmcepat.example",
   NEXT_PUBLIC_APP_URL: "https://umkmcepat.example",
   OTP_SPACE_API_KEY: "otp-space-production-key",
-  PROJECT_ARTIFACT_DIR: "/app/.data/project-artifacts",
   PROJECT_RUNTIME_SUPERVISOR: "noop",
   STORAGE_PROVIDER: "local",
 };
@@ -79,12 +78,6 @@ describe("production config preflight", () => {
     );
 
     vi.stubEnv("DATABASE_URL", validProductionEnv.DATABASE_URL);
-    vi.stubEnv("PROJECT_ARTIFACT_DIR", "/app/.data/ephemeral-artifacts");
-    expect(() => assertProductionConfigReady()).toThrow(
-      "PROJECT_ARTIFACT_DIR must match the persistent production volume",
-    );
-
-    vi.stubEnv("PROJECT_ARTIFACT_DIR", validProductionEnv.PROJECT_ARTIFACT_DIR);
     vi.stubEnv("PROJECT_RUNTIME_SUPERVISOR", "local");
     expect(() => assertProductionConfigReady()).toThrow(
       "PROJECT_RUNTIME_SUPERVISOR must be noop until isolated runtime authority is configured.",

@@ -4,6 +4,41 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const { putMock, getMock, deleteMock, store } = vi.hoisted(() => {
+  const store = new Map<string, string>();
+  return {
+    putMock: vi.fn(
+      async (_b: "public" | "private", key: string, body: Buffer) => {
+        store.set(key, body.toString("utf8"));
+      },
+    ),
+    getMock: vi.fn(async (_b: "public" | "private", key: string) => {
+      const v = store.get(key);
+      if (v === undefined) {
+        throw new Error("NoSuchKey");
+      }
+      return Buffer.from(v);
+    }),
+    deleteMock: vi.fn(async (_b: "public" | "private", key: string) => {
+      store.delete(key);
+    }),
+    store,
+  };
+});
+
+vi.mock("@/lib/s3-client", () => ({
+  getS3Config: () => ({ client: {}, bucket: "pub" }),
+  putS3Object: putMock,
+  getS3Object: getMock,
+  deleteS3Object: deleteMock,
+  S3_PREFIXES: {
+    artifact: "project-artifacts",
+    asset: "project-assets",
+    object: "objects",
+    thumbnail: "project-thumbnails",
+  },
+}));
+
 import { writeProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import {
   createLocalProcessRuntimeSupervisor,
@@ -19,6 +54,10 @@ describe("noop runtime supervisor", () => {
       await rm(tempDir, { force: true, recursive: true });
       tempDir = "";
     }
+    store.clear();
+    putMock.mockClear();
+    getMock.mockClear();
+    deleteMock.mockClear();
   });
 
   it("exposes a safe stopped runtime boundary for Phase 1", async () => {
@@ -89,7 +128,6 @@ describe("noop runtime supervisor", () => {
           path: "index.html",
         },
       ],
-      rootDir: path.join(tempDir, "artifacts"),
     });
     const events: unknown[] = [];
     let deployment = {
@@ -122,7 +160,6 @@ describe("noop runtime supervisor", () => {
       },
     };
     const supervisor = createLocalProcessRuntimeSupervisor({
-      artifactRootDir: path.join(tempDir, "artifacts"),
       prisma,
       runtimeRootDir: path.join(tempDir, "runtime"),
     });

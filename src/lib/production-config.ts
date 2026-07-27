@@ -4,7 +4,6 @@ import {
   isGeneratedPublicExecutionEnabled,
 } from "@/lib/config";
 import { getGeneratedPublicUrl } from "@/lib/generated-public-origin";
-import { getStorageProvider } from "@/lib/storage-provider";
 
 export function assertProductionConfigReady() {
   if (process.env.NODE_ENV !== "production") {
@@ -23,7 +22,6 @@ export function assertProductionConfigReady() {
   assertStrongSecret("NEXTAUTH_SECRET");
   assertRequiredSecret("OTP_SPACE_API_KEY");
   assertDatabaseUrl();
-  assertArtifactStoragePath();
 
   if (isGeneratedBuildExecutionEnabled()) {
     throw new Error(
@@ -113,21 +111,6 @@ function assertDatabaseUrl() {
   ) {
     throw new Error(
       "DATABASE_URL uses default or placeholder PostgreSQL credentials.",
-    );
-  }
-}
-
-function assertArtifactStoragePath() {
-  if (getStorageProvider() === "r2") {
-    return;
-  }
-
-  if (
-    getEnv("PROJECT_ARTIFACT_DIR", "/app/.data/project-artifacts") !==
-    "/app/.data/project-artifacts"
-  ) {
-    throw new Error(
-      "PROJECT_ARTIFACT_DIR must match the persistent production volume at /app/.data/project-artifacts.",
     );
   }
 }

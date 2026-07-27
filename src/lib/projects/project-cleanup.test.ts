@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -10,8 +10,42 @@ import {
   writeProjectSourceArtifact,
 } from "@/lib/projects/runtime-artifacts";
 
+const { putMock, getMock, deleteMock, store } = vi.hoisted(() => {
+  const store = new Map<string, string>();
+  return {
+    putMock: vi.fn(
+      async (_b: "public" | "private", key: string, body: Buffer) => {
+        store.set(key, body.toString("utf8"));
+      },
+    ),
+    getMock: vi.fn(async (_b: "public" | "private", key: string) => {
+      const v = store.get(key);
+      if (v === undefined) {
+        throw new Error("NoSuchKey");
+      }
+      return Buffer.from(v);
+    }),
+    deleteMock: vi.fn(async (_b: "public" | "private", key: string) => {
+      store.delete(key);
+    }),
+    store,
+  };
+});
+
+vi.mock("@/lib/s3-client", () => ({
+  getS3Config: () => ({ client: {}, bucket: "pub" }),
+  putS3Object: putMock,
+  getS3Object: getMock,
+  deleteS3Object: deleteMock,
+  S3_PREFIXES: {
+    artifact: "project-artifacts",
+    asset: "project-assets",
+    object: "objects",
+    thumbnail: "project-thumbnails",
+  },
+}));
+
 let tempDir = "";
-const originalEnv = { ...process.env };
 
 async function dirExists(dir: string) {
   try {
@@ -28,22 +62,21 @@ describe("cleanupProjectResources", () => {
       await rm(tempDir, { force: true, recursive: true });
       tempDir = "";
     }
+    store.clear();
+    putMock.mockClear();
+    getMock.mockClear();
+    deleteMock.mockClear();
     vi.restoreAllMocks();
-    process.env = { ...originalEnv };
   });
 
-  it("stops deployments, deletes artifacts, runtime dirs, workspace dir, and thumbnail", async () => {
+  it("stops deployments, deletes S3 artifacts, runtime dirs, workspace dir, and thumbnail", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-cleanup-"));
-    const artifactRoot = path.join(tempDir, "artifacts");
     const runtimeRoot = path.join(tempDir, "runtimes");
     const workspaceRoot = path.join(tempDir, "workspaces");
-    const thumbnailRoot = path.join(tempDir, "thumbnails");
-    process.env.PROJECT_THUMBNAIL_DIR = thumbnailRoot;
 
     const sourceRef = await writeProjectSourceArtifact({
       artifactId: "snap_1",
       files: [{ content: "x", path: "src/a.ts" }],
-      rootDir: artifactRoot,
     });
     const distRef = await writeProjectDistArtifact({
       artifactId: "build_1",
@@ -54,7 +87,6 @@ describe("cleanupProjectResources", () => {
           path: "index.html",
         },
       ],
-      rootDir: artifactRoot,
     });
 
     const deploymentId = "dep_1";
@@ -65,14 +97,9 @@ describe("cleanupProjectResources", () => {
       path.join(workspaceRoot, "project_1", "vite-react-tanstack-v1"),
       { recursive: true },
     );
-    await mkdir(thumbnailRoot, { recursive: true });
-    await writeFile(
-      path.join(thumbnailRoot, "project_1.jpg"),
-      Buffer.from([0xff, 0xd8, 0xff, 0x00, 0xff, 0xd9]),
-    );
 
     const stopDeployment = vi.fn().mockResolvedValue("stopped");
-    const thumbnailRef = "project-thumbnail:local:project_1";
+    const thumbnailRef = "project-thumbnail:s3-private:project_1";
 
     const outcome = await cleanupProjectResources({
       projectId: "project_1",
@@ -80,24 +107,36 @@ describe("cleanupProjectResources", () => {
       deploymentIds: [deploymentId],
       thumbnailRef,
       supervisor: { stopDeployment },
-      artifactRootDir: artifactRoot,
       runtimeRootDir: runtimeRoot,
       buildWorkspaceRootDir: workspaceRoot,
     });
 
     expect(outcome.errors).toEqual([]);
     expect(stopDeployment).toHaveBeenCalledWith(deploymentId);
-    expect(await dirExists(path.join(artifactRoot, "source", "snap_1"))).toBe(
-      false,
+    // S3 artifact manifests + enumerated files deleted.
+    expect(deleteMock).toHaveBeenCalledWith(
+      "public",
+      "project-artifacts/source/snap_1/manifest.json",
     );
-    expect(await dirExists(path.join(artifactRoot, "dist", "build_1"))).toBe(
-      false,
+    expect(deleteMock).toHaveBeenCalledWith(
+      "public",
+      "project-artifacts/source/snap_1/files/src/a.ts",
     );
+    expect(deleteMock).toHaveBeenCalledWith(
+      "public",
+      "project-artifacts/dist/build_1/manifest.json",
+    );
+    expect(deleteMock).toHaveBeenCalledWith(
+      "public",
+      "project-artifacts/dist/build_1/files/index.html",
+    );
+    expect(deleteMock).toHaveBeenCalledWith(
+      "private",
+      "project-thumbnails/project_1.jpg",
+    );
+    // Local runtime + workspace dirs removed.
     expect(await dirExists(path.join(runtimeRoot, deploymentId))).toBe(false);
     expect(await dirExists(path.join(workspaceRoot, "project_1"))).toBe(false);
-    expect(await dirExists(path.join(thumbnailRoot, "project_1.jpg"))).toBe(
-      false,
-    );
   });
 
   it("records errors but keeps going when a step fails", async () => {

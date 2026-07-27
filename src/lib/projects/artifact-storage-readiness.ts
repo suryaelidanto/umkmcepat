@@ -1,63 +1,18 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { GetBucketLocationCommand } from "@aws-sdk/client-s3";
 
-import { getEnv } from "@/lib/config";
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getS3Config } from "@/lib/s3-client";
 
 export async function assertProjectArtifactStorageReady() {
-  if (getStorageProvider() === "r2") {
-    assertRequiredR2Config();
-    return;
-  }
-
-  const configuredRoot = getEnv("PROJECT_ARTIFACT_DIR").trim();
-
-  if (
-    process.env.NODE_ENV === "production" &&
-    (!configuredRoot || !path.isAbsolute(configuredRoot))
-  ) {
-    throw new Error(
-      "PROJECT_ARTIFACT_DIR must be an explicit absolute path in production.",
-    );
-  }
-
-  const root = path.resolve(configuredRoot || ".data/project-artifacts");
-  const probePath = path.join(root, `.readiness-${randomUUID()}`);
-  const probeContent = randomUUID();
-
+  const config = getS3Config("public");
   try {
-    await mkdir(root, { recursive: true });
-    await writeFile(probePath, probeContent, {
-      encoding: "utf8",
-      flag: "wx",
-    });
-    const readBack = await readFile(probePath, "utf8");
-
-    if (readBack !== probeContent) {
-      throw new Error("Artifact readiness probe content did not match.");
-    }
+    await config.client.send(
+      new GetBucketLocationCommand({ Bucket: config.bucket }),
+    );
   } catch (error) {
     throw new Error(
-      `Project artifact storage is not writable at '${root}': ${
-        error instanceof Error ? error.message : "readiness probe failed"
+      `S3 storage is not reachable: ${
+        error instanceof Error ? error.message : "probe failed"
       }`,
     );
-  } finally {
-    await rm(probePath, { force: true }).catch(() => undefined);
-  }
-}
-
-function assertRequiredR2Config() {
-  for (const name of [
-    "R2_ACCOUNT_ID",
-    "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY",
-    "R2_PUBLIC_BUCKET",
-    "R2_PRIVATE_BUCKET",
-  ]) {
-    if (!getEnv(name)) {
-      throw new Error(`${name} is required for R2 project artifact storage.`);
-    }
   }
 }
