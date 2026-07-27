@@ -1,14 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
 
-import { getR2Config, publicUrlFor, signedR2Fetch } from "@/lib/r2-client";
+import {
+  deleteS3Object,
+  getS3Object,
+  publicUrlFor,
+  putS3Object,
+  S3_PREFIXES,
+} from "@/lib/s3-client";
 import { getStorageProvider } from "@/lib/storage-provider";
 
-const REF_PREFIX = "project-asset:local:";
-const LOCAL_REF_PREFIX = "project-asset:local:";
-const R2_REF_PREFIX = "project-asset:r2:";
-const R2_PRIVATE_REF_PREFIX = "project-asset:r2-private:";
+const S3_REF_PREFIX = "project-asset:s3:";
+const S3_PRIVATE_REF_PREFIX = "project-asset:s3-private:";
 
 export type ProjectAssetKind = "business-image" | "reference" | "logo";
 
@@ -18,7 +20,7 @@ const KINDS: readonly ProjectAssetKind[] = [
   "logo",
 ];
 
-// Display kinds go to the public R2 bucket; references go to the private
+// Display kinds go to the public S3 bucket; references go to the private
 // bucket (AI-input-only, never displayed, never public).
 export const DISPLAY_KINDS: readonly ProjectAssetKind[] = [
   "business-image",
@@ -29,13 +31,10 @@ function isDisplayKind(kind: ProjectAssetKind): boolean {
   return (DISPLAY_KINDS as readonly string[]).includes(kind);
 }
 
-function assetR2Config(bucket: "public" | "private") {
-  return getR2Config({ bucket, prefix: "project-assets" });
-}
-
-// R2 object key for a parsed asset ref — `<projectId>/<userId>/<kind>/<ulid>[.<ext>]`.
-function assetR2Key(parsed: ParsedProjectAssetRef): string {
-  return `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`;
+// S3 object key for a parsed asset ref —
+// `<S3_PREFIXES.asset>/<projectId>/<userId>/<kind>/<ulid>[.<ext>]`.
+function assetS3Key(parsed: ParsedProjectAssetRef): string {
+  return `${S3_PREFIXES.asset}/${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`;
 }
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -47,8 +46,6 @@ const FORMAT_CONTENT_TYPES: Record<ImageFormat, string> = {
   png: "image/png",
   webp: "image/webp",
 };
-
-export type ProjectAssetOptions = { rootDir?: string };
 
 export type ParsedProjectAssetRef = {
   ext: string | null;
@@ -68,23 +65,19 @@ export function createProjectAssetRef(
   assertKind(kind);
   assertSafeUserId(userId);
   assertUlid(ulid);
-  return `${REF_PREFIX}${projectId}/${userId}/${kind}/${ulid}`;
+  return `${S3_REF_PREFIX}${projectId}/${userId}/${kind}/${ulid}`;
 }
 
 export function parseProjectAssetRef(
   ref: string,
 ): ParsedProjectAssetRef | null {
-  const isLocal = ref.startsWith(LOCAL_REF_PREFIX);
-  const isR2Private = !isLocal && ref.startsWith(R2_PRIVATE_REF_PREFIX);
-  const isR2 = !isLocal && !isR2Private && ref.startsWith(R2_REF_PREFIX);
-  if (!isLocal && !isR2 && !isR2Private) {
+  // s3-private: starts with s3: — check the longer prefix first.
+  const isS3Private = ref.startsWith(S3_PRIVATE_REF_PREFIX);
+  const isS3 = !isS3Private && ref.startsWith(S3_REF_PREFIX);
+  if (!isS3 && !isS3Private) {
     return null;
   }
-  const prefix = isLocal
-    ? LOCAL_REF_PREFIX
-    : isR2Private
-      ? R2_PRIVATE_REF_PREFIX
-      : R2_REF_PREFIX;
+  const prefix = isS3Private ? S3_PRIVATE_REF_PREFIX : S3_REF_PREFIX;
   const rest = ref.slice(prefix.length);
   const parts = rest.split("/");
   if (parts.length !== 4) {
@@ -106,7 +99,7 @@ export function parseProjectAssetRef(
   // The file segment is <ulid>.<ext> written by writeProjectAsset, or a bare
   // ulid from other ref producers. When an extension is present it must be a
   // known image ext; we carry it forward so read/delete resolve the exact
-  // on-disk file instead of guessing by extension order.
+  // S3 key instead of guessing by extension order.
   const parsed = parseFileSegment(fileSegment);
   if (!parsed || !isValidUlid(parsed.ulid)) {
     return null;
@@ -142,27 +135,15 @@ function isKnownImageExt(ext: string): boolean {
   return ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "webp";
 }
 
-function extToFormat(ext: string): ImageFormat {
-  if (ext === "png") {
-    return "png";
-  }
-  if (ext === "webp") {
-    return "webp";
-  }
-  return "jpeg";
-}
-
 export async function writeProjectAsset({
   bytes,
   kind,
   projectId,
-  rootDir,
   userId,
 }: {
   bytes: Buffer;
   kind: ProjectAssetKind;
   projectId: string;
-  rootDir?: string;
   userId: string;
 }): Promise<{ publicUrl: string | null; ref: string }> {
   assertSafeProjectId(projectId);
@@ -181,123 +162,68 @@ export async function writeProjectAsset({
   }
 
   const ulid = randomUUID().replace(/-/g, "");
-  const relativeKey = `${projectId}/${userId}/${kind}/${ulid}.${format}`;
+  const relativeKey = `${S3_PREFIXES.asset}/${projectId}/${userId}/${kind}/${ulid}.${format}`;
 
   const provider = getStorageProvider();
-  // Display media (business-image/logo) go to the public R2 bucket and get a
+  void provider; // single path now; kept for future local/cloud gating if needed
+
+  // Display media (business-image/logo) go to the public S3 bucket and get a
   // publicUrl; references go to the private bucket with no publicUrl.
-  if (provider === "r2" && isDisplayKind(kind)) {
-    const config = assetR2Config("public");
-    const response = await signedR2Fetch(config, relativeKey, {
-      body: bytes,
-      contentType: FORMAT_CONTENT_TYPES[format],
-      method: "PUT",
-    });
-    if (!response.ok) {
-      throw new Error(`R2 asset write failed: ${response.status}`);
-    }
+  if (isDisplayKind(kind)) {
+    await putS3Object(
+      "public",
+      relativeKey,
+      bytes,
+      FORMAT_CONTENT_TYPES[format],
+    );
     return {
-      publicUrl: publicUrlFor(config, relativeKey),
-      ref: `${R2_REF_PREFIX}${relativeKey}`,
+      publicUrl: publicUrlFor("public", relativeKey),
+      ref: `${S3_REF_PREFIX}${projectId}/${userId}/${kind}/${ulid}.${format}`,
     };
   }
-  if (provider === "r2") {
-    const config = assetR2Config("private");
-    const response = await signedR2Fetch(config, relativeKey, {
-      body: bytes,
-      contentType: FORMAT_CONTENT_TYPES[format],
-      method: "PUT",
-    });
-    if (!response.ok) {
-      throw new Error(`R2 asset write failed: ${response.status}`);
-    }
-    return { publicUrl: null, ref: `${R2_PRIVATE_REF_PREFIX}${relativeKey}` };
-  }
-
-  const root = resolveRoot(rootDir);
-  const target = path.join(root, projectId, userId, kind, `${ulid}.${format}`);
-
-  await mkdir(path.dirname(target), { recursive: true });
-  await writeFile(target, bytes, { flag: "wx" });
-
-  return { publicUrl: null, ref: `${LOCAL_REF_PREFIX}${relativeKey}` };
+  await putS3Object(
+    "private",
+    relativeKey,
+    bytes,
+    FORMAT_CONTENT_TYPES[format],
+  );
+  return {
+    publicUrl: null,
+    ref: `${S3_PRIVATE_REF_PREFIX}${projectId}/${userId}/${kind}/${ulid}.${format}`,
+  };
 }
 
 export async function readProjectAsset(
   ref: string,
-  { rootDir }: ProjectAssetOptions = {},
 ): Promise<{ body: Buffer; contentType: string }> {
   const parsed = parseProjectAssetRefOrThrow(ref);
-  if (ref.startsWith(R2_PRIVATE_REF_PREFIX)) {
-    const config = assetR2Config("private");
-    const response = await signedR2Fetch(config, assetR2Key(parsed), {
-      method: "GET",
-    });
-    if (!response.ok) {
-      throw new Error(`R2 asset read failed: ${response.status}`);
-    }
+  const key = assetS3Key(parsed);
+  if (ref.startsWith(S3_PRIVATE_REF_PREFIX)) {
+    const body = await getS3Object("private", key);
     return {
-      body: Buffer.from(await response.arrayBuffer()),
+      body,
       contentType: parsed.ext
         ? contentTypeForExt(parsed.ext)
         : "application/octet-stream",
     };
   }
-  if (ref.startsWith(R2_REF_PREFIX)) {
-    const config = assetR2Config("public");
-    const response = await signedR2Fetch(config, assetR2Key(parsed), {
-      method: "GET",
-    });
-    if (!response.ok) {
-      throw new Error(`R2 asset read failed: ${response.status}`);
-    }
-    return {
-      body: Buffer.from(await response.arrayBuffer()),
-      contentType: parsed.ext
-        ? contentTypeForExt(parsed.ext)
-        : "application/octet-stream",
-    };
-  }
-  const filePath = await resolveExistingAssetPath(parsed, rootDir);
-  if (!filePath) {
-    throw new Error("Project asset not found.");
-  }
-  const body = await readFile(filePath);
-  return { body, contentType: contentTypeForPath(filePath) };
+  const body = await getS3Object("public", key);
+  return {
+    body,
+    contentType: parsed.ext
+      ? contentTypeForExt(parsed.ext)
+      : "application/octet-stream",
+  };
 }
 
-export async function deleteProjectAsset(
-  ref: string,
-  { rootDir }: ProjectAssetOptions = {},
-): Promise<void> {
+export async function deleteProjectAsset(ref: string): Promise<void> {
   const parsed = parseProjectAssetRefOrThrow(ref);
-  if (ref.startsWith(R2_PRIVATE_REF_PREFIX)) {
-    const config = assetR2Config("private");
-    const response = await signedR2Fetch(config, assetR2Key(parsed), {
-      method: "DELETE",
-    });
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`R2 asset delete failed: ${response.status}`);
-    }
+  const key = assetS3Key(parsed);
+  if (ref.startsWith(S3_PRIVATE_REF_PREFIX)) {
+    await deleteS3Object("private", key);
     return;
   }
-  if (ref.startsWith(R2_REF_PREFIX)) {
-    const config = assetR2Config("public");
-    const response = await signedR2Fetch(config, assetR2Key(parsed), {
-      method: "DELETE",
-    });
-    // 204 success; 404 means already gone — treat as success.
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`R2 asset delete failed: ${response.status}`);
-    }
-    return;
-  }
-  // If the ref carries the format (the normal writeProjectAsset case), delete
-  // the exact file. Otherwise probe each format so legacy/bare refs still clean.
-  const candidates = resolveCandidatePaths(parsed, rootDir);
-  await Promise.all(
-    candidates.map((candidate) => rm(candidate, { force: true })),
-  );
+  await deleteS3Object("public", key);
 }
 
 function parseProjectAssetRefOrThrow(ref: string): ParsedProjectAssetRef {
@@ -306,56 +232,6 @@ function parseProjectAssetRefOrThrow(ref: string): ParsedProjectAssetRef {
     throw new Error("Invalid project asset ref.");
   }
   return parsed;
-}
-
-function resolveCandidatePaths(
-  parsed: ParsedProjectAssetRef,
-  rootDir?: string,
-): string[] {
-  const root = resolveRoot(rootDir);
-  const formats = parsed.ext
-    ? [extToFormat(parsed.ext)]
-    : (Object.keys(FORMAT_CONTENT_TYPES) as ImageFormat[]);
-  const candidates: string[] = [];
-  for (const format of formats) {
-    const candidate = path.join(
-      root,
-      parsed.projectId,
-      parsed.userId,
-      parsed.kind,
-      `${parsed.ulid}.${format}`,
-    );
-    if (isWithinRoot(candidate, root)) {
-      candidates.push(candidate);
-    }
-  }
-  return candidates;
-}
-
-async function resolveExistingAssetPath(
-  parsed: ParsedProjectAssetRef,
-  rootDir?: string,
-): Promise<string | null> {
-  const { existsSync } = await import("node:fs");
-  for (const candidate of resolveCandidatePaths(parsed, rootDir)) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-}
-
-function contentTypeForPath(filePath: string): string {
-  if (filePath.endsWith(".png")) {
-    return FORMAT_CONTENT_TYPES.png;
-  }
-  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
-    return FORMAT_CONTENT_TYPES.jpeg;
-  }
-  if (filePath.endsWith(".webp")) {
-    return FORMAT_CONTENT_TYPES.webp;
-  }
-  return "application/octet-stream";
 }
 
 function contentTypeForExt(ext: string): string {
@@ -369,17 +245,6 @@ function contentTypeForExt(ext: string): string {
     return FORMAT_CONTENT_TYPES.webp;
   }
   return "application/octet-stream";
-}
-
-function isWithinRoot(filePath: string, root: string): boolean {
-  const resolved = path.resolve(filePath);
-  return resolved === root || resolved.startsWith(`${root}${path.sep}`);
-}
-
-function resolveRoot(rootDir?: string): string {
-  return path.resolve(
-    rootDir || process.env.PROJECT_ASSET_DIR || ".data/project-assets",
-  );
 }
 
 function detectImageFormat(bytes: Buffer): ImageFormat | null {
