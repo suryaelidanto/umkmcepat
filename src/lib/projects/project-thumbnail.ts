@@ -7,8 +7,11 @@ import path from "node:path";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
+import { getR2Config, signedR2Fetch } from "@/lib/r2-client";
+import { getStorageProvider } from "@/lib/storage-provider";
 
 const REF_PREFIX = "project-thumbnail:local:";
+const R2_REF_PREFIX = "project-thumbnail:r2-private:";
 const MAX_BYTES = 1024 * 1024;
 const latestRequestedBuild = new Map<string, string>();
 let activeCaptures = 0;
@@ -21,14 +24,20 @@ export function createProjectThumbnailRef(projectId: string) {
 }
 
 export function parseProjectThumbnailRef(ref: string): string | null {
-  if (!ref.startsWith(REF_PREFIX)) {
+  const isR2 = ref.startsWith(R2_REF_PREFIX);
+  const isLocal = !isR2 && ref.startsWith(REF_PREFIX);
+  if (!isR2 && !isLocal) {
     return null;
   }
-  const id = ref.slice(REF_PREFIX.length);
+  const id = ref.slice((isR2 ? R2_REF_PREFIX : REF_PREFIX).length);
   if (!/^[A-Za-z0-9_-]{1,160}$/.test(id)) {
     return null;
   }
   return id;
+}
+
+function thumbnailR2Config() {
+  return getR2Config({ bucket: "private", prefix: "project-thumbnails" });
 }
 
 export async function writeProjectThumbnail({
@@ -38,6 +47,21 @@ export async function writeProjectThumbnail({
 }: ProjectThumbnailOptions & { bytes: Buffer; projectId: string }) {
   assertSafeId(projectId);
   assertJpeg(bytes);
+
+  if (getStorageProvider() === "r2") {
+    const config = thumbnailR2Config();
+    const key = `${projectId}.jpg`;
+    const response = await signedR2Fetch(config, key, {
+      body: bytes,
+      contentType: "image/jpeg",
+      method: "PUT",
+    });
+    if (!response.ok) {
+      throw new Error(`R2 thumbnail write failed: ${response.status}`);
+    }
+    return `${R2_REF_PREFIX}${projectId}`;
+  }
+
   const root = resolveRoot(rootDir);
   const target = path.join(root, `${projectId}.jpg`);
   const temporary = path.join(root, `.${projectId}.${crypto.randomUUID()}.tmp`);
@@ -58,6 +82,16 @@ export async function readProjectThumbnail(
   { rootDir }: ProjectThumbnailOptions = {},
 ) {
   const projectId = parseRef(ref);
+  if (ref.startsWith(R2_REF_PREFIX)) {
+    const config = thumbnailR2Config();
+    const response = await signedR2Fetch(config, `${projectId}.jpg`, {
+      method: "GET",
+    });
+    if (!response.ok) {
+      throw new Error(`R2 thumbnail read failed: ${response.status}`);
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
   return readFile(path.join(resolveRoot(rootDir), `${projectId}.jpg`));
 }
 
@@ -66,6 +100,17 @@ export async function deleteProjectThumbnail(
   { rootDir }: ProjectThumbnailOptions = {},
 ) {
   const projectId = parseRef(ref);
+  if (ref.startsWith(R2_REF_PREFIX)) {
+    const config = thumbnailR2Config();
+    const response = await signedR2Fetch(config, `${projectId}.jpg`, {
+      method: "DELETE",
+    });
+    // 204 success; 404 means already gone — treat as success.
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`R2 thumbnail delete failed: ${response.status}`);
+    }
+    return;
+  }
   await rm(path.join(resolveRoot(rootDir), `${projectId}.jpg`), {
     force: true,
   });
@@ -318,11 +363,10 @@ function resolveRoot(rootDir?: string) {
 }
 
 function parseRef(ref: string) {
-  if (!ref.startsWith(REF_PREFIX)) {
+  const id = parseProjectThumbnailRef(ref);
+  if (id === null) {
     throw new Error("Invalid project thumbnail ref.");
   }
-  const id = ref.slice(REF_PREFIX.length);
-  assertSafeId(id);
   return id;
 }
 

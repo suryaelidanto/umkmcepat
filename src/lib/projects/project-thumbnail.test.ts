@@ -2,7 +2,7 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   captureProjectThumbnail,
@@ -14,12 +14,40 @@ import {
 } from "./project-thumbnail";
 import { writeProjectDistArtifact } from "./runtime-artifacts";
 
+const { r2FetchMock } = vi.hoisted(() => ({
+  r2FetchMock: vi.fn(async (_c: unknown, _k: string, i: { method: string }) =>
+    i.method === "GET"
+      ? new Response(
+          Buffer.concat([
+            Buffer.from([0xff, 0xd8, 0xff]),
+            Buffer.from("jpeg-bytes"),
+            Buffer.from([0xff, 0xd9]),
+          ]),
+          { status: 200 },
+        )
+      : new Response(null, { status: 200 }),
+  ),
+}));
+
+vi.mock("@/lib/r2-client", () => ({
+  getR2Config: vi.fn(({ bucket }: { bucket: string }) => ({
+    accessKeyId: "a",
+    accountId: "b",
+    bucket: bucket === "public" ? "pub" : "priv",
+    prefix: "project-thumbnails",
+    secretAccessKey: "s",
+  })),
+  signedR2Fetch: r2FetchMock,
+  R2Config: {} as never,
+}));
+
 let tempDir = "";
 const originalEnv = { ...process.env };
 
 describe("project thumbnails", () => {
   afterEach(async () => {
     process.env = { ...originalEnv };
+    r2FetchMock.mockClear();
     if (tempDir) {
       await rm(tempDir, { force: true, recursive: true });
       tempDir = "";
@@ -120,6 +148,51 @@ describe("project thumbnails", () => {
       parseProjectThumbnailRef("project-thumbnail:local:bad id"),
     ).toBeNull();
     expect(parseProjectThumbnailRef("project-thumbnail:r2:abc")).toBeNull();
+  });
+
+  describe("provider switch + R2 private bucket", () => {
+    afterEach(() => {
+      delete process.env.STORAGE_PROVIDER;
+    });
+
+    it("writes a thumbnail to the private bucket when r2", async () => {
+      process.env.STORAGE_PROVIDER = "r2";
+      const ref = await writeProjectThumbnail({
+        bytes: jpegBytes("r2"),
+        projectId: "proj-r2",
+      });
+      expect(ref).toBe("project-thumbnail:r2-private:proj-r2");
+      const calledConfig = r2FetchMock.mock.calls[0][0] as {
+        bucket: string;
+      };
+      expect(calledConfig.bucket).toBe("priv");
+      const calledKey = r2FetchMock.mock.calls[0][1] as string;
+      expect(calledKey).toBe("proj-r2.jpg");
+    });
+
+    it("reads a thumbnail from the private bucket by r2-private ref", async () => {
+      const bytes = await readProjectThumbnail(
+        "project-thumbnail:r2-private:proj-r2",
+      );
+      expect(bytes.length).toBeGreaterThan(0);
+      expect(bytes.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+      const calledConfig = r2FetchMock.mock.calls[0][0] as {
+        bucket: string;
+      };
+      expect(calledConfig.bucket).toBe("priv");
+    });
+
+    it("deletes a thumbnail from the private bucket by r2-private ref", async () => {
+      await deleteProjectThumbnail("project-thumbnail:r2-private:proj-r2");
+      const lastCall = r2FetchMock.mock.calls.at(-1);
+      expect(lastCall?.[2]).toMatchObject({ method: "DELETE" });
+    });
+
+    it("parseProjectThumbnailRef accepts r2-private", () => {
+      expect(
+        parseProjectThumbnailRef("project-thumbnail:r2-private:proj-1"),
+      ).toBe("proj-1");
+    });
   });
 });
 
