@@ -117,6 +117,13 @@ function AdminPage() {
               <p className="mt-spacing-2 line-clamp-4 text-sm text-surface-warm-white/80">
                 {entry.story}
               </p>
+              {entry.imageRef ? (
+                <img
+                  alt={entry.businessName}
+                  className="mt-spacing-2 max-h-48 rounded-radius-md border border-surface-warm-white/10"
+                  src={`/api/admin/waitlist/image/${entry.id}`}
+                />
+              ) : null}
               <div className="mt-spacing-3 flex gap-spacing-2">
                 <button
                   className="rounded-radius-md bg-emerald-600 px-spacing-3 py-spacing-2 text-sm text-white"
