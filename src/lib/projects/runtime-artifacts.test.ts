@@ -1,77 +1,52 @@
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  deleteProjectArtifact,
   materializeProjectDistArtifact,
   readProjectDistArtifact,
   readProjectSourceArtifact,
+  resolveArtifactFilesDir,
   writeProjectDistArtifact,
   writeProjectSourceArtifact,
 } from "@/lib/projects/runtime-artifacts";
 
-// Decode a fetch body the way a real R2 store would when read back via
-// response.text(): bytes -> utf8 string. String(Uint8Array) mangles bytes,
-// so Buffer-backed bodies (the shared signedR2Fetch sends Uint8Array) must
-// be decoded here.
-function bodyToString(body: unknown): string {
-  if (body == null) {
-    return "";
-  }
-  if (typeof body === "string") {
-    return body;
-  }
-  if (body instanceof Uint8Array) {
-    return Buffer.from(body).toString("utf8");
-  }
-  if (body instanceof ArrayBuffer) {
-    return Buffer.from(body).toString("utf8");
-  }
-  return String(body);
-}
-
-const { r2Objects, signedR2FetchMock } = vi.hoisted(() => {
-  const r2Objects = new Map<string, string>();
-  const signedR2FetchMock = vi.fn(
-    async (
-      config: { bucket: string; prefix: string },
-      key: string,
-      input: { body?: unknown; method: string },
-    ) => {
-      const fullKey = config.prefix ? `${config.prefix}/${key}` : key;
-      if (input.method === "PUT") {
-        r2Objects.set(fullKey, bodyToString(input.body));
-        return new Response(null, { status: 200 });
+const { putMock, getMock, deleteMock, store } = vi.hoisted(() => {
+  const store = new Map<string, string>();
+  return {
+    putMock: vi.fn(
+      async (_b: "public" | "private", key: string, body: Buffer) => {
+        store.set(key, body.toString("utf8"));
+      },
+    ),
+    getMock: vi.fn(async (_b: "public" | "private", key: string) => {
+      const v = store.get(key);
+      if (v === undefined) {
+        throw new Error("NoSuchKey");
       }
-      if (input.method === "DELETE") {
-        r2Objects.delete(fullKey);
-        return new Response(null, { status: 204 });
-      }
-      return new Response(r2Objects.get(fullKey) ?? "", {
-        status: r2Objects.has(fullKey) ? 200 : 404,
-      });
-    },
-  );
-  return { r2Objects, signedR2FetchMock };
+      return Buffer.from(v);
+    }),
+    deleteMock: vi.fn(async (_b: "public" | "private", key: string) => {
+      store.delete(key);
+    }),
+    store,
+  };
 });
 
-vi.mock("@/lib/r2-client", () => ({
-  getR2Config: () => {
-    if (!process.env.R2_ACCESS_KEY_ID) {
-      throw new Error("R2_ACCESS_KEY_ID is required for R2 object storage.");
-    }
-    return {
-      accessKeyId: "a",
-      accountId: "b",
-      bucket: "pub-artifacts",
-      prefix: "project-artifacts",
-      secretAccessKey: "s",
-    };
+vi.mock("@/lib/s3-client", () => ({
+  getS3Config: () => ({ client: {}, bucket: "pub" }),
+  putS3Object: putMock,
+  getS3Object: getMock,
+  deleteS3Object: deleteMock,
+  S3_PREFIXES: {
+    artifact: "project-artifacts",
+    asset: "project-assets",
+    object: "objects",
+    thumbnail: "project-thumbnails",
   },
-  signedR2Fetch: signedR2FetchMock,
-  R2Config: {} as never,
 }));
 
 let tempDir = "";
@@ -79,8 +54,10 @@ const originalEnv = { ...process.env };
 
 describe("project runtime artifacts", () => {
   beforeEach(() => {
-    r2Objects.clear();
-    signedR2FetchMock.mockClear();
+    store.clear();
+    putMock.mockClear();
+    getMock.mockClear();
+    deleteMock.mockClear();
   });
 
   afterEach(async () => {
@@ -92,23 +69,43 @@ describe("project runtime artifacts", () => {
     process.env = { ...originalEnv };
   });
 
-  it("writes and reads generated source artifacts", async () => {
-    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-artifacts-"));
-
+  it("writes and reads generated source artifacts via s3", async () => {
     const ref = await writeProjectSourceArtifact({
       artifactId: "snapshot_1",
       files: [{ content: "export const ok = true;", path: "src/main.ts" }],
-      rootDir: tempDir,
     });
-    const files = await readProjectSourceArtifact(ref, { rootDir: tempDir });
+    const files = await readProjectSourceArtifact(ref);
 
-    expect(ref).toBe("project-artifact:local:source:snapshot_1");
+    expect(ref).toBe("project-artifact:s3:source:snapshot_1");
     expect(files).toEqual([
       { content: "export const ok = true;", path: "src/main.ts" },
     ]);
+
+    // 1 file PUT + 1 manifest PUT, then 1 manifest GET + 1 file GET.
+    expect(putMock.mock.calls.map((call) => call[1])).toEqual([
+      "project-artifacts/source/snapshot_1/files/src/main.ts",
+      "project-artifacts/source/snapshot_1/manifest.json",
+    ]);
+    expect(getMock.mock.calls.map((call) => call[1])).toEqual([
+      "project-artifacts/source/snapshot_1/manifest.json",
+      "project-artifacts/source/snapshot_1/files/src/main.ts",
+    ]);
   });
 
-  it("writes, reads, and materializes dist artifacts", async () => {
+  it("routes s3 artifact writes to the public bucket", async () => {
+    const ref = await writeProjectSourceArtifact({
+      artifactId: "snapshot_pub",
+      files: [{ content: "export const ok = true;", path: "src/main.ts" }],
+    });
+
+    expect(ref.startsWith("project-artifact:s3:")).toBe(true);
+    expect(putMock).toHaveBeenCalled();
+    for (const call of putMock.mock.calls) {
+      expect(call[0]).toBe("public");
+    }
+  });
+
+  it("writes, reads, and materializes dist artifacts via s3", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-artifacts-"));
 
     const ref = await writeProjectDistArtifact({
@@ -120,15 +117,13 @@ describe("project runtime artifacts", () => {
           path: "index.html",
         },
       ],
-      rootDir: tempDir,
     });
-    const files = await readProjectDistArtifact(ref, { rootDir: tempDir });
+    const files = await readProjectDistArtifact(ref);
     const runtimeRoot = path.join(tempDir, "runtime");
 
-    await materializeProjectDistArtifact(ref, runtimeRoot, {
-      rootDir: tempDir,
-    });
+    await materializeProjectDistArtifact(ref, runtimeRoot);
 
+    expect(ref).toBe("project-artifact:s3:dist:build_1");
     expect(files).toEqual([
       {
         content: "<h1>Preview</h1>",
@@ -141,120 +136,58 @@ describe("project runtime artifacts", () => {
     ).resolves.toBe("<h1>Preview</h1>");
   });
 
-  it("cleans temp artifacts after failed writes", async () => {
-    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-artifacts-"));
-
-    await expect(
-      writeProjectSourceArtifact({
-        artifactId: "snapshot_1",
-        files: [
-          { content: "ok", path: "src/main.ts" },
-          { content: "secret", path: "../.env" },
-        ],
-        rootDir: tempDir,
-      }),
-    ).rejects.toThrow("Unsafe generated file path");
-
-    await expect(readdir(path.join(tempDir, "source"))).rejects.toThrow();
-  });
-
-  it("writes and reads R2 source artifacts", async () => {
-    useR2Env();
-
+  it("deletes s3 project artifacts by manifest enumeration", async () => {
     const ref = await writeProjectSourceArtifact({
-      artifactId: "snapshot_r2",
-      files: [{ content: "export const ok = true;", path: "src/main.ts" }],
+      artifactId: "snapshot_del",
+      files: [
+        { content: "a", path: "src/a.ts" },
+        { content: "b", path: "src/b.ts" },
+      ],
     });
-    const files = await readProjectSourceArtifact(ref);
 
-    expect(ref).toBe("project-artifact:r2:source:snapshot_r2");
-    expect(files).toEqual([
-      { content: "export const ok = true;", path: "src/main.ts" },
-    ]);
-    expect(signedR2FetchMock.mock.calls.map((call) => call[2].method)).toEqual([
-      "PUT",
-      "PUT",
-      "GET",
-      "GET",
-    ]);
-    expect(signedR2FetchMock.mock.calls[1][1]).toBe(
-      "project-artifacts/source/snapshot_r2/manifest.json",
+    await deleteProjectArtifact(ref);
+
+    // Manifest GET (delete enumeration) + 2 file DELETEs + 1 manifest DELETE.
+    expect(getMock).toHaveBeenCalledWith(
+      "public",
+      "project-artifacts/source/snapshot_del/manifest.json",
+    );
+    expect(deleteMock.mock.calls.map((call) => call[1])).toEqual(
+      expect.arrayContaining([
+        "project-artifacts/source/snapshot_del/files/src/a.ts",
+        "project-artifacts/source/snapshot_del/files/src/b.ts",
+        "project-artifacts/source/snapshot_del/manifest.json",
+      ]),
     );
   });
 
-  it("routes R2 project artifacts to the public bucket", async () => {
-    useR2Env();
+  it("deletes artifacts even when the manifest is missing", async () => {
+    const ref = "project-artifact:s3:source:ghost";
 
-    const ref = await writeProjectSourceArtifact({
-      artifactId: "snapshot_pub",
-      files: [{ content: "export const ok = true;", path: "src/main.ts" }],
-    });
-
-    expect(ref.startsWith("project-artifact:r2:")).toBe(true);
-    expect(signedR2FetchMock).toHaveBeenCalled();
-    for (const call of signedR2FetchMock.mock.calls) {
-      expect(call[0].bucket).toBe("pub-artifacts");
-    }
-  });
-
-  it("materializes R2 dist artifacts", async () => {
-    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-artifacts-"));
-    useR2Env();
-
-    const ref = await writeProjectDistArtifact({
-      artifactId: "build_r2",
-      files: [
-        {
-          content: "<h1>R2 Preview</h1>",
-          contentType: "text/html; charset=utf-8",
-          path: "index.html",
-        },
-      ],
-    });
-    const runtimeRoot = path.join(tempDir, "runtime");
-
-    await materializeProjectDistArtifact(ref, runtimeRoot);
-
-    expect(ref).toBe("project-artifact:r2:dist:build_r2");
-    await expect(
-      readFile(path.join(runtimeRoot, "index.html"), "utf8"),
-    ).resolves.toBe("<h1>R2 Preview</h1>");
-  });
-
-  it("requires R2 env before writing project artifacts", async () => {
-    process.env.STORAGE_PROVIDER = "r2";
-    // bun auto-loads .env (which has real R2 creds in dev); delete them so
-    // the missing-cred throw is deterministic, not .env-dependent.
-    delete process.env.R2_ACCESS_KEY_ID;
-    delete process.env.R2_ACCOUNT_ID;
-    delete process.env.R2_PUBLIC_BUCKET;
-    delete process.env.R2_SECRET_ACCESS_KEY;
-
-    await expect(
-      writeProjectSourceArtifact({
-        artifactId: "snapshot_missing_env",
-        files: [{ content: "ok", path: "src/main.ts" }],
-      }),
-    ).rejects.toThrow("R2_ACCESS_KEY_ID is required");
+    await expect(deleteProjectArtifact(ref)).resolves.toBeUndefined();
+    expect(deleteMock).toHaveBeenCalledWith(
+      "public",
+      "project-artifacts/source/ghost/manifest.json",
+    );
   });
 
   it("rejects unsafe generated artifact paths", async () => {
-    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-artifacts-"));
-
     await expect(
       writeProjectSourceArtifact({
         artifactId: "snapshot_1",
         files: [{ content: "secret", path: "../.env" }],
-        rootDir: tempDir,
       }),
     ).rejects.toThrow("Unsafe generated file path");
   });
-});
 
-function useR2Env() {
-  process.env.STORAGE_PROVIDER = "r2";
-  process.env.R2_ACCOUNT_ID = "account";
-  process.env.R2_ACCESS_KEY_ID = "access";
-  process.env.R2_SECRET_ACCESS_KEY = "secret";
-  process.env.R2_PUBLIC_BUCKET = "bucket";
-}
+  it("resolveArtifactFilesDir returns null for s3 refs (no on-disk path)", () => {
+    // ponytail: S3 artifacts have no on-disk files dir; the post-generation
+    // prettier sweep is a no-op for S3-stored source. Upgrade path: make this
+    // fn async + materialize to a temp dir (requires touching edit/generate
+    // route callers). Out of scope for the s3-client rewiring.
+    expect(
+      resolveArtifactFilesDir("project-artifact:s3:source:abc"),
+    ).toBeNull();
+    expect(resolveArtifactFilesDir("not-a-ref")).toBeNull();
+  });
+});
