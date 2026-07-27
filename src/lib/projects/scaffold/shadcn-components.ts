@@ -280,3 +280,12 @@ export function resolveShadcnDeps(
   visit(file);
   return ordered;
 }
+
+export const SHADCN_UTILS_FILE = SHADCN_COMPONENT_FILES.find(
+  (f) => f.path === "src/lib/utils.ts",
+)!;
+export const SHADCN_COMPONENTS_JSON_FILE = SHADCN_COMPONENT_FILES.find(
+  (f) => f.path === "components.json",
+)!;
+export const SHADCN_BUTTON_FILE = SHADCN_COMPONENT_BY_NAME.get("button")!;
+export const SHADCN_CARD_FILE = SHADCN_COMPONENT_BY_NAME.get("card")!;

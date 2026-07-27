@@ -1,4 +1,9 @@
-import { SHADCN_COMPONENT_FILES } from "./shadcn-components";
+import {
+  SHADCN_BUTTON_FILE,
+  SHADCN_CARD_FILE,
+  SHADCN_COMPONENTS_JSON_FILE,
+  SHADCN_UTILS_FILE,
+} from "./shadcn-components";
 import { shadcnThemeCss } from "./shadcn-theme";
 
 import { PLATFORM_VITE_CONFIG } from "@/lib/projects/generated-build-policy";
@@ -194,7 +199,10 @@ export function createViteTanStackShadcnStarterFiles(
       content: `import { RouterProvider } from "@tanstack/react-router";\nimport { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\n\nimport { router } from "./router";\nimport "./index.css";\n\ncreateRoot(document.getElementById("root")!).render(\n  <StrictMode>\n    <RouterProvider router={router} />\n  </StrictMode>,\n);\n`,
     },
     { path: "src/index.css", content: shadcnThemeCss(schema) },
-    ...SHADCN_COMPONENT_FILES,
+    SHADCN_UTILS_FILE,
+    SHADCN_COMPONENTS_JSON_FILE,
+    SHADCN_BUTTON_FILE,
+    SHADCN_CARD_FILE,
     {
       path: "src/router.tsx",
       content: `import { createHashHistory, createRoute, createRouter } from "@tanstack/react-router";\n\nimport { rootRoute } from "./routes/__root";\nimport { HomeRouteComponent } from "./routes/index";\nimport { NotFoundRouteComponent } from "./routes/not-found";\n\nconst indexRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/",\n  component: HomeRouteComponent,\n});\n\nconst notFoundRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "*",\n  component: NotFoundRouteComponent,\n});\n\nconst routeTree = rootRoute.addChildren([indexRoute, notFoundRoute]);\nconst history = createHashHistory();\n\nexport const router = createRouter({ history, routeTree });\n\ndeclare module "@tanstack/react-router" {\n  interface Register {\n    router: typeof router;\n  }\n}\n`,

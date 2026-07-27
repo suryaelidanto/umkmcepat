@@ -46,10 +46,6 @@ describe("createViteTanStackShadcnStarterFiles", () => {
     expect(paths).toContain("src/lib/utils.ts");
     expect(paths).toContain("src/components/ui/button.tsx");
     expect(paths).toContain("src/components/ui/card.tsx");
-    expect(paths).toContain("src/components/ui/badge.tsx");
-    expect(paths).toContain("src/components/ui/input.tsx");
-    expect(paths).toContain("src/components/ui/label.tsx");
-    expect(paths).toContain("src/components/ui/separator.tsx");
   });
 
   it("does not emit the legacy src/styles.css", () => {
@@ -213,5 +209,20 @@ describe("SHADCN_COMPONENT_FILES (full shadcn seed)", () => {
         expect(f.content).toContain('from "@/lib/utils"');
       }
     }
+  });
+});
+
+describe("starter lean seed (JIT)", () => {
+  it("seeds only utils, components.json, button, card from shadcn", () => {
+    const files = createViteTanStackShadcnStarterFiles("proj_jit", schema());
+    const uiFiles = files
+      .filter((f) => f.path.startsWith("src/components/ui/"))
+      .map((f) => f.path)
+      .sort();
+    expect(uiFiles).toEqual(
+      ["src/components/ui/button.tsx", "src/components/ui/card.tsx"].sort(),
+    );
+    expect(files.map((f) => f.path)).toContain("src/lib/utils.ts");
+    expect(files.map((f) => f.path)).toContain("components.json");
   });
 });
