@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import {
   CreateBucketCommand,
   PutBucketPolicyCommand,
@@ -71,7 +72,7 @@ export async function ensureS3Buckets(): Promise<void> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   ensureS3Buckets()
     .then(() => {
-      console.error("s3 buckets ready");
+      console.log("s3 buckets ready");
       process.exit(0);
     })
     .catch((error) => {
