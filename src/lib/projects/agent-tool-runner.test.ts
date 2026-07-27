@@ -639,6 +639,15 @@ describe("copy_component command", () => {
     expect(ok).toBe(false);
     expect(outputs.at(-1)?.error).toContain("Unknown shadcn component");
   });
+
+  it("normalizes uppercase names to lowercase (Dialog → dialog)", () => {
+    const { files, outputs } = runGeneratedAppAgentTools({
+      commands: [{ name: "Dialog", type: "copy_component" }],
+      files: createFixtureFiles(),
+    });
+    expect(outputs.at(-1)?.result).toContain("copied: dialog");
+    expect(files.map((f) => f.path)).toContain("src/components/ui/dialog.tsx");
+  });
 });
 
 describe("check_app auto-resolves missing shadcn imports", () => {

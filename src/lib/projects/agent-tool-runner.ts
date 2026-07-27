@@ -310,7 +310,7 @@ export function runGeneratedAppAgentTools({
     }
 
     if (command.type === "copy_component") {
-      const name = command.name.replace(/[^a-z0-9-]/g, "");
+      const name = command.name.toLowerCase().replace(/[^a-z0-9-]/g, "");
       const file = SHADCN_COMPONENT_BY_NAME.get(name);
 
       if (!file) {
