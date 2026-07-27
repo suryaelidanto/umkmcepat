@@ -4,6 +4,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import type { Session } from "@auth/core/types";
 
 import { authConfig } from "@/lib/auth-config";
+import { prisma } from "@/lib/prisma";
 
 // Handles every /api/auth/* request (sign-in, callback, sign-out, csrf,
 // session, providers) via Auth.js Core. Mounted from the auth catch-all
@@ -88,5 +89,15 @@ export async function auth(): Promise<Session | null> {
     return null;
   }
 
-  return data as Session;
+  const session = data as Session;
+  if (session.user?.id) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { bannedAt: true },
+    });
+    if (user?.bannedAt) {
+      return null;
+    }
+  }
+  return session;
 }

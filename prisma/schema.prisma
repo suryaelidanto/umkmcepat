@@ -79,6 +79,7 @@ model User {
   verifiedAt      DateTime?
   otpAttempts     Int                     @default(0)
   otpLockedUntil  DateTime?
+  bannedAt        DateTime?
   accounts        Account[]
   sessions        Session[]
   refreshTokens   RefreshToken[]
