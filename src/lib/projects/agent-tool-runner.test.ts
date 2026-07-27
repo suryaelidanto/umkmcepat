@@ -639,3 +639,22 @@ describe("copy_component command", () => {
     expect(outputs.at(-1)?.error).toContain("Unknown shadcn component");
   });
 });
+
+describe("copy_component tool wiring", () => {
+  it("is exposed on the writable agent tools", async () => {
+    const { createAgentTools } =
+      await import("@/lib/projects/custom-source-generator");
+    const runCommand = (c: unknown) =>
+      runGeneratedAppAgentTools({
+        commands: [c as never],
+        files: createFixtureFiles(),
+      }).outputs.at(-1)!;
+    const tools = createAgentTools(runCommand as never, "proj_test");
+    expect(tools.copy_component).toBeDefined();
+    const out = await tools.copy_component.execute(
+      { name: "separator" },
+      {} as never,
+    );
+    expect((out as { result?: string }).result).toContain("copied: separator");
+  });
+});

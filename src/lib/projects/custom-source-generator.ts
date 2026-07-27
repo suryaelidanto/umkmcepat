@@ -432,7 +432,7 @@ ${appSpec}`,
   });
 }
 
-function createAgentTools(
+export function createAgentTools(
   runCommand: RunCommand,
   projectId: string,
   subagentCharger?: StepCharger,
@@ -445,6 +445,12 @@ function createAgentTools(
       inputSchema: z.object({ content: z.string(), path: z.string() }),
       execute: ({ content, path }) =>
         runCommand({ content, path, type: "write_file" }),
+    }),
+    copy_component: tool({
+      description:
+        "Add a shadcn/ui component into src/components/ui/ from the platform registry. Use this instead of hand-writing component source. Pulls transitive ui deps automatically. Idempotent. Available names: accordion, alert, alert-dialog, aspect-ratio, avatar, badge, breadcrumb, calendar, carousel, checkbox, collapsible, command, context-menu, dialog, drawer, dropdown-menu, form, hover-card, input, input-otp, label, menubar, navigation-menu, pagination, popover, progress, radio-group, resizable, scroll-area, select, separator, sheet, skeleton, slider, sonner, spinner, switch, table, tabs, textarea, toggle, toggle-group, tooltip.",
+      inputSchema: z.object({ name: z.string() }),
+      execute: ({ name }) => runCommand({ name, type: "copy_component" }),
     }),
     replace_in_file: tool({
       description: "Replace exact text in a generated project file.",
