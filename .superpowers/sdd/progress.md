@@ -1,7 +1,6 @@
-# Progress Ledger - UI Enhancements & Auto-scroll
+# Progress Ledger - CSP Nonce & Sandbox Hardening
 
-- [x] Task 1: Commit Pre-existing Build Policy Fix
-- [x] Task 2: Standardize TabButton and WorkspaceTopBar Toggles
-- [x] Task 3: Standardize Chat Prompt Toggle Tab and Render Attachments
-- [x] Task 4: Simplified Build Loader & Closed Folders Tree Default
-- [x] Task 5: Floating "Lompat ke Bawah" Chat Auto-Scroll Button
+- [x] Task 1: Nonce Store & Middleware (commits 641089b..7853095, review clean)
+- [x] Task 2: Plumbing Nonce to TanStack Router & Hydration (commits 7853095..7e76c58, review clean)
+- [x] Task 3: Secure the Violation Sink (commits 7e76c58..5489454, review clean)
+- [ ] Task 4: E2E Verification
