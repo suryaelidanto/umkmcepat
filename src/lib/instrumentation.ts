@@ -23,6 +23,17 @@ export async function register() {
   await assertProjectArtifactStorageReady();
   assertProvidersForProduction();
 
+  // Fire-and-forget: don't block boot on RustFS being slow to come up — the
+  // first upload surfaces the real error if bucket init failed.
+  void import("@/scripts/init-s3-buckets")
+    .then(({ ensureS3Buckets }) => ensureS3Buckets())
+    .catch((error) => {
+      console.warn(
+        "[storage] S3 bucket init skipped/failed:",
+        error instanceof Error ? error.message : error,
+      );
+    });
+
   // Warm OpenRouter pricing cache + schedule 24h refresh (non-blocking).
   const { startModelPricingRefresh } = await import("@/lib/model-pricing");
   startModelPricingRefresh();
