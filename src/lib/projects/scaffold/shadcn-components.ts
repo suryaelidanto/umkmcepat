@@ -231,3 +231,52 @@ export const SHADCN_COMPONENT_FILES: GeneratedProjectFile[] = [
   { path: "src/components/ui/toggle-group.tsx", content: TOGGLE_GROUP_TSX },
   { path: "src/components/ui/tooltip.tsx", content: TOOLTIP_TSX },
 ];
+
+const UI_PATH_PREFIX = "src/components/ui/";
+const UI_IMPORT_RE = /from\s+["']@\/components\/ui\/([a-z0-9-]+)["']/g;
+
+export const SHADCN_COMPONENT_BY_NAME = new Map<string, GeneratedProjectFile>(
+  SHADCN_COMPONENT_FILES.flatMap((file) => {
+    if (!file.path.startsWith(UI_PATH_PREFIX) || !file.path.endsWith(".tsx")) {
+      return [];
+    }
+    const name = file.path.slice(UI_PATH_PREFIX.length, -".tsx".length);
+    return [[name, file] as const];
+  }),
+);
+
+/**
+ * Transitive closure of `@/components/ui/<name>` imports reachable from `file`.
+ * Excludes files already in `present` (matched by path). Cycle-safe via a
+ * visited set. Returns deps-first order: a dependency appears before the
+ * component that imports it.
+ */
+export function resolveShadcnDeps(
+  file: GeneratedProjectFile,
+  present: GeneratedProjectFile[],
+): GeneratedProjectFile[] {
+  const presentPaths = new Set(present.map((f) => f.path));
+  const ordered: GeneratedProjectFile[] = [];
+  const visited = new Set<string>();
+
+  function visit(current: GeneratedProjectFile) {
+    if (visited.has(current.path)) {
+      return;
+    }
+    visited.add(current.path);
+    for (const match of current.content.matchAll(UI_IMPORT_RE)) {
+      const depName = match[1];
+      const dep = SHADCN_COMPONENT_BY_NAME.get(depName);
+      if (!dep || presentPaths.has(dep.path) || dep.path === current.path) {
+        continue;
+      }
+      visit(dep);
+    }
+    if (!presentPaths.has(current.path) && current.path !== file.path) {
+      ordered.push(current);
+    }
+  }
+
+  visit(file);
+  return ordered;
+}
