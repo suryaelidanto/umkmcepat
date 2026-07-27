@@ -9,25 +9,17 @@ import { readdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { prisma } from "../src/lib/prisma";
-import {
-  deleteProjectThumbnail,
-  getProjectThumbnailDir,
-  parseProjectThumbnailRef,
-} from "../src/lib/projects/project-thumbnail";
-import { parseProjectArtifactRef } from "../src/lib/projects/runtime-artifacts";
 
 const REPO_ROOT = realpathSync(process.cwd());
 
-const ARTIFACT_ROOT = path.resolve(
-  process.env.PROJECT_ARTIFACT_DIR || ".data/project-artifacts",
-);
+// Thumbnails + artifacts live in S3 now; the orphan sweep only touches the
+// local runtime + workspace dirs that still hold on-disk project state.
 const RUNTIME_ROOT = path.resolve(
   process.env.PROJECT_RUNTIME_DIR || ".data/project-runtimes",
 );
 const WORKSPACE_ROOT = path.resolve(
   process.env.PROJECT_BUILD_WORKSPACE_DIR || ".data/project-build-workspaces",
 );
-const THUMBNAIL_ROOT = path.resolve(getProjectThumbnailDir());
 
 type SweepResult = {
   deleted: string[];
@@ -84,77 +76,25 @@ async function sweepRuntimes(deploymentIds: Set<string>) {
   }
 }
 
-async function sweepArtifacts(activeArtifactIds: Set<string>) {
-  for (const kind of ["source", "dist"] as const) {
-    const kindDir = path.join(ARTIFACT_ROOT, kind);
-    const entries = await listDirSafe(kindDir);
-    for (const artifactId of entries) {
-      if (activeArtifactIds.has(artifactId)) {
-        continue;
-      }
-      const target = path.join(kindDir, artifactId);
-      console.log(`artifact ${kind}: ${artifactId} (orphan)`);
-      await safeRm(target);
-    }
-  }
-}
-
-async function sweepThumbnails(activeThumbnailIds: Set<string>) {
-  const entries = await listDirSafe(THUMBNAIL_ROOT);
-  for (const filename of entries) {
-    // Thumbnails are stored as <id>.jpg; treat any unmatched file as orphan.
-    const stem = filename.replace(/\.[^.]+$/, "");
-    if (activeThumbnailIds.has(stem)) {
-      continue;
-    }
-    console.log(`thumbnail: ${filename} (orphan)`);
-    try {
-      await deleteProjectThumbnail(`project-thumbnail:local:${stem}`);
-    } catch (error) {
-      recordError(path.join(THUMBNAIL_ROOT, filename), error);
-    }
-  }
-}
-
 async function main() {
   console.log(
     `Sweeping orphans under ${path.relative(REPO_ROOT, REPO_ROOT)}/.data ...`,
   );
 
-  const [projects, snapshots, builds, deployments] = await Promise.all([
-    prisma.project.findMany({ select: { id: true, thumbnailRef: true } }),
-    prisma.projectSnapshot.findMany({ select: { sourceRef: true } }),
-    prisma.projectBuild.findMany({ select: { artifactRef: true } }),
+  const [projects, deployments] = await Promise.all([
+    prisma.project.findMany({ select: { id: true } }),
     prisma.projectDeployment.findMany({ select: { id: true } }),
   ]);
 
   const projectIds = new Set(projects.map((p) => p.id));
   const deploymentIds = new Set(deployments.map((d) => d.id));
-  const activeArtifactIds = new Set<string>();
-  for (const ref of [
-    ...snapshots.map((s) => s.sourceRef),
-    ...builds.map((b) => b.artifactRef),
-  ]) {
-    const parsed = parseProjectArtifactRef(ref);
-    if (parsed) {
-      activeArtifactIds.add(parsed.artifactId);
-    }
-  }
-  const activeThumbnailIds = new Set(
-    projects
-      .map((p) => parseProjectThumbnailRef(p.thumbnailRef ?? ""))
-      .filter((id): id is string => id !== null),
-  );
 
   console.log(
-    `DB has ${projectIds.size} projects, ${deploymentIds.size} deployments, ` +
-      `${activeArtifactIds.size} active artifact ids, ${activeThumbnailIds.size} active thumbnails.`,
+    `DB has ${projectIds.size} projects, ${deploymentIds.size} deployments.`,
   );
 
   await sweepWorkspaces(projectIds);
   await sweepRuntimes(deploymentIds);
-  await sweepArtifacts(activeArtifactIds);
-  await sweepThumbnails(activeThumbnailIds);
 
   console.log("");
   console.log(`Deleted: ${result.deleted.length}`);

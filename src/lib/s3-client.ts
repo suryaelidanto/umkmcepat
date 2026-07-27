@@ -89,11 +89,9 @@ export async function deleteS3Object(
     await client.send(new DeleteObjectCommand({ Bucket: name, Key: key }));
   } catch (error) {
     // NoSuchKey = already gone; treat as success. Anything else rethrows.
-    const errName =
-      error instanceof Error && "name" in error
-        ? String((error as { name: string }).name)
-        : "";
-    if (errName !== "NoSuchKey" && !/NoSuchKey|404/i.test(String(error))) {
+    // AWS SDK v3 sets `.name` on typed errors; a non-Error throw has no name,
+    // so we rethrow rather than swallow an unknown shape.
+    if (!(error instanceof Error) || error.name !== "NoSuchKey") {
       throw error;
     }
   }

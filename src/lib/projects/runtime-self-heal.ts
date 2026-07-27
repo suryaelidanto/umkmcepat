@@ -8,10 +8,7 @@ import { devLog } from "@/lib/dev-log";
 import { captureRuntimeErrors } from "@/lib/projects/capture-runtime-errors";
 import { repairRuntimeErrors } from "@/lib/projects/custom-source-generator";
 import { buildGeneratedProject } from "@/lib/projects/generated-source";
-import {
-  writeProjectDistArtifact,
-  resolveArtifactFilesDir,
-} from "@/lib/projects/runtime-artifacts";
+import { writeProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 
 export type RuntimeSelfHealResult = {
@@ -141,7 +138,3 @@ export async function runRuntimeSelfHeal({
     usage: repairResult.usage,
   };
 }
-
-// Re-export for the generate route to resolve the source dir (already exported
-// from runtime-artifacts, but kept here so the import is local).
-void resolveArtifactFilesDir;
