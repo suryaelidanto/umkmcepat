@@ -30,7 +30,7 @@ export const KNOWN_ARCHETYPE_IDS: string[] = [
  * Backward-compat alias. Prefer `KNOWN_ARCHETYPE_IDS` for the allow-list;
  * this is kept so existing imports (and the loader self-check test) keep working.
  */
-export const ARCHETYPE_IDS: string[] = KNOWN_ARCHETYPE_IDS;
+export { KNOWN_ARCHETYPE_IDS as ARCHETYPE_IDS };
 
 const GUIDE_BY_ID: Record<string, string> = {
   generic: genericFallback,
