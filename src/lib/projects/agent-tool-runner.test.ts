@@ -387,6 +387,7 @@ describe("generated app agent tool runner", () => {
 
     expect(result.ok).toBe(false);
     expect(result.check).toEqual({
+      files: expect.any(Array),
       issues: ["App check must run after source changes."],
       ok: false,
     });
@@ -637,6 +638,73 @@ describe("copy_component command", () => {
     });
     expect(ok).toBe(false);
     expect(outputs.at(-1)?.error).toContain("Unknown shadcn component");
+  });
+});
+
+describe("check_app auto-resolves missing shadcn imports", () => {
+  it("copies a missing component referenced by a src file", () => {
+    const fixture = createFixtureFiles();
+    // Add a src file that imports dialog without calling copy_component
+    const filesWithMissingImport = [
+      ...fixture,
+      {
+        content:
+          'import { Dialog } from "@/components/ui/dialog";\nexport const X = () => null;',
+        path: "src/routes/test.tsx",
+      },
+    ];
+    const { files } = runGeneratedAppAgentTools({
+      commands: [{ type: "check_app" }],
+      files: filesWithMissingImport,
+    });
+    expect(files.map((f) => f.path)).toContain("src/components/ui/dialog.tsx");
+  });
+
+  it("does not touch a src file that imports only already-seeded components", () => {
+    // Pre-seed button so the scenario "imports an already-present component"
+    // holds: the post-Task-2 fixture generator does not itself seed ui files,
+    // so we establish the seeded state via copy_component.
+    const seeded = runGeneratedAppAgentTools({
+      commands: [{ name: "button", type: "copy_component" }],
+      files: createFixtureFiles(),
+    }).files;
+    const before = seeded;
+    const { files } = runGeneratedAppAgentTools({
+      commands: [{ type: "check_app" }],
+      files: [
+        ...before,
+        {
+          content:
+            'import { Button } from "@/components/ui/button";\nexport const X = () => null;',
+          path: "src/routes/test.tsx",
+        },
+      ],
+    });
+    // No new ui file added (button already present)
+    const uiCount = files.filter((f) =>
+      f.path.startsWith("src/components/ui/"),
+    ).length;
+    expect(uiCount).toBe(
+      before.filter((f) => f.path.startsWith("src/components/ui/")).length,
+    );
+  });
+
+  it("ignores imports of components not in the registry (AI hand-written)", () => {
+    const fixture = createFixtureFiles();
+    const { files } = runGeneratedAppAgentTools({
+      commands: [{ type: "check_app" }],
+      files: [
+        ...fixture,
+        {
+          content:
+            'import { Thing } from "@/components/ui/custom-thing";\nexport const X = () => null;',
+          path: "src/routes/test.tsx",
+        },
+      ],
+    });
+    expect(files.map((f) => f.path)).not.toContain(
+      "src/components/ui/custom-thing.tsx",
+    );
   });
 });
 

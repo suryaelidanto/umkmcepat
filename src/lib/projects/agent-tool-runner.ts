@@ -66,6 +66,7 @@ export type GeneratedAppAgentSearchMatch = {
 };
 
 export type GeneratedAppAgentCheckResult = {
+  files: GeneratedProjectFile[];
   issues: string[];
   ok: boolean;
 };
@@ -447,6 +448,7 @@ export function runGeneratedAppAgentTools({
     }
 
     check = checkGeneratedApp(currentFiles);
+    currentFiles = check.files;
     changedSinceLastCheck = false;
     sideEffects.push({ type: command.type });
     emit({
@@ -464,7 +466,11 @@ export function runGeneratedAppAgentTools({
   }
 
   if (changedSinceLastCheck) {
-    check = { issues: ["App check must run after source changes."], ok: false };
+    check = {
+      files: currentFiles,
+      issues: ["App check must run after source changes."],
+      ok: false,
+    };
   }
 
   return {
@@ -486,13 +492,56 @@ export function runGeneratedAppAgentTools({
   }
 }
 
+const UI_IMPORT_RE = /from\s+["']@\/components\/ui\/([a-z0-9-]+)["']/g;
+
+function autoResolveShadcnImports(
+  files: GeneratedProjectFile[],
+): GeneratedProjectFile[] {
+  const presentPaths = new Set(files.map((f) => f.path));
+  let resolved = files;
+  let changed = true;
+  // Iterate until fixpoint: a newly-copied component may itself import another
+  // missing component (transitive), and copy_component's dep resolver already
+  // handles one level — loop to cover the full closure.
+  while (changed) {
+    changed = false;
+    const referenced = new Set<string>();
+    for (const file of resolved) {
+      if (!file.path.startsWith("src/") || !file.path.endsWith(".tsx")) {
+        continue;
+      }
+      for (const match of file.content.matchAll(UI_IMPORT_RE)) {
+        referenced.add(match[1]);
+      }
+    }
+    for (const name of referenced) {
+      const target = SHADCN_COMPONENT_BY_NAME.get(name);
+      if (!target || presentPaths.has(target.path)) {
+        continue;
+      }
+      const toAdd = [target, ...resolveShadcnDeps(target, resolved)];
+      for (const component of toAdd) {
+        if (presentPaths.has(component.path)) {
+          continue;
+        }
+        resolved = upsertFile(resolved, component);
+        presentPaths.add(component.path);
+        changed = true;
+      }
+    }
+  }
+  return resolved;
+}
+
 function checkGeneratedApp(
   files: GeneratedProjectFile[],
 ): GeneratedAppAgentCheckResult {
+  const resolvedFiles = autoResolveShadcnImports(files);
   try {
-    assertGeneratedResourceBudget(files, "source");
+    assertGeneratedResourceBudget(resolvedFiles, "source");
   } catch (error) {
     return {
+      files: resolvedFiles,
       issues: [
         error instanceof Error
           ? error.message
@@ -502,28 +551,32 @@ function checkGeneratedApp(
     };
   }
 
-  const manifestResult = validateGeneratedAppManifest(files);
+  const manifestResult = validateGeneratedAppManifest(resolvedFiles);
 
   if (!manifestResult.ok) {
-    return { issues: manifestResult.issues, ok: false };
+    return { files: resolvedFiles, issues: manifestResult.issues, ok: false };
   }
 
   const buildPolicyResult = validateGeneratedBuildPolicy(
-    files,
+    resolvedFiles,
     manifestResult.manifest.runtimeProfile,
   );
 
   if (!buildPolicyResult.ok) {
-    return { issues: buildPolicyResult.issues, ok: false };
+    return {
+      files: resolvedFiles,
+      issues: buildPolicyResult.issues,
+      ok: false,
+    };
   }
 
-  const designIssues = getGeneratedDesignIssues(files);
+  const designIssues = getGeneratedDesignIssues(resolvedFiles);
 
   if (designIssues.length) {
-    return { issues: designIssues, ok: false };
+    return { files: resolvedFiles, issues: designIssues, ok: false };
   }
 
-  return { issues: [], ok: true };
+  return { files: resolvedFiles, issues: [], ok: true };
 }
 
 function getGeneratedDesignIssues(files: GeneratedProjectFile[]) {
