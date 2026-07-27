@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { getEnv } from "@/lib/config";
 import { getR2Config, signedR2Fetch } from "@/lib/r2-client";
+import { getStorageProvider } from "@/lib/storage-provider";
 
 export type StoredObject = {
   body: Buffer;
@@ -18,19 +19,6 @@ export type UploadObjectInput = {
 const OBJECT_REF_PREFIX = "object:";
 const LOCAL_REF_PREFIX = `${OBJECT_REF_PREFIX}local:`;
 const R2_REF_PREFIX = `${OBJECT_REF_PREFIX}r2:`;
-type ObjectStorageProvider = "local" | "r2";
-
-export function getObjectStorageProvider(): ObjectStorageProvider {
-  const provider = getEnv("OBJECT_STORAGE_PROVIDER", "local").toLowerCase();
-
-  if (provider === "local" || provider === "r2") {
-    return provider;
-  }
-
-  throw new Error(
-    `Invalid OBJECT_STORAGE_PROVIDER '${provider}'. Supported values: local, r2.`,
-  );
-}
 
 export async function getStoredObject(
   ref: string,
@@ -56,7 +44,7 @@ export async function getStoredObject(
 }
 
 export async function putStoredObject(input: UploadObjectInput) {
-  const provider = getObjectStorageProvider();
+  const provider = getStorageProvider();
   const key = normalizeObjectKey(input.key);
 
   if (provider === "r2") {
@@ -151,8 +139,5 @@ async function putR2StoredObject(
 }
 
 function r2Config() {
-  return getR2Config({
-    prefixEnv: "OBJECT_STORAGE_R2_PREFIX",
-    prefixFallback: "objects",
-  });
+  return getR2Config({ bucket: "private", prefix: "objects" });
 }
