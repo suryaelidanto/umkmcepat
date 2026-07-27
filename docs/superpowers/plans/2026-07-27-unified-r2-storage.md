@@ -272,11 +272,11 @@ PROJECT_ARTIFACT_DIR=".data/project-artifacts"
 and
 ```env
 # R2 object storage (used when OBJECT_STORAGE_PROVIDER=r2).
-R2_ACCOUNT_ID="3546f448aff23267c93c95d600891b78"
-R2_ACCESS_KEY_ID="9e8affc7a966c66103ba7ec945e77920"
-R2_SECRET_ACCESS_KEY="1d1c3f38a2c7b08d6abb28d67a1d8438de1f55844ed457446976222335fe1643"
+R2_ACCOUNT_ID=""
+R2_ACCESS_KEY_ID=""
+R2_SECRET_ACCESS_KEY=""
 R2_BUCKET="umkmcepat-dev"
-R2_PUBLIC_BASE_URL="https://pub-1d338919f02e436088a16e53789fadf8.r2.dev"
+R2_PUBLIC_BASE_URL=""
 ```
 and
 ```env
@@ -298,12 +298,12 @@ PROJECT_ASSET_DIR=".data/project-assets"
 PROJECT_THUMBNAIL_DIR=".data/project-thumbnails"
 
 # R2 (used when STORAGE_PROVIDER=r2). Same account/credentials, two buckets.
-R2_ACCOUNT_ID="3546f448aff23267c93c95d600891b78"
-R2_ACCESS_KEY_ID="9e8affc7a966c66103ba7ec945e77920"
-R2_SECRET_ACCESS_KEY="1d1c3f38a2c7b08d6abb28d67a1d8438de1f55844ed457446976222335fe1643"
+R2_ACCOUNT_ID=""
+R2_ACCESS_KEY_ID=""
+R2_SECRET_ACCESS_KEY=""
 R2_PUBLIC_BUCKET="umkmcepat-public"
 R2_PRIVATE_BUCKET="umkmcepat-private"
-R2_PUBLIC_BASE_URL="https://pub-1d338919f02e436088a16e53789fadf8.r2.dev"
+R2_PUBLIC_BASE_URL=""
 ```
 
 Note: `R2_PUBLIC_BUCKET`/`R2_PRIVATE_BUCKET` values here are placeholders — the user must create both buckets in Cloudflare and set public access ON for the public one. Flag this in the commit body.
@@ -330,7 +330,7 @@ Replace `PROJECT_ASSET_STORAGE_PROVIDER="local"` and adjacent storage lines with
 STORAGE_PROVIDER="r2"
 R2_PUBLIC_BUCKET="umkmcepat-prod-public"
 R2_PRIVATE_BUCKET="umkmcepat-prod-private"
-R2_PUBLIC_BASE_URL="https://pub-<prod>.r2.dev"
+R2_PUBLIC_BASE_URL=""
 ```
 
 - [ ] **Step 5: Verify 1:1 invariant**
