@@ -572,3 +572,70 @@ describe("generated app agent tool runner", () => {
     expect(result.ok).toBe(true);
   });
 });
+
+describe("copy_component command", () => {
+  it("copies a leaf component with no deps (separator)", () => {
+    const { files, outputs } = runGeneratedAppAgentTools({
+      commands: [{ name: "separator", type: "copy_component" }],
+      files: createFixtureFiles(),
+    });
+    expect(files.map((f) => f.path)).toContain(
+      "src/components/ui/separator.tsx",
+    );
+    expect(outputs.at(-1)?.result).toContain("copied: separator");
+  });
+
+  it("copies a component and its transitive dep (alert-dialog → button is already seeded, but dialog → no extra; use form which needs label)", () => {
+    const { files } = runGeneratedAppAgentTools({
+      commands: [{ name: "alert-dialog", type: "copy_component" }],
+      files: createFixtureFiles(),
+    });
+    // alert-dialog imports button (already seeded) — only alert-dialog added
+    const ui = files.filter((f) => f.path.startsWith("src/components/ui/"));
+    expect(ui.map((f) => f.path)).toContain(
+      "src/components/ui/alert-dialog.tsx",
+    );
+  });
+
+  it("pulls a missing transitive dep (toggle-group → toggle)", () => {
+    const { files } = runGeneratedAppAgentTools({
+      commands: [{ name: "toggle-group", type: "copy_component" }],
+      files: createFixtureFiles(),
+    });
+    expect(files.map((f) => f.path)).toContain(
+      "src/components/ui/toggle-group.tsx",
+    );
+    expect(files.map((f) => f.path)).toContain("src/components/ui/toggle.tsx");
+  });
+
+  it("is idempotent — second copy is a no-op", () => {
+    const once = runGeneratedAppAgentTools({
+      commands: [{ name: "separator", type: "copy_component" }],
+      files: createFixtureFiles(),
+    });
+    const twice = runGeneratedAppAgentTools({
+      commands: [{ name: "separator", type: "copy_component" }],
+      files: once.files,
+    });
+    expect(twice.outputs.at(-1)?.result).toBe("already-present");
+    expect(twice.files).toEqual(once.files);
+  });
+
+  it("errors on an unknown component name", () => {
+    const { outputs, ok } = runGeneratedAppAgentTools({
+      commands: [{ name: "nope-not-real", type: "copy_component" }],
+      files: createFixtureFiles(),
+    });
+    expect(ok).toBe(false);
+    expect(outputs.at(-1)?.error).toContain("Unknown shadcn component");
+  });
+
+  it("sanitizes the name (rejects path traversal)", () => {
+    const { outputs, ok } = runGeneratedAppAgentTools({
+      commands: [{ name: "../../etc/passwd", type: "copy_component" }],
+      files: createFixtureFiles(),
+    });
+    expect(ok).toBe(false);
+    expect(outputs.at(-1)?.error).toContain("Unknown shadcn component");
+  });
+});

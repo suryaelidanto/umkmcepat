@@ -11,6 +11,10 @@ import {
 import { assertGeneratedResourceBudget } from "@/lib/projects/generated-resource-budget";
 import { assertSafeProjectFilePath } from "@/lib/projects/generated-source";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
+import {
+  resolveShadcnDeps,
+  SHADCN_COMPONENT_BY_NAME,
+} from "@/lib/projects/scaffold/shadcn-components";
 
 const MAX_DIFF_LINES = 400;
 
@@ -31,7 +35,8 @@ export type GeneratedAppAgentToolCommand =
     }
   | { content: string; path: string; type: "write_file" }
   | { find: string; path: string; replace: string; type: "replace_in_file" }
-  | { name: string; type: "read_skill" };
+  | { name: string; type: "read_skill" }
+  | { name: string; type: "copy_component" };
 
 export type GeneratedAppAgentToolSideEffect = {
   path?: string;
@@ -300,6 +305,51 @@ export function runGeneratedAppAgentTools({
         type: command.type,
       });
       outputs.push({ result: "written", type: command.type });
+      continue;
+    }
+
+    if (command.type === "copy_component") {
+      const name = command.name.replace(/[^a-z0-9-]/g, "");
+      const file = SHADCN_COMPONENT_BY_NAME.get(name);
+
+      if (!file) {
+        hasToolError = true;
+        const error = `Unknown shadcn component: ${command.name}`;
+        emitFailed("Komponen tidak ditemukan", error, command.type);
+        outputs.push({ error, type: command.type });
+        continue;
+      }
+
+      if (currentFiles.some((f) => f.path === file.path)) {
+        emit({
+          detail: `Komponen "${name}" sudah ada.`,
+          path: file.path,
+          state: "succeeded",
+          title: "Menyalin komponen",
+          type: command.type,
+        });
+        outputs.push({ result: "already-present", type: command.type });
+        continue;
+      }
+
+      const toAdd = [file, ...resolveShadcnDeps(file, currentFiles)];
+      for (const component of toAdd) {
+        currentFiles = upsertFile(currentFiles, component);
+        sideEffects.push({ path: component.path, type: command.type });
+      }
+      changedSinceLastCheck = true;
+      const names = toAdd
+        .map((f) =>
+          f.path.replace("src/components/ui/", "").replace(/\.tsx$/, ""),
+        )
+        .join(", ");
+      emit({
+        detail: `Menyalin komponen: ${names}`,
+        state: "succeeded",
+        title: "Menyalin komponen",
+        type: command.type,
+      });
+      outputs.push({ result: `copied: ${names}`, type: command.type });
       continue;
     }
 
