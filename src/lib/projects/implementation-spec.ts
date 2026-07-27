@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { ARCHETYPE_IDS } from "@/lib/projects/archetypes";
+import { KNOWN_ARCHETYPE_IDS } from "@/lib/projects/archetypes";
 import { type ProjectBrief } from "@/lib/projects/brief";
 import {
   createProjectSiteSchemaFromBrief,
@@ -82,12 +82,12 @@ export function parseImplementationSpec(
   )
     ? (data.appKind as ImplementationSpec["appKind"])
     : null;
-  const archetype = ARCHETYPE_IDS.includes(
+  const archetypeRaw =
     typeof data.archetype === "string"
       ? data.archetype.trim().toLowerCase()
-      : "",
-  )
-    ? (data.archetype as string).trim().toLowerCase()
+      : "";
+  const archetype = KNOWN_ARCHETYPE_IDS.includes(archetypeRaw)
+    ? archetypeRaw
     : "generic";
   const businessName = clean(data.businessName, 80);
   const pages = Array.isArray(data.pages)
