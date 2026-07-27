@@ -43,6 +43,15 @@ describe("mutation origin policy", () => {
         requestOrigin: "https://app.example.com",
       }),
     ).toBe(false);
+    expect(
+      isCrossSiteMutation({
+        fetchSite: "cross-site",
+        method: "POST",
+        origin: "https://some-other-origin.com",
+        pathname: "/api/csp-violation",
+        requestOrigin: "https://app.example.com",
+      }),
+    ).toBe(false);
   });
 });
 

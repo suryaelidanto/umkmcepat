@@ -17,7 +17,8 @@ export function isCrossSiteMutation({
 
   if (
     pathname.startsWith("/api/auth/") ||
-    pathname === "/api/payment/webhook"
+    pathname === "/api/payment/webhook" ||
+    pathname === "/api/csp-violation"
   ) {
     return false;
   }
