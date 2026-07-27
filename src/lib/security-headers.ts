@@ -40,19 +40,29 @@ export function applySecurityHeaders(
   {
     generatedOrigin,
     pathname,
+    nonce,
   }: {
     generatedOrigin: boolean;
     pathname: string;
+    nonce?: string;
   },
 ) {
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
 
+  const nonceStr = nonce || "";
+
   if (generatedOrigin) {
     headers.set(
       "Content-Security-Policy",
-      "object-src 'none'; base-uri 'none'; script-src 'self'",
+      "object-src 'none'; base-uri 'none'",
+    );
+    headers.set(
+      "Content-Security-Policy-Report-Only",
+      "script-src 'nonce-" +
+        nonceStr +
+        "' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
     );
     headers.delete("X-Frame-Options");
     return headers;
@@ -64,15 +74,27 @@ export function applySecurityHeaders(
   if (privatePreview) {
     headers.set(
       "Content-Security-Policy",
-      "sandbox allow-scripts; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; script-src 'self'",
+      "sandbox allow-scripts; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
+    );
+    headers.set(
+      "Content-Security-Policy-Report-Only",
+      "script-src 'nonce-" +
+        nonceStr +
+        "' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
     );
     headers.set("X-Frame-Options", "SAMEORIGIN");
   } else {
     headers.set(
       "Content-Security-Policy",
-      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; script-src 'self'",
+      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; script-src 'nonce-" +
+        nonceStr +
+        "' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
     );
     headers.set("X-Frame-Options", "DENY");
+
+    if (headers.get("Content-Type")?.includes("text/html")) {
+      headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    }
   }
 
   return headers;

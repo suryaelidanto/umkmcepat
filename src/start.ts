@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
+import { generateNonce, getNonceStore } from "@/lib/csp-nonce";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
   applySecurityHeaders,
@@ -30,6 +31,7 @@ function isGeneratedOrigin(requestOrigin: string) {
 // Next.js middleware: cross-site mutation block, then global rate limit, then
 // security headers applied to every response.
 const securityMiddleware = createMiddleware().server(async ({ next }) => {
+  const nonce = generateNonce();
   const request = getRequest();
   const url = new URL(request.url);
   const pathname = url.pathname;
@@ -57,7 +59,7 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
       { code: "cross_site_request_blocked", message: "Permintaan ditolak." },
       { status: 403 },
     );
-    applySecurityHeaders(blocked.headers, { generatedOrigin, pathname });
+    applySecurityHeaders(blocked.headers, { generatedOrigin, pathname, nonce });
     return blocked;
   }
 
@@ -68,13 +70,20 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
       applySecurityHeaders(rateLimitResponse.headers, {
         generatedOrigin,
         pathname,
+        nonce,
       });
       return rateLimitResponse;
     }
   }
 
-  const result = await next();
-  applySecurityHeaders(result.response.headers, { generatedOrigin, pathname });
+  const result = await getNonceStore().run(nonce, async () => {
+    return await next();
+  });
+  applySecurityHeaders(result.response.headers, {
+    generatedOrigin,
+    pathname,
+    nonce,
+  });
 
   return result;
 });

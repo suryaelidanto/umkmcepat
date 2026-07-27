@@ -144,6 +144,7 @@ export async function proxyDeploymentRequest(
   });
 }
 
+// Content-Security-Policy set here is overwritten later by applySecurityHeaders in the global securityMiddleware.
 export function applyPreviewSandboxHeaders(
   headers: Headers,
   { noindex = true }: { noindex?: boolean } = {},

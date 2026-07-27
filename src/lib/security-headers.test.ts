@@ -51,10 +51,11 @@ describe("security headers", () => {
     const headers = applySecurityHeaders(new Headers(), {
       generatedOrigin: false,
       pathname: "/projects/project_1",
+      nonce: "testnonce123",
     });
 
-    expect(headers.get("Content-Security-Policy")).toContain(
-      "frame-ancestors 'none'",
+    expect(headers.get("Content-Security-Policy")).toBe(
+      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; script-src 'nonce-testnonce123' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
     );
     expect(headers.get("X-Frame-Options")).toBe("DENY");
     expect(headers.get("X-Content-Type-Options")).toBe("nosniff");
@@ -67,10 +68,14 @@ describe("security headers", () => {
     const headers = applySecurityHeaders(new Headers(), {
       generatedOrigin: false,
       pathname: "/api/projects/project_1/preview/index.html",
+      nonce: "testnonce123",
     });
 
-    expect(headers.get("Content-Security-Policy")).toContain(
-      "frame-ancestors 'self'",
+    expect(headers.get("Content-Security-Policy")).toBe(
+      "sandbox allow-scripts; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
+    );
+    expect(headers.get("Content-Security-Policy-Report-Only")).toBe(
+      "script-src 'nonce-testnonce123' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
     );
     expect(headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
   });
@@ -79,11 +84,15 @@ describe("security headers", () => {
     const headers = applySecurityHeaders(new Headers(), {
       generatedOrigin: true,
       pathname: "/p/warung",
+      nonce: "testnonce123",
     });
 
     expect(headers.get("X-Frame-Options")).toBeNull();
     expect(headers.get("Content-Security-Policy")).toBe(
-      "object-src 'none'; base-uri 'none'; script-src 'self'",
+      "object-src 'none'; base-uri 'none'",
+    );
+    expect(headers.get("Content-Security-Policy-Report-Only")).toBe(
+      "script-src 'nonce-testnonce123' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
     );
   });
 });
