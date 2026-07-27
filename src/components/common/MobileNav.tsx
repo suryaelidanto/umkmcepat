@@ -5,7 +5,9 @@ import { useState } from "react";
 
 import { Link } from "@/components/ui/link";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
+import { useSession } from "@/lib/auth-client";
 import { usePathname } from "@/lib/navigation";
+import { isAdminEmail } from "@/lib/waitlist";
 
 const ITEMS = [
   { href: "/", icon: Home, label: "Beranda" },
@@ -18,12 +20,18 @@ const OVERFLOW = [
   { href: "/waitlist", label: "Daftar antrean" },
   { href: "/privacy", label: "Privasi" },
   { href: "/terms", label: "Syarat" },
-  { href: "/admin", label: "Admin" },
+  { href: "/admin", label: "Admin", adminOnly: true },
 ] as const;
 
 export function MobileNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { data: session } = useSession();
+  const isAdmin =
+    session?.user?.email != null && isAdminEmail(session.user.email);
+  const overflow = OVERFLOW.filter(
+    (item) => !("adminOnly" in item && item.adminOnly) || isAdmin,
+  );
 
   return (
     <>
@@ -58,7 +66,7 @@ export function MobileNav() {
       </nav>
       <MobileSheet onOpenChange={setMoreOpen} open={moreOpen} title="Lainnya">
         <ul className="flex flex-col gap-spacing-2">
-          {OVERFLOW.map((item) => (
+          {overflow.map((item) => (
             <li key={item.href}>
               <Link
                 className="block rounded-radius-md px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/80 hover:bg-surface-warm-white/8"

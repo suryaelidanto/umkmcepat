@@ -330,6 +330,16 @@ Access is gated by a pilot waitlist with admin approval (`src/lib/waitlist.ts`).
 ADMIN_EMAILS="owner@example.com,admin@umkmcepat.com"
 ```
 
+### Admin dashboard
+
+A tabbed admin shell lives at `/admin` (`src/routes/_main.admin.tsx` layout + five sub-routes: overview, users, waitlist, transactions, settings). The layout's `requireAdmin` loader redirects non-admins to `/` before any tab mounts, so every `/admin/*` route is guarded by the parent shell in addition to each API's own `requireAdmin()` call. Admin nav visibility is session-gated: `Header` and `MobileNav` render an "Admin" link only when `isAdminEmail(session.user.email)` is true, so non-admins never see a dead link.
+
+Runtime config is DB-driven via the `AppSetting` table (key/category/value JSON, `updatedBy` audit). `src/lib/app-settings.ts` reads DB-first, falls back to `process.env`, then a hardcoded default, with a 5s in-process cache (`invalidateSettingCache` on write). Secrets stay env-only — never in `AppSetting`. The typed registry (`src/lib/app-settings-registry.ts`) is the source of truth for keys, categories, types, and labels; the Settings tab edits values per category through `PUT /api/admin/settings` (validates each value against the registry).
+
+`User.bannedAt` (nullable `DateTime`) is the ban state of truth: `auth()` rejects sessions whose user has `bannedAt` set. The Users tab toggles it via `POST /api/admin/users/:id?action=ban|unban`.
+
+Admin APIs under `/api/admin/*` (overview, users, users/:id, transactions, transactions/:orderId/verify, settings) are all `requireAdmin()`-guarded and return 401 for anonymous / 403 for authenticated-but-not-admin.
+
 ## Safety checklist
 
 Before changing project, renderer, publishing, generated artifacts, providers, auth, storage, or AI behavior:
