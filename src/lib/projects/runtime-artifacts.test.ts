@@ -32,27 +32,30 @@ function bodyToString(body: unknown): string {
   return String(body);
 }
 
-const r2Objects = new Map<string, string>();
-const signedR2FetchMock = vi.fn(
-  async (
-    config: { bucket: string; prefix: string },
-    key: string,
-    input: { body?: unknown; method: string },
-  ) => {
-    const fullKey = config.prefix ? `${config.prefix}/${key}` : key;
-    if (input.method === "PUT") {
-      r2Objects.set(fullKey, bodyToString(input.body));
-      return new Response(null, { status: 200 });
-    }
-    if (input.method === "DELETE") {
-      r2Objects.delete(fullKey);
-      return new Response(null, { status: 204 });
-    }
-    return new Response(r2Objects.get(fullKey) ?? "", {
-      status: r2Objects.has(fullKey) ? 200 : 404,
-    });
-  },
-);
+const { r2Objects, signedR2FetchMock } = vi.hoisted(() => {
+  const r2Objects = new Map<string, string>();
+  const signedR2FetchMock = vi.fn(
+    async (
+      config: { bucket: string; prefix: string },
+      key: string,
+      input: { body?: unknown; method: string },
+    ) => {
+      const fullKey = config.prefix ? `${config.prefix}/${key}` : key;
+      if (input.method === "PUT") {
+        r2Objects.set(fullKey, bodyToString(input.body));
+        return new Response(null, { status: 200 });
+      }
+      if (input.method === "DELETE") {
+        r2Objects.delete(fullKey);
+        return new Response(null, { status: 204 });
+      }
+      return new Response(r2Objects.get(fullKey) ?? "", {
+        status: r2Objects.has(fullKey) ? 200 : 404,
+      });
+    },
+  );
+  return { r2Objects, signedR2FetchMock };
+});
 
 vi.mock("@/lib/r2-client", () => ({
   getR2Config: () => {
@@ -224,7 +227,7 @@ describe("project runtime artifacts", () => {
     // the missing-cred throw is deterministic, not .env-dependent.
     delete process.env.R2_ACCESS_KEY_ID;
     delete process.env.R2_ACCOUNT_ID;
-    delete process.env.R2_BUCKET;
+    delete process.env.R2_PUBLIC_BUCKET;
     delete process.env.R2_SECRET_ACCESS_KEY;
 
     await expect(
@@ -253,5 +256,5 @@ function useR2Env() {
   process.env.R2_ACCOUNT_ID = "account";
   process.env.R2_ACCESS_KEY_ID = "access";
   process.env.R2_SECRET_ACCESS_KEY = "secret";
-  process.env.R2_BUCKET = "bucket";
+  process.env.R2_PUBLIC_BUCKET = "bucket";
 }

@@ -51,7 +51,7 @@ type ParsedProjectArtifactRef = {
 export function createProjectArtifactRef(
   kind: ProjectArtifactKind,
   artifactId: string,
-  provider = getProjectArtifactProvider(),
+  provider = getStorageProvider(),
 ) {
   assertSafeArtifactId(artifactId);
   return `${PROJECT_ARTIFACT_REF_PREFIX}${provider}:${kind}:${artifactId}`;
@@ -176,7 +176,7 @@ async function writeProjectArtifactFiles<
   validateArtifactFiles(input.files);
   assertGeneratedResourceBudget(input.files, input.kind);
 
-  const provider = getProjectArtifactProvider();
+  const provider = getStorageProvider();
   const artifactRef = createProjectArtifactRef(
     input.kind,
     input.artifactId,
@@ -407,10 +407,6 @@ function validateArtifactFiles(
   for (const file of files) {
     assertSafeProjectFilePath(file.path);
   }
-}
-
-function getProjectArtifactProvider(): ProjectArtifactProvider {
-  return getStorageProvider();
 }
 
 function resolveProjectArtifactDir(

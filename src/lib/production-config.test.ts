@@ -12,8 +12,8 @@ const validProductionEnv = {
   NEXT_PUBLIC_APP_URL: "https://umkmcepat.example",
   OTP_SPACE_API_KEY: "otp-space-production-key",
   PROJECT_ARTIFACT_DIR: "/app/.data/project-artifacts",
-  PROJECT_ARTIFACT_STORAGE_PROVIDER: "local",
   PROJECT_RUNTIME_SUPERVISOR: "noop",
+  STORAGE_PROVIDER: "local",
 };
 
 describe("production config preflight", () => {

@@ -4,6 +4,7 @@ import {
   isGeneratedPublicExecutionEnabled,
 } from "@/lib/config";
 import { getGeneratedPublicUrl } from "@/lib/generated-public-origin";
+import { getStorageProvider } from "@/lib/storage-provider";
 
 export function assertProductionConfigReady() {
   if (process.env.NODE_ENV !== "production") {
@@ -117,7 +118,7 @@ function assertDatabaseUrl() {
 }
 
 function assertArtifactStoragePath() {
-  if (getEnv("PROJECT_ARTIFACT_STORAGE_PROVIDER", "local") !== "local") {
+  if (getStorageProvider() === "r2") {
     return;
   }
 
