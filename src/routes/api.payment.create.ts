@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth";
 import {
   createPakasirTransaction,
+  getBoosterPack,
   type PakasirPaymentMethod,
   BOOSTER_PACKS,
   type BoosterPackId,
@@ -31,14 +32,14 @@ export const Route = createFileRoute("/api/payment/create")({
         };
 
         const packageId = body.packageId as BoosterPackId;
-        const pack = BOOSTER_PACKS[packageId];
-
-        if (!pack) {
+        const fallbackPack = BOOSTER_PACKS[packageId];
+        if (!fallbackPack) {
           return Response.json(
             { message: "Invalid package selection." },
             { status: 400 },
           );
         }
+        const pack = await getBoosterPack(packageId);
 
         const method = (body.method || "qris") as PakasirPaymentMethod;
 

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   authMock,
   createPakasirTransactionMock,
+  getBoosterPackMock,
   verifyPakasirTransactionMock,
   prismaPaymentCreateMock,
   prismaPaymentFindUniqueMock,
@@ -12,6 +13,7 @@ const {
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
   createPakasirTransactionMock: vi.fn(),
+  getBoosterPackMock: vi.fn(),
   verifyPakasirTransactionMock: vi.fn(),
   prismaPaymentCreateMock: vi.fn(),
   prismaPaymentFindUniqueMock: vi.fn(),
@@ -31,6 +33,7 @@ const {
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/pakasir", () => ({
   createPakasirTransaction: createPakasirTransactionMock,
+  getBoosterPack: getBoosterPackMock,
   verifyPakasirTransaction: verifyPakasirTransactionMock,
   BOOSTER_PACKS: {
     pocket: { amount: 2900, energy: 50000, name: "Pocket Booster" },
@@ -64,6 +67,16 @@ describe("Payment API Routes", () => {
   beforeEach(() => {
     authMock.mockReset();
     createPakasirTransactionMock.mockReset();
+    getBoosterPackMock.mockReset();
+    getBoosterPackMock.mockImplementation((id: string) => {
+      const packs = {
+        pocket: { amount: 2900, energy: 50000, name: "Pocket Booster" },
+        starter: { amount: 8900, energy: 200000, name: "Starter Booster" },
+        popular: { amount: 24900, energy: 600000, name: "Popular Booster" },
+        max: { amount: 59900, energy: 1500000, name: "Max Booster" },
+      } as const;
+      return Promise.resolve((packs as Record<string, unknown>)[id] ?? null);
+    });
     verifyPakasirTransactionMock.mockReset();
     prismaPaymentCreateMock.mockReset();
     prismaPaymentFindUniqueMock.mockReset();

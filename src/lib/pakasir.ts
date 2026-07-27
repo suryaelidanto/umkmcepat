@@ -1,3 +1,5 @@
+import { getSetting } from "@/lib/app-settings";
+
 export const BOOSTER_PACKS = {
   pocket: { amount: 2900, energy: 50000, name: "Pocket Booster" },
   starter: { amount: 8900, energy: 200000, name: "Starter Booster" },
@@ -6,6 +8,19 @@ export const BOOSTER_PACKS = {
 } as const;
 
 export type BoosterPackId = keyof typeof BOOSTER_PACKS;
+
+// Resolves a booster pack's amount/energy from AppSetting (DB-first),
+// falling back to the hardcoded BOOSTER_PACKS const. Used at payment-creation
+// (server, async). The client EnergyBoosterModal still reads the const for
+// display — DB overrides apply only at actual transaction creation.
+export async function getBoosterPack(id: BoosterPackId) {
+  const fallback = BOOSTER_PACKS[id];
+  const [amount, energy] = await Promise.all([
+    getSetting<number>(`booster.${id}.amount`, fallback.amount),
+    getSetting<number>(`booster.${id}.energy`, fallback.energy),
+  ]);
+  return { amount, energy, name: fallback.name };
+}
 
 export type PakasirPaymentMethod =
   | "qris"
