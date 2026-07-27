@@ -118,9 +118,8 @@ The control plane owns project metadata and user workflows. Build workers and ru
 
 Current runtime implementation:
 
-- `PROJECT_ARTIFACT_STORAGE_PROVIDER` chooses canonical generated source/dist artifact storage: `local` by default, or `r2` for Cloudflare R2. New writes use the configured provider; reads use the provider embedded in each artifact ref, so existing `project-artifact:local:*` refs remain readable after switching.
-- `PROJECT_ARTIFACT_DIR` stores local source/dist artifacts under `.data/project-artifacts` by default when the artifact provider is `local`.
-- `PROJECT_ARTIFACT_R2_PREFIX` scopes generated source/dist artifact keys inside the R2 bucket when the artifact provider is `r2`.
+- `STORAGE_PROVIDER` chooses canonical generated source/dist artifact storage: `local` by default, or `r2` for Cloudflare R2. New writes use the configured provider; reads use the provider embedded in each artifact ref, so existing `project-artifact:local:*` refs remain readable after switching.
+- `PROJECT_ARTIFACT_DIR` stores local source/dist artifacts under `.data/project-artifacts` by default when the provider is `local`.
 - `PROJECT_RUNTIME_DIR` stores materialized runtime files under `.data/project-runtimes` by default.
 - `PROJECT_BUILD_WORKSPACE_DIR` stores rebuildable local build workspaces under `.data/project-build-workspaces` by default. Build workspaces cache generated app `node_modules` and build metadata so repeat edits can skip dependency install when the package/profile signature is unchanged. Source snapshots and dist artifacts remain canonical; workspaces may be deleted and rebuilt.
 - `RuntimeSupervisor` starts a local out-of-process static server from a dist artifact and records deployment events.
@@ -199,20 +198,20 @@ Static-frontend constraint:
 
 Provider selection is explicit, env-driven, and behind internal adapters.
 
-| Capability    | Env                                   | Current default           | Boundary                                                     |
-| ------------- | ------------------------------------- | ------------------------- | ------------------------------------------------------------ |
-| Database      | `DATABASE_URL`                        | PostgreSQL via Prisma     | `prisma/schema.prisma`                                       |
-| AI            | `AI_PROVIDER`                         | 9Router via Vercel AI SDK | `src/lib/ai.ts`                                              |
-| Auth          | Google OAuth + Turnstile              | Google                    | `src/lib/auth.ts`, Auth.js                                   |
-| Rate limit    | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`                                      |
-| Storage       | `OBJECT_STORAGE_PROVIDER`             | `local`                   | `src/lib/object-storage.ts`                                  |
-| Display media | `PROJECT_ASSET_STORAGE_PROVIDER`      | `local`                   | `src/lib/r2-client.ts`, `src/lib/projects/project-assets.ts` |
-| Source/dist   | `PROJECT_ARTIFACT_STORAGE_PROVIDER`   | `local`                   | `src/lib/projects/runtime-artifacts.ts`                      |
-| Email         | `RESEND_API_KEY`                      | Resend (mock in dev)      | `src/lib/email.ts`                                           |
-| WhatsApp OTP  | `OTP_SPACE_API_KEY`                   | OTPSpace (mock in dev)    | `src/lib/otp.ts`                                             |
-| Analytics     | `NEXT_PUBLIC_UMAMI_*`                 | Umami (off in dev)        | `src/lib/analytics.ts`                                       |
-| Waitlist gate | `WAITLIST_ENABLED`                    | `true` (fail-safe)        | `src/lib/waitlist-enabled.ts`                                |
-| Runtime       | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*`                                 |
+| Capability        | Env                                   | Current default           | Boundary                                                                                                            |
+| ----------------- | ------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Database          | `DATABASE_URL`                        | PostgreSQL via Prisma     | `prisma/schema.prisma`                                                                                              |
+| AI                | `AI_PROVIDER`                         | 9Router via Vercel AI SDK | `src/lib/ai.ts`                                                                                                     |
+| Auth              | Google OAuth + Turnstile              | Google                    | `src/lib/auth.ts`, Auth.js                                                                                          |
+| Rate limit        | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`                                                                                             |
+| Storage provider  | `STORAGE_PROVIDER`                    | `local`                   | `src/lib/storage-provider.ts` — single toggle drives waitlist images, project artifacts, project assets, thumbnails |
+| Public R2 bucket  | `R2_PUBLIC_BUCKET`                    | —                         | `src/lib/r2-client.ts` — logos, business images, generated artifacts (browser-direct via `R2_PUBLIC_BASE_URL`)      |
+| Private R2 bucket | `R2_PRIVATE_BUCKET`                   | —                         | `src/lib/r2-client.ts` — waitlist photos, references, thumbnails (server-proxied, auth-gated)                       |
+| Email             | `RESEND_API_KEY`                      | Resend (mock in dev)      | `src/lib/email.ts`                                                                                                  |
+| WhatsApp OTP      | `OTP_SPACE_API_KEY`                   | OTPSpace (mock in dev)    | `src/lib/otp.ts`                                                                                                    |
+| Analytics         | `NEXT_PUBLIC_UMAMI_*`                 | Umami (off in dev)        | `src/lib/analytics.ts`                                                                                              |
+| Waitlist gate     | `WAITLIST_ENABLED`                    | `true` (fail-safe)        | `src/lib/waitlist-enabled.ts`                                                                                       |
+| Runtime           | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*`                                                                                        |
 
 Rules:
 
@@ -288,7 +287,7 @@ Keep provider keys out of frontend env vars and git. `AI_CHAT_MODEL` should stay
 Current implemented storage provider:
 
 ```env
-OBJECT_STORAGE_PROVIDER="local"
+STORAGE_PROVIDER="local"
 LOCAL_UPLOAD_DIR=".data/uploads"
 ```
 
@@ -301,15 +300,16 @@ The platform stores owner-uploaded project assets (business images / references 
 Reserved future provider:
 
 ```env
-OBJECT_STORAGE_PROVIDER="r2"
+STORAGE_PROVIDER="r2"
 R2_ACCOUNT_ID=""
 R2_ACCESS_KEY_ID=""
 R2_SECRET_ACCESS_KEY=""
-R2_BUCKET=""
+R2_PUBLIC_BUCKET=""
+R2_PRIVATE_BUCKET=""
 R2_PUBLIC_BASE_URL=""
 ```
 
-`r2` env placeholders exist, but the adapter intentionally throws until remote object storage is actually needed. When R2 is implemented, runtime storage selection should come from `OBJECT_STORAGE_PROVIDER`; local upload volumes become optional for that deployment.
+`r2` env placeholders exist, but the adapter intentionally throws until remote object storage is actually needed. When R2 is implemented, runtime storage selection should come from `STORAGE_PROVIDER`; local upload volumes become optional for that deployment.
 
 ## Auth
 

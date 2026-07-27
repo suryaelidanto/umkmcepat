@@ -41,7 +41,7 @@ app container:      Next.js production server after migration succeeds
 postgres container: database, unless using managed Postgres
 9router container:  AI gateway dashboard/API
 headroom container: optional context compression proxy
-uploads volume:     local upload persistence for OBJECT_STORAGE_PROVIDER=local
+uploads volume:     local upload persistence for STORAGE_PROVIDER=local
 project_artifacts:  canonical generated source/dist persistence for local artifact storage
 ```
 
@@ -82,13 +82,14 @@ AI_PROVIDER="9router"
 NINE_ROUTER_BASE_URL="http://9router:20128/v1"
 NINE_ROUTER_API_KEY="replace-with-9router-api-key"
 RATE_LIMIT_PROVIDER="memory"
-OBJECT_STORAGE_PROVIDER="local"
+STORAGE_PROVIDER="r2"
+R2_PUBLIC_BUCKET="umkmcepat-prod-public"
+R2_PRIVATE_BUCKET="umkmcepat-prod-private"
+R2_PUBLIC_BASE_URL="https://pub-<prod>.r2.dev"
 LOCAL_UPLOAD_DIR=".data/uploads"
 GENERATED_BUILD_EXECUTION_ENABLED="false"
 GENERATED_PUBLIC_EXECUTION_ENABLED="false"
 GENERATED_PUBLIC_ORIGIN="https://generated.example.net"
-PROJECT_ARTIFACT_STORAGE_PROVIDER="local"
-PROJECT_ASSET_STORAGE_PROVIDER="local"
 WAITLIST_ENABLED="true"
 RESEND_API_KEY="re_..."
 RESEND_FROM_EMAIL="no-reply@yourdomain.com"
@@ -99,7 +100,6 @@ PROJECT_ARTIFACT_DIR="/app/.data/project-artifacts"
 PROJECT_THUMBNAIL_DIR="/app/.data/project-thumbnails"
 PROJECT_THUMBNAIL_CAPTURE_ENABLED="true"
 PROJECT_THUMBNAIL_BROWSER_PATH=""
-PROJECT_ARTIFACT_R2_PREFIX="project-artifacts"
 PROJECT_RUNTIME_DIR="/app/.data/project-runtimes"
 PROJECT_BUILD_WORKSPACE_DIR="/app/.data/project-build-workspaces"
 PROJECT_RUNTIME_SUPERVISOR="noop"
@@ -113,7 +113,7 @@ POSTGRES_DB="umkmcepat"
 
 Project-card thumbnails are derived JPEGs stored under `PROJECT_THUMBNAIL_DIR`. The production image installs Chromium plus Node, fixes `PROJECT_THUMBNAIL_BROWSER_PATH`, enables capture, and persists the `project_thumbnails` volume. Capture runs in a disposable Node subprocess so a renderer timeout kills only that process tree, not the application. Development and production therefore use the same successful-build capture lifecycle. Missing thumbnails safely use the deterministic project gradient; opening a private preview makes one best-effort recovery attempt only when the latest successful build has no thumbnail. Capture failures never invalidate successful build artifacts.
 
-If `OBJECT_STORAGE_PROVIDER="local"`, mount `LOCAL_UPLOAD_DIR` as a persistent volume. Generated project source/dist artifacts are controlled separately by `PROJECT_ARTIFACT_STORAGE_PROVIDER`. Production Compose deliberately fixes `PROJECT_ARTIFACT_DIR` to `/app/.data/project-artifacts` and mounts `project_artifacts` there; the production preflight rejects another local path rather than silently writing canonical artifacts to the ephemeral container layer. Node startup performs a write/read/delete readiness probe and refuses to serve if local canonical storage is unavailable. With `r2`, startup validates the required R2 configuration and generated artifact writes use `PROJECT_ARTIFACT_R2_PREFIX`; existing local refs remain readable because artifact refs include their provider. `PROJECT_RUNTIME_DIR` and `PROJECT_BUILD_WORKSPACE_DIR` are rebuildable. A future isolated worker may own a trusted toolchain cache, but generated executable state must not persist across tenants.
+If `STORAGE_PROVIDER="local"`, mount `LOCAL_UPLOAD_DIR` as a persistent volume. Generated project source/dist artifacts follow the same provider. Production Compose deliberately fixes `PROJECT_ARTIFACT_DIR` to `/app/.data/project-artifacts` and mounts `project_artifacts` there; the production preflight rejects another local path rather than silently writing canonical artifacts to the ephemeral container layer. Node startup performs a write/read/delete readiness probe and refuses to serve if local canonical storage is unavailable. With `r2`, startup validates the required R2 configuration; existing local refs remain readable because artifact refs include their provider. `PROJECT_RUNTIME_DIR` and `PROJECT_BUILD_WORKSPACE_DIR` are rebuildable. A future isolated worker may own a trusted toolchain cache, but generated executable state must not persist across tenants.
 
 `GENERATED_BUILD_EXECUTION_ENABLED` and `GENERATED_PUBLIC_EXECUTION_ENABLED` are containment switches. Production Compose hardcodes both to `false` and `PROJECT_RUNTIME_SUPERVISOR` to `noop`; values copied from the development `.env.example` cannot override those boundaries. Do not enable build execution until the isolated-worker adversarial gate passes. Do not enable public execution until `GENERATED_PUBLIC_ORIGIN` is a separate cookie-free HTTPS origin and browser tests prove control-plane cookies and authenticated API responses are unavailable there. Disabling either capability never deletes snapshots, artifacts, attempts, last-good previews, or published deployment metadata.
 
@@ -156,7 +156,7 @@ Rules for that deployment shape:
 - Run `bun run runtime:idle-stop` from cron/systemd/timer-equivalent until a long-running worker owns idle enforcement.
 - Runtime nodes are capacity locations. A single VPS can start with one node, but the data model must allow more nodes later.
 - Public ingress should expose only the app/proxy routes required for users. It must not expose Postgres, Docker socket access, runtime supervisor admin endpoints, Headroom, provider keys, or object storage credentials.
-- Local upload persistence remains required while `OBJECT_STORAGE_PROVIDER=local`; generated runtime artifacts should move to object storage before multi-node runtime work.
+- Local upload persistence remains required while `STORAGE_PROVIDER=local`; generated runtime artifacts should move to object storage before multi-node runtime work.
 
 ## Monitoring
 
