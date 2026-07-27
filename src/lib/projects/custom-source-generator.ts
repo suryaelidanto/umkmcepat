@@ -15,6 +15,7 @@ import {
   type GeneratedAppAgentOperation,
   type GeneratedAppAgentToolCommand,
 } from "@/lib/projects/agent-tool-runner";
+import { loadArchetypeGuide } from "@/lib/projects/archetypes";
 import {
   createStepCharger,
   type StepCharger,
@@ -2119,6 +2120,9 @@ Then add any extra routes/components as needed, then check_app.`
   return `You are a frontend coding agent for UMKM Cepat generated apps.
 
 Business: ${implementationSpec?.businessName || schema.businessName} — ${implementationSpec?.appKind || "landing"} — ${(implementationSpec?.features || [schema.offer, schema.audience]).join(", ")}
+
+ARCHETYPE GUIDANCE (follow this shape; it overrides any default skeleton):
+${loadArchetypeGuide(implementationSpec?.archetype ?? "")}
 ${skillsBlock}
 ${DESIGN_DIRECTIVE}
 
