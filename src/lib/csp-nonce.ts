@@ -1,18 +1,31 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-import { randomBytes } from "node:crypto";
+// Client-safe wrapper for server-side CSP Nonce.
+// The AsyncLocalStorage store is initialized on the server startup (server.ts)
+// or test startup (csp-nonce.test.ts) to keep browser bundles clean of node:* imports.
 
-export const nonceStore = new AsyncLocalStorage<string>();
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-export function getNonceStore() {
-  return nonceStore;
+declare global {
+  var __nonceStore: any;
 }
 
-export function getNonce() {
-  return nonceStore.getStore();
+export function getNonceStore() {
+  if (typeof window !== "undefined") {
+    throw new Error("Nonce store is only available on the server side");
+  }
+  return globalThis.__nonceStore;
+}
+
+export function getNonce(): string | undefined {
+  if (typeof window !== "undefined") {
+    // In the browser, read the nonce from the meta tag injected by TanStack Start
+    const meta = document.querySelector('meta[property="csp-nonce"]');
+    return meta?.getAttribute("content") || undefined;
+  }
+  return globalThis.__nonceStore?.getStore();
 }
 
 export function generateNonce() {
-  return randomBytes(16)
-    .toString("base64")
-    .replace(/[^a-zA-Z0-9]/g, "");
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/[^a-zA-Z0-9]/g, "");
 }

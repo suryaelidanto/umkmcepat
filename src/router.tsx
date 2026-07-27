@@ -5,7 +5,7 @@ import { routeTree } from "./routeTree.gen";
 import { getNonce } from "@/lib/csp-nonce";
 
 export function getRouter() {
-  const nonce = typeof window === "undefined" ? getNonce() : undefined;
+  const nonce = getNonce();
 
   const router = createRouter({
     routeTree,

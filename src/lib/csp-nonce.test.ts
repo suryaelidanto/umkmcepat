@@ -1,4 +1,9 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { describe, expect, it } from "vitest";
+
+// Initialize the global store for unit testing context
+globalThis.__nonceStore = new AsyncLocalStorage<string>();
 
 import { generateNonce, getNonce, getNonceStore } from "./csp-nonce";
 

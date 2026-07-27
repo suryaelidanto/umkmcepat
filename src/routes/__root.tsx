@@ -142,6 +142,7 @@ function RootDocument({
       >
         <script
           nonce={nonce}
+          suppressHydrationWarning
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
@@ -149,6 +150,7 @@ function RootDocument({
         process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID ? (
           <script
             nonce={nonce}
+            suppressHydrationWarning
             defer
             src={process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC}
             data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}

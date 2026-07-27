@@ -1,6 +1,11 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
 
 import { register } from "@/lib/instrumentation";
+
+// Initialize the global nonce store on server boot
+globalThis.__nonceStore = new AsyncLocalStorage<string>();
 
 // Run one-time startup validation + observability setup at server boot.
 const ready = register().catch((error) => {
