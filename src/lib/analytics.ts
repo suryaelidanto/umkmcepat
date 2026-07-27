@@ -1,13 +1,13 @@
-// Umami event tracking. Dev-off (no events sent) + prod-on; never on /api/*
-// server routes or /p/<slug> published sites (those are the user's, not the
-// platform's to instrument). Empty NEXT_PUBLIC_UMAMI_WEBSITE_ID = no-op.
+// Umami event tracking. Fires whenever NEXT_PUBLIC_UMAMI_WEBSITE_ID is set
+// (dev or prod); never on /api/* server routes or /p/<slug> published sites
+// (those are the user's, not the platform's to instrument).
+// ponytail: ceiling = single env sink; upgrade path = per-env writeKey when
+// you need separate dev/prod Umami instances. For now point dev .env at a
+// local Umami container, prod .env at the prod instance — no cross-pollution.
 export function track(
   event: string,
   props?: Record<string, string | number | boolean>,
 ): void {
-  if (process.env.NODE_ENV !== "production") {
-    return;
-  }
   if (typeof window === "undefined") {
     return;
   }
