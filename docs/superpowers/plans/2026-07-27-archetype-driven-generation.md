@@ -607,12 +607,12 @@ fall back to the generic decision framework."
 - Modify: `src/lib/projects/archetypes/_index.md` (already lists all 15 + generic; no change needed unless a name was adjusted during authoring)
 
 **Interfaces:**
-- Consumes: the fixed 8-section structure from the spec (`id`, `matches`, `recommended_sections`, `avoid_sections`, `page_count`, `cta_logic`, `visual_hooks`, `example_structure`).
+- Consumes: the fixed structure from the spec — an H1 title carrying the `id` (`# Archetype: <id> (<label>)`) plus 7 `##` sections (`matches`, `recommended_sections`, `avoid_sections`, `page_count`, `cta_logic`, `visual_hooks`, `example_structure`). The spec's list numbers 8 fields (id + 7 sections); the rendered doc has 7 `##` sections.
 - Produces: 15 guidance docs + their loader registration. After this task, `ARCHETYPE_IDS` contains all 16 ids and the loader resolves each.
 
 **Authoring rules (apply to every doc):**
 - Each `.md` MUST start with `# Archetype: <id> (<short label>)`.
-- Then the 8 sections in order, as `##` headings.
+- Then the 7 `##` sections in order (`matches`, `recommended_sections`, `avoid_sections`, `page_count`, `cta_logic`, `visual_hooks`, `example_structure`); the `id` is the H1 title line, not a section.
 - `recommended_sections`: 3-6 named sections, each with a one-sentence *why*.
 - `avoid_sections`: 2-4 sections the AI reaches for by default that do NOT fit, each with a one-sentence reason.
 - `page_count`: a short rule keyed to `appKind`.
@@ -661,7 +661,7 @@ Create `fnb-menu.md`, `fnb-light.md`, `retail-catalog.md`, `retail-grocery.md` f
 Header (name + hours) → Menu board (grouped by category) → Today's special → Location/map → Order CTA. Depart when justified — e.g. a catering warung may swap the menu board for a package list.
 ````
 
-Author the other 4 (`fnb-light.md`, `retail-catalog.md`, `retail-grocery.md`) with the same 8-section structure, shape-specific content (e.g. `retail-catalog` → product grid + price legible + card; `retail-grocery` → essentials list + hours + location; `fnb-light` → product showcase + pickup/delivery + order CTA).
+Author the other 4 (`fnb-light.md`, `retail-catalog.md`, `retail-grocery.md`) with the same 8-field structure (id + 7 ## sections), shape-specific content (e.g. `retail-catalog` → product grid + price legible + card; `retail-grocery` → essentials list + hours + location; `fnb-light` → product showcase + pickup/delivery + order CTA).
 
 - [ ] **Step 2: Register them in the loader**
 
@@ -712,7 +712,7 @@ git add src/lib/projects/archetypes/
 git commit -m "feat(archetype-generation): author fnb + retail archetypes
 
 4 business-shape guidance docs (fnb-menu, fnb-light, retail-catalog,
-retail-grocery) following the fixed 8-section structure; registered in the loader."
+retail-grocery) following the fixed 8-field structure (id + 7 ## sections); registered in the loader."
 ```
 
 ### Task 6b: Service + education archetypes (5 docs)
