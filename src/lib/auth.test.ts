@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { auth } from "@/lib/auth";
 
+const prismaUserFindUniqueMock = vi.fn();
+
 vi.mock("@tanstack/react-start/server", () => ({
   getRequest: vi.fn(),
 }));
@@ -15,6 +17,14 @@ vi.mock("@auth/core", async (importOriginal) => {
     Auth: vi.fn(),
   };
 });
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    user: {
+      findUnique: (...args: unknown[]) => prismaUserFindUniqueMock(...args),
+    },
+  },
+}));
 
 describe("server-side auth() helper", () => {
   beforeEach(() => {
@@ -49,6 +59,7 @@ describe("server-side auth() helper", () => {
       { status: 200 },
     );
     vi.mocked(Auth).mockResolvedValue(mockSessionResponse);
+    prismaUserFindUniqueMock.mockResolvedValue({ bannedAt: null });
 
     const session = await auth();
 
@@ -63,5 +74,33 @@ describe("server-side auth() helper", () => {
     expect(subRequest.headers.get("x-forwarded-host")).toBe("umkmcepat.com");
     expect(subRequest.headers.get("host")).toBe("localhost:3000");
     expect(subRequest.headers.has("content-type")).toBe(false);
+    expect(prismaUserFindUniqueMock).toHaveBeenCalledWith({
+      select: { bannedAt: true },
+      where: { id: "user-1" },
+    });
+  });
+
+  it("returns null when the session user is banned", async () => {
+    const mockRequest = new Request("http://localhost:3000/some-route", {
+      headers: { cookie: "session-token=123" },
+    });
+    vi.mocked(getRequest).mockReturnValue(mockRequest);
+
+    const mockSessionResponse = new Response(
+      JSON.stringify({ user: { id: "banned-user", name: "Banned" } }),
+      { status: 200 },
+    );
+    vi.mocked(Auth).mockResolvedValue(mockSessionResponse);
+    prismaUserFindUniqueMock.mockResolvedValue({
+      bannedAt: new Date("2026-01-01"),
+    });
+
+    const session = await auth();
+
+    expect(session).toBeNull();
+    expect(prismaUserFindUniqueMock).toHaveBeenCalledWith({
+      select: { bannedAt: true },
+      where: { id: "banned-user" },
+    });
   });
 });
