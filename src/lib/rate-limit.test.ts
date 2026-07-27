@@ -1,10 +1,38 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { invalidateSettingCache } from "@/lib/app-settings";
 import {
   checkRateLimit,
   getRateLimitConfig,
   shouldEnforceProductRateLimit,
 } from "@/lib/rate-limit";
+
+// getSetting is async + hits prisma; mock the client.
+vi.mock("@/lib/prisma", () => {
+  const store = new Map<string, unknown>();
+  return {
+    prisma: {
+      appSetting: {
+        findUnique: vi.fn(async ({ where }: { where: { key: string } }) =>
+          store.has(where.key) ? { value: store.get(where.key) } : null,
+        ),
+        upsert: vi.fn(
+          async (args: {
+            where: { key: string };
+            create: { value: unknown };
+          }) => {
+            store.set(args.where.key, args.create.value);
+            return { value: args.create.value };
+          },
+        ),
+        delete: vi.fn(async ({ where }: { where: { key: string } }) => {
+          store.delete(where.key);
+          return null;
+        }),
+      },
+    },
+  };
+});
 
 const envNames = [
   "RATE_LIMIT_AI_USER_REQUESTS",
@@ -17,6 +45,10 @@ const previous = Object.fromEntries(
   envNames.map((name) => [name, process.env[name]]),
 );
 
+beforeEach(() => {
+  invalidateSettingCache();
+});
+
 afterEach(() => {
   for (const name of envNames) {
     const value = previous[name];
@@ -27,35 +59,36 @@ afterEach(() => {
       process.env[name] = value;
     }
   }
+  invalidateSettingCache();
 });
 
 describe("getRateLimitConfig", () => {
-  it("uses generous per-user AI defaults", () => {
+  it("uses generous per-user AI defaults", async () => {
     delete process.env.RATE_LIMIT_AI_USER_REQUESTS;
     delete process.env.RATE_LIMIT_AI_USER_WINDOW_SECONDS;
 
-    expect(getRateLimitConfig("ai", "user")).toEqual({
+    expect(await getRateLimitConfig("ai", "user")).toEqual({
       limit: 60,
       windowMs: 600_000,
     });
   });
 
-  it("lets production tune limits from env", () => {
+  it("lets production tune limits from env", async () => {
     process.env.RATE_LIMIT_AI_USER_REQUESTS = "42";
     process.env.RATE_LIMIT_AI_USER_WINDOW_SECONDS = "120";
 
-    expect(getRateLimitConfig("ai", "user")).toEqual({
+    expect(await getRateLimitConfig("ai", "user")).toEqual({
       limit: 42,
       windowMs: 120_000,
     });
   });
 
-  it("keeps build IP fallback stricter than chat", () => {
+  it("keeps build IP fallback stricter than chat", async () => {
     delete process.env.RATE_LIMIT_BUILD_IP_REQUESTS;
 
-    expect(getRateLimitConfig("build", "ip").limit).toBeLessThan(
-      getRateLimitConfig("ai", "ip").limit,
-    );
+    const buildLimit = (await getRateLimitConfig("build", "ip")).limit;
+    const aiLimit = (await getRateLimitConfig("ai", "ip")).limit;
+    expect(buildLimit).toBeLessThan(aiLimit);
   });
 });
 

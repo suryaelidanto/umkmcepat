@@ -1,4 +1,4 @@
-import { getConfiguredProvider, getEnv } from "@/lib/config";
+import { getConfiguredProvider } from "@/lib/config";
 
 type RateLimitType = "global" | "ai" | "build" | "otp";
 type RateLimitSubject = "ip" | "user";
@@ -37,52 +37,6 @@ const defaults: Record<
   },
 };
 
-const envNames: Record<
-  RateLimitType,
-  Record<RateLimitSubject, { requests: string; windowSeconds: string }>
-> = {
-  global: {
-    ip: {
-      requests: "RATE_LIMIT_GLOBAL_IP_REQUESTS",
-      windowSeconds: "RATE_LIMIT_GLOBAL_IP_WINDOW_SECONDS",
-    },
-    user: {
-      requests: "RATE_LIMIT_GLOBAL_USER_REQUESTS",
-      windowSeconds: "RATE_LIMIT_GLOBAL_USER_WINDOW_SECONDS",
-    },
-  },
-  ai: {
-    ip: {
-      requests: "RATE_LIMIT_AI_IP_REQUESTS",
-      windowSeconds: "RATE_LIMIT_AI_IP_WINDOW_SECONDS",
-    },
-    user: {
-      requests: "RATE_LIMIT_AI_USER_REQUESTS",
-      windowSeconds: "RATE_LIMIT_AI_USER_WINDOW_SECONDS",
-    },
-  },
-  build: {
-    ip: {
-      requests: "RATE_LIMIT_BUILD_IP_REQUESTS",
-      windowSeconds: "RATE_LIMIT_BUILD_IP_WINDOW_SECONDS",
-    },
-    user: {
-      requests: "RATE_LIMIT_BUILD_USER_REQUESTS",
-      windowSeconds: "RATE_LIMIT_BUILD_USER_WINDOW_SECONDS",
-    },
-  },
-  otp: {
-    ip: {
-      requests: "RATE_LIMIT_OTP_IP_REQUESTS",
-      windowSeconds: "RATE_LIMIT_OTP_IP_WINDOW_SECONDS",
-    },
-    user: {
-      requests: "RATE_LIMIT_OTP_USER_REQUESTS",
-      windowSeconds: "RATE_LIMIT_OTP_USER_WINDOW_SECONDS",
-    },
-  },
-};
-
 function getClientIp(request: Request): string {
   return (
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -91,15 +45,19 @@ function getClientIp(request: Request): string {
   );
 }
 
-export function getRateLimitConfig(
+export async function getRateLimitConfig(
   type: RateLimitType,
   subject: RateLimitSubject,
-): RateLimitConfig {
+): Promise<RateLimitConfig> {
   const fallback = defaults[type][subject];
-  const names = envNames[type][subject];
-  const limit = readPositiveInt(names.requests, fallback.limit);
-  const windowSeconds = readPositiveInt(
-    names.windowSeconds,
+  const { getSetting } = await import("@/lib/app-settings");
+  const scope = type === "global" ? "global_ip" : `${type}_${subject}`;
+  const limit = await getSetting<number>(
+    `ratelimit.${scope}.requests`,
+    fallback.limit,
+  );
+  const windowSeconds = await getSetting<number>(
+    `ratelimit.${scope}.window_seconds`,
     fallback.windowMs / 1000,
   );
 
@@ -143,7 +101,7 @@ export async function checkRateLimit(
 
   const subject: RateLimitSubject = userId ? "user" : "ip";
   const subjectId = userId || getClientIp(request);
-  const config = getRateLimitConfig(type, subject);
+  const config = await getRateLimitConfig(type, subject);
   const now = Date.now();
   const key = `${type}:${subject}:${subjectId}`;
   const bucket = buckets.get(key);
@@ -177,20 +135,4 @@ export async function checkRateLimit(
       },
     },
   );
-}
-
-function readPositiveInt(name: string, fallback: number) {
-  const value = getEnv(name);
-
-  if (!value) {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer.`);
-  }
-
-  return parsed;
 }
