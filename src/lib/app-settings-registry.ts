@@ -186,3 +186,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: "umkmcepat-combo",
   },
 ];
+
+export function findConfigEntry(key: string): ConfigEntry | undefined {
+  return APP_SETTINGS.find((e) => e.key === key);
+}
