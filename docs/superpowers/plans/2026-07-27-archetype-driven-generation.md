@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **DESIGN UPDATE (supersedes inlined code below):** The allow-list and the guide-map are **decoupled**. `archetypes/index.ts` exports `KNOWN_ARCHETYPE_IDS: string[]` listing ALL 16 valid ids upfront (independent of authored docs), plus a backward-compat `ARCHETYPE_IDS` alias. `parseImplementationSpec` validates against `KNOWN_ARCHETYPE_IDS`. `GUIDE_BY_ID` holds only authored docs; `loadArchetypeGuide` falls back to `generic-fallback.md` for any id without a doc. **Consequence for T6:** the 15 business archetypes only ADD a `.md` import + a `GUIDE_BY_ID` entry — they must NOT reassign `KNOWN_ARCHETYPE_IDS` (all 16 ids already live there from T1). Where inlined code blocks below show `ARCHETYPE_IDS = ["generic"]` (T1) or "register each new id in `ARCHETYPE_IDS`" (T6), follow this decision note instead. T1/T2 already implemented this; T3-T6 reflect it.
+
 **Goal:** Break template-ish generated output by auto-loading a per-business-shape archetype guidance doc into the build prompt, based on an archetype the AI names in the existing `implementationSpecTool` call.
 
-**Architecture:** A small library of ~16 archetype `.md` guidance docs (one per *structure*, not label) + one `generic-fallback.md` written as a decision framework. The `implementationSpecTool` schema gains an `archetype` field; `parseImplementationSpec` validates the id (unknown → `generic`). A new `archetypes/index.ts` exposes `ARCHETYPE_IDS`, `loadArchetypeGuide(id)`, `loadArchetypeIndex()`. The spec-call system prompt appends the index; the source-gen prompt injects the matched doc + a "justify or drop" rule. No new AI call, no classifier, no discuss/UI/DB change.
+**Architecture:** A small library of ~16 archetype `.md` guidance docs (one per *structure*, not label) + one `generic-fallback.md` written as a decision framework. The `implementationSpecTool` schema gains an `archetype` field; `parseImplementationSpec` validates the id against `KNOWN_ARCHETYPE_IDS` (unknown → `generic`). A new `archetypes/index.ts` exposes `KNOWN_ARCHETYPE_IDS`, `loadArchetypeGuide(id)`, `loadArchetypeIndex()`. The spec-call system prompt appends the index; the source-gen prompt injects the matched doc + a "justify or drop" rule. No new AI call, no classifier, no discuss/UI/DB change.
 
 **Tech Stack:** TypeScript, Vitest, the `ai` SDK tool-calling, Bun. Markdown imported via Vite `?raw`. No new dependencies.
 
@@ -601,7 +603,7 @@ fall back to the generic decision framework."
 
 **Files:**
 - Create (in `src/lib/projects/archetypes/`): `fnb-menu.md`, `fnb-light.md`, `retail-catalog.md`, `retail-grocery.md`, `service-area.md`, `service-appointment.md`, `service-online.md`, `education-course.md`, `professional-credibility.md`, `community-group.md`, `event-promo.md`, `property-rental.md`, `health-beauty.md`, `creative-portfolio.md`, `agri-produce.md`
-- Modify: `src/lib/projects/archetypes/index.ts` (register each new id in `ARCHETYPE_IDS` and `GUIDE_BY_ID`)
+- Modify: `src/lib/projects/archetypes/index.ts` (register each new doc in `GUIDE_BY_ID` only — `KNOWN_ARCHETYPE_IDS` already lists all 16 ids from T1, do NOT reassign it)
 - Modify: `src/lib/projects/archetypes/_index.md` (already lists all 15 + generic; no change needed unless a name was adjusted during authoring)
 
 **Interfaces:**

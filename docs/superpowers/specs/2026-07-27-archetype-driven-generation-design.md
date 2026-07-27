@@ -92,17 +92,20 @@ The fallback is forceful by authoring strength, not by file count.
 
 - `ImplementationSpec` gains `archetype: string` (the id the AI picked).
 - `implementationSpecTool.inputSchema` gains `archetype: z.string()`.
-- `parseImplementationSpec`: validate `archetype` against the known id set (loaded from the archetypes dir, see loader). Unknown / empty → fall back to `generic` (mapped to `generic-fallback.md`). The build must never fail on a bad archetype id.
+- `parseImplementationSpec`: validate `archetype` against `KNOWN_ARCHETYPE_IDS` (the full allow-list, independent of authored docs). Unknown / empty → fall back to `generic` (mapped to `generic-fallback.md`). The build must never fail on a bad archetype id.
 - `implementationSpecFromBrief` (deterministic fallback): set `archetype` from `brief.businessType` via a small static map (`fnb → fnb-menu`, `retail → retail-catalog`, `jasa_lokal → service-area`, `jasa_online → service-online`, `kursus → education-course`, `other → generic`). This map is the only deterministic selection; the AI path is preferred, the map is the safety net.
 
 ### The loader: one doc into the build prompt
 
 New `src/lib/projects/archetypes/index.ts`:
 
-- Exports `ARCHETYPE_IDS: string[]` — an explicit registry array (not a directory scan), so selection is testable and there are no filesystem reads at module-load. Each entry matches a `.md` filename stem in the same dir.
-- Exports `loadArchetypeGuide(id: string): string` — returns the `.md` content for `id`, or `generic-fallback.md` for unknown/`generic`. Imports each doc via `?raw` so the strings are bundled, not read from disk at runtime.
+- Exports `KNOWN_ARCHETYPE_IDS: string[]` — the full list of all 16 valid archetype ids, listed upfront **independent of whether each guide `.md` is authored yet** (business archetype docs land in a later task). This is the parser's allow-list. Not a directory scan — an explicit array, so selection is testable and there are no filesystem reads at module-load. Each entry matches a `.md` filename stem in the same dir.
+- Exports `ARCHETYPE_IDS: string[]` — backward-compat alias of `KNOWN_ARCHETYPE_IDS`, kept so the loader self-check test and any existing imports keep working. New code should import `KNOWN_ARCHETYPE_IDS` for the allow-list.
+- Exports `loadArchetypeGuide(id: string): string` — returns the `.md` content for `id`, or `generic-fallback.md` for any id without an authored guide doc yet (unknown/`generic`/not-yet-authored). Imports each doc via `?raw` so the strings are bundled, not read from disk at runtime.
 - Exports `loadArchetypeIndex(): string` — returns the `_index.md` content, for injection into the spec-call system prompt.
-- Pure, unit-testable: given an id, returns the right doc; given garbage, returns the fallback. No agent-tool-runner dependency.
+- Pure, unit-testable: given an id, returns the right doc (or generic fallback); given garbage, returns the fallback. No agent-tool-runner dependency.
+
+**Why the allow-list is decoupled from the guide map:** `KNOWN_ARCHETYPE_IDS` (all valid ids) and `GUIDE_BY_ID` (only authored docs) are separate. This lets the parser validate an archetype id as soon as the id is declared, even before its guide `.md` exists — `loadArchetypeGuide` falls back to `generic-fallback.md` for any id without a doc. Without this split, business archetype ids would be "unknown" until their docs land, silently collapsing the deterministic map to `generic`.
 
 `src/lib/projects/custom-source-generator.ts` (~`buildGeneratedAppAgentInstructions`, line 2096): when `implementationSpec.archetype` is present, inject `loadArchetypeGuide(spec.archetype)` into the build prompt as a dedicated **Archetype guidance** block, placed *before* the "Build intent" block so the shape logic frames the build. The block is the full `.md` for the matched archetype only (one doc, not all 16).
 
