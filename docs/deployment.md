@@ -164,7 +164,7 @@ Rules for that deployment shape:
 
 Error tracking is intentionally not wired (Sentry was removed). If error tracking is needed later, GlitchTip is Sentry-API-compatible and slots in behind a fresh adapter without rewriting call sites.
 
-Usage/behavior analytics: **Umami** (self-hosted in `docker-compose.prod.yml`, shares the platform Postgres) — pageviews + custom events via `src/lib/analytics.ts` `track()`. Dev-off; prod-on via `NEXT_PUBLIC_UMAMI_*`. Never on `/api/*` or `/p/<slug>` (generated sites are the user's, not the platform's to instrument).
+Usage/behavior analytics: **Umami** (self-hosted in `docker-compose.prod.yml`, shares the platform Postgres) — pageviews + custom events via `src/lib/analytics.ts` `track()`. Fires whenever `NEXT_PUBLIC_UMAMI_WEBSITE_ID` is set (dev or prod); dev `.env` points at a local Umami container, prod at the prod instance — no cross-pollution. Never on `/api/*` or `/p/<slug>` (generated sites are the user's, not the platform's to instrument). After first `docker compose -f docker-compose.prod.yml up -d umami`, run `bun run provision:analytics` once to create the admin account + website and write the Website ID into `.env`. Idempotent — safe to re-run after wipes/upgrades (skips existing admin/website, preserves data + password).
 
 Availability monitoring: **Uptime Kuma** (self-hosted, standalone SQLite) — pings the app + key endpoints, alerts on downtime. Configure monitors at `http://<server>:3002` after first boot.
 
