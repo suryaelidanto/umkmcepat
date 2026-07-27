@@ -118,8 +118,7 @@ The control plane owns project metadata and user workflows. Build workers and ru
 
 Current runtime implementation:
 
-- `STORAGE_PROVIDER` chooses canonical generated source/dist artifact storage: `local` by default, or `r2` for Cloudflare R2. New writes use the configured provider; reads use the provider embedded in each artifact ref, so existing `project-artifact:local:*` refs remain readable after switching.
-- `PROJECT_ARTIFACT_DIR` stores local source/dist artifacts under `.data/project-artifacts` by default when the provider is `local`.
+- `STORAGE_PROVIDER` chooses canonical generated source/dist artifact storage: `local` (RustFS dev mirror at `http://localhost:9000`) or `r2` (Cloudflare R2 in prod). New writes use the configured provider; reads use the provider embedded in each artifact ref, so existing `project-artifact:local:*` refs remain readable after switching. Both providers speak S3 through `src/lib/s3-client.ts`; switching is repointing `S3_*` env.
 - `PROJECT_RUNTIME_DIR` stores materialized runtime files under `.data/project-runtimes` by default.
 - `PROJECT_BUILD_WORKSPACE_DIR` stores rebuildable local build workspaces under `.data/project-build-workspaces` by default. Build workspaces cache generated app `node_modules` and build metadata so repeat edits can skip dependency install when the package/profile signature is unchanged. Source snapshots and dist artifacts remain canonical; workspaces may be deleted and rebuilt.
 - `RuntimeSupervisor` starts a local out-of-process static server from a dist artifact and records deployment events.
@@ -198,20 +197,20 @@ Static-frontend constraint:
 
 Provider selection is explicit, env-driven, and behind internal adapters.
 
-| Capability        | Env                                   | Current default           | Boundary                                                                                                            |
-| ----------------- | ------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Database          | `DATABASE_URL`                        | PostgreSQL via Prisma     | `prisma/schema.prisma`                                                                                              |
-| AI                | `AI_PROVIDER`                         | 9Router via Vercel AI SDK | `src/lib/ai.ts`                                                                                                     |
-| Auth              | Google OAuth + Turnstile              | Google                    | `src/lib/auth.ts`, Auth.js                                                                                          |
-| Rate limit        | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`                                                                                             |
-| Storage provider  | `STORAGE_PROVIDER`                    | `local`                   | `src/lib/storage-provider.ts` — single toggle drives waitlist images, project artifacts, project assets, thumbnails |
-| Public R2 bucket  | `R2_PUBLIC_BUCKET`                    | —                         | `src/lib/r2-client.ts` — logos, business images, generated artifacts (browser-direct via `R2_PUBLIC_BASE_URL`)      |
-| Private R2 bucket | `R2_PRIVATE_BUCKET`                   | —                         | `src/lib/r2-client.ts` — waitlist photos, references, thumbnails (server-proxied, auth-gated)                       |
-| Email             | `RESEND_API_KEY`                      | Resend (mock in dev)      | `src/lib/email.ts`                                                                                                  |
-| WhatsApp OTP      | `OTP_SPACE_API_KEY`                   | OTPSpace (mock in dev)    | `src/lib/otp.ts`                                                                                                    |
-| Analytics         | `NEXT_PUBLIC_UMAMI_*`                 | Umami (off in dev)        | `src/lib/analytics.ts`                                                                                              |
-| Waitlist gate     | `WAITLIST_ENABLED`                    | `true` (fail-safe)        | `src/lib/waitlist-enabled.ts`                                                                                       |
-| Runtime           | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*`                                                                                        |
+| Capability        | Env                                   | Current default           | Boundary                                                                                                       |
+| ----------------- | ------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Database          | `DATABASE_URL`                        | PostgreSQL via Prisma     | `prisma/schema.prisma`                                                                                         |
+| AI                | `AI_PROVIDER`                         | 9Router via Vercel AI SDK | `src/lib/ai.ts`                                                                                                |
+| Auth              | Google OAuth + Turnstile              | Google                    | `src/lib/auth.ts`, Auth.js                                                                                     |
+| Rate limit        | `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_*` | `memory`                  | `src/lib/rate-limit.ts`                                                                                        |
+| Storage provider  | `STORAGE_PROVIDER`                    | `local`                   | `src/lib/storage-provider.ts` — `local` (RustFS dev mirror) or `r2` (Cloudflare R2 prod)                       |
+| S3 public bucket  | `S3_PUBLIC_BUCKET`                    | —                         | `src/lib/s3-client.ts` — logos, business images, generated artifacts (browser-direct via `S3_PUBLIC_BASE_URL`) |
+| S3 private bucket | `S3_PRIVATE_BUCKET`                   | —                         | `src/lib/s3-client.ts` — waitlist photos, references, thumbnails (server-proxied, auth-gated)                  |
+| Email             | `RESEND_API_KEY`                      | Resend (mock in dev)      | `src/lib/email.ts`                                                                                             |
+| WhatsApp OTP      | `OTP_SPACE_API_KEY`                   | OTPSpace (mock in dev)    | `src/lib/otp.ts`                                                                                               |
+| Analytics         | `NEXT_PUBLIC_UMAMI_*`                 | Umami (off in dev)        | `src/lib/analytics.ts`                                                                                         |
+| Waitlist gate     | `WAITLIST_ENABLED`                    | `true` (fail-safe)        | `src/lib/waitlist-enabled.ts`                                                                                  |
+| Runtime           | `PROJECT_RUNTIME_*`                   | local process supervisor  | `src/lib/projects/runtime-*`                                                                                   |
 
 Rules:
 
@@ -284,32 +283,31 @@ Keep provider keys out of frontend env vars and git. `AI_CHAT_MODEL` should stay
 
 ## Storage
 
-Current implemented storage provider:
+Object storage is one S3 code path through `src/lib/s3-client.ts`; the provider only changes endpoint + credentials.
 
 ```env
+# local = RustFS dev mirror (started by `bun run infra` on :9000).
+# r2    = Cloudflare R2 in prod (SDK derives host from S3_ACCOUNT_ID when S3_ENDPOINT is empty).
 STORAGE_PROVIDER="local"
-LOCAL_UPLOAD_DIR=".data/uploads"
+S3_ENDPOINT="http://localhost:9000"
+S3_REGION="us-east-1"
+S3_ACCESS_KEY_ID=""
+S3_SECRET_ACCESS_KEY=""
+S3_PUBLIC_BUCKET="umkmcepat-public-dev"
+S3_PRIVATE_BUCKET="umkmcepat-private-dev"
+S3_PUBLIC_BASE_URL="http://localhost:9000"
+S3_ACCOUNT_ID=""
+
+# RustFS root creds — scripts/init-s3-buckets.ts uses these to auto-create the two buckets on first boot.
+RUSTFS_ROOT_USER="umkmcepat"
+RUSTFS_ROOT_PASSWORD=""
 ```
 
-`local` writes uploads under `LOCAL_UPLOAD_DIR`. For VPS/Docker, mount that path as a persistent volume.
+`bun run infra` starts RustFS on `http://localhost:9000` with `RUSTFS_ROOT_USER`/`RUSTFS_ROOT_PASSWORD`; `scripts/init-s3-buckets.ts` idempotently creates `S3_PUBLIC_BUCKET` and `S3_PRIVATE_BUCKET` from those root creds. Public display media (logos, business images, generated artifacts) is served browser-direct via `S3_PUBLIC_BASE_URL`; private assets (waitlist photos, references, thumbnails) are server-proxied and auth-gated. To switch to R2 in prod, set `STORAGE_PROVIDER="r2"`, leave `S3_ENDPOINT` empty, fill `S3_ACCOUNT_ID` + R2 creds, and repoint `S3_PUBLIC_BASE_URL` at the public CDN.
 
 ### Owner-scoped project asset uploads
 
-The platform stores owner-uploaded project assets (business images / references / logos used by the builder and the waitlist evidence flow) separately from generic uploads, under `PROJECT_ASSET_DIR` (default `.data/project-assets`). The `project-asset:local:<projectId>/<kind>/<ulid>.<ext>` ref encodes the on-disk path; `src/lib/projects/project-assets.ts` is the read/write/delete authority and validates content by magic bytes (PNG/JPEG/WEBP), not by client-supplied extension. A `ProjectAsset` row persists the ref for cleanup-on-delete; `project-cleanup.ts` deletes stored objects best-effort alongside the DB cascade. Uploads go through `POST /api/projects/$id/assets` (auth + owner + allowlisted `purpose` + size cap), and assets are served owner-scoped at `GET /api/projects/$id/asset/$assetId` behind auth. The `r2` provider path for these assets is intentionally not wired yet (local-only per the 2026-07-24 batch constraint); the local adapter is the only path exercised.
-
-Reserved future provider:
-
-```env
-STORAGE_PROVIDER="r2"
-R2_ACCOUNT_ID=""
-R2_ACCESS_KEY_ID=""
-R2_SECRET_ACCESS_KEY=""
-R2_PUBLIC_BUCKET=""
-R2_PRIVATE_BUCKET=""
-R2_PUBLIC_BASE_URL=""
-```
-
-`r2` env placeholders exist, but the adapter intentionally throws until remote object storage is actually needed. When R2 is implemented, runtime storage selection should come from `STORAGE_PROVIDER`; local upload volumes become optional for that deployment.
+The platform stores owner-uploaded project assets (business images / references / logos used by the builder and the waitlist evidence flow) as `project-asset:s3-private:<projectId>/<kind>/<ulid>.<ext>` refs through `src/lib/projects/project-assets.ts`, the read/write/delete authority. It validates content by magic bytes (PNG/JPEG/WEBP), not by client-supplied extension. A `ProjectAsset` row persists the ref for cleanup-on-delete; `project-cleanup.ts` deletes stored objects best-effort alongside the DB cascade. Uploads go through `POST /api/projects/$id/assets` (auth + owner + allowlisted `purpose` + size cap), and assets are served owner-scoped at `GET /api/projects/$id/asset/$assetId` behind auth.
 
 ## Auth
 

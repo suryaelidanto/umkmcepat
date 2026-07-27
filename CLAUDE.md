@@ -8,7 +8,7 @@ Boot instructions for AI agents working on UMKM Cepat.
 - `DEV.md`: local workflow, commands, quality gate, + the **Cleanliness contract** (behavior-preserving refactors, comment hygiene).
 - `PRODUCT.md`: required before product positioning, builder flow, generated-project UX, or design-system decisions.
 - `DESIGN.md`: required before UI, styling, layout, typography, colors, or components.
-- `docs/architecture.md`: required before project, workspace, renderer, publishing, provider, storage, auth, or AI gateway work. New boundaries: `src/lib/r2-client.ts` (R2 Sig V4), `src/lib/email.ts` (Resend), `src/lib/otp.ts` (OTPSpace), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), the public `/media/<assetId>` route, the `/admin` waitlist dashboard, `MobileNav` + `mobile-sheet` (mobile chrome).
+- `docs/architecture.md`: required before project, workspace, renderer, publishing, provider, storage, auth, or AI gateway work. New boundaries: `src/lib/s3-client.ts` (S3 path for both `local` RustFS and `r2` Cloudflare R2), `src/lib/email.ts` (Resend), `src/lib/otp.ts` (OTPSpace), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), the public `/media/<assetId>` route, the `/admin` waitlist dashboard, `MobileNav` + `mobile-sheet` (mobile chrome).
 - `docs/deployment.md`: required before Docker, VPS, storage persistence, CI, or monitoring work (incl. Umami + Uptime Kuma).
 
 ## Commands
@@ -35,7 +35,7 @@ Local quality gates are automated:
 
 `bun run sweep:project-orphans` purges `.data/project-*` dirs whose IDs are not in the DB. Run after deleting projects via the DB / CLI (the homepage's delete path runs cleanup automatically).
 
-`bun run infra` starts Postgres, 9Router, and Headroom. Use `bun run infra:minimal` only when you need Postgres without AI/observability services.
+`bun run infra` starts Postgres, 9Router, Headroom, and RustFS (local S3 dev mirror on `http://localhost:9000`; `scripts/init-s3-buckets.ts` auto-creates the two buckets from `RUSTFS_ROOT_USER`/`RUSTFS_ROOT_PASSWORD`). Use `bun run infra:minimal` only when you need Postgres without AI/observability/RustFS services.
 
 Optional Storybook:
 
