@@ -179,4 +179,32 @@ describe("implementation spec", () => {
     expect(prompt).toContain("AI confidence: 96%");
     expect(prompt).not.toContain("primaryCta");
   });
+
+  it("implementationSpecFromBrief maps businessType to a shape archetype", () => {
+    const cases: Array<[string, string]> = [
+      ["warung makan (fnb)", "fnb-menu"],
+      ["Thrift kaos (retail)", "retail-catalog"],
+      ["Laundry jasa_lokal", "service-area"],
+      ["Desain grafis jasa_online", "service-online"],
+      ["Bimbel kursus", "education-course"],
+      ["something uncategorizable", "generic"],
+    ];
+
+    for (const [businessType, expected] of cases) {
+      const brief = parseProjectBrief(
+        {
+          readyForBuild: true,
+          confidence: 95,
+          businessName: "Usaha Contoh",
+          businessType,
+          offer: "Layanan contoh",
+          productOrService: [{ name: "Contoh", isPrimary: true }],
+          contactOrCta: "Chat WA",
+        },
+        "buat web",
+      );
+      const spec = implementationSpecFromBrief(brief);
+      expect(parseImplementationSpec(spec)?.archetype).toBe(expected);
+    }
+  });
 });

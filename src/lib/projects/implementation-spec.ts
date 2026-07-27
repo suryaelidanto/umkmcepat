@@ -8,6 +8,44 @@ import {
   type ProjectSiteSchema,
 } from "@/lib/projects/site-schema";
 
+/**
+ * Best-effort shape guess from a free-text businessType.
+ * Keys on normalized substring; order matters (first match wins).
+ * `ponytail:` only a safety net — the AI spec call is the real selector.
+ */
+function archetypeFromBusinessType(businessType: string): string {
+  const text = businessType.toLowerCase();
+  const rules: Array<[string, string]> = [
+    ["fnb", "fnb-menu"],
+    ["warung makan", "fnb-menu"],
+    ["restoran", "fnb-menu"],
+    ["cafe", "fnb-menu"],
+    ["kue", "fnb-light"],
+    ["snack", "fnb-light"],
+    ["catering", "fnb-light"],
+    ["retail", "retail-catalog"],
+    ["fashion", "retail-catalog"],
+    ["thrift", "retail-catalog"],
+    ["kelontong", "retail-grocery"],
+    ["sembako", "retail-grocery"],
+    ["jasa_lokal", "service-area"],
+    ["laundry", "service-area"],
+    ["barber", "service-appointment"],
+    ["klinik", "service-appointment"],
+    ["jasa_online", "service-online"],
+    ["freelance", "service-online"],
+    ["desain", "service-online"],
+    ["kursus", "education-course"],
+    ["bimbel", "education-course"],
+  ];
+  for (const [needle, id] of rules) {
+    if (text.includes(needle)) {
+      return id;
+    }
+  }
+  return "generic";
+}
+
 export const implementationSpecTool = tool({
   description: "Present the full website implementation spec.",
   inputSchema: z.object({
@@ -249,6 +287,10 @@ export function implementationSpecFromBrief(
     accent: cleanHex(schema.theme.accent) || "#16a34a",
   };
 
+  const archetype = archetypeFromBusinessType(
+    clean(brief.businessType, 80) || "",
+  );
+
   const pages = [
     {
       slug: "home",
@@ -292,7 +334,7 @@ export function implementationSpecFromBrief(
 
   return {
     appKind: "landing",
-    archetype: "generic",
+    archetype,
     businessName,
     pages,
     components,
