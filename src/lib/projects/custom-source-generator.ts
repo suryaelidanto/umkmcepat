@@ -2131,7 +2131,7 @@ STACK (locked — do not change tooling):
 STYLING (shadcn + Tailwind only — no custom CSS):
 - All styling uses Tailwind utility classes inline in the TSX, using theme tokens (bg-background, text-foreground, bg-primary, text-primary-foreground, bg-muted, text-muted-foreground, bg-accent, text-accent-foreground, border-border, ring-ring).
 - Do NOT write custom CSS class names (no .btn-primary / .nav-link / .hero-section / etc.) and do NOT edit src/index.css.
-- If you need a shadcn component not pre-seeded, write its source into src/components/ui/<name>.tsx (canonical new-york + Tailwind v4 shape, import cn from "@/lib/utils"). No CLI at build time.
+- Only button + card are pre-seeded. If you need any other shadcn component, call copy_component("name") — it writes the canonical new-york + Tailwind v4 source + transitive deps into src/components/ui/. Do not hand-write component source when copy_component covers it. No CLI at build time.
 - Use min-h-dvh for full-height sections, never h-screen.
 
 ROUTING & PAGE CONTRACT:
