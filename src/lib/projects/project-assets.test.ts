@@ -2,17 +2,45 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createProjectAssetRef,
   deleteProjectAsset,
-  getProjectAssetStorageProvider,
   parseProjectAssetRef,
   readProjectAsset,
   writeProjectAsset,
   type ProjectAssetKind,
 } from "@/lib/projects/project-assets";
+import { getStorageProvider } from "@/lib/storage-provider";
+
+const { r2FetchMock, pngBytes } = vi.hoisted(() => {
+  const PNG_HEX =
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c63000100000005000101f9e0230000000049454e44ae426082";
+  return {
+    r2FetchMock: vi.fn(
+      async (_c: unknown, _k: string, i: { method: string }) =>
+        i.method === "GET"
+          ? new Response(Buffer.from(PNG_HEX, "hex"), { status: 200 })
+          : new Response(null, { status: 200 }),
+    ),
+    pngBytes: () => Buffer.from(PNG_HEX, "hex"),
+  };
+});
+
+vi.mock("@/lib/r2-client", () => ({
+  getR2Config: vi.fn(({ bucket }: { bucket: string }) => ({
+    accessKeyId: "a",
+    accountId: "b",
+    bucket: bucket === "public" ? "pub" : "priv",
+    prefix: "project-assets",
+    secretAccessKey: "s",
+  })),
+  publicUrlFor: (_c: unknown, key: string) =>
+    `https://pub-x.r2.dev/project-assets/${key}`,
+  signedR2Fetch: r2FetchMock,
+  R2Config: {} as never,
+}));
 
 const USER = "user_abc";
 
@@ -27,13 +55,6 @@ describe("project assets", () => {
     delete process.env.PROJECT_ASSET_DIR;
   });
 
-  function pngBytes() {
-    // Minimal 1x1 PNG: 8-byte signature + IHDR + IDAT + IEND.
-    return Buffer.from(
-      "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c63000100000005000101f9e0230000000049454e44ae426082",
-      "hex",
-    );
-  }
   function jpegBytes() {
     // Minimal JPEG: FFD8 FF E0 ... FFD9.
     const head = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
@@ -238,25 +259,54 @@ describe("project assets", () => {
 
   describe("provider switch + R2 boundary", () => {
     afterEach(() => {
-      delete process.env.PROJECT_ASSET_STORAGE_PROVIDER;
+      delete process.env.STORAGE_PROVIDER;
       delete process.env.R2_PUBLIC_BASE_URL;
+      r2FetchMock.mockClear();
     });
 
-    it("getProjectAssetStorageProvider defaults to local", () => {
-      delete process.env.PROJECT_ASSET_STORAGE_PROVIDER;
-      expect(getProjectAssetStorageProvider()).toBe("local");
+    it("getStorageProvider defaults to local", () => {
+      delete process.env.STORAGE_PROVIDER;
+      expect(getStorageProvider()).toBe("local");
     });
 
-    it("getProjectAssetStorageProvider returns r2 when set", () => {
-      process.env.PROJECT_ASSET_STORAGE_PROVIDER = "r2";
-      expect(getProjectAssetStorageProvider()).toBe("r2");
+    it("getStorageProvider returns r2 when set", () => {
+      process.env.STORAGE_PROVIDER = "r2";
+      expect(getStorageProvider()).toBe("r2");
     });
 
-    it("getProjectAssetStorageProvider rejects unknown values", () => {
-      process.env.PROJECT_ASSET_STORAGE_PROVIDER = "s3";
-      expect(() => getProjectAssetStorageProvider()).toThrow(
-        /PROJECT_ASSET_STORAGE_PROVIDER/,
-      );
+    it("getStorageProvider rejects unknown values", () => {
+      process.env.STORAGE_PROVIDER = "s3";
+      expect(() => getStorageProvider()).toThrow(/STORAGE_PROVIDER/);
+    });
+
+    it("writes a logo to the public bucket with a publicUrl when r2", async () => {
+      process.env.STORAGE_PROVIDER = "r2";
+      const { publicUrl, ref } = await writeProjectAsset({
+        bytes: pngBytes(),
+        kind: "logo",
+        projectId: "p1",
+        userId: USER,
+      });
+      expect(ref).toMatch(/^project-asset:r2:/);
+      expect(publicUrl).toMatch(/^https:\/\/pub-x/);
+      const calledConfig = r2FetchMock.mock.calls[0][0] as { bucket: string };
+      expect(calledConfig.bucket).toBe("pub");
+    });
+
+    it("writes a reference to the private bucket with no publicUrl when r2", async () => {
+      process.env.STORAGE_PROVIDER = "r2";
+      const { publicUrl, ref } = await writeProjectAsset({
+        bytes: pngBytes(),
+        kind: "reference",
+        projectId: "p1",
+        userId: USER,
+      });
+      expect(ref).toMatch(/^project-asset:r2-private:/);
+      expect(publicUrl).toBeNull();
+      const calledConfig = r2FetchMock.mock.calls.at(-1)?.[0] as {
+        bucket: string;
+      };
+      expect(calledConfig.bucket).toBe("priv");
     });
 
     it("parseProjectAssetRef accepts the r2 prefix", () => {
@@ -269,6 +319,18 @@ describe("project assets", () => {
         projectId: "p1",
         ulid: "abc",
         userId: "u1",
+      });
+    });
+
+    it("parseProjectAssetRef accepts the r2-private prefix", () => {
+      const parsed = parseProjectAssetRef(
+        "project-asset:r2-private:p1/u1/reference/abc.png",
+      );
+      expect(parsed).toMatchObject({
+        kind: "reference",
+        projectId: "p1",
+        userId: "u1",
+        ext: "png",
       });
     });
   });

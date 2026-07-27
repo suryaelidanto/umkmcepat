@@ -2,12 +2,13 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { getEnv } from "@/lib/config";
 import { getR2Config, publicUrlFor, signedR2Fetch } from "@/lib/r2-client";
+import { getStorageProvider } from "@/lib/storage-provider";
 
 const REF_PREFIX = "project-asset:local:";
 const LOCAL_REF_PREFIX = "project-asset:local:";
 const R2_REF_PREFIX = "project-asset:r2:";
+const R2_PRIVATE_REF_PREFIX = "project-asset:r2-private:";
 
 export type ProjectAssetKind = "business-image" | "reference" | "logo";
 
@@ -17,35 +18,19 @@ const KINDS: readonly ProjectAssetKind[] = [
   "logo",
 ];
 
-// Display kinds go to public R2 under PROJECT_ASSET_STORAGE_PROVIDER=r2;
-// references stay local (AI-input-only, never displayed).
+// Display kinds go to the public R2 bucket; references go to the private
+// bucket (AI-input-only, never displayed, never public).
 export const DISPLAY_KINDS: readonly ProjectAssetKind[] = [
   "business-image",
   "logo",
 ];
 
-export function getProjectAssetStorageProvider(): "local" | "r2" {
-  const provider = getEnv(
-    "PROJECT_ASSET_STORAGE_PROVIDER",
-    "local",
-  ).toLowerCase();
-  if (provider === "local" || provider === "r2") {
-    return provider;
-  }
-  throw new Error(
-    `Invalid PROJECT_ASSET_STORAGE_PROVIDER '${provider}'. Supported values: local, r2.`,
-  );
-}
-
 function isDisplayKind(kind: ProjectAssetKind): boolean {
   return (DISPLAY_KINDS as readonly string[]).includes(kind);
 }
 
-function assetR2Config() {
-  return getR2Config({
-    prefixEnv: "PROJECT_ASSET_R2_PREFIX",
-    prefixFallback: "project-assets",
-  });
+function assetR2Config(bucket: "public" | "private") {
+  return getR2Config({ bucket, prefix: "project-assets" });
 }
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -85,11 +70,16 @@ export function parseProjectAssetRef(
   ref: string,
 ): ParsedProjectAssetRef | null {
   const isLocal = ref.startsWith(LOCAL_REF_PREFIX);
-  const isR2 = !isLocal && ref.startsWith(R2_REF_PREFIX);
-  if (!isLocal && !isR2) {
+  const isR2Private = !isLocal && ref.startsWith(R2_PRIVATE_REF_PREFIX);
+  const isR2 = !isLocal && !isR2Private && ref.startsWith(R2_REF_PREFIX);
+  if (!isLocal && !isR2 && !isR2Private) {
     return null;
   }
-  const prefix = isLocal ? LOCAL_REF_PREFIX : R2_REF_PREFIX;
+  const prefix = isLocal
+    ? LOCAL_REF_PREFIX
+    : isR2Private
+      ? R2_PRIVATE_REF_PREFIX
+      : R2_REF_PREFIX;
   const rest = ref.slice(prefix.length);
   const parts = rest.split("/");
   if (parts.length !== 4) {
@@ -188,10 +178,11 @@ export async function writeProjectAsset({
   const ulid = randomUUID().replace(/-/g, "");
   const relativeKey = `${projectId}/${userId}/${kind}/${ulid}.${format}`;
 
-  // Display media (business-image/logo) can go to public R2; references stay
-  // local (AI-input-only, never displayed, never public).
-  if (getProjectAssetStorageProvider() === "r2" && isDisplayKind(kind)) {
-    const config = assetR2Config();
+  const provider = getStorageProvider();
+  // Display media (business-image/logo) go to the public R2 bucket and get a
+  // publicUrl; references go to the private bucket with no publicUrl.
+  if (provider === "r2" && isDisplayKind(kind)) {
+    const config = assetR2Config("public");
     const response = await signedR2Fetch(config, relativeKey, {
       body: bytes,
       contentType: FORMAT_CONTENT_TYPES[format],
@@ -204,6 +195,18 @@ export async function writeProjectAsset({
       publicUrl: publicUrlFor(config, relativeKey),
       ref: `${R2_REF_PREFIX}${relativeKey}`,
     };
+  }
+  if (provider === "r2") {
+    const config = assetR2Config("private");
+    const response = await signedR2Fetch(config, relativeKey, {
+      body: bytes,
+      contentType: FORMAT_CONTENT_TYPES[format],
+      method: "PUT",
+    });
+    if (!response.ok) {
+      throw new Error(`R2 asset write failed: ${response.status}`);
+    }
+    return { publicUrl: null, ref: `${R2_PRIVATE_REF_PREFIX}${relativeKey}` };
   }
 
   const root = resolveRoot(rootDir);
@@ -220,8 +223,25 @@ export async function readProjectAsset(
   { rootDir }: ProjectAssetOptions = {},
 ): Promise<{ body: Buffer; contentType: string }> {
   const parsed = parseProjectAssetRefOrThrow(ref);
+  if (ref.startsWith(R2_PRIVATE_REF_PREFIX)) {
+    const config = assetR2Config("private");
+    const response = await signedR2Fetch(
+      config,
+      `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`,
+      { method: "GET" },
+    );
+    if (!response.ok) {
+      throw new Error(`R2 asset read failed: ${response.status}`);
+    }
+    return {
+      body: Buffer.from(await response.arrayBuffer()),
+      contentType: parsed.ext
+        ? contentTypeForExt(parsed.ext)
+        : "application/octet-stream",
+    };
+  }
   if (ref.startsWith(R2_REF_PREFIX)) {
-    const config = assetR2Config();
+    const config = assetR2Config("public");
     const response = await signedR2Fetch(
       config,
       `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`,
@@ -250,8 +270,20 @@ export async function deleteProjectAsset(
   { rootDir }: ProjectAssetOptions = {},
 ): Promise<void> {
   const parsed = parseProjectAssetRefOrThrow(ref);
+  if (ref.startsWith(R2_PRIVATE_REF_PREFIX)) {
+    const config = assetR2Config("private");
+    const response = await signedR2Fetch(
+      config,
+      `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`,
+      { method: "DELETE" },
+    );
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`R2 asset delete failed: ${response.status}`);
+    }
+    return;
+  }
   if (ref.startsWith(R2_REF_PREFIX)) {
-    const config = assetR2Config();
+    const config = assetR2Config("public");
     const response = await signedR2Fetch(
       config,
       `${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`,
