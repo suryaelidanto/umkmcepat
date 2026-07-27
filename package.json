@@ -69,6 +69,7 @@
     "@ai-sdk/react": "^4.0.30",
     "@auth/core": "0.34.3",
     "@auth/prisma-adapter": "^2.11.2",
+    "@aws-sdk/client-s3": "^3.1095.0",
     "@monaco-editor/react": "^4.7.0",
     "@prisma/client": "^6.6.0",
     "@radix-ui/react-dialog": "^1.1.17",
