@@ -19,7 +19,9 @@ export function getS3Config(bucket: "public" | "private"): S3ClientConfig {
     bucket === "public" ? "S3_PUBLIC_BUCKET" : "S3_PRIVATE_BUCKET";
   const accessKeyId = requiredEnv("S3_ACCESS_KEY_ID");
   const secretAccessKey = requiredEnv("S3_SECRET_ACCESS_KEY");
-  const region = getEnv("S3_REGION", provider === "r2" ? "auto" : "us-east-1");
+  // R2 only accepts region "auto"; ignore any S3_REGION override to avoid
+  // signature/path-style mismatches against the virtual-host endpoint.
+  const region = provider === "r2" ? "auto" : getEnv("S3_REGION", "us-east-1");
 
   let endpoint = getEnv("S3_ENDPOINT").trim();
   if (!endpoint && provider === "r2") {
