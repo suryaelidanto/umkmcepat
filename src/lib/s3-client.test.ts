@@ -39,6 +39,31 @@ describe("s3-client config", () => {
       client as unknown as { config: { region: () => Promise<string> } }
     ).config.region();
     expect(region).toBe("auto");
+    // Endpoint is also an async resolver; the R2 host must be auto-derived
+    // from S3_ACCOUNT_ID when S3_ENDPOINT is empty.
+    const endpoint = await (
+      client as unknown as {
+        config: { endpoint: () => Promise<{ hostname: string }> };
+      }
+    ).config.endpoint();
+    expect(endpoint.hostname).toBe("acct.r2.cloudflarestorage.com");
+  });
+
+  it("r2: prefers an explicit S3_ENDPOINT over accountId derivation", async () => {
+    process.env.S3_ENDPOINT = "https://custom.example.com";
+    const { client } = getS3Config("public");
+    const endpoint = await (
+      client as unknown as {
+        config: { endpoint: () => Promise<{ hostname: string }> };
+      }
+    ).config.endpoint();
+    expect(endpoint.hostname).toBe("custom.example.com");
+  });
+
+  it("r2: throws when S3_ENDPOINT is empty and S3_ACCOUNT_ID is missing", () => {
+    delete process.env.S3_ENDPOINT;
+    delete process.env.S3_ACCOUNT_ID;
+    expect(() => getS3Config("public")).toThrow(/S3_ACCOUNT_ID/);
   });
 
   it("local: uses S3_ENDPOINT + forcePathStyle", async () => {

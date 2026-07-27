@@ -19,8 +19,13 @@ export function getS3Config(bucket: "public" | "private"): S3ClientConfig {
     bucket === "public" ? "S3_PUBLIC_BUCKET" : "S3_PRIVATE_BUCKET";
   const accessKeyId = requiredEnv("S3_ACCESS_KEY_ID");
   const secretAccessKey = requiredEnv("S3_SECRET_ACCESS_KEY");
-  const endpoint = getEnv("S3_ENDPOINT").trim();
   const region = getEnv("S3_REGION", provider === "r2" ? "auto" : "us-east-1");
+
+  let endpoint = getEnv("S3_ENDPOINT").trim();
+  if (!endpoint && provider === "r2") {
+    const accountId = requiredEnv("S3_ACCOUNT_ID");
+    endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
+  }
 
   const client = new S3Client({
     credentials: { accessKeyId, secretAccessKey },
@@ -92,9 +97,19 @@ export async function deleteS3Object(
   }
 }
 
-// ponytail: prefixes move here as Task 3-6 callers rewire from r2-client. Until
-// then callers keep their own constants — adding exports with zero importers
-// trips Knip. Re-introduce S3_PREFIXES when the first caller adopts it.
+/**
+ * Prefixes prepended to keys by callers. Single source of truth so ref/key
+ * construction stays consistent across subsystems.
+ *
+ * @public — imported by object-storage.ts / runtime-artifacts.ts /
+ * project-assets.ts / project-thumbnail.ts once Tasks 3-6 land.
+ */
+export const S3_PREFIXES = {
+  artifact: "project-artifacts",
+  asset: "project-assets",
+  object: "objects",
+  thumbnail: "project-thumbnails",
+} as const;
 
 function requiredEnv(name: string): string {
   const value = getEnv(name);
