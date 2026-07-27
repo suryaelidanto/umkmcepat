@@ -1,5 +1,9 @@
 import indexDoc from "./_index.md?raw";
+import fnbLight from "./fnb-light.md?raw";
+import fnbMenu from "./fnb-menu.md?raw";
 import genericFallback from "./generic-fallback.md?raw";
+import retailCatalog from "./retail-catalog.md?raw";
+import retailGrocery from "./retail-grocery.md?raw";
 
 /**
  * Every valid archetype id, independent of whether its guide `.md` exists yet.
@@ -34,6 +38,10 @@ export { KNOWN_ARCHETYPE_IDS as ARCHETYPE_IDS };
 
 const GUIDE_BY_ID: Record<string, string> = {
   generic: genericFallback,
+  "fnb-menu": fnbMenu,
+  "fnb-light": fnbLight,
+  "retail-catalog": retailCatalog,
+  "retail-grocery": retailGrocery,
 };
 
 const INDEX_DOC: string = indexDoc;
