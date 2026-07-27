@@ -64,6 +64,7 @@ async function main() {
     );
     process.exit(1);
   }
+  // ponytail: idempotent only while total websites ≤ pageSize (20); paginate when Umami grows past one screen.
   const listBody = (await listRes.json()) as { data?: Website[] };
   const websites = listBody.data ?? [];
   let website = websites.find((w) => w.name === WEBSITE_NAME);
@@ -82,6 +83,10 @@ async function main() {
       process.exit(1);
     }
     website = (await createRes.json()) as Website;
+    if (!website?.id) {
+      console.error("Create website response had no id field.");
+      process.exit(1);
+    }
   }
 
   const scriptSrc = `${base}/script.js`;

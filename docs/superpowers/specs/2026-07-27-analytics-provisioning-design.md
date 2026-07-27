@@ -4,6 +4,8 @@
 **Status:** Design — awaiting plan
 **Topic:** Umami auto-provisioning (admin + website + env wiring)
 
+> **Superseded by Task 0 verification** — Task 0 (report at `.superpowers/sdd/task-0-report.md`) verified Umami 3.2.0's actual API. Three points below predate that verification and are STALE in prose: (a) auth is **Bearer token, not cookie** — login returns `{token}`, send `Authorization: Bearer`; (b) **no `/api/auth/setup` endpoint** exists — admin is seeded by the postgres init SQL at first boot, login-401 means wrong-password (exit, don't fall back to setup); (c) dev admin password is **`umami`, not `umkmcepat`**. The shipped code (`scripts/provision-analytics.ts`) + the plan (`docs/superpowers/plans/2026-07-27-analytics-provisioning.md`) reflect these corrections; read them for current truth.
+
 ## Problem
 
 Umami + Uptime Kuma are integrated (compose services, `analytics.ts`, `__root.tsx` script tag, init SQL for the `umami` DB shell) but the app-level setup — creating the Umami admin account + website and writing the resulting `Website ID` into `.env` — is manual. Manual steps get skipped, done out of order, or forgotten on first deploy, leaving `track()` a silent no-op with no visible failure.
@@ -17,6 +19,7 @@ Umami + Uptime Kuma are integrated (compose services, `analytics.ts`, `__root.ts
 - **In-app `/api/admin/provision-umami` route.** Couples an ops task to the running app (chicken-egg: app needs the Umami ID to fully work, but the route lives in the app). Adds auth surface for a one-time op. **Out of scope.**
 - **Shell script + curl/jq variant.** Project is Bun-first (CLAUDE.md). **Out of scope.**
 - **Self-check test harness.** Ops script, idempotent by construction (skip-existing + atomic env write). Re-running IS the test. No `--self-check` flag. **Out of scope.**
+- **Dev admin password `umami` is a localhost fixture, not a tracked secret.** CLAUDE.md forbids passwords in tracked files; the dev default `umami` is the equivalent of `postgres`/`postgres` for the local Postgres (already in `docker-compose.yml`) — a localhost-only seeded admin for the dev Umami container. The prod path (`NODE_ENV=production` + empty `UMAMI_ADMIN_PASSWORD`) exits before this default is ever used; no prod credential is exposed. The maintainer owns this exception consciously. Prod deployments set `UMAMI_ADMIN_PASSWORD` in deployment secrets, never in a tracked file.
 
 ## Architecture + boundary
 
@@ -40,6 +43,7 @@ Phase A — resolve config
   prod guard: NODE_ENV=production && !pass → throw "UMAMI_ADMIN_PASSWORD required"
   dev guard: !pass → console.warn "dev default 'umkmcepat' in use" + pass = "umkmcepat"
   Phase B — provision (idempotent, REST only)
+  // NOTE: Task 0 verified Bearer token (not cookie) + no setup endpoint; see banner.
   Cookie handling: a single `Headers` instance is reused across all calls; `fetch`'s `credentials: "include"` + manual `set-cookie` parsing from each response keeps the Umami session attached for steps 2–4.
   1. login: POST {base}/api/auth/login {username, password}
      → 200 + Set-Cookie → admin exists, session cookie stored on the shared Headers
