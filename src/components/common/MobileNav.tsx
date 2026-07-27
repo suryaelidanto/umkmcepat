@@ -7,7 +7,6 @@ import { Link } from "@/components/ui/link";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { useSession } from "@/lib/auth-client";
 import { usePathname } from "@/lib/navigation";
-import { isAdminEmail } from "@/lib/waitlist";
 
 const ITEMS = [
   { href: "/", icon: Home, label: "Beranda" },
@@ -27,8 +26,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const { data: session } = useSession();
-  const isAdmin =
-    session?.user?.email != null && isAdminEmail(session.user.email);
+  const isAdmin = session?.user?.admin === true;
   const overflow = OVERFLOW.filter(
     (item) => !("adminOnly" in item && item.adminOnly) || isAdmin,
   );

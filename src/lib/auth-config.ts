@@ -6,7 +6,7 @@ import type { AuthConfig } from "@auth/core";
 
 import { prisma } from "@/lib/prisma";
 import { getDiceBearAvatarUrl } from "@/lib/profile";
-import { linkApprovedWaitlistOnSignup } from "@/lib/waitlist";
+import { isAdminEmail, linkApprovedWaitlistOnSignup } from "@/lib/waitlist";
 
 const googleConfigured = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
@@ -44,6 +44,10 @@ export const authConfig: AuthConfig = {
         session.user.image = token.picture;
       }
 
+      if (typeof token.admin === "boolean" && session.user) {
+        session.user.admin = token.admin;
+      }
+
       return session;
     },
     async jwt({ token, trigger, session, user }) {
@@ -51,6 +55,7 @@ export const authConfig: AuthConfig = {
         token.sub = user.id;
         token.name = user.name;
         token.picture = getDiceBearAvatarUrl(user.name || "default");
+        token.admin = isAdminEmail(user.email ?? "");
       }
 
       if (trigger === "update") {

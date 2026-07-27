@@ -1,10 +1,22 @@
 import { findConfigEntry, type SettingType } from "./app-settings-registry";
 
-import { prisma } from "@/lib/prisma";
+import type { PrismaClient } from "@prisma/client";
 
 type CacheEntry = { value: unknown; expiresAt: number };
 const TTL_MS = 5_000;
 const cache = new Map<string, CacheEntry>();
+
+// ponytail: prisma is imported lazily inside getSetting so this module's
+// evaluation stays browser-safe. app-settings is imported by client-reachable
+// modules (pakasir → EnergyBoosterModal; config → ai-timeouts → WorkspacePrimitives);
+// a static `import { prisma } from "@/lib/prisma"` would drag the Node-only
+// `global` reference into the browser bundle and break Storybook. The prisma
+// singleton is only needed for the async DB read. When a sync client-side read
+// of DB config is needed, add a client-safe resolver instead of widening this.
+async function getDb(): Promise<PrismaClient["appSetting"]> {
+  const { prisma } = await import("@/lib/prisma");
+  return prisma.appSetting;
+}
 
 export function invalidateSettingCache(key?: string): void {
   if (key) {
@@ -85,7 +97,8 @@ export async function getSetting<T extends boolean | number | string>(
   }
   // DB-first
   try {
-    const row = await prisma.appSetting.findUnique({
+    const appSetting = await getDb();
+    const row = await appSetting.findUnique({
       where: { key },
       select: { value: true },
     });

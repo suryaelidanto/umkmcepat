@@ -5,12 +5,10 @@ import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
 import { useSession } from "@/lib/auth-client";
-import { isAdminEmail } from "@/lib/waitlist";
 
 export function Header() {
   const { data: session } = useSession();
-  const showAdmin =
-    session?.user?.email != null && isAdminEmail(session.user.email);
+  const showAdmin = session?.user?.admin === true;
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/[0.07] bg-[#151515] text-surface-warm-white">
       <div className="mx-auto grid h-14 max-w-7xl grid-cols-[auto_1fr_auto] items-center px-spacing-7 sm:px-spacing-9 lg:px-spacing-10">
