@@ -7,34 +7,47 @@ import {
   type ProviderValue,
 } from "./provider-registry";
 
+import { getSettingSync } from "@/lib/app-settings";
+
 export function getEnv(name: string, fallback = ""): string {
   return process.env[name] || fallback;
 }
 
 export function isGeneratedBuildExecutionEnabled() {
-  return getCapabilityFlag("GENERATED_BUILD_EXECUTION_ENABLED");
+  return getCapabilityFlag("feature.generated_build_execution");
 }
 
 export function isGeneratedPublicExecutionEnabled() {
-  return getCapabilityFlag("GENERATED_PUBLIC_EXECUTION_ENABLED");
+  return getCapabilityFlag("feature.generated_public_execution");
 }
 
-function getCapabilityFlag(name: string) {
-  const raw = getEnv(name).trim().toLowerCase();
-
+function getCapabilityFlag(key: string) {
+  // ponytail: getSettingSync constrains T to boolean|number|string (no undefined).
+  // Cast to read the cold-cache signal; ceiling = widen AppSetting T to allow undefined.
+  const readSync = getSettingSync as unknown as (
+    k: string,
+    f: undefined,
+  ) => boolean | undefined;
+  const dbValue = readSync(key, undefined);
+  if (typeof dbValue === "boolean") {
+    return dbValue;
+  }
+  // env-fallback semantics (preserves old behavior): unset → dev-true/prod-false.
+  const envName =
+    key === "feature.generated_build_execution"
+      ? "GENERATED_BUILD_EXECUTION_ENABLED"
+      : "GENERATED_PUBLIC_EXECUTION_ENABLED";
+  const raw = getEnv(envName).trim().toLowerCase();
   if (!raw) {
     return process.env.NODE_ENV !== "production";
   }
-
   if (raw === "true") {
     return true;
   }
-
   if (raw === "false") {
     return false;
   }
-
-  throw new Error(`${name} must be true or false.`);
+  throw new Error(`${envName} must be true or false.`);
 }
 
 export function getConfiguredProvider<T extends ProviderCapability>(
