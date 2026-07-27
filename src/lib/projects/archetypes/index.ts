@@ -1,7 +1,7 @@
 import indexDoc from "./_index.md?raw";
 import genericFallback from "./generic-fallback.md?raw";
 
-export const ARCHETYPE_IDS: string[] = ["generic"];
+export const ARCHETYPE_IDS: string[] = ["generic", "fnb-menu"];
 
 const GUIDE_BY_ID: Record<string, string> = {
   generic: genericFallback,

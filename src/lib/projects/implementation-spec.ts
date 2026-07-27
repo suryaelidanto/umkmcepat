@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { ARCHETYPE_IDS } from "@/lib/projects/archetypes";
 import { type ProjectBrief } from "@/lib/projects/brief";
 import {
   createProjectSiteSchemaFromBrief,
@@ -11,6 +12,11 @@ export const implementationSpecTool = tool({
   description: "Present the full website implementation spec.",
   inputSchema: z.object({
     appKind: z.enum(["landing", "marketing_site", "interactive_app"]),
+    archetype: z
+      .string()
+      .describe(
+        "The archetype id that best fits this business shape. Pick from the archetype index. Use 'generic' if none fits.",
+      ),
     businessName: z.string(),
     pages: z
       .array(
@@ -44,6 +50,7 @@ export const implementationSpecTool = tool({
 
 export type ImplementationSpec = {
   appKind: "landing" | "marketing_site" | "interactive_app";
+  archetype: string;
   businessName: string;
   pages: Array<{ slug: string; title: string; purpose: string }>;
   components: Array<{ name: string; purpose: string }>;
@@ -75,6 +82,13 @@ export function parseImplementationSpec(
   )
     ? (data.appKind as ImplementationSpec["appKind"])
     : null;
+  const archetype = ARCHETYPE_IDS.includes(
+    typeof data.archetype === "string"
+      ? data.archetype.trim().toLowerCase()
+      : "",
+  )
+    ? (data.archetype as string).trim().toLowerCase()
+    : "generic";
   const businessName = clean(data.businessName, 80);
   const pages = Array.isArray(data.pages)
     ? data.pages.map(parsePage).filter(nonNullable).slice(0, 6)
@@ -116,6 +130,7 @@ export function parseImplementationSpec(
 
   return {
     appKind,
+    archetype,
     businessName,
     pages,
     components,
@@ -277,6 +292,7 @@ export function implementationSpecFromBrief(
 
   return {
     appKind: "landing",
+    archetype: "generic",
     businessName,
     pages,
     components,

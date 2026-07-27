@@ -43,13 +43,74 @@ describe("implementation spec", () => {
       },
       primaryCta: "Pilih jadwal",
       notes: [],
+      archetype: "generic",
     });
 
     expect(spec?.appKind).toBe("interactive_app");
+    expect(spec?.archetype).toBe("generic");
     expect(spec?.features).toContain("booking_intent_form");
     expect(implementationSpecToSiteSchema(spec!).eyebrow).toBe(
       "Aplikasi interaktif",
     );
+  });
+
+  it("accepts and preserves an archetype id", () => {
+    const spec = parseImplementationSpec({
+      appKind: "landing",
+      businessName: "Warung Bu Ani",
+      pages: [{ slug: "/", title: "Warung Bu Ani", purpose: "Menu harian." }],
+      components: [
+        { name: "MenuBoard", purpose: "Daftar menu harian." },
+        { name: "Hours", purpose: "Jam buka." },
+      ],
+      features: ["daily_menu", "hours"],
+      content: { offer: "Makanan rumahan", audience: "warga sekitar" },
+      style: {
+        direction: "Hangat, rumahan.",
+        palette: {
+          background: "#fffbeb",
+          foreground: "#1c1917",
+          muted: "#a8a29e",
+          accent: "#d97706",
+        },
+      },
+      primaryCta: "Lihat menu",
+      notes: [],
+      archetype: "fnb-menu",
+    });
+
+    expect(spec?.archetype).toBe("fnb-menu");
+  });
+
+  it("falls back to generic for unknown or missing archetype", () => {
+    const base = {
+      appKind: "landing",
+      businessName: "Usaha Bebas",
+      pages: [{ slug: "/", title: "Usaha Bebas", purpose: "Perkenalan." }],
+      components: [
+        { name: "Hero", purpose: "Perkenalan." },
+        { name: "Contact", purpose: "Kontak." },
+      ],
+      features: ["intro"],
+      content: { offer: "Layanan", audience: "umum" },
+      style: {
+        direction: "Bersih.",
+        palette: {
+          background: "#ffffff",
+          foreground: "#111111",
+          muted: "#6b7280",
+          accent: "#16a34a",
+        },
+      },
+      primaryCta: "Hubungi",
+      notes: [],
+    } as const;
+
+    expect(
+      parseImplementationSpec({ ...base, archetype: "no-such-shape" })
+        ?.archetype,
+    ).toBe("generic");
+    expect(parseImplementationSpec(base)?.archetype).toBe("generic");
   });
 
   it("parse stays strict; incomplete AI objects stay null", () => {
