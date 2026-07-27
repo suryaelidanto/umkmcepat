@@ -53,8 +53,9 @@ export function applySecurityHeaders(
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
 
   const nonceStr = nonce || "";
+  const publicPreview = /^\/p\//.test(pathname);
 
-  if (generatedOrigin) {
+  if (generatedOrigin || publicPreview) {
     headers.set(
       "Content-Security-Policy",
       "object-src 'none'; base-uri 'none'",

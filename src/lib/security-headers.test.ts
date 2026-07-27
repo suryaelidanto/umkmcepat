@@ -104,4 +104,20 @@ describe("security headers", () => {
       "script-src 'nonce-testnonce123' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
     );
   });
+
+  it("applies the relaxed generated host policy on public preview paths served on the main domain", () => {
+    const headers = applySecurityHeaders(new Headers(), {
+      generatedOrigin: false,
+      pathname: "/p/warung/index.html",
+      nonce: "testnonce123",
+    });
+
+    expect(headers.get("X-Frame-Options")).toBeNull();
+    expect(headers.get("Content-Security-Policy")).toBe(
+      "object-src 'none'; base-uri 'none'",
+    );
+    expect(headers.get("Content-Security-Policy-Report-Only")).toBe(
+      "script-src 'nonce-testnonce123' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
+    );
+  });
 });
