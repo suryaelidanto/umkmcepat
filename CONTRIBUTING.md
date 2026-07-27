@@ -72,6 +72,7 @@ Open PRs into `dev` first unless maintainers say otherwise.
 
 ## Where to read next
 
+- `ROADMAP.md`: the vision, ordered milestones, and where to start.
 - `PRINCIPLES.md`: quality bar and operating taste.
 - `DEV.md`: maintainer workflow, commands, Storybook, Graphify, checks.
 - `DESIGN.md`: visual system and UI rules.

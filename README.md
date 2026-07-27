@@ -21,16 +21,9 @@ The platform is 100% free for users — every feature is usable without paying. 
 
 ## Current direction
 
-UMKM Cepat is evolving into a Lovable-like builder for UMKM:
+The goal: help an Indonesian UMKM owner make their first website — one that actually sells, and that they are proud to show people.
 
-- guided AI discussion before build
-- no manual discuss/build mode switch
-- generated frontend preview, source, and build artifacts
-- reusable design-system components in Storybook
-- private project workspace with chat memory and account/profile UX
-- local-first object storage, with R2 reserved for later
-- Energy Booster modal (1-column layout) integrated in navbar profile dropdown
-- export and publish workflows later
+[ROADMAP.md](ROADMAP.md) has the vision, the ordered milestones, the honest gaps, and where to start if you want to help build it.
 
 ## Tech overview
 
