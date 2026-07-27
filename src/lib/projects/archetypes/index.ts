@@ -1,9 +1,15 @@
 import indexDoc from "./_index.md?raw";
+import agriProduce from "./agri-produce.md?raw";
+import communityGroup from "./community-group.md?raw";
+import creativePortfolio from "./creative-portfolio.md?raw";
 import educationCourse from "./education-course.md?raw";
+import eventPromo from "./event-promo.md?raw";
 import fnbLight from "./fnb-light.md?raw";
 import fnbMenu from "./fnb-menu.md?raw";
 import genericFallback from "./generic-fallback.md?raw";
+import healthBeauty from "./health-beauty.md?raw";
 import professionalCredibility from "./professional-credibility.md?raw";
+import propertyRental from "./property-rental.md?raw";
 import retailCatalog from "./retail-catalog.md?raw";
 import retailGrocery from "./retail-grocery.md?raw";
 import serviceAppointment from "./service-appointment.md?raw";
@@ -52,6 +58,12 @@ const GUIDE_BY_ID: Record<string, string> = {
   "service-online": serviceOnline,
   "education-course": educationCourse,
   "professional-credibility": professionalCredibility,
+  "community-group": communityGroup,
+  "event-promo": eventPromo,
+  "property-rental": propertyRental,
+  "health-beauty": healthBeauty,
+  "creative-portfolio": creativePortfolio,
+  "agri-produce": agriProduce,
 };
 
 const INDEX_DOC: string = indexDoc;
