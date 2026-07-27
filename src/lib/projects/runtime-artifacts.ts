@@ -12,6 +12,7 @@ import {
   type GeneratedProjectFile,
 } from "@/lib/projects/generated-types";
 import { getR2Config, signedR2Fetch } from "@/lib/r2-client";
+import { getStorageProvider } from "@/lib/storage-provider";
 
 const PROJECT_ARTIFACT_REF_PREFIX = "project-artifact:";
 const LOCAL_PROJECT_ARTIFACT_REF_PREFIX = `${PROJECT_ARTIFACT_REF_PREFIX}local:`;
@@ -409,18 +410,7 @@ function validateArtifactFiles(
 }
 
 function getProjectArtifactProvider(): ProjectArtifactProvider {
-  const provider = getEnv(
-    "PROJECT_ARTIFACT_STORAGE_PROVIDER",
-    "local",
-  ).toLowerCase();
-
-  if (provider === "local" || provider === "r2") {
-    return provider;
-  }
-
-  throw new Error(
-    `Invalid PROJECT_ARTIFACT_STORAGE_PROVIDER '${provider}'. Supported values: local, r2.`,
-  );
+  return getStorageProvider();
 }
 
 function resolveProjectArtifactDir(
@@ -471,10 +461,7 @@ function assertSafeArtifactId(artifactId: string) {
 }
 
 function artifactR2Config(): R2Config {
-  return getR2Config({
-    prefixEnv: "PROJECT_ARTIFACT_R2_PREFIX",
-    prefixFallback: "project-artifacts",
-  });
+  return getR2Config({ bucket: "public", prefix: "project-artifacts" });
 }
 
 function getR2ArtifactKey(
