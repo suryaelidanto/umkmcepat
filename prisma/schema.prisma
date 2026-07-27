@@ -458,3 +458,15 @@ model WaitlistEntry {
   @@index([status])
   @@index([linkedUserId])
 }
+
+/// Runtime-overridable non-secret config. DB row wins; read layer falls back
+/// to process.env then hardcoded default. Secrets NEVER live here.
+model AppSetting {
+  key       String   @id @db.VarChar(160)
+  category  String   @db.VarChar(32)
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?  @db.VarChar(160)
+
+  @@index([category])
+}
