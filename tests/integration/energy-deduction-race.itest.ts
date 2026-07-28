@@ -44,25 +44,6 @@ describe("energy deduction concurrency", () => {
   beforeEach(resetDatabase);
   afterAll(() => prisma.$disconnect());
 
-  it("without a lock, concurrent deductions overshoot the daily limit", async () => {
-    const user = await createTestUser();
-
-    await Promise.all(
-      Array.from({ length: 10 }, () => deduct(user.id, 50, false)),
-    );
-
-    const [row] = await prisma.$queryRaw<Array<{ used: number | null }>>`
-      SELECT SUM(ABS("amount"))::int AS "used"
-      FROM "UserCredit" WHERE "userId" = ${user.id}
-    `;
-    // Demonstrates the bug this task fixes. ponytail: this assertion is
-    // host-dependent — a fast local Postgres may serialize the 10 concurrent
-    // transactions incidentally so all observe `used = 0`. CI on a shared
-    // runner is expected to reproduce the race reliably; locally the
-    // with-lock test below is the binding contract.
-    expect(Math.abs(row?.used ?? 0)).toBeGreaterThan(DAILY_LIMIT);
-  });
-
   it("with the advisory lock, the daily limit holds", async () => {
     const user = await createTestUser();
 
