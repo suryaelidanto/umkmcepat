@@ -109,8 +109,13 @@ export async function addEnergyUsage(
   const { startOfDay, endOfDay } = getDayBoundaries();
   const premiumExpiryLimit = new Date("9999-01-01");
 
-  // Transaction ensures we safely read and deduct without race conditions.
+  // Serialize per user: the SUM below and the INSERT that follows are a
+  // read-modify-write over an aggregate, which a transaction alone does not
+  // make safe at READ COMMITTED. The advisory lock is transaction-scoped and
+  // releases on commit or rollback.
   await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+
     const [freeRow] = await tx.$queryRaw<Array<{ used: number | null }>>`
       SELECT SUM(ABS("amount"))::int AS "used"
       FROM "UserCredit"
