@@ -13,6 +13,7 @@ const validProductionEnv = {
   OTP_SPACE_API_KEY: "otp-space-production-key",
   PROJECT_RUNTIME_SUPERVISOR: "noop",
   STORAGE_PROVIDER: "local",
+  TURNSTILE_SECRET_KEY: "turnstile-production-secret",
 };
 
 describe("production config preflight", () => {
@@ -81,6 +82,18 @@ describe("production config preflight", () => {
     vi.stubEnv("PROJECT_RUNTIME_SUPERVISOR", "local");
     expect(() => assertProductionConfigReady()).toThrow(
       "PROJECT_RUNTIME_SUPERVISOR must be noop until isolated runtime authority is configured.",
+    );
+  });
+
+  it("rejects a missing Turnstile secret in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const [name, value] of Object.entries(validProductionEnv)) {
+      vi.stubEnv(name, value);
+    }
+
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "");
+    expect(() => assertProductionConfigReady()).toThrow(
+      "TURNSTILE_SECRET_KEY must be configured in production.",
     );
   });
 
