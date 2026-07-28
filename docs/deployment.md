@@ -179,6 +179,28 @@ Usage/behavior analytics: **Umami** (self-hosted in `docker-compose.prod.yml`, s
 
 Availability monitoring: **Uptime Kuma** (self-hosted, standalone SQLite) — pings the app + key endpoints, alerts on downtime. Configure monitors at `http://<server>:3002` after first boot.
 
+## Backups
+
+`scripts/backup-db.sh` runs nightly via the `umkmcepat-backup.timer` systemd unit (in `docker/systemd/`). It dumps Postgres, gzips the result, retains the last 7 days locally, and (when `S3_PRIVATE_BUCKET` + `S3_ACCOUNT_ID` + the `aws` CLI are present) copies the dump to R2 under `db-backups/`. A backup that only exists on the machine being backed up is not a backup.
+
+Install + activate on the VPS:
+
+```bash
+sudo cp docker/systemd/umkmcepat-backup.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now umkmcepat-backup.timer
+systemctl list-timers umkmcepat-backup.timer
+```
+
+`Persistent=true` in the timer means a missed run after downtime is executed on the next boot rather than skipped.
+
+Restore (verify a backup is real, not a placeholder): create a scratch database, restore into it, check a table, drop it. An untested backup is not a backup.
+
+```bash
+gunzip -c /backups/umkmcepat-<timestamp>.sql.gz | \
+  docker exec -i umkmcepat-postgres psql -U "$POSTGRES_USER" -d umkmcepat_restore_test
+```
+
 ## Notes
 
 - `Dockerfile` uses `bun install --frozen-lockfile --ignore-scripts` so install-time scripts do not require a live DB during image build.

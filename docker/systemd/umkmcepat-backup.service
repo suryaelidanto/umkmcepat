@@ -1,0 +1,10 @@
+[Unit]
+Description=UMKM Cepat database backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/umkmcepat
+EnvironmentFile=/opt/umkmcepat/.env
+ExecStart=/opt/umkmcepat/scripts/backup-db.sh
