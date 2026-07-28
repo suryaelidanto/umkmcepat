@@ -1,17 +1,32 @@
+import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 
 import { Link } from "@/components/ui/link";
+import { fetchJson } from "@/lib/query-client";
 
 const TABS = [
   { label: "Ringkasan", to: "/admin" },
   { label: "Pengguna", to: "/admin/users" },
   { label: "Antrean", to: "/admin/waitlist" },
+  { label: "Tiket", to: "/admin/tickets" },
   { label: "Transaksi", to: "/admin/transactions" },
   { label: "Pengaturan", to: "/admin/settings" },
 ] as const;
 
 export function AdminTabs() {
   const { location } = useRouterState();
+
+  const unreadQuery = useQuery({
+    queryFn: () =>
+      fetchJson<{ adminUnreadCount: number }>(
+        "/api/admin/tickets/unread-count",
+      ),
+    queryKey: ["admin", "unread-tickets-count"],
+    refetchOnWindowFocus: true,
+  });
+
+  const unreadCount = unreadQuery.data?.adminUnreadCount ?? 0;
+
   return (
     <nav
       aria-label="Navigasi admin"
@@ -22,18 +37,25 @@ export function AdminTabs() {
           tab.to === "/admin"
             ? location.pathname === "/admin"
             : location.pathname.startsWith(tab.to);
+        const isTicketsTab = tab.to === "/admin/tickets";
+
         return (
           <Link
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm font-medium text-surface-warm-white"
-                : "rounded-radius-md px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/70"
+                ? "flex items-center gap-2 rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm font-medium text-surface-warm-white"
+                : "flex items-center gap-2 rounded-radius-md px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/70"
             }
             href={tab.to}
             key={tab.to}
           >
-            {tab.label}
+            <span>{tab.label}</span>
+            {isTicketsTab && unreadCount > 0 ? (
+              <span className="flex size-4.5 items-center justify-center rounded-full bg-[#ff7a59] px-1 text-[9px] font-bold text-white">
+                {unreadCount}
+              </span>
+            ) : null}
           </Link>
         );
       })}
