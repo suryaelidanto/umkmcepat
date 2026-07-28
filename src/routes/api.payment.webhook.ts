@@ -78,23 +78,24 @@ export const Route = createFileRoute("/api/payment/webhook")({
 
           // 3. Process completed payment inside transaction to guarantee consistency and prevent duplicates
           const result = await prisma.$transaction(async (tx) => {
-            // Re-fetch inside transaction and lock the row to prevent race conditions
-            const txPayment = await tx.payment.findUnique({
-              where: { orderId },
-            });
-
-            if (!txPayment || txPayment.status !== "PENDING") {
-              return null;
-            }
-
-            // Update payment status
-            await tx.payment.update({
-              where: { orderId },
+            // Atomic claim: exactly one concurrent transaction can transition
+            // PENDING -> COMPLETED, so exactly one grants energy. A prior
+            // findUnique + update took no lock and could double-grant.
+            const claimed = await tx.payment.updateMany({
+              where: { orderId, status: "PENDING" },
               data: {
                 status: "COMPLETED",
                 paymentMethod: verifiedTransaction.payment_method,
                 updatedAt: new Date(),
               },
+            });
+
+            if (claimed.count !== 1) {
+              return null;
+            }
+
+            const txPayment = await tx.payment.findUniqueOrThrow({
+              where: { orderId },
             });
 
             // Grant energy credits
