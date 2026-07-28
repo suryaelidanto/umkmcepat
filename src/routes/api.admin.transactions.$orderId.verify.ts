@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { requireAdmin } from "@/lib/auth-admin";
-import { verifyPakasirTransaction } from "@/lib/pakasir";
+import { getMayarTransaction } from "@/lib/mayar";
 import { prisma } from "@/lib/prisma";
 
 export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
           }
           const payment = await prisma.payment.findUnique({
             where: { orderId: params.orderId },
-            select: { amount: true, status: true },
+            select: { amount: true, status: true, providerTxnId: true },
           });
           if (!payment) {
             return Response.json(
@@ -32,11 +32,17 @@ export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
               message: "Hanya transaksi pending yang bisa diverifikasi.",
             });
           }
+          if (!payment.providerTxnId) {
+            return Response.json(
+              {
+                message:
+                  "Transaksi ini adalah pembayaran pre-migration (Pakasir) dan tidak bisa diverifikasi lewat Mayar.",
+              },
+              { status: 400 },
+            );
+          }
           try {
-            const detail = await verifyPakasirTransaction({
-              orderId: params.orderId,
-              amount: payment.amount,
-            });
+            const detail = await getMayarTransaction(payment.providerTxnId);
             const newStatus = detail.status.toUpperCase();
             await prisma.payment.update({
               where: { orderId: params.orderId },
@@ -45,7 +51,7 @@ export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
             return Response.json({ status: newStatus });
           } catch {
             return Response.json(
-              { message: "Gagal verifikasi via Pakasir." },
+              { message: "Gagal verifikasi via Mayar." },
               { status: 502 },
             );
           }
