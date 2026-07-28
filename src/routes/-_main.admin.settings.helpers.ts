@@ -1,12 +1,29 @@
+import {
+  CATEGORY_ORDER,
+  type SettingCategory,
+  type SettingTier,
+  type SettingType,
+} from "@/lib/app-settings-registry";
+
 export type SettingEntry = {
-  category: string;
+  category: SettingCategory;
   dbValue: unknown;
   effectiveValue: unknown;
+  env: null | string;
   fallback: boolean | number | string;
   key: string;
   label: string;
+  max: null | number;
+  min: null | number;
+  requiresRestart: boolean;
   source: string;
-  type: "boolean" | "number" | "string";
+  tier: SettingTier;
+  type: SettingType;
+};
+
+export type CategoryGroup = {
+  category: SettingCategory;
+  entries: SettingEntry[];
 };
 
 export function isDirtyEntry(
@@ -30,4 +47,19 @@ export function getDirtyKeys(
     }
   }
   return dirty;
+}
+
+export function groupByTier(entries: SettingEntry[]): {
+  advanced: CategoryGroup[];
+  basic: CategoryGroup[];
+} {
+  const build = (tier: SettingTier): CategoryGroup[] =>
+    CATEGORY_ORDER.map((category) => ({
+      category,
+      entries: entries.filter(
+        (e) => e.category === category && e.tier === tier,
+      ),
+    })).filter((group) => group.entries.length > 0);
+
+  return { advanced: build("advanced"), basic: build("basic") };
 }

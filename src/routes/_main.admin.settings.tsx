@@ -5,14 +5,130 @@ import { toast } from "sonner";
 
 import {
   getDirtyKeys,
+  groupByTier,
   type SettingEntry,
 } from "./-_main.admin.settings.helpers";
 
+import type { CategoryGroup } from "./-_main.admin.settings.helpers";
+
+import { AdvancedSettingsDisclosure } from "@/components/admin/AdvancedSettingsDisclosure";
 import { fetchJson } from "@/lib/query-client";
 
 export const Route = createFileRoute("/_main/admin/settings")({
   component: SettingsPage,
 });
+
+function CategorySection({
+  group,
+  draft,
+  isPending,
+  setDraft,
+  onSave,
+}: {
+  group: CategoryGroup;
+  draft: Record<string, unknown>;
+  isPending: boolean;
+  setDraft: (d: Record<string, unknown>) => void;
+  onSave: (category: string, values: Record<string, unknown>) => void;
+}) {
+  const dirty = getDirtyKeys(group.entries, draft);
+  const hasDirty = dirty.size > 0;
+
+  return (
+    <section>
+      <h2 className="mb-spacing-3 text-lg font-semibold capitalize">
+        {group.category.replace("_", " ")}
+      </h2>
+      <div className="flex flex-col gap-spacing-3">
+        {group.entries.map((entry) => {
+          const value = draft[entry.key] ?? entry.effectiveValue;
+          return (
+            <div
+              className="flex items-center justify-between gap-spacing-3 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
+              key={entry.key}
+            >
+              <div>
+                <p>
+                  {entry.label}
+                  {entry.requiresRestart ? (
+                    <span className="ml-spacing-2 rounded-radius-sm bg-surface-warm-white/15 px-spacing-2 py-spacing-1 text-xs text-surface-warm-white/80">
+                      perlu restart
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-surface-warm-white/70">
+                  Sumber: {entry.source} · fallback: {String(entry.fallback)}
+                </p>
+              </div>
+              {entry.type === "boolean" ? (
+                <button
+                  className={
+                    value === true
+                      ? "rounded-radius-md bg-emerald-600 px-spacing-3 py-spacing-2 text-white"
+                      : "rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
+                  }
+                  onClick={() => setDraft({ ...draft, [entry.key]: !value })}
+                  type="button"
+                >
+                  {value === true ? "ON" : "OFF"}
+                </button>
+              ) : (
+                <input
+                  className="w-32 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
+                  max={entry.max ?? undefined}
+                  min={entry.min ?? undefined}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      [entry.key]:
+                        entry.type === "number"
+                          ? Number(e.target.value)
+                          : e.target.value,
+                    })
+                  }
+                  type={entry.type === "number" ? "number" : "text"}
+                  value={String(value)}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-spacing-3 flex items-center gap-spacing-2">
+        <button
+          className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/80 hover:bg-surface-warm-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!hasDirty}
+          onClick={() => {
+            const next = { ...draft };
+            for (const key of dirty) {
+              delete next[key];
+            }
+            setDraft(next);
+          }}
+          type="button"
+        >
+          Reset
+        </button>
+        <button
+          className="rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!hasDirty || isPending}
+          onClick={() => {
+            const values: Record<string, unknown> = {};
+            for (const key of dirty) {
+              values[key] = draft[key];
+            }
+            onSave(group.category, values);
+          }}
+          type="button"
+        >
+          {hasDirty
+            ? `Simpan ${group.category.replace("_", " ")} (${dirty.size})`
+            : `Simpan ${group.category.replace("_", " ")}`}
+        </button>
+      </div>
+    </section>
+  );
+}
 
 function SettingsPage() {
   const queryClient = useQueryClient();
@@ -45,113 +161,38 @@ function SettingsPage() {
     onError: () => toast.error("Gagal menyimpan."),
   });
 
-  const categories = ["feature_flag", "booster", "rate_limit", "ai"] as const;
-  const byCat = (cat: string) =>
-    entries.filter((e) => e.category === cat) ?? [];
-  const dirtyByCategory = (cat: string): Set<string> =>
-    getDirtyKeys(
-      entries.filter((e) => e.category === cat),
-      draft,
-    );
+  const groups = groupByTier(entries);
+  const advancedCount = groups.advanced.reduce(
+    (sum, g) => sum + g.entries.length,
+    0,
+  );
 
   return (
     <div className="flex flex-col gap-spacing-6">
-      {categories.map((cat) => (
-        <section key={cat}>
-          <h2 className="mb-spacing-3 text-lg font-semibold capitalize">
-            {cat.replace("_", " ")}
-          </h2>
-          <div className="flex flex-col gap-spacing-3">
-            {byCat(cat).map((entry) => {
-              const value = draft[entry.key] ?? entry.effectiveValue;
-              return (
-                <div
-                  className="flex items-center justify-between gap-spacing-3 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
-                  key={entry.key}
-                >
-                  <div>
-                    <p>{entry.label}</p>
-                    <p className="text-surface-warm-white/70">
-                      Sumber: {entry.source} · fallback:{" "}
-                      {String(entry.fallback)}
-                    </p>
-                  </div>
-                  {entry.type === "boolean" ? (
-                    <button
-                      className={
-                        value === true
-                          ? "rounded-radius-md bg-emerald-600 px-spacing-3 py-spacing-2 text-white"
-                          : "rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
-                      }
-                      onClick={() =>
-                        setDraft((d) => ({ ...d, [entry.key]: !value }))
-                      }
-                      type="button"
-                    >
-                      {value === true ? "ON" : "OFF"}
-                    </button>
-                  ) : (
-                    <input
-                      className="w-32 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          [entry.key]:
-                            entry.type === "number"
-                              ? Number(e.target.value)
-                              : e.target.value,
-                        }))
-                      }
-                      type={entry.type === "number" ? "number" : "text"}
-                      value={String(value)}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {(() => {
-            const dirty = dirtyByCategory(cat);
-            const hasDirty = dirty.size > 0;
-            return (
-              <div className="mt-spacing-3 flex items-center gap-spacing-2">
-                <button
-                  className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/80 hover:bg-surface-warm-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!hasDirty}
-                  onClick={() => {
-                    setDraft((d) => {
-                      const next = { ...d };
-                      for (const key of dirty) {
-                        delete next[key];
-                      }
-                      return next;
-                    });
-                  }}
-                  type="button"
-                >
-                  Reset
-                </button>
-                <button
-                  className="rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!hasDirty || save.isPending}
-                  onClick={() => {
-                    const values: Record<string, unknown> = {};
-                    for (const key of dirty) {
-                      values[key] = draft[key];
-                    }
-                    save.mutate({ category: cat, values });
-                  }}
-                  type="button"
-                >
-                  {hasDirty
-                    ? `Simpan ${cat.replace("_", " ")} (${dirty.size})`
-                    : `Simpan ${cat.replace("_", " ")}`}
-                </button>
-              </div>
-            );
-          })()}
-        </section>
+      {groups.basic.map((group) => (
+        <CategorySection
+          draft={draft}
+          group={group}
+          isPending={save.isPending}
+          key={group.category}
+          onSave={(category, values) => save.mutate({ category, values })}
+          setDraft={setDraft}
+        />
       ))}
+      {advancedCount > 0 ? (
+        <AdvancedSettingsDisclosure count={advancedCount}>
+          {groups.advanced.map((group) => (
+            <CategorySection
+              draft={draft}
+              group={group}
+              isPending={save.isPending}
+              key={group.category}
+              onSave={(category, values) => save.mutate({ category, values })}
+              setDraft={setDraft}
+            />
+          ))}
+        </AdvancedSettingsDisclosure>
+      ) : null}
     </div>
   );
 }
