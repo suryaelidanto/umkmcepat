@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_main/admin")({
 
 function AdminShell() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col px-spacing-4 pb-24 pt-spacing-4">
+    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col px-spacing-4 pb-24 pt-spacing-4 text-surface-warm-white">
       <h1 className="mb-spacing-3 text-2xl font-semibold">Admin</h1>
       <AdminTabs />
       <div className="mt-spacing-4">
