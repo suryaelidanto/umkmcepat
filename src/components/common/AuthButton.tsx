@@ -3,12 +3,14 @@
 import { ChevronDown, LogOut, Shield, UserRound, Zap } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import { EnergyBoosterModal } from "@/components/payment/EnergyBoosterModal";
 import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { signOut, useSession } from "@/lib/auth-client";
+import { mask } from "@/lib/mask";
 
 export function AuthButton() {
   const { data: session, status } = useSession();
@@ -70,7 +72,12 @@ export function AuthButton() {
     );
   }
 
-  const displayName = session.user.name?.trim() || "Akun";
+  const streamerMode = useStreamerMode();
+  const rawName = session.user.name ?? null;
+  const displayName =
+    streamerMode && rawName
+      ? mask(rawName, "name").masked
+      : rawName?.trim() || "Akun";
 
   return (
     <div ref={containerRef} className="relative">
