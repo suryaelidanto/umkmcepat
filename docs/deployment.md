@@ -58,14 +58,24 @@ app:     127.0.0.1:3000
 
 Put Cloudflare Tunnel, Cloudflare Access, Nginx, Caddy, or another reverse proxy in front. Do not expose Postgres, Docker socket access, runtime supervisor internals, or Headroom publicly.
 
-Preferred ingress:
+Preferred ingress: **Cloudflare Tunnel** (via the `cloudflared` service in `docker-compose.prod.yml`). No inbound ports are opened on the host — `cloudflared` dials out to Cloudflare and traffic arrives over that outbound connection. Every other service stays bound to `127.0.0.1`, which is defense in depth; Cloudflare Access is not a replacement for the loopback binding.
+
+Public (no Access policy, served from the tunnel):
 
 ```text
-umkmcepat.com          -> reverse proxy/tunnel -> http://localhost:3000
-www.umkmcepat.com      -> reverse proxy/tunnel -> http://localhost:3000
-generated.example.net  -> generated proxy      -> generated-origin app/proxy listener
-9router.umkmcepat.com  -> protected access     -> http://localhost:20129
+umkmcepat.com      -> http://app:3000
+www.umkmcepat.com  -> http://app:3000
 ```
+
+Access-protected (Zero Trust policy required, served from the tunnel):
+
+```text
+9router.umkmcepat.com  -> http://9router:20128   (provider dashboard)
+umami.umkmcepat.com    -> http://umami:3000      (analytics dashboard)
+status.umkmcepat.com   -> http://uptime-kuma:3001 (monitoring dashboard)
+```
+
+Configure the hostnames in Cloudflare Zero Trust → Networks → Tunnels → `umkmcepat-prod` → Public Hostname, and add a self-hosted Access application per protected hostname with a policy allowing only your own email. Postgres, the Docker socket, Headroom, runtime supervisor internals, and object storage credentials must never be added as tunnel hostnames.
 
 Production Compose runs `bunx prisma migrate deploy` as the one-shot `migrate` service. The app starts only after that service completes successfully. The app image itself starts only `bun run start`; migrations are not repeated inside every application process. Node instrumentation then runs a fail-closed production preflight: public/auth URLs must be HTTPS and aligned, the auth secret must be strong, OTP delivery must be configured, default PostgreSQL credentials are rejected, canonical artifact storage must pass readiness, unsafe local runtime authority must remain `noop`, and generated execution capabilities remain disabled until their external gates pass.
 
