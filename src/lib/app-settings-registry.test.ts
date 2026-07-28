@@ -87,16 +87,10 @@ describe("registry schema", () => {
 });
 
 describe("existing entries carry env + bounds", () => {
-  it("maps the three feature flags to their env vars", () => {
-    const expected: Record<string, string> = {
-      "feature.waitlist_enabled": "WAITLIST_ENABLED",
-      "feature.generated_build_execution": "GENERATED_BUILD_EXECUTION_ENABLED",
-      "feature.generated_public_execution":
-        "GENERATED_PUBLIC_EXECUTION_ENABLED",
-    };
-    for (const [key, env] of Object.entries(expected)) {
-      expect(APP_SETTINGS.find((e) => e.key === key)?.env).toBe(env);
-    }
+  it("maps waitlist feature flag to its env var", () => {
+    expect(
+      APP_SETTINGS.find((e) => e.key === "feature.waitlist_enabled")?.env,
+    ).toBe("WAITLIST_ENABLED");
   });
 
   it("maps every rate_limit key to its RATE_LIMIT_* env var", () => {

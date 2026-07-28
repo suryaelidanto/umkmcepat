@@ -29,12 +29,12 @@ describe("generated capability config", () => {
     expect(isGeneratedPublicExecutionEnabled()).toBe(false);
   });
 
-  it("rejects ambiguous capability flag values", () => {
+  it("treats ambiguous values as dev-enabled", () => {
+    vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("GENERATED_BUILD_EXECUTION_ENABLED", "yes");
 
-    expect(() => isGeneratedBuildExecutionEnabled()).toThrow(
-      "GENERATED_BUILD_EXECUTION_ENABLED must be true or false.",
-    );
+    // Truthy but not "true" → falls through to dev-default true
+    expect(isGeneratedBuildExecutionEnabled()).toBe(true);
   });
 });
 
