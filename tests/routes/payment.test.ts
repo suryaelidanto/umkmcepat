@@ -272,6 +272,7 @@ describe("Payment API Routes", () => {
             event: "payment.received",
             data: {
               transactionId: "txn-1",
+              transactionStatus: "paid",
               amount: 2900,
               extraData: { orderId: "INV-USER1-12345" },
             },
@@ -305,6 +306,7 @@ describe("Payment API Routes", () => {
             event: "payment.received",
             data: {
               transactionId: "txn-1",
+              transactionStatus: "paid",
               amount: 2900,
               extraData: { orderId: "INV-USER1-12345" },
             },
@@ -342,6 +344,7 @@ describe("Payment API Routes", () => {
             event: "payment.received",
             data: {
               transactionId: "txn-1",
+              transactionStatus: "paid",
               amount: 2900,
               extraData: { orderId: "INV-USER1-12345" },
             },
@@ -381,6 +384,7 @@ describe("Payment API Routes", () => {
             event: "payment.received",
             data: {
               transactionId: "txn-1",
+              transactionStatus: "paid",
               amount: 1000,
               extraData: { orderId: "INV-USER1-12345" },
             },
@@ -405,6 +409,7 @@ describe("Payment API Routes", () => {
             event: "payment.received",
             data: {
               transactionId: "txn-unknown",
+              transactionStatus: "paid",
               amount: 2900,
               extraData: { orderId: "INV-NOT-FOUND" },
             },
@@ -413,6 +418,44 @@ describe("Payment API Routes", () => {
       );
 
       expect(res.status).toBe(404);
+    });
+
+    it("handles race condition gracefully when updateMany returns count 0", async () => {
+      const pendingRow = {
+        userId: "user_1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        energyGranted: 50000,
+        status: "PENDING",
+        providerTxnId: null,
+        metadata: { packageName: "Pocket Booster" },
+      };
+      prismaPaymentFindUniqueMock.mockResolvedValue(pendingRow);
+      getMayarTransactionMock.mockResolvedValueOnce({
+        status: "paid",
+        amount: 2900,
+        paymentMethod: "QRIS",
+      });
+      // Simulate another handler already won the atomic claim
+      prismaPaymentUpdateManyMock.mockResolvedValueOnce({ count: 0 });
+
+      const res = await POST_WEBHOOK(
+        new Request("http://localhost/api/payment/webhook", {
+          method: "POST",
+          body: JSON.stringify({
+            event: "payment.received",
+            data: {
+              transactionId: "txn-1",
+              transactionStatus: "paid",
+              amount: 2900,
+              extraData: { orderId: "INV-USER1-12345" },
+            },
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(prismaExecuteRawMock).not.toHaveBeenCalled(); // no energy credit
     });
   });
 

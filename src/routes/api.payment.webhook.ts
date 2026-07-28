@@ -54,6 +54,21 @@ export const Route = createFileRoute("/api/payment/webhook")({
           });
         }
 
+        const isPaymentCompleted =
+          payload.data?.transactionStatus === "paid" ||
+          payload.data?.status === "SUCCESS";
+
+        if (!isPaymentCompleted) {
+          console.warn(
+            "[webhook] Skipping: transactionStatus not 'paid':",
+            payload.data?.transactionStatus,
+          );
+          return Response.json({
+            success: false,
+            message: "Payment not completed.",
+          });
+        }
+
         const transactionId = payload.data?.transactionId;
         const orderId = payload.data?.extraData?.orderId;
 
@@ -174,6 +189,13 @@ export const Route = createFileRoute("/api/payment/webhook")({
               reason: `Top-up: ${result.packageName}`,
               projectId: null,
             });
+          }
+
+          if (!result) {
+            // eslint-disable-next-line no-console
+            console.log(
+              `[webhook] Race condition: payment for orderId ${orderId} already claimed by another handler`,
+            );
           }
 
           // eslint-disable-next-line no-console
