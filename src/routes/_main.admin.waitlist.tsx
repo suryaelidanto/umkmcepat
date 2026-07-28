@@ -3,6 +3,8 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
+import { SensitiveText } from "@/components/admin/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { requireAdmin } from "@/lib/auth-admin";
 import { fetchJson } from "@/lib/query-client";
 import { listPendingWaitlist } from "@/lib/waitlist";
@@ -46,6 +48,7 @@ export const Route = createFileRoute("/_main/admin/waitlist")({
 });
 
 function WaitlistPage() {
+  const streamerMode = useStreamerMode();
   const queryClient = useQueryClient();
   const initial = Route.useLoaderData() as unknown as {
     entries: PendingEntry[];
@@ -91,7 +94,13 @@ function WaitlistPage() {
           >
             <div className="flex items-start justify-between gap-spacing-3">
               <div>
-                <p className="font-medium">{entry.businessName}</p>
+                <p className="font-medium">
+                  {streamerMode ? (
+                    <SensitiveText kind="name" value={entry.businessName} />
+                  ) : (
+                    entry.businessName
+                  )}
+                </p>
                 {entry.businessType ? (
                   <p className="text-sm text-surface-warm-white/70">
                     {entry.businessType}
@@ -99,13 +108,21 @@ function WaitlistPage() {
                 ) : null}
                 {entry.phone ? (
                   <p className="text-sm text-surface-warm-white/70">
-                    {entry.phone}
+                    {streamerMode ? (
+                      <SensitiveText kind="phone" value={entry.phone} />
+                    ) : (
+                      entry.phone
+                    )}
                   </p>
                 ) : null}
               </div>
             </div>
             <p className="mt-spacing-2 line-clamp-4 text-sm text-surface-warm-white">
-              {entry.story}
+              {streamerMode ? (
+                <SensitiveText kind="story" value={entry.story} />
+              ) : (
+                entry.story
+              )}
             </p>
             {entry.imageRef ? (
               <img
