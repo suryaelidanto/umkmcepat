@@ -156,14 +156,6 @@ export function applySecurityHeaders(
   } else {
     headers.set(
       "Content-Security-Policy",
-      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; script-src 'nonce-" +
-        nonceStr +
-        "' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
-    );
-    // Report-only during rollout. Task 6 promotes this to enforcement once
-    // /api/csp-violation confirms a clean run across a full user journey.
-    headers.set(
-      "Content-Security-Policy-Report-Only",
       buildContentSecurityPolicy(nonceStr),
     );
     headers.set("X-Frame-Options", "DENY");

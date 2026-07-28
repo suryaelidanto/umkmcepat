@@ -68,9 +68,14 @@ describe("security headers", () => {
       nonce: "testnonce123",
     });
 
-    expect(headers.get("Content-Security-Policy")).toBe(
-      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; script-src 'nonce-testnonce123' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
-    );
+    const policy = headers.get("Content-Security-Policy");
+    expect(policy).toContain("default-src 'self'");
+    expect(policy).toContain("frame-ancestors 'none'");
+    expect(policy).toContain("object-src 'none'");
+    expect(policy).toContain("base-uri 'self'");
+    expect(policy).toContain("script-src 'nonce-testnonce123'");
+    expect(policy).toContain("style-src 'self' 'unsafe-inline'");
+    expect(policy).toContain("report-uri /api/csp-violation");
     expect(headers.get("X-Frame-Options")).toBe("DENY");
     expect(headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(headers.get("Permissions-Policy")).toBe(
@@ -180,5 +185,19 @@ describe("security headers", () => {
     expect(policy).toContain("default-src 'self'");
     expect(policy).not.toContain("undefined");
     expect(policy).not.toContain("  ");
+  });
+
+  it("enforces the full CSP on control-plane responses", () => {
+    const headers = new Headers();
+    applySecurityHeaders(headers, {
+      generatedOrigin: false,
+      pathname: "/dashboard",
+      nonce: "test-nonce",
+    });
+
+    const policy = headers.get("Content-Security-Policy");
+    expect(policy).toContain("default-src 'self'");
+    expect(policy).toContain("frame-ancestors 'none'");
+    expect(headers.get("Content-Security-Policy-Report-Only")).toBeNull();
   });
 });
