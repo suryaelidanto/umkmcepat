@@ -60,10 +60,10 @@ function OverviewPage() {
       <div className="grid grid-cols-2 gap-spacing-3 sm:grid-cols-3">
         {tiles.map((tile) => (
           <div
-            className="rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-4"
+            className="rounded-radius-lg border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-4"
             key={tile.label}
           >
-            <p className="text-sm text-surface-warm-white/60">{tile.label}</p>
+            <p className="text-sm text-surface-warm-white/70">{tile.label}</p>
             <p className="mt-spacing-1 text-xl font-semibold">{tile.value}</p>
           </div>
         ))}
@@ -76,11 +76,11 @@ function OverviewPage() {
           <ul className="flex flex-col gap-spacing-2">
             {data.recentWaitlist.map((e) => (
               <li
-                className="rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-3 text-sm"
+                className="rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
                 key={e.id}
               >
                 <span className="font-medium">{e.businessName}</span>
-                <span className="text-surface-warm-white/50">
+                <span className="text-surface-warm-white/70">
                   {" · "}
                   {new Date(e.submittedAt).toLocaleDateString("id-ID")}
                 </span>
@@ -88,7 +88,7 @@ function OverviewPage() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-surface-warm-white/60">
+          <p className="text-sm text-surface-warm-white/70">
             Belum ada pendaftar menunggu.
           </p>
         )}
@@ -101,18 +101,18 @@ function OverviewPage() {
           <ul className="flex flex-col gap-spacing-2">
             {data.recentTransactions.map((t) => (
               <li
-                className="flex items-center justify-between rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-3 text-sm"
+                className="flex items-center justify-between rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
                 key={t.orderId}
               >
                 <span className="font-mono">{t.orderId}</span>
-                <span className="text-surface-warm-white/80">
+                <span className="text-surface-warm-white">
                   {formatRupiah(t.amount)} · {t.status}
                 </span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-surface-warm-white/60">
+          <p className="text-sm text-surface-warm-white/70">
             Belum ada transaksi.
           </p>
         )}
