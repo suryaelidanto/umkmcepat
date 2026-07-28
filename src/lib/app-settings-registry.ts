@@ -63,6 +63,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "boolean",
     label: "Waitlist onboarding gate",
     fallback: true,
+    env: "WAITLIST_ENABLED",
   },
   {
     key: "feature.generated_build_execution",
@@ -71,6 +72,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "boolean",
     label: "Generated build execution",
     fallback: false,
+    env: "GENERATED_BUILD_EXECUTION_ENABLED",
   },
   {
     key: "feature.generated_public_execution",
@@ -79,6 +81,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "boolean",
     label: "Generated public execution",
     fallback: false,
+    env: "GENERATED_PUBLIC_EXECUTION_ENABLED",
   },
   {
     key: "feature.streamer_mode",
@@ -96,6 +99,8 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Pocket — amount (Rp)",
     fallback: 2900,
+    min: 0,
+    max: 100_000_000,
   },
   {
     key: "booster.pocket.energy",
@@ -104,6 +109,8 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Pocket — energy",
     fallback: 50000,
+    min: 0,
+    max: 100_000_000,
   },
   {
     key: "booster.starter.amount",
@@ -112,6 +119,8 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Starter — amount (Rp)",
     fallback: 8900,
+    min: 0,
+    max: 100_000_000,
   },
   {
     key: "booster.starter.energy",
@@ -120,6 +129,8 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Starter — energy",
     fallback: 200000,
+    min: 0,
+    max: 100_000_000,
   },
   {
     key: "booster.popular.amount",
@@ -128,6 +139,8 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Popular — amount (Rp)",
     fallback: 24900,
+    min: 0,
+    max: 100_000_000,
   },
   {
     key: "booster.popular.energy",
@@ -136,6 +149,8 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Popular — energy",
     fallback: 600000,
+    min: 0,
+    max: 100_000_000,
   },
   {
     key: "booster.max.amount",
@@ -144,6 +159,8 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Max — amount (Rp)",
     fallback: 59900,
+    min: 0,
+    max: 100_000_000,
   },
   {
     key: "booster.max.energy",
@@ -152,6 +169,8 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Max — energy",
     fallback: 1500000,
+    min: 0,
+    max: 100_000_000,
   },
   // rate_limit (fallbacks mirror rate-limit.ts defaults)
   {
@@ -161,6 +180,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Global IP — requests",
     fallback: 300,
+    env: "RATE_LIMIT_GLOBAL_IP_REQUESTS",
+    min: 1,
+    max: 100000,
   },
   {
     key: "ratelimit.global_ip.window_seconds",
@@ -169,6 +191,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Global IP — window (s)",
     fallback: 60,
+    env: "RATE_LIMIT_GLOBAL_IP_WINDOW_SECONDS",
+    min: 1,
+    max: 86400,
   },
   {
     key: "ratelimit.ai_user.requests",
@@ -177,6 +202,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "AI user — requests",
     fallback: 60,
+    env: "RATE_LIMIT_AI_USER_REQUESTS",
+    min: 1,
+    max: 100000,
   },
   {
     key: "ratelimit.ai_user.window_seconds",
@@ -185,6 +213,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "AI user — window (s)",
     fallback: 600,
+    env: "RATE_LIMIT_AI_USER_WINDOW_SECONDS",
+    min: 1,
+    max: 86400,
   },
   {
     key: "ratelimit.ai_ip.requests",
@@ -193,6 +224,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "AI IP — requests",
     fallback: 20,
+    env: "RATE_LIMIT_AI_IP_REQUESTS",
+    min: 1,
+    max: 100000,
   },
   {
     key: "ratelimit.ai_ip.window_seconds",
@@ -201,6 +235,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "AI IP — window (s)",
     fallback: 600,
+    env: "RATE_LIMIT_AI_IP_WINDOW_SECONDS",
+    min: 1,
+    max: 86400,
   },
   {
     key: "ratelimit.build_user.requests",
@@ -209,6 +246,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Build user — requests",
     fallback: 10,
+    env: "RATE_LIMIT_BUILD_USER_REQUESTS",
+    min: 1,
+    max: 100000,
   },
   {
     key: "ratelimit.build_user.window_seconds",
@@ -217,6 +257,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Build user — window (s)",
     fallback: 3600,
+    env: "RATE_LIMIT_BUILD_USER_WINDOW_SECONDS",
+    min: 1,
+    max: 86400,
   },
   {
     key: "ratelimit.build_ip.requests",
@@ -225,6 +268,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Build IP — requests",
     fallback: 5,
+    env: "RATE_LIMIT_BUILD_IP_REQUESTS",
+    min: 1,
+    max: 100000,
   },
   {
     key: "ratelimit.build_ip.window_seconds",
@@ -233,6 +279,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "Build IP — window (s)",
     fallback: 3600,
+    env: "RATE_LIMIT_BUILD_IP_WINDOW_SECONDS",
+    min: 1,
+    max: 86400,
   },
   // ai (optional — tunable live)
   {
@@ -242,6 +291,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "AI — moderation timeout (ms)",
     fallback: 30000,
+    env: "AI_TIMEOUT_MODERATION_MS",
+    min: 30000,
+    max: 60000,
   },
   {
     key: "ai.timeout.discuss_ms",
@@ -250,6 +302,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "number",
     label: "AI — discuss timeout (ms)",
     fallback: 90000,
+    env: "AI_TIMEOUT_DISCUSS_MS",
+    min: 30000,
+    max: 180000,
   },
   {
     key: "ai.models_default",
@@ -258,6 +313,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "string",
     label: "AI — default model id",
     fallback: "umkmcepat-combo",
+    env: "AI_MODELS",
   },
 ];
 

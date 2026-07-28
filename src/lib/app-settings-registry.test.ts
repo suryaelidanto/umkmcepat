@@ -85,3 +85,46 @@ describe("registry schema", () => {
     }
   });
 });
+
+describe("existing entries carry env + bounds", () => {
+  it("maps the three feature flags to their env vars", () => {
+    const expected: Record<string, string> = {
+      "feature.waitlist_enabled": "WAITLIST_ENABLED",
+      "feature.generated_build_execution": "GENERATED_BUILD_EXECUTION_ENABLED",
+      "feature.generated_public_execution":
+        "GENERATED_PUBLIC_EXECUTION_ENABLED",
+    };
+    for (const [key, env] of Object.entries(expected)) {
+      expect(APP_SETTINGS.find((e) => e.key === key)?.env).toBe(env);
+    }
+  });
+
+  it("maps every rate_limit key to its RATE_LIMIT_* env var", () => {
+    const rateLimits = APP_SETTINGS.filter((e) => e.category === "rate_limit");
+    expect(rateLimits).toHaveLength(10);
+    for (const entry of rateLimits) {
+      expect(entry.env).toMatch(/^RATE_LIMIT_[A-Z_]+$/);
+    }
+  });
+
+  it("maps ai.models_default to AI_MODELS", () => {
+    expect(APP_SETTINGS.find((e) => e.key === "ai.models_default")?.env).toBe(
+      "AI_MODELS",
+    );
+  });
+
+  it("streamer_mode has no env var (DB-only)", () => {
+    expect(
+      APP_SETTINGS.find((e) => e.key === "feature.streamer_mode")?.env,
+    ).toBeUndefined();
+  });
+
+  it("every numeric entry declares min and max", () => {
+    for (const entry of APP_SETTINGS) {
+      if (entry.type === "number") {
+        expect(entry.min).toBeDefined();
+        expect(entry.max).toBeDefined();
+      }
+    }
+  });
+});
