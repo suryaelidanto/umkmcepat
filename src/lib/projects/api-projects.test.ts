@@ -49,6 +49,10 @@ vi.mock("@/lib/ai-moderation", () => ({
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 
+vi.mock("@/lib/projects/project-asset-upload", () => ({
+  uploadProjectAsset: vi.fn(async () => ({ id: "mock_asset" })),
+}));
+
 vi.mock("@/lib/user-credits", async () => {
   const actual =
     await vi.importActual<typeof import("@/lib/user-credits")>(
@@ -76,9 +80,11 @@ async function callPost(prompt = "Saya jualan kue") {
     }
   ).options.server.handlers.POST;
 
+  const formData = new FormData();
+  formData.append("prompt", prompt);
+
   const request = new Request("http://localhost/api/projects", {
-    body: JSON.stringify({ prompt }),
-    headers: { "Content-Type": "application/json" },
+    body: formData,
     method: "POST",
   });
 

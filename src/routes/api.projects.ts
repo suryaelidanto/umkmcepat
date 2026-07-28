@@ -4,10 +4,13 @@ import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { getDefaultAiModel } from "@/lib/ai-models";
-import { moderateProjectRequest } from "@/lib/ai-moderation";
+import {
+  moderateProjectRequest,
+  type ModerationImage,
+} from "@/lib/ai-moderation";
 import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth";
-import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
+import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import { prisma } from "@/lib/prisma";
 import { createInitialBrief } from "@/lib/projects/brief";
 import { createFallbackWorkspaceCard } from "@/lib/projects/brief-flow";
@@ -17,16 +20,17 @@ import {
   encodeProjectCursor,
   PROJECT_PAGE_SIZE,
 } from "@/lib/projects/pagination";
+import { uploadProjectAsset } from "@/lib/projects/project-asset-upload";
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
   assertUnderProjectLimit,
   chargeEnergyForAiUsage,
   checkEnergy,
+  getEnergyConfig,
   getProjectCount,
   getProjectLimit,
   isAtOrOverProjectLimit,
-  MIN_ENERGY_MODERATION,
   ProjectLimitExceededError,
 } from "@/lib/user-credits";
 
@@ -102,7 +106,6 @@ export const Route = createFileRoute("/api/projects")({
       },
       POST: async ({ request }) => {
         const session = await auth();
-
         if (!session?.user?.id) {
           return Response.json(
             { message: "Masuk dulu untuk melanjutkan." },
@@ -123,12 +126,14 @@ export const Route = createFileRoute("/api/projects")({
             status: 503,
           }),
         );
-
         if (rateLimitResponse) {
           return rateLimitResponse;
         }
 
-        const energy = await checkEnergy(userId, MIN_ENERGY_MODERATION);
+        const energy = await checkEnergy(
+          userId,
+          getEnergyConfig().minModeration,
+        );
         if (!energy.allowed) {
           return Response.json(
             {
@@ -140,36 +145,18 @@ export const Route = createFileRoute("/api/projects")({
           );
         }
 
-        let body: {
-          idempotencyKey?: string;
-          mode?: WorkspaceMode;
-          prompt?: string;
-        };
-
-        try {
-          body = (await readBoundedJson(request, {
-            maxBytes: 16 * 1024,
-          })) as typeof body;
-        } catch (error) {
-          if (isBoundedJsonError(error)) {
-            return Response.json(
-              {
-                code: error.code,
-                message:
-                  error.code === "request_body_too_large"
-                    ? "Permintaan terlalu besar. Ringkas dulu, ya."
-                    : "Format permintaan belum valid.",
-              },
-              { status: error.code === "request_body_too_large" ? 413 : 400 },
-            );
-          }
-
-          throw error;
+        const form = await request.formData().catch(() => null);
+        if (!form) {
+          return Response.json(
+            { message: "Permintaan tidak valid." },
+            { status: 400 },
+          );
         }
-        const { prompt } = body;
-        const mode = body.mode === "build" ? "build" : "discuss";
-        const validation = validateProjectRequest(prompt ?? "");
-        const idempotencyKey = getIdempotencyKey(request, body.idempotencyKey);
+
+        const prompt = String(form.get("prompt") ?? "").trim();
+        const mode = form.get("mode") === "build" ? "build" : "discuss";
+        const idempotencyKey = getIdempotencyKeyFromForm(form);
+        const validation = validateProjectRequest(prompt);
 
         if (!validation.ok) {
           return Response.json(
@@ -178,57 +165,94 @@ export const Route = createFileRoute("/api/projects")({
           );
         }
 
+        const rawFiles = form
+          .getAll("files")
+          .filter((f): f is File => f instanceof File);
+        if (rawFiles.length > 6) {
+          return Response.json(
+            { message: "Maksimal 6 gambar." },
+            { status: 400 },
+          );
+        }
+
+        const imageParts: ModerationImage[] = [];
+        const validatedFiles: { bytes: Buffer; contentType: string }[] = [];
+        for (const file of rawFiles) {
+          if (file.size > 5 * 1024 * 1024) {
+            return Response.json(
+              { message: "Ukuran file melebihi 5 MB." },
+              { status: 413 },
+            );
+          }
+          const bytes = Buffer.from(await file.arrayBuffer());
+          const format = detectImageFormat(bytes);
+          if (!format) {
+            return Response.json(
+              {
+                message:
+                  "Format gambar tidak didukung. Gunakan PNG, JPEG, atau WEBP.",
+              },
+              { status: 400 },
+            );
+          }
+          const contentType = contentTypeFromExt(format);
+          imageParts.push({ bytes, mediaType: contentType });
+          validatedFiles.push({ bytes, contentType });
+        }
+
         const existingProject = idempotencyKey
           ? await findIdempotentProject(userId, idempotencyKey)
           : null;
-
         if (existingProject) {
           return Response.json({
+            assetIds: [],
             id: existingProject.id,
             path: `/projects/${existingProject.id}`,
           });
         }
 
-        let moderation;
         try {
-          moderation = await moderateProjectRequest(validation.value);
-        } catch (error) {
-          console.error(
-            "[moderation] failed:",
-            error instanceof Error ? error.message : error,
+          const moderation = await moderateProjectRequest(
+            validation.value,
+            imageParts,
           );
-          return apiError({
-            code: "moderation_unavailable",
-            message: "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
-            retryAfter: 3,
-            status: 503,
+          if (moderation.usage) {
+            await chargeEnergyForAiUsage({
+              userId,
+              modelId: moderation.modelId || "umkmcepat-combo",
+              inputTokens: moderation.usage.inputTokens,
+              outputTokens: moderation.usage.outputTokens,
+              reason: "moderation",
+            });
+          }
+          if (!moderation.allowed) {
+            return Response.json(
+              {
+                code: "project_request_blocked",
+                message:
+                  moderation.message || "Permintaan belum bisa diproses.",
+              },
+              { status: 400 },
+            );
+          }
+        } catch (error) {
+          console.error("[moderation] api.projects failed", {
+            error: error instanceof Error ? error.message : error,
           });
-        }
-
-        if (moderation.usage) {
-          await chargeEnergyForAiUsage({
-            userId,
-            modelId: moderation.modelId || "umkmcepat-combo",
-            inputTokens: moderation.usage.inputTokens,
-            outputTokens: moderation.usage.outputTokens,
-            reason: "moderation",
-          });
-        }
-
-        if (!moderation.allowed) {
           return Response.json(
             {
-              code: "project_request_blocked",
-              message: moderation.message || "Permintaan belum bisa diproses.",
+              code: "moderation_unavailable",
+              message:
+                "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
+              retryAfter: 3,
             },
-            { status: 400 },
+            { status: 503 },
           );
         }
 
         const brief = createInitialBrief(validation.value);
         const workspaceCard = createFallbackWorkspaceCard(brief);
         let project: { id: string } | null;
-
         try {
           project = await createProjectOnce({
             brief,
@@ -256,7 +280,6 @@ export const Route = createFileRoute("/api/projects")({
             throw error;
           }
         }
-
         if (!project) {
           return apiError({
             code: "project_create_unavailable",
@@ -265,7 +288,19 @@ export const Route = createFileRoute("/api/projects")({
           });
         }
 
+        const assetIds: string[] = [];
+        for (const f of validatedFiles) {
+          const asset = await uploadProjectAsset({
+            bytes: f.bytes,
+            projectId: project.id,
+            purpose: "business-image",
+            userId,
+          });
+          assetIds.push(asset.id);
+        }
+
         return Response.json({
+          assetIds,
           id: project.id,
           path: `/projects/${project.id}`,
           projectCount: await getProjectCount(userId),
@@ -276,7 +311,15 @@ export const Route = createFileRoute("/api/projects")({
   },
 });
 
-function getIdempotencyKey(request: Request, bodyKey?: string) {
+function getIdempotencyKeyFromForm(form: FormData) {
+  const value = String(form.get("idempotencyKey") ?? "").trim();
+  if (!value || value.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
+    return "";
+  }
+  return /^[A-Za-z0-9._:-]+$/.test(value) ? value : "";
+}
+
+export function getIdempotencyKey(request: Request, bodyKey?: string) {
   const value = (
     request.headers.get("Idempotency-Key") ||
     bodyKey ||

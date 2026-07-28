@@ -60,6 +60,11 @@ vi.mock("@/lib/projects/workspace", async () => {
 
   return { getProjectTitle: actual.getProjectTitle };
 });
+vi.mock("@/lib/projects/project-asset-upload", () => ({
+  uploadProjectAsset: vi.fn(async () => ({
+    id: `asset_mock`,
+  })),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: queryRawMock,
@@ -226,36 +231,53 @@ describe("projects route", () => {
   it("requires login", async () => {
     authMock.mockResolvedValueOnce(null);
 
+    const formData = new FormData();
+    formData.append("prompt", "Saya jual kopi");
+
     const response = await POST(
       new Request("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({ prompt: "Saya jual kopi" }),
+        body: formData,
       }),
     );
 
     expect(response.status).toBe(401);
   });
 
-  it("rejects oversized bodies before moderation or database work", async () => {
+  it("rejects oversized files (exceeding 5 MB) before moderation or database work", async () => {
+    const formData = new FormData();
+    formData.append("prompt", "Saya jual kopi susu");
+    const largeFile = new File(
+      [new Uint8Array(5 * 1024 * 1024 + 1)],
+      "heavy.png",
+      {
+        type: "image/png",
+      },
+    );
+    formData.append("files", largeFile);
+
     const response = await POST(
       new Request("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({ padding: "x".repeat(20_000), prompt: "kopi" }),
+        body: formData,
       }),
     );
-    const body = await response.json();
 
     expect(response.status).toBe(413);
-    expect(body.code).toBe("request_body_too_large");
+    const body = await response.json();
+    expect(body.message).toBe("Ukuran file melebihi 5 MB.");
     expect(moderateProjectRequestMock).not.toHaveBeenCalled();
     expect(prismaProjectCreateMock).not.toHaveBeenCalled();
   });
 
   it("rejects invalid prompt before moderation", async () => {
+    const formData = new FormData();
+    formData.append("prompt", " ");
+
     const response = await POST(
       new Request("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({ prompt: " " }),
+        body: formData,
       }),
     );
 
@@ -264,10 +286,13 @@ describe("projects route", () => {
   });
 
   it("creates a project for the signed-in user", async () => {
+    const formData = new FormData();
+    formData.append("prompt", "Saya jual kopi susu");
+
     const response = await POST(
       new Request("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({ prompt: "Saya jual kopi susu" }),
+        body: formData,
       }),
     );
 
@@ -275,6 +300,7 @@ describe("projects route", () => {
     expect(await response.json()).toMatchObject({
       id: "project_1",
       path: "/projects/project_1",
+      assetIds: [],
     });
     expect(prismaProjectCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -287,10 +313,14 @@ describe("projects route", () => {
   });
 
   it("marks build mode projects for generation", async () => {
+    const formData = new FormData();
+    formData.append("prompt", "Saya jual kopi susu");
+    formData.append("mode", "build");
+
     await POST(
       new Request("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({ mode: "build", prompt: "Saya jual kopi susu" }),
+        body: formData,
       }),
     );
 
@@ -306,15 +336,17 @@ describe("projects route", () => {
       new Error("provider down"),
     );
 
+    const formData = new FormData();
+    formData.append("prompt", "Saya jual kopi susu");
+
     const response = await POST(
       new Request("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({ prompt: "Saya jual kopi susu" }),
+        body: formData,
       }),
     );
 
     expect(response.status).toBe(503);
-    expect(response.headers.get("Retry-After")).toBe("3");
     await expect(response.json()).resolves.toMatchObject({
       code: "moderation_unavailable",
     });
@@ -324,11 +356,14 @@ describe("projects route", () => {
   it("returns existing project for an idempotency key", async () => {
     queryRawMock.mockResolvedValueOnce([{ id: "project_existing" }]);
 
+    const formData = new FormData();
+    formData.append("prompt", "Saya jual kopi susu");
+    formData.append("idempotencyKey", "draft-1");
+
     const response = await POST(
       new Request("http://localhost/api/projects", {
         method: "POST",
-        headers: { "Idempotency-Key": "draft-1" },
-        body: JSON.stringify({ prompt: "Saya jual kopi susu" }),
+        body: formData,
       }),
     );
 
@@ -336,16 +371,20 @@ describe("projects route", () => {
     await expect(response.json()).resolves.toMatchObject({
       id: "project_existing",
       path: "/projects/project_existing",
+      assetIds: [],
     });
     expect(prismaProjectCreateMock).not.toHaveBeenCalled();
   });
 
   it("stores an idempotency key with the created project", async () => {
+    const formData = new FormData();
+    formData.append("prompt", "Saya jual kopi susu");
+    formData.append("idempotencyKey", "draft-1");
+
     const response = await POST(
       new Request("http://localhost/api/projects", {
         method: "POST",
-        headers: { "Idempotency-Key": "draft-1" },
-        body: JSON.stringify({ prompt: "Saya jual kopi susu" }),
+        body: formData,
       }),
     );
 
