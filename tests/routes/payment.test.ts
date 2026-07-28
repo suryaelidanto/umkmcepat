@@ -8,6 +8,8 @@ const {
   prismaPaymentCreateMock,
   prismaPaymentFindUniqueMock,
   prismaPaymentUpdateMock,
+  prismaPaymentUpdateManyMock,
+  prismaPaymentFindUniqueOrThrowMock,
   prismaExecuteRawMock,
   prismaTransactionMock,
 } = vi.hoisted(() => ({
@@ -18,12 +20,16 @@ const {
   prismaPaymentCreateMock: vi.fn(),
   prismaPaymentFindUniqueMock: vi.fn(),
   prismaPaymentUpdateMock: vi.fn(),
+  prismaPaymentUpdateManyMock: vi.fn(async () => ({ count: 1 })),
+  prismaPaymentFindUniqueOrThrowMock: vi.fn(),
   prismaExecuteRawMock: vi.fn(async () => 1),
   prismaTransactionMock: vi.fn(async (callback) =>
     callback({
       payment: {
         findUnique: prismaPaymentFindUniqueMock,
+        findUniqueOrThrow: prismaPaymentFindUniqueOrThrowMock,
         update: prismaPaymentUpdateMock,
+        updateMany: prismaPaymentUpdateManyMock,
       },
       $executeRaw: prismaExecuteRawMock,
     }),
@@ -48,7 +54,9 @@ vi.mock("@/lib/prisma", () => ({
     payment: {
       create: prismaPaymentCreateMock,
       findUnique: prismaPaymentFindUniqueMock,
+      findUniqueOrThrow: prismaPaymentFindUniqueOrThrowMock,
       update: prismaPaymentUpdateMock,
+      updateMany: prismaPaymentUpdateManyMock,
     },
   },
 }));
@@ -80,7 +88,10 @@ describe("Payment API Routes", () => {
     verifyPakasirTransactionMock.mockReset();
     prismaPaymentCreateMock.mockReset();
     prismaPaymentFindUniqueMock.mockReset();
+    prismaPaymentFindUniqueOrThrowMock.mockReset();
     prismaPaymentUpdateMock.mockReset();
+    prismaPaymentUpdateManyMock.mockReset();
+    prismaPaymentUpdateManyMock.mockImplementation(async () => ({ count: 1 }));
     prismaExecuteRawMock.mockClear();
     prismaTransactionMock.mockClear();
   });
@@ -165,14 +176,16 @@ describe("Payment API Routes", () => {
 
   describe("POST /api/payment/webhook", () => {
     it("handles webhook notifications and calls Pakasir to verify before crediting", async () => {
-      prismaPaymentFindUniqueMock.mockResolvedValue({
+      const pendingRow = {
         userId: "user_1",
         orderId: "INV-USER1-12345",
         amount: 2900,
         energyGranted: 50000,
         status: "PENDING",
         metadata: { packageName: "Pocket Booster" },
-      });
+      };
+      prismaPaymentFindUniqueMock.mockResolvedValue(pendingRow);
+      prismaPaymentFindUniqueOrThrowMock.mockResolvedValue(pendingRow);
 
       verifyPakasirTransactionMock.mockResolvedValueOnce({
         order_id: "INV-USER1-12345",
@@ -208,6 +221,9 @@ describe("Payment API Routes", () => {
     });
 
     it("ignores webhook notifications if payment is already COMPLETED (idempotency)", async () => {
+      // Pre-transaction fetch returns COMPLETED, so the route short-circuits
+      // with 200 before claiming. The atomic claim would also return
+      // { count: 0 } — both paths agree.
       prismaPaymentFindUniqueMock.mockResolvedValueOnce({
         userId: "user_1",
         orderId: "INV-USER1-12345",
