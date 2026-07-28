@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   applySecurityHeaders,
+  buildContentSecurityPolicy,
   isCrossSiteMutation,
 } from "@/lib/security-headers";
 
@@ -56,6 +57,10 @@ describe("mutation origin policy", () => {
 });
 
 describe("security headers", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("denies framing and sensitive browser capabilities on the control plane", () => {
     const headers = applySecurityHeaders(new Headers(), {
       generatedOrigin: false,
@@ -144,5 +149,36 @@ describe("security headers", () => {
 
     // We do not control generated subdomains and must not pin them.
     expect(headers.get("Strict-Transport-Security")).toBeNull();
+  });
+
+  it("builds a CSP covering every fetch directive", () => {
+    vi.stubEnv("S3_PUBLIC_BASE_URL", "https://media.example.test");
+    vi.stubEnv(
+      "NEXT_PUBLIC_UMAMI_SCRIPT_SRC",
+      "https://umami.example.test/script.js",
+    );
+
+    const policy = buildContentSecurityPolicy("test-nonce");
+
+    expect(policy).toContain("default-src 'self'");
+    expect(policy).toContain("https://api.dicebear.com");
+    expect(policy).toContain("https://api.qrserver.com");
+    expect(policy).toContain("https://media.example.test");
+    expect(policy).toContain("https://challenges.cloudflare.com");
+    expect(policy).toContain("https://umami.example.test");
+    expect(policy).toContain("'nonce-test-nonce'");
+    expect(policy).toContain("object-src 'none'");
+    expect(policy).toContain("frame-ancestors 'none'");
+  });
+
+  it("omits environment origins that are not configured", () => {
+    vi.stubEnv("S3_PUBLIC_BASE_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_UMAMI_SCRIPT_SRC", "");
+
+    const policy = buildContentSecurityPolicy("test-nonce");
+
+    expect(policy).toContain("default-src 'self'");
+    expect(policy).not.toContain("undefined");
+    expect(policy).not.toContain("  ");
   });
 });

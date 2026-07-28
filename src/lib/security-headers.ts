@@ -36,6 +36,65 @@ export function isCrossSiteMutation({
   return fetchSite === "cross-site";
 }
 
+/**
+ * Origins are taken from verified code references, not guesses:
+ *   api.dicebear.com   — avatars, src/lib/profile.ts:9
+ *   api.qrserver.com   — payment QR, EnergyBoosterModal.tsx:159
+ *   challenges.cloudflare.com — Turnstile widget
+ * S3_PUBLIC_BASE_URL and the Umami host are environment-dependent, so the
+ * policy is assembled at runtime rather than declared as a constant.
+ */
+export function buildContentSecurityPolicy(nonce: string) {
+  const mediaOrigin = originOf(process.env.S3_PUBLIC_BASE_URL);
+  const umamiOrigin = originOf(process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC);
+
+  const img = [
+    "'self'",
+    "data:",
+    "blob:",
+    "https://api.dicebear.com",
+    "https://api.qrserver.com",
+    mediaOrigin,
+  ].filter(Boolean);
+
+  const script = [
+    `'nonce-${nonce}'`,
+    "'strict-dynamic'",
+    "https:",
+    "'unsafe-inline'",
+    umamiOrigin,
+  ].filter(Boolean);
+
+  const connect = ["'self'", umamiOrigin].filter(Boolean);
+
+  return [
+    "default-src 'self'",
+    `img-src ${img.join(" ")}`,
+    `script-src ${script.join(" ")}`,
+    `connect-src ${connect.join(" ")}`,
+    // Tailwind injects inline styles; a nonce cannot cover them.
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
+    "frame-src https://challenges.cloudflare.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "report-uri /api/csp-violation",
+  ].join("; ");
+}
+
+function originOf(value: string | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "";
+  }
+}
+
 export function applySecurityHeaders(
   headers: Headers,
   {
@@ -100,6 +159,12 @@ export function applySecurityHeaders(
       "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; script-src 'nonce-" +
         nonceStr +
         "' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
+    );
+    // Report-only during rollout. Task 6 promotes this to enforcement once
+    // /api/csp-violation confirms a clean run across a full user journey.
+    headers.set(
+      "Content-Security-Policy-Report-Only",
+      buildContentSecurityPolicy(nonceStr),
     );
     headers.set("X-Frame-Options", "DENY");
 
