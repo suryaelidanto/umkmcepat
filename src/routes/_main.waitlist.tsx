@@ -190,7 +190,7 @@ function WaitlistPage() {
     schema: waitlistSchema,
   });
 
-  // Pre-fill on first load from the user's last submission.
+  // Pre-fill on first load from the user's last submission, or restore draft from localStorage.
   const ownQuery = useQuery({
     queryFn: () => fetchJson<{ own?: OwnEntry | null }>("/api/user/waitlist"),
     queryKey: ["user", "waitlist", "own"],
@@ -206,15 +206,84 @@ function WaitlistPage() {
   const ownIsDevSkip =
     ownQuery.data?.own?.businessName.startsWith("[dev-skip]") ?? false;
 
+  // Restore step and form values from localStorage when mounting/ownQuery settles.
   useEffect(() => {
-    const own = ownQuery.data?.own;
-    if (own) {
-      form.setField("businessName", own.businessName);
-      form.setField("businessType", own.businessType ?? "");
-      form.setField("phone", own.phone ?? "");
+    try {
+      const savedStep = localStorage.getItem("umkmcepat:waitlist:step");
+      if (savedStep) {
+        setStep(Number(savedStep));
+      }
+
+      const savedValuesJson = localStorage.getItem("umkmcepat:waitlist:values");
+      if (savedValuesJson) {
+        const saved = JSON.parse(savedValuesJson);
+        if (saved.businessName) {
+          form.setField("businessName", saved.businessName);
+        }
+        if (saved.businessType) {
+          form.setField("businessType", saved.businessType);
+        }
+        if (saved.phone) {
+          form.setField("phone", saved.phone);
+        }
+        if (saved.storyOffers) {
+          form.setField("storyOffers", saved.storyOffers);
+        }
+        if (saved.storySince) {
+          form.setField("storySince", saved.storySince);
+        }
+        if (saved.storyGoal) {
+          form.setField("storyGoal", saved.storyGoal);
+        }
+      } else {
+        const own = ownQuery.data?.own;
+        if (own) {
+          form.setField("businessName", own.businessName);
+          form.setField("businessType", own.businessType ?? "");
+          form.setField("phone", own.phone ?? "");
+        }
+      }
+    } catch (err) {
+      console.error("Gagal memuat draft waitlist dari localStorage:", err);
     }
-    // run only once when the user entry hydrates.
+    // Only run on initial hydrate/hydration of ownQuery.
   }, [ownQuery.data]);
+
+  // Persist form values (except photo file object) to localStorage as the user types.
+  useEffect(() => {
+    try {
+      const valuesToSave = {
+        businessName: form.values.businessName,
+        businessType: form.values.businessType,
+        phone: form.values.phone,
+        storyOffers: form.values.storyOffers,
+        storySince: form.values.storySince,
+        storyGoal: form.values.storyGoal,
+      };
+      localStorage.setItem(
+        "umkmcepat:waitlist:values",
+        JSON.stringify(valuesToSave),
+      );
+    } catch (err) {
+      console.error("Gagal menyimpan draft waitlist:", err);
+    }
+  }, [
+    form.values.businessName,
+    form.values.businessType,
+    form.values.phone,
+    form.values.storyOffers,
+    form.values.storySince,
+    form.values.storyGoal,
+  ]);
+
+  // Persist current step to localStorage when it changes.
+  useEffect(() => {
+    try {
+      localStorage.setItem("umkmcepat:waitlist:step", String(step));
+    } catch (err) {
+      console.error("Gagal menyimpan step waitlist:", err);
+    }
+  }, [step]);
 
   useEffect(() => {
     if (!(form.values.photo instanceof File)) {
@@ -235,6 +304,12 @@ function WaitlistPage() {
     },
     onSuccess: () => {
       setSubmitted(true);
+      try {
+        localStorage.removeItem("umkmcepat:waitlist:values");
+        localStorage.removeItem("umkmcepat:waitlist:step");
+      } catch (err) {
+        console.error("Gagal membersihkan draft waitlist:", err);
+      }
       toast.success("Pendaftaran kamu sudah masuk antrian. Terima kasih!");
     },
   });
@@ -349,6 +424,7 @@ function WaitlistPage() {
             markTouched={form.markTouched}
             onChange={form.setField}
             storyTooShort={storyTooShort}
+            touched={form.touched}
             values={form.values}
           />
         ) : null}
@@ -548,6 +624,7 @@ function Step1({
     <Step
       question="Nama usaha kamu apa?"
       helper="Biar tim kami tahu kamu jualan apa."
+      required
     >
       <FormField
         error={errorMessage("businessName")}
@@ -618,6 +695,7 @@ function Step2({
   errorMessage,
   markTouched,
   storyTooShort,
+  touched,
 }: {
   values: WaitlistValues;
   onChange: <K extends keyof WaitlistValues>(
@@ -628,6 +706,7 @@ function Step2({
   errorMessage: (name: keyof WaitlistValues) => string | null;
   markTouched: (name: keyof WaitlistValues) => void;
   storyTooShort: boolean;
+  touched: Partial<Record<keyof WaitlistValues, boolean>>;
 }) {
   const sinceInvalid = hasError("storySince");
 
@@ -635,6 +714,7 @@ function Step2({
     <Step
       question="Cerita singkat usaha kamu"
       helper="Jawab 3 pertanyaan di bawah."
+      required
     >
       <FormField
         error={errorMessage("storyOffers")}
@@ -689,11 +769,12 @@ function Step2({
 
       <FormField
         className="mt-spacing-5"
-        error={errorMessage("storyGoal")}
-        hint={
+        error={
+          errorMessage("storyGoal") ||
+          ((touched.storyGoal || touched.storyOffers || touched.storySince) &&
           storyTooShort
             ? "Total jawabannya minimal 80 karakter biar kami yakin."
-            : undefined
+            : null)
         }
         label="Mau bikin website buat apa?"
         required
@@ -731,6 +812,7 @@ function Step3({
     <Step
       question="Upload 1 foto usaha kamu"
       helper="Wajib. Foto warung, produk, atau gerai kamu."
+      required
     >
       <label
         className={`flex w-full cursor-pointer flex-col items-center justify-center gap-spacing-3 rounded-radius-lg border border-dashed px-spacing-6 py-spacing-12 transition ${
@@ -794,16 +876,19 @@ function Step3({
 function Step({
   question,
   helper,
+  required,
   children,
 }: {
   question: string;
   helper: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col">
       <h2 className="text-center text-heading-lg font-semibold tracking-tight text-surface-warm-white">
         {question}
+        {required ? <span className="text-aurora-rose"> *</span> : null}
       </h2>
       <p className="mt-spacing-2 text-center text-sm text-surface-warm-white/60">
         {helper}
