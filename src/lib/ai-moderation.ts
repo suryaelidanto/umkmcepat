@@ -36,8 +36,9 @@ export async function moderateProjectRequest(
   images: ModerationImage[] = [],
   timeoutMs = getModerationTimeoutMs(),
 ): Promise<ModerationResult> {
+  const hasImages = images.length > 0;
   const key = normalizePrompt(prompt);
-  const cached = moderationCache.get(key);
+  const cached = hasImages ? undefined : moderationCache.get(key);
 
   if (cached && cached.expiresAt > Date.now()) {
     return {
@@ -109,10 +110,12 @@ export async function moderateProjectRequest(
         ? { allowed: false, message: CLARIFY_MESSAGE, modelId, usage }
         : { allowed: true, modelId, usage };
 
-  moderationCache.set(key, {
-    expiresAt: Date.now() + MODERATION_CACHE_TTL_MS,
-    result: moderationResult,
-  });
+  if (!hasImages) {
+    moderationCache.set(key, {
+      expiresAt: Date.now() + MODERATION_CACHE_TTL_MS,
+      result: moderationResult,
+    });
+  }
 
   return moderationResult;
 }

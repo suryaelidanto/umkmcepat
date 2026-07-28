@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { invalidateSettingCache, getSettingSync } from "@/lib/app-settings";
+import {
+  invalidateSettingCache,
+  getSettingSync,
+  primeSettingCache,
+} from "@/lib/app-settings";
 
 // getSetting is async + hits prisma; mock the client.
 vi.mock("@/lib/prisma", () => {
@@ -10,6 +14,9 @@ vi.mock("@/lib/prisma", () => {
       appSetting: {
         findUnique: vi.fn(async ({ where }: { where: { key: string } }) =>
           store.has(where.key) ? { value: store.get(where.key) } : null,
+        ),
+        findMany: vi.fn(async () =>
+          [...store.entries()].map(([key, value]) => ({ key, value })),
         ),
         upsert: vi.fn(
           async (args: {
@@ -102,5 +109,107 @@ describe("getSettingSync", () => {
   it("returns fallback when cache cold", () => {
     invalidateSettingCache();
     expect(getSettingSync("feature.waitlist_enabled", true)).toBe(true);
+  });
+});
+
+describe("primeSettingCache", () => {
+  beforeEach(() => {
+    invalidateSettingCache();
+    vi.useRealTimers();
+  });
+
+  it("makes getSettingSync return the DB value", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "feature.streamer_mode" },
+      create: {
+        key: "feature.streamer_mode",
+        category: "feature_flag",
+        value: false,
+      },
+      update: { value: false },
+    });
+    invalidateSettingCache();
+
+    expect(getSettingSync("feature.streamer_mode", true)).toBe(true);
+    await primeSettingCache();
+    expect(getSettingSync("feature.streamer_mode", true)).toBe(false);
+  });
+
+  it("snapshot survives past the 5s TTL", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "feature.streamer_mode" },
+      create: {
+        key: "feature.streamer_mode",
+        category: "feature_flag",
+        value: false,
+      },
+      update: { value: false },
+    });
+    invalidateSettingCache();
+    await primeSettingCache();
+
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(60_000);
+    expect(getSettingSync("feature.streamer_mode", true)).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it("does not throw when the DB read fails", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const spy = vi
+      .spyOn(prisma.appSetting, "findMany")
+      .mockRejectedValueOnce(new Error("db down"));
+
+    await expect(primeSettingCache()).resolves.toBeUndefined();
+    expect(getSettingSync("feature.streamer_mode", true)).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("skips rows whose type does not match the registry", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "feature.streamer_mode" },
+      create: {
+        key: "feature.streamer_mode",
+        category: "feature_flag",
+        value: "not-a-boolean",
+      },
+      update: { value: "not-a-boolean" },
+    });
+    invalidateSettingCache();
+    await primeSettingCache();
+
+    expect(getSettingSync("feature.streamer_mode", true)).toBe(true);
+  });
+
+  it("is single-flight across concurrent callers", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    invalidateSettingCache();
+    const spy = vi.spyOn(prisma.appSetting, "findMany");
+    spy.mockClear();
+
+    await Promise.all([
+      primeSettingCache(),
+      primeSettingCache(),
+      primeSettingCache(),
+    ]);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it("re-primes after invalidateSettingCache", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await primeSettingCache();
+    const spy = vi.spyOn(prisma.appSetting, "findMany");
+    spy.mockClear();
+
+    invalidateSettingCache();
+    await primeSettingCache();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
   });
 });

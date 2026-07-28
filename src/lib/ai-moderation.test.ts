@@ -110,4 +110,59 @@ describe("moderateProjectRequest", () => {
       },
     ]);
   });
+
+  it("skips cache hit and cache write when images are present", async () => {
+    generateTextMock.mockClear();
+
+    // First call with prompt "kopi" and no images -> returns BLOCK, gets cached
+    generateTextMock.mockResolvedValueOnce({
+      text: "BLOCK",
+      usage: { inputTokens: 5, outputTokens: 1 },
+    } as never);
+
+    await expect(moderateProjectRequest("kopi")).resolves.toMatchObject({
+      allowed: false,
+    });
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+
+    // Call with prompt "kopi" and an image -> returns ALLOW, skips cache and calls API again
+    generateTextMock.mockClear();
+    generateTextMock.mockResolvedValueOnce({
+      text: "ALLOW",
+      usage: { inputTokens: 10, outputTokens: 1 },
+    } as never);
+
+    const imageBytes = Buffer.from("test-image-1");
+    await expect(
+      moderateProjectRequest("kopi", [
+        { bytes: imageBytes, mediaType: "image/png" },
+      ]),
+    ).resolves.toMatchObject({
+      allowed: true,
+    });
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+
+    // Call again with prompt "kopi" and no images -> should still resolve to cached BLOCK without calling API
+    generateTextMock.mockClear();
+    await expect(moderateProjectRequest("kopi")).resolves.toMatchObject({
+      allowed: false,
+    });
+    expect(generateTextMock).not.toHaveBeenCalled();
+
+    // Call again with prompt "kopi" and an image -> should skip cache, call API, and resolve to ALLOW
+    generateTextMock.mockClear();
+    generateTextMock.mockResolvedValueOnce({
+      text: "ALLOW",
+      usage: { inputTokens: 10, outputTokens: 1 },
+    } as never);
+
+    await expect(
+      moderateProjectRequest("kopi", [
+        { bytes: imageBytes, mediaType: "image/png" },
+      ]),
+    ).resolves.toMatchObject({
+      allowed: true,
+    });
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+  });
 });

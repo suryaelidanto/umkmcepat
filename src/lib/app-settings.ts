@@ -18,34 +18,49 @@ async function getDb(): Promise<PrismaClient["appSetting"]> {
   return prisma.appSetting;
 }
 
+// No-TTL snapshot of every AppSetting row, replaced wholesale by
+// primeSettingCache(). The TTL cache above expires after 5s; if priming wrote
+// only there, getSettingSync would silently resume returning fallbacks five
+// seconds after boot. The snapshot is what makes sync reads trustworthy.
+let snapshot = new Map<string, unknown>();
+let primePromise: Promise<void> | null = null;
+
 export function invalidateSettingCache(key?: string): void {
   if (key) {
     cache.delete(key);
+    snapshot.delete(key);
     return;
   }
   cache.clear();
+  snapshot.clear();
+  primePromise = null;
 }
 
-function envKeyFor(settingKey: string): string | null {
-  // feature.waitlist_enabled → WAITLIST_ENABLED (special case: env predates DB config)
-  if (settingKey === "feature.waitlist_enabled") {
-    return "WAITLIST_ENABLED";
-  }
-  if (settingKey === "feature.generated_build_execution") {
-    return "GENERATED_BUILD_EXECUTION_ENABLED";
-  }
-  if (settingKey === "feature.generated_public_execution") {
-    return "GENERATED_PUBLIC_EXECUTION_ENABLED";
-  }
-  // ratelimit.global_ip.requests → RATE_LIMIT_GLOBAL_IP_REQUESTS
-  if (settingKey.startsWith("ratelimit.")) {
-    return settingKey
-      .replace("ratelimit.", "RATE_LIMIT_")
-      .replace(".", "_")
-      .toUpperCase();
-  }
-  // booster.* and ai.* have no env equivalent (hardcoded only)
-  return null;
+export function primeSettingCache(): Promise<void> {
+  primePromise ??= (async () => {
+    try {
+      const appSetting = await getDb();
+      const rows = await appSetting.findMany({
+        select: { key: true, value: true },
+      });
+      const next = new Map<string, unknown>();
+      for (const row of rows) {
+        const entry = findConfigEntry(row.key);
+        if (!entry) {
+          continue;
+        }
+        const value = coerce(row.value, entry.type);
+        if (value !== null) {
+          next.set(row.key, value);
+        }
+      }
+      snapshot = next;
+    } catch {
+      // Never let a config read take the app down. Leaves the previous
+      // snapshot (empty on first boot); reads degrade to env → fallback.
+    }
+  })();
+  return primePromise;
 }
 
 function parseEnvValue(
@@ -112,8 +127,14 @@ export async function getSetting<T extends boolean | number | string>(
   } catch {
     // DB error → degrade to env/fallback. Never let a config read crash the app.
   }
+  if (snapshot.has(key)) {
+    const snapValue = coerce(snapshot.get(key), type as SettingType);
+    if (snapValue !== null) {
+      return snapValue as T;
+    }
+  }
   // env fallback
-  const envName = envKeyFor(key);
+  const envName = entry?.env;
   if (envName) {
     const raw = process.env[envName];
     if (raw) {
@@ -135,11 +156,15 @@ export function getSettingSync<T extends boolean | number | string>(
   key: string,
   fallback: T,
 ): T {
+  const entry = findConfigEntry(key);
+  const type = (entry?.type ?? typeof fallback) as SettingType;
+
   const cached = cache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
-    const entry = findConfigEntry(key);
-    const type = entry?.type ?? typeof fallback;
-    return (coerce(cached.value, type as SettingType) as T) ?? fallback;
+    return (coerce(cached.value, type) as T) ?? fallback;
+  }
+  if (snapshot.has(key)) {
+    return (coerce(snapshot.get(key), type) as T) ?? fallback;
   }
   return fallback;
 }
