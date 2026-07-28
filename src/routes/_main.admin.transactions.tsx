@@ -67,8 +67,8 @@ function TransactionsPage() {
           <button
             className={
               status === s
-                ? "rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
-                : "rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+                ? "rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
+                : "rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/70"
             }
             key={s}
             onClick={() => setStatus(s)}
@@ -85,11 +85,11 @@ function TransactionsPage() {
         value={q}
       />
       {txs.length === 0 ? (
-        <p className="text-surface-warm-white/60">Tidak ada transaksi.</p>
+        <p className="text-surface-warm-white/70">Tidak ada transaksi.</p>
       ) : (
         txs.map((t) => (
           <div
-            className="rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-3 text-sm"
+            className="rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
             key={t.orderId}
           >
             <div className="flex items-center justify-between">
@@ -106,16 +106,16 @@ function TransactionsPage() {
                 {t.status}
               </span>
             </div>
-            <p className="text-surface-warm-white/60">
+            <p className="text-surface-warm-white">
               {formatRupiah(t.amount)} · {t.energyGranted} energi ·{" "}
               {t.email ?? "—"}
             </p>
             {t.paymentNumber ? (
-              <p className="text-surface-warm-white/40">{t.paymentNumber}</p>
+              <p className="text-surface-warm-white/70">{t.paymentNumber}</p>
             ) : null}
             {t.status === "PENDING" ? (
               <button
-                className="mt-spacing-2 rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+                className="mt-spacing-2 rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
                 onClick={() => verify.mutate(t.orderId)}
                 type="button"
               >
