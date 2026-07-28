@@ -93,6 +93,7 @@ model User {
   credits         UserCredit[]
   otpRequests     OtpRequest[]
   payments        Payment[]
+  supportTickets  SupportTicket[]
 
   @@index([email])
   @@index([name])
@@ -472,4 +473,45 @@ model AppSetting {
   updatedBy String?  @db.VarChar(160)
 
   @@index([category])
+}
+
+enum SupportCategory {
+  TEKNIS
+  PEMBAYARAN
+  UMUM
+}
+
+enum SupportTicketStatus {
+  OPEN
+  RESOLVED
+}
+
+model SupportTicket {
+  id         String              @id @default(cuid())
+  userId     String
+  subject    String              @db.VarChar(140)
+  category   SupportCategory
+  status     SupportTicketStatus @default(OPEN)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  resolvedAt DateTime?
+  resolvedBy String?
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages   SupportMessage[]
+
+  @@index([status, updatedAt])
+  @@index([userId, updatedAt])
+}
+
+model SupportMessage {
+  id         String        @id @default(cuid())
+  ticketId   String
+  authorId   String
+  authorRole String        @db.VarChar(16) // 'user' | 'admin'
+  body       String        @db.Text
+  createdAt  DateTime      @default(now())
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assetIds   String[]
+
+  @@index([ticketId, createdAt])
 }
