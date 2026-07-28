@@ -187,11 +187,13 @@ async function readSseResponse(response: Response) {
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let finalData: any = null;
+  let finalData: unknown = null;
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      break;
+    }
     buffer += decoder.decode(value, { stream: true });
     const events = buffer.split("\n\n");
     buffer = events.pop() || "";

@@ -525,7 +525,10 @@ async function handleEditPost(request: Request, routeId: string) {
               ...editResult.operations,
               ...fallbackResult.operations,
             ];
-            editResult.outputs = [...editResult.outputs, ...fallbackResult.outputs];
+            editResult.outputs = [
+              ...editResult.outputs,
+              ...fallbackResult.outputs,
+            ];
             editResult.sideEffects = fallbackResult.sideEffects;
           }
         }
@@ -549,11 +552,7 @@ async function handleEditPost(request: Request, routeId: string) {
             status: "failed",
             validationIssues: editResult.outputs,
           });
-          await restoreProjectReadyState(
-            project.id,
-            userId,
-            operation.token,
-          );
+          await restoreProjectReadyState(project.id, userId, operation.token);
 
           send("error", {
             attemptId: attempt.id,
@@ -600,7 +599,10 @@ async function handleEditPost(request: Request, routeId: string) {
               ...editResult.operations,
               ...repairResult.operations,
             ];
-            editResult.outputs = [...editResult.outputs, ...repairResult.outputs];
+            editResult.outputs = [
+              ...editResult.outputs,
+              ...repairResult.outputs,
+            ];
             editResult.sideEffects = [
               ...editResult.sideEffects,
               ...repairResult.sideEffects,
@@ -642,11 +644,7 @@ async function handleEditPost(request: Request, routeId: string) {
             status: "failed",
             validationIssues: editValidation.blockingIssues,
           });
-          await restoreProjectReadyState(
-            project.id,
-            userId,
-            operation.token,
-          );
+          await restoreProjectReadyState(project.id, userId, operation.token);
 
           send("error", {
             attemptId: attempt.id,
@@ -790,17 +788,18 @@ async function handleEditPost(request: Request, routeId: string) {
                 status: buildStatus,
               },
             });
-            const committedDeployment = await transaction.projectDeployment.create({
-              data: {
-                buildId: build.id,
-                kind: "preview",
-                projectId: project.id,
-                publicPath: `/api/projects/${project.id}/preview`,
-                snapshotId: snapshot.id,
-                status: deploymentStatus,
-              },
-              select: { id: true },
-            });
+            const committedDeployment =
+              await transaction.projectDeployment.create({
+                data: {
+                  buildId: build.id,
+                  kind: "preview",
+                  projectId: project.id,
+                  publicPath: `/api/projects/${project.id}/preview`,
+                  snapshotId: snapshot.id,
+                  status: deploymentStatus,
+                },
+                select: { id: true },
+              });
             await transaction.projectEditAttempt.update({
               where: { id: attempt.id },
               data: {
@@ -810,7 +809,8 @@ async function handleEditPost(request: Request, routeId: string) {
                     ? null
                     : buildResult.logText?.slice(-2000),
                 finishedAt: new Date(),
-                status: buildResult.status === "succeeded" ? "succeeded" : "failed",
+                status:
+                  buildResult.status === "succeeded" ? "succeeded" : "failed",
               },
             });
 
@@ -849,7 +849,9 @@ async function handleEditPost(request: Request, routeId: string) {
         ]);
 
         if (artifactRef && buildResult.status === "succeeded") {
-          const sourceDir = sourceRef ? resolveArtifactFilesDir(sourceRef) : null;
+          const sourceDir = sourceRef
+            ? resolveArtifactFilesDir(sourceRef)
+            : null;
           await Promise.allSettled([
             refreshProjectThumbnail({
               artifactRef,
