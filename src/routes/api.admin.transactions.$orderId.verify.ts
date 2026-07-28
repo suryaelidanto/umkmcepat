@@ -16,9 +16,17 @@ export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
               { status: admin.status },
             );
           }
+          const { orderId } = params;
           const payment = await prisma.payment.findUnique({
-            where: { orderId: params.orderId },
-            select: { amount: true, status: true, providerTxnId: true },
+            where: { orderId },
+            select: {
+              amount: true,
+              status: true,
+              providerTxnId: true,
+              userId: true,
+              energyGranted: true,
+              metadata: true,
+            },
           });
           if (!payment) {
             return Response.json(
@@ -43,12 +51,50 @@ export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
           }
           try {
             const detail = await getMayarTransaction(payment.providerTxnId);
-            const newStatus = detail.status.toUpperCase();
-            await prisma.payment.update({
-              where: { orderId: params.orderId },
-              data: { status: newStatus },
+
+            if (detail.status !== "paid") {
+              return Response.json({
+                success: false,
+                status: detail.status,
+                message: `Payment not completed. Current status: ${detail.status}`,
+              });
+            }
+
+            await prisma.$transaction(async (tx) => {
+              const claimed = await tx.payment.updateMany({
+                where: { orderId, status: "PENDING" },
+                data: {
+                  status: "COMPLETED",
+                  paymentMethod: detail.paymentMethod,
+                  providerTxnId: payment.providerTxnId,
+                  updatedAt: new Date(),
+                },
+              });
+              if (claimed.count !== 1) {
+                return;
+              }
+
+              const packageName =
+                (payment.metadata as { packageName?: string })?.packageName ??
+                "Energy Booster";
+              const premiumExpiry = new Date("9999-12-31T23:59:59.999Z");
+
+              await tx.$executeRaw`
+                INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+                VALUES (
+                  ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
+                  ${payment.userId},
+                  ${payment.energyGranted},
+                  0,
+                  0,
+                  ${`Top-up: ${packageName}`.slice(0, 64)},
+                  ${premiumExpiry},
+                  NOW()
+                )
+              `;
             });
-            return Response.json({ status: newStatus });
+
+            return Response.json({ success: true, status: "COMPLETED" });
           } catch {
             return Response.json(
               { message: "Gagal verifikasi via Mayar." },

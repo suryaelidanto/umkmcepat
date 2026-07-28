@@ -4,12 +4,16 @@ const {
   requireAdminMock,
   getMayarTransactionMock,
   prismaPaymentFindUniqueMock,
-  prismaPaymentUpdateMock,
+  prismaPaymentUpdateManyMock,
+  prismaTransactionMock,
+  prismaExecuteRawMock,
 } = vi.hoisted(() => ({
   requireAdminMock: vi.fn(),
   getMayarTransactionMock: vi.fn(),
   prismaPaymentFindUniqueMock: vi.fn(),
-  prismaPaymentUpdateMock: vi.fn(),
+  prismaPaymentUpdateManyMock: vi.fn(),
+  prismaTransactionMock: vi.fn(),
+  prismaExecuteRawMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-admin", () => ({ requireAdmin: requireAdminMock }));
@@ -20,8 +24,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     payment: {
       findUnique: prismaPaymentFindUniqueMock,
-      update: prismaPaymentUpdateMock,
+      updateMany: prismaPaymentUpdateManyMock,
     },
+    $transaction: prismaTransactionMock,
   },
 }));
 
@@ -37,7 +42,24 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
     requireAdminMock.mockResolvedValue({ ok: true });
     getMayarTransactionMock.mockReset();
     prismaPaymentFindUniqueMock.mockReset();
-    prismaPaymentUpdateMock.mockReset();
+    prismaPaymentUpdateManyMock.mockReset();
+    prismaTransactionMock.mockReset();
+    prismaExecuteRawMock.mockReset();
+
+    // Default: $transaction executes callback with a tx object that has
+    // updateMany (returns count=1) and $executeRaw
+    prismaTransactionMock.mockImplementation(
+      async (cb: (tx: unknown) => unknown) => {
+        return cb({
+          payment: {
+            updateMany: prismaPaymentUpdateManyMock,
+          },
+          $executeRaw: prismaExecuteRawMock,
+        });
+      },
+    );
+    prismaPaymentUpdateManyMock.mockResolvedValue({ count: 1 });
+    prismaExecuteRawMock.mockResolvedValue(1);
   });
 
   it("rejects non-admins", async () => {
@@ -63,6 +85,9 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
       amount: 2900,
       status: "COMPLETED",
       providerTxnId: "txn-1",
+      userId: "user-1",
+      energyGranted: 50000,
+      metadata: null,
     });
 
     const res = await POST(undefined, { orderId: "INV-1" });
@@ -77,6 +102,9 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
       amount: 2900,
       status: "PENDING",
       providerTxnId: null,
+      userId: "user-1",
+      energyGranted: 50000,
+      metadata: null,
     });
 
     const res = await POST(undefined, { orderId: "INV-legacy" });
@@ -85,11 +113,14 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
     expect(data.message).toContain("pre-migration");
   });
 
-  it("verifies via Mayar and updates status for a PENDING row", async () => {
+  it("verifies via Mayar, credits energy atomically, and returns COMPLETED for a paid row", async () => {
     prismaPaymentFindUniqueMock.mockResolvedValueOnce({
       amount: 2900,
       status: "PENDING",
       providerTxnId: "txn-1",
+      userId: "user-1",
+      energyGranted: 50000,
+      metadata: { packageName: "Energy Starter" },
     });
     getMayarTransactionMock.mockResolvedValueOnce({
       status: "paid",
@@ -100,12 +131,50 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
     const res = await POST(undefined, { orderId: "INV-1" });
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.status).toBe("PAID");
+    expect(data.success).toBe(true);
+    expect(data.status).toBe("COMPLETED");
     expect(getMayarTransactionMock).toHaveBeenCalledWith("txn-1");
-    expect(prismaPaymentUpdateMock).toHaveBeenCalledWith({
-      where: { orderId: "INV-1" },
-      data: { status: "PAID" },
+
+    // $transaction must have been called (atomic claim + credit)
+    expect(prismaTransactionMock).toHaveBeenCalledOnce();
+
+    // updateMany inside the transaction sets COMPLETED
+    expect(prismaPaymentUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orderId: "INV-1", status: "PENDING" },
+        data: expect.objectContaining({ status: "COMPLETED" }),
+      }),
+    );
+
+    // $executeRaw inside the transaction credits energy
+    expect(prismaExecuteRawMock).toHaveBeenCalledOnce();
+  });
+
+  it("returns success: false and Mayar status without DB write for non-paid statuses", async () => {
+    prismaPaymentFindUniqueMock.mockResolvedValueOnce({
+      amount: 2900,
+      status: "PENDING",
+      providerTxnId: "txn-1",
+      userId: "user-1",
+      energyGranted: 50000,
+      metadata: null,
     });
+    getMayarTransactionMock.mockResolvedValueOnce({
+      status: "unpaid",
+      amount: 2900,
+      paymentMethod: null,
+    });
+
+    const res = await POST(undefined, { orderId: "INV-1" });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(false);
+    expect(data.status).toBe("unpaid");
+    expect(data.message).toContain("unpaid");
+
+    // No DB writes for non-paid
+    expect(prismaTransactionMock).not.toHaveBeenCalled();
+    expect(prismaPaymentUpdateManyMock).not.toHaveBeenCalled();
   });
 
   it("returns 502 when the Mayar verification call fails", async () => {
@@ -113,6 +182,9 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
       amount: 2900,
       status: "PENDING",
       providerTxnId: "txn-1",
+      userId: "user-1",
+      energyGranted: 50000,
+      metadata: null,
     });
     getMayarTransactionMock.mockRejectedValueOnce(new Error("network error"));
 
