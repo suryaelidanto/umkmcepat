@@ -336,10 +336,15 @@ export function HomePromptForm({
           </div>
         ) : null}
         <div className="flex items-center justify-between gap-spacing-7 px-spacing-9 pb-spacing-7">
-          <div className="flex items-center gap-spacing-3">
-            <span className="text-sm tabular-nums text-surface-warm-white/58">
-              {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
-            </span>
+          <span className="text-sm tabular-nums text-surface-warm-white/58">
+            {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
+          </span>
+          <div className="flex items-center gap-spacing-5">
+            {isLoading ? (
+              <span className="hidden text-sm text-surface-warm-white/58 sm:inline">
+                Menyiapkan...
+              </span>
+            ) : null}
             {status === "authenticated" ? (
               <ComposerAttachButton
                 attachments={attachments}
@@ -363,13 +368,6 @@ export function HomePromptForm({
                 <Paperclip className="size-4" />
               </button>
             )}
-          </div>
-          <div className="flex items-center gap-spacing-5">
-            {isLoading ? (
-              <span className="hidden text-sm text-surface-warm-white/58 sm:inline">
-                Menyiapkan...
-              </span>
-            ) : null}
             <Button
               type="submit"
               size="icon"
