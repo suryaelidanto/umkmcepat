@@ -1,10 +1,11 @@
-import { getEnv } from "@/lib/config";
+import { getSettingSync } from "@/lib/app-settings";
 
 export type RuntimeFetchKind = "health" | "proxy";
 
 type RuntimeFetchPolicy = {
   defaultMs: number;
   env: string;
+  key: string;
   maxMs: number;
   minMs: number;
 };
@@ -13,12 +14,14 @@ const RUNTIME_FETCH_POLICIES = {
   health: {
     defaultMs: 2_000,
     env: "PROJECT_RUNTIME_HEALTH_TIMEOUT_MS",
+    key: "runtime.health_timeout_ms",
     maxMs: 5_000,
     minMs: 500,
   },
   proxy: {
     defaultMs: 15_000,
     env: "PROJECT_RUNTIME_PROXY_TIMEOUT_MS",
+    key: "runtime.proxy_timeout_ms",
     maxMs: 30_000,
     minMs: 1_000,
   },
@@ -26,7 +29,7 @@ const RUNTIME_FETCH_POLICIES = {
 
 export function getRuntimeFetchTimeoutMs(kind: RuntimeFetchKind) {
   const policy = RUNTIME_FETCH_POLICIES[kind];
-  const parsed = Number(getEnv(policy.env));
+  const parsed = getSettingSync(policy.key, policy.defaultMs);
 
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return policy.defaultMs;

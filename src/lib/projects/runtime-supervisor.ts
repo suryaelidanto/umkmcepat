@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import path from "node:path";
 
+import { getSettingSync } from "@/lib/app-settings";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { materializeProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import { createRuntimeEventData } from "@/lib/projects/runtime-events";
@@ -192,8 +193,9 @@ export function createLocalProcessRuntimeSupervisor(
 
     const runtimeNode = await runtimePrisma.runtimeNode.upsert({
       create: {
-        maxContainers: Number(
-          process.env.PROJECT_RUNTIME_MAX_CONTAINERS || DEFAULT_MAX_CONTAINERS,
+        maxContainers: getSettingSync(
+          "runtime.max_containers",
+          DEFAULT_MAX_CONTAINERS,
         ),
         name: LOCAL_RUNTIME_NODE_NAME,
         provider: LOCAL_RUNTIME_PROVIDER,

@@ -1,3 +1,4 @@
+import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import {
   classifyBuildFailure,
@@ -122,8 +123,7 @@ export function isStaleBuildAttempt({
 }
 
 function getBuildConcurrencyLimit() {
-  const parsed = Number(process.env.PROJECT_BUILD_CONCURRENCY || "1");
-
+  const parsed = getSettingSync("runtime.build_concurrency", 1);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 

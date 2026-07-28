@@ -1,4 +1,4 @@
-import { getEnv } from "@/lib/config";
+import { getSettingSync } from "@/lib/app-settings";
 
 export type GeneratedResourceKind = "dist" | "source";
 export type GeneratedResourceFile = { content: string; path: string };
@@ -8,18 +8,21 @@ const RESOURCE_BUDGETS = {
     maxFileBytes: {
       defaultValue: 256 * 1024,
       env: "PROJECT_SOURCE_MAX_FILE_BYTES",
+      key: "limits.source.max_file_bytes",
       maximum: 1024 * 1024,
       minimum: 16 * 1024,
     },
     maxFiles: {
       defaultValue: 100,
       env: "PROJECT_SOURCE_MAX_FILES",
+      key: "limits.source.max_files",
       maximum: 500,
       minimum: 10,
     },
     maxTotalBytes: {
       defaultValue: 5 * 1024 * 1024,
       env: "PROJECT_SOURCE_MAX_TOTAL_BYTES",
+      key: "limits.source.max_total_bytes",
       maximum: 20 * 1024 * 1024,
       minimum: 256 * 1024,
     },
@@ -28,18 +31,21 @@ const RESOURCE_BUDGETS = {
     maxFileBytes: {
       defaultValue: 10 * 1024 * 1024,
       env: "PROJECT_DIST_MAX_FILE_BYTES",
+      key: "limits.dist.max_file_bytes",
       maximum: 25 * 1024 * 1024,
       minimum: 64 * 1024,
     },
     maxFiles: {
       defaultValue: 500,
       env: "PROJECT_DIST_MAX_FILES",
+      key: "limits.dist.max_files",
       maximum: 2_000,
       minimum: 10,
     },
     maxTotalBytes: {
       defaultValue: 50 * 1024 * 1024,
       env: "PROJECT_DIST_MAX_TOTAL_BYTES",
+      key: "limits.dist.max_total_bytes",
       maximum: 200 * 1024 * 1024,
       minimum: 1024 * 1024,
     },
@@ -103,11 +109,11 @@ export function assertGeneratedResourceBudget(
 
 function resolveBudgetValue(config: {
   defaultValue: number;
-  env: string;
+  key: string;
   maximum: number;
   minimum: number;
 }) {
-  const parsed = Number(getEnv(config.env));
+  const parsed = getSettingSync(config.key, config.defaultValue);
 
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return config.defaultValue;

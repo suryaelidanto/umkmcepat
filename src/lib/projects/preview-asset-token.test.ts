@@ -1,13 +1,44 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
 import {
   createPreviewAssetToken,
   verifyPreviewAssetToken,
 } from "@/lib/projects/preview-asset-token";
 
+vi.mock("@/lib/prisma", () => {
+  const store = new Map<string, unknown>();
+  return {
+    prisma: {
+      appSetting: {
+        findUnique: vi.fn(async ({ where }: { where: { key: string } }) =>
+          store.has(where.key) ? { value: store.get(where.key) } : null,
+        ),
+        findMany: vi.fn(async () =>
+          [...store.entries()].map(([key, value]) => ({ key, value })),
+        ),
+        upsert: vi.fn(
+          async (args: {
+            where: { key: string };
+            create: { value: unknown };
+          }) => {
+            store.set(args.where.key, args.create.value);
+            return { value: args.create.value };
+          },
+        ),
+        delete: vi.fn(async ({ where }: { where: { key: string } }) => {
+          store.delete(where.key);
+          return null;
+        }),
+      },
+    },
+  };
+});
+
 describe("preview asset token", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    invalidateSettingCache();
   });
 
   it("allows only matching project and deployment asset tokens", () => {
@@ -39,9 +70,21 @@ describe("preview asset token", () => {
     ).toBe(false);
   });
 
-  it("expires capabilities and rejects tampered payloads", () => {
+  it("expires capabilities and rejects tampered payloads", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "runtime.preview_token_ttl_seconds" },
+      create: {
+        key: "runtime.preview_token_ttl_seconds",
+        category: "runtime",
+        value: 60,
+      },
+      update: { value: 60 },
+    });
+    invalidateSettingCache();
+    await primeSettingCache();
+
     vi.stubEnv("NEXTAUTH_SECRET", "test-preview-secret");
-    vi.stubEnv("PREVIEW_ASSET_TOKEN_TTL_SECONDS", "60");
     const issuedAt = Date.parse("2026-07-10T00:00:00.000Z");
     const token = createPreviewAssetToken({
       deploymentId: "deployment_1",

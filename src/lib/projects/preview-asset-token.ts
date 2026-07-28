@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import { getSettingSync } from "@/lib/app-settings";
 import { getEnv } from "@/lib/config";
 
 export const PREVIEW_ASSET_TOKEN_PARAM = "assetToken";
@@ -119,7 +120,10 @@ function getPreviewAssetSecrets() {
 }
 
 function getTokenTtlSeconds() {
-  const parsed = Number(getEnv("PREVIEW_ASSET_TOKEN_TTL_SECONDS"));
+  const parsed = getSettingSync(
+    "runtime.preview_token_ttl_seconds",
+    DEFAULT_TTL_SECONDS,
+  );
 
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return DEFAULT_TTL_SECONDS;

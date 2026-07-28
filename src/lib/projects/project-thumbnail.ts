@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import path from "node:path";
 
+import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
@@ -108,7 +109,7 @@ export async function refreshProjectThumbnail({
 
   latestRequestedBuild.set(projectId, buildId);
 
-  if (activeCaptures >= positiveInt("PROJECT_THUMBNAIL_CONCURRENCY", 1)) {
+  if (activeCaptures >= getSettingSync("runtime.thumbnail_concurrency", 1)) {
     devLog("thumbnail", "capture.skipped", {
       buildId,
       projectId,
@@ -177,7 +178,7 @@ export async function captureProjectThumbnail(artifactRef: string) {
   const files = await readProjectDistArtifact(artifactRef);
   return runThumbnailCapture(
     files,
-    positiveInt("PROJECT_THUMBNAIL_TIMEOUT_MS", 15_000),
+    getSettingSync("runtime.thumbnail_timeout_ms", 15_000),
   );
 }
 
@@ -347,14 +348,7 @@ function assertJpeg(bytes: Buffer) {
 }
 
 function isCaptureEnabled() {
-  const raw =
-    process.env.PROJECT_THUMBNAIL_CAPTURE_ENABLED?.trim().toLowerCase();
-  return raw ? raw === "true" : true;
-}
-
-function positiveInt(name: string, fallback: number) {
-  const value = Number(process.env[name] || fallback);
-  return Number.isInteger(value) && value > 0 ? value : fallback;
+  return getSettingSync("feature.thumbnail_capture_enabled", true);
 }
 
 type DistFile = { content: string; contentType: string; path: string };
