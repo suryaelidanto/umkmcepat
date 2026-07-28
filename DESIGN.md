@@ -261,7 +261,7 @@ Generated UMKM apps use a separate, locked design system from the platform contr
 
 ### Do
 
-- Use tokens from this file and `src/app/globals.css` before adding one-off values.
+- Use tokens from this file and `src/styles/globals.css` before adding one-off values.
 - Add or update Storybook for reusable UI or repeated visual states.
 - Keep user-facing copy Indonesian; keep developer docs/code/logs/errors English.
 - Preserve contrast, focus, reduced-motion alternatives, and clear state language.

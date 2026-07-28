@@ -10,6 +10,7 @@ const steps: Array<[label: string, cmd: string, args: string[]]> = [
   ["typecheck", "bun", ["run", "typecheck"]],
   ["test", "bun", ["run", "test:changed"]],
   ["knip", "bun", ["run", "knip"]],
+  ["docs", "bun", ["run", "check:docs"]],
 ];
 
 const COLOR_GREEN = "[32m";

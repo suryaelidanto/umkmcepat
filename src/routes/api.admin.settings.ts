@@ -11,7 +11,7 @@ import {
 import { requireAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 
-// Returns an Indonesian error message, or null when the value is acceptable.
+// Returns an error message, or null when the value is acceptable.
 // Bounds come from the registry, so a value that reaches the DB is already
 // in-range — the consumer's read-side clamp is a second net for legacy values.
 export function validateSettingValue(
@@ -21,24 +21,24 @@ export function validateSettingValue(
 ): string | null {
   const entry = findConfigEntry(key);
   if (!entry || entry.category !== category) {
-    return `Kunci tidak valid: ${key}`;
+    return `Invalid key: ${key}`;
   }
   if (entry.type === "boolean" && typeof value !== "boolean") {
-    return `${key} harus boolean.`;
+    return `${key} must be a boolean.`;
   }
   if (entry.type === "string" && typeof value !== "string") {
-    return `${key} harus teks.`;
+    return `${key} must be a string.`;
   }
   if (entry.type === "number") {
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      return `${key} harus angka.`;
+      return `${key} must be a number.`;
     }
     const { min, max } = entry;
     if (
       (min !== undefined && value < min) ||
       (max !== undefined && value > max)
     ) {
-      return `${key} harus antara ${min} dan ${max}.`;
+      return `${key} must be between ${min} and ${max}.`;
     }
   }
   return null;

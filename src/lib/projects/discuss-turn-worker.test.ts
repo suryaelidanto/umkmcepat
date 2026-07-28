@@ -56,7 +56,14 @@ vi.mock("@/lib/user-credits", () => ({
   chargeEnergyForAiUsage: chargeEnergyForAiUsageMock,
   checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 100 })),
   isUserVerified: vi.fn(async () => true),
-  MIN_ENERGY_DISCUSS: 100,
+  getEnergyConfig: vi.fn(() => ({
+    dailyLimit: 250_000,
+    microUsdPerEnergy: 1_000_000,
+    minBuild: 40_000,
+    minDiscuss: 5_000,
+    minEdit: 10_000,
+    minModeration: 500,
+  })),
 }));
 
 vi.mock("@/lib/ai-request-log", () => ({

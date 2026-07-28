@@ -52,6 +52,8 @@ function run(command: string[]): void {
 }
 
 async function main() {
+  run([process.execPath, "scripts/check-secrets.ts"]);
+
   const files = gitCapture([
     "diff",
     "--cached",

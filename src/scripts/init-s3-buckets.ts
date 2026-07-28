@@ -23,12 +23,12 @@ const PUBLIC_READ_POLICY = JSON.stringify({
 });
 
 export async function ensureS3Buckets(): Promise<void> {
-  // Only auto-create under the local (RustFS) provider — R2 buckets are
+  // Only auto-create under the local (MinIO) provider — R2 buckets are
   // created manually in the Cloudflare dashboard (managed infra).
   if (getStorageProvider() !== "local") {
     return;
   }
-  const accessKeyId = getEnv("RUSTFS_ROOT_USER", "umkmcepat");
+  const accessKeyId = getEnv("MINIO_ROOT_USER", "umkmcepat");
   const secretAccessKey = getEnv("RUSTFS_ROOT_PASSWORD", "umkmcepat");
   const endpoint = getEnv("S3_ENDPOINT", "http://localhost:9000");
   const publicBucket = getEnv("S3_PUBLIC_BUCKET");

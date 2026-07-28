@@ -12,28 +12,28 @@ describe("validateSettingValue", () => {
   it("rejects a number below min", () => {
     expect(
       validateSettingValue("ratelimit.ai_ip.requests", 0, "rate_limit"),
-    ).toMatch(/harus antara/);
+    ).toMatch(/must be between/);
   });
 
   it("rejects a number above max", () => {
     expect(
       validateSettingValue("ratelimit.ai_ip.requests", 999_999, "rate_limit"),
-    ).toMatch(/harus antara/);
+    ).toMatch(/must be between/);
   });
 
   it("rejects a key from the wrong category", () => {
     expect(validateSettingValue("ratelimit.ai_ip.requests", 20, "ai")).toMatch(
-      /tidak valid/,
+      /Invalid key/,
     );
   });
 
   it("rejects an unknown key", () => {
-    expect(validateSettingValue("nope.nope", 1, "ai")).toMatch(/tidak valid/);
+    expect(validateSettingValue("nope.nope", 1, "ai")).toMatch(/Invalid key/);
   });
 
   it("rejects a wrong-typed value", () => {
     expect(
       validateSettingValue("feature.streamer_mode", 1, "feature_flag"),
-    ).toMatch(/harus boolean/);
+    ).toMatch(/must be a boolean/);
   });
 });

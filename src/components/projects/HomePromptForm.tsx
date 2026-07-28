@@ -22,7 +22,6 @@ import { useRouter } from "@/lib/navigation";
 import {
   removeAttachment,
   revokeAll,
-  toUploadPlan,
   type PendingAttachment,
 } from "@/lib/projects/composer-attachments";
 import {
@@ -114,105 +113,65 @@ export function HomePromptForm({
     );
   }
 
-  const createMutation = useCacheMutation<{ id: string; path: string }, string>(
-    {
-      mutationFn: async (value) => {
-        const idempotencyKey = getProjectCreateIdempotencyKey(value);
-        const response = await fetch("/api/projects", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": idempotencyKey,
-          },
-          body: JSON.stringify({ prompt: value }),
-        });
-        const result = (await response.json().catch(() => null)) as {
-          id?: string;
-          message?: string;
-          path?: string;
-        } | null;
+  const createMutation = useCacheMutation<
+    { assetIds: string[]; id: string; path: string },
+    string
+  >({
+    mutationFn: async (value) => {
+      const idempotencyKey = getProjectCreateIdempotencyKey(value);
+      const form = new FormData();
+      form.append("prompt", value);
+      form.append("mode", "discuss");
+      form.append("idempotencyKey", idempotencyKey);
+      for (const attachment of attachments) {
+        form.append("files", attachment.file);
+      }
 
-        if (!response.ok || !result?.id || !result?.path) {
-          throw new Error(result?.message || "Gagal membuat website.");
-        }
+      const response = await fetch("/api/projects", {
+        body: form,
+        method: "POST",
+      });
 
-        return { id: result.id, path: result.path };
-      },
-      invalidateKeys: [queryKeys.projects, queryKeys.energy],
-      onSuccess: async (data) => {
-        if (attachments.length) {
-          try {
-            const fileParts = [];
-            const mediaPaths = [];
-            for (const item of toUploadPlan(attachments)) {
-              const form = new FormData();
-              form.append("file", item.file);
-              form.append("purpose", "business-image");
-              const res = await fetch(
-                `/api/projects/${data.id}/assets/upload`,
-                {
-                  body: form,
-                  method: "POST",
-                },
-              );
-              if (!res.ok) {
-                throw new Error(`Gagal mengunggah ${item.file.name}`);
-              }
-              const contentType = res.headers.get("content-type") ?? "";
-              if (!contentType.toLowerCase().includes("application/json")) {
-                throw new Error(`Gagal mengunggah ${item.file.name}`);
-              }
-              const asset = (await res.json()) as {
-                id: string;
-                publicUrl: string | null;
-              };
-              if (!asset.publicUrl) {
-                throw new Error(
-                  `Gambar belum tersedia (${item.file.name}). Aktifkan R2.`,
-                );
-              }
-              const bytes = new Uint8Array(await item.file.arrayBuffer());
-              let binary = "";
-              for (let i = 0; i < bytes.length; i += 0x8000) {
-                binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-              }
-              const base64 = btoa(binary);
-              fileParts.push({
-                filename: item.file.name,
-                mediaType: item.file.type || "image/png",
-                type: "file",
-                url: `data:${item.file.type || "image/png"};base64,${base64}`,
-              });
-              mediaPaths.push(`/media/${asset.id}`);
-            }
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.toLowerCase().includes("application/json")) {
+        throw new Error("Gagal membuat website.");
+      }
 
-            sessionStorage.setItem(
-              `umkmcepat:initial-assets:${data.id}`,
-              JSON.stringify({ fileParts, mediaPaths }),
-            );
-          } catch (error) {
-            toast.error(
-              error instanceof Error
-                ? error.message
-                : "Gagal mengunggah gambar.",
-            );
-          } finally {
-            revokeAll(attachments);
-          }
-        }
+      const result = (await response.json().catch(() => null)) as {
+        assetIds?: string[];
+        id?: string;
+        message?: string;
+        path?: string;
+      } | null;
 
-        // Force a refetch so home sees the new project after create.
-        window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
-        router.push(data.path);
-      },
-      onError: (error) => {
-        setErrorMessage(
-          error instanceof Error ? error.message : "Gagal membuat website.",
-        );
-        isSubmittingRef.current = false;
-      },
+      if (!response.ok || !result?.id || !result?.path) {
+        throw new Error(result?.message || "Gagal membuat website.");
+      }
+
+      return {
+        assetIds: result.assetIds ?? [],
+        id: result.id,
+        path: result.path,
+      };
     },
-  );
+    invalidateKeys: [queryKeys.projects, queryKeys.energy],
+    onSuccess: (data) => {
+      // Server persisted files (if any) and returned the project. Clear
+      // attachments client-side and navigate to the new project.
+      revokeAll(attachments);
+      setAttachments([]);
+      window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
+      router.push(data.path);
+    },
+    onError: (error) => {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Gagal membuat website.",
+      );
+      revokeAll(attachments);
+      setAttachments([]);
+      isSubmittingRef.current = false;
+    },
+  });
 
   const createProject = useCallback(
     async (value: string) => {

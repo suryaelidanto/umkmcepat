@@ -2022,13 +2022,13 @@ export function WorkspaceShell({
 
       // Upload attached images to R2 (commit-on-send; nothing left the browser
       // until now). On failure, keep the attachments so the user can retry.
-      let fileParts: FileUIPart[] = [];
-      let mediaPaths: string[] = [];
+      const fileParts: FileUIPart[] = [];
+      const mediaPaths: string[] = [];
+      const uploadErrors: { name: string; message: string }[] = [];
+
       if (pendingAttachments.length) {
-        try {
-          const parts: FileUIPart[] = [];
-          const paths: string[] = [];
-          for (const item of toUploadPlan(pendingAttachments)) {
+        for (const item of toUploadPlan(pendingAttachments)) {
+          try {
             const form = new FormData();
             form.append("file", item.file);
             form.append("purpose", "business-image");
@@ -2040,11 +2040,16 @@ export function WorkspaceShell({
               },
             );
             if (!res.ok) {
-              throw new Error(`Gagal mengunggah ${item.file.name}`);
+              throw new Error(
+                (await res.json().catch(() => null))?.message ||
+                  `Gagal mengunggah ${item.file.name}`,
+              );
             }
             const contentType = res.headers.get("content-type") ?? "";
             if (!contentType.toLowerCase().includes("application/json")) {
-              throw new Error(`Gagal mengunggah ${item.file.name}`);
+              throw new Error(
+                `Respons tidak valid saat mengunggah ${item.file.name}.`,
+              );
             }
             const asset = (await res.json()) as {
               id: string;
@@ -2063,20 +2068,37 @@ export function WorkspaceShell({
               binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
             }
             const base64 = btoa(binary);
-            parts.push({
+            fileParts.push({
               filename: item.file.name,
               mediaType: item.file.type || "image/png",
               type: "file",
               url: `data:${item.file.type || "image/png"};base64,${base64}`,
             });
-            paths.push(`/media/${asset.id}`);
+            mediaPaths.push(`/media/${asset.id}`);
+          } catch (error) {
+            uploadErrors.push({
+              name: item.file.name,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Error tidak diketahui",
+            });
           }
-          fileParts = parts;
-          mediaPaths = paths;
-        } catch (error) {
+        }
+
+        if (uploadErrors.length > 0) {
+          const lines = uploadErrors.map((e) => `• ${e.name}: ${e.message}`);
           toast.error(
-            error instanceof Error ? error.message : "Gagal mengunggah gambar.",
+            `Gagal mengunggah ${uploadErrors.length} file:\n${lines.join("\n")}`,
+            { duration: 8000 },
           );
+        }
+
+        if (fileParts.length === 0 && uploadErrors.length > 0) {
+          toast.error(
+            "Gagal mengunggah semua file. Periksa ukuran/format dan coba lagi.",
+          );
+          setPendingAttachments([]);
           return;
         }
       }
