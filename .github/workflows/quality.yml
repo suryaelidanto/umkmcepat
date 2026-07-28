@@ -82,3 +82,6 @@ jobs:
 
       - name: Verify full suite
         run: bun run verify
+
+      - name: Integration tests (real database)
+        run: bun run test:integration

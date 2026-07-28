@@ -42,6 +42,18 @@ export default defineConfig({
       },
       {
         extends: true,
+        test: {
+          environment: "node",
+          // `.itest.ts`, not `.test.ts`: the `unit` project globs
+          // `tests/**/*.test.ts` and would otherwise run these without a DB.
+          include: ["tests/integration/**/*.itest.ts"],
+          name: "integration",
+          // Real transactions and advisory locks; no parallel file isolation.
+          fileParallelism: false,
+        },
+      },
+      {
+        extends: true,
         plugins: [storybookTest({ configDir: storybookConfigDir })],
         test: {
           name: `storybook:${storybookConfigDir}`,

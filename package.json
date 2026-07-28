@@ -52,6 +52,7 @@
     "test": "vitest run --project unit",
     "test:changed": "vitest run --project unit --changed HEAD~1",
     "test:full": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
     "test:storybook": "node scripts/run-storybook-tests.mjs",
     "test:storybook:coverage": "node scripts/run-storybook-tests.mjs --coverage",
     "test:watch": "vitest --project unit",
