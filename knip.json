@@ -2,10 +2,6 @@
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "entry": [
     "src/routes/**/*.{ts,tsx}",
-    "src/router.tsx",
-    "src/client.tsx",
-    "src/server.ts",
-    "src/start.ts",
     "src/**/*.test.ts",
     "tests/**/*.test.ts",
     ".husky/pre-commit",
@@ -13,14 +9,7 @@
     "scripts/capture-project-thumbnail.cjs"
   ],
   "project": ["src/**/*.{ts,tsx}"],
-  "ignoreBinaries": [
-    "graphify",
-    "lsof",
-    "netstat",
-    "ps",
-    "powershell.exe",
-    "taskkill"
-  ],
+  "ignoreBinaries": ["graphify", "netstat"],
   "ignoreDependencies": ["tailwindcss", "@storybook/react"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
@@ -28,7 +17,6 @@
     "src/lib/provider-registry.ts": ["exports"],
     "src/lib/storage/index.ts": ["exports"],
     "src/lib/app-settings-registry.ts": ["exports"],
-    "src/lib/config.ts": ["exports"],
     "src/lib/zod-schemas.ts": ["exports", "types"],
     "src/components/admin/streamer-mode-context.tsx": ["exports", "files"],
     "src/components/admin/SensitiveText.tsx": ["exports", "files"]

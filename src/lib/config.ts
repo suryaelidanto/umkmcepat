@@ -7,7 +7,7 @@ import {
   type ProviderValue,
 } from "./provider-registry";
 
-import { getSetting, getSettingSync } from "@/lib/app-settings";
+import { getSetting } from "@/lib/app-settings";
 
 export function getEnv(name: string, fallback = ""): string {
   return process.env[name] || fallback;
@@ -45,10 +45,6 @@ export function isGeneratedPublicExecutionEnabled() {
 
 export function isStreamerModeEnabled(): Promise<boolean> {
   return getSetting("feature.streamer_mode", true);
-}
-
-export function isStreamerModeEnabledSync(): boolean {
-  return getSettingSync("feature.streamer_mode", true);
 }
 
 export function getConfiguredProvider<T extends ProviderCapability>(
