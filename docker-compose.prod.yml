@@ -146,6 +146,20 @@ services:
       - "127.0.0.1:3002:3001"
     restart: unless-stopped
 
+  # Ingress. No inbound ports are opened on the host; cloudflared dials out to
+  # Cloudflare and traffic arrives over that connection. Every other service
+  # stays bound to 127.0.0.1.
+  cloudflared:
+    image: docker.io/cloudflare/cloudflared:latest
+    container_name: umkmcepat-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
+    depends_on:
+      app:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   nine_router_data:
