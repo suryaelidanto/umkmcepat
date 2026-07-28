@@ -127,7 +127,7 @@ The control plane owns project metadata and user workflows. Build workers and ru
 
 Current runtime implementation:
 
-- `STORAGE_PROVIDER` chooses canonical generated source/dist artifact storage: `local` (RustFS dev mirror at `http://localhost:9000`) or `r2` (Cloudflare R2 in prod). New writes use the configured provider; reads use the provider embedded in each artifact ref, so existing `project-artifact:local:*` refs remain readable after switching. Both providers speak S3 through `src/lib/s3-client.ts`; switching is repointing `S3_*` env.
+- `STORAGE_PROVIDER` chooses canonical generated source/dist artifact storage: `local` (MinIO dev mirror at `http://localhost:9000`) or `r2` (Cloudflare R2 in prod). New writes use the configured provider; reads use the provider embedded in each artifact ref, so existing `project-artifact:local:*` refs remain readable after switching. Both providers speak S3 through `src/lib/s3-client.ts`; switching is repointing `S3_*` env.
 - `PROJECT_RUNTIME_DIR` stores materialized runtime files under `.data/project-runtimes` by default.
 - `PROJECT_BUILD_WORKSPACE_DIR` stores rebuildable local build workspaces under `.data/project-build-workspaces` by default. Build workspaces cache generated app `node_modules` and build metadata so repeat edits can skip dependency install when the package/profile signature is unchanged. Source snapshots and dist artifacts remain canonical; workspaces may be deleted and rebuilt.
 - `RuntimeSupervisor` starts a local out-of-process static server from a dist artifact and records deployment events.

@@ -73,14 +73,14 @@ services:
     restart: unless-stopped
     dns: ["1.1.1.1", "8.8.8.8"]
     environment:
-      MINIO_ROOT_USER: ${RUSTFS_ROOT_USER:-umkmcepat}
-      MINIO_ROOT_PASSWORD: ${RUSTFS_ROOT_PASSWORD:-umkmcepat}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-umkmcepat}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-umkmcepat}
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - rustfs_data:/data
+      - minio_data:/data
     profiles:
       - ai
 
@@ -88,4 +88,4 @@ volumes:
   postgres_data:
   nine_router_data:
   redis_data:
-  rustfs_data:
+  minio_data:

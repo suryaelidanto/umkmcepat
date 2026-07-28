@@ -35,7 +35,7 @@ Local quality gates are automated:
 
 `bun run sweep:project-orphans` purges `.data/project-*` dirs whose IDs are not in the DB. Run after deleting projects via the DB / CLI (the homepage's delete path runs cleanup automatically).
 
-`bun run infra` starts Postgres, 9Router, Headroom, and RustFS (local S3 dev mirror on `http://localhost:9000`; `scripts/init-s3-buckets.ts` auto-creates the two buckets from `RUSTFS_ROOT_USER`/`RUSTFS_ROOT_PASSWORD`). Use `bun run infra:minimal` only when you need Postgres without AI/observability/RustFS services.
+`bun run infra` starts Postgres, 9Router, Headroom, and MinIO (local S3 dev mirror on `http://localhost:9000`; `scripts/init-s3-buckets.ts` auto-creates the two buckets from `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`). Use `bun run infra:minimal` only when you need Postgres without AI/observability/MinIO services.
 
 Optional Storybook:
 
