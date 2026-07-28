@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { SensitiveText } from "@/components/admin/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { fetchJson } from "@/lib/query-client";
 
 type Overview = {
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/_main/admin/")({
 });
 
 function OverviewPage() {
+  const streamerMode = useStreamerMode();
   const { data } = useQuery({
     queryFn: () => fetchJson<Overview>("/api/admin/overview"),
     queryKey: ["admin", "overview"],
@@ -79,7 +82,13 @@ function OverviewPage() {
                 className="rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
                 key={e.id}
               >
-                <span className="font-medium">{e.businessName}</span>
+                <span className="font-medium">
+                  {streamerMode ? (
+                    <SensitiveText kind="name" value={e.businessName} />
+                  ) : (
+                    e.businessName
+                  )}
+                </span>
                 <span className="text-surface-warm-white/70">
                   {" · "}
                   {new Date(e.submittedAt).toLocaleDateString("id-ID")}
@@ -104,9 +113,25 @@ function OverviewPage() {
                 className="flex items-center justify-between rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
                 key={t.orderId}
               >
-                <span className="font-mono">{t.orderId}</span>
+                <span className="font-mono">
+                  {streamerMode ? (
+                    <SensitiveText kind="orderId" value={t.orderId} />
+                  ) : (
+                    t.orderId
+                  )}
+                </span>
                 <span className="text-surface-warm-white">
-                  {formatRupiah(t.amount)} · {t.status}
+                  {streamerMode ? (
+                    <>
+                      <SensitiveText
+                        kind="amount"
+                        value={formatRupiah(t.amount)}
+                      />{" "}
+                      · {t.status}
+                    </>
+                  ) : (
+                    `${formatRupiah(t.amount)} · ${t.status}`
+                  )}
                 </span>
               </li>
             ))}
