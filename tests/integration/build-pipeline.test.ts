@@ -124,7 +124,14 @@ vi.mock("@/lib/user-credits", () => ({
     outputTokens: 0,
   }),
   isUserVerified: vi.fn().mockResolvedValue(true),
-  MIN_ENERGY_BUILD: 40_000,
+  getEnergyConfig: vi.fn(() => ({
+    dailyLimit: 250_000,
+    microUsdPerEnergy: 1_000_000,
+    minBuild: 40_000,
+    minDiscuss: 5_000,
+    minEdit: 10_000,
+    minModeration: 500,
+  })),
 }));
 
 vi.mock("@/lib/auth", () => ({

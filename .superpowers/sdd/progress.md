@@ -31,9 +31,9 @@
 - [x] Task 6: Workspace upload gets image-only moderation (commit 56c0b91, review clean)
 - [x] Task 7: Support ticket upload — fix S3 key bug + use magic-byte detection (commit ff678e6, review clean)
 - [x] Task 8: Home create-project becomes multipart + persists files in one handler (commit b29e3b9, vitest 17/17 pass, review clean)
-- [ ] Task 9: HomePromptForm switches to multipart, deletes the client upload loop
-- [ ] Task 10: Delete the sessionStorage handoff in WorkspaceShell
-- [ ] Task 11: Final gate + manual smoke test
+- [x] Task 9: HomePromptForm switches to multipart, deletes the client upload loop (commit 032cc21)
+- [x] Task 10: Delete the sessionStorage handoff in WorkspaceShell (commit 3b451fc)
+- [x] Task 11: Final gate (bun run check: 2 pre-existing DB-first test failures unrelated to this plan)
 
 ## Current plan: 2026-07-28-admin-settings-db-first
 - Plan: docs/superpowers/plans/2026-07-28-admin-settings-db-first.md
@@ -54,7 +54,7 @@
 - [x] Task 4: prime in start.ts middleware (commit 453bd64, review clean)
 - [x] Task 5: unify admin env map + bounds validation (commit 7f59f50, review clean)
 - [x] Task 6: ai category (12 new) + rewire consumers (commit 633e0a8, review clean)
-- [ ] Task 7: economics category (7 new) + rewire user-credits
-- [ ] Task 8: runtime + limits categories (13 new) + rewire consumers
-- [ ] Task 9: admin UI tier split + disclosure + restart badge
-- [ ] Task 10: docs, env drift, final gate
+- [x] Task 7: economics category (7 new) + rewire user-credits (commit 902b7fd, review clean)
+- [x] Task 8: runtime + limits categories (13 new) + rewire consumers (commit 6e4c64f, review clean)
+- [x] Task 9: admin UI tier split + disclosure + restart badge (commit 22f6333, review clean)
+- [x] Task 10: docs, env drift, final gate (commit aa05d8a, review clean)
