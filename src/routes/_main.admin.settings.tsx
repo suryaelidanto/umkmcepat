@@ -5,9 +5,8 @@ import { toast } from "sonner";
 
 import {
   getDirtyKeys,
-  isDirtyEntry,
   type SettingEntry,
-} from "./_main.admin.settings.helpers";
+} from "./-_main.admin.settings.helpers";
 
 import { fetchJson } from "@/lib/query-client";
 
@@ -107,21 +106,6 @@ function SettingsPage() {
                       value={String(value)}
                     />
                   )}
-                  {isDirtyEntry(entry, draft[entry.key]) && (
-                    <button
-                      className="rounded-radius-md border border-surface-warm-white/15 px-spacing-2 py-spacing-1 text-xs text-surface-warm-white/80 hover:bg-surface-warm-white/10"
-                      onClick={() =>
-                        setDraft((d) => {
-                          const next = { ...d };
-                          delete next[entry.key];
-                          return next;
-                        })
-                      }
-                      type="button"
-                    >
-                      Reset
-                    </button>
-                  )}
                 </div>
               );
             })}
@@ -130,22 +114,40 @@ function SettingsPage() {
             const dirty = dirtyByCategory(cat);
             const hasDirty = dirty.size > 0;
             return (
-              <button
-                className="mt-spacing-3 rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!hasDirty || save.isPending}
-                onClick={() => {
-                  const values: Record<string, unknown> = {};
-                  for (const key of dirty) {
-                    values[key] = draft[key];
-                  }
-                  save.mutate({ category: cat, values });
-                }}
-                type="button"
-              >
-                {hasDirty
-                  ? `Simpan ${cat.replace("_", " ")} (${dirty.size})`
-                  : `Simpan ${cat.replace("_", " ")}`}
-              </button>
+              <div className="mt-spacing-3 flex items-center gap-spacing-2">
+                <button
+                  className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/80 hover:bg-surface-warm-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!hasDirty}
+                  onClick={() => {
+                    setDraft((d) => {
+                      const next = { ...d };
+                      for (const key of dirty) {
+                        delete next[key];
+                      }
+                      return next;
+                    });
+                  }}
+                  type="button"
+                >
+                  Reset
+                </button>
+                <button
+                  className="rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!hasDirty || save.isPending}
+                  onClick={() => {
+                    const values: Record<string, unknown> = {};
+                    for (const key of dirty) {
+                      values[key] = draft[key];
+                    }
+                    save.mutate({ category: cat, values });
+                  }}
+                  type="button"
+                >
+                  {hasDirty
+                    ? `Simpan ${cat.replace("_", " ")} (${dirty.size})`
+                    : `Simpan ${cat.replace("_", " ")}`}
+                </button>
+              </div>
             );
           })()}
         </section>
