@@ -80,37 +80,37 @@ function WaitlistPage() {
   return (
     <div className="flex flex-col gap-spacing-3">
       {entries.length === 0 ? (
-        <p className="text-surface-warm-white/60">
+        <p className="text-surface-warm-white/70">
           Belum ada pendaftar menunggu.
         </p>
       ) : (
         entries.map((entry) => (
           <div
-            className="rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-4"
+            className="rounded-radius-lg border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-4"
             key={entry.id}
           >
             <div className="flex items-start justify-between gap-spacing-3">
               <div>
                 <p className="font-medium">{entry.businessName}</p>
                 {entry.businessType ? (
-                  <p className="text-sm text-surface-warm-white/60">
+                  <p className="text-sm text-surface-warm-white/70">
                     {entry.businessType}
                   </p>
                 ) : null}
                 {entry.phone ? (
-                  <p className="text-sm text-surface-warm-white/60">
+                  <p className="text-sm text-surface-warm-white/70">
                     {entry.phone}
                   </p>
                 ) : null}
               </div>
             </div>
-            <p className="mt-spacing-2 line-clamp-4 text-sm text-surface-warm-white/80">
+            <p className="mt-spacing-2 line-clamp-4 text-sm text-surface-warm-white">
               {entry.story}
             </p>
             {entry.imageRef ? (
               <img
                 alt={entry.businessName}
-                className="mt-spacing-2 max-h-48 rounded-radius-md border border-surface-warm-white/10"
+                className="mt-spacing-2 max-h-48 rounded-radius-md border border-surface-warm-white/12"
                 src={`/api/admin/waitlist/image/${entry.id}`}
               />
             ) : null}
@@ -125,7 +125,7 @@ function WaitlistPage() {
                 Setujui
               </button>
               <button
-                className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+                className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
                 onClick={() => {
                   const reason =
                     window.prompt("Alasan penolakan (opsional)?") ?? "";
