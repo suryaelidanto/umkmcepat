@@ -4,6 +4,14 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 
 ## 2026-07
 
+### 2026-07-28 — Phase 2 image, headers, and streaming edit
+
+- **Docker Build Context**: Excluded `.data`, `.output`, `.nitro`, `.tanstack`, `graphify-out`, `storybook-static`, `.pi-subagents`, `.superpowers`, `.claude`, `.agents`, `__captures__`, `.omc`, and `dev.log*` from `.dockerignore`. Transferred build context shrunk under 50 MB.
+- **Production Image Prune**: Added a `prod-deps` stage to install only production dependencies, and carried generated Prisma Client (`.prisma` and `@prisma/client` directories) over explicitly. Shrunk production image size from 2.8 GB to 2.2 GB.
+- **HSTS Enforcement**: Configured HSTS (`max-age=63072000; includeSubDomains`) on the control plane only, explicitly omitting it from the generated-project origin.
+- **Content Security Policy**: Built a dynamic CSP builder `buildContentSecurityPolicy` from environment variables, shipping first in report-only mode before promoting to full enforcement. Directives cover `self` default, DiceBear avatars, Pakasir QR codes, Cloudflare Turnstile, and Umami analytics.
+- **Streaming Edit Endpoint**: Converted `/api/projects/$id/edit` to stream progress events via Server-Sent Events (SSE). Emits `progress`, `done`, and `error` events. Updated the React UI caller `WorkspaceShell` to consume the SSE stream and display live Indonesian progress updates. Modified unit tests to parse the stream correctly.
+
 ### 2026-07-28 — Phase 1 security correctness
 
 - **Auth.js upgrade**: `@auth/core` 0.34.3 → 0.41.3, `@auth/prisma-adapter` 2.11.2 → 2.11.3. Closes critical homoglyph email bypass (admin allowlist is an email match, so this was a privilege-escalation path), plus the getToken() DoS and PKCE-cookie binding advisories. JWT session round-trip after upgrade: **PENDING MANUAL VERIFICATION** (sign in, restart dev server without clearing cookies, confirm still signed in — record any forced re-login).

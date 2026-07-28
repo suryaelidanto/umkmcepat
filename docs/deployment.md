@@ -172,7 +172,8 @@ Availability monitoring: **Uptime Kuma** (self-hosted, standalone SQLite) — pi
 ## Notes
 
 - `Dockerfile` uses `bun install --frozen-lockfile --ignore-scripts` so install-time scripts do not require a live DB during image build.
-- Prisma client is generated during image build.
+- The production Docker image uses a multi-stage build to prune `devDependencies` (e.g. Storybook, Vitest, ESLint, Playwright). It copies only production dependencies from `prod-deps` stage, shrinking the image size from 2.8 GB to 2.2 GB.
+- Prisma client is generated during image build in the `builder` stage. Because it is code-generated, it does not exist in a fresh production install, so the generated Client (`node_modules/.prisma` and `node_modules/@prisma/client`) is explicitly carried over from `builder` to `runner`.
 - Migrations run once through the production Compose `migrate` service before application startup.
 - Canonical local artifacts use the dedicated `project_artifacts` volume; runtime/build workspaces are not canonical.
 - Local upload data, logs, screenshots, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, `storybook-static/`, and coverage artifacts must stay untracked.

@@ -65,6 +65,11 @@ Core rules:
 - Generated source edits go through the constrained server-owned agent tool runner. Browser requests carry user instructions and annotations, never privileged file-tool commands. The runner exposes structured read, list, search, write, replace, and check operations to the server-owned agent, enforces project file boundaries, blocks platform-owned executable files, records side effects, emits operation trace events for the workspace timeline, and blocks success when app checks are missing or policy checks fail.
 - Generated build execution is disabled by default in production until the isolated worker gate is proven. Local/test execution still validates exact build scripts, rejects non-platform Vite/build configuration, disables dependency lifecycle scripts, and cannot be treated as the final tenant isolation boundary.
 - Visual/comment-driven edits create a durable `ProjectEditAttempt` before AI work starts. Attempts store the user-facing summary, hidden annotation payload, validation/advisory issues, lease token/timestamps, and final status so failed or rejected edits remain auditable and user comments are not lost. Project claims use an expiring fencing token; only the current token may promote output or clear the claim. Stale recovery can release an expired operation even when no `ProjectBuild` row was created. Validation blocks only clear non-rendered/no-change edits; heuristic target/selector concerns are advisory and may trigger one repair pass instead of silently discarding the request.
+- The edit endpoint `POST /api/projects/$id/edit` is a streaming endpoint using Server-Sent Events (SSE). It immediately returns `text/event-stream` and emits:
+  - `event: progress`, `data: { label: string, detail?: string }` for incremental progress steps.
+  - `event: done`, `data: { attemptId, buildId, buildStatus, deploymentId, snapshotId }` on successful build completion.
+  - `event: error`, `data: { message, code?, issues? }` on validation or runtime failure.
+    Pre-stream validations (auth, rate limits, phone verification, and energy checks) still return standard synchronous JSON responses with non-2xx statuses before the stream starts.
 - The platform must not execute arbitrary user backend code.
 - One bad project must not break the platform or another project.
 
