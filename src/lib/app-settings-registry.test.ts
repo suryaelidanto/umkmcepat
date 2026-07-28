@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { APP_SETTINGS } from "@/lib/app-settings-registry";
+import {
+  APP_SETTINGS,
+  CATEGORY_ORDER,
+  CATEGORY_TIER,
+} from "@/lib/app-settings-registry";
 
 describe("APP_SETTINGS registry", () => {
   it("has no duplicate keys", () => {
@@ -16,9 +20,8 @@ describe("APP_SETTINGS registry", () => {
   });
 
   it("every category is one of the known set", () => {
-    const valid = ["feature_flag", "booster", "rate_limit", "ai"];
     for (const entry of APP_SETTINGS) {
-      expect(valid).toContain(entry.category);
+      expect(CATEGORY_ORDER).toContain(entry.category);
     }
   });
 
@@ -37,6 +40,48 @@ describe("APP_SETTINGS registry", () => {
       expect(
         APP_SETTINGS.find((x) => x.key === `booster.${id}.energy`),
       ).toBeDefined();
+    }
+  });
+});
+
+describe("registry schema", () => {
+  it("every entry declares a valid tier", () => {
+    for (const entry of APP_SETTINGS) {
+      expect(["basic", "advanced"]).toContain(entry.tier);
+    }
+  });
+
+  it("every entry's tier matches its category tier", () => {
+    for (const entry of APP_SETTINGS) {
+      expect(entry.tier).toBe(CATEGORY_TIER[entry.category]);
+    }
+  });
+
+  it("CATEGORY_ORDER covers every category used by an entry", () => {
+    for (const entry of APP_SETTINGS) {
+      expect(CATEGORY_ORDER).toContain(entry.category);
+    }
+  });
+
+  it("no two entries share an env var name", () => {
+    const envs = APP_SETTINGS.map((e) => e.env).filter(Boolean);
+    expect(new Set(envs).size).toBe(envs.length);
+  });
+
+  it("numeric bounds are coherent: min <= fallback <= max", () => {
+    for (const entry of APP_SETTINGS) {
+      if (entry.type !== "number") {
+        continue;
+      }
+      if (entry.min !== undefined) {
+        expect(entry.fallback).toBeGreaterThanOrEqual(entry.min);
+      }
+      if (entry.max !== undefined) {
+        expect(entry.fallback).toBeLessThanOrEqual(entry.max);
+      }
+      if (entry.min !== undefined && entry.max !== undefined) {
+        expect(entry.min).toBeLessThanOrEqual(entry.max);
+      }
     }
   });
 });
