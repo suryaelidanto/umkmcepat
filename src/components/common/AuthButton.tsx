@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, LogOut, UserRound, Zap } from "lucide-react";
+import { ChevronDown, LogOut, Shield, UserRound, Zap } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
@@ -106,6 +106,16 @@ export function AuthButton() {
             <UserRound className="size-4 text-surface-warm-white/62" />
             Profil
           </Link>
+          {session.user.admin === true ? (
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06]"
+            >
+              <Shield className="size-4 text-surface-warm-white/62" />
+              Admin
+            </Link>
+          ) : null}
           <button
             type="button"
             onClick={() => {

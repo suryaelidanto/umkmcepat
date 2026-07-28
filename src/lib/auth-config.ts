@@ -44,8 +44,14 @@ export const authConfig: AuthConfig = {
         session.user.image = token.picture;
       }
 
-      if (typeof token.admin === "boolean" && session.user) {
-        session.user.admin = token.admin;
+      if (session.user) {
+        // token.admin is set at sign-in (jwt callback). For tokens issued
+        // before that flag existed, fall back to re-deriving from email so
+        // existing sessions gain admin nav without a re-login.
+        session.user.admin =
+          token.admin === true ||
+          (typeof token.admin !== "boolean" &&
+            isAdminEmail(session.user.email ?? ""));
       }
 
       return session;
