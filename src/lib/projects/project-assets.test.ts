@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createProjectAssetRef,
   deleteProjectAsset,
+  detectImageFormat,
   parseProjectAssetRef,
   readProjectAsset,
   writeProjectAsset,
@@ -294,6 +295,10 @@ describe("project assets", () => {
         userId: "u1",
         ext: "png",
       });
+    });
+
+    it("re-exports detectImageFormat correctly", () => {
+      expect(detectImageFormat(pngBytes())).toBe("png");
     });
   });
 });
