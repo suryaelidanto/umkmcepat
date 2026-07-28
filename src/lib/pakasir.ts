@@ -1,5 +1,3 @@
-import { getSetting } from "@/lib/app-settings";
-
 export const BOOSTER_PACKS = {
   pocket: { amount: 2900, energy: 50000, name: "Pocket Booster" },
   starter: { amount: 8900, energy: 200000, name: "Starter Booster" },
@@ -8,48 +6,6 @@ export const BOOSTER_PACKS = {
 } as const;
 
 export type BoosterPackId = keyof typeof BOOSTER_PACKS;
-
-// Resolves a booster pack's amount/energy from AppSetting (DB-first),
-// falling back to the hardcoded BOOSTER_PACKS const. Used at payment-creation
-// (server, async). The client EnergyBoosterModal still reads the const for
-// display — DB overrides apply only at actual transaction creation.
-export async function getBoosterPack(id: BoosterPackId) {
-  const fallback = BOOSTER_PACKS[id];
-  const [amount, energy] = await Promise.all([
-    getSetting<number>(`booster.${id}.amount`, fallback.amount),
-    getSetting<number>(`booster.${id}.energy`, fallback.energy),
-  ]);
-  return { amount, energy, name: fallback.name };
-}
-
-export type PakasirPaymentMethod =
-  | "qris"
-  | "cimb_niaga_va"
-  | "bni_va"
-  | "sampoerna_va"
-  | "bnc_va"
-  | "maybank_va"
-  | "permata_va"
-  | "atm_bersama_va"
-  | "artha_graha_va"
-  | "bri_va";
-
-export interface PakasirCreateTransactionPayload {
-  project: string;
-  order_id: string;
-  amount: number;
-  api_key: string;
-}
-
-export interface PakasirCreateTransactionResponse {
-  payment?: {
-    project: string;
-    order_id: string;
-    payment_number: string;
-    expired_at?: string;
-  };
-  message?: string;
-}
 
 export interface PakasirTransactionDetail {
   id: string;
@@ -78,51 +34,6 @@ function getCredentials() {
   }
 
   return { apiKey, projectSlug };
-}
-
-/**
- * Creates a transaction in Pakasir.
- */
-export async function createPakasirTransaction(opts: {
-  orderId: string;
-  amount: number;
-  method?: PakasirPaymentMethod;
-}): Promise<Required<PakasirCreateTransactionResponse>["payment"]> {
-  const { apiKey, projectSlug } = getCredentials();
-  const method = opts.method || "qris";
-  const url = `${PAKASIR_BASE_URL}/transactioncreate/${method}`;
-
-  const payload: PakasirCreateTransactionPayload = {
-    project: projectSlug,
-    order_id: opts.orderId,
-    amount: opts.amount,
-    api_key: apiKey,
-  };
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    throw new Error(
-      `Pakasir create transaction failed with status ${response.status}: ${errorText}`,
-    );
-  }
-
-  const data = (await response.json()) as PakasirCreateTransactionResponse;
-
-  if (!data.payment || !data.payment.payment_number) {
-    throw new Error(
-      `Pakasir API response is missing payment details: ${JSON.stringify(data)}`,
-    );
-  }
-
-  return data.payment as Required<PakasirCreateTransactionResponse>["payment"];
 }
 
 /**

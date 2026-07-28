@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
-  createPakasirTransactionMock,
+  createMayarPaymentMock,
   getBoosterPackMock,
+  getMayarTransactionMock,
+  verifyMayarWebhookRequestMock,
+  // TODO(task-5): replace with Mayar equivalents when webhook route migrates
   verifyPakasirTransactionMock,
   prismaPaymentCreateMock,
   prismaPaymentFindUniqueMock,
@@ -14,8 +17,11 @@ const {
   prismaTransactionMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
-  createPakasirTransactionMock: vi.fn(),
+  createMayarPaymentMock: vi.fn(),
   getBoosterPackMock: vi.fn(),
+  getMayarTransactionMock: vi.fn(),
+  verifyMayarWebhookRequestMock: vi.fn(() => true),
+  // TODO(task-5): remove when webhook route migrates from Pakasir to Mayar
   verifyPakasirTransactionMock: vi.fn(),
   prismaPaymentCreateMock: vi.fn(),
   prismaPaymentFindUniqueMock: vi.fn(),
@@ -37,16 +43,21 @@ const {
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
-vi.mock("@/lib/pakasir", () => ({
-  createPakasirTransaction: createPakasirTransactionMock,
+vi.mock("@/lib/mayar", () => ({
+  createMayarPayment: createMayarPaymentMock,
   getBoosterPack: getBoosterPackMock,
-  verifyPakasirTransaction: verifyPakasirTransactionMock,
+  getMayarTransaction: getMayarTransactionMock,
+  verifyMayarWebhookRequest: verifyMayarWebhookRequestMock,
   BOOSTER_PACKS: {
     pocket: { amount: 2900, energy: 50000, name: "Pocket Booster" },
     starter: { amount: 8900, energy: 200000, name: "Starter Booster" },
     popular: { amount: 24900, energy: 600000, name: "Popular Booster" },
     max: { amount: 59900, energy: 1500000, name: "Max Booster" },
   },
+}));
+// TODO(task-5): remove when webhook route migrates from Pakasir to Mayar
+vi.mock("@/lib/pakasir", () => ({
+  verifyPakasirTransaction: verifyPakasirTransactionMock,
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -74,7 +85,7 @@ const GET_STATUS = getHandler(StatusRoute, "GET");
 describe("Payment API Routes", () => {
   beforeEach(() => {
     authMock.mockReset();
-    createPakasirTransactionMock.mockReset();
+    createMayarPaymentMock.mockReset();
     getBoosterPackMock.mockReset();
     getBoosterPackMock.mockImplementation((id: string) => {
       const packs = {
@@ -85,6 +96,10 @@ describe("Payment API Routes", () => {
       } as const;
       return Promise.resolve((packs as Record<string, unknown>)[id] ?? null);
     });
+    getMayarTransactionMock.mockReset();
+    verifyMayarWebhookRequestMock.mockReset();
+    verifyMayarWebhookRequestMock.mockReturnValue(true);
+    // TODO(task-5): remove when webhook route migrates from Pakasir to Mayar
     verifyPakasirTransactionMock.mockReset();
     prismaPaymentCreateMock.mockReset();
     prismaPaymentFindUniqueMock.mockReset();
@@ -128,17 +143,16 @@ describe("Payment API Routes", () => {
       expect(data.message).toContain("Invalid package");
     });
 
-    it("successfully creates a payment session via Pakasir", async () => {
+    it("successfully creates a payment session via Mayar", async () => {
       authMock.mockResolvedValueOnce({
         user: { id: "user_1" },
         expires: new Date().toISOString(),
       });
 
-      createPakasirTransactionMock.mockResolvedValueOnce({
-        project: "umkm-cepat-dev",
-        order_id: "INV-USER1-12345",
-        payment_number: "QRIS_PAYLOAD_STRING",
-        expired_at: "2026-07-19T12:00:00Z",
+      createMayarPaymentMock.mockResolvedValueOnce({
+        id: "req-1",
+        transactionId: "txn-1",
+        link: "https://testingmayar.myr.id/pl/abc",
       });
 
       prismaPaymentCreateMock.mockResolvedValueOnce({
@@ -146,13 +160,13 @@ describe("Payment API Routes", () => {
         amount: 2900,
         energyGranted: 50000,
         status: "PENDING",
-        paymentNumber: "QRIS_PAYLOAD_STRING",
+        paymentUrl: "https://testingmayar.myr.id/pl/abc",
       });
 
       const res = await POST_CREATE(
         new Request("http://localhost/api/payment/create", {
           method: "POST",
-          body: JSON.stringify({ packageId: "pocket", method: "qris" }),
+          body: JSON.stringify({ packageId: "pocket" }),
         }),
       );
 
@@ -160,7 +174,15 @@ describe("Payment API Routes", () => {
       const data = await res.json();
       expect(data.success).toBe(true);
       expect(data.orderId).toBe("INV-USER1-12345");
-      expect(data.paymentNumber).toBe("QRIS_PAYLOAD_STRING");
+      expect(data.paymentUrl).toBe("https://testingmayar.myr.id/pl/abc");
+      expect(createMayarPaymentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: expect.stringMatching(/^INV-/),
+          amount: 2900,
+          packName: "Pocket Booster",
+          expiredAt: expect.any(String),
+        }),
+      );
       expect(prismaPaymentCreateMock).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -168,6 +190,9 @@ describe("Payment API Routes", () => {
             amount: 2900,
             energyGranted: 50000,
             status: "PENDING",
+            providerTxnId: "txn-1",
+            providerPaymentLinkId: "req-1",
+            paymentUrl: "https://testingmayar.myr.id/pl/abc",
           }),
         }),
       );
