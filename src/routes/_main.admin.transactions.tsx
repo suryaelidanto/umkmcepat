@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { SensitiveText } from "@/components/admin/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { fetchJson } from "@/lib/query-client";
 
 type Tx = {
@@ -36,6 +38,7 @@ export const Route = createFileRoute("/_main/admin/transactions")({
 });
 
 function TransactionsPage() {
+  const streamerMode = useStreamerMode();
   const [status, setStatus] = useState("ALL");
   const [q, setQ] = useState("");
   const queryClient = useQueryClient();
@@ -93,7 +96,13 @@ function TransactionsPage() {
             key={t.orderId}
           >
             <div className="flex items-center justify-between">
-              <span className="font-mono">{t.orderId}</span>
+              <span className="font-mono">
+                {streamerMode ? (
+                  <SensitiveText kind="orderId" value={t.orderId} />
+                ) : (
+                  t.orderId
+                )}
+              </span>
               <span
                 className={
                   t.status === "COMPLETED"
@@ -107,11 +116,31 @@ function TransactionsPage() {
               </span>
             </div>
             <p className="text-surface-warm-white">
-              {formatRupiah(t.amount)} · {t.energyGranted} energi ·{" "}
-              {t.email ?? "—"}
+              {streamerMode ? (
+                <>
+                  <SensitiveText kind="amount" value={formatRupiah(t.amount)} />{" "}
+                  · {t.energyGranted} energi ·{" "}
+                  {t.email ? (
+                    <SensitiveText kind="email" value={t.email} />
+                  ) : (
+                    "—"
+                  )}
+                </>
+              ) : (
+                <>
+                  {formatRupiah(t.amount)} · {t.energyGranted} energi ·{" "}
+                  {t.email ?? "—"}
+                </>
+              )}
             </p>
             {t.paymentNumber ? (
-              <p className="text-surface-warm-white/70">{t.paymentNumber}</p>
+              <p className="text-surface-warm-white/70">
+                {streamerMode ? (
+                  <SensitiveText kind="orderId" value={t.paymentNumber} />
+                ) : (
+                  t.paymentNumber
+                )}
+              </p>
             ) : null}
             {t.status === "PENDING" ? (
               <button
