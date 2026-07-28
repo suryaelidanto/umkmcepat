@@ -110,9 +110,9 @@ export const Route = createFileRoute("/api/payment/webhook")({
           // the webhook payload itself is never trusted for status or amount.
           const verifiedTransaction = await getMayarTransaction(transactionId);
 
-          if (verifiedTransaction.status !== "paid") {
+          if (verifiedTransaction.status !== "SUCCESS") {
             console.warn(
-              `[webhook] Direct verification status is "${verifiedTransaction.status}", expected "paid" for orderId ${orderId} / transactionId ${transactionId}`,
+              `[webhook] Direct verification status is "${verifiedTransaction.status}", expected "SUCCESS" for orderId ${orderId} / transactionId ${transactionId}`,
             );
             return Response.json({
               success: false,

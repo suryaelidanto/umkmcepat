@@ -123,7 +123,7 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
       metadata: { packageName: "Energy Starter" },
     });
     getMayarTransactionMock.mockResolvedValueOnce({
-      status: "paid",
+      status: "SUCCESS",
       amount: 2900,
       paymentMethod: "QRIS",
     });

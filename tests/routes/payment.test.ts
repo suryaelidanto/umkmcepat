@@ -260,7 +260,7 @@ describe("Payment API Routes", () => {
       prismaPaymentFindUniqueOrThrowMock.mockResolvedValue(pendingRow);
 
       getMayarTransactionMock.mockResolvedValueOnce({
-        status: "paid",
+        status: "SUCCESS",
         amount: 2900,
         paymentMethod: "QRIS",
       });
@@ -372,7 +372,7 @@ describe("Payment API Routes", () => {
       // Someone tampered with the QRIS amount at scan time — verified
       // amount from Mayar's API does not match what we charged for.
       getMayarTransactionMock.mockResolvedValueOnce({
-        status: "paid",
+        status: "SUCCESS",
         amount: 1000,
         paymentMethod: "QRIS",
       });
@@ -432,7 +432,7 @@ describe("Payment API Routes", () => {
       };
       prismaPaymentFindUniqueMock.mockResolvedValue(pendingRow);
       getMayarTransactionMock.mockResolvedValueOnce({
-        status: "paid",
+        status: "SUCCESS",
         amount: 2900,
         paymentMethod: "QRIS",
       });
@@ -518,7 +518,7 @@ describe("Payment API Routes", () => {
       });
 
       getMayarTransactionMock.mockResolvedValueOnce({
-        status: "paid",
+        status: "SUCCESS",
         amount: 2900,
         paymentMethod: "QRIS",
       });
