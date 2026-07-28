@@ -8,6 +8,11 @@ WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --ignore-scripts
 
+FROM docker.io/oven/bun:1.3.9-alpine AS prod-deps
+WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --ignore-scripts --production
+
 FROM docker.io/oven/bun:1.3.9-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -31,7 +36,13 @@ RUN apk add --no-cache chromium nodejs \
 # next.config.ts, which no longer exist after the TanStack Start migration.
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/bun.lock ./bun.lock
-COPY --from=builder /app/node_modules ./node_modules
+# Production dependencies only — the builder's node_modules carries Storybook,
+# Vitest, ESLint, and Playwright, none of which belong in a runtime image.
+COPY --from=prod-deps /app/node_modules ./node_modules
+# Prisma Client is code-generated during the build, so it does not exist in a
+# fresh production install and must be carried over explicitly.
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=builder /app/.output ./.output
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
