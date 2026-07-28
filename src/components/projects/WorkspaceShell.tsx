@@ -1980,11 +1980,18 @@ export function WorkspaceShell({
             const form = new FormData();
             form.append("file", item.file);
             form.append("purpose", "business-image");
-            const res = await fetch(`/api/projects/${projectId}/assets`, {
-              body: form,
-              method: "POST",
-            });
+            const res = await fetch(
+              `/api/projects/${projectId}/assets/upload`,
+              {
+                body: form,
+                method: "POST",
+              },
+            );
             if (!res.ok) {
+              throw new Error(`Gagal mengunggah ${item.file.name}`);
+            }
+            const contentType = res.headers.get("content-type") ?? "";
+            if (!contentType.toLowerCase().includes("application/json")) {
               throw new Error(`Gagal mengunggah ${item.file.name}`);
             }
             const asset = (await res.json()) as {
