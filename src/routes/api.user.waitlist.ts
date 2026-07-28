@@ -34,7 +34,7 @@ export function resolveUserWaitlistStatus({
   if (!waitlistEnabled) {
     return { status: "approved" };
   }
-  if (isApproved) {
+  if (isApproved === "approved") {
     return { status: "approved" };
   }
   return { status: null };

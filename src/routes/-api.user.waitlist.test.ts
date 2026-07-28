@@ -45,6 +45,26 @@ describe("resolveUserWaitlistStatus", () => {
     expect(r.status).toBe("approved");
   });
 
+  it("toggle on + non-admin + pending entry -> null (not yet approved)", () => {
+    const r = resolveUserWaitlistStatus({
+      email: "user@example.com",
+      isAdmin: false,
+      isApproved: "pending",
+      waitlistEnabled: true,
+    });
+    expect(r.status).toBeNull();
+  });
+
+  it("toggle on + non-admin + rejected entry -> null (not approved)", () => {
+    const r = resolveUserWaitlistStatus({
+      email: "user@example.com",
+      isAdmin: false,
+      isApproved: "rejected",
+      waitlistEnabled: true,
+    });
+    expect(r.status).toBeNull();
+  });
+
   it("anonymous (no email) -> null (gate leaves them alone)", () => {
     const r = resolveUserWaitlistStatus({
       email: null,

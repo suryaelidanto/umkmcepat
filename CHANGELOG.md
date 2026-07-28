@@ -4,6 +4,10 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 
 ## 2026-07
 
+### 2026-07-29 — Waitlist gate fix + dev reset UX
+
+- **Waitlist approval bug fix**: `resolveUserWaitlistStatus` checked `if (isApproved)` against the raw entry status string, so any entry at all — `pending` or `rejected`, not just `approved` — passed the gate as if approved. Fixed to `isApproved === "approved"`. Added regression tests for pending/rejected non-admin cases.
+
 ### 2026-07-28 — Phase 3 ingress and CD
 
 - **CD pipeline**: deploy workflow now grants `packages: write` (the GHCR push would have 403'd), pins every action to its commit SHA, requires an SSH host-key fingerprint, and deploys the immutable `${{ github.sha }}` image tag rather than `latest`. A health-gate on `/api/health/ready` rolls back to the previous tag if the new image cannot serve within 150 s.
