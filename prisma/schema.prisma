@@ -421,19 +421,22 @@ model VerificationToken {
 }
 
 model Payment {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orderId       String   @unique
-  amount        Int // Rupiah (cth: 2900)
-  energyGranted Int // Jumlah energi (cth: 50000)
-  status        String   @default("PENDING") // PENDING, COMPLETED, FAILED
-  paymentMethod String? // qris, va, cimb_niaga_va, dll
-  paymentNumber String? // QRIS payload / Nomor VA
-  type          String   @default("ENERGY_BOOSTER")
-  metadata      Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId               String   @unique
+  amount                Int // Rupiah (cth: 2900)
+  energyGranted         Int // Jumlah energi (cth: 50000)
+  status                String   @default("PENDING") // PENDING, COMPLETED, FAILED
+  paymentMethod         String? // qris, va, cimb_niaga_va, dll
+  paymentNumber         String? // legacy: Pakasir QRIS payload / Nomor VA only
+  providerTxnId         String?  @unique // Mayar transactionId — webhook correlation key
+  providerPaymentLinkId String? // Mayar payment-request id — reconciliation fallback
+  paymentUrl            String? // Mayar hosted QRIS checkout link
+  type                  String   @default("ENERGY_BOOSTER")
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@index([userId])
   @@index([status])
