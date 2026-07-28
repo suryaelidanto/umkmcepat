@@ -1,9 +1,6 @@
 services:
   app:
-    image: umkmcepat-app:local
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/suryaelidanto/umkmcepat-app:${APP_IMAGE_TAG:-latest}
     container_name: umkmcepat-app
     restart: unless-stopped
     dns: ["1.1.1.1", "8.8.8.8"]
@@ -17,7 +14,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-umkmcepat}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-umkmcepat}?schema=public
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL:-http://9router:20128/v1}
@@ -58,7 +55,7 @@ services:
       - project_thumbnails:/app/.data/project-thumbnails
 
   migrate:
-    image: umkmcepat-app:local
+    image: ghcr.io/suryaelidanto/umkmcepat-app:${APP_IMAGE_TAG:-latest}
     container_name: umkmcepat-migrate
     restart: "no"
     dns: ["1.1.1.1", "8.8.8.8"]
@@ -68,7 +65,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-umkmcepat}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-umkmcepat}?schema=public
     command: ["bunx", "prisma", "migrate", "deploy"]
 
   9router:
@@ -104,8 +101,8 @@ services:
     restart: unless-stopped
     dns: ["1.1.1.1", "8.8.8.8"]
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-umkmcepat}
       TZ: UTC
     volumes:
@@ -125,13 +122,20 @@ services:
   umami:
     image: ghcr.io/umami-software/umami:postgresql-latest
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/umami
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET is required}
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "127.0.0.1:3001:3000"
     restart: unless-stopped
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/heartbeat || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   # Availability monitoring (standalone SQLite; pings the app + key endpoints).
   uptime-kuma:
