@@ -60,12 +60,12 @@ function SettingsPage() {
               const value = draft[entry.key] ?? entry.effectiveValue;
               return (
                 <div
-                  className="flex items-center justify-between gap-spacing-3 rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-3 text-sm"
+                  className="flex items-center justify-between gap-spacing-3 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
                   key={entry.key}
                 >
                   <div>
                     <p>{entry.label}</p>
-                    <p className="text-surface-warm-white/40">
+                    <p className="text-surface-warm-white/70">
                       Sumber: {entry.source} · fallback:{" "}
                       {String(entry.fallback)}
                     </p>
@@ -75,7 +75,7 @@ function SettingsPage() {
                       className={
                         value === true
                           ? "rounded-radius-md bg-emerald-600 px-spacing-3 py-spacing-2 text-white"
-                          : "rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2"
+                          : "rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
                       }
                       onClick={() =>
                         setDraft((d) => ({ ...d, [entry.key]: !value }))
@@ -86,7 +86,7 @@ function SettingsPage() {
                     </button>
                   ) : (
                     <input
-                      className="w-32 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm"
+                      className="w-32 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
                       onChange={(e) =>
                         setDraft((d) => ({
                           ...d,
@@ -105,7 +105,7 @@ function SettingsPage() {
             })}
           </div>
           <button
-            className="mt-spacing-3 rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+            className="mt-spacing-3 rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
             onClick={() => save.mutate({ category: cat, values: draft })}
             type="button"
           >
