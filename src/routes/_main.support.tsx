@@ -1,14 +1,27 @@
 import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { ImagePlus, Loader2, MessageSquare, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { auth } from "@/lib/auth";
 import { fetchJson } from "@/lib/query-client";
 
+const requireAuth = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw redirect({ to: "/" });
+  }
+  return { ok: true };
+});
+
 export const Route = createFileRoute("/_main/support")({
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   component: SupportPage,
 });
 

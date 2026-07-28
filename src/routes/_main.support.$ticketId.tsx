@@ -1,15 +1,28 @@
 import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { ArrowLeft, ImagePlus, Loader2, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
+import { auth } from "@/lib/auth";
 import { fetchJson } from "@/lib/query-client";
 
+const requireAuth = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw redirect({ to: "/" });
+  }
+  return { ok: true };
+});
+
 export const Route = createFileRoute("/_main/support/$ticketId")({
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   component: TicketThreadPage,
 });
 
