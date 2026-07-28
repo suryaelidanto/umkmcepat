@@ -3,21 +3,17 @@ import { randomUUID } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
+import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import { putStoredObject } from "@/lib/object-storage";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-];
 
 export const Route = createFileRoute("/api/support/assets")({
   server: {
     handlers: {
       // POST /api/support/assets: Upload support ticket attachments (both user and admin).
-      // Multipart form field: `file`
+      // Multipart form field: `file`. assetId is the full S3 key suffix
+      // including the detected extension so GET can reconstruct the key.
       POST: async ({ request }) => {
         const session = await auth();
         if (!session?.user?.id) {
@@ -50,7 +46,9 @@ export const Route = createFileRoute("/api/support/assets")({
           );
         }
 
-        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        const bytes = Buffer.from(await file.arrayBuffer());
+        const format = detectImageFormat(bytes);
+        if (!format) {
           return Response.json(
             {
               message:
@@ -60,28 +58,31 @@ export const Route = createFileRoute("/api/support/assets")({
           );
         }
 
-        const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
-        const assetId = randomUUID();
-        const key = `support/assets/${assetId}.${ext}`;
-        const bytes = Buffer.from(await file.arrayBuffer());
+        const assetId = `${randomUUID()}.${format}`;
+        const key = `support/assets/${assetId}`;
+        const contentType = contentTypeFromExt(format);
 
         try {
           const ref = await putStoredObject({
             body: bytes,
-            contentType: file.type,
+            contentType,
             key,
           });
 
           return Response.json(
             {
               assetId,
+              contentType,
               ref,
               url: `/api/support/assets/${assetId}`,
             },
             { status: 201 },
           );
         } catch (error) {
-          console.error("[support-upload] S3 write error:", error);
+          console.error("[support-upload] S3 write error", {
+            assetId,
+            error: error instanceof Error ? error.message : error,
+          });
           return Response.json(
             { message: "Gagal menyimpan file ke storage." },
             { status: 500 },

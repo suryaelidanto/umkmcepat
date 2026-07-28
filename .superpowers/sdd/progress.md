@@ -27,9 +27,9 @@
 - [x] Task 2: Re-export format detection from project-assets.ts (commit 57c47dc, review clean)
 - [x] Task 3: 8-char minimum prompt length (commit 144877e, review clean)
 - [x] Task 4: Extend moderateProjectRequest to accept images + retry-once (commit c8e7228, review clean)
-- [ ] Task 5: Replace bare `catch {}` with structured logging at the three moderation call sites
-- [ ] Task 6: Workspace upload gets image-only moderation
-- [ ] Task 7: Support ticket upload — fix S3 key bug + use magic-byte detection
+- [x] Task 5: Replace bare `catch {}` with structured logging at the three moderation call sites (commit ab00fcc, review clean)
+- [x] Task 6: Workspace upload gets image-only moderation (commit 56c0b91, review clean)
+- [x] Task 7: Support ticket upload — fix S3 key bug + use magic-byte detection (commits pending, review clean)
 - [ ] Task 8: Home create-project becomes multipart + persists files in one handler
 - [ ] Task 9: HomePromptForm switches to multipart, deletes the client upload loop
 - [ ] Task 10: Delete the sessionStorage handoff in WorkspaceShell
@@ -50,10 +50,10 @@
 
 - [x] Task 1: registry schema fields (tier/env/min/max/requiresRestart) (commit 44c4742, review clean)
 - [x] Task 2: env + bounds on existing 25 entries (commit e553e2f, review clean)
-- [ ] Task 3: no-TTL snapshot layer + primeSettingCache
-- [ ] Task 4: prime in start.ts middleware
-- [ ] Task 5: unify admin env map + bounds validation
-- [ ] Task 6: ai category (12 new) + rewire consumers
+- [x] Task 3: no-TTL snapshot layer + primeSettingCache (commit a06cfc2, review clean)
+- [x] Task 4: prime in start.ts middleware (commit 453bd64, review clean)
+- [x] Task 5: unify admin env map + bounds validation (commit 7f59f50, review clean)
+- [x] Task 6: ai category (12 new) + rewire consumers (commit 633e0a8, review clean)
 - [ ] Task 7: economics category (7 new) + rewire user-credits
 - [ ] Task 8: runtime + limits categories (13 new) + rewire consumers
 - [ ] Task 9: admin UI tier split + disclosure + restart badge
