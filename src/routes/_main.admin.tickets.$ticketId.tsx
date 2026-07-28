@@ -293,7 +293,7 @@ function AdminTicketThreadPage() {
               className={`flex flex-col max-w-[85%] ${isUser ? "self-start items-start" : "self-end items-end"}`}
             >
               <div
-                className={`rounded-radius-lg p-spacing-3.5 text-sm ${
+                className={`rounded-radius-lg px-spacing-4 py-spacing-5 text-base ${
                   isUser
                     ? "bg-[#1c1c1c] border border-surface-warm-white/10 text-surface-warm-white rounded-tl-none"
                     : "bg-surface-warm-white/10 text-surface-warm-white rounded-tr-none"
