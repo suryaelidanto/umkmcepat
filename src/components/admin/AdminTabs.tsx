@@ -27,8 +27,8 @@ export function AdminTabs() {
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm font-medium"
-                : "rounded-radius-md px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/60"
+                ? "rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm font-medium text-surface-warm-white"
+                : "rounded-radius-md px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/70"
             }
             href={tab.to}
             key={tab.to}
