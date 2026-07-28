@@ -3,11 +3,9 @@ import { describe, expect, it } from "vitest";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 describe("mapToUserFacingError", () => {
-  it("maps a known Pakasir reason to Indonesian", () => {
+  it("maps mayar-related errors to the Indonesian payment-failure message", () => {
     expect(
-      mapToUserFacingError(
-        "Pakasir create transaction failed with status 500: upstream error",
-      ),
+      mapToUserFacingError("Mayar create payment failed with status 500"),
     ).toBe("Pembayaran gagal. Coba lagi.");
   });
 
