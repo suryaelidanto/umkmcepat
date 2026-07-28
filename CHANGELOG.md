@@ -8,6 +8,7 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 
 - **Waitlist approval bug fix**: `resolveUserWaitlistStatus` checked `if (isApproved)` against the raw entry status string, so any entry at all — `pending` or `rejected`, not just `approved` — passed the gate as if approved. Fixed to `isApproved === "approved"`. Added regression tests for pending/rejected non-admin cases.
 - **Dev reset button**: the "Reset Antrian (Waitlist)" control (in the dev banner and on `/waitlist`) only appeared for entries auto-created by the dev "skip" shortcut (`[dev-skip]`-prefixed). A real submitted entry — pending, rejected, or otherwise — had no reset control anywhere in the UI even though the underlying dev-only endpoint already supported clearing any entry. Now shown whenever any entry exists for the signed-in user.
+- **Waitlist persistence + rejection UX**: `/waitlist` now seeds `ownQuery` from the server loader, so the correct screen (submitted/pending = "Terima kasih" screen, rejected = rejection banner above the resubmit form) is rendered on the very first paint — no form-to-success flash. Rejected entries now show the admin's stated reason so users know what to fix.
 
 ### 2026-07-28 — Phase 3 ingress and CD
 
