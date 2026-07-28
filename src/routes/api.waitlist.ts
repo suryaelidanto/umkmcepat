@@ -6,7 +6,6 @@ import { auth } from "@/lib/auth";
 import { devLog } from "@/lib/dev-log";
 import { putStoredObject } from "@/lib/object-storage";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { verifyTurnstileToken } from "@/lib/turnstile";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 import { buildWaitlistStory, submitWaitlist } from "@/lib/waitlist";
 
@@ -29,15 +28,6 @@ export const Route = createFileRoute("/api/waitlist")({
         if (!form) {
           return Response.json(
             { message: "Permintaan tidak valid." },
-            { status: 400 },
-          );
-        }
-
-        const token = String(form.get("cf-turnstile-response") ?? "");
-        const turnstileOk = await verifyTurnstileToken(token);
-        if (!turnstileOk) {
-          return Response.json(
-            { message: "Verifikasi keamanan gagal." },
             { status: 400 },
           );
         }

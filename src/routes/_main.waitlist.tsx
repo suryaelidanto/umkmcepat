@@ -9,7 +9,7 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -157,11 +157,6 @@ function WaitlistPage() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const hasTurnstile = Boolean(getTurnstileSiteKey());
   const isDev = import.meta.env.DEV;
-  const turnstileSiteKey = getTurnstileSiteKey() ?? "";
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const [turnstileElement, setTurnstileElement] =
-    useState<HTMLDivElement | null>(null);
-  const widgetIdRef = useRef("");
 
   const form = useValidatedForm<WaitlistValues>({
     initialValues: EMPTY_VALUES,
@@ -180,7 +175,7 @@ function WaitlistPage() {
       for (const file of values.photo) {
         fd.append("file", file, file.name);
       }
-      fd.append("cf-turnstile-response", hasTurnstile ? turnstileToken : "dev");
+      fd.append("cf-turnstile-response", "dev");
       const response = await fetch("/api/waitlist", {
         body: fd,
         method: "POST",
@@ -289,63 +284,6 @@ function WaitlistPage() {
       console.error("Gagal menyimpan step waitlist:", err);
     }
   }, [step]);
-
-  useEffect(() => {
-    if (!hasTurnstile || !turnstileElement) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function renderTurnstile() {
-      try {
-        await loadTurnstileScript();
-      } catch {
-        return;
-      }
-
-      if (cancelled || !window.turnstile) {
-        return;
-      }
-
-      if (widgetIdRef.current) {
-        window.turnstile.remove(widgetIdRef.current);
-        widgetIdRef.current = "";
-      }
-
-      const element = turnstileElement;
-      if (!element) {
-        return;
-      }
-      element.replaceChildren();
-
-      const widgetId = window.turnstile.render(element, {
-        appearance: "always",
-        callback: (token: string) => setTurnstileToken(token),
-        "error-callback": () => setTurnstileToken(""),
-        execution: "render",
-        "expired-callback": () => setTurnstileToken(""),
-        sitekey: turnstileSiteKey,
-        size: "normal",
-        theme: "dark",
-        "timeout-callback": () => setTurnstileToken(""),
-      });
-
-      if (widgetId) {
-        widgetIdRef.current = widgetId;
-      }
-    }
-
-    void renderTurnstile();
-
-    return () => {
-      cancelled = true;
-      if (widgetIdRef.current && window.turnstile) {
-        window.turnstile.remove(widgetIdRef.current);
-        widgetIdRef.current = "";
-      }
-    };
-  }, [hasTurnstile, turnstileElement, turnstileSiteKey]);
 
   useEffect(() => {
     const urls = form.values.photo.map((f) => URL.createObjectURL(f));
@@ -503,14 +441,9 @@ function WaitlistPage() {
         ) : null}
 
         {hasTurnstile && step === 3 ? (
-          <div
-            ref={(el) => {
-              if (el && !turnstileElement) {
-                setTurnstileElement(el);
-              }
-            }}
-            className="mt-spacing-4 flex justify-center"
-          />
+          <p className="mt-spacing-4 text-xs text-surface-warm-white/50">
+            Ada cek keamanan sebelum kirim.
+          </p>
         ) : null}
 
         <div className="mt-spacing-8 flex items-center justify-between">
@@ -999,31 +932,4 @@ function SuccessScreen({
       </p>
     </div>
   );
-}
-
-function loadTurnstileScript() {
-  const existingScript = document.querySelector<HTMLScriptElement>(
-    'script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]',
-  );
-
-  if (window.turnstile) {
-    return Promise.resolve();
-  }
-
-  if (existingScript) {
-    return new Promise<void>((resolve) => {
-      existingScript.addEventListener("load", () => resolve(), { once: true });
-    });
-  }
-
-  return new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src =
-      "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Gagal memuat Turnstile"));
-    document.head.appendChild(script);
-  });
 }
