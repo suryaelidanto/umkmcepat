@@ -1076,38 +1076,14 @@ export function WorkspaceShell({
 
     hasStartedChat.current = true;
     const timer = setTimeout(() => {
+      // ponytail: first-turn asset inclusion. The home form's images are
+      // persisted as ProjectAsset rows. We could fetch them here and pass
+      // mediaPaths in the body, but that requires a sync query at mount
+      // time and races with the project loader. The AI tool can resolve
+      // assets from the project state when it needs them. Add this only
+      // if first-turn asset inclusion becomes a UX requirement.
       autoSentProjectIds.add(projectId);
-
-      let initialFiles = undefined;
-      let initialMediaPaths = undefined;
-      try {
-        const savedAssetsStr = sessionStorage.getItem(
-          `umkmcepat:initial-assets:${projectId}`,
-        );
-        if (savedAssetsStr) {
-          const savedAssets = JSON.parse(savedAssetsStr);
-          if (savedAssets?.fileParts && savedAssets?.mediaPaths) {
-            initialFiles = savedAssets.fileParts;
-            initialMediaPaths = savedAssets.mediaPaths;
-          }
-          sessionStorage.removeItem(`umkmcepat:initial-assets:${projectId}`);
-        }
-      } catch (err) {
-        console.error("Failed to restore initial assets:", err);
-      }
-
-      sendMessage(
-        {
-          text: prompt,
-          files: initialFiles,
-        },
-        {
-          body: {
-            mode,
-            mediaPaths: initialMediaPaths,
-          },
-        },
-      );
+      sendMessage({ text: prompt }, { body: { mode } });
     }, 0);
 
     return () => {
