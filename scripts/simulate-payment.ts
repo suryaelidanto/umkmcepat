@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import readline from "node:readline";
 
-import { BOOSTER_PACKS } from "../src/lib/pakasir";
+import { BOOSTER_PACKS, createMayarPayment } from "../src/lib/mayar";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -12,14 +12,23 @@ const question = (query: string): Promise<string> =>
   new Promise((resolve) => rl.question(query, resolve));
 
 async function main() {
-  console.log("\n=== PAKASIR PAYMENT SIMULATION CLI ===");
+  console.log("\n=== MAYAR PAYMENT SIMULATION CLI (sandbox) ===");
 
-  const apiKey = process.env.PAKASIR_API_KEY;
-  const projectSlug = process.env.PAKASIR_PROJECT_SLUG;
+  const apiKey = process.env.MAYAR_API_KEY;
+  const baseUrl = process.env.MAYAR_API_BASE_URL;
 
-  if (!apiKey || !projectSlug) {
+  if (!apiKey || !baseUrl) {
     console.error(
-      "Error: Missing PAKASIR_API_KEY or PAKASIR_PROJECT_SLUG in environment variables.",
+      "Error: Missing MAYAR_API_KEY or MAYAR_API_BASE_URL in environment variables.",
+    );
+    rl.close();
+    process.exit(1);
+  }
+
+  if (!baseUrl.includes("mayar.club")) {
+    console.error(
+      "Error: MAYAR_API_BASE_URL does not look like the sandbox host " +
+        "(api.mayar.club). Refusing to run against what looks like production.",
     );
     rl.close();
     process.exit(1);
@@ -35,8 +44,8 @@ async function main() {
   }
 
   console.log("\nSelect Package:");
-  const packs = Object.values(BOOSTER_PACKS);
-  packs.forEach((pack, index) => {
+  const packs = Object.entries(BOOSTER_PACKS);
+  packs.forEach(([, pack], index) => {
     console.log(
       `${index + 1}. ${pack.name} (Rp ${pack.amount.toLocaleString("id-ID")})`,
     );
@@ -47,8 +56,11 @@ async function main() {
   const choice = parseInt(choiceStr.trim(), 10);
 
   let amount = 0;
+  let packName = "Simulation Payment";
   if (choice >= 1 && choice <= packs.length) {
-    amount = packs[choice - 1].amount;
+    const [, pack] = packs[choice - 1];
+    amount = pack.amount;
+    packName = pack.name;
   } else if (choice === packs.length + 1) {
     const customAmountStr = await question("Enter custom amount (e.g. 5000): ");
     amount = parseInt(customAmountStr.trim(), 10);
@@ -64,44 +76,27 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\nRunning simulation:`);
-  console.log(`- Project: ${projectSlug}`);
+  console.log(`\nCreating sandbox payment request:`);
   console.log(`- Order ID: ${orderId}`);
   console.log(`- Amount: Rp ${amount.toLocaleString("id-ID")}`);
 
   try {
-    const response = await fetch(
-      "https://app.pakasir.com/api/paymentsimulation",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          project: projectSlug,
-          order_id: orderId,
-          amount: amount,
-          api_key: apiKey,
-        }),
-      },
+    const payment = await createMayarPayment({
+      orderId: orderId.trim(),
+      amount,
+      packName,
+      expiredAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    console.log("\n✅ Payment request created in Mayar sandbox!");
+    console.log(`- transactionId: ${payment.transactionId}`);
+    console.log(`- Open this link to pay: ${payment.link}`);
+    console.log(
+      "\nAfter paying, check your dev server logs or the local webhook " +
+        "history in the Mayar sandbox dashboard for the delivered webhook.",
     );
-
-    const data = await response.json().catch(() => null);
-
-    if (response.ok) {
-      console.log("\n✅ Simulation request sent successfully to Pakasir!");
-      console.log("Response:", JSON.stringify(data, null, 2));
-      console.log(
-        "\nPlease check your UI or local webhook server log for the status update.",
-      );
-    } else {
-      console.error(
-        `\n❌ Failed to trigger simulation (Status ${response.status})`,
-      );
-      console.error("Error Response:", JSON.stringify(data, null, 2));
-    }
   } catch (error) {
-    console.error("\n❌ Network connection error occurred:", error);
+    console.error("\n❌ Failed to create sandbox payment:", error);
   } finally {
     rl.close();
   }
