@@ -106,28 +106,28 @@ const waitlistSchema = z.object({
     .string()
     .trim()
     .min(2, "Jawab dulu: mau bikin website buat apa?"),
-  photo: z.custom<File | undefined>().superRefine((value, ctx) => {
-    if (!(value instanceof File)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Upload foto usaha dulu.",
-      });
-      return;
-    }
-    if (value.size <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "File foto kosong.",
-      });
-      return;
-    }
-    if (value.size > 5 * 1024 * 1024) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Ukuran foto maksimal 5 MB.",
-      });
-    }
-  }),
+  photo: z
+    .array(z.instanceof(File, { message: "Upload foto usaha dulu." }))
+    .min(1, "Upload setidaknya 1 foto usaha.")
+    .max(3, "Maksimal 3 foto.")
+    .superRefine((files, ctx) => {
+      for (const file of files) {
+        if (file.size <= 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Ada file foto kosong.",
+          });
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Ukuran foto maksimal 5 MB per file.",
+          });
+          return;
+        }
+      }
+    }),
 });
 
 type WaitlistValues = z.infer<typeof waitlistSchema>;
@@ -136,7 +136,7 @@ const EMPTY_VALUES: WaitlistValues = {
   businessName: "",
   businessType: "",
   phone: "",
-  photo: undefined,
+  photo: [],
   storyGoal: "",
   storyOffers: "",
   storySince: BUSINESS_DURATIONS[0],
@@ -154,7 +154,7 @@ function WaitlistPage() {
   const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
   const [step, setStep] = useState(1);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const hasTurnstile = Boolean(getTurnstileSiteKey());
   const isDev = import.meta.env.DEV;
 
@@ -172,8 +172,8 @@ function WaitlistPage() {
       fd.append("storyOffers", values.storyOffers.trim());
       fd.append("storySince", values.storySince);
       fd.append("storyGoal", values.storyGoal.trim());
-      if (values.photo) {
-        fd.append("file", values.photo, values.photo.name);
+      for (const file of values.photo) {
+        fd.append("file", file, file.name);
       }
       fd.append("cf-turnstile-response", hasTurnstile ? "dev" : "dev");
       const response = await fetch("/api/waitlist", {
@@ -286,13 +286,9 @@ function WaitlistPage() {
   }, [step]);
 
   useEffect(() => {
-    if (!(form.values.photo instanceof File)) {
-      setPhotoPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(form.values.photo);
-    setPhotoPreview(url);
-    return () => URL.revokeObjectURL(url);
+    const urls = form.values.photo.map((f) => URL.createObjectURL(f));
+    setPhotoPreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
   }, [form.values.photo]);
 
   const submit = useMutation({
@@ -431,8 +427,16 @@ function WaitlistPage() {
         {step === 3 ? (
           <Step3
             errorMessage={form.errorMessage}
-            onChange={form.setField}
-            photoPreview={photoPreview}
+            onAddPhotos={(newFiles) => {
+              const combined = [...form.values.photo, ...newFiles].slice(0, 3);
+              form.setField("photo", combined as WaitlistValues["photo"]);
+            }}
+            onRemovePhoto={(index) => {
+              const next = form.values.photo.filter((_, i) => i !== index);
+              form.setField("photo", next as WaitlistValues["photo"]);
+            }}
+            photoCount={form.values.photo.length}
+            photoPreviews={photoPreviews}
           />
         ) : null}
 
@@ -796,79 +800,80 @@ function Step2({
 }
 
 function Step3({
-  photoPreview,
-  onChange,
+  photoPreviews,
+  onAddPhotos,
+  onRemovePhoto,
+  photoCount,
   errorMessage,
 }: {
-  photoPreview: string | null;
-  onChange: <K extends keyof WaitlistValues>(
-    name: K,
-    value: WaitlistValues[K],
-  ) => void;
+  photoPreviews: string[];
+  onAddPhotos: (files: File[]) => void;
+  onRemovePhoto: (index: number) => void;
+  photoCount: number;
   errorMessage: (name: keyof WaitlistValues) => string | null;
 }) {
   const photoError = errorMessage("photo");
+  const canAdd = photoCount < 3;
   return (
     <Step
-      question="Upload 1 foto usaha kamu"
-      helper="Wajib. Foto warung, produk, atau gerai kamu."
+      question="Upload foto usaha kamu"
+      helper="Wajib minimal 1 foto. Bisa foto toko, produk, atau tampilan online kamu."
       required
     >
-      <label
-        className={`flex w-full cursor-pointer flex-col items-center justify-center gap-spacing-3 rounded-radius-lg border border-dashed px-spacing-6 py-spacing-12 transition ${
-          photoError
-            ? "border-aurora-rose/60 bg-aurora-rose/5 text-aurora-rose"
-            : "border-surface-warm-white/20 bg-surface-warm-white/5 text-surface-warm-white/60 hover:border-aurora-orange/40 hover:bg-surface-warm-white/10 hover:text-surface-warm-white/80"
-        }`}
-      >
-        {photoPreview ? (
-          <div className="relative w-full max-w-xs overflow-hidden rounded-radius-md">
+      <div className="flex flex-wrap gap-spacing-3">
+        {photoPreviews.map((url, i) => (
+          <div
+            key={url}
+            className="relative size-20 overflow-hidden rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5"
+          >
             <img
-              alt="Pratinjau foto usaha"
-              className="max-h-64 w-full object-cover"
-              src={photoPreview}
+              src={url}
+              alt={`Foto ${i + 1}`}
+              className="size-full object-cover"
             />
+            <button
+              type="button"
+              onClick={() => onRemovePhoto(i)}
+              className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"
+              aria-label="Hapus foto"
+            >
+              <X className="size-3" />
+            </button>
           </div>
-        ) : (
-          <>
-            <ImagePlus className="size-10" />
-            <span className="text-sm font-semibold">
-              Pilih foto atau seret ke sini
+        ))}
+        {canAdd ? (
+          <label className="flex size-20 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-surface-warm-white/20 bg-surface-warm-white/5 text-surface-warm-white/60 transition hover:border-aurora-orange/40 hover:bg-surface-warm-white/10 hover:text-surface-warm-white/80">
+            <ImagePlus className="size-5" />
+            <span className="mt-1 text-[9px] font-semibold uppercase tracking-wide">
+              Upload
             </span>
-            <span className="text-xs opacity-60">
-              PNG / JPG / WEBP, maksimal 5 MB
-            </span>
-          </>
-        )}
-        <input
-          accept="image/png,image/jpeg,image/webp"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0] ?? undefined;
-            onChange("photo", file as WaitlistValues["photo"]);
-          }}
-          type="file"
-        />
-      </label>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                const files = event.target.files;
+                if (!files) {
+                  return;
+                }
+                const remaining = 3 - photoCount;
+                const toAdd = Array.from(files).slice(0, remaining);
+                onAddPhotos(toAdd);
+                event.target.value = "";
+              }}
+            />
+          </label>
+        ) : null}
+      </div>
 
       {photoError ? (
-        <p className="mt-spacing-2 text-center text-xs text-aurora-rose">
-          {photoError}
+        <p className="mt-spacing-2 text-xs text-aurora-rose">{photoError}</p>
+      ) : (
+        <p className="mt-spacing-2 text-xs text-surface-warm-white/50">
+          {photoCount}/3 foto · PNG / JPG / WEBP, maksimal 5 MB per file
         </p>
-      ) : null}
-
-      {photoPreview ? (
-        <div className="mt-spacing-4 flex justify-center">
-          <button
-            className="flex items-center gap-spacing-2 text-xs text-surface-warm-white/50 hover:text-surface-warm-white"
-            onClick={() => onChange("photo", undefined as unknown as File)}
-            type="button"
-          >
-            <X className="size-3" />
-            Ganti foto
-          </button>
-        </div>
-      ) : null}
+      )}
     </Step>
   );
 }

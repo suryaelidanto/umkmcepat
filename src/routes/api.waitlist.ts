@@ -60,41 +60,45 @@ export const Route = createFileRoute("/api/waitlist")({
         }
 
         let imageRef: string | null = null;
-        const file = form.get("file");
-        if (file instanceof File) {
-          if (file.size > MAX_WAITLIST_IMAGE_BYTES) {
-            return Response.json(
-              {
-                message: `Ukuran gambar melebihi ${MAX_WAITLIST_IMAGE_BYTES} byte.`,
-              },
-              { status: 413 },
-            );
-          }
-          try {
-            const bytes = Buffer.from(await file.arrayBuffer());
-            // Magic-byte validation: don't trust file.type (can lie). Reject
-            // non-images even if the client claims image/png.
-            if (!isImageMagicBytes(bytes)) {
+        const files = form
+          .getAll("file")
+          .filter((v): v is File => v instanceof File);
+        if (files.length > 0) {
+          const refs: string[] = [];
+          for (const file of files) {
+            if (file.size > MAX_WAITLIST_IMAGE_BYTES) {
               return Response.json(
-                { message: "File bukan gambar (PNG/JPEG/WEBP)." },
+                {
+                  message: `Ukuran gambar melebihi ${MAX_WAITLIST_IMAGE_BYTES} byte.`,
+                },
+                { status: 413 },
+              );
+            }
+            try {
+              const bytes = Buffer.from(await file.arrayBuffer());
+              if (!isImageMagicBytes(bytes)) {
+                return Response.json(
+                  { message: "File bukan gambar (PNG/JPEG/WEBP)." },
+                  { status: 400 },
+                );
+              }
+              const ref = await putStoredObject({
+                body: bytes,
+                contentType: file.type || "image/png",
+                key: `waitlist/${randomUUID().replace(/-/g, "")}.png`,
+              });
+              refs.push(ref);
+            } catch (error) {
+              devLog("waitlist", "image.error", {
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return Response.json(
+                { message: "Gambar tidak valid." },
                 { status: 400 },
               );
             }
-            // object-storage enforces image-only keys + path safety.
-            imageRef = await putStoredObject({
-              body: bytes,
-              contentType: file.type || "image/png",
-              key: `waitlist/${randomUUID().replace(/-/g, "")}.png`,
-            });
-          } catch (error) {
-            devLog("waitlist", "image.error", {
-              error: error instanceof Error ? error.message : String(error),
-            });
-            return Response.json(
-              { message: "Gambar tidak valid." },
-              { status: 400 },
-            );
           }
+          imageRef = JSON.stringify(refs);
         }
 
         try {
