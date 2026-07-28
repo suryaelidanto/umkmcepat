@@ -21,6 +21,7 @@
 - Never write a secret into a tracked file. This repo is public.
 - Never `console.log` an env value. Log the variable *name* plus a set/unset boolean only.
 - Surgical edits: touch only what the task requires. Do not refactor adjacent code.
+- **Other agents are working on `dev` concurrently.** Stage only the exact files your task's commit step names. Never `git add -A`, `git add .`, or `git commit -a`. The working tree contains unrelated in-flight changes that are not yours.
 - Read-side clamps stay the last word: DB/env values are always clamped by the consumer's existing `Math.min(max, Math.max(min, ...))` logic.
 - New reusable UI must land in Storybook in the same change.
 - Do not run `bun run build` unless a task says to.
@@ -1352,8 +1353,8 @@ git commit -m "feat(settings): add runtime and limits categories, wire DB-first 
 
 **Files:**
 - Modify: `src/routes/_main.admin.settings.tsx`
-- Create: `src/routes/_main.admin.settings.helpers.ts`
-- Create: `src/routes/_main.admin.settings.helpers.test.ts`
+- Modify: `src/routes/-_main.admin.settings.helpers.ts` (exists — holds `getDirtyKeys`/`isDirtyEntry` from the shipped dirty-save feature)
+- Modify: `src/routes/-_main.admin.settings.helpers.test.ts` (exists)
 - Create: `src/components/admin/AdvancedSettingsDisclosure.tsx`
 - Create: `src/components/admin/AdvancedSettingsDisclosure.stories.tsx`
 
@@ -1361,16 +1362,22 @@ git commit -m "feat(settings): add runtime and limits categories, wire DB-first 
 - Consumes: GET response fields `tier`, `min`, `max`, `requiresRestart` from Task 5; `CATEGORY_ORDER`, `CATEGORY_TIER` from Task 1
 - Produces: `groupByTier(entries): { basic: CategoryGroup[]; advanced: CategoryGroup[] }` where `CategoryGroup = { category: SettingCategory; entries: SettingEntry[] }`
 
+**CRITICAL — this file already exists and is in use.** The leading `-` is
+TanStack Router's convention for excluding a file from route generation; keep
+it. `src/routes/_main.admin.settings.tsx:7-9` already imports `getDirtyKeys`
+from it, and that dirty-save behaviour must keep working. You are **extending**
+this file and its existing `SettingEntry` type — do not create a second
+`SettingEntry`, and do not create an unprefixed `_main.admin.settings.helpers.ts`.
+
 - [ ] **Step 1: Write the failing test**
 
-Create `src/routes/_main.admin.settings.helpers.test.ts`:
+Append to the existing `src/routes/-_main.admin.settings.helpers.test.ts`
+(keep the existing `getDirtyKeys` tests untouched):
 
 ```ts
-import { describe, expect, it } from "vitest";
+import { groupByTier } from "./-_main.admin.settings.helpers";
 
-import { groupByTier } from "@/routes/_main.admin.settings.helpers";
-
-import type { SettingEntry } from "@/routes/_main.admin.settings.helpers";
+import type { SettingEntry } from "./-_main.admin.settings.helpers";
 
 const entry = (
   key: string,
@@ -1429,12 +1436,15 @@ describe("groupByTier", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `bun run test src/routes/_main.admin.settings.helpers.test.ts`
-Expected: FAIL — module does not exist.
+Run: `bun run test src/routes/-_main.admin.settings.helpers.test.ts`
+Expected: FAIL — `groupByTier` is not exported.
 
-- [ ] **Step 3: Write the helper**
+- [ ] **Step 3: Extend the helper**
 
-Create `src/routes/_main.admin.settings.helpers.ts`:
+In the existing `src/routes/-_main.admin.settings.helpers.ts`, widen the
+`SettingEntry` type already declared there (do not add a second one) and append
+`groupByTier`. `getDirtyKeys` and `isDirtyEntry` stay exactly as they are —
+widening `SettingEntry` does not change their behaviour.
 
 ```ts
 import {
@@ -1483,8 +1493,9 @@ export function groupByTier(entries: SettingEntry[]): {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `bun run test src/routes/_main.admin.settings.helpers.test.ts`
-Expected: PASS
+Run: `bun run test src/routes/-_main.admin.settings.helpers.test.ts`
+Expected: PASS — both the pre-existing `getDirtyKeys` tests and the new
+`groupByTier` tests.
 
 - [ ] **Step 5: Build the disclosure component**
 
@@ -1552,10 +1563,12 @@ export const Collapsed: Story = {
 
 - [ ] **Step 7: Wire the settings page**
 
-In `src/routes/_main.admin.settings.tsx`: delete the local `SettingEntry` type
-and the `categories` array; import `SettingEntry` and `groupByTier` from the
-helpers module. Extract the existing per-category `<section>` JSX into a local
-`CategorySection` component taking `{ group, draft, setDraft, onSave }`, then
+In `src/routes/_main.admin.settings.tsx`: delete the `categories` array and add
+`groupByTier` to the existing import from `./-_main.admin.settings.helpers`
+(the file already imports `getDirtyKeys` from there — extend that import, do not
+add a second one). Extract the existing per-category `<section>` JSX into a
+local `CategorySection` component taking `{ group, draft, setDraft, onSave }`,
+preserving the current dirty-aware Save and per-category Reset behaviour, then
 render:
 
 ```tsx
@@ -1619,7 +1632,7 @@ Expected: PASS
 - [ ] **Step 10: Commit**
 
 ```bash
-git add src/routes/_main.admin.settings.tsx src/routes/_main.admin.settings.helpers.ts src/routes/_main.admin.settings.helpers.test.ts src/components/admin/AdvancedSettingsDisclosure.tsx src/components/admin/AdvancedSettingsDisclosure.stories.tsx
+git add src/routes/_main.admin.settings.tsx src/routes/-_main.admin.settings.helpers.ts src/routes/-_main.admin.settings.helpers.test.ts src/components/admin/AdvancedSettingsDisclosure.tsx src/components/admin/AdvancedSettingsDisclosure.stories.tsx
 git commit -m "feat(settings): split admin settings into basic and advanced tiers"
 ```
 
