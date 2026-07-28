@@ -28,6 +28,7 @@
     "src/lib/provider-registry.ts": ["exports"],
     "src/lib/storage/index.ts": ["exports"],
     "src/lib/app-settings-registry.ts": ["exports"],
+    "src/lib/config.ts": ["exports"],
     "src/lib/zod-schemas.ts": ["exports", "types"]
   }
 }

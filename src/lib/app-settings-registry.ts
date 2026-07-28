@@ -35,6 +35,13 @@ export const APP_SETTINGS: ConfigEntry[] = [
     label: "Generated public execution",
     fallback: false,
   },
+  {
+    key: "feature.streamer_mode",
+    category: "feature_flag",
+    type: "boolean",
+    label: "Streamer mode (mask PII in admin)",
+    fallback: true,
+  },
   // booster (fallbacks mirror BOOSTER_PACKS in pakasir.ts)
   {
     key: "booster.pocket.amount",
