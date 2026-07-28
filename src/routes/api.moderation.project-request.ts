@@ -66,7 +66,10 @@ export const Route = createFileRoute("/api/moderation/project-request")({
             allowed: result.allowed,
             message: "message" in result ? result.message : undefined,
           });
-        } catch {
+        } catch (error) {
+          console.error("[moderation] api.moderation.project-request failed", {
+            error: error instanceof Error ? error.message : error,
+          });
           return Response.json(
             {
               allowed: false,

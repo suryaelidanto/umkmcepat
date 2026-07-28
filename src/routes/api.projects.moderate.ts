@@ -73,7 +73,10 @@ export const Route = createFileRoute("/api/projects/moderate")({
             },
             { status: 200 },
           );
-        } catch {
+        } catch (error) {
+          console.error("[moderation] api.projects.moderate failed", {
+            error: error instanceof Error ? error.message : error,
+          });
           return Response.json(
             {
               allowed: false,
