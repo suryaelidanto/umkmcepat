@@ -25,10 +25,9 @@ export function resolveUserWaitlistStatus({
   if (!email) {
     return { status: null };
   }
-  // In development, we allow admins to test the waitlist gate.
-  // Thus, if they are an admin, we only automatically approve them if NODE_ENV !== "development".
-  const isDev = process.env.NODE_ENV === "development";
-  if (isAdmin && !isDev) {
+  // Admins always bypass the gate, in every environment. To exercise the
+  // gate itself locally, sign in with a non-admin account instead.
+  if (isAdmin) {
     return { status: "approved" };
   }
   if (!waitlistEnabled) {
