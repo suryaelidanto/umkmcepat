@@ -2082,7 +2082,7 @@ export function WorkspaceShell({
             // Inline the image bytes as a data URL so the model reads them
             // without fetching R2; small (<=5 MiB) so base64 is fine.
             const bytes = new Uint8Array(await item.file.arrayBuffer());
-            const base64 = btoa(String.fromCharCode(...bytes));
+            const base64 = btoa(new TextDecoder("latin1").decode(bytes));
             parts.push({
               filename: item.file.name,
               mediaType: item.file.type || "image/png",

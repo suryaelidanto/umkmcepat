@@ -172,7 +172,7 @@ export function HomePromptForm({
                 );
               }
               const bytes = new Uint8Array(await item.file.arrayBuffer());
-              const base64 = btoa(String.fromCharCode(...bytes));
+              const base64 = btoa(new TextDecoder("latin1").decode(bytes));
               fileParts.push({
                 filename: item.file.name,
                 mediaType: item.file.type || "image/png",
