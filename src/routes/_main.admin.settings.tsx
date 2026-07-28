@@ -3,18 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { fetchJson } from "@/lib/query-client";
+import {
+  getDirtyKeys,
+  isDirtyEntry,
+  type SettingEntry,
+} from "./_main.admin.settings.helpers";
 
-type SettingEntry = {
-  category: string;
-  dbValue: unknown;
-  effectiveValue: unknown;
-  fallback: boolean | number | string;
-  key: string;
-  label: string;
-  source: string;
-  type: "boolean" | "number" | "string";
-};
+import { fetchJson } from "@/lib/query-client";
 
 export const Route = createFileRoute("/_main/admin/settings")({
   component: SettingsPage,
@@ -27,7 +22,14 @@ function SettingsPage() {
       fetchJson<{ entries: SettingEntry[] }>("/api/admin/settings"),
     queryKey: ["admin", "settings"],
   });
+  const [baseline, setBaseline] = useState<SettingEntry[]>([]);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
+
+  const entries = data?.entries ?? [];
+  const dirtyKeys = new Set(Object.keys(draft));
+  if (data && baseline !== entries && dirtyKeys.size === 0) {
+    setBaseline(entries);
+  }
 
   const save = useMutation({
     mutationFn: (vars: { category: string; values: Record<string, unknown> }) =>
@@ -46,7 +48,12 @@ function SettingsPage() {
 
   const categories = ["feature_flag", "booster", "rate_limit", "ai"] as const;
   const byCat = (cat: string) =>
-    data?.entries.filter((e) => e.category === cat) ?? [];
+    entries.filter((e) => e.category === cat) ?? [];
+  const dirtyByCategory = (cat: string): Set<string> =>
+    getDirtyKeys(
+      entries.filter((e) => e.category === cat),
+      draft,
+    );
 
   return (
     <div className="flex flex-col gap-spacing-6">
@@ -100,17 +107,47 @@ function SettingsPage() {
                       value={String(value)}
                     />
                   )}
+                  {isDirtyEntry(entry, draft[entry.key]) && (
+                    <button
+                      className="rounded-radius-md border border-surface-warm-white/15 px-spacing-2 py-spacing-1 text-xs text-surface-warm-white/80 hover:bg-surface-warm-white/10"
+                      onClick={() =>
+                        setDraft((d) => {
+                          const next = { ...d };
+                          delete next[entry.key];
+                          return next;
+                        })
+                      }
+                      type="button"
+                    >
+                      Reset
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
-          <button
-            className="mt-spacing-3 rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
-            onClick={() => save.mutate({ category: cat, values: draft })}
-            type="button"
-          >
-            Simpan {cat.replace("_", " ")}
-          </button>
+          {(() => {
+            const dirty = dirtyByCategory(cat);
+            const hasDirty = dirty.size > 0;
+            return (
+              <button
+                className="mt-spacing-3 rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!hasDirty || save.isPending}
+                onClick={() => {
+                  const values: Record<string, unknown> = {};
+                  for (const key of dirty) {
+                    values[key] = draft[key];
+                  }
+                  save.mutate({ category: cat, values });
+                }}
+                type="button"
+              >
+                {hasDirty
+                  ? `Simpan ${cat.replace("_", " ")} (${dirty.size})`
+                  : `Simpan ${cat.replace("_", " ")}`}
+              </button>
+            );
+          })()}
         </section>
       ))}
     </div>
