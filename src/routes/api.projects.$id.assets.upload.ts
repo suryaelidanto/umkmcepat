@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { auth } from "@/lib/auth";
+import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import {
   isAllowedAssetPurpose,
   uploadProjectAsset,
@@ -66,7 +68,33 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
         }
 
         const bytes = Buffer.from(await file.arrayBuffer());
+        const detectedFormat = detectImageFormat(bytes);
+        if (!detectedFormat) {
+          return Response.json(
+            {
+              message:
+                "Format gambar tidak didukung. Gunakan PNG, JPEG, atau WEBP.",
+            },
+            { status: 400 },
+          );
+        }
+        const contentType = contentTypeFromExt(detectedFormat);
+
         try {
+          const moderation = await moderateProjectRequest("", [
+            { bytes, mediaType: contentType },
+          ]);
+          if (!moderation.allowed) {
+            return Response.json(
+              {
+                message:
+                  "message" in moderation
+                    ? moderation.message
+                    : "Gambar tidak memenuhi syarat.",
+              },
+              { status: 400 },
+            );
+          }
           const asset = await uploadProjectAsset({
             bytes,
             projectId: id,
@@ -75,10 +103,13 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
           });
           return Response.json(asset, { status: 201 });
         } catch (error) {
+          console.error("[moderation] assets.upload failed", {
+            error: error instanceof Error ? error.message : error,
+          });
           const message = mapToUserFacingError(
             error instanceof Error ? error.message : "",
           );
-          return Response.json({ message }, { status: 400 });
+          return Response.json({ message }, { status: 503 });
         }
       },
     },
