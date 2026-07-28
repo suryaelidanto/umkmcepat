@@ -1,5 +1,6 @@
-import { prisma } from "@/lib/prisma";
 import { SupportCategory, SupportTicketStatus } from "@prisma/client";
+
+import { prisma } from "@/lib/prisma";
 
 export type TicketInput = {
   userId: string;
@@ -17,7 +18,9 @@ export type MessageInput = {
   assetIds?: string[];
 };
 
-export async function createTicket(input: TicketInput): Promise<{ ticketId: string; firstMessageId: string }> {
+export async function createTicket(
+  input: TicketInput,
+): Promise<{ ticketId: string; firstMessageId: string }> {
   const subject = input.subject.trim();
   const body = input.body.trim();
   const assetIds = input.assetIds || [];
@@ -59,7 +62,9 @@ export async function createTicket(input: TicketInput): Promise<{ ticketId: stri
   });
 }
 
-export async function addMessage(input: MessageInput): Promise<{ messageId: string }> {
+export async function addMessage(
+  input: MessageInput,
+): Promise<{ messageId: string }> {
   const body = input.body.trim();
   const assetIds = input.assetIds || [];
 
@@ -129,7 +134,9 @@ export async function resolveTicket(
       orderBy: { createdAt: "desc" },
     });
     if (!lastMessage || lastMessage.authorRole !== "user") {
-      throw new Error("Hanya bisa menutup tiket setelah Anda mengirim pesan terakhir.");
+      throw new Error(
+        "Hanya bisa menutup tiket setelah Anda mengirim pesan terakhir.",
+      );
     }
   }
 
@@ -151,12 +158,16 @@ export type TicketBadgeCounts = {
 };
 
 // 30s cache TTL using simple in-memory Map
-const cache = new Map<string, { counts: TicketBadgeCounts; expiresAt: number }>();
+const cache = new Map<
+  string,
+  { counts: TicketBadgeCounts; expiresAt: number }
+>();
 const CACHE_TTL_MS = 30 * 1000;
 
-export async function getUnreadCounts(
-  actor: { userId: string; isAdmin: boolean }
-): Promise<TicketBadgeCounts> {
+export async function getUnreadCounts(actor: {
+  userId: string;
+  isAdmin: boolean;
+}): Promise<TicketBadgeCounts> {
   const cacheKey = `${actor.userId}-${actor.isAdmin}`;
   const now = Date.now();
   const cached = cache.get(cacheKey);
@@ -183,7 +194,7 @@ export async function getUnreadCounts(
       },
     });
     adminUnreadCount = openTickets.filter(
-      (t) => t.messages.length > 0 && t.messages[0].authorRole === "user"
+      (t) => t.messages.length > 0 && t.messages[0].authorRole === "user",
     ).length;
   } else {
     // User unread count: count of own OPEN tickets

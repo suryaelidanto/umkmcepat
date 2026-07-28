@@ -1,5 +1,5 @@
-import { sendEmail } from "@/lib/email";
 import { devLog } from "@/lib/dev-log";
+import { sendEmail } from "@/lib/email";
 
 type SupportReplyEmailInput = {
   toEmail: string;

@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SupportCategory, SupportTicketStatus } from "@prisma/client";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock } = vi.hoisted(() => {
   return {
@@ -26,7 +26,12 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 // Now import the service after mocking prisma
-import { createTicket, addMessage, resolveTicket, getUnreadCounts } from "@/lib/support/service";
+import {
+  createTicket,
+  addMessage,
+  resolveTicket,
+  getUnreadCounts,
+} from "@/lib/support/service";
 
 describe("support service", () => {
   beforeEach(() => {
@@ -41,7 +46,7 @@ describe("support service", () => {
           subject: "a".repeat(141),
           category: SupportCategory.TEKNIS,
           body: "Halo, ada masalah teknis.",
-        })
+        }),
       ).rejects.toThrow("Subject maksimal 140 karakter.");
     });
 
@@ -52,7 +57,7 @@ describe("support service", () => {
           subject: "Masalah baru",
           category: SupportCategory.TEKNIS,
           body: "   ",
-        })
+        }),
       ).rejects.toThrow("Pesan detail tidak boleh kosong.");
     });
 
@@ -64,7 +69,7 @@ describe("support service", () => {
           category: SupportCategory.TEKNIS,
           body: "Halo",
           assetIds: ["1", "2", "3", "4"],
-        })
+        }),
       ).rejects.toThrow("Maksimal 3 lampiran diperbolehkan.");
     });
 
@@ -89,7 +94,10 @@ describe("support service", () => {
         assetIds: ["img-1"],
       });
 
-      expect(result).toEqual({ ticketId: "ticket-1", firstMessageId: "message-1" });
+      expect(result).toEqual({
+        ticketId: "ticket-1",
+        firstMessageId: "message-1",
+      });
       expect(prismaMock.supportTicket.create).toHaveBeenCalledWith({
         data: {
           userId: "user-1",
@@ -119,7 +127,7 @@ describe("support service", () => {
           authorRole: "user",
           body: "Pesan",
           assetIds: ["1", "2", "3", "4"],
-        })
+        }),
       ).rejects.toThrow("Maksimal 3 lampiran diperbolehkan.");
     });
 
@@ -135,7 +143,7 @@ describe("support service", () => {
           authorId: "user-1",
           authorRole: "user",
           body: "Pesan tambahan",
-        })
+        }),
       ).rejects.toThrow("Tidak bisa membalas tiket yang sudah selesai.");
     });
 
@@ -231,9 +239,9 @@ describe("support service", () => {
         authorRole: "admin",
       });
 
-      await expect(
-        resolveTicket("ticket-1", "user-1", false)
-      ).rejects.toThrow("Hanya bisa menutup tiket setelah Anda mengirim pesan terakhir.");
+      await expect(resolveTicket("ticket-1", "user-1", false)).rejects.toThrow(
+        "Hanya bisa menutup tiket setelah Anda mengirim pesan terakhir.",
+      );
     });
   });
 
@@ -241,7 +249,10 @@ describe("support service", () => {
     it("returns open count for user", async () => {
       prismaMock.supportTicket.count.mockResolvedValue(5);
 
-      const result = await getUnreadCounts({ userId: "user-1", isAdmin: false });
+      const result = await getUnreadCounts({
+        userId: "user-1",
+        isAdmin: false,
+      });
       expect(result.userUnreadCount).toBe(5);
       expect(prismaMock.supportTicket.count).toHaveBeenCalledWith({
         where: {
@@ -257,7 +268,10 @@ describe("support service", () => {
         { id: "ticket-2", messages: [{ authorRole: "admin" }] },
       ]);
 
-      const result = await getUnreadCounts({ userId: "admin-1", isAdmin: true });
+      const result = await getUnreadCounts({
+        userId: "admin-1",
+        isAdmin: true,
+      });
       expect(result.adminUnreadCount).toBe(1);
     });
   });
