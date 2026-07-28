@@ -1,7 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, LifeBuoy, LogOut, Shield, UserRound, Zap } from "lucide-react";
+import {
+  ChevronDown,
+  LifeBuoy,
+  LogOut,
+  Shield,
+  UserRound,
+  Zap,
+} from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";

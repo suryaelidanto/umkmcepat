@@ -174,7 +174,9 @@ function AdminTicketThreadPage() {
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const files = event.target.files;
-    if (!files) {return;}
+    if (!files) {
+      return;
+    }
 
     const fileList = Array.from(files);
     if (attachments.length + fileList.length > 3) {
@@ -215,7 +217,9 @@ function AdminTicketThreadPage() {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyBody.trim()) {return;}
+    if (!replyBody.trim()) {
+      return;
+    }
 
     const assetIds = attachments
       .filter((item) => !item.uploading)
