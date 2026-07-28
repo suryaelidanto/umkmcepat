@@ -4,6 +4,16 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 
 ## 2026-07
 
+### 2026-07-28 — Phase 1 security correctness
+
+- **Auth.js upgrade**: `@auth/core` 0.34.3 → 0.41.3, `@auth/prisma-adapter` 2.11.2 → 2.11.3. Closes critical homoglyph email bypass (admin allowlist is an email match, so this was a privilege-escalation path), plus the getToken() DoS and PKCE-cookie binding advisories. JWT session round-trip after upgrade: **PENDING MANUAL VERIFICATION** (sign in, restart dev server without clearing cookies, confirm still signed in — record any forced re-login).
+- **Payment webhook race fix**: claim is now a single conditional `updateMany` on `Payment.status = "PENDING" → "COMPLETED"`. Exactly one concurrent delivery per `orderId` can grant energy; replaces the read-then-update that took no lock and could double-grant.
+- **Energy deduction race fix**: per-user `pg_advisory_xact_lock(hashtext(userId))` before the daily-cap `SUM` + `INSERT`. Advisory lock is transaction-scoped, releases on commit/rollback, and serializes only the per-user hot path (no cross-user contention).
+- **Real-DB integration test project**: new `tests/integration/**/*.itest.ts` (`.itest.ts` so the `unit` project doesn't pick them up) with a `resetDatabase` + `createTestUser` harness. CI step added to `quality.yml`. Mocked-Prisma unit suite cannot express READ COMMITTED semantics, so the race tests must hit a real Postgres.
+- **Production preflight**: `TURNSTILE_SECRET_KEY` now required alongside `OTP_SPACE_API_KEY` in `assertProductionConfigReady()`. Without it, the production boot preflight fails loudly rather than silently breaking every Turnstile-protected form. `docs/deployment.md` "Minimum production env" updated.
+- **Dependency hygiene**: `bun update` across 109 packages. 0 critical, 0 moderate advisories remain. Residual 7 high advisories are all transitive dev/build-path (fast-uri, brace-expansion, postcss, js-yaml) and are not reachable from production runtime.
+- **Docs**: removed two fabricated security specs (`2026-07-27-comprehensive-security-hardening.md`, `2026-07-27-security-hardening-spec.md`) that described a different application; corrected `ADMIN_EMAILS` comment in `.env.example` to state the allowlist is fail-closed (empty grants nobody, in every environment).
+
 ### 2026-07-25 — 9-topic batch
 
 - **R2 display-media storage**: shared `r2-client.ts` (consolidated Sig V4 from two dup copies); `PROJECT_ASSET_STORAGE_PROVIDER` (local|r2); `ProjectAsset.publicUrl`; serve-route 302→R2; live round-trip verified against `umkmcepat-dev`.
