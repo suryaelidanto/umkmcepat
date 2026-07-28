@@ -197,6 +197,24 @@ describe("Payment API Routes", () => {
         }),
       );
     });
+
+    it("returns 500 when createMayarPayment throws", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user-1" },
+        expires: new Date().toISOString(),
+      });
+      createMayarPaymentMock.mockRejectedValueOnce(new Error("Mayar API down"));
+
+      const res = await POST_CREATE(
+        new Request("http://localhost/api/payment/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ packageId: "pocket" }),
+        }),
+      );
+
+      expect(res.status).toBe(500);
+    });
   });
 
   describe("POST /api/payment/webhook", () => {
