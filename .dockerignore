@@ -17,3 +17,20 @@ Dockerfile*
 docker-compose*.yml
 README.md
 docs
+
+# Local runtime data, agent artifacts, and build outputs. None of this belongs
+# in a production image; .data alone is multiple GB of local uploads and
+# generated projects.
+.data
+.output
+.nitro
+.tanstack
+graphify-out
+storybook-static
+.pi-subagents
+.superpowers
+.claude
+.agents
+__captures__
+.omc
+dev.log*
