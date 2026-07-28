@@ -349,6 +349,21 @@ Runtime config is DB-driven via the `AppSetting` table (key/category/value JSON,
 
 Admin APIs under `/api/admin/*` (overview, users, users/:id, transactions, transactions/:orderId/verify, settings) are all `requireAdmin()`-guarded and return 401 for anonymous / 403 for authenticated-but-not-admin.
 
+### Configuration resolution
+
+Non-secret config resolves DB-first:
+
+    getSetting (async)  : TTL cache → AppSetting → snapshot → .env → fallback
+    getSettingSync      : TTL cache → snapshot → fallback
+
+`src/lib/app-settings-registry.ts` is the single source of truth: each entry declares its `key`, `env` name, type, bounds, and tier. Nothing derives an env name by string transformation.
+
+`primeSettingCache()` loads every `AppSetting` row into a **no-TTL snapshot**, awaited in `src/start.ts` middleware before any handler runs. This is what lets consumers stay synchronous while still honouring admin edits — without it, the 5s TTL would expire and sync reads would silently revert to `.env`.
+
+Bounds are enforced twice: on write by `validateSettingValue` in `src/routes/api.admin.settings.ts`, and on read by each consumer's existing clamp.
+
+Secrets, security boundaries (`ADMIN_EMAILS`, `PROJECT_RUNTIME_ALLOWED_HOSTS`), and boot-time topology (providers, paths, endpoints) stay `.env`-only and are deliberately absent from the registry.
+
 ## Safety checklist
 
 Before changing project, renderer, publishing, generated artifacts, providers, auth, storage, or AI behavior:

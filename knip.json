@@ -21,7 +21,7 @@
     "powershell.exe",
     "taskkill"
   ],
-  "ignoreDependencies": ["tailwindcss"],
+  "ignoreDependencies": ["tailwindcss", "@storybook/react"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     "src/components/ui/**": ["exports"],
