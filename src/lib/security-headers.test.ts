@@ -120,4 +120,29 @@ describe("security headers", () => {
       "script-src 'nonce-testnonce123' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
     );
   });
+
+  it("sets HSTS on control-plane responses", () => {
+    const headers = new Headers();
+    applySecurityHeaders(headers, {
+      generatedOrigin: false,
+      pathname: "/dashboard",
+      nonce: "test-nonce",
+    });
+
+    expect(headers.get("Strict-Transport-Security")).toBe(
+      "max-age=63072000; includeSubDomains",
+    );
+  });
+
+  it("does not set HSTS on the generated-project origin", () => {
+    const headers = new Headers();
+    applySecurityHeaders(headers, {
+      generatedOrigin: true,
+      pathname: "/",
+      nonce: "test-nonce",
+    });
+
+    // We do not control generated subdomains and must not pin them.
+    expect(headers.get("Strict-Transport-Security")).toBeNull();
+  });
 });

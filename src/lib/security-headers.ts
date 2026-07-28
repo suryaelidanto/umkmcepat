@@ -70,6 +70,15 @@ export function applySecurityHeaders(
     return headers;
   }
 
+  // Control plane only. The generated-project origin returned above: we do not
+  // control its subdomains and must not pin them. `preload` is deliberately
+  // omitted until the domain is confirmed stable on HTTPS — it is effectively
+  // irreversible once submitted.
+  headers.set(
+    "Strict-Transport-Security",
+    "max-age=63072000; includeSubDomains",
+  );
+
   const privatePreview =
     /^\/api\/projects\/[^/]+\/(?:preview|assets)(?:\/|$)/.test(pathname);
 
