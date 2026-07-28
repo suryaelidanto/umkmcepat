@@ -1,12 +1,19 @@
 import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { ImagePlus, Loader2, MessageSquare, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";
 import { fetchJson } from "@/lib/query-client";
 
@@ -52,11 +59,15 @@ const CATEGORY_COLORS: Record<SupportCategory, string> = {
 };
 
 function SupportPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [category, setCategory] = useState<SupportCategory>("TEKNIS");
   const [body, setBody] = useState("");
+  const { pathname } = useRouterState({ select: (s) => s.location });
+  const isTicketThread =
+    pathname !== "/support" && pathname.startsWith("/support/");
 
   // Attachments state
   const [attachments, setAttachments] = useState<
@@ -114,8 +125,8 @@ function SupportPage() {
       setBody("");
       setAttachments([]);
       setFormOpen(false);
-      // Navigate to the created ticket
-      window.location.href = `/support/${data.ticketId}`;
+      // Navigate to the created ticket (SPA navigation so the parent Outlet picks up the child route)
+      void router.navigate({ to: "/support/$ticketId", params: { ticketId: data.ticketId } });
     },
     onError: (error) => {
       toast.error(
@@ -212,6 +223,10 @@ function SupportPage() {
     }
     return `${diffDays} hari lalu`;
   };
+
+  if (isTicketThread) {
+    return <Outlet />;
+  }
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-spacing-4 pb-24 pt-spacing-4 text-surface-warm-white">
@@ -402,7 +417,7 @@ function SupportPage() {
               const lastMsg = ticket.messages[0];
               const shortId = ticket.id.slice(-8).toUpperCase();
               return (
-                <a
+                <Link
                   key={ticket.id}
                   href={`/support/${ticket.id}`}
                   className="flex flex-col gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-4 transition hover:bg-surface-warm-white/8 hover:border-surface-warm-white/20"
@@ -442,7 +457,7 @@ function SupportPage() {
                   <div className="flex justify-end text-[10px] text-surface-warm-white/40 border-t border-surface-warm-white/5 pt-spacing-2 mt-spacing-1">
                     Aktif {formatTimeAgo(ticket.updatedAt)}
                   </div>
-                </a>
+                </Link>
               );
             })}
           </div>

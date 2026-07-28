@@ -1,10 +1,15 @@
 import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  useRouterState,
+} from "@tanstack/react-router";
 import { Loader2, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
 import { SensitiveText } from "@/components/admin/SensitiveText";
+import { Link } from "@/components/ui/link";
 import { fetchJson } from "@/lib/query-client";
 
 export const Route = createFileRoute("/_main/admin/tickets")({
@@ -50,6 +55,9 @@ function AdminTicketsPage() {
   const [categoryFilter, setCategoryFilter] = useState<SupportCategory | "ALL">(
     "ALL",
   );
+  const { pathname } = useRouterState({ select: (s) => s.location });
+  const isTicketThread =
+    pathname !== "/admin/tickets" && pathname.startsWith("/admin/tickets/");
 
   const buildUrl = () => {
     const params = new URLSearchParams();
@@ -88,6 +96,10 @@ function AdminTicketsPage() {
     }
     return `${diffDays} hari lalu`;
   };
+
+  if (isTicketThread) {
+    return <Outlet />;
+  }
 
   return (
     <div className="flex flex-col gap-spacing-4">
@@ -155,7 +167,7 @@ function AdminTicketsPage() {
               lastMsg.authorRole === "user";
 
             return (
-              <a
+              <Link
                 key={ticket.id}
                 href={`/admin/tickets/${ticket.id}`}
                 className={`relative flex flex-col gap-spacing-2 rounded-radius-md border p-spacing-4 transition ${needsReply ? "border-aurora-orange/30 bg-aurora-orange/5 hover:bg-aurora-orange/8" : "border-surface-warm-white/10 bg-surface-warm-white/5 hover:bg-surface-warm-white/8"}`}
@@ -202,7 +214,7 @@ function AdminTicketsPage() {
                     </p>
                   )}
                 </div>
-              </a>
+              </Link>
             );
           })}
         </div>
