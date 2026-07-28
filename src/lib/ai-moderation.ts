@@ -18,6 +18,8 @@ export type ModerationResult =
       usage: { inputTokens: number; outputTokens: number };
     };
 
+export type ModerationImage = { bytes: Buffer; mediaType: string };
+
 const BLOCK_MESSAGE =
   "Maaf, AI tidak bisa membantu membuat website untuk topik ini. Kamu bisa ubah chat dan coba lagi.";
 const CLARIFY_MESSAGE =
@@ -31,6 +33,7 @@ const moderationCache = new Map<
 
 export async function moderateProjectRequest(
   prompt: string,
+  images: ModerationImage[] = [],
   timeoutMs = getModerationTimeoutMs(),
 ): Promise<ModerationResult> {
   const key = normalizePrompt(prompt);
@@ -48,25 +51,42 @@ export async function moderateProjectRequest(
     model: getDefaultAiModel(),
   });
 
-  const abortController = new AbortController();
-  const result = await withAiTimeout(
-    generateText({
-      abortSignal: abortController.signal,
-      maxOutputTokens: 256,
-      model: getAiModel(getDefaultAiModel()),
-      temperature: 0,
-      timeout: timeoutMs,
-      telemetry: getAiTelemetry("project-moderation", {
-        model: getDefaultAiModel(),
+  const contentParts: Array<
+    | { type: "text"; text: string }
+    | { type: "file"; data: Buffer; mediaType: string }
+  > = [];
+  if (prompt.trim()) {
+    contentParts.push({ type: "text", text: prompt.trim() });
+  }
+  for (const image of images) {
+    contentParts.push({
+      type: "file",
+      data: image.bytes,
+      mediaType: image.mediaType,
+    });
+  }
+
+  const result = await callWithRetry(() => {
+    const abortController = new AbortController();
+    return withAiTimeout(
+      generateText({
+        abortSignal: abortController.signal,
+        maxOutputTokens: 256,
+        model: getAiModel(getDefaultAiModel()),
+        temperature: 0,
+        timeout: timeoutMs,
+        telemetry: getAiTelemetry("project-moderation", {
+          model: getDefaultAiModel(),
+        }),
+        system:
+          "You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when intent is unclear but potentially unsafe. ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action.",
+        messages: [{ role: "user", content: contentParts }],
       }),
-      system:
-        "You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when intent is unclear but potentially unsafe. ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action.",
-      prompt: key,
-    }),
-    "moderation",
-    abortController,
-    timeoutMs,
-  );
+      "moderation",
+      abortController,
+      timeoutMs,
+    );
+  });
 
   const usage = {
     inputTokens: result.usage?.inputTokens ?? 0,
@@ -95,6 +115,25 @@ export async function moderateProjectRequest(
   });
 
   return moderationResult;
+}
+
+async function callWithRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (firstError) {
+    console.error("[moderation] attempt-1 failed, retrying in 1s", {
+      error: firstError instanceof Error ? firstError.message : firstError,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      return await fn();
+    } catch (secondError) {
+      console.error("[moderation] attempt-2 failed, giving up", {
+        error: secondError instanceof Error ? secondError.message : secondError,
+      });
+      throw secondError;
+    }
+  }
 }
 
 export function getModerationTimeoutMs() {

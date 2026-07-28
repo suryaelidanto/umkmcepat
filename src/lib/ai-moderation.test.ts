@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("ai", () => ({ generateText: vi.fn() }));
 vi.mock("@/lib/ai", () => ({
@@ -11,7 +11,7 @@ vi.mock("@/lib/ai-models", () => ({
   getDefaultAiModel: vi.fn(() => "umkmcepat-combo"),
 }));
 
-const generateTextMock = vi.mocked(generateText);
+const generateTextMock = generateText as Mock;
 
 import { moderateProjectRequest } from "./ai-moderation";
 
@@ -55,7 +55,22 @@ describe("moderateProjectRequest", () => {
     });
   });
 
-  it("throws provider errors", async () => {
+  it("retries once on error and succeeds", async () => {
+    generateTextMock.mockRejectedValueOnce(new Error("transient check error"));
+    generateTextMock.mockResolvedValueOnce({
+      text: "ALLOW",
+      usage: { inputTokens: 12, outputTokens: 2 },
+    } as never);
+
+    await expect(moderateProjectRequest("jual teh retry")).resolves.toEqual({
+      allowed: true,
+      modelId: "umkmcepat-combo",
+      usage: { inputTokens: 12, outputTokens: 2 },
+    });
+  });
+
+  it("throws provider errors after retrying once", async () => {
+    generateTextMock.mockRejectedValueOnce(new Error("provider down"));
     generateTextMock.mockRejectedValueOnce(new Error("provider down"));
 
     await expect(
@@ -64,10 +79,35 @@ describe("moderateProjectRequest", () => {
   });
 
   it("times out", async () => {
-    generateTextMock.mockReturnValueOnce(new Promise(() => undefined) as never);
+    generateTextMock.mockReturnValue(new Promise(() => undefined) as never);
 
-    await expect(moderateProjectRequest("jual teh timeout", 1)).rejects.toThrow(
-      "AI moderation timed out",
-    );
+    await expect(
+      moderateProjectRequest("jual teh timeout", [], 1),
+    ).rejects.toThrow("AI moderation timed out");
+  });
+
+  it("passes image content when provided", async () => {
+    generateTextMock.mockClear();
+    generateTextMock.mockResolvedValueOnce({
+      text: "ALLOW",
+      usage: { inputTokens: 20, outputTokens: 1 },
+    } as never);
+
+    const imageBytes = Buffer.from("fake-image");
+    await moderateProjectRequest("jual baju", [
+      { bytes: imageBytes, mediaType: "image/png" },
+    ]);
+
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+    const callArgs = generateTextMock.mock.calls[0][0];
+    expect(callArgs.messages).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "jual baju" },
+          { type: "file", data: imageBytes, mediaType: "image/png" },
+        ],
+      },
+    ]);
   });
 });
