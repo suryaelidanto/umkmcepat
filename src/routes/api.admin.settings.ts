@@ -5,10 +5,44 @@ import { invalidateSettingCache } from "@/lib/app-settings";
 import {
   APP_SETTINGS,
   findConfigEntry,
+  type ConfigEntry,
   type SettingCategory,
 } from "@/lib/app-settings-registry";
 import { requireAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
+
+// Returns an Indonesian error message, or null when the value is acceptable.
+// Bounds come from the registry, so a value that reaches the DB is already
+// in-range — the consumer's read-side clamp is a second net for legacy values.
+export function validateSettingValue(
+  key: string,
+  value: unknown,
+  category: SettingCategory,
+): string | null {
+  const entry = findConfigEntry(key);
+  if (!entry || entry.category !== category) {
+    return `Kunci tidak valid: ${key}`;
+  }
+  if (entry.type === "boolean" && typeof value !== "boolean") {
+    return `${key} harus boolean.`;
+  }
+  if (entry.type === "string" && typeof value !== "string") {
+    return `${key} harus teks.`;
+  }
+  if (entry.type === "number") {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return `${key} harus angka.`;
+    }
+    const { min, max } = entry;
+    if (
+      (min !== undefined && value < min) ||
+      (max !== undefined && value > max)
+    ) {
+      return `${key} harus antara ${min} dan ${max}.`;
+    }
+  }
+  return null;
+}
 
 export const Route = createFileRoute("/api/admin/settings")({
   server: {
@@ -25,37 +59,34 @@ export const Route = createFileRoute("/api/admin/settings")({
           select: { category: true, key: true, value: true },
         });
         const dbMap = new Map(rows.map((r) => [r.key, r.value]));
-        const envValue = (key: string): unknown => {
-          const envNames: Record<string, string> = {
-            "feature.waitlist_enabled": "WAITLIST_ENABLED",
-            "feature.generated_build_execution":
-              "GENERATED_BUILD_EXECUTION_ENABLED",
-            "feature.generated_public_execution":
-              "GENERATED_PUBLIC_EXECUTION_ENABLED",
-          };
-          const name = envNames[key];
-          if (!name) {
+        const envValue = (entry: ConfigEntry): unknown => {
+          if (!entry.env) {
             return undefined;
           }
-          const raw = process.env[name];
+          const raw = process.env[entry.env];
           if (!raw) {
             return undefined;
           }
-          return raw.toLowerCase();
+          return entry.type === "boolean" ? raw.toLowerCase() : raw;
         };
         const entries = APP_SETTINGS.map((e) => {
           const db = dbMap.get(e.key);
-          const env = envValue(e.key);
+          const env = envValue(e);
           const source =
             db !== undefined ? "db" : env !== undefined ? "env" : "fallback";
           return {
             category: e.category,
             dbValue: db ?? null,
             effectiveValue: db ?? env ?? e.fallback,
+            env: e.env ?? null,
             fallback: e.fallback,
             key: e.key,
             label: e.label,
+            max: e.max ?? null,
+            min: e.min ?? null,
+            requiresRestart: e.requiresRestart ?? false,
             source,
+            tier: e.tier,
             type: e.type,
           };
         });
@@ -84,33 +115,9 @@ export const Route = createFileRoute("/api/admin/settings")({
         }
         // Validate every value against the registry.
         for (const [key, value] of Object.entries(values)) {
-          const entry = findConfigEntry(key);
-          if (!entry || entry.category !== category) {
-            return Response.json(
-              { message: `Kunci tidak valid: ${key}` },
-              { status: 400 },
-            );
-          }
-          if (entry.type === "boolean" && typeof value !== "boolean") {
-            return Response.json(
-              { message: `${key} harus boolean.` },
-              { status: 400 },
-            );
-          }
-          if (
-            entry.type === "number" &&
-            (typeof value !== "number" || !Number.isFinite(value))
-          ) {
-            return Response.json(
-              { message: `${key} harus angka.` },
-              { status: 400 },
-            );
-          }
-          if (entry.type === "string" && typeof value !== "string") {
-            return Response.json(
-              { message: `${key} harus string.` },
-              { status: 400 },
-            );
+          const error = validateSettingValue(key, value, category);
+          if (error) {
+            return Response.json({ message: error }, { status: 400 });
           }
         }
         await prisma.$transaction(
