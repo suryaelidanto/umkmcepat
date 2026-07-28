@@ -2,21 +2,23 @@ import { randomUUID } from "node:crypto";
 
 import { createFileRoute } from "@tanstack/react-router";
 
+import { auth } from "@/lib/auth";
 import { devLog } from "@/lib/dev-log";
 import { putStoredObject } from "@/lib/object-storage";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
-import { submitWaitlist } from "@/lib/waitlist";
+import { buildWaitlistStory, submitWaitlist } from "@/lib/waitlist";
 
 const MAX_WAITLIST_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export const Route = createFileRoute("/api/waitlist")({
   server: {
     handlers: {
-      // Submit a pilot waitlist entry. Multipart form fields: email, phone,
-      // businessName, businessType, story (required, min length), turnstile
-      // token, and an optional `file` image (evidence for approval confidence).
+      // Submit a pilot waitlist entry. Multipart form fields: businessName,
+      // businessType, phone, storyAnswers (offers/since/goal combined into the
+      // single story string), turnstile token, email (attached to user session
+      // on the client), and an optional `file` image.
       POST: async ({ request }) => {
         const rateLimitResponse = await checkRateLimit(request, "global");
         if (rateLimitResponse) {
@@ -37,6 +39,23 @@ export const Route = createFileRoute("/api/waitlist")({
           return Response.json(
             { message: "Verifikasi keamanan gagal." },
             { status: 400 },
+          );
+        }
+
+        const storyBuilt = buildWaitlistStory({
+          goal: String(form.get("storyGoal") ?? ""),
+          offers: String(form.get("storyOffers") ?? ""),
+          since: String(form.get("storySince") ?? ""),
+        });
+        if (!storyBuilt.ok) {
+          return Response.json({ message: storyBuilt.reason }, { status: 400 });
+        }
+
+        const session = await auth();
+        if (!session?.user?.email) {
+          return Response.json(
+            { message: "Masuk dulu untuk melanjutkan." },
+            { status: 401 },
           );
         }
 
@@ -82,10 +101,10 @@ export const Route = createFileRoute("/api/waitlist")({
           const entry = await submitWaitlist({
             businessName: String(form.get("businessName") ?? ""),
             businessType: String(form.get("businessType") ?? "") || null,
-            email: String(form.get("email") ?? ""),
+            email: session.user.email,
             imageRef,
             phone: String(form.get("phone") ?? "") || null,
-            story: String(form.get("story") ?? ""),
+            story: storyBuilt.story,
           });
           return Response.json(entry, { status: 201 });
         } catch (error) {

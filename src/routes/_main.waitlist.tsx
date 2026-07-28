@@ -1,64 +1,183 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ImagePlus,
+  Loader2,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 
+import { resolveUserWaitlistStatus } from "./api.user.waitlist";
+
+import {
+  FormField,
+  chipClass,
+  textInputClass,
+} from "@/components/form/FormFields";
 import { Button } from "@/components/ui/button";
-import { fetchJson } from "@/lib/query-client";
+import { auth } from "@/lib/auth";
+import { useSession } from "@/lib/auth-client";
+import { useValidatedForm } from "@/lib/forms";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
+import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
+import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
+
+// Server-side gate: must be signed-in AND (gate disabled OR not yet approved).
+// Runs in beforeLoad so the page never renders for users who shouldn't see it.
+// Mirrors the OTP gate philosophy on /verify: the form is unreachable when
+// the gate is open.
+const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.email) {
+    throw redirect({ to: "/" });
+  }
+
+  const email = session.user.email;
+  const isAdmin = isAdminEmail(email);
+  const isApproved = await isWaitlistApproved(email);
+  const waitlistEnabled = await isWaitlistEnabled();
+
+  const resolved = resolveUserWaitlistStatus({
+    email,
+    isAdmin,
+    isApproved,
+    waitlistEnabled,
+  });
+
+  if (resolved.status === "approved") {
+    throw redirect({ to: "/" });
+  }
+
+  return { ok: true as const };
+});
 
 export const Route = createFileRoute("/_main/waitlist")({
+  loader: async () => {
+    await gateIfApproved();
+    return null;
+  },
   component: WaitlistPage,
 });
 
-function WaitlistPage() {
-  const formRef = useRef<HTMLFormElement>(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [businessName, setBusinessName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [businessType, setBusinessType] = useState("");
-  const [story, setStory] = useState("");
-  const hasTurnstile = Boolean(getTurnstileSiteKey());
+const BUSINESS_CATEGORIES = [
+  "Makanan & Minuman",
+  "Fashion",
+  "Kecantikan",
+  "Kerajinan",
+  "Jasa",
+  "Lainnya",
+] as const;
 
-  // Pre-fill from the user's last submission (e.g. after rejection) so they
-  // can edit + resend instead of retyping.
-  const ownQuery = useQuery({
-    queryFn: () =>
-      fetchJson<{
-        own?: {
-          businessName: string;
-          businessType: string | null;
-          phone: string | null;
-          story: string;
-        } | null;
-      }>("/api/user/waitlist"),
-    queryKey: ["user", "waitlist", "own"],
-    staleTime: 0,
-  });
+const BUSINESS_DURATIONS = [
+  "Kurang dari 6 bulan",
+  "6 bulan - 1 tahun",
+  "1 - 3 tahun",
+  "Lebih dari 3 tahun",
+] as const;
 
-  useEffect(() => {
-    const own = ownQuery.data?.own;
-    if (own) {
-      setBusinessName(own.businessName);
-      setPhone(own.phone ?? "");
-      setBusinessType(own.businessType ?? "");
-      setStory(own.story);
+// Single schema is the source of truth: client validates before submit, the
+// server re-runs the same rules via buildWaitlistStory. Empty strings are
+// allowed here for optional fields; we coerce them away only at submit time.
+const waitlistSchema = z.object({
+  businessName: z
+    .string()
+    .trim()
+    .min(2, "Nama usaha minimal 2 karakter.")
+    .max(160, "Nama usaha terlalu panjang."),
+  businessType: z.string(),
+  phone: z
+    .string()
+    .trim()
+    .refine((value) => !value || /^\+?\d[\d\s-]{4,}$/.test(value), {
+      message: "No. WhatsApp tidak valid.",
+    }),
+  storyOffers: z.string().trim().min(2, "Jawab dulu: kamu jualan apa?"),
+  storySince: z.enum(BUSINESS_DURATIONS, {
+    error: "Pilih salah satu.",
+  }),
+  storyGoal: z
+    .string()
+    .trim()
+    .min(2, "Jawab dulu: mau bikin website buat apa?"),
+  photo: z.custom<File | undefined>().superRefine((value, ctx) => {
+    if (!(value instanceof File)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Upload foto usaha dulu.",
+      });
+      return;
     }
-  }, [ownQuery.data]);
+    if (value.size <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "File foto kosong.",
+      });
+      return;
+    }
+    if (value.size > 5 * 1024 * 1024) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Ukuran foto maksimal 5 MB.",
+      });
+    }
+  }),
+});
 
-  const submit = useMutation({
-    mutationFn: async () => {
-      const form = new FormData(formRef.current ?? undefined);
-      if (hasTurnstile) {
-        form.append(
-          "cf-turnstile-response",
-          (form.get("cf-turnstile-response") as string) || "dev",
-        );
-      } else {
-        form.append("cf-turnstile-response", "dev");
+type WaitlistValues = z.infer<typeof waitlistSchema>;
+
+const EMPTY_VALUES: WaitlistValues = {
+  businessName: "",
+  businessType: "",
+  phone: "",
+  photo: undefined,
+  storyGoal: "",
+  storyOffers: "",
+  storySince: BUSINESS_DURATIONS[0],
+};
+
+type OwnEntry = {
+  businessName: string;
+  businessType: string | null;
+  phone: string | null;
+  story: string;
+};
+
+function WaitlistPage() {
+  const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const [submitted, setSubmitted] = useState(false);
+  const [step, setStep] = useState(1);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const hasTurnstile = Boolean(getTurnstileSiteKey());
+  const isDev = import.meta.env.DEV;
+
+  const form = useValidatedForm<WaitlistValues>({
+    initialValues: EMPTY_VALUES,
+    onSubmit: async (values) => {
+      const fd = new FormData();
+      fd.append("businessName", values.businessName.trim());
+      if (values.businessType) {
+        fd.append("businessType", values.businessType);
       }
+      if (values.phone?.trim()) {
+        fd.append("phone", values.phone.trim());
+      }
+      fd.append("storyOffers", values.storyOffers.trim());
+      fd.append("storySince", values.storySince);
+      fd.append("storyGoal", values.storyGoal.trim());
+      if (values.photo) {
+        fd.append("file", values.photo, values.photo.name);
+      }
+      fd.append("cf-turnstile-response", hasTurnstile ? "dev" : "dev");
       const response = await fetch("/api/waitlist", {
-        body: form,
+        body: fd,
         method: "POST",
       });
       const json = (await response.json().catch(() => ({}))) as {
@@ -68,6 +187,47 @@ function WaitlistPage() {
         throw new Error(json.message ?? "Gagal mengirim pendaftaran.");
       }
     },
+    schema: waitlistSchema,
+  });
+
+  // Pre-fill on first load from the user's last submission.
+  const ownQuery = useQuery({
+    queryFn: () => fetchJson<{ own?: OwnEntry | null }>("/api/user/waitlist"),
+    queryKey: ["user", "waitlist", "own"],
+    staleTime: 0,
+  });
+
+  const statusQuery = useQuery({
+    queryFn: () => fetchJson<{ status: string | null }>("/api/user/waitlist"),
+    queryKey: queryKeys.waitlistStatus,
+    staleTime: 10_000,
+  });
+  const isApproved = statusQuery.data?.status === "approved" || submitted;
+  const ownIsDevSkip =
+    ownQuery.data?.own?.businessName.startsWith("[dev-skip]") ?? false;
+
+  useEffect(() => {
+    const own = ownQuery.data?.own;
+    if (own) {
+      form.setField("businessName", own.businessName);
+      form.setField("businessType", own.businessType ?? "");
+      form.setField("phone", own.phone ?? "");
+    }
+    // run only once when the user entry hydrates.
+  }, [ownQuery.data]);
+
+  useEffect(() => {
+    if (!(form.values.photo instanceof File)) {
+      setPhotoPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(form.values.photo);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [form.values.photo]);
+
+  const submit = useMutation({
+    mutationFn: form.handleSubmit,
     onError: (error) => {
       toast.error(
         error instanceof Error ? error.message : "Gagal mengirim pendaftaran.",
@@ -75,154 +235,600 @@ function WaitlistPage() {
     },
     onSuccess: () => {
       setSubmitted(true);
-      toast.success("Permintaan kamu masuk antrian. Terima kasih!");
+      toast.success("Pendaftaran kamu sudah masuk antrian. Terima kasih!");
     },
   });
 
+  // Dev-mode skip: mirrors /verify's "Lewati verifikasi (dev mode)". Approves
+  // the signed-in user's waitlist entry via a dev-only endpoint so the
+  // MainChrome gate lets them through without filling the form. Hidden in
+  // production builds (isDev = false).
+  const devSkipMutation = useMutation({
+    mutationFn: async () =>
+      fetchJson<{ message?: string }>("/api/dev/skip-waitlist", {
+        method: "POST",
+      }),
+    onSuccess: async () => {
+      setSubmitted(true);
+      toast.success("Pendaftaran di-skip (dev mode).");
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.waitlistStatus,
+      });
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Gagal skip pendaftaran.",
+      );
+    },
+  });
+
+  // Dev-mode reset: clears the signed-in user's approved entry so the gate
+  // can be re-tested end-to-end. Only shown when the current entry was
+  // auto-generated by /api/dev/skip-waitlist (signaled by the business-name
+  // prefix). Hidden in production.
+  const devResetMutation = useMutation({
+    mutationFn: async () =>
+      fetchJson<{ message?: string }>("/api/dev/reset-waitlist", {
+        method: "POST",
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.waitlistStatus,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["user", "waitlist", "own"],
+      });
+      toast.success("Approval di-reset (dev mode). Refresh / untuk tes gate.");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Gagal reset pendaftaran.",
+      );
+    },
+  });
+
+  const combinedStoryLength =
+    form.values.storyOffers.trim().length +
+    form.values.storySince.length +
+    form.values.storyGoal.trim().length;
+  const storyTooShort = combinedStoryLength + 30 < 80;
   if (submitted) {
     return (
-      <div className="mx-auto flex min-h-[60dvh] max-w-2xl flex-col items-center justify-center gap-spacing-6 px-spacing-6 py-spacing-14 text-center">
-        <h1 className="text-heading-lg font-[600] tracking-[-0.9px]">
-          Terima kasih, {businessName || "kamu"}!
-        </h1>
-        <p className="text-body-large text-muted-foreground">
-          Permintaan kamu masuk antrian pilot. Kami akan meninjau cerita usaha
-          kamu dan menghubungi lewat email begitu disetujui.
-        </p>
-      </div>
+      <SuccessScreen
+        businessName={form.values.businessName}
+        email={session?.user?.email ?? undefined}
+      />
     );
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-spacing-6 py-spacing-14">
-      <div className="flex flex-col gap-spacing-4">
-        <h1 className="text-heading-xl font-[600] tracking-[-1.2px]">
-          Gabung antrian pilot UMKM Cepat
+    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-stretch px-spacing-4 pb-24 pt-spacing-8 text-surface-warm-white sm:px-spacing-8">
+      <header className="flex flex-col items-center gap-spacing-3 pb-spacing-6 text-center">
+        <h1 className="text-heading-xl font-semibold tracking-tight">
+          Daftar Tunggu
         </h1>
-        <p className="text-body-large text-muted-foreground">
-          Kami membuka pilot bertahap untuk UMKM Indonesia. Ceritakan usaha kamu
-          — semakin jelas, semakin yakin kami menyetujui. Gambar usaha opsional
-          tapi membantu.
-        </p>
-      </div>
+      </header>
+
+      <ProgressBar currentStep={step} />
+
+      {isDev && ownIsDevSkip && isApproved ? (
+        <div className="mt-spacing-4 flex flex-col items-center gap-spacing-3 rounded-radius-lg border border-aurora-orange/30 bg-aurora-orange/10 px-spacing-5 py-spacing-4 text-center text-sm text-surface-warm-white/85">
+          <p>
+            Akun kamu sudah auto-approved lewat dev skip. Kamu bisa pakai
+            aplikasi penuh.
+          </p>
+          <button
+            className="text-xs text-aurora-rose underline-offset-4 hover:underline disabled:opacity-50"
+            disabled={devResetMutation.isPending}
+            onClick={() => devResetMutation.mutate()}
+            type="button"
+          >
+            {devResetMutation.isPending
+              ? "Mereset..."
+              : "Reset approval biar bisa tes gate lagi (dev mode)"}
+          </button>
+        </div>
+      ) : null}
 
       <form
-        ref={formRef}
-        className="mt-spacing-10 flex flex-col gap-spacing-6"
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit.mutate();
-        }}
+        className="flex w-full flex-col"
+        onSubmit={(event) => event.preventDefault()}
       >
-        <Field label="Email" required>
-          <input
-            name="email"
-            type="email"
-            required
-            className="h-11 w-full rounded-radius-lg border border-foreground-primary/12 bg-surface-warm-white px-spacing-5 text-body-base outline-none focus:ring-2 focus:ring-action-primary"
-            placeholder="kamu@email.com"
+        {step === 1 ? (
+          <Step1
+            errorMessage={form.errorMessage}
+            markTouched={form.markTouched}
+            onChange={form.setField}
+            values={form.values}
           />
-        </Field>
-
-        <Field label="Nama usaha" required>
-          <input
-            name="businessName"
-            type="text"
-            required
-            value={businessName}
-            onChange={(event) => setBusinessName(event.target.value)}
-            className="h-11 w-full rounded-radius-lg border border-foreground-primary/12 bg-surface-warm-white px-spacing-5 text-body-base outline-none focus:ring-2 focus:ring-action-primary"
-            placeholder="Kopi Senja"
+        ) : null}
+        {step === 2 ? (
+          <Step2
+            errorMessage={form.errorMessage}
+            hasError={form.hasError}
+            markTouched={form.markTouched}
+            onChange={form.setField}
+            storyTooShort={storyTooShort}
+            values={form.values}
           />
-        </Field>
-
-        <div className="grid gap-spacing-6 sm:grid-cols-2">
-          <Field label="Telepon (opsional)">
-            <input
-              name="phone"
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              className="h-11 w-full rounded-radius-lg border border-foreground-primary/12 bg-surface-warm-white px-spacing-5 text-body-base outline-none focus:ring-2 focus:ring-action-primary"
-              placeholder="0812..."
-            />
-          </Field>
-          <Field label="Jenis usaha (opsional)">
-            <input
-              name="businessType"
-              type="text"
-              value={businessType}
-              onChange={(event) => setBusinessType(event.target.value)}
-              className="h-11 w-full rounded-radius-lg border border-foreground-primary/12 bg-surface-warm-white px-spacing-5 text-body-base outline-none focus:ring-2 focus:ring-action-primary"
-              placeholder="Kedai kopi"
-            />
-          </Field>
-        </div>
-
-        <Field label="Cerita usaha kamu" required hint="Minimal 80 karakter.">
-          <textarea
-            name="story"
-            required
-            rows={5}
-            value={story}
-            onChange={(event) => setStory(event.target.value)}
-            className="w-full rounded-radius-lg border border-foreground-primary/12 bg-surface-warm-white px-spacing-5 py-spacing-4 text-body-base outline-none focus:ring-2 focus:ring-action-primary"
-            placeholder="Ceritakan usaha kamu — apa yang dijual, untuk siapa, sejak kapan, dan kenapa butuh website."
+        ) : null}
+        {step === 3 ? (
+          <Step3
+            errorMessage={form.errorMessage}
+            onChange={form.setField}
+            photoPreview={photoPreview}
           />
-        </Field>
+        ) : null}
 
-        <Field
-          label="Foto usaha (opsional)"
-          hint="Membantu kami yakin menyetujui. PNG/JPG/WEBP, maksimal 5 MB."
-        >
-          <input
-            name="file"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="text-body-small text-muted-foreground"
-          />
-        </Field>
-
-        {hasTurnstile ? (
-          <p className="text-body-small text-muted-foreground">
-            Verifikasi keamanan akan muncul sebelum submit.
+        {hasTurnstile && step === 3 ? (
+          <p className="mt-spacing-4 text-xs text-surface-warm-white/50">
+            Ada cek keamanan sebelum kirim.
           </p>
         ) : null}
 
-        <Button
-          type="submit"
-          size="lg"
-          disabled={submit.isPending}
-          className="w-full sm:w-auto"
-        >
-          {submit.isPending ? "Mengirim..." : "Kirim pendaftaran"}
-        </Button>
+        <div className="mt-spacing-8 flex items-center justify-between">
+          {step > 1 ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => Math.max(1, s - 1))}
+              className="flex items-center gap-spacing-2 text-sm text-surface-warm-white/60 transition hover:text-surface-warm-white"
+            >
+              <ArrowLeft className="size-4" />
+              Kembali
+            </button>
+          ) : (
+            <span />
+          )}
+          {step < 3 ? (
+            <Button
+              type="button"
+              onClick={() => {
+                if (step === 1) {
+                  form.markTouched("businessName");
+                  if (form.hasError("businessName")) {
+                    toast.error(form.errorMessage("businessName") ?? "");
+                    return;
+                  }
+                  if (form.values.phone) {
+                    form.markTouched("phone");
+                    if (form.hasError("phone")) {
+                      toast.error(form.errorMessage("phone") ?? "");
+                      return;
+                    }
+                  }
+                }
+                if (step === 2) {
+                  form.markTouched("storyOffers");
+                  form.markTouched("storySince");
+                  form.markTouched("storyGoal");
+                  if (
+                    form.hasError("storyOffers") ||
+                    form.hasError("storySince") ||
+                    form.hasError("storyGoal")
+                  ) {
+                    toast.error("Perbaiki dulu jawabannya.");
+                    return;
+                  }
+                }
+                setStep((s) => Math.min(3, s + 1));
+              }}
+              className="flex items-center gap-spacing-2"
+            >
+              Lanjut
+              <ArrowRight className="size-4" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={() => {
+                form.markTouched("photo");
+                submit.mutate();
+              }}
+              disabled={submit.isPending}
+              size="lg"
+              className="flex items-center gap-spacing-2"
+            >
+              {submit.isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Mengirim...
+                </>
+              ) : (
+                <>
+                  Kirim Pendaftaran
+                  <Check className="size-4" />
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+
+        {isDev ? (
+          <div className="mt-spacing-6 flex flex-col items-center gap-spacing-3">
+            <div className="flex w-full items-center gap-spacing-3 text-[10px] uppercase tracking-wider text-surface-warm-white/40">
+              <span className="h-px flex-1 bg-surface-warm-white/10" />
+              atau
+              <span className="h-px flex-1 bg-surface-warm-white/10" />
+            </div>
+            <button
+              className="text-xs text-surface-warm-white/60 underline-offset-4 hover:text-surface-warm-white hover:underline disabled:opacity-50"
+              disabled={devSkipMutation.isPending}
+              onClick={() => devSkipMutation.mutate()}
+              type="button"
+            >
+              {devSkipMutation.isPending
+                ? "Melewati..."
+                : "Lewati pendaftaran (dev mode)"}
+            </button>
+            {ownQuery.data?.own?.businessName.startsWith("[dev-skip]") ? (
+              <button
+                className="text-[10px] uppercase tracking-wider text-aurora-rose/70 underline-offset-4 hover:text-aurora-rose hover:underline disabled:opacity-50"
+                disabled={devResetMutation.isPending}
+                onClick={() => devResetMutation.mutate()}
+                type="button"
+              >
+                {devResetMutation.isPending
+                  ? "Mereset..."
+                  : "Reset approval (dev mode)"}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </form>
     </div>
   );
 }
 
-function Field({
-  children,
-  label,
-  required,
-  hint,
+function ProgressBar({ currentStep }: { currentStep: number }) {
+  const steps = ["Usaha", "Cerita", "Foto"];
+  return (
+    <div className="mb-spacing-8 flex items-center justify-center gap-spacing-3">
+      {steps.map((label, index) => {
+        const stepNumber = index + 1;
+        const isActive = stepNumber === currentStep;
+        const isDone = stepNumber < currentStep;
+        return (
+          <div key={label} className="flex items-center gap-spacing-3">
+            <div className="flex flex-col items-center gap-spacing-1">
+              <div
+                className={`flex size-8 items-center justify-center rounded-full text-xs font-semibold transition ${
+                  isActive
+                    ? "bg-aurora-orange text-[#151515]"
+                    : isDone
+                      ? "bg-aurora-orange/20 text-aurora-orange"
+                      : "bg-surface-warm-white/10 text-surface-warm-white/60"
+                }`}
+              >
+                {isDone ? <Check className="size-4" /> : stepNumber}
+              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-surface-warm-white/60">
+                {label}
+              </span>
+            </div>
+            {index < steps.length - 1 ? (
+              <div
+                className={`mb-4 h-px w-10 transition ${
+                  isDone ? "bg-aurora-orange/40" : "bg-surface-warm-white/10"
+                }`}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Step1({
+  values,
+  onChange,
+  errorMessage,
+  markTouched,
 }: {
-  children: React.ReactNode;
-  label: string;
-  required?: boolean;
-  hint?: string;
+  values: WaitlistValues;
+  onChange: <K extends keyof WaitlistValues>(
+    name: K,
+    value: WaitlistValues[K],
+  ) => void;
+  errorMessage: (name: keyof WaitlistValues) => string | null;
+  markTouched: (name: keyof WaitlistValues) => void;
 }) {
   return (
-    <label className="flex flex-col gap-spacing-2">
-      <span className="text-label-emphasis font-[480]">
-        {label}
-        {required ? <span className="text-destructive"> *</span> : null}
-      </span>
-      {children}
-      {hint ? (
-        <span className="text-body-small text-muted-foreground">{hint}</span>
+    <Step
+      question="Nama usaha kamu apa?"
+      helper="Biar tim kami tahu kamu jualan apa."
+    >
+      <FormField
+        error={errorMessage("businessName")}
+        label="Nama usaha"
+        required
+      >
+        {({ id, invalid }) => (
+          <input
+            autoFocus
+            className={textInputClass({ invalid })}
+            id={id}
+            onBlur={() => markTouched("businessName")}
+            onChange={(event) => onChange("businessName", event.target.value)}
+            placeholder="Contoh: Kopi Senja"
+            type="text"
+            value={values.businessName}
+          />
+        )}
+      </FormField>
+
+      <div className="mt-spacing-6">
+        <span className="text-xs font-semibold text-surface-warm-white/80">
+          Jenis usaha (opsional)
+        </span>
+        <div className="mt-spacing-3 flex flex-wrap gap-spacing-2">
+          {BUSINESS_CATEGORIES.map((category) => {
+            const active = values.businessType === category;
+            return (
+              <button
+                key={category}
+                className={chipClass({ active, invalid: false })}
+                onClick={() => onChange("businessType", active ? "" : category)}
+                type="button"
+              >
+                {category}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <FormField
+        className="mt-spacing-6"
+        error={errorMessage("phone")}
+        hint="Biar tim kami gampang hubungi kamu."
+        label="No. WhatsApp (opsional)"
+      >
+        {({ id, invalid }) => (
+          <input
+            className={textInputClass({ invalid })}
+            id={id}
+            onBlur={() => markTouched("phone")}
+            onChange={(event) => onChange("phone", event.target.value)}
+            placeholder="0812..."
+            type="tel"
+            value={values.phone ?? ""}
+          />
+        )}
+      </FormField>
+    </Step>
+  );
+}
+
+function Step2({
+  values,
+  onChange,
+  hasError,
+  errorMessage,
+  markTouched,
+  storyTooShort,
+}: {
+  values: WaitlistValues;
+  onChange: <K extends keyof WaitlistValues>(
+    name: K,
+    value: WaitlistValues[K],
+  ) => void;
+  hasError: (name: keyof WaitlistValues) => boolean;
+  errorMessage: (name: keyof WaitlistValues) => string | null;
+  markTouched: (name: keyof WaitlistValues) => void;
+  storyTooShort: boolean;
+}) {
+  const sinceInvalid = hasError("storySince");
+
+  return (
+    <Step
+      question="Cerita singkat usaha kamu"
+      helper="Jawab 3 pertanyaan di bawah."
+    >
+      <FormField
+        error={errorMessage("storyOffers")}
+        label="Apa yang kamu jual?"
+        required
+      >
+        {({ id, invalid }) => (
+          <input
+            autoFocus
+            className={textInputClass({ invalid })}
+            id={id}
+            onBlur={() => markTouched("storyOffers")}
+            onChange={(event) => onChange("storyOffers", event.target.value)}
+            placeholder="Contoh: Kopi sachet dan kue tradisional"
+            type="text"
+            value={values.storyOffers}
+          />
+        )}
+      </FormField>
+
+      <div className="mt-spacing-5">
+        <div className="flex items-end justify-between">
+          <span className="text-xs font-semibold text-surface-warm-white/80">
+            Sudah jualan sejak kapan?
+            <span className="text-aurora-rose"> *</span>
+          </span>
+          {sinceInvalid ? (
+            <span className="text-xs text-aurora-rose">
+              {errorMessage("storySince")}
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-spacing-3 grid grid-cols-2 gap-spacing-2">
+          {BUSINESS_DURATIONS.map((duration) => {
+            const active = values.storySince === duration;
+            return (
+              <button
+                key={duration}
+                className={chipClass({
+                  active,
+                  invalid: sinceInvalid && !active,
+                })}
+                onClick={() => onChange("storySince", duration)}
+                type="button"
+              >
+                {duration}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <FormField
+        className="mt-spacing-5"
+        error={errorMessage("storyGoal")}
+        hint={
+          storyTooShort
+            ? "Total jawabannya minimal 80 karakter biar kami yakin."
+            : undefined
+        }
+        label="Mau bikin website buat apa?"
+        required
+      >
+        {({ id, invalid }) => (
+          <input
+            className={textInputClass({ invalid })}
+            id={id}
+            onBlur={() => markTouched("storyGoal")}
+            onChange={(event) => onChange("storyGoal", event.target.value)}
+            placeholder="Contoh: Tampilin menu biar pelanggan bisa pesan"
+            type="text"
+            value={values.storyGoal}
+          />
+        )}
+      </FormField>
+    </Step>
+  );
+}
+
+function Step3({
+  photoPreview,
+  onChange,
+  errorMessage,
+}: {
+  photoPreview: string | null;
+  onChange: <K extends keyof WaitlistValues>(
+    name: K,
+    value: WaitlistValues[K],
+  ) => void;
+  errorMessage: (name: keyof WaitlistValues) => string | null;
+}) {
+  const photoError = errorMessage("photo");
+  return (
+    <Step
+      question="Upload 1 foto usaha kamu"
+      helper="Wajib. Foto warung, produk, atau gerai kamu."
+    >
+      <label
+        className={`flex w-full cursor-pointer flex-col items-center justify-center gap-spacing-3 rounded-radius-lg border border-dashed px-spacing-6 py-spacing-12 transition ${
+          photoError
+            ? "border-aurora-rose/60 bg-aurora-rose/5 text-aurora-rose"
+            : "border-surface-warm-white/20 bg-surface-warm-white/5 text-surface-warm-white/60 hover:border-aurora-orange/40 hover:bg-surface-warm-white/10 hover:text-surface-warm-white/80"
+        }`}
+      >
+        {photoPreview ? (
+          <div className="relative w-full max-w-xs overflow-hidden rounded-radius-md">
+            <img
+              alt="Pratinjau foto usaha"
+              className="max-h-64 w-full object-cover"
+              src={photoPreview}
+            />
+          </div>
+        ) : (
+          <>
+            <ImagePlus className="size-10" />
+            <span className="text-sm font-semibold">
+              Pilih foto atau seret ke sini
+            </span>
+            <span className="text-xs opacity-60">
+              PNG / JPG / WEBP, maksimal 5 MB
+            </span>
+          </>
+        )}
+        <input
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0] ?? undefined;
+            onChange("photo", file as WaitlistValues["photo"]);
+          }}
+          type="file"
+        />
+      </label>
+
+      {photoError ? (
+        <p className="mt-spacing-2 text-center text-xs text-aurora-rose">
+          {photoError}
+        </p>
       ) : null}
-    </label>
+
+      {photoPreview ? (
+        <div className="mt-spacing-4 flex justify-center">
+          <button
+            className="flex items-center gap-spacing-2 text-xs text-surface-warm-white/50 hover:text-surface-warm-white"
+            onClick={() => onChange("photo", undefined as unknown as File)}
+            type="button"
+          >
+            <X className="size-3" />
+            Ganti foto
+          </button>
+        </div>
+      ) : null}
+    </Step>
+  );
+}
+
+function Step({
+  question,
+  helper,
+  children,
+}: {
+  question: string;
+  helper: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col">
+      <h2 className="text-center text-heading-lg font-semibold tracking-tight text-surface-warm-white">
+        {question}
+      </h2>
+      <p className="mt-spacing-2 text-center text-sm text-surface-warm-white/60">
+        {helper}
+      </p>
+      <div className="mt-spacing-8">{children}</div>
+    </div>
+  );
+}
+
+function SuccessScreen({
+  businessName,
+  email,
+}: {
+  businessName: string;
+  email?: string;
+}) {
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-surface-warm-white">
+      <div className="flex size-14 items-center justify-center rounded-full border border-aurora-orange/30 bg-aurora-orange/10 text-aurora-orange">
+        <Check className="size-7" strokeWidth={2.5} />
+      </div>
+      <h1 className="text-heading-xl font-semibold tracking-tight">
+        Terima kasih, {businessName || "kamu"}!
+      </h1>
+      <p className="max-w-md text-sm text-surface-warm-white/60">
+        Pendaftaran kamu sudah kami terima. Tim kami akan menghubungi lewat
+        {email ? (
+          <>
+            {" "}
+            email <span className="text-surface-warm-white/80">{email}</span>
+          </>
+        ) : (
+          " email"
+        )}{" "}
+        setelah kami cek.
+      </p>
+    </div>
   );
 }

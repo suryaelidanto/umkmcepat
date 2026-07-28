@@ -126,7 +126,10 @@ function SupportPage() {
       setAttachments([]);
       setFormOpen(false);
       // Navigate to the created ticket (SPA navigation so the parent Outlet picks up the child route)
-      void router.navigate({ to: "/support/$ticketId", params: { ticketId: data.ticketId } });
+      void router.navigate({
+        to: "/support/$ticketId",
+        params: { ticketId: data.ticketId },
+      });
     },
     onError: (error) => {
       toast.error(

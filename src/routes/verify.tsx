@@ -1,12 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { auth } from "@/lib/auth";
 import { useRouter } from "@/lib/navigation";
 import { fetchJson, queryKeys } from "@/lib/query-client";
+import { isUserVerified } from "@/lib/user-credits";
+
+// Server-side gate: signed-in AND not yet verified. Already-verified users
+// are redirected to /, so the OTP form never mounts for them — same UX as the
+// waitlist gate when the user is already approved.
+const requireUnverified = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw redirect({ to: "/" });
+    }
+    if (await isUserVerified(session.user.id)) {
+      throw redirect({ to: "/" });
+    }
+    return { ok: true as const };
+  },
+);
 
 export const Route = createFileRoute("/verify")({
+  beforeLoad: async () => {
+    await requireUnverified();
+  },
   component: VerifyPage,
 });
 
@@ -30,12 +52,6 @@ function VerifyPage() {
       }),
     staleTime: 10_000,
   });
-
-  useEffect(() => {
-    if (verificationQuery.data?.verified) {
-      router.replace("/");
-    }
-  }, [router, verificationQuery.data?.verified]);
 
   const sendOtpMutation = useMutation({
     mutationFn: async (phoneValue: string) =>
@@ -97,7 +113,7 @@ function VerifyPage() {
     },
   });
 
-  if (verificationQuery.isPending || verificationQuery.data?.verified) {
+  if (verificationQuery.isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#10100f]">
         <div className="text-center">

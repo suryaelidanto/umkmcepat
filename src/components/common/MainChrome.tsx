@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
@@ -51,7 +52,10 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
     queryFn: () =>
-      fetchJson<{ status: string | null }>("/api/user/waitlist", {
+      fetchJson<{
+        status: string | null;
+        own?: { businessName: string };
+      }>("/api/user/waitlist", {
         cache: "no-store",
       }),
     enabled: isVerified && !isVerifyPage && !isWaitlistPage,
@@ -60,6 +64,28 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     retry: 1,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+  });
+
+  const isDev = import.meta.env.DEV;
+  const ownIsDevSkip =
+    waitlistQuery.data?.own?.businessName.startsWith("[dev-skip]") ?? false;
+  const queryClient = useQueryClient();
+  const devResetWaitlist = useMutation({
+    mutationFn: async () =>
+      fetchJson<{ message?: string }>("/api/dev/reset-waitlist", {
+        method: "POST",
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.waitlistStatus,
+      });
+      toast.success("Approval di-reset. Refresh halaman.");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Gagal reset approval.",
+      );
+    },
   });
 
   useEffect(() => {
@@ -121,6 +147,22 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative flex min-h-screen flex-col bg-[#151515]">
+      {isDev && ownIsDevSkip ? (
+        <div className="flex items-center justify-center gap-spacing-3 border-b border-aurora-orange/30 bg-aurora-orange/10 px-spacing-4 py-spacing-2 text-xs text-aurora-orange">
+          <span>
+            DEV: akun kamu auto-approved lewat dev skip. Gate tidak aktif untuk
+            tes ini.
+          </span>
+          <button
+            className="rounded-radius-sm border border-aurora-orange/40 px-spacing-2 py-spacing-1 text-[10px] font-semibold uppercase tracking-wider text-aurora-orange transition hover:bg-aurora-orange/20 disabled:opacity-50"
+            disabled={devResetWaitlist.isPending}
+            onClick={() => devResetWaitlist.mutate()}
+            type="button"
+          >
+            {devResetWaitlist.isPending ? "Mereset..." : "Reset approval"}
+          </button>
+        </div>
+      ) : null}
       <Header />
       <main className="flex-1 pb-16 md:pb-0">{children}</main>
       <Footer />

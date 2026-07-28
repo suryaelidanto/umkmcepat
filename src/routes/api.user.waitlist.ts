@@ -25,7 +25,10 @@ export function resolveUserWaitlistStatus({
   if (!email) {
     return { status: null };
   }
-  if (isAdmin) {
+  // In development, we allow admins to test the waitlist gate.
+  // Thus, if they are an admin, we only automatically approve them if NODE_ENV !== "development".
+  const isDev = process.env.NODE_ENV === "development";
+  if (isAdmin && !isDev) {
     return { status: "approved" };
   }
   if (!waitlistEnabled) {
@@ -57,8 +60,11 @@ export const Route = createFileRoute("/api/user/waitlist")({
           isApproved,
           waitlistEnabled,
         });
+        const isDev = process.env.NODE_ENV === "development";
         const own =
-          email && !isAdmin ? await getOwnWaitlistEntry(email) : undefined;
+          email && (!isAdmin || isDev)
+            ? await getOwnWaitlistEntry(email)
+            : undefined;
         return Response.json({ ...resolved, own });
       },
     },

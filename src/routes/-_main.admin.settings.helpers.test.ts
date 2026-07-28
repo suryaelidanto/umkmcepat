@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { getDirtyKeys, isDirtyEntry } from "./_main.admin.settings.helpers";
+import { getDirtyKeys, isDirtyEntry } from "./-_main.admin.settings.helpers";
 
-import type { SettingEntry } from "./_main.admin.settings.helpers";
+import type { SettingEntry } from "./-_main.admin.settings.helpers";
 
 const baseEntry = (overrides: Partial<SettingEntry> = {}): SettingEntry => ({
   category: "feature_flag",
