@@ -4,5 +4,3 @@ export const BOOSTER_PACKS = {
   popular: { amount: 24900, energy: 600000, name: "Popular Booster" },
   max: { amount: 59900, energy: 1500000, name: "Max Booster" },
 } as const;
-
-export type BoosterPackId = keyof typeof BOOSTER_PACKS;

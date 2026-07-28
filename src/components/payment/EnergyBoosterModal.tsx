@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BOOSTER_PACKS, type BoosterPackId } from "@/lib/pakasir";
+import { BOOSTER_PACKS, type BoosterPackId } from "@/lib/mayar";
 import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
 import { isDev } from "@/lib/utils";
 
@@ -29,7 +29,7 @@ type PaymentSession = {
   success: boolean;
   orderId: string;
   amount: number;
-  paymentNumber: string;
+  paymentUrl: string;
   status: string;
 };
 
@@ -136,7 +136,7 @@ export function EnergyBoosterModal({
       const data = await fetchJson<PaymentSession>("/api/payment/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageId: packId, method: "qris" }),
+        body: JSON.stringify({ packageId: packId }),
       });
 
       if (data.success) {
@@ -153,10 +153,6 @@ export function EnergyBoosterModal({
     } finally {
       setIsCreating(false);
     }
-  };
-
-  const getQRUrl = (payload: string) => {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(payload)}`;
   };
 
   const formatRupiah = (value: number) => {
@@ -287,15 +283,15 @@ export function EnergyBoosterModal({
                 <span className="text-xs text-[#ff7a59] font-bold uppercase tracking-widest animate-pulse">
                   Menunggu Pembayaran
                 </span>
-                <div className="rounded-lg bg-white p-3 shadow-md">
-                  <img
-                    src={getQRUrl(paymentSession.paymentNumber)}
-                    alt="QRIS Code"
-                    width={220}
-                    height={220}
-                    className="mx-auto block"
-                  />
-                </div>
+                <a
+                  href={paymentSession.paymentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-radius-lg bg-[#fcfbf8] px-6 py-3 text-sm font-bold text-[#1c1c1c] transition duration-200 hover:bg-[#eceae4] active:scale-[0.98] cursor-pointer"
+                >
+                  <CreditCardIcon className="size-4" />
+                  <span>Bayar Sekarang (QRIS)</span>
+                </a>
                 {isDev && (
                   <button
                     type="button"
@@ -316,9 +312,9 @@ export function EnergyBoosterModal({
                     {formatRupiah(paymentSession.amount)}
                   </span>
                   <span className="text-[10px] text-surface-warm-white/40 max-w-xs leading-normal mt-2">
-                    Scan kode QRIS di atas menggunakan aplikasi e-wallet (Gopay,
-                    OVO, Dana, LinkAja) atau Mobile Banking Anda. Status akan
-                    diperbarui otomatis.
+                    Klik tombol di atas untuk membuka halaman pembayaran QRIS.
+                    Setelah membayar, kembali ke sini — status akan diperbarui
+                    otomatis.
                   </span>
                 </div>
               </>
