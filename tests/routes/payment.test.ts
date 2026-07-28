@@ -470,13 +470,15 @@ describe("Payment API Routes", () => {
         orderId: "INV-USER1-12345",
         amount: 2900,
         status: "PENDING",
+        providerTxnId: "txn-1",
+        createdAt: new Date(),
       });
 
       const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
       expect(res.status).toBe(403);
     });
 
-    it("returns correct payment status for owner", async () => {
+    it("returns correct payment status for owner without reconciling when recently created", async () => {
       authMock.mockResolvedValueOnce({
         user: { id: "user_1" },
       });
@@ -487,7 +489,8 @@ describe("Payment API Routes", () => {
         amount: 2900,
         status: "PENDING",
         paymentMethod: "qris",
-        createdAt: new Date(),
+        providerTxnId: "txn-1",
+        createdAt: new Date(), // just created — inside the reconciliation grace window
       });
 
       const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
@@ -495,6 +498,46 @@ describe("Payment API Routes", () => {
       const data = await res.json();
       expect(data.success).toBe(true);
       expect(data.status).toBe("PENDING");
+      expect(getMayarTransactionMock).not.toHaveBeenCalled();
+    });
+
+    it("reconciles against Mayar directly when PENDING beyond the grace window", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user_1" },
+      });
+
+      const oldCreatedAt = new Date(Date.now() - 3 * 60 * 1000); // 3 minutes ago
+      prismaPaymentFindUniqueMock.mockResolvedValueOnce({
+        userId: "user_1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        status: "PENDING",
+        paymentMethod: "qris",
+        providerTxnId: "txn-1",
+        createdAt: oldCreatedAt,
+      });
+
+      getMayarTransactionMock.mockResolvedValueOnce({
+        status: "paid",
+        amount: 2900,
+        paymentMethod: "QRIS",
+      });
+
+      prismaPaymentUpdateManyMock.mockResolvedValueOnce({ count: 1 });
+      prismaPaymentFindUniqueOrThrowMock.mockResolvedValueOnce({
+        userId: "user_1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        energyGranted: 50000,
+        status: "COMPLETED",
+        metadata: { packageName: "Pocket Booster" },
+      });
+
+      const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(getMayarTransactionMock).toHaveBeenCalledWith("txn-1");
+      expect(data.status).toBe("COMPLETED");
     });
   });
 });

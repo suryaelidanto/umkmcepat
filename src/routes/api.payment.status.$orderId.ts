@@ -1,7 +1,88 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
+import { getMayarTransaction } from "@/lib/mayar";
 import { prisma } from "@/lib/prisma";
+import { logCreditTransaction } from "@/lib/user-credits";
+
+// If a payment has been PENDING longer than this, the client is still
+// polling but a webhook may never arrive (undocumented retry policy on
+// Mayar's side) — reconcile directly against Mayar's API instead of waiting
+// forever. Kept well above typical webhook latency to avoid burning through
+// Mayar's 50 req/min rate limit on every poll tick.
+const RECONCILE_AFTER_MS = 2 * 60 * 1000;
+
+async function reconcilePendingPayment(payment: {
+  orderId: string;
+  amount: number;
+  providerTxnId: string | null;
+}) {
+  if (!payment.providerTxnId) {
+    return null;
+  }
+
+  const verified = await getMayarTransaction(payment.providerTxnId);
+
+  if (verified.status !== "paid" || verified.amount !== payment.amount) {
+    return null;
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.payment.updateMany({
+      where: { orderId: payment.orderId, status: "PENDING" },
+      data: {
+        status: "COMPLETED",
+        paymentMethod: verified.paymentMethod,
+        updatedAt: new Date(),
+      },
+    });
+
+    if (claimed.count !== 1) {
+      return null;
+    }
+
+    const txPayment = await tx.payment.findUniqueOrThrow({
+      where: { orderId: payment.orderId },
+    });
+
+    const premiumExpiry = new Date("9999-12-31T23:59:59.999Z");
+    const packageName =
+      (txPayment.metadata as { packageName?: string })?.packageName ||
+      "Energy Booster";
+
+    await tx.$executeRaw`
+      INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+      VALUES (
+        ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
+        ${txPayment.userId},
+        ${txPayment.energyGranted},
+        0,
+        0,
+        ${`Top-up: ${packageName}`.slice(0, 64)},
+        ${premiumExpiry},
+        NOW()
+      )
+    `;
+
+    return {
+      userId: txPayment.userId,
+      energyGranted: txPayment.energyGranted,
+      packageName,
+    };
+  });
+
+  if (result) {
+    logCreditTransaction({
+      type: "credit",
+      userId: result.userId,
+      amount: result.energyGranted,
+      reason: `Top-up: ${result.packageName}`,
+      projectId: null,
+    });
+  }
+
+  return result;
+}
 
 export const Route = createFileRoute("/api/payment/status/$orderId")({
   server: {
@@ -31,6 +112,7 @@ export const Route = createFileRoute("/api/payment/status/$orderId")({
               amount: true,
               status: true,
               paymentMethod: true,
+              providerTxnId: true,
               createdAt: true,
             },
           });
@@ -50,13 +132,36 @@ export const Route = createFileRoute("/api/payment/status/$orderId")({
             );
           }
 
+          let status = payment.status;
+          let paymentMethod = payment.paymentMethod;
+
+          const isStalePending =
+            status === "PENDING" &&
+            Date.now() - payment.createdAt.getTime() > RECONCILE_AFTER_MS;
+
+          if (isStalePending) {
+            try {
+              const reconciled = await reconcilePendingPayment(payment);
+              if (reconciled) {
+                status = "COMPLETED";
+                paymentMethod = "qris";
+              }
+            } catch (error) {
+              // Reconciliation failure shouldn't break status polling —
+              // log and fall through to the last-known DB status.
+              console.warn(
+                `[payment-status] Reconciliation failed for ${orderId}:`,
+                error,
+              );
+            }
+          }
+
           return Response.json({
             success: true,
             orderId: payment.orderId,
-            status: payment.status,
+            status,
             amount: payment.amount,
-            paymentMethod: payment.paymentMethod,
-            createdAt: payment.createdAt,
+            paymentMethod,
           });
         } catch (error) {
           console.error(
