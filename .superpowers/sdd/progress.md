@@ -29,8 +29,8 @@
 - [x] Task 4: Extend moderateProjectRequest to accept images + retry-once (commit c8e7228, review clean)
 - [x] Task 5: Replace bare `catch {}` with structured logging at the three moderation call sites (commit ab00fcc, review clean)
 - [x] Task 6: Workspace upload gets image-only moderation (commit 56c0b91, review clean)
-- [x] Task 7: Support ticket upload — fix S3 key bug + use magic-byte detection (commits pending, review clean)
-- [ ] Task 8: Home create-project becomes multipart + persists files in one handler
+- [x] Task 7: Support ticket upload — fix S3 key bug + use magic-byte detection (commit ff678e6, review clean)
+- [x] Task 8: Home create-project becomes multipart + persists files in one handler (commit b29e3b9, vitest 17/17 pass, review clean)
 - [ ] Task 9: HomePromptForm switches to multipart, deletes the client upload loop
 - [ ] Task 10: Delete the sessionStorage handoff in WorkspaceShell
 - [ ] Task 11: Final gate + manual smoke test
