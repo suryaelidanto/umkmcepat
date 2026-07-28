@@ -4,6 +4,10 @@
 
 const KNOWN: Array<{ match: RegExp; message: string }> = [
   {
+    match: /not a supported image|invalid project asset/i,
+    message: "Format gambar tidak didukung. Gunakan PNG, JPEG, atau WEBP.",
+  },
+  {
     match: /pakasir|payment|transaction failed/i,
     message: "Pembayaran gagal. Coba lagi.",
   },
