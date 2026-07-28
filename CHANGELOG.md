@@ -4,6 +4,14 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 
 ## 2026-07
 
+### 2026-07-28 — Phase 3 ingress and CD
+
+- **CD pipeline**: deploy workflow now grants `packages: write` (the GHCR push would have 403'd), pins every action to its commit SHA, requires an SSH host-key fingerprint, and deploys the immutable `${{ github.sha }}` image tag rather than `latest`. A health-gate on `/api/health/ready` rolls back to the previous tag if the new image cannot serve within 150 s.
+- **Compose for GHCR**: `docker-compose.prod.yml` consumes `ghcr.io/suryaelidanto/umkmcepat-app:${APP_IMAGE_TAG}` for `app` and `migrate` (no more on-VPS rebuild). Required-variable guards replaced the silent `postgres/postgres` fallbacks. Umami gets a stable `APP_SECRET` and a healthcheck.
+- **Cloudflare Tunnel ingress**: `cloudflared` service in Compose dials out to Cloudflare's edge. No inbound ports on the host. 9Router, Umami, and Uptime Kuma sit behind Cloudflare Access (Zero Trust). The streaming `/edit` endpoint (Phase 2) is what makes this work — Cloudflare terminates non-streaming requests at ~100 s.
+- **Nightly R2 backups**: `scripts/backup-db.sh` now copies each gzipped dump to `s3://${S3_PRIVATE_BUCKET}/db-backups/` via the AWS CLI. A `umkmcepat-backup.timer` systemd unit runs it daily (`Persistent=true` so missed runs catch up after downtime). Restore procedure documented in `docs/deployment.md`.
+- **Docs**: `docs/deployment.md` now describes the Cloudflare Tunnel topology, the protected-hostname list, the GHCR image flow, the `APP_IMAGE_TAG` rollback procedure, the backup schedule and restore, and the ~100 s streaming constraint on any future long-running endpoint. `docs/architecture.md` records the Cloudflare Tunnel ingress boundary.
+
 ### 2026-07-28 — Phase 2 image, headers, and streaming edit
 
 - **Docker Build Context**: Excluded `.data`, `.output`, `.nitro`, `.tanstack`, `graphify-out`, `storybook-static`, `.pi-subagents`, `.superpowers`, `.claude`, `.agents`, `__captures__`, `.omc`, and `dev.log*` from `.dockerignore`. Transferred build context shrunk under 50 MB.

@@ -34,6 +34,10 @@ Rules:
 - Source snapshots, build attempts, deployments, runtime nodes, and runtime events are first-class concepts, not fields to collapse back into `Project`.
 - The existing schema renderer and DB-served static preview are legacy/fallback infrastructure, not the final generated runtime engine.
 
+## Ingress
+
+Production traffic reaches the app through a **Cloudflare Tunnel** — the `cloudflared` service in `docker-compose.prod.yml` dials out to Cloudflare's edge and exposes no inbound ports on the host. Every other production service (Postgres, 9Router, Umami, Uptime Kuma) binds to `127.0.0.1` and is never reachable from outside. Admin dashboards (9Router, Umami, Uptime Kuma) additionally sit behind **Cloudflare Access** — public hostnames that require a Zero Trust login policy before the tunnel forwards to the container. The streaming `/edit` endpoint (Phase 2) is a hard prerequisite: Cloudflare terminates non-streaming requests at ~100 s, which would otherwise break the up-to-600 s edit operation.
+
 ## Project workspace
 
 Current flow:
