@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { SensitiveText } from "@/components/admin/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { fetchJson } from "@/lib/query-client";
 
 type AdminUser = {
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/_main/admin/users")({
 });
 
 function UsersPage() {
+  const streamerMode = useStreamerMode();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
@@ -74,8 +77,20 @@ function UsersPage() {
             key={u.id}
           >
             <div>
-              <p className="font-medium">{u.name ?? "Tanpa nama"}</p>
-              <p className="text-surface-warm-white">{u.email}</p>
+              <p className="font-medium">
+                {streamerMode && u.name ? (
+                  <SensitiveText kind="name" value={u.name} />
+                ) : (
+                  (u.name ?? "Tanpa nama")
+                )}
+              </p>
+              <p className="text-surface-warm-white">
+                {streamerMode && u.email ? (
+                  <SensitiveText kind="email" value={u.email} />
+                ) : (
+                  u.email
+                )}
+              </p>
               <p className="text-surface-warm-white/70">
                 {u.projectsCount} proyek ·{" "}
                 {u.verified ? "Terverifikasi" : "Belum verifikasi"}
