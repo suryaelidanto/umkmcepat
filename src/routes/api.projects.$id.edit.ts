@@ -46,8 +46,8 @@ import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
   checkEnergy,
+  getEnergyConfig,
   isUserVerified,
-  MIN_ENERGY_EDIT,
 } from "@/lib/user-credits";
 
 type EditRequest = {
@@ -102,7 +102,7 @@ async function handleEditPost(request: Request, routeId: string) {
     );
   }
 
-  const energy = await checkEnergy(userId, MIN_ENERGY_EDIT);
+  const energy = await checkEnergy(userId, getEnergyConfig().minEdit);
   if (!energy.allowed) {
     return Response.json(
       {

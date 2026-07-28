@@ -7,7 +7,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import {
   chargeEnergyForAiUsage,
   checkEnergy,
-  MIN_ENERGY_MODERATION,
+  getEnergyConfig,
 } from "@/lib/user-credits";
 
 export const Route = createFileRoute("/api/projects/moderate")({
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/projects/moderate")({
 
         const energy = await checkEnergy(
           session.user.id,
-          MIN_ENERGY_MODERATION,
+          getEnergyConfig().minModeration,
         );
         if (!energy.allowed) {
           return Response.json(

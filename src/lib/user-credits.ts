@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { getModelPricing } from "@/lib/model-pricing";
 import { prisma } from "@/lib/prisma";
@@ -16,19 +17,56 @@ import { prisma } from "@/lib/prisma";
  * "generous but not wasteful" tier confirmed against real usage.
  * Day boundary: Asia/Jakarta (WIB).
  */
-export const MICRO_USD_PER_ENERGY = 1_000_000;
-export const DAILY_ENERGY_LIMIT = 250_000;
-
-/** Soft gate before discuss turns — cheap relative to build. */
-export const MIN_ENERGY_DISCUSS = 5_000;
-/** Soft gate before full build pipeline. */
-export const MIN_ENERGY_BUILD = 40_000;
-/** Soft gate before source edit agent. */
-export const MIN_ENERGY_EDIT = 10_000;
-/** Soft gate before moderation. */
-export const MIN_ENERGY_MODERATION = 500;
+const DEFAULT_MICRO_USD_PER_ENERGY = 1_000_000;
+const DEFAULT_DAILY_ENERGY_LIMIT = 250_000;
+const DEFAULT_MIN_ENERGY_DISCUSS = 5_000;
+const DEFAULT_MIN_ENERGY_BUILD = 40_000;
+const DEFAULT_MIN_ENERGY_EDIT = 10_000;
+const DEFAULT_MIN_ENERGY_MODERATION = 500;
 
 export const PROJECT_LIMIT_DEFAULT = 5;
+
+// Read as a function, not module-scope constants: the AppSetting snapshot is
+// primed per-request in middleware, so a module-evaluation-time read would
+// capture the fallback before priming ever runs.
+export function getEnergyConfig() {
+  return {
+    dailyLimit: getSettingSync(
+      "economics.daily_energy_limit",
+      DEFAULT_DAILY_ENERGY_LIMIT,
+    ),
+    microUsdPerEnergy: getSettingSync(
+      "economics.micro_usd_per_energy",
+      DEFAULT_MICRO_USD_PER_ENERGY,
+    ),
+    minBuild: getSettingSync(
+      "economics.min_energy_build",
+      DEFAULT_MIN_ENERGY_BUILD,
+    ),
+    minDiscuss: getSettingSync(
+      "economics.min_energy_discuss",
+      DEFAULT_MIN_ENERGY_DISCUSS,
+    ),
+    minEdit: getSettingSync(
+      "economics.min_energy_edit",
+      DEFAULT_MIN_ENERGY_EDIT,
+    ),
+    minModeration: getSettingSync(
+      "economics.min_energy_moderation",
+      DEFAULT_MIN_ENERGY_MODERATION,
+    ),
+  };
+}
+
+export function getProjectLimit(): number {
+  const raw = getSettingSync(
+    "economics.project_limit",
+    Number(process.env.PROJECT_LIMIT) || PROJECT_LIMIT_DEFAULT,
+  );
+  return Number.isFinite(raw) && raw >= 1
+    ? Math.floor(raw)
+    : PROJECT_LIMIT_DEFAULT;
+}
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -41,14 +79,7 @@ export async function calculateEnergyCost(
   const output = Math.max(0, Math.floor(outputTokens));
   const { promptPrice, completionPrice } = await getModelPricing(modelId);
   const usd = input * promptPrice + output * completionPrice;
-  return Math.round(usd * MICRO_USD_PER_ENERGY);
-}
-
-export function getProjectLimit(): number {
-  const raw = Number(process.env.PROJECT_LIMIT);
-  return Number.isFinite(raw) && raw >= 1
-    ? Math.floor(raw)
-    : PROJECT_LIMIT_DEFAULT;
+  return Math.round(usd * getEnergyConfig().microUsdPerEnergy);
 }
 
 /** Day boundaries in Asia/Jakarta (WIB, UTC+7). */
@@ -75,10 +106,11 @@ export async function getRemainingEnergy(userId: string): Promise<number> {
 
 export async function checkEnergy(
   userId: string,
-  cost: number = MIN_ENERGY_DISCUSS,
+  cost?: number,
 ): Promise<{ allowed: boolean; remaining: number }> {
+  const resolvedCost = cost ?? getEnergyConfig().minDiscuss;
   const remaining = await getRemainingEnergy(userId);
-  return { allowed: remaining >= cost, remaining };
+  return { allowed: remaining >= resolvedCost, remaining };
 }
 
 /**
@@ -126,7 +158,10 @@ export async function addEnergyUsage(
     `;
 
     const freeUsedToday = Math.abs(freeRow?.used ?? 0);
-    const remainingFree = Math.max(0, DAILY_ENERGY_LIMIT - freeUsedToday);
+    const remainingFree = Math.max(
+      0,
+      getEnergyConfig().dailyLimit - freeUsedToday,
+    );
 
     let freeDeduction = 0;
     let premiumDeduction = 0;
@@ -309,7 +344,7 @@ export async function getEnergyStats(userId: string): Promise<{
   `;
 
   const freeUsed = Math.abs(freeRow?.amount ?? 0);
-  const remainingFree = Math.max(0, DAILY_ENERGY_LIMIT - freeUsed);
+  const remainingFree = Math.max(0, getEnergyConfig().dailyLimit - freeUsed);
   const remainingPremium = Math.max(0, premiumRow?.amount ?? 0);
   const remaining = remainingFree + remainingPremium;
 
@@ -318,7 +353,7 @@ export async function getEnergyStats(userId: string): Promise<{
     remainingFree,
     remainingPremium,
     used: freeUsed,
-    limit: DAILY_ENERGY_LIMIT,
+    limit: getEnergyConfig().dailyLimit,
     resetsAt: endOfDay,
     inputTokens: freeRow?.inputTokens ?? 0,
     outputTokens: freeRow?.outputTokens ?? 0,

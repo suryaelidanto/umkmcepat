@@ -62,8 +62,8 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import {
   chargeEnergyForAiUsage,
   checkEnergy,
+  getEnergyConfig,
   isUserVerified,
-  MIN_ENERGY_BUILD,
 } from "@/lib/user-credits";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
@@ -120,7 +120,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
     );
   }
 
-  const energy = await checkEnergy(userId, MIN_ENERGY_BUILD);
+  const energy = await checkEnergy(userId, getEnergyConfig().minBuild);
   if (!energy.allowed) {
     return Response.json(
       {

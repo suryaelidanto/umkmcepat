@@ -42,8 +42,8 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import {
   chargeEnergyForAiUsage,
   checkEnergy,
+  getEnergyConfig,
   isUserVerified,
-  MIN_ENERGY_DISCUSS,
 } from "@/lib/user-credits";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
@@ -124,7 +124,7 @@ async function handlePreviewPost(request: Request) {
   }
 
   if (body.mode !== "repair_card") {
-    const energy = await checkEnergy(userId, MIN_ENERGY_DISCUSS);
+    const energy = await checkEnergy(userId, getEnergyConfig().minDiscuss);
     if (!energy.allowed) {
       return sseError({
         message: "Energi harian habis. Coba lagi besok.",

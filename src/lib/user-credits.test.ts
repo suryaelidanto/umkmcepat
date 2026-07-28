@@ -5,17 +5,42 @@ const {
   prismaQueryRawMock,
   prismaExecuteRawMock,
   prismaTransactionMock,
-} = vi.hoisted(() => ({
-  getModelPricingMock: vi.fn(),
-  prismaQueryRawMock: vi.fn(),
-  prismaExecuteRawMock: vi.fn(),
-  prismaTransactionMock: vi.fn(async (callback) =>
-    callback({
-      $queryRaw: prismaQueryRawMock,
-      $executeRaw: prismaExecuteRawMock,
-    }),
-  ),
-}));
+  prismaAppSettingMock,
+} = vi.hoisted(() => {
+  const store = new Map<string, unknown>();
+  return {
+    getModelPricingMock: vi.fn(),
+    prismaQueryRawMock: vi.fn(),
+    prismaExecuteRawMock: vi.fn(),
+    prismaTransactionMock: vi.fn(async (callback) =>
+      callback({
+        $queryRaw: prismaQueryRawMock,
+        $executeRaw: prismaExecuteRawMock,
+      }),
+    ),
+    prismaAppSettingMock: {
+      findUnique: vi.fn(async ({ where }: { where: { key: string } }) =>
+        store.has(where.key) ? { value: store.get(where.key) } : null,
+      ),
+      findMany: vi.fn(async () =>
+        [...store.entries()].map(([key, value]) => ({ key, value })),
+      ),
+      upsert: vi.fn(
+        async (args: {
+          where: { key: string };
+          create: { value: unknown };
+        }) => {
+          store.set(args.where.key, args.create.value);
+          return { value: args.create.value };
+        },
+      ),
+      delete: vi.fn(async ({ where }: { where: { key: string } }) => {
+        store.delete(where.key);
+        return null;
+      }),
+    },
+  };
+});
 
 vi.mock("@/lib/model-pricing", () => ({
   getModelPricing: getModelPricingMock,
@@ -25,6 +50,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: prismaQueryRawMock,
     $transaction: prismaTransactionMock,
+    appSetting: prismaAppSettingMock,
   },
 }));
 
@@ -32,12 +58,12 @@ import {
   calculateEnergyCost,
   chargeEnergyForAiUsage,
   chargeEnergyForStep,
-  DAILY_ENERGY_LIMIT,
   getDayBoundaries,
-  MIN_ENERGY_BUILD,
-  MIN_ENERGY_DISCUSS,
-  MIN_ENERGY_EDIT,
+  getEnergyConfig,
+  getProjectLimit,
 } from "./user-credits";
+
+import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
 
 describe("user-credits energy cost formula", () => {
   beforeEach(() => {
@@ -62,9 +88,10 @@ describe("user-credits energy cost formula", () => {
   });
 
   it("uses token-scale daily limits", () => {
-    expect(DAILY_ENERGY_LIMIT).toBe(250_000);
-    expect(MIN_ENERGY_DISCUSS).toBeLessThan(MIN_ENERGY_EDIT);
-    expect(MIN_ENERGY_EDIT).toBeLessThan(MIN_ENERGY_BUILD);
+    const config = getEnergyConfig();
+    expect(config.dailyLimit).toBe(250_000);
+    expect(config.minDiscuss).toBeLessThan(config.minEdit);
+    expect(config.minEdit).toBeLessThan(config.minBuild);
   });
 
   it("uses Asia/Jakarta day boundaries", () => {
@@ -248,5 +275,62 @@ describe("chargeEnergyForStep", () => {
     });
 
     expect(result).toBeNull();
+  });
+});
+
+describe("economics settings are DB-first", () => {
+  afterEach(() => {
+    invalidateSettingCache();
+    delete process.env.PROJECT_LIMIT;
+  });
+
+  it("getProjectLimit prefers DB over env", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "economics.project_limit" },
+      create: {
+        key: "economics.project_limit",
+        category: "economics",
+        value: 12,
+      },
+      update: { value: 12 },
+    });
+    process.env.PROJECT_LIMIT = "3";
+    invalidateSettingCache();
+    await primeSettingCache();
+
+    expect(getProjectLimit()).toBe(12);
+  });
+
+  it("getProjectLimit falls back to the code default", () => {
+    invalidateSettingCache();
+    expect(getProjectLimit()).toBe(5);
+  });
+
+  it("getEnergyConfig reads the daily limit from the DB", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "economics.daily_energy_limit" },
+      create: {
+        key: "economics.daily_energy_limit",
+        category: "economics",
+        value: 500_000,
+      },
+      update: { value: 500_000 },
+    });
+    invalidateSettingCache();
+    await primeSettingCache();
+
+    expect(getEnergyConfig().dailyLimit).toBe(500_000);
+  });
+
+  it("getEnergyConfig returns code defaults with an empty DB", () => {
+    invalidateSettingCache();
+    const config = getEnergyConfig();
+    expect(config.dailyLimit).toBe(250_000);
+    expect(config.minDiscuss).toBe(5_000);
+    expect(config.minBuild).toBe(40_000);
+    expect(config.minEdit).toBe(10_000);
+    expect(config.minModeration).toBe(500);
   });
 });
