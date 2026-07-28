@@ -179,6 +179,34 @@ function request(
   });
 }
 
+async function readSseResponse(response: Response) {
+  if (response.headers.get("Content-Type")?.includes("application/json")) {
+    return response.json();
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalData: any = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+
+    for (const rawEvent of events) {
+      const eventName = rawEvent.match(/^event: (.+)$/m)?.[1];
+      const dataText = rawEvent.match(/^data: (.+)$/m)?.[1];
+      if (eventName === "done" || eventName === "error") {
+        finalData = JSON.parse(dataText!);
+      }
+    }
+  }
+  return finalData;
+}
+
 describe("project edit route", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -309,7 +337,7 @@ describe("project edit route", () => {
       ]),
       { id: "project_1" },
     );
-    const body = await response.json();
+    const body = await readSseResponse(response);
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
@@ -432,7 +460,7 @@ describe("project edit route", () => {
       ),
       { id: "project_1" },
     );
-    const body = await response.json();
+    const body = await readSseResponse(response);
 
     expect(response.status).toBe(200);
     expect(body.attemptId).toMatch(/^edit_/);
@@ -448,9 +476,9 @@ describe("project edit route", () => {
     const response = await POST(request([], "ubah judul website"), {
       id: "project_1",
     });
-    const body = await response.json();
+    const body = await readSseResponse(response);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     expect(body.code).toBe("edit_failed_retryable");
     expect(prismaProjectBuildCreateMock).not.toHaveBeenCalled();
     expect(prismaProjectDeploymentCreateMock).not.toHaveBeenCalled();
@@ -480,9 +508,9 @@ describe("project edit route", () => {
     const response = await POST(request([], "ubah judul website"), {
       id: "project_1",
     });
-    const body = await response.json();
+    const body = await readSseResponse(response);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     expect(body.code).toBe("edit_failed_retryable");
     expect(prismaProjectDeploymentCreateMock).not.toHaveBeenCalled();
   });
@@ -506,7 +534,7 @@ describe("project edit route", () => {
       ]),
       { id: "project_1" },
     );
-    const body = await response.json();
+    const body = await readSseResponse(response);
 
     expect(response.status).toBe(200);
     expect(body.buildStatus).toBe("failed");

@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, LogOut, Shield, UserRound, Zap } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, LifeBuoy, LogOut, Shield, UserRound, Zap } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
@@ -11,12 +12,23 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { signOut, useSession } from "@/lib/auth-client";
 import { mask } from "@/lib/mask";
+import { fetchJson } from "@/lib/query-client";
 
 export function AuthButton() {
   const { data: session, status } = useSession();
   const [loginOpen, setLoginOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [boosterOpen, setBoosterOpen] = useState(false);
+
+  const unreadQuery = useQuery({
+    queryFn: () =>
+      fetchJson<{ userUnreadCount: number }>("/api/support/unread-count"),
+    queryKey: ["support", "unread-count"],
+    enabled: !!session?.user?.id,
+    refetchOnWindowFocus: true,
+  });
+
+  const unreadCount = unreadQuery.data?.userUnreadCount ?? 0;
   const menuId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +146,21 @@ export function AuthButton() {
             <Zap className="size-4 fill-[#ff7a59]/10 text-[#ff7a59]" />
             Tambah Energi
           </button>
+          <Link
+            href="/support"
+            onClick={() => setOpen(false)}
+            className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06]"
+          >
+            <div className="flex items-center gap-spacing-3">
+              <LifeBuoy className="size-4 text-surface-warm-white/62" />
+              <span>Dukungan</span>
+            </div>
+            {unreadCount > 0 ? (
+              <span className="flex size-5 items-center justify-center rounded-full bg-[#ff7a59] text-[10px] font-bold text-white">
+                {unreadCount}
+              </span>
+            ) : null}
+          </Link>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/" })}

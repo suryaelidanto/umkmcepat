@@ -1824,10 +1824,56 @@ export function WorkspaceShell({
           summary,
         }),
       });
-      const result = (await response.json().catch(() => null)) as {
-        buildStatus?: string;
-        message?: string;
-      } | null;
+      let result: { buildStatus?: string; message?: string } | null = null;
+
+      if (response.ok && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split("\n\n");
+          buffer = events.pop() || "";
+
+          for (const rawEvent of events) {
+            const eventName = rawEvent.match(/^event: (.+)$/m)?.[1];
+            const dataText = rawEvent.match(/^data: (.+)$/m)?.[1];
+            if (!eventName || !dataText) {
+              continue;
+            }
+
+            const data = JSON.parse(dataText) as {
+              buildStatus?: string;
+              detail?: string;
+              label?: string;
+              message?: string;
+            };
+
+            if (eventName === "progress" && data.label) {
+              setBuildProgress((current) =>
+                appendBuildProgressStep(current, {
+                  detail: data.detail || "",
+                  label: data.label as string,
+                  status: "active",
+                }),
+              );
+            } else if (eventName === "done" || eventName === "error") {
+              result = data;
+            }
+          }
+        }
+      } else if (!response.ok) {
+        // Fallback for pre-stream HTTP errors (409, 401, etc.)
+        result = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+      }
 
       if (!response.ok || result?.buildStatus !== "succeeded") {
         pendingVisualRevisionRef.current = false;

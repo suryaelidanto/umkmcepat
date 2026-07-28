@@ -18,6 +18,7 @@ import {
   Smartphone,
   Trash2,
   X,
+  LifeBuoy,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
@@ -163,6 +164,17 @@ export function WorkspaceTopBar({
       </div>
 
       <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
+        {projectId ? (
+          <a
+            href="/support"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
+            title="Hubungi Dukungan (Buka Tab Baru)"
+          >
+            <LifeBuoy className="size-4" />
+          </a>
+        ) : null}
         {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
         {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
         {runtime ? <RuntimeControl runtime={runtime} /> : null}
