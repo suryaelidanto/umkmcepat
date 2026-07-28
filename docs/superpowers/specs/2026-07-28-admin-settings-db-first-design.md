@@ -219,65 +219,88 @@ requires a redeploy anyway: `AI_PROVIDER`, `STORAGE_PROVIDER`,
 `GENERATED_PUBLIC_EXECUTION_ENABLED` remain in `.env.example` as the boot-time
 floor, but the DB overrides them — that is already their intended design.
 
-### 5. Cache priming
+### 5. Cache priming and the snapshot layer
 
-`app-settings.ts` gains:
+`app-settings.ts` gains a second storage layer and one new export:
 
 ```ts
 export async function primeSettingCache(): Promise<void>
 ```
 
-It reads every `AppSetting` row in one query and seeds the cache, coercing each
-value against its registry entry's type. Entries whose type does not match are
-skipped, not cached — a corrupt row must not poison a sync read.
+**Why two layers.** The existing `cache` carries a 5s TTL. If priming wrote only
+into it, every primed entry would expire five seconds after boot and
+`getSettingSync` would silently resume returning the fallback — the exact defect
+this spec exists to fix, merely delayed. So priming writes to a separate
+`snapshot: Map<string, unknown>` that has **no TTL** and is replaced wholesale
+on each prime.
 
-Two properties make this safe:
+Read order becomes:
+
+| Function | Order |
+| --- | --- |
+| `getSetting` (async) | TTL cache → DB → snapshot → env → fallback |
+| `getSettingSync` | TTL cache → snapshot → fallback |
+
+`getSettingSync` deliberately does not consult env. The snapshot already holds
+every DB row, and a key with no DB row should resolve through the async path
+where env is read; adding an env read here would give sync and async callers
+different answers for the same key.
+
+`primeSettingCache` reads every `AppSetting` row in one query, coerces each
+value against its registry entry's type, and skips mismatches rather than
+caching them — a corrupt row must not poison a sync read.
+
+Two properties make it safe:
 
 - **Idempotent and single-flight.** A module-level promise guards concurrent
-  callers; the second caller awaits the first's result rather than issuing a
+  callers; a second caller awaits the first's result rather than issuing a
   second query.
-- **Never throws.** A DB failure logs the setting count as unavailable and
-  leaves the cache empty; every `getSetting` still degrades to env → fallback,
-  exactly as today. Config reads must not be able to take the app down.
+- **Never throws.** A DB failure leaves the snapshot at its previous contents
+  (empty on first boot); every read still degrades to env → fallback exactly as
+  today. Config reads must not be able to take the app down.
 
-Primed entries use the same 5s TTL, so a stale prime self-heals on the next
-async read. `invalidateSettingCache()` after PUT continues to clear everything;
-the next request re-primes.
+`invalidateSettingCache()` clears the TTL cache and marks the snapshot stale, so
+the next request re-primes and admin edits take effect immediately.
 
 **Where it runs:** `src/start.ts`'s global middleware, before the request
-proceeds. Awaiting a resolved promise is free after the first request, and this
-is the one place guaranteed to run in every deployment target (dev, `bun
-.output/server/index.mjs`, Docker) without adding a new entrypoint. The first
-request after boot pays one query.
-
-This single change fixes the three cold-cache defects in section A, because
-`getSettingSync` will find a warm cache.
+proceeds. Awaiting an already-resolved promise is free after the first request,
+and middleware is the one place guaranteed to run in every deployment target
+(dev, `bun .output/server/index.mjs`, Docker) without adding a new entrypoint.
+The first request after boot pays one query.
 
 ### 6. Consumer rewiring
 
-Each module below swaps its env read for `getSetting`, keeping its existing
-clamp logic untouched — the clamp stays the last word on read, so a legacy
-out-of-range env value behaves exactly as it does today.
+**Consumers stay synchronous.** With a no-TTL snapshot, `getSettingSync` is
+trustworthy, so each module swaps `getEnv(name)` → `getSettingSync(key, default)`
+and keeps its signature. This avoids an async cascade that would otherwise reach
+`checkGeneratedApp` (`agent-tool-runner.ts:536`, sync by contract) and the
+inline `timeout: getAiTimeoutMs("discussCard")` object-literal call sites in
+`discuss-turn-shared.ts:161,256`.
+
+Existing clamp logic is untouched — the clamp stays the last word on read, so a
+legacy out-of-range env value behaves exactly as it does today.
 
 | Module | Function | Change |
 | --- | --- | --- |
-| `ai-timeouts.ts` | `getAiTimeoutMs` | becomes async; `getEnv` → `getSetting`; add `key` to each config block |
-| `ai-agent-steps.ts` | `getAgentMaxSteps` | becomes async; same shape |
-| `ai-models.ts` | `getDefaultAiModel`, `getGenerationModel` | become async; read `ai.models_default` / `ai.generation_model` |
-| `user-credits.ts` | `getProjectLimit` | becomes async; energy consts become `getEnergyConfig()` |
-| `runtime-network.ts` | `getRuntimeFetchTimeoutMs` | becomes async |
-| `generated-resource-budget.ts` | `getGeneratedResourceBudget` | becomes async; `assertGeneratedResourceBudget` follows |
-| `preview-asset-token.ts` | `getTokenTtlSeconds` | becomes async |
-| `project-thumbnail.ts` | `isCaptureEnabled`, timeout/concurrency reads | become async |
-| `build-worker.ts` | `getBuildConcurrencyLimit` | reads primed cache via `getSettingSync` (module-scope call site) |
-| `runtime-supervisor.ts` | max-containers read | `getSettingSync` (module-scope call site) |
-| `config.ts` | `getCapabilityFlag` | unchanged code; now correct because the cache is primed |
+| `ai-timeouts.ts` | `getAiTimeoutMs` | add `key` to each config block; `getEnv` → `getSettingSync` |
+| `ai-agent-steps.ts` | `getAgentMaxSteps` | same shape |
+| `ai-models.ts` | `getDefaultAiModel`, `getGenerationModel` | read `ai.models_default` / `ai.generation_model` |
+| `user-credits.ts` | `getProjectLimit` | reads `economics.project_limit`; energy consts become `getEnergyConfig()` |
+| `runtime-network.ts` | `getRuntimeFetchTimeoutMs` | `getSettingSync` |
+| `generated-resource-budget.ts` | `resolveBudgetValue` | `getSettingSync` |
+| `preview-asset-token.ts` | `getTokenTtlSeconds` | `getSettingSync` |
+| `project-thumbnail.ts` | `isCaptureEnabled`, `positiveInt` sites | `getSettingSync` |
+| `build-worker.ts` | `getBuildConcurrencyLimit` | `getSettingSync` |
+| `runtime-supervisor.ts` | max-containers read | `getSettingSync` |
+| `config.ts` | `getCapabilityFlag` | unchanged code; now correct because the snapshot is warm |
 
-`withAiTimeout`'s default parameter `timeoutMs = getAiTimeoutMs(key)` cannot
-await. It changes to `timeoutMs?: number` and resolves inside the function body.
-
-The two `getSettingSync` call sites (`build-worker`, `runtime-supervisor`) are
-exactly the two `requiresRestart: true` entries — consistent by construction.
+One consequence to accept deliberately: a value read via `getSettingSync` on the
+very first request before priming completes returns the fallback rather than the
+DB value. Priming is awaited in middleware ahead of route handling, so this
+window does not occur for request-scoped reads. It does apply to any read at
+module-evaluation time — `user-credits.ts`'s energy constants are therefore
+converted from `export const` to a `getEnergyConfig()` function call, which is
+why that conversion is in scope.
 
 ### 7. Write-side validation
 
@@ -339,10 +362,12 @@ removed: deleting it is out of scope for this change.
 
 Unit tests, colocated per the existing convention, `bun run test`:
 
-1. `app-settings.test.ts` — extend: `primeSettingCache` seeds the cache;
-   `getSettingSync` returns the DB value after priming; priming survives a DB
-   error without throwing; type-mismatched rows are skipped; concurrent primes
-   issue one query.
+1. `app-settings.test.ts` — extend: `primeSettingCache` seeds the snapshot;
+   `getSettingSync` returns the DB value after priming; **the snapshot value
+   survives past the 5s TTL** (the regression this design exists to prevent);
+   priming survives a DB error without throwing; type-mismatched rows are
+   skipped; concurrent primes issue one query;
+   `invalidateSettingCache()` forces a re-prime.
 2. `app-settings-registry.test.ts` — extend: every entry has a `tier`; every
    numeric entry with an `env` also declares `min` and `max`; no two entries
    share a `key` or an `env`; every `min <= fallback <= max`.
@@ -361,7 +386,7 @@ added in the same change per project rule.
 | File | Change |
 | --- | --- |
 | `src/lib/app-settings-registry.ts` | `tier`/`env`/`min`/`max`/`requiresRestart` fields; 33 new entries; 4 new categories |
-| `src/lib/app-settings.ts` | add `primeSettingCache`; delete `envKeyFor`; read `entry.env` |
+| `src/lib/app-settings.ts` | add `primeSettingCache` + no-TTL snapshot; delete `envKeyFor`; read `entry.env` |
 | `src/start.ts` | await `primeSettingCache()` in global middleware |
 | `src/routes/api.admin.settings.ts` | drop local env map; bounds validation; expose `tier`/`min`/`max`/`requiresRestart` in GET |
 | `src/routes/_main.admin.settings.tsx` | tier split, disclosure, restart chip, input bounds |
@@ -379,9 +404,10 @@ added in the same change per project rule.
 | `.env.example` | fix two drifted defaults; note DB-override precedence |
 | `docs/architecture.md` | document the DB → env → fallback contract and the excluded set |
 
-Call-site fan-out from the async conversions (each caller awaits): `ai.ts`,
-`ai-moderation.ts`, `discuss-turn-worker.ts`, `source-edit-agent.ts`,
-`api.projects.ts`, `api.projects.$id.edit.ts`, `_main.index.tsx`.
+Because consumers keep their synchronous signatures, their call sites need no
+change. The one exception is `user-credits.ts`: replacing the exported energy
+constants with `getEnergyConfig()` touches every reader of `DAILY_ENERGY_LIMIT`
+and `MIN_ENERGY_*`.
 
 ## YAGNI
 
