@@ -539,5 +539,51 @@ describe("Payment API Routes", () => {
       expect(getMayarTransactionMock).toHaveBeenCalledWith("txn-1");
       expect(data.status).toBe("COMPLETED");
     });
+
+    it("returns DB status without calling Mayar when providerTxnId is null", async () => {
+      authMock.mockResolvedValueOnce({ user: { id: "user-1" } });
+      const recentPending = {
+        userId: "user-1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        energyGranted: 50000,
+        status: "PENDING",
+        providerTxnId: null,
+        createdAt: new Date(Date.now() - 5 * 60 * 1000), // 5 mins old, beyond grace window
+        metadata: {},
+      };
+      prismaPaymentFindUniqueMock.mockResolvedValue(recentPending);
+
+      const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(getMayarTransactionMock).not.toHaveBeenCalled();
+      expect(body.status).toBe("PENDING");
+    });
+
+    it("falls back to DB status when getMayarTransaction throws", async () => {
+      authMock.mockResolvedValueOnce({ user: { id: "user-1" } });
+      const stalePending = {
+        userId: "user-1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        energyGranted: 50000,
+        status: "PENDING",
+        providerTxnId: "txn-1",
+        createdAt: new Date(Date.now() - 5 * 60 * 1000), // beyond grace window
+        metadata: {},
+      };
+      prismaPaymentFindUniqueMock.mockResolvedValue(stalePending);
+      getMayarTransactionMock.mockRejectedValueOnce(
+        new Error("Mayar API timeout"),
+      );
+
+      const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.status).toBe("PENDING"); // DB status returned as fallback
+    });
   });
 });

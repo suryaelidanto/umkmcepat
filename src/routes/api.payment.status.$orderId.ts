@@ -68,6 +68,7 @@ async function reconcilePendingPayment(payment: {
       userId: txPayment.userId,
       energyGranted: txPayment.energyGranted,
       packageName,
+      paymentMethod: verified.paymentMethod,
     };
   });
 
@@ -144,7 +145,7 @@ export const Route = createFileRoute("/api/payment/status/$orderId")({
               const reconciled = await reconcilePendingPayment(payment);
               if (reconciled) {
                 status = "COMPLETED";
-                paymentMethod = "qris";
+                paymentMethod = reconciled.paymentMethod;
               }
             } catch (error) {
               // Reconciliation failure shouldn't break status polling —
