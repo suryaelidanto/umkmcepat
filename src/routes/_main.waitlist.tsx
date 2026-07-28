@@ -385,14 +385,14 @@ function WaitlistPage() {
               onClick={() => {
                 if (step === 1) {
                   form.markTouched("businessName");
-                  if (form.hasError("businessName")) {
-                    toast.error(form.errorMessage("businessName") ?? "");
+                  if (form.errors.businessName) {
+                    toast.error(form.errors.businessName);
                     return;
                   }
                   if (form.values.phone) {
                     form.markTouched("phone");
-                    if (form.hasError("phone")) {
-                      toast.error(form.errorMessage("phone") ?? "");
+                    if (form.errors.phone) {
+                      toast.error(form.errors.phone);
                       return;
                     }
                   }
@@ -402,11 +402,22 @@ function WaitlistPage() {
                   form.markTouched("storySince");
                   form.markTouched("storyGoal");
                   if (
-                    form.hasError("storyOffers") ||
-                    form.hasError("storySince") ||
-                    form.hasError("storyGoal")
+                    form.errors.storyOffers ||
+                    form.errors.storySince ||
+                    form.errors.storyGoal
                   ) {
-                    toast.error("Perbaiki dulu jawabannya.");
+                    toast.error(
+                      form.errors.storyOffers ||
+                        form.errors.storyGoal ||
+                        form.errors.storySince ||
+                        "Perbaiki dulu jawabannya.",
+                    );
+                    return;
+                  }
+                  if (storyTooShort) {
+                    toast.error(
+                      "Total jawabannya minimal 80 karakter biar kami yakin.",
+                    );
                     return;
                   }
                 }
