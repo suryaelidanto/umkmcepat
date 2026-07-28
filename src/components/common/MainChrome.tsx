@@ -70,6 +70,28 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   const ownIsDevSkip =
     waitlistQuery.data?.own?.businessName.startsWith("[dev-skip]") ?? false;
   const queryClient = useQueryClient();
+
+  const devResetVerification = useMutation({
+    mutationFn: async () =>
+      fetchJson<{ message?: string }>("/api/dev/reset-verification", {
+        method: "POST",
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.verification,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.waitlistStatus,
+      });
+      toast.success("Verifikasi (OTP) di-reset. Refresh halaman.");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Gagal reset verifikasi.",
+      );
+    },
+  });
+
   const devResetWaitlist = useMutation({
     mutationFn: async () =>
       fetchJson<{ message?: string }>("/api/dev/reset-waitlist", {
@@ -147,20 +169,33 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative flex min-h-screen flex-col bg-[#151515]">
-      {isDev && ownIsDevSkip ? (
+      {isDev ? (
         <div className="flex items-center justify-center gap-spacing-3 border-b border-aurora-orange/30 bg-aurora-orange/10 px-spacing-4 py-spacing-2 text-xs text-aurora-orange">
-          <span>
-            DEV: akun kamu auto-approved lewat dev skip. Gate tidak aktif untuk
-            tes ini.
-          </span>
-          <button
-            className="rounded-radius-sm border border-aurora-orange/40 px-spacing-2 py-spacing-1 text-[10px] font-semibold uppercase tracking-wider text-aurora-orange transition hover:bg-aurora-orange/20 disabled:opacity-50"
-            disabled={devResetWaitlist.isPending}
-            onClick={() => devResetWaitlist.mutate()}
-            type="button"
-          >
-            {devResetWaitlist.isPending ? "Mereset..." : "Reset approval"}
-          </button>
+          <span>DEV: Mode Pengembang</span>
+          {isVerified ? (
+            <button
+              className="rounded-radius-sm border border-aurora-orange/40 px-spacing-2 py-spacing-1 text-[10px] font-semibold uppercase tracking-wider text-aurora-orange transition hover:bg-aurora-orange/20 disabled:opacity-50"
+              disabled={devResetVerification.isPending}
+              onClick={() => devResetVerification.mutate()}
+              type="button"
+            >
+              {devResetVerification.isPending
+                ? "Mereset OTP..."
+                : "Reset Verifikasi (OTP)"}
+            </button>
+          ) : null}
+          {ownIsDevSkip ? (
+            <button
+              className="rounded-radius-sm border border-aurora-orange/40 px-spacing-2 py-spacing-1 text-[10px] font-semibold uppercase tracking-wider text-aurora-orange transition hover:bg-aurora-orange/20 disabled:opacity-50"
+              disabled={devResetWaitlist.isPending}
+              onClick={() => devResetWaitlist.mutate()}
+              type="button"
+            >
+              {devResetWaitlist.isPending
+                ? "Mereset Antrian..."
+                : "Reset Antrian (Waitlist)"}
+            </button>
+          ) : null}
         </div>
       ) : null}
       <Header />
