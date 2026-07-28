@@ -66,17 +66,17 @@ function UsersPage() {
         value={q}
       />
       {users.length === 0 ? (
-        <p className="text-surface-warm-white/60">Tidak ada pengguna.</p>
+        <p className="text-surface-warm-white/70">Tidak ada pengguna.</p>
       ) : (
         users.map((u) => (
           <div
-            className="flex items-center justify-between rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-3 text-sm"
+            className="flex items-center justify-between rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
             key={u.id}
           >
             <div>
               <p className="font-medium">{u.name ?? "Tanpa nama"}</p>
-              <p className="text-surface-warm-white/60">{u.email}</p>
-              <p className="text-surface-warm-white/40">
+              <p className="text-surface-warm-white">{u.email}</p>
+              <p className="text-surface-warm-white/70">
                 {u.projectsCount} proyek ·{" "}
                 {u.verified ? "Terverifikasi" : "Belum verifikasi"}
                 {u.bannedAt ? " · Diblokir" : ""}
@@ -107,7 +107,7 @@ function UsersPage() {
           >
             Sebelumnya
           </button>
-          <span className="px-spacing-2 py-spacing-2 text-sm text-surface-warm-white/60">
+          <span className="px-spacing-2 py-spacing-2 text-sm text-surface-warm-white/70">
             {page} / {data.totalPages}
           </span>
           <button
