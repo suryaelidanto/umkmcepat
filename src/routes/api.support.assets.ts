@@ -1,11 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { randomUUID } from "node:crypto";
+
+import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
 import { putStoredObject } from "@/lib/object-storage";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const ALLOWED_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+];
 
 export const Route = createFileRoute("/api/support/assets")({
   server: {
@@ -46,7 +52,10 @@ export const Route = createFileRoute("/api/support/assets")({
 
         if (!ALLOWED_MIME_TYPES.includes(file.type)) {
           return Response.json(
-            { message: "Format file tidak didukung. Gunakan PNG, JPEG, WEBP, atau GIF." },
+            {
+              message:
+                "Format file tidak didukung. Gunakan PNG, JPEG, WEBP, atau GIF.",
+            },
             { status: 400 },
           );
         }

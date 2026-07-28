@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
-import { isAdminEmail } from "@/lib/waitlist";
 import { getStoredObject } from "@/lib/object-storage";
 import { prisma } from "@/lib/prisma";
+import { isAdminEmail } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/support/assets/$assetId")({
   server: {
