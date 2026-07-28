@@ -172,7 +172,11 @@ export function HomePromptForm({
                 );
               }
               const bytes = new Uint8Array(await item.file.arrayBuffer());
-              const base64 = btoa(new TextDecoder("latin1").decode(bytes));
+              let binary = "";
+              for (let i = 0; i < bytes.length; i += 0x8000) {
+                binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+              }
+              const base64 = btoa(binary);
               fileParts.push({
                 filename: item.file.name,
                 mediaType: item.file.type || "image/png",
