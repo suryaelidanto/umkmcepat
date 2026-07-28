@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
+import { primeSettingCache } from "@/lib/app-settings";
 import { generateNonce, getNonceStore } from "@/lib/csp-nonce";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -31,6 +32,11 @@ function isGeneratedOrigin(requestOrigin: string) {
 // Next.js middleware: cross-site mutation block, then global rate limit, then
 // security headers applied to every response.
 const securityMiddleware = createMiddleware().server(async ({ next }) => {
+  // Warm the AppSetting snapshot before any handler runs, so getSettingSync
+  // call sites resolve DB values instead of falling back to env. Idempotent
+  // and single-flight — after the first request this awaits a resolved promise.
+  await primeSettingCache();
+
   const nonce = generateNonce();
   const request = getRequest();
   const url = new URL(request.url);
