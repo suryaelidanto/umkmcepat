@@ -87,6 +87,15 @@ vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(async () => null),
 }));
 vi.mock("@/lib/user-credits", () => ({
+  getEnergyConfig: vi.fn(() => ({
+    dailyLimit: "100000",
+    microUsdPerEnergy: "100",
+    minBuild: "10000",
+    minDiscuss: "5000",
+    minEdit: "10000",
+    minGeneration: "5000",
+    minModeration: "1000",
+  })),
   isUserVerified: vi.fn(async () => true),
   checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 200_000 })),
   addEnergyUsage: vi.fn(async () => ({
@@ -99,7 +108,6 @@ vi.mock("@/lib/user-credits", () => ({
     inputTokens: 0,
     outputTokens: 0,
   })),
-  MIN_ENERGY_EDIT: 10_000,
 }));
 vi.mock("@/lib/projects/runtime-supervisor", () => ({
   stopSupersededPreviewDeployments: stopSupersededPreviewDeploymentsMock,
