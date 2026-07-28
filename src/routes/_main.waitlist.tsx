@@ -551,7 +551,7 @@ function WaitlistPage() {
                 ? "Melewati..."
                 : "Lewati pendaftaran (dev mode)"}
             </button>
-            {ownQuery.data?.own?.businessName.startsWith("[dev-skip]") ? (
+            {ownQuery.data?.own ? (
               <button
                 className="text-[10px] uppercase tracking-wider text-aurora-rose/70 underline-offset-4 hover:text-aurora-rose hover:underline disabled:opacity-50"
                 disabled={devResetMutation.isPending}
@@ -560,7 +560,7 @@ function WaitlistPage() {
               >
                 {devResetMutation.isPending
                   ? "Mereset..."
-                  : "Reset approval (dev mode)"}
+                  : "Reset pendaftaran (dev mode)"}
               </button>
             ) : null}
           </div>

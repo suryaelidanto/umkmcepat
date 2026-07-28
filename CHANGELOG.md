@@ -7,6 +7,7 @@ Short, plain-English daily updates. Keep entries general, one line each, and use
 ### 2026-07-29 — Waitlist gate fix + dev reset UX
 
 - **Waitlist approval bug fix**: `resolveUserWaitlistStatus` checked `if (isApproved)` against the raw entry status string, so any entry at all — `pending` or `rejected`, not just `approved` — passed the gate as if approved. Fixed to `isApproved === "approved"`. Added regression tests for pending/rejected non-admin cases.
+- **Dev reset button**: the "Reset Antrian (Waitlist)" control (in the dev banner and on `/waitlist`) only appeared for entries auto-created by the dev "skip" shortcut (`[dev-skip]`-prefixed). A real submitted entry — pending, rejected, or otherwise — had no reset control anywhere in the UI even though the underlying dev-only endpoint already supported clearing any entry. Now shown whenever any entry exists for the signed-in user.
 
 ### 2026-07-28 — Phase 3 ingress and CD
 
