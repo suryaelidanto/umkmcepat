@@ -1077,7 +1077,37 @@ export function WorkspaceShell({
     hasStartedChat.current = true;
     const timer = setTimeout(() => {
       autoSentProjectIds.add(projectId);
-      sendMessage({ text: prompt }, { body: { mode } });
+
+      let initialFiles = undefined;
+      let initialMediaPaths = undefined;
+      try {
+        const savedAssetsStr = sessionStorage.getItem(
+          `umkmcepat:initial-assets:${projectId}`,
+        );
+        if (savedAssetsStr) {
+          const savedAssets = JSON.parse(savedAssetsStr);
+          if (savedAssets?.fileParts && savedAssets?.mediaPaths) {
+            initialFiles = savedAssets.fileParts;
+            initialMediaPaths = savedAssets.mediaPaths;
+          }
+          sessionStorage.removeItem(`umkmcepat:initial-assets:${projectId}`);
+        }
+      } catch (err) {
+        console.error("Failed to restore initial assets:", err);
+      }
+
+      sendMessage(
+        {
+          text: prompt,
+          files: initialFiles,
+        },
+        {
+          body: {
+            mode,
+            mediaPaths: initialMediaPaths,
+          },
+        },
+      );
     }, 0);
 
     return () => {

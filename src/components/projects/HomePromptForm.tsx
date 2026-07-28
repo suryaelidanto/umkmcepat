@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Loader2 } from "lucide-react";
+import { ArrowUp, Loader2, Paperclip } from "lucide-react";
 import {
   FormEvent,
   KeyboardEvent,
@@ -9,11 +9,22 @@ import {
   useRef,
   useState,
 } from "react";
+import { toast } from "sonner";
 
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
+import {
+  ComposerAttachments,
+  ComposerAttachButton,
+} from "@/components/projects/ComposerAttachments";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "@/lib/navigation";
+import {
+  removeAttachment,
+  revokeAll,
+  toUploadPlan,
+  type PendingAttachment,
+} from "@/lib/projects/composer-attachments";
 import {
   createProjectDraft,
   parseProjectDraft,
@@ -59,8 +70,15 @@ export function HomePromptForm({
   const [prompt, setPrompt] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const hasAutoContinued = useRef(false);
   const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      revokeAll(attachments);
+    };
+  }, [attachments]);
 
   useEffect(() => {
     const draft = parseProjectDraft(
@@ -122,6 +140,63 @@ export function HomePromptForm({
       },
       invalidateKeys: [queryKeys.projects, queryKeys.energy],
       onSuccess: async (data) => {
+        if (attachments.length) {
+          try {
+            const fileParts = [];
+            const mediaPaths = [];
+            for (const item of toUploadPlan(attachments)) {
+              const form = new FormData();
+              form.append("file", item.file);
+              form.append("purpose", "business-image");
+              const res = await fetch(
+                `/api/projects/${data.id}/assets/upload`,
+                {
+                  body: form,
+                  method: "POST",
+                },
+              );
+              if (!res.ok) {
+                throw new Error(`Gagal mengunggah ${item.file.name}`);
+              }
+              const contentType = res.headers.get("content-type") ?? "";
+              if (!contentType.toLowerCase().includes("application/json")) {
+                throw new Error(`Gagal mengunggah ${item.file.name}`);
+              }
+              const asset = (await res.json()) as {
+                id: string;
+                publicUrl: string | null;
+              };
+              if (!asset.publicUrl) {
+                throw new Error(
+                  `Gambar belum tersedia (${item.file.name}). Aktifkan R2.`,
+                );
+              }
+              const bytes = new Uint8Array(await item.file.arrayBuffer());
+              const base64 = btoa(String.fromCharCode(...bytes));
+              fileParts.push({
+                filename: item.file.name,
+                mediaType: item.file.type || "image/png",
+                type: "file",
+                url: `data:${item.file.type || "image/png"};base64,${base64}`,
+              });
+              mediaPaths.push(`/media/${asset.id}`);
+            }
+
+            sessionStorage.setItem(
+              `umkmcepat:initial-assets:${data.id}`,
+              JSON.stringify({ fileParts, mediaPaths }),
+            );
+          } catch (error) {
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : "Gagal mengunggah gambar.",
+            );
+          } finally {
+            revokeAll(attachments);
+          }
+        }
+
         // Force a refetch so home sees the new project after create.
         window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
         router.push(data.path);
@@ -250,10 +325,45 @@ export function HomePromptForm({
           disabled={isLoading}
           className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/52 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
         />
+        {attachments.length > 0 ? (
+          <div className="px-spacing-6 pb-spacing-4">
+            <ComposerAttachments
+              attachments={attachments}
+              onRemove={(id) =>
+                setAttachments((prev) => removeAttachment(prev, id))
+              }
+            />
+          </div>
+        ) : null}
         <div className="flex items-center justify-between gap-spacing-7 px-spacing-9 pb-spacing-7">
-          <span className="text-sm tabular-nums text-surface-warm-white/58">
-            {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
-          </span>
+          <div className="flex items-center gap-spacing-3">
+            <span className="text-sm tabular-nums text-surface-warm-white/58">
+              {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
+            </span>
+            {status === "authenticated" ? (
+              <ComposerAttachButton
+                attachments={attachments}
+                onAdd={(next, rejected) => {
+                  setAttachments(next);
+                  if (rejected.length) {
+                    toast.error(
+                      "Maksimal 6 gambar dan kurang dari 5MB per gambar.",
+                    );
+                  }
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                aria-label="Lampirkan gambar"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-surface-warm-white/60 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white/90"
+                onClick={() => setLoginOpen(true)}
+                title="Lampirkan gambar"
+              >
+                <Paperclip className="size-4" />
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-spacing-5">
             {isLoading ? (
               <span className="hidden text-sm text-surface-warm-white/58 sm:inline">
