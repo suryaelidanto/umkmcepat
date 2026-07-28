@@ -27,20 +27,10 @@ Open:
 
 ```text
 http://localhost:3000
-```
-
-Optional AI gateway:
-
-```bash
-bun run infra:ai
-```
-
-```text
 9Router: http://localhost:20129
-Default password: 123456
 ```
 
-See `docs/architecture.md` for provider setup.
+`bun run infra` already starts the full local AI/observability stack (9Router, Headroom, MinIO) alongside Postgres; use `bun run infra:minimal` only when you need Postgres by itself. 9Router's default dashboard password is documented in its own project, not here — check it after first boot rather than trusting a copy of it in this repo.
 
 ## Optional agent code map
 
@@ -76,8 +66,7 @@ Open PRs into `dev` first unless maintainers say otherwise.
 - `PRINCIPLES.md`: quality bar and operating taste.
 - `DEV.md`: maintainer workflow, commands, Storybook, Graphify, checks.
 - `DESIGN.md`: visual system and UI rules.
-- `docs/architecture.md`: project/workspace/renderer/provider/storage/auth/AI constraints.
-- `docs/deployment.md`: Docker, VPS, storage persistence, and Sentry setup.
+- `docs/superpowers/specs/` and `docs/superpowers/plans/`: the decision trail behind project, runtime, provider, storage, auth, AI-gateway, and deployment behavior.
 
 ## Safety
 

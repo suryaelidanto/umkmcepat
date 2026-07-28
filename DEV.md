@@ -58,7 +58,7 @@ Server logs are written to `dev.log` at the repo root automatically during `bun 
 bun run dev:logs
 ```
 
-If port 3000 is already used by a repo-owned Next dev process, reset it safely:
+If port 3000 is already used by a repo-owned dev server process, reset it safely:
 
 ```bash
 bun run dev:reset
@@ -93,7 +93,7 @@ bun run infra:down  # stop all project infrastructure
 bun run infra:ps    # inspect status
 ```
 
-If Docker is missing, install/start Docker Desktop or Docker Engine. If `.next` gets stale, stop the dev server, remove `.next`, then restart `bun run dev`.
+If Docker is missing, install/start Docker Desktop or Docker Engine. If the Vite/TanStack Start cache gets stale, stop the dev server, remove `.output`, `.nitro`, and `.tanstack`, then restart `bun run dev`.
 
 ## Debugging
 
@@ -108,40 +108,9 @@ When something breaks, an agent (or you) reconstructs the causal chain without c
 
 ## Environment
 
-`.env.example` is the canonical placeholder list. Important local defaults:
+`.env.example` is the canonical placeholder list, grouped by concern (app, database, auth, AI, storage, email, OTP, payment, analytics, public sites) — read it directly rather than trusting a copy here; a stale duplicate of this block is exactly how past drift happened.
 
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/umkmcepat?schema=public"
-AI_PROVIDER="9router"
-NINE_ROUTER_BASE_URL="http://localhost:20129/v1"
-OBJECT_STORAGE_PROVIDER="local"
-LOCAL_UPLOAD_DIR=".data/uploads"
-GENERATED_BUILD_EXECUTION_ENABLED="true"
-GENERATED_PUBLIC_EXECUTION_ENABLED="true"
-GENERATED_PUBLIC_ORIGIN=""
-PROJECT_ARTIFACT_DIR=".data/project-artifacts"
-PROJECT_THUMBNAIL_DIR=".data/project-thumbnails"
-PROJECT_THUMBNAIL_CAPTURE_ENABLED="true"
-PROJECT_THUMBNAIL_BROWSER_PATH=""
-PROJECT_RUNTIME_DIR=".data/project-runtimes"
-PROJECT_RUNTIME_SUPERVISOR="local"
-PROJECT_RUNTIME_MAX_CONTAINERS="8"
-PROJECT_RUNTIME_HEALTH_TIMEOUT_MS="2000"
-PROJECT_RUNTIME_PROXY_TIMEOUT_MS="15000"
-RATE_LIMIT_PROVIDER="memory"
-RATE_LIMIT_GLOBAL_IP_REQUESTS="300"
-RATE_LIMIT_GLOBAL_IP_WINDOW_SECONDS="60"
-RATE_LIMIT_AI_USER_REQUESTS="60"
-RATE_LIMIT_AI_USER_WINDOW_SECONDS="600"
-RATE_LIMIT_AI_IP_REQUESTS="20"
-RATE_LIMIT_AI_IP_WINDOW_SECONDS="600"
-RATE_LIMIT_BUILD_USER_REQUESTS="10"
-RATE_LIMIT_BUILD_USER_WINDOW_SECONDS="3600"
-RATE_LIMIT_BUILD_IP_REQUESTS="5"
-RATE_LIMIT_BUILD_IP_WINDOW_SECONDS="3600"
-```
-
-Set Google OAuth, Turnstile, Sentry, Chromatic, and AI provider secrets only in `.env` or deployment secrets.
+`STORAGE_PROVIDER` is not user-configurable: local dev always speaks S3 to the MinIO container `bun run infra` starts, and production points the same `S3_*` variables at Cloudflare R2. Set Google OAuth, Turnstile, Chromatic, and AI provider secrets only in `.env` or deployment secrets. Error tracking (Sentry) was intentionally removed; there is currently no error-tracking provider wired.
 
 Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Home project thumbnails are derived JPEGs under `.data/project-thumbnails`; keep that directory persistent when thumbnail continuity matters, or let missing images fall back to the deterministic gradient until the next successful build or first preview recovery. Capture runs in an isolated Node subprocess with a hidden browser window; local Windows uses installed Chrome when `PROJECT_THUMBNAIL_BROWSER_PATH` is empty. Set that path only to override browser discovery. Runtime/build workspaces are rebuildable. Local/test generated execution stays enabled by default; production Compose explicitly disables build and public execution until the isolated-worker and separate-origin gates pass.
 
@@ -183,7 +152,7 @@ Do not run build during normal development unless requested or touching build/de
 bun run build
 ```
 
-CI runs `bun run check`, `bun run build`, Storybook build/tests, and optional Chromatic.
+CI runs Storybook build/tests, optional Chromatic, `bun run build`, `bun run verify`, then `bun run test:integration` against a real database.
 
 ## TDD workflow
 
@@ -239,10 +208,10 @@ Do not paste raw component source from external pages.
 
 ## Architecture docs
 
-Read the relevant doc before touching that area:
+There is no single standing architecture/deployment doc. Before touching project, runtime, provider, storage, auth, AI gateway, Docker, VPS, or monitoring behavior:
 
-- Project/runtime/provider/storage/auth/AI gateway changes: `docs/architecture.md`
-- Docker/VPS/deployment/monitoring changes: `docs/deployment.md`
+- Check `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design that shaped the area you're changing — they're the decision trail, not just history.
+- Read the key modules directly: `src/lib/s3-client.ts` (storage), `src/lib/auth.ts` (auth), `src/lib/ai.ts` (AI gateway), `src/lib/projects/runtime-*` (runtime supervisor), `docker-compose.prod.yml` (deployment topology).
 
 Core architecture rule:
 
@@ -250,7 +219,7 @@ Core architecture rule:
 one control-plane platform app, many project rows, supervised generated runtimes
 ```
 
-Do not add per-user platform apps or import generated source files into the Next.js runtime. Per-project runtime containers are allowed only through the snapshot/build/deployment/runtime-supervisor architecture; the production web app must not own the Docker socket.
+Do not add per-user platform apps or import generated source files into the control-plane runtime. Per-project runtime containers are allowed only through the snapshot/build/deployment/runtime-supervisor architecture; the production web app must not own the Docker socket.
 
 ## Final handoff checklist
 

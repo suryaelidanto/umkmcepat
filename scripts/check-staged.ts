@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 
+run([process.execPath, "scripts/check-secrets.ts"]);
+
 const staged = spawnSync(
   "git",
   ["diff", "--cached", "--name-only", "--diff-filter=ACMR"],

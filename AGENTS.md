@@ -5,11 +5,12 @@ Boot instructions for AI agents working on UMKM Cepat.
 ## Read first
 
 - `PRINCIPLES.md`: operating taste and quality bar.
-- `DEV.md`: local workflow, commands, quality gate.
+- `DEV.md`: local workflow, commands, quality gate, + the **Cleanliness contract** (behavior-preserving refactors, comment hygiene).
 - `PRODUCT.md`: required before product positioning, builder flow, generated-project UX, or design-system decisions.
 - `DESIGN.md`: required before UI, styling, layout, typography, colors, or components.
-- `docs/architecture.md`: required before project, workspace, renderer, publishing, provider, storage, auth, or AI gateway work.
-- `docs/deployment.md`: required before Docker, VPS, storage persistence, CI, or monitoring work.
+- `docs/superpowers/specs/`: active feature specs
+- `docs/superpowers/plans/`: active implementation plans
+- Key modules: `src/lib/s3-client.ts` (MinIO/R2), `src/lib/email.ts` (Resend), `src/lib/otp.ts` (OTPSpace), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), `/media/<assetId>` route, `/admin` dashboard
 
 ## Commands
 
@@ -37,7 +38,7 @@ Local quality gates are automated:
 
 `bun run sweep:project-orphans` purges `.data/project-*` dirs whose IDs are not in the DB. Run after deleting projects via the DB / CLI (the homepage's delete path runs cleanup automatically).
 
-`bun run infra` starts Postgres, 9Router, and Headroom. Use `bun run infra:minimal` only when you need Postgres without AI/observability services.
+`bun run infra` starts Postgres, 9Router, Headroom, and MinIO (local S3 dev mirror on `http://localhost:9000`; `scripts/init-s3-buckets.ts` auto-creates the two buckets from `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`). Use `bun run infra:minimal` only when you need Postgres without AI/observability/MinIO services.
 
 Optional Storybook:
 
@@ -59,7 +60,7 @@ bun run test:storybook
 - User-facing product UI copy uses Indonesian; developer-facing docs/code/logs/errors use English.
 - Follow `PRODUCT.md`, `DESIGN.md`, and `.agents/skills/impeccable` before frontend design work; do not introduce new visual language without updating the canonical design context.
 - New reusable UI or repeated visual patterns must be added to Storybook first or in the same change.
-- Run `bun run graph:update` and navigate the source tree before blind grep/search; Graphify is the default discovery step for non-trivial work. Do not add it as a project dependency.
+- Use Graphify for non-trivial codebase discovery when available; do not add it as a project dependency.
 - Docs are part of the change: if behavior, setup, env, architecture, provider, storage, deployment, UI system, or product flow changes, update the canonical doc in the same diff or state why docs did not change.
 - Pre-commit runs `bun run check:commit`; CI runs `bun run verify`. Never bypass a failing gate. Before handoff without a push, run `bun run check` explicitly.
 - Do not run `bun run build` unless requested or touching build/deployment behavior.

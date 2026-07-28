@@ -65,7 +65,7 @@ We have not run the pilot yet. **Nobody outside the maintainer has published a r
 
 ## Why this matters
 
-Indonesian UMKM are ~99% of businesses and ~56% of GDP, but only a few million of 65M+ are online. The barrier isn't price — it's whether the thing actually helps them find customers. Full research: [`docs/research/umkm-cepat-business-marketing-strategy.md`](docs/research/umkm-cepat-business-marketing-strategy.md).
+Indonesian UMKM are ~99% of businesses and ~56% of GDP, but only a few million of 65M+ are online. The barrier isn't price — it's whether the thing actually helps them find customers.
 
 Free is what makes it _possible_. Useful is what makes it _happen_. We build for usefulness and give the product away.
 
@@ -161,7 +161,7 @@ Five tracks are plausible. **At most two will happen.** Which two is decided by 
 | **D · Rebuild**        | Under 3 of 10 published                 | The flow is broken. Everything else waits.                        |
 | **E · Stay alive**     | Cost per published site is unbounded    | Can we afford the free tier at all?                               |
 
-Track B is the most likely, and it has a constraint worth stating now: per _"What we will not build,"_ capability arrives as **built-in trustworthy features** (an order form that opens WhatsApp with a filled message), never as a user-writable code sandbox. Generated apps are static-frontend-only today by design — see `docs/architecture.md`. Any move past that is a deliberate architecture decision needing its own spec, not a feature request.
+Track B is the most likely, and it has a constraint worth stating now: per _"What we will not build,"_ capability arrives as **built-in trustworthy features** (an order form that opens WhatsApp with a filled message), never as a user-writable code sandbox. Generated apps are static-frontend-only today by design. Any move past that is a deliberate architecture decision needing its own spec, not a feature request.
 
 ### M4 — Open the doors 🔮 2027, hypothesis
 
@@ -177,8 +177,8 @@ Candidate shape, drawn from the research: waitlist as a real product surface wit
 
 No dates. No promises. Listed so contributors know these are _thought about_, not _planned_. Each needs a spec and an argument against the two numbers before it becomes real.
 
-- **A real self-hosting story.** The repo is AGPLv3 and public. [`docs/deployment.md`](docs/deployment.md) documents _our_ VPS deploy — it is not a path anyone else has ever walked, and no independent instance has ever been stood up.
-- **Generated apps beyond static frontend.** `PRODUCT.md` says "full-stack customer-facing web apps"; `docs/architecture.md` says static-only is present scope. That gap is real and unresolved — it will be closed by a decision, in a spec, not by drift.
+- **A real self-hosting story.** The repo is AGPLv3 and public. `docker-compose.prod.yml` and `docs/superpowers/plans/` document _our_ VPS deploy — it is not a path anyone else has ever walked, and no independent instance has ever been stood up.
+- **Generated apps beyond static frontend.** `PRODUCT.md` says "full-stack customer-facing web apps"; static-only is present scope. That gap is real and unresolved — it will be closed by a decision, in a spec, not by drift.
 - **Grant / CSR funding.** Gojek onboarded 100k+ SMEs funded by Facebook and PayPal; the government targeted 30M UMKM digital. The narrative and the funders both exist.
 - **Marketplace adjacency.** UMKM already live on Shopee, Tokopedia, TikTok Shop, Instagram. Complement, don't compete.
 
@@ -197,7 +197,7 @@ This is how taste stays consistent without gatekeeping who is allowed to touch w
 
 Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, then look for [`good first issue`](https://github.com/suryaelidanto/umkmcepat/labels/good%20first%20issue) or [`ready-for-agent`](https://github.com/suryaelidanto/umkmcepat/labels/ready-for-agent).
 
-Read before you build: [`PRINCIPLES.md`](PRINCIPLES.md) for the quality bar, [`PRODUCT.md`](PRODUCT.md) for positioning, [`DESIGN.md`](DESIGN.md) before any UI, and [`docs/architecture.md`](docs/architecture.md) before touching project, workspace, renderer, publishing, provider, storage, auth, or AI-gateway boundaries.
+Read before you build: [`PRINCIPLES.md`](PRINCIPLES.md) for the quality bar, [`PRODUCT.md`](PRODUCT.md) for positioning, [`DESIGN.md`](DESIGN.md) before any UI, and `docs/superpowers/specs/` + `docs/superpowers/plans/` before touching project, workspace, renderer, publishing, provider, storage, auth, or AI-gateway boundaries.
 
 ## How this file changes
 

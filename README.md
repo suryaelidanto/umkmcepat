@@ -27,11 +27,11 @@ The goal: help an Indonesian UMKM owner make their first website — one that ac
 
 ## Tech overview
 
-- Next.js 15 and React 19
-- TypeScript
+- TanStack Start, TanStack Router, and Vite
+- React 19 and TypeScript
 - Tailwind CSS and owned shadcn/ui-style components
 - Prisma and PostgreSQL
-- NextAuth Google OAuth with Turnstile consent gate
+- Auth.js Google OAuth with Turnstile consent gate
 - Vercel AI SDK through 9Router
 - Storybook, Vitest, ESLint, Prettier, TypeScript, and Knip
 
@@ -45,7 +45,7 @@ bun run db:migrate
 bun run dev
 ```
 
-`bun run infra` starts Postgres, 9Router, and Headroom.
+`bun run infra` starts Postgres, 9Router, Headroom, and MinIO (local S3 dev mirror).
 
 ```text
 App: http://localhost:3000
