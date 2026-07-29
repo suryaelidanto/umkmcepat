@@ -1,33 +1,15 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
 import { ProfileNameForm } from "@/components/profile/ProfileNameForm";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { loadProfile } from "@/server/loaders/load-profile";
 
-const loadProfile = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    throw redirect({ to: "/" });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { name: true },
-  });
-
-  if (!user) {
-    throw redirect({ to: "/" });
-  }
-
-  return {
-    initialName: user.name || session.user.name || "",
-  };
-});
+const loadProfileServer = createServerFn({ method: "GET" }).handler(
+  loadProfile,
+);
 
 export const Route = createFileRoute("/_main/profile")({
-  loader: () => loadProfile(),
+  loader: () => loadProfileServer(),
   component: ProfilePage,
 });
 

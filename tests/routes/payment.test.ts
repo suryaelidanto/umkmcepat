@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
+  requireNotBannedMock,
   createMayarPaymentMock,
   getBoosterPackMock,
   getMayarTransactionMock,
@@ -16,6 +17,7 @@ const {
   prismaTransactionMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
+  requireNotBannedMock: vi.fn(async () => undefined),
   createMayarPaymentMock: vi.fn(),
   getBoosterPackMock: vi.fn(),
   getMayarTransactionMock: vi.fn(),
@@ -44,7 +46,10 @@ const {
   ),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/auth", () => ({
+  auth: authMock,
+  requireNotBanned: requireNotBannedMock,
+}));
 vi.mock("@/lib/mayar", () => ({
   createMayarPayment: createMayarPaymentMock,
   getBoosterPack: getBoosterPackMock,
@@ -128,6 +133,35 @@ describe("Payment API Routes", () => {
       );
 
       expect(res.status).toBe(401);
+    });
+
+    it("rejects banned users before creating a Mayar invoice", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user_1" },
+        expires: new Date().toISOString(),
+      });
+      requireNotBannedMock.mockImplementationOnce(() => {
+        throw new Response(null, {
+          status: 307,
+          headers: { Location: "/blocked" },
+        });
+      });
+
+      try {
+        await POST_CREATE(
+          new Request("http://localhost/api/payment/create", {
+            method: "POST",
+            body: JSON.stringify({ packageId: "pocket" }),
+          }),
+        );
+      } catch {
+        // Test harness may or may not propagate the throw depending on how
+        // the Response is returned. Either way, the side effects must not
+        // have happened.
+      }
+
+      expect(createMayarPaymentMock).not.toHaveBeenCalled();
+      expect(prismaPaymentCreateMock).not.toHaveBeenCalled();
     });
 
     it("rejects invalid packageId", async () => {

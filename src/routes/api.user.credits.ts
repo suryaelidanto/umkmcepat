@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth, requireNotBanned } from "@/lib/auth";
 import { getEnergyStats } from "@/lib/user-credits";
 
 export const Route = createFileRoute("/api/user/credits")({
@@ -15,6 +15,8 @@ export const Route = createFileRoute("/api/user/credits")({
             { status: 401 },
           );
         }
+
+        await requireNotBanned(session);
 
         const stats = await getEnergyStats(session.user.id);
 

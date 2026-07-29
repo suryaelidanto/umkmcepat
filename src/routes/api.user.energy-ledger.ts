@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth, requireNotBanned } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const CUID_RE = /^c[a-z0-9]{24}$/i;
@@ -18,6 +18,8 @@ export const Route = createFileRoute("/api/user/energy-ledger")({
             { status: 401 },
           );
         }
+
+        await requireNotBanned(session);
 
         const url = new URL(request.url);
         const rawLimit = url.searchParams.get("limit");
