@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { requireAdmin } from "@/lib/auth-admin";
+import { sendPaymentReceipt } from "@/lib/email/templates";
 import { getMayarTransaction } from "@/lib/mayar";
 import { prisma } from "@/lib/prisma";
 
@@ -60,6 +61,10 @@ export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
               });
             }
 
+            const packageName =
+              (payment.metadata as { packageName?: string })?.packageName ??
+              "Energy Booster";
+
             await prisma.$transaction(async (tx) => {
               const claimed = await tx.payment.updateMany({
                 where: { orderId, status: "PENDING" },
@@ -74,9 +79,6 @@ export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
                 return;
               }
 
-              const packageName =
-                (payment.metadata as { packageName?: string })?.packageName ??
-                "Energy Booster";
               const premiumExpiry = new Date("9999-12-31T23:59:59.999Z");
 
               await tx.$executeRaw`
@@ -93,6 +95,24 @@ export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
                 )
               `;
             });
+
+            // Non-fatal email receipt
+            prisma.user
+              .findUnique({
+                where: { id: payment.userId },
+                select: { email: true },
+              })
+              .then((user) => {
+                if (user?.email) {
+                  sendPaymentReceipt(user.email, {
+                    packageName,
+                    amount: payment.amount,
+                    energyGranted: payment.energyGranted,
+                    transactionId: payment.providerTxnId ?? "",
+                  }).catch(() => undefined);
+                }
+              })
+              .catch(() => undefined);
 
             return Response.json({ success: true, status: "COMPLETED" });
           } catch {
