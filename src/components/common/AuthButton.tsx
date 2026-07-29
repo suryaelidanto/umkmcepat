@@ -19,10 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { signOut, useSession } from "@/lib/auth-client";
 import { mask } from "@/lib/mask";
+import { usePathname } from "@/lib/navigation";
 import { fetchJson } from "@/lib/query-client";
 
 export function AuthButton() {
   const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const isBlockedPage = pathname === "/blocked";
   const [loginOpen, setLoginOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [boosterOpen, setBoosterOpen] = useState(false);
@@ -142,17 +145,19 @@ export function AuthButton() {
               Admin
             </Link>
           ) : null}
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              setBoosterOpen(true);
-            }}
-            className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06] text-[#ff7a59]"
-          >
-            <Zap className="size-4 fill-[#ff7a59]/10 text-[#ff7a59]" />
-            Tambah Energi
-          </button>
+          {isBlockedPage ? null : (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setBoosterOpen(true);
+              }}
+              className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06] text-[#ff7a59]"
+            >
+              <Zap className="size-4 fill-[#ff7a59]/10 text-[#ff7a59]" />
+              Tambah Energi
+            </button>
+          )}
           <Link
             href="/support"
             onClick={() => setOpen(false)}
