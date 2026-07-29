@@ -13,12 +13,27 @@ type PendingEntry = {
   businessName: string;
   businessType: string | null;
   id: string;
-  imageRef: string | null;
+  imageCount: number;
   phone: string | null;
   status: string;
   story: string;
   submittedAt: string;
 };
+
+function imageRefs(entry: { imageRef: string | null }): string[] {
+  if (!entry.imageRef) {
+    return [];
+  }
+  try {
+    const parsed: unknown = JSON.parse(entry.imageRef);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((ref): ref is string => typeof ref === "string");
+  } catch {
+    return [];
+  }
+}
 
 const loadAdminWaitlist = createServerFn({ method: "GET" }).handler(
   async () => {
@@ -32,7 +47,7 @@ const loadAdminWaitlist = createServerFn({ method: "GET" }).handler(
         businessName: entry.businessName,
         businessType: entry.businessType,
         id: entry.id,
-        imageRef: entry.imageRef,
+        imageCount: imageRefs(entry).length,
         phone: entry.phone,
         status: entry.status,
         story: entry.story,
@@ -124,12 +139,17 @@ function WaitlistPage() {
                 entry.story
               )}
             </p>
-            {entry.imageRef ? (
-              <img
-                alt={entry.businessName}
-                className="mt-spacing-2 max-h-48 rounded-radius-md border border-surface-warm-white/12"
-                src={`/api/admin/waitlist/image/${entry.id}`}
-              />
+            {entry.imageCount > 0 ? (
+              <div className="mt-spacing-2 flex flex-wrap gap-spacing-2">
+                {Array.from({ length: entry.imageCount }).map((_, index) => (
+                  <img
+                    alt={`${entry.businessName} (${index + 1}/${entry.imageCount})`}
+                    className="max-h-48 rounded-radius-md border border-surface-warm-white/12"
+                    key={`${entry.id}-${index}`}
+                    src={`/api/admin/waitlist/image/${entry.id}/${index}?v=1`}
+                  />
+                ))}
+              </div>
             ) : null}
             <div className="mt-spacing-3 flex gap-spacing-2">
               <button
