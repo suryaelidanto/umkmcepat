@@ -461,7 +461,7 @@ export function GeneratedPreviewFrame({
   return (
     <div className="relative flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
       <div
-        className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} relative h-full w-full`}
+        className={`${viewport === "mobile" ? "max-w-[min(100%,430px)]" : "max-w-none"} relative h-full w-full`}
       >
         <iframe
           ref={iframeRef}
