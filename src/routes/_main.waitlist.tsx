@@ -27,7 +27,6 @@ import { useValidatedForm } from "@/lib/forms";
 import { useRouter } from "@/lib/navigation";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
-import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
 import { getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
 
@@ -43,6 +42,7 @@ const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
     throw redirect({ to: "/" });
   }
 
+  const { isAdminEmail, isWaitlistApproved } = await import("@/lib/waitlist");
   const email = session.user.email;
   const isAdmin = isAdminEmail(email);
   const isApproved = await isWaitlistApproved(email);
@@ -336,7 +336,7 @@ function WaitlistPage() {
       }),
     onSuccess: async () => {
       setDevSkipDone(true);
-      toast.success("Pendaftaran di-skip (dev mode).");
+      toast.success("Pendaftaran di-skip (admin bypass).");
       await queryClient.invalidateQueries({
         queryKey: queryKeys.waitlistStatus,
       });
@@ -365,7 +365,9 @@ function WaitlistPage() {
       await queryClient.invalidateQueries({
         queryKey: ["user", "waitlist", "own"],
       });
-      toast.success("Approval di-reset (dev mode). Refresh / untuk tes gate.");
+      toast.success(
+        "Approval di-reset (admin bypass). Refresh / untuk tes gate.",
+      );
     },
     onError: (error) => {
       toast.error(
@@ -446,7 +448,7 @@ function WaitlistPage() {
           >
             {devResetMutation.isPending
               ? "Mereset..."
-              : "Reset approval biar bisa tes gate lagi (dev mode)"}
+              : "Reset approval biar bisa tes gate lagi (admin bypass)"}
           </button>
         </div>
       ) : null}
@@ -599,7 +601,7 @@ function WaitlistPage() {
             >
               {devSkipMutation.isPending
                 ? "Melewati..."
-                : "Lewati pendaftaran (dev mode)"}
+                : "Lewati pendaftaran (admin bypass)"}
             </button>
             {ownQuery.data?.own ? (
               <button
@@ -610,7 +612,7 @@ function WaitlistPage() {
               >
                 {devResetMutation.isPending
                   ? "Mereset..."
-                  : "Reset pendaftaran (dev mode)"}
+                  : "Reset pendaftaran (admin bypass)"}
               </button>
             ) : null}
           </div>
