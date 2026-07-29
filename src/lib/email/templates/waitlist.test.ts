@@ -48,7 +48,7 @@ describe("sendWaitlistRejected", () => {
     expect(args.html).toContain("Kuota penuh");
     expect(args.html).toContain("hello@umkmcepat.com");
     // No CTA button for rejected
-    expect(args.html).not.toContain("background-color: #1c1c1c");
+    expect(args.html).not.toContain("Masuk ke UMKM Cepat");
   });
 
   it("works without reason", async () => {
