@@ -7,14 +7,12 @@ import { logCreditTransaction } from "@/lib/user-credits";
 interface MayarWebhookPayload {
   event: string;
   data: {
-    transactionId: string;
+    id: string;
+    transactionId?: string;
     transactionStatus?: string;
     status?: string;
     amount?: number;
     paymentMethod?: string;
-    extraData?: {
-      orderId?: string;
-    };
   };
 }
 
@@ -69,28 +67,26 @@ export const Route = createFileRoute("/api/payment/webhook")({
           });
         }
 
-        const transactionId = payload.data?.transactionId;
-        const orderId = payload.data?.extraData?.orderId;
+        const transactionId = payload.data?.transactionId ?? payload.data?.id;
 
-        if (!transactionId || !orderId) {
+        if (!transactionId) {
           return Response.json(
-            {
-              message:
-                "Missing data.transactionId or data.extraData.orderId in webhook payload.",
-            },
+            { message: "Missing data.transactionId in webhook payload." },
             { status: 400 },
           );
         }
 
         try {
-          // 1. Fetch payment record from database, correlated via our orderId
-          // (stored in extraData when the payment link was created).
+          // 1. Fetch payment record from database, correlated via providerTxnId
+          // (the invoice transactionId stored at payment-creation time).
           const payment = await prisma.payment.findUnique({
-            where: { orderId },
+            where: { providerTxnId: transactionId },
           });
 
           if (!payment) {
-            console.warn(`[webhook] Payment not found for orderId ${orderId}`);
+            console.warn(
+              `[webhook] Payment not found for transactionId ${transactionId}`,
+            );
             return Response.json(
               { message: "Payment not found." },
               { status: 404 },
@@ -112,7 +108,7 @@ export const Route = createFileRoute("/api/payment/webhook")({
 
           if (verifiedTransaction.status !== "SUCCESS") {
             console.warn(
-              `[webhook] Direct verification status is "${verifiedTransaction.status}", expected "SUCCESS" for orderId ${orderId} / transactionId ${transactionId}`,
+              `[webhook] Direct verification status is "${verifiedTransaction.status}", expected "SUCCESS" for transactionId ${transactionId}`,
             );
             return Response.json({
               success: false,
@@ -122,7 +118,7 @@ export const Route = createFileRoute("/api/payment/webhook")({
 
           if (verifiedTransaction.amount !== payment.amount) {
             console.warn(
-              `[webhook] Verified amount ${verifiedTransaction.amount} does not match stored payment amount ${payment.amount} for orderId ${orderId}`,
+              `[webhook] Verified amount ${verifiedTransaction.amount} does not match stored payment amount ${payment.amount} for transactionId ${transactionId}`,
             );
             return Response.json({
               success: false,
@@ -137,10 +133,9 @@ export const Route = createFileRoute("/api/payment/webhook")({
             // PENDING -> COMPLETED, so exactly one grants energy. A prior
             // findUnique + update took no lock and could double-grant.
             const claimed = await tx.payment.updateMany({
-              where: { orderId, status: "PENDING" },
+              where: { providerTxnId: transactionId, status: "PENDING" },
               data: {
                 status: "COMPLETED",
-                providerTxnId: transactionId,
                 paymentMethod: verifiedTransaction.paymentMethod,
                 updatedAt: new Date(),
               },
@@ -151,7 +146,7 @@ export const Route = createFileRoute("/api/payment/webhook")({
             }
 
             const txPayment = await tx.payment.findUniqueOrThrow({
-              where: { orderId },
+              where: { providerTxnId: transactionId },
             });
 
             // Grant energy credits.
@@ -194,13 +189,13 @@ export const Route = createFileRoute("/api/payment/webhook")({
           if (!result) {
             // eslint-disable-next-line no-console
             console.log(
-              `[webhook] Race condition: payment for orderId ${orderId} already claimed by another handler`,
+              `[webhook] Race condition: payment for transactionId ${transactionId} already claimed by another handler`,
             );
           }
 
           // eslint-disable-next-line no-console
           console.log(
-            `[webhook] Successfully processed payment for orderId: ${orderId} / transactionId: ${transactionId}`,
+            `[webhook] Successfully processed payment for transactionId: ${transactionId}`,
           );
           return Response.json({
             success: true,
@@ -208,7 +203,7 @@ export const Route = createFileRoute("/api/payment/webhook")({
           });
         } catch (error) {
           console.error(
-            `[webhook] Error processing webhook for orderId ${orderId}:`,
+            `[webhook] Error processing webhook for transactionId ${transactionId}:`,
             error,
           );
           return Response.json(

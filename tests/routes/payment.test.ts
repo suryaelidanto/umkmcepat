@@ -11,6 +11,7 @@ const {
   prismaPaymentUpdateMock,
   prismaPaymentUpdateManyMock,
   prismaPaymentFindUniqueOrThrowMock,
+  prismaUserFindUniqueOrThrowMock,
   prismaExecuteRawMock,
   prismaTransactionMock,
 } = vi.hoisted(() => ({
@@ -24,6 +25,11 @@ const {
   prismaPaymentUpdateMock: vi.fn(),
   prismaPaymentUpdateManyMock: vi.fn(async () => ({ count: 1 })),
   prismaPaymentFindUniqueOrThrowMock: vi.fn(),
+  prismaUserFindUniqueOrThrowMock: vi.fn(async () => ({
+    name: "Test User",
+    email: "test@example.com",
+    phone: "081234567890",
+  })),
   prismaExecuteRawMock: vi.fn(async () => 1),
   prismaTransactionMock: vi.fn(async (callback) =>
     callback({
@@ -61,6 +67,9 @@ vi.mock("@/lib/prisma", () => ({
       update: prismaPaymentUpdateMock,
       updateMany: prismaPaymentUpdateManyMock,
     },
+    user: {
+      findUniqueOrThrow: prismaUserFindUniqueOrThrowMock,
+    },
   },
 }));
 
@@ -97,6 +106,12 @@ describe("Payment API Routes", () => {
     prismaPaymentUpdateMock.mockReset();
     prismaPaymentUpdateManyMock.mockReset();
     prismaPaymentUpdateManyMock.mockImplementation(async () => ({ count: 1 }));
+    prismaUserFindUniqueOrThrowMock.mockReset();
+    prismaUserFindUniqueOrThrowMock.mockResolvedValue({
+      name: "Test User",
+      email: "test@example.com",
+      phone: "081234567890",
+    });
     prismaExecuteRawMock.mockClear();
     prismaTransactionMock.mockClear();
   });
@@ -171,6 +186,9 @@ describe("Payment API Routes", () => {
           amount: 2900,
           packName: "Pocket Booster",
           expiredAt: expect.any(String),
+          customerName: "Test User",
+          customerEmail: "test@example.com",
+          customerMobile: "081234567890",
         }),
       );
       expect(prismaPaymentCreateMock).toHaveBeenCalledWith(
@@ -217,8 +235,8 @@ describe("Payment API Routes", () => {
           body: JSON.stringify({
             event: "payment.received",
             data: {
+              id: "txn-1",
               transactionId: "txn-1",
-              extraData: { orderId: "INV-USER1-12345" },
             },
           }),
         }),
@@ -235,8 +253,8 @@ describe("Payment API Routes", () => {
           body: JSON.stringify({
             event: "payment.reminder",
             data: {
+              id: "txn-1",
               transactionId: "txn-1",
-              extraData: { orderId: "INV-USER1-12345" },
             },
           }),
         }),
@@ -271,10 +289,10 @@ describe("Payment API Routes", () => {
           body: JSON.stringify({
             event: "payment.received",
             data: {
+              id: "txn-1",
               transactionId: "txn-1",
               transactionStatus: "paid",
               amount: 2900,
-              extraData: { orderId: "INV-USER1-12345" },
             },
           }),
         }),
@@ -305,10 +323,10 @@ describe("Payment API Routes", () => {
           body: JSON.stringify({
             event: "payment.received",
             data: {
+              id: "txn-1",
               transactionId: "txn-1",
               transactionStatus: "paid",
               amount: 2900,
-              extraData: { orderId: "INV-USER1-12345" },
             },
           }),
         }),
@@ -343,10 +361,10 @@ describe("Payment API Routes", () => {
           body: JSON.stringify({
             event: "payment.received",
             data: {
+              id: "txn-1",
               transactionId: "txn-1",
               transactionStatus: "paid",
               amount: 2900,
-              extraData: { orderId: "INV-USER1-12345" },
             },
           }),
         }),
@@ -383,10 +401,10 @@ describe("Payment API Routes", () => {
           body: JSON.stringify({
             event: "payment.received",
             data: {
+              id: "txn-1",
               transactionId: "txn-1",
               transactionStatus: "paid",
               amount: 1000,
-              extraData: { orderId: "INV-USER1-12345" },
             },
           }),
         }),
@@ -399,7 +417,7 @@ describe("Payment API Routes", () => {
       expect(prismaTransactionMock).not.toHaveBeenCalled();
     });
 
-    it("returns 404 when no Payment matches the webhook's orderId", async () => {
+    it("returns 404 when no Payment matches the webhook's providerTxnId", async () => {
       prismaPaymentFindUniqueMock.mockResolvedValueOnce(null);
 
       const res = await POST_WEBHOOK(
@@ -408,10 +426,10 @@ describe("Payment API Routes", () => {
           body: JSON.stringify({
             event: "payment.received",
             data: {
-              transactionId: "txn-unknown",
+              id: "txn-not-found",
+              transactionId: "txn-not-found",
               transactionStatus: "paid",
               amount: 2900,
-              extraData: { orderId: "INV-NOT-FOUND" },
             },
           }),
         }),
@@ -427,7 +445,7 @@ describe("Payment API Routes", () => {
         amount: 2900,
         energyGranted: 50000,
         status: "PENDING",
-        providerTxnId: null,
+        providerTxnId: "txn-1",
         metadata: { packageName: "Pocket Booster" },
       };
       prismaPaymentFindUniqueMock.mockResolvedValue(pendingRow);
@@ -445,10 +463,10 @@ describe("Payment API Routes", () => {
           body: JSON.stringify({
             event: "payment.received",
             data: {
+              id: "txn-1",
               transactionId: "txn-1",
               transactionStatus: "paid",
               amount: 2900,
-              extraData: { orderId: "INV-USER1-12345" },
             },
           }),
         }),
