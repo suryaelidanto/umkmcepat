@@ -2375,6 +2375,657 @@ export function WorkspaceShell({
     }
   }
 
+  const chatPanelContent = (
+    <aside className={chatPanelClass}>
+      <div className="flex min-w-0 items-start justify-between gap-spacing-5 px-spacing-1">
+        <div className="min-w-0 flex-1">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-spacing-2 text-xs text-surface-warm-white/58 hover:text-surface-warm-white"
+          >
+            <ArrowLeft className="size-3.5" />
+            Dashboard
+          </Link>
+          <div className="mt-spacing-3 flex items-center gap-spacing-2">
+            {isRenaming ? (
+              <input
+                value={draftTitle}
+                onChange={(event) => setDraftTitle(event.target.value)}
+                onBlur={() => void saveProjectTitle()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    void saveProjectTitle();
+                  }
+
+                  if (event.key === "Escape") {
+                    setDraftTitle(projectTitle);
+                    setIsRenaming(false);
+                  }
+                }}
+                autoFocus
+                className="min-w-0 flex-1 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/8 px-spacing-3 py-spacing-2 text-base font-semibold text-surface-warm-white outline-none focus:border-surface-warm-white/30"
+              />
+            ) : (
+              <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
+                {projectTitle}
+              </h1>
+            )}
+            {isRenaming ? (
+              <button
+                type="button"
+                onClick={() => void saveProjectTitle()}
+                className="rounded-full p-spacing-2 text-[#8ce99a] hover:bg-surface-warm-white/8"
+                aria-label="Simpan nama proyek"
+              >
+                <Check className="size-3.5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsRenaming(true)}
+                className="rounded-full p-spacing-2 text-surface-warm-white/44 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                aria-label="Ubah nama proyek"
+              >
+                <Pencil className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-spacing-2">
+          <EnergyDisplay />
+          <button
+            type="button"
+            onClick={showPreviewPanel ? closePreviewPanel : openPreviewPanel}
+            className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white lg:block"
+            aria-label={showPreviewPanel ? "Tutup tampilan" : "Buka tampilan"}
+          >
+            {showPreviewPanel ? (
+              <PanelRightClose className="size-4" />
+            ) : (
+              <PanelRightOpen className="size-4" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div className="relative flex min-h-0 flex-1 flex-col mt-spacing-5">
+        <div
+          ref={chatScrollRef}
+          onWheel={(event) => {
+            // Immediate unstick when user scrolls up, even mid smooth-follow.
+            if (event.deltaY < 0) {
+              shouldStickToBottomRef.current = false;
+            }
+          }}
+          onTouchStart={() => {
+            // Touch drag intent: stop forcing until they return to bottom.
+            const element = chatScrollRef.current;
+            if (element && !isChatNearBottom(element)) {
+              shouldStickToBottomRef.current = false;
+            }
+          }}
+          onScroll={(event) => {
+            if (ignoreNextScrollRef.current) {
+              return;
+            }
+
+            const element = event.currentTarget;
+            const nearBottom = isChatNearBottom(element);
+            shouldStickToBottomRef.current = nearBottom;
+            setShowScrollToBottom(!nearBottom);
+          }}
+          className="min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
+        >
+          {hasMoreChat ? (
+            <div
+              ref={olderChatSentinelRef}
+              className="py-spacing-3 text-center"
+            >
+              {isLoadingOlderChat ? (
+                <span className="text-xs text-surface-warm-white/50">
+                  Memuat chat lama...
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          <ChatMessages messages={visibleMessages} />
+
+          {isBuilding || buildProgress.length ? (
+            <BuildProgressPanel
+              elapsedFrom={buildStartedAt}
+              isBuilding={isBuilding}
+              steps={buildProgress}
+            />
+          ) : null}
+
+          {isResponding ? (
+            <p className="text-sm text-surface-warm-white/46">
+              AI sedang menyiapkan jawaban...
+            </p>
+          ) : null}
+          {rateLimitError ? (
+            <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+              <p className="text-sm font-medium text-[#ffb4a6]">
+                {rateLimitError.message}
+              </p>
+            </div>
+          ) : sessionExpired ? (
+            <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+              <p className="text-sm font-medium text-[#ffb4a6]">
+                Sesi kamu sudah habis.
+              </p>
+              <Button
+                type="button"
+                onClick={() => void signOut({ callbackUrl: "/" })}
+                className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+              >
+                Login ulang
+              </Button>
+            </div>
+          ) : isPreparingNextQuestion ? (
+            <p className="text-sm text-surface-warm-white/46">
+              Menyiapkan pertanyaan berikutnya...
+            </p>
+          ) : workspaceCardError ? (
+            <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+              <p className="text-sm font-medium text-[#ffb4a6]">
+                {isRetrying
+                  ? "Mencoba menyiapkan pertanyaan lagi..."
+                  : "Pertanyaan berikutnya belum berhasil dibuat."}
+              </p>
+              {!isRetrying ? (
+                <Button
+                  type="button"
+                  onClick={() => void retryWorkspaceCard()}
+                  className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                >
+                  Coba lagi
+                </Button>
+              ) : null}
+            </div>
+          ) : error &&
+            (error as ChatError).code === "project_request_blocked" ? (
+            <div className="rounded-[18px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-5 py-spacing-4">
+              <div className="flex items-start gap-spacing-3">
+                <span className="mt-0.5 text-yellow-400" aria-hidden>
+                  ⚠️
+                </span>
+                <p className="text-sm leading-6 text-surface-warm-white/78">
+                  {error.message}
+                </p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+              <p className="text-sm font-medium text-[#ffb4a6]">
+                {isRetrying
+                  ? "AI sempat terputus. Mencoba menyambung ulang..."
+                  : "AI sempat terputus. Coba kirim ulang pesanmu."}
+              </p>
+              {!isRetrying ? (
+                <Button
+                  type="button"
+                  onClick={() => void retryChat()}
+                  className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                >
+                  Kirim ulang
+                </Button>
+              ) : null}
+            </div>
+          ) : resumeError ? (
+            <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+              <p className="text-sm font-medium text-[#ffb4a6]">
+                {resumeError.message}
+              </p>
+              {!isRetrying ? (
+                <Button
+                  type="button"
+                  onClick={() => void retryChat()}
+                  className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                >
+                  {resumeError.retryText}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        {showScrollToBottom && (
+          <button
+            type="button"
+            onClick={() => {
+              shouldStickToBottomRef.current = true;
+              scrollChatToBottom({ force: true, behavior: "smooth" });
+              setShowScrollToBottom(false);
+            }}
+            className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 flex items-center gap-2 rounded-full border border-surface-warm-white/10 bg-surface-warm-white px-4 py-2 text-xs font-semibold text-foreground-primary shadow-lg hover:bg-surface-warm-white/90 active:scale-95 transition-all cursor-pointer"
+          >
+            <ArrowDown className="size-3.5" />
+            <span>Lompat ke Bawah</span>
+          </button>
+        )}
+      </div>
+
+      <div className="mt-spacing-5">
+        <AnimatePresence mode="wait" initial={false}>
+          {isProcessing ? (
+            <motion.div key="composer-processing" {...COMPOSER_TRANSITION}>
+              <ProcessingControl
+                mode={isBuilding ? "Buat" : "Diskusi"}
+                onStop={stopCurrentJob}
+              />
+            </motion.div>
+          ) : rateLimitError ? (
+            <motion.div
+              key="composer-rate-limit"
+              {...COMPOSER_TRANSITION}
+              className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62"
+            >
+              Tunggu sebentar sebelum mengirim jawaban berikutnya.
+            </motion.div>
+          ) : isPreparingNextQuestion ||
+            workspaceCardError ? null : !hasAnsweredActiveQuestion &&
+            composerState === "question" &&
+            workspaceCard.type === "question" ? (
+            <motion.div
+              key="composer-question"
+              {...COMPOSER_TRANSITION}
+              className="mt-spacing-3"
+            >
+              <div className="mb-spacing-2 inline-flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs w-fit">
+                {(
+                  [
+                    { label: "Pilihan", value: "options" },
+                    { label: "Tulis bebas", value: "free" },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => {
+                      setQuestionComposerMode(tab.value);
+                      if (tab.value === "options") {
+                        setMessage("");
+                      }
+                    }}
+                    className="relative flex h-8 items-center justify-center gap-spacing-2 rounded-radius-sm px-spacing-4 text-xs font-medium transition focus-visible:outline-none cursor-pointer"
+                  >
+                    {questionComposerMode === tab.value && (
+                      <motion.span
+                        layoutId="question-composer-tab"
+                        className="absolute inset-0 rounded-radius-sm bg-surface-warm-white"
+                        transition={{
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 30,
+                        }}
+                      />
+                    )}
+                    <span
+                      className={cn(
+                        "relative z-10 flex items-center gap-spacing-2",
+                        questionComposerMode === tab.value
+                          ? "text-foreground-primary"
+                          : "text-surface-warm-white/58 hover:text-surface-warm-white",
+                      )}
+                    >
+                      {tab.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <AnimatePresence mode="wait" initial={false}>
+                {questionComposerMode === "options" ? (
+                  <motion.div
+                    key="question-options"
+                    initial={{
+                      opacity: 0,
+                      y: 12,
+                      scale: 0.985,
+                      filter: "blur(6px)",
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      scale: 1,
+                      filter: "blur(0px)",
+                    }}
+                    exit={{
+                      opacity: 0,
+                      y: -10,
+                      scale: 0.985,
+                      filter: "blur(6px)",
+                    }}
+                    transition={{
+                      duration: 0.22,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                  >
+                    <QuestionComposer
+                      question={workspaceCard.question}
+                      onSubmit={(answer, workspaceAnswers) =>
+                        submitChatText(answer, { workspaceAnswers })
+                      }
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.form
+                    key="question-free"
+                    initial={{
+                      opacity: 0,
+                      y: 12,
+                      scale: 0.985,
+                      filter: "blur(6px)",
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      scale: 1,
+                      filter: "blur(0px)",
+                    }}
+                    exit={{
+                      opacity: 0,
+                      y: -10,
+                      scale: 0.985,
+                      filter: "blur(6px)",
+                    }}
+                    transition={{
+                      duration: 0.22,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                    onSubmit={handleMessageSubmit}
+                    className="min-w-0"
+                  >
+                    <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+                      <label htmlFor="workspace-message" className="sr-only">
+                        Pesan untuk AI
+                      </label>
+                      {pendingAttachments.length > 0 ? (
+                        <ComposerAttachments
+                          attachments={pendingAttachments}
+                          onRemove={(id) =>
+                            setPendingAttachments((cur) =>
+                              removeAttachment(cur, id),
+                            )
+                          }
+                        />
+                      ) : null}
+                      <textarea
+                        id="workspace-message"
+                        rows={1}
+                        value={message}
+                        onChange={(event) => {
+                          setMessage(event.target.value);
+                          const target = event.currentTarget;
+                          target.style.height = "auto";
+                          target.style.height = `${Math.min(target.scrollHeight, 6 * 24 + 24)}px`;
+                        }}
+                        onKeyDown={handleMessageKeyDown}
+                        inputMode="text"
+                        enterKeyHint="send"
+                        placeholder={
+                          sessionExpired
+                            ? "Sesi habis, login ulang..."
+                            : "Tulis bebas..."
+                        }
+                        disabled={
+                          sessionExpired || authStatus !== "authenticated"
+                        }
+                        className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                      />
+                      <div className="flex items-center justify-end gap-spacing-4">
+                        <div className="flex items-center gap-spacing-2">
+                          <ComposerAttachButton
+                            attachments={pendingAttachments}
+                            onAdd={(next, rejected) => {
+                              setPendingAttachments(next);
+                              if (rejected.length) {
+                                toast.error(
+                                  `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                                );
+                              }
+                            }}
+                          />
+                          <Button
+                            type="submit"
+                            size="icon"
+                            disabled={!message.trim()}
+                            className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                            aria-label="Kirim pesan"
+                          >
+                            <ArrowUp className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.form>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          ) : composerState === "build_recommendation" ? (
+            <motion.div
+              key="composer-build-recommendation"
+              {...COMPOSER_TRANSITION}
+            >
+              <WorkspaceCardView
+                canBuild={canStartBuildNow}
+                card={workspaceCard}
+                onBuild={() => void handleStartBuild()}
+                onDiscuss={holdBuildRecommendation}
+              />
+            </motion.div>
+          ) : composerState === "post_build_review" ||
+            composerState === "build_failed_with_last_good" ? (
+            <motion.div key="composer-post-build" {...COMPOSER_TRANSITION}>
+              <CompletedBuildNotice
+                onDiscuss={() => {
+                  // Park the current build recommendation so free discuss
+                  // opens first; a fresh recommendation can surface later.
+                  if (buildRecommendationSignature) {
+                    window.localStorage.setItem(
+                      buildRecommendationStorageKey,
+                      buildRecommendationSignature,
+                    );
+                    setHeldBuildRecommendationSignature(
+                      buildRecommendationSignature,
+                    );
+                  }
+                  setMode("discuss");
+                  setPostBuildChatOpen(true);
+                }}
+                onPreview={() => {
+                  setActiveTab("preview");
+                  openPreviewPanel();
+                }}
+                variant={
+                  composerState === "build_failed_with_last_good"
+                    ? "recovery"
+                    : "ready"
+                }
+              />
+            </motion.div>
+          ) : (
+            <motion.div key="composer-free" {...COMPOSER_TRANSITION}>
+              {composerState === "held_build_recommendation" ? (
+                <HeldBuildRecommendationNotice
+                  canBuild={canStartBuildNow}
+                  onBuild={() => void handleStartBuild()}
+                  onOpen={openBuildRecommendation}
+                />
+              ) : null}
+              <form
+                onSubmit={handleMessageSubmit}
+                className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+              >
+                <label htmlFor="workspace-message" className="sr-only">
+                  Pesan untuk AI
+                </label>
+                {pendingAttachments.length > 0 ? (
+                  <ComposerAttachments
+                    attachments={pendingAttachments}
+                    onRemove={(id) =>
+                      setPendingAttachments((cur) => removeAttachment(cur, id))
+                    }
+                  />
+                ) : null}
+                <textarea
+                  id="workspace-message"
+                  rows={1}
+                  value={message}
+                  onChange={(event) => {
+                    setMessage(event.target.value);
+                    const target = event.currentTarget;
+                    target.style.height = "auto";
+                    target.style.height = `${Math.min(target.scrollHeight, 6 * 24 + 24)}px`;
+                  }}
+                  onKeyDown={handleMessageKeyDown}
+                  inputMode="text"
+                  enterKeyHint="send"
+                  placeholder={
+                    sessionExpired
+                      ? "Sesi habis, login ulang..."
+                      : mode === "build"
+                        ? "Minta perubahan, contoh: buat lebih premium..."
+                        : "Jawab pilihan atau tulis kebutuhanmu..."
+                  }
+                  className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                  disabled={sessionExpired || authStatus !== "authenticated"}
+                />
+                <div className="flex items-center justify-end gap-spacing-4">
+                  <div className="flex items-center gap-spacing-2">
+                    <ComposerAttachButton
+                      attachments={pendingAttachments}
+                      onAdd={(next, rejected) => {
+                        setPendingAttachments(next);
+                        if (rejected.length) {
+                          toast.error(
+                            `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                          );
+                        }
+                      }}
+                    />
+                    <Button
+                      type="submit"
+                      size="icon"
+                      disabled={!message.trim()}
+                      className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                      aria-label="Kirim pesan"
+                    >
+                      <ArrowUp className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </aside>
+  );
+
+  const previewPanelContent = (
+    <section className={previewPanelClass}>
+      <div className="flex h-full min-h-0 flex-col bg-[#10100f] text-surface-warm-white">
+        <WorkspaceTopBar
+          annotationActive={annotationMode}
+          annotationAvailable={shouldRenderGeneratedPreview}
+          projectId={projectId}
+          onToggleAnnotation={() => {
+            setAnnotationMode((current) => {
+              if (current) {
+                setPendingAnnotationTarget(null);
+                setPendingAnnotationComment("");
+              }
+
+              return !current;
+            });
+            setActiveTab("preview");
+          }}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          viewport={viewport}
+          setViewport={setViewport}
+          chatCollapsed={chatCollapsed}
+          openChatPanel={openChatPanel}
+          closeChatPanel={closeChatPanel}
+          runtime={runtimeControl}
+        />
+        <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
+          {activeTab === "preview" ? (
+            <div
+              id="workspace-preview-panel"
+              role="tabpanel"
+              aria-labelledby="workspace-preview-tab"
+              className="h-full min-h-0"
+            >
+              {isBuilding ? (
+                <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
+                  <div className="flex flex-col items-center gap-spacing-4 text-center">
+                    <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
+                    <p className="text-sm font-medium text-surface-warm-white/78">
+                      Menyiapkan pratinjau website...
+                    </p>
+                  </div>
+                </div>
+              ) : previewIssue ? (
+                <PreviewIssueState
+                  detail={previewIssue.detail}
+                  onRebuild={() => void startBuild()}
+                  onRetry={recoverPreviewRuntime}
+                  title={previewIssue.title}
+                />
+              ) : shouldRenderGeneratedPreview ? (
+                <GeneratedPreviewFrame
+                  annotationActive={annotationMode}
+                  annotationMarkers={annotations}
+                  onAnnotationTarget={handleAnnotationTarget}
+                  onLoad={() => void loadRuntimeState()}
+                  onRecover={recoverPreviewRuntime}
+                  onStuck={() => void loadRuntimeState()}
+                  pendingAnnotation={
+                    annotationMode && pendingAnnotationTarget
+                      ? {
+                          comment: pendingAnnotationComment,
+                          onCancel: () => {
+                            setPendingAnnotationTarget(null);
+                            setPendingAnnotationComment("");
+                          },
+                          onChange: setPendingAnnotationComment,
+                          onSave: addPendingAnnotation,
+                          target: pendingAnnotationTarget,
+                        }
+                      : null
+                  }
+                  projectId={projectId}
+                  reloadKey={previewReloadKey}
+                  viewport={viewport}
+                />
+              ) : (
+                <EmptyPreviewState />
+              )}
+            </div>
+          ) : null}
+
+          {activeTab === "code" ? (
+            <div
+              id="workspace-code-panel"
+              role="tabpanel"
+              aria-labelledby="workspace-code-tab"
+              className="h-full min-h-0"
+            >
+              <CodeView
+                files={sourceFiles}
+                buildStatus={sourceStatus}
+                error={sourceError}
+                isLoading={isLoadingSource}
+                onRetry={() => setSourceReloadKey((current) => current + 1)}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+
   return (
     <div
       className="flex h-dvh flex-col overflow-hidden bg-[#10100f] text-surface-warm-white"
@@ -2417,119 +3068,16 @@ export function WorkspaceShell({
         </button>
       </nav>
       {/* Mobile/tablet: single full-screen surface toggled by bottom nav */}
-      <div className="min-h-0 flex-1 overflow-hidden lg:hidden">
-        {mobileSurface === "chat" ? (
-          <aside className={chatPanelClass}>
-            {/* Chat content: rendered inside the desktop ResizablePanel as well —
-                reactive state is shared across both branches. */}
-          </aside>
-        ) : mobileSurface === "preview" && showPreviewPanel ? (
-          <section className={previewPanelClass}>
-            <div className="flex h-full min-h-0 flex-col bg-[#10100f] text-surface-warm-white">
-              <WorkspaceTopBar
-                annotationActive={annotationMode}
-                annotationAvailable={shouldRenderGeneratedPreview}
-                projectId={projectId}
-                onToggleAnnotation={() => {
-                  setAnnotationMode((current) => {
-                    if (current) {
-                      setPendingAnnotationTarget(null);
-                      setPendingAnnotationComment("");
-                    }
-                    return !current;
-                  });
-                  setActiveTab("preview");
-                }}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                viewport={viewport}
-                setViewport={setViewport}
-                chatCollapsed={chatCollapsed}
-                openChatPanel={openChatPanel}
-                closeChatPanel={closeChatPanel}
-                runtime={runtimeControl}
-              />
-              <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
-                {activeTab === "preview" ? (
-                  <div
-                    id="workspace-preview-panel"
-                    role="tabpanel"
-                    aria-labelledby="workspace-preview-tab"
-                    className="h-full min-h-0"
-                  >
-                    {isBuilding ? (
-                      <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
-                        <div className="flex flex-col items-center gap-spacing-4 text-center">
-                          <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
-                          <p className="text-sm font-medium text-surface-warm-white/78">
-                            Menyiapkan pratinjau website...
-                          </p>
-                        </div>
-                      </div>
-                    ) : previewIssue ? (
-                      <PreviewIssueState
-                        detail={previewIssue.detail}
-                        onRebuild={() => void startBuild()}
-                        onRetry={recoverPreviewRuntime}
-                        title={previewIssue.title}
-                      />
-                    ) : shouldRenderGeneratedPreview ? (
-                      <GeneratedPreviewFrame
-                        annotationActive={annotationMode}
-                        annotationMarkers={annotations}
-                        onAnnotationTarget={handleAnnotationTarget}
-                        onLoad={() => void loadRuntimeState()}
-                        onRecover={recoverPreviewRuntime}
-                        onStuck={() => void loadRuntimeState()}
-                        pendingAnnotation={
-                          annotationMode && pendingAnnotationTarget
-                            ? {
-                                comment: pendingAnnotationComment,
-                                onCancel: () => {
-                                  setPendingAnnotationTarget(null);
-                                  setPendingAnnotationComment("");
-                                },
-                                onChange: setPendingAnnotationComment,
-                                onSave: addPendingAnnotation,
-                                target: pendingAnnotationTarget,
-                              }
-                            : null
-                        }
-                        projectId={projectId}
-                        reloadKey={previewReloadKey}
-                        viewport={viewport}
-                      />
-                    ) : (
-                      <EmptyPreviewState />
-                    )}
-                  </div>
-                ) : null}
+      {!isDesktop ? (
+        <div className="min-h-0 flex-1 overflow-hidden lg:hidden">
+          {mobileSurface === "chat" && chatPanelContent}
+          {mobileSurface === "preview" && showPreviewPanel
+            ? previewPanelContent
+            : null}
+        </div>
+      ) : null}
 
-                {activeTab === "code" ? (
-                  <div
-                    id="workspace-code-panel"
-                    role="tabpanel"
-                    aria-labelledby="workspace-code-tab"
-                    className="h-full min-h-0"
-                  >
-                    <CodeView
-                      files={sourceFiles}
-                      buildStatus={sourceStatus}
-                      error={sourceError}
-                      isLoading={isLoadingSource}
-                      onRetry={() =>
-                        setSourceReloadKey((current) => current + 1)
-                      }
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </section>
-        ) : null}
-      </div>
-
-      {/* Desktop: resizable panels. Hidden on mobile via conditional mount. */}
+      {/* Desktop: side-by-side resizable panels */}
       {isDesktop ? (
         <ResizablePanelGroup
           orientation="horizontal"
@@ -2537,579 +3085,13 @@ export function WorkspaceShell({
         >
           <ResizablePanel
             id="chat"
-            className={
-              mobileSurface === "chat"
-                ? "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-                : "hidden"
-            }
             panelRef={chatPanelRef}
             defaultSize={showPreviewPanel ? "25%" : "100%"}
             minSize="20%"
             collapsible
             collapsedSize={0}
           >
-            <aside className={chatPanelClass}>
-              <div className="flex min-w-0 items-start justify-between gap-spacing-5 px-spacing-1">
-                <div className="min-w-0 flex-1">
-                  <Link
-                    href="/"
-                    className="inline-flex items-center gap-spacing-2 text-xs text-surface-warm-white/58 hover:text-surface-warm-white"
-                  >
-                    <ArrowLeft className="size-3.5" />
-                    Dashboard
-                  </Link>
-                  <div className="mt-spacing-3 flex items-center gap-spacing-2">
-                    {isRenaming ? (
-                      <input
-                        value={draftTitle}
-                        onChange={(event) => setDraftTitle(event.target.value)}
-                        onBlur={() => void saveProjectTitle()}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            void saveProjectTitle();
-                          }
-
-                          if (event.key === "Escape") {
-                            setDraftTitle(projectTitle);
-                            setIsRenaming(false);
-                          }
-                        }}
-                        autoFocus
-                        className="min-w-0 flex-1 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/8 px-spacing-3 py-spacing-2 text-base font-semibold text-surface-warm-white outline-none focus:border-surface-warm-white/30"
-                      />
-                    ) : (
-                      <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
-                        {projectTitle}
-                      </h1>
-                    )}
-                    {isRenaming ? (
-                      <button
-                        type="button"
-                        onClick={() => void saveProjectTitle()}
-                        className="rounded-full p-spacing-2 text-[#8ce99a] hover:bg-surface-warm-white/8"
-                        aria-label="Simpan nama proyek"
-                      >
-                        <Check className="size-3.5" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setIsRenaming(true)}
-                        className="rounded-full p-spacing-2 text-surface-warm-white/44 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-                        aria-label="Ubah nama proyek"
-                      >
-                        <Pencil className="size-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-spacing-2">
-                  <EnergyDisplay />
-                  <button
-                    type="button"
-                    onClick={
-                      showPreviewPanel ? closePreviewPanel : openPreviewPanel
-                    }
-                    className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white lg:block"
-                    aria-label={
-                      showPreviewPanel ? "Tutup tampilan" : "Buka tampilan"
-                    }
-                  >
-                    {showPreviewPanel ? (
-                      <PanelRightClose className="size-4" />
-                    ) : (
-                      <PanelRightOpen className="size-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="relative flex min-h-0 flex-1 flex-col mt-spacing-5">
-                <div
-                  ref={chatScrollRef}
-                  onWheel={(event) => {
-                    // Immediate unstick when user scrolls up, even mid smooth-follow.
-                    if (event.deltaY < 0) {
-                      shouldStickToBottomRef.current = false;
-                    }
-                  }}
-                  onTouchStart={() => {
-                    // Touch drag intent: stop forcing until they return to bottom.
-                    const element = chatScrollRef.current;
-                    if (element && !isChatNearBottom(element)) {
-                      shouldStickToBottomRef.current = false;
-                    }
-                  }}
-                  onScroll={(event) => {
-                    if (ignoreNextScrollRef.current) {
-                      return;
-                    }
-
-                    const element = event.currentTarget;
-                    const nearBottom = isChatNearBottom(element);
-                    shouldStickToBottomRef.current = nearBottom;
-                    setShowScrollToBottom(!nearBottom);
-                  }}
-                  className="min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
-                >
-                  {hasMoreChat ? (
-                    <div
-                      ref={olderChatSentinelRef}
-                      className="py-spacing-3 text-center"
-                    >
-                      {isLoadingOlderChat ? (
-                        <span className="text-xs text-surface-warm-white/50">
-                          Memuat chat lama...
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <ChatMessages messages={visibleMessages} />
-
-                  {isBuilding || buildProgress.length ? (
-                    <BuildProgressPanel
-                      elapsedFrom={buildStartedAt}
-                      isBuilding={isBuilding}
-                      steps={buildProgress}
-                    />
-                  ) : null}
-
-                  {isResponding ? (
-                    <p className="text-sm text-surface-warm-white/46">
-                      AI sedang menyiapkan jawaban...
-                    </p>
-                  ) : null}
-                  {rateLimitError ? (
-                    <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                      <p className="text-sm font-medium text-[#ffb4a6]">
-                        {rateLimitError.message}
-                      </p>
-                    </div>
-                  ) : sessionExpired ? (
-                    <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                      <p className="text-sm font-medium text-[#ffb4a6]">
-                        Sesi kamu sudah habis.
-                      </p>
-                      <Button
-                        type="button"
-                        onClick={() => void signOut({ callbackUrl: "/" })}
-                        className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
-                      >
-                        Login ulang
-                      </Button>
-                    </div>
-                  ) : isPreparingNextQuestion ? (
-                    <p className="text-sm text-surface-warm-white/46">
-                      Menyiapkan pertanyaan berikutnya...
-                    </p>
-                  ) : workspaceCardError ? (
-                    <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                      <p className="text-sm font-medium text-[#ffb4a6]">
-                        {isRetrying
-                          ? "Mencoba menyiapkan pertanyaan lagi..."
-                          : "Pertanyaan berikutnya belum berhasil dibuat."}
-                      </p>
-                      {!isRetrying ? (
-                        <Button
-                          type="button"
-                          onClick={() => void retryWorkspaceCard()}
-                          className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
-                        >
-                          Coba lagi
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : error &&
-                    (error as ChatError).code === "project_request_blocked" ? (
-                    <div className="rounded-[18px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-5 py-spacing-4">
-                      <div className="flex items-start gap-spacing-3">
-                        <span className="mt-0.5 text-yellow-400" aria-hidden>
-                          ⚠️
-                        </span>
-                        <p className="text-sm leading-6 text-surface-warm-white/78">
-                          {error.message}
-                        </p>
-                      </div>
-                    </div>
-                  ) : error ? (
-                    <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                      <p className="text-sm font-medium text-[#ffb4a6]">
-                        {isRetrying
-                          ? "AI sempat terputus. Mencoba menyambung ulang..."
-                          : "AI sempat terputus. Coba kirim ulang pesanmu."}
-                      </p>
-                      {!isRetrying ? (
-                        <Button
-                          type="button"
-                          onClick={() => void retryChat()}
-                          className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
-                        >
-                          Kirim ulang
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : resumeError ? (
-                    <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-                      <p className="text-sm font-medium text-[#ffb4a6]">
-                        {resumeError.message}
-                      </p>
-                      {!isRetrying ? (
-                        <Button
-                          type="button"
-                          onClick={() => void retryChat()}
-                          className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
-                        >
-                          {resumeError.retryText}
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-                {showScrollToBottom && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      shouldStickToBottomRef.current = true;
-                      scrollChatToBottom({ force: true, behavior: "smooth" });
-                      setShowScrollToBottom(false);
-                    }}
-                    className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 flex items-center gap-2 rounded-full border border-surface-warm-white/10 bg-surface-warm-white px-4 py-2 text-xs font-semibold text-foreground-primary shadow-lg hover:bg-surface-warm-white/90 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <ArrowDown className="size-3.5" />
-                    <span>Lompat ke Bawah</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="mt-spacing-5">
-                <AnimatePresence mode="wait" initial={false}>
-                  {isProcessing ? (
-                    <motion.div
-                      key="composer-processing"
-                      {...COMPOSER_TRANSITION}
-                    >
-                      <ProcessingControl
-                        mode={isBuilding ? "Buat" : "Diskusi"}
-                        onStop={stopCurrentJob}
-                      />
-                    </motion.div>
-                  ) : rateLimitError ? (
-                    <motion.div
-                      key="composer-rate-limit"
-                      {...COMPOSER_TRANSITION}
-                      className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62"
-                    >
-                      Tunggu sebentar sebelum mengirim jawaban berikutnya.
-                    </motion.div>
-                  ) : isPreparingNextQuestion ||
-                    workspaceCardError ? null : !hasAnsweredActiveQuestion &&
-                    composerState === "question" &&
-                    workspaceCard.type === "question" ? (
-                    <motion.div
-                      key="composer-question"
-                      {...COMPOSER_TRANSITION}
-                      className="mt-spacing-3"
-                    >
-                      <div className="mb-spacing-2 inline-flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs w-fit">
-                        {(
-                          [
-                            { label: "Pilihan", value: "options" },
-                            { label: "Tulis bebas", value: "free" },
-                          ] as const
-                        ).map((tab) => (
-                          <button
-                            key={tab.value}
-                            type="button"
-                            onClick={() => {
-                              setQuestionComposerMode(tab.value);
-                              if (tab.value === "options") {
-                                setMessage("");
-                              }
-                            }}
-                            className="relative flex h-8 items-center justify-center gap-spacing-2 rounded-radius-sm px-spacing-4 text-xs font-medium transition focus-visible:outline-none cursor-pointer"
-                          >
-                            {questionComposerMode === tab.value && (
-                              <motion.span
-                                layoutId="question-composer-tab"
-                                className="absolute inset-0 rounded-radius-sm bg-surface-warm-white"
-                                transition={{
-                                  type: "spring",
-                                  stiffness: 500,
-                                  damping: 30,
-                                }}
-                              />
-                            )}
-                            <span
-                              className={cn(
-                                "relative z-10 flex items-center gap-spacing-2",
-                                questionComposerMode === tab.value
-                                  ? "text-foreground-primary"
-                                  : "text-surface-warm-white/58 hover:text-surface-warm-white",
-                              )}
-                            >
-                              {tab.label}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                      <AnimatePresence mode="wait" initial={false}>
-                        {questionComposerMode === "options" ? (
-                          <motion.div
-                            key="question-options"
-                            initial={{
-                              opacity: 0,
-                              y: 12,
-                              scale: 0.985,
-                              filter: "blur(6px)",
-                            }}
-                            animate={{
-                              opacity: 1,
-                              y: 0,
-                              scale: 1,
-                              filter: "blur(0px)",
-                            }}
-                            exit={{
-                              opacity: 0,
-                              y: -10,
-                              scale: 0.985,
-                              filter: "blur(6px)",
-                            }}
-                            transition={{
-                              duration: 0.22,
-                              ease: [0.22, 1, 0.36, 1],
-                            }}
-                          >
-                            <QuestionComposer
-                              question={workspaceCard.question}
-                              onSubmit={(answer, workspaceAnswers) =>
-                                submitChatText(answer, { workspaceAnswers })
-                              }
-                            />
-                          </motion.div>
-                        ) : (
-                          <motion.form
-                            key="question-free"
-                            initial={{
-                              opacity: 0,
-                              y: 12,
-                              scale: 0.985,
-                              filter: "blur(6px)",
-                            }}
-                            animate={{
-                              opacity: 1,
-                              y: 0,
-                              scale: 1,
-                              filter: "blur(0px)",
-                            }}
-                            exit={{
-                              opacity: 0,
-                              y: -10,
-                              scale: 0.985,
-                              filter: "blur(6px)",
-                            }}
-                            transition={{
-                              duration: 0.22,
-                              ease: [0.22, 1, 0.36, 1],
-                            }}
-                            onSubmit={handleMessageSubmit}
-                            className="min-w-0"
-                          >
-                            <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
-                              <label
-                                htmlFor="workspace-message"
-                                className="sr-only"
-                              >
-                                Pesan untuk AI
-                              </label>
-                              {pendingAttachments.length > 0 ? (
-                                <ComposerAttachments
-                                  attachments={pendingAttachments}
-                                  onRemove={(id) =>
-                                    setPendingAttachments((cur) =>
-                                      removeAttachment(cur, id),
-                                    )
-                                  }
-                                />
-                              ) : null}
-                              <textarea
-                                id="workspace-message"
-                                rows={1}
-                                value={message}
-                                onChange={(event) => {
-                                  setMessage(event.target.value);
-                                  const target = event.currentTarget;
-                                  target.style.height = "auto";
-                                  target.style.height = `${Math.min(target.scrollHeight, 6 * 24 + 24)}px`;
-                                }}
-                                onKeyDown={handleMessageKeyDown}
-                                inputMode="text"
-                                enterKeyHint="send"
-                                placeholder={
-                                  sessionExpired
-                                    ? "Sesi habis, login ulang..."
-                                    : "Tulis bebas..."
-                                }
-                                disabled={
-                                  sessionExpired ||
-                                  authStatus !== "authenticated"
-                                }
-                                className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                              />
-                              <div className="flex items-center justify-end gap-spacing-4">
-                                <div className="flex items-center gap-spacing-2">
-                                  <ComposerAttachButton
-                                    attachments={pendingAttachments}
-                                    onAdd={(next, rejected) => {
-                                      setPendingAttachments(next);
-                                      if (rejected.length) {
-                                        toast.error(
-                                          `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
-                                        );
-                                      }
-                                    }}
-                                  />
-                                  <Button
-                                    type="submit"
-                                    size="icon"
-                                    disabled={!message.trim()}
-                                    className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                                    aria-label="Kirim pesan"
-                                  >
-                                    <ArrowUp className="size-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </motion.form>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  ) : composerState === "build_recommendation" ? (
-                    <motion.div
-                      key="composer-build-recommendation"
-                      {...COMPOSER_TRANSITION}
-                    >
-                      <WorkspaceCardView
-                        canBuild={canStartBuildNow}
-                        card={workspaceCard}
-                        onBuild={() => void handleStartBuild()}
-                        onDiscuss={holdBuildRecommendation}
-                      />
-                    </motion.div>
-                  ) : composerState === "post_build_review" ||
-                    composerState === "build_failed_with_last_good" ? (
-                    <motion.div
-                      key="composer-post-build"
-                      {...COMPOSER_TRANSITION}
-                    >
-                      <CompletedBuildNotice
-                        onDiscuss={() => {
-                          // Park the current build recommendation so free discuss
-                          // opens first; a fresh recommendation can surface later.
-                          if (buildRecommendationSignature) {
-                            window.localStorage.setItem(
-                              buildRecommendationStorageKey,
-                              buildRecommendationSignature,
-                            );
-                            setHeldBuildRecommendationSignature(
-                              buildRecommendationSignature,
-                            );
-                          }
-                          setMode("discuss");
-                          setPostBuildChatOpen(true);
-                        }}
-                        onPreview={() => {
-                          setActiveTab("preview");
-                          openPreviewPanel();
-                        }}
-                        variant={
-                          composerState === "build_failed_with_last_good"
-                            ? "recovery"
-                            : "ready"
-                        }
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div key="composer-free" {...COMPOSER_TRANSITION}>
-                      {composerState === "held_build_recommendation" ? (
-                        <HeldBuildRecommendationNotice
-                          canBuild={canStartBuildNow}
-                          onBuild={() => void handleStartBuild()}
-                          onOpen={openBuildRecommendation}
-                        />
-                      ) : null}
-                      <form
-                        onSubmit={handleMessageSubmit}
-                        className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
-                      >
-                        <label htmlFor="workspace-message" className="sr-only">
-                          Pesan untuk AI
-                        </label>
-                        {pendingAttachments.length > 0 ? (
-                          <ComposerAttachments
-                            attachments={pendingAttachments}
-                            onRemove={(id) =>
-                              setPendingAttachments((cur) =>
-                                removeAttachment(cur, id),
-                              )
-                            }
-                          />
-                        ) : null}
-                        <textarea
-                          id="workspace-message"
-                          rows={1}
-                          value={message}
-                          onChange={(event) => {
-                            setMessage(event.target.value);
-                            const target = event.currentTarget;
-                            target.style.height = "auto";
-                            target.style.height = `${Math.min(target.scrollHeight, 6 * 24 + 24)}px`;
-                          }}
-                          onKeyDown={handleMessageKeyDown}
-                          inputMode="text"
-                          enterKeyHint="send"
-                          placeholder={
-                            sessionExpired
-                              ? "Sesi habis, login ulang..."
-                              : mode === "build"
-                                ? "Minta perubahan, contoh: buat lebih premium..."
-                                : "Jawab pilihan atau tulis kebutuhanmu..."
-                          }
-                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                          disabled={
-                            sessionExpired || authStatus !== "authenticated"
-                          }
-                        />
-                        <div className="flex items-center justify-end gap-spacing-4">
-                          <div className="flex items-center gap-spacing-2">
-                            <ComposerAttachButton
-                              attachments={pendingAttachments}
-                              onAdd={(next, rejected) => {
-                                setPendingAttachments(next);
-                                if (rejected.length) {
-                                  toast.error(
-                                    `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
-                                  );
-                                }
-                              }}
-                            />
-                            <Button
-                              type="submit"
-                              size="icon"
-                              disabled={!message.trim()}
-                              className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
-                              aria-label="Kirim pesan"
-                            >
-                              <ArrowUp className="size-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </form>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </aside>
+            {chatPanelContent}
           </ResizablePanel>
           {showPreviewPanel ? (
             <>
@@ -3117,123 +3099,15 @@ export function WorkspaceShell({
                 withHandle
                 className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16"
               />
-
               <ResizablePanel
                 id="preview"
-                className={
-                  mobileSurface === "preview"
-                    ? "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none "
-                    : "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none "
-                }
                 panelRef={previewPanelRef}
                 defaultSize="75%"
                 minSize="8%"
                 collapsible
                 collapsedSize={0}
               >
-                <section className={previewPanelClass}>
-                  <div className="flex h-full min-h-0 flex-col bg-[#10100f] text-surface-warm-white">
-                    <WorkspaceTopBar
-                      annotationActive={annotationMode}
-                      annotationAvailable={shouldRenderGeneratedPreview}
-                      projectId={projectId}
-                      onToggleAnnotation={() => {
-                        setAnnotationMode((current) => {
-                          if (current) {
-                            setPendingAnnotationTarget(null);
-                            setPendingAnnotationComment("");
-                          }
-
-                          return !current;
-                        });
-                        setActiveTab("preview");
-                      }}
-                      activeTab={activeTab}
-                      setActiveTab={setActiveTab}
-                      viewport={viewport}
-                      setViewport={setViewport}
-                      chatCollapsed={chatCollapsed}
-                      openChatPanel={openChatPanel}
-                      closeChatPanel={closeChatPanel}
-                      runtime={runtimeControl}
-                    />
-                    <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
-                      {activeTab === "preview" ? (
-                        <div
-                          id="workspace-preview-panel"
-                          role="tabpanel"
-                          aria-labelledby="workspace-preview-tab"
-                          className="h-full min-h-0"
-                        >
-                          {isBuilding ? (
-                            <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
-                              <div className="flex flex-col items-center gap-spacing-4 text-center">
-                                <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
-                                <p className="text-sm font-medium text-surface-warm-white/78">
-                                  Menyiapkan pratinjau website...
-                                </p>
-                              </div>
-                            </div>
-                          ) : previewIssue ? (
-                            <PreviewIssueState
-                              detail={previewIssue.detail}
-                              onRebuild={() => void startBuild()}
-                              onRetry={recoverPreviewRuntime}
-                              title={previewIssue.title}
-                            />
-                          ) : shouldRenderGeneratedPreview ? (
-                            <GeneratedPreviewFrame
-                              annotationActive={annotationMode}
-                              annotationMarkers={annotations}
-                              onAnnotationTarget={handleAnnotationTarget}
-                              onLoad={() => void loadRuntimeState()}
-                              onRecover={recoverPreviewRuntime}
-                              onStuck={() => void loadRuntimeState()}
-                              pendingAnnotation={
-                                annotationMode && pendingAnnotationTarget
-                                  ? {
-                                      comment: pendingAnnotationComment,
-                                      onCancel: () => {
-                                        setPendingAnnotationTarget(null);
-                                        setPendingAnnotationComment("");
-                                      },
-                                      onChange: setPendingAnnotationComment,
-                                      onSave: addPendingAnnotation,
-                                      target: pendingAnnotationTarget,
-                                    }
-                                  : null
-                              }
-                              projectId={projectId}
-                              reloadKey={previewReloadKey}
-                              viewport={viewport}
-                            />
-                          ) : (
-                            <EmptyPreviewState />
-                          )}
-                        </div>
-                      ) : null}
-
-                      {activeTab === "code" ? (
-                        <div
-                          id="workspace-code-panel"
-                          role="tabpanel"
-                          aria-labelledby="workspace-code-tab"
-                          className="h-full min-h-0"
-                        >
-                          <CodeView
-                            files={sourceFiles}
-                            buildStatus={sourceStatus}
-                            error={sourceError}
-                            isLoading={isLoadingSource}
-                            onRetry={() =>
-                              setSourceReloadKey((current) => current + 1)
-                            }
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </section>
+                {previewPanelContent}
               </ResizablePanel>
             </>
           ) : null}
