@@ -12,9 +12,11 @@ const {
   prismaPaymentUpdateMock,
   prismaPaymentUpdateManyMock,
   prismaPaymentFindUniqueOrThrowMock,
+  prismaUserFindUniqueMock,
   prismaUserFindUniqueOrThrowMock,
   prismaExecuteRawMock,
   prismaTransactionMock,
+  sendPaymentReceiptMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
   requireNotBannedMock: vi.fn(async () => undefined),
@@ -27,12 +29,16 @@ const {
   prismaPaymentUpdateMock: vi.fn(),
   prismaPaymentUpdateManyMock: vi.fn(async () => ({ count: 1 })),
   prismaPaymentFindUniqueOrThrowMock: vi.fn(),
+  prismaUserFindUniqueMock: vi.fn(async () => ({
+    email: "user@example.com",
+  })),
   prismaUserFindUniqueOrThrowMock: vi.fn(async () => ({
     name: "Test User",
     email: "test@example.com",
     phone: "081234567890",
   })),
   prismaExecuteRawMock: vi.fn(async () => 1),
+  sendPaymentReceiptMock: vi.fn(async () => undefined),
   prismaTransactionMock: vi.fn(async (callback) =>
     callback({
       payment: {
@@ -73,9 +79,13 @@ vi.mock("@/lib/prisma", () => ({
       updateMany: prismaPaymentUpdateManyMock,
     },
     user: {
+      findUnique: prismaUserFindUniqueMock,
       findUniqueOrThrow: prismaUserFindUniqueOrThrowMock,
     },
   },
+}));
+vi.mock("@/lib/email/templates", () => ({
+  sendPaymentReceipt: sendPaymentReceiptMock,
 }));
 
 import { getHandler } from "./_handler";
