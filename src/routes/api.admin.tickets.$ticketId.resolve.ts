@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { requireAdmin } from "@/lib/auth-admin";
+import { sendTicketResolved } from "@/lib/email/templates";
+import { prisma } from "@/lib/prisma";
 import { resolveTicket } from "@/lib/support/service";
 
 export const Route = createFileRoute("/api/admin/tickets/$ticketId/resolve")({
@@ -21,6 +23,22 @@ export const Route = createFileRoute("/api/admin/tickets/$ticketId/resolve")({
             admin.admin.userId,
             true,
           );
+
+          // Non-fatal email
+          prisma.supportTicket
+            .findUnique({
+              where: { id: params.ticketId },
+              select: { user: { select: { email: true } } },
+            })
+            .then((ticket) => {
+              if (ticket?.user?.email) {
+                sendTicketResolved(ticket.user.email, params.ticketId).catch(
+                  () => undefined,
+                );
+              }
+            })
+            .catch(() => undefined);
+
           return Response.json(result);
         } catch (error) {
           return Response.json(
