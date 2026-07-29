@@ -1,4 +1,5 @@
 import { Auth } from "@auth/core";
+import { redirect } from "@tanstack/react-router";
 import { getRequest } from "@tanstack/react-start/server";
 
 import type { Session } from "@auth/core/types";
@@ -30,12 +31,28 @@ export function handleAuthRequest(request: Request): Promise<Response> {
 // Reads the current session for the in-flight request. Preserves the previous
 // `await auth()` call signature so every existing call site is unchanged: the
 // request is pulled from TanStack Start's server context instead of being
-// passed in. Returns null when there is no valid session.
+// passed in. Returns null when there is no valid session, or when the user
+// has been banned.
 export async function auth(): Promise<Session | null> {
-  const request = getRequest();
-
-  if (!request) {
+  const { session, banned } = await getAuthState();
+  if (banned) {
     return null;
+  }
+  return session;
+}
+
+export type AuthState = {
+  session: Session | null;
+  banned: boolean;
+};
+
+// Resolves the session cookie (without applying the ban filter) and reports
+// whether the resolved user is banned. Use this in route gates that need to
+// distinguish "guest" from "banned" — auth() collapses both into null.
+export async function getAuthState(): Promise<AuthState> {
+  const request = getRequest();
+  if (!request) {
+    return { session: null, banned: false };
   }
 
   const forwardedProto = request.headers.get("x-forwarded-proto");
@@ -82,22 +99,38 @@ export async function auth(): Promise<Session | null> {
   const data = (await response.json()) as Session | Record<string, never>;
 
   if (!data || !Object.keys(data).length) {
-    return null;
+    return { session: null, banned: false };
   }
 
   if (status !== 200) {
-    return null;
+    return { session: null, banned: false };
   }
 
   const session = data as Session;
-  if (session.user?.id) {
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { bannedAt: true },
-    });
-    if (user?.bannedAt) {
-      return null;
-    }
+  if (!session.user?.id) {
+    return { session, banned: false };
   }
-  return session;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { bannedAt: true },
+  });
+
+  return { session, banned: Boolean(user?.bannedAt) };
+}
+
+// Defense-in-depth for routes that read User rows directly. auth() already
+// returns null for banned users, so today this is a no-op for them. It guards
+// against a future refactor that drops the auth() gate.
+export async function requireNotBanned(session: Session | null) {
+  if (!session?.user?.id) {
+    return;
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { bannedAt: true },
+  });
+  if (user?.bannedAt) {
+    throw redirect({ to: "/blocked" });
+  }
 }

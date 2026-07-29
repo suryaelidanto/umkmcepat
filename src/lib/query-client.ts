@@ -98,7 +98,8 @@ async function handleUnauthorizedError(
   // enter a signOut → reload → 401 → signOut loop.
   if (
     urlString.includes("/api/user/verification") ||
-    urlString.includes("/api/user/credits")
+    urlString.includes("/api/user/credits") ||
+    urlString.includes("/api/support/unread-count")
   ) {
     return;
   }
