@@ -146,7 +146,7 @@ function WaitlistPage() {
                     alt={`${entry.businessName} (${index + 1}/${entry.imageCount})`}
                     className="max-h-48 rounded-radius-md border border-surface-warm-white/12"
                     key={`${entry.id}-${index}`}
-                    src={`/api/admin/waitlist/image/${entry.id}/${index}?v=1`}
+                    src={`/api/admin/waitlist/image/${entry.id}/${index}?v=2`}
                   />
                 ))}
               </div>
