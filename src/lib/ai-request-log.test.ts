@@ -1,4 +1,4 @@
-import { rmSync, readFileSync } from "node:fs";
+import { existsSync, rmSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -44,7 +44,16 @@ describe("writeAiRequestLog", () => {
   it("no-ops in production", async () => {
     const orig = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
+
+    // Clear log first if it exists from prior tests
+    if (existsSync(DEV_LOG)) {
+      rmSync(DEV_LOG);
+    }
+
     await writeAiRequestLog({ event: "prod-evt" });
+
+    // In production, the log file should not be created.
+    // (If it was created, readFileSync succeeds and the test fails).
     expect(() => readFileSync(DEV_LOG, "utf8")).toThrow();
     process.env.NODE_ENV = orig;
   });
