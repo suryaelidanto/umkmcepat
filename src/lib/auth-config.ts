@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 
 import type { AuthConfig } from "@auth/core";
 
+import { sendWelcomeEmail } from "@/lib/email/templates";
 import { prisma } from "@/lib/prisma";
 import { getDiceBearAvatarUrl } from "@/lib/profile";
 import { isAdminEmail, linkApprovedWaitlistOnSignup } from "@/lib/waitlist";
@@ -83,9 +84,12 @@ export const authConfig: AuthConfig = {
   events: {
     async linkAccount({ user }) {
       if (user?.id && user?.email) {
-        await linkApprovedWaitlistOnSignup(user.id, user.email).catch(
-          () => undefined,
-        );
+        await Promise.all([
+          linkApprovedWaitlistOnSignup(user.id, user.email).catch(
+            () => undefined,
+          ),
+          sendWelcomeEmail(user.email, user.name ?? "").catch(() => undefined),
+        ]);
       }
     },
   },
