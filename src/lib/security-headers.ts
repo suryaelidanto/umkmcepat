@@ -75,7 +75,11 @@ export function buildContentSecurityPolicy(nonce: string) {
     // Tailwind injects inline styles; a nonce cannot cover them.
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self' data:",
-    "frame-src https://challenges.cloudflare.com",
+    // Workspace embeds the preview iframe under /api/projects/<id>/preview/,
+    // and Turnstile under https://challenges.cloudflare.com. 'self' covers
+    // same-origin framing; anything cross-origin (Turnstile) needs an explicit
+    // allowlist entry.
+    "frame-src 'self' https://challenges.cloudflare.com",
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
