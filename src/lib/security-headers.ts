@@ -144,7 +144,7 @@ export function applySecurityHeaders(
   if (privatePreview) {
     headers.set(
       "Content-Security-Policy",
-      "sandbox allow-scripts; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
+      "sandbox allow-scripts allow-same-origin; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
     );
     headers.set(
       "Content-Security-Policy-Report-Only",
