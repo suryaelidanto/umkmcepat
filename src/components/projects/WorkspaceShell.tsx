@@ -2353,6 +2353,11 @@ export function WorkspaceShell({
     if (!start) {
       return;
     }
+    // Swipe only switches Diskusi <-> Tampilan on mobile. Off when on Kode
+    // tab so it doesn't fight Monaco's horizontal scroll.
+    if (mobileSurface === "preview" && activeTab === "code") {
+      return;
+    }
     const touch = event.changedTouches[0];
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
