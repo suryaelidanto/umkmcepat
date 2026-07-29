@@ -44,13 +44,22 @@ export const Route = createFileRoute("/api/payment/create")({
         const timestamp = Date.now();
         const orderId = `INV-${userPrefix}-${timestamp}`;
 
+        // Fetch user details needed for Mayar invoice creation
+        const user = await prisma.user.findUniqueOrThrow({
+          where: { id: session.user.id },
+          select: { name: true, email: true, phone: true },
+        });
+
         try {
-          // 1. Create a payment request with Mayar
+          // 1. Create an invoice with Mayar (single-use, carries transactionId for webhook correlation)
           const mayarPayment = await createMayarPayment({
             orderId,
             amount: pack.amount,
             packName: pack.name,
             expiredAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            customerName: user.name ?? "Customer",
+            customerEmail: user.email ?? "",
+            customerMobile: user.phone ?? "081000000000",
           });
 
           // 2. Save payment record in DB with PENDING status
@@ -61,7 +70,6 @@ export const Route = createFileRoute("/api/payment/create")({
               amount: pack.amount,
               energyGranted: pack.energy,
               status: "PENDING",
-              paymentMethod: "qris",
               providerTxnId: mayarPayment.transactionId,
               providerPaymentLinkId: mayarPayment.id,
               paymentUrl: mayarPayment.link,
