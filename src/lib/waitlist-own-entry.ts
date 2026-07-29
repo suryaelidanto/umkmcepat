@@ -4,6 +4,7 @@ import { normalizeEmail } from "@/lib/waitlist";
 export type OwnEntry = {
   businessName: string;
   businessType: string | null;
+  id: string;
   imageRef: string | null;
   phone: string | null;
   rejectionReason: string | null;
@@ -22,6 +23,7 @@ export async function getOwnWaitlistEntry(
     select: {
       businessName: true,
       businessType: true,
+      id: true,
       imageRef: true,
       phone: true,
       rejectionReason: true,
