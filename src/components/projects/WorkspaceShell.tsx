@@ -2393,24 +2393,22 @@ export function WorkspaceShell({
         <button
           type="button"
           aria-pressed={mobileSurface === "preview" && activeTab === "preview"}
-          disabled={!hasPreview && !isBuilding}
           onClick={() => {
             setActiveTab("preview");
             openPreviewPanel();
           }}
-          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary disabled:opacity-40"
+          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
         >
           Tampilan
         </button>
         <button
           type="button"
           aria-pressed={mobileSurface === "preview" && activeTab === "code"}
-          disabled={!hasPreview && !isBuilding}
           onClick={() => {
             setActiveTab("code");
             openPreviewPanel();
           }}
-          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary disabled:opacity-40"
+          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
         >
           Kode
         </button>
