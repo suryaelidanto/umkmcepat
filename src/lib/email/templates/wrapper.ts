@@ -1,5 +1,3 @@
-export const brandColor = "#1c1c1c";
-
 export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
