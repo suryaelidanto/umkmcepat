@@ -178,7 +178,15 @@ function VerifyPage() {
                   Nomor WhatsApp
                 </label>
                 <div className="mt-1 flex items-stretch">
-                  <span className="flex items-center justify-center rounded-l-lg border border-r-0 border-surface-warm-white/12 bg-surface-warm-white/5 px-3 text-sm font-medium text-surface-warm-white/50 select-none">
+                  <span className="flex items-center justify-center rounded-l-lg border border-r-0 border-surface-warm-white/12 bg-surface-warm-white/5 px-3 text-sm font-medium text-surface-warm-white/50 select-none gap-2">
+                    <svg
+                      className="size-3.5 rounded-sm border border-surface-warm-white/15"
+                      viewBox="0 0 3 2"
+                      fill="none"
+                    >
+                      <rect width="3" height="1" fill="#FF0000" />
+                      <rect y="1" width="3" height="1" fill="#FFFFFF" />
+                    </svg>
                     +62
                   </span>
                   <input
@@ -219,7 +227,7 @@ function VerifyPage() {
                   sendOtpMutation.mutate(phone.trim());
                 }}
                 disabled={sendOtpMutation.isPending || !phone.trim()}
-                className="w-full"
+                className="w-full bg-surface-warm-white text-foreground-primary hover:bg-surface-muted"
               >
                 {sendOtpMutation.isPending ? "Mengirim..." : "Kirim Kode OTP"}
               </Button>
@@ -238,13 +246,13 @@ function VerifyPage() {
                   </div>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => {
                       setError("");
                       skipMutation.mutate();
                     }}
                     disabled={skipMutation.isPending}
-                    className="w-full"
+                    className="w-full border border-surface-warm-white/10 text-surface-warm-white hover:bg-surface-warm-white/5"
                   >
                     {skipMutation.isPending
                       ? "Melewati..."
@@ -296,7 +304,7 @@ function VerifyPage() {
                   });
                 }}
                 disabled={verifyOtpMutation.isPending || !otp.trim()}
-                className="w-full"
+                className="w-full bg-surface-warm-white text-foreground-primary hover:bg-surface-muted"
               >
                 {verifyOtpMutation.isPending
                   ? "Memverifikasi..."
@@ -305,12 +313,12 @@ function VerifyPage() {
 
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 onClick={() => {
                   setFlowState("phone");
                   setError("");
                 }}
-                className="w-full"
+                className="w-full border border-surface-warm-white/10 text-surface-warm-white hover:bg-surface-warm-white/5"
               >
                 Ganti nomor
               </Button>
