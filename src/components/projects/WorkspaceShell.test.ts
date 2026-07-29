@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   RESUME_POLL_INTERVAL_MS,
+  WorkspaceShell,
   canStartBuild,
   chatBubbleClass,
   resolveDiscussResume,
@@ -168,5 +172,46 @@ describe("chatBubbleClass mobile", () => {
     // Desktop sm: override = sm:px-spacing-6 + sm:py-spacing-5
     expect(className).toContain("sm:px-spacing-6");
     expect(className).toContain("sm:py-spacing-5");
+  });
+});
+
+vi.mock("@/lib/use-is-desktop-viewport", () => ({
+  // Return false (mobile) by default
+  useIsDesktopViewport: vi.fn(() => false),
+}));
+
+describe("workspace panel split", () => {
+  it("renders mobile tree and not desktop tree when viewport < 1024px", () => {
+    const queryClient = new QueryClient();
+
+    // renderToStaticMarkup is safe in 'node' environment without jsdom
+    const html = renderToStaticMarkup(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(WorkspaceShell, {
+          projectId: "test",
+          initialTitle: "Test",
+          initialStatus: "passed",
+          initialMessages: [],
+          initialChatCursor: null,
+          initialChatHasMore: false,
+          initialWorkspaceCard: { type: "none" },
+          initialBrief: {
+            businessName: "Kopi Tuku",
+            businessType: "Kedai kopi",
+            offer: "Kopi susu tetangga",
+            targetCustomer: "Anak muda",
+            stylePreference: "Modern",
+            contactOrCta: "Pesan online",
+          },
+        }),
+      ),
+    );
+
+    // Mobile tree carries lg:hidden class on its flex-1 wrapper.
+    expect(html).toContain("lg:hidden");
+    // Desktop tree's ResizablePanelGroup output should be absent.
+    expect(html).not.toContain("ResizablePanelGroup");
   });
 });
