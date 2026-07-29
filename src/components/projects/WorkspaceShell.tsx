@@ -3927,7 +3927,27 @@ function CodeView({
 
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden border-t border-surface-warm-white/10 bg-[#10100f] text-surface-warm-white md:grid-cols-[280px_1fr] md:grid-rows-1">
-      <aside className="max-h-[38dvh] min-h-0 overflow-y-auto border-b border-surface-warm-white/10 bg-[#181816] py-spacing-3 md:max-h-none md:border-b-0 md:border-r">
+      {/* Mobile: sticky file-dropdown strip */}
+      <div className="flex items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm md:hidden">
+        <label htmlFor="workspace-code-file-mobile" className="sr-only">
+          File
+        </label>
+        <select
+          id="workspace-code-file-mobile"
+          value={selectedFile?.path || ""}
+          onChange={(event) => setSelectedPath(event.target.value)}
+          className="min-w-0 flex-1 rounded-radius-md border border-surface-warm-white/12 bg-[#1d1d1a] px-spacing-3 py-spacing-2 text-sm text-surface-warm-white outline-none focus:border-surface-warm-white/30"
+        >
+          {sortedFiles.map((file) => (
+            <option key={file.path} value={file.path}>
+              {file.path}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Desktop: existing sidebar */}
+      <aside className="hidden overflow-y-auto border-r border-surface-warm-white/10 bg-[#181816] py-spacing-3 md:block">
         <div className="border-b border-surface-warm-white/8 px-spacing-4 pb-spacing-3">
           <p className="text-[11px] uppercase tracking-[0.16em] text-surface-warm-white/34">
             Explorer
