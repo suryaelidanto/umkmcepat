@@ -748,7 +748,15 @@ function Step1({
 
           return (
             <div className="flex items-stretch mt-1">
-              <span className="flex items-center justify-center rounded-l-radius-md border border-r-0 border-surface-warm-white/10 bg-surface-warm-white/5 px-spacing-3 text-sm font-medium text-surface-warm-white/50 select-none">
+              <span className="flex items-center justify-center rounded-l-radius-md border border-r-0 border-surface-warm-white/10 bg-surface-warm-white/5 px-spacing-3 text-sm font-medium text-surface-warm-white/50 select-none gap-spacing-2">
+                <svg
+                  className="size-3.5 rounded-sm border border-surface-warm-white/15"
+                  viewBox="0 0 3 2"
+                  fill="none"
+                >
+                  <rect width="3" height="1" fill="#FF0000" />
+                  <rect y="1" width="3" height="1" fill="#FFFFFF" />
+                </svg>
                 +62
               </span>
               <input
