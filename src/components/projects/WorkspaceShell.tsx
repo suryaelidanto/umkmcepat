@@ -2793,7 +2793,7 @@ export function WorkspaceShell({
                           onSubmit={handleMessageSubmit}
                           className="min-w-0"
                         >
-                          <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+                          <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
                             <label
                               htmlFor="workspace-message"
                               className="sr-only"
@@ -2812,12 +2812,17 @@ export function WorkspaceShell({
                             ) : null}
                             <textarea
                               id="workspace-message"
-                              rows={3}
+                              rows={1}
                               value={message}
-                              onChange={(event) =>
-                                setMessage(event.target.value)
-                              }
+                              onChange={(event) => {
+                                setMessage(event.target.value);
+                                const target = event.currentTarget;
+                                target.style.height = "auto";
+                                target.style.height = `${Math.min(target.scrollHeight, 6 * 24 + 24)}px`;
+                              }}
                               onKeyDown={handleMessageKeyDown}
+                              inputMode="text"
+                              enterKeyHint="send"
                               placeholder={
                                 sessionExpired
                                   ? "Sesi habis, login ulang..."
@@ -2913,7 +2918,7 @@ export function WorkspaceShell({
                     ) : null}
                     <form
                       onSubmit={handleMessageSubmit}
-                      className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                      className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
                     >
                       <label htmlFor="workspace-message" className="sr-only">
                         Pesan untuk AI
@@ -2930,10 +2935,17 @@ export function WorkspaceShell({
                       ) : null}
                       <textarea
                         id="workspace-message"
-                        rows={3}
+                        rows={1}
                         value={message}
-                        onChange={(event) => setMessage(event.target.value)}
+                        onChange={(event) => {
+                          setMessage(event.target.value);
+                          const target = event.currentTarget;
+                          target.style.height = "auto";
+                          target.style.height = `${Math.min(target.scrollHeight, 6 * 24 + 24)}px`;
+                        }}
                         onKeyDown={handleMessageKeyDown}
+                        inputMode="text"
+                        enterKeyHint="send"
                         placeholder={
                           sessionExpired
                             ? "Sesi habis, login ulang..."
