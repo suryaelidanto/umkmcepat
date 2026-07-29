@@ -9,6 +9,7 @@ import {
   Globe2,
   ImagePlus,
   Loader2,
+  Menu,
   MessageSquarePlus,
   Monitor,
   PanelLeftClose,
@@ -90,7 +91,7 @@ export function WorkspaceTopBar({
 }) {
   return (
     <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
-      <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:justify-start sm:gap-spacing-3">
+      <div className="hidden min-w-0 items-center justify-start gap-spacing-3 sm:flex sm:w-auto">
         <button
           type="button"
           onClick={chatCollapsed ? openChatPanel : closeChatPanel}
@@ -106,7 +107,7 @@ export function WorkspaceTopBar({
         <div
           role="tablist"
           aria-label="Konten tampilan"
-          className="flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+          className="hidden md:flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
         >
           <TabButton
             active={activeTab === "preview"}
@@ -153,7 +154,7 @@ export function WorkspaceTopBar({
             onClick={onToggleAnnotation}
             aria-label={annotationActive ? "Nonaktifkan ubah" : "Aktifkan ubah"}
             aria-pressed={annotationActive}
-            className={`inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+            className={`hidden md:inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
           >
             <MessageSquarePlus className="size-4" />
             <span className="hidden sm:inline">
@@ -163,13 +164,25 @@ export function WorkspaceTopBar({
         ) : null}
       </div>
 
-      <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
+      {/* Mobile-only kebab */}
+      <div className="flex min-w-0 w-full items-center justify-end gap-spacing-2 sm:hidden">
+        <button
+          type="button"
+          aria-label="Buka menu"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
+        >
+          <Menu className="size-4" />
+        </button>
+      </div>
+
+      {/* Desktop cluster (unchanged) */}
+      <div className="hidden min-w-0 w-full items-center justify-between gap-spacing-2 sm:flex sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
         {projectId ? (
           <a
             href="/support"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
             title="Hubungi Dukungan (Buka Tab Baru)"
           >
             <LifeBuoy className="size-4" />
@@ -183,7 +196,7 @@ export function WorkspaceTopBar({
           <div
             role="tablist"
             aria-label="Tampilan viewport"
-            className="flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+            className="hidden md:flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
           >
             <TabButton
               active={viewport === "desktop"}
