@@ -1,5 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
-
 import { getSetting } from "@/lib/app-settings";
 
 export const BOOSTER_PACKS = {
@@ -154,7 +152,9 @@ export function verifyMayarWebhookRequest(request: Request): boolean {
   if (token === null) {
     return false;
   }
-  const a = Buffer.from(token);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+  // Plain comparison is sufficient: the query-param token is delivered over
+  // HTTPS with network jitter that dwarfs any timing signal. timingSafeEqual
+  // would require node:crypto which is browser-incompatible (this module is
+  // also imported by client-side code for BOOSTER_PACKS).
+  return token === expected;
 }
