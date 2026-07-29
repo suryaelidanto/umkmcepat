@@ -129,6 +129,7 @@ describe("Payment API Routes", () => {
     });
     prismaExecuteRawMock.mockClear();
     prismaTransactionMock.mockClear();
+    sendPaymentReceiptMock.mockClear();
   });
 
   describe("POST /api/payment/create", () => {
@@ -349,6 +350,18 @@ describe("Payment API Routes", () => {
 
       // Prisma transaction callbacks executed raw queries to award premium credit
       expect(prismaExecuteRawMock).toHaveBeenCalled();
+
+      // Email receipt sent with correct data
+      await vi.waitFor(() => {
+        expect(sendPaymentReceiptMock).toHaveBeenCalledWith(
+          "user@example.com",
+          expect.objectContaining({
+            packageName: "Pocket Booster",
+            amount: 2900,
+            energyGranted: 50000,
+          }),
+        );
+      });
     });
 
     it("ignores webhook notifications if payment is already COMPLETED (idempotency)", async () => {

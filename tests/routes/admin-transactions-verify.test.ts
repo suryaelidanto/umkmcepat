@@ -162,6 +162,16 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
 
     // $executeRaw inside the transaction credits energy
     expect(prismaExecuteRawMock).toHaveBeenCalledOnce();
+
+    // Email receipt sent with correct data
+    expect(sendPaymentReceiptMock).toHaveBeenCalledWith(
+      "user@example.com",
+      expect.objectContaining({
+        packageName: "Energy Starter",
+        amount: 2900,
+        energyGranted: 50000,
+      }),
+    );
   });
 
   it("returns success: false and Mayar status without DB write for non-paid statuses", async () => {
