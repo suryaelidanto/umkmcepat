@@ -192,6 +192,15 @@ type WorkspaceStateResponse = {
 // survives the remount because it isn't tied to a component instance.
 const autoSentProjectIds = new Set<string>();
 
+export const chatBubbleClass = (
+  role: "user" | "assistant" | "system",
+): string =>
+  `max-w-[88%] overflow-hidden break-words rounded-[22px] px-spacing-4 py-spacing-3 sm:px-spacing-6 sm:py-spacing-5 ${
+    role === "user"
+      ? "border border-surface-warm-white/12 bg-[#30302c] text-surface-warm-white/88"
+      : "border border-surface-warm-white/10 bg-[#242421] text-surface-warm-white/80"
+  }`;
+
 const COMPOSER_TRANSITION = {
   initial: { opacity: 0, y: 12, scale: 0.985, filter: "blur(6px)" },
   animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
@@ -2330,7 +2339,7 @@ export function WorkspaceShell({
   }
 
   const chatPanelClass =
-    "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#1b1b19] p-spacing-5";
+    "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#1b1b19] p-spacing-4 sm:p-spacing-5";
   const previewPanelClass = "h-full min-h-0 min-w-0";
 
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -3270,9 +3279,7 @@ function ChatMessages({ messages }: { messages: UIMessage[] }) {
             key={`${message.id || message.role}-${messageIndex}`}
             className={`flex max-w-full text-base leading-7 ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
-            <div
-              className={`max-w-[88%] overflow-hidden break-words [overflow-wrap:anywhere] rounded-[22px] px-spacing-6 py-spacing-5 ${message.role === "user" ? "border border-surface-warm-white/12 bg-[#30302c] text-surface-warm-white/88" : "border border-surface-warm-white/10 bg-[#242421] text-surface-warm-white/80"}`}
-            >
+            <div className={chatBubbleClass(message.role)}>
               {textParts.map((part, index) => (
                 <MessageText key={index} text={part.text} />
               ))}
