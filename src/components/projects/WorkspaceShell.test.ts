@@ -197,14 +197,14 @@ describe("workspace panel split", () => {
           initialChatCursor: null,
           initialChatHasMore: false,
           initialWorkspaceCard: { type: "none" },
-          initialBrief: {
+          initialBrief: makeBrief({
             businessName: "Kopi Tuku",
             businessType: "Kedai kopi",
             offer: "Kopi susu tetangga",
             targetCustomer: "Anak muda",
             stylePreference: "Modern",
             contactOrCta: "Pesan online",
-          },
+          }),
         }),
       ),
     );

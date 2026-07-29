@@ -113,9 +113,20 @@
 - [x] Task 5: ban/unban templates (commit 7d2bc14, review clean)
 - [x] Task 6: ticket resolved template (commit c9719f0, review clean)
 - [x] Task 7: barrel export (commit b0028c0, inline review clean)
-- [ ] Task 8: wire welcome email into auth config
-- [ ] Task 9: wire waitlist emails into admin waitlist route
-- [ ] Task 10: wire payment receipt into webhook
-- [ ] Task 11: wire payment receipt into admin verify transaction
-- [ ] Task 12: wire ban/unban into admin users route
-- [ ] Task 13: wire ticket resolved into admin resolve route
+- [x] Task 8: wire welcome email into auth config (commit 5fc90c6, review clean)
+- [x] Task 9: wire waitlist emails into admin waitlist route (commit 4b0663c, review clean)
+- [x] Task 10: wire payment receipt into webhook (commit 6b6dfcc, review clean)
+- [x] Task 11: wire payment receipt into admin verify transaction (commit eb53a8d, review clean)
+- [x] Task 12: wire ban/unban into admin users route (commit 77c6f32, review clean)
+- [x] Task 13: wire ticket resolved into admin resolve route (commit 2d96345, review clean)
+- [x] Final: code review fixes — route assertions, escapeHtml consistency, XSS hardening (commits 2b4fc5b + 83f2536 + 0de6ad6, review clean)
+- [x] Final whole-branch review: passed (Opus), no Critical issues, all Important fixed
+
+## TRANSACTIONAL EMAILS PLAN COMPLETE. 17 commits, 8 triggers wired, 17/17 tests pass, typecheck green.
+
+## Current plan: 2026-07-29-workspace-mobile-panel-split (Tasks 1–5)
+- Plan: docs/superpowers/plans/2026-07-29-workspace-mobile-panel-split.md
+- Spec: docs/superpowers/specs/2026-07-29-workspace-mobile-panel-split-design.md
+- Branch: dev
+- Merge base: 2d47d2b (plan commit)
+- Baseline commit before Task 1: 2d47d2b
