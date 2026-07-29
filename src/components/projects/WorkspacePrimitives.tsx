@@ -468,7 +468,17 @@ export function GeneratedPreviewFrame({
           key={reloadKey}
           title="Tampilan website"
           src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
-          onLoad={onLoad}
+          onLoad={() => {
+            // iframe load fires after subresources finish. By then the bundle
+            // has executed and React has likely mounted — but a microtask
+            // delay gives useEffect-based postMessage signals a chance to win
+            // first when they arrive on time. This is a fallback for the
+            // cases where the generated app's usePreviewReady() postMessage
+            // never reaches the parent (timing, sandbox quirks, signal lost
+            // on listener reattach), so the spinner doesn't sit forever.
+            onLoad?.();
+            window.setTimeout(() => setReady(true), 0);
+          }}
           sandbox="allow-scripts allow-same-origin allow-forms"
           className="h-full w-full border-0 bg-white"
         />
