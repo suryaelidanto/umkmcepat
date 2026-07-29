@@ -2,6 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { requireAdmin } from "@/lib/auth-admin";
 import {
+  sendWaitlistAccepted,
+  sendWaitlistRejected,
+} from "@/lib/email/templates";
+import { prisma } from "@/lib/prisma";
+import {
   approveWaitlistEntry,
   listPendingWaitlist,
   rejectWaitlistEntry,
@@ -49,6 +54,21 @@ export const Route = createFileRoute("/api/admin/waitlist")({
 
         if (body.action === "approve") {
           await approveWaitlistEntry(body.entryId, admin.admin.userId);
+          // Non-fatal email
+          prisma.waitlistEntry
+            .findUnique({
+              where: { id: body.entryId },
+              select: { email: true, businessName: true },
+            })
+            .then((entry) => {
+              if (entry?.email) {
+                sendWaitlistAccepted(
+                  entry.email,
+                  entry.businessName ?? undefined,
+                ).catch(() => undefined);
+              }
+            })
+            .catch(() => undefined);
           return Response.json({ status: "approved" });
         }
 
@@ -58,6 +78,22 @@ export const Route = createFileRoute("/api/admin/waitlist")({
             admin.admin.userId,
             body.reason ?? "",
           );
+          // Non-fatal email
+          prisma.waitlistEntry
+            .findUnique({
+              where: { id: body.entryId },
+              select: { email: true, businessName: true },
+            })
+            .then((entry) => {
+              if (entry?.email) {
+                sendWaitlistRejected(
+                  entry.email,
+                  entry.businessName ?? undefined,
+                  body.reason,
+                ).catch(() => undefined);
+              }
+            })
+            .catch(() => undefined);
           return Response.json({ status: "rejected" });
         }
 
