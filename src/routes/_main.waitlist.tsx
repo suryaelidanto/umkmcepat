@@ -27,7 +27,6 @@ import { useValidatedForm } from "@/lib/forms";
 import { useRouter } from "@/lib/navigation";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
-import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
 import { getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
 
@@ -43,6 +42,7 @@ const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
     throw redirect({ to: "/" });
   }
 
+  const { isAdminEmail, isWaitlistApproved } = await import("@/lib/waitlist");
   const email = session.user.email;
   const isAdmin = isAdminEmail(email);
   const isApproved = await isWaitlistApproved(email);
@@ -60,7 +60,7 @@ const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
   }
 
   const own = await getOwnWaitlistEntry(email);
-  return { own };
+  return { own, isAdmin };
 });
 
 export const Route = createFileRoute("/_main/waitlist")({
@@ -154,7 +154,7 @@ type OwnEntry = {
 };
 
 function WaitlistPage() {
-  const { own: initialOwn } = Route.useLoaderData();
+  const { own: initialOwn, isAdmin } = Route.useLoaderData();
   const { data: session } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -325,10 +325,10 @@ function WaitlistPage() {
     },
   });
 
-  // Dev-mode skip: mirrors /verify's "Lewati verifikasi (dev mode)". Approves
-  // the signed-in user's waitlist entry via a dev-only endpoint so the
-  // MainChrome gate lets them through without filling the form. Hidden in
-  // production builds (isDev = false).
+  // Admin-only dev skip: approves the signed-in user's waitlist entry via a
+  // dev-only endpoint so the MainChrome gate lets them through without filling
+  // the form. Restricted to admins (not all dev users) so that livestream
+  // viewers on a tunnel URL still see the real waitlist flow.
   const devSkipMutation = useMutation({
     mutationFn: async () =>
       fetchJson<{ message?: string }>("/api/dev/skip-waitlist", {
@@ -336,7 +336,7 @@ function WaitlistPage() {
       }),
     onSuccess: async () => {
       setDevSkipDone(true);
-      toast.success("Pendaftaran di-skip (dev mode).");
+      toast.success("Pendaftaran di-skip (admin bypass).");
       await queryClient.invalidateQueries({
         queryKey: queryKeys.waitlistStatus,
       });
@@ -365,7 +365,9 @@ function WaitlistPage() {
       await queryClient.invalidateQueries({
         queryKey: ["user", "waitlist", "own"],
       });
-      toast.success("Approval di-reset (dev mode). Refresh / untuk tes gate.");
+      toast.success(
+        "Approval di-reset (admin bypass). Refresh / untuk tes gate.",
+      );
     },
     onError: (error) => {
       toast.error(
@@ -446,7 +448,7 @@ function WaitlistPage() {
           >
             {devResetMutation.isPending
               ? "Mereset..."
-              : "Reset approval biar bisa tes gate lagi (dev mode)"}
+              : "Reset approval biar bisa tes gate lagi (admin bypass)"}
           </button>
         </div>
       ) : null}
@@ -584,7 +586,7 @@ function WaitlistPage() {
           )}
         </div>
 
-        {isDev ? (
+        {isDev && isAdmin ? (
           <div className="mt-spacing-6 flex flex-col items-center gap-spacing-3">
             <div className="flex w-full items-center gap-spacing-3 text-[10px] uppercase tracking-wider text-surface-warm-white/40">
               <span className="h-px flex-1 bg-surface-warm-white/10" />
@@ -599,7 +601,7 @@ function WaitlistPage() {
             >
               {devSkipMutation.isPending
                 ? "Melewati..."
-                : "Lewati pendaftaran (dev mode)"}
+                : "Lewati pendaftaran (admin bypass)"}
             </button>
             {ownQuery.data?.own ? (
               <button
@@ -610,7 +612,7 @@ function WaitlistPage() {
               >
                 {devResetMutation.isPending
                   ? "Mereset..."
-                  : "Reset pendaftaran (dev mode)"}
+                  : "Reset pendaftaran (admin bypass)"}
               </button>
             ) : null}
           </div>

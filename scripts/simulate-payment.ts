@@ -86,6 +86,9 @@ async function main() {
       amount,
       packName,
       expiredAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      customerName: "Sandbox Tester",
+      customerEmail: "sandbox@umkmcepat.com",
+      customerMobile: "081234567890",
     });
 
     console.log("\n✅ Payment request created in Mayar sandbox!");
