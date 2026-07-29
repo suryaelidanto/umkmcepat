@@ -98,7 +98,7 @@ const waitlistSchema = z.object({
   phone: z
     .string()
     .trim()
-    .refine((value) => !value || /^\+?\d[\d\s-]{4,}$/.test(value), {
+    .refine((value) => !value || /^\+?[0-9]{10,15}$/.test(value), {
       message: "No. WhatsApp tidak valid.",
     }),
   storyOffers: z.string().trim().min(2, "Jawab dulu: kamu jualan apa?"),
@@ -747,31 +747,37 @@ function Step1({
           };
 
           return (
-            <div className="flex items-stretch mt-1">
-              <span className="flex items-center justify-center rounded-l-radius-md border border-r-0 border-surface-warm-white/10 bg-surface-warm-white/5 px-spacing-3 text-sm font-medium text-surface-warm-white/50 select-none gap-spacing-2">
-                <svg
-                  className="size-3.5 rounded-sm border border-surface-warm-white/15"
-                  viewBox="0 0 3 2"
-                  fill="none"
-                >
-                  <rect width="3" height="1" fill="#FF0000" />
-                  <rect y="1" width="3" height="1" fill="#FFFFFF" />
-                </svg>
-                +62
-              </span>
-              <input
+            <div>
+              <div
                 className={cn(
-                  textInputClass({ invalid }),
-                  "rounded-l-none border-l-0",
+                  "flex items-stretch rounded-radius-md border bg-transparent overflow-hidden h-11 transition focus-within:ring-1 focus-within:ring-offset-0",
+                  invalid
+                    ? "border-aurora-rose/60 focus-within:border-aurora-rose focus-within:ring-aurora-rose"
+                    : "border-surface-warm-white/10 focus-within:border-aurora-orange/50 focus-within:ring-aurora-orange",
                 )}
-                id={id}
-                onBlur={() => markTouched("phone")}
-                onChange={(event) => handlePhoneChange(event.target.value)}
-                placeholder="812345678..."
-                type="text"
-                inputMode="numeric"
-                value={displayValue}
-              />
+              >
+                <span className="flex items-center justify-center bg-surface-warm-white/5 px-spacing-3 text-sm font-medium text-surface-warm-white/50 select-none gap-spacing-2 border-r border-surface-warm-white/10">
+                  <span className="text-base leading-none">🇮🇩</span>
+                  +62
+                </span>
+                <input
+                  className="w-full bg-transparent px-spacing-4 text-sm text-surface-warm-white outline-none transition placeholder:text-surface-warm-white/30"
+                  id={id}
+                  onBlur={() => markTouched("phone")}
+                  onChange={(event) => handlePhoneChange(event.target.value)}
+                  placeholder="812345678..."
+                  type="text"
+                  inputMode="numeric"
+                  value={displayValue}
+                />
+              </div>
+              {values.phone &&
+                values.phone.replace(/\D/g, "").length >= 3 &&
+                values.phone.replace(/\D/g, "").length < 10 && (
+                  <p className="mt-spacing-1 text-xs text-aurora-orange">
+                    Nomor terlalu pendek (minimal 8 angka setelah +62).
+                  </p>
+                )}
             </div>
           );
         }}

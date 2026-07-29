@@ -177,16 +177,9 @@ function VerifyPage() {
                 >
                   Nomor WhatsApp
                 </label>
-                <div className="mt-1 flex items-stretch">
-                  <span className="flex items-center justify-center rounded-l-lg border border-r-0 border-surface-warm-white/12 bg-surface-warm-white/5 px-3 text-sm font-medium text-surface-warm-white/50 select-none gap-2">
-                    <svg
-                      className="size-3.5 rounded-sm border border-surface-warm-white/15"
-                      viewBox="0 0 3 2"
-                      fill="none"
-                    >
-                      <rect width="3" height="1" fill="#FF0000" />
-                      <rect y="1" width="3" height="1" fill="#FFFFFF" />
-                    </svg>
+                <div className="mt-1 flex items-stretch rounded-lg border border-surface-warm-white/12 bg-[#262622] focus-within:border-surface-warm-white/30 overflow-hidden">
+                  <span className="flex items-center justify-center bg-surface-warm-white/5 px-3 text-sm font-medium text-surface-warm-white/50 select-none gap-2 border-r border-surface-warm-white/12">
+                    <span className="text-base leading-none">🇮🇩</span>
                     +62
                   </span>
                   <input
@@ -206,13 +199,20 @@ function VerifyPage() {
                       setPhone(digits ? `+62${digits}` : "");
                     }}
                     placeholder="812345678..."
-                    className="w-full rounded-r-lg border border-l-0 border-surface-warm-white/12 bg-[#262622] px-3 py-2 text-sm text-surface-warm-white placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30 focus:outline-none"
+                    className="w-full bg-transparent px-3 py-2 text-sm text-surface-warm-white placeholder:text-surface-warm-white/38 focus:outline-none"
                     disabled={sendOtpMutation.isPending}
                   />
                 </div>
                 <p className="mt-1 text-xs text-surface-warm-white/50">
                   Format: 8xxxxxxxxxx (nomor WhatsApp aktif)
                 </p>
+                {phone &&
+                  phone.replace(/\D/g, "").length >= 3 &&
+                  phone.replace(/\D/g, "").length < 10 && (
+                    <p className="mt-1 text-xs text-aurora-orange">
+                      Nomor terlalu pendek (minimal 8 angka setelah +62).
+                    </p>
+                  )}
               </div>
 
               {error && <p className="text-sm text-[#ffb4a6]">{error}</p>}
@@ -226,7 +226,11 @@ function VerifyPage() {
                   setError("");
                   sendOtpMutation.mutate(phone.trim());
                 }}
-                disabled={sendOtpMutation.isPending || !phone.trim()}
+                disabled={
+                  sendOtpMutation.isPending ||
+                  phone.replace(/\D/g, "").length < 10 ||
+                  phone.replace(/\D/g, "").length > 15
+                }
                 className="w-full bg-surface-warm-white text-foreground-primary hover:bg-surface-muted"
               >
                 {sendOtpMutation.isPending ? "Mengirim..." : "Kirim Kode OTP"}
