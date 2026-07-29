@@ -28,7 +28,7 @@ export function ProjectSitePreview({
 
   return (
     <div
-      className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-5xl"} w-full overflow-hidden rounded-[28px] shadow-[0_18px_48px_rgba(28,28,28,0.16)]`}
+      className={`${viewport === "mobile" ? "max-w-[min(100%,430px)]" : "max-w-5xl"} w-full overflow-hidden rounded-[28px] shadow-[0_18px_48px_rgba(28,28,28,0.16)]`}
       style={{ backgroundColor: theme.background, color: theme.foreground }}
     >
       <div className="flex items-center justify-between border-b px-spacing-8 py-spacing-5 text-sm">

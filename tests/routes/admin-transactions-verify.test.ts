@@ -7,6 +7,8 @@ const {
   prismaPaymentUpdateManyMock,
   prismaTransactionMock,
   prismaExecuteRawMock,
+  prismaUserFindUniqueMock,
+  sendPaymentReceiptMock,
 } = vi.hoisted(() => ({
   requireAdminMock: vi.fn(),
   getMayarTransactionMock: vi.fn(),
@@ -14,6 +16,8 @@ const {
   prismaPaymentUpdateManyMock: vi.fn(),
   prismaTransactionMock: vi.fn(),
   prismaExecuteRawMock: vi.fn(),
+  prismaUserFindUniqueMock: vi.fn(),
+  sendPaymentReceiptMock: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/auth-admin", () => ({ requireAdmin: requireAdminMock }));
@@ -26,8 +30,14 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: prismaPaymentFindUniqueMock,
       updateMany: prismaPaymentUpdateManyMock,
     },
+    user: {
+      findUnique: prismaUserFindUniqueMock,
+    },
     $transaction: prismaTransactionMock,
   },
+}));
+vi.mock("@/lib/email/templates", () => ({
+  sendPaymentReceipt: sendPaymentReceiptMock,
 }));
 
 import { getHandler } from "./_handler";
@@ -45,6 +55,8 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
     prismaPaymentUpdateManyMock.mockReset();
     prismaTransactionMock.mockReset();
     prismaExecuteRawMock.mockReset();
+    prismaUserFindUniqueMock.mockReset();
+    sendPaymentReceiptMock.mockReset();
 
     // Default: $transaction executes callback with a tx object that has
     // updateMany (returns count=1) and $executeRaw
@@ -60,6 +72,8 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
     );
     prismaPaymentUpdateManyMock.mockResolvedValue({ count: 1 });
     prismaExecuteRawMock.mockResolvedValue(1);
+    prismaUserFindUniqueMock.mockResolvedValue({ email: "user@example.com" });
+    sendPaymentReceiptMock.mockResolvedValue(undefined);
   });
 
   it("rejects non-admins", async () => {
@@ -148,6 +162,16 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
 
     // $executeRaw inside the transaction credits energy
     expect(prismaExecuteRawMock).toHaveBeenCalledOnce();
+
+    // Email receipt sent with correct data
+    expect(sendPaymentReceiptMock).toHaveBeenCalledWith(
+      "user@example.com",
+      expect.objectContaining({
+        packageName: "Energy Starter",
+        amount: 2900,
+        energyGranted: 50000,
+      }),
+    );
   });
 
   it("returns success: false and Mayar status without DB write for non-paid statuses", async () => {

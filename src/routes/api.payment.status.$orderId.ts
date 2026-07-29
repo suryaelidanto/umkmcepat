@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth, requireNotBanned } from "@/lib/auth";
 import { getMayarTransaction } from "@/lib/mayar";
 import { prisma } from "@/lib/prisma";
 import { logCreditTransaction } from "@/lib/user-credits";
@@ -94,6 +94,8 @@ export const Route = createFileRoute("/api/payment/status/$orderId")({
         if (!session?.user?.id) {
           return Response.json({ message: "Unauthorized." }, { status: 401 });
         }
+
+        await requireNotBanned(session);
 
         const { orderId } = params;
 

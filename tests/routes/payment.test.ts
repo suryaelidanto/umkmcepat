@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
+  requireNotBannedMock,
   createMayarPaymentMock,
   getBoosterPackMock,
   getMayarTransactionMock,
@@ -11,11 +12,14 @@ const {
   prismaPaymentUpdateMock,
   prismaPaymentUpdateManyMock,
   prismaPaymentFindUniqueOrThrowMock,
+  prismaUserFindUniqueMock,
   prismaUserFindUniqueOrThrowMock,
   prismaExecuteRawMock,
   prismaTransactionMock,
+  sendPaymentReceiptMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
+  requireNotBannedMock: vi.fn(async () => undefined),
   createMayarPaymentMock: vi.fn(),
   getBoosterPackMock: vi.fn(),
   getMayarTransactionMock: vi.fn(),
@@ -25,12 +29,16 @@ const {
   prismaPaymentUpdateMock: vi.fn(),
   prismaPaymentUpdateManyMock: vi.fn(async () => ({ count: 1 })),
   prismaPaymentFindUniqueOrThrowMock: vi.fn(),
+  prismaUserFindUniqueMock: vi.fn(async () => ({
+    email: "user@example.com",
+  })),
   prismaUserFindUniqueOrThrowMock: vi.fn(async () => ({
     name: "Test User",
     email: "test@example.com",
     phone: "081234567890",
   })),
   prismaExecuteRawMock: vi.fn(async () => 1),
+  sendPaymentReceiptMock: vi.fn(async () => undefined),
   prismaTransactionMock: vi.fn(async (callback) =>
     callback({
       payment: {
@@ -44,7 +52,10 @@ const {
   ),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/auth", () => ({
+  auth: authMock,
+  requireNotBanned: requireNotBannedMock,
+}));
 vi.mock("@/lib/mayar", () => ({
   createMayarPayment: createMayarPaymentMock,
   getBoosterPack: getBoosterPackMock,
@@ -68,9 +79,13 @@ vi.mock("@/lib/prisma", () => ({
       updateMany: prismaPaymentUpdateManyMock,
     },
     user: {
+      findUnique: prismaUserFindUniqueMock,
       findUniqueOrThrow: prismaUserFindUniqueOrThrowMock,
     },
   },
+}));
+vi.mock("@/lib/email/templates", () => ({
+  sendPaymentReceipt: sendPaymentReceiptMock,
 }));
 
 import { getHandler } from "./_handler";
@@ -114,6 +129,7 @@ describe("Payment API Routes", () => {
     });
     prismaExecuteRawMock.mockClear();
     prismaTransactionMock.mockClear();
+    sendPaymentReceiptMock.mockClear();
   });
 
   describe("POST /api/payment/create", () => {
@@ -128,6 +144,35 @@ describe("Payment API Routes", () => {
       );
 
       expect(res.status).toBe(401);
+    });
+
+    it("rejects banned users before creating a Mayar invoice", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user_1" },
+        expires: new Date().toISOString(),
+      });
+      requireNotBannedMock.mockImplementationOnce(() => {
+        throw new Response(null, {
+          status: 307,
+          headers: { Location: "/blocked" },
+        });
+      });
+
+      try {
+        await POST_CREATE(
+          new Request("http://localhost/api/payment/create", {
+            method: "POST",
+            body: JSON.stringify({ packageId: "pocket" }),
+          }),
+        );
+      } catch {
+        // Test harness may or may not propagate the throw depending on how
+        // the Response is returned. Either way, the side effects must not
+        // have happened.
+      }
+
+      expect(createMayarPaymentMock).not.toHaveBeenCalled();
+      expect(prismaPaymentCreateMock).not.toHaveBeenCalled();
     });
 
     it("rejects invalid packageId", async () => {
@@ -305,6 +350,18 @@ describe("Payment API Routes", () => {
 
       // Prisma transaction callbacks executed raw queries to award premium credit
       expect(prismaExecuteRawMock).toHaveBeenCalled();
+
+      // Email receipt sent with correct data
+      await vi.waitFor(() => {
+        expect(sendPaymentReceiptMock).toHaveBeenCalledWith(
+          "user@example.com",
+          expect.objectContaining({
+            packageName: "Pocket Booster",
+            amount: 2900,
+            energyGranted: 50000,
+          }),
+        );
+      });
     });
 
     it("ignores webhook notifications if payment is already COMPLETED (idempotency)", async () => {

@@ -1,8 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   RESUME_POLL_INTERVAL_MS,
+  WorkspaceShell,
   canStartBuild,
+  chatBubbleClass,
   resolveDiscussResume,
 } from "./WorkspaceShell";
 
@@ -147,5 +152,66 @@ describe("resolveDiscussResume", () => {
   it("exports a sane poll interval", () => {
     expect(RESUME_POLL_INTERVAL_MS).toBeGreaterThanOrEqual(1_000);
     expect(RESUME_POLL_INTERVAL_MS).toBeLessThanOrEqual(5_000);
+  });
+});
+
+describe("chatBubbleClass mobile", () => {
+  it("does not include overflow-wrap:anywhere on the bubble", () => {
+    const className = chatBubbleClass("user");
+    expect(className).not.toMatch(/\[overflow-wrap:anywhere\]/);
+    // Defensive: the substring 'anywhere' alone must not appear in a className context.
+    // Catches both 'anywhere' and 'break-anywhere' forms if reintroduced.
+    expect(className).not.toMatch(/\banywhere\b/);
+  });
+
+  it("uses mobile-tight padding with sm:desktop override", () => {
+    const className = chatBubbleClass("assistant");
+    // Mobile padding = px-spacing-4 + py-spacing-3 (16px / 12px)
+    expect(className).toContain("px-spacing-4");
+    expect(className).toContain("py-spacing-3");
+    // Desktop sm: override = sm:px-spacing-6 + sm:py-spacing-5
+    expect(className).toContain("sm:px-spacing-6");
+    expect(className).toContain("sm:py-spacing-5");
+  });
+});
+
+vi.mock("@/lib/use-is-desktop-viewport", () => ({
+  // Return false (mobile) by default
+  useIsDesktopViewport: vi.fn(() => false),
+}));
+
+describe("workspace panel split", () => {
+  it("renders mobile tree and not desktop tree when viewport < 1024px", () => {
+    const queryClient = new QueryClient();
+
+    // renderToStaticMarkup is safe in 'node' environment without jsdom
+    const html = renderToStaticMarkup(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(WorkspaceShell, {
+          projectId: "test",
+          initialTitle: "Test",
+          initialStatus: "passed",
+          initialMessages: [],
+          initialChatCursor: null,
+          initialChatHasMore: false,
+          initialWorkspaceCard: { type: "none" },
+          initialBrief: makeBrief({
+            businessName: "Kopi Tuku",
+            businessType: "Kedai kopi",
+            offer: "Kopi susu tetangga",
+            targetCustomer: "Anak muda",
+            stylePreference: "Modern",
+            contactOrCta: "Pesan online",
+          }),
+        }),
+      ),
+    );
+
+    // Mobile tree carries lg:hidden class on its flex-1 wrapper.
+    expect(html).toContain("lg:hidden");
+    // Desktop tree's ResizablePanelGroup output should be absent.
+    expect(html).not.toContain("ResizablePanelGroup");
   });
 });

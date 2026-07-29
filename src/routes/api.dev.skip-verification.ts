@@ -23,9 +23,15 @@ export const Route = createFileRoute("/api/dev/skip-verification")({
           );
         }
 
-        await prisma.user.update({
+        await prisma.user.upsert({
           where: { id: session.user.id },
-          data: { verifiedAt: new Date() },
+          update: { verifiedAt: new Date() },
+          create: {
+            id: session.user.id,
+            email: session.user.email ?? "",
+            name: session.user.name ?? "",
+            verifiedAt: new Date(),
+          },
         });
 
         return Response.json({

@@ -9,6 +9,7 @@ import {
   Globe2,
   ImagePlus,
   Loader2,
+  Menu,
   MessageSquarePlus,
   Monitor,
   PanelLeftClose,
@@ -26,6 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import { EnergyLedgerButton } from "@/components/common/EnergyLedgerButton";
 import { WorkspaceHistoryButton } from "@/components/projects/WorkspaceHistoryDrawer";
 import { Button } from "@/components/ui/button";
+import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
 import { type DiffLine } from "@/lib/projects/diff";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
@@ -88,145 +90,243 @@ export function WorkspaceTopBar({
   runtime?: WorkspaceRuntimeControl;
   projectId?: string;
 }) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
-    <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
-      <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:justify-start sm:gap-spacing-3">
-        <button
-          type="button"
-          onClick={chatCollapsed ? openChatPanel : closeChatPanel}
-          className="hidden h-9 w-9 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white md:inline-flex cursor-pointer"
-          aria-label={chatCollapsed ? "Buka chat" : "Tutup chat"}
-        >
-          {chatCollapsed ? (
-            <PanelLeftOpen className="size-4" />
-          ) : (
-            <PanelLeftClose className="size-4" />
-          )}
-        </button>
-        <div
-          role="tablist"
-          aria-label="Konten tampilan"
-          className="flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
-        >
-          <TabButton
-            active={activeTab === "preview"}
-            id="workspace-preview-tab"
-            controls="workspace-preview-panel"
-            onClick={() => setActiveTab("preview")}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowRight") {
-                event.preventDefault();
-                setActiveTab("code");
-                (
-                  event.currentTarget.nextElementSibling as HTMLElement
-                )?.focus();
-              }
-            }}
-            icon={<Globe2 className="size-4" />}
-            layoutId="workspace-active-tab"
-          >
-            Tampilan
-          </TabButton>
-          <TabButton
-            active={activeTab === "code"}
-            id="workspace-code-tab"
-            controls="workspace-code-panel"
-            onClick={() => setActiveTab("code")}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowLeft") {
-                event.preventDefault();
-                setActiveTab("preview");
-                (
-                  event.currentTarget.previousElementSibling as HTMLElement
-                )?.focus();
-              }
-            }}
-            icon={<Code2 className="size-4" />}
-            layoutId="workspace-active-tab"
-          >
-            Kode
-          </TabButton>
-        </div>
-        {annotationAvailable && activeTab === "preview" ? (
+    <>
+      <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
+        <div className="hidden min-w-0 items-center justify-start gap-spacing-3 sm:flex sm:w-auto">
           <button
             type="button"
-            onClick={onToggleAnnotation}
-            aria-label={annotationActive ? "Nonaktifkan ubah" : "Aktifkan ubah"}
-            aria-pressed={annotationActive}
-            className={`inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+            onClick={chatCollapsed ? openChatPanel : closeChatPanel}
+            className="hidden h-9 w-9 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white md:inline-flex cursor-pointer"
+            aria-label={chatCollapsed ? "Buka chat" : "Tutup chat"}
           >
-            <MessageSquarePlus className="size-4" />
-            <span className="hidden sm:inline">
-              {annotationActive ? "Ubah aktif" : "Ubah"}
-            </span>
+            {chatCollapsed ? (
+              <PanelLeftOpen className="size-4" />
+            ) : (
+              <PanelLeftClose className="size-4" />
+            )}
           </button>
-        ) : null}
-      </div>
-
-      <div className="flex min-w-0 w-full items-center justify-between gap-spacing-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
-        {projectId ? (
-          <a
-            href="/support"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
-            title="Hubungi Dukungan (Buka Tab Baru)"
-          >
-            <LifeBuoy className="size-4" />
-          </a>
-        ) : null}
-        {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
-        {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
-        {runtime ? <RuntimeControl runtime={runtime} /> : null}
-
-        {activeTab === "preview" ? (
           <div
             role="tablist"
-            aria-label="Tampilan viewport"
-            className="flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+            aria-label="Konten tampilan"
+            className="hidden md:flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
           >
             <TabButton
-              active={viewport === "desktop"}
-              id="viewport-desktop-tab"
+              active={activeTab === "preview"}
+              id="workspace-preview-tab"
               controls="workspace-preview-panel"
-              onClick={() => setViewport("desktop")}
+              onClick={() => setActiveTab("preview")}
               onKeyDown={(event) => {
                 if (event.key === "ArrowRight") {
                   event.preventDefault();
-                  setViewport("mobile");
+                  setActiveTab("code");
                   (
                     event.currentTarget.nextElementSibling as HTMLElement
                   )?.focus();
                 }
               }}
-              icon={<Monitor className="size-4" />}
-              layoutId="workspace-viewport-tab"
+              icon={<Globe2 className="size-4" />}
+              layoutId="workspace-active-tab"
             >
-              Komputer
+              Tampilan
             </TabButton>
             <TabButton
-              active={viewport === "mobile"}
-              id="viewport-mobile-tab"
-              controls="workspace-preview-panel"
-              onClick={() => setViewport("mobile")}
+              active={activeTab === "code"}
+              id="workspace-code-tab"
+              controls="workspace-code-panel"
+              onClick={() => setActiveTab("code")}
               onKeyDown={(event) => {
                 if (event.key === "ArrowLeft") {
                   event.preventDefault();
-                  setViewport("desktop");
+                  setActiveTab("preview");
                   (
                     event.currentTarget.previousElementSibling as HTMLElement
                   )?.focus();
                 }
               }}
-              icon={<Smartphone className="size-4" />}
-              layoutId="workspace-viewport-tab"
+              icon={<Code2 className="size-4" />}
+              layoutId="workspace-active-tab"
             >
-              HP
+              Kode
             </TabButton>
           </div>
-        ) : null}
+          {annotationAvailable && activeTab === "preview" ? (
+            <button
+              type="button"
+              onClick={onToggleAnnotation}
+              aria-label={
+                annotationActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
+              }
+              aria-pressed={annotationActive}
+              className={`hidden md:inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+            >
+              <MessageSquarePlus className="size-4" />
+              <span className="hidden sm:inline">
+                {annotationActive ? "Ubah aktif" : "Ubah"}
+              </span>
+            </button>
+          ) : null}
+        </div>
+
+        {/* Mobile-only kebab */}
+        <div className="flex min-w-0 w-full items-center justify-end gap-spacing-2 sm:hidden">
+          <button
+            type="button"
+            aria-label="Buka menu"
+            aria-haspopup="dialog"
+            aria-expanded={isMobileMenuOpen}
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
+          >
+            <Menu className="size-4" />
+          </button>
+        </div>
+
+        {/* Desktop cluster (unchanged) */}
+        <div className="hidden min-w-0 w-full items-center justify-between gap-spacing-2 sm:flex sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
+          {projectId ? (
+            <a
+              href="/support"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
+              title="Hubungi Dukungan (Buka Tab Baru)"
+            >
+              <LifeBuoy className="size-4" />
+            </a>
+          ) : null}
+          {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
+          {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
+          {runtime ? <RuntimeControl runtime={runtime} /> : null}
+
+          {activeTab === "preview" ? (
+            <div
+              role="tablist"
+              aria-label="Tampilan viewport"
+              className="hidden md:flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+            >
+              <TabButton
+                active={viewport === "desktop"}
+                id="viewport-desktop-tab"
+                controls="workspace-preview-panel"
+                onClick={() => setViewport("desktop")}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowRight") {
+                    event.preventDefault();
+                    setViewport("mobile");
+                    (
+                      event.currentTarget.nextElementSibling as HTMLElement
+                    )?.focus();
+                  }
+                }}
+                icon={<Monitor className="size-4" />}
+                layoutId="workspace-viewport-tab"
+              >
+                Komputer
+              </TabButton>
+              <TabButton
+                active={viewport === "mobile"}
+                id="viewport-mobile-tab"
+                controls="workspace-preview-panel"
+                onClick={() => setViewport("mobile")}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    setViewport("desktop");
+                    (
+                      event.currentTarget.previousElementSibling as HTMLElement
+                    )?.focus();
+                  }
+                }}
+                icon={<Smartphone className="size-4" />}
+                layoutId="workspace-viewport-tab"
+              >
+                HP
+              </TabButton>
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
+      <MobileSheet
+        open={isMobileMenuOpen}
+        onOpenChange={setIsMobileMenuOpen}
+        title="Menu"
+      >
+        <div className="flex flex-col gap-spacing-3">
+          {annotationAvailable && activeTab === "preview" ? (
+            <button
+              type="button"
+              onClick={() => {
+                onToggleAnnotation?.();
+                setIsMobileMenuOpen(false);
+              }}
+              aria-label={
+                annotationActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
+              }
+              aria-pressed={annotationActive}
+              className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-3 text-sm ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 text-surface-warm-white hover:bg-surface-warm-white/8"}`}
+            >
+              <MessageSquarePlus className="size-4" />
+              <span>{annotationActive ? "Ubah aktif" : "Ubah"}</span>
+            </button>
+          ) : null}
+          {activeTab === "preview" ? (
+            <div
+              role="tablist"
+              aria-label="Tampilan viewport"
+              className="flex items-center gap-spacing-2"
+            >
+              <span className="text-xs text-surface-warm-white/44">
+                Tampilan:
+              </span>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={viewport === "desktop"}
+                onClick={() => {
+                  setViewport("desktop");
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-sm ${viewport === "desktop" ? "border-surface-warm-white/20 bg-surface-warm-white/10 text-surface-warm-white" : "border-surface-warm-white/10 text-surface-warm-white/64 hover:bg-surface-warm-white/8"}`}
+              >
+                <Monitor className="size-4" />
+                Komputer
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={viewport === "mobile"}
+                onClick={() => {
+                  setViewport("mobile");
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-sm ${viewport === "mobile" ? "border-surface-warm-white/20 bg-surface-warm-white/10 text-surface-warm-white" : "border-surface-warm-white/10 text-surface-warm-white/64 hover:bg-surface-warm-white/8"}`}
+              >
+                <Smartphone className="size-4" />
+                HP
+              </button>
+            </div>
+          ) : null}
+          <hr className="border-surface-warm-white/10" />
+          {projectId ? (
+            <a
+              href="/support"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="inline-flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-3 text-sm text-surface-warm-white/70 hover:bg-surface-warm-white/8"
+            >
+              <LifeBuoy className="size-4" />
+              Hubungi Dukungan
+            </a>
+          ) : null}
+          {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
+          {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
+          {runtime ? <RuntimeControl runtime={runtime} /> : null}
+        </div>
+      </MobileSheet>
+    </>
   );
 }
 
@@ -461,7 +561,7 @@ export function GeneratedPreviewFrame({
   return (
     <div className="relative flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
       <div
-        className={`${viewport === "mobile" ? "max-w-[390px]" : "max-w-none"} relative h-full w-full`}
+        className={`${viewport === "mobile" ? "max-w-[min(100%,430px)]" : "max-w-none"} relative h-full w-full`}
       >
         <iframe
           ref={iframeRef}

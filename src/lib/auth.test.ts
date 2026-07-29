@@ -2,7 +2,7 @@ import { Auth } from "@auth/core";
 import { getRequest } from "@tanstack/react-start/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { auth } from "@/lib/auth";
+import { auth, getAuthState, requireNotBanned } from "@/lib/auth";
 
 const prismaUserFindUniqueMock = vi.fn();
 
@@ -102,5 +102,115 @@ describe("server-side auth() helper", () => {
       select: { bannedAt: true },
       where: { id: "banned-user" },
     });
+  });
+});
+
+describe("getAuthState()", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns guest state when no request is active", async () => {
+    vi.mocked(getRequest).mockReturnValue(null as unknown as Request);
+
+    const state = await getAuthState();
+
+    expect(state).toEqual({ session: null, banned: false });
+  });
+
+  it("returns unauthenticated guest when auth() resolves to null", async () => {
+    vi.mocked(getRequest).mockReturnValue(
+      new Request("http://localhost:3000/x") as unknown as Request,
+    );
+    vi.mocked(Auth).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
+
+    const state = await getAuthState();
+
+    expect(state).toEqual({ session: null, banned: false });
+  });
+
+  it("returns non-banned authed state when bannedAt is null", async () => {
+    const mockRequest = new Request("http://localhost:3000/x", {
+      headers: { cookie: "session-token=123" },
+    });
+    vi.mocked(getRequest).mockReturnValue(mockRequest);
+    vi.mocked(Auth).mockResolvedValue(
+      new Response(JSON.stringify({ user: { id: "u-1", name: "Jane" } }), {
+        status: 200,
+      }),
+    );
+    prismaUserFindUniqueMock.mockResolvedValue({ bannedAt: null });
+
+    const state = await getAuthState();
+
+    expect(state).toEqual({
+      session: { user: { id: "u-1", name: "Jane" } },
+      banned: false,
+    });
+  });
+
+  it("returns banned authed state when bannedAt is set", async () => {
+    const mockRequest = new Request("http://localhost:3000/x", {
+      headers: { cookie: "session-token=123" },
+    });
+    vi.mocked(getRequest).mockReturnValue(mockRequest);
+    vi.mocked(Auth).mockResolvedValue(
+      new Response(JSON.stringify({ user: { id: "u-1", name: "Jane" } }), {
+        status: 200,
+      }),
+    );
+    prismaUserFindUniqueMock.mockResolvedValue({
+      bannedAt: new Date("2026-01-01"),
+    });
+
+    const state = await getAuthState();
+
+    expect(state.banned).toBe(true);
+    expect(state.session).toEqual({ user: { id: "u-1", name: "Jane" } });
+  });
+});
+
+describe("requireNotBanned()", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("does nothing when session is null", async () => {
+    await expect(requireNotBanned(null)).resolves.toBeUndefined();
+    expect(prismaUserFindUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the user is not banned", async () => {
+    prismaUserFindUniqueMock.mockResolvedValue({ bannedAt: null });
+
+    await expect(
+      requireNotBanned({ user: { id: "u-1" } } as never),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws a redirect Response when the user is banned", async () => {
+    prismaUserFindUniqueMock.mockResolvedValue({
+      bannedAt: new Date("2026-01-01"),
+    });
+
+    try {
+      await requireNotBanned({ user: { id: "u-1" } } as never);
+      expect.fail("expected requireNotBanned to throw");
+    } catch (thrown) {
+      // TanStack Router's redirect() packages the destination into a Response
+      // that the framework intercepts; the Response itself is the marker.
+      expect(thrown).toBeInstanceOf(Response);
+      expect((thrown as Response).status).toBe(307);
+    }
   });
 });

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { sendPaymentReceipt } from "@/lib/email/templates";
 import { getMayarTransaction, verifyMayarWebhookRequest } from "@/lib/mayar";
 import { prisma } from "@/lib/prisma";
 import { logCreditTransaction } from "@/lib/user-credits";
@@ -184,6 +185,24 @@ export const Route = createFileRoute("/api/payment/webhook")({
               reason: `Top-up: ${result.packageName}`,
               projectId: null,
             });
+
+            // Non-fatal email receipt
+            prisma.user
+              .findUnique({
+                where: { id: result.userId },
+                select: { email: true },
+              })
+              .then((user) => {
+                if (user?.email) {
+                  sendPaymentReceipt(user.email, {
+                    packageName: result.packageName,
+                    amount: payment.amount,
+                    energyGranted: result.energyGranted,
+                    transactionId,
+                  }).catch(() => undefined);
+                }
+              })
+              .catch(() => undefined);
           }
 
           if (!result) {

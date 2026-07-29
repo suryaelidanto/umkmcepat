@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
 import { devLog } from "@/lib/dev-log";
+import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import { putStoredObject } from "@/lib/object-storage";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
@@ -66,7 +67,11 @@ export const Route = createFileRoute("/api/waitlist")({
             }
             try {
               const bytes = Buffer.from(await file.arrayBuffer());
-              if (!isImageMagicBytes(bytes)) {
+              const format = detectImageFormat(bytes);
+              // GIF and unknown formats are rejected; only PNG/JPEG/WEBP are
+              // accepted. Magic-byte check ignores the client-supplied
+              // file.type, which can be spoofed.
+              if (!format || format === "gif") {
                 return Response.json(
                   { message: "File bukan gambar (PNG/JPEG/WEBP)." },
                   { status: 400 },
@@ -74,8 +79,8 @@ export const Route = createFileRoute("/api/waitlist")({
               }
               const ref = await putStoredObject({
                 body: bytes,
-                contentType: file.type || "image/png",
-                key: `waitlist/${randomUUID().replace(/-/g, "")}.png`,
+                contentType: contentTypeFromExt(format),
+                key: `waitlist/${randomUUID().replace(/-/g, "")}.${format}`,
               });
               refs.push(ref);
             } catch (error) {
@@ -111,41 +116,3 @@ export const Route = createFileRoute("/api/waitlist")({
     },
   },
 });
-
-// PNG/JPEG/WEBP magic-byte check (defense vs file.type spoofing).
-function isImageMagicBytes(bytes: Buffer): boolean {
-  if (bytes.length < 12) {
-    return false;
-  }
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
-  if (
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a
-  ) {
-    return true;
-  }
-  // JPEG: FF D8 FF
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return true;
-  }
-  // WEBP: "RIFF" .... "WEBP"
-  if (
-    bytes[0] === 0x52 &&
-    bytes[1] === 0x49 &&
-    bytes[2] === 0x46 &&
-    bytes[3] === 0x46 &&
-    bytes[8] === 0x57 &&
-    bytes[9] === 0x45 &&
-    bytes[10] === 0x42 &&
-    bytes[11] === 0x50
-  ) {
-    return true;
-  }
-  return false;
-}

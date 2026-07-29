@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, userUpdateMock } = vi.hoisted(() => ({
+const { authMock, requireNotBannedMock, userUpdateMock } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
+  requireNotBannedMock: vi.fn(async () => undefined),
   userUpdateMock: vi.fn(async ({ data }: { data: { name: string } }) => ({
     name: data.name,
   })),
@@ -9,6 +10,7 @@ const { authMock, userUpdateMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth", () => ({
   auth: authMock,
+  requireNotBanned: requireNotBannedMock,
 }));
 
 vi.mock("@/lib/prisma", () => ({
