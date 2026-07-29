@@ -18,7 +18,7 @@ function bypassViteTransformForProjectApis(): Plugin {
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
         const url = req.url ?? "";
-        if (url.startsWith("/api/projects/") || url.startsWith("/p/")) {
+        if (url.startsWith("/api/") || url.startsWith("/p/")) {
           req.headers["sec-fetch-dest"] = "document";
         }
         next();

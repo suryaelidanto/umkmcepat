@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { requireAdmin } from "@/lib/auth-admin";
-import { devLog } from "@/lib/dev-log";
 import { getStoredObject } from "@/lib/object-storage";
 import { prisma } from "@/lib/prisma";
 
@@ -45,23 +44,11 @@ export const Route = createFileRoute(
         }
         const stored = await getStoredObject(ref);
         if (!stored) {
-          devLog("waitlist-image", "stored-null", {
-            entryId: params.entryId,
-            ref,
-          });
           return new Response(null, { status: 404 });
         }
-        // DEBUG: log what we're serving
-        devLog("waitlist-image", "serving", {
-          entryId: params.entryId,
-          index: params.index,
-          contentType: stored.contentType,
-          bytes: stored.body.length,
-          head: stored.body.slice(0, 4).toString("hex"),
-        });
         return new Response(new Uint8Array(stored.body), {
           headers: {
-            "Cache-Control": "private, max-age=31536000, immutable",
+            "Cache-Control": "no-cache",
             "Content-Type": stored.contentType,
             "X-Content-Type-Options": "nosniff",
           },
