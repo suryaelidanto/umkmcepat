@@ -164,6 +164,7 @@ function WaitlistPage() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const hasTurnstile = Boolean(getTurnstileSiteKey());
   const isDev = import.meta.env.DEV;
+  const isAdmin = isAdminEmail(session?.user?.email ?? "");
 
   const form = useValidatedForm<WaitlistValues>({
     initialValues: EMPTY_VALUES,
@@ -325,10 +326,10 @@ function WaitlistPage() {
     },
   });
 
-  // Dev-mode skip: mirrors /verify's "Lewati verifikasi (dev mode)". Approves
-  // the signed-in user's waitlist entry via a dev-only endpoint so the
-  // MainChrome gate lets them through without filling the form. Hidden in
-  // production builds (isDev = false).
+  // Admin-only dev skip: approves the signed-in user's waitlist entry via a
+  // dev-only endpoint so the MainChrome gate lets them through without filling
+  // the form. Restricted to admins (not all dev users) so that livestream
+  // viewers on a tunnel URL still see the real waitlist flow.
   const devSkipMutation = useMutation({
     mutationFn: async () =>
       fetchJson<{ message?: string }>("/api/dev/skip-waitlist", {
@@ -584,7 +585,7 @@ function WaitlistPage() {
           )}
         </div>
 
-        {isDev ? (
+        {isDev && isAdmin ? (
           <div className="mt-spacing-6 flex flex-col items-center gap-spacing-3">
             <div className="flex w-full items-center gap-spacing-3 text-[10px] uppercase tracking-wider text-surface-warm-white/40">
               <span className="h-px flex-1 bg-surface-warm-white/10" />
