@@ -2380,7 +2380,7 @@ export function WorkspaceShell({
     >
       <nav
         aria-label="Pilih tampilan ruang kerja"
-        className="sticky bottom-0 z-20 flex h-14 shrink-0 items-stretch gap-spacing-2 border-t border-surface-warm-white/10 bg-[#1b1b19] px-spacing-3 pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="sticky bottom-0 z-20 flex h-14 shrink-0 items-stretch gap-spacing-2 border-t border-surface-warm-white/10 bg-[#1b1b19] px-spacing-3 pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <button
           type="button"
@@ -2415,14 +2415,14 @@ export function WorkspaceShell({
       </nav>
       <ResizablePanelGroup
         orientation="horizontal"
-        className="min-h-0 flex-1 overflow-hidden"
+        className="min-h-0 flex-1 overflow-hidden !flex-col lg:!flex-row"
       >
         <ResizablePanel
           id="chat"
           className={
             mobileSurface === "chat"
-              ? "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:!flex-1"
-              : "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:hidden"
+              ? "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-lg:!flex-1"
+              : "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-lg:hidden"
           }
           panelRef={chatPanelRef}
           defaultSize={showPreviewPanel ? "25%" : "100%"}
@@ -2996,15 +2996,15 @@ export function WorkspaceShell({
           <>
             <ResizableHandle
               withHandle
-              className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16 max-md:hidden"
+              className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16 max-lg:hidden"
             />
 
             <ResizablePanel
               id="preview"
               className={
                 mobileSurface === "preview"
-                  ? "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:!flex-1"
-                  : "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:hidden"
+                  ? "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-lg:!flex-1"
+                  : "transition-[flex-grow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-lg:hidden"
               }
               panelRef={previewPanelRef}
               defaultSize="75%"
