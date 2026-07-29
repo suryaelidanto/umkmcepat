@@ -1,4 +1,3 @@
-import { appendFile, rename, stat } from "node:fs/promises";
 import path from "node:path";
 
 const ROTATE_AT_BYTES = 5 * 1024 * 1024;
@@ -61,6 +60,7 @@ function maskPii(metadata: Record<string, unknown>): Record<string, unknown> {
 
 async function writeToFile(line: string) {
   try {
+    const { appendFile } = await import("node:fs/promises");
     await maybeRotate(line);
     await appendFile(logFile(), line, "utf8");
   } catch {
@@ -75,6 +75,7 @@ async function maybeRotate(line: string) {
   const file = logFile();
   let size: number;
   try {
+    const { stat } = await import("node:fs/promises");
     size = (await stat(file)).size;
   } catch {
     return; // file does not exist yet
@@ -84,6 +85,7 @@ async function maybeRotate(line: string) {
   }
   rotating = true;
   try {
+    const { rename } = await import("node:fs/promises");
     await rename(file, rotatedFile()); // overwrites prior .1
   } catch {
     // ignore — next write recreates the log file

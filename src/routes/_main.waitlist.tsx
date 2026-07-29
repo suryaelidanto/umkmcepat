@@ -60,7 +60,7 @@ const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
   }
 
   const own = await getOwnWaitlistEntry(email);
-  return { own };
+  return { own, isAdmin };
 });
 
 export const Route = createFileRoute("/_main/waitlist")({
@@ -154,7 +154,7 @@ type OwnEntry = {
 };
 
 function WaitlistPage() {
-  const { own: initialOwn } = Route.useLoaderData();
+  const { own: initialOwn, isAdmin } = Route.useLoaderData();
   const { data: session } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -164,7 +164,6 @@ function WaitlistPage() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const hasTurnstile = Boolean(getTurnstileSiteKey());
   const isDev = import.meta.env.DEV;
-  const isAdmin = isAdminEmail(session?.user?.email ?? "");
 
   const form = useValidatedForm<WaitlistValues>({
     initialValues: EMPTY_VALUES,
