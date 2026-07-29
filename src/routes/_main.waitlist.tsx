@@ -27,6 +27,7 @@ import { useValidatedForm } from "@/lib/forms";
 import { useRouter } from "@/lib/navigation";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
+import { cn } from "@/lib/utils";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
 import { getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
 
@@ -728,17 +729,44 @@ function Step1({
         hint="Biar tim kami gampang hubungi kamu."
         label="No. WhatsApp (opsional)"
       >
-        {({ id, invalid }) => (
-          <input
-            className={textInputClass({ invalid })}
-            id={id}
-            onBlur={() => markTouched("phone")}
-            onChange={(event) => onChange("phone", event.target.value)}
-            placeholder="0812..."
-            type="tel"
-            value={values.phone ?? ""}
-          />
-        )}
+        {({ id, invalid }) => {
+          const displayValue = (values.phone ?? "").startsWith("+62")
+            ? (values.phone ?? "").slice(3)
+            : (values.phone ?? "");
+
+          const handlePhoneChange = (val: string) => {
+            let digits = val.replace(/\D/g, "");
+            if (digits.startsWith("0")) {
+              digits = digits.slice(1);
+            }
+            if (digits.startsWith("62")) {
+              digits = digits.slice(2);
+            }
+            digits = digits.slice(0, 13);
+            onChange("phone", digits ? `+62${digits}` : "");
+          };
+
+          return (
+            <div className="flex items-stretch mt-1">
+              <span className="flex items-center justify-center rounded-l-radius-md border border-r-0 border-surface-warm-white/10 bg-surface-warm-white/5 px-spacing-3 text-sm font-medium text-surface-warm-white/50 select-none">
+                +62
+              </span>
+              <input
+                className={cn(
+                  textInputClass({ invalid }),
+                  "rounded-l-none border-l-0",
+                )}
+                id={id}
+                onBlur={() => markTouched("phone")}
+                onChange={(event) => handlePhoneChange(event.target.value)}
+                placeholder="812345678..."
+                type="text"
+                inputMode="numeric"
+                value={displayValue}
+              />
+            </div>
+          );
+        }}
       </FormField>
     </Step>
   );

@@ -177,17 +177,33 @@ function VerifyPage() {
                 >
                   Nomor WhatsApp
                 </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+6281234567890"
-                  className="mt-1 w-full rounded-lg border border-surface-warm-white/12 bg-[#262622] px-3 py-2 text-sm text-surface-warm-white placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30 focus:outline-none"
-                  disabled={sendOtpMutation.isPending}
-                />
+                <div className="mt-1 flex items-stretch">
+                  <span className="flex items-center justify-center rounded-l-lg border border-r-0 border-surface-warm-white/12 bg-surface-warm-white/5 px-3 text-sm font-medium text-surface-warm-white/50 select-none">
+                    +62
+                  </span>
+                  <input
+                    id="phone"
+                    type="text"
+                    inputMode="numeric"
+                    value={phone.startsWith("+62") ? phone.slice(3) : phone}
+                    onChange={(e) => {
+                      let digits = e.target.value.replace(/\D/g, "");
+                      if (digits.startsWith("0")) {
+                        digits = digits.slice(1);
+                      }
+                      if (digits.startsWith("62")) {
+                        digits = digits.slice(2);
+                      }
+                      digits = digits.slice(0, 13);
+                      setPhone(digits ? `+62${digits}` : "");
+                    }}
+                    placeholder="812345678..."
+                    className="w-full rounded-r-lg border border-l-0 border-surface-warm-white/12 bg-[#262622] px-3 py-2 text-sm text-surface-warm-white placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30 focus:outline-none"
+                    disabled={sendOtpMutation.isPending}
+                  />
+                </div>
                 <p className="mt-1 text-xs text-surface-warm-white/50">
-                  Format: +628xxxxxxxxxx
+                  Format: 8xxxxxxxxxx (nomor WhatsApp aktif)
                 </p>
               </div>
 
