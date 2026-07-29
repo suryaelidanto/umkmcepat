@@ -27,7 +27,7 @@ export interface MayarCreatePaymentResponse {
   messages: string;
   data?: {
     id: string;
-    transactionId: string | null;
+    transactionId: string;
     link: string;
   };
 }
@@ -52,29 +52,40 @@ function getCredentials() {
 }
 
 /**
- * Creates a payment request in Mayar. Returns the hosted checkout link
- * plus the request id. transactionId is null at create time — it is
- * populated by Mayar after the buyer completes payment and the webhook fires.
+ * Creates a single-use invoice in Mayar. Returns the hosted checkout link
+ * and the transactionId (available at create time for invoices — used to
+ * correlate the webhook that Mayar fires after payment).
+ *
+ * Uses /invoices/create (not /payments/create): invoices carry transactionId
+ * at creation time and include it in the webhook payload, making reliable
+ * order correlation possible.
  */
 export async function createMayarPayment(opts: {
   orderId: string;
   amount: number;
   packName: string;
-  expiredAt: string; // ISO 8601, e.g. new Date(Date.now() + 24*60*60*1000).toISOString()
-}): Promise<{ id: string; transactionId: string | null; link: string }> {
+  expiredAt: string;
+  customerName: string;
+  customerEmail: string;
+  customerMobile: string;
+}): Promise<{ id: string; transactionId: string; link: string }> {
   const { apiKey, baseUrl } = getCredentials();
 
-  const response = await fetch(`${baseUrl}/payments/create`, {
+  const response = await fetch(`${baseUrl}/invoices/create`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      name: opts.packName,
+      name: opts.customerName,
+      email: opts.customerEmail,
+      mobile: opts.customerMobile,
       amount: opts.amount,
+      description: opts.orderId,
       expiredAt: opts.expiredAt,
-      extraData: { orderId: opts.orderId },
+      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://umkmcepat.com"}/booster/success`,
+      items: [{ quantity: 1, rate: opts.amount, description: opts.packName }],
     }),
   });
 
@@ -87,17 +98,13 @@ export async function createMayarPayment(opts: {
 
   const data = (await response.json()) as MayarCreatePaymentResponse;
 
-  if (!data.data?.id || !data.data?.link) {
+  if (!data.data?.id || !data.data?.transactionId || !data.data?.link) {
     throw new Error(
-      `Mayar create payment response is missing id or link: ${JSON.stringify(data)}`,
+      `Mayar create payment response is missing id, transactionId, or link: ${JSON.stringify(data)}`,
     );
   }
 
-  return {
-    id: data.data.id,
-    transactionId: data.data.transactionId ?? null,
-    link: data.data.link,
-  };
+  return data.data;
 }
 
 /**

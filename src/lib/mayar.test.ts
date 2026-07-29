@@ -16,16 +16,16 @@ afterEach(() => {
 });
 
 describe("createMayarPayment", () => {
-  it("posts to /payments/create with name, amount, expiredAt, and extraData.orderId", async () => {
+  it("posts to /invoices/create with customer fields, items, and orderId in description", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           statusCode: 200,
           messages: "success",
           data: {
-            id: "req-1",
-            transactionId: null,
-            link: "https://testingmayar.myr.id/pl/abc",
+            id: "inv-1",
+            transactionId: "txn-1",
+            link: "https://umkmcepat.mayar.shop/invoices/abc",
           },
         }),
         { status: 200 },
@@ -39,16 +39,19 @@ describe("createMayarPayment", () => {
       amount: 8900,
       packName: "Starter Booster",
       expiredAt,
+      customerName: "Test User",
+      customerEmail: "test@example.com",
+      customerMobile: "081234567890",
     });
 
     expect(result).toEqual({
-      id: "req-1",
-      transactionId: null,
-      link: "https://testingmayar.myr.id/pl/abc",
+      id: "inv-1",
+      transactionId: "txn-1",
+      link: "https://umkmcepat.mayar.shop/invoices/abc",
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.mayar.club/hl/v2/payments/create",
+      "https://api.mayar.club/hl/v2/invoices/create",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -58,14 +61,15 @@ describe("createMayarPayment", () => {
     );
     const [, requestInit] = fetchMock.mock.calls[0];
     const body = JSON.parse(requestInit.body as string);
-    expect(body).toEqual({
-      name: "Starter Booster",
-      amount: 8900,
-      expiredAt,
-      extraData: { orderId: "INV-USER1-12345" },
-    });
-    // paymentMethod must NOT be sent (sandbox returns 400 if included)
-    expect(body).not.toHaveProperty("paymentMethod");
+    expect(body.name).toBe("Test User");
+    expect(body.email).toBe("test@example.com");
+    expect(body.mobile).toBe("081234567890");
+    expect(body.amount).toBe(8900);
+    expect(body.description).toBe("INV-USER1-12345");
+    expect(body.expiredAt).toBe(expiredAt);
+    expect(body.items).toEqual([
+      { quantity: 1, rate: 8900, description: "Starter Booster" },
+    ]);
   });
 
   it("throws when the API responds non-2xx", async () => {
@@ -80,11 +84,14 @@ describe("createMayarPayment", () => {
         amount: 1000,
         packName: "X",
         expiredAt: new Date().toISOString(),
+        customerName: "U",
+        customerEmail: "u@e.com",
+        customerMobile: "081",
       }),
     ).rejects.toThrow(/Mayar create payment failed/);
   });
 
-  it("throws when the response is missing id or link", async () => {
+  it("throws when the response is missing id, transactionId, or link", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({ statusCode: 200, messages: "success", data: {} }),
@@ -99,37 +106,11 @@ describe("createMayarPayment", () => {
         amount: 1000,
         packName: "X",
         expiredAt: new Date().toISOString(),
+        customerName: "U",
+        customerEmail: "u@e.com",
+        customerMobile: "081",
       }),
     ).rejects.toThrow(/missing/i);
-  });
-
-  it("accepts a null transactionId at create time", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          statusCode: 200,
-          messages: "success",
-          data: {
-            id: "req-2",
-            transactionId: null,
-            link: "https://testingmayar.myr.id/pl/xyz",
-          },
-        }),
-        { status: 200 },
-      ),
-    );
-
-    const { createMayarPayment } = await import("./mayar");
-    const result = await createMayarPayment({
-      orderId: "INV-2",
-      amount: 2900,
-      packName: "Pocket Booster",
-      expiredAt: new Date().toISOString(),
-    });
-
-    expect(result.transactionId).toBeNull();
-    expect(result.id).toBe("req-2");
-    expect(result.link).toBe("https://testingmayar.myr.id/pl/xyz");
   });
 });
 
