@@ -1,3 +1,4 @@
+import { detectImageFormat, EXT_CONTENT_TYPE } from "@/lib/images/format";
 import { getS3Object, putS3Object, S3_PREFIXES } from "@/lib/s3-client";
 
 export type StoredObject = {
@@ -24,7 +25,15 @@ export async function getStoredObject(
   try {
     const key = normalizeObjectKey(rawKey);
     const body = await getS3Object("private", prefixedKey(key));
-    return { body, contentType: contentTypeFromKey(key) };
+    // Derive Content-Type from the actual bytes, not the key extension:
+    // older uploads hardcode .png in the key regardless of real format, so
+    // trusting the extension serves JPEG bytes as image/png. With nosniff
+    // set on the response, the browser then refuses to render the <img>.
+    const format = detectImageFormat(body);
+    return {
+      body,
+      contentType: format ? EXT_CONTENT_TYPE[format] : contentTypeFromKey(key),
+    };
   } catch {
     return null;
   }
