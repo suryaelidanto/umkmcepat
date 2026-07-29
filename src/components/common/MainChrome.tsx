@@ -67,8 +67,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   });
 
   const isDev = import.meta.env.DEV;
-  const ownIsDevSkip =
-    waitlistQuery.data?.own?.businessName.startsWith("[dev-skip]") ?? false;
+  const hasOwnWaitlistEntry = Boolean(waitlistQuery.data?.own);
   const queryClient = useQueryClient();
 
   const devResetVerification = useMutation({
@@ -184,7 +183,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
                 : "Reset Verifikasi (OTP)"}
             </button>
           ) : null}
-          {ownIsDevSkip ? (
+          {hasOwnWaitlistEntry ? (
             <button
               className="rounded-radius-sm border border-aurora-orange/40 px-spacing-2 py-spacing-1 text-[10px] font-semibold uppercase tracking-wider text-aurora-orange transition hover:bg-aurora-orange/20 disabled:opacity-50"
               disabled={devResetWaitlist.isPending}

@@ -8,7 +8,7 @@ const KNOWN: Array<{ match: RegExp; message: string }> = [
     message: "Format gambar tidak didukung. Gunakan PNG, JPEG, atau WEBP.",
   },
   {
-    match: /pakasir|payment|transaction failed/i,
+    match: /mayar|payment|transaction failed/i,
     message: "Pembayaran gagal. Coba lagi.",
   },
   {

@@ -2,12 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
 import {
-  createPakasirTransaction,
+  createMayarPayment,
   getBoosterPack,
-  type PakasirPaymentMethod,
-  BOOSTER_PACKS,
   type BoosterPackId,
-} from "@/lib/pakasir";
+  BOOSTER_PACKS,
+} from "@/lib/mayar";
 import { prisma } from "@/lib/prisma";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
@@ -28,7 +27,6 @@ export const Route = createFileRoute("/api/payment/create")({
 
         const body = (await request.json().catch(() => ({}))) as {
           packageId?: string;
-          method?: string;
         };
 
         const packageId = body.packageId as BoosterPackId;
@@ -41,19 +39,18 @@ export const Route = createFileRoute("/api/payment/create")({
         }
         const pack = await getBoosterPack(packageId);
 
-        const method = (body.method || "qris") as PakasirPaymentMethod;
-
         // Generate a unique order ID: INV-{userId-prefix}-{timestamp}
         const userPrefix = session.user.id.slice(-6).toUpperCase();
         const timestamp = Date.now();
         const orderId = `INV-${userPrefix}-${timestamp}`;
 
         try {
-          // 1. Create transaction with Pakasir
-          const paymentDetails = await createPakasirTransaction({
+          // 1. Create a payment request with Mayar
+          const mayarPayment = await createMayarPayment({
             orderId,
             amount: pack.amount,
-            method,
+            packName: pack.name,
+            expiredAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           });
 
           // 2. Save payment record in DB with PENDING status
@@ -64,8 +61,10 @@ export const Route = createFileRoute("/api/payment/create")({
               amount: pack.amount,
               energyGranted: pack.energy,
               status: "PENDING",
-              paymentMethod: method,
-              paymentNumber: paymentDetails.payment_number,
+              paymentMethod: "qris",
+              providerTxnId: mayarPayment.transactionId,
+              providerPaymentLinkId: mayarPayment.id,
+              paymentUrl: mayarPayment.link,
               type: "ENERGY_BOOSTER",
               metadata: {
                 packageName: pack.name,
@@ -78,7 +77,7 @@ export const Route = createFileRoute("/api/payment/create")({
             success: true,
             orderId: payment.orderId,
             amount: payment.amount,
-            paymentNumber: payment.paymentNumber,
+            paymentUrl: payment.paymentUrl,
             status: payment.status,
           });
         } catch (error) {

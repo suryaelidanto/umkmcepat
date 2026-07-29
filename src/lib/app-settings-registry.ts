@@ -145,7 +145,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     min: 1000,
     max: 100000000,
   },
-  // booster (fallbacks mirror BOOSTER_PACKS in pakasir.ts)
+  // booster (fallbacks mirror BOOSTER_PACKS in mayar.ts)
   {
     key: "booster.pocket.amount",
     category: "booster",

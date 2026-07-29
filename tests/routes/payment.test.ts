@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
-  createPakasirTransactionMock,
+  createMayarPaymentMock,
   getBoosterPackMock,
-  verifyPakasirTransactionMock,
+  getMayarTransactionMock,
+  verifyMayarWebhookRequestMock,
   prismaPaymentCreateMock,
   prismaPaymentFindUniqueMock,
   prismaPaymentUpdateMock,
@@ -14,9 +15,10 @@ const {
   prismaTransactionMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => null),
-  createPakasirTransactionMock: vi.fn(),
+  createMayarPaymentMock: vi.fn(),
   getBoosterPackMock: vi.fn(),
-  verifyPakasirTransactionMock: vi.fn(),
+  getMayarTransactionMock: vi.fn(),
+  verifyMayarWebhookRequestMock: vi.fn(() => true),
   prismaPaymentCreateMock: vi.fn(),
   prismaPaymentFindUniqueMock: vi.fn(),
   prismaPaymentUpdateMock: vi.fn(),
@@ -37,10 +39,11 @@ const {
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
-vi.mock("@/lib/pakasir", () => ({
-  createPakasirTransaction: createPakasirTransactionMock,
+vi.mock("@/lib/mayar", () => ({
+  createMayarPayment: createMayarPaymentMock,
   getBoosterPack: getBoosterPackMock,
-  verifyPakasirTransaction: verifyPakasirTransactionMock,
+  getMayarTransaction: getMayarTransactionMock,
+  verifyMayarWebhookRequest: verifyMayarWebhookRequestMock,
   BOOSTER_PACKS: {
     pocket: { amount: 2900, energy: 50000, name: "Pocket Booster" },
     starter: { amount: 8900, energy: 200000, name: "Starter Booster" },
@@ -74,7 +77,7 @@ const GET_STATUS = getHandler(StatusRoute, "GET");
 describe("Payment API Routes", () => {
   beforeEach(() => {
     authMock.mockReset();
-    createPakasirTransactionMock.mockReset();
+    createMayarPaymentMock.mockReset();
     getBoosterPackMock.mockReset();
     getBoosterPackMock.mockImplementation((id: string) => {
       const packs = {
@@ -85,7 +88,9 @@ describe("Payment API Routes", () => {
       } as const;
       return Promise.resolve((packs as Record<string, unknown>)[id] ?? null);
     });
-    verifyPakasirTransactionMock.mockReset();
+    getMayarTransactionMock.mockReset();
+    verifyMayarWebhookRequestMock.mockReset();
+    verifyMayarWebhookRequestMock.mockReturnValue(true);
     prismaPaymentCreateMock.mockReset();
     prismaPaymentFindUniqueMock.mockReset();
     prismaPaymentFindUniqueOrThrowMock.mockReset();
@@ -128,17 +133,16 @@ describe("Payment API Routes", () => {
       expect(data.message).toContain("Invalid package");
     });
 
-    it("successfully creates a payment session via Pakasir", async () => {
+    it("successfully creates a payment session via Mayar", async () => {
       authMock.mockResolvedValueOnce({
         user: { id: "user_1" },
         expires: new Date().toISOString(),
       });
 
-      createPakasirTransactionMock.mockResolvedValueOnce({
-        project: "umkm-cepat-dev",
-        order_id: "INV-USER1-12345",
-        payment_number: "QRIS_PAYLOAD_STRING",
-        expired_at: "2026-07-19T12:00:00Z",
+      createMayarPaymentMock.mockResolvedValueOnce({
+        id: "req-1",
+        transactionId: "txn-1",
+        link: "https://testingmayar.myr.id/pl/abc",
       });
 
       prismaPaymentCreateMock.mockResolvedValueOnce({
@@ -146,13 +150,13 @@ describe("Payment API Routes", () => {
         amount: 2900,
         energyGranted: 50000,
         status: "PENDING",
-        paymentNumber: "QRIS_PAYLOAD_STRING",
+        paymentUrl: "https://testingmayar.myr.id/pl/abc",
       });
 
       const res = await POST_CREATE(
         new Request("http://localhost/api/payment/create", {
           method: "POST",
-          body: JSON.stringify({ packageId: "pocket", method: "qris" }),
+          body: JSON.stringify({ packageId: "pocket" }),
         }),
       );
 
@@ -160,7 +164,15 @@ describe("Payment API Routes", () => {
       const data = await res.json();
       expect(data.success).toBe(true);
       expect(data.orderId).toBe("INV-USER1-12345");
-      expect(data.paymentNumber).toBe("QRIS_PAYLOAD_STRING");
+      expect(data.paymentUrl).toBe("https://testingmayar.myr.id/pl/abc");
+      expect(createMayarPaymentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: expect.stringMatching(/^INV-/),
+          amount: 2900,
+          packName: "Pocket Booster",
+          expiredAt: expect.any(String),
+        }),
+      );
       expect(prismaPaymentCreateMock).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -168,42 +180,102 @@ describe("Payment API Routes", () => {
             amount: 2900,
             energyGranted: 50000,
             status: "PENDING",
+            providerTxnId: "txn-1",
+            providerPaymentLinkId: "req-1",
+            paymentUrl: "https://testingmayar.myr.id/pl/abc",
           }),
         }),
       );
     });
+
+    it("returns 500 when createMayarPayment throws", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user-1" },
+        expires: new Date().toISOString(),
+      });
+      createMayarPaymentMock.mockRejectedValueOnce(new Error("Mayar API down"));
+
+      const res = await POST_CREATE(
+        new Request("http://localhost/api/payment/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ packageId: "pocket" }),
+        }),
+      );
+
+      expect(res.status).toBe(500);
+    });
   });
 
   describe("POST /api/payment/webhook", () => {
-    it("handles webhook notifications and calls Pakasir to verify before crediting", async () => {
+    it("rejects requests with an invalid or missing webhook token", async () => {
+      verifyMayarWebhookRequestMock.mockReturnValue(false);
+
+      const res = await POST_WEBHOOK(
+        new Request("http://localhost/api/payment/webhook", {
+          method: "POST",
+          body: JSON.stringify({
+            event: "payment.received",
+            data: {
+              transactionId: "txn-1",
+              extraData: { orderId: "INV-USER1-12345" },
+            },
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(401);
+      expect(getMayarTransactionMock).not.toHaveBeenCalled();
+    });
+
+    it("ignores non-payment.received events", async () => {
+      const res = await POST_WEBHOOK(
+        new Request("http://localhost/api/payment/webhook", {
+          method: "POST",
+          body: JSON.stringify({
+            event: "payment.reminder",
+            data: {
+              transactionId: "txn-1",
+              extraData: { orderId: "INV-USER1-12345" },
+            },
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(prismaPaymentFindUniqueMock).not.toHaveBeenCalled();
+    });
+
+    it("handles webhook notifications and calls Mayar to verify before crediting", async () => {
       const pendingRow = {
         userId: "user_1",
         orderId: "INV-USER1-12345",
         amount: 2900,
         energyGranted: 50000,
         status: "PENDING",
+        providerTxnId: "txn-1",
         metadata: { packageName: "Pocket Booster" },
       };
       prismaPaymentFindUniqueMock.mockResolvedValue(pendingRow);
       prismaPaymentFindUniqueOrThrowMock.mockResolvedValue(pendingRow);
 
-      verifyPakasirTransactionMock.mockResolvedValueOnce({
-        order_id: "INV-USER1-12345",
+      getMayarTransactionMock.mockResolvedValueOnce({
+        status: "SUCCESS",
         amount: 2900,
-        status: "completed",
-        payment_method: "qris",
+        paymentMethod: "QRIS",
       });
 
       const res = await POST_WEBHOOK(
         new Request("http://localhost/api/payment/webhook", {
           method: "POST",
           body: JSON.stringify({
-            order_id: "INV-USER1-12345",
-            amount: 2900,
-            project: "umkm-cepat-dev",
-            status: "completed",
-            payment_method: "qris",
-            completed_at: "2026-07-19T10:00:00Z",
+            event: "payment.received",
+            data: {
+              transactionId: "txn-1",
+              transactionStatus: "paid",
+              amount: 2900,
+              extraData: { orderId: "INV-USER1-12345" },
+            },
           }),
         }),
       );
@@ -211,36 +283,33 @@ describe("Payment API Routes", () => {
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
-      expect(verifyPakasirTransactionMock).toHaveBeenCalledWith({
-        orderId: "INV-USER1-12345",
-        amount: 2900,
-      });
+      expect(getMayarTransactionMock).toHaveBeenCalledWith("txn-1");
 
       // Prisma transaction callbacks executed raw queries to award premium credit
       expect(prismaExecuteRawMock).toHaveBeenCalled();
     });
 
     it("ignores webhook notifications if payment is already COMPLETED (idempotency)", async () => {
-      // Pre-transaction fetch returns COMPLETED, so the route short-circuits
-      // with 200 before claiming. The atomic claim would also return
-      // { count: 0 } — both paths agree.
       prismaPaymentFindUniqueMock.mockResolvedValueOnce({
         userId: "user_1",
         orderId: "INV-USER1-12345",
         amount: 2900,
         energyGranted: 50000,
         status: "COMPLETED",
+        providerTxnId: "txn-1",
       });
 
       const res = await POST_WEBHOOK(
         new Request("http://localhost/api/payment/webhook", {
           method: "POST",
           body: JSON.stringify({
-            order_id: "INV-USER1-12345",
-            amount: 2900,
-            project: "umkm-cepat-dev",
-            status: "completed",
-            payment_method: "qris",
+            event: "payment.received",
+            data: {
+              transactionId: "txn-1",
+              transactionStatus: "paid",
+              amount: 2900,
+              extraData: { orderId: "INV-USER1-12345" },
+            },
           }),
         }),
       );
@@ -248,35 +317,37 @@ describe("Payment API Routes", () => {
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
-      expect(verifyPakasirTransactionMock).not.toHaveBeenCalled();
+      expect(getMayarTransactionMock).not.toHaveBeenCalled();
       expect(prismaTransactionMock).not.toHaveBeenCalled();
     });
 
-    it("rejects webhook if verification API does not return completed status", async () => {
+    it("rejects webhook if verification API does not return a paid status", async () => {
       prismaPaymentFindUniqueMock.mockResolvedValueOnce({
         userId: "user_1",
         orderId: "INV-USER1-12345",
         amount: 2900,
         energyGranted: 50000,
         status: "PENDING",
+        providerTxnId: "txn-1",
       });
 
-      // Verification API returns pending/failed
-      verifyPakasirTransactionMock.mockResolvedValueOnce({
-        order_id: "INV-USER1-12345",
-        amount: 2900,
+      getMayarTransactionMock.mockResolvedValueOnce({
         status: "pending",
+        amount: 2900,
+        paymentMethod: "QRIS",
       });
 
       const res = await POST_WEBHOOK(
         new Request("http://localhost/api/payment/webhook", {
           method: "POST",
           body: JSON.stringify({
-            order_id: "INV-USER1-12345",
-            amount: 2900,
-            project: "umkm-cepat-dev",
-            status: "completed",
-            payment_method: "qris",
+            event: "payment.received",
+            data: {
+              transactionId: "txn-1",
+              transactionStatus: "paid",
+              amount: 2900,
+              extraData: { orderId: "INV-USER1-12345" },
+            },
           }),
         }),
       );
@@ -286,6 +357,105 @@ describe("Payment API Routes", () => {
       expect(data.success).toBe(false);
       expect(data.message).toContain("not fully completed");
       expect(prismaTransactionMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects webhook if the verified amount does not match the stored payment amount", async () => {
+      prismaPaymentFindUniqueMock.mockResolvedValueOnce({
+        userId: "user_1",
+        orderId: "INV-USER1-12345",
+        amount: 8900,
+        energyGranted: 200000,
+        status: "PENDING",
+        providerTxnId: "txn-1",
+      });
+
+      // Someone tampered with the QRIS amount at scan time — verified
+      // amount from Mayar's API does not match what we charged for.
+      getMayarTransactionMock.mockResolvedValueOnce({
+        status: "SUCCESS",
+        amount: 1000,
+        paymentMethod: "QRIS",
+      });
+
+      const res = await POST_WEBHOOK(
+        new Request("http://localhost/api/payment/webhook", {
+          method: "POST",
+          body: JSON.stringify({
+            event: "payment.received",
+            data: {
+              transactionId: "txn-1",
+              transactionStatus: "paid",
+              amount: 1000,
+              extraData: { orderId: "INV-USER1-12345" },
+            },
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(false);
+      expect(data.message).toContain("amount");
+      expect(prismaTransactionMock).not.toHaveBeenCalled();
+    });
+
+    it("returns 404 when no Payment matches the webhook's orderId", async () => {
+      prismaPaymentFindUniqueMock.mockResolvedValueOnce(null);
+
+      const res = await POST_WEBHOOK(
+        new Request("http://localhost/api/payment/webhook", {
+          method: "POST",
+          body: JSON.stringify({
+            event: "payment.received",
+            data: {
+              transactionId: "txn-unknown",
+              transactionStatus: "paid",
+              amount: 2900,
+              extraData: { orderId: "INV-NOT-FOUND" },
+            },
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(404);
+    });
+
+    it("handles race condition gracefully when updateMany returns count 0", async () => {
+      const pendingRow = {
+        userId: "user_1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        energyGranted: 50000,
+        status: "PENDING",
+        providerTxnId: null,
+        metadata: { packageName: "Pocket Booster" },
+      };
+      prismaPaymentFindUniqueMock.mockResolvedValue(pendingRow);
+      getMayarTransactionMock.mockResolvedValueOnce({
+        status: "SUCCESS",
+        amount: 2900,
+        paymentMethod: "QRIS",
+      });
+      // Simulate another handler already won the atomic claim
+      prismaPaymentUpdateManyMock.mockResolvedValueOnce({ count: 0 });
+
+      const res = await POST_WEBHOOK(
+        new Request("http://localhost/api/payment/webhook", {
+          method: "POST",
+          body: JSON.stringify({
+            event: "payment.received",
+            data: {
+              transactionId: "txn-1",
+              transactionStatus: "paid",
+              amount: 2900,
+              extraData: { orderId: "INV-USER1-12345" },
+            },
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(prismaExecuteRawMock).not.toHaveBeenCalled(); // no energy credit
     });
   });
 
@@ -300,13 +470,15 @@ describe("Payment API Routes", () => {
         orderId: "INV-USER1-12345",
         amount: 2900,
         status: "PENDING",
+        providerTxnId: "txn-1",
+        createdAt: new Date(),
       });
 
       const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
       expect(res.status).toBe(403);
     });
 
-    it("returns correct payment status for owner", async () => {
+    it("returns correct payment status for owner without reconciling when recently created", async () => {
       authMock.mockResolvedValueOnce({
         user: { id: "user_1" },
       });
@@ -317,7 +489,8 @@ describe("Payment API Routes", () => {
         amount: 2900,
         status: "PENDING",
         paymentMethod: "qris",
-        createdAt: new Date(),
+        providerTxnId: "txn-1",
+        createdAt: new Date(), // just created — inside the reconciliation grace window
       });
 
       const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
@@ -325,6 +498,92 @@ describe("Payment API Routes", () => {
       const data = await res.json();
       expect(data.success).toBe(true);
       expect(data.status).toBe("PENDING");
+      expect(getMayarTransactionMock).not.toHaveBeenCalled();
+    });
+
+    it("reconciles against Mayar directly when PENDING beyond the grace window", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user_1" },
+      });
+
+      const oldCreatedAt = new Date(Date.now() - 3 * 60 * 1000); // 3 minutes ago
+      prismaPaymentFindUniqueMock.mockResolvedValueOnce({
+        userId: "user_1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        status: "PENDING",
+        paymentMethod: "qris",
+        providerTxnId: "txn-1",
+        createdAt: oldCreatedAt,
+      });
+
+      getMayarTransactionMock.mockResolvedValueOnce({
+        status: "SUCCESS",
+        amount: 2900,
+        paymentMethod: "QRIS",
+      });
+
+      prismaPaymentUpdateManyMock.mockResolvedValueOnce({ count: 1 });
+      prismaPaymentFindUniqueOrThrowMock.mockResolvedValueOnce({
+        userId: "user_1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        energyGranted: 50000,
+        status: "COMPLETED",
+        metadata: { packageName: "Pocket Booster" },
+      });
+
+      const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(getMayarTransactionMock).toHaveBeenCalledWith("txn-1");
+      expect(data.status).toBe("COMPLETED");
+    });
+
+    it("returns DB status without calling Mayar when providerTxnId is null", async () => {
+      authMock.mockResolvedValueOnce({ user: { id: "user-1" } });
+      const recentPending = {
+        userId: "user-1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        energyGranted: 50000,
+        status: "PENDING",
+        providerTxnId: null,
+        createdAt: new Date(Date.now() - 5 * 60 * 1000), // 5 mins old, beyond grace window
+        metadata: {},
+      };
+      prismaPaymentFindUniqueMock.mockResolvedValue(recentPending);
+
+      const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(getMayarTransactionMock).not.toHaveBeenCalled();
+      expect(body.status).toBe("PENDING");
+    });
+
+    it("falls back to DB status when getMayarTransaction throws", async () => {
+      authMock.mockResolvedValueOnce({ user: { id: "user-1" } });
+      const stalePending = {
+        userId: "user-1",
+        orderId: "INV-USER1-12345",
+        amount: 2900,
+        energyGranted: 50000,
+        status: "PENDING",
+        providerTxnId: "txn-1",
+        createdAt: new Date(Date.now() - 5 * 60 * 1000), // beyond grace window
+        metadata: {},
+      };
+      prismaPaymentFindUniqueMock.mockResolvedValue(stalePending);
+      getMayarTransactionMock.mockRejectedValueOnce(
+        new Error("Mayar API timeout"),
+      );
+
+      const res = await GET_STATUS(undefined, { orderId: "INV-USER1-12345" });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.status).toBe("PENDING"); // DB status returned as fallback
     });
   });
 });

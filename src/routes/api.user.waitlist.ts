@@ -25,8 +25,10 @@ export function resolveUserWaitlistStatus({
   if (!email) {
     return { status: null };
   }
-  // In development, we allow admins to test the waitlist gate.
-  // Thus, if they are an admin, we only automatically approve them if NODE_ENV !== "development".
+  // In production, admins always bypass the gate. In dev, admins are treated
+  // like normal users so the full gate flow (waitlist form, pending screen,
+  // rejection banner) can be exercised without a separate test account — the
+  // dev-only skip/reset buttons on the page are the escape hatch instead.
   const isDev = process.env.NODE_ENV === "development";
   if (isAdmin && !isDev) {
     return { status: "approved" };
@@ -34,7 +36,7 @@ export function resolveUserWaitlistStatus({
   if (!waitlistEnabled) {
     return { status: "approved" };
   }
-  if (isApproved) {
+  if (isApproved === "approved") {
     return { status: "approved" };
   }
   return { status: null };
@@ -44,7 +46,9 @@ export const Route = createFileRoute("/api/user/waitlist")({
   server: {
     handlers: {
       // Returns the signed-in user's effective gate status + their own entry
-      // (for pre-fill on rejection). Admins are always "approved". Anonymous
+      // (for pre-fill on rejection). In production, admins are always
+      // "approved". In dev, admins are treated like normal users so the full
+      // gate flow can be exercised via the dev skip/reset buttons. Anonymous
       // users get { status: null } (gate leaves them alone so the landing
       // page + /waitlist are reachable). WAITLIST_ENABLED=false = pass-through
       // (signed-in non-admins skip the gate); unset/invalid defaults true.

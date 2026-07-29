@@ -8,7 +8,7 @@ const cache = new Map<string, CacheEntry>();
 
 // ponytail: prisma is imported lazily inside getSetting so this module's
 // evaluation stays browser-safe. app-settings is imported by client-reachable
-// modules (pakasir → EnergyBoosterModal; config → ai-timeouts → WorkspacePrimitives);
+// modules (mayar → EnergyBoosterModal; config → ai-timeouts → WorkspacePrimitives);
 // a static `import { prisma } from "@/lib/prisma"` would drag the Node-only
 // `global` reference into the browser bundle and break Storybook. The prisma
 // singleton is only needed for the async DB read. When a sync client-side read

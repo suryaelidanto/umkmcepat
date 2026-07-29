@@ -1,26 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { verifyPakasirTransaction } from "@/lib/pakasir";
+import { getMayarTransaction, verifyMayarWebhookRequest } from "@/lib/mayar";
 import { prisma } from "@/lib/prisma";
 import { logCreditTransaction } from "@/lib/user-credits";
 
-interface WebhookPayload {
-  amount: number;
-  order_id: string;
-  project: string;
-  status: string;
-  payment_method: string;
-  completed_at: string;
+interface MayarWebhookPayload {
+  event: string;
+  data: {
+    transactionId: string;
+    transactionStatus?: string;
+    status?: string;
+    amount?: number;
+    paymentMethod?: string;
+    extraData?: {
+      orderId?: string;
+    };
+  };
 }
 
 export const Route = createFileRoute("/api/payment/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let payload: WebhookPayload;
+        if (!verifyMayarWebhookRequest(request)) {
+          console.warn(
+            "[webhook] Rejected request with invalid webhook token.",
+          );
+          return Response.json(
+            { message: "Invalid webhook token." },
+            { status: 401 },
+          );
+        }
+
+        let payload: MayarWebhookPayload;
 
         try {
-          payload = (await request.json()) as WebhookPayload;
+          payload = (await request.json()) as MayarWebhookPayload;
         } catch {
           return Response.json(
             { message: "Invalid JSON body." },
@@ -28,17 +43,48 @@ export const Route = createFileRoute("/api/payment/webhook")({
           );
         }
 
-        const { order_id: orderId, amount, status } = payload;
+        // Structured log after verification, before any DB access.
+        // eslint-disable-next-line no-console
+        console.log(`[webhook] Received event: ${payload.event}`);
 
-        if (!orderId || typeof amount !== "number" || !status) {
+        if (payload.event !== "payment.received") {
+          return Response.json({
+            success: true,
+            message: `Ignored event: ${payload.event}`,
+          });
+        }
+
+        const isPaymentCompleted =
+          payload.data?.transactionStatus === "paid" ||
+          payload.data?.status === "SUCCESS";
+
+        if (!isPaymentCompleted) {
+          console.warn(
+            "[webhook] Skipping: transactionStatus not 'paid':",
+            payload.data?.transactionStatus,
+          );
+          return Response.json({
+            success: false,
+            message: "Payment not completed.",
+          });
+        }
+
+        const transactionId = payload.data?.transactionId;
+        const orderId = payload.data?.extraData?.orderId;
+
+        if (!transactionId || !orderId) {
           return Response.json(
-            { message: "Missing required webhook fields." },
+            {
+              message:
+                "Missing data.transactionId or data.extraData.orderId in webhook payload.",
+            },
             { status: 400 },
           );
         }
 
         try {
-          // 1. Fetch payment record from database
+          // 1. Fetch payment record from database, correlated via our orderId
+          // (stored in extraData when the payment link was created).
           const payment = await prisma.payment.findUnique({
             where: { orderId },
           });
@@ -51,7 +97,7 @@ export const Route = createFileRoute("/api/payment/webhook")({
             );
           }
 
-          // If the payment is already completed or processed, do nothing (idempotency check)
+          // If the payment is already completed or processed, do nothing (idempotency check).
           if (payment.status !== "PENDING") {
             return Response.json({
               success: true,
@@ -59,16 +105,14 @@ export const Route = createFileRoute("/api/payment/webhook")({
             });
           }
 
-          // 2. Direct Verification API call (essential security verification)
-          // We call Pakasir directly to check the actual transaction details.
-          const verifiedTransaction = await verifyPakasirTransaction({
-            orderId,
-            amount: payment.amount,
-          });
+          // 2. Direct Verification API call (essential security verification).
+          // We call Mayar directly to check the actual transaction details —
+          // the webhook payload itself is never trusted for status or amount.
+          const verifiedTransaction = await getMayarTransaction(transactionId);
 
-          if (verifiedTransaction.status !== "completed") {
+          if (verifiedTransaction.status !== "SUCCESS") {
             console.warn(
-              `[webhook] Direct verification status is "${verifiedTransaction.status}", expected "completed" for orderId ${orderId}`,
+              `[webhook] Direct verification status is "${verifiedTransaction.status}", expected "SUCCESS" for orderId ${orderId} / transactionId ${transactionId}`,
             );
             return Response.json({
               success: false,
@@ -76,7 +120,18 @@ export const Route = createFileRoute("/api/payment/webhook")({
             });
           }
 
-          // 3. Process completed payment inside transaction to guarantee consistency and prevent duplicates
+          if (verifiedTransaction.amount !== payment.amount) {
+            console.warn(
+              `[webhook] Verified amount ${verifiedTransaction.amount} does not match stored payment amount ${payment.amount} for orderId ${orderId}`,
+            );
+            return Response.json({
+              success: false,
+              message:
+                "Verified transaction amount does not match payment amount.",
+            });
+          }
+
+          // 3. Process completed payment inside transaction to guarantee consistency and prevent duplicates.
           const result = await prisma.$transaction(async (tx) => {
             // Atomic claim: exactly one concurrent transaction can transition
             // PENDING -> COMPLETED, so exactly one grants energy. A prior
@@ -85,7 +140,8 @@ export const Route = createFileRoute("/api/payment/webhook")({
               where: { orderId, status: "PENDING" },
               data: {
                 status: "COMPLETED",
-                paymentMethod: verifiedTransaction.payment_method,
+                providerTxnId: transactionId,
+                paymentMethod: verifiedTransaction.paymentMethod,
                 updatedAt: new Date(),
               },
             });
@@ -98,7 +154,7 @@ export const Route = createFileRoute("/api/payment/webhook")({
               where: { orderId },
             });
 
-            // Grant energy credits
+            // Grant energy credits.
             const premiumExpiry = new Date("9999-12-31T23:59:59.999Z");
             const packageName =
               (txPayment.metadata as { packageName?: string })?.packageName ||
@@ -135,9 +191,16 @@ export const Route = createFileRoute("/api/payment/webhook")({
             });
           }
 
+          if (!result) {
+            // eslint-disable-next-line no-console
+            console.log(
+              `[webhook] Race condition: payment for orderId ${orderId} already claimed by another handler`,
+            );
+          }
+
           // eslint-disable-next-line no-console
           console.log(
-            `[webhook] Successfully processed payment for orderId: ${orderId}`,
+            `[webhook] Successfully processed payment for orderId: ${orderId} / transactionId: ${transactionId}`,
           );
           return Response.json({
             success: true,

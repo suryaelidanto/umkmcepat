@@ -21,12 +21,14 @@ describe("getOwnWaitlistEntry", () => {
       businessType: "kuliner",
       imageRef: "object:local:waitlist/x.png",
       phone: "0812",
+      rejectionReason: "Cerita usaha masih terlalu singkat.",
       status: "rejected",
       story: "Jualan sejak 2019",
     } as never);
     const entry = await getOwnWaitlistEntry("user@example.com");
     expect(entry).toMatchObject({
       businessName: "Warteg Bu Sari",
+      rejectionReason: "Cerita usaha masih terlalu singkat.",
       status: "rejected",
     });
   });

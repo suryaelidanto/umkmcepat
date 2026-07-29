@@ -24,15 +24,19 @@ import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { useSession } from "@/lib/auth-client";
 import { useValidatedForm } from "@/lib/forms";
+import { useRouter } from "@/lib/navigation";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
 import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
+import { getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
 
 // Server-side gate: must be signed-in AND (gate disabled OR not yet approved).
-// Runs in beforeLoad so the page never renders for users who shouldn't see it.
-// Mirrors the OTP gate philosophy on /verify: the form is unreachable when
-// the gate is open.
+// Runs in the route loader so the page never renders for users who shouldn't
+// see it, and so the own-entry status is already known on the very first
+// render — the client-side ownQuery below is seeded from this instead of
+// starting from `undefined`, which is what used to cause a form -> success
+// flash while the client fetch was still in flight.
 const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
   const session = await auth();
   if (!session?.user?.id || !session.user.email) {
@@ -55,14 +59,12 @@ const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
     throw redirect({ to: "/" });
   }
 
-  return { ok: true as const };
+  const own = await getOwnWaitlistEntry(email);
+  return { own };
 });
 
 export const Route = createFileRoute("/_main/waitlist")({
-  loader: async () => {
-    await gateIfApproved();
-    return null;
-  },
+  loader: async () => await gateIfApproved(),
   component: WaitlistPage,
 });
 
@@ -146,13 +148,18 @@ type OwnEntry = {
   businessName: string;
   businessType: string | null;
   phone: string | null;
+  rejectionReason: string | null;
+  status: string;
   story: string;
 };
 
 function WaitlistPage() {
+  const { own: initialOwn } = Route.useLoaderData();
   const { data: session } = useSession();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
+  const [devSkipDone, setDevSkipDone] = useState(false);
   const [step, setStep] = useState(1);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const hasTurnstile = Boolean(getTurnstileSiteKey());
@@ -195,6 +202,7 @@ function WaitlistPage() {
     queryFn: () => fetchJson<{ own?: OwnEntry | null }>("/api/user/waitlist"),
     queryKey: ["user", "waitlist", "own"],
     staleTime: 0,
+    initialData: { own: initialOwn },
   });
 
   const statusQuery = useQuery({
@@ -205,6 +213,13 @@ function WaitlistPage() {
   const isApproved = statusQuery.data?.status === "approved" || submitted;
   const ownIsDevSkip =
     ownQuery.data?.own?.businessName.startsWith("[dev-skip]") ?? false;
+  const ownStatus = ownQuery.data?.own?.status;
+  // Pending/waitlisted means a real entry is already sitting in review — keep
+  // showing the "submitted" screen across reloads instead of re-showing the
+  // empty form. Rejected falls through to the form so the user can fix and
+  // resubmit; that branch shows the rejection reason instead.
+  const stillPending = ownStatus === "pending" || ownStatus === "waitlisted";
+  const wasRejected = ownStatus === "rejected";
 
   // Restore step and form values from localStorage when mounting/ownQuery settles.
   useEffect(() => {
@@ -320,11 +335,12 @@ function WaitlistPage() {
         method: "POST",
       }),
     onSuccess: async () => {
-      setSubmitted(true);
+      setDevSkipDone(true);
       toast.success("Pendaftaran di-skip (dev mode).");
       await queryClient.invalidateQueries({
         queryKey: queryKeys.waitlistStatus,
       });
+      setTimeout(() => router.replace("/"), 1500);
     },
     onError: (error) => {
       toast.error(
@@ -363,10 +379,28 @@ function WaitlistPage() {
     form.values.storySince.length +
     form.values.storyGoal.trim().length;
   const storyTooShort = combinedStoryLength + 30 < 80;
-  if (submitted) {
+  if (devSkipDone) {
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-surface-warm-white">
+        <div className="flex size-14 items-center justify-center rounded-full border border-aurora-orange/30 bg-aurora-orange/10 text-aurora-orange">
+          <Check className="size-7" strokeWidth={2.5} />
+        </div>
+        <h1 className="text-heading-xl font-semibold tracking-tight">
+          Berhasil di-skip!
+        </h1>
+        <p className="max-w-md text-sm text-surface-warm-white/60">
+          Mengalihkan ke beranda...
+        </p>
+      </div>
+    );
+  }
+
+  if (submitted || stillPending) {
     return (
       <SuccessScreen
-        businessName={form.values.businessName}
+        businessName={
+          form.values.businessName || ownQuery.data?.own?.businessName || ""
+        }
         email={session?.user?.email ?? undefined}
       />
     );
@@ -379,6 +413,22 @@ function WaitlistPage() {
           Daftar Tunggu
         </h1>
       </header>
+
+      {wasRejected ? (
+        <div className="mb-spacing-6 rounded-radius-lg border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/85">
+          <p className="font-semibold text-surface-warm-white">
+            Pendaftaran sebelumnya belum bisa kami terima
+          </p>
+          {ownQuery.data?.own?.rejectionReason ? (
+            <p className="mt-spacing-2 text-surface-warm-white/70">
+              Alasan: {ownQuery.data.own.rejectionReason}
+            </p>
+          ) : null}
+          <p className="mt-spacing-2 text-surface-warm-white/70">
+            Silakan perbaiki dan ajukan lagi di bawah ini.
+          </p>
+        </div>
+      ) : null}
 
       <ProgressBar currentStep={step} />
 
@@ -551,7 +601,7 @@ function WaitlistPage() {
                 ? "Melewati..."
                 : "Lewati pendaftaran (dev mode)"}
             </button>
-            {ownQuery.data?.own?.businessName.startsWith("[dev-skip]") ? (
+            {ownQuery.data?.own ? (
               <button
                 className="text-[10px] uppercase tracking-wider text-aurora-rose/70 underline-offset-4 hover:text-aurora-rose hover:underline disabled:opacity-50"
                 disabled={devResetMutation.isPending}
@@ -560,7 +610,7 @@ function WaitlistPage() {
               >
                 {devResetMutation.isPending
                   ? "Mereset..."
-                  : "Reset approval (dev mode)"}
+                  : "Reset pendaftaran (dev mode)"}
               </button>
             ) : null}
           </div>
