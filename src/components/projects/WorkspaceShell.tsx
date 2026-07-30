@@ -61,6 +61,7 @@ import {
   appendBuildProgressStep,
   completeBuildProgressSteps,
 } from "@/lib/projects/build-progress-steps";
+import { createUploadedImageFilePart } from "@/lib/projects/chat-file-parts";
 import { dedupeUiMessages } from "@/lib/projects/chat-memory";
 import {
   MAX_COMPOSER_IMAGES,
@@ -2072,20 +2073,13 @@ export function WorkspaceShell({
                 `Gambar belum tersedia (${item.file.name}). Aktifkan R2.`,
               );
             }
-            // Inline the image bytes as a data URL so the model reads them
-            // without fetching R2; small (<=5 MiB) so base64 is fine.
-            const bytes = new Uint8Array(await item.file.arrayBuffer());
-            let binary = "";
-            for (let i = 0; i < bytes.length; i += 0x8000) {
-              binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-            }
-            const base64 = btoa(binary);
-            fileParts.push({
-              filename: item.file.name,
-              mediaType: item.file.type || "image/png",
-              type: "file",
-              url: `data:${item.file.type || "image/png"};base64,${base64}`,
-            });
+            fileParts.push(
+              createUploadedImageFilePart({
+                filename: item.file.name,
+                mediaType: item.file.type,
+                publicUrl: asset.publicUrl,
+              }),
+            );
             mediaPaths.push(`/media/${asset.id}`);
           } catch (error) {
             uploadErrors.push({
