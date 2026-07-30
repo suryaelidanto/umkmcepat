@@ -7,6 +7,7 @@ import { fetchJson } from "@/lib/query-client";
 const TABS = [
   { label: "Ringkasan", to: "/admin" },
   { label: "Pengguna", to: "/admin/users" },
+  { label: "Proyek", to: "/admin/projects" },
   { label: "Antrean", to: "/admin/waitlist" },
   { label: "Tiket", to: "/admin/tickets" },
   { label: "Transaksi", to: "/admin/transactions" },
