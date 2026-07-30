@@ -57,11 +57,16 @@ function ProjectsPage() {
           <div className="flex flex-col gap-spacing-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h2 className="truncate font-medium text-surface-warm-white">
-                {streamerMode ? (
-                  <SensitiveText kind="name" value={project.title} />
-                ) : (
-                  project.title
-                )}
+                <a
+                  className="underline-offset-2 hover:underline"
+                  href={`/projects/${project.id}`}
+                >
+                  {streamerMode ? (
+                    <SensitiveText kind="name" value={project.title} />
+                  ) : (
+                    project.title
+                  )}
+                </a>
               </h2>
               <p className="mt-spacing-1 text-surface-warm-white/70">
                 {streamerMode && project.owner.name ? (
