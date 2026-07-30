@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  MAX_CHAT_BYTES,
   RESUME_POLL_INTERVAL_MS,
   WorkspaceShell,
   canStartBuild,
@@ -213,5 +214,23 @@ describe("workspace panel split", () => {
     expect(html).toContain("lg:hidden");
     // Desktop tree's ResizablePanelGroup output should be absent.
     expect(html).not.toContain("ResizablePanelGroup");
+  });
+});
+
+describe("MAX_CHAT_BYTES", () => {
+  it("is exactly 16384 (16 KiB)", () => {
+    expect(MAX_CHAT_BYTES).toBe(16_384);
+  });
+
+  it("rejects text that exceeds the byte limit", () => {
+    const short = "a".repeat(16_000);
+    expect(new TextEncoder().encode(short).length).toBeLessThanOrEqual(
+      MAX_CHAT_BYTES,
+    );
+
+    const long = "a".repeat(17_000);
+    expect(new TextEncoder().encode(long).length).toBeGreaterThan(
+      MAX_CHAT_BYTES,
+    );
   });
 });

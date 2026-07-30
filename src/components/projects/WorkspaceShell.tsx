@@ -108,6 +108,9 @@ import { cn } from "@/lib/utils";
 
 const MonacoEditor = clientOnly(() => import("@monaco-editor/react"));
 
+// Must match the server limit in api.projects.preview.ts
+export const MAX_CHAT_BYTES = 16 * 1024;
+
 type WorkspaceShellProps = {
   projectId: string;
   initialTitle: string;
@@ -1123,6 +1126,7 @@ export function WorkspaceShell({
     runtimeUserFacingState: runtimeState?.userFacingState,
     sourceStatus,
   });
+  const hasLastGoodPreview = Boolean(runtimeState?.deployment);
   const shouldRenderGeneratedPreview = shouldUseGeneratedPreviewFrame({
     buildComplete,
     sourceStatus,
@@ -2017,6 +2021,10 @@ export function WorkspaceShell({
       }
 
       const trimmed = text.trim();
+      if (new TextEncoder().encode(trimmed).length > MAX_CHAT_BYTES) {
+        toast.error("Pesan terlalu panjang. Maksimal 16.000 karakter.");
+        return;
+      }
       const hasAnswers = Boolean(options.workspaceAnswers?.length);
 
       if (
@@ -2551,6 +2559,12 @@ export function WorkspaceShell({
                 </p>
               </div>
             </div>
+          ) : error && (error as ChatError).code === "chat_turn_too_large" ? (
+            <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+              <p className="text-sm font-medium text-[#ffb4a6]">
+                Pesan terlalu panjang. Ringkas dulu sebelum dikirim.
+              </p>
+            </div>
           ) : error ? (
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
               <p className="text-sm font-medium text-[#ffb4a6]">
@@ -3023,7 +3037,7 @@ export function WorkspaceShell({
               aria-labelledby="workspace-preview-tab"
               className="h-full min-h-0"
             >
-              {isBuilding ? (
+              {isBuilding && !hasLastGoodPreview ? (
                 <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
                   <div className="flex flex-col items-center gap-spacing-4 text-center">
                     <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
@@ -3032,41 +3046,73 @@ export function WorkspaceShell({
                     </p>
                   </div>
                 </div>
-              ) : previewIssue ? (
+              ) : previewIssue && !(isBuilding && hasLastGoodPreview) ? (
                 <PreviewIssueState
                   detail={previewIssue.detail}
                   onRebuild={readOnly ? undefined : () => void startBuild()}
                   onRetry={recoverPreviewRuntime}
                   title={previewIssue.title}
                 />
-              ) : shouldRenderGeneratedPreview ? (
-                <GeneratedPreviewFrame
-                  annotationActive={annotationMode}
-                  annotationMarkers={annotations}
-                  onAnnotationTarget={handleAnnotationTarget}
-                  onLoad={() => void loadRuntimeState()}
-                  onRecover={recoverPreviewRuntime}
-                  onStuck={() => void loadRuntimeState()}
-                  pendingAnnotation={
-                    annotationMode && pendingAnnotationTarget
-                      ? {
-                          comment: pendingAnnotationComment,
-                          onCancel: () => {
-                            setPendingAnnotationTarget(null);
-                            setPendingAnnotationComment("");
-                          },
-                          onChange: setPendingAnnotationComment,
-                          onSave: addPendingAnnotation,
-                          target: pendingAnnotationTarget,
-                        }
-                      : null
-                  }
-                  projectId={projectId}
-                  reloadKey={previewReloadKey}
-                  viewport={viewport}
-                />
+              ) : shouldRenderGeneratedPreview ||
+                (isBuilding && hasLastGoodPreview) ? (
+                <div className="relative h-full">
+                  <GeneratedPreviewFrame
+                    annotationActive={annotationMode}
+                    annotationMarkers={annotations}
+                    onAnnotationTarget={handleAnnotationTarget}
+                    onLoad={() => void loadRuntimeState()}
+                    onRecover={recoverPreviewRuntime}
+                    onStuck={() => void loadRuntimeState()}
+                    pendingAnnotation={
+                      annotationMode && pendingAnnotationTarget
+                        ? {
+                            comment: pendingAnnotationComment,
+                            onCancel: () => {
+                              setPendingAnnotationTarget(null);
+                              setPendingAnnotationComment("");
+                            },
+                            onChange: setPendingAnnotationComment,
+                            onSave: addPendingAnnotation,
+                            target: pendingAnnotationTarget,
+                          }
+                        : null
+                    }
+                    projectId={projectId}
+                    reloadKey={previewReloadKey}
+                    viewport={viewport}
+                  />
+                  {isBuilding && hasLastGoodPreview && (
+                    <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-[#10100f]/80 px-4 py-2 text-xs text-surface-warm-white/78 backdrop-blur-sm">
+                      <div className="size-3 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
+                      Membangun ulang website...
+                    </div>
+                  )}
+                </div>
               ) : (
                 <EmptyPreviewState />
+              )}
+              {runtimeState?.userFacingState ===
+                "ready_with_failed_latest_attempt" && (
+                <CompletedBuildNotice
+                  variant="recovery"
+                  onDiscuss={() => {
+                    if (buildRecommendationSignature) {
+                      window.localStorage.setItem(
+                        buildRecommendationStorageKey,
+                        buildRecommendationSignature,
+                      );
+                      setHeldBuildRecommendationSignature(
+                        buildRecommendationSignature,
+                      );
+                    }
+                    setMode("discuss");
+                    setPostBuildChatOpen(true);
+                  }}
+                  onPreview={() => {
+                    setActiveTab("preview");
+                    openPreviewPanel();
+                  }}
+                />
               )}
             </div>
           ) : null}
@@ -3559,6 +3605,22 @@ async function rateLimitAwareFetch(
       ) as ChatError;
       error.status = 400;
       error.code = "project_request_blocked";
+      throw error;
+    }
+  }
+
+  if (response.status === 413) {
+    const clone = response.clone();
+    const body = (await clone.json().catch(() => null)) as {
+      code?: string;
+      message?: string;
+    } | null;
+    if (body?.code === "chat_turn_too_large") {
+      const error = new Error(
+        body.message || "Pesan terlalu panjang. Ringkas dulu sebelum dikirim.",
+      ) as ChatError;
+      error.status = 413;
+      error.code = "chat_turn_too_large";
       throw error;
     }
   }

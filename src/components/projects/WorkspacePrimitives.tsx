@@ -1324,6 +1324,7 @@ export function QuestionComposer({
                 }
               }}
               placeholder={question.placeholder || "Tulis jawabanmu di sini..."}
+              maxLength={16000}
               className="h-12 w-full rounded-[14px] border border-surface-warm-white/10 bg-[#181817] px-spacing-4 text-sm text-surface-warm-white outline-none placeholder:text-surface-warm-white/34 focus:border-surface-warm-white/28"
             />
           </div>
@@ -1486,6 +1487,7 @@ export function QuestionComposer({
               rows={3}
               autoFocus
               value={customAnswer}
+              maxLength={16000}
               onChange={(event) => {
                 setCustomAnswer(event.target.value);
                 setSource("custom");

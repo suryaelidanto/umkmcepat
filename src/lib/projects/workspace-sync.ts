@@ -352,6 +352,14 @@ export function getWorkspacePreviewIssue({
   }
 
   if (runtimeUserFacingState === "building") {
+    // The server retains the last successful preview during active builds.
+    // Show the old iframe + a non-blocking progress banner instead of blanking.
+    const hasLastGoodPreview = [runtimeBuildStatus, sourceStatus].some(
+      (status) => ["passed", "ready", "succeeded"].includes(status ?? ""),
+    );
+    if (hasLastGoodPreview) {
+      return null; // Client will render old preview + progress banner
+    }
     return {
       detail: "Tampilan website akan muncul setelah build selesai.",
       title: "Build website sedang berjalan",

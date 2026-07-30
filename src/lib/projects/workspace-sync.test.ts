@@ -329,9 +329,12 @@ describe("workspace chat sync", () => {
   });
 
   it("maps runtime summary states to clear preview panels", () => {
+    // Building without last-good preview → blocking issue
     expect(
       getWorkspacePreviewIssue({
         runtimeUserFacingState: "building",
+        runtimeBuildStatus: null,
+        sourceStatus: null,
       }),
     ).toEqual({
       detail: "Tampilan website akan muncul setelah build selesai.",
@@ -351,6 +354,25 @@ describe("workspace chat sync", () => {
         "Build website belum berhasil dan belum ada tampilan sebelumnya. Tekan Build ulang untuk mencoba lagi.",
       title: "Build website belum selesai",
     });
+  });
+
+  it("returns null preview issue for building state when last good preview exists", () => {
+    const result = getWorkspacePreviewIssue({
+      runtimeUserFacingState: "building",
+      runtimeBuildStatus: "succeeded",
+      sourceStatus: "succeeded",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("still returns blocking issue for building state when no last good preview", () => {
+    const result = getWorkspacePreviewIssue({
+      runtimeUserFacingState: "building",
+      runtimeBuildStatus: null,
+      sourceStatus: null,
+    });
+    expect(result).not.toBeNull();
+    expect(result?.title).toBe("Build website sedang berjalan");
   });
 
   it("does not hide the last good preview when a newer build failed", () => {
