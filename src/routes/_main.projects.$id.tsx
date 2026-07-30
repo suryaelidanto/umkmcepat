@@ -4,7 +4,6 @@ import { createServerFn } from "@tanstack/react-start";
 import type { ProjectBrief, WorkspaceCard } from "@/lib/projects/brief";
 import type { UIMessage } from "ai";
 
-import { AdminProjectObserver } from "@/components/projects/AdminProjectObserver";
 import { ClearProjectDraft } from "@/components/projects/ClearProjectDraft";
 import { WorkspaceShell } from "@/components/projects/WorkspaceShell";
 import { loadProjectForViewer } from "@/lib/admin-project-observer";
@@ -43,17 +42,14 @@ function ProjectPage() {
   const data = Route.useLoaderData();
   const project = JSON.parse(data.projectJson);
 
-  if (data.mode === "observer") {
-    return <AdminProjectObserver project={project} />;
-  }
-
+  const readOnly = data.mode === "observer";
   const initialMessages = project.initialChatPage.messages as UIMessage[];
   const initialWorkspaceCard = project.initialWorkspaceCard as WorkspaceCard;
   const initialBrief = project.initialBrief as ProjectBrief;
 
   return (
     <>
-      <ClearProjectDraft />
+      {readOnly ? null : <ClearProjectDraft />}
       <WorkspaceShell
         projectId={project.projectId}
         initialTitle={project.title}
@@ -64,6 +60,7 @@ function ProjectPage() {
         initialChatHasMore={project.initialChatPage.hasMore}
         initialWorkspaceCard={initialWorkspaceCard}
         initialBrief={initialBrief}
+        readOnly={readOnly}
       />
     </>
   );
