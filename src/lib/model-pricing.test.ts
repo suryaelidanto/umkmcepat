@@ -23,6 +23,7 @@ import {
   CONSERVATIVE_DEFAULT_PRICE,
   getModelPricing,
   normalizeOpenRouterModelId,
+  resolveModelPricing,
 } from "./model-pricing";
 
 const FRESH = {
@@ -77,6 +78,83 @@ describe("getModelPricing", () => {
       where: { modelId: "minimax/minimax-m3" },
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns manual override pricing with proof for CMC model ids", async () => {
+    const price = await resolveModelPricing("cmc/MiniMaxAI/MiniMax-M3");
+
+    expect(price).toEqual({
+      rawModelId: "cmc/MiniMaxAI/MiniMax-M3",
+      pricedModelId: "minimax/minimax-m3",
+      pricingSource: "manual-override",
+      promptPrice: 0.0000003,
+      completionPrice: 0.0000012,
+    });
+    expect(findUniqueMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns cache pricing with proof", async () => {
+    findUniqueMock.mockResolvedValueOnce(FRESH);
+
+    const price = await resolveModelPricing("openrouter/minimax/minimax-m3");
+
+    expect(price).toEqual({
+      rawModelId: "openrouter/minimax/minimax-m3",
+      pricedModelId: "minimax/minimax-m3",
+      pricingSource: "openrouter-cache",
+      promptPrice: 0.0000003,
+      completionPrice: 0.0000012,
+    });
+  });
+
+  it("matches OpenRouter hugging_face_id aliases from the full model list", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    fetchMock.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            id: "minimax/minimax-m3",
+            canonical_slug: "minimax/minimax-m3-20260531",
+            hugging_face_id: "MiniMaxAI/Minimax-M3",
+            name: "MiniMax: MiniMax M3",
+            pricing: { prompt: "0.0000003", completion: "0.0000012" },
+          },
+        ],
+      }),
+    });
+    upsertMock.mockResolvedValueOnce({});
+
+    const price = await resolveModelPricing("MiniMaxAI/MiniMax-M3");
+
+    expect(price).toMatchObject({
+      rawModelId: "MiniMaxAI/MiniMax-M3",
+      pricedModelId: "minimax/minimax-m3",
+      pricingSource: "openrouter-refresh",
+      promptPrice: 0.0000003,
+      completionPrice: 0.0000012,
+    });
+  });
+
+  it("warns once for an unresolved model and uses conservative floor", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    findUniqueMock.mockResolvedValue(null);
+    fetchMock.mockResolvedValue({ ok: false });
+
+    const first = await resolveModelPricing("unknown/model");
+    const second = await resolveModelPricing("unknown/model");
+
+    expect(first).toEqual({
+      rawModelId: "unknown/model",
+      pricedModelId: "unknown",
+      pricingSource: "conservative-floor",
+      ...CONSERVATIVE_DEFAULT_PRICE,
+    });
+    expect(second.pricingSource).toBe("conservative-floor");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(upsertMock).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("fetches single-model endpoint when cache is stale", async () => {

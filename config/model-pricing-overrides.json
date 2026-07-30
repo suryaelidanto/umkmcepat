@@ -1,0 +1,107 @@
+{
+  "umkmcepat-combo": {
+    "sourceModelId": "umkmcepat-combo",
+    "openRouterModelId": null,
+    "promptPrice": null,
+    "completionPrice": null,
+    "source": null,
+    "checkedAt": "2026-07-30",
+    "note": "No OpenRouter metadata match found. Fill manually before relying on exact pricing."
+  },
+  "cmc/deepseek/deepseek-v4-pro": {
+    "sourceModelId": "cmc/deepseek/deepseek-v4-pro",
+    "openRouterModelId": "deepseek/deepseek-v4-pro",
+    "promptPrice": 4.35e-7,
+    "completionPrice": 8.7e-7,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-pro",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/deepseek/deepseek-v4-flash": {
+    "sourceModelId": "cmc/deepseek/deepseek-v4-flash",
+    "openRouterModelId": "deepseek/deepseek-v4-flash",
+    "promptPrice": 1.4e-7,
+    "completionPrice": 2.8e-7,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-flash",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/moonshotai/Kimi-K2.6": {
+    "sourceModelId": "cmc/moonshotai/Kimi-K2.6",
+    "openRouterModelId": "moonshotai/kimi-k2.6",
+    "promptPrice": 6.46e-7,
+    "completionPrice": 2.72e-6,
+    "source": "https://openrouter.ai/moonshotai/kimi-k2.6",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/moonshotai/Kimi-K2.5": {
+    "sourceModelId": "cmc/moonshotai/Kimi-K2.5",
+    "openRouterModelId": "moonshotai/kimi-k2.5",
+    "promptPrice": 5.7e-7,
+    "completionPrice": 2.85e-6,
+    "source": "https://openrouter.ai/moonshotai/kimi-k2.5",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/zai-org/GLM-5.1": {
+    "sourceModelId": "cmc/zai-org/GLM-5.1",
+    "openRouterModelId": "z-ai/glm-5.1",
+    "promptPrice": 9.66e-7,
+    "completionPrice": 3.036e-6,
+    "source": "https://openrouter.ai/z-ai/glm-5.1",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/zai-org/GLM-5": {
+    "sourceModelId": "cmc/zai-org/GLM-5",
+    "openRouterModelId": "z-ai/glm-5",
+    "promptPrice": 9.5e-7,
+    "completionPrice": 2.55e-6,
+    "source": "https://openrouter.ai/z-ai/glm-5",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/MiniMaxAI/MiniMax-M2.7": {
+    "sourceModelId": "cmc/MiniMaxAI/MiniMax-M2.7",
+    "openRouterModelId": "minimax/minimax-m2.7",
+    "promptPrice": 2.5e-7,
+    "completionPrice": 1e-6,
+    "source": "https://openrouter.ai/minimax/minimax-m2.7",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/MiniMaxAI/MiniMax-M2.5": {
+    "sourceModelId": "cmc/MiniMaxAI/MiniMax-M2.5",
+    "openRouterModelId": "minimax/minimax-m2.5",
+    "promptPrice": 1.5e-7,
+    "completionPrice": 9e-7,
+    "source": "https://openrouter.ai/minimax/minimax-m2.5",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/Qwen/Qwen3.6-Max-Preview": {
+    "sourceModelId": "cmc/Qwen/Qwen3.6-Max-Preview",
+    "openRouterModelId": "qwen/qwen3.6-max-preview",
+    "promptPrice": 1.027e-6,
+    "completionPrice": 6.162e-6,
+    "source": "https://openrouter.ai/qwen/qwen3.6-max-preview",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/Qwen/Qwen3.6-Plus": {
+    "sourceModelId": "cmc/Qwen/Qwen3.6-Plus",
+    "openRouterModelId": "qwen/qwen3.6-plus",
+    "promptPrice": 3.25e-7,
+    "completionPrice": 1.95e-6,
+    "source": "https://openrouter.ai/qwen/qwen3.6-plus",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/stepfun/Step-3.5-Flash": {
+    "sourceModelId": "cmc/stepfun/Step-3.5-Flash",
+    "openRouterModelId": "stepfun/step-3.5-flash",
+    "promptPrice": 1e-7,
+    "completionPrice": 3e-7,
+    "source": "https://openrouter.ai/stepfun/step-3.5-flash",
+    "checkedAt": "2026-07-30"
+  },
+  "cmc/MiniMaxAI/MiniMax-M3": {
+    "sourceModelId": "cmc/MiniMaxAI/MiniMax-M3",
+    "openRouterModelId": "minimax/minimax-m3",
+    "promptPrice": 3e-7,
+    "completionPrice": 1.2e-6,
+    "source": "https://openrouter.ai/minimax/minimax-m3",
+    "checkedAt": "2026-07-30"
+  }
+}

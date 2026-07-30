@@ -1,3 +1,5 @@
+import overrides from "../../config/model-pricing-overrides.json";
+
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -34,6 +36,28 @@ export const SEED_MODEL_IDS = [
 
 export type ModelPrice = { promptPrice: number; completionPrice: number };
 
+export type PricingSource =
+  | "manual-override"
+  | "openrouter-cache"
+  | "openrouter-refresh"
+  | "conservative-floor";
+
+export type ResolvedModelPricing = ModelPrice & {
+  rawModelId: string;
+  pricedModelId: string;
+  pricingSource: PricingSource;
+};
+
+type PricingOverride = {
+  sourceModelId?: string;
+  openRouterModelId?: string | null;
+  promptPrice?: number | null;
+  completionPrice?: number | null;
+};
+
+const pricingOverrides = overrides as Record<string, PricingOverride>;
+const unresolvedWarnings = new Set<string>();
+
 /**
  * Pessimistic floor when OpenRouter is unreachable and cache is empty.
  * ~top of combo band (qwen-vl completion / thinking prompt). Never free.
@@ -62,7 +86,45 @@ export function normalizeOpenRouterModelId(modelId: string): string {
   return id || "unknown";
 }
 
-const inflight = new Map<string, Promise<ModelPrice>>();
+function hasManualPrice(
+  entry: PricingOverride | undefined,
+): entry is PricingOverride & ModelPrice {
+  if (!entry) {
+    return false;
+  }
+  return (
+    Number.isFinite(entry.promptPrice) &&
+    Number.isFinite(entry.completionPrice) &&
+    Number(entry.promptPrice) >= 0 &&
+    Number(entry.completionPrice) >= 0
+  );
+}
+
+function foldedModelKey(modelId: string): string {
+  return modelId.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function modelMetadataKeys(raw: unknown): string[] {
+  const model = raw as {
+    id?: string;
+    canonical_slug?: string;
+    hugging_face_id?: string;
+    name?: string;
+  };
+  return [model.id, model.canonical_slug, model.hugging_face_id, model.name]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .flatMap((value) => [value, value.toLowerCase(), foldedModelKey(value)]);
+}
+
+function warnUnresolvedModel(rawModelId: string) {
+  if (unresolvedWarnings.has(rawModelId)) {
+    return;
+  }
+  unresolvedWarnings.add(rawModelId);
+  console.warn(
+    `[model-pricing] unresolved model "${rawModelId}" — using conservative floor; add config/model-pricing-overrides.json entry`,
+  );
+}
 
 async function fetchWithTimeout(url: string) {
   const controller = new AbortController();
@@ -102,17 +164,28 @@ async function fetchSingleModel(modelId: string): Promise<ModelPrice | null> {
   }
 }
 
-async function fetchFromFullList(modelId: string): Promise<ModelPrice | null> {
+async function fetchFromFullList(
+  modelId: string,
+): Promise<(ModelPrice & { modelId: string }) | null> {
   try {
     const res = await fetchWithTimeout(`${OPENROUTER_API_BASE}/models`);
     if (!res.ok) {
       return null;
     }
     const body = await res.json();
-    const match = (body?.data as unknown[] | undefined)?.find(
-      (m) => (m as { id?: string })?.id === modelId,
-    );
-    return parsePricing(match);
+    const lookupKeys = new Set([
+      modelId,
+      modelId.toLowerCase(),
+      foldedModelKey(modelId),
+    ]);
+    const match = (body?.data as unknown[] | undefined)?.find((m) =>
+      modelMetadataKeys(m).some((key) => lookupKeys.has(key)),
+    ) as { id?: string } | undefined;
+    const price = parsePricing(match);
+    if (!match?.id || !price) {
+      return null;
+    }
+    return { modelId: match.id, ...price };
   } catch {
     return null;
   }
@@ -145,17 +218,31 @@ async function upsertPrice(modelId: string, price: ModelPrice) {
   });
 }
 
-async function refreshModelPrice(modelId: string): Promise<ModelPrice> {
+async function refreshModelPrice(
+  rawModelId: string,
+  modelId: string,
+): Promise<ResolvedModelPricing> {
   const fresh = await fetchSingleModel(modelId);
   if (fresh) {
     await upsertPrice(modelId, fresh);
-    return fresh;
+    return {
+      rawModelId,
+      pricedModelId: modelId,
+      pricingSource: "openrouter-refresh",
+      ...fresh,
+    };
   }
 
   const fromList = await fetchFromFullList(modelId);
   if (fromList) {
-    await upsertPrice(modelId, fromList);
-    return fromList;
+    const { modelId: matchedModelId, ...price } = fromList;
+    await upsertPrice(matchedModelId, price);
+    return {
+      rawModelId,
+      pricedModelId: matchedModelId,
+      pricingSource: "openrouter-refresh",
+      ...price,
+    };
   }
 
   const stale = await getStaleCacheRow(modelId);
@@ -163,38 +250,72 @@ async function refreshModelPrice(modelId: string): Promise<ModelPrice> {
     console.warn(
       `[model-pricing] refresh failed for "${modelId}", serving stale cache`,
     );
-    return stale;
+    return {
+      rawModelId,
+      pricedModelId: modelId,
+      pricingSource: "openrouter-cache",
+      ...stale,
+    };
   }
 
-  console.warn(
-    `[model-pricing] no price for "${modelId}" — using conservative floor`,
-  );
-  // Do not upsert floor as if it were real OpenRouter data.
-  return CONSERVATIVE_DEFAULT_PRICE;
+  warnUnresolvedModel(rawModelId);
+  return {
+    rawModelId,
+    pricedModelId: "unknown",
+    pricingSource: "conservative-floor",
+    ...CONSERVATIVE_DEFAULT_PRICE,
+  };
 }
 
-/** Returns cached price if fresh, otherwise refreshes (with fallback chain). */
-export async function getModelPricing(modelId: string): Promise<ModelPrice> {
-  const key = normalizeOpenRouterModelId(modelId || "unknown");
+const inflight = new Map<string, Promise<ResolvedModelPricing>>();
+
+export async function resolveModelPricing(
+  modelId: string,
+): Promise<ResolvedModelPricing> {
+  const rawModelId = modelId.trim() || "unknown";
+  const override = pricingOverrides[rawModelId];
+  if (hasManualPrice(override)) {
+    return {
+      rawModelId,
+      pricedModelId: override.openRouterModelId?.trim() || rawModelId,
+      pricingSource: "manual-override",
+      promptPrice: Number(override.promptPrice),
+      completionPrice: Number(override.completionPrice),
+    };
+  }
+
+  const key =
+    override?.openRouterModelId?.trim() ||
+    normalizeOpenRouterModelId(rawModelId);
 
   const row = await prisma.modelPricing.findUnique({ where: { modelId: key } });
   if (row && Date.now() - row.fetchedAt.getTime() < STALE_AFTER_MS) {
     return {
+      rawModelId,
+      pricedModelId: key,
+      pricingSource: "openrouter-cache",
       promptPrice: Number(row.promptPrice),
       completionPrice: Number(row.completionPrice),
     };
   }
 
-  const existing = inflight.get(key);
+  const inflightKey = key;
+  const existing = inflight.get(inflightKey);
   if (existing) {
     return existing;
   }
 
-  const p = refreshModelPrice(key).finally(() => {
-    inflight.delete(key);
+  const p = refreshModelPrice(rawModelId, key).finally(() => {
+    inflight.delete(inflightKey);
   });
-  inflight.set(key, p);
+  inflight.set(inflightKey, p);
   return p;
+}
+
+/** Returns cached price if fresh, otherwise refreshes (with fallback chain). */
+export async function getModelPricing(modelId: string): Promise<ModelPrice> {
+  const { promptPrice, completionPrice } = await resolveModelPricing(modelId);
+  return { promptPrice, completionPrice };
 }
 
 /** Warms/refreshes pricing for all seed models. Safe to call repeatedly. */
