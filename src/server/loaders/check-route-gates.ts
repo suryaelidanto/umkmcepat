@@ -9,16 +9,11 @@ import { getAuthState } from "@/lib/auth";
 import { isUserVerified } from "@/lib/user-credits";
 import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
+import { isWaitlistMarketingPublicPath } from "@/lib/waitlist-route-access";
 import { resolveUserWaitlistStatus } from "@/routes/api.user.waitlist";
 
 export async function checkRouteGates(pathname: string) {
-  const isPublicRoute =
-    pathname === "/blocked" ||
-    pathname === "/waitlist" ||
-    pathname === "/verify" ||
-    pathname === "/privacy" ||
-    pathname === "/terms" ||
-    pathname.startsWith("/booster/success/");
+  const isPublicRoute = isWaitlistMarketingPublicPath(pathname);
 
   const { session, banned } = await getAuthState();
 

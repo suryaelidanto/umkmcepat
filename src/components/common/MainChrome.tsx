@@ -14,6 +14,7 @@ import {
   useTargetPathname,
 } from "@/lib/navigation";
 import { fetchJson, queryKeys } from "@/lib/query-client";
+import { isWaitlistMarketingPublicPath } from "@/lib/waitlist-route-access";
 
 export function MainChrome({ children }: { children: React.ReactNode }) {
   // Layout must follow the *committed* page (Outlet), not the in-flight target.
@@ -58,7 +59,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       }>("/api/user/waitlist", {
         cache: "no-store",
       }),
-    enabled: isVerified && !isVerifyPage && !isWaitlistPage,
+    enabled: isVerified && !isVerifyPage,
     staleTime: 60_000,
     gcTime: 10 * 60_000,
     retry: 1,
@@ -121,12 +122,12 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Waitlist gate: a signed-in verified user without an approved entry is
-    // sent to /waitlist. null = no entry; pending/rejected = not yet approved.
+    // Waitlist gate: product routes only. Marketing-public paths stay open.
     if (
       isVerified &&
       waitlistQuery.isSuccess &&
-      waitlistQuery.data.status !== "approved"
+      waitlistQuery.data.status !== "approved" &&
+      !isWaitlistMarketingPublicPath(pathname)
     ) {
       router.replace("/waitlist");
     }
@@ -134,6 +135,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     isVerifyPage,
     isWaitlistPage,
     isVerified,
+    pathname,
     router,
     verificationQuery.data,
     verificationQuery.isSuccess,

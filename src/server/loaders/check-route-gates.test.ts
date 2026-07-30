@@ -90,4 +90,30 @@ describe("checkRouteGates", () => {
     const result = await checkRouteGates("/privacy");
     expect(result).toEqual({ ok: true });
   });
+
+  it("allows waitlisted users on homepage", async () => {
+    getAuthStateMock.mockResolvedValue({
+      session: { user: { id: "u-1", email: "user@example.com" } },
+      banned: false,
+    });
+    isUserVerifiedMock.mockResolvedValue(true);
+    isWaitlistEnabledMock.mockResolvedValue(true);
+    isWaitlistApprovedMock.mockResolvedValue(false);
+    resolveUserWaitlistStatusMock.mockReturnValue({ status: "pending" });
+
+    await expect(checkRouteGates("/")).resolves.toEqual({ ok: true });
+  });
+
+  it("still redirects waitlisted users away from product routes", async () => {
+    getAuthStateMock.mockResolvedValue({
+      session: { user: { id: "u-1", email: "user@example.com" } },
+      banned: false,
+    });
+    isUserVerifiedMock.mockResolvedValue(true);
+    isWaitlistEnabledMock.mockResolvedValue(true);
+    isWaitlistApprovedMock.mockResolvedValue(false);
+    resolveUserWaitlistStatusMock.mockReturnValue({ status: "pending" });
+
+    await expect(checkRouteGates("/projects")).rejects.toBeInstanceOf(Response);
+  });
 });
