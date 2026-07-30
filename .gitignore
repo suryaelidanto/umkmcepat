@@ -90,3 +90,4 @@ auth.env
 
 .omc
 __captures__/
+.firecrawl/
