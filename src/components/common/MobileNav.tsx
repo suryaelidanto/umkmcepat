@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Home, Plus, User, Wallet } from "lucide-react";
 import { useState } from "react";
 
@@ -7,12 +8,18 @@ import { Link } from "@/components/ui/link";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { useSession } from "@/lib/auth-client";
 import { usePathname } from "@/lib/navigation";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 
 const ITEMS = [
   { href: "/", icon: Home, label: "Beranda" },
   { href: "/projects", icon: Wallet, label: "Proyek" },
   { href: "/projects/new", icon: Plus, label: "Buat" },
   { href: "/profile", icon: User, label: "Akun" },
+] as const;
+
+const WAITLISTED_ITEMS = [
+  { href: "/", icon: Home, label: "Beranda" },
+  { href: "/waitlist", icon: User, label: "Antrean" },
 ] as const;
 
 const OVERFLOW = [
@@ -22,14 +29,35 @@ const OVERFLOW = [
   { href: "/admin", label: "Admin", adminOnly: true },
 ] as const;
 
+const WAITLISTED_OVERFLOW = [
+  { href: "/privacy", label: "Privasi" },
+  { href: "/terms", label: "Syarat" },
+] as const;
+
 export function MobileNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const waitlistQuery = useQuery({
+    queryKey: queryKeys.waitlistStatus,
+    queryFn: () =>
+      fetchJson<{ status: string | null }>("/api/user/waitlist", {
+        cache: "no-store",
+      }),
+    enabled: status === "authenticated",
+    staleTime: 60_000,
+  });
+  const waitlisted =
+    status === "authenticated" &&
+    waitlistQuery.isSuccess &&
+    waitlistQuery.data.status !== "approved";
   const isAdmin = session?.user?.admin === true;
-  const overflow = OVERFLOW.filter(
-    (item) => !("adminOnly" in item && item.adminOnly) || isAdmin,
-  );
+  const items = waitlisted ? WAITLISTED_ITEMS : ITEMS;
+  const overflow = waitlisted
+    ? WAITLISTED_OVERFLOW
+    : OVERFLOW.filter(
+        (item) => !("adminOnly" in item && item.adminOnly) || isAdmin,
+      );
 
   return (
     <>
@@ -37,7 +65,7 @@ export function MobileNav() {
         aria-label="Navigasi utama"
         className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-around border-t border-surface-warm-white/10 bg-[#151515]/95 backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden"
       >
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
           return (

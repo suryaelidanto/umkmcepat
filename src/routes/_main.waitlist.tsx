@@ -21,6 +21,7 @@ import {
   textInputClass,
 } from "@/components/form/FormFields";
 import { Button } from "@/components/ui/button";
+import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";
 import { useSession } from "@/lib/auth-client";
 import { useValidatedForm } from "@/lib/forms";
@@ -1095,6 +1096,12 @@ function SuccessScreen({
         )}{" "}
         setelah kami cek.
       </p>
+      <Link
+        href="/"
+        className="mt-spacing-2 inline-flex items-center justify-center rounded-full bg-surface-warm-white px-spacing-6 py-spacing-3 text-sm font-medium text-[#141413] hover:bg-surface-warm-white/92"
+      >
+        Lihat beranda
+      </Link>
       {isAdmin && entryId ? (
         <button
           className="mt-spacing-4 text-xs text-surface-warm-white/60 underline-offset-4 hover:text-surface-warm-white hover:underline disabled:opacity-50"

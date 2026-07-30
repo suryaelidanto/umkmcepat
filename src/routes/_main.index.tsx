@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { motion } from "motion/react";
@@ -16,12 +17,15 @@ import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
+import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";
+import { useSession } from "@/lib/auth-client";
 import { prisma } from "@/lib/prisma";
 import {
   encodeProjectCursor,
   PROJECT_PAGE_SIZE,
 } from "@/lib/projects/pagination";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 import {
   getProjectCount,
   getProjectLimit,
@@ -214,6 +218,20 @@ function HomePage() {
     initialNextCursor,
     initialProjects,
   } = Route.useLoaderData();
+  const { status } = useSession();
+  const waitlistQuery = useQuery({
+    queryKey: queryKeys.waitlistStatus,
+    queryFn: () =>
+      fetchJson<{ status: string | null }>("/api/user/waitlist", {
+        cache: "no-store",
+      }),
+    enabled: status === "authenticated",
+    staleTime: 60_000,
+  });
+  const waitlisted =
+    status === "authenticated" &&
+    waitlistQuery.isSuccess &&
+    waitlistQuery.data.status !== "approved";
   const [promptFocused, setPromptFocused] = useState(false);
   const siblingClass = promptFocused
     ? "transition-all duration-300 opacity-40 scale-[0.98]"
@@ -234,12 +252,31 @@ function HomePage() {
         <HeroAuroraBackground />
 
         <HeroContentMotion>
+          {waitlisted ? (
+            <HeroMotionItem className="w-full">
+              <div className="mx-auto mb-spacing-6 max-w-3xl rounded-[20px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-6 py-spacing-4 text-center text-sm text-surface-warm-white/82">
+                <p>Kamu masih dalam antrean. Kami hubungi lewat email.</p>
+                <Link
+                  href="/waitlist"
+                  className="mt-spacing-2 inline-block text-surface-warm-white underline-offset-4 hover:underline"
+                >
+                  Cek status antrean
+                </Link>
+              </div>
+            </HeroMotionItem>
+          ) : null}
           <HeroMotionItem className={siblingClass}>
             <h1
               id="hero-heading"
               className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white"
             >
-              {hasUser ? (
+              {waitlisted ? (
+                greetingName ? (
+                  `Hai, ${greetingName}.`
+                ) : (
+                  "Kamu masih dalam antrean."
+                )
+              ) : hasUser ? (
                 greetingName ? (
                   `Hai, ${greetingName}. Mau buat website apa hari ini?`
                 ) : (
@@ -249,16 +286,23 @@ function HomePage() {
                 <HeroHeadline />
               )}
             </h1>
+            {waitlisted ? (
+              <p className="mt-spacing-4 max-w-2xl text-base leading-7 text-surface-warm-white/62">
+                Setelah disetujui, kamu bisa buat website di sini.
+              </p>
+            ) : null}
           </HeroMotionItem>
-          <HeroMotionItem className="w-full">
-            <HomePromptForm onFocusChange={setPromptFocused} />
-          </HeroMotionItem>
+          {!waitlisted ? (
+            <HeroMotionItem className="w-full">
+              <HomePromptForm onFocusChange={setPromptFocused} />
+            </HeroMotionItem>
+          ) : null}
         </HeroContentMotion>
       </section>
 
       {!hasUser ? <CommunitySection contributors={contributors} /> : null}
 
-      {hasUser ? (
+      {hasUser && !waitlisted ? (
         <section className="border-t border-surface-warm-white/10 bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
           <ScrollReveal>
             <div className="mx-auto max-w-6xl text-left">
