@@ -1,30 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  authMock,
-  putStoredObjectMock,
-  getStoredObjectMock,
-  prismaMock,
-  isAdminEmailMock,
-} = vi.hoisted(() => ({
-  authMock: vi.fn(),
-  getStoredObjectMock: vi.fn(),
-  isAdminEmailMock: vi.fn(),
-  prismaMock: {
-    supportMessage: {
-      findFirst: vi.fn(),
-    },
-  },
-  putStoredObjectMock: vi.fn(),
-}));
+const authMock = vi.fn();
+const getStoredObjectMock = vi.fn();
+const isAdminEmailMock = vi.fn();
+const putStoredObjectMock = vi.fn();
 
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/object-storage", () => ({
   getStoredObject: getStoredObjectMock,
   putStoredObject: putStoredObjectMock,
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
+
+vi.mock("@/lib/prisma", () => {
+  return {
+    prisma: {
+      supportMessage: {
+        findFirst: vi.fn(),
+      },
+      supportAsset: {
+        create: vi.fn(),
+        findUnique: vi.fn(),
+      },
+    },
+  };
+});
+
 vi.mock("@/lib/waitlist", () => ({ isAdminEmail: isAdminEmailMock }));
+
+import { prisma } from "@/lib/prisma";
 
 async function callPost(formData: FormData | null) {
   const { Route } = await import("@/routes/api.support.assets");
@@ -195,7 +198,9 @@ describe("Support Assets Endpoints", () => {
       authMock.mockResolvedValueOnce({
         user: { email: "user@example.com", id: "user_1" },
       });
-      prismaMock.supportMessage.findFirst.mockResolvedValueOnce(null); // ticket not found/not owned
+      vi.mocked(prisma.supportAsset.findUnique).mockResolvedValueOnce(
+        null as unknown as never,
+      );
 
       const res = await callGet("uuid.png");
       expect(res.status).toBe(403);
@@ -205,10 +210,10 @@ describe("Support Assets Endpoints", () => {
       authMock.mockResolvedValueOnce({
         user: { email: "user@example.com", id: "user_1" },
       });
-      // Mock message finding succeeds (user is owner)
-      prismaMock.supportMessage.findFirst.mockResolvedValueOnce({
+      // Mock asset finding succeeds (user is owner)
+      vi.mocked(prisma.supportAsset.findUnique).mockResolvedValueOnce({
         ticket: { userId: "user_1" },
-      });
+      } as unknown as never);
 
       getStoredObjectMock.mockResolvedValueOnce(null);
 
@@ -223,9 +228,9 @@ describe("Support Assets Endpoints", () => {
       authMock.mockResolvedValueOnce({
         user: { email: "user@example.com", id: "user_1" },
       });
-      prismaMock.supportMessage.findFirst.mockResolvedValueOnce({
+      vi.mocked(prisma.supportAsset.findUnique).mockResolvedValueOnce({
         ticket: { userId: "user_1" },
-      });
+      } as unknown as never);
 
       getStoredObjectMock.mockResolvedValueOnce({
         body: Buffer.from([1, 2, 3]),
@@ -253,7 +258,7 @@ describe("Support Assets Endpoints", () => {
 
       const res = await callGet("uuid.png");
       expect(res.status).toBe(200);
-      expect(prismaMock.supportMessage.findFirst).not.toHaveBeenCalled();
+      expect(prisma.supportMessage.findFirst).not.toHaveBeenCalled();
       expect(new Uint8Array(await res.arrayBuffer())).toEqual(
         new Uint8Array([4, 5, 6]),
       );
