@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
           try {
             const detail = await getMayarTransaction(payment.providerTxnId);
 
-            if (detail.status !== "SUCCESS") {
+            if (detail.status !== "paid") {
               return Response.json({
                 success: false,
                 status: detail.status,

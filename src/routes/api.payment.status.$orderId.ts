@@ -23,7 +23,7 @@ async function reconcilePendingPayment(payment: {
 
   const verified = await getMayarTransaction(payment.providerTxnId);
 
-  if (verified.status !== "SUCCESS" || verified.amount !== payment.amount) {
+  if (verified.status !== "paid" || verified.amount !== payment.amount) {
     return null;
   }
 

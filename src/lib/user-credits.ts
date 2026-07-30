@@ -363,8 +363,8 @@ export async function getEnergyStats(userId: string): Promise<{
 
   const freeUsed = Math.abs(freeRow?.amount ?? 0);
   const remainingFree = Math.max(0, getEnergyConfig().dailyLimit - freeUsed);
-  const remainingPremium = Math.max(0, premiumRow?.amount ?? 0);
-  const remaining = remainingFree + remainingPremium;
+  const remainingPremium = premiumRow?.amount ?? 0; // raw — can be negative (IOU)
+  const remaining = Math.max(0, remainingFree + remainingPremium);
 
   return {
     remaining,

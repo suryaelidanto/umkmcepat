@@ -53,21 +53,6 @@ export const Route = createFileRoute("/api/payment/webhook")({
           });
         }
 
-        const isPaymentCompleted =
-          payload.data?.transactionStatus === "paid" ||
-          payload.data?.status === "SUCCESS";
-
-        if (!isPaymentCompleted) {
-          console.warn(
-            "[webhook] Skipping: transactionStatus not 'paid':",
-            payload.data?.transactionStatus,
-          );
-          return Response.json({
-            success: false,
-            message: "Payment not completed.",
-          });
-        }
-
         const transactionId = payload.data?.transactionId ?? payload.data?.id;
 
         if (!transactionId) {
@@ -107,9 +92,9 @@ export const Route = createFileRoute("/api/payment/webhook")({
           // the webhook payload itself is never trusted for status or amount.
           const verifiedTransaction = await getMayarTransaction(transactionId);
 
-          if (verifiedTransaction.status !== "SUCCESS") {
+          if (verifiedTransaction.status !== "paid") {
             console.warn(
-              `[webhook] Direct verification status is "${verifiedTransaction.status}", expected "SUCCESS" for transactionId ${transactionId}`,
+              `[webhook] Direct verification status is "${verifiedTransaction.status}", expected "paid" for transactionId ${transactionId}`,
             );
             return Response.json({
               success: false,
