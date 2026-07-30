@@ -877,6 +877,43 @@ export function WorkspaceShell({
         return;
       }
 
+      // Read the SSE channel tail from the POST response and route
+      // events through the same handler the late-joiner stream uses.
+      if (response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split("\n\n");
+          buffer = blocks.pop() || "";
+
+          for (const block of blocks) {
+            const eventMatch = block.match(/^event: (.+)$/m);
+            const dataMatch = block.match(/^data: (.+)$/m);
+            if (!eventMatch || !dataMatch) {
+              continue;
+            }
+            let payload: Record<string, unknown>;
+            try {
+              payload = JSON.parse(dataMatch[1]) as Record<string, unknown>;
+            } catch {
+              continue;
+            }
+            handleBuildStreamEvent({
+              ...payload,
+              type: eventMatch[1],
+            } as BuildStreamEvent);
+          }
+        }
+      }
+
       void loadRuntimeState();
       return;
     } catch (error) {
