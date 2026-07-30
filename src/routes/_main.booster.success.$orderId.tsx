@@ -1,13 +1,9 @@
-import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertCircleIcon, CheckCircle2Icon, Loader2Icon } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { DarkPage } from "@/components/ui/surface";
 import { fetchJson } from "@/lib/query-client";
-
-interface SuccessSearchParams {
-  orderId?: string;
-}
 
 type PaymentStatusResponse = {
   success: boolean;
@@ -18,7 +14,7 @@ type PaymentStatusResponse = {
 };
 
 function BoosterSuccessPage() {
-  const { orderId } = useSearch({ from: Route.id });
+  const { orderId } = Route.useParams();
   const [status, setStatus] = useState<string>("PENDING");
 
   useEffect(() => {
@@ -104,11 +100,6 @@ function BoosterSuccessPage() {
   );
 }
 
-export const Route = createFileRoute("/_main/booster/success")({
-  validateSearch: (
-    search: Record<string, string | undefined>,
-  ): SuccessSearchParams => ({
-    orderId: search.orderId,
-  }),
+export const Route = createFileRoute("/_main/booster/success/$orderId")({
   component: BoosterSuccessPage,
 });

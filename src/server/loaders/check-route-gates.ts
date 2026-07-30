@@ -18,7 +18,7 @@ export async function checkRouteGates(pathname: string) {
     pathname === "/verify" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
-    pathname === "/booster/success";
+    pathname.startsWith("/booster/success/");
 
   const { session, banned } = await getAuthState();
 
