@@ -173,6 +173,12 @@ function WaitlistPage() {
   const form = useValidatedForm<WaitlistValues>({
     initialValues: EMPTY_VALUES,
     onSubmit: async (values) => {
+      if (uploadingPhotoCount > 0) {
+        throw new Error("Tunggu hingga semua foto terunggah.");
+      }
+      if (photoAssetIds.length === 0) {
+        throw new Error("Upload setidaknya 1 foto usaha.");
+      }
       const fd = new FormData();
       fd.append("businessName", values.businessName.trim());
       if (values.businessType) {
@@ -184,8 +190,8 @@ function WaitlistPage() {
       fd.append("storyOffers", values.storyOffers.trim());
       fd.append("storySince", values.storySince);
       fd.append("storyGoal", values.storyGoal.trim());
-      for (const file of values.photo) {
-        fd.append("file", file, file.name);
+      for (const assetId of photoAssetIds) {
+        fd.append("assetIds", assetId);
       }
       fd.append("cf-turnstile-response", "dev");
       const response = await fetch("/api/waitlist", {
@@ -312,37 +318,7 @@ function WaitlistPage() {
   }, [form.values.photo]);
 
   const submit = useMutation({
-    mutationFn: async () => {
-      if (uploadingPhotoCount > 0) {
-        throw new Error("Tunggu hingga semua foto terunggah.");
-      }
-      const values = form.values;
-      const fd = new FormData();
-      fd.append("businessName", values.businessName.trim());
-      if (values.businessType) {
-        fd.append("businessType", values.businessType);
-      }
-      if (values.phone?.trim()) {
-        fd.append("phone", values.phone.trim());
-      }
-      fd.append("storyOffers", values.storyOffers.trim());
-      fd.append("storySince", values.storySince);
-      fd.append("storyGoal", values.storyGoal.trim());
-      for (const assetId of photoAssetIds) {
-        fd.append("assetIds", assetId);
-      }
-      fd.append("cf-turnstile-response", "dev");
-      const response = await fetch("/api/waitlist", {
-        body: fd,
-        method: "POST",
-      });
-      const json = (await response.json().catch(() => ({}))) as {
-        message?: string;
-      };
-      if (!response.ok) {
-        throw new Error(json.message ?? "Gagal mengirim pendaftaran.");
-      }
-    },
+    mutationFn: form.handleSubmit,
     onError: (error) => {
       toast.error(
         error instanceof Error ? error.message : "Gagal mengirim pendaftaran.",
