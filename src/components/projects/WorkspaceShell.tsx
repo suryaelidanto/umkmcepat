@@ -31,6 +31,10 @@ import {
   ComposerAttachments,
 } from "@/components/projects/ComposerAttachments";
 import {
+  useBuildAttemptStream,
+  type BuildStreamEvent,
+} from "@/components/projects/useBuildAttemptStream";
+import {
   BuildProgressPanel,
   EmptyPreviewState,
   GeneratedPreviewFrame,
@@ -61,6 +65,10 @@ import {
   appendBuildProgressStep,
   completeBuildProgressSteps,
 } from "@/lib/projects/build-progress-steps";
+import {
+  completeBuildStreamProgress,
+  reduceBuildStreamEvent,
+} from "@/lib/projects/build-stream-event";
 import { createUploadedImageFilePart } from "@/lib/projects/chat-file-parts";
 import { dedupeUiMessages } from "@/lib/projects/chat-memory";
 import {
@@ -524,23 +532,11 @@ export function WorkspaceShell({
       const data = query.state.data as RuntimeWorkspaceState | undefined;
       const attemptStatus = data?.latestAttempt?.status || "";
       const deploymentStatus = data?.deployment?.status || "";
-      const jobActive = Boolean(
-        data?.activeJob &&
-        ["generating", "building", "finalizing"].includes(
-          data.activeJob.phase || "",
-        ),
-      );
       if (
-        jobActive ||
-        data?.userFacingState === "building" ||
         ["running", "building", "starting", "queued"].includes(attemptStatus) ||
-        ["running", "building", "starting", "queued"].includes(
-          deploymentStatus,
-        ) ||
-        buildStatusRef.current === "building"
+        ["running", "building", "starting", "queued"].includes(deploymentStatus)
       ) {
-        // Faster while a job is active so refresh/hydrate feels live.
-        return jobActive || buildStatusRef.current === "building" ? 3000 : 7000;
+        return 30_000;
       }
       return false;
     },
@@ -855,7 +851,7 @@ export function WorkspaceShell({
         signal: abortController.signal,
       });
 
-      if (!response.ok || !response.body) {
+      if (!response.ok) {
         let detail = "Server belum bisa memulai proses build. Coba ulangi.";
         try {
           const errorBody = (await response.json()) as { message?: string };
@@ -876,126 +872,8 @@ export function WorkspaceShell({
         return;
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split("\n\n");
-        buffer = events.pop() || "";
-
-        for (const rawEvent of events) {
-          const eventName = rawEvent.match(/^event: (.+)$/m)?.[1];
-          const dataText = rawEvent.match(/^data: (.+)$/m)?.[1];
-
-          if (!eventName || !dataText) {
-            continue;
-          }
-
-          const data = JSON.parse(dataText) as {
-            detail?: string;
-            diff?: BuildProgressStep["diff"];
-            durationMs?: number;
-            energyUsed?: number;
-            label?: string;
-            message?: string;
-            path?: string;
-            reason?: string;
-            remaining?: number;
-            state?: "failed" | "succeeded";
-            title?: string;
-            type?: string;
-          };
-
-          if (eventName === "progress" && "label" in data && data.label) {
-            const label = data.label;
-
-            setBuildProgress((current) =>
-              appendBuildProgressStep(current, {
-                detail: data.detail || "",
-                label,
-                status: "active",
-              }),
-            );
-          }
-
-          if (eventName === "energy" && typeof data.remaining === "number") {
-            // Per-step energy event: refresh the meter so it visibly decrements
-            // during a build, not only at the end (or on exhaustion).
-            window.dispatchEvent(new Event("umkm:energy-changed"));
-          }
-
-          if (
-            eventName === "energy_exhausted" &&
-            typeof data.message === "string"
-          ) {
-            const message = data.message;
-            setBuildProgress((current) =>
-              appendBuildProgressStep(current, {
-                detail: message,
-                label: "Energi habis",
-                status: "done",
-              }),
-            );
-            window.dispatchEvent(new Event("umkm:energy-changed"));
-          }
-
-          if (eventName === "operation" && data.title) {
-            const title = data.title;
-            setBuildProgress((current) =>
-              appendBuildProgressStep(current, {
-                detail: data.path
-                  ? `${data.path} — ${data.detail || "Operasi selesai."}`
-                  : (data.detail ?? "Operasi selesai."),
-                diff: data.diff,
-                durationMs: data.durationMs,
-                label: title,
-                status: data.state === "failed" ? "error" : "done",
-              }),
-            );
-          }
-
-          if (eventName === "schema" || eventName === "done") {
-            setActiveTab("preview");
-          }
-
-          if (eventName === "done") {
-            setBuildStatus("ready");
-            setBuildProgress((current) => completeBuildProgressSteps(current));
-            patchProjectInList({ buildStatus: "ready" });
-            void loadRuntimeState();
-            setSourceReloadKey((current) => current + 1);
-            window.dispatchEvent(new Event("umkm:energy-changed"));
-            void queryClient.invalidateQueries({
-              queryKey: queryKeys.projects,
-              refetchType: "active",
-            });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
-          }
-
-          if (eventName === "error") {
-            setBuildStatus("failed");
-            void loadRuntimeState();
-            setSourceReloadKey((current) => current + 1);
-            setBuildProgress((current) =>
-              appendBuildProgressStep(current, {
-                detail: data.detail
-                  ? `Build berhenti sebelum tampilan website siap: ${data.detail}`
-                  : "Build berhenti sebelum tampilan website siap. Coba ulangi build.",
-                label: "Build belum selesai",
-                status: "error",
-              }),
-            );
-          }
-        }
-      }
+      void loadRuntimeState();
+      return;
     } catch (error) {
       // Abort and network failure both leave a retryable failed state — never
       // stick on local "building" with no CTA.
@@ -1233,24 +1111,6 @@ export function WorkspaceShell({
       });
 
   useEffect(() => {
-    void loadRuntimeState();
-
-    if (
-      buildStatus !== "building" &&
-      runtimeState?.deployment?.status !== "starting" &&
-      runtimeState?.deployment?.status !== "running"
-    ) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void loadRuntimeState();
-    }, 7000);
-
-    return () => window.clearInterval(interval);
-  }, [buildStatus, loadRuntimeState, runtimeState?.deployment?.status]);
-
-  useEffect(() => {
     if (!hasPreview || hasAutoOpenedPreview.current) {
       return;
     }
@@ -1267,6 +1127,58 @@ export function WorkspaceShell({
 
     return () => window.cancelAnimationFrame(frame);
   }, [hasPreview]);
+
+  const handleBuildStreamEvent = useCallback(
+    (event: BuildStreamEvent) => {
+      const result = reduceBuildStreamEvent(event);
+
+      if (result.kind === "progress") {
+        setBuildProgress(result.update);
+        return;
+      }
+
+      if (result.kind === "energy") {
+        window.dispatchEvent(new Event("umkm:energy-changed"));
+        return;
+      }
+
+      if (result.kind === "done") {
+        setBuildStatus("ready");
+        setBuildProgress((current) => completeBuildStreamProgress(current));
+        patchProjectInList({ buildStatus: "ready" });
+        void loadRuntimeState();
+        setSourceReloadKey((current) => current + 1);
+        window.dispatchEvent(new Event("umkm:energy-changed"));
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.projects,
+          refetchType: "active",
+        });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
+        return;
+      }
+
+      if (result.kind === "error") {
+        setBuildStatus("failed");
+        void loadRuntimeState();
+        setSourceReloadKey((current) => current + 1);
+        setBuildProgress(result.update);
+      }
+    },
+    [loadRuntimeState, queryClient],
+  );
+
+  useBuildAttemptStream({
+    attemptId:
+      runtimeState?.activeJob?.kind === "generate" &&
+      runtimeState.activeJob.attemptId &&
+      ["generating", "building", "finalizing"].includes(
+        runtimeState.activeJob.phase || "",
+      )
+        ? runtimeState.activeJob.attemptId
+        : null,
+    onEvent: handleBuildStreamEvent,
+    projectId,
+  });
 
   const sourceQuery = useQuery({
     queryKey: [
