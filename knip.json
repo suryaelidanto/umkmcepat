@@ -42,6 +42,8 @@
     "src/lib/app-settings-registry.ts": ["exports"],
     "src/lib/zod-schemas.ts": ["exports", "types"],
     "src/components/admin/streamer-mode-context.tsx": ["exports", "files"],
-    "src/components/admin/SensitiveText.tsx": ["exports", "files"]
+    "src/components/admin/SensitiveText.tsx": ["exports", "files"],
+    "src/lib/uploads/temp-image-client.ts": ["exports"],
+    "src/lib/uploads/temp-image-storage.ts": ["exports"]
   }
 }
