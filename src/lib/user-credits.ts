@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
-import { getModelPricing } from "@/lib/model-pricing";
+import { resolveModelPricing } from "@/lib/model-pricing";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -23,6 +23,8 @@ const DEFAULT_MIN_ENERGY_DISCUSS = 5_000;
 const DEFAULT_MIN_ENERGY_BUILD = 40_000;
 const DEFAULT_MIN_ENERGY_EDIT = 10_000;
 const DEFAULT_MIN_ENERGY_MODERATION = 500;
+
+type EnergyPricingProof = Awaited<ReturnType<typeof resolveModelPricing>>;
 
 export const PROJECT_LIMIT_DEFAULT = 5;
 
@@ -77,8 +79,17 @@ export async function calculateEnergyCost(
 ): Promise<number> {
   const input = Math.max(0, Math.floor(inputTokens));
   const output = Math.max(0, Math.floor(outputTokens));
-  const { promptPrice, completionPrice } = await getModelPricing(modelId);
-  const usd = input * promptPrice + output * completionPrice;
+  const pricing = await resolveModelPricing(modelId);
+  return calculateEnergyCostFromPricing(pricing, input, output);
+}
+
+function calculateEnergyCostFromPricing(
+  pricing: Pick<EnergyPricingProof, "promptPrice" | "completionPrice">,
+  inputTokens: number,
+  outputTokens: number,
+): number {
+  const usd =
+    inputTokens * pricing.promptPrice + outputTokens * pricing.completionPrice;
   return Math.round(usd * getEnergyConfig().microUsdPerEnergy);
 }
 
@@ -128,11 +139,8 @@ export async function addEnergyUsage(
 ): Promise<{ energyUsed: number; inputTokens: number; outputTokens: number }> {
   const input = Math.max(0, Math.floor(inputTokens));
   const output = Math.max(0, Math.floor(outputTokens));
-  const energyUsed = await calculateEnergyCost(
-    modelId.trim() || "unknown",
-    input,
-    output,
-  );
+  const pricing = await resolveModelPricing(modelId.trim() || "unknown");
+  const energyUsed = calculateEnergyCostFromPricing(pricing, input, output);
 
   if (energyUsed <= 0) {
     return { energyUsed: 0, inputTokens: 0, outputTokens: 0 };
@@ -178,7 +186,7 @@ export async function addEnergyUsage(
 
     if (freeDeduction > 0) {
       await tx.$executeRaw`
-        INSERT INTO "UserCredit" ("id", "userId", "projectId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+        INSERT INTO "UserCredit" ("id", "userId", "projectId", "amount", "inputTokens", "outputTokens", "rawModelId", "pricedModelId", "pricingSource", "promptPrice", "completionPrice", "reason", "expiresAt", "createdAt")
         VALUES (
           ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
           ${userId},
@@ -186,6 +194,11 @@ export async function addEnergyUsage(
           ${-freeDeduction},
           ${Math.round(input * freeRatio)},
           ${Math.round(output * freeRatio)},
+          ${pricing.rawModelId.slice(0, 160)},
+          ${pricing.pricedModelId.slice(0, 160)},
+          ${pricing.pricingSource.slice(0, 32)},
+          ${pricing.promptPrice},
+          ${pricing.completionPrice},
           ${reason.slice(0, 64)},
           ${endOfDay},
           NOW()
@@ -196,7 +209,7 @@ export async function addEnergyUsage(
     if (premiumDeduction > 0) {
       const premiumExpiry = new Date("9999-12-31T23:59:59.999Z");
       await tx.$executeRaw`
-        INSERT INTO "UserCredit" ("id", "userId", "projectId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+        INSERT INTO "UserCredit" ("id", "userId", "projectId", "amount", "inputTokens", "outputTokens", "rawModelId", "pricedModelId", "pricingSource", "promptPrice", "completionPrice", "reason", "expiresAt", "createdAt")
         VALUES (
           ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
           ${userId},
@@ -204,6 +217,11 @@ export async function addEnergyUsage(
           ${-premiumDeduction},
           ${input - Math.round(input * freeRatio)},
           ${output - Math.round(output * freeRatio)},
+          ${pricing.rawModelId.slice(0, 160)},
+          ${pricing.pricedModelId.slice(0, 160)},
+          ${pricing.pricingSource.slice(0, 32)},
+          ${pricing.promptPrice},
+          ${pricing.completionPrice},
           ${(reason + " (Premium)").slice(0, 64)},
           ${premiumExpiry},
           NOW()
