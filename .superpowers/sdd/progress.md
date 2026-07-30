@@ -144,3 +144,4 @@
 - [x] Task 1: custom input disconnect (commit f1dde58, included in Task 2 review)
 - [x] Task 2: build preview blink (commit f1dde58, review clean — includes Task 1)
 - [x] Task 4: chat retry should resume, not restart
+- [x] Task 4: chat reconnect (commits f5fb7e5 + 65c4d0e fix, review clean)

@@ -2229,8 +2229,11 @@ export function WorkspaceShell({
         if (turn.status === "succeeded") {
           // Turn already completed — reload persisted chat rather than
           // regenerating. This is the "retry should resume, not restart" fix.
-          await reloadLatestChat();
-          setIsRetrying(false);
+          try {
+            await reloadLatestChat();
+          } finally {
+            setIsRetrying(false);
+          }
           return;
         }
 
@@ -2254,8 +2257,13 @@ export function WorkspaceShell({
             }
             // Terminal state — reload chat (success or failure both show
             // the persisted state).
-            await reloadLatestChat();
-            setIsRetrying(false);
+            try {
+              await reloadLatestChat();
+            } catch {
+              // Error fetching persisted state — retry remains visible
+            } finally {
+              setIsRetrying(false);
+            }
           };
           pollRunningTurn();
           return;
