@@ -84,7 +84,7 @@ export async function createMayarPayment(opts: {
       amount: opts.amount,
       description: opts.orderId,
       expiredAt: opts.expiredAt,
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://umkmcepat.com"}/booster/success`,
+      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://umkmcepat.com"}/booster/success?orderId=${opts.orderId}`,
       items: [{ quantity: 1, rate: opts.amount, description: opts.packName }],
     }),
   });
