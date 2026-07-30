@@ -1,6 +1,12 @@
+import { randomUUID } from "node:crypto";
+
 import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 
+import type { Prisma } from "@prisma/client";
+
+import { putStoredObject } from "@/lib/object-storage";
 import { prisma } from "@/lib/prisma";
+import { claimTempImage } from "@/lib/uploads/temp-image-storage";
 
 export type TicketInput = {
   userId: string;
@@ -18,12 +24,82 @@ export type MessageInput = {
   assetIds?: string[];
 };
 
+function normalizeAssetIds(assetIds: string[] | undefined) {
+  return [...new Set(assetIds ?? [])];
+}
+
+async function claimSupportAsset(userId: string, assetId: string) {
+  if (!assetId.includes(".")) {
+    const claimed = await claimTempImage(userId, assetId);
+    const ext =
+      claimed.contentType === "image/png"
+        ? "png"
+        : claimed.contentType === "image/webp"
+          ? "webp"
+          : "jpg";
+    const finalAssetId = `${randomUUID()}.${ext}`;
+    await putStoredObject({
+      body: claimed.body,
+      contentType: claimed.contentType,
+      key: `support/assets/${finalAssetId}`,
+    });
+    await prisma.supportAsset.create({
+      data: { assetId: finalAssetId, uploadedById: userId },
+    });
+    return finalAssetId;
+  }
+  return assetId;
+}
+
+async function claimSupportAssets(userId: string, assetIds: string[]) {
+  if (assetIds.length > 3) {
+    throw new Error("Maksimal 3 lampiran diperbolehkan.");
+  }
+  return Promise.all(
+    assetIds.map((assetId) => claimSupportAsset(userId, assetId)),
+  );
+}
+
+async function bindSupportAssets(
+  tx: Prisma.TransactionClient,
+  input: {
+    assetIds: string[];
+    authorId: string;
+    ticketId: string;
+    messageId: string;
+  },
+) {
+  if (!input.assetIds.length) {
+    return;
+  }
+
+  const updated = await tx.supportAsset.updateMany({
+    where: {
+      assetId: { in: input.assetIds },
+      uploadedById: input.authorId,
+      ticketId: null,
+      messageId: null,
+    },
+    data: {
+      ticketId: input.ticketId,
+      messageId: input.messageId,
+    },
+  });
+
+  if (updated.count !== input.assetIds.length) {
+    throw new Error("Lampiran tidak valid.");
+  }
+}
+
 export async function createTicket(
   input: TicketInput,
 ): Promise<{ ticketId: string; firstMessageId: string }> {
   const subject = input.subject.trim();
   const body = input.body.trim();
-  const assetIds = input.assetIds || [];
+  const assetIds = await claimSupportAssets(
+    input.userId,
+    normalizeAssetIds(input.assetIds),
+  );
 
   if (subject.length > 140) {
     throw new Error("Subject maksimal 140 karakter.");
@@ -55,6 +131,13 @@ export async function createTicket(
       },
     });
 
+    await bindSupportAssets(tx, {
+      assetIds,
+      authorId: input.userId,
+      ticketId: ticket.id,
+      messageId: message.id,
+    });
+
     return {
       ticketId: ticket.id,
       firstMessageId: message.id,
@@ -66,7 +149,10 @@ export async function addMessage(
   input: MessageInput,
 ): Promise<{ messageId: string }> {
   const body = input.body.trim();
-  const assetIds = input.assetIds || [];
+  const assetIds = await claimSupportAssets(
+    input.authorId,
+    normalizeAssetIds(input.assetIds),
+  );
 
   if (!body) {
     throw new Error("Pesan tidak boleh kosong.");
@@ -95,6 +181,13 @@ export async function addMessage(
         body,
         assetIds,
       },
+    });
+
+    await bindSupportAssets(tx, {
+      assetIds,
+      authorId: input.authorId,
+      ticketId: input.ticketId,
+      messageId: message.id,
     });
 
     await tx.supportTicket.update({

@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth";
 import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import { putStoredObject } from "@/lib/object-storage";
+import { prisma } from "@/lib/prisma";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
@@ -67,6 +68,13 @@ export const Route = createFileRoute("/api/support/assets")({
             body: bytes,
             contentType,
             key,
+          });
+
+          await prisma.supportAsset.create({
+            data: {
+              assetId,
+              uploadedById: session.user.id,
+            },
           });
 
           return Response.json(

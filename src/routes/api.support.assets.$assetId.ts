@@ -19,20 +19,17 @@ export const Route = createFileRoute("/api/support/assets/$assetId")({
         const isAdmin = isAdminEmail(session.user.email);
         const { assetId } = params;
 
-        // If not admin, verify that a message exists with this assetId and belongs to the user
         if (!isAdmin) {
-          const message = await prisma.supportMessage.findFirst({
-            include: {
-              ticket: true,
-            },
-            where: {
-              assetIds: {
-                has: assetId,
+          const asset = await prisma.supportAsset.findUnique({
+            where: { assetId },
+            select: {
+              ticket: {
+                select: { userId: true },
               },
             },
           });
 
-          if (!message || message.ticket.userId !== session.user.id) {
+          if (!asset?.ticket || asset.ticket.userId !== session.user.id) {
             return new Response("Forbidden", { status: 403 });
           }
         }

@@ -1,37 +1,50 @@
 import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock } = vi.hoisted(() => {
-  return {
-    prismaMock: {
-      supportTicket: {
-        create: vi.fn(),
-        findUnique: vi.fn(),
-        findFirst: vi.fn(),
-        update: vi.fn(),
-        count: vi.fn(),
-        findMany: vi.fn(),
-      },
-      supportMessage: {
-        create: vi.fn(),
-        findFirst: vi.fn(),
-      },
-      $transaction: vi.fn(),
-    },
-  };
-});
-
-vi.mock("@/lib/prisma", () => ({
-  prisma: prismaMock,
+vi.mock("@/lib/uploads/temp-image-storage", () => ({
+  claimTempImage: vi
+    .fn()
+    .mockRejectedValue(new Error("images not needed for this test")),
 }));
 
-// Now import the service after mocking prisma
+vi.mock("@/lib/object-storage", () => ({
+  putStoredObject: vi.fn(),
+}));
+
+import { prisma } from "@/lib/prisma";
 import {
   createTicket,
   addMessage,
   resolveTicket,
   getUnreadCounts,
 } from "@/lib/support/service";
+
+vi.mock("@/lib/prisma", () => {
+  const prismaMock: Record<string, unknown> = {};
+
+  prismaMock.supportTicket = {
+    create: vi.fn(),
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+    findMany: vi.fn(),
+  };
+
+  prismaMock.supportMessage = {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+  };
+
+  prismaMock.supportAsset = {
+    create: vi.fn(),
+    updateMany: vi.fn(),
+  };
+
+  prismaMock.$transaction = vi.fn();
+
+  return { prisma: prismaMock };
+});
 
 describe("support service", () => {
   beforeEach(() => {
@@ -74,31 +87,41 @@ describe("support service", () => {
     });
 
     it("creates a ticket and first message in a transaction", async () => {
-      prismaMock.$transaction.mockImplementation(async (callback) => {
-        return callback(prismaMock);
-      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (tx: unknown) => unknown) => {
+          return callback(prisma);
+        },
+      );
 
-      prismaMock.supportTicket.create.mockResolvedValue({
+      (
+        prisma.supportTicket.create as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         id: "ticket-1",
       });
 
-      prismaMock.supportMessage.create.mockResolvedValue({
+      (
+        prisma.supportMessage.create as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         id: "message-1",
       });
+
+      (
+        prisma.supportAsset.updateMany as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({ count: 1 });
 
       const result = await createTicket({
         userId: "user-1",
         subject: "Masalah",
         category: SupportCategory.TEKNIS,
         body: "Pesan pertama",
-        assetIds: ["img-1"],
+        assetIds: ["img-1.webp"],
       });
 
       expect(result).toEqual({
         ticketId: "ticket-1",
         firstMessageId: "message-1",
       });
-      expect(prismaMock.supportTicket.create).toHaveBeenCalledWith({
+      expect(prisma.supportTicket.create).toHaveBeenCalledWith({
         data: {
           userId: "user-1",
           subject: "Masalah",
@@ -106,13 +129,25 @@ describe("support service", () => {
           status: SupportTicketStatus.OPEN,
         },
       });
-      expect(prismaMock.supportMessage.create).toHaveBeenCalledWith({
+      expect(prisma.supportMessage.create).toHaveBeenCalledWith({
         data: {
           ticketId: "ticket-1",
           authorId: "user-1",
           authorRole: "user",
           body: "Pesan pertama",
-          assetIds: ["img-1"],
+          assetIds: ["img-1.webp"],
+        },
+      });
+      expect(prisma.supportAsset.updateMany).toHaveBeenCalledWith({
+        where: {
+          assetId: { in: ["img-1.webp"] },
+          uploadedById: "user-1",
+          ticketId: null,
+          messageId: null,
+        },
+        data: {
+          ticketId: "ticket-1",
+          messageId: "message-1",
         },
       });
     });
@@ -132,7 +167,9 @@ describe("support service", () => {
     });
 
     it("validates ticket status is open", async () => {
-      prismaMock.supportTicket.findUnique.mockResolvedValue({
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         id: "ticket-1",
         status: SupportTicketStatus.RESOLVED,
       });
@@ -147,18 +184,55 @@ describe("support service", () => {
       ).rejects.toThrow("Tidak bisa membalas tiket yang sudah selesai.");
     });
 
-    it("creates support message and bumps ticket updatedAt", async () => {
-      prismaMock.supportTicket.findUnique.mockResolvedValue({
+    it("rejects asset IDs not uploaded by the message author", async () => {
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         id: "ticket-1",
         status: SupportTicketStatus.OPEN,
       });
-      prismaMock.supportMessage.create.mockResolvedValue({
+      (
+        prisma.supportMessage.create as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         id: "msg-2",
       });
+      (
+        prisma.supportAsset.updateMany as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({ count: 0 });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (tx: unknown) => unknown) => callback(prisma),
+      );
 
-      prismaMock.$transaction.mockImplementation(async (callback) => {
-        return callback(prismaMock);
+      await expect(
+        addMessage({
+          ticketId: "ticket-1",
+          authorId: "user-1",
+          authorRole: "user",
+          body: "Pesan tambahan",
+          assetIds: ["foreign.png"],
+        }),
+      ).rejects.toThrow("Lampiran tidak valid.");
+    });
+
+    it("creates support message and bumps ticket updatedAt", async () => {
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
+        id: "ticket-1",
+        status: SupportTicketStatus.OPEN,
       });
+      (
+        prisma.supportMessage.create as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
+        id: "msg-2",
+      });
+      (
+        prisma.supportAsset.updateMany as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({ count: 1 });
+
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (tx: unknown) => unknown) => callback(prisma),
+      );
 
       const result = await addMessage({
         ticketId: "ticket-1",
@@ -168,7 +242,7 @@ describe("support service", () => {
       });
 
       expect(result).toEqual({ messageId: "msg-2" });
-      expect(prismaMock.supportMessage.create).toHaveBeenCalledWith({
+      expect(prisma.supportMessage.create).toHaveBeenCalledWith({
         data: {
           ticketId: "ticket-1",
           authorId: "user-1",
@@ -177,7 +251,7 @@ describe("support service", () => {
           assetIds: [],
         },
       });
-      expect(prismaMock.supportTicket.update).toHaveBeenCalledWith({
+      expect(prisma.supportTicket.update).toHaveBeenCalledWith({
         where: { id: "ticket-1" },
         data: { updatedAt: expect.any(Date) },
       });
@@ -186,7 +260,9 @@ describe("support service", () => {
 
   describe("resolveTicket", () => {
     it("allows admin to resolve at any time", async () => {
-      prismaMock.supportTicket.findUnique.mockResolvedValue({
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         id: "ticket-1",
         status: SupportTicketStatus.OPEN,
       });
@@ -194,7 +270,7 @@ describe("support service", () => {
       const result = await resolveTicket("ticket-1", "admin-1", true);
 
       expect(result.success).toBe(true);
-      expect(prismaMock.supportTicket.update).toHaveBeenCalledWith({
+      expect(prisma.supportTicket.update).toHaveBeenCalledWith({
         where: { id: "ticket-1" },
         data: {
           status: SupportTicketStatus.RESOLVED,
@@ -205,20 +281,23 @@ describe("support service", () => {
     });
 
     it("allows user to resolve only if status=OPEN and last message is from user", async () => {
-      prismaMock.supportTicket.findUnique.mockResolvedValue({
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         id: "ticket-1",
         userId: "user-1",
         status: SupportTicketStatus.OPEN,
       });
-      // Last message is user
-      prismaMock.supportMessage.findFirst.mockResolvedValue({
+      (
+        prisma.supportMessage.findFirst as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         authorRole: "user",
       });
 
       const result = await resolveTicket("ticket-1", "user-1", false);
 
       expect(result.success).toBe(true);
-      expect(prismaMock.supportTicket.update).toHaveBeenCalledWith({
+      expect(prisma.supportTicket.update).toHaveBeenCalledWith({
         where: { id: "ticket-1" },
         data: {
           status: SupportTicketStatus.RESOLVED,
@@ -229,13 +308,16 @@ describe("support service", () => {
     });
 
     it("rejects user resolve if last message was from admin", async () => {
-      prismaMock.supportTicket.findUnique.mockResolvedValue({
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         id: "ticket-1",
         userId: "user-1",
         status: SupportTicketStatus.OPEN,
       });
-      // Last message is admin
-      prismaMock.supportMessage.findFirst.mockResolvedValue({
+      (
+        prisma.supportMessage.findFirst as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
         authorRole: "admin",
       });
 
@@ -247,14 +329,16 @@ describe("support service", () => {
 
   describe("getUnreadCounts", () => {
     it("returns open count for user", async () => {
-      prismaMock.supportTicket.count.mockResolvedValue(5);
+      (
+        prisma.supportTicket.count as ReturnType<typeof vi.fn>
+      ).mockResolvedValue(5);
 
       const result = await getUnreadCounts({
         userId: "user-1",
         isAdmin: false,
       });
       expect(result.userUnreadCount).toBe(5);
-      expect(prismaMock.supportTicket.count).toHaveBeenCalledWith({
+      expect(prisma.supportTicket.count).toHaveBeenCalledWith({
         where: {
           userId: "user-1",
           status: SupportTicketStatus.OPEN,
@@ -263,7 +347,9 @@ describe("support service", () => {
     });
 
     it("returns open with latest user message count for admin", async () => {
-      prismaMock.supportTicket.findMany.mockResolvedValue([
+      (
+        prisma.supportTicket.findMany as ReturnType<typeof vi.fn>
+      ).mockResolvedValue([
         { id: "ticket-1", messages: [{ authorRole: "user" }] },
         { id: "ticket-2", messages: [{ authorRole: "admin" }] },
       ]);

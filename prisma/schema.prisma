@@ -94,6 +94,7 @@ model User {
   otpRequests     OtpRequest[]
   payments        Payment[]
   supportTickets  SupportTicket[]
+  supportAssets   SupportAsset[]
 
   @@index([email])
   @@index([name])
@@ -506,6 +507,7 @@ model SupportTicket {
   resolvedBy String?
   user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages   SupportMessage[]
+  assets     SupportAsset[]
 
   @@index([status, updatedAt])
   @@index([userId, updatedAt])
@@ -518,8 +520,24 @@ model SupportMessage {
   authorRole String        @db.VarChar(16) // 'user' | 'admin'
   body       String        @db.Text
   createdAt  DateTime      @default(now())
-  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket     SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   assetIds   String[]
+  assets     SupportAsset[]
 
   @@index([ticketId, createdAt])
+}
+
+model SupportAsset {
+  id           String         @id @default(cuid())
+  assetId      String         @unique
+  uploadedById String
+  uploadedBy   User           @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  ticketId     String?
+  ticket       SupportTicket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  messageId    String?
+  message      SupportMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+
+  @@index([uploadedById, ticketId])
+  @@index([messageId])
 }

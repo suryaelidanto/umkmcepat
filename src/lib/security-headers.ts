@@ -33,7 +33,15 @@ export function isCrossSiteMutation({
     }
   }
 
-  return fetchSite === "cross-site";
+  if (fetchSite === "cross-site") {
+    return true;
+  }
+
+  if (!origin && !fetchSite && pathname.startsWith("/api/")) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

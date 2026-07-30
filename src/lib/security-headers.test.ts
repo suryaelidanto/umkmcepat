@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   applySecurityHeaders,
@@ -54,11 +54,27 @@ describe("mutation origin policy", () => {
       }),
     ).toBe(false);
   });
+
+  it("rejects unsafe API mutations with no browser provenance headers", () => {
+    expect(
+      isCrossSiteMutation({
+        fetchSite: null,
+        method: "POST",
+        origin: null,
+        pathname: "/api/projects/project_1/publish",
+        requestOrigin: "https://app.example.com",
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("security headers", () => {
+  const originalS3PublicBaseUrl = process.env.S3_PUBLIC_BASE_URL;
+  const originalUmamiScriptSrc = process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC;
+
   afterEach(() => {
-    vi.unstubAllEnvs();
+    process.env.S3_PUBLIC_BASE_URL = originalS3PublicBaseUrl;
+    process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC = originalUmamiScriptSrc;
   });
 
   it("denies framing and sensitive browser capabilities on the control plane", () => {
@@ -157,11 +173,9 @@ describe("security headers", () => {
   });
 
   it("builds a CSP covering every fetch directive", () => {
-    vi.stubEnv("S3_PUBLIC_BASE_URL", "https://media.example.test");
-    vi.stubEnv(
-      "NEXT_PUBLIC_UMAMI_SCRIPT_SRC",
-      "https://umami.example.test/script.js",
-    );
+    process.env.S3_PUBLIC_BASE_URL = "https://media.example.test";
+    process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC =
+      "https://umami.example.test/script.js";
 
     const policy = buildContentSecurityPolicy("test-nonce");
 
@@ -183,8 +197,8 @@ describe("security headers", () => {
   });
 
   it("omits environment origins that are not configured", () => {
-    vi.stubEnv("S3_PUBLIC_BASE_URL", "");
-    vi.stubEnv("NEXT_PUBLIC_UMAMI_SCRIPT_SRC", "");
+    process.env.S3_PUBLIC_BASE_URL = "";
+    process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC = "";
 
     const policy = buildContentSecurityPolicy("test-nonce");
 
