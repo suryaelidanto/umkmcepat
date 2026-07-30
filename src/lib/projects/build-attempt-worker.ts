@@ -437,6 +437,7 @@ export async function runBuildAttempt({
         try {
           result = await generateText({
             model: getAiModel(getGenerationModel()),
+            maxRetries: 2,
             maxOutputTokens: maxTokens,
             temperature: 0.35,
             abortSignal: abortSignal,

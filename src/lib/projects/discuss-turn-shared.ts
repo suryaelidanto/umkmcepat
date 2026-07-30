@@ -157,7 +157,6 @@ Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choi
             toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
           },
           temperature: 0.2,
-          maxRetries: 1,
           timeout: getAiTimeoutMs("discussCard"),
           telemetry: getAiTelemetry("project-guided-discuss-one-call-repair", {
             mode: "discuss-one-call-repair",
@@ -250,7 +249,6 @@ export async function repairToolCallInTurn({
       messages,
       tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
       toolChoice: { type: "tool", toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME },
-      maxRetries: 2,
       temperature: 0.25,
       maxOutputTokens: 1024,
       timeout: getAiTimeoutMs("discussCard"),

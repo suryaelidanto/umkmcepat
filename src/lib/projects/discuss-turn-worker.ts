@@ -108,7 +108,6 @@ export async function runDiscussTurn({
           projectId: project.id,
           toolCall,
         }),
-      maxRetries: 2,
       temperature: 0.25,
       maxOutputTokens: 1024,
       timeout: getAiTimeoutMs("discussOneCall"),

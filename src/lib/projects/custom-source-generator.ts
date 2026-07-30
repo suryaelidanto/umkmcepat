@@ -181,6 +181,7 @@ export async function generateCustomProjectFilesWithAgent({
     const generateSteps = getAgentMaxSteps("generate");
     const agent = new ToolLoopAgent({
       model: getAiModel(getGenerationModel()),
+      maxRetries: 2,
       // Reasoning models emit hidden reasoning_content per step; without a
       // generous per-step budget the visible tool-call never lands.
       maxOutputTokens: 12_000,
@@ -375,6 +376,7 @@ async function runForcedRewritePass({
   const rewriteSteps = Math.min(12, getAgentMaxSteps("repair"));
   const agent = new ToolLoopAgent({
     model: getAiModel(getGenerationModel()),
+    maxRetries: 2,
     maxOutputTokens: 12_000,
     instructions: buildGeneratedAppAgentInstructions(
       schema,
@@ -566,6 +568,7 @@ async function runSubagent({
 
   try {
     const subagent = new ToolLoopAgent({
+      maxRetries: 2,
       maxOutputTokens: 8_000,
       model: getAiModel(getGenerationModel()),
       instructions:
@@ -2200,6 +2203,7 @@ export async function repairGeneratedProjectFiles({
   const repairSteps = getAgentMaxSteps("repair");
   const agent = new ToolLoopAgent({
     model: getAiModel(getGenerationModel()),
+    maxRetries: 2,
     maxOutputTokens: 12_000,
     instructions: buildGeneratedAppAgentInstructions(
       schema,
@@ -2341,6 +2345,7 @@ export async function repairRuntimeErrors({
   const repairSteps = getAgentMaxSteps("repair");
   const agent = new ToolLoopAgent({
     model: getAiModel(getGenerationModel()),
+    maxRetries: 2,
     maxOutputTokens: 12_000,
     instructions: buildGeneratedAppAgentInstructions(
       schema,
