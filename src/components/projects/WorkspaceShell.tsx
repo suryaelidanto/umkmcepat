@@ -988,7 +988,41 @@ export function WorkspaceShell({
     }
 
     hasStartedChat.current = true;
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
+      // Refresh recovery: check if a chat turn already exists in the DB.
+      // If yes, don't re-send the initial prompt — reload persisted messages
+      // instead. This prevents the "welcome" flash after a hard reload.
+      try {
+        const turnRes = await fetch(`/api/projects/${projectId}/chat/turn`, {
+          cache: "no-store",
+        });
+        if (turnRes.ok) {
+          autoSentProjectIds.add(projectId);
+          // Cannot call reloadLatestChat here — it's defined below
+          // (const function TDZ). Inline a minimal fetch instead.
+          const chatRes = await fetch(
+            `/api/projects/${projectId}/chat?limit=20`,
+            { cache: "no-store" },
+          );
+          if (chatRes.ok) {
+            const chatResult = (await chatRes.json()) as {
+              messages?: UIMessage[];
+              nextCursor?: number | null;
+              hasMore?: boolean;
+            };
+            if (chatResult.messages?.length) {
+              setMessages(chatResult.messages);
+              setOlderMessages([]);
+              setChatCursor(chatResult.nextCursor ?? null);
+              setHasMoreChat(Boolean(chatResult.hasMore));
+            }
+          }
+          return;
+        }
+      } catch {
+        // Network error — fall through to auto-send below.
+      }
+
       // ponytail: first-turn asset inclusion. The home form's images are
       // persisted as ProjectAsset rows. We could fetch them here and pass
       // mediaPaths in the body, but that requires a sync query at mount
