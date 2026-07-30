@@ -39,6 +39,7 @@ import {
   repairToolCallInTurn,
   scrubBriefForStorage,
 } from "@/lib/projects/discuss-turn-shared";
+import { inlineChatAssetFileParts } from "@/lib/projects/inline-chat-asset-file-parts";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
 import { chargeEnergyForAiUsage } from "@/lib/user-credits";
 
@@ -68,13 +69,19 @@ export async function runDiscussTurn({
   try {
     const modelName = getDefaultAiModel();
     const model = modelOverride ?? getAiModel(modelName);
+    const chatContextWithInlineAssets = {
+      ...chatContext,
+      messages: await inlineChatAssetFileParts(chatContext.messages),
+    };
     const systemPrompt = buildOneCallSystemPrompt({
       brief: effectiveBrief,
       context: chatContext.systemContext,
       hasBuiltSite: project.status === "ready",
     });
     const cardSystemPrompt = buildCardSystemPrompt();
-    const modelMessages = await convertToModelMessages(chatContext.messages);
+    const modelMessages = await convertToModelMessages(
+      chatContextWithInlineAssets.messages,
+    );
 
     await writeAiRequestLog({
       event: "discuss:start",

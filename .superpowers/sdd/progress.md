@@ -130,3 +130,9 @@
 - Branch: dev
 - Merge base: 2d47d2b (plan commit)
 - Baseline commit before Task 1: 2d47d2b
+
+## Current plan: 2026-07-30-temp-image-upload
+- Plan: docs/superpowers/plans/2026-07-30-temp-image-upload.md
+- Spec: docs/superpowers/specs/2026-07-30-temp-image-upload-design.md
+- Branch: dev; work in place per user request; stage only named files.
+- Baseline commit before Task 1: 9f9ecf5

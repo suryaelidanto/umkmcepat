@@ -3,18 +3,18 @@ import { describe, expect, it } from "vitest";
 import { createUploadedImageFilePart } from "./chat-file-parts";
 
 describe("createUploadedImageFilePart", () => {
-  it("uses the uploaded asset URL instead of inlining image bytes", () => {
+  it("uses the uploaded asset marker instead of inlining image bytes", () => {
     const part = createUploadedImageFilePart({
       filename: "warung.png",
       mediaType: "image/png",
-      publicUrl: "https://media.example/project-assets/p/u/a.png",
+      url: "/media/cms_asset_1",
     });
 
     expect(part).toEqual({
       filename: "warung.png",
       mediaType: "image/png",
       type: "file",
-      url: "https://media.example/project-assets/p/u/a.png",
+      url: "/media/cms_asset_1",
     });
     expect(part.url).not.toMatch(/^data:/);
   });
@@ -24,7 +24,7 @@ describe("createUploadedImageFilePart", () => {
       createUploadedImageFilePart({
         filename: "warung",
         mediaType: "",
-        publicUrl: "https://media.example/project-assets/p/u/a.png",
+        url: "/media/cms_asset_1",
       }).mediaType,
     ).toBe("image/png");
   });

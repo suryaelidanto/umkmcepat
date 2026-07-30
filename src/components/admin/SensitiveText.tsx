@@ -3,6 +3,8 @@
 import { useRouterState } from "@tanstack/react-router";
 import { useEffect, useId, useState } from "react";
 
+import { useStreamerMode } from "./streamer-mode-context";
+
 import { mask, type MaskKind } from "@/lib/mask";
 
 type Props = {
@@ -11,8 +13,17 @@ type Props = {
   className?: string;
 };
 
+export function shouldShowRevealButton(
+  revealable: boolean,
+  streamerMode: boolean,
+): boolean {
+  return revealable && !streamerMode;
+}
+
 export function SensitiveText({ value, kind, className }: Props) {
   const { masked, revealable } = mask(value, kind);
+  const streamerMode = useStreamerMode();
+  const canReveal = shouldShowRevealButton(revealable, streamerMode);
   const [revealed, setRevealed] = useState(false);
   const id = useId();
   const pathname = useRouterState({
@@ -24,7 +35,7 @@ export function SensitiveText({ value, kind, className }: Props) {
     setRevealed(false);
   }, [pathname]);
 
-  if (!revealable) {
+  if (!canReveal) {
     return (
       <span className={className} aria-label="Nilai tersembunyi">
         {masked}

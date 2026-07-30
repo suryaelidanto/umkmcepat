@@ -3,16 +3,16 @@ import type { FileUIPart } from "ai";
 export function createUploadedImageFilePart({
   filename,
   mediaType,
-  publicUrl,
+  url,
 }: {
   filename: string;
   mediaType: string;
-  publicUrl: string;
+  url: string;
 }): FileUIPart {
   return {
     filename,
     mediaType: mediaType || "image/png",
     type: "file",
-    url: publicUrl,
+    url,
   };
 }
