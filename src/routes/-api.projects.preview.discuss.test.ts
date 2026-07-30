@@ -274,7 +274,9 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
       Route as unknown as {
         options: {
           server: {
-            handlers: { POST: (ctx: { request: Request }) => Promise<Response> };
+            handlers: {
+              POST: (ctx: { request: Request }) => Promise<Response>;
+            };
           };
         };
       }
@@ -297,8 +299,8 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
       method: "POST",
     });
     const response = await handler({ request });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(409);
     const resBody = (await response.json()) as Record<string, unknown>;
-    expect(resBody).toMatchObject({ code: "chat_role_mismatch" });
+    expect(resBody).toMatchObject({ code: "chat_turn_not_user" });
   });
 });

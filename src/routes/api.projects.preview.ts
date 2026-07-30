@@ -418,10 +418,10 @@ async function handleDiscussTurnOneCall({
   if (userMessage.role !== "user") {
     return Response.json(
       {
-        code: "chat_role_mismatch",
+        code: "chat_turn_not_user",
         message: "Posisi pesan terakhir harus berperan sebagai pengguna.",
       },
-      { status: 400 },
+      { status: 409 },
     );
   }
 

@@ -877,52 +877,6 @@ export function WorkspaceShell({
         return;
       }
 
-      // Read the SSE channel tail from the POST response and route
-      // events through the same handler the late-joiner stream uses.
-      if (response.body) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          let eventName: string | null = null;
-          for (const line of lines) {
-            const eventMatch = line.match(/^event: (.+)$/);
-            if (eventMatch) {
-              eventName = eventMatch[1];
-              continue;
-            }
-            const dataMatch = line.match(/^data: (.+)$/);
-            if (dataMatch && eventName) {
-              const data = dataMatch[1];
-              // Parse named SSE events via handleBuildStreamEvent.
-              // The event type and JSON data together form the event.
-              let payload: Record<string, unknown>;
-              try {
-                payload = JSON.parse(data) as Record<string, unknown>;
-              } catch {
-                eventName = null;
-                continue;
-              }
-              handleBuildStreamEvent({
-                ...payload,
-                type: eventName,
-              } as BuildStreamEvent);
-              eventName = null;
-            }
-          }
-        }
-      }
-
       void loadRuntimeState();
       return;
     } catch (error) {
