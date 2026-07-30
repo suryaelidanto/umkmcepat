@@ -326,9 +326,6 @@ export function WorkspaceShell({
   // Synchronous lock so the same `submitChatText` call within one tick can't
   // fire `sendMessage` twice when `isProcessing` state hasn't propagated yet.
   const submitInFlightRef = useRef(false);
-  const streamEventHandlerRef = useRef<
-    ((event: BuildStreamEvent) => void) | null
-  >(null);
 
   const isDesktop = useIsDesktopViewport();
   // Resume state for the last unanswered user message detected on mount.
