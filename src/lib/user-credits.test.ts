@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  getModelPricingMock,
+  resolveModelPricingMock,
   prismaQueryRawMock,
   prismaExecuteRawMock,
   prismaTransactionMock,
@@ -9,7 +9,7 @@ const {
 } = vi.hoisted(() => {
   const store = new Map<string, unknown>();
   return {
-    getModelPricingMock: vi.fn(),
+    resolveModelPricingMock: vi.fn(),
     prismaQueryRawMock: vi.fn(),
     prismaExecuteRawMock: vi.fn(),
     prismaTransactionMock: vi.fn(async (callback) =>
@@ -43,7 +43,7 @@ const {
 });
 
 vi.mock("@/lib/model-pricing", () => ({
-  getModelPricing: getModelPricingMock,
+  resolveModelPricing: resolveModelPricingMock,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -67,8 +67,11 @@ import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
 
 describe("user-credits energy cost formula", () => {
   beforeEach(() => {
-    getModelPricingMock.mockReset();
-    getModelPricingMock.mockResolvedValue({
+    resolveModelPricingMock.mockReset();
+    resolveModelPricingMock.mockResolvedValue({
+      rawModelId: "m1",
+      pricedModelId: "minimax/minimax-m3",
+      pricingSource: "manual-override",
       promptPrice: 0.0000003, // $0.30 / 1M
       completionPrice: 0.0000012, // $1.20 / 1M
     });
@@ -112,8 +115,11 @@ describe("user-credits energy cost formula", () => {
 
 describe("chargeEnergyForAiUsage", () => {
   beforeEach(() => {
-    getModelPricingMock.mockReset();
-    getModelPricingMock.mockResolvedValue({
+    resolveModelPricingMock.mockReset();
+    resolveModelPricingMock.mockResolvedValue({
+      rawModelId: "m1",
+      pricedModelId: "minimax/minimax-m3",
+      pricingSource: "manual-override",
       promptPrice: 0.0000003,
       completionPrice: 0.0000012,
     });
@@ -133,7 +139,7 @@ describe("chargeEnergyForAiUsage", () => {
         reason: "test",
       }),
     ).resolves.toBeNull();
-    expect(getModelPricingMock).not.toHaveBeenCalled();
+    expect(resolveModelPricingMock).not.toHaveBeenCalled();
   });
 
   it("charges when AI usage exists", async () => {
@@ -145,7 +151,34 @@ describe("chargeEnergyForAiUsage", () => {
       reason: "test",
     });
     expect(result?.energyUsed).toBe(900);
-    expect(getModelPricingMock).toHaveBeenCalled();
+    expect(resolveModelPricingMock).toHaveBeenCalled();
+  });
+
+  it("writes pricing proof into debit rows", async () => {
+    prismaQueryRawMock.mockResolvedValue([{ used: 0 }]);
+    resolveModelPricingMock.mockResolvedValue({
+      rawModelId: "cmc/MiniMaxAI/MiniMax-M3",
+      pricedModelId: "minimax/minimax-m3",
+      pricingSource: "manual-override",
+      promptPrice: 0.0000003,
+      completionPrice: 0.0000012,
+    });
+
+    await chargeEnergyForAiUsage({
+      userId: "u1",
+      modelId: "cmc/MiniMaxAI/MiniMax-M3",
+      inputTokens: 1000,
+      outputTokens: 500,
+      reason: "build:step",
+      projectId: "p1",
+    });
+
+    const insertSql = String(prismaExecuteRawMock.mock.calls.at(-1)?.[0] ?? "");
+    expect(insertSql).toContain('"rawModelId"');
+    expect(insertSql).toContain('"pricedModelId"');
+    expect(insertSql).toContain('"pricingSource"');
+    expect(insertSql).toContain('"promptPrice"');
+    expect(insertSql).toContain('"completionPrice"');
   });
 });
 
@@ -220,8 +253,11 @@ describe("assertUnderProjectLimit", () => {
 
 describe("chargeEnergyForStep", () => {
   beforeEach(() => {
-    getModelPricingMock.mockReset();
-    getModelPricingMock.mockResolvedValue({
+    resolveModelPricingMock.mockReset();
+    resolveModelPricingMock.mockResolvedValue({
+      rawModelId: "m1",
+      pricedModelId: "minimax/minimax-m3",
+      pricingSource: "manual-override",
       promptPrice: 0.0000003,
       completionPrice: 0.0000012,
     });
