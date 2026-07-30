@@ -7,6 +7,7 @@ import {
   getProjectChatPage,
   parseProjectChatMessages,
 } from "@/lib/projects/chat-memory";
+import { isAdminEmail } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/chat")({
   server: {
@@ -28,16 +29,22 @@ export const Route = createFileRoute("/api/projects/$id/chat")({
         const before = beforeParam ? Number(beforeParam) : null;
         const limit = limitParam ? Number(limitParam) : CHAT_PAGE_SIZE;
 
-        const [row] = await prisma.$queryRaw<[{ chatMessages: unknown }]>`
-          SELECT "chatMessages" FROM "Project" WHERE id = ${id} AND "userId" = ${session.user.id}
-        `;
+        const admin = isAdminEmail(session.user.email ?? "");
+        const project = await prisma.project.findFirst({
+          where: { id, ...(admin ? {} : { userId: session.user.id }) },
+          select: { id: true },
+        });
 
-        if (!row) {
+        if (!project) {
           return Response.json(
             { message: "Proyek tidak ditemukan." },
             { status: 404 },
           );
         }
+
+        const [row] = await prisma.$queryRaw<[{ chatMessages: unknown }]>`
+          SELECT "chatMessages" FROM "Project" WHERE id = ${project.id}
+        `;
 
         const page = getProjectChatPage(
           parseProjectChatMessages(row.chatMessages),

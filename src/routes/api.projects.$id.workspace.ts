@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
 import { parseProjectBrief } from "@/lib/projects/brief";
 import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
+import { isAdminEmail } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/workspace")({
   server: {
@@ -20,8 +21,9 @@ export const Route = createFileRoute("/api/projects/$id/workspace")({
         }
 
         const { id } = params;
+        const admin = isAdminEmail(session.user.email ?? "");
         const project = await prisma.project.findFirst({
-          where: { id, userId: session.user.id },
+          where: { id, ...(admin ? {} : { userId: session.user.id }) },
           select: {
             id: true,
             prompt: true,
@@ -43,7 +45,7 @@ export const Route = createFileRoute("/api/projects/$id/workspace")({
           [workspaceRow] = await prisma.$queryRaw<
             [{ brief: unknown; workspaceCard: unknown }]
           >`
-            SELECT "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
+            SELECT "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id}
           `;
         } catch (error) {
           if (isPrismaDatabaseUnavailable(error)) {

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
 import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
+import { isAdminEmail } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/source")({
   server: {
@@ -20,8 +21,9 @@ export const Route = createFileRoute("/api/projects/$id/source")({
         }
 
         const { id } = params;
+        const admin = isAdminEmail(session.user.email ?? "");
         const project = await prisma.project.findFirst({
-          where: { id, userId: session.user.id },
+          where: { id, ...(admin ? {} : { userId: session.user.id }) },
           select: { id: true },
         });
 
@@ -41,7 +43,7 @@ export const Route = createFileRoute("/api/projects/$id/source")({
             },
           ]
         >`
-          SELECT "sourceFiles", "buildStatus", "buildLog" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
+          SELECT "sourceFiles", "buildStatus", "buildLog" FROM "Project" WHERE id = ${project.id}
         `;
         const deployments = await prisma.projectDeployment.findMany({
           where: { kind: "preview", projectId: project.id },

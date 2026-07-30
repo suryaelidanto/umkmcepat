@@ -13,6 +13,7 @@ import {
 import { deriveActiveProjectJob } from "@/lib/projects/project-job";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
+import { isAdminEmail } from "@/lib/waitlist";
 
 const runtimeStateCache = new Map<
   string,
@@ -42,7 +43,11 @@ export const Route = createFileRoute("/api/projects/$id/runtime")({
         const { id } = params;
 
         try {
-          return await getRuntimeState(id, session.user.id);
+          return await getRuntimeState({
+            admin: isAdminEmail(session.user.email ?? ""),
+            id,
+            userId: session.user.id,
+          });
         } catch (error) {
           if (isPrismaDatabaseUnavailable(error)) {
             const cached = readRuntimeStateCache(session.user.id, id);
@@ -70,9 +75,17 @@ export const Route = createFileRoute("/api/projects/$id/runtime")({
   },
 });
 
-async function getRuntimeState(id: string, userId: string) {
+async function getRuntimeState({
+  admin,
+  id,
+  userId,
+}: {
+  admin: boolean;
+  id: string;
+  userId: string;
+}) {
   const project = await prisma.project.findFirst({
-    where: { id, userId },
+    where: { id, ...(admin ? {} : { userId }) },
     select: { buildStatus: true, id: true, status: true },
   });
 

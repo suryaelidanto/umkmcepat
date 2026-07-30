@@ -12,6 +12,7 @@ import {
   injectPreviewAnnotationBridge,
   proxyDeploymentRequest,
 } from "@/lib/projects/runtime-proxy";
+import { isAdminEmail } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/preview/$")({
   server: {
@@ -37,6 +38,7 @@ async function handlePreviewGet(request: Request, id: string, path: string[]) {
 
   try {
     return await getPreviewResponse({
+      admin: isAdminEmail(session.user.email ?? ""),
       id,
       path,
       request,
@@ -60,16 +62,23 @@ async function getPreviewResponse({
   id,
   path,
   request,
+  admin,
   userId,
 }: {
+  admin: boolean;
   id: string;
   path: string[];
   request: Request;
   userId: string;
 }) {
   const project = await prisma.project.findFirst({
-    where: { id, userId },
-    select: { id: true, thumbnailBuildId: true, thumbnailRef: true },
+    where: { id, ...(admin ? {} : { userId }) },
+    select: {
+      id: true,
+      thumbnailBuildId: true,
+      thumbnailRef: true,
+      userId: true,
+    },
   });
 
   if (!project) {
@@ -106,11 +115,14 @@ async function getPreviewResponse({
   const deployment = selectActivePreviewDeployment(deployments);
 
   if (deployment?.build?.artifactRef) {
-    scheduleThumbnailRecovery({
-      artifactRef: deployment.build.artifactRef,
-      buildId: deployment.build.id,
-      project,
-    });
+    const observerReadOnly = admin && project.userId !== userId;
+    if (!observerReadOnly) {
+      scheduleThumbnailRecovery({
+        artifactRef: deployment.build.artifactRef,
+        buildId: deployment.build.id,
+        project,
+      });
+    }
     const response = await proxyDeploymentRequest({
       assetRewrite: { projectId: project.id },
       deploymentId: deployment.id,
@@ -120,10 +132,12 @@ async function getPreviewResponse({
     });
 
     if (response) {
-      await prisma.projectDeployment.update({
-        where: { id: deployment.id },
-        data: { lastRequestAt: new Date() },
-      });
+      if (!observerReadOnly) {
+        await prisma.projectDeployment.update({
+          where: { id: deployment.id },
+          data: { lastRequestAt: new Date() },
+        });
+      }
       return response;
     }
 
@@ -136,7 +150,7 @@ async function getPreviewResponse({
   }
 
   const [row] = await prisma.$queryRaw<[{ distFiles: unknown }]>`
-    SELECT "distFiles" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
+    SELECT "distFiles" FROM "Project" WHERE id = ${project.id}
   `;
   const distFiles = parseGeneratedDistFiles(row?.distFiles);
   const requestedPath = path.join("/") || "index.html";
