@@ -58,9 +58,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
   const userId = session.user.id;
 
   const abortController = new AbortController();
-  request.signal?.addEventListener?.("abort", () => {
-    abortController.abort();
-  });
+  // NOT linked to request.signal — the worker must survive browser
+  // disconnect (refresh, tab close). The only way to stop a build is
+  // POST /api/projects/$id/cancel which finalizes the operation lease.
 
   const verified = await isUserVerified(userId);
   if (!verified) {
