@@ -15,6 +15,7 @@ type AdminProject = {
     name: string | null;
   };
   status: string;
+  thumbnailUrl: string | null;
   title: string;
   updatedAt: string;
 };
@@ -54,41 +55,62 @@ function ProjectsPage() {
           className="rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
           key={project.id}
         >
-          <div className="flex flex-col gap-spacing-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <h2 className="truncate font-medium text-surface-warm-white">
+          <div className="flex flex-col gap-spacing-3 sm:flex-row sm:items-start">
+            <div className="h-24 w-full shrink-0 overflow-hidden rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/8 sm:w-36">
+              {project.thumbnailUrl ? (
+                <img
+                  alt={`Thumbnail ${project.title}`}
+                  className="h-full w-full object-cover"
+                  src={project.thumbnailUrl}
+                />
+              ) : (
+                <div className="grid h-full place-items-center text-xs text-surface-warm-white/48">
+                  Belum ada thumbnail
+                </div>
+              )}
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-spacing-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h2 className="truncate font-medium text-surface-warm-white">
+                  <a
+                    className="underline-offset-2 hover:underline"
+                    href={`/projects/${project.id}`}
+                  >
+                    {streamerMode ? (
+                      <SensitiveText kind="name" value={project.title} />
+                    ) : (
+                      project.title
+                    )}
+                  </a>
+                </h2>
+                <p className="mt-spacing-1 text-surface-warm-white/70">
+                  {streamerMode && project.owner.name ? (
+                    <SensitiveText kind="name" value={project.owner.name} />
+                  ) : (
+                    (project.owner.name ?? "Tanpa nama")
+                  )}
+                  {" · "}
+                  {streamerMode && project.owner.email ? (
+                    <SensitiveText kind="email" value={project.owner.email} />
+                  ) : (
+                    (project.owner.email ?? "Tanpa email")
+                  )}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-spacing-2 text-xs text-surface-warm-white/70 sm:justify-end">
+                <span className="rounded-radius-sm border border-surface-warm-white/12 px-spacing-2 py-spacing-1">
+                  {project.status}
+                </span>
+                <span className="rounded-radius-sm border border-surface-warm-white/12 px-spacing-2 py-spacing-1">
+                  Build: {project.buildStatus}
+                </span>
                 <a
-                  className="underline-offset-2 hover:underline"
+                  className="rounded-radius-sm border border-surface-warm-white/20 px-spacing-2 py-spacing-1 text-surface-warm-white underline-offset-2 hover:bg-surface-warm-white/8 hover:underline"
                   href={`/projects/${project.id}`}
                 >
-                  {streamerMode ? (
-                    <SensitiveText kind="name" value={project.title} />
-                  ) : (
-                    project.title
-                  )}
+                  Lihat detail
                 </a>
-              </h2>
-              <p className="mt-spacing-1 text-surface-warm-white/70">
-                {streamerMode && project.owner.name ? (
-                  <SensitiveText kind="name" value={project.owner.name} />
-                ) : (
-                  (project.owner.name ?? "Tanpa nama")
-                )}
-                {" · "}
-                {streamerMode && project.owner.email ? (
-                  <SensitiveText kind="email" value={project.owner.email} />
-                ) : (
-                  (project.owner.email ?? "Tanpa email")
-                )}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-spacing-2 text-xs text-surface-warm-white/70 sm:justify-end">
-              <span className="rounded-radius-sm border border-surface-warm-white/12 px-spacing-2 py-spacing-1">
-                {project.status}
-              </span>
-              <span className="rounded-radius-sm border border-surface-warm-white/12 px-spacing-2 py-spacing-1">
-                Build: {project.buildStatus}
-              </span>
+              </div>
             </div>
           </div>
           <dl className="mt-spacing-3 grid gap-spacing-2 text-xs text-surface-warm-white/70 sm:grid-cols-2">

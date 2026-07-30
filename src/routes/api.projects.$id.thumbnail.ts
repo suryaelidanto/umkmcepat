@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readProjectThumbnail } from "@/lib/projects/project-thumbnail";
+import { isAdminEmail } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/thumbnail")({
   server: {
@@ -18,7 +19,12 @@ export const Route = createFileRoute("/api/projects/$id/thumbnail")({
 
         const { id } = params;
         const project = await prisma.project.findFirst({
-          where: { id, userId: session.user.id },
+          where: {
+            id,
+            ...(isAdminEmail(session.user.email ?? "")
+              ? {}
+              : { userId: session.user.id }),
+          },
           select: { thumbnailRef: true },
         });
         if (!project?.thumbnailRef) {

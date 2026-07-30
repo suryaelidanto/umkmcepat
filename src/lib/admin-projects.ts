@@ -5,6 +5,7 @@ type AdminProjectRow = {
   createdAt: Date;
   id: string;
   status: string;
+  thumbnailRef: string | null;
   title: string;
   updatedAt: Date;
   user: {
@@ -23,6 +24,7 @@ type AdminProjectsClient = {
         createdAt: true;
         id: true;
         status: true;
+        thumbnailRef: true;
         title: true;
         updatedAt: true;
         user: { select: { email: true; id: true; name: true } };
@@ -42,6 +44,7 @@ export type AdminProject = {
     name: string | null;
   };
   status: string;
+  thumbnailUrl: string | null;
   title: string;
   updatedAt: string;
 };
@@ -60,6 +63,7 @@ export async function listAdminProjects(
       createdAt: true,
       id: true,
       status: true,
+      thumbnailRef: true,
       title: true,
       updatedAt: true,
       user: { select: { email: true, id: true, name: true } },
@@ -74,6 +78,9 @@ export async function listAdminProjects(
       id: project.id,
       owner: project.user,
       status: project.status,
+      thumbnailUrl: project.thumbnailRef
+        ? `/api/projects/${project.id}/thumbnail`
+        : null,
       title: project.title,
       updatedAt: project.updatedAt.toISOString(),
     })),
