@@ -326,6 +326,9 @@ export function WorkspaceShell({
   // Synchronous lock so the same `submitChatText` call within one tick can't
   // fire `sendMessage` twice when `isProcessing` state hasn't propagated yet.
   const submitInFlightRef = useRef(false);
+  const streamEventHandlerRef = useRef<
+    ((event: BuildStreamEvent) => void) | null
+  >(null);
 
   const isDesktop = useIsDesktopViewport();
   // Resume state for the last unanswered user message detected on mount.
@@ -875,6 +878,52 @@ export function WorkspaceShell({
           }),
         );
         return;
+      }
+
+      // Read the SSE channel tail from the POST response and route
+      // events through the same handler the late-joiner stream uses.
+      if (response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          let eventName: string | null = null;
+          for (const line of lines) {
+            const eventMatch = line.match(/^event: (.+)$/);
+            if (eventMatch) {
+              eventName = eventMatch[1];
+              continue;
+            }
+            const dataMatch = line.match(/^data: (.+)$/);
+            if (dataMatch && eventName) {
+              const data = dataMatch[1];
+              // Parse named SSE events via handleBuildStreamEvent.
+              // The event type and JSON data together form the event.
+              let payload: Record<string, unknown>;
+              try {
+                payload = JSON.parse(data) as Record<string, unknown>;
+              } catch {
+                eventName = null;
+                continue;
+              }
+              handleBuildStreamEvent({
+                ...payload,
+                type: eventName,
+              } as BuildStreamEvent);
+              eventName = null;
+            }
+          }
+        }
       }
 
       void loadRuntimeState();
@@ -2213,6 +2262,60 @@ export function WorkspaceShell({
 
     setIsRetrying(true);
     clearError();
+
+    try {
+      const turnRes = await fetch(`/api/projects/${projectId}/chat/turn`, {
+        cache: "no-store",
+      });
+
+      if (turnRes.ok) {
+        const turn = (await turnRes.json()) as {
+          status: string;
+          userMessageId?: string;
+          errorMessage?: string;
+        };
+
+        if (turn.status === "succeeded") {
+          // Turn already completed — reload persisted chat rather than
+          // regenerating. This is the "retry should resume, not restart" fix.
+          await reloadLatestChat();
+          setIsRetrying(false);
+          return;
+        }
+
+        if (turn.status === "running") {
+          // Turn still in progress on the server — poll until it finishes.
+          const pollRunningTurn = async () => {
+            const pollRes = await fetch(
+              `/api/projects/${projectId}/chat/turn`,
+              { cache: "no-store" },
+            );
+            if (!pollRes.ok) {
+              setIsRetrying(false);
+              return;
+            }
+            const pollTurn = (await pollRes.json()) as {
+              status: string;
+            };
+            if (pollTurn.status === "running") {
+              window.setTimeout(pollRunningTurn, RESUME_POLL_INTERVAL_MS);
+              return;
+            }
+            // Terminal state — reload chat (success or failure both show
+            // the persisted state).
+            await reloadLatestChat();
+            setIsRetrying(false);
+          };
+          pollRunningTurn();
+          return;
+        }
+      }
+    } catch {
+      // Fetch failed — fall through to regenerate below.
+    }
+
+    // Fallback: no extant /chat/turn (404, fetch error, failed/idle turn)
+    // or turn is not in a reloadable state — regenerate via AI SDK.
     try {
       await regenerate();
     } catch {
@@ -2220,7 +2323,7 @@ export function WorkspaceShell({
     } finally {
       setIsRetrying(false);
     }
-  }, [clearError, isRetrying, regenerate, status]);
+  }, [clearError, isRetrying, projectId, regenerate, reloadLatestChat, status]);
 
   const retryWorkspaceCard = useCallback(async () => {
     if (status === "streaming" || status === "submitted" || isRetrying) {

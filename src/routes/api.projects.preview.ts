@@ -412,6 +412,19 @@ async function handleDiscussTurnOneCall({
     return sseError({ message: "Pesan tidak boleh kosong." });
   }
 
+  // Role guard: reject a discuss turn whose last message claims assistant role.
+  // Without this check, a forged/client-side role override could trick the
+  // model into treating its own output as user input.
+  if (userMessage.role !== "user") {
+    return Response.json(
+      {
+        code: "chat_role_mismatch",
+        message: "Posisi pesan terakhir harus berperan sebagai pengguna.",
+      },
+      { status: 400 },
+    );
+  }
+
   // 1. Persist the user message immediately â€” the reply is never lost even
   //    if the worker never starts (server crash mid-dispatch, etc.).
   await persistProjectChatTurn({

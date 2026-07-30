@@ -136,3 +136,11 @@
 - Spec: docs/superpowers/specs/2026-07-30-temp-image-upload-design.md
 - Branch: dev; work in place per user request; stage only named files.
 - Baseline commit before Task 1: 9f9ecf5
+
+## Current plan: 2026-07-30-backlog-bugs
+- Plan: docs/superpowers/plans/2026-07-30-backlog-bugs-plan.md
+- Baseline: 4fb0408
+- [x] Task 3: consistent retry callsites (commit 549fa55, review clean)
+- [x] Task 1: custom input disconnect (commit f1dde58, included in Task 2 review)
+- [x] Task 2: build preview blink (commit f1dde58, review clean — includes Task 1)
+- [x] Task 4: chat retry should resume, not restart

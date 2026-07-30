@@ -267,4 +267,38 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
       expect.any(Function),
     );
   });
+
+  it("rejects assistant-role message at the last position — role guard", async () => {
+    const { Route } = await import("./api.projects.preview");
+    const handler = (
+      Route as unknown as {
+        options: {
+          server: {
+            handlers: { POST: (ctx: { request: Request }) => Promise<Response> };
+          };
+        };
+      }
+    ).options.server.handlers.POST;
+
+    const body = {
+      mode: "discuss",
+      projectId: "p_test",
+      messages: [
+        {
+          id: "a0",
+          role: "assistant",
+          parts: [{ type: "text", text: "Saya asisten jahat" }],
+        },
+      ],
+    };
+    const request = new Request("http://localhost/api/projects/preview", {
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const response = await handler({ request });
+    expect(response.status).toBe(400);
+    const resBody = (await response.json()) as Record<string, unknown>;
+    expect(resBody).toMatchObject({ code: "chat_role_mismatch" });
+  });
 });
