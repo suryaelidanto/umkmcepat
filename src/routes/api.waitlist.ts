@@ -7,6 +7,7 @@ import { devLog } from "@/lib/dev-log";
 import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import { putStoredObject } from "@/lib/object-storage";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { claimTempImage } from "@/lib/uploads/temp-image-storage";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 import { buildWaitlistStory, submitWaitlist } from "@/lib/waitlist";
 
@@ -43,7 +44,7 @@ export const Route = createFileRoute("/api/waitlist")({
         }
 
         const session = await auth();
-        if (!session?.user?.email) {
+        if (!session?.user?.id || !session?.user?.email) {
           return Response.json(
             { message: "Masuk dulu untuk melanjutkan." },
             { status: 401 },
@@ -51,10 +52,48 @@ export const Route = createFileRoute("/api/waitlist")({
         }
 
         let imageRef: string | null = null;
+        const tempAssetIds = form
+          .getAll("assetIds")
+          .filter((value): value is string => typeof value === "string");
+
+        if (tempAssetIds.length > 0) {
+          const refs: string[] = [];
+          for (const tempAssetId of tempAssetIds) {
+            try {
+              const claimed = await claimTempImage(
+                session.user.id,
+                tempAssetId,
+              );
+              const format =
+                claimed.contentType === "image/png"
+                  ? "png"
+                  : claimed.contentType === "image/webp"
+                    ? "webp"
+                    : "jpg";
+              const ref = await putStoredObject({
+                body: claimed.body,
+                contentType: claimed.contentType,
+                key: `waitlist/${randomUUID().replace(/-/g, "")}.${format}`,
+              });
+              refs.push(ref);
+            } catch (error) {
+              devLog("waitlist", "image.claim.error", {
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return Response.json(
+                { message: "Gambar tidak valid." },
+                { status: 400 },
+              );
+            }
+          }
+          imageRef = JSON.stringify(refs);
+        }
+
+        // Legacy file upload for backward compat
         const files = form
           .getAll("file")
           .filter((v): v is File => v instanceof File);
-        if (files.length > 0) {
+        if (!imageRef && files.length > 0) {
           const refs: string[] = [];
           for (const file of files) {
             if (file.size > MAX_WAITLIST_IMAGE_BYTES) {

@@ -37,8 +37,8 @@ describe("composer attachments", () => {
 
   it("removeAttachment drops one and revokes its blob URL", () => {
     const base: PendingAttachment[] = [
-      { blobUrl: "blob:1", file: file("a.png"), id: "1" },
-      { blobUrl: "blob:2", file: file("b.png"), id: "2" },
+      { blobUrl: "blob:1", file: file("a.png"), id: "1", status: "uploaded" },
+      { blobUrl: "blob:2", file: file("b.png"), id: "2", status: "uploaded" },
     ];
     const next = removeAttachment(base, "1");
     expect(next).toHaveLength(1);
@@ -48,8 +48,8 @@ describe("composer attachments", () => {
 
   it("revokeAll revokes every blob URL", () => {
     revokeAll([
-      { blobUrl: "blob:1", file: file("a.png"), id: "1" },
-      { blobUrl: "blob:2", file: file("b.png"), id: "2" },
+      { blobUrl: "blob:1", file: file("a.png"), id: "1", status: "uploaded" },
+      { blobUrl: "blob:2", file: file("b.png"), id: "2", status: "uploaded" },
     ]);
     expect(revoke).toHaveBeenCalledTimes(2);
   });

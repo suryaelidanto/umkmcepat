@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "@/lib/navigation";
 import {
+  hasUploadingAttachments,
   removeAttachment,
   revokeAll,
   type PendingAttachment,
@@ -35,6 +36,7 @@ import {
 } from "@/lib/projects/input";
 import { useProjectLimit } from "@/lib/projects/use-project-limit";
 import { queryKeys, useCacheMutation } from "@/lib/query-client";
+import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
 
 function getProjectCreateIdempotencyKey(prompt: string) {
   const draft = parseProjectDraft(
@@ -124,7 +126,9 @@ export function HomePromptForm({
       form.append("mode", "discuss");
       form.append("idempotencyKey", idempotencyKey);
       for (const attachment of attachments) {
-        form.append("files", attachment.file);
+        if (attachment.assetId) {
+          form.append("assetIds", attachment.assetId);
+        }
       }
 
       const response = await fetch("/api/projects", {
@@ -209,11 +213,12 @@ export function HomePromptForm({
   }, [createProject, status]);
 
   const isLoading = createMutation.isPending;
+  const isUploading = hasUploadingAttachments(attachments);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isLoading || isSubmittingRef.current) {
+    if (isLoading || isUploading || isSubmittingRef.current) {
       return;
     }
 
@@ -303,16 +308,45 @@ export function HomePromptForm({
             {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
           </span>
           <div className="flex items-center gap-spacing-5">
-            {isLoading ? (
+            {isUploading || isLoading ? (
               <span className="hidden text-sm text-surface-warm-white/58 sm:inline">
-                Menyiapkan...
+                {isUploading ? "Mengunggah gambar..." : "Menyiapkan..."}
               </span>
             ) : null}
             {status === "authenticated" ? (
               <ComposerAttachButton
                 attachments={attachments}
                 onAdd={(next, rejected) => {
+                  const added = next.filter(
+                    (item) => !attachments.some((prev) => prev.id === item.id),
+                  );
                   setAttachments(next);
+                  for (const item of added) {
+                    void uploadTempImageFile(item.file)
+                      .then((uploaded) =>
+                        setAttachments((current) =>
+                          current.map((candidate) =>
+                            candidate.id === item.id
+                              ? {
+                                  ...candidate,
+                                  assetId: uploaded.assetId,
+                                  status: "uploaded",
+                                }
+                              : candidate,
+                          ),
+                        ),
+                      )
+                      .catch((error) => {
+                        setAttachments((current) =>
+                          removeAttachment(current, item.id),
+                        );
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : "Gagal mengunggah gambar.",
+                        );
+                      });
+                  }
                   if (rejected.length) {
                     toast.error(
                       "Maksimal 6 gambar dan kurang dari 5MB per gambar.",
@@ -334,7 +368,7 @@ export function HomePromptForm({
             <Button
               type="submit"
               size="icon"
-              disabled={isLoading || !prompt.trim()}
+              disabled={isLoading || isUploading || !prompt.trim()}
               aria-label="Buat website"
               className="size-11 rounded-full bg-white text-[#141413] hover:bg-white/92 disabled:opacity-45"
             >

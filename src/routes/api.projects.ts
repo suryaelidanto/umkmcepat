@@ -23,6 +23,7 @@ import {
 import { uploadProjectAsset } from "@/lib/projects/project-asset-upload";
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { claimTempImage } from "@/lib/uploads/temp-image-storage";
 import {
   assertUnderProjectLimit,
   chargeEnergyForAiUsage,
@@ -165,10 +166,13 @@ export const Route = createFileRoute("/api/projects")({
           );
         }
 
+        const tempAssetIds = form
+          .getAll("assetIds")
+          .filter((value): value is string => typeof value === "string");
         const rawFiles = form
           .getAll("files")
           .filter((f): f is File => f instanceof File);
-        if (rawFiles.length > 6) {
+        if (rawFiles.length + tempAssetIds.length > 6) {
           return Response.json(
             { message: "Maksimal 6 gambar." },
             { status: 400 },
@@ -289,6 +293,16 @@ export const Route = createFileRoute("/api/projects")({
         }
 
         const assetIds: string[] = [];
+        for (const tempAssetId of tempAssetIds) {
+          const claimed = await claimTempImage(userId, tempAssetId);
+          const asset = await uploadProjectAsset({
+            bytes: claimed.body,
+            projectId: project.id,
+            purpose: "business-image",
+            userId,
+          });
+          assetIds.push(asset.id);
+        }
         for (const f of validatedFiles) {
           const asset = await uploadProjectAsset({
             bytes: f.bytes,

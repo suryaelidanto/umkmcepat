@@ -1,9 +1,11 @@
 export const MAX_COMPOSER_IMAGES = 6;
 
 export type PendingAttachment = {
+  assetId?: string;
   blobUrl: string;
   file: File;
   id: string;
+  status: "uploading" | "uploaded";
 };
 
 let counter = 0;
@@ -23,6 +25,7 @@ export function addAttachments(
     blobUrl: URL.createObjectURL(file),
     file,
     id: nextId(),
+    status: "uploading",
   }));
   return { next: [...current, ...additions], rejected };
 }
@@ -44,8 +47,16 @@ export function revokeAll(current: PendingAttachment[]): void {
   }
 }
 
+export function hasUploadingAttachments(current: PendingAttachment[]): boolean {
+  return current.some((item) => item.status === "uploading");
+}
+
 export function toUploadPlan(
   current: PendingAttachment[],
-): { file: File; id: string }[] {
-  return current.map((item) => ({ file: item.file, id: item.id }));
+): { assetId?: string; file: File; id: string }[] {
+  return current.map((item) => ({
+    assetId: item.assetId,
+    file: item.file,
+    id: item.id,
+  }));
 }

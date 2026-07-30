@@ -7,6 +7,7 @@ import {
   isAllowedAssetPurpose,
   uploadProjectAsset,
 } from "@/lib/projects/project-asset-upload";
+import { claimTempImage } from "@/lib/uploads/temp-image-storage";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 import { verifyProjectOwnership } from "@/middleware/ownership";
 
@@ -16,7 +17,8 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
   server: {
     handlers: {
       // Upload one owner-scoped project asset (business image / reference / logo).
-      // Multipart form: field `file` (required), `purpose` (required, allowlisted).
+      // Multipart form: field `file` (required) or `assetId` (pre-uploaded via
+      // temp image upload), `purpose` (required, allowlisted).
       POST: async ({ request, params }) => {
         const session = await auth();
         if (!session?.user?.id) {
@@ -53,7 +55,46 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
           );
         }
 
+        const rawAssetId = String(form.get("assetId") ?? "").trim();
         const file = form.get("file");
+
+        // Pre-uploaded temp assetId: claim, moderate, persist as project asset.
+        if (rawAssetId) {
+          try {
+            const claimed = await claimTempImage(session.user.id, rawAssetId);
+            const moderation = await moderateProjectRequest("", [
+              { bytes: claimed.body, mediaType: claimed.contentType },
+            ]);
+            if (!moderation.allowed) {
+              return Response.json(
+                {
+                  message:
+                    "message" in moderation
+                      ? moderation.message
+                      : "Gambar tidak memenuhi syarat.",
+                },
+                { status: 400 },
+              );
+            }
+            const asset = await uploadProjectAsset({
+              bytes: claimed.body,
+              projectId: id,
+              purpose,
+              userId: session.user.id,
+            });
+            return Response.json(asset, { status: 201 });
+          } catch (error) {
+            console.error("[moderation] assets.upload claim failed", {
+              error: error instanceof Error ? error.message : error,
+            });
+            const message = mapToUserFacingError(
+              error instanceof Error ? error.message : "",
+            );
+            return Response.json({ message }, { status: 503 });
+          }
+        }
+
+        // Legacy file upload
         if (!(file instanceof File)) {
           return Response.json(
             { message: "File belum dipilih." },

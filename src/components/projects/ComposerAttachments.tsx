@@ -32,6 +32,11 @@ export function ComposerAttachments({
             className="h-full w-full object-cover"
             src={item.blobUrl}
           />
+          {item.status === "uploading" ? (
+            <span className="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-[9px] text-white">
+              Mengunggah...
+            </span>
+          ) : null}
           <button
             aria-label="Hapus gambar"
             className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-bl-radius-md bg-surface-warm-white/90 text-black opacity-0 transition hover:bg-surface-warm-white group-hover:opacity-100"

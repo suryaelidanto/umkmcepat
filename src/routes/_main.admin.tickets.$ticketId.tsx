@@ -66,7 +66,7 @@ function AdminTicketThreadPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/support/assets", {
+      const response = await fetch("/api/uploads/temp-images", {
         method: "POST",
         body: formData,
       });
@@ -75,7 +75,7 @@ function AdminTicketThreadPage() {
       if (!response.ok) {
         throw new Error(json.message || "Gagal mengunggah gambar.");
       }
-      return json as { assetId: string; ref: string; url: string };
+      return json as { assetId: string; url: string };
     },
   });
 

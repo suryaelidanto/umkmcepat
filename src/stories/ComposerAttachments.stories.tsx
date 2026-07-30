@@ -17,11 +17,13 @@ const sample: PendingAttachment[] = [
     blobUrl: "https://placehold.co/48x48/png",
     file: new File([""], "a.png"),
     id: "1",
+    status: "uploaded",
   },
   {
     blobUrl: "https://placehold.co/48x48/png",
     file: new File([""], "b.png"),
     id: "2",
+    status: "uploading",
   },
 ];
 

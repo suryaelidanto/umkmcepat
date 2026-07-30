@@ -27,6 +27,7 @@ import { useValidatedForm } from "@/lib/forms";
 import { useRouter } from "@/lib/navigation";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
+import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
 import { cn } from "@/lib/utils";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
 import { getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
@@ -164,6 +165,8 @@ function WaitlistPage() {
   const [devSkipDone, setDevSkipDone] = useState(false);
   const [step, setStep] = useState(1);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [uploadingPhotoCount, setUploadingPhotoCount] = useState(0);
+  const [photoAssetIds, setPhotoAssetIds] = useState<string[]>([]);
   const hasTurnstile = Boolean(getTurnstileSiteKey());
   const isDev = import.meta.env.DEV;
 
@@ -309,7 +312,37 @@ function WaitlistPage() {
   }, [form.values.photo]);
 
   const submit = useMutation({
-    mutationFn: form.handleSubmit,
+    mutationFn: async () => {
+      if (uploadingPhotoCount > 0) {
+        throw new Error("Tunggu hingga semua foto terunggah.");
+      }
+      const values = form.values;
+      const fd = new FormData();
+      fd.append("businessName", values.businessName.trim());
+      if (values.businessType) {
+        fd.append("businessType", values.businessType);
+      }
+      if (values.phone?.trim()) {
+        fd.append("phone", values.phone.trim());
+      }
+      fd.append("storyOffers", values.storyOffers.trim());
+      fd.append("storySince", values.storySince);
+      fd.append("storyGoal", values.storyGoal.trim());
+      for (const assetId of photoAssetIds) {
+        fd.append("assetIds", assetId);
+      }
+      fd.append("cf-turnstile-response", "dev");
+      const response = await fetch("/api/waitlist", {
+        body: fd,
+        method: "POST",
+      });
+      const json = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      if (!response.ok) {
+        throw new Error(json.message ?? "Gagal mengirim pendaftaran.");
+      }
+    },
     onError: (error) => {
       toast.error(
         error instanceof Error ? error.message : "Gagal mengirim pendaftaran.",
@@ -517,13 +550,25 @@ function WaitlistPage() {
         {step === 3 ? (
           <Step3
             errorMessage={form.errorMessage}
-            onAddPhotos={(newFiles) => {
+            onAddPhotos={async (newFiles) => {
               const combined = [...form.values.photo, ...newFiles].slice(0, 3);
               form.setField("photo", combined as WaitlistValues["photo"]);
+              setUploadingPhotoCount((c) => c + newFiles.length);
+              for (const file of newFiles) {
+                try {
+                  const { assetId } = await uploadTempImageFile(file);
+                  setPhotoAssetIds((prev) => [...prev, assetId]);
+                } catch {
+                  toast.error("Gagal mengunggah foto.");
+                } finally {
+                  setUploadingPhotoCount((c) => Math.max(0, c - 1));
+                }
+              }
             }}
             onRemovePhoto={(index) => {
               const next = form.values.photo.filter((_, i) => i !== index);
               form.setField("photo", next as WaitlistValues["photo"]);
+              setPhotoAssetIds((prev) => prev.filter((_, i) => i !== index));
             }}
             photoCount={form.values.photo.length}
             photoPreviews={photoPreviews}
@@ -605,7 +650,7 @@ function WaitlistPage() {
                 form.markTouched("photo");
                 submit.mutate();
               }}
-              disabled={submit.isPending}
+              disabled={submit.isPending || uploadingPhotoCount > 0}
               size="lg"
               className="flex items-center gap-spacing-2"
             >
@@ -613,6 +658,11 @@ function WaitlistPage() {
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Mengirim...
+                </>
+              ) : uploadingPhotoCount > 0 ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Mengunggah gambar...
                 </>
               ) : (
                 <>

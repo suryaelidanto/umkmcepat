@@ -72,6 +72,7 @@ import {
 import { createUploadedImageFilePart } from "@/lib/projects/chat-file-parts";
 import { dedupeUiMessages } from "@/lib/projects/chat-memory";
 import {
+  hasUploadingAttachments,
   MAX_COMPOSER_IMAGES,
   removeAttachment,
   revokeAll,
@@ -101,6 +102,7 @@ import {
   isUserVisibleAssistantText,
 } from "@/lib/projects/workspace-sync";
 import { fetchJson, queryKeys, useCacheMutation } from "@/lib/query-client";
+import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
 import { useIsDesktopViewport } from "@/lib/use-is-desktop-viewport";
 import { cn } from "@/lib/utils";
 
@@ -2004,8 +2006,12 @@ export function WorkspaceShell({
         for (const item of toUploadPlan(pendingAttachments)) {
           try {
             const form = new FormData();
-            form.append("file", item.file);
             form.append("purpose", "business-image");
+            if (item.assetId) {
+              form.append("assetId", item.assetId);
+            } else {
+              form.append("file", item.file);
+            }
             const res = await fetch(
               `/api/projects/${projectId}/assets/upload`,
               {
@@ -2738,7 +2744,35 @@ export function WorkspaceShell({
                             <ComposerAttachButton
                               attachments={pendingAttachments}
                               onAdd={(next, rejected) => {
+                                const added = next.filter(
+                                  (item) =>
+                                    !pendingAttachments.some(
+                                      (prev) => prev.id === item.id,
+                                    ),
+                                );
                                 setPendingAttachments(next);
+                                for (const item of added) {
+                                  void uploadTempImageFile(item.file)
+                                    .then((uploaded) =>
+                                      setPendingAttachments((cur) =>
+                                        cur.map((candidate) =>
+                                          candidate.id === item.id
+                                            ? {
+                                                ...candidate,
+                                                assetId: uploaded.assetId,
+                                                status: "uploaded",
+                                              }
+                                            : candidate,
+                                        ),
+                                      ),
+                                    )
+                                    .catch(() => {
+                                      setPendingAttachments((cur) =>
+                                        removeAttachment(cur, item.id),
+                                      );
+                                      toast.error("Gagal mengunggah gambar.");
+                                    });
+                                }
                                 if (rejected.length) {
                                   toast.error(
                                     `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
@@ -2749,7 +2783,10 @@ export function WorkspaceShell({
                             <Button
                               type="submit"
                               size="icon"
-                              disabled={!message.trim()}
+                              disabled={
+                                !message.trim() ||
+                                hasUploadingAttachments(pendingAttachments)
+                              }
                               className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
                               aria-label="Kirim pesan"
                             >
@@ -2858,7 +2895,35 @@ export function WorkspaceShell({
                       <ComposerAttachButton
                         attachments={pendingAttachments}
                         onAdd={(next, rejected) => {
+                          const added = next.filter(
+                            (item) =>
+                              !pendingAttachments.some(
+                                (prev) => prev.id === item.id,
+                              ),
+                          );
                           setPendingAttachments(next);
+                          for (const item of added) {
+                            void uploadTempImageFile(item.file)
+                              .then((uploaded) =>
+                                setPendingAttachments((cur) =>
+                                  cur.map((candidate) =>
+                                    candidate.id === item.id
+                                      ? {
+                                          ...candidate,
+                                          assetId: uploaded.assetId,
+                                          status: "uploaded",
+                                        }
+                                      : candidate,
+                                  ),
+                                ),
+                              )
+                              .catch(() => {
+                                setPendingAttachments((cur) =>
+                                  removeAttachment(cur, item.id),
+                                );
+                                toast.error("Gagal mengunggah gambar.");
+                              });
+                          }
                           if (rejected.length) {
                             toast.error(
                               `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
@@ -2869,7 +2934,10 @@ export function WorkspaceShell({
                       <Button
                         type="submit"
                         size="icon"
-                        disabled={!message.trim()}
+                        disabled={
+                          !message.trim() ||
+                          hasUploadingAttachments(pendingAttachments)
+                        }
                         className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
                         aria-label="Kirim pesan"
                       >

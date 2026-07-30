@@ -1,6 +1,8 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -95,6 +97,48 @@ export async function deleteS3Object(
       throw error;
     }
   }
+}
+
+export async function copyS3Object(
+  bucket: "public" | "private",
+  fromKey: string,
+  toKey: string,
+): Promise<void> {
+  const { client, bucket: name } = getS3Config(bucket);
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: name,
+      CopySource: `${name}/${fromKey}`,
+      Key: toKey,
+    }),
+  );
+}
+
+export async function listS3Keys(
+  bucket: "public" | "private",
+  prefix: string,
+): Promise<string[]> {
+  const { client, bucket: name } = getS3Config(bucket);
+  const keys: string[] = [];
+  let ContinuationToken: string | undefined;
+
+  do {
+    const response = await client.send(
+      new ListObjectsV2Command({
+        Bucket: name,
+        ContinuationToken,
+        Prefix: prefix,
+      }),
+    );
+    keys.push(
+      ...(response.Contents ?? [])
+        .map((item) => item.Key)
+        .filter((key): key is string => Boolean(key)),
+    );
+    ContinuationToken = response.NextContinuationToken;
+  } while (ContinuationToken);
+
+  return keys;
 }
 
 /**
