@@ -360,12 +360,17 @@ model UserCredit {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   projectId    String?
   project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  amount       Int
-  inputTokens  Int      @default(0)
-  outputTokens Int      @default(0)
-  reason       String   @db.VarChar(64)
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
+  amount          Int
+  inputTokens     Int      @default(0)
+  outputTokens    Int      @default(0)
+  rawModelId      String?  @db.VarChar(160)
+  pricedModelId   String?  @db.VarChar(160)
+  pricingSource   String?  @db.VarChar(32)
+  promptPrice     Decimal? @db.Decimal(20, 12)
+  completionPrice Decimal? @db.Decimal(20, 12)
+  reason          String   @db.VarChar(64)
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
 
   @@index([userId, expiresAt])
   @@index([userId, expiresAt, createdAt])
