@@ -61,9 +61,11 @@
     "verify": "bun run check:locks && bun run check:docs && bun run routes:generate && bun run format:check && bun run lint && bun run typecheck && bun run test:full && bun run knip"
   },
   "overrides": {
-    "dompurify": "3.4.11",
-    "js-yaml": "4.2.0",
-    "postcss": "8.5.15",
+    "brace-expansion": "5.0.8",
+    "dompurify": "3.4.12",
+    "fast-uri": "3.1.4",
+    "js-yaml": "4.3.0",
+    "postcss": "8.5.25",
     "tmp": "0.2.3",
     "uuid": "11.1.1"
   },

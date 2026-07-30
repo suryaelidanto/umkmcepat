@@ -29,7 +29,7 @@ export async function ensureS3Buckets(): Promise<void> {
     return;
   }
   const accessKeyId = getEnv("MINIO_ROOT_USER", "umkmcepat");
-  const secretAccessKey = getEnv("RUSTFS_ROOT_PASSWORD", "umkmcepat");
+  const secretAccessKey = getEnv("MINIO_ROOT_PASSWORD", "umkmcepat");
   const endpoint = getEnv("S3_ENDPOINT", "http://localhost:9000");
   const publicBucket = getEnv("S3_PUBLIC_BUCKET");
   const privateBucket = getEnv("S3_PRIVATE_BUCKET");
