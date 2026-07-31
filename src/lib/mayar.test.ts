@@ -188,6 +188,7 @@ describe("getBoosterPack", () => {
     const result = await getBoosterPack("starter");
     expect(result).toEqual({
       amount: BOOSTER_PACKS.starter.amount,
+      compareAtAmount: BOOSTER_PACKS.starter.compareAtAmount,
       energy: BOOSTER_PACKS.starter.energy,
       name: BOOSTER_PACKS.starter.name,
     });

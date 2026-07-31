@@ -6,8 +6,6 @@ import { getRedisUrl } from "@/lib/redis-url";
 
 export const ATTEMPT_QUEUE_NAME = "project-attempt";
 
-export type AttemptJobKind = "generate" | "edit-build";
-
 export type GenerateAttemptJob = {
   kind: "generate";
   attemptId: string;

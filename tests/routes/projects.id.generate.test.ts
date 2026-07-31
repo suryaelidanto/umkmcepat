@@ -4,6 +4,7 @@ const {
   authMock,
   checkRateLimitMock,
   claimProjectOperationMock,
+  enqueueAttemptJobMock,
   finalizeProjectOperationMock,
   markStaleProjectBuildsMock,
   prismaProjectBuildCreateMock,
@@ -15,40 +16,40 @@ const {
   prismaProjectSnapshotCreateMock,
   prismaQueryRawMock,
   stopSupersededPreviewDeploymentsMock,
-  generateTextMock,
+  createReadStreamFromChannelMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   checkRateLimitMock: vi.fn(async () => null),
   claimProjectOperationMock: vi.fn(async () => ({
     claimed: true,
-    token: "operation-token",
+    token: "op_token",
   })),
+  enqueueAttemptJobMock: vi.fn(async () => undefined),
   finalizeProjectOperationMock: vi.fn(async () => true),
-  markStaleProjectBuildsMock: vi.fn(async () => undefined),
-  prismaProjectBuildCreateMock: vi.fn(async () => ({ id: "build_early" })),
+  markStaleProjectBuildsMock: vi.fn(async () => 0),
+  prismaProjectBuildCreateMock: vi.fn(async () => ({ id: "build_1" })),
   prismaProjectEditAttemptCreateMock: vi.fn(async () => ({ id: "attempt_1" })),
   prismaProjectEditAttemptUpdateMock: vi.fn(async () => ({ id: "attempt_1" })),
   prismaProjectEditAttemptUpdateManyMock: vi.fn(async () => ({ count: 1 })),
   prismaProjectFindFirstMock: vi.fn(),
   prismaProjectFindUniqueMock: vi.fn(),
-  prismaProjectSnapshotCreateMock: vi.fn(async () => ({
-    id: "snapshot_early",
-  })),
+  prismaProjectSnapshotCreateMock: vi.fn(async () => ({ id: "snap_1" })),
   prismaQueryRawMock: vi.fn(),
   stopSupersededPreviewDeploymentsMock: vi.fn(async () => []),
-  generateTextMock: vi.fn(),
+  createReadStreamFromChannelMock: vi.fn(
+    () =>
+      new Response("event: progress\ndata: {}\n\n", {
+        headers: { "Content-Type": "text/event-stream" },
+        status: 200,
+      }),
+  ),
 }));
 
-vi.mock("@/lib/ai", () => ({
-  getAiModel: vi.fn(() => "test-model"),
-  getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
-}));
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/dev-log", () => ({ devLog: vi.fn() }));
 vi.mock("@/lib/projects/project-operation", () => ({
   claimProjectOperation: claimProjectOperationMock,
   finalizeProjectOperation: finalizeProjectOperationMock,
-  renewProjectOperation: vi.fn(async () => true),
 }));
 vi.mock("@/lib/projects/runtime-supervisor", () => ({
   stopSupersededPreviewDeployments: stopSupersededPreviewDeploymentsMock,
@@ -56,15 +57,22 @@ vi.mock("@/lib/projects/runtime-supervisor", () => ({
 vi.mock("@/lib/projects/stale-builds", () => ({
   markStaleProjectBuilds: markStaleProjectBuildsMock,
 }));
+vi.mock("@/lib/projects/attempt-queue", () => ({
+  enqueueAttemptJob: enqueueAttemptJobMock,
+}));
+vi.mock("@/lib/projects/build-attempt-pubsub", () => ({
+  createReadStreamFromChannel: createReadStreamFromChannelMock,
+  publishBuildProgress: vi.fn(),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $queryRaw: prismaQueryRawMock,
     project: {
       findFirst: prismaProjectFindFirstMock,
       findUnique: prismaProjectFindUniqueMock,
     },
     projectBuild: {
       create: prismaProjectBuildCreateMock,
-      update: vi.fn(async () => ({ id: "build_early" })),
     },
     projectEditAttempt: {
       create: prismaProjectEditAttemptCreateMock,
@@ -74,47 +82,21 @@ vi.mock("@/lib/prisma", () => ({
     projectSnapshot: {
       create: prismaProjectSnapshotCreateMock,
     },
-    runtimeEvent: {
-      create: vi.fn(async () => ({ id: "event_1" })),
-    },
-    $queryRaw: prismaQueryRawMock,
   },
 }));
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
 vi.mock("@/lib/user-credits", () => ({
-  getEnergyConfig: vi.fn(() => ({
-    dailyLimit: "100000",
-    microUsdPerEnergy: "100",
-    minBuild: "10000",
-    minDiscuss: "5000",
-    minEdit: "10000",
-    minGeneration: "5000",
-    minModeration: "1000",
-  })),
+  isUserVerified: vi.fn(async () => true),
   checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 200_000 })),
+  getEnergyConfig: vi.fn(() => ({ minBuild: 1 })),
   addEnergyUsage: vi.fn(async () => ({
     energyUsed: 0,
     inputTokens: 0,
     outputTokens: 0,
   })),
-  chargeEnergyForAiUsage: vi.fn(async () => ({
-    energyUsed: 0,
-    inputTokens: 0,
-    outputTokens: 0,
-  })),
-  isUserVerified: vi.fn(async () => true),
-}));
-vi.mock("ai", () => ({
-  jsonSchema: vi.fn((schema: unknown) => schema),
-  Output: {
-    json: vi.fn(() => ({})),
-    object: vi.fn((opts: unknown) => opts),
-  },
-  tool: vi.fn((opts: unknown) => opts),
-  generateText: generateTextMock,
-  streamText: vi.fn(),
+  chargeEnergyForAiUsage: vi.fn(async () => ({})),
 }));
 
 import { getHandler } from "./_handler";
@@ -150,7 +132,7 @@ describe("project generate route", () => {
     expect(prismaProjectFindFirstMock).not.toHaveBeenCalled();
   });
 
-  it("returns a stream error when model output fails during implementation spec generation", async () => {
+  it("returns unavailable when the attempt queue rejects the job", async () => {
     authMock.mockResolvedValue({
       expires: new Date().toISOString(),
       user: { id: "user_1" },
@@ -167,19 +149,7 @@ describe("project generate route", () => {
         buildStatus: "ready",
         status: "ready",
       });
-    prismaQueryRawMock.mockResolvedValueOnce([
-      {
-        brief: {
-          confidence: 100,
-          openQuestions: [],
-        },
-      },
-    ]);
-    generateTextMock.mockRejectedValueOnce(
-      new Error(
-        '[provider transport error: {"type":"server_error","message":"Network connection lost."}]',
-      ),
-    );
+    enqueueAttemptJobMock.mockRejectedValueOnce(new Error("redis down"));
 
     const response = await POST(
       new Request("http://localhost/api/projects/project_1/generate", {
@@ -188,13 +158,10 @@ describe("project generate route", () => {
       }),
       { id: "project_1" },
     );
+    const body = await response.json();
 
-    const body = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(body).toContain("event: error");
-    expect(body).toContain("AI belum bisa membangun website ini.");
-    expect(body).not.toContain("[provider transport error:");
+    expect(response.status).toBe(503);
+    expect(body.code).toBe("build_attempt_unavailable");
     expect(finalizeProjectOperationMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -203,6 +170,6 @@ describe("project generate route", () => {
         }),
       }),
     );
-    expect(prismaProjectEditAttemptUpdateManyMock).toHaveBeenCalled();
+    expect(createReadStreamFromChannelMock).not.toHaveBeenCalled();
   });
 });

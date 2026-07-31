@@ -685,15 +685,6 @@ export const APP_SETTINGS: ConfigEntry[] = [
     min: 2,
     max: 15,
   },
-  {
-    key: "ai.generation_model",
-    category: "ai",
-    tier: "advanced",
-    type: "string",
-    label: "AI — build pipeline model id",
-    fallback: "",
-    env: "AI_GENERATION_MODEL",
-  },
 ];
 
 export function findConfigEntry(key: string): ConfigEntry | undefined {

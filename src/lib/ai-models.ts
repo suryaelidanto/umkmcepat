@@ -18,16 +18,8 @@ export function getDefaultAiModel(
   return models?.length ? models[0] : DEFAULT_AI_MODEL;
 }
 
-// Model for the build pipeline (spec + source generation). An empty value
-// falls through to the default model, so admins can clear the override.
+// Model for the build pipeline (spec + source generation).
+// Env override only; no admin setting — model choice will live elsewhere later.
 export function getGenerationModel() {
-  const readSync = getSettingSync as unknown as (
-    k: string,
-    fallback: undefined,
-  ) => string | undefined;
-  return (
-    readSync("ai.generation_model", undefined) ||
-    process.env.AI_GENERATION_MODEL ||
-    getDefaultAiModel()
-  );
+  return process.env.AI_GENERATION_MODEL || getDefaultAiModel();
 }

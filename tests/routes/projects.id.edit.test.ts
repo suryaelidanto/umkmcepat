@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
-  buildGeneratedProjectMock,
   editGeneratedSourceWithAgentMock,
+  enqueueAndWaitEditBuildMock,
   prismaTransactionMock,
   prismaProjectBuildCreateMock,
   prismaProjectBuildUpdateManyMock,
@@ -19,14 +19,15 @@ const {
   prismaProjectUpdateMock,
   prismaRuntimeEventCreateMock,
   prismaExecuteRawMock,
+  readProjectDistArtifactMock,
   stopSupersededPreviewDeploymentsMock,
   writeProjectDistArtifactMock,
   writeProjectSourceArtifactMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
-  buildGeneratedProjectMock: vi.fn(),
   prismaTransactionMock: vi.fn(),
   editGeneratedSourceWithAgentMock: vi.fn(),
+  enqueueAndWaitEditBuildMock: vi.fn(),
   prismaProjectBuildCreateMock: vi.fn(),
   prismaProjectBuildUpdateManyMock: vi.fn(),
   prismaProjectBuildUpdateMock: vi.fn(),
@@ -41,6 +42,7 @@ const {
   prismaProjectUpdateMock: vi.fn(),
   prismaRuntimeEventCreateMock: vi.fn(),
   prismaExecuteRawMock: vi.fn(),
+  readProjectDistArtifactMock: vi.fn(),
   stopSupersededPreviewDeploymentsMock: vi.fn(async () => []),
   writeProjectDistArtifactMock: vi.fn(),
   writeProjectSourceArtifactMock: vi.fn(),
@@ -118,21 +120,16 @@ vi.mock("@/lib/projects/source-edit-agent", () => ({
 vi.mock("@/lib/projects/stale-builds", () => ({
   markStaleProjectBuilds: vi.fn(async () => 0),
 }));
-vi.mock("@/lib/projects/generated-source", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/lib/projects/generated-source")>();
-
-  return {
-    ...actual,
-    buildGeneratedProject: buildGeneratedProjectMock,
-  };
-});
+vi.mock("@/lib/projects/attempt-queue", () => ({
+  enqueueAndWaitEditBuild: enqueueAndWaitEditBuildMock,
+}));
 vi.mock("@/lib/projects/runtime-artifacts", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/lib/projects/runtime-artifacts")>();
 
   return {
     ...actual,
+    readProjectDistArtifact: readProjectDistArtifactMock,
     writeProjectDistArtifact: writeProjectDistArtifactMock,
     writeProjectSourceArtifact: writeProjectSourceArtifactMock,
   };
@@ -304,13 +301,14 @@ describe("project edit route", () => {
       "project-artifact:local:source:snapshot_edit",
     );
     prismaProjectBuildCreateMock.mockResolvedValue({ id: "build_edit" });
-    buildGeneratedProjectMock.mockResolvedValue({
-      distFiles: [
-        { path: "index.html", content: "ok", contentType: "text/html" },
-      ],
-      log: "ok",
-      ok: true,
+    enqueueAndWaitEditBuildMock.mockResolvedValue({
+      artifactRef: "project-artifact:local:dist:build_edit",
+      buildStatus: "succeeded",
+      logText: "ok",
     });
+    readProjectDistArtifactMock.mockResolvedValue([
+      { path: "index.html", content: "ok", contentType: "text/html" },
+    ]);
     writeProjectDistArtifactMock.mockResolvedValue(
       "project-artifact:local:dist:build_edit",
     );
@@ -526,11 +524,12 @@ describe("project edit route", () => {
   });
 
   it("records a failed edit build without replacing project source or ready status", async () => {
-    buildGeneratedProjectMock.mockResolvedValue({
-      distFiles: [],
-      log: "compile failed",
-      ok: false,
+    enqueueAndWaitEditBuildMock.mockResolvedValue({
+      artifactRef: null,
+      buildStatus: "failed",
+      logText: "compile failed",
     });
+    readProjectDistArtifactMock.mockResolvedValue([]);
 
     const response = await POST(
       request([
