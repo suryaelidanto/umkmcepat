@@ -11,6 +11,7 @@ const prismaOtpRequestCreateMock = vi.fn();
 const prismaOtpRequestFindFirstMock = vi.fn();
 const prismaOtpRequestUpdateMock = vi.fn();
 const prismaUserFindUniqueMock = vi.fn();
+const prismaUserFindFirstMock = vi.fn();
 const prismaUserUpdateMock = vi.fn();
 const prismaTransactionMock = vi.fn();
 
@@ -23,11 +24,14 @@ vi.mock("@/lib/prisma", () => ({
     },
     user: {
       findUnique: (...args: unknown[]) => prismaUserFindUniqueMock(...args),
+      findFirst: (...args: unknown[]) => prismaUserFindFirstMock(...args),
       update: (...args: unknown[]) => prismaUserUpdateMock(...args),
     },
     $transaction: (...args: unknown[]) => prismaTransactionMock(...args),
   },
 }));
+
+const VALID_PHONE = "+6281234567890";
 
 const originalEnv = { ...process.env };
 const fetchMock = vi.fn();
@@ -75,6 +79,7 @@ describe("verifyOtp", () => {
       otpAttempts: 0,
       otpLockedUntil: null,
     });
+    prismaUserFindFirstMock.mockResolvedValue(null);
   });
 
   it("checks if user is locked", async () => {
@@ -84,10 +89,16 @@ describe("verifyOtp", () => {
       otpLockedUntil: new Date(Date.now() + 10 * 60 * 1000), // locked for 10 more minutes
     });
 
-    const res = await verifyOtp("user_1", "+628123", "123456");
+    const res = await verifyOtp("user_1", VALID_PHONE, "123456");
     expect(res.success).toBe(false);
     expect(res.error).toContain("dikunci");
     expect(prismaOtpRequestFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid phone format", async () => {
+    const res = await verifyOtp("user_1", "not-a-phone", "123456");
+    expect(res.success).toBe(false);
+    expect(res.error).toContain("tidak valid");
   });
 
   it("verifies with correct code", async () => {
@@ -99,7 +110,7 @@ describe("verifyOtp", () => {
     const mockRequest = {
       id: "req_1",
       userId: "user_1",
-      phone: "+628123",
+      phone: VALID_PHONE,
       codeHash: expectedHash,
       attempts: 0,
       used: false,
@@ -107,16 +118,36 @@ describe("verifyOtp", () => {
     prismaOtpRequestFindFirstMock.mockResolvedValueOnce(mockRequest);
     prismaTransactionMock.mockResolvedValueOnce([{}, {}]);
 
-    const res = await verifyOtp("user_1", "+628123", code);
+    const res = await verifyOtp("user_1", VALID_PHONE, code);
     expect(res.success).toBe(true);
     expect(prismaTransactionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects when phone already claimed by another user", async () => {
+    const code = "123456";
+    const expectedHash =
+      "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92";
+    prismaOtpRequestFindFirstMock.mockResolvedValueOnce({
+      id: "req_1",
+      userId: "user_1",
+      phone: VALID_PHONE,
+      codeHash: expectedHash,
+      attempts: 0,
+      used: false,
+    });
+    prismaUserFindFirstMock.mockResolvedValueOnce({ id: "user_2" });
+
+    const res = await verifyOtp("user_1", VALID_PHONE, code);
+    expect(res.success).toBe(false);
+    expect(res.error).toBe("Nomor ini sudah terpakai di akun lain.");
+    expect(prismaTransactionMock).not.toHaveBeenCalled();
   });
 
   it("handles incorrect code and increments request attempts", async () => {
     const mockRequest = {
       id: "req_1",
       userId: "user_1",
-      phone: "+628123",
+      phone: VALID_PHONE,
       codeHash: "hash_of_actual_code",
       attempts: 0,
       used: false,
@@ -130,7 +161,7 @@ describe("verifyOtp", () => {
       attempts: 1,
     });
 
-    const res = await verifyOtp("user_1", "+628123", "wrong_code");
+    const res = await verifyOtp("user_1", VALID_PHONE, "wrong_code");
     expect(res.success).toBe(false);
     expect(res.error).toBe("Kode OTP salah.");
     expect(prismaOtpRequestUpdateMock).toHaveBeenCalledWith({
@@ -143,7 +174,7 @@ describe("verifyOtp", () => {
     const mockRequest = {
       id: "req_1",
       userId: "user_1",
-      phone: "+628123",
+      phone: VALID_PHONE,
       codeHash: "hash_of_actual_code",
       attempts: 2, // will become 3
       used: false,
@@ -156,7 +187,7 @@ describe("verifyOtp", () => {
     });
     prismaUserUpdateMock.mockResolvedValueOnce({});
 
-    const res = await verifyOtp("user_1", "+628123", "wrong_code");
+    const res = await verifyOtp("user_1", VALID_PHONE, "wrong_code");
     expect(res.success).toBe(false);
     expect(res.error).toBe("Terlalu banyak percobaan. Minta kode baru.");
     expect(prismaUserUpdateMock).toHaveBeenCalledWith({
@@ -174,7 +205,7 @@ describe("verifyOtp", () => {
     const mockRequest = {
       id: "req_1",
       userId: "user_1",
-      phone: "+628123",
+      phone: VALID_PHONE,
       codeHash: "hash_of_actual_code",
       attempts: 2,
       used: false,
@@ -187,7 +218,7 @@ describe("verifyOtp", () => {
     });
     prismaUserUpdateMock.mockResolvedValueOnce({});
 
-    const res = await verifyOtp("user_1", "+628123", "wrong_code");
+    const res = await verifyOtp("user_1", VALID_PHONE, "wrong_code");
     expect(res.success).toBe(false);
     expect(res.error).toContain("dikunci");
 

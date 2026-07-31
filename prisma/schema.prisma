@@ -75,7 +75,7 @@ model User {
   email           String?                 @unique @db.VarChar(100)
   emailVerified   DateTime?
   image           String?                 @db.Text
-  phone           String?                 @db.VarChar(20)
+  phone           String?                 @unique @db.VarChar(20)
   verifiedAt      DateTime?
   otpAttempts     Int                     @default(0)
   otpLockedUntil  DateTime?

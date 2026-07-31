@@ -17,9 +17,9 @@ export const Route = createFileRoute("/api/waitlist")({
   server: {
     handlers: {
       // Submit a pilot waitlist entry. Multipart form fields: businessName,
-      // businessType, phone, storyAnswers (offers/since/goal combined into the
+      // businessType, storyAnswers (offers/since/goal combined into the
       // single story string), turnstile token, email (attached to user session
-      // on the client), and an optional `file` image.
+      // on the client), and photo asset ids.
       POST: async ({ request }) => {
         const rateLimitResponse = await checkRateLimit(request, "global");
         if (rateLimitResponse) {
@@ -141,7 +141,6 @@ export const Route = createFileRoute("/api/waitlist")({
             businessType: String(form.get("businessType") ?? "") || null,
             email: session.user.email,
             imageRef,
-            phone: String(form.get("phone") ?? "") || null,
             story: storyBuilt.story,
           });
           return Response.json(entry, { status: 201 });

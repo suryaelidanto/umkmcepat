@@ -29,7 +29,6 @@ import { useRouter } from "@/lib/navigation";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
 import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
-import { cn } from "@/lib/utils";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
 import { getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
 
@@ -97,12 +96,6 @@ const waitlistSchema = z.object({
     .min(2, "Nama usaha minimal 2 karakter.")
     .max(160, "Nama usaha terlalu panjang."),
   businessType: z.string(),
-  phone: z
-    .string()
-    .trim()
-    .refine((value) => !value || /^\+?[0-9]{10,15}$/.test(value), {
-      message: "No. WhatsApp tidak valid.",
-    }),
   storyOffers: z.string().trim().min(2, "Jawab dulu: kamu jualan apa?"),
   storySince: z.enum(BUSINESS_DURATIONS, {
     error: "Pilih salah satu.",
@@ -140,7 +133,6 @@ type WaitlistValues = z.infer<typeof waitlistSchema>;
 const EMPTY_VALUES: WaitlistValues = {
   businessName: "",
   businessType: "",
-  phone: "",
   photo: [],
   storyGoal: "",
   storyOffers: "",
@@ -151,7 +143,6 @@ type OwnEntry = {
   businessName: string;
   businessType: string | null;
   id: string;
-  phone: string | null;
   rejectionReason: string | null;
   status: string;
   story: string;
@@ -184,9 +175,6 @@ function WaitlistPage() {
       fd.append("businessName", values.businessName.trim());
       if (values.businessType) {
         fd.append("businessType", values.businessType);
-      }
-      if (values.phone?.trim()) {
-        fd.append("phone", values.phone.trim());
       }
       fd.append("storyOffers", values.storyOffers.trim());
       fd.append("storySince", values.storySince);
@@ -250,9 +238,6 @@ function WaitlistPage() {
         if (saved.businessType) {
           form.setField("businessType", saved.businessType);
         }
-        if (saved.phone) {
-          form.setField("phone", saved.phone);
-        }
         if (saved.storyOffers) {
           form.setField("storyOffers", saved.storyOffers);
         }
@@ -267,7 +252,6 @@ function WaitlistPage() {
         if (own) {
           form.setField("businessName", own.businessName);
           form.setField("businessType", own.businessType ?? "");
-          form.setField("phone", own.phone ?? "");
         }
       }
     } catch (err) {
@@ -282,7 +266,6 @@ function WaitlistPage() {
       const valuesToSave = {
         businessName: form.values.businessName,
         businessType: form.values.businessType,
-        phone: form.values.phone,
         storyOffers: form.values.storyOffers,
         storySince: form.values.storySince,
         storyGoal: form.values.storyGoal,
@@ -297,7 +280,6 @@ function WaitlistPage() {
   }, [
     form.values.businessName,
     form.values.businessType,
-    form.values.phone,
     form.values.storyOffers,
     form.values.storySince,
     form.values.storyGoal,
@@ -581,13 +563,6 @@ function WaitlistPage() {
                     toast.error(form.errors.businessName);
                     return;
                   }
-                  if (form.values.phone) {
-                    form.markTouched("phone");
-                    if (form.errors.phone) {
-                      toast.error(form.errors.phone);
-                      return;
-                    }
-                  }
                 }
                 if (step === 2) {
                   form.markTouched("storyOffers");
@@ -786,66 +761,6 @@ function Step1({
           })}
         </div>
       </div>
-
-      <FormField
-        className="mt-spacing-6"
-        error={errorMessage("phone")}
-        hint="Biar tim kami gampang hubungi kamu."
-        label="No. WhatsApp (opsional)"
-      >
-        {({ id, invalid }) => {
-          const displayValue = (values.phone ?? "").startsWith("+62")
-            ? (values.phone ?? "").slice(3)
-            : (values.phone ?? "");
-
-          const handlePhoneChange = (val: string) => {
-            let digits = val.replace(/\D/g, "");
-            if (digits.startsWith("0")) {
-              digits = digits.slice(1);
-            }
-            if (digits.startsWith("62")) {
-              digits = digits.slice(2);
-            }
-            digits = digits.slice(0, 13);
-            onChange("phone", digits ? `+62${digits}` : "");
-          };
-
-          return (
-            <div>
-              <div
-                className={cn(
-                  "flex items-stretch rounded-radius-md border bg-transparent overflow-hidden h-11 transition focus-within:ring-1 focus-within:ring-offset-0",
-                  invalid
-                    ? "border-aurora-rose/60 focus-within:border-aurora-rose focus-within:ring-aurora-rose"
-                    : "border-surface-warm-white/10 focus-within:border-aurora-orange/50 focus-within:ring-aurora-orange",
-                )}
-              >
-                <span className="flex items-center justify-center bg-surface-warm-white/5 px-spacing-3 text-sm font-medium text-surface-warm-white/50 select-none gap-spacing-2 border-r border-surface-warm-white/10">
-                  <span className="text-base leading-none">🇮🇩</span>
-                  +62
-                </span>
-                <input
-                  className="w-full bg-transparent px-spacing-4 text-sm text-surface-warm-white outline-none transition placeholder:text-surface-warm-white/30"
-                  id={id}
-                  onBlur={() => markTouched("phone")}
-                  onChange={(event) => handlePhoneChange(event.target.value)}
-                  placeholder="812345678..."
-                  type="text"
-                  inputMode="numeric"
-                  value={displayValue}
-                />
-              </div>
-              {values.phone &&
-                values.phone.replace(/\D/g, "").length >= 3 &&
-                values.phone.replace(/\D/g, "").length < 10 && (
-                  <p className="mt-spacing-1 text-xs text-aurora-orange">
-                    Nomor terlalu pendek (minimal 8 angka setelah +62).
-                  </p>
-                )}
-            </div>
-          );
-        }}
-      </FormField>
     </Step>
   );
 }

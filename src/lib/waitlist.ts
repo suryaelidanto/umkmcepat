@@ -70,7 +70,6 @@ export type WaitlistSubmission = {
   businessType?: string | null;
   email: string;
   imageRef?: string | null;
-  phone?: string | null;
   story: string;
 };
 
@@ -96,7 +95,6 @@ export async function submitWaitlist(
       businessType: input.businessType?.trim().slice(0, 120) || null,
       email,
       imageRef: input.imageRef ?? null,
-      phone: input.phone?.trim().slice(0, 40) || null,
       status: "pending",
       story: story.story,
       submittedAt: new Date(),
@@ -105,7 +103,7 @@ export async function submitWaitlist(
       businessName: input.businessName.trim().slice(0, 160),
       businessType: input.businessType?.trim().slice(0, 120) || null,
       imageRef: input.imageRef ?? null,
-      phone: input.phone?.trim().slice(0, 40) || null,
+      // phone intentionally omitted — legacy WaitlistEntry.phone preserved
       story: story.story,
       // Re-submitting after rejection resets to pending for re-review.
       status: "pending",

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
 import { createOtpRequest, sendOtpViaSms } from "@/lib/otp";
+import { assertPhoneAvailable, normalizePhone } from "@/lib/phone";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const Route = createFileRoute("/api/auth/otp/send")({
@@ -37,9 +38,9 @@ export const Route = createFileRoute("/api/auth/otp/send")({
           );
         }
 
-        const phone = body.phone?.trim();
+        const phone = normalizePhone(body.phone?.trim() ?? "");
 
-        if (!phone || !/^\+?[0-9]{10,15}$/.test(phone)) {
+        if (!phone) {
           return Response.json(
             {
               message:
@@ -47,6 +48,11 @@ export const Route = createFileRoute("/api/auth/otp/send")({
             },
             { status: 400 },
           );
+        }
+
+        const available = await assertPhoneAvailable(session.user.id, phone);
+        if (!available.ok) {
+          return Response.json({ message: available.error }, { status: 409 });
         }
 
         const { code, expiresAt } = await createOtpRequest(

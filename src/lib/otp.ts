@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 
+import { assertPhoneAvailable, normalizePhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 
 const OTP_EXPIRY_MINUTES = 5;
@@ -41,6 +42,14 @@ export async function verifyOtp(
   phone: string,
   code: string,
 ): Promise<{ success: boolean; error?: string }> {
+  const normalized = normalizePhone(phone);
+  if (!normalized) {
+    return {
+      success: false,
+      error: "Nomor telepon tidak valid. Gunakan format: +6281234567890",
+    };
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { otpAttempts: true, otpLockedUntil: true },
@@ -58,7 +67,7 @@ export async function verifyOtp(
   let request = await prisma.otpRequest.findFirst({
     where: {
       userId,
-      phone,
+      phone: normalized,
       codeHash: inputHash,
       used: false,
       expiresAt: { gt: new Date() },
@@ -71,7 +80,7 @@ export async function verifyOtp(
     request = await prisma.otpRequest.findFirst({
       where: {
         userId,
-        phone,
+        phone: normalized,
         used: false,
         expiresAt: { gt: new Date() },
       },
@@ -141,20 +150,33 @@ export async function verifyOtp(
     return { success: false, error: "Kode OTP salah." };
   }
 
-  await prisma.$transaction([
-    prisma.otpRequest.update({
-      where: { id: request.id },
-      data: { used: true },
-    }),
-    prisma.user.update({
-      where: { id: userId },
-      data: {
-        phone,
-        verifiedAt: new Date(),
-        otpAttempts: 0,
-      },
-    }),
-  ]);
+  const available = await assertPhoneAvailable(userId, normalized);
+  if (!available.ok) {
+    return { success: false, error: available.error };
+  }
+
+  try {
+    await prisma.$transaction([
+      prisma.otpRequest.update({
+        where: { id: request.id },
+        data: { used: true },
+      }),
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          phone: normalized,
+          verifiedAt: new Date(),
+          otpAttempts: 0,
+        },
+      }),
+    ]);
+  } catch {
+    // Unique race: another account claimed the same phone between check and write.
+    return {
+      success: false,
+      error: "Nomor ini sudah terpakai di akun lain.",
+    };
+  }
 
   return { success: true };
 }
