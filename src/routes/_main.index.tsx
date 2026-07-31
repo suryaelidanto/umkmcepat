@@ -252,19 +252,6 @@ function HomePage() {
         <HeroAuroraBackground />
 
         <HeroContentMotion>
-          {waitlisted ? (
-            <HeroMotionItem className="w-full">
-              <div className="mx-auto mb-spacing-6 max-w-3xl rounded-[20px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-6 py-spacing-4 text-center text-sm text-surface-warm-white/82">
-                <p>Kamu masih dalam antrean. Kami hubungi lewat email.</p>
-                <Link
-                  href="/waitlist"
-                  className="mt-spacing-2 inline-block text-surface-warm-white underline-offset-4 hover:underline"
-                >
-                  Cek status antrean
-                </Link>
-              </div>
-            </HeroMotionItem>
-          ) : null}
           <HeroMotionItem className={siblingClass}>
             <h1
               id="hero-heading"
@@ -292,11 +279,23 @@ function HomePage() {
               </p>
             ) : null}
           </HeroMotionItem>
-          {!waitlisted ? (
+          {waitlisted ? (
+            <HeroMotionItem className="w-full">
+              <div className="mx-auto mt-spacing-6 max-w-3xl rounded-[20px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-6 py-spacing-4 text-center text-sm text-surface-warm-white/82">
+                <p>Kamu masih dalam antrean. Kami hubungi lewat email.</p>
+                <Link
+                  href="/waitlist"
+                  className="mt-spacing-2 inline-block text-surface-warm-white underline-offset-4 hover:underline"
+                >
+                  Cek status antrean
+                </Link>
+              </div>
+            </HeroMotionItem>
+          ) : (
             <HeroMotionItem className="w-full">
               <HomePromptForm onFocusChange={setPromptFocused} />
             </HeroMotionItem>
-          ) : null}
+          )}
         </HeroContentMotion>
       </section>
 
