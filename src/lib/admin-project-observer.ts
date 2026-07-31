@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { parseProjectBrief } from "./projects/brief";
 import { parseWorkspaceCard } from "./projects/brief-flow";
 import {
+  CHAT_PAGE_SIZE,
   getProjectChatPage,
   parseProjectChatMessages,
 } from "./projects/chat-memory";
@@ -125,7 +126,7 @@ function toProjectViewerData(project: ProjectViewerRow): ProjectViewerData {
     initialChatPage: getProjectChatPage(
       parseProjectChatMessages(project.chatMessages),
       null,
-      4,
+      CHAT_PAGE_SIZE,
     ),
     initialPrompt: project.prompt,
     initialWorkspaceCard: parseWorkspaceCard(

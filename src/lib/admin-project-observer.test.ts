@@ -77,9 +77,32 @@ describe("loadProjectForViewer", () => {
       updatedAt: "2026-07-30T09:00:00.000Z",
     });
     expect(result.project?.initialChatPage.messages).toHaveLength(2);
+    expect(result.project?.initialChatPage.hasMore).toBe(false);
     expect(JSON.stringify(result.project)).not.toContain("sourceFiles");
     expect(JSON.stringify(result.project)).not.toContain("buildLog");
     expect(JSON.stringify(result.project)).not.toContain("model");
+  });
+
+  it("pages initial chat to CHAT_PAGE_SIZE and reports hasMore", async () => {
+    const chatMessages = Array.from({ length: 25 }, (_, index) => ({
+      id: `m${index}`,
+      parts: [{ text: `${index}`, type: "text" as const }],
+      role: "user" as const,
+    }));
+    const client = clientReturning({ ...baseProject, chatMessages });
+
+    const result = await loadProjectForViewer({
+      client,
+      isAdminEmail: () => false,
+      projectId: "project-1",
+      viewer: { email: "owner@example.com", id: "owner-1" },
+    });
+
+    expect(result.mode).toBe("owner");
+    expect(result.project?.initialChatPage.messages).toHaveLength(20);
+    expect(result.project?.initialChatPage.messages[0]?.id).toBe("m5");
+    expect(result.project?.initialChatPage.nextCursor).toBe(5);
+    expect(result.project?.initialChatPage.hasMore).toBe(true);
   });
 
   it("denies a non-admin who is not the owner", async () => {

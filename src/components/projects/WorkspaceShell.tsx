@@ -308,7 +308,6 @@ export function WorkspaceShell({
       setSessionExpired(true);
     }
   }, [authStatus]);
-  const olderChatSentinelRef = useRef<HTMLDivElement | null>(null);
   const hasAutoOpenedPreview = useRef(hasInitialPreview);
   const previousLiveMessageCount = useRef(initialMessages.length);
   const previousLiveBuildStepCount = useRef(0);
@@ -1373,28 +1372,6 @@ export function WorkspaceShell({
     setMode("discuss");
     void cancelBuild();
   }
-
-  useEffect(() => {
-    const sentinel = olderChatSentinelRef.current;
-    const root = chatScrollRef.current;
-
-    if (!sentinel || !root || !hasMoreChat) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          void loadOlderChat();
-        }
-      },
-      { root, rootMargin: "160px 0px 0px 0px" },
-    );
-
-    observer.observe(sentinel);
-
-    return () => observer.disconnect();
-  }, [chatCursor, hasMoreChat, isLoadingOlderChat, loadOlderChat]);
 
   useEffect(() => {
     const element = chatScrollRef.current;
@@ -2580,15 +2557,17 @@ export function WorkspaceShell({
           className="min-h-0 flex-1 space-y-spacing-6 overflow-y-auto overflow-x-hidden px-spacing-1 pr-spacing-2 [scrollbar-color:#6f6a60_transparent] [scrollbar-width:thin]"
         >
           {hasMoreChat ? (
-            <div
-              ref={olderChatSentinelRef}
-              className="py-spacing-3 text-center"
-            >
-              {isLoadingOlderChat ? (
-                <span className="text-xs text-surface-warm-white/50">
-                  Memuat chat lama...
-                </span>
-              ) : null}
+            <div className="flex justify-center py-spacing-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void loadOlderChat()}
+                disabled={isLoadingOlderChat}
+                className="rounded-radius-lg border-surface-warm-white/14 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12"
+              >
+                {isLoadingOlderChat ? "Memuat..." : "Muat chat lama"}
+              </Button>
             </div>
           ) : null}
           <ChatMessages messages={visibleMessages} />
