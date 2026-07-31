@@ -1,8 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 
-import { withVariant } from "@/components/admin/prototype/types";
-import { useAdminVariant } from "@/components/admin/prototype/useAdminVariant";
 import { Link } from "@/components/ui/link";
 import { fetchJson } from "@/lib/query-client";
 
@@ -18,7 +16,6 @@ const TABS = [
 
 export function AdminTabs() {
   const { location } = useRouterState();
-  const variant = useAdminVariant();
 
   const unreadQuery = useQuery({
     queryFn: () =>
@@ -51,7 +48,7 @@ export function AdminTabs() {
                 ? "flex items-center gap-2 rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm font-medium text-surface-warm-white"
                 : "flex items-center gap-2 rounded-radius-md px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/70"
             }
-            href={withVariant(tab.to, variant)}
+            href={tab.to}
             key={tab.to}
           >
             <span>{tab.label}</span>

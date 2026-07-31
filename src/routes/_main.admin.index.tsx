@@ -1,13 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
-import type { OverviewData } from "@/components/admin/prototype/efferd/dashboard";
-
-import { useAdminVariant } from "@/components/admin/prototype/useAdminVariant";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
-import { EfferdDashboard2 } from "@/components/ui/efferd-dashboard-2";
 import { fetchJson } from "@/lib/query-client";
+
+type Overview = {
+  stats: {
+    paymentsThisMonth: number;
+    projects: number;
+    revenueThisMonth: number;
+    users: number;
+    waitlistPending: number;
+  };
+  recentWaitlist: { businessName: string; id: string; submittedAt: string }[];
+  recentTransactions: {
+    amount: number;
+    createdAt: string;
+    orderId: string;
+    status: string;
+  }[];
+};
 
 function formatRupiah(amount: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -22,16 +35,11 @@ export const Route = createFileRoute("/_main/admin/")({
 });
 
 function OverviewPage() {
-  const variant = useAdminVariant();
   const streamerMode = useStreamerMode();
   const { data } = useQuery({
-    queryFn: () => fetchJson<OverviewData>("/api/admin/overview"),
+    queryFn: () => fetchJson<Overview>("/api/admin/overview"),
     queryKey: ["admin", "overview"],
   });
-
-  if (variant !== "A") {
-    return <EfferdDashboard2 data={data} variant={variant} />;
-  }
 
   const stats = data?.stats;
   const tiles = stats
