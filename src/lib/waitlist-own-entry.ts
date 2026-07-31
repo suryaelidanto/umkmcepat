@@ -6,7 +6,6 @@ export type OwnEntry = {
   businessType: string | null;
   id: string;
   imageRef: string | null;
-  phone: string | null;
   rejectionReason: string | null;
   status: string;
   story: string;
@@ -25,7 +24,6 @@ export async function getOwnWaitlistEntry(
       businessType: true,
       id: true,
       imageRef: true,
-      phone: true,
       rejectionReason: true,
       status: true,
       story: true,
