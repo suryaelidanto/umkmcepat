@@ -4240,6 +4240,7 @@ function CodeView({
             options={{
               readOnly: true,
               domReadOnly: true,
+              editContext: false,
               minimap: { enabled: false },
               fontSize: 13,
               lineHeight: 22,

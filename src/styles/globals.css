@@ -271,6 +271,19 @@
     background: #1c1c1c;
     color: #fcfbf8;
   }
+
+  /* Tailwind paints Monaco IME focus node → white bar. */
+  .monaco-editor .native-edit-context,
+  .monaco-editor .inputarea,
+  .monaco-editor .ime-text-area,
+  .monaco-editor textarea {
+    border: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: transparent !important;
+    caret-color: transparent !important;
+  }
 }
 
 @layer utilities {
