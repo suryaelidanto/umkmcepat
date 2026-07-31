@@ -36,6 +36,36 @@ function formatDate(value: string) {
   });
 }
 
+/** Opacity tiers + destructive on fail. Raw DB strings stay as-is. */
+function statusPillClass(value: string) {
+  const v = value.toLowerCase();
+  if (
+    v.includes("fail") ||
+    v.includes("error") ||
+    v === "canceled" ||
+    v === "cancelled" ||
+    v === "stale"
+  ) {
+    return "border-destructive/50 bg-destructive/15 text-destructive";
+  }
+  if (
+    v === "ready" ||
+    v === "passed" ||
+    v === "succeeded" ||
+    v === "running" ||
+    v === "building" ||
+    v === "generating" ||
+    v === "editing" ||
+    v === "repairing" ||
+    v === "queued" ||
+    v === "starting"
+  ) {
+    return "border-surface-warm-white/40 bg-surface-warm-white/12 text-surface-warm-white";
+  }
+  // draft, not_started, stopping, created, unknown
+  return "border-surface-warm-white/12 bg-transparent text-surface-warm-white/70";
+}
+
 function ProjectsPage() {
   const streamerMode = useStreamerMode();
   const { data } = useQuery({
@@ -97,11 +127,15 @@ function ProjectsPage() {
                   )}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-spacing-2 text-xs text-surface-warm-white/70 sm:justify-end">
-                <span className="rounded-radius-sm border border-surface-warm-white/12 px-spacing-2 py-spacing-1">
+              <div className="flex flex-wrap gap-spacing-2 text-xs sm:justify-end">
+                <span
+                  className={`rounded-radius-sm border px-spacing-2 py-spacing-1 ${statusPillClass(project.status)}`}
+                >
                   {project.status}
                 </span>
-                <span className="rounded-radius-sm border border-surface-warm-white/12 px-spacing-2 py-spacing-1">
+                <span
+                  className={`rounded-radius-sm border px-spacing-2 py-spacing-1 ${statusPillClass(project.buildStatus)}`}
+                >
                   Build: {project.buildStatus}
                 </span>
                 <a
