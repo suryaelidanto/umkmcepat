@@ -27,8 +27,6 @@ services:
     # Public DNS: rootless podman aardvark-dns can't forward to the host's
     # systemd-resolved (127.0.0.53); pin resolvers reachable by IP.
     dns: ["1.1.1.1", "8.8.8.8"]
-    profiles:
-      - ai
     depends_on:
       - headroom
     environment:
@@ -48,14 +46,11 @@ services:
     container_name: umkmcepat-headroom
     restart: unless-stopped
     dns: ["1.1.1.1", "8.8.8.8"]
-    profiles:
-      - ai
     environment:
       HEADROOM_TELEMETRY: off
     ports:
       - "127.0.0.1:8787:8787"
 
-  # Always on (no profile): BullMQ attempt queue needs Redis for generate/edit.
   redis:
     image: docker.io/redis:7-alpine
     container_name: umkmcepat-redis
@@ -80,8 +75,6 @@ services:
       - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
-    profiles:
-      - ai
 
 volumes:
   postgres_data:
