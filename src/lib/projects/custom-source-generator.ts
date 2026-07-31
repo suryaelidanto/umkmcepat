@@ -304,6 +304,26 @@ export async function generateCustomProjectFilesWithAgent({
       quality = checkAgentSourceQuality(files, agentEditedFiles);
     }
 
+    // Last resort after rewrites: if the model still never wrote presentation
+    // files, seed a brief-based home page so the user is never stuck without
+    // source. Prefer agent output when quality already passes.
+    if (!quality.ok && isNoMeaningfulEditFailure(quality.issues)) {
+      devLog("generate", "brief-home-seed", {
+        projectId,
+        issues: quality.issues,
+      });
+      const seeded = seedBriefBasedHome(files, schema);
+      files = seeded.files;
+      for (const path of seeded.editedPaths) {
+        agentEditedFiles.add(path);
+        touchedFiles.add(path);
+      }
+      files = ensureRouterRouteWired(files);
+      files = ensurePreviewReadyCalled(files);
+      files = ensureStylesFileExists(files, schema);
+      quality = checkAgentSourceQuality(files, agentEditedFiles);
+    }
+
     // Last-resort: if real CSS is still missing after rewrite attempts, inject
     // working Tailwind stubs/rules so the site at least renders — but cap it.
     // Too many unstyled components means the site is effectively broken; fail
@@ -957,6 +977,97 @@ export function isStarterStylesContent(styleContent: string) {
   // counts as starter-only so ensureStylesFileExists replaces it with the
   // starter contract.
   return styleContent.trim().length === 0;
+}
+
+/**
+ * Deterministic home page from ProjectSiteSchema when the coding agent never
+ * wrote presentation files. Removes starter placeholder markers and marks
+ * home + content as agent-edited for the quality gate.
+ */
+export function seedBriefBasedHome(
+  files: GeneratedProjectFile[],
+  schema: ProjectSiteSchema,
+): { editedPaths: string[]; files: GeneratedProjectFile[] } {
+  const siteContent = `export const site = ${JSON.stringify(schema, null, 2)} as const;\nexport default site;\n`;
+  const homeContent = `import { ArrowRight } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { site } from "@/content/site";
+import { usePreviewReady } from "@/lib/preview-ready";
+
+export function HomeRouteComponent() {
+  usePreviewReady();
+
+  return (
+    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col items-center justify-center gap-6 px-6 py-16">
+      <p className="text-sm font-medium text-muted-foreground">{site.eyebrow}</p>
+      <h1 className="text-center text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+        {site.headline}
+      </h1>
+      <p className="max-w-xl text-center text-base text-muted-foreground">
+        {site.subheadline}
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <Button size="lg" asChild>
+          <a href="#kontak">
+            {site.primaryCta}
+            <ArrowRight className="size-4" />
+          </a>
+        </Button>
+        <Button size="lg" variant="outline">
+          {site.secondaryCta}
+        </Button>
+      </div>
+      <Card className="mt-4 w-full max-w-xl">
+        <CardHeader>
+          <CardTitle>{site.businessName}</CardTitle>
+          <CardDescription>{site.offer}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
+            {site.trustPoints.map((point) => (
+              <li key={point}>{point}</li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+      <section id="kontak" className="mt-8 w-full max-w-xl text-center">
+        <h2 className="text-lg font-semibold text-foreground">Hubungi kami</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Siap bantu {site.audience}. {site.offer}
+        </p>
+      </section>
+    </main>
+  );
+}
+`;
+
+  const upsert = (
+    list: GeneratedProjectFile[],
+    path: string,
+    content: string,
+  ): GeneratedProjectFile[] => {
+    const index = list.findIndex((file) => file.path === path);
+    if (index < 0) {
+      return [...list, { path, content }];
+    }
+    return list.map((file, i) => (i === index ? { ...file, content } : file));
+  };
+
+  let next = files;
+  next = upsert(next, "src/content/site.ts", siteContent);
+  next = upsert(next, "src/routes/index.tsx", homeContent);
+  return {
+    editedPaths: ["src/content/site.ts", "src/routes/index.tsx"],
+    files: next,
+  };
 }
 
 /**
