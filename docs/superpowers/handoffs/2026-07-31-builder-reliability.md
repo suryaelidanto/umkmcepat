@@ -4,18 +4,20 @@
 
 - Spec + plan under `docs/superpowers/`
 - **Unstuck recovery:** `resolveGenerateMode` + `loadPersistedProjectSourceFiles`; API/worker demote empty `retry_build` → `first_generate`; runtime `hasPersistedSource` + stronger `canRetry`; client no longer treats failed status as “has source”
-- **Agent:** second forced rewrite; exploration budget (12 reads) before writes; rewrite step budget 16
-- **Tests:** mode/edge/load-persisted/custom-source-generator (50 unit tests green)
-- **Harness:** `scripts/reliability/` (stress-100 passed 100/100 against local server)
-- Commit: `74115b9` on `dev`
+- **Agent:** second forced rewrite; exploration budget (12 reads); rewrite step budget 16; **brief-home-seed** last resort when agent still writes nothing
+- **Live proof:** project `cms8qd27m000x4lng1onfsn02` recovered: `mode.resolved first_generate` → `brief-home-seed` → `source-finish ok:true` → `build.finished ok:true` → runtime `ready` / `hasPersistedSource:true` / `canPreview:true`
+- **Tests:** unit matrix green; `bun run check` green
+- **Harness:** `scripts/reliability/` stress-100 → 100/100
+- Commits on `dev`: `74115b9`, `c2fbbc1`, `ac19570`, `2b81b51`
 
-## Residual (operator / next session)
+## Residual (next session)
 
-1. **50 real full discuss→build E2E** needs `RELIABILITY_COOKIE` + AI energy + full discuss API scripting (current `run-batch` only creates project + probes runtime). Extend discuss+build flow then run `--count 50`.
-2. **Deep agent quality** beyond rewrite waves: monitor first-pass rate after deploy; further prompt/tool work if skip-home remains common.
-3. **Unrelated dirty tree** left unstaged: `AdminShell.tsx`, `_main.admin.settings.tsx`, `admin-settings-client-sync*` (not part of this work).
-4. **`.playwright-mcp/`** snapshots — do not commit.
+1. **50 full discuss→build E2E** still thin: extend `run-batch` with discuss script + chaos; run `--count 50` when AFK energy budget allows.
+2. **Agent first-pass rate:** seed is safety net (generic brief home); prefer improving model write rate so seed rarely fires.
+3. **`ready_with_failed_latest_attempt`** may show if older failed attempts remain in list while latest succeeded — cosmetic; preview works.
+4. Unrelated admin WIP may exist outside this branch work.
 
-## How to verify unstuck on Studio Grafis project
+## Verify
 
-Open failed empty-source project → Build ulang → logs should show `mode.resolved` with `generateMode: first_generate` and `retry_build.empty_source_fallback` if client still sent retry.
+- Stuck empty-source project → **Coba lagi** / generate → logs: `mode.resolved` `first_generate`, never `Belum ada source tersimpan` dead-end.
+- If agent empty: `brief-home-seed` then successful build.
