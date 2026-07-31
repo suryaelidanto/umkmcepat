@@ -9,11 +9,11 @@ import { getAuthState } from "@/lib/auth";
 import { isUserVerified } from "@/lib/user-credits";
 import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
-import { isWaitlistMarketingPublicPath } from "@/lib/waitlist-route-access";
+import { isWaitlistGateBypassPath } from "@/lib/waitlist-route-access";
 import { resolveUserWaitlistStatus } from "@/routes/api.user.waitlist";
 
 export async function checkRouteGates(pathname: string) {
-  const isPublicRoute = isWaitlistMarketingPublicPath(pathname);
+  const waitlistBypass = isWaitlistGateBypassPath(pathname);
 
   const { session, banned } = await getAuthState();
 
@@ -34,7 +34,10 @@ export async function checkRouteGates(pathname: string) {
     throw redirect({ to: "/verify" });
   }
 
-  if (!isPublicRoute) {
+  // Admin UI is gated by requireAdmin() (ADMIN_EMAILS allowlist), not
+  // waitlist. Waitlisted real admins must still open /admin; product routes
+  // stay waitlist-blocked so they experience the product as a normal user.
+  if (!waitlistBypass) {
     const email = session.user.email ?? null;
     const isAdmin = email ? isAdminEmail(email) : false;
     const waitlistEnabled = await isWaitlistEnabled();

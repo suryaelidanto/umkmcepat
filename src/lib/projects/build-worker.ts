@@ -1,4 +1,3 @@
-import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import {
   classifyBuildFailure,
@@ -26,8 +25,6 @@ export type LocalBuildWorkerOptions = {
   writeArtifact?: typeof writeProjectDistArtifact;
 };
 
-let activeBuilds = 0;
-
 export function createLocalBuildWorker({
   buildProject = buildGeneratedProject,
   writeArtifact = writeProjectDistArtifact,
@@ -43,62 +40,48 @@ export function createLocalBuildWorker({
       workspaceKey?: string;
     }): Promise<BuildWorkerResult> {
       devLog("build-worker", "start", {
-        activeBuilds,
         buildId,
         files: files.length,
       });
 
-      if (activeBuilds >= getBuildConcurrencyLimit()) {
-        return failed(
-          "Build worker concurrency limit reached.",
-          "concurrency_limit",
-        );
+      const result = await buildProject(
+        files,
+        workspaceKey ? { workspaceKey } : {},
+      );
+      const logText = sanitizeBuildLog(result.log);
+
+      if (!result.ok) {
+        devLog("build-worker", "failed", {
+          buildId,
+          reason: classifyBuildFailure(logText),
+        });
+        return failed(logText, classifyBuildFailure(logText));
       }
 
-      activeBuilds += 1;
-
       try {
-        const result = await buildProject(
-          files,
-          workspaceKey ? { workspaceKey } : {},
+        const artifactRef = await writeArtifact({
+          artifactId: buildId,
+          files: result.distFiles,
+        });
+        devLog("build-worker", "succeeded", {
+          artifactRef,
+          buildId,
+          distFiles: result.distFiles.length,
+        });
+        return {
+          artifactRef,
+          distFiles: result.distFiles,
+          failureReason: null,
+          logText,
+          status: "succeeded",
+        };
+      } catch (error) {
+        return failed(
+          sanitizeBuildLog(
+            `Artifact write failed. ${error instanceof Error ? error.message : ""}`,
+          ),
+          "artifact_write_failure",
         );
-        const logText = sanitizeBuildLog(result.log);
-
-        if (!result.ok) {
-          devLog("build-worker", "failed", {
-            buildId,
-            reason: classifyBuildFailure(logText),
-          });
-          return failed(logText, classifyBuildFailure(logText));
-        }
-
-        try {
-          const artifactRef = await writeArtifact({
-            artifactId: buildId,
-            files: result.distFiles,
-          });
-          devLog("build-worker", "succeeded", {
-            artifactRef,
-            buildId,
-            distFiles: result.distFiles.length,
-          });
-          return {
-            artifactRef,
-            distFiles: result.distFiles,
-            failureReason: null,
-            logText,
-            status: "succeeded",
-          };
-        } catch (error) {
-          return failed(
-            sanitizeBuildLog(
-              `Artifact write failed. ${error instanceof Error ? error.message : ""}`,
-            ),
-            "artifact_write_failure",
-          );
-        }
-      } finally {
-        activeBuilds -= 1;
       }
     },
   };
@@ -120,11 +103,6 @@ export function isStaleBuildAttempt({
     startedAt instanceof Date &&
     now.getTime() - startedAt.getTime() > staleAfterMs
   );
-}
-
-function getBuildConcurrencyLimit() {
-  const parsed = getSettingSync("runtime.build_concurrency", 1);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
 function failed(

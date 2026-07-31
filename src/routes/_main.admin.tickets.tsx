@@ -8,6 +8,7 @@ import {
 import { Loader2, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
+import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { Link } from "@/components/ui/link";
 import { fetchJson } from "@/lib/query-client";
@@ -48,7 +49,14 @@ const CATEGORY_COLORS: Record<SupportCategory, string> = {
   UMUM: "bg-aurora-gold/10 text-aurora-gold border-aurora-gold/20",
 };
 
+const TICKET_STATUS_OPTIONS = [
+  { value: "OPEN", label: "Buka" },
+  { value: "RESOLVED", label: "Selesai" },
+  { value: "ALL", label: "Semua" },
+] as const;
+
 function AdminTicketsPage() {
+  // Default work queue: open tickets.
   const [statusFilter, setStatusFilter] = useState<SupportTicketStatus | "ALL">(
     "OPEN",
   );
@@ -74,7 +82,7 @@ function AdminTicketsPage() {
   const ticketsQuery = useQuery({
     queryKey: ["admin", "tickets", statusFilter, categoryFilter],
     queryFn: () => fetchJson<{ tickets: AdminTicket[] }>(buildUrl()),
-    refetchInterval: 15000, // Poll every 15s for new support tickets
+    refetchInterval: 15000,
   });
 
   const formatTimeAgo = (dateStr: string) => {
@@ -103,46 +111,26 @@ function AdminTicketsPage() {
 
   return (
     <div className="flex flex-col gap-spacing-4">
-      <div className="flex flex-wrap items-center justify-between gap-spacing-3">
-        <div className="flex flex-wrap gap-spacing-2">
-          {/* Status Filter */}
-          <button
-            onClick={() => setStatusFilter("ALL")}
-            className={`rounded-radius-md px-spacing-3 py-spacing-1.5 text-xs font-semibold ${statusFilter === "ALL" ? "bg-surface-warm-white/20 text-surface-warm-white" : "bg-surface-warm-white/5 text-surface-warm-white/60 hover:bg-surface-warm-white/10"}`}
-          >
-            Semua
-          </button>
-          <button
-            onClick={() => setStatusFilter("OPEN")}
-            className={`rounded-radius-md px-spacing-3 py-spacing-1.5 text-xs font-semibold ${statusFilter === "OPEN" ? "bg-aurora-orange/20 text-aurora-orange" : "bg-surface-warm-white/5 text-surface-warm-white/60 hover:bg-surface-warm-white/10"}`}
-          >
-            Buka
-          </button>
-          <button
-            onClick={() => setStatusFilter("RESOLVED")}
-            className={`rounded-radius-md px-spacing-3 py-spacing-1.5 text-xs font-semibold ${statusFilter === "RESOLVED" ? "bg-surface-warm-white/15 text-surface-warm-white/80" : "bg-surface-warm-white/5 text-surface-warm-white/60 hover:bg-surface-warm-white/10"}`}
-          >
-            Selesai
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-spacing-2">
-          {/* Category Filter */}
-          <select
-            value={categoryFilter}
-            onChange={(e) =>
-              setCategoryFilter(e.target.value as SupportCategory | "ALL")
-            }
-            className="h-8 rounded-radius-md border border-surface-warm-white/10 bg-[#171715] px-spacing-2.5 text-xs text-surface-warm-white/80 outline-none focus:ring-1 focus:ring-aurora-orange"
-          >
-            <option value="ALL">Semua Kategori</option>
-            {Object.keys(CATEGORY_LABELS).map((cat) => (
-              <option key={cat} value={cat}>
-                {CATEGORY_LABELS[cat as SupportCategory]}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="flex flex-col gap-spacing-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <AdminStatusFilter
+          onChange={(v) => setStatusFilter(v as SupportTicketStatus | "ALL")}
+          options={TICKET_STATUS_OPTIONS}
+          value={statusFilter}
+        />
+        <select
+          className="h-10 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-3 text-sm text-surface-warm-white outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/40"
+          onChange={(e) =>
+            setCategoryFilter(e.target.value as SupportCategory | "ALL")
+          }
+          value={categoryFilter}
+        >
+          <option value="ALL">Semua Kategori</option>
+          {Object.keys(CATEGORY_LABELS).map((cat) => (
+            <option key={cat} value={cat}>
+              {CATEGORY_LABELS[cat as SupportCategory]}
+            </option>
+          ))}
+        </select>
       </div>
 
       {ticketsQuery.isLoading ? (

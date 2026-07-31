@@ -23,7 +23,58 @@ export const queryKeys = {
     ["projects", projectId, "snapshots"] as const,
   projectChat: (projectId: string) => ["projects", projectId, "chat"] as const,
   waitlistStatus: ["waitlist-status"] as const,
+  adminWaitlist: ["admin", "waitlist"] as const,
+  boosterPacks: ["booster-packs"] as const,
 };
+
+/** Gate-status client cache: short stale, refresh when tab focused. */
+export const GATE_QUERY_OPTIONS = {
+  staleTime: 10_000,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
+  retry: 1,
+} as const;
+
+export const WAITLIST_PENDING_POLL_MS = 30_000;
+
+export type WaitlistStatusResponse = {
+  status: string | null;
+  own?: {
+    businessName?: string;
+    id?: string;
+    status?: string;
+  } | null;
+};
+
+/** Poll while user is verified-but-not-approved and has a pending entry. */
+export function waitlistPendingPollInterval(
+  data: WaitlistStatusResponse | undefined,
+): number | false {
+  if (!data || data.status === "approved") {
+    return false;
+  }
+  const ownStatus = data.own?.status;
+  if (ownStatus === "pending" || ownStatus === "waitlisted") {
+    return WAITLIST_PENDING_POLL_MS;
+  }
+  return false;
+}
+
+export function fetchWaitlistStatus() {
+  return fetchJson<WaitlistStatusResponse>("/api/user/waitlist", {
+    cache: "no-store",
+  });
+}
+
+export async function invalidateWaitlistStatus(
+  queryClient: QueryClient,
+): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: queryKeys.waitlistStatus });
+  // Legacy own-only key used on /waitlist form prefill.
+  await queryClient.invalidateQueries({
+    queryKey: ["user", "waitlist", "own"],
+  });
+}
 
 export function createAppQueryClient() {
   return new QueryClient({

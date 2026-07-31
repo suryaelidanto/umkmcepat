@@ -106,6 +106,14 @@ When something breaks, an agent (or you) reconstructs the causal chain without c
 
 `dev.log` rotates at ~5 MB to `dev.log.1`; it is never deleted on crash (a crash is when it matters most). Both are gitignored.
 
+## Admin settings (live product knobs)
+
+Non-secret product config lives in `/admin/settings` (DB-first over `.env`). After save the server re-primes the settings snapshot so `getSettingSync` consumers pick up values without process restart. Booster packs (`amount`, `compare_at_amount` list price for discount UI, `energy`) resolve via `getBoosterPack` / `GET /api/payment/packs` — change pricing in admin, not hardcoded UI. Secrets, OAuth, DB/S3 URLs, and topology stay env-only and still need an app restart when changed.
+
+## Attempt queue (BullMQ)
+
+Generate and edit vite builds run through Redis-backed BullMQ (`project-attempt`). Local Redis: compose service `redis` on `127.0.0.1:6379` (started with `bun run infra` / default compose). Override with `REDIS_URL`. Worker concurrency follows admin **Runtime — build concurrency** (default 1), live after save.
+
 ## Environment
 
 `.env.example` is the canonical placeholder list, grouped by concern (app, database, auth, AI, storage, email, OTP, payment, analytics, public sites) — read it directly rather than trusting a copy here; a stale duplicate of this block is exactly how past drift happened.
@@ -207,6 +215,14 @@ bunx shadcn@latest add button --diff
 ```
 
 Do not paste raw component source from external pages.
+
+## Client data cache (TanStack Query)
+
+Hybrid model: **route loaders / `createServerFn`** own auth gates, ban checks, admin allowlist, and first paint. **TanStack Query** owns mutable client status after load.
+
+Gate keys (`queryKeys.waitlistStatus`, `queryKeys.verification`) use `GATE_QUERY_OPTIONS` (10s stale, refetch on window focus + reconnect). While the user is waitlisted with a pending/waitlisted own entry, waitlist status polls every 30s. After waitlist submit or OTP verify, call `invalidateWaitlistStatus` so `/` chrome updates without a full browser refresh.
+
+Do not migrate security gates fully to client-only queries.
 
 ## Architecture docs
 

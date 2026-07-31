@@ -52,6 +52,13 @@ describe("object-storage (s3)", () => {
     expect(getMock).toHaveBeenCalledWith("private", "objects/waitlist/abc.png");
   });
 
+  it("reads legacy object:local: refs from the same private bucket", async () => {
+    process.env.STORAGE_PROVIDER = "local";
+    const stored = await getStoredObject("object:local:waitlist/abc.png");
+    expect(stored?.body.toString()).toBe("bytes");
+    expect(getMock).toHaveBeenCalledWith("private", "objects/waitlist/abc.png");
+  });
+
   it("returns null for unknown ref prefixes", async () => {
     expect(await getStoredObject("foo:bar:baz")).toBeNull();
   });

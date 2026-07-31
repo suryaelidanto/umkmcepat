@@ -1,38 +1,54 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { toast } from "sonner";
 
+import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { requireAdmin } from "@/lib/auth-admin";
 import { fetchJson } from "@/lib/query-client";
 import { listPendingWaitlist } from "@/lib/waitlist";
 
-type PendingEntry = {
+type WaitlistStatusFilter = "pending" | "approved" | "rejected" | "all";
+
+type AdminEntry = {
   businessName: string;
   businessType: string | null;
+  email: string;
   id: string;
   imageCount: number;
   phone: string | null;
+  rejectionReason: string | null;
   status: string;
   story: string;
   submittedAt: string;
 };
 
-function imageRefs(entry: { imageRef: string | null }): string[] {
-  if (!entry.imageRef) {
-    return [];
+const STATUS_OPTIONS = [
+  { value: "pending", label: "Menunggu" },
+  { value: "approved", label: "Disetujui" },
+  { value: "rejected", label: "Ditolak" },
+  { value: "all", label: "Semua" },
+] as const;
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case "pending":
+    case "waitlisted":
+      return "Menunggu";
+    case "approved":
+      return "Disetujui";
+    case "rejected":
+      return "Ditolak";
+    default:
+      return status;
   }
-  try {
-    const parsed: unknown = JSON.parse(entry.imageRef);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter((ref): ref is string => typeof ref === "string");
-  } catch {
-    return [];
-  }
+}
+
+function isPending(status: string) {
+  return status === "pending" || status === "waitlisted";
 }
 
 const loadAdminWaitlist = createServerFn({ method: "GET" }).handler(
@@ -41,14 +57,17 @@ const loadAdminWaitlist = createServerFn({ method: "GET" }).handler(
     if (!admin.ok) {
       throw redirect({ to: "/" });
     }
-    const entries = await listPendingWaitlist();
+    // Default queue: pending work only.
+    const entries = await listPendingWaitlist("pending");
     return {
       entries: entries.map((entry) => ({
         businessName: entry.businessName,
         businessType: entry.businessType,
+        email: entry.email,
         id: entry.id,
-        imageCount: imageRefs(entry).length,
+        imageCount: entry.imageCount,
         phone: entry.phone,
+        rejectionReason: entry.rejectionReason,
         status: entry.status,
         story: entry.story,
         submittedAt: entry.submittedAt.toISOString(),
@@ -65,14 +84,19 @@ export const Route = createFileRoute("/_main/admin/waitlist")({
 function WaitlistPage() {
   const streamerMode = useStreamerMode();
   const queryClient = useQueryClient();
+  const [status, setStatus] = useState<WaitlistStatusFilter>("pending");
   const initial = Route.useLoaderData() as unknown as {
-    entries: PendingEntry[];
+    entries: AdminEntry[];
   };
+
   const { data } = useQuery({
     queryFn: () =>
-      fetchJson<{ entries: PendingEntry[] }>("/api/admin/waitlist"),
-    queryKey: ["admin", "waitlist"],
-    initialData: { entries: initial.entries },
+      fetchJson<{ entries: AdminEntry[] }>(
+        `/api/admin/waitlist?status=${status}`,
+      ),
+    queryKey: ["admin", "waitlist", status],
+    initialData:
+      status === "pending" ? { entries: initial.entries } : undefined,
   });
 
   const act = useMutation({
@@ -88,6 +112,7 @@ function WaitlistPage() {
       }),
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "waitlist"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
       toast.success(vars.action === "approve" ? "Disetujui." : "Ditolak.");
     },
     onError: () => toast.error("Gagal memproses. Coba lagi."),
@@ -97,9 +122,17 @@ function WaitlistPage() {
 
   return (
     <div className="flex flex-col gap-spacing-3">
+      <AdminStatusFilter
+        onChange={(v) => setStatus(v as WaitlistStatusFilter)}
+        options={STATUS_OPTIONS}
+        value={status}
+      />
+
       {entries.length === 0 ? (
         <p className="text-surface-warm-white/70">
-          Belum ada pendaftar menunggu.
+          {status === "pending"
+            ? "Belum ada pendaftar menunggu."
+            : "Tidak ada di filter ini."}
         </p>
       ) : (
         entries.map((entry) => (
@@ -108,7 +141,7 @@ function WaitlistPage() {
             key={entry.id}
           >
             <div className="flex items-start justify-between gap-spacing-3">
-              <div>
+              <div className="min-w-0">
                 <p className="font-medium">
                   {streamerMode ? (
                     <SensitiveText kind="name" value={entry.businessName} />
@@ -121,6 +154,13 @@ function WaitlistPage() {
                     {entry.businessType}
                   </p>
                 ) : null}
+                <p className="text-sm text-surface-warm-white/70">
+                  {streamerMode ? (
+                    <SensitiveText kind="email" value={entry.email} />
+                  ) : (
+                    entry.email
+                  )}
+                </p>
                 {entry.phone ? (
                   <p className="text-sm text-surface-warm-white/70">
                     {streamerMode ? (
@@ -131,6 +171,9 @@ function WaitlistPage() {
                   </p>
                 ) : null}
               </div>
+              <span className="shrink-0 rounded-full border border-surface-warm-white/15 px-spacing-2 py-0.5 text-[11px] text-surface-warm-white/80">
+                {statusLabel(entry.status)}
+              </span>
             </div>
             <p className="mt-spacing-2 line-clamp-4 text-sm text-surface-warm-white">
               {streamerMode ? (
@@ -139,6 +182,11 @@ function WaitlistPage() {
                 entry.story
               )}
             </p>
+            {entry.rejectionReason ? (
+              <p className="mt-spacing-2 text-sm text-destructive">
+                Alasan tolak: {entry.rejectionReason}
+              </p>
+            ) : null}
             {entry.imageCount > 0 ? (
               <div className="mt-spacing-2 flex flex-wrap gap-spacing-2">
                 {Array.from({ length: entry.imageCount }).map((_, index) => (
@@ -151,28 +199,36 @@ function WaitlistPage() {
                 ))}
               </div>
             ) : null}
-            <div className="mt-spacing-3 flex gap-spacing-2">
-              <button
-                className="rounded-radius-md bg-emerald-600 px-spacing-3 py-spacing-2 text-sm text-white"
-                onClick={() =>
-                  act.mutate({ action: "approve", entryId: entry.id })
-                }
-                type="button"
-              >
-                Setujui
-              </button>
-              <button
-                className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
-                onClick={() => {
-                  const reason =
-                    window.prompt("Alasan penolakan (opsional)?") ?? "";
-                  act.mutate({ action: "reject", entryId: entry.id, reason });
-                }}
-                type="button"
-              >
-                Tolak
-              </button>
-            </div>
+            {isPending(entry.status) ? (
+              <div className="mt-spacing-3 flex gap-spacing-2">
+                <button
+                  className="rounded-radius-md bg-emerald-600 px-spacing-3 py-spacing-2 text-sm text-white"
+                  disabled={act.isPending}
+                  onClick={() =>
+                    act.mutate({ action: "approve", entryId: entry.id })
+                  }
+                  type="button"
+                >
+                  Setujui
+                </button>
+                <button
+                  className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
+                  disabled={act.isPending}
+                  onClick={() => {
+                    const reason =
+                      window.prompt("Alasan penolakan (opsional)?") ?? "";
+                    act.mutate({
+                      action: "reject",
+                      entryId: entry.id,
+                      reason,
+                    });
+                  }}
+                  type="button"
+                >
+                  Tolak
+                </button>
+              </div>
+            ) : null}
           </div>
         ))
       )}

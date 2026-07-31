@@ -7,18 +7,21 @@ import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
 import { useSession } from "@/lib/auth-client";
-import { fetchJson, queryKeys } from "@/lib/query-client";
+import {
+  fetchWaitlistStatus,
+  GATE_QUERY_OPTIONS,
+  queryKeys,
+  waitlistPendingPollInterval,
+} from "@/lib/query-client";
 
 export function Header() {
   const { data: session, status } = useSession();
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
-    queryFn: () =>
-      fetchJson<{ status: string | null }>("/api/user/waitlist", {
-        cache: "no-store",
-      }),
+    queryFn: fetchWaitlistStatus,
     enabled: status === "authenticated",
-    staleTime: 60_000,
+    ...GATE_QUERY_OPTIONS,
+    refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
   const waitlisted =
     status === "authenticated" &&

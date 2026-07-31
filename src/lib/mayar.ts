@@ -1,25 +1,92 @@
 import { getSetting } from "@/lib/app-settings";
 
 export const BOOSTER_PACKS = {
-  pocket: { amount: 2900, energy: 50000, name: "Pocket Booster" },
-  starter: { amount: 8900, energy: 200000, name: "Starter Booster" },
-  popular: { amount: 24900, energy: 600000, name: "Popular Booster" },
-  max: { amount: 59900, energy: 1500000, name: "Max Booster" },
+  pocket: {
+    amount: 2900,
+    compareAtAmount: 15000,
+    energy: 50000,
+    name: "Pocket Booster",
+  },
+  starter: {
+    amount: 8900,
+    compareAtAmount: 45000,
+    energy: 200000,
+    name: "Starter Booster",
+  },
+  popular: {
+    amount: 24900,
+    compareAtAmount: 125000,
+    energy: 600000,
+    name: "Popular Booster",
+  },
+  max: {
+    amount: 59900,
+    compareAtAmount: 299000,
+    energy: 1500000,
+    name: "Max Booster",
+  },
 } as const;
 
 export type BoosterPackId = keyof typeof BOOSTER_PACKS;
 
-// Resolves a booster pack's amount/energy from AppSetting (DB-first),
-// falling back to the hardcoded BOOSTER_PACKS const. Used at payment-creation
-// (server, async). The client EnergyBoosterModal still reads the const for
-// display — DB overrides apply only at actual transaction creation.
+// Resolves pack pricing from AppSetting (DB-first). `amount` is charged;
+// `compareAtAmount` is list price for discount display only (not billed).
+// Client UI must not read BOOSTER_PACKS amounts directly — use listBoosterPacks.
 export async function getBoosterPack(id: BoosterPackId) {
   const fallback = BOOSTER_PACKS[id];
-  const [amount, energy] = await Promise.all([
+  const [amount, energy, compareAtAmount] = await Promise.all([
     getSetting<number>(`booster.${id}.amount`, fallback.amount),
     getSetting<number>(`booster.${id}.energy`, fallback.energy),
+    getSetting<number>(
+      `booster.${id}.compare_at_amount`,
+      fallback.compareAtAmount,
+    ),
   ]);
-  return { amount, energy, name: fallback.name };
+  return { amount, compareAtAmount, energy, name: fallback.name };
+}
+
+export type BoosterPackResolved = {
+  id: BoosterPackId;
+  amount: number;
+  compareAtAmount: number;
+  discountPercent: number;
+  energy: number;
+  name: string;
+};
+
+export function discountPercentFromPrices(
+  amount: number,
+  compareAtAmount: number,
+): number {
+  if (
+    !Number.isFinite(amount) ||
+    !Number.isFinite(compareAtAmount) ||
+    compareAtAmount <= amount ||
+    compareAtAmount <= 0
+  ) {
+    return 0;
+  }
+  return Math.round(((compareAtAmount - amount) / compareAtAmount) * 100);
+}
+
+export async function listBoosterPacks(): Promise<BoosterPackResolved[]> {
+  const ids = Object.keys(BOOSTER_PACKS) as BoosterPackId[];
+  return Promise.all(
+    ids.map(async (id) => {
+      const pack = await getBoosterPack(id);
+      return {
+        id,
+        amount: pack.amount,
+        compareAtAmount: pack.compareAtAmount,
+        discountPercent: discountPercentFromPrices(
+          pack.amount,
+          pack.compareAtAmount,
+        ),
+        energy: pack.energy,
+        name: pack.name,
+      };
+    }),
+  );
 }
 
 export interface MayarCreatePaymentResponse {

@@ -4,6 +4,7 @@ import {
   createOtpRequest,
   generateOtpCode,
   sendOtpViaSms,
+  toOtpSpacePhone,
   verifyOtp,
 } from "./otp";
 
@@ -40,6 +41,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
   process.env = { ...originalEnv };
+  delete process.env.OTP_SPACE_API_KEY;
   vi.clearAllMocks();
 });
 
@@ -55,10 +57,16 @@ describe("generateOtpCode", () => {
   });
 });
 
+describe("toOtpSpacePhone", () => {
+  it("strips leading +", () => {
+    expect(toOtpSpacePhone("+6281234567890")).toBe("6281234567890");
+  });
+});
+
 describe("createOtpRequest", () => {
-  it("hashes code and stores it in DB", async () => {
+  it("hashes code in mock mode (no API key)", async () => {
     prismaOtpRequestCreateMock.mockResolvedValue({ id: "req_1" });
-    const { code, expiresAt } = await createOtpRequest("user_1", "+628123");
+    const { code, expiresAt } = await createOtpRequest("user_1", VALID_PHONE);
 
     expect(code).toHaveLength(6);
     expect(expiresAt).toBeInstanceOf(Date);
@@ -66,14 +74,23 @@ describe("createOtpRequest", () => {
 
     const callArgs = prismaOtpRequestCreateMock.mock.calls[0][0];
     expect(callArgs.data.userId).toBe("user_1");
-    expect(callArgs.data.phone).toBe("+628123");
-    expect(callArgs.data.codeHash).toHaveLength(64); // SHA-256 is 64 hex characters
-    expect(callArgs.data.code).toBeUndefined(); // code should not be stored directly
+    expect(callArgs.data.phone).toBe(VALID_PHONE);
+    expect(callArgs.data.codeHash).toHaveLength(64);
+    expect(callArgs.data.code).toBeUndefined();
+  });
+
+  it("stores provider-managed marker when API key is set", async () => {
+    process.env.OTP_SPACE_API_KEY = "sk_live_test";
+    prismaOtpRequestCreateMock.mockResolvedValue({ id: "req_1" });
+    await createOtpRequest("user_1", VALID_PHONE);
+    const callArgs = prismaOtpRequestCreateMock.mock.calls[0][0];
+    expect(callArgs.data.codeHash).toBe("provider-managed");
   });
 });
 
-describe("verifyOtp", () => {
+describe("verifyOtp (mock / local hash)", () => {
   beforeEach(() => {
+    delete process.env.OTP_SPACE_API_KEY;
     prismaUserFindUniqueMock.mockResolvedValue({
       id: "user_1",
       otpAttempts: 0,
@@ -86,7 +103,7 @@ describe("verifyOtp", () => {
     prismaUserFindUniqueMock.mockResolvedValue({
       id: "user_1",
       otpAttempts: 3,
-      otpLockedUntil: new Date(Date.now() + 10 * 60 * 1000), // locked for 10 more minutes
+      otpLockedUntil: new Date(Date.now() + 10 * 60 * 1000),
     });
 
     const res = await verifyOtp("user_1", VALID_PHONE, "123456");
@@ -103,7 +120,6 @@ describe("verifyOtp", () => {
 
   it("verifies with correct code", async () => {
     const code = "123456";
-    // SHA-256 of "123456"
     const expectedHash =
       "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92";
 
@@ -152,16 +168,13 @@ describe("verifyOtp", () => {
       attempts: 0,
       used: false,
     };
-    // 1st call for retrieval by codeHash returns null (no match)
-    prismaOtpRequestFindFirstMock.mockResolvedValueOnce(null);
-    // 2nd call for backup retrieval by user/phone returns mockRequest
     prismaOtpRequestFindFirstMock.mockResolvedValueOnce(mockRequest);
     prismaOtpRequestUpdateMock.mockResolvedValueOnce({
       ...mockRequest,
       attempts: 1,
     });
 
-    const res = await verifyOtp("user_1", VALID_PHONE, "wrong_code");
+    const res = await verifyOtp("user_1", VALID_PHONE, "000000");
     expect(res.success).toBe(false);
     expect(res.error).toBe("Kode OTP salah.");
     expect(prismaOtpRequestUpdateMock).toHaveBeenCalledWith({
@@ -170,24 +183,23 @@ describe("verifyOtp", () => {
     });
   });
 
-  it("increments user otpAttempts when request attempts reach 3", async () => {
+  it("increments user otpAttempts when request attempts reach 5", async () => {
     const mockRequest = {
       id: "req_1",
       userId: "user_1",
       phone: VALID_PHONE,
       codeHash: "hash_of_actual_code",
-      attempts: 2, // will become 3
+      attempts: 4,
       used: false,
     };
-    prismaOtpRequestFindFirstMock.mockResolvedValueOnce(null);
     prismaOtpRequestFindFirstMock.mockResolvedValueOnce(mockRequest);
     prismaOtpRequestUpdateMock.mockResolvedValueOnce({
       ...mockRequest,
-      attempts: 3,
+      attempts: 5,
     });
     prismaUserUpdateMock.mockResolvedValueOnce({});
 
-    const res = await verifyOtp("user_1", VALID_PHONE, "wrong_code");
+    const res = await verifyOtp("user_1", VALID_PHONE, "000000");
     expect(res.success).toBe(false);
     expect(res.error).toBe("Terlalu banyak percobaan. Minta kode baru.");
     expect(prismaUserUpdateMock).toHaveBeenCalledWith({
@@ -196,10 +208,10 @@ describe("verifyOtp", () => {
     });
   });
 
-  it("locks user for 30 minutes when user otpAttempts reaches 5", async () => {
+  it("locks user for 5 minutes when user otpAttempts reaches 5", async () => {
     prismaUserFindUniqueMock.mockResolvedValue({
       id: "user_1",
-      otpAttempts: 4, // will become 5
+      otpAttempts: 4,
       otpLockedUntil: null,
     });
     const mockRequest = {
@@ -207,20 +219,19 @@ describe("verifyOtp", () => {
       userId: "user_1",
       phone: VALID_PHONE,
       codeHash: "hash_of_actual_code",
-      attempts: 2,
+      attempts: 4,
       used: false,
     };
-    prismaOtpRequestFindFirstMock.mockResolvedValueOnce(null);
     prismaOtpRequestFindFirstMock.mockResolvedValueOnce(mockRequest);
     prismaOtpRequestUpdateMock.mockResolvedValueOnce({
       ...mockRequest,
-      attempts: 3,
+      attempts: 5,
     });
     prismaUserUpdateMock.mockResolvedValueOnce({});
 
-    const res = await verifyOtp("user_1", VALID_PHONE, "wrong_code");
+    const res = await verifyOtp("user_1", VALID_PHONE, "000000");
     expect(res.success).toBe(false);
-    expect(res.error).toContain("dikunci");
+    expect(res.error).toContain("5 menit");
 
     expect(prismaUserUpdateMock).toHaveBeenCalledWith({
       where: { id: "user_1" },
@@ -232,35 +243,91 @@ describe("verifyOtp", () => {
   });
 });
 
+describe("verifyOtp (provider mode)", () => {
+  beforeEach(() => {
+    process.env.OTP_SPACE_API_KEY = "sk_live_test";
+    prismaUserFindUniqueMock.mockResolvedValue({
+      id: "user_1",
+      otpAttempts: 0,
+      otpLockedUntil: null,
+    });
+    prismaUserFindFirstMock.mockResolvedValue(null);
+  });
+
+  it("verifies via OTP Space and claims phone", async () => {
+    prismaOtpRequestFindFirstMock.mockResolvedValueOnce({
+      id: "req_1",
+      userId: "user_1",
+      phone: VALID_PHONE,
+      codeHash: "provider-managed",
+      attempts: 0,
+      used: false,
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true }), { status: 200 }),
+    );
+    prismaTransactionMock.mockResolvedValueOnce([{}, {}]);
+
+    const res = await verifyOtp("user_1", VALID_PHONE, "441699");
+    expect(res.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.otpspace.com/v1/otp/verify",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).toEqual({ phone: "6281234567890", code: "441699" });
+  });
+
+  it("treats provider 400 as wrong code", async () => {
+    prismaOtpRequestFindFirstMock.mockResolvedValueOnce({
+      id: "req_1",
+      userId: "user_1",
+      phone: VALID_PHONE,
+      codeHash: "provider-managed",
+      attempts: 0,
+      used: false,
+    });
+    fetchMock.mockResolvedValueOnce(new Response("bad", { status: 400 }));
+    prismaOtpRequestUpdateMock.mockResolvedValueOnce({});
+
+    const res = await verifyOtp("user_1", VALID_PHONE, "000000");
+    expect(res.success).toBe(false);
+    expect(res.error).toBe("Kode OTP salah.");
+  });
+});
+
 describe("sendOtpViaSms", () => {
   it("mock mode: no key + dev -> logs + success, no fetch", async () => {
     delete process.env.OTP_SPACE_API_KEY;
     process.env.NODE_ENV = "development";
     const log = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const r = await sendOtpViaSms("+628123", "123456");
+    const r = await sendOtpViaSms(VALID_PHONE, "123456");
     expect(r.success).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(expect.stringContaining("mock mode"));
     log.mockRestore();
   });
 
-  it("real mode: POST /v1/send with {phone, app_name} + Bearer", async () => {
+  it("real mode: POST /v1/otp/send with phone digits + Bearer", async () => {
     process.env.OTP_SPACE_API_KEY = "sk_live_test";
     process.env.NODE_ENV = "production";
-    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
-    await sendOtpViaSms("+628123", "123456");
+    fetchMock.mockResolvedValue(new Response(null, { status: 202 }));
+    await sendOtpViaSms(VALID_PHONE, "123456");
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.otpspace.com/v1/send");
+    expect(url).toBe("https://api.otpspace.com/v1/otp/send");
     expect(init.headers.Authorization).toBe("Bearer sk_live_test");
     const body = JSON.parse(init.body);
-    expect(body.phone).toBe("+628123");
-    expect(body.app_name).toBe("UMKM Cepat");
+    expect(body.phone).toBe("6281234567890");
+    expect(body.otp_length).toBe(6);
+    expect(body.expiry_seconds).toBe(300);
   });
 
   it("prod + no key -> throws", async () => {
     delete process.env.OTP_SPACE_API_KEY;
     process.env.NODE_ENV = "production";
-    await expect(sendOtpViaSms("+628123", "123456")).rejects.toThrow(
+    await expect(sendOtpViaSms(VALID_PHONE, "123456")).rejects.toThrow(
       /OTP_SPACE_API_KEY/,
     );
   });

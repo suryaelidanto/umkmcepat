@@ -37,7 +37,7 @@ describe("listAdminProjects", () => {
       },
     };
 
-    const result = await listAdminProjects(client);
+    const result = await listAdminProjects(client, "all");
 
     expect(calls).toEqual([
       {

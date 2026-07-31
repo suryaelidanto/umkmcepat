@@ -51,8 +51,15 @@ describe("registry schema", () => {
     }
   });
 
-  it("every entry's tier matches its category tier", () => {
+  it("every entry's tier matches its category tier (advanced overrides ok)", () => {
     for (const entry of APP_SETTINGS) {
+      if (
+        entry.tier === "advanced" &&
+        CATEGORY_TIER[entry.category] === "basic"
+      ) {
+        // Per-entry demotion into Konfigurasi lanjutan (e.g. thumbnail capture).
+        continue;
+      }
       expect(entry.tier).toBe(CATEGORY_TIER[entry.category]);
     }
   });

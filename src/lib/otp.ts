@@ -5,9 +5,14 @@ import { assertPhoneAvailable, normalizePhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 
 const OTP_EXPIRY_MINUTES = 5;
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 5;
+const MAX_FAILED_CODES = 5;
+const LOCKOUT_MINUTES = 5;
 const OTP_LENGTH = 6;
-const OTPSPACE_ENDPOINT = "https://api.otpspace.com/v1/send";
+// OTP Space owns the code — send + verify are two API calls (not local hash).
+const OTPSPACE_SEND = "https://api.otpspace.com/v1/otp/send";
+const OTPSPACE_VERIFY = "https://api.otpspace.com/v1/otp/verify";
+const PROVIDER_MANAGED_HASH = "provider-managed";
 
 export function generateOtpCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(OTP_LENGTH, "0");
@@ -17,13 +22,23 @@ function hashOtp(code: string): string {
   return createHash("sha256").update(code).digest("hex");
 }
 
+/** OTP Space docs use digits without `+` (e.g. 62812…). */
+export function toOtpSpacePhone(phone: string): string {
+  return phone.replace(/^\+/, "");
+}
+
+function isProviderMode(): boolean {
+  return Boolean(process.env.OTP_SPACE_API_KEY);
+}
+
 export async function createOtpRequest(
   userId: string,
   phone: string,
 ): Promise<{ code: string; expiresAt: Date }> {
   const code = generateOtpCode();
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-  const codeHash = hashOtp(code);
+  // Provider mode: OTP Space generates the real code; we only track attempts.
+  const codeHash = isProviderMode() ? PROVIDER_MANAGED_HASH : hashOtp(code);
 
   await prisma.otpRequest.create({
     data: {
@@ -50,50 +65,42 @@ export async function verifyOtp(
     };
   }
 
+  const trimmedCode = code.trim();
+  if (!/^\d{4,8}$/.test(trimmedCode)) {
+    return { success: false, error: "Kode OTP tidak valid." };
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { otpAttempts: true, otpLockedUntil: true },
   });
 
   if (user?.otpLockedUntil && user.otpLockedUntil > new Date()) {
+    const minsLeft = Math.max(
+      1,
+      Math.ceil((user.otpLockedUntil.getTime() - Date.now()) / 60_000),
+    );
     return {
       success: false,
-      error:
-        "Akun Anda dikunci sementara karena terlalu banyak percobaan salah. Silakan coba lagi nanti.",
+      error: `Akun dikunci sementara karena terlalu banyak percobaan salah. Coba lagi dalam ${minsLeft} menit.`,
     };
   }
 
-  const inputHash = hashOtp(code);
-  let request = await prisma.otpRequest.findFirst({
+  const request = await prisma.otpRequest.findFirst({
     where: {
       userId,
       phone: normalized,
-      codeHash: inputHash,
       used: false,
       expiresAt: { gt: new Date() },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  let isCorrect = true;
   if (!request) {
-    request = await prisma.otpRequest.findFirst({
-      where: {
-        userId,
-        phone: normalized,
-        used: false,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!request) {
-      return {
-        success: false,
-        error: "Kode OTP tidak ditemukan atau sudah kedaluwarsa.",
-      };
-    }
-    isCorrect = false;
+    return {
+      success: false,
+      error: "Kode OTP tidak ditemukan atau sudah kedaluwarsa.",
+    };
   }
 
   if (request.attempts >= MAX_ATTEMPTS) {
@@ -103,13 +110,24 @@ export async function verifyOtp(
     };
   }
 
-  const storedHashBuf = Buffer.from(request.codeHash, "hex");
-  const inputHashBuf = Buffer.from(inputHash, "hex");
-  const match =
-    storedHashBuf.length === inputHashBuf.length &&
-    timingSafeEqual(storedHashBuf, inputHashBuf);
+  let isCorrect = false;
 
-  if (!match || !isCorrect) {
+  if (isProviderMode()) {
+    const provider = await verifyOtpViaProvider(normalized, trimmedCode);
+    if (!provider.success && provider.transportError) {
+      return { success: false, error: provider.error };
+    }
+    isCorrect = provider.success;
+  } else {
+    const inputHash = hashOtp(trimmedCode);
+    const storedHashBuf = Buffer.from(request.codeHash, "hex");
+    const inputHashBuf = Buffer.from(inputHash, "hex");
+    isCorrect =
+      storedHashBuf.length === inputHashBuf.length &&
+      timingSafeEqual(storedHashBuf, inputHashBuf);
+  }
+
+  if (!isCorrect) {
     const newAttempts = request.attempts + 1;
 
     await prisma.otpRequest.update({
@@ -121,8 +139,8 @@ export async function verifyOtp(
       const newOtpAttempts = (user?.otpAttempts ?? 0) + 1;
       let otpLockedUntil: Date | null = null;
 
-      if (newOtpAttempts >= 5) {
-        otpLockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+      if (newOtpAttempts >= MAX_FAILED_CODES) {
+        otpLockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
       }
 
       await prisma.user.update({
@@ -133,11 +151,10 @@ export async function verifyOtp(
         },
       });
 
-      if (newOtpAttempts >= 5) {
+      if (newOtpAttempts >= MAX_FAILED_CODES) {
         return {
           success: false,
-          error:
-            "Akun Anda dikunci sementara karena terlalu banyak percobaan salah. Silakan coba lagi nanti.",
+          error: `Akun dikunci sementara karena terlalu banyak percobaan salah. Coba lagi dalam ${LOCKOUT_MINUTES} menit.`,
         };
       }
 
@@ -200,24 +217,94 @@ export async function sendOtpViaSms(
   }
 
   try {
-    const response = await fetch(OTPSPACE_ENDPOINT, {
+    const response = await fetch(OTPSPACE_SEND, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ app_name: "UMKM Cepat", phone }),
+      body: JSON.stringify({
+        phone: toOtpSpacePhone(phone),
+        otp_length: OTP_LENGTH,
+        expiry_seconds: OTP_EXPIRY_MINUTES * 60,
+      }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("[otp] OTP Space error:", error);
+      console.error("[otp] OTP Space send error:", error);
       return { success: false, error: "Gagal mengirim OTP. Coba lagi." };
     }
 
     return { success: true };
   } catch (error) {
-    console.error("[otp] OTP Space error:", error);
+    console.error("[otp] OTP Space send error:", error);
     return { success: false, error: "Gagal mengirim OTP. Coba lagi." };
+  }
+}
+
+async function verifyOtpViaProvider(
+  phone: string,
+  code: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+  transportError?: boolean;
+}> {
+  const apiKey = process.env.OTP_SPACE_API_KEY;
+  if (!apiKey) {
+    return {
+      success: false,
+      error: "OTP provider tidak dikonfigurasi.",
+      transportError: true,
+    };
+  }
+
+  try {
+    const response = await fetch(OTPSPACE_VERIFY, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        phone: toOtpSpacePhone(phone),
+        code,
+      }),
+    });
+
+    if (response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        success?: boolean;
+      } | null;
+      if (body?.success === false) {
+        return { success: false };
+      }
+      return { success: true };
+    }
+
+    // Wrong/expired code — treat as incorrect, not transport failure.
+    if (
+      response.status === 400 ||
+      response.status === 401 ||
+      response.status === 422
+    ) {
+      return { success: false };
+    }
+
+    const error = await response.text();
+    console.error("[otp] OTP Space verify error:", error);
+    return {
+      success: false,
+      error: "Gagal memverifikasi OTP. Coba lagi.",
+      transportError: true,
+    };
+  } catch (error) {
+    console.error("[otp] OTP Space verify error:", error);
+    return {
+      success: false,
+      error: "Gagal memverifikasi OTP. Coba lagi.",
+      transportError: true,
+    };
   }
 }

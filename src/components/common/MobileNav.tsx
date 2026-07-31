@@ -8,7 +8,12 @@ import { Link } from "@/components/ui/link";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { useSession } from "@/lib/auth-client";
 import { usePathname } from "@/lib/navigation";
-import { fetchJson, queryKeys } from "@/lib/query-client";
+import {
+  fetchWaitlistStatus,
+  GATE_QUERY_OPTIONS,
+  queryKeys,
+  waitlistPendingPollInterval,
+} from "@/lib/query-client";
 
 const ITEMS = [
   { href: "/", icon: Home, label: "Beranda" },
@@ -40,12 +45,10 @@ export function MobileNav() {
   const { data: session, status } = useSession();
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
-    queryFn: () =>
-      fetchJson<{ status: string | null }>("/api/user/waitlist", {
-        cache: "no-store",
-      }),
+    queryFn: fetchWaitlistStatus,
     enabled: status === "authenticated",
-    staleTime: 60_000,
+    ...GATE_QUERY_OPTIONS,
+    refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
   const waitlisted =
     status === "authenticated" &&
@@ -53,11 +56,9 @@ export function MobileNav() {
     waitlistQuery.data.status !== "approved";
   const isAdmin = session?.user?.admin === true;
   const items = waitlisted ? WAITLISTED_ITEMS : ITEMS;
-  const overflow = waitlisted
-    ? WAITLISTED_OVERFLOW
-    : OVERFLOW.filter(
-        (item) => !("adminOnly" in item && item.adminOnly) || isAdmin,
-      );
+  const overflow = (
+    waitlisted ? [...WAITLISTED_OVERFLOW] : [...OVERFLOW]
+  ).filter((item) => !("adminOnly" in item && item.adminOnly) || isAdmin);
 
   return (
     <>

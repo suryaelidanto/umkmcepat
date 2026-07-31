@@ -46,13 +46,9 @@ export const authConfig: AuthConfig = {
       }
 
       if (session.user) {
-        // token.admin is set at sign-in (jwt callback). For tokens issued
-        // before that flag existed, fall back to re-deriving from email so
-        // existing sessions gain admin nav without a re-login.
-        session.user.admin =
-          token.admin === true ||
-          (typeof token.admin !== "boolean" &&
-            isAdminEmail(session.user.email ?? ""));
+        // Always re-derive from ADMIN_EMAILS so allowlist changes apply
+        // without re-login, and a stale token.admin=false cannot stick.
+        session.user.admin = isAdminEmail(session.user.email ?? "");
       }
 
       return session;

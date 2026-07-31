@@ -18,6 +18,27 @@ export const Route = createFileRoute("/_main/admin/settings")({
   component: SettingsPage,
 });
 
+/** id-ID thousands: 1000000 → "1.000.000" */
+function formatGroupedNumber(value: unknown): string {
+  if (value === "" || value === null || value === undefined) {
+    return "";
+  }
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) {
+    return "";
+  }
+  return Math.trunc(n).toLocaleString("id-ID");
+}
+
+/** Strip non-digits; empty → "" for draft, else number. */
+function parseGroupedNumber(raw: string): number | "" {
+  const digits = raw.replace(/\D/g, "");
+  if (digits === "") {
+    return "";
+  }
+  return Number(digits);
+}
+
 function CategorySection({
   group,
   draft,
@@ -72,21 +93,29 @@ function CategorySection({
                 >
                   {value === true ? "ON" : "OFF"}
                 </button>
-              ) : (
+              ) : entry.type === "number" ? (
                 <input
-                  className="w-32 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
-                  max={entry.max ?? undefined}
-                  min={entry.min ?? undefined}
+                  className="w-36 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm tabular-nums text-surface-warm-white"
+                  inputMode="numeric"
                   onChange={(e) =>
                     setDraft({
                       ...draft,
-                      [entry.key]:
-                        entry.type === "number"
-                          ? Number(e.target.value)
-                          : e.target.value,
+                      [entry.key]: parseGroupedNumber(e.target.value),
                     })
                   }
-                  type={entry.type === "number" ? "number" : "text"}
+                  type="text"
+                  value={formatGroupedNumber(value)}
+                />
+              ) : (
+                <input
+                  className="w-32 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      [entry.key]: e.target.value,
+                    })
+                  }
+                  type="text"
                   value={String(value)}
                 />
               )}

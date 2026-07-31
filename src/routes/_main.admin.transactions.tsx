@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { fetchJson } from "@/lib/query-client";
@@ -37,9 +38,17 @@ export const Route = createFileRoute("/_main/admin/transactions")({
   component: TransactionsPage,
 });
 
+const TX_STATUS_OPTIONS = [
+  { value: "PENDING", label: "Pending" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "FAILED", label: "Failed" },
+  { value: "ALL", label: "Semua" },
+] as const;
+
 function TransactionsPage() {
   const streamerMode = useStreamerMode();
-  const [status, setStatus] = useState("ALL");
+  // Default work queue: unresolved payments.
+  const [status, setStatus] = useState("PENDING");
   const [q, setQ] = useState("");
   const queryClient = useQueryClient();
   const { data } = useQuery({
@@ -57,6 +66,7 @@ function TransactionsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
       toast.success("Status disinkronkan.");
     },
     onError: () => toast.error("Gagal verifikasi."),
@@ -65,22 +75,11 @@ function TransactionsPage() {
   const txs = data?.payments ?? [];
   return (
     <div className="flex flex-col gap-spacing-3">
-      <div className="flex gap-spacing-2">
-        {["ALL", "PENDING", "COMPLETED", "FAILED"].map((s) => (
-          <button
-            className={
-              status === s
-                ? "rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
-                : "rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/70"
-            }
-            key={s}
-            onClick={() => setStatus(s)}
-            type="button"
-          >
-            {s === "ALL" ? "Semua" : s}
-          </button>
-        ))}
-      </div>
+      <AdminStatusFilter
+        onChange={setStatus}
+        options={TX_STATUS_OPTIONS}
+        value={status}
+      />
       <input
         className="rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-3 py-spacing-2 text-sm"
         onChange={(e) => setQ(e.target.value)}

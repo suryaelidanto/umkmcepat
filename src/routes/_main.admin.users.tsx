@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { fetchJson } from "@/lib/query-client";
@@ -25,21 +26,29 @@ type UsersResponse = {
   users: AdminUser[];
 };
 
+const USER_STATUS_OPTIONS = [
+  { value: "all", label: "Semua" },
+  { value: "unverified", label: "Belum verifikasi" },
+  { value: "banned", label: "Diblokir" },
+  { value: "active", label: "Aktif" },
+] as const;
+
 export const Route = createFileRoute("/_main/admin/users")({
   component: UsersPage,
 });
 
 function UsersPage() {
   const streamerMode = useStreamerMode();
+  const [status, setStatus] = useState("all");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
   const { data } = useQuery({
     queryFn: () =>
       fetchJson<UsersResponse>(
-        `/api/admin/users?q=${encodeURIComponent(q)}&page=${page}`,
+        `/api/admin/users?status=${status}&q=${encodeURIComponent(q)}&page=${page}`,
       ),
-    queryKey: ["admin", "users", q, page],
+    queryKey: ["admin", "users", status, q, page],
   });
 
   const ban = useMutation({
@@ -59,6 +68,14 @@ function UsersPage() {
   const users = data?.users ?? [];
   return (
     <div className="flex flex-col gap-spacing-3">
+      <AdminStatusFilter
+        onChange={(v) => {
+          setStatus(v);
+          setPage(1);
+        }}
+        options={USER_STATUS_OPTIONS}
+        value={status}
+      />
       <input
         className="rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-3 py-spacing-2 text-sm"
         onChange={(e) => {
@@ -69,7 +86,11 @@ function UsersPage() {
         value={q}
       />
       {users.length === 0 ? (
-        <p className="text-surface-warm-white/70">Tidak ada pengguna.</p>
+        <p className="text-surface-warm-white/70">
+          {status === "unverified"
+            ? "Tidak ada pengguna belum verifikasi."
+            : "Tidak ada pengguna."}
+        </p>
       ) : (
         users.map((u) => (
           <div

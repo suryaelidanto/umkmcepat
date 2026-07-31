@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Loader2Icon,
   ZapIcon,
@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BOOSTER_PACKS, type BoosterPackId } from "@/lib/mayar";
+import { type BoosterPackId, type BoosterPackResolved } from "@/lib/mayar";
 import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
 import { isDev } from "@/lib/utils";
 
@@ -78,6 +78,16 @@ export function EnergyBoosterModal({
     null,
   );
   const [paymentStatus, setPaymentStatus] = useState<string>("PENDING");
+
+  const packsQuery = useQuery({
+    queryKey: queryKeys.boosterPacks,
+    queryFn: () =>
+      fetchJson<{ packs: BoosterPackResolved[] }>("/api/payment/packs", {
+        cache: "no-store",
+      }),
+    enabled: open,
+    staleTime: 30_000,
+  });
 
   // Reset states when modal is opened or closed
   useEffect(() => {
@@ -167,19 +177,6 @@ export function EnergyBoosterModal({
     return new Intl.NumberFormat("id-ID").format(value);
   };
 
-  const getGimmickCoret = (key: BoosterPackId) => {
-    switch (key) {
-      case "pocket":
-        return 15000;
-      case "starter":
-        return 45000;
-      case "popular":
-        return 125000;
-      case "max":
-        return 299000;
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md border border-[#d8d5cc]/60 bg-[#161614] text-[#fcfbf8] rounded-radius-2xl">
@@ -196,65 +193,82 @@ export function EnergyBoosterModal({
 
         {!paymentSession ? (
           <div className="flex flex-col gap-4">
-            {/* Vertical list of pricing cards */}
-            <div className="flex flex-col gap-2.5">
-              {(Object.keys(BOOSTER_PACKS) as BoosterPackId[]).map((key) => {
-                const pack = BOOSTER_PACKS[key];
-                const local = PAKET_DETAILS[key];
-                const gimmickCoret = getGimmickCoret(key);
-                const isSelected = selectedPack === key;
+            {packsQuery.isLoading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-surface-warm-white/60">
+                <Loader2Icon className="size-4 animate-spin" />
+                Memuat paket…
+              </div>
+            ) : packsQuery.isError || !packsQuery.data?.packs?.length ? (
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
+                <p className="text-sm text-surface-warm-white/70">
+                  Paket belum bisa dimuat. Coba lagi.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void packsQuery.refetch()}
+                  className="rounded-radius-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-surface-warm-white hover:bg-white/5"
+                >
+                  Muat ulang
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {packsQuery.data.packs.map((pack) => {
+                  const key = pack.id;
+                  const local = PAKET_DETAILS[key];
+                  const showDiscount = pack.discountPercent > 0;
+                  const isSelected = selectedPack === key;
 
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSelectedPack(key)}
-                    className={`relative flex items-center justify-between rounded-radius-lg border p-4 text-left transition cursor-pointer ${
-                      isSelected
-                        ? "border-[#ff7a59] bg-[#ff7a59]/5 text-white"
-                        : "border-white/[0.08] bg-white/[0.01] hover:border-white/15"
-                    }`}
-                  >
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-surface-warm-white">
-                          {local.label}
-                        </span>
-                        {key === "popular" && (
-                          <span className="rounded bg-[#ff7a59]/10 px-1.5 py-0.5 text-[8px] font-bold text-[#ff7a59] uppercase tracking-wider">
-                            Terlaris
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedPack(key)}
+                      className={`relative flex items-center justify-between rounded-radius-lg border p-4 text-left transition cursor-pointer ${
+                        isSelected
+                          ? "border-[#ff7a59] bg-[#ff7a59]/5 text-white"
+                          : "border-white/[0.08] bg-white/[0.01] hover:border-white/15"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold text-surface-warm-white">
+                            {local.label}
                           </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-surface-warm-white/55">
-                        {local.desc}
-                      </span>
-                      <span className="text-xs font-semibold text-[#ff7a59] mt-0.5">
-                        +{formatEnergy(pack.energy)} Energi
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-0.5">
-                      <div className="flex items-center gap-1">
-                        <span className="rounded bg-red-500 text-white font-semibold px-1.5 py-0.5 text-[8px] font-bold">
-                          Hemat{" "}
-                          {Math.round(
-                            ((gimmickCoret - pack.amount) / gimmickCoret) * 100,
+                          {key === "popular" && (
+                            <span className="rounded bg-[#ff7a59]/10 px-1.5 py-0.5 text-[8px] font-bold text-[#ff7a59] uppercase tracking-wider">
+                              Terlaris
+                            </span>
                           )}
-                          %
+                        </div>
+                        <span className="text-[10px] text-surface-warm-white/55">
+                          {local.desc}
                         </span>
-                        <span className="text-[10px] text-white/35 line-through">
-                          {formatRupiah(gimmickCoret)}
+                        <span className="text-xs font-semibold text-[#ff7a59] mt-0.5">
+                          +{formatEnergy(pack.energy)} Energi
                         </span>
                       </div>
-                      <span className="text-sm font-extrabold text-[#f7a441]">
-                        {formatRupiah(pack.amount)}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+
+                      <div className="flex flex-col items-end gap-0.5">
+                        {showDiscount ? (
+                          <div className="flex items-center gap-1">
+                            <span className="rounded bg-red-500 text-white font-semibold px-1.5 py-0.5 text-[8px] font-bold">
+                              Hemat {pack.discountPercent}%
+                            </span>
+                            <span className="text-[10px] text-white/35 line-through">
+                              {formatRupiah(pack.compareAtAmount)}
+                            </span>
+                          </div>
+                        ) : null}
+                        <span className="text-sm font-extrabold text-[#f7a441]">
+                          {formatRupiah(pack.amount)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* High contrast visual primary CTA button (very visible white bg on dark modal) */}
             <button

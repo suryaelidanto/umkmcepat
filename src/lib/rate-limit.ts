@@ -32,8 +32,8 @@ const defaults: Record<
     user: { limit: 10, windowMs: 3_600_000 },
   },
   otp: {
-    ip: { limit: 10, windowMs: 3_600_000 },
-    user: { limit: 5, windowMs: 3_600_000 },
+    ip: { limit: 10, windowMs: 300_000 },
+    user: { limit: 5, windowMs: 300_000 },
   },
 };
 
@@ -118,11 +118,15 @@ export async function checkRateLimit(
   }
 
   const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
+  const waitLabel =
+    retryAfter >= 60
+      ? `${Math.ceil(retryAfter / 60)} menit`
+      : `${retryAfter} detik`;
 
   return Response.json(
     {
       code: "rate_limited",
-      message: `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.`,
+      message: `Terlalu banyak percobaan. Coba lagi dalam ${waitLabel}.`,
       retryAfter,
     },
     {

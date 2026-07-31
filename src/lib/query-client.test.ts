@@ -6,12 +6,45 @@ import {
   applyPatches,
   fetchJson,
   restoreSnapshots,
+  waitlistPendingPollInterval,
+  WAITLIST_PENDING_POLL_MS,
   type CachePatch,
 } from "./query-client";
 
 vi.mock("./auth-client", () => ({
   signOut: vi.fn().mockResolvedValue(undefined),
 }));
+
+describe("waitlistPendingPollInterval", () => {
+  it("polls only while gate is open and own entry is pending", () => {
+    expect(waitlistPendingPollInterval(undefined)).toBe(false);
+    expect(waitlistPendingPollInterval({ status: "approved" })).toBe(false);
+    expect(
+      waitlistPendingPollInterval({
+        status: null,
+        own: { status: "rejected" },
+      }),
+    ).toBe(false);
+    expect(
+      waitlistPendingPollInterval({
+        status: null,
+        own: null,
+      }),
+    ).toBe(false);
+    expect(
+      waitlistPendingPollInterval({
+        status: null,
+        own: { status: "pending" },
+      }),
+    ).toBe(WAITLIST_PENDING_POLL_MS);
+    expect(
+      waitlistPendingPollInterval({
+        status: null,
+        own: { status: "waitlisted" },
+      }),
+    ).toBe(WAITLIST_PENDING_POLL_MS);
+  });
+});
 
 describe("useCacheMutation helpers", () => {
   afterEach(() => {

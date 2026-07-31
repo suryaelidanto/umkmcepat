@@ -13,8 +13,15 @@ import {
   useRouter,
   useTargetPathname,
 } from "@/lib/navigation";
-import { fetchJson, queryKeys } from "@/lib/query-client";
-import { isWaitlistMarketingPublicPath } from "@/lib/waitlist-route-access";
+import {
+  fetchJson,
+  fetchWaitlistStatus,
+  GATE_QUERY_OPTIONS,
+  invalidateWaitlistStatus,
+  queryKeys,
+  waitlistPendingPollInterval,
+} from "@/lib/query-client";
+import { isWaitlistGateBypassPath } from "@/lib/waitlist-route-access";
 
 export function MainChrome({ children }: { children: React.ReactNode }) {
   // Layout must follow the *committed* page (Outlet), not the in-flight target.
@@ -37,13 +44,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
         cache: "no-store",
       }),
     enabled: !isVerifyPage,
-    // Keep last answer across project↔home navigations so the whole shell
-    // does not unmount into a blank spinner while revalidating.
-    staleTime: 60_000,
-    gcTime: 10 * 60_000,
-    retry: 1,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    ...GATE_QUERY_OPTIONS,
   });
 
   // Waitlist gate: only meaningful once verified. Anonymous users get status
@@ -52,19 +53,10 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   const isVerified = Boolean(verificationQuery.data?.verified);
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
-    queryFn: () =>
-      fetchJson<{
-        status: string | null;
-        own?: { businessName: string };
-      }>("/api/user/waitlist", {
-        cache: "no-store",
-      }),
+    queryFn: fetchWaitlistStatus,
     enabled: isVerified && !isVerifyPage,
-    staleTime: 60_000,
-    gcTime: 10 * 60_000,
-    retry: 1,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    ...GATE_QUERY_OPTIONS,
+    refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
 
   const isDev = import.meta.env.DEV;
@@ -80,9 +72,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.verification,
       });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.waitlistStatus,
-      });
+      await invalidateWaitlistStatus(queryClient);
       toast.success("Verifikasi (OTP) di-reset. Refresh halaman.");
     },
     onError: (error) => {
@@ -98,9 +88,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
         method: "POST",
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.waitlistStatus,
-      });
+      await invalidateWaitlistStatus(queryClient);
       toast.success("Approval di-reset. Refresh halaman.");
     },
     onError: (error) => {
@@ -122,12 +110,13 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Waitlist gate: product routes only. Marketing-public paths stay open.
+    // Waitlist gate: product routes only. Marketing + /admin stay open
+    // (/admin still enforced by requireAdmin on the server).
     if (
       isVerified &&
       waitlistQuery.isSuccess &&
       waitlistQuery.data.status !== "approved" &&
-      !isWaitlistMarketingPublicPath(pathname)
+      !isWaitlistGateBypassPath(pathname)
     ) {
       router.replace("/waitlist");
     }

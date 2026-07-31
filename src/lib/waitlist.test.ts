@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   isAdminEmail,
   normalizeEmail,
+  parseWaitlistImageRefs,
   validateWaitlistStory,
 } from "@/lib/waitlist";
 
@@ -43,6 +44,34 @@ describe("waitlist", () => {
       if (result.ok) {
         expect(result.story).toBe("a".repeat(120));
       }
+    });
+  });
+
+  describe("parseWaitlistImageRefs", () => {
+    it("parses JSON array of object refs", () => {
+      expect(
+        parseWaitlistImageRefs(
+          JSON.stringify([
+            "object:s3:waitlist/a.png",
+            "object:s3:waitlist/b.jpg",
+          ]),
+        ),
+      ).toEqual(["object:s3:waitlist/a.png", "object:s3:waitlist/b.jpg"]);
+    });
+
+    it("accepts legacy single-string JSON or raw object ref", () => {
+      expect(parseWaitlistImageRefs('"object:s3:waitlist/a.png"')).toEqual([
+        "object:s3:waitlist/a.png",
+      ]);
+      expect(parseWaitlistImageRefs("object:local:waitlist/a.png")).toEqual([
+        "object:local:waitlist/a.png",
+      ]);
+    });
+
+    it("returns empty for null or garbage", () => {
+      expect(parseWaitlistImageRefs(null)).toEqual([]);
+      expect(parseWaitlistImageRefs("not-json")).toEqual([]);
+      expect(parseWaitlistImageRefs("[]")).toEqual([]);
     });
   });
 

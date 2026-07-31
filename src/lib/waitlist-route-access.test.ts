@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { isWaitlistMarketingPublicPath } from "./waitlist-route-access";
+import {
+  isWaitlistGateBypassPath,
+  isWaitlistMarketingPublicPath,
+} from "./waitlist-route-access";
 
 describe("isWaitlistMarketingPublicPath", () => {
   it("allows marketing and gate pages", () => {
@@ -10,9 +13,23 @@ describe("isWaitlistMarketingPublicPath", () => {
     expect(isWaitlistMarketingPublicPath("/waitlist")).toBe(true);
   });
 
-  it("blocks product pages", () => {
+  it("blocks product and admin pages (admin uses gate-bypass helper)", () => {
     expect(isWaitlistMarketingPublicPath("/projects")).toBe(false);
     expect(isWaitlistMarketingPublicPath("/projects/abc")).toBe(false);
     expect(isWaitlistMarketingPublicPath("/admin")).toBe(false);
+  });
+});
+
+describe("isWaitlistGateBypassPath", () => {
+  it("includes marketing + admin", () => {
+    expect(isWaitlistGateBypassPath("/")).toBe(true);
+    expect(isWaitlistGateBypassPath("/waitlist")).toBe(true);
+    expect(isWaitlistGateBypassPath("/admin")).toBe(true);
+    expect(isWaitlistGateBypassPath("/admin/waitlist")).toBe(true);
+  });
+
+  it("still blocks product routes", () => {
+    expect(isWaitlistGateBypassPath("/projects")).toBe(false);
+    expect(isWaitlistGateBypassPath("/projects/abc")).toBe(false);
   });
 });

@@ -26,7 +26,14 @@ import { auth } from "@/lib/auth";
 import { useSession } from "@/lib/auth-client";
 import { useValidatedForm } from "@/lib/forms";
 import { useRouter } from "@/lib/navigation";
-import { fetchJson, queryKeys } from "@/lib/query-client";
+import {
+  fetchJson,
+  fetchWaitlistStatus,
+  GATE_QUERY_OPTIONS,
+  invalidateWaitlistStatus,
+  queryKeys,
+  waitlistPendingPollInterval,
+} from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
 import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
@@ -199,16 +206,20 @@ function WaitlistPage() {
 
   // Pre-fill on first load from the user's last submission, or restore draft from localStorage.
   const ownQuery = useQuery({
-    queryFn: () => fetchJson<{ own?: OwnEntry | null }>("/api/user/waitlist"),
+    queryFn: () =>
+      fetchWaitlistStatus().then((data) => ({
+        own: (data.own as OwnEntry | null | undefined) ?? null,
+      })),
     queryKey: ["user", "waitlist", "own"],
     staleTime: 0,
     initialData: { own: initialOwn },
   });
 
   const statusQuery = useQuery({
-    queryFn: () => fetchJson<{ status: string | null }>("/api/user/waitlist"),
+    queryFn: fetchWaitlistStatus,
     queryKey: queryKeys.waitlistStatus,
-    staleTime: 10_000,
+    ...GATE_QUERY_OPTIONS,
+    refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
   const isApproved = statusQuery.data?.status === "approved" || submitted;
   const ownIsDevSkip =
@@ -307,7 +318,7 @@ function WaitlistPage() {
         error instanceof Error ? error.message : "Gagal mengirim pendaftaran.",
       );
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setSubmitted(true);
       try {
         localStorage.removeItem("umkmcepat:waitlist:values");
@@ -315,6 +326,7 @@ function WaitlistPage() {
       } catch (err) {
         console.error("Gagal membersihkan draft waitlist:", err);
       }
+      await invalidateWaitlistStatus(queryClient);
       toast.success("Pendaftaran kamu sudah masuk antrian. Terima kasih!");
     },
   });
@@ -331,9 +343,7 @@ function WaitlistPage() {
     onSuccess: async () => {
       setDevSkipDone(true);
       toast.success("Pendaftaran di-skip (admin bypass).");
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.waitlistStatus,
-      });
+      await invalidateWaitlistStatus(queryClient);
       setTimeout(() => router.replace("/"), 1500);
     },
     onError: (error) => {
@@ -361,9 +371,7 @@ function WaitlistPage() {
     },
     onSuccess: async () => {
       toast.success("Pendaftaran disetujui (admin bypass).");
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.waitlistStatus,
-      });
+      await invalidateWaitlistStatus(queryClient);
       setTimeout(() => router.replace("/"), 1500);
     },
     onError: (error) => {
@@ -385,12 +393,7 @@ function WaitlistPage() {
         method: "POST",
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.waitlistStatus,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["user", "waitlist", "own"],
-      });
+      await invalidateWaitlistStatus(queryClient);
       toast.success(
         "Approval di-reset (admin bypass). Refresh / untuk tes gate.",
       );

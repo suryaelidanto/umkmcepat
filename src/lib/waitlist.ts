@@ -139,9 +139,60 @@ export async function isWaitlistApproved(
   return entry.status as WaitlistStatus;
 }
 
-export async function listPendingWaitlist() {
-  return prisma.waitlistEntry.findMany({
-    orderBy: { submittedAt: "asc" },
+/** Parse waitlist imageRef JSON (array of object refs). Empty on bad/missing. */
+export function parseWaitlistImageRefs(imageRef: string | null): string[] {
+  if (!imageRef) {
+    return [];
+  }
+  try {
+    const parsed: unknown = JSON.parse(imageRef);
+    if (!Array.isArray(parsed)) {
+      // Legacy single-string ref stored without array wrap.
+      if (typeof parsed === "string" && parsed.startsWith("object:")) {
+        return [parsed];
+      }
+      return [];
+    }
+    return parsed.filter((ref): ref is string => typeof ref === "string");
+  } catch {
+    // Legacy raw ref string.
+    if (imageRef.startsWith("object:")) {
+      return [imageRef];
+    }
+    return [];
+  }
+}
+
+export type AdminWaitlistEntry = {
+  businessName: string;
+  businessType: string | null;
+  email: string;
+  id: string;
+  imageCount: number;
+  phone: string | null;
+  rejectionReason: string | null;
+  status: string;
+  story: string;
+  submittedAt: Date;
+};
+
+export type AdminWaitlistStatusFilter =
+  "pending" | "approved" | "rejected" | "all";
+
+/** All waitlist rows for admin review (newest first). Includes imageCount. */
+export async function listPendingWaitlist(
+  status: AdminWaitlistStatusFilter = "all",
+): Promise<AdminWaitlistEntry[]> {
+  const where =
+    status === "all"
+      ? undefined
+      : status === "pending"
+        ? { status: { in: ["pending", "waitlisted"] } }
+        : { status };
+
+  const rows = await prisma.waitlistEntry.findMany({
+    orderBy: { submittedAt: "desc" },
+    where,
     select: {
       businessName: true,
       businessType: true,
@@ -149,12 +200,24 @@ export async function listPendingWaitlist() {
       id: true,
       imageRef: true,
       phone: true,
+      rejectionReason: true,
       status: true,
       story: true,
       submittedAt: true,
     },
-    where: { status: "pending" },
   });
+  return rows.map((entry) => ({
+    businessName: entry.businessName,
+    businessType: entry.businessType,
+    email: entry.email,
+    id: entry.id,
+    imageCount: parseWaitlistImageRefs(entry.imageRef).length,
+    phone: entry.phone,
+    rejectionReason: entry.rejectionReason,
+    status: entry.status,
+    story: entry.story,
+    submittedAt: entry.submittedAt,
+  }));
 }
 
 export async function approveWaitlistEntry(

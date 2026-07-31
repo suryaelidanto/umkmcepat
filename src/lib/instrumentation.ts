@@ -37,4 +37,19 @@ export async function register() {
   // Warm OpenRouter pricing cache + schedule 24h refresh (non-blocking).
   const { startModelPricingRefresh } = await import("@/lib/model-pricing");
   startModelPricingRefresh();
+
+  const { primeSettingCache } = await import("@/lib/app-settings");
+  await primeSettingCache();
+
+  try {
+    const { startAttemptQueueWorker } =
+      await import("@/lib/projects/attempt-queue");
+    startAttemptQueueWorker();
+  } catch (error) {
+    console.error(
+      "[attempt-queue] worker failed to start:",
+      error instanceof Error ? error.message : error,
+    );
+    throw error;
+  }
 }

@@ -6,11 +6,11 @@ import { auth } from "@/lib/auth";
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
+import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import {
   createReadStreamFromChannel,
   publishBuildProgress,
 } from "@/lib/projects/build-attempt-pubsub";
-import { runBuildAttempt } from "@/lib/projects/build-attempt-worker";
 import {
   claimProjectOperation,
   finalizeProjectOperation,
@@ -57,9 +57,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
   const userId = session.user.id;
 
-  const abortController = new AbortController();
-  // NOT linked to request.signal — the worker must survive browser
-  // disconnect (refresh, tab close). The only way to stop a build is
+  // Worker runs via BullMQ (survives browser disconnect). Cancel via
   // POST /api/projects/$id/cancel which finalizes the operation lease.
 
   const verified = await isUserVerified(userId);
@@ -200,8 +198,7 @@ async function handleGeneratePost(request: Request, routeId: string) {
       data: {
         projectId,
         snapshotId: earlySnapshot.id,
-        startedAt: new Date(),
-        status: "running" satisfies ProjectBuildStatus,
+        status: "queued" satisfies ProjectBuildStatus,
       },
       select: { id: true },
     });
@@ -227,21 +224,38 @@ async function handleGeneratePost(request: Request, routeId: string) {
     );
   }
 
-  void runBuildAttempt({
-    abortSignal: abortController.signal,
-    attemptId: operationAttemptId,
-    buildId: earlyBuildId,
-    generateMode,
-    operationToken: operation.token,
-    project: { id: projectId, prompt: projectPrompt, status: project.status },
-    userId,
-  }).catch((error) => {
+  try {
+    await enqueueAttemptJob({
+      kind: "generate",
+      attemptId: operationAttemptId,
+      buildId: earlyBuildId,
+      generateMode,
+      operationToken: operation.token,
+      projectId,
+      projectPrompt,
+      projectStatus: project.status,
+      userId,
+    });
+  } catch (error) {
+    await finalizeProjectOperation({
+      data: { buildStatus: "failed", status: "failed" },
+      projectId,
+      token: operation.token,
+      userId,
+    }).catch(() => false);
     publishBuildProgress(operationAttemptId, {
       type: "error",
       detail: error instanceof Error ? error.message : String(error),
-      message: "AI belum bisa membangun website ini.",
+      message: "Build belum bisa dimulai. Coba lagi sebentar.",
     });
-  });
+    return Response.json(
+      {
+        code: "build_attempt_unavailable",
+        message: "Build belum bisa dimulai. Coba lagi sebentar.",
+      },
+      { status: 503, headers: { "Retry-After": "3" } },
+    );
+  }
 
   return createReadStreamFromChannel(operationAttemptId);
 }

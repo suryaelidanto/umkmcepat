@@ -212,4 +212,38 @@ describe("primeSettingCache", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRestore();
   });
+
+  it("after invalidate + prime, getSettingSync returns primed DB value", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "economics.daily_energy_limit" },
+      create: {
+        key: "economics.daily_energy_limit",
+        category: "economics",
+        value: 999_000,
+      },
+      update: { value: 999_000 },
+    });
+    await primeSettingCache();
+    expect(getSettingSync("economics.daily_energy_limit", 250_000)).toBe(
+      999_000,
+    );
+    invalidateSettingCache();
+    await primeSettingCache();
+    expect(getSettingSync("economics.daily_energy_limit", 250_000)).toBe(
+      999_000,
+    );
+  });
+});
+
+describe("runtime settings registry", () => {
+  it("build concurrency and max containers do not require restart", async () => {
+    const { findConfigEntry } = await import("@/lib/app-settings-registry");
+    expect(
+      findConfigEntry("runtime.build_concurrency")?.requiresRestart,
+    ).toBeFalsy();
+    expect(
+      findConfigEntry("runtime.max_containers")?.requiresRestart,
+    ).toBeFalsy();
+  });
 });

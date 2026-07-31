@@ -14,14 +14,21 @@ export type UploadObjectInput = {
 
 const OBJECT_REF_PREFIX = "object:";
 const S3_REF_PREFIX = `${OBJECT_REF_PREFIX}s3:`;
+// Pre-S3-unification local refs still live in some waitlist rows; same private
+// bucket + key layout as object:s3:.
+const LOCAL_REF_PREFIX = `${OBJECT_REF_PREFIX}local:`;
 
 export async function getStoredObject(
   ref: string,
 ): Promise<StoredObject | null> {
-  if (!ref.startsWith(S3_REF_PREFIX)) {
+  let rawKey: string | null = null;
+  if (ref.startsWith(S3_REF_PREFIX)) {
+    rawKey = ref.slice(S3_REF_PREFIX.length);
+  } else if (ref.startsWith(LOCAL_REF_PREFIX)) {
+    rawKey = ref.slice(LOCAL_REF_PREFIX.length);
+  } else {
     return null;
   }
-  const rawKey = ref.slice(S3_REF_PREFIX.length);
   try {
     const key = normalizeObjectKey(rawKey);
     const body = await getS3Object("private", prefixedKey(key));

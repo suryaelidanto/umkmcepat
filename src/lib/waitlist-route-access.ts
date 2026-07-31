@@ -9,3 +9,12 @@ export function isWaitlistMarketingPublicPath(pathname: string): boolean {
     pathname.startsWith("/booster/success/")
   );
 }
+
+/** Paths waitlist must not block. Admin UI is still gated by requireAdmin(). */
+export function isWaitlistGateBypassPath(pathname: string): boolean {
+  return (
+    isWaitlistMarketingPublicPath(pathname) ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/")
+  );
+}

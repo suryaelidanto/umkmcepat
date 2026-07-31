@@ -100,7 +100,7 @@ function AdminTicketThreadPage() {
         queryKey: ["admin", "tickets", ticketId],
       });
       queryClient.invalidateQueries({
-        queryKey: ["admin", "unread-tickets-count"],
+        queryKey: ["admin", "nav-counts"],
       });
       toast.success("Balasan berhasil dikirim.");
     },
@@ -129,7 +129,7 @@ function AdminTicketThreadPage() {
         queryKey: ["admin", "tickets", ticketId],
       });
       queryClient.invalidateQueries({
-        queryKey: ["admin", "unread-tickets-count"],
+        queryKey: ["admin", "nav-counts"],
       });
     },
     onError: (err) => {

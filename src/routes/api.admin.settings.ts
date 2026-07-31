@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { invalidateSettingCache } from "@/lib/app-settings";
+import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
 import {
   APP_SETTINGS,
   findConfigEntry,
@@ -138,6 +138,10 @@ export const Route = createFileRoute("/api/admin/settings")({
           ),
         );
         invalidateSettingCache();
+        await primeSettingCache();
+        const { refreshAttemptWorkerConcurrency } =
+          await import("@/lib/projects/attempt-queue");
+        refreshAttemptWorkerConcurrency();
         return Response.json({ ok: true });
       },
     },

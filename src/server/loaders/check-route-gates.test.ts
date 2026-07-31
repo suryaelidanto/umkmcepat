@@ -116,4 +116,33 @@ describe("checkRouteGates", () => {
 
     await expect(checkRouteGates("/projects")).rejects.toBeInstanceOf(Response);
   });
+
+  it("lets waitlisted users reach /admin (requireAdmin enforces real admin)", async () => {
+    getAuthStateMock.mockResolvedValue({
+      session: { user: { id: "u-1", email: "user@example.com" } },
+      banned: false,
+    });
+    isUserVerifiedMock.mockResolvedValue(true);
+    resolveUserWaitlistStatusMock.mockReturnValue({ status: "pending" });
+
+    await expect(checkRouteGates("/admin")).resolves.toEqual({ ok: true });
+    await expect(checkRouteGates("/admin/waitlist")).resolves.toEqual({
+      ok: true,
+    });
+    expect(resolveUserWaitlistStatusMock).not.toHaveBeenCalled();
+  });
+
+  it("still waitlist-blocks waitlisted admins on product routes", async () => {
+    getAuthStateMock.mockResolvedValue({
+      session: { user: { id: "admin-1", email: "admin@example.com" } },
+      banned: false,
+    });
+    isUserVerifiedMock.mockResolvedValue(true);
+    isAdminEmailMock.mockReturnValue(true);
+    isWaitlistEnabledMock.mockResolvedValue(true);
+    isWaitlistApprovedMock.mockResolvedValue(false);
+    resolveUserWaitlistStatusMock.mockReturnValue({ status: "pending" });
+
+    await expect(checkRouteGates("/projects")).rejects.toBeInstanceOf(Response);
+  });
 });

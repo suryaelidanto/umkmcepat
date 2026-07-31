@@ -83,8 +83,10 @@
     "@tanstack/react-router": "1.170.18",
     "@tanstack/react-start": "1.168.28",
     "ai": "^7.0.40",
+    "bullmq": "^6.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "ioredis": "^5.11.1",
     "lucide-react": "^0.503.0",
     "monaco-editor": "^0.55.1",
     "motion": "^12.42.2",
@@ -94,6 +96,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-resizable-panels": "^4.12.2",
+    "recharts": "^3.10.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"

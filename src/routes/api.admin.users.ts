@@ -1,9 +1,54 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import type { Prisma } from "@prisma/client";
+
 import { requireAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 
 const PAGE_SIZE = 20;
+
+export type AdminUserStatusFilter = "active" | "banned" | "unverified" | "all";
+
+function parseUserStatus(raw: string | null): AdminUserStatusFilter {
+  if (
+    raw === "active" ||
+    raw === "banned" ||
+    raw === "unverified" ||
+    raw === "all"
+  ) {
+    return raw;
+  }
+  return "all";
+}
+
+function userWhere(
+  status: AdminUserStatusFilter,
+  q: string,
+): Prisma.UserWhereInput {
+  const parts: Prisma.UserWhereInput[] = [];
+  if (status === "active") {
+    parts.push({ bannedAt: null });
+  } else if (status === "banned") {
+    parts.push({ bannedAt: { not: null } });
+  } else if (status === "unverified") {
+    parts.push({ verifiedAt: null, bannedAt: null });
+  }
+  if (q) {
+    parts.push({
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (parts.length === 0) {
+    return {};
+  }
+  if (parts.length === 1) {
+    return parts[0]!;
+  }
+  return { AND: parts };
+}
 
 export const Route = createFileRoute("/api/admin/users")({
   server: {
@@ -19,14 +64,8 @@ export const Route = createFileRoute("/api/admin/users")({
         const url = new URL(request.url);
         const q = url.searchParams.get("q")?.trim() ?? "";
         const page = Math.max(1, Number(url.searchParams.get("page") ?? "1"));
-        const where = q
-          ? {
-              OR: [
-                { name: { contains: q, mode: "insensitive" as const } },
-                { email: { contains: q, mode: "insensitive" as const } },
-              ],
-            }
-          : {};
+        const status = parseUserStatus(url.searchParams.get("status"));
+        const where = userWhere(status, q);
         const [users, total] = await Promise.all([
           prisma.user.findMany({
             orderBy: { createdAt: "desc" },
@@ -58,6 +97,7 @@ export const Route = createFileRoute("/api/admin/users")({
             verified: Boolean(u.verifiedAt),
           })),
           page,
+          status,
           total,
           totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
         });

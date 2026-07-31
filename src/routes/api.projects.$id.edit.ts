@@ -9,7 +9,7 @@ import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
-import { createLocalBuildWorker } from "@/lib/projects/build-worker";
+import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
 import { parseProjectChatMessages } from "@/lib/projects/chat-memory";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { type DiffLine } from "@/lib/projects/diff";
@@ -721,27 +721,37 @@ async function handleEditPost(request: Request, routeId: string) {
           buildId: build.id,
           snapshotId: snapshot.id,
         });
-        await prisma.projectBuild.update({
-          where: { id: build.id },
-          data: {
-            startedAt: new Date(),
-            status: "running" satisfies ProjectBuildStatus,
-          },
-        });
         await prisma.runtimeEvent.create({
           data: createRuntimeEventData({
             buildId: build.id,
-            message: "Edited source build started.",
+            message: "Edited source build queued.",
             projectId: project.id,
             type: "build.started",
           }),
         });
 
-        const buildResult = await createLocalBuildWorker().runBuild({
+        const queuedBuild = await enqueueAndWaitEditBuild({
+          kind: "edit-build",
+          attemptId: attempt.id,
           buildId: build.id,
-          files: editResult.files,
-          workspaceKey: project.id,
+          operationToken: operation.token,
+          projectId: project.id,
+          snapshotId: snapshot.id,
+          sourceRef,
+          userId,
         });
+        const { readProjectDistArtifact } =
+          await import("@/lib/projects/runtime-artifacts");
+        const distFiles =
+          queuedBuild.artifactRef && queuedBuild.buildStatus === "succeeded"
+            ? await readProjectDistArtifact(queuedBuild.artifactRef)
+            : [];
+        const buildResult = {
+          artifactRef: queuedBuild.artifactRef,
+          distFiles,
+          logText: queuedBuild.logText,
+          status: queuedBuild.buildStatus,
+        };
         devLog("edit", "build.finished", {
           projectId: project.id,
           status: buildResult.status,

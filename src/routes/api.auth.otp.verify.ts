@@ -50,7 +50,11 @@ export const Route = createFileRoute("/api/auth/otp/verify")({
         const result = await verifyOtp(session.user.id, phone, code);
 
         if (!result.success) {
-          return Response.json({ message: result.error }, { status: 400 });
+          const status =
+            result.error === "Nomor ini sudah terpakai di akun lain."
+              ? 409
+              : 400;
+          return Response.json({ message: result.error }, { status });
         }
 
         return Response.json({

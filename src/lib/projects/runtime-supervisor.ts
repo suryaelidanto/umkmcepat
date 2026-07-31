@@ -203,6 +203,10 @@ export function createLocalProcessRuntimeSupervisor(
       },
       update: {
         lastHeartbeatAt: new Date(),
+        maxContainers: getSettingSync(
+          "runtime.max_containers",
+          DEFAULT_MAX_CONTAINERS,
+        ),
         status: "active",
       },
       where: { name: LOCAL_RUNTIME_NODE_NAME },

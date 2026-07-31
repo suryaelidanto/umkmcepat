@@ -8,15 +8,31 @@ import {
 import { prisma } from "@/lib/prisma";
 import {
   approveWaitlistEntry,
+  type AdminWaitlistStatusFilter,
   listPendingWaitlist,
   rejectWaitlistEntry,
 } from "@/lib/waitlist";
 
+const WAITLIST_STATUS: AdminWaitlistStatusFilter[] = [
+  "pending",
+  "approved",
+  "rejected",
+  "all",
+];
+
+function parseWaitlistStatus(raw: string | null): AdminWaitlistStatusFilter {
+  if (raw && WAITLIST_STATUS.includes(raw as AdminWaitlistStatusFilter)) {
+    return raw as AdminWaitlistStatusFilter;
+  }
+  return "pending";
+}
+
 export const Route = createFileRoute("/api/admin/waitlist")({
   server: {
     handlers: {
-      // List pending waitlist entries (admin-only).
-      GET: async () => {
+      // List waitlist entries (admin-only). ?status=pending|approved|rejected|all
+      // Default pending (includes waitlisted) so ops focus on work queue.
+      GET: async ({ request }) => {
         const admin = await requireAdmin();
         if (!admin.ok) {
           return Response.json(
@@ -24,8 +40,25 @@ export const Route = createFileRoute("/api/admin/waitlist")({
             { status: admin.status },
           );
         }
-        const entries = await listPendingWaitlist();
-        return Response.json({ entries });
+        const status = parseWaitlistStatus(
+          new URL(request.url).searchParams.get("status"),
+        );
+        const entries = await listPendingWaitlist(status);
+        return Response.json({
+          entries: entries.map((entry) => ({
+            businessName: entry.businessName,
+            businessType: entry.businessType,
+            email: entry.email,
+            id: entry.id,
+            imageCount: entry.imageCount,
+            phone: entry.phone,
+            rejectionReason: entry.rejectionReason,
+            status: entry.status,
+            story: entry.story,
+            submittedAt: entry.submittedAt.toISOString(),
+          })),
+          status,
+        });
       },
 
       // Approve or reject a waitlist entry. Body: { entryId, action: "approve"

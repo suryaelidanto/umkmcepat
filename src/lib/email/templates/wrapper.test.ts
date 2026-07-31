@@ -18,6 +18,9 @@ describe("wrapEmail", () => {
     expect(result.html).toContain("UMKM Cepat");
     expect(result.html).toContain("<p>Isi email</p>");
     expect(result.html).toContain("Mohon tidak membalas email ini");
+    expect(result.html).toContain("max-width:640px");
+    expect(result.html).toContain("padding:32px 40px");
+    expect(result.html).toContain("padding:32px 16px");
     expect(result.text).toContain("Isi email");
     expect(result.text).toContain("Mohon tidak membalas email ini");
   });

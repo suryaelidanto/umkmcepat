@@ -6,7 +6,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { useRouter } from "@/lib/navigation";
-import { fetchJson, queryKeys } from "@/lib/query-client";
+import {
+  fetchJson,
+  GATE_QUERY_OPTIONS,
+  invalidateWaitlistStatus,
+  queryKeys,
+} from "@/lib/query-client";
 import { isUserVerified } from "@/lib/user-credits";
 
 // Server-side gate: signed-in AND not yet verified. Already-verified users
@@ -50,7 +55,7 @@ function VerifyPage() {
       fetchJson<{ verified: boolean }>("/api/user/verification", {
         cache: "no-store",
       }),
-    staleTime: 10_000,
+    ...GATE_QUERY_OPTIONS,
   });
 
   const sendOtpMutation = useMutation({
@@ -86,6 +91,7 @@ function VerifyPage() {
       // Write through cache immediately so MainChrome doesn't redirect back.
       queryClient.setQueryData(queryKeys.verification, { verified: true });
       await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
+      await invalidateWaitlistStatus(queryClient);
       setTimeout(() => router.replace("/"), 1500);
     },
     onError: (mutationError) => {
@@ -106,6 +112,7 @@ function VerifyPage() {
       setFlowState("done");
       queryClient.setQueryData(queryKeys.verification, { verified: true });
       await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
+      await invalidateWaitlistStatus(queryClient);
       setTimeout(() => router.replace("/"), 1500);
     },
     onError: () => {

@@ -17,6 +17,7 @@ import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { HomePromptForm } from "@/components/projects/HomePromptForm";
 import { ProjectList } from "@/components/projects/ProjectList";
+import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";
 import { useSession } from "@/lib/auth-client";
@@ -25,7 +26,12 @@ import {
   encodeProjectCursor,
   PROJECT_PAGE_SIZE,
 } from "@/lib/projects/pagination";
-import { fetchJson, queryKeys } from "@/lib/query-client";
+import {
+  fetchWaitlistStatus,
+  GATE_QUERY_OPTIONS,
+  queryKeys,
+  waitlistPendingPollInterval,
+} from "@/lib/query-client";
 import {
   getProjectCount,
   getProjectLimit,
@@ -221,17 +227,32 @@ function HomePage() {
   const { status } = useSession();
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
-    queryFn: () =>
-      fetchJson<{ status: string | null }>("/api/user/waitlist", {
-        cache: "no-store",
-      }),
+    queryFn: fetchWaitlistStatus,
     enabled: status === "authenticated",
-    staleTime: 60_000,
+    ...GATE_QUERY_OPTIONS,
+    refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
   const waitlisted =
     status === "authenticated" &&
     waitlistQuery.isSuccess &&
     waitlistQuery.data.status !== "approved";
+  const ownEntry = waitlistQuery.data?.own ?? null;
+  const ownStatus = ownEntry?.status ?? null;
+  const waitlistBanner =
+    ownStatus === "rejected"
+      ? {
+          body: "Pendaftaran kamu belum disetujui. Perbaiki data dan kirim ulang.",
+          cta: "Perbaiki pendaftaran",
+        }
+      : ownStatus === "pending" || ownStatus === "waitlisted"
+        ? {
+            body: "Kamu masih dalam antrean. Kami hubungi lewat email.",
+            cta: "Cek status antrean",
+          }
+        : {
+            body: "Isi formulir antrean dulu biar kami bisa review usahamu.",
+            cta: "Isi formulir antrean",
+          };
   const [promptFocused, setPromptFocused] = useState(false);
   const siblingClass = promptFocused
     ? "transition-all duration-300 opacity-40 scale-[0.98]"
@@ -281,14 +302,11 @@ function HomePage() {
           </HeroMotionItem>
           {waitlisted ? (
             <HeroMotionItem className="w-full">
-              <div className="mx-auto mt-spacing-6 max-w-3xl rounded-[20px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-6 py-spacing-4 text-center text-sm text-surface-warm-white/82">
-                <p>Kamu masih dalam antrean. Kami hubungi lewat email.</p>
-                <Link
-                  href="/waitlist"
-                  className="mt-spacing-2 inline-block text-surface-warm-white underline-offset-4 hover:underline"
-                >
-                  Cek status antrean
-                </Link>
+              <div className="mx-auto mt-spacing-6 flex max-w-3xl flex-col items-center gap-spacing-3 rounded-[20px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-6 py-spacing-4 text-center text-sm text-surface-warm-white/82">
+                <p>{waitlistBanner.body}</p>
+                <Button asChild size="sm">
+                  <Link href="/waitlist">{waitlistBanner.cta}</Link>
+                </Button>
               </div>
             </HeroMotionItem>
           ) : (
