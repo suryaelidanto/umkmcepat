@@ -308,7 +308,7 @@ describe("custom generated source agent", () => {
   });
 
   it("fails instead of inventing fallback source when the agent does not produce checked custom edits", async () => {
-    // First pass + forced rewrite both produce zero writes.
+    // First pass + up to two forced rewrites all produce zero writes.
     agentGenerate.mockResolvedValue({ text: "no edits" });
 
     await expect(
@@ -317,7 +317,7 @@ describe("custom generated source agent", () => {
         schema: schema(),
       }),
     ).rejects.toThrow("AI agent produced invalid source");
-    expect(agentGenerate).toHaveBeenCalledTimes(2);
+    expect(agentGenerate).toHaveBeenCalledTimes(3);
   });
 
   it("blocks check_app until src/routes/index.tsx is written, even if other files exist", async () => {

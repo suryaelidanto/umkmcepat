@@ -127,6 +127,26 @@ export async function generateCustomProjectFilesWithAgent({
       };
     }
 
+    // After several exploration reads with zero writes, hard-stop further
+    // reads so the model is forced toward write_file (avoids all-read fails).
+    if (
+      (command.type === "read_file" ||
+        command.type === "list_files" ||
+        command.type === "search_files") &&
+      agentEditedFiles.size === 0
+    ) {
+      const exploreCount = [...operationTrace].filter((op) =>
+        ["read_file", "list_files", "search_files"].includes(op.type),
+      ).length;
+      if (exploreCount >= 12) {
+        return {
+          type: command.type,
+          error:
+            "Exploration budget exhausted with no writes. Immediately call write_file on src/routes/index.tsx with the full home page, then write content/components as needed.",
+        };
+      }
+    }
+
     // Loop detection + per-step timing.
     const tick = stepTimer.start();
     const { nudge, hardCap } = loopDetector.track(command.type, command);
@@ -242,9 +262,16 @@ export async function generateCustomProjectFilesWithAgent({
     touchedFiles.add(AUTO_STYLE_PATH);
 
     let quality = checkAgentSourceQuality(files, agentEditedFiles);
-    if (!quality.ok && isNoMeaningfulEditFailure(quality.issues)) {
-      // One forced rewrite: coding-only. Pass the missing-CSS list so the
-      // agent writes real layout CSS, not color-only stubs.
+    // Up to two forced rewrites when the agent produced no meaningful edits
+    // (e.g. read-only first pass that never wrote src/routes/index.tsx).
+    for (
+      let rewriteAttempt = 0;
+      rewriteAttempt < 2 &&
+      !quality.ok &&
+      isNoMeaningfulEditFailure(quality.issues) &&
+      !stepCharger?.isExhausted();
+      rewriteAttempt++
+    ) {
       const missingCss = findMissingCssClasses(
         files,
         files.find((file) => file.path === "src/index.css")?.content ?? "",
@@ -253,18 +280,21 @@ export async function generateCustomProjectFilesWithAgent({
       // re-reads in the rewrite (e.g. verifying a replacement) are not
       // falsely hard-capped by counts carried over from pass 1.
       loopDetector.reset();
-      if (!stepCharger?.isExhausted()) {
-        await runForcedRewritePass({
-          appSpec,
-          implementationSpec,
-          missingCss,
-          projectId,
-          runCommand,
-          schema,
-          abortSignal,
-          stepCharger,
-        });
-      }
+      devLog("generate", "forced-rewrite", {
+        projectId,
+        attempt: rewriteAttempt + 1,
+        issues: quality.issues,
+      });
+      await runForcedRewritePass({
+        appSpec,
+        implementationSpec,
+        missingCss,
+        projectId,
+        runCommand,
+        schema,
+        abortSignal,
+        stepCharger,
+      });
       // The rewrite may have replaced src/routes/index.tsx or src/router.tsx
       // with fresh components that drop necessary wiring. Re-heal both.
       files = ensureRouterRouteWired(files);
@@ -373,7 +403,7 @@ async function runForcedRewritePass({
   abortSignal?: AbortSignal;
   stepCharger?: StepCharger;
 }) {
-  const rewriteSteps = Math.min(12, getAgentMaxSteps("repair"));
+  const rewriteSteps = Math.min(16, getAgentMaxSteps("repair"));
   const agent = new ToolLoopAgent({
     model: getAiModel(getGenerationModel()),
     maxRetries: 2,

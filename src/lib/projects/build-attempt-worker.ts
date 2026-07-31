@@ -32,15 +32,15 @@ import {
   implementationSpecToSiteSchema,
   parseImplementationSpec,
 } from "@/lib/projects/implementation-spec";
+import { loadPersistedProjectSourceFiles } from "@/lib/projects/load-persisted-project-source";
 import { createProgressiveSaver } from "@/lib/projects/progressive-save";
 import {
   finalizeProjectOperation,
   renewProjectOperation,
 } from "@/lib/projects/project-operation";
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
-import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
+import { resolveGenerateMode } from "@/lib/projects/resolve-generate-mode";
 import {
-  readProjectSourceArtifact,
   resolveArtifactFilesDir,
   writeProjectDistArtifact,
   writeProjectSourceArtifact,
@@ -147,49 +147,32 @@ export async function runBuildAttempt({
   };
 
   try {
-    if (generateMode === "retry_build") {
+    const persistedSourceFiles = await loadPersistedProjectSourceFiles({
+      projectId,
+      userId,
+    });
+    const effectiveMode = resolveGenerateMode({
+      requestedMode: generateMode,
+      hasPersistedSource: persistedSourceFiles.length > 0,
+    });
+    if (generateMode === "retry_build" && effectiveMode === "first_generate") {
+      devLog("generate", "retry_build.empty_source_fallback", {
+        projectId,
+        requestedMode: generateMode,
+      });
+      send("progress", {
+        label: "Source belum ada",
+        detail: "Menjalankan build pertama dari brief yang sudah siap.",
+      });
+    }
+
+    if (effectiveMode === "retry_build") {
       send("progress", {
         label: "Memuat source tersimpan",
         detail: "Membangun ulang dari file tersimpan.",
       });
 
-      const [sourceRow] = await prisma.$queryRaw<[{ sourceFiles: unknown }]>`
-      SELECT "sourceFiles" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
-    `;
-      const latestAttempt = await prisma.projectBuild.findFirst({
-        where: { projectId },
-        orderBy: { createdAt: "desc" },
-        select: {
-          snapshot: {
-            select: {
-              files: true,
-              id: true,
-              sourceRef: true,
-            },
-          },
-        },
-      });
-      const latestProjectSnapshot = await prisma.projectSnapshot.findFirst({
-        where: { projectId },
-        orderBy: { createdAt: "desc" },
-        select: {
-          files: true,
-          id: true,
-          sourceRef: true,
-        },
-      });
-      let sourceFiles = await resolveProjectSourceFiles({
-        latestAttemptSnapshot: latestAttempt?.snapshot ?? null,
-        latestProjectSnapshot,
-        projectSourceFiles: sourceRow?.sourceFiles,
-        readArtifact: (sourceRef) => readProjectSourceArtifact(sourceRef),
-      });
-
-      if (!sourceFiles.length) {
-        throw new Error(
-          "Belum ada source tersimpan. Jalankan build pertama dulu.",
-        );
-      }
+      let sourceFiles = persistedSourceFiles;
 
       send("progress", {
         label: "Build website dari source tersimpan",

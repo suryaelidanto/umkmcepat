@@ -80,6 +80,7 @@ import {
   type PendingAttachment,
 } from "@/lib/projects/composer-attachments";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
+import { resolveGenerateMode } from "@/lib/projects/resolve-generate-mode";
 import {
   createVisualAnnotationEditInstruction,
   createVisualAnnotationId,
@@ -176,6 +177,7 @@ type RuntimeWorkspaceState = {
   canPreview?: boolean;
   canPublish?: boolean;
   canRetry?: boolean;
+  hasPersistedSource?: boolean;
   latestAttempt?: {
     id: string;
     startedAt?: string | null;
@@ -839,18 +841,20 @@ export function WorkspaceShell({
     buildAbortRef.current = abortController;
 
     try {
-      const hasExistingSource =
-        sourceFiles.length > 0 ||
-        sourceStatus === "failed" ||
-        sourceStatus === "ready" ||
-        sourceStatus === "passed" ||
-        buildStatus === "failed" ||
-        buildStatus === "ready";
+      // Mode follows real persisted source only — failed status alone must not
+      // force retry_build (empty-source dead-end). Server re-resolves anyway.
+      const hasPersistedSource =
+        runtimeQuery.data?.hasPersistedSource === true ||
+        sourceFiles.length > 0;
+      const generateMode = resolveGenerateMode({
+        requestedMode: hasPersistedSource ? "retry_build" : "first_generate",
+        hasPersistedSource,
+      });
       const response = await fetch(`/api/projects/${projectId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode: hasExistingSource ? "retry_build" : "first_generate",
+          mode: generateMode,
         }),
         signal: abortController.signal,
       });
@@ -944,9 +948,9 @@ export function WorkspaceShell({
     loadRuntimeState,
     projectId,
     readOnly,
+    runtimeQuery.data?.hasPersistedSource,
     sessionExpired,
     sourceFiles.length,
-    sourceStatus,
   ]);
 
   // Append a one-liner to the chat so the user sees what fields the AI is

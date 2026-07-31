@@ -10,6 +10,7 @@ import {
   selectLatestFailedAttempt,
   selectLatestSuccessfulBuild,
 } from "@/lib/projects/deployment-resolution";
+import { projectHasPersistedSource } from "@/lib/projects/load-persisted-project-source";
 import { deriveActiveProjectJob } from "@/lib/projects/project-job";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
@@ -86,7 +87,7 @@ async function getRuntimeState({
 }) {
   const project = await prisma.project.findFirst({
     where: { id, ...(admin ? {} : { userId }) },
-    select: { buildStatus: true, id: true, status: true },
+    select: { buildStatus: true, id: true, status: true, userId: true },
   });
 
   if (!project) {
@@ -225,6 +226,11 @@ async function getRuntimeState({
     projectStatus: project.status,
   });
 
+  const hasPersistedSource = await projectHasPersistedSource({
+    projectId: project.id,
+    userId: project.userId,
+  });
+
   const body = {
     activeJob,
     activePreviewDeployment: deployment
@@ -243,6 +249,8 @@ async function getRuntimeState({
       latestAttempt?.status === "failed" ||
       latestAttempt?.status === "stale" ||
       latestAttempt?.status === "canceled" ||
+      userFacingState === "build_failed_without_last_good" ||
+      (project.status === "failed" && !latestSuccessfulBuild) ||
       (!latestSuccessfulBuild &&
         (latestFailedAttempt?.status === "failed" ||
           latestFailedAttempt?.status === "stale")),
@@ -253,6 +261,7 @@ async function getRuntimeState({
         }
       : null,
     events: events.map(({ metadata: _metadata, ...event }) => event),
+    hasPersistedSource,
     latestAttempt,
     latestFailedAttempt,
     latestSuccessfulBuild,

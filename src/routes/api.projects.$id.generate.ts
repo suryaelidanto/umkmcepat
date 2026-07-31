@@ -11,10 +11,12 @@ import {
   createReadStreamFromChannel,
   publishBuildProgress,
 } from "@/lib/projects/build-attempt-pubsub";
+import { loadPersistedProjectSourceFiles } from "@/lib/projects/load-persisted-project-source";
 import {
   claimProjectOperation,
   finalizeProjectOperation,
 } from "@/lib/projects/project-operation";
+import { resolveGenerateMode } from "@/lib/projects/resolve-generate-mode";
 import {
   type ProjectBuildStatus,
   type ProjectSnapshotSourceType,
@@ -45,11 +47,11 @@ async function handleGeneratePost(request: Request, routeId: string) {
     );
   }
 
-  let generateMode: "first_generate" | "retry_build" = "first_generate";
+  let requestedMode: "first_generate" | "retry_build" = "first_generate";
   try {
     const body = (await request.json()) as { mode?: string };
     if (body?.mode === "retry_build") {
-      generateMode = "retry_build";
+      requestedMode = "retry_build";
     }
   } catch {
     // empty body = first generate
@@ -143,6 +145,21 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
   const projectId = project.id;
   const projectPrompt = project.prompt;
+
+  const persistedSourceFiles = await loadPersistedProjectSourceFiles({
+    projectId,
+    userId,
+  });
+  const generateMode = resolveGenerateMode({
+    requestedMode,
+    hasPersistedSource: persistedSourceFiles.length > 0,
+  });
+  devLog("generate", "mode.resolved", {
+    projectId,
+    requestedMode,
+    generateMode,
+    sourceFileCount: persistedSourceFiles.length,
+  });
 
   const operation = await claimProjectOperation({
     kind: "build",
