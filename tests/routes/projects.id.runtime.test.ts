@@ -36,6 +36,10 @@ vi.mock("@/lib/projects/runtime-supervisor", () => ({
 vi.mock("@/lib/projects/stale-builds", () => ({
   markStaleProjectBuilds: vi.fn(async () => 0),
 }));
+vi.mock("@/lib/projects/load-persisted-project-source", () => ({
+  loadPersistedProjectSourceFiles: vi.fn(async () => []),
+  projectHasPersistedSource: vi.fn(async () => false),
+}));
 
 import { getHandler } from "./_handler";
 
@@ -57,6 +61,7 @@ describe("project runtime route", () => {
       buildStatus: "not_started",
       id: "project_1",
       status: "discussing",
+      userId: "user_1",
     });
     prismaRuntimeEventFindManyMock.mockResolvedValue([]);
     prismaProjectEditAttemptFindManyMock.mockResolvedValue([]);
@@ -68,6 +73,7 @@ describe("project runtime route", () => {
       buildStatus: "not_started",
       id: "project_cross_tenant",
       status: "discussing",
+      userId: "user_1",
     });
     prismaProjectBuildFindManyMock.mockResolvedValue([]);
     prismaProjectDeploymentFindManyMock.mockResolvedValue([]);

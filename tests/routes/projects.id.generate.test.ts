@@ -57,6 +57,10 @@ vi.mock("@/lib/projects/runtime-supervisor", () => ({
 vi.mock("@/lib/projects/stale-builds", () => ({
   markStaleProjectBuilds: markStaleProjectBuildsMock,
 }));
+vi.mock("@/lib/projects/load-persisted-project-source", () => ({
+  loadPersistedProjectSourceFiles: vi.fn(async () => []),
+  projectHasPersistedSource: vi.fn(async () => false),
+}));
 vi.mock("@/lib/projects/attempt-queue", () => ({
   enqueueAttemptJob: enqueueAttemptJobMock,
 }));
