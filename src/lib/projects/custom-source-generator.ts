@@ -261,6 +261,22 @@ export async function generateCustomProjectFilesWithAgent({
       throw error;
     });
 
+    devLog("generate", "agent.pass", {
+      projectId,
+      toolOps: operationTrace.length,
+      writeOps: operationTrace.filter(
+        (op) => op.type === "write_file" || op.type === "replace_in_file",
+      ).length,
+      edited: [...agentEditedFiles],
+      finishReason:
+        "finishReason" in result ? String(result.finishReason ?? "") : "",
+      steps:
+        "steps" in result && Array.isArray(result.steps)
+          ? result.steps.length
+          : undefined,
+      textLen: typeof result.text === "string" ? result.text.length : 0,
+    });
+
     const isPartialResult =
       ("partial" in result && result.partial === true) || loopHardCapped;
 
@@ -319,8 +335,26 @@ export async function generateCustomProjectFilesWithAgent({
       quality = checkAgentSourceQuality(files, agentEditedFiles);
     }
 
-    // Do not seed a generic home — shipping bland template hides agent write
-    // failures and tanks design quality. Fail cleanly so retry can re-run agent.
+    // Last resort after forced rewrites: brief-based home so preview still
+    // ships when the model returns 0 tool calls (router/provider flake).
+    if (!quality.ok && isNoMeaningfulEditFailure(quality.issues)) {
+      devLog("generate", "seed.brief-home", {
+        projectId,
+        issues: quality.issues,
+        toolOps: operationTrace.length,
+      });
+      const seeded = seedBriefBasedHome(files, schema);
+      files = seeded.files;
+      for (const path of seeded.editedPaths) {
+        agentEditedFiles.add(path);
+        touchedFiles.add(path);
+      }
+      files = ensureRouterRouteWired(files);
+      files = ensurePreviewReadyCalled(files);
+      files = ensureStylesFileExists(files, schema);
+      touchedFiles.add(AUTO_STYLE_PATH);
+      quality = checkAgentSourceQuality(files, agentEditedFiles);
+    }
 
     // Last-resort: if real CSS is still missing after rewrite attempts, inject
     // working Tailwind stubs/rules so the site at least renders — but cap it.
@@ -351,6 +385,15 @@ export async function generateCustomProjectFilesWithAgent({
     quality = checkAgentSourceQuality(files, agentEditedFiles);
 
     if (!quality.ok) {
+      devLog("generate", "source.invalid", {
+        projectId,
+        issues: quality.issues,
+        toolOps: operationTrace.length,
+        writeOps: operationTrace.filter(
+          (op) => op.type === "write_file" || op.type === "replace_in_file",
+        ).length,
+        edited: [...agentEditedFiles],
+      });
       throw new Error(
         `AI agent produced invalid source: ${quality.issues.join(", ")}`,
       );
@@ -1018,8 +1061,8 @@ export function isStarterStylesContent(styleContent: string) {
 }
 
 /**
- * Deterministic home page from ProjectSiteSchema (test/helper only).
- * Not used in the live generate path — shipping this template tanks design quality.
+ * Deterministic home page from ProjectSiteSchema.
+ * Live last-resort after agent + forced rewrites write nothing.
  */
 export function seedBriefBasedHome(
   files: GeneratedProjectFile[],

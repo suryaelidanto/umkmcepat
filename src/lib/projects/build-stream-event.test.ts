@@ -36,4 +36,24 @@ describe("reduceBuildStreamEvent", () => {
       status: "error",
     });
   });
+
+  it("turns tool operation events into transparent progress rows", () => {
+    const result = reduceBuildStreamEvent({
+      type: "operation",
+      title: "Menulis file",
+      path: "src/routes/index.tsx",
+      detail: "File dibuat atau ditimpa oleh agent.",
+      state: "succeeded",
+    });
+
+    expect(result.kind).toBe("progress");
+    if (result.kind !== "progress") {
+      throw new Error("expected progress");
+    }
+    expect(result.update([])[0]).toMatchObject({
+      label: "Menulis file",
+      detail: expect.stringContaining("src/routes/index.tsx"),
+      status: "done",
+    });
+  });
 });

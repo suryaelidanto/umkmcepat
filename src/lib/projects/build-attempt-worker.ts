@@ -84,7 +84,43 @@ export async function runBuildAttempt({
   const projectPrompt = project.prompt;
   let runtimeBuildFinalized = false;
   let runtimeBuildId: string | null = buildId;
-  let lastPersistedProgressLabel: string | null = null;
+  let lastPersistedProgressKey: string | null = null;
+  let lastPersistedOperationAt = 0;
+  let persistedOperationCount = 0;
+  const MAX_PERSISTED_OPERATIONS = 60;
+  const OPERATION_PERSIST_MIN_MS = 250;
+
+  function persistProgressEvent(input: {
+    detail: string;
+    label: string;
+    path?: string;
+  }) {
+    const label = input.label.trim();
+    if (!label) {
+      return;
+    }
+    const detail = input.detail.trim() || label;
+    const key = `${label}\0${detail}\0${input.path ?? ""}`;
+    if (key === lastPersistedProgressKey) {
+      return;
+    }
+    lastPersistedProgressKey = key;
+    void prisma.runtimeEvent
+      .create({
+        data: createRuntimeEventData({
+          buildId: runtimeBuildId,
+          message: label,
+          metadata: {
+            detail,
+            label,
+            ...(input.path ? { path: input.path } : {}),
+          },
+          projectId,
+          type: "build.progress",
+        }),
+      })
+      .catch(() => undefined);
+  }
 
   function send(
     event: BuildProgressEvent["type"],
@@ -97,20 +133,37 @@ export async function runBuildAttempt({
       const detail = String(
         (data as { detail?: unknown }).detail ?? label,
       ).trim();
-      if (label && label !== lastPersistedProgressLabel) {
-        lastPersistedProgressLabel = label;
-        void prisma.runtimeEvent
-          .create({
-            data: createRuntimeEventData({
-              buildId: runtimeBuildId,
-              message: label,
-              metadata: { detail, label },
-              projectId,
-              type: "build.progress",
-            }),
-          })
-          .catch(() => undefined);
+      persistProgressEvent({ detail, label });
+      return;
+    }
+
+    if (event === "operation" && typeof data.title === "string") {
+      const title = data.title.trim();
+      if (!title || persistedOperationCount >= MAX_PERSISTED_OPERATIONS) {
+        return;
       }
+      const path =
+        typeof data.path === "string" && data.path.trim()
+          ? data.path.trim()
+          : undefined;
+      const opType = typeof data.type === "string" ? data.type : undefined;
+      const isWrite = opType === "write_file" || opType === "replace_in_file";
+      const now = Date.now();
+      // Always persist writes; throttle reads/checks so DB stays small.
+      if (
+        !isWrite &&
+        now - lastPersistedOperationAt < OPERATION_PERSIST_MIN_MS
+      ) {
+        return;
+      }
+      lastPersistedOperationAt = now;
+      persistedOperationCount += 1;
+      const detailBase =
+        typeof data.detail === "string" && data.detail.trim()
+          ? data.detail.trim()
+          : "Operasi selesai.";
+      const detail = path ? `${path} — ${detailBase}` : detailBase;
+      persistProgressEvent({ detail, label: title, path });
     }
   }
 
@@ -576,8 +629,8 @@ export async function runBuildAttempt({
 
     const finalSchema = implementationSpecToSiteSchema(implementationSpec);
     send("progress", {
-      label: "Menyiapkan starter React",
-      detail: "Menyiapkan dependensi dan router.",
+      label: "AI menulis website",
+      detail: "Agent coding menulis file source.",
     });
 
     const saver = createProgressiveSaver({
@@ -631,8 +684,8 @@ export async function runBuildAttempt({
     }
 
     send("progress", {
-      label: "AI menulis file website",
-      detail: `${sourceGeneration.touchedFiles.length} file ditulis.`,
+      label: "Source siap di-build",
+      detail: `${sourceGeneration.touchedFiles.length} file ditulis agent.`,
     });
     if (sourceGeneration.repairAttempts > 0) {
       send("operation", {
@@ -1069,12 +1122,20 @@ export async function runBuildAttempt({
         },
       }),
     ]);
+    const emptyAgent =
+      /invalid source|home route was not written|home route is still the starter|did not edit any|did not edit enough/i.test(
+        rawErrorMessage,
+      );
     send("error", {
-      message: "AI belum bisa membangun website ini.",
+      message: emptyAgent
+        ? "AI belum menulis file website."
+        : "AI belum bisa membangun website ini.",
       // Never surface raw exception text to the end user (may contain
       // internal paths/stack fragments). The raw message is already
       // preserved in devLog + the ProjectBuild logText for operators.
-      detail: "Coba ulangi atau perbaiki deskripsi usahanya dulu.",
+      detail: emptyAgent
+        ? "Agent tidak menulis source. Klik build ulang — biasanya berhasil di percobaan berikutnya."
+        : "Coba ulangi atau perbaiki deskripsi usahanya dulu.",
     });
   } finally {
     // Always debit if AI already ran (success or failure).

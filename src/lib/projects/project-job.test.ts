@@ -128,6 +128,48 @@ describe("deriveActiveProjectJob", () => {
     expect(job?.steps.length).toBeGreaterThanOrEqual(12);
   });
 
+  it("hydrates tool operation rows persisted as build.progress", () => {
+    const job = deriveActiveProjectJob({
+      build: {
+        createdAt: "2026-07-16T00:00:00.000Z",
+        id: "b1",
+        startedAt: "2026-07-16T00:00:10.000Z",
+        status: "running",
+        updatedAt: "2026-07-16T00:01:00.000Z",
+      },
+      events: [
+        {
+          buildId: "b1",
+          createdAt: "2026-07-16T00:00:40.000Z",
+          message: "Menulis file",
+          metadata: {
+            detail:
+              "src/routes/index.tsx — File dibuat atau ditimpa oleh agent.",
+            label: "Menulis file",
+            path: "src/routes/index.tsx",
+          },
+          type: "build.progress",
+        },
+        {
+          buildId: "b1",
+          createdAt: "2026-07-16T00:00:15.000Z",
+          message: "AI menulis website",
+          metadata: {
+            detail: "Agent coding menulis file source.",
+            label: "AI menulis website",
+          },
+          type: "build.progress",
+        },
+      ],
+    });
+
+    expect(job?.steps.map((s) => s.label)).toEqual([
+      "AI menulis website",
+      "Menulis file",
+    ]);
+    expect(job?.steps[1]?.detail).toContain("src/routes/index.tsx");
+  });
+
   it("treats open visual_comment edit as active even when last build succeeded", () => {
     const job = deriveActiveProjectJob({
       attempt: {

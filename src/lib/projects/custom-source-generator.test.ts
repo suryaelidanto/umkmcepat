@@ -308,15 +308,21 @@ describe("custom generated source agent", () => {
     expect(spec).toContain("rental PS paket lengkap");
   });
 
-  it("fails cleanly when the agent never writes after rewrites (no bland seed)", async () => {
+  it("seeds brief home when the agent never writes after rewrites", async () => {
     agentGenerate.mockResolvedValue({ text: "no edits" });
-    await expect(
-      generateCustomProjectFilesWithAgent({
-        projectId: "project_no_seed_after_empty_agent",
-        schema: schema(),
-      }),
-    ).rejects.toThrow(/invalid source|home route|not edit/i);
+    const result = await generateCustomProjectFilesWithAgent({
+      projectId: "project_seed_after_empty_agent",
+      schema: schema(),
+    });
     expect(agentGenerate).toHaveBeenCalledTimes(3);
+    expect(result.touchedFiles).toEqual(
+      expect.arrayContaining(["src/routes/index.tsx", "src/content/site.ts"]),
+    );
+    const home = result.files.find((f) => f.path === "src/routes/index.tsx");
+    expect(home?.content).toContain("HomeRouteComponent");
+    expect(home?.content).not.toContain(
+      "Replace this with the real home page built from the brief",
+    );
   });
 
   it("seedBriefBasedHome removes starter placeholder markers", () => {
@@ -347,13 +353,15 @@ describe("custom generated source agent", () => {
       return { text: "done without index" };
     });
 
-    await expect(
-      generateCustomProjectFilesWithAgent({
-        projectId: "project_block_check_app",
-        schema: schema(),
-      }),
-    ).rejects.toThrow(/invalid source|home route|not edit/i);
+    const result = await generateCustomProjectFilesWithAgent({
+      projectId: "project_block_check_app",
+      schema: schema(),
+    });
     expect(checkAppResults[0]?.error ?? "").toContain("src/routes/index.tsx");
+    // After rewrites still missing home → brief seed recovers.
+    expect(
+      result.files.find((f) => f.path === "src/routes/index.tsx")?.content,
+    ).toContain("HomeRouteComponent");
   });
 
   it("recovers via forced rewrite when first pass has no meaningful edits", async () => {
