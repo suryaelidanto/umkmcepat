@@ -46,4 +46,31 @@ describe("generate mode edge matrix", () => {
       }),
     ).toBe("first_generate");
   });
+
+  it("B1: first_generate with no source stays first_generate", () => {
+    expect(
+      resolveGenerateMode({
+        requestedMode: "first_generate",
+        hasPersistedSource: false,
+      }),
+    ).toBe("first_generate");
+  });
+
+  it("B2: first_generate with source stays first_generate (no silent demote)", () => {
+    expect(
+      resolveGenerateMode({
+        requestedMode: "first_generate",
+        hasPersistedSource: true,
+      }),
+    ).toBe("first_generate");
+  });
+
+  it("R-style: empty source + retry never leaves retry_build", () => {
+    const mode = resolveGenerateMode({
+      requestedMode: "retry_build",
+      hasPersistedSource: false,
+    });
+    expect(mode).not.toBe("retry_build");
+    expect(mode).toBe("first_generate");
+  });
 });

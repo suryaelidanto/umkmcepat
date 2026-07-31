@@ -12,18 +12,38 @@ import {
 } from "./lib/report";
 
 const baseUrl = (
-  process.env.RELIABILITY_BASE_URL ?? "http://127.0.0.1:3000"
+  process.env.RELIABILITY_BASE_URL ?? "https://dev.umkmcepat.com"
 ).replace(/\/$/, "");
 const cookie = process.env.RELIABILITY_COOKIE ?? "";
+const origin = process.env.RELIABILITY_ORIGIN ?? baseUrl;
 
 async function fetchPath(
   path: string,
 ): Promise<{ status: number; ms: number }> {
   const started = Date.now();
-  const res = await fetch(`${baseUrl}${path}`, {
-    headers: cookie ? { cookie } : {},
-  });
-  return { status: res.status, ms: Date.now() - started };
+  let status = 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${baseUrl}${path}`, {
+        headers: {
+          ...(cookie ? { cookie } : {}),
+          origin,
+          referer: `${origin}/`,
+        },
+      });
+      status = res.status;
+      // Cloudflare tunnel blips
+      if (status === 520 || status === 522 || status === 524) {
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        continue;
+      }
+      break;
+    } catch {
+      status = 0;
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
+  return { status, ms: Date.now() - started };
 }
 
 async function main() {

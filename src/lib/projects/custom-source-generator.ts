@@ -127,22 +127,25 @@ export async function generateCustomProjectFilesWithAgent({
       };
     }
 
-    // After several exploration reads with zero writes, hard-stop further
-    // reads so the model is forced toward write_file (avoids all-read fails).
+    // After a few exploration ops with zero writes, hard-stop reads so the
+    // model must call write_file (live failures were all-read then seed).
     if (
       (command.type === "read_file" ||
         command.type === "list_files" ||
-        command.type === "search_files") &&
+        command.type === "search_files" ||
+        command.type === "read_skill") &&
       agentEditedFiles.size === 0
     ) {
       const exploreCount = [...operationTrace].filter((op) =>
-        ["read_file", "list_files", "search_files"].includes(op.type),
+        ["read_file", "list_files", "search_files", "read_skill"].includes(
+          op.type,
+        ),
       ).length;
-      if (exploreCount >= 12) {
+      if (exploreCount >= 4) {
         return {
           type: command.type,
           error:
-            "Exploration budget exhausted with no writes. Immediately call write_file on src/routes/index.tsx with the full home page, then write content/components as needed.",
+            "Exploration budget exhausted with no writes. Immediately call write_file on src/routes/index.tsx with the full home page (complete TSX), then other files as needed. Do not read again.",
         };
       }
     }
@@ -214,6 +217,18 @@ export async function generateCustomProjectFilesWithAgent({
         projectId,
       }),
       onStepFinish: stepCharger?.onStepFinish,
+      // Always call a tool — pure-text steps waste budget and never write.
+      toolChoice: "required",
+      // Until home exists, force write_file (models were all-read / check_app only).
+      prepareStep: async () => {
+        if (!agentEditedFiles.has("src/routes/index.tsx")) {
+          return {
+            toolChoice: { type: "tool", toolName: "write_file" },
+            activeTools: ["write_file"] as const,
+          };
+        }
+        return {};
+      },
       // Step cap is a brake only — outcome still comes from quality checklist.
       // Energy exhaustion is a hard stop: the user has nothing left to spend.
       stopWhen: [
@@ -304,25 +319,8 @@ export async function generateCustomProjectFilesWithAgent({
       quality = checkAgentSourceQuality(files, agentEditedFiles);
     }
 
-    // Last resort after rewrites: if the model still never wrote presentation
-    // files, seed a brief-based home page so the user is never stuck without
-    // source. Prefer agent output when quality already passes.
-    if (!quality.ok && isNoMeaningfulEditFailure(quality.issues)) {
-      devLog("generate", "brief-home-seed", {
-        projectId,
-        issues: quality.issues,
-      });
-      const seeded = seedBriefBasedHome(files, schema);
-      files = seeded.files;
-      for (const path of seeded.editedPaths) {
-        agentEditedFiles.add(path);
-        touchedFiles.add(path);
-      }
-      files = ensureRouterRouteWired(files);
-      files = ensurePreviewReadyCalled(files);
-      files = ensureStylesFileExists(files, schema);
-      quality = checkAgentSourceQuality(files, agentEditedFiles);
-    }
+    // Do not seed a generic home — shipping bland template hides agent write
+    // failures and tanks design quality. Fail cleanly so retry can re-run agent.
 
     // Last-resort: if real CSS is still missing after rewrite attempts, inject
     // working Tailwind stubs/rules so the site at least renders — but cap it.
@@ -423,7 +421,9 @@ async function runForcedRewritePass({
   abortSignal?: AbortSignal;
   stepCharger?: StepCharger;
 }) {
-  const rewriteSteps = Math.min(16, getAgentMaxSteps("repair"));
+  // Write-focused tools only — rewrite pass must not burn budget on reads.
+  const rewriteSteps = Math.min(20, getAgentMaxSteps("repair") + 8);
+  let rewriteHomeWritten = false;
   const agent = new ToolLoopAgent({
     model: getAiModel(getGenerationModel()),
     maxRetries: 2,
@@ -437,11 +437,31 @@ async function runForcedRewritePass({
       projectId,
     }),
     onStepFinish: stepCharger?.onStepFinish,
+    toolChoice: "required",
+    prepareStep: async () => {
+      if (!rewriteHomeWritten) {
+        return {
+          toolChoice: { type: "tool", toolName: "write_file" },
+          activeTools: ["write_file"] as const,
+        };
+      }
+      return {};
+    },
     stopWhen: [
       isStepCount(rewriteSteps),
       () => stepCharger?.isExhausted() ?? false,
     ],
-    tools: createAgentTools(runCommand, projectId, stepCharger),
+    tools: createWriteFocusedAgentTools((command) => {
+      const out = runCommand(command);
+      if (
+        command.type === "write_file" &&
+        (command.path === "src/routes/index.tsx" ||
+          command.path?.endsWith("/routes/index.tsx"))
+      ) {
+        rewriteHomeWritten = true;
+      }
+      return out;
+    }),
   });
 
   const localAbortController = new AbortController();
@@ -454,16 +474,14 @@ async function runForcedRewritePass({
 
   await withAiTimeout(
     agent.generate({
-      prompt: `FORCED REWRITE — previous pass produced no meaningful file edits.
-
-STEP 1 (required): write_file src/routes/index.tsx — the full home page. The build fails without it.
-STEP 2: write_file src/content/site.ts and src/index.css (if you add classNames) as needed.
-Do NOT call read_skill. Prefer write over endless reads.
-Then call check_app once.
-
-Static only: no auth/DB/payment gateway/fake /api. Use WA/contact CTA and real Indonesian business copy.
+      prompt: `FORCED REWRITE — previous pass only explored and never wrote presentation files.
+Your ONLY allowed tools: write_file, copy_component, replace_in_file, check_app.
+STEP 1 (required, first tool call): write_file path=src/routes/index.tsx with a COMPLETE custom home page (full TSX). Empty/partial fails.
+STEP 2: copy_component for shadcn pieces you need; write extra routes/components if useful.
+STEP 3: check_app once.
+Do NOT explore. Write complete files immediately.
+Static only: no auth/DB/payment gateway/fake /api. WA/contact CTA + real Indonesian copy.
 ${missingCssNote}
-
 Build intent:
 ${appSpec}`,
       abortSignal: localAbortController.signal,
@@ -485,16 +503,11 @@ ${appSpec}`,
   });
 }
 
-export function createAgentTools(
-  runCommand: RunCommand,
-  projectId: string,
-  subagentCharger?: StepCharger,
-) {
-  const readOnlyTools = createReadOnlyAgentTools(runCommand);
+function createWriteMutatingTools(runCommand: RunCommand) {
   return {
-    ...readOnlyTools,
     write_file: tool({
-      description: "Create or overwrite a generated project file.",
+      description:
+        "Create or overwrite a generated project file. FIRST call must write src/routes/index.tsx with the full custom home page.",
       inputSchema: z.object({ content: z.string(), path: z.string() }),
       execute: ({ content, path }) =>
         runCommand({ content, path, type: "write_file" }),
@@ -515,9 +528,34 @@ export function createAgentTools(
       execute: ({ find, path, replace }) =>
         runCommand({ find, path, replace, type: "replace_in_file" }),
     }),
+    check_app: tool({
+      description:
+        "Validate manifest, package policy, and source safety after edits. Only after write_file on src/routes/index.tsx.",
+      inputSchema: z.object({}),
+      execute: () => runCommand({ type: "check_app" }),
+    }),
+  };
+}
+
+/** Forced-rewrite / write-only toolset — no explore tools. */
+export function createWriteFocusedAgentTools(runCommand: RunCommand) {
+  return createWriteMutatingTools(runCommand);
+}
+
+export function createAgentTools(
+  runCommand: RunCommand,
+  projectId: string,
+  subagentCharger?: StepCharger,
+) {
+  const readOnlyTools = createReadOnlyAgentTools(runCommand);
+  return {
+    ...readOnlyTools,
+    ...createWriteMutatingTools(runCommand),
+    // check_app already in write tools; readOnly also has check_app — keep one
+    // by re-spreading write tools last... write tools include check_app.
     spawn_subagent: tool({
       description:
-        "Spawn a read-only sub-agent to research the codebase in parallel (e.g. find every CTA, audit all images, gather all copy). Returns a summary string. Read-only: the sub-agent cannot write files or spawn further sub-agents. Bounded step budget.",
+        "Spawn a read-only sub-agent to research the codebase in parallel (e.g. find every CTA, audit all images, gather all copy). Returns a summary string. Read-only: the sub-agent cannot write files or spawn further sub-agents. Bounded step budget. Prefer after the home page is written.",
       inputSchema: z.object({ goal: z.string() }),
       execute: async ({ goal }: { goal: string }) => {
         const charger = subagentCharger
@@ -980,9 +1018,8 @@ export function isStarterStylesContent(styleContent: string) {
 }
 
 /**
- * Deterministic home page from ProjectSiteSchema when the coding agent never
- * wrote presentation files. Removes starter placeholder markers and marks
- * home + content as agent-edited for the quality gate.
+ * Deterministic home page from ProjectSiteSchema (test/helper only).
+ * Not used in the live generate path — shipping this template tanks design quality.
  */
 export function seedBriefBasedHome(
   files: GeneratedProjectFile[],
@@ -2171,13 +2208,13 @@ ${implementationBrief}
 ${DESIGN_DIRECTIVE}
 
 SPEED RULES (you have limited steps — write immediately):
-1. FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities.
-2. SECOND STEP: if the brief has distinct sections, write extra route files under src/routes/ (e.g. katalog.tsx, kontak.tsx) and register them in src/router.tsx with <Link> nav. Otherwise keep the single composed page.
-3. THIRD STEP: write any extra shadcn components you need under src/components/ui/ — canonical new-york + Tailwind v4 shape, import cn from "@/lib/utils".
+1. FIRST TOOL CALL MUST BE write_file on src/routes/index.tsx with the FULL home page (complete TSX). Not a stub.
+2. Then write extra routes under src/routes/ if needed and register them in src/router.tsx.
+3. Use copy_component for shadcn pieces; compose them in routes. Do not hand-roll ui primitives.
 4. LAST STEP: check_app once.
 
-DO NOT read_file before writing — starter files are predictable.
-DO NOT spend steps exploring. Write complete files from the start.
+DO NOT read_file / list_files / search_files / spawn_subagent before write_file on the home page.
+DO NOT spend steps exploring. Exploration budget is tiny; writes win.
 Do NOT edit, overwrite, or modify src/content/site.ts. It is already fully populated with the business data. Only read from it using named import: "import { site } from '@/content/site'".
 Do NOT edit src/index.css — it is platform-owned and pre-wired with shadcn theme vars.
 
@@ -2251,14 +2288,13 @@ export function buildGeneratedAppAgentInstructions(
 ) {
   const skillsBlock =
     mode === "generate"
-      ? `\nWrite files directly; you already know the stack. You MAY call read_skill "tailwind-v4", "tanstack-router-static", or "shadcn-ui" if unsure, but do not stall on exploration.
-FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities. The build fails without this file — do not skip it.
-Then add any extra routes under src/routes/ and business-specific components under src/components/custom/.
-Never call check_app before at least one write_file.`
+      ? `\nWrite files directly; you already know the stack.
+FIRST TOOL CALL: write_file src/routes/index.tsx with the full home page (shadcn + Tailwind). The build fails without this file — do not skip it.
+After the home page exists you may read_skill or explore lightly. Before that, only write_file / copy_component.
+Never call check_app before write_file on src/routes/index.tsx.`
       : mode === "rewrite"
-        ? `\nFORCED REWRITE MODE:
-FIRST STEP: write_file src/routes/index.tsx with the full home page using shadcn components + Tailwind utilities. The build fails without this file — do not skip it.
-Then add any extra routes/components as needed, then check_app.`
+        ? `\nFORCED REWRITE MODE (write-only tools):
+FIRST TOOL CALL: write_file src/routes/index.tsx with the full home page. No reads. Then copy_component / more writes, then check_app.`
         : "";
 
   return `You are a frontend coding agent for UMKM Cepat generated apps.
