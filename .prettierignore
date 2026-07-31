@@ -26,3 +26,6 @@ src/routeTree.gen.ts
 storybook-static/
 .superpowers/
 docs/superpowers/
+
+.playwright-mcp/
+tmp/

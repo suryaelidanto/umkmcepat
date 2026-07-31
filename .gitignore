@@ -91,3 +91,6 @@ auth.env
 .omc
 __captures__/
 .firecrawl/
+
+.playwright-mcp/
+tmp/
