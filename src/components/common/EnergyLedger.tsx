@@ -109,19 +109,19 @@ export function EnergyLedger({
       {resolvedEntries.map((entry) => (
         <li
           key={entry.id}
-          className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-foreground-primary/10 bg-surface-warm-white px-spacing-6 py-spacing-5"
+          className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-white/[0.08] bg-white/[0.03] px-spacing-6 py-spacing-5"
         >
           <div className="flex min-w-0 flex-col gap-spacing-1">
-            <span className="text-body-small font-medium text-foreground-primary">
+            <span className="text-body-small font-medium text-surface-warm-white">
               {reasonLabel(entry.reason)}
             </span>
-            <span className="text-body-small text-muted-foreground">
+            <span className="text-body-small text-surface-warm-white/55">
               {formatDateTime(entry.createdAt)} ·{" "}
               {formatNumber(entry.inputTokens)}/
               {formatNumber(entry.outputTokens)} token
             </span>
           </div>
-          <span className="text-body-small font-medium text-foreground-primary tabular-nums">
+          <span className="text-body-small font-medium text-surface-warm-white tabular-nums">
             −{formatNumber(Math.abs(entry.amount))}
           </span>
         </li>

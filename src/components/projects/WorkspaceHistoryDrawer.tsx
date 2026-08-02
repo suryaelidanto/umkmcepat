@@ -129,8 +129,8 @@ export function WorkspaceHistoryDrawer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80dvh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[80dvh] flex-col gap-spacing-7 overflow-hidden sm:max-w-lg">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-spacing-3">
             <History className="size-4" />
             Riwayat versi
@@ -141,74 +141,77 @@ export function WorkspaceHistoryDrawer({
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading ? (
-          <p className="text-body-small text-muted-foreground">
-            Memuat riwayat...
-          </p>
-        ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+          {isLoading ? (
+            <p className="text-body-small text-muted-foreground">
+              Memuat riwayat...
+            </p>
+          ) : null}
 
-        {error ? (
-          <p className="text-body-small text-destructive" role="alert">
-            Gagal memuat riwayat.
-          </p>
-        ) : null}
+          {error ? (
+            <p className="text-body-small text-destructive" role="alert">
+              Gagal memuat riwayat.
+            </p>
+          ) : null}
 
-        {!isLoading && !error && snapshots.length === 0 ? (
-          <p className="text-body-small text-muted-foreground">
-            Belum ada riwayat tersimpan.
-          </p>
-        ) : null}
+          {!isLoading && !error && snapshots.length === 0 ? (
+            <p className="text-body-small text-muted-foreground">
+              Belum ada riwayat tersimpan.
+            </p>
+          ) : null}
 
-        <ol className="flex flex-col gap-spacing-2">
-          {snapshots.map((snapshot) => {
-            const label = KIND_LABEL[snapshot.kind] ?? snapshot.kind;
-            const buildLabel = snapshot.buildStatus
-              ? (BUILD_STATUS_LABEL[snapshot.buildStatus] ??
-                snapshot.buildStatus)
-              : "Tanpa build";
-            return (
-              <li
-                key={snapshot.id}
-                className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-foreground-primary/10 bg-surface-warm-white px-spacing-6 py-spacing-5"
-              >
-                <div className="flex min-w-0 flex-col gap-spacing-1">
-                  <span className="text-body-small font-[480] text-foreground-primary">
-                    {label}
-                    {snapshot.fileCount != null
-                      ? ` · ${snapshot.fileCount} file`
-                      : ""}
-                  </span>
-                  <span className="text-body-small text-muted-foreground">
-                    {formatDate(snapshot.createdAt)} · {buildLabel}
-                  </span>
-                  {!snapshot.restorable ? (
-                    <span className="text-body-small text-destructive">
-                      Sumber tidak tersimpan — tidak bisa dipulihkan.
-                    </span>
-                  ) : null}
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={
-                    !snapshot.restorable ||
-                    restoringId === snapshot.id ||
-                    restoreMutation.isPending
-                  }
-                  onClick={async () => {
-                    setRestoringId(snapshot.id);
-                    await restoreMutation.mutateAsync(snapshot.id);
-                    setRestoringId(null);
-                    onOpenChange(false);
-                  }}
+          <ol className="flex flex-col gap-spacing-2">
+            {snapshots.map((snapshot) => {
+              const label = KIND_LABEL[snapshot.kind] ?? snapshot.kind;
+              const buildLabel = snapshot.buildStatus
+                ? (BUILD_STATUS_LABEL[snapshot.buildStatus] ??
+                  snapshot.buildStatus)
+                : "Tanpa build";
+              return (
+                <li
+                  key={snapshot.id}
+                  className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-white/[0.08] bg-white/[0.03] px-spacing-6 py-spacing-5"
                 >
-                  <RotateCcw className="size-4" />
-                  Kembalikan
-                </Button>
-              </li>
-            );
-          })}
-        </ol>
+                  <div className="flex min-w-0 flex-col gap-spacing-1">
+                    <span className="text-body-small font-[480] text-surface-warm-white">
+                      {label}
+                      {snapshot.fileCount != null
+                        ? ` · ${snapshot.fileCount} file`
+                        : ""}
+                    </span>
+                    <span className="text-body-small text-surface-warm-white/55">
+                      {formatDate(snapshot.createdAt)} · {buildLabel}
+                    </span>
+                    {!snapshot.restorable ? (
+                      <span className="text-body-small text-red-400">
+                        Sumber tidak tersimpan — tidak bisa dipulihkan.
+                      </span>
+                    ) : null}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-white/15 bg-transparent text-surface-warm-white/80 hover:bg-white/5 hover:text-surface-warm-white"
+                    disabled={
+                      !snapshot.restorable ||
+                      restoringId === snapshot.id ||
+                      restoreMutation.isPending
+                    }
+                    onClick={async () => {
+                      setRestoringId(snapshot.id);
+                      await restoreMutation.mutateAsync(snapshot.id);
+                      setRestoringId(null);
+                      onOpenChange(false);
+                    }}
+                  >
+                    <RotateCcw className="size-4" />
+                    Kembalikan
+                  </Button>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -26,8 +26,8 @@ export function EnergyLedgerButton({ projectId }: { projectId: string }) {
         <span className="hidden sm:inline">Riwayat Energi</span>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[80dvh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[80dvh] flex-col gap-spacing-7 overflow-hidden sm:max-w-lg">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-spacing-3">
               <Zap className="size-4" />
               Riwayat Energi
@@ -36,7 +36,9 @@ export function EnergyLedgerButton({ projectId }: { projectId: string }) {
               Daftar pemakaian energi per langkah untuk proyek ini.
             </DialogDescription>
           </DialogHeader>
-          <EnergyLedger projectId={projectId} limit={50} />
+          <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+            <EnergyLedger projectId={projectId} limit={50} />
+          </div>
         </DialogContent>
       </Dialog>
     </>
