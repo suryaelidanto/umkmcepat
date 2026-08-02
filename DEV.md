@@ -112,7 +112,12 @@ Non-secret product config lives in `/admin/settings` (DB-first over `.env`). Aft
 
 ## Attempt queue (BullMQ)
 
-Generate and edit vite builds run through Redis-backed BullMQ (`project-attempt`). Local Redis: compose service `redis` on `127.0.0.1:6379` (started with `bun run infra` / default compose). Override with `REDIS_URL`. Worker concurrency follows admin **Runtime — build concurrency** (default 1), live after save.
+Two Redis-backed BullMQ queues (local Redis: compose `redis` on `127.0.0.1:6379`; override with `REDIS_URL`):
+
+- **`project-attempt`** — generate, edit, and edit-build. Concurrency follows admin **Runtime — build concurrency** (default 3 in code; live after save).
+- **`project-discuss`** — discuss turns only (default concurrency 5). Chat is not blocked by long generates.
+
+Workers boot with the app process (`startAttemptQueueWorker`). On boot the worker also fire-and-forget pre-warms the shared golden `node_modules` under `.data/project-build-workspaces/_shared` so the first generate can skip install.
 
 ## Environment
 
