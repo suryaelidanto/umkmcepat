@@ -156,7 +156,7 @@ function AdminTicketThreadPage() {
 
   if (error || !data?.ticket) {
     return (
-      <div className="mx-auto max-w-2xl px-spacing-4 py-spacing-8 text-center text-surface-warm-white">
+      <div className="py-spacing-8 text-center text-surface-warm-white">
         <h2 className="text-lg font-semibold">Tiket Tidak Ditemukan</h2>
         <Link
           href="/admin/tickets"
@@ -233,7 +233,7 @@ function AdminTicketThreadPage() {
   };
 
   return (
-    <div className="mx-auto flex h-[80dvh] max-w-3xl flex-col pb-20 text-surface-warm-white">
+    <div className="flex h-[80dvh] w-full flex-col pb-20 text-surface-warm-white">
       {/* Header */}
       <div className="flex flex-col gap-spacing-2 border-b border-surface-warm-white/10 pb-spacing-4">
         <div className="flex items-center gap-spacing-3">
