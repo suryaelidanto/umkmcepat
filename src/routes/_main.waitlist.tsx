@@ -415,6 +415,17 @@ function WaitlistPage() {
     form.values.storySince.length +
     form.values.storyGoal.trim().length;
   const storyTooShort = combinedStoryLength + 30 < 80;
+  const canSubmit =
+    !submit.isPending &&
+    uploadingPhotoCount === 0 &&
+    photoAssetIds.length > 0 &&
+    form.values.photo.length > 0 &&
+    !storyTooShort &&
+    !form.errors.businessName &&
+    !form.errors.storyOffers &&
+    !form.errors.storySince &&
+    !form.errors.storyGoal &&
+    !form.errors.photo;
   if (devSkipDone) {
     return (
       <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-surface-warm-white">
@@ -565,7 +576,7 @@ function WaitlistPage() {
           />
         ) : null}
 
-        {step >= 2 ? <PublicContentNotice /> : null}
+        {step === 3 ? <PublicContentNotice /> : null}
 
         {hasTurnstile && step === 3 ? (
           <p className="mt-spacing-4 text-xs text-surface-warm-white/50">
@@ -632,10 +643,13 @@ function WaitlistPage() {
             <Button
               type="button"
               onClick={() => {
+                if (!canSubmit) {
+                  return;
+                }
                 form.markTouched("photo");
                 setConfirmOpen(true);
               }}
-              disabled={submit.isPending || uploadingPhotoCount > 0}
+              disabled={!canSubmit}
               size="lg"
               className="flex items-center gap-spacing-2"
             >
@@ -659,10 +673,10 @@ function WaitlistPage() {
             <DialogHeader>
               <DialogTitle>Sebelum mengirim</DialogTitle>
               <DialogDescription>
-                Cerita usaha dan foto yang kamu kirim bisa dipakai di konten
-                publik (misalnya studi kasus). Jangan isi data sensitif seperti
-                alamat rumah, nomor rekening, atau data pelanggan. Nama akun dan
-                email tetap privat.
+                Cerita usaha dan foto yang kamu kirim bisa dipakai sebagai studi
+                kasus publik. Jangan isi data sensitif seperti alamat rumah,
+                nomor rekening, atau data pelanggan. Nama akun dan email tetap
+                privat.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col-reverse gap-spacing-3 sm:flex-row sm:justify-end">
@@ -677,8 +691,11 @@ function WaitlistPage() {
               <Button
                 type="button"
                 className="flex items-center gap-spacing-2"
-                disabled={submit.isPending || uploadingPhotoCount > 0}
+                disabled={!canSubmit}
                 onClick={() => {
+                  if (!canSubmit) {
+                    return;
+                  }
                   setConfirmOpen(false);
                   submit.mutate();
                 }}
@@ -736,13 +753,12 @@ function PublicContentNotice() {
   return (
     <aside className="mt-spacing-6 rounded-radius-lg border border-surface-warm-white/12 bg-surface-warm-white/[0.04] px-spacing-5 py-spacing-4 text-sm leading-6 text-surface-warm-white/70">
       <p className="font-medium text-surface-warm-white/90">
-        Studi kasus konten
+        Studi kasus publik
       </p>
       <p className="mt-spacing-2">
-        Cerita usaha dan foto yang kamu kirim bisa dipakai di konten publik
-        (misalnya studi kasus). Jangan isi data sensitif (alamat rumah, nomor
-        rekening, data pelanggan, dan sejenisnya). Nama akun dan email tetap
-        privat.
+        Cerita usaha dan foto yang kamu kirim bisa dipakai sebagai studi kasus
+        publik. Jangan isi data sensitif (alamat rumah, nomor rekening, data
+        pelanggan, dan sejenisnya). Nama akun dan email tetap privat.
       </p>
     </aside>
   );

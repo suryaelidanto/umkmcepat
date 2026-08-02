@@ -6,18 +6,20 @@ Before a user submits `/waitlist`, they must understand that **business case-stu
 
 ## Decision
 
-**Inline notice (steps 2 + 3) + confirm dialog on every “Kirim Pendaftaran”.**
+**Inline notice (step 3 only) + confirm dialog on every “Kirim Pendaftaran”.**
+
+Submit button stays disabled until the full form is valid and at least one photo has finished uploading (`photoAssetIds.length > 0`).
 
 No API, schema, or privacy-page change. No consent checkbox. No localStorage skip.
 
 ## UX
 
-### Inline callout (steps 2 and 3)
+### Inline callout (step 3 only)
 
 Quiet notice under the step content, above the nav row:
 
-- Title: `Studi kasus konten`
-- Body: Cerita usaha dan foto yang kamu kirim bisa dipakai di konten publik (misalnya studi kasus). Jangan isi data sensitif (alamat rumah, nomor rekening, data pelanggan, dan sejenisnya). Nama akun dan email tetap privat.
+- Title: `Studi kasus publik`
+- Body: Cerita usaha dan foto yang kamu kirim bisa dipakai sebagai studi kasus publik. Jangan isi data sensitif (alamat rumah, nomor rekening, data pelanggan, dan sejenisnya). Nama akun dan email tetap privat.
 
 ### Confirm dialog (every submit)
 
