@@ -182,6 +182,7 @@ describe("security headers", () => {
     expect(policy).toContain("default-src 'self'");
     expect(policy).toContain("https://api.dicebear.com");
     expect(policy).toContain("https://api.qrserver.com");
+    expect(policy).toContain("https://avatars.githubusercontent.com");
     expect(policy).toContain("https://media.example.test");
     expect(policy).toContain("https://challenges.cloudflare.com");
     expect(policy).toContain("https://umami.example.test");

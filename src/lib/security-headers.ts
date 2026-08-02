@@ -48,6 +48,7 @@ export function isCrossSiteMutation({
  * Origins are taken from verified code references, not guesses:
  *   api.dicebear.com   — avatars, src/lib/profile.ts:9
  *   api.qrserver.com   — payment QR, EnergyBoosterModal.tsx:159
+ *   avatars.githubusercontent.com — GitHub contributor avatars, CommunitySection.tsx
  *   challenges.cloudflare.com — Turnstile widget
  * S3_PUBLIC_BASE_URL and the Umami host are environment-dependent, so the
  * policy is assembled at runtime rather than declared as a constant.
@@ -62,6 +63,7 @@ export function buildContentSecurityPolicy(nonce: string) {
     "blob:",
     "https://api.dicebear.com",
     "https://api.qrserver.com",
+    "https://avatars.githubusercontent.com",
     mediaOrigin,
   ].filter(Boolean);
 
