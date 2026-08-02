@@ -11,9 +11,13 @@ import { startJobReaper } from "@/lib/projects/job-reaper";
 import { getRedisUrl } from "@/lib/redis-url";
 
 export const ATTEMPT_QUEUE_NAME = "project-attempt";
+export const DISCUSS_QUEUE_NAME = "project-discuss";
 
 /** Default when setting/env unset — raised for ~100 concurrent product users. */
 export const DEFAULT_BUILD_CONCURRENCY = 3;
+
+/** Discuss turns are short; keep separate from build concurrency. */
+export const DEFAULT_DISCUSS_CONCURRENCY = 5;
 
 /** BullMQ lock must outlive a long AI pass while lease renew keeps the op alive. */
 const JOB_LOCK_DURATION_MS = 15 * 60_000;
@@ -74,8 +78,10 @@ export type EditBuildJobResult = {
 };
 
 let queue: Queue | null = null;
+let discussQueue: Queue | null = null;
 let queueEvents: QueueEvents | null = null;
 let worker: Worker | null = null;
+let discussWorker: Worker | null = null;
 
 export function getBuildConcurrencyLimit(): number {
   const parsed = getSettingSync(
@@ -87,20 +93,40 @@ export function getBuildConcurrencyLimit(): number {
     : DEFAULT_BUILD_CONCURRENCY;
 }
 
+export function getDiscussConcurrencyLimit(): number {
+  return DEFAULT_DISCUSS_CONCURRENCY;
+}
+
+export function queueNameForJob(job: AttemptJob): string {
+  return job.kind === "discuss" ? DISCUSS_QUEUE_NAME : ATTEMPT_QUEUE_NAME;
+}
+
 function connectionOptions(): ConnectionOptions {
   return { url: getRedisUrl() };
+}
+
+function defaultJobOptions() {
+  return {
+    attempts: 1,
+    removeOnComplete: { age: 3600, count: 100 },
+    removeOnFail: { age: 86400, count: 200 },
+  };
 }
 
 function getQueue(): Queue {
   queue ??= new Queue(ATTEMPT_QUEUE_NAME, {
     connection: connectionOptions(),
-    defaultJobOptions: {
-      attempts: 1,
-      removeOnComplete: { age: 3600, count: 100 },
-      removeOnFail: { age: 86400, count: 200 },
-    },
+    defaultJobOptions: defaultJobOptions(),
   });
   return queue;
+}
+
+function getDiscussQueue(): Queue {
+  discussQueue ??= new Queue(DISCUSS_QUEUE_NAME, {
+    connection: connectionOptions(),
+    defaultJobOptions: defaultJobOptions(),
+  });
+  return discussQueue;
 }
 
 function getQueueEvents(): QueueEvents {
@@ -119,11 +145,14 @@ function jobIdFor(job: AttemptJob): string {
 
 export async function enqueueAttemptJob(job: AttemptJob): Promise<void> {
   const jobId = jobIdFor(job);
-  await getQueue().add(job.kind, job, { jobId });
+  const queueName = queueNameForJob(job);
+  const target = job.kind === "discuss" ? getDiscussQueue() : getQueue();
+  await target.add(job.kind, job, { jobId });
   devLog("attempt-queue", "enqueued", {
     jobId,
     kind: job.kind,
     projectId: job.projectId,
+    queue: queueName,
   });
 }
 
@@ -147,6 +176,7 @@ export async function enqueueAndWaitEditBuild(
       attemptId: job.attemptId,
       kind: job.kind,
       projectId: job.projectId,
+      queue: ATTEMPT_QUEUE_NAME,
     });
   }
 
@@ -239,84 +269,117 @@ async function failCleanAfterJobFailure(
   }
 }
 
+function attachWorkerHandlers(w: Worker, label: string) {
+  w.on("failed", (job, error) => {
+    devLog("attempt-queue", "job.failed", {
+      attemptId: job?.id,
+      error: error.message,
+      queue: label,
+    });
+    void failCleanAfterJobFailure(job?.data as AttemptJob | undefined, error);
+  });
+}
+
 export function startAttemptQueueWorker(): void {
-  if (worker) {
+  if (worker && discussWorker) {
     return;
   }
 
   startJobReaper(60_000);
 
-  worker = new Worker(
-    ATTEMPT_QUEUE_NAME,
-    async (bullJob) => {
-      const data = bullJob.data as AttemptJob;
-      const jobId = jobIdFor(data);
-      const abortSignal = registerJobAbort(jobId);
-      try {
-        if (data.kind === "generate") {
-          // Relative imports: Vite worker dynamic import of @/ aliases can
-          // fail for newly added modules ("Cannot find module").
-          const { runBuildAttempt } = await import("./build-attempt-worker");
-          await runBuildAttempt({
-            abortSignal,
-            attemptId: data.attemptId,
-            buildId: data.buildId,
-            generateMode: data.generateMode,
-            operationToken: data.operationToken,
-            project: {
-              id: data.projectId,
-              prompt: data.projectPrompt,
-              status: data.projectStatus,
-            },
-            userId: data.userId,
-          });
-          return { ok: true };
-        }
-
+  if (!worker) {
+    worker = new Worker(
+      ATTEMPT_QUEUE_NAME,
+      async (bullJob) => {
+        const data = bullJob.data as AttemptJob;
         if (data.kind === "discuss") {
+          throw new Error(
+            "Discuss jobs must use project-discuss queue, not project-attempt.",
+          );
+        }
+        const jobId = jobIdFor(data);
+        const abortSignal = registerJobAbort(jobId);
+        try {
+          if (data.kind === "generate") {
+            const { runBuildAttempt } = await import("./build-attempt-worker");
+            await runBuildAttempt({
+              abortSignal,
+              attemptId: data.attemptId,
+              buildId: data.buildId,
+              generateMode: data.generateMode,
+              operationToken: data.operationToken,
+              project: {
+                id: data.projectId,
+                prompt: data.projectPrompt,
+                status: data.projectStatus,
+              },
+              userId: data.userId,
+            });
+            return { ok: true };
+          }
+
+          if (data.kind === "edit") {
+            const { runEditAttempt } = await import("./edit-attempt-worker");
+            await runEditAttempt({
+              abortSignal,
+              attemptId: data.attemptId,
+              operationToken: data.operationToken,
+              projectId: data.projectId,
+              userId: data.userId,
+            });
+            return { ok: true };
+          }
+
+          const { runQueuedEditBuild } =
+            await import("./edit-build-queue-worker");
+          return runQueuedEditBuild(data);
+        } finally {
+          clearJobAbort(jobId);
+        }
+      },
+      {
+        concurrency: getBuildConcurrencyLimit(),
+        connection: connectionOptions(),
+        lockDuration: JOB_LOCK_DURATION_MS,
+      },
+    );
+    attachWorkerHandlers(worker, ATTEMPT_QUEUE_NAME);
+  }
+
+  if (!discussWorker) {
+    discussWorker = new Worker(
+      DISCUSS_QUEUE_NAME,
+      async (bullJob) => {
+        const data = bullJob.data as AttemptJob;
+        if (data.kind !== "discuss") {
+          throw new Error(
+            `Unexpected job kind on discuss queue: ${String((data as AttemptJob).kind)}`,
+          );
+        }
+        const jobId = jobIdFor(data);
+        const abortSignal = registerJobAbort(jobId);
+        try {
           const { runQueuedDiscussTurn } =
             await import("./discuss-queue-worker");
           await runQueuedDiscussTurn(data, abortSignal);
           return { ok: true };
+        } finally {
+          clearJobAbort(jobId);
         }
-
-        if (data.kind === "edit") {
-          const { runEditAttempt } = await import("./edit-attempt-worker");
-          await runEditAttempt({
-            abortSignal,
-            attemptId: data.attemptId,
-            operationToken: data.operationToken,
-            projectId: data.projectId,
-            userId: data.userId,
-          });
-          return { ok: true };
-        }
-
-        const { runQueuedEditBuild } =
-          await import("./edit-build-queue-worker");
-        return runQueuedEditBuild(data);
-      } finally {
-        clearJobAbort(jobId);
-      }
-    },
-    {
-      concurrency: getBuildConcurrencyLimit(),
-      connection: connectionOptions(),
-      lockDuration: JOB_LOCK_DURATION_MS,
-    },
-  );
-
-  worker.on("failed", (job, error) => {
-    devLog("attempt-queue", "job.failed", {
-      attemptId: job?.id,
-      error: error.message,
-    });
-    // Fail-clean durable rows so UI is not stuck "running" until TTL/reaper.
-    void failCleanAfterJobFailure(job?.data as AttemptJob | undefined, error);
-  });
+      },
+      {
+        concurrency: getDiscussConcurrencyLimit(),
+        connection: connectionOptions(),
+        lockDuration: JOB_LOCK_DURATION_MS,
+      },
+    );
+    attachWorkerHandlers(discussWorker, DISCUSS_QUEUE_NAME);
+  }
 
   devLog("attempt-queue", "worker.started", {
-    concurrency: getBuildConcurrencyLimit(),
+    buildConcurrency: getBuildConcurrencyLimit(),
+    discussConcurrency: getDiscussConcurrencyLimit(),
     lockDurationMs: JOB_LOCK_DURATION_MS,
+    queues: [ATTEMPT_QUEUE_NAME, DISCUSS_QUEUE_NAME],
   });
 }
