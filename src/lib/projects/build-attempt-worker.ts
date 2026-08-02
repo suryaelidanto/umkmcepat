@@ -465,6 +465,13 @@ export async function runBuildAttempt({
       detail: "Membaca kebutuhan utama dari brief.",
     });
 
+    const generateStartedAt = Date.now();
+    let specMs = 0;
+    let agentMs = 0;
+    let viteMs = 0;
+    let repairMs = 0;
+    let repairAttemptsUsed = 0;
+
     const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
     SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
   `;
@@ -633,9 +640,11 @@ export async function runBuildAttempt({
     }
 
     const implementationSpecPrompt = buildImplementationSpecPrompt(brief);
+    const specStartedAt = Date.now();
     const specResult = await generateImplementationSpec(
       implementationSpecPrompt,
     );
+    specMs = Date.now() - specStartedAt;
     const implementationSpec = specResult.spec;
     specInputTokens = specResult.inputTokens;
     specOutputTokens = specResult.outputTokens;
@@ -667,6 +676,7 @@ export async function runBuildAttempt({
       saver.save(currentFiles);
     };
 
+    const agentStartedAt = Date.now();
     const sourceGeneration = await generateCustomProjectFilesWithAgent({
       implementationBrief: buildPrompt,
       implementationSpec,
@@ -679,6 +689,7 @@ export async function runBuildAttempt({
       abortSignal: abortSignal,
       stepCharger: sourceStepCharger,
     });
+    agentMs = Date.now() - agentStartedAt;
     if (sourceGeneration.energyExhausted) {
       send("energy_exhausted", {
         message:
@@ -794,9 +805,11 @@ export async function runBuildAttempt({
         type: "build.started",
       }),
     });
+    const viteStartedAt = Date.now();
     const buildResult = await buildGeneratedProject(sourceFiles, {
       workspaceKey: projectId,
     });
+    viteMs = Date.now() - viteStartedAt;
     devLog("generate", "build.finished", {
       ok: buildResult.ok,
       projectId: projectId,
@@ -821,6 +834,7 @@ export async function runBuildAttempt({
         });
 
         try {
+          const repairPhaseStartedAt = Date.now();
           const repair = await repairGeneratedProjectFiles({
             buildLog: finalBuildResult.log,
             files: sourceFiles,
@@ -853,6 +867,8 @@ export async function runBuildAttempt({
           const retryBuild = await buildGeneratedProject(sourceFiles, {
             workspaceKey: projectId,
           });
+          repairMs += Date.now() - repairPhaseStartedAt;
+          repairAttemptsUsed = repairAttempt + 1;
           finalBuildResult = retryBuild;
           devLog("generate", "build.retry.finished", {
             attempt: repairAttempt + 1,
@@ -895,6 +911,16 @@ export async function runBuildAttempt({
     }
 
     const finalBuildOk = finalBuildResult.ok;
+    devLog("generate", "timings", {
+      projectId,
+      specMs,
+      agentMs,
+      viteMs,
+      repairMs,
+      repairAttempts: repairAttemptsUsed,
+      totalMs: Date.now() - generateStartedAt,
+      ok: finalBuildOk,
+    });
 
     if (finalBuildOk) {
       send("progress", {

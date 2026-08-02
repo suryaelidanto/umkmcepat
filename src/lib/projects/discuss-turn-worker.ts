@@ -111,6 +111,7 @@ export async function runDiscussTurn({
       briefConfidence: effectiveBrief.confidence,
     });
 
+    const discussStartedAt = Date.now();
     const primary = streamText({
       model,
       system: systemPrompt,
@@ -336,10 +337,12 @@ export async function runDiscussTurn({
       return;
     }
 
+    const primaryMs = Date.now() - discussStartedAt;
     if (!chatText) {
       // ponytail: tool-only response (no prose). Retry the card via
       // repairDiscussCardWithTool, then persist a card-only assistant turn
       // (no fake text). Never surface a dummy string.
+      const repairStartedAt = Date.now();
       const repaired = await repairDiscussCardWithTool({
         brief: effectiveBrief,
         cardSystemPrompt,
@@ -350,6 +353,14 @@ export async function runDiscussTurn({
         modelName,
         projectId: project.id,
         userId,
+      });
+      const repairMs = Date.now() - repairStartedAt;
+      devLog("discuss", "timings", {
+        primaryMs,
+        repairMs,
+        textOnly: false,
+        repaired: Boolean(repaired),
+        projectId: project.id,
       });
       totalInputTokens += repaired?.usage.inputTokens ?? 0;
       totalOutputTokens += repaired?.usage.outputTokens ?? 0;
@@ -452,7 +463,9 @@ export async function runDiscussTurn({
     let primaryToolFailed = workspaceTurn.workspaceCard.type === "none";
     let repairsUsed = 0;
 
+    let repairMs = 0;
     if (primaryToolFailed) {
+      const repairStartedAt = Date.now();
       const repaired = await repairDiscussCardWithTool({
         brief: effectiveBrief,
         cardSystemPrompt,
@@ -464,6 +477,7 @@ export async function runDiscussTurn({
         projectId: project.id,
         userId,
       });
+      repairMs = Date.now() - repairStartedAt;
       if (repaired) {
         workspaceTurn = {
           brief: repaired.brief,
@@ -479,6 +493,13 @@ export async function runDiscussTurn({
     }
 
     const hasCard = workspaceTurn.workspaceCard.type !== "none";
+    devLog("discuss", "timings", {
+      primaryMs,
+      repairMs,
+      textOnly: !hasCard,
+      repairsUsed,
+      projectId: project.id,
+    });
     const resolvedToolCallId = streamToolCallId || toolCallId;
 
     if (hasCard) {
@@ -551,6 +572,8 @@ export async function runDiscussTurn({
       devLog("discuss", "text-only-fallback", {
         projectId: project.id,
         repairsUsed,
+        primaryMs,
+        repairMs,
       });
       await writeAiRequestLog({
         event: "discuss:text-only-fallback",
