@@ -14,6 +14,7 @@ import { getAiModel, getAiTelemetry } from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
+import { devLog } from "@/lib/dev-log";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { parseProjectBrief } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
@@ -475,38 +476,42 @@ export async function runDiscussTurn({
     const hasCard = workspaceTurn.workspaceCard.type !== "none";
     const resolvedToolCallId = streamToolCallId || toolCallId;
 
-    publishProgress(turnId, {
-      type: "tool-input-available",
-      toolCallId: resolvedToolCallId,
-      toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-      input: toolInput ?? {},
-    });
-    publishProgress(turnId, {
-      type: "tool-output-available",
-      toolCallId: resolvedToolCallId,
-      output: {
-        workspaceCard: workspaceTurn.workspaceCard,
-        projectTitle: workspaceTurn.projectTitle || project.title,
-        repairsUsed,
-      },
-    });
+    if (hasCard) {
+      publishProgress(turnId, {
+        type: "tool-input-available",
+        toolCallId: resolvedToolCallId,
+        toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+        input: toolInput ?? {},
+      });
+      publishProgress(turnId, {
+        type: "tool-output-available",
+        toolCallId: resolvedToolCallId,
+        output: {
+          workspaceCard: workspaceTurn.workspaceCard,
+          projectTitle: workspaceTurn.projectTitle || project.title,
+          repairsUsed,
+        },
+      });
+    }
 
     const assistantMessage: UIMessage = {
       id: messageId,
       role: "assistant",
-      parts: [
-        { type: "text", text: chatText, state: "done" },
-        {
-          type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-          toolCallId: resolvedToolCallId,
-          state: "output-available",
-          input: toolInput ?? {},
-          output: {
-            workspaceCard: workspaceTurn.workspaceCard,
-            projectTitle: workspaceTurn.projectTitle || project.title,
-          },
-        } as UIMessage["parts"][number],
-      ],
+      parts: hasCard
+        ? [
+            { type: "text", text: chatText, state: "done" },
+            {
+              type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
+              toolCallId: resolvedToolCallId,
+              state: "output-available",
+              input: toolInput ?? {},
+              output: {
+                workspaceCard: workspaceTurn.workspaceCard,
+                projectTitle: workspaceTurn.projectTitle || project.title,
+              },
+            } as UIMessage["parts"][number],
+          ]
+        : [{ type: "text", text: chatText, state: "done" }],
     };
 
     const safeMessages = stripTransportDiagnosticMessages(
@@ -538,8 +543,12 @@ export async function runDiscussTurn({
         workspaceCard: workspaceTurn.workspaceCard,
       });
     } else {
+      devLog("discuss", "text-only-fallback", {
+        projectId: project.id,
+        repairsUsed,
+      });
       await writeAiRequestLog({
-        event: "discuss:finish",
+        event: "discuss:text-only-fallback",
         model: modelName,
         mode: "one_call_tools",
         projectId: project.id,

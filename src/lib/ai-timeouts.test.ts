@@ -34,7 +34,7 @@ vi.mock("@/lib/prisma", () => {
 });
 
 afterEach(async () => {
-  vi.unstubAllEnvs();
+  delete process.env.AI_TIMEOUT_DISCUSS_CARD_MS;
   const { prisma } = await import("@/lib/prisma");
   await prisma.appSetting
     .delete({ where: { key: "ai.timeout.discuss_ms" } })
@@ -42,13 +42,13 @@ afterEach(async () => {
 });
 
 describe("discuss card timeout", () => {
-  it("uses 45s per attempt with 135s total deadline across three semantic attempts", () => {
+  it("uses 45s per attempt with 45s deadline after one semantic repair", () => {
     expect(getAiTimeoutMs("discussCard")).toBe(45_000);
-    expect(DISCUSS_CARD_SERVER_DEADLINE_MS).toBe(135_000);
+    expect(DISCUSS_CARD_SERVER_DEADLINE_MS).toBe(45_000);
   });
 
   it("allows environment overrides up to the maxMs cap", () => {
-    vi.stubEnv("AI_TIMEOUT_DISCUSS_CARD_MS", "60000");
+    process.env.AI_TIMEOUT_DISCUSS_CARD_MS = "60000";
 
     expect(getAiTimeoutMs("discussCard")).toBe(60_000);
   });

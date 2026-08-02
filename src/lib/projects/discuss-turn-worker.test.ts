@@ -41,6 +41,7 @@ vi.mock("ai", () => ({
 vi.mock("@/lib/ai", () => ({
   getAiModel: vi.fn(() => "test-model"),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
+  getNoReasoningCallOptions: vi.fn(() => ({ reasoning: "none" })),
 }));
 
 vi.mock("@/lib/ai-models", () => ({
@@ -230,5 +231,55 @@ describe("runDiscussTurn worker", () => {
       }),
     );
     expect(prismaExecuteRawMock).not.toHaveBeenCalled();
+  });
+
+  it("text-only when card missing and one repair fails", async () => {
+    // Primary stream: text only, no usable tool card.
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: { type: "none" },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([{ type: "text-delta", text: "Cerita dulu ya." }]),
+    );
+    // Repair generateText: no valid tool card.
+    generateTextMock.mockResolvedValueOnce({
+      usage: { inputTokens: 1, outputTokens: 1 },
+      toolCalls: [],
+    });
+
+    await runDiscussTurn({
+      turnId: "ct_text_only",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+    expect(writeAiRequestLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "discuss:text-only-fallback" }),
+    );
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turnId: "ct_text_only",
+        status: "succeeded",
+      }),
+    );
+    // No tool-output progress for a none card.
+    expect(publishProgressMock).not.toHaveBeenCalledWith(
+      "ct_text_only",
+      expect.objectContaining({ type: "tool-output-available" }),
+    );
+    expect(publishProgressMock).toHaveBeenCalledWith(
+      "ct_text_only",
+      expect.objectContaining({ type: "finish" }),
+    );
   });
 });

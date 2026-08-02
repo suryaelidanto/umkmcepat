@@ -13,7 +13,8 @@ export type AiTimeoutKey =
   | "sourceGeneration";
 
 export const DISCUSS_CARD_ATTEMPT_TIMEOUT_MS = 45_000;
-export const DISCUSS_CARD_SEMANTIC_ATTEMPTS = 3;
+/** One AI repair after primary; then text-only (no multi-repair cascade). */
+export const DISCUSS_CARD_SEMANTIC_ATTEMPTS = 1;
 
 export const DISCUSS_CARD_SERVER_DEADLINE_MS =
   DISCUSS_CARD_ATTEMPT_TIMEOUT_MS * DISCUSS_CARD_SEMANTIC_ATTEMPTS;
