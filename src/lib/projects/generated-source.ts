@@ -332,12 +332,16 @@ async function buildGeneratedProjectInWorkspace(
     // stays false; a broken golden falls through to the normal install path.
     let goldenLinked = false;
     try {
+      const packageJsonContent = files.find(
+        (file) => file.path === "package.json",
+      )?.content;
       const sharedNm = await ensureSharedNodeModules(
         workspaceRoot,
         dependencySignature,
         {
           installRunner: (cwd) =>
             commandRunner([BUNDLED_RUNNER, "install", "--ignore-scripts"], cwd),
+          packageJsonContent,
         },
       );
       goldenLinked = await linkSharedNodeModules(workspace, sharedNm);

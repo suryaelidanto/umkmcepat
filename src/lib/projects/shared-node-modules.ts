@@ -17,7 +17,11 @@ type InstallResult = { ok: boolean; log: string };
 export async function ensureSharedNodeModules(
   workspaceRoot: string,
   depSignature: string,
-  opts: { installRunner?: (cwd: string) => Promise<InstallResult> } = {},
+  opts: {
+    installRunner?: (cwd: string) => Promise<InstallResult>;
+    /** Required for a real install into an empty shared root. */
+    packageJsonContent?: string;
+  } = {},
 ): Promise<string> {
   const sharedRoot = path.join(workspaceRoot, SHARED_DIR_NAME);
   const nmPath = path.join(sharedRoot, "node_modules");
@@ -33,6 +37,14 @@ export async function ensureSharedNodeModules(
   // Remove a stale/wrong node_modules so bun install is clean on sig change.
   await rm(nmPath, { force: true, recursive: true });
 
+  if (opts.packageJsonContent) {
+    await writeFile(
+      path.join(sharedRoot, "package.json"),
+      opts.packageJsonContent,
+      "utf8",
+    );
+  }
+
   const install = opts.installRunner ?? defaultInstallRunner;
   const result = await install(sharedRoot);
   if (!result.ok) {
@@ -42,6 +54,66 @@ export async function ensureSharedNodeModules(
   await writeFile(sigPath, depSignature, "utf8");
   devLog("shared-node-modules", "provisioned", { sharedRoot, depSignature });
   return nmPath;
+}
+
+/** Fire-and-forget friendly: provision golden node_modules for the starter deps. */
+export async function prewarmSharedNodeModules(): Promise<void> {
+  const { createDependencySignature, createGeneratedViteTanStackStarterFiles } =
+    await import("@/lib/projects/generated-source");
+  const { createProjectSiteSchemaFromBrief } =
+    await import("@/lib/projects/site-schema");
+
+  const schema = createProjectSiteSchemaFromBrief({
+    version: 1,
+    prompt: "prewarm",
+    businessName: "prewarm",
+    businessType: "prewarm",
+    offer: "prewarm",
+    targetCustomer: "prewarm",
+    contactOrCta: "WhatsApp",
+    stylePreference: "bersih",
+    notes: [],
+    productOrService: null,
+    contact: null,
+    tagline: null,
+    usp: null,
+    priceRange: null,
+    visuals: null,
+    hours: null,
+    address: null,
+    deliveryArea: null,
+    since: null,
+    testimonials: null,
+    certifications: null,
+    paymentMethods: null,
+    socialLinks: null,
+    currentPromo: null,
+    secondaryCta: null,
+    readyForBuild: false,
+  });
+  const files = createGeneratedViteTanStackStarterFiles("prewarm", schema);
+  const packageFile = files.find((file) => file.path === "package.json");
+  if (!packageFile) {
+    throw new Error("Starter package.json missing; cannot prewarm.");
+  }
+
+  const workspaceRoot = path.resolve(
+    process.env.PROJECT_BUILD_WORKSPACE_DIR ||
+      path.join(".data", "project-build-workspaces"),
+  );
+  const signature = createDependencySignature(files, {
+    packageManager: "bun",
+    runtimeProfile: "vite-react-tanstack-v1",
+    templateId: "vite-react-tanstack-starter",
+    templateVersion: "1.0.0",
+  });
+
+  await ensureSharedNodeModules(workspaceRoot, signature, {
+    packageJsonContent: packageFile.content,
+  });
+  devLog("shared-node-modules", "prewarm-ok", {
+    signature: signature.slice(0, 12),
+  });
 }
 
 export async function linkSharedNodeModules(

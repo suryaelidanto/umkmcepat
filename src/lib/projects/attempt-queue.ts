@@ -287,6 +287,14 @@ export function startAttemptQueueWorker(): void {
 
   startJobReaper(60_000);
 
+  void import("./shared-node-modules")
+    .then(({ prewarmSharedNodeModules }) => prewarmSharedNodeModules())
+    .catch((error) => {
+      devLog("shared-node-modules", "prewarm-failed", {
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    });
+
   if (!worker) {
     worker = new Worker(
       ATTEMPT_QUEUE_NAME,
