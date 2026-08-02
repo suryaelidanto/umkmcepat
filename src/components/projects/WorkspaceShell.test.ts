@@ -122,7 +122,7 @@ describe("resolveDiscussResume", () => {
     ).toEqual({ kind: "reload" });
   });
 
-  it("returns retry with the server's errorMessage for a failed turn", () => {
+  it("maps legacy English/internal errorMessage to friendly Indonesian", () => {
     const result = resolveDiscussResume({
       turnId: "ct_fail",
       status: "failed",
@@ -131,8 +131,39 @@ describe("resolveDiscussResume", () => {
     });
     expect(result.kind).toBe("retry");
     if (result.kind === "retry") {
-      expect(result.errorMessage).toBe("expired");
+      expect(result.errorMessage).toMatch(/sesi|waktu|kirim/i);
+      expect(result.errorMessage).not.toBe("expired");
       expect(result.retryText).toBe("Kirim ulang");
+    }
+  });
+
+  it("never surfaces module/stack traces to the user", () => {
+    const result = resolveDiscussResume({
+      turnId: "ct_fail",
+      status: "failed",
+      userMessageId: "u1",
+      errorMessage:
+        "Cannot find module '@/lib/projects/discuss-queue-worker' imported from ...",
+    });
+    expect(result.kind).toBe("retry");
+    if (result.kind === "retry") {
+      expect(result.errorMessage).not.toMatch(/Cannot find module/i);
+      expect(result.errorMessage).toMatch(/obrolan|kirim|gagal/i);
+    }
+  });
+
+  it("keeps friendly Indonesian errorMessage as-is", () => {
+    const result = resolveDiscussResume({
+      turnId: "ct_fail",
+      status: "failed",
+      userMessageId: "u1",
+      errorMessage: "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
+    });
+    expect(result.kind).toBe("retry");
+    if (result.kind === "retry") {
+      expect(result.errorMessage).toBe(
+        "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
+      );
     }
   });
 

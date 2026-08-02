@@ -36,7 +36,7 @@ export async function markStaleProjectBuilds(
       activeOperationExpiresAt: null,
       activeOperationKind: null,
       activeOperationToken: null,
-      buildLog: "Operation lease expired before completion.",
+      buildLog: "Proses terhenti karena waktu habis. Coba jalankan ulang ya.",
       buildStatus: "failed",
       status: "failed",
     },
@@ -50,7 +50,8 @@ export async function markStaleProjectBuilds(
         status: { in: ["generating", "editing", "repairing", "building"] },
       },
       data: {
-        errorMessage: "Operation lease expired before completion.",
+        errorMessage:
+          "Proses terhenti karena waktu habis. Coba jalankan ulang ya.",
         finishedAt: now,
         status: "failed",
       },

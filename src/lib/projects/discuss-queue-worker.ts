@@ -51,7 +51,7 @@ export async function runQueuedDiscussTurn(
     await finalizeDiscussTurn({
       turnId: job.turnId,
       status: "failed",
-      errorMessage: "Project not found for discuss job.",
+      errorMessage: "Proyek tidak ditemukan.",
     }).catch(() => undefined);
     publishProgress(job.turnId, {
       type: "error",

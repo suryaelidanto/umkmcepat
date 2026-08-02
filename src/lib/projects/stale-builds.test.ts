@@ -78,7 +78,7 @@ describe("stale build recovery", () => {
         activeOperationExpiresAt: null,
         activeOperationKind: null,
         activeOperationToken: null,
-        buildLog: "Operation lease expired before completion.",
+        buildLog: "Proses terhenti karena waktu habis. Coba jalankan ulang ya.",
         buildStatus: "failed",
         status: "failed",
       },
@@ -92,7 +92,8 @@ describe("stale build recovery", () => {
     expect(prismaProjectEditAttemptUpdateManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          errorMessage: "Operation lease expired before completion.",
+          errorMessage:
+            "Proses terhenti karena waktu habis. Coba jalankan ulang ya.",
           status: "failed",
         }),
         where: expect.objectContaining({

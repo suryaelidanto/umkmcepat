@@ -317,14 +317,15 @@ export async function runDiscussTurn({
         outputTokens: totalOutputTokens,
         reason: "discuss:step",
       });
+      const streamFailMessage = "AI lagi gangguan. Coba lagi sebentar.";
       publishProgress(turnId, {
         type: "error",
-        errorText: "AI lagi gangguan. Coba lagi sebentar.",
+        errorText: streamFailMessage,
       });
       await finalizeDiscussTurn({
         turnId,
         status: "failed",
-        errorMessage: "stream_error_no_text",
+        errorMessage: streamFailMessage,
       });
       return;
     }
@@ -426,14 +427,15 @@ export async function runDiscussTurn({
         outputTokens: totalOutputTokens,
         reason: "discuss:step",
       });
+      const repairFailMessage = "AI lagi gangguan. Coba lagi sebentar.";
       publishProgress(turnId, {
         type: "error",
-        errorText: "AI lagi gangguan. Coba lagi sebentar.",
+        errorText: repairFailMessage,
       });
       await finalizeDiscussTurn({
         turnId,
         status: "failed",
-        errorMessage: "repair_failed",
+        errorMessage: repairFailMessage,
       });
       return;
     }
@@ -583,17 +585,21 @@ export async function runDiscussTurn({
     publishProgress(turnId, { type: "finish" });
     await finalizeDiscussTurn({ turnId, status: "succeeded" });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "discuss turn failed";
+    // Developer log (English). User-facing copy always Indonesian.
+    console.error("[discuss-turn-worker] turn failed", {
+      turnId,
+      error: error instanceof Error ? error.message : "discuss turn failed",
+    });
+    const userMessage = "Obrolan belum berhasil diproses. Coba kirim ulang ya.";
     // Emit the error BEFORE finalizing: if finalize throws, the connected
     // client's tail stream still receives the terminal `error` event instead
     // of hanging until disconnect.
-    publishProgress(turnId, { type: "error", errorText: message });
+    publishProgress(turnId, { type: "error", errorText: userMessage });
     try {
       await finalizeDiscussTurn({
         turnId,
         status: "failed",
-        errorMessage: message,
+        errorMessage: userMessage,
       });
     } catch (finalizeError) {
       console.error("[discuss-turn-worker] finalize failed", {

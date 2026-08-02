@@ -45,7 +45,12 @@ export async function claimDiscussTurn({
     if (expired) {
       await tx.projectChatTurn.update({
         where: { id: expired.id },
-        data: { status: "failed", finishedAt: now, errorMessage: "expired" },
+        data: {
+          status: "failed",
+          finishedAt: now,
+          errorMessage:
+            "Sesi obrolan habis waktu. Coba kirim ulang pesanmu ya.",
+        },
       });
     }
 
@@ -130,7 +135,11 @@ export async function getActiveDiscussTurn({
     // Expired — finalize + return null (caller treats as no active turn).
     await store.projectChatTurn.update({
       where: { id: running.id },
-      data: { status: "failed", finishedAt: now, errorMessage: "expired" },
+      data: {
+        status: "failed",
+        finishedAt: now,
+        errorMessage: "Sesi obrolan habis waktu. Coba kirim ulang pesanmu ya.",
+      },
     });
     return null;
   }

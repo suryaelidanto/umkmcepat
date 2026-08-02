@@ -219,12 +219,15 @@ describe("runDiscussTurn worker", () => {
       expect.objectContaining({
         turnId: "ct_fail",
         status: "failed",
-        errorMessage: "model down",
+        errorMessage: "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
       }),
     );
     expect(publishProgressMock).toHaveBeenCalledWith(
       "ct_fail",
-      expect.objectContaining({ type: "error", errorText: "model down" }),
+      expect.objectContaining({
+        type: "error",
+        errorText: "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
+      }),
     );
     expect(prismaExecuteRawMock).not.toHaveBeenCalled();
   });

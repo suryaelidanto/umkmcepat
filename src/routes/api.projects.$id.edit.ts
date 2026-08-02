@@ -379,7 +379,8 @@ async function handleEditPost(request: Request, routeId: string) {
       userId: session.user.id,
     }).catch(() => false);
     await updateProjectEditAttempt(attempt.id, {
-      errorMessage: "Edit queue unavailable.",
+      errorMessage:
+        "Edit belum bisa dimulai. Tampilan terakhir tetap aman, coba lagi sebentar.",
       finishedAt: new Date(),
       status: "failed",
     }).catch(() => undefined);

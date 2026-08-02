@@ -4379,15 +4379,54 @@ export function resolveDiscussResume(turn: TurnState | null): DiscussResume {
   if (turn.status === "succeeded") {
     return { kind: "reload" };
   }
-  const message =
-    turn.errorMessage && turn.errorMessage.length > 0
-      ? turn.errorMessage
-      : "Putaran AI sebelumnya gagal. Coba kirim ulang ya.";
+  const message = toUserFacingDiscussError(turn.errorMessage);
   return {
     kind: "retry",
     errorMessage: message,
     retryText: "Kirim ulang",
   };
+}
+
+/** Map stored turn errors to friendly Indonesian (never leak English internals). */
+export function toUserFacingDiscussError(
+  errorMessage: string | undefined | null,
+): string {
+  const raw = (errorMessage ?? "").trim();
+  if (!raw) {
+    return "Putaran AI sebelumnya gagal. Coba kirim ulang ya.";
+  }
+  // Already Indonesian product copy (contains spaces + non-ascii or common ID words).
+  if (
+    /[à-üÀ-Ü]|coba |belum |gagal|obrolan|sesi |proses |waktu|kirim|hentikan|gangguan|proyek/i.test(
+      raw,
+    )
+  ) {
+    return raw;
+  }
+  // Known internal codes / English leftovers from older builds.
+  const legacy: Record<string, string> = {
+    expired: "Sesi obrolan habis waktu. Coba kirim ulang pesanmu ya.",
+    stream_error_no_text: "AI lagi gangguan. Coba lagi sebentar.",
+    repair_failed: "AI lagi gangguan. Coba lagi sebentar.",
+    "discuss turn failed":
+      "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
+  };
+  if (legacy[raw]) {
+    return legacy[raw];
+  }
+  // Looks like a stack/module/dev error — never show raw.
+  if (
+    /cannot find module|error:|exception|undefined|null|worker |queue |failed to|ECONN|timeout/i.test(
+      raw,
+    )
+  ) {
+    return "Obrolan belum berhasil diproses. Coba kirim ulang ya.";
+  }
+  // Short English tokens without spaces → treat as internal code.
+  if (!/\s/.test(raw) && /^[a-z0-9_.:-]+$/i.test(raw)) {
+    return "Putaran AI sebelumnya gagal. Coba kirim ulang ya.";
+  }
+  return raw;
 }
 
 // Wrapper kept for the effect: fetch then resolve. Separate so the pure

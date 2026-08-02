@@ -154,7 +154,7 @@ export async function runEditAttempt({
   const activeSnapshot = activeDeployment?.snapshot;
   if (!activeSnapshot) {
     await updateProjectEditAttempt(attempt.id, {
-      errorMessage: "No active snapshot.",
+      errorMessage: "Belum ada preview berhasil untuk diedit.",
       finishedAt: new Date(),
       status: "failed",
     });
@@ -175,7 +175,7 @@ export async function runEditAttempt({
 
   if (!baseFiles.length) {
     await updateProjectEditAttempt(attempt.id, {
-      errorMessage: "No source files.",
+      errorMessage: "Source preview belum tersedia untuk diedit.",
       finishedAt: new Date(),
       status: "failed",
     });
@@ -319,7 +319,8 @@ export async function runEditAttempt({
 
     if (!editResult.ok) {
       await updateProjectEditAttempt(attempt.id, {
-        errorMessage: "Edit agent failed.",
+        errorMessage:
+          "Edit belum bisa diterapkan. Cek instruksi dan coba lagi.",
         finishedAt: new Date(),
         status: "failed",
         validationIssues: editResult.outputs,
@@ -407,8 +408,10 @@ export async function runEditAttempt({
         issues: editValidation.blockingIssues,
         projectId: project.id,
       });
+      const validationUserMessage =
+        "AI belum berhasil mengubah bagian website yang terlihat. Komentarmu tetap tersimpan, coba kirim ulang.";
       await updateProjectEditAttempt(attempt.id, {
-        errorMessage: "Edit did not change rendered source.",
+        errorMessage: validationUserMessage,
         finishedAt: new Date(),
         status: "failed",
         validationIssues: editValidation.blockingIssues,
@@ -419,8 +422,7 @@ export async function runEditAttempt({
         attemptId: attempt.id,
         code: "edit_validation_failed",
         issues: editValidation.blockingIssues,
-        message:
-          "AI belum berhasil mengubah bagian website yang terlihat. Komentarmu tetap tersimpan, coba kirim ulang.",
+        message: validationUserMessage,
       });
       return;
     }
@@ -656,9 +658,11 @@ export async function runEditAttempt({
       projectId: project.id,
     });
 
+    const failUserMessage =
+      "Edit belum selesai karena layanan sedang bermasalah. Tampilan terakhir tetap aman, coba lagi sebentar.";
     await Promise.allSettled([
       updateProjectEditAttempt(attempt.id, {
-        errorMessage: "Edit failed before completion.",
+        errorMessage: failUserMessage,
         finishedAt: new Date(),
         status: "failed",
       }),
@@ -671,6 +675,7 @@ export async function runEditAttempt({
             },
             data: {
               finishedAt: new Date(),
+              // English log for operators/debug; not shown as primary UI copy.
               logText: "Edit failed before completion.",
               status: "failed" satisfies ProjectBuildStatus,
             },
@@ -681,8 +686,7 @@ export async function runEditAttempt({
     send("error", {
       attemptId: attempt.id,
       code: "edit_failed_retryable",
-      message:
-        "Edit belum selesai karena layanan sedang bermasalah. Tampilan terakhir tetap aman, coba lagi sebentar.",
+      message: failUserMessage,
     });
   }
 }

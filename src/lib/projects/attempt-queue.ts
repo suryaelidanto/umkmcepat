@@ -174,6 +174,13 @@ export function abortAttemptJob(jobId: string): boolean {
   return abortJob(jobId);
 }
 
+/** User-facing (Indonesian). Technical cause goes to devLog only. */
+const USER_JOB_FAILED = {
+  discuss: "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
+  edit: "Edit belum berhasil diproses. Coba lagi sebentar.",
+  generate: "Build belum berhasil diproses. Coba jalankan ulang ya.",
+} as const;
+
 async function failCleanAfterJobFailure(
   data: AttemptJob | undefined,
   error: Error,
@@ -181,6 +188,11 @@ async function failCleanAfterJobFailure(
   if (!data) {
     return;
   }
+  // Developer-facing log only — never store raw error.message for end users.
+  devLog("attempt-queue", "job.fail-clean", {
+    kind: data.kind,
+    error: error.message.slice(0, 500),
+  });
   try {
     if (data.kind === "discuss") {
       const { finalizeDiscussTurn } = await import("./discuss-turn");
@@ -188,11 +200,11 @@ async function failCleanAfterJobFailure(
       await finalizeDiscussTurn({
         turnId: data.turnId,
         status: "failed",
-        errorMessage: error.message.slice(0, 500),
+        errorMessage: USER_JOB_FAILED.discuss,
       });
       publishProgress(data.turnId, {
         type: "error",
-        errorText: "Obrolan gagal diproses. Coba kirim lagi.",
+        errorText: USER_JOB_FAILED.discuss,
       });
       return;
     }
@@ -201,23 +213,22 @@ async function failCleanAfterJobFailure(
       const { prisma } = await import("@/lib/prisma");
       const { publishBuildProgress } = await import("./build-attempt-pubsub");
       const attemptId = data.attemptId;
+      const userMessage =
+        data.kind === "edit" ? USER_JOB_FAILED.edit : USER_JOB_FAILED.generate;
       await prisma.projectEditAttempt.updateMany({
         where: {
           id: attemptId,
           finishedAt: null,
         },
         data: {
-          errorMessage: error.message.slice(0, 500),
+          errorMessage: userMessage,
           finishedAt: new Date(),
           status: "failed",
         },
       });
       publishBuildProgress(attemptId, {
         type: "error",
-        detail:
-          data.kind === "edit"
-            ? "Edit gagal diproses. Coba lagi."
-            : "Build gagal diproses. Coba jalankan lagi.",
+        detail: userMessage,
       });
     }
   } catch (cleanupError) {

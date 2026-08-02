@@ -85,7 +85,8 @@ describe("discuss turn lease", () => {
         where: { id: "ct_expired" },
         data: expect.objectContaining({
           status: "failed",
-          errorMessage: "expired",
+          errorMessage:
+            "Sesi obrolan habis waktu. Coba kirim ulang pesanmu ya.",
         }),
       }),
     );

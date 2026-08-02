@@ -466,11 +466,15 @@ async function handleDiscussTurnOneCall({
       projectTitle: project.title,
     });
   } catch (error) {
-    console.error("[discuss] enqueue rejected", { turnId, error });
+    // English log for developers; Indonesian only in DB + client message.
+    console.error("[discuss] enqueue rejected", {
+      turnId,
+      error: error instanceof Error ? error.message : "unknown",
+    });
     await finalizeDiscussTurn({
       turnId,
       status: "failed",
-      errorMessage: "Discuss queue unavailable.",
+      errorMessage: "Obrolan belum bisa dimulai. Coba lagi sebentar.",
     }).catch(() => undefined);
     return Response.json(
       {
