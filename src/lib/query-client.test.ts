@@ -5,6 +5,7 @@ import { signOut } from "./auth-client";
 import {
   applyPatches,
   fetchJson,
+  fetchUserVerification,
   restoreSnapshots,
   waitlistPendingPollInterval,
   WAITLIST_PENDING_POLL_MS,
@@ -151,6 +152,53 @@ describe("useCacheMutation helpers", () => {
         expect(signOut).not.toHaveBeenCalled();
         vi.unstubAllGlobals();
       }
+    });
+  });
+
+  describe("fetchUserVerification", () => {
+    afterEach(() => {
+      vi.clearAllMocks();
+      vi.restoreAllMocks();
+    });
+
+    it("maps 401 to signedIn:false without signOut", async () => {
+      vi.stubGlobal("window", {});
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ message: "Masuk dulu untuk melanjutkan." }),
+          {
+            status: 401,
+          },
+        ),
+      );
+
+      await expect(fetchUserVerification()).resolves.toEqual({
+        signedIn: false,
+        verified: false,
+      });
+      expect(signOut).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it("returns verified payload on success", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ verified: true }), { status: 200 }),
+      );
+
+      await expect(fetchUserVerification()).resolves.toEqual({
+        signedIn: true,
+        verified: true,
+      });
+    });
+
+    it("throws on non-401 failures", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "Server error" }), {
+          status: 500,
+        }),
+      );
+
+      await expect(fetchUserVerification()).rejects.toThrow();
     });
   });
 });

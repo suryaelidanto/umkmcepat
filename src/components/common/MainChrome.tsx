@@ -7,6 +7,11 @@ import { toast } from "sonner";
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
 import { MobileNav } from "@/components/common/MobileNav";
+import { useSession } from "@/lib/auth-client";
+import {
+  shouldBlockMainChromeShell,
+  shouldRedirectToVerify,
+} from "@/lib/main-chrome-gate";
 import {
   useIsRoutePending,
   usePathname,
@@ -15,6 +20,7 @@ import {
 } from "@/lib/navigation";
 import {
   fetchJson,
+  fetchUserVerification,
   fetchWaitlistStatus,
   GATE_QUERY_OPTIONS,
   invalidateWaitlistStatus,
@@ -30,6 +36,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   const targetPathname = useTargetPathname();
   const isRoutePending = useIsRoutePending();
   const router = useRouter();
+  const { status: sessionStatus } = useSession();
 
   const isWorkspace =
     pathname.startsWith("/projects/") && pathname !== "/projects/new";
@@ -39,18 +46,21 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
 
   const verificationQuery = useQuery({
     queryKey: queryKeys.verification,
-    queryFn: () =>
-      fetchJson<{ verified: boolean }>("/api/user/verification", {
-        cache: "no-store",
-      }),
+    queryFn: fetchUserVerification,
+    // Guests always resolve verified:false; only signed-in users need this for
+    // the full-page gate. Still fetch for guests so cache warms without blocking.
     enabled: !isVerifyPage,
     ...GATE_QUERY_OPTIONS,
+    // 401 is success (guest). Do not retry that path under a spinner.
+    retry: sessionStatus === "authenticated" ? 1 : 0,
   });
 
   // Waitlist gate: only meaningful once verified. Anonymous users get status
   // null and are left alone (landing + /waitlist are reachable). A signed-in,
   // verified, non-approved user is redirected to /waitlist.
-  const isVerified = Boolean(verificationQuery.data?.verified);
+  const isVerified = Boolean(
+    verificationQuery.data?.signedIn && verificationQuery.data.verified,
+  );
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
     queryFn: fetchWaitlistStatus,
@@ -103,9 +113,16 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Only redirect after a successful "not verified" response.
-    // Errors should not bounce the user (matches previous allow-on-error).
-    if (verificationQuery.isSuccess && !verificationQuery.data.verified) {
+    // Only redirect when server confirms signed-in + unverified.
+    // Guests (401 → signedIn:false) and errors must not bounce.
+    if (
+      shouldRedirectToVerify({
+        sessionStatus,
+        verificationPending: verificationQuery.isPending,
+        verificationData: verificationQuery.data,
+        verificationSuccess: verificationQuery.isSuccess,
+      })
+    ) {
       router.replace("/verify");
       return;
     }
@@ -126,6 +143,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     isVerified,
     pathname,
     router,
+    sessionStatus,
     verificationQuery.data,
     verificationQuery.isSuccess,
     waitlistQuery.data,
@@ -136,14 +154,17 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // First load only: no cached verification yet.
+  // First load only for signed-in users: no cached verification yet.
+  // Guests never block — 401 maps to verified:false without throwing.
   // Never blank the shell on background refetch (e.g. project → home).
-  const firstLoadChecking =
-    verificationQuery.isPending && verificationQuery.data === undefined;
-  const blockingUnverified =
-    verificationQuery.isSuccess && !verificationQuery.data.verified;
-
-  if (firstLoadChecking || blockingUnverified) {
+  if (
+    shouldBlockMainChromeShell({
+      sessionStatus,
+      verificationPending: verificationQuery.isPending,
+      verificationData: verificationQuery.data,
+      verificationSuccess: verificationQuery.isSuccess,
+    })
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#151515]">
         <div className="size-8 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />

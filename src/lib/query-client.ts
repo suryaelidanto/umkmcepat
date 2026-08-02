@@ -123,6 +123,36 @@ export async function fetchJson<T>(
   return result.data;
 }
 
+export type UserVerification = {
+  /** Server session present for this request. */
+  signedIn: boolean;
+  verified: boolean;
+};
+
+/** Guest-safe verification: 401 means not signed in, not a failed request. */
+export async function fetchUserVerification(): Promise<UserVerification> {
+  const response = await fetch("/api/user/verification", {
+    cache: "no-store",
+  }).catch((error: unknown) => {
+    const networkError = apiNetworkError(error);
+    throw new Error(
+      networkError.ok
+        ? "Network error"
+        : networkError.error.message || "Network error",
+    );
+  });
+
+  if (response.status === 401) {
+    return { signedIn: false, verified: false };
+  }
+
+  const result = await parseApiResponse<{ verified: boolean }>(response);
+  if (!result.ok) {
+    throw new Error(result.error.message || "Request failed");
+  }
+  return { signedIn: true, verified: Boolean(result.data.verified) };
+}
+
 async function handleUnauthorizedError(
   input: RequestInfo | URL,
 ): Promise<void> {

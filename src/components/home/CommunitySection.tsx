@@ -122,27 +122,19 @@ function formatCompact(value: number) {
 
 async function getTopContributors(): Promise<ContributorCard[]> {
   try {
-    // GitHub computes /stats/contributors lazily: the first call often
-    // returns 202 with an empty body while the cache builds. Retry a couple
-    // times before giving up.
-    let stats: GithubStatsContributor[] | null = null;
-    for (let attempt = 0; attempt < 3 && stats === null; attempt += 1) {
-      const response = await fetch(STATS_URL, {
-        headers: getGithubHeaders(),
-      });
-      if (response.status === 202) {
-        // Still computing; wait briefly and retry.
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        continue;
-      }
-      if (!response.ok) {
-        return [];
-      }
-      const body = (await response.json()) as GithubStatsContributor[];
-      stats = Array.isArray(body) ? body : [];
+    // GitHub computes /stats/contributors lazily and often returns 202 with an
+    // empty body. Do not sleep/retry here — this runs in the home SSR loader and
+    // multi-second waits block first paint. Fall through to /contributors.
+    const response = await fetch(STATS_URL, {
+      headers: getGithubHeaders(),
+    });
+    if (response.status === 202 || !response.ok) {
+      return [];
     }
+    const body = (await response.json()) as GithubStatsContributor[];
+    const stats = Array.isArray(body) ? body : [];
 
-    if (!stats || stats.length === 0) {
+    if (stats.length === 0) {
       return [];
     }
 

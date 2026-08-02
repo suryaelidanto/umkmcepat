@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { useRouter } from "@/lib/navigation";
 import {
   fetchJson,
+  fetchUserVerification,
   GATE_QUERY_OPTIONS,
   invalidateWaitlistStatus,
   queryKeys,
@@ -51,10 +52,7 @@ function VerifyPage() {
 
   const verificationQuery = useQuery({
     queryKey: queryKeys.verification,
-    queryFn: () =>
-      fetchJson<{ verified: boolean }>("/api/user/verification", {
-        cache: "no-store",
-      }),
+    queryFn: fetchUserVerification,
     ...GATE_QUERY_OPTIONS,
   });
 
@@ -89,7 +87,10 @@ function VerifyPage() {
     onSuccess: async () => {
       setFlowState("done");
       // Write through cache immediately so MainChrome doesn't redirect back.
-      queryClient.setQueryData(queryKeys.verification, { verified: true });
+      queryClient.setQueryData(queryKeys.verification, {
+        signedIn: true,
+        verified: true,
+      });
       await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
       await invalidateWaitlistStatus(queryClient);
       setTimeout(() => router.replace("/"), 1500);
@@ -110,7 +111,10 @@ function VerifyPage() {
       }),
     onSuccess: async () => {
       setFlowState("done");
-      queryClient.setQueryData(queryKeys.verification, { verified: true });
+      queryClient.setQueryData(queryKeys.verification, {
+        signedIn: true,
+        verified: true,
+      });
       await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
       await invalidateWaitlistStatus(queryClient);
       setTimeout(() => router.replace("/"), 1500);
