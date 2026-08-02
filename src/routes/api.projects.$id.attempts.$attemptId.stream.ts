@@ -51,7 +51,7 @@ export async function handleAttemptStreamGet(
 
   const attempt = await prisma.projectEditAttempt.findFirst({
     where: { id: attemptId, projectId: project.id, userId: session.user.id },
-    select: { id: true, status: true },
+    select: { id: true, status: true, buildId: true },
   });
   if (!attempt) {
     return Response.json(
@@ -60,21 +60,28 @@ export async function handleAttemptStreamGet(
     );
   }
 
-  const events = await prisma.runtimeEvent.findMany({
-    where: { buildId: attemptId, type: "build.progress" },
-    orderBy: { createdAt: "asc" },
-    select: { message: true, metadata: true },
-  });
+  // Progress rows are keyed by ProjectBuild.id, not attemptId. Querying with
+  // attemptId as buildId produced empty late-join replays after restart.
+  const events = attempt.buildId
+    ? await prisma.runtimeEvent.findMany({
+        where: { buildId: attempt.buildId, type: "build.progress" },
+        orderBy: { createdAt: "asc" },
+        select: { message: true, metadata: true },
+      })
+    : [];
 
   const replay: BuildProgressEvent[] = events.map((row) => {
     const metadata = (row.metadata ?? {}) as {
       detail?: string;
+      diff?: unknown;
       label?: string;
     };
+    const hasDiff = Array.isArray(metadata.diff) && metadata.diff.length > 0;
     return {
       type: "progress",
       detail: metadata.detail ?? "",
       label: metadata.label ?? row.message ?? "",
+      ...(hasDiff ? { diff: metadata.diff } : {}),
     };
   });
 

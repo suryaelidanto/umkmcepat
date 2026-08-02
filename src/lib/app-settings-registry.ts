@@ -394,7 +394,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     tier: "advanced",
     type: "number",
     label: "Runtime — build concurrency",
-    fallback: 1,
+    fallback: 3,
     env: "PROJECT_BUILD_CONCURRENCY",
     min: 1,
     max: 16,

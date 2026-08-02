@@ -13,6 +13,7 @@ import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { prisma } from "@/lib/prisma";
+import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import {
   mergeProjectBriefPatch,
   parseProjectBrief,
@@ -27,14 +28,16 @@ import {
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
 import { buildCardSystemPrompt } from "@/lib/projects/discuss-tool";
-import { claimDiscussTurn } from "@/lib/projects/discuss-turn";
+import {
+  claimDiscussTurn,
+  finalizeDiscussTurn,
+} from "@/lib/projects/discuss-turn";
 import { subscribeProgress } from "@/lib/projects/discuss-turn-pubsub";
 import {
   persistProjectChatTurn,
   repairDiscussCardWithTool,
   scrubBriefForStorage,
 } from "@/lib/projects/discuss-turn-shared";
-import { runDiscussTurn } from "@/lib/projects/discuss-turn-worker";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
@@ -386,12 +389,12 @@ async function handlePreviewPost(request: Request) {
 }
 
 async function handleDiscussTurnOneCall({
-  chatContext,
-  effectiveBrief,
-  memoryFacts,
+  chatContext: _chatContext,
+  effectiveBrief: _effectiveBrief,
+  memoryFacts: _memoryFacts,
   messages,
   project,
-  summary,
+  summary: _summary,
   userId,
 }: {
   chatContext: ReturnType<typeof buildProjectChatContext>;
@@ -402,10 +405,8 @@ async function handleDiscussTurnOneCall({
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
-  // Server-side discuss flow: persist the user message first so the reply is
-  // never lost even if generation never starts, claim the DB turn lease, fire
-  // the detached worker, then return a tail stream that replays the worker's
-  // pub/sub events. Generation runs in `runDiscussTurn` (detached).
+  // Server-side discuss: persist user message, claim turn, enqueue BullMQ job,
+  // return SSE tail of discuss-turn-pubsub. Worker reloads chat from DB.
 
   const userMessage = messages[messages.length - 1];
   if (!userMessage) {
@@ -454,18 +455,31 @@ async function handleDiscussTurnOneCall({
   //    stream immediately. The worker publishes progress to the pub/sub
   //    channel; this route subscribes below. If the worker rejects, log +
   //    let the client's reconnect-after-restart path surface the error.
-  void runDiscussTurn({
-    turnId,
-    project,
-    chatContext,
-    effectiveBrief,
-    memoryFacts,
-    messages,
-    summary,
-    userId,
-  }).catch((error) =>
-    console.error("[discuss] worker rejected", { turnId, error }),
-  );
+  try {
+    await enqueueAttemptJob({
+      kind: "discuss",
+      turnId,
+      projectId: project.id,
+      userId,
+      projectPrompt: project.prompt,
+      projectStatus: project.status,
+      projectTitle: project.title,
+    });
+  } catch (error) {
+    console.error("[discuss] enqueue rejected", { turnId, error });
+    await finalizeDiscussTurn({
+      turnId,
+      status: "failed",
+      errorMessage: "Discuss queue unavailable.",
+    }).catch(() => undefined);
+    return Response.json(
+      {
+        code: "discuss_queue_unavailable",
+        message: "Obrolan belum bisa dimulai. Coba lagi sebentar.",
+      },
+      { status: 503, headers: { "Retry-After": "3" } },
+    );
+  }
 
   // 4. Tail stream: relay the worker's pub/sub events to the client. The
   //    worker runs detached (`void runDiscussTurn` above) and publishes a

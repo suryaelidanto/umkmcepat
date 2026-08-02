@@ -43,6 +43,18 @@
 - Final quality re-check emits a transparent `Cek kualitas source` operation before deliver.
 - Prompt: multi-page consistency (register routes same turn; shared chrome in `__root`).
 
+## 2026-08-02: job reliability hardening (server-owned work)
+
+See `docs/superpowers/specs/2026-08-02-job-reliability-hardening-design.md` + plan.
+
+| Event | System | User |
+|-------|--------|------|
+| Tab close mid-job | Worker continues (BullMQ) | Reopen → reattach / hydrate |
+| Process death | Reaper ≤60s + stream fail-clean | One-click retry |
+| Cancel | Abort registry + DB terminal | “Proses dihentikan.” |
+| Discuss | Queue `kind: discuss` + `GET …/turns/:id/stream` | Same |
+| Edit | Queue `kind: edit` (agent+build); FE attempt stream | Same |
+
 ## Residual / in flight
 
 1. **~50 full E2E** — larger batch paused on **build rate_limit** (~18m windows) and ~10–16m/build wall time. Resume:
@@ -54,6 +66,7 @@
 2. Lease-kill regression: retry while job still running → `Build operation lease was superseded`. Harness fixed; product still fragile if client double-fires.
 3. Live agent still can return 0 tools — now **fails** instead of seed; may need further prompt/budget tuning if flake rate high.
 4. Cloudflare **520** blips under stress (mitigated with retries).
+5. Multi-instance Redis progress bus — out of scope (single process + Redis queue).
 
 ## Verify (unchanged + new)
 

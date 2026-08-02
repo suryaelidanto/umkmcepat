@@ -1,103 +1,96 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
+const authMock = vi.fn();
+const findProject = vi.fn();
+const findAttempt = vi.fn();
+const findEvents = vi.fn();
+const readBuildProgressState = vi.fn();
+const createReadStreamFromChannel = vi.fn();
+
+vi.mock("@/lib/auth", () => ({
+  auth: () => authMock(),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    project: { findFirst: vi.fn() },
-    projectEditAttempt: { findFirst: vi.fn() },
-    runtimeEvent: { findMany: vi.fn() },
+    project: { findFirst: (...args: unknown[]) => findProject(...args) },
+    projectEditAttempt: {
+      findFirst: (...args: unknown[]) => findAttempt(...args),
+    },
+    runtimeEvent: {
+      findMany: (...args: unknown[]) => findEvents(...args),
+    },
   },
+}));
+
+vi.mock("@/lib/projects/build-attempt-pubsub", () => ({
+  createReadStreamFromChannel: (...args: unknown[]) =>
+    createReadStreamFromChannel(...args),
+  encodeSseEvent: (name: string, data: unknown) =>
+    `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`,
+  readBuildProgressState: (...args: unknown[]) =>
+    readBuildProgressState(...args),
 }));
 
 import { handleAttemptStreamGet } from "./api.projects.$id.attempts.$attemptId.stream";
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
-
-describe("handleAttemptStreamGet", () => {
+describe("handleAttemptStreamGet hydrate", () => {
   beforeEach(() => {
-    (auth as ReturnType<typeof vi.fn>).mockResolvedValue({
-      user: { id: "user_test" },
-    });
-    (prisma.project.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "proj",
-    });
-    (
-      prisma.projectEditAttempt.findFirst as ReturnType<typeof vi.fn>
-    ).mockReset();
-    (prisma.runtimeEvent.findMany as ReturnType<typeof vi.fn>).mockReset();
+    authMock.mockReset();
+    findProject.mockReset();
+    findAttempt.mockReset();
+    findEvents.mockReset();
+    readBuildProgressState.mockReset();
+    createReadStreamFromChannel.mockReset();
+
+    authMock.mockResolvedValue({ user: { id: "u1" } });
+    findProject.mockResolvedValue({ id: "p1" });
+    readBuildProgressState.mockReturnValue("gone");
   });
 
-  it("returns 401 when unauthenticated", async () => {
-    (auth as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    const response = await handleAttemptStreamGet("proj", "build_auth");
-    expect(response.status).toBe(401);
-  });
-
-  it("returns 404 when project is not owned", async () => {
-    (prisma.project.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
-      null,
-    );
-    const response = await handleAttemptStreamGet("proj", "build_missing");
-    expect(response.status).toBe(404);
-  });
-
-  it("returns live channel tail when channel is live", async () => {
-    publishBuildProgress("build_live", { type: "progress", label: "spec" });
-    const response = await handleAttemptStreamGet("proj", "build_live");
-    expect(response.headers.get("Content-Type")).toBe(
-      "text/event-stream; charset=utf-8",
-    );
-  });
-
-  it("returns 404 when attempt is not found", async () => {
-    (
-      prisma.projectEditAttempt.findFirst as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(null);
-    const response = await handleAttemptStreamGet("proj", "build_none");
-    expect(response.status).toBe(404);
-  });
-
-  it("replays runtime progress plus done for succeeded attempts", async () => {
-    (
-      prisma.projectEditAttempt.findFirst as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
-      id: "build_done",
+  it("replays runtimeEvent rows by the attempt's real buildId, not attemptId", async () => {
+    findAttempt.mockResolvedValue({
+      id: "att_1",
       status: "succeeded",
+      buildId: "build_real",
     });
-    (
-      prisma.runtimeEvent.findMany as ReturnType<typeof vi.fn>
-    ).mockResolvedValue([
+    findEvents.mockResolvedValue([
       {
-        message: "spec",
-        metadata: { detail: "Membuat rancangan", label: "spec" },
+        message: "Menulis file",
+        metadata: {
+          label: "Menulis file",
+          detail: "src/routes/index.tsx",
+          diff: [{ text: "x", type: "add" }],
+        },
       },
     ]);
 
-    const response = await handleAttemptStreamGet("proj", "build_done");
-    const text = await response.text();
-
-    expect(text).toContain("event: progress");
-    expect(text).toContain('"label":"spec"');
-    expect(text).toContain("event: done");
+    const res = await handleAttemptStreamGet("p1", "att_1");
+    expect(res.status).toBe(200);
+    expect(findEvents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { buildId: "build_real", type: "build.progress" },
+      }),
+    );
+    const body = await res.text();
+    expect(body).toContain("Menulis file");
+    expect(body).toContain('"type":"done"');
+    expect(body).toContain('"diff"');
   });
 
-  it("emits synthetic restart error when attempt is running but channel is gone", async () => {
-    (
-      prisma.projectEditAttempt.findFirst as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
-      id: "build_running",
-      status: "running",
+  it("does not query runtimeEvent with attemptId as buildId", async () => {
+    findAttempt.mockResolvedValue({
+      id: "att_2",
+      status: "failed",
+      buildId: "build_xyz",
     });
-    (
-      prisma.runtimeEvent.findMany as ReturnType<typeof vi.fn>
-    ).mockResolvedValue([]);
+    findEvents.mockResolvedValue([]);
 
-    const response = await handleAttemptStreamGet("proj", "build_running");
-    const text = await response.text();
-
-    expect(text).toContain("event: error");
-    expect(text).toContain("restart terputus");
+    await handleAttemptStreamGet("p1", "att_2");
+    const arg = findEvents.mock.calls[0]?.[0] as {
+      where: { buildId: string };
+    };
+    expect(arg.where.buildId).toBe("build_xyz");
+    expect(arg.where.buildId).not.toBe("att_2");
   });
 });

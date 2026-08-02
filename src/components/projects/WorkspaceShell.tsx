@@ -2268,7 +2268,48 @@ export function WorkspaceShell({
         }
 
         if (turn.status === "running") {
-          // Turn still in progress on the server — poll until it finishes.
+          // Prefer live turn stream reattach; fall back to status poll.
+          const turnWithId = turn as {
+            status: string;
+            turnId?: string;
+            userMessageId?: string;
+            errorMessage?: string;
+          };
+          const turnId =
+            typeof turnWithId.turnId === "string" ? turnWithId.turnId : null;
+          if (turnId && typeof EventSource !== "undefined") {
+            const es = new EventSource(
+              `/api/projects/${projectId}/turns/${turnId}/stream`,
+            );
+            const finish = async () => {
+              es.close();
+              try {
+                await reloadLatestChat();
+              } catch {
+                /* retry remains visible */
+              } finally {
+                setIsRetrying(false);
+              }
+            };
+            es.addEventListener("finish", () => {
+              void finish();
+            });
+            es.addEventListener("error", () => {
+              void finish();
+            });
+            es.onerror = () => {
+              // Stream died — fall back to poll once.
+              es.close();
+              void (async () => {
+                try {
+                  await reloadLatestChat();
+                } finally {
+                  setIsRetrying(false);
+                }
+              })();
+            };
+            return;
+          }
           const pollRunningTurn = async () => {
             const pollRes = await fetch(
               `/api/projects/${projectId}/chat/turn`,
@@ -2285,12 +2326,10 @@ export function WorkspaceShell({
               window.setTimeout(pollRunningTurn, RESUME_POLL_INTERVAL_MS);
               return;
             }
-            // Terminal state — reload chat (success or failure both show
-            // the persisted state).
             try {
               await reloadLatestChat();
             } catch {
-              // Error fetching persisted state — retry remains visible
+              /* retry remains visible */
             } finally {
               setIsRetrying(false);
             }

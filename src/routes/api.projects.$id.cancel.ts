@@ -2,6 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { abortAttemptJob } from "@/lib/projects/attempt-queue";
+import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
+import { finalizeDiscussTurn } from "@/lib/projects/discuss-turn";
+import { publishProgress } from "@/lib/projects/discuss-turn-pubsub";
 import { verifyProjectOwnership } from "@/middleware/ownership";
 
 export const Route = createFileRoute("/api/projects/$id/cancel")({
@@ -25,6 +29,43 @@ export const Route = createFileRoute("/api/projects/$id/cancel")({
             { message: "Proyek tidak ditemukan." },
             { status: 404 },
           );
+        }
+
+        const openAttempts = await prisma.projectEditAttempt.findMany({
+          where: {
+            finishedAt: null,
+            projectId: id,
+            status: {
+              in: ["generating", "editing", "repairing", "building"],
+            },
+          },
+          select: { id: true },
+        });
+
+        const openTurns = await prisma.projectChatTurn.findMany({
+          where: { projectId: id, status: "running" },
+          select: { id: true },
+        });
+
+        for (const attempt of openAttempts) {
+          abortAttemptJob(attempt.id);
+          publishBuildProgress(attempt.id, {
+            type: "error",
+            detail: "Proses dihentikan.",
+          });
+        }
+
+        for (const turn of openTurns) {
+          abortAttemptJob(turn.id);
+          publishProgress(turn.id, {
+            type: "error",
+            errorText: "Proses dihentikan.",
+          });
+          await finalizeDiscussTurn({
+            turnId: turn.id,
+            status: "cancelled",
+            errorMessage: "Dihentikan oleh pengguna.",
+          }).catch(() => undefined);
         }
 
         await prisma.project.updateMany({
@@ -55,7 +96,9 @@ export const Route = createFileRoute("/api/projects/$id/cancel")({
           where: {
             finishedAt: null,
             projectId: id,
-            status: { in: ["generating", "editing", "repairing", "building"] },
+            status: {
+              in: ["generating", "editing", "repairing", "building"],
+            },
           },
           data: {
             errorMessage: "Dihentikan oleh pengguna.",

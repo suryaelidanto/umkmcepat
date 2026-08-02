@@ -10,7 +10,7 @@ const {
   prismaTransactionMock,
   prismaUserFindUniqueMock,
   claimDiscussTurnMock,
-  runDiscussTurnMock,
+  enqueueAttemptJobMock,
   subscribeProgressMock,
   parseProjectChatMessagesMock,
   validateUIMessagesMock,
@@ -28,7 +28,7 @@ const {
   prismaTransactionMock: vi.fn(),
   prismaUserFindUniqueMock: vi.fn(),
   claimDiscussTurnMock: vi.fn(),
-  runDiscussTurnMock: vi.fn(),
+  enqueueAttemptJobMock: vi.fn(),
   subscribeProgressMock: vi.fn(),
   parseProjectChatMessagesMock: vi.fn(),
   validateUIMessagesMock: vi.fn(),
@@ -75,8 +75,8 @@ vi.mock("@/lib/projects/discuss-turn", () => ({
   claimDiscussTurn: claimDiscussTurnMock,
 }));
 
-vi.mock("@/lib/projects/discuss-turn-worker", () => ({
-  runDiscussTurn: runDiscussTurnMock,
+vi.mock("@/lib/projects/attempt-queue", () => ({
+  enqueueAttemptJob: enqueueAttemptJobMock,
 }));
 
 vi.mock("@/lib/projects/discuss-turn-pubsub", () => ({
@@ -188,11 +188,10 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
         return () => {};
       },
     );
-    // Detached worker returns a settled promise; the POST must not await it.
-    runDiscussTurnMock.mockResolvedValue(undefined);
+    enqueueAttemptJobMock.mockResolvedValue(undefined);
   });
 
-  it("claims the turn + fires the detached worker + returns a tail stream that emits the worker's pub/sub deltas + finish", async () => {
+  it("claims the turn + enqueues discuss job + returns a tail stream that emits the worker's pub/sub deltas + finish", async () => {
     claimDiscussTurnMock.mockResolvedValue({
       claimed: true,
       turnId: "ct_live",
@@ -207,9 +206,8 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
         userMessageId: "u1",
       }),
     );
-    // Detached: runDiscussTurn fired + NOT awaited by the POST handler.
-    expect(runDiscussTurnMock).toHaveBeenCalledWith(
-      expect.objectContaining({ turnId: "ct_live" }),
+    expect(enqueueAttemptJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "discuss", turnId: "ct_live" }),
     );
     // Tail stream subscribed to the pub/sub channel.
     expect(subscribeProgressMock).toHaveBeenCalledWith(
@@ -234,7 +232,7 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({ code: "project_chat_in_progress" });
     // No worker fired, no subscriber opened.
-    expect(runDiscussTurnMock).not.toHaveBeenCalled();
+    expect(enqueueAttemptJobMock).not.toHaveBeenCalled();
     expect(subscribeProgressMock).not.toHaveBeenCalled();
   });
 

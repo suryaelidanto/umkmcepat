@@ -53,6 +53,7 @@ export async function runDiscussTurn({
   summary,
   userId,
   modelOverride,
+  abortSignal,
 }: {
   turnId: string;
   project: { id: string; prompt: string; status: string; title: string };
@@ -65,8 +66,21 @@ export async function runDiscussTurn({
   // ponytail: production omits → uses the real model via getAiModel(modelName).
   // Tests pass a mock so streamText's stream/usage/response can be controlled.
   modelOverride?: LanguageModel;
+  abortSignal?: AbortSignal;
 }): Promise<void> {
   try {
+    if (abortSignal?.aborted) {
+      await finalizeDiscussTurn({
+        turnId,
+        status: "cancelled",
+        errorMessage: "Dihentikan oleh pengguna.",
+      });
+      publishProgress(turnId, {
+        type: "error",
+        errorText: "Proses dihentikan.",
+      });
+      return;
+    }
     const modelName = getDefaultAiModel();
     const model = modelOverride ?? getAiModel(modelName);
     const chatContextWithInlineAssets = {
@@ -144,6 +158,10 @@ export async function runDiscussTurn({
 
     try {
       for await (const part of primary.stream) {
+        if (abortSignal?.aborted) {
+          hadError = true;
+          break;
+        }
         if (part.type === "text-delta") {
           const delta =
             "text" in part && typeof part.text === "string"

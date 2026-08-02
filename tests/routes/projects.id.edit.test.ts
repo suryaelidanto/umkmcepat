@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   authMock,
   editGeneratedSourceWithAgentMock,
-  enqueueAndWaitEditBuildMock,
+  enqueueAttemptJobMock,
+  createReadStreamFromChannelMock,
   prismaTransactionMock,
   prismaProjectBuildCreateMock,
   prismaProjectBuildUpdateManyMock,
@@ -27,7 +28,8 @@ const {
   authMock: vi.fn(),
   prismaTransactionMock: vi.fn(),
   editGeneratedSourceWithAgentMock: vi.fn(),
-  enqueueAndWaitEditBuildMock: vi.fn(),
+  enqueueAttemptJobMock: vi.fn(),
+  createReadStreamFromChannelMock: vi.fn(),
   prismaProjectBuildCreateMock: vi.fn(),
   prismaProjectBuildUpdateManyMock: vi.fn(),
   prismaProjectBuildUpdateMock: vi.fn(),
@@ -121,7 +123,10 @@ vi.mock("@/lib/projects/stale-builds", () => ({
   markStaleProjectBuilds: vi.fn(async () => 0),
 }));
 vi.mock("@/lib/projects/attempt-queue", () => ({
-  enqueueAndWaitEditBuild: enqueueAndWaitEditBuildMock,
+  enqueueAttemptJob: enqueueAttemptJobMock,
+}));
+vi.mock("@/lib/projects/build-attempt-pubsub", () => ({
+  createReadStreamFromChannel: createReadStreamFromChannelMock,
 }));
 vi.mock("@/lib/projects/runtime-artifacts", async (importOriginal) => {
   const actual =
@@ -301,11 +306,22 @@ describe("project edit route", () => {
       "project-artifact:local:source:snapshot_edit",
     );
     prismaProjectBuildCreateMock.mockResolvedValue({ id: "build_edit" });
-    enqueueAndWaitEditBuildMock.mockResolvedValue({
-      artifactRef: "project-artifact:local:dist:build_edit",
-      buildStatus: "succeeded",
-      logText: "ok",
-    });
+    enqueueAttemptJobMock.mockResolvedValue(undefined);
+    createReadStreamFromChannelMock.mockImplementation(
+      (attemptId: string) =>
+        new Response(
+          `event: done
+data: ${JSON.stringify({ attemptId, buildId: "build_edit", buildStatus: "succeeded", deploymentId: "deployment_edit", snapshotId: "snapshot_edit" })}
+
+`,
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "text/event-stream; charset=utf-8",
+            },
+          },
+        ),
+    );
     readProjectDistArtifactMock.mockResolvedValue([
       { path: "index.html", content: "ok", contentType: "text/html" },
     ]);
@@ -332,139 +348,51 @@ describe("project edit route", () => {
     expect(prismaProjectSnapshotCreateMock).not.toHaveBeenCalled();
   });
 
-  it("edits the latest successful preview source instead of the newest failed attempt", async () => {
-    const response = await POST(
-      request([
-        {
-          type: "replace_in_file",
-          path: "src/App.tsx",
-          find: "old headline",
-          replace: "new headline",
-        },
-        { type: "check_app" },
-      ]),
-      { id: "project_1" },
-    );
-    const body = await readSseResponse(response);
+  it("claims lease, enqueues edit job, and returns attempt stream", async () => {
+    const response = await POST(request([], "ubah judul website"), {
+      id: "project_1",
+    });
 
     expect(response.status).toBe(200);
+    expect(enqueueAttemptJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "edit",
+        projectId: "project_1",
+        userId: "user_1",
+        attemptId: expect.stringMatching(/^edit_/),
+      }),
+    );
+    expect(createReadStreamFromChannelMock).toHaveBeenCalledWith(
+      expect.stringMatching(/^edit_/),
+    );
+    const body = await readSseResponse(response);
     expect(body).toMatchObject({
       buildId: "build_edit",
       buildStatus: "succeeded",
-      deploymentId: "deployment_edit",
-      snapshotId: "snapshot_edit",
     });
-    expect(stopSupersededPreviewDeploymentsMock).toHaveBeenCalledWith({
-      activeDeploymentId: "deployment_edit",
-      projectId: "project_1",
-    });
-    expect(prismaProjectSnapshotCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          files: expect.arrayContaining([
-            {
-              path: "src/App.tsx",
-              content:
-                'export default function App(){return <main className="site-shell"><nav className="topbar">Bengkel</nav><h1>new headline</h1></main>}',
-            },
-          ]),
-          parentSnapshotId: "snapshot_success",
-          sourceType: "edited",
-        }),
-      }),
-    );
-    expect(prismaProjectUpdateManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          buildStatus: "passed",
-          sourceFiles: expect.any(Array),
-          status: "ready",
-        }),
-        where: expect.objectContaining({
-          activeOperationToken: expect.stringMatching(/^op_/),
-          id: "project_1",
-          userId: "user_1",
-        }),
-      }),
-    );
+    // Work happens in worker, not on the request thread.
+    expect(editGeneratedSourceWithAgentMock).not.toHaveBeenCalled();
+    expect(prismaProjectSnapshotCreateMock).not.toHaveBeenCalled();
   });
 
-  it("persists a durable progress event for each agent operation", async () => {
-    editGeneratedSourceWithAgentMock.mockImplementation(
-      async ({
-        files,
-        onOperation,
-      }: {
-        files: typeof baseFiles;
-        onOperation?: (operation: {
-          detail: string;
-          path?: string;
-          title: string;
-        }) => void;
-      }) => {
-        onOperation?.({
-          detail: "Membaca file",
-          path: "src/App.tsx",
-          title: "Membaca file",
-        });
-        onOperation?.({
-          detail: "Mengedit file",
-          path: "src/App.tsx",
-          title: "Mengedit file",
-        });
-        return {
-          check: { issues: [], ok: true },
-          files: files.map((file) =>
-            file.path === "src/App.tsx"
-              ? {
-                  ...file,
-                  content: file.content.replace("old headline", "new headline"),
-                }
-              : file,
-          ),
-          ok: true,
-          operations: [],
-          outputs: [],
-          sideEffects: [{ path: "src/App.tsx", type: "replace_in_file" }],
-        };
-      },
-    );
-
-    const response = await POST(
-      request([
-        {
-          type: "replace_in_file",
-          path: "src/App.tsx",
-          find: "old headline",
-          replace: "new headline",
-        },
-        { type: "check_app" },
-      ]),
-      { id: "project_1" },
-    );
-
+  it("returns stream view without writing progress events on the route", async () => {
+    const response = await POST(request([], "ubah judul website"), {
+      id: "project_1",
+    });
     expect(response.status).toBe(200);
+    expect(enqueueAttemptJobMock).toHaveBeenCalled();
+    // Progress persistence is worker-owned after enqueue.
     const progressCalls = prismaRuntimeEventCreateMock.mock.calls.filter(
       ([arg]) => arg?.data?.type === "build.progress",
     );
-    const labels = progressCalls.map(([arg]) => arg.data.message);
-    expect(labels).toContain("Membaca file");
-    expect(labels).toContain("Mengedit file");
+    expect(progressCalls).toHaveLength(0);
   });
 
-  it("records visual edit attempts and treats no-op selectors as advisory", async () => {
+  it("records visual edit attempts and enqueues with attempt id", async () => {
     const response = await POST(
       request(
-        [
-          {
-            type: "write_file",
-            path: "src/styles.css",
-            content:
-              ".topbar{background:#fff;color:#fff}\n.hero-card{outline:2px solid red}",
-          },
-          { type: "check_app" },
-        ],
-        'Apply these visual comments to the generated website source.\n\nVisual comments:\n[{"label":"Bagian website — Bengkel","comment":"navbar warnanya jangan nabrak","target":{"classes":"topbar","selectorPath":"main > nav.topbar","tag":"nav","text":"Bengkel","boundingBox":{"x":0,"y":0,"width":100,"height":40}}}]',
+        [],
+        'Apply these visual comments to the generated website source.\n\nVisual comments:\n[{"label":"Bagian website","comment":"navbar"}]',
       ),
       { id: "project_1" },
     );
@@ -473,92 +401,64 @@ describe("project edit route", () => {
     expect(response.status).toBe(200);
     expect(body.attemptId).toMatch(/^edit_/);
     expect(prismaProjectEditAttemptCreateMock).toHaveBeenCalled();
-    expect(prismaProjectSnapshotCreateMock).toHaveBeenCalled();
+    expect(enqueueAttemptJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "edit" }),
+    );
   });
 
-  it("releases the project claim when artifact persistence throws before build creation", async () => {
-    writeProjectSourceArtifactMock.mockRejectedValueOnce(
-      new Error("artifact disk unavailable"),
-    );
+  it("returns 503 when edit queue enqueue fails and releases claim", async () => {
+    enqueueAttemptJobMock.mockRejectedValueOnce(new Error("redis down"));
 
     const response = await POST(request([], "ubah judul website"), {
       id: "project_1",
     });
-    const body = await readSseResponse(response);
+    const body = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     expect(body.code).toBe("edit_failed_retryable");
-    expect(prismaProjectBuildCreateMock).not.toHaveBeenCalled();
-    expect(prismaProjectDeploymentCreateMock).not.toHaveBeenCalled();
-    expect(prismaProjectUpdateManyMock).toHaveBeenLastCalledWith({
-      data: {
-        activeOperationExpiresAt: null,
-        activeOperationKind: null,
-        activeOperationToken: null,
-        buildStatus: "passed",
-        status: "ready",
-      },
-      where: {
-        activeOperationToken: expect.stringMatching(/^op_/),
-        id: "project_1",
-        userId: "user_1",
-      },
-    });
-  });
-
-  it("does not promote a deployment when the operation token is superseded", async () => {
-    prismaProjectUpdateManyMock
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 0 });
-
-    const response = await POST(request([], "ubah judul website"), {
-      id: "project_1",
-    });
-    const body = await readSseResponse(response);
-
-    expect(response.status).toBe(200);
-    expect(body.code).toBe("edit_failed_retryable");
-    expect(prismaProjectDeploymentCreateMock).not.toHaveBeenCalled();
-  });
-
-  it("records a failed edit build without replacing project source or ready status", async () => {
-    enqueueAndWaitEditBuildMock.mockResolvedValue({
-      artifactRef: null,
-      buildStatus: "failed",
-      logText: "compile failed",
-    });
-    readProjectDistArtifactMock.mockResolvedValue([]);
-
-    const response = await POST(
-      request([
-        {
-          type: "replace_in_file",
-          path: "src/App.tsx",
-          find: "old headline",
-          replace: "broken headline",
-        },
-        { type: "check_app" },
-      ]),
-      { id: "project_1" },
-    );
-    const body = await readSseResponse(response);
-
-    expect(response.status).toBe(200);
-    expect(body.buildStatus).toBe("failed");
-    expect(prismaProjectDeploymentCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ status: "failed" }),
-      }),
-    );
     expect(prismaProjectUpdateManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          buildLog: "compile failed",
-          buildStatus: "failed",
+          buildStatus: "passed",
           status: "ready",
         }),
+      }),
+    );
+  });
+
+  it("returns 409 when another build is already running", async () => {
+    prismaProjectFindFirstMock
+      .mockResolvedValueOnce({
+        buildStatus: "passed",
+        chatMessages: [],
+        id: "project_1",
+        prompt: "bengkel",
+        siteSchema: null,
+        status: "ready",
+      })
+      .mockResolvedValueOnce({
+        buildStatus: "running",
+        status: "building",
+      });
+
+    const response = await POST(request([], "ubah judul website"), {
+      id: "project_1",
+    });
+    const body = await response.json();
+    expect(response.status).toBe(409);
+    expect(body.code).toBe("project_build_in_progress");
+    expect(enqueueAttemptJobMock).not.toHaveBeenCalled();
+  });
+
+  it("marks attempt failed when enqueue is unavailable after claim", async () => {
+    enqueueAttemptJobMock.mockRejectedValueOnce(new Error("queue full"));
+    const response = await POST(request([], "ubah judul website"), {
+      id: "project_1",
+    });
+    expect(response.status).toBe(503);
+    expect(prismaProjectEditAttemptUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "failed" }),
       }),
     );
   });

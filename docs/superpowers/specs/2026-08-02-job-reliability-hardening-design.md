@@ -1,6 +1,6 @@
 # Spec: Job reliability hardening (server-owned work)
 
-**Status:** Approved design (awaiting implementation plan)  
+**Status:** Implemented (2026-08-02)  
 **Date:** 2026-08-02  
 **Product:** UMKM Cepat — discuss → generate/build → edit → preview  
 **Related:**

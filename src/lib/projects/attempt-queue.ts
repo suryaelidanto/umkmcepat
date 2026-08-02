@@ -2,9 +2,21 @@ import { Queue, QueueEvents, Worker, type ConnectionOptions } from "bullmq";
 
 import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
+import {
+  abortJob,
+  clearJobAbort,
+  registerJobAbort,
+} from "@/lib/projects/job-abort-registry";
+import { startJobReaper } from "@/lib/projects/job-reaper";
 import { getRedisUrl } from "@/lib/redis-url";
 
 export const ATTEMPT_QUEUE_NAME = "project-attempt";
+
+/** Default when setting/env unset — raised for ~100 concurrent product users. */
+export const DEFAULT_BUILD_CONCURRENCY = 3;
+
+/** BullMQ lock must outlive a long AI pass while lease renew keeps the op alive. */
+const JOB_LOCK_DURATION_MS = 15 * 60_000;
 
 export type GenerateAttemptJob = {
   kind: "generate";
@@ -29,7 +41,31 @@ export type EditBuildAttemptJob = {
   userId: string;
 };
 
-export type AttemptJob = GenerateAttemptJob | EditBuildAttemptJob;
+/** Full edit: agent + compile. Job carries ids; worker reloads context from DB. */
+export type EditAttemptJob = {
+  kind: "edit";
+  attemptId: string;
+  operationToken: string;
+  projectId: string;
+  userId: string;
+};
+
+/**
+ * Discuss turn on the queue. Large message payloads stay in chat DB;
+ * worker reloads via turnId + projectId.
+ */
+export type DiscussAttemptJob = {
+  kind: "discuss";
+  turnId: string;
+  projectId: string;
+  userId: string;
+  projectPrompt: string;
+  projectStatus: string;
+  projectTitle: string;
+};
+
+export type AttemptJob =
+  GenerateAttemptJob | EditBuildAttemptJob | EditAttemptJob | DiscussAttemptJob;
 
 export type EditBuildJobResult = {
   artifactRef: string | null;
@@ -42,8 +78,13 @@ let queueEvents: QueueEvents | null = null;
 let worker: Worker | null = null;
 
 export function getBuildConcurrencyLimit(): number {
-  const parsed = getSettingSync("runtime.build_concurrency", 1);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+  const parsed = getSettingSync(
+    "runtime.build_concurrency",
+    DEFAULT_BUILD_CONCURRENCY,
+  );
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_BUILD_CONCURRENCY;
 }
 
 function connectionOptions(): ConnectionOptions {
@@ -69,12 +110,18 @@ function getQueueEvents(): QueueEvents {
   return queueEvents;
 }
 
+function jobIdFor(job: AttemptJob): string {
+  if (job.kind === "discuss") {
+    return job.turnId;
+  }
+  return job.attemptId;
+}
+
 export async function enqueueAttemptJob(job: AttemptJob): Promise<void> {
-  await getQueue().add(job.kind, job, {
-    jobId: job.attemptId,
-  });
+  const jobId = jobIdFor(job);
+  await getQueue().add(job.kind, job, { jobId });
   devLog("attempt-queue", "enqueued", {
-    attemptId: job.attemptId,
+    jobId,
     kind: job.kind,
     projectId: job.projectId,
   });
@@ -123,42 +170,74 @@ export function refreshAttemptWorkerConcurrency(): void {
   devLog("attempt-queue", "concurrency", { concurrency: next });
 }
 
+export function abortAttemptJob(jobId: string): boolean {
+  return abortJob(jobId);
+}
+
 export function startAttemptQueueWorker(): void {
   if (worker) {
     return;
   }
 
+  startJobReaper(60_000);
+
   worker = new Worker(
     ATTEMPT_QUEUE_NAME,
     async (bullJob) => {
       const data = bullJob.data as AttemptJob;
-      if (data.kind === "generate") {
-        const { runBuildAttempt } =
-          await import("@/lib/projects/build-attempt-worker");
-        const abortController = new AbortController();
-        await runBuildAttempt({
-          abortSignal: abortController.signal,
-          attemptId: data.attemptId,
-          buildId: data.buildId,
-          generateMode: data.generateMode,
-          operationToken: data.operationToken,
-          project: {
-            id: data.projectId,
-            prompt: data.projectPrompt,
-            status: data.projectStatus,
-          },
-          userId: data.userId,
-        });
-        return { ok: true };
-      }
+      const jobId = jobIdFor(data);
+      const abortSignal = registerJobAbort(jobId);
+      try {
+        if (data.kind === "generate") {
+          const { runBuildAttempt } =
+            await import("@/lib/projects/build-attempt-worker");
+          await runBuildAttempt({
+            abortSignal,
+            attemptId: data.attemptId,
+            buildId: data.buildId,
+            generateMode: data.generateMode,
+            operationToken: data.operationToken,
+            project: {
+              id: data.projectId,
+              prompt: data.projectPrompt,
+              status: data.projectStatus,
+            },
+            userId: data.userId,
+          });
+          return { ok: true };
+        }
 
-      const { runQueuedEditBuild } =
-        await import("@/lib/projects/edit-build-queue-worker");
-      return runQueuedEditBuild(data);
+        if (data.kind === "discuss") {
+          const { runQueuedDiscussTurn } =
+            await import("@/lib/projects/discuss-queue-worker");
+          await runQueuedDiscussTurn(data, abortSignal);
+          return { ok: true };
+        }
+
+        if (data.kind === "edit") {
+          const { runEditAttempt } =
+            await import("@/lib/projects/edit-attempt-worker");
+          await runEditAttempt({
+            abortSignal,
+            attemptId: data.attemptId,
+            operationToken: data.operationToken,
+            projectId: data.projectId,
+            userId: data.userId,
+          });
+          return { ok: true };
+        }
+
+        const { runQueuedEditBuild } =
+          await import("@/lib/projects/edit-build-queue-worker");
+        return runQueuedEditBuild(data);
+      } finally {
+        clearJobAbort(jobId);
+      }
     },
     {
       concurrency: getBuildConcurrencyLimit(),
       connection: connectionOptions(),
+      lockDuration: JOB_LOCK_DURATION_MS,
     },
   );
 
@@ -171,5 +250,6 @@ export function startAttemptQueueWorker(): void {
 
   devLog("attempt-queue", "worker.started", {
     concurrency: getBuildConcurrencyLimit(),
+    lockDurationMs: JOB_LOCK_DURATION_MS,
   });
 }
