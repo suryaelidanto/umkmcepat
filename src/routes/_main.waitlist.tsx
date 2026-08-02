@@ -21,6 +21,13 @@ import {
   textInputClass,
 } from "@/components/form/FormFields";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";
 import { useSession } from "@/lib/auth-client";
@@ -161,6 +168,7 @@ function WaitlistPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [devSkipDone, setDevSkipDone] = useState(false);
   const [step, setStep] = useState(1);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
@@ -537,6 +545,8 @@ function WaitlistPage() {
           />
         ) : null}
 
+        {step >= 2 ? <PublicContentNotice /> : null}
+
         {hasTurnstile && step === 3 ? (
           <p className="mt-spacing-4 text-xs text-surface-warm-white/50">
             Ada cek keamanan sebelum kirim.
@@ -603,7 +613,7 @@ function WaitlistPage() {
               type="button"
               onClick={() => {
                 form.markTouched("photo");
-                submit.mutate();
+                setConfirmOpen(true);
               }}
               disabled={submit.isPending || uploadingPhotoCount > 0}
               size="lg"
@@ -628,6 +638,48 @@ function WaitlistPage() {
             </Button>
           )}
         </div>
+
+        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <DialogContent showCloseButton className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Sebelum mengirim</DialogTitle>
+              <DialogDescription>
+                Cerita usaha dan foto yang kamu kirim bisa dipakai di konten
+                publik (misalnya studi kasus). Jangan isi data sensitif seperti
+                alamat rumah, nomor rekening, atau data pelanggan. Nama akun dan
+                email tetap privat.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col-reverse gap-spacing-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className="rounded-radius-lg px-spacing-7 py-spacing-3 text-sm text-surface-warm-white/70 transition hover:bg-white/[0.06] hover:text-surface-warm-white"
+                onClick={() => setConfirmOpen(false)}
+                disabled={submit.isPending}
+              >
+                Batal
+              </button>
+              <Button
+                type="button"
+                className="flex items-center gap-spacing-2"
+                disabled={submit.isPending || uploadingPhotoCount > 0}
+                onClick={() => {
+                  setConfirmOpen(false);
+                  submit.mutate();
+                }}
+              >
+                {submit.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Mengirim...
+                  </>
+                ) : (
+                  "Saya paham, kirim"
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {isDev && isAdmin ? (
           <div className="mt-spacing-6 flex flex-col items-center gap-spacing-3">
@@ -662,6 +714,22 @@ function WaitlistPage() {
         ) : null}
       </form>
     </div>
+  );
+}
+
+function PublicContentNotice() {
+  return (
+    <aside className="mt-spacing-6 rounded-radius-lg border border-surface-warm-white/12 bg-surface-warm-white/[0.04] px-spacing-5 py-spacing-4 text-sm leading-6 text-surface-warm-white/70">
+      <p className="font-medium text-surface-warm-white/90">
+        Studi kasus konten
+      </p>
+      <p className="mt-spacing-2">
+        Cerita usaha dan foto yang kamu kirim bisa dipakai di konten publik
+        (misalnya studi kasus). Jangan isi data sensitif (alamat rumah, nomor
+        rekening, data pelanggan, dan sejenisnya). Nama akun dan email tetap
+        privat.
+      </p>
+    </aside>
   );
 }
 
