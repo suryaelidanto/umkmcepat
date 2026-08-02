@@ -1,5 +1,4 @@
-export type MaskKind =
-  "email" | "phone" | "name" | "orderId" | "amount" | "story";
+export type MaskKind = "email" | "phone" | "name" | "orderId" | "amount";
 
 const DASH = "—";
 const MASK_CHAR = "•";
@@ -80,13 +79,6 @@ export function mask(
     }
     case "amount": {
       return { masked: maskChars(8), revealable: false };
-    }
-    case "story": {
-      const limit = 40;
-      if (text.length > limit) {
-        return { masked: `${text.slice(0, limit)}…`, revealable: true };
-      }
-      return { masked: `…${text}`, revealable: true };
     }
   }
 }

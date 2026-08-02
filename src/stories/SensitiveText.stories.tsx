@@ -9,7 +9,7 @@ const meta = {
   argTypes: {
     kind: {
       control: "select",
-      options: ["email", "phone", "name", "orderId", "amount", "story"],
+      options: ["email", "phone", "name", "orderId", "amount"],
     },
   },
   component: SensitiveText,
@@ -46,14 +46,6 @@ export const AmountMasked: Story = {
   args: { kind: "amount", value: "Rp 25.000" },
 };
 
-export const StoryTruncated: Story = {
-  args: {
-    kind: "story",
-    value:
-      "Halo, saya pemilik usaha kecil di kota yang ingin mengembangkan bisnis secara online.",
-  },
-};
-
 export const AllKinds: Story = {
   args: { kind: "email", value: "x@y.com" },
   render: () => (
@@ -72,13 +64,6 @@ export const AllKinds: Story = {
       </span>
       <span>
         amount: <SensitiveText kind="amount" value="Rp 25.000" />
-      </span>
-      <span>
-        story:{" "}
-        <SensitiveText
-          kind="story"
-          value="Halo, saya pemilik usaha kecil di kota yang ingin mengembangkan bisnis secara online."
-        />
       </span>
     </div>
   ),

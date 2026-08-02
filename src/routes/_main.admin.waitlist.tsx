@@ -176,11 +176,7 @@ function WaitlistPage() {
               </span>
             </div>
             <p className="mt-spacing-2 line-clamp-4 text-sm text-surface-warm-white">
-              {streamerMode ? (
-                <SensitiveText kind="story" value={entry.story} />
-              ) : (
-                entry.story
-              )}
+              {entry.story}
             </p>
             {entry.rejectionReason ? (
               <p className="mt-spacing-2 text-sm text-destructive">

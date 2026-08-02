@@ -90,24 +90,6 @@ describe("mask", () => {
     });
   });
 
-  describe("story", () => {
-    it("truncates long text", () => {
-      const long = "a".repeat(60);
-      const result = mask(long, "story");
-      expect(result.masked.endsWith("…")).toBe(true);
-      expect(result.masked.length).toBeLessThanOrEqual(41); // 40 chars + ellipsis
-      expect(result.revealable).toBe(true);
-    });
-    it("short text gets ellipsis prefix only", () => {
-      const result = mask("Halo", "story");
-      expect(result.masked).toBe("…Halo");
-      expect(result.revealable).toBe(true);
-    });
-    it("returns em-dash for null", () => {
-      expect(mask(null, "story")).toEqual({ masked: "—", revealable: true });
-    });
-  });
-
   it("uses kind default for revealable when value is em-dash", () => {
     // em-dash case still has revealable=true for all kinds except amount
     expect(mask(null, "amount").revealable).toBe(false);

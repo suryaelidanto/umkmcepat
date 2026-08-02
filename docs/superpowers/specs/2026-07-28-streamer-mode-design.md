@@ -21,8 +21,8 @@ Streamer mode is the **defense-in-depth** layer for this — a global privacy ga
 - pagination label, action buttons, project count: not masked
 
 ### `/admin/waitlist`
-- card: **business name**, **email**, **phone**, **story (free text)** masked
-- card: business type + city: kept
+- card: **business name**, **email**, **phone** masked
+- card: story (free text), business type + city: kept (not PII/confidential)
 - detail image `alt`: stays (text only, screen-reader only — not a leak path)
 
 ### `/admin/transactions`
@@ -38,7 +38,7 @@ Streamer mode is the **defense-in-depth** layer for this — a global privacy ga
 - rationale: an admin screen-sharing anything, even non-admin pages, would otherwise leak their own identity
 
 ### Not in scope (never masked)
-Counts, dates, statuses ("completed"/"pending"), categories, settings labels/values/source/fallback, action button labels, search placeholders.
+Counts, dates, statuses ("completed"/"pending"), categories, free-text descriptions (waitlist story), settings labels/values/source/fallback, action button labels, search placeholders.
 
 ## Storage
 
@@ -81,9 +81,10 @@ Rules:
 - `businessName`: keep first word's first letter + last word's first letter (`Toko S•••••Rezeki`) — falls back to first+last 2 chars if single-word.
 - `orderId`/`paymentNumber`: keep prefix + last 2 chars; `INV-2026-07-15-000123` → `INV-•••23`.
 - `amount`: not partial — masked amount defeats the purpose; **show as `••••••••`** (admin opens the detail panel if they need exact value during masked state).
-- `story` (free text): `<SensitiveText maxLength={40}>` truncated mask, ellipsis at end.
 
-The mask function is pure (server + client both safe); takes the raw value + a `kind: "email" | "phone" | "name" | "orderId" | "amount" | "story"` and returns `{ masked: string; revealable: boolean }` where `revealable=false` for amounts and `true` everywhere else.
+Rule: mask **PII and confidential** fields only (email, phone, name/business name, orderId, paymentNumber, amount). Free-text descriptions (e.g. waitlist story) and non-identifying metadata stay fully visible.
+
+The mask function is pure (server + client both safe); takes the raw value + a `kind: "email" | "phone" | "name" | "orderId" | "amount"` and returns `{ masked: string; revealable: boolean }` where `revealable=false` for amounts and `true` everywhere else.
 
 Reveal behavior (UX):
 - `[ tampilkan ]` is a real `<button type="button">`, not a div — keyboard accessible.
