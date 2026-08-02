@@ -79,8 +79,8 @@ export function EnergyLedger({
 
   if (entries === undefined && query.isPending && !query.data) {
     return (
-      <div className="flex items-center gap-spacing-2 text-body-small text-muted-foreground">
-        <div className="size-2 animate-pulse rounded-full bg-muted-foreground/40" />
+      <div className="flex items-center gap-spacing-2 text-body-small text-surface-warm-white/55">
+        <div className="size-2 animate-pulse rounded-full bg-surface-warm-white/30" />
         <span>Memuat catatan energi…</span>
       </div>
     );
@@ -98,7 +98,7 @@ export function EnergyLedger({
 
   if (resolvedEntries.length === 0) {
     return (
-      <p className="text-body-small text-muted-foreground">
+      <p className="text-body-small text-surface-warm-white/55">
         Belum ada catatan pemakaian energi.
       </p>
     );

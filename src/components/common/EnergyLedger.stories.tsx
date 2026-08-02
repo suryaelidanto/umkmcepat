@@ -3,8 +3,19 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { EnergyLedger } from "@/components/common/EnergyLedger";
 
+// Dark shell so light text meets contrast (axe ignores Storybook bg plugin).
+const SHELL_CLASS =
+  "rounded-radius-md border border-surface-warm-white/10 bg-[#171715] p-spacing-4";
+
 const meta = {
   component: EnergyLedger,
+  decorators: [
+    (Story) => (
+      <div className={SHELL_CLASS}>
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
     backgrounds: { default: "Dark workspace" },
     layout: "padded",
