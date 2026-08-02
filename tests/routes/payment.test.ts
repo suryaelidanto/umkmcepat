@@ -8,6 +8,7 @@ const {
   getMayarTransactionMock,
   verifyMayarWebhookRequestMock,
   prismaPaymentCreateMock,
+  prismaPaymentFindFirstMock,
   prismaPaymentFindUniqueMock,
   prismaPaymentUpdateMock,
   prismaPaymentUpdateManyMock,
@@ -25,6 +26,7 @@ const {
   getMayarTransactionMock: vi.fn(),
   verifyMayarWebhookRequestMock: vi.fn(() => true),
   prismaPaymentCreateMock: vi.fn(),
+  prismaPaymentFindFirstMock: vi.fn(),
   prismaPaymentFindUniqueMock: vi.fn(),
   prismaPaymentUpdateMock: vi.fn(),
   prismaPaymentUpdateManyMock: vi.fn(async () => ({ count: 1 })),
@@ -73,6 +75,7 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: prismaTransactionMock,
     payment: {
       create: prismaPaymentCreateMock,
+      findFirst: prismaPaymentFindFirstMock,
       findUnique: prismaPaymentFindUniqueMock,
       findUniqueOrThrow: prismaPaymentFindUniqueOrThrowMock,
       update: prismaPaymentUpdateMock,
@@ -116,6 +119,8 @@ describe("Payment API Routes", () => {
     verifyMayarWebhookRequestMock.mockReset();
     verifyMayarWebhookRequestMock.mockReturnValue(true);
     prismaPaymentCreateMock.mockReset();
+    prismaPaymentFindFirstMock.mockReset();
+    prismaPaymentFindFirstMock.mockResolvedValue(null);
     prismaPaymentFindUniqueMock.mockReset();
     prismaPaymentFindUniqueOrThrowMock.mockReset();
     prismaPaymentUpdateMock.mockReset();
@@ -267,6 +272,141 @@ describe("Payment API Routes", () => {
       );
 
       expect(res.status).toBe(500);
+    });
+
+    it("reuses latest PENDING payment for the same package without calling Mayar", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user_1" },
+        expires: new Date().toISOString(),
+      });
+      prismaPaymentFindFirstMock.mockResolvedValueOnce({
+        orderId: "INV-USER1-OLD",
+        amount: 2900,
+        paymentUrl: "https://testingmayar.myr.id/pl/existing",
+        status: "PENDING",
+      });
+
+      const res = await POST_CREATE(
+        new Request("http://localhost/api/payment/create", {
+          method: "POST",
+          body: JSON.stringify({ packageId: "pocket" }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toEqual({
+        success: true,
+        orderId: "INV-USER1-OLD",
+        amount: 2900,
+        paymentUrl: "https://testingmayar.myr.id/pl/existing",
+        status: "PENDING",
+      });
+      expect(createMayarPaymentMock).not.toHaveBeenCalled();
+      expect(prismaPaymentCreateMock).not.toHaveBeenCalled();
+      expect(prismaPaymentFindFirstMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: "user_1",
+            status: "PENDING",
+          }),
+          orderBy: { createdAt: "desc" },
+        }),
+      );
+    });
+
+    it("creates a new Mayar invoice when PENDING is for a different package", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user_1" },
+        expires: new Date().toISOString(),
+      });
+      prismaPaymentFindFirstMock.mockResolvedValueOnce(null);
+      createMayarPaymentMock.mockResolvedValueOnce({
+        id: "req-new",
+        transactionId: "txn-new",
+        link: "https://testingmayar.myr.id/pl/new",
+      });
+      prismaPaymentCreateMock.mockResolvedValueOnce({
+        orderId: "INV-USER1-NEW",
+        amount: 59900,
+        energyGranted: 1500000,
+        status: "PENDING",
+        paymentUrl: "https://testingmayar.myr.id/pl/new",
+      });
+
+      const res = await POST_CREATE(
+        new Request("http://localhost/api/payment/create", {
+          method: "POST",
+          body: JSON.stringify({ packageId: "max" }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(createMayarPaymentMock).toHaveBeenCalled();
+      expect(prismaPaymentCreateMock).toHaveBeenCalled();
+    });
+
+    it("creates a new invoice when same-pack PENDING is outside the 24h window", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user_1" },
+        expires: new Date().toISOString(),
+      });
+      prismaPaymentFindFirstMock.mockResolvedValueOnce(null);
+      createMayarPaymentMock.mockResolvedValueOnce({
+        id: "req-2",
+        transactionId: "txn-2",
+        link: "https://testingmayar.myr.id/pl/fresh",
+      });
+      prismaPaymentCreateMock.mockResolvedValueOnce({
+        orderId: "INV-USER1-FRESH",
+        amount: 2900,
+        energyGranted: 50000,
+        status: "PENDING",
+        paymentUrl: "https://testingmayar.myr.id/pl/fresh",
+      });
+
+      const res = await POST_CREATE(
+        new Request("http://localhost/api/payment/create", {
+          method: "POST",
+          body: JSON.stringify({ packageId: "pocket" }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(createMayarPaymentMock).toHaveBeenCalled();
+      const findArg = prismaPaymentFindFirstMock.mock.calls[0]?.[0] as {
+        where: { createdAt: { gt: Date } };
+      };
+      const gt = findArg.where.createdAt.gt.getTime();
+      const expected = Date.now() - 24 * 60 * 60 * 1000;
+      expect(Math.abs(gt - expected)).toBeLessThan(5_000);
+    });
+
+    it("returns 429 with wait message when Mayar reports duplicate request", async () => {
+      authMock.mockResolvedValueOnce({
+        user: { id: "user_1" },
+        expires: new Date().toISOString(),
+      });
+      prismaPaymentFindFirstMock.mockResolvedValueOnce(null);
+      createMayarPaymentMock.mockRejectedValueOnce(
+        new Error(
+          'Mayar create payment failed with status 429: {"statusCode":429,"messages":"Duplicate request detected. Please wait 1 minute before trying again."}',
+        ),
+      );
+
+      const res = await POST_CREATE(
+        new Request("http://localhost/api/payment/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ packageId: "pocket" }),
+        }),
+      );
+
+      expect(res.status).toBe(429);
+      const data = await res.json();
+      expect(data.message).toBe(
+        "Permintaan sama terdeteksi. Tunggu sekitar 1 menit, lalu coba lagi.",
+      );
     });
   });
 

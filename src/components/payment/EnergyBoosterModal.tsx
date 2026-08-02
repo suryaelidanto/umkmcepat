@@ -6,7 +6,7 @@ import {
   CheckCircle2Icon,
   AlertCircleIcon,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import {
@@ -74,6 +74,7 @@ export function EnergyBoosterModal({
   const queryClient = useQueryClient();
   const [selectedPack, setSelectedPack] = useState<BoosterPackId>("starter");
   const [isCreating, setIsCreating] = useState(false);
+  const creatingLockRef = useRef(false);
   const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(
     null,
   );
@@ -95,6 +96,7 @@ export function EnergyBoosterModal({
       setPaymentSession(null);
       setPaymentStatus("PENDING");
       setIsCreating(false);
+      creatingLockRef.current = false;
     }
   }, [open]);
 
@@ -141,6 +143,10 @@ export function EnergyBoosterModal({
   }, [paymentSession, paymentStatus, queryClient]);
 
   const handleBuy = async (packId: BoosterPackId) => {
+    if (creatingLockRef.current) {
+      return;
+    }
+    creatingLockRef.current = true;
     setIsCreating(true);
     try {
       const data = await fetchJson<PaymentSession>("/api/payment/create", {
@@ -161,6 +167,7 @@ export function EnergyBoosterModal({
         err instanceof Error ? err.message : "Terjadi kesalahan koneksi.",
       );
     } finally {
+      creatingLockRef.current = false;
       setIsCreating(false);
     }
   };

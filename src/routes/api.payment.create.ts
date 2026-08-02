@@ -12,6 +12,9 @@ import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export { BOOSTER_PACKS, type BoosterPackId };
 
+// Matches create path expiredAt (now + 24h). Local clock only — no Mayar GET.
+const PAYMENT_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+
 export const Route = createFileRoute("/api/payment/create")({
   server: {
     handlers: {
@@ -41,6 +44,36 @@ export const Route = createFileRoute("/api/payment/create")({
         }
         const pack = await getBoosterPack(packageId);
 
+        const existing = await prisma.payment.findFirst({
+          where: {
+            userId: session.user.id,
+            status: "PENDING",
+            paymentUrl: { not: null },
+            createdAt: { gt: new Date(Date.now() - PAYMENT_LINK_TTL_MS) },
+            metadata: {
+              path: ["packageId"],
+              equals: packageId,
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          select: {
+            orderId: true,
+            amount: true,
+            paymentUrl: true,
+            status: true,
+          },
+        });
+
+        if (existing?.paymentUrl) {
+          return Response.json({
+            success: true,
+            orderId: existing.orderId,
+            amount: existing.amount,
+            paymentUrl: existing.paymentUrl,
+            status: existing.status,
+          });
+        }
+
         // Generate a unique order ID: INV-{userId-prefix}-{timestamp}
         const userPrefix = session.user.id.slice(-6).toUpperCase();
         const timestamp = Date.now();
@@ -58,7 +91,7 @@ export const Route = createFileRoute("/api/payment/create")({
             orderId,
             amount: pack.amount,
             packName: pack.name,
-            expiredAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            expiredAt: new Date(Date.now() + PAYMENT_LINK_TTL_MS).toISOString(),
             customerName: user.name ?? "Customer",
             customerEmail: user.email ?? "",
             customerMobile: user.phone ?? "081000000000",
@@ -92,12 +125,18 @@ export const Route = createFileRoute("/api/payment/create")({
           });
         } catch (error) {
           console.error("[payment-create] Failed to create payment:", error);
+          const raw = error instanceof Error ? error.message : "";
+          if (/status 429|Duplicate request/i.test(raw)) {
+            return Response.json(
+              {
+                message:
+                  "Permintaan sama terdeteksi. Tunggu sekitar 1 menit, lalu coba lagi.",
+              },
+              { status: 429 },
+            );
+          }
           return Response.json(
-            {
-              message: mapToUserFacingError(
-                error instanceof Error ? error.message : "",
-              ),
-            },
+            { message: mapToUserFacingError(raw) },
             { status: 500 },
           );
         }
