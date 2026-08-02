@@ -9,7 +9,11 @@ import {
 } from "./agent-tool-runner";
 import { type GeneratedProjectFile } from "./generated-types";
 
-import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import {
+  getAiModel,
+  getAiTelemetry,
+  getNoReasoningCallOptions,
+} from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { withAiTimeout } from "@/lib/ai-timeouts";
 import { type StepCharger } from "@/lib/projects/energy-step-charger";
@@ -70,6 +74,7 @@ export async function editGeneratedSourceWithAgent({
     // Reasoning models spend tokens on hidden reasoning_content per step;
     // raise the per-step budget so visible tool calls still land.
     maxOutputTokens: 12_000,
+    ...getNoReasoningCallOptions(),
     instructions: EDIT_AGENT_INSTRUCTIONS,
     telemetry: getAiTelemetry("project-source-edit-agent", {
       fileCount: files.length,

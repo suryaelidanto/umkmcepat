@@ -11,7 +11,7 @@ import {
   type UIMessage,
 } from "ai";
 
-import { getAiTelemetry } from "@/lib/ai";
+import { getAiTelemetry, getNoReasoningCallOptions } from "@/lib/ai";
 import {
   DISCUSS_CARD_SEMANTIC_ATTEMPTS,
   DISCUSS_CARD_SERVER_DEADLINE_MS,
@@ -158,6 +158,7 @@ Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choi
           },
           temperature: 0.2,
           timeout: getAiTimeoutMs("discussCard"),
+          ...getNoReasoningCallOptions(),
           telemetry: getAiTelemetry("project-guided-discuss-one-call-repair", {
             mode: "discuss-one-call-repair",
             model: modelName,

@@ -1,7 +1,11 @@
 import { isStepCount, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
-import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import {
+  getAiModel,
+  getAiTelemetry,
+  getNoReasoningCallOptions,
+} from "@/lib/ai";
 import { getAgentMaxSteps } from "@/lib/ai-agent-steps";
 import { getGenerationModel } from "@/lib/ai-models";
 import { withAiTimeout } from "@/lib/ai-timeouts";
@@ -213,6 +217,7 @@ export async function generateCustomProjectFilesWithAgent({
         implementationSpec,
         "generate",
       ),
+      ...getNoReasoningCallOptions(),
       telemetry: getAiTelemetry("project-source-generation-agent", {
         projectId,
       }),

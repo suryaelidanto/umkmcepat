@@ -10,7 +10,11 @@ import {
   type UIMessage,
 } from "ai";
 
-import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import {
+  getAiModel,
+  getAiTelemetry,
+  getNoReasoningCallOptions,
+} from "@/lib/ai";
 import { getDefaultAiModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
@@ -126,6 +130,7 @@ export async function runDiscussTurn({
       temperature: 0.25,
       maxOutputTokens: 1024,
       timeout: getAiTimeoutMs("discussOneCall"),
+      ...getNoReasoningCallOptions(),
       telemetry: getAiTelemetry("project-guided-discuss-one-call", {
         briefConfidence: effectiveBrief.confidence,
         mode: "discuss-one-call",

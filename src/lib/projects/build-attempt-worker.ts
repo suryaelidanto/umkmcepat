@@ -1,6 +1,10 @@
 import { generateText } from "ai";
 
-import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import {
+  getAiModel,
+  getAiTelemetry,
+  getNoReasoningCallOptions,
+} from "@/lib/ai";
 import { getGenerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
@@ -504,6 +508,7 @@ export async function runBuildAttempt({
               type: "tool",
               toolName: "presentImplementationSpec",
             },
+            ...getNoReasoningCallOptions(),
             telemetry: getAiTelemetry("project-implementation-spec", {
               projectId,
               route: "api.projects.generate",

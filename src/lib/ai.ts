@@ -42,3 +42,13 @@ export function getAiModel(model = getDefaultAiModel()) {
     fetch: nineRouterFetch,
   })(model);
 }
+
+/**
+ * Best-effort: AI SDK portable flag to disable hidden reasoning.
+ * Effective only if 9Router + child model honor it.
+ */
+export function getNoReasoningCallOptions() {
+  return {
+    reasoning: "none" as const,
+  };
+}

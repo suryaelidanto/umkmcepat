@@ -48,6 +48,7 @@ vi.mock("ai", () => {
 
 vi.mock("@/lib/ai", () => ({
   getAiModel: () => "test-model",
+  getNoReasoningCallOptions: () => ({ reasoning: "none" }),
   getAiTelemetry: () => ({ isEnabled: false }),
 }));
 
