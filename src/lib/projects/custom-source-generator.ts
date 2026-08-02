@@ -156,8 +156,8 @@ export async function generateCustomProjectFilesWithAgent({
 
     // Loop detection + per-step timing.
     const tick = stepTimer.start();
-    const { nudge, hardCap } = loopDetector.track(command.type, command);
-    if (hardCap) {
+    const preTrack = loopDetector.track(command.type, command);
+    if (preTrack.hardCap) {
       loopHardCapped = true;
       devLog("agent-loop", "hard-cap", { command: command.type });
       return {
@@ -194,6 +194,38 @@ export async function generateCustomProjectFilesWithAgent({
     devLog("agent-step", "tool", { tool: command.type, ms });
 
     const output = result.outputs.at(-1) ?? { type: command.type };
+    const outputError =
+      typeof (output as { error?: unknown }).error === "string"
+        ? (output as { error: string }).error
+        : "";
+    const resultText =
+      typeof (output as { result?: unknown }).result === "string"
+        ? ((output as { result: string }).result ?? "")
+        : "";
+    const replaceFailed =
+      command.type === "replace_in_file" &&
+      (Boolean(outputError) ||
+        /not found|Replacement target/i.test(resultText));
+
+    let nudge = preTrack.nudge;
+    if (command.type === "replace_in_file") {
+      if (replaceFailed) {
+        const failTrack = loopDetector.noteReplaceFailure();
+        if (failTrack.hardCap) {
+          loopHardCapped = true;
+          return {
+            type: command.type,
+            error:
+              failTrack.nudge ??
+              `Loop hard-cap on failed replace_in_file. Use write_file for the full file.`,
+          };
+        }
+        nudge = failTrack.nudge ?? nudge;
+      } else {
+        loopDetector.noteReplaceSuccess();
+      }
+    }
+
     if (nudge) {
       // Append the nudge to the result string the model reads — the SDK
       // JSON-stringifies the tool output, and `result` is the field the model
@@ -212,12 +244,12 @@ export async function generateCustomProjectFilesWithAgent({
       // Reasoning models emit hidden reasoning_content per step; without a
       // generous per-step budget the visible tool-call never lands.
       maxOutputTokens: 12_000,
+      ...getNoReasoningCallOptions(),
       instructions: buildGeneratedAppAgentInstructions(
         schema,
         implementationSpec,
         "generate",
       ),
-      ...getNoReasoningCallOptions(),
       telemetry: getAiTelemetry("project-source-generation-agent", {
         projectId,
       }),
@@ -2276,9 +2308,12 @@ ${DESIGN_DIRECTIVE}
 
 SPEED RULES (you have limited steps — write immediately):
 1. FIRST TOOL CALL MUST BE write_file on src/routes/index.tsx with the FULL home page (complete TSX). Not a stub.
-2. Then write extra routes under src/routes/ if needed and register them in src/router.tsx.
-3. Use copy_component for shadcn pieces; compose them in routes. Do not hand-roll ui primitives.
-4. LAST STEP: check_app once.
+2. Treat the implementation brief / pages list as your checklist — finish those files, do not wander.
+3. Then write extra routes under src/routes/ if needed and register them in src/router.tsx.
+4. Use copy_component for shadcn pieces; compose them in routes. Do not hand-roll ui primitives.
+5. Prefer write_file with FULL file content over replace_in_file for large rewrites. If replace fails once, write_file the whole file.
+6. After meaningful writes, call check_app once. Do not thrash read/replace loops.
+7. STOP when checklist is done and check_app is clean — do not keep re-reading.
 
 DO NOT read_file / list_files / search_files / spawn_subagent before write_file on the home page.
 DO NOT spend steps exploring. Exploration budget is tiny; writes win.

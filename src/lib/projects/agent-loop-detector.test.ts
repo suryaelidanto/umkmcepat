@@ -49,6 +49,31 @@ describe("createLoopDetector", () => {
     const first = d.track("read_file", { path: "a.tsx" });
     expect(first).toEqual({ hardCap: false });
   });
+
+  it("nudges after consecutive failed replace_in_file", () => {
+    const d = createLoopDetector();
+    d.noteReplaceFailure();
+    const second = d.noteReplaceFailure();
+    expect(second.nudge).toMatch(/write_file/i);
+    expect(second.hardCap).toBe(false);
+  });
+
+  it("hard-caps after three consecutive failed replaces", () => {
+    const d = createLoopDetector();
+    d.noteReplaceFailure();
+    d.noteReplaceFailure();
+    const third = d.noteReplaceFailure();
+    expect(third.hardCap).toBe(true);
+  });
+
+  it("nudges on read storm without writes", () => {
+    const d = createLoopDetector();
+    for (let i = 0; i < 3; i++) {
+      d.track("read_file", { path: `f${i}.tsx` });
+    }
+    const fourth = d.track("read_file", { path: "f3.tsx" });
+    expect(fourth.nudge).toMatch(/without a write|write_file/i);
+  });
 });
 
 describe("createStepTimer", () => {
