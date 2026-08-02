@@ -30,11 +30,11 @@ export function ImageUploadThumb({
       <img alt={alt} className="size-full object-cover" src={src} />
       {uploading ? (
         <div
-          aria-busy="true"
-          aria-label="Mengunggah"
           className="absolute inset-0 flex items-center justify-center bg-black/45"
+          role="status"
         >
-          <Loader2 className="size-4 animate-spin text-white" />
+          <Loader2 aria-hidden className="size-4 animate-spin text-white" />
+          <span className="sr-only">Mengunggah</span>
         </div>
       ) : onRemove ? (
         <button

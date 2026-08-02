@@ -129,11 +129,14 @@ export function FileUpload({
             />
             {uploading ? (
               <div
-                aria-busy="true"
-                aria-label="Mengunggah"
                 className="absolute inset-0 flex items-center justify-center rounded-radius-md bg-black/45"
+                role="status"
               >
-                <Loader2 className="size-5 animate-spin text-white" />
+                <Loader2
+                  aria-hidden
+                  className="size-5 animate-spin text-white"
+                />
+                <span className="sr-only">Mengunggah</span>
               </div>
             ) : null}
           </div>
