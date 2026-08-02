@@ -33,6 +33,16 @@
 - Live gen: progress shows real `write_file` / replace ops when agent works; no `seed.brief-home` on success path.
 - Design should match good-era agent quality, not seed template.
 
+## 2026-08-02: expandable write/replace diffs + multi-page gate
+
+**Bug:** worker `send("operation", op)` did `publish({ type: "operation", ...op })`; op.`type` (`write_file`) clobbered SSE event type → client `reduceBuildStreamEvent` ignored live ops → no expandable diffs. Hydrate also dropped `diff` from DB metadata.
+
+**Fix:**
+- `build-attempt-worker` `send`: spread data first, force `type: event`, map tool name to `tool`; persist truncated `diff` on write/replace.
+- `checkAgentSourceQuality`: fail if route files under `src/routes/` are not registered in `src/router.tsx` (`findUnregisteredRouteFiles`).
+- Final quality re-check emits a transparent `Cek kualitas source` operation before deliver.
+- Prompt: multi-page consistency (register routes same turn; shared chrome in `__root`).
+
 ## Residual / in flight
 
 1. **~50 full E2E** — larger batch paused on **build rate_limit** (~18m windows) and ~10–16m/build wall time. Resume:
@@ -44,7 +54,6 @@
 2. Lease-kill regression: retry while job still running → `Build operation lease was superseded`. Harness fixed; product still fragile if client double-fires.
 3. Live agent still can return 0 tools — now **fails** instead of seed; may need further prompt/budget tuning if flake rate high.
 4. Cloudflare **520** blips under stress (mitigated with retries).
-5. Workspace UI stash (`stash@{0}` WorkspaceShell) — apply **after** this engine fix is verified.
 
 ## Verify (unchanged + new)
 

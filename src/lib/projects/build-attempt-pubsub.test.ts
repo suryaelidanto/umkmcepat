@@ -15,6 +15,37 @@ describe("build-attempt-pubsub", () => {
     expect(readBuildProgressState("build_unknown")).toBe("gone");
   });
 
+  it("keeps channel type as operation when tool payload also has type", () => {
+    // Worker used to publish { type: "operation", ...op } where op.type is
+    // write_file — spread clobbered the SSE event name so the client ignored
+    // live ops (and never attached expandable diffs).
+    const received: Array<Record<string, unknown>> = [];
+    const unsub = subscribeBuildProgress("build_op_type", (event) => {
+      received.push(event as Record<string, unknown>);
+    });
+    publishBuildProgress("build_op_type", {
+      type: "operation",
+      title: "Menulis file",
+      path: "src/routes/index.tsx",
+      detail: "File dibuat atau ditimpa oleh agent.",
+      // tool command name — must NOT replace channel event type
+      tool: "write_file",
+      diff: [
+        { text: "export function Home()", type: "add" },
+        { text: "// starter", type: "delete" },
+      ],
+      state: "succeeded",
+    } as never);
+    unsub();
+    expect(received).toHaveLength(1);
+    expect(received[0]?.type).toBe("operation");
+    expect(received[0]?.tool).toBe("write_file");
+    expect(received[0]?.diff).toEqual([
+      { text: "export function Home()", type: "add" },
+      { text: "// starter", type: "delete" },
+    ]);
+  });
+
   it("replays buffered events to late subscribers", () => {
     publishBuildProgress("build_a", { type: "progress", label: "spec" });
     publishBuildProgress("build_a", { type: "progress", label: "sources" });

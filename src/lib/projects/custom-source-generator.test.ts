@@ -12,6 +12,7 @@ import {
   ensureStylesFileExists,
   extractClassNamesFromTsx,
   findMissingCssClasses,
+  findUnregisteredRouteFiles,
   generateCustomProjectFilesWithAgent,
   getTailwindCssRule,
   isStarterStylesContent,
@@ -676,6 +677,89 @@ describe("custom generated source agent", () => {
     expect(quality.issues).toContain(
       "preview-ready signal defined but never called (usePreviewReady must be invoked in a route/component)",
     );
+  });
+
+  it("findUnregisteredRouteFiles flags orphan multi-page routes", () => {
+    const files = [
+      {
+        path: "src/router.tsx",
+        content: `import { createRoute } from "@tanstack/react-router";
+import { rootRoute } from "./routes/__root";
+import { HomeRouteComponent } from "./routes/index";
+const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: HomeRouteComponent });
+const routeTree = rootRoute.addChildren([indexRoute]);`,
+      },
+      {
+        path: "src/routes/index.tsx",
+        content: "export function HomeRouteComponent(){return null}",
+      },
+      {
+        path: "src/routes/katalog.tsx",
+        content: "export function Katalog(){return null}",
+      },
+      {
+        path: "src/routes/not-found.tsx",
+        content: "export function NotFound(){return null}",
+      },
+    ];
+    expect(findUnregisteredRouteFiles(files)).toEqual([
+      "src/routes/katalog.tsx",
+    ]);
+  });
+
+  it("findUnregisteredRouteFiles accepts registered extra routes", () => {
+    const files = [
+      {
+        path: "src/router.tsx",
+        content: `import { KatalogPage } from "./routes/katalog";
+const katalogRoute = createRoute({ path: "/katalog", component: KatalogPage });
+rootRoute.addChildren([indexRoute, katalogRoute]);`,
+      },
+      {
+        path: "src/routes/katalog.tsx",
+        content: "export function KatalogPage(){return null}",
+      },
+    ];
+    expect(findUnregisteredRouteFiles(files)).toEqual([]);
+  });
+
+  it("checkAgentSourceQuality fails when multi-page route is not in router", () => {
+    const files = [
+      {
+        path: "src/content/site.ts",
+        content: "export const site = {}",
+      },
+      {
+        path: "src/index.css",
+        content: "@import 'tailwindcss';",
+      },
+      {
+        path: "src/lib/preview-ready.ts",
+        content: "export function usePreviewReady(){}",
+      },
+      {
+        path: "src/router.tsx",
+        content: `import { HomeRouteComponent } from "./routes/index";
+const indexRoute = createRoute({ path: "/", component: HomeRouteComponent });`,
+      },
+      {
+        path: "src/routes/index.tsx",
+        content: `import { usePreviewReady } from "@/lib/preview-ready";
+export function HomeRouteComponent(){ usePreviewReady(); return <div className="p-4">home</div> }`,
+      },
+      {
+        path: "src/routes/kontak.tsx",
+        content: "export function Kontak(){ return <div>kontak</div> }",
+      },
+    ];
+    const edited = new Set(["src/routes/index.tsx", "src/routes/kontak.tsx"]);
+    const quality = checkAgentSourceQuality(files, edited);
+    expect(quality.ok).toBe(false);
+    if (!quality.ok) {
+      expect(
+        quality.issues.some((i) => i.includes("not registered in src/router")),
+      ).toBe(true);
+    }
   });
 
   it("checkAgentSourceQuality passes when usePreviewReady is called outside its definition", async () => {

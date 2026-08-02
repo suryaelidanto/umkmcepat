@@ -92,6 +92,7 @@ export async function runBuildAttempt({
 
   function persistProgressEvent(input: {
     detail: string;
+    diff?: unknown;
     label: string;
     path?: string;
   }) {
@@ -114,6 +115,9 @@ export async function runBuildAttempt({
             detail,
             label,
             ...(input.path ? { path: input.path } : {}),
+            ...(Array.isArray(input.diff) && input.diff.length > 0
+              ? { diff: input.diff }
+              : {}),
           },
           projectId,
           type: "build.progress",
@@ -126,7 +130,17 @@ export async function runBuildAttempt({
     event: BuildProgressEvent["type"],
     data: Record<string, unknown>,
   ) {
-    publishBuildProgress(attemptId, { type: event, ...data });
+    // Op payloads use `type` for the tool name (write_file, …). Put channel
+    // event type last so it is not clobbered; surface tool name as `tool`.
+    const toolType =
+      event === "operation" && typeof data.type === "string"
+        ? data.type
+        : undefined;
+    publishBuildProgress(attemptId, {
+      ...data,
+      ...(toolType ? { tool: toolType } : {}),
+      type: event,
+    });
 
     if (event === "progress" && "label" in data) {
       const label = String((data as { label?: unknown }).label ?? "").trim();
@@ -146,8 +160,8 @@ export async function runBuildAttempt({
         typeof data.path === "string" && data.path.trim()
           ? data.path.trim()
           : undefined;
-      const opType = typeof data.type === "string" ? data.type : undefined;
-      const isWrite = opType === "write_file" || opType === "replace_in_file";
+      const isWrite =
+        toolType === "write_file" || toolType === "replace_in_file";
       const now = Date.now();
       // Always persist writes; throttle reads/checks so DB stays small.
       if (
@@ -163,7 +177,11 @@ export async function runBuildAttempt({
           ? data.detail.trim()
           : "Operasi selesai.";
       const detail = path ? `${path} — ${detailBase}` : detailBase;
-      persistProgressEvent({ detail, label: title, path });
+      const diff =
+        isWrite && Array.isArray(data.diff) && data.diff.length > 0
+          ? data.diff
+          : undefined;
+      persistProgressEvent({ detail, diff, label: title, path });
     }
   }
 

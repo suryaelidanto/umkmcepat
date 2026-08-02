@@ -147,6 +147,10 @@ describe("deriveActiveProjectJob", () => {
               "src/routes/index.tsx — File dibuat atau ditimpa oleh agent.",
             label: "Menulis file",
             path: "src/routes/index.tsx",
+            diff: [
+              { text: "export function Home()", type: "add" },
+              { text: "// starter", type: "delete" },
+            ],
           },
           type: "build.progress",
         },
@@ -168,6 +172,10 @@ describe("deriveActiveProjectJob", () => {
       "Menulis file",
     ]);
     expect(job?.steps[1]?.detail).toContain("src/routes/index.tsx");
+    expect(job?.steps[1]?.diff).toEqual([
+      { text: "export function Home()", type: "add" },
+      { text: "// starter", type: "delete" },
+    ]);
   });
 
   it("treats open visual_comment edit as active even when last build succeeded", () => {

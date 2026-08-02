@@ -121,4 +121,30 @@ describe("reduceBuildStreamEvent", () => {
       status: "done",
     });
   });
+
+  it("keeps expandable file diffs on write/replace operations", () => {
+    const diff = [
+      { text: "export function HomeRouteComponent() {", type: "add" as const },
+      {
+        text: "// Replace this with the real home page",
+        type: "delete" as const,
+      },
+    ];
+    const result = reduceBuildStreamEvent({
+      type: "operation",
+      title: "Menulis file",
+      path: "src/routes/index.tsx",
+      detail: "File dibuat atau ditimpa oleh agent.",
+      state: "succeeded",
+      tool: "write_file",
+      diff,
+    });
+    expect(result.kind).toBe("progress");
+    if (result.kind !== "progress") {
+      throw new Error("expected progress");
+    }
+    const step = result.update([])[0];
+    expect(step.diff).toEqual(diff);
+    expect(step.diff?.length).toBeGreaterThan(0);
+  });
 });

@@ -356,9 +356,19 @@ export async function generateCustomProjectFilesWithAgent({
       files = stubbed.files;
     }
 
-    // Recheck quality. The stubs satisfy the missing CSS check, so other
-    // quality rules (e.g. preview-ready signal) are verified one last time.
+    // Final quality re-check before deliver (stubs may have healed CSS only).
     quality = checkAgentSourceQuality(files, agentEditedFiles);
+    const qualityOp: GeneratedAppAgentOperation = {
+      detail: quality.ok
+        ? "Source lolos cek kualitas (route, CSS, preview-ready)."
+        : quality.issues.slice(0, 4).join("; "),
+      id: `quality-${operationTrace.length + 1}`,
+      state: quality.ok ? "succeeded" : "failed",
+      title: "Cek kualitas source",
+      type: "check_app",
+    };
+    operationTrace.push(qualityOp);
+    onOperation?.(qualityOp);
 
     if (!quality.ok) {
       devLog("generate", "source.invalid", {
@@ -2164,7 +2174,57 @@ export function checkAgentSourceQuality(
     );
   }
 
+  // Multi-page consistency: every route module under src/routes/ (except
+  // platform-owned __root / not-found) must be registered in src/router.tsx.
+  const orphans = findUnregisteredRouteFiles(files);
+  if (orphans.length > 0) {
+    issues.push(
+      `route files not registered in src/router.tsx: ${orphans.slice(0, 6).join(", ")}`,
+    );
+  }
+
   return issues.length ? { issues, ok: false } : { issues: [], ok: true };
+}
+
+/** Platform-owned route modules that need not appear in addChildren imports. */
+const PLATFORM_ROUTE_BASENAMES = new Set(["__root", "not-found", "index"]);
+
+/**
+ * Route files under src/routes/*.tsx that are not referenced from router.tsx.
+ * Index is required by quality separately; orphans are extra pages the agent
+ * wrote but never wired — multi-page sites would 404 or hide those pages.
+ */
+export function findUnregisteredRouteFiles(
+  files: GeneratedProjectFile[],
+): string[] {
+  const router = files.find((file) => file.path === "src/router.tsx")?.content;
+  if (!router) {
+    return [];
+  }
+  const orphans: string[] = [];
+  for (const file of files) {
+    const match = file.path.match(/^src\/routes\/([^/]+)\.tsx$/);
+    if (!match) {
+      continue;
+    }
+    const base = match[1];
+    if (PLATFORM_ROUTE_BASENAMES.has(base)) {
+      continue;
+    }
+    // Import path, createRoute path segment, or component name from basename.
+    const pathHint = base.replace(/\./g, "");
+    const mentioned =
+      router.includes(`./routes/${base}`) ||
+      router.includes(`routes/${base}`) ||
+      router.includes(`"/${pathHint}"`) ||
+      router.includes(`'/${pathHint}'`) ||
+      router.includes(`"/${base}"`) ||
+      router.includes(`'/${base}'`);
+    if (!mentioned) {
+      orphans.push(file.path);
+    }
+  }
+  return orphans;
 }
 
 // Always-on design directive, distilled from anti-slop, design-quality, and
@@ -2323,6 +2383,7 @@ STYLING (shadcn + Tailwind only — no custom CSS):
 ROUTING & PAGE CONTRACT:
 - src/routes/index.tsx MUST export a component named HomeRouteComponent: "export function HomeRouteComponent() { ... }".
 - Prefer REAL multi-page routing when the brief has distinct sections (Home, Catalog, Contact, Product detail, etc.). Add one route file per page under src/routes/ (e.g. katalog.tsx, kontak.tsx) and register each in src/router.tsx via createRoute({ getParentRoute: () => rootRoute, path: "/katalog", component: ... }) then add it to rootRoute.addChildren([...]). Keep the existing index route and the path:"*" 404 catch-all.
+- MULTI-PAGE CONSISTENCY: every extra route file MUST be imported + registered in src/router.tsx in the same turn. Shared chrome (nav, footer, brand colors, fonts) belongs in __root.tsx layout so all pages match. Same palette tokens + type scale on every page — no one-off colors per route.
 - Navigate between pages with <Link to="/katalog"> from "@tanstack/react-router". Do NOT fake routing with useState tabs.
 - Do NOT edit src/main.tsx or src/routes/__root.tsx (you may add a shared layout in __root.tsx if the brief calls for header/footer, but keep <Outlet />). You MAY edit src/router.tsx to register your extra routes — nothing else there.
 - Import usePreviewReady from "@/lib/preview-ready".
