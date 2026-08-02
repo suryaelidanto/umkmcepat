@@ -2,11 +2,12 @@ import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ImagePlus, Loader2, Send, X } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";
 import { fetchJson } from "@/lib/query-client";
@@ -356,29 +357,14 @@ function TicketThreadPage() {
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-spacing-2 px-1">
               {attachments.map((item) => (
-                <div
+                <ImageUploadThumb
+                  alt="Thumbnail preview"
+                  className="size-12"
                   key={item.id}
-                  className="relative size-12 rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 overflow-hidden"
-                >
-                  <img
-                    src={item.url}
-                    alt="Thumbnail preview"
-                    className="size-full object-cover"
-                  />
-                  {item.uploading ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <Loader2 className="size-3 animate-spin text-surface-warm-white" />
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => removeAttachment(item.id)}
-                      className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  )}
-                </div>
+                  onRemove={() => removeAttachment(item.id)}
+                  src={item.url}
+                  uploading={item.uploading}
+                />
               ))}
             </div>
           )}

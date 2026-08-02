@@ -1,14 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  ImagePlus,
-  Loader2,
-  X,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ImagePlus, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -28,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";
 import { useSession } from "@/lib/auth-client";
@@ -172,8 +166,11 @@ function WaitlistPage() {
   const [devSkipDone, setDevSkipDone] = useState(false);
   const [step, setStep] = useState(1);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
-  const [uploadingPhotoCount, setUploadingPhotoCount] = useState(0);
+  const [uploadingPhotoKeys, setUploadingPhotoKeys] = useState(
+    () => new Set<string>(),
+  );
   const [photoAssetIds, setPhotoAssetIds] = useState<string[]>([]);
+  const uploadingPhotoCount = uploadingPhotoKeys.size;
   const hasTurnstile = Boolean(getTurnstileSiteKey());
   const isDev = import.meta.env.DEV;
 
@@ -521,27 +518,50 @@ function WaitlistPage() {
           <Step3
             errorMessage={form.errorMessage}
             onAddPhotos={async (newFiles) => {
+              const startLen = form.values.photo.length;
               const combined = [...form.values.photo, ...newFiles].slice(0, 3);
+              const accepted = combined.slice(startLen);
               form.setField("photo", combined as WaitlistValues["photo"]);
-              setUploadingPhotoCount((c) => c + newFiles.length);
-              for (const file of newFiles) {
+              const keys = accepted.map(waitlistPhotoKey);
+              setUploadingPhotoKeys((prev) => new Set([...prev, ...keys]));
+              for (const file of accepted) {
+                const key = waitlistPhotoKey(file);
                 try {
                   const { assetId } = await uploadTempImageFile(file);
                   setPhotoAssetIds((prev) => [...prev, assetId]);
                 } catch {
                   toast.error("Gagal mengunggah foto.");
                 } finally {
-                  setUploadingPhotoCount((c) => Math.max(0, c - 1));
+                  setUploadingPhotoKeys((prev) => {
+                    const next = new Set(prev);
+                    next.delete(key);
+                    return next;
+                  });
                 }
               }
             }}
             onRemovePhoto={(index) => {
+              const removed = form.values.photo[index];
+              if (removed) {
+                const key = waitlistPhotoKey(removed);
+                setUploadingPhotoKeys((prev) => {
+                  if (!prev.has(key)) {
+                    return prev;
+                  }
+                  const next = new Set(prev);
+                  next.delete(key);
+                  return next;
+                });
+              }
               const next = form.values.photo.filter((_, i) => i !== index);
               form.setField("photo", next as WaitlistValues["photo"]);
               setPhotoAssetIds((prev) => prev.filter((_, i) => i !== index));
             }}
             photoCount={form.values.photo.length}
             photoPreviews={photoPreviews}
+            photoUploading={form.values.photo.map((file) =>
+              uploadingPhotoKeys.has(waitlistPhotoKey(file)),
+            )}
           />
         ) : null}
 
@@ -623,11 +643,6 @@ function WaitlistPage() {
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Mengirim...
-                </>
-              ) : uploadingPhotoCount > 0 ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Mengunggah gambar...
                 </>
               ) : (
                 <>
@@ -943,14 +958,20 @@ function Step2({
   );
 }
 
+function waitlistPhotoKey(file: File) {
+  return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
 function Step3({
   photoPreviews,
+  photoUploading,
   onAddPhotos,
   onRemovePhoto,
   photoCount,
   errorMessage,
 }: {
   photoPreviews: string[];
+  photoUploading: boolean[];
   onAddPhotos: (files: File[]) => void;
   onRemovePhoto: (index: number) => void;
   photoCount: number;
@@ -966,24 +987,14 @@ function Step3({
     >
       <div className="flex flex-wrap gap-spacing-3">
         {photoPreviews.map((url, i) => (
-          <div
+          <ImageUploadThumb
+            alt={`Foto ${i + 1}`}
+            className="size-20"
             key={url}
-            className="relative size-20 overflow-hidden rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5"
-          >
-            <img
-              src={url}
-              alt={`Foto ${i + 1}`}
-              className="size-full object-cover"
-            />
-            <button
-              type="button"
-              onClick={() => onRemovePhoto(i)}
-              className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"
-              aria-label="Hapus foto"
-            >
-              <X className="size-3" />
-            </button>
-          </div>
+            onRemove={() => onRemovePhoto(i)}
+            src={url}
+            uploading={photoUploading[i] === true}
+          />
         ))}
         {canAdd ? (
           <label className="flex size-20 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-surface-warm-white/20 bg-surface-warm-white/5 text-surface-warm-white/60 transition hover:border-aurora-orange/40 hover:bg-surface-warm-white/10 hover:text-surface-warm-white/80">

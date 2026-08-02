@@ -13,6 +13,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";
 import { fetchJson } from "@/lib/query-client";
@@ -333,29 +334,14 @@ function SupportPage() {
               </span>
               <div className="flex flex-wrap gap-spacing-3">
                 {attachments.map((item) => (
-                  <div
+                  <ImageUploadThumb
+                    alt="Attachment preview"
+                    className="size-16"
                     key={item.id}
-                    className="relative size-16 rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 overflow-hidden"
-                  >
-                    <img
-                      src={item.url}
-                      alt="Attachment preview"
-                      className="size-full object-cover"
-                    />
-                    {item.uploading ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                        <Loader2 className="size-4 animate-spin text-surface-warm-white" />
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(item.id)}
-                        className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    )}
-                  </div>
+                    onRemove={() => removeAttachment(item.id)}
+                    src={item.url}
+                    uploading={item.uploading}
+                  />
                 ))}
 
                 {attachments.length < 3 && (

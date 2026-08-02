@@ -1,8 +1,9 @@
 "use client";
 
-import { Paperclip, X } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { useRef } from "react";
 
+import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import {
   MAX_COMPOSER_IMAGES,
   addAttachments,
@@ -23,29 +24,13 @@ export function ComposerAttachments({
   return (
     <div className="flex flex-wrap items-end gap-1.5 px-spacing-3 pb-spacing-2">
       {attachments.map((item) => (
-        <div
-          className="group relative h-11 w-11 shrink-0 overflow-hidden rounded-radius-md border border-surface-warm-white/12"
+        <ImageUploadThumb
+          className="size-11"
           key={item.id}
-        >
-          <img
-            alt=""
-            className="h-full w-full object-cover"
-            src={item.blobUrl}
-          />
-          {item.status === "uploading" ? (
-            <span className="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-[9px] text-white">
-              Mengunggah...
-            </span>
-          ) : null}
-          <button
-            aria-label="Hapus gambar"
-            className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-bl-radius-md bg-surface-warm-white/90 text-black opacity-0 transition hover:bg-surface-warm-white group-hover:opacity-100"
-            onClick={() => onRemove(item.id)}
-            type="button"
-          >
-            <X className="size-2.5" />
-          </button>
-        </div>
+          onRemove={() => onRemove(item.id)}
+          src={item.blobUrl}
+          uploading={item.status === "uploading"}
+        />
       ))}
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -119,16 +120,25 @@ export function FileUpload({
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
       >
-        {preview && !uploading ? (
-          <img
-            alt="Pratinjau unggahan"
-            src={preview}
-            className="max-h-32 max-w-full rounded-radius-md object-contain"
-          />
+        {preview ? (
+          <div className="relative max-h-32 max-w-full">
+            <img
+              alt="Pratinjau unggahan"
+              src={preview}
+              className="max-h-32 max-w-full rounded-radius-md object-contain"
+            />
+            {uploading ? (
+              <div
+                aria-busy="true"
+                aria-label="Mengunggah"
+                className="absolute inset-0 flex items-center justify-center rounded-radius-md bg-black/45"
+              >
+                <Loader2 className="size-5 animate-spin text-white" />
+              </div>
+            ) : null}
+          </div>
         ) : (
-          <span className="text-body-small text-muted-foreground">
-            {uploading ? "Mengunggah..." : label}
-          </span>
+          <span className="text-body-small text-muted-foreground">{label}</span>
         )}
         <span className="text-body-small text-muted-foreground">{hint}</span>
         <input
