@@ -174,6 +174,60 @@ export function abortAttemptJob(jobId: string): boolean {
   return abortJob(jobId);
 }
 
+async function failCleanAfterJobFailure(
+  data: AttemptJob | undefined,
+  error: Error,
+): Promise<void> {
+  if (!data) {
+    return;
+  }
+  try {
+    if (data.kind === "discuss") {
+      const { finalizeDiscussTurn } = await import("./discuss-turn");
+      const { publishProgress } = await import("./discuss-turn-pubsub");
+      await finalizeDiscussTurn({
+        turnId: data.turnId,
+        status: "failed",
+        errorMessage: error.message.slice(0, 500),
+      });
+      publishProgress(data.turnId, {
+        type: "error",
+        errorText: "Obrolan gagal diproses. Coba kirim lagi.",
+      });
+      return;
+    }
+
+    if (data.kind === "edit" || data.kind === "generate") {
+      const { prisma } = await import("@/lib/prisma");
+      const { publishBuildProgress } = await import("./build-attempt-pubsub");
+      const attemptId = data.attemptId;
+      await prisma.projectEditAttempt.updateMany({
+        where: {
+          id: attemptId,
+          finishedAt: null,
+        },
+        data: {
+          errorMessage: error.message.slice(0, 500),
+          finishedAt: new Date(),
+          status: "failed",
+        },
+      });
+      publishBuildProgress(attemptId, {
+        type: "error",
+        detail:
+          data.kind === "edit"
+            ? "Edit gagal diproses. Coba lagi."
+            : "Build gagal diproses. Coba jalankan lagi.",
+      });
+    }
+  } catch (cleanupError) {
+    devLog("attempt-queue", "fail-clean.error", {
+      kind: data.kind,
+      error: cleanupError instanceof Error ? cleanupError.message : "unknown",
+    });
+  }
+}
+
 export function startAttemptQueueWorker(): void {
   if (worker) {
     return;
@@ -189,8 +243,9 @@ export function startAttemptQueueWorker(): void {
       const abortSignal = registerJobAbort(jobId);
       try {
         if (data.kind === "generate") {
-          const { runBuildAttempt } =
-            await import("@/lib/projects/build-attempt-worker");
+          // Relative imports: Vite worker dynamic import of @/ aliases can
+          // fail for newly added modules ("Cannot find module").
+          const { runBuildAttempt } = await import("./build-attempt-worker");
           await runBuildAttempt({
             abortSignal,
             attemptId: data.attemptId,
@@ -209,14 +264,13 @@ export function startAttemptQueueWorker(): void {
 
         if (data.kind === "discuss") {
           const { runQueuedDiscussTurn } =
-            await import("@/lib/projects/discuss-queue-worker");
+            await import("./discuss-queue-worker");
           await runQueuedDiscussTurn(data, abortSignal);
           return { ok: true };
         }
 
         if (data.kind === "edit") {
-          const { runEditAttempt } =
-            await import("@/lib/projects/edit-attempt-worker");
+          const { runEditAttempt } = await import("./edit-attempt-worker");
           await runEditAttempt({
             abortSignal,
             attemptId: data.attemptId,
@@ -228,7 +282,7 @@ export function startAttemptQueueWorker(): void {
         }
 
         const { runQueuedEditBuild } =
-          await import("@/lib/projects/edit-build-queue-worker");
+          await import("./edit-build-queue-worker");
         return runQueuedEditBuild(data);
       } finally {
         clearJobAbort(jobId);
@@ -246,6 +300,8 @@ export function startAttemptQueueWorker(): void {
       attemptId: job?.id,
       error: error.message,
     });
+    // Fail-clean durable rows so UI is not stuck "running" until TTL/reaper.
+    void failCleanAfterJobFailure(job?.data as AttemptJob | undefined, error);
   });
 
   devLog("attempt-queue", "worker.started", {
