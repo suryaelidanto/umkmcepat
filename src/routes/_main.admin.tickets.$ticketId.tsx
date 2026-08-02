@@ -5,6 +5,8 @@ import { ArrowLeft, ImagePlus, Loader2, Send, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 
+import { ticketStatusDisplay } from "@/components/admin/admin-status";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
@@ -260,15 +262,14 @@ function AdminTicketThreadPage() {
         </div>
 
         <div className="flex items-center justify-between mt-spacing-2">
-          <span
-            className={`rounded-radius-sm px-2 py-0.5 text-[10px] font-bold ${
-              ticket.status === "OPEN"
-                ? "bg-aurora-orange/15 text-aurora-orange"
-                : "bg-surface-warm-white/10 text-surface-warm-white/50"
-            }`}
-          >
-            {ticket.status === "OPEN" ? "BUKA" : "SELESAI"}
-          </span>
+          {(() => {
+            const display = ticketStatusDisplay(ticket.status);
+            return (
+              <AdminStatusBadge tone={display.tone}>
+                {display.label}
+              </AdminStatusBadge>
+            );
+          })()}
 
           {isOpen && (
             <Button

@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { userFlagsDisplay } from "@/components/admin/admin-status";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
@@ -112,11 +114,17 @@ function UsersPage() {
                   u.email
                 )}
               </p>
-              <p className="text-surface-warm-white/70">
-                {u.projectsCount} proyek ·{" "}
-                {u.verified ? "Terverifikasi" : "Belum verifikasi"}
-                {u.bannedAt ? " · Diblokir" : ""}
-              </p>
+              <div className="mt-spacing-1 flex flex-wrap items-center gap-spacing-2 text-surface-warm-white/70">
+                <span>{u.projectsCount} proyek</span>
+                {userFlagsDisplay({
+                  verified: u.verified,
+                  banned: Boolean(u.bannedAt),
+                }).map((flag) => (
+                  <AdminStatusBadge key={flag.label} tone={flag.tone}>
+                    {flag.label}
+                  </AdminStatusBadge>
+                ))}
+              </div>
             </div>
             <button
               className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"

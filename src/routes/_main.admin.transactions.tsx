@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { paymentStatusDisplay } from "@/components/admin/admin-status";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
@@ -89,69 +91,67 @@ function TransactionsPage() {
       {txs.length === 0 ? (
         <p className="text-surface-warm-white/70">Tidak ada transaksi.</p>
       ) : (
-        txs.map((t) => (
-          <div
-            className="rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
-            key={t.orderId}
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-mono">
-                {streamerMode ? (
-                  <SensitiveText kind="orderId" value={t.orderId} />
-                ) : (
-                  t.orderId
-                )}
-              </span>
-              <span
-                className={
-                  t.status === "COMPLETED"
-                    ? "text-emerald-400"
-                    : t.status === "PENDING"
-                      ? "text-amber-400"
-                      : "text-red-400"
-                }
-              >
-                {t.status}
-              </span>
-            </div>
-            <p className="text-surface-warm-white">
-              {streamerMode ? (
-                <>
-                  <SensitiveText kind="amount" value={formatRupiah(t.amount)} />{" "}
-                  · {t.energyGranted} energi ·{" "}
-                  {t.email ? (
-                    <SensitiveText kind="email" value={t.email} />
+        txs.map((t) => {
+          const payment = paymentStatusDisplay(t.status);
+          return (
+            <div
+              className="rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
+              key={t.orderId}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-mono">
+                  {streamerMode ? (
+                    <SensitiveText kind="orderId" value={t.orderId} />
                   ) : (
-                    "—"
+                    t.orderId
                   )}
-                </>
-              ) : (
-                <>
-                  {formatRupiah(t.amount)} · {t.energyGranted} energi ·{" "}
-                  {t.email ?? "—"}
-                </>
-              )}
-            </p>
-            {t.paymentNumber ? (
-              <p className="text-surface-warm-white/70">
+                </span>
+                <AdminStatusBadge tone={payment.tone}>
+                  {payment.label}
+                </AdminStatusBadge>
+              </div>
+              <p className="text-surface-warm-white">
                 {streamerMode ? (
-                  <SensitiveText kind="orderId" value={t.paymentNumber} />
+                  <>
+                    <SensitiveText
+                      kind="amount"
+                      value={formatRupiah(t.amount)}
+                    />{" "}
+                    · {t.energyGranted} energi ·{" "}
+                    {t.email ? (
+                      <SensitiveText kind="email" value={t.email} />
+                    ) : (
+                      "—"
+                    )}
+                  </>
                 ) : (
-                  t.paymentNumber
+                  <>
+                    {formatRupiah(t.amount)} · {t.energyGranted} energi ·{" "}
+                    {t.email ?? "—"}
+                  </>
                 )}
               </p>
-            ) : null}
-            {t.status === "PENDING" ? (
-              <button
-                className="mt-spacing-2 rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
-                onClick={() => verify.mutate(t.orderId)}
-                type="button"
-              >
-                Verifikasi
-              </button>
-            ) : null}
-          </div>
-        ))
+              {t.paymentNumber ? (
+                <p className="text-surface-warm-white/70">
+                  {streamerMode ? (
+                    <SensitiveText kind="orderId" value={t.paymentNumber} />
+                  ) : (
+                    t.paymentNumber
+                  )}
+                </p>
+              ) : null}
+              {t.status === "PENDING" ? (
+                <button
+                  className="mt-spacing-2 rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
+                  onClick={() => verify.mutate(t.orderId)}
+                  type="button"
+                >
+                  Verifikasi
+                </button>
+              ) : null}
+            </div>
+          );
+        })
       )}
     </div>
   );

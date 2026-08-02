@@ -8,6 +8,8 @@ import {
 import { Loader2, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
+import { ticketStatusDisplay } from "@/components/admin/admin-status";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { Link } from "@/components/ui/link";
@@ -177,6 +179,14 @@ function AdminTicketsPage() {
                     >
                       {CATEGORY_LABELS[ticket.category]}
                     </span>
+                    {(() => {
+                      const display = ticketStatusDisplay(ticket.status);
+                      return (
+                        <AdminStatusBadge tone={display.tone}>
+                          {display.label}
+                        </AdminStatusBadge>
+                      );
+                    })()}
                   </div>
                   <span className="text-[10px] text-surface-warm-white/40">
                     {formatTimeAgo(ticket.updatedAt)}

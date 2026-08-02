@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { projectStatusTone } from "@/components/admin/admin-status";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
@@ -43,35 +45,6 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   });
-}
-
-/** Opacity tiers + destructive on fail. Raw DB strings stay as-is. */
-function statusPillClass(value: string) {
-  const v = value.toLowerCase();
-  if (
-    v.includes("fail") ||
-    v.includes("error") ||
-    v === "canceled" ||
-    v === "cancelled" ||
-    v === "stale"
-  ) {
-    return "border-destructive/50 bg-destructive/15 text-destructive";
-  }
-  if (
-    v === "ready" ||
-    v === "passed" ||
-    v === "succeeded" ||
-    v === "running" ||
-    v === "building" ||
-    v === "generating" ||
-    v === "editing" ||
-    v === "repairing" ||
-    v === "queued" ||
-    v === "starting"
-  ) {
-    return "border-surface-warm-white/40 bg-surface-warm-white/12 text-surface-warm-white";
-  }
-  return "border-surface-warm-white/12 bg-transparent text-surface-warm-white/70";
 }
 
 function ProjectsPage() {
@@ -153,16 +126,14 @@ function ProjectsPage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-spacing-2 text-xs sm:justify-end">
-                    <span
-                      className={`rounded-radius-sm border px-spacing-2 py-spacing-1 ${statusPillClass(project.status)}`}
-                    >
+                    <AdminStatusBadge tone={projectStatusTone(project.status)}>
                       {project.status}
-                    </span>
-                    <span
-                      className={`rounded-radius-sm border px-spacing-2 py-spacing-1 ${statusPillClass(project.buildStatus)}`}
+                    </AdminStatusBadge>
+                    <AdminStatusBadge
+                      tone={projectStatusTone(project.buildStatus)}
                     >
                       Build: {project.buildStatus}
-                    </span>
+                    </AdminStatusBadge>
                     <a
                       className="rounded-radius-sm border border-surface-warm-white/20 px-spacing-2 py-spacing-1 text-surface-warm-white underline-offset-2 hover:bg-surface-warm-white/8 hover:underline"
                       href={`/projects/${project.id}`}

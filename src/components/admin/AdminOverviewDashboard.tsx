@@ -17,6 +17,8 @@ import {
   YAxis,
 } from "recharts";
 
+import { paymentStatusDisplay } from "@/components/admin/admin-status";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { DashboardCard } from "@/components/admin/DashboardCard";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
@@ -193,7 +195,16 @@ function InvoicesTable({ data }: { data: OverviewData }) {
                       t.orderId
                     )}
                   </td>
-                  <td className="px-4 py-2.5">{t.status}</td>
+                  <td className="px-4 py-2.5">
+                    {(() => {
+                      const display = paymentStatusDisplay(t.status);
+                      return (
+                        <AdminStatusBadge tone={display.tone}>
+                          {display.label}
+                        </AdminStatusBadge>
+                      );
+                    })()}
+                  </td>
                   <td className="px-4 py-2.5 tabular-nums">
                     {streamerMode ? (
                       <SensitiveText
@@ -249,41 +260,52 @@ function ActivityFeed({ data }: { data: OverviewData }) {
         </div>
       ) : (
         <ul className="divide-y divide-surface-warm-white/8">
-          {items.map((item) => (
-            <li
-              className="flex items-start gap-3 px-4 py-3 text-sm"
-              key={`${item.kind}-${item.id}`}
-            >
-              <span className="mt-0.5 text-surface-warm-white/40">
-                {item.kind === "waitlist" ? (
-                  <ClipboardList className="size-4" />
-                ) : (
-                  <CreditCard className="size-4" />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">
+          {items.map((item) => {
+            const payment =
+              "status" in item && item.status
+                ? paymentStatusDisplay(item.status)
+                : null;
+            return (
+              <li
+                className="flex items-start gap-3 px-4 py-3 text-sm"
+                key={`${item.kind}-${item.id}`}
+              >
+                <span className="mt-0.5 text-surface-warm-white/40">
                   {item.kind === "waitlist" ? (
-                    streamerMode ? (
-                      <SensitiveText kind="name" value={item.title} />
+                    <ClipboardList className="size-4" />
+                  ) : (
+                    <CreditCard className="size-4" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">
+                    {item.kind === "waitlist" ? (
+                      streamerMode ? (
+                        <SensitiveText kind="name" value={item.title} />
+                      ) : (
+                        item.title
+                      )
+                    ) : streamerMode ? (
+                      <SensitiveText kind="orderId" value={item.title} />
                     ) : (
                       item.title
-                    )
-                  ) : streamerMode ? (
-                    <SensitiveText kind="orderId" value={item.title} />
-                  ) : (
-                    item.title
-                  )}
-                </p>
-                <p className="text-xs text-surface-warm-white/50">
-                  {item.kind === "waitlist" ? "Antrean" : "Transaksi"}
-                  {"status" in item && item.status
-                    ? ` · ${item.status}`
-                    : ""} · {new Date(item.time).toLocaleDateString("id-ID")}
-                </p>
-              </div>
-            </li>
-          ))}
+                    )}
+                  </p>
+                  <p className="flex flex-wrap items-center gap-1.5 text-xs text-surface-warm-white/50">
+                    <span>
+                      {item.kind === "waitlist" ? "Antrean" : "Transaksi"} ·{" "}
+                      {new Date(item.time).toLocaleDateString("id-ID")}
+                    </span>
+                    {payment ? (
+                      <AdminStatusBadge tone={payment.tone}>
+                        {payment.label}
+                      </AdminStatusBadge>
+                    ) : null}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
       <div className="border-t border-surface-warm-white/10 px-4 py-2">
