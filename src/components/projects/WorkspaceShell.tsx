@@ -64,9 +64,12 @@ import { buildHandoffLine } from "@/lib/projects/build-handoff";
 import {
   appendBuildProgressStep,
   completeBuildProgressSteps,
+  mergeHydratedBuildProgress,
+  resolveCurrentBuildProgressStep,
 } from "@/lib/projects/build-progress-steps";
 import {
   completeBuildStreamProgress,
+  createBuildStreamDeduper,
   reduceBuildStreamEvent,
 } from "@/lib/projects/build-stream-event";
 import { createUploadedImageFilePart } from "@/lib/projects/chat-file-parts";
@@ -258,6 +261,7 @@ export function WorkspaceShell({
   const [isLoadingSource, setIsLoadingSource] = useState(false);
   const [sourceReloadKey, setSourceReloadKey] = useState(0);
   const [buildProgress, setBuildProgress] = useState<BuildProgressStep[]>([]);
+  const buildStreamDeduperRef = useRef(createBuildStreamDeduper());
   const [buildStartedAt, setBuildStartedAt] = useState<number | null>(null);
   const [runtimeState, setRuntimeState] =
     useState<RuntimeWorkspaceState | null>(null);
@@ -599,15 +603,16 @@ export function WorkspaceShell({
         setBuildStartedAt((current) => current ?? Date.now());
       }
       if (job?.steps?.length) {
-        setBuildProgress(
-          job.steps.map((step) => ({
-            detail: step.detail,
-            diff: step.diff,
-            durationMs: step.durationMs,
-            label: step.label,
-            startedAt: step.startedAt,
-            status: step.status,
-          })),
+        const hydrated = job.steps.map((step) => ({
+          detail: step.detail,
+          diff: step.diff,
+          durationMs: step.durationMs,
+          label: step.label,
+          startedAt: step.startedAt,
+          status: step.status,
+        }));
+        setBuildProgress((current) =>
+          mergeHydratedBuildProgress(current, hydrated),
         );
       } else {
         setBuildProgress((current) =>
@@ -808,6 +813,9 @@ export function WorkspaceShell({
     setBuildStatus("building");
     setSourceStatus("not_started");
     setBuildProgress([]);
+    // Rows just got cleared, so the record of what was rendered must clear too
+    // — otherwise a replay of this same channel would be deduped into nothing.
+    buildStreamDeduperRef.current = createBuildStreamDeduper();
     setBuildStartedAt(Date.now());
     setActiveTab("preview");
     setMobileSurface("preview");
@@ -1210,6 +1218,10 @@ export function WorkspaceShell({
 
   const handleBuildStreamEvent = useCallback(
     (event: BuildStreamEvent) => {
+      // POST body reader and EventSource replay the same channel; drop repeats.
+      if (!buildStreamDeduperRef.current(event)) {
+        return;
+      }
       const result = reduceBuildStreamEvent(event);
 
       if (result.kind === "progress") {
@@ -2707,6 +2719,7 @@ export function WorkspaceShell({
             {isProcessing ? (
               <motion.div key="composer-processing" {...COMPOSER_TRANSITION}>
                 <ProcessingControl
+                  currentStep={resolveCurrentBuildProgressStep(buildProgress)}
                   mode={isBuilding ? "Buat" : "Diskusi"}
                   onStop={stopCurrentJob}
                 />

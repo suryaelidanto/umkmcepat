@@ -217,18 +217,11 @@ export async function generateCustomProjectFilesWithAgent({
         projectId,
       }),
       onStepFinish: stepCharger?.onStepFinish,
-      // Always call a tool — pure-text steps waste budget and never write.
+      // Require a tool each step (pure text wastes budget). Do not pin
+      // toolChoice to write_file only — that path burned full maxOutputTokens
+      // on reasoning with 0 tool_calls on live flash. Good-era builds used free
+      // tool selection + SPEED RULES; explore budget still blocks all-read.
       toolChoice: "required",
-      // Until home exists, force write_file (models were all-read / check_app only).
-      prepareStep: async () => {
-        if (!agentEditedFiles.has("src/routes/index.tsx")) {
-          return {
-            toolChoice: { type: "tool", toolName: "write_file" },
-            activeTools: ["write_file"] as const,
-          };
-        }
-        return {};
-      },
       // Step cap is a brake only — outcome still comes from quality checklist.
       // Energy exhaustion is a hard stop: the user has nothing left to spend.
       stopWhen: [
@@ -335,26 +328,9 @@ export async function generateCustomProjectFilesWithAgent({
       quality = checkAgentSourceQuality(files, agentEditedFiles);
     }
 
-    // Last resort after forced rewrites: brief-based home so preview still
-    // ships when the model returns 0 tool calls (router/provider flake).
-    if (!quality.ok && isNoMeaningfulEditFailure(quality.issues)) {
-      devLog("generate", "seed.brief-home", {
-        projectId,
-        issues: quality.issues,
-        toolOps: operationTrace.length,
-      });
-      const seeded = seedBriefBasedHome(files, schema);
-      files = seeded.files;
-      for (const path of seeded.editedPaths) {
-        agentEditedFiles.add(path);
-        touchedFiles.add(path);
-      }
-      files = ensureRouterRouteWired(files);
-      files = ensurePreviewReadyCalled(files);
-      files = ensureStylesFileExists(files, schema);
-      touchedFiles.add(AUTO_STYLE_PATH);
-      quality = checkAgentSourceQuality(files, agentEditedFiles);
-    }
+    // Do not seed a bland brief home — that hid 0-tool agent failures and
+    // shipped template design as buildStatus=passed (cmsbhyge8 etc.). Fail
+    // cleanly after rewrites so the user can retry for real agent writes.
 
     // Last-resort: if real CSS is still missing after rewrite attempts, inject
     // working Tailwind stubs/rules so the site at least renders — but cap it.
@@ -466,7 +442,6 @@ async function runForcedRewritePass({
 }) {
   // Write-focused tools only — rewrite pass must not burn budget on reads.
   const rewriteSteps = Math.min(20, getAgentMaxSteps("repair") + 8);
-  let rewriteHomeWritten = false;
   const agent = new ToolLoopAgent({
     model: getAiModel(getGenerationModel()),
     maxRetries: 2,
@@ -480,31 +455,14 @@ async function runForcedRewritePass({
       projectId,
     }),
     onStepFinish: stepCharger?.onStepFinish,
+    // toolChoice required only — same as main pass; write-focused toolset
+    // already omits explore tools so the model must write/check.
     toolChoice: "required",
-    prepareStep: async () => {
-      if (!rewriteHomeWritten) {
-        return {
-          toolChoice: { type: "tool", toolName: "write_file" },
-          activeTools: ["write_file"] as const,
-        };
-      }
-      return {};
-    },
     stopWhen: [
       isStepCount(rewriteSteps),
       () => stepCharger?.isExhausted() ?? false,
     ],
-    tools: createWriteFocusedAgentTools((command) => {
-      const out = runCommand(command);
-      if (
-        command.type === "write_file" &&
-        (command.path === "src/routes/index.tsx" ||
-          command.path?.endsWith("/routes/index.tsx"))
-      ) {
-        rewriteHomeWritten = true;
-      }
-      return out;
-    }),
+    tools: createWriteFocusedAgentTools(runCommand),
   });
 
   const localAbortController = new AbortController();
@@ -1062,7 +1020,8 @@ export function isStarterStylesContent(styleContent: string) {
 
 /**
  * Deterministic home page from ProjectSiteSchema.
- * Live last-resort after agent + forced rewrites write nothing.
+ * Test/helper only — not used on the live generate path (seed false-green
+ * shipped bland design as passed; fail cleanly instead).
  */
 export function seedBriefBasedHome(
   files: GeneratedProjectFile[],

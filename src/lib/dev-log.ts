@@ -52,6 +52,12 @@ function maskPii(metadata: Record<string, unknown>): Record<string, unknown> {
   for (const key of Object.keys(masked)) {
     if (piiKeys.has(key)) {
       masked[key] = "[REDACTED]";
+    } else if (Array.isArray(masked[key])) {
+      masked[key] = (masked[key] as unknown[]).map((item) =>
+        item && typeof item === "object" && !Array.isArray(item)
+          ? maskPii(item as Record<string, unknown>)
+          : item,
+      );
     } else if (masked[key] && typeof masked[key] === "object") {
       masked[key] = maskPii(masked[key] as Record<string, unknown>);
     }
@@ -92,6 +98,22 @@ async function maybeRotate(line: string) {
   }
 }
 
+/** Stable key order for objects; arrays pass through (Object.keys replacer broke them). */
 function stableJson(value: Record<string, unknown>) {
-  return JSON.stringify(value, Object.keys(value).sort());
+  return JSON.stringify(value, (_key, nested) => {
+    if (
+      nested &&
+      typeof nested === "object" &&
+      !Array.isArray(nested) &&
+      !(nested instanceof Date)
+    ) {
+      const obj = nested as Record<string, unknown>;
+      return Object.fromEntries(
+        Object.keys(obj)
+          .sort()
+          .map((k) => [k, obj[k]]),
+      );
+    }
+    return nested;
+  });
 }

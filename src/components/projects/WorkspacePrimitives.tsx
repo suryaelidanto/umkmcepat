@@ -1163,17 +1163,27 @@ export function BuildProgressPanel({
 }
 
 export function ProcessingControl({
+  currentStep,
   mode,
   onStop,
 }: {
+  /** Newest live build row; when present it replaces the generic build copy. */
+  currentStep?: { detail?: string; label: string } | null;
   mode: "Diskusi" | "Buat";
   onStop: () => void;
 }) {
-  const title = mode === "Buat" ? "Membuat website" : "Menyusun jawaban";
-  const detail =
+  const fallbackTitle =
+    mode === "Buat" ? "Membuat website" : "Menyusun jawaban";
+  const fallbackDetail =
     mode === "Buat"
       ? "AI sedang menyiapkan file website dan tampilannya."
       : "AI sedang menyiapkan jawaban.";
+  const title =
+    mode === "Buat" && currentStep?.label ? currentStep.label : fallbackTitle;
+  const detail =
+    mode === "Buat" && currentStep?.label
+      ? currentStep.detail || fallbackDetail
+      : fallbackDetail;
 
   return (
     <div className="mt-spacing-3 overflow-hidden rounded-[22px] border border-surface-warm-white/10 bg-[#242421] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">

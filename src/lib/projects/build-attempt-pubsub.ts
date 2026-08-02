@@ -6,6 +6,7 @@ export type BuildProgressEvent = {
 
 type Channel = {
   events: BuildProgressEvent[];
+  nextSeq: number;
   subscribers: Set<(event: BuildProgressEvent) => void>;
 };
 
@@ -18,14 +19,24 @@ export function publishBuildProgress(
 ): void {
   let channel = channels.get(attemptId);
   if (!channel) {
-    channel = { events: [], subscribers: new Set() };
+    channel = { events: [], nextSeq: 0, subscribers: new Set() };
     channels.set(attemptId, channel);
   }
 
-  channel.events.push(event);
+  // `attemptId` + monotonic `seq` let a client that reads the same channel
+  // twice (POST body reader + late EventSource replay) drop events it already
+  // rendered, without needing to know which reader delivered them.
+  const stamped: BuildProgressEvent = {
+    ...event,
+    attemptId,
+    seq: channel.nextSeq,
+  };
+  channel.nextSeq += 1;
+
+  channel.events.push(stamped);
   for (const subscriber of channel.subscribers) {
     try {
-      subscriber(event);
+      subscriber(stamped);
     } catch {
       /* ignore subscriber errors */
     }
@@ -42,7 +53,7 @@ export function subscribeBuildProgress(
 ): () => void {
   let channel = channels.get(attemptId);
   if (!channel) {
-    channel = { events: [], subscribers: new Set() };
+    channel = { events: [], nextSeq: 0, subscribers: new Set() };
     channels.set(attemptId, channel);
   }
 

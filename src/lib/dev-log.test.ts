@@ -69,6 +69,26 @@ describe("devLog", () => {
     process.env.NODE_ENV = orig;
   });
 
+  it("preserves arrays in metadata (edited/issues paths)", async () => {
+    const orig = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    devLog("generate", "agent.pass", {
+      edited: ["src/routes/index.tsx", "src/content/site.ts"],
+      issues: ["home route was not written by the agent"],
+      writeOps: 2,
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    const contents = readFileSync(LOG_FILE, "utf8");
+    expect(contents).toContain('"src/routes/index.tsx"');
+    expect(contents).toContain('"src/content/site.ts"');
+    expect(contents).toContain("home route was not written by the agent");
+    expect(contents).toContain('"writeOps":2');
+    // Broken Object.keys replacer used to serialize arrays as {}
+    expect(contents).not.toMatch(/"edited"\s*:\s*\{\}/);
+    expect(contents).not.toMatch(/"issues"\s*:\s*\{\}/);
+    process.env.NODE_ENV = orig;
+  });
+
   it("does not write in production", async () => {
     const orig = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";

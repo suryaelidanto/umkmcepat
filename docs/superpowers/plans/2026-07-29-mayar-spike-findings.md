@@ -200,3 +200,29 @@ paymentMethod: None
 HTTP 200
 data: null   ← no channels configured on sandbox account
 ```
+
+## 7. Sandbox hosted checkout broken (2026-07-31)
+
+**Symptom:** Create invoice/payment returns 200 with
+`link: https://umkmcepat.mayar.shop/invoices/<slug>`, but:
+
+- `https://umkmcepat.mayar.shop/` → plain `404 page not found` (entire host)
+- `https://umkmcepat.myr.id/invoices/<slug>` → SPA shell 200, then **"Invoice Not Found"**
+  (`myr.id` is the **production** storefront; sandbox invoices live only on
+  `api.mayar.club` and are not visible there)
+- `paymentMethod: "qris"` → 400 `Payment channel configuration not found`
+- `GET /payment-channels` → `data: null`
+- Dynamic QR (`POST /qr-codes/create`) returns an image URL only — **no**
+  `transactionId` / order correlation, so it cannot replace invoice checkout
+  for our webhook flow
+
+**Conclusion:** Not an app bug. Mayar sandbox storefront host for this
+merchant is down / unrouted, and payment channels are not enabled. Paid rows
+from 2026-07-29–30 show checkout worked briefly before; it does not now.
+
+**What we can do in-app:** nothing that restores hosted sandbox checkout.
+Options: (1) Mayar support fix `*.mayar.shop` + enable channels on sandbox,
+(2) test against production Mayar keys, (3) local flow via
+`scripts/simulate-payment.ts` + admin verify / webhook with tunnel.
+
+**Do not** rewrite `*.mayar.shop` → `*.myr.id` on sandbox: wrong environment.

@@ -60,6 +60,67 @@ describe("build-attempt-pubsub", () => {
     expect(events).toEqual(["spec"]);
   });
 
+  it("stamps a monotonic seq and the attempt id on every event", () => {
+    publishBuildProgress("build_seq_stamp", {
+      type: "progress",
+      label: "spec",
+    });
+    publishBuildProgress("build_seq_stamp", {
+      type: "operation",
+      title: "Menulis file",
+    });
+    publishBuildProgress("build_seq_stamp", { type: "done" });
+
+    const stamped: { attemptId: unknown; seq: unknown }[] = [];
+    subscribeBuildProgress("build_seq_stamp", (event) => {
+      stamped.push({ attemptId: event.attemptId, seq: event.seq });
+    });
+
+    expect(stamped.map((event) => event.seq)).toEqual([0, 1, 2]);
+    expect(stamped.map((event) => event.attemptId)).toEqual([
+      "build_seq_stamp",
+      "build_seq_stamp",
+      "build_seq_stamp",
+    ]);
+  });
+
+  it("replays the same seq values to a late subscriber", () => {
+    publishBuildProgress("build_seq_replay", {
+      type: "progress",
+      label: "spec",
+    });
+    publishBuildProgress("build_seq_replay", {
+      type: "progress",
+      label: "sources",
+    });
+
+    const seqs: unknown[] = [];
+    subscribeBuildProgress("build_seq_replay", (event) => seqs.push(event.seq));
+
+    expect(seqs).toEqual([0, 1]);
+
+    publishBuildProgress("build_seq_replay", {
+      type: "progress",
+      label: "build",
+    });
+
+    expect(seqs).toEqual([0, 1, 2]);
+  });
+
+  it("counts seq independently per attempt channel", () => {
+    publishBuildProgress("build_seq_one", { type: "progress", label: "spec" });
+    publishBuildProgress("build_seq_one", { type: "progress", label: "build" });
+    publishBuildProgress("build_seq_two", { type: "progress", label: "spec" });
+
+    const first: unknown[] = [];
+    const second: unknown[] = [];
+    subscribeBuildProgress("build_seq_one", (event) => first.push(event.seq));
+    subscribeBuildProgress("build_seq_two", (event) => second.push(event.seq));
+
+    expect(first).toEqual([0, 1]);
+    expect(second).toEqual([0]);
+  });
+
   it("returns an SSE response that closes on terminal", async () => {
     publishBuildProgress("build_e", { type: "progress", label: "spec" });
     const response = createReadStreamFromChannel("build_e");

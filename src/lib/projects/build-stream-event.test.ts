@@ -1,6 +1,71 @@
 import { describe, expect, it } from "vitest";
 
-import { reduceBuildStreamEvent } from "./build-stream-event";
+import {
+  createBuildStreamDeduper,
+  reduceBuildStreamEvent,
+} from "./build-stream-event";
+
+describe("createBuildStreamDeduper", () => {
+  it("passes events that carry no seq", () => {
+    const isFresh = createBuildStreamDeduper();
+    const event = { type: "progress" as const, label: "spec" };
+
+    expect(isFresh(event)).toBe(true);
+    expect(isFresh(event)).toBe(true);
+  });
+
+  it("drops a repeated seq from the same attempt", () => {
+    const isFresh = createBuildStreamDeduper();
+    const event = {
+      type: "progress" as const,
+      attemptId: "build_a",
+      label: "spec",
+      seq: 0,
+    };
+
+    expect(isFresh(event)).toBe(true);
+    expect(isFresh(event)).toBe(false);
+  });
+
+  it("keeps seq spaces separate per attempt", () => {
+    const isFresh = createBuildStreamDeduper();
+
+    expect(
+      isFresh({
+        type: "progress",
+        attemptId: "build_a",
+        label: "spec",
+        seq: 0,
+      }),
+    ).toBe(true);
+    expect(
+      isFresh({
+        type: "progress",
+        attemptId: "build_b",
+        label: "spec",
+        seq: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("forgets attempts past the retention bound", () => {
+    const isFresh = createBuildStreamDeduper();
+    for (const attemptId of ["build_1", "build_2", "build_3", "build_4"]) {
+      expect(
+        isFresh({ type: "progress", attemptId, label: "spec", seq: 0 }),
+      ).toBe(true);
+    }
+
+    expect(
+      isFresh({
+        type: "progress",
+        attemptId: "build_1",
+        label: "spec",
+        seq: 0,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe("reduceBuildStreamEvent", () => {
   it("turns progress events into build progress updates", () => {

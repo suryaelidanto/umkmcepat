@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   appendBuildProgressStep,
   completeBuildProgressSteps,
+  mergeHydratedBuildProgress,
   type ProgressStepLike,
+  resolveCurrentBuildProgressStep,
 } from "./build-progress-steps";
 
 describe("appendBuildProgressStep", () => {
@@ -80,5 +82,51 @@ describe("completeBuildProgressSteps", () => {
       { detail: "c", label: "C", status: "error" as const },
     ]);
     expect(steps.map((s) => s.status)).toEqual(["done", "done", "error"]);
+  });
+});
+
+describe("mergeHydratedBuildProgress", () => {
+  const live: ProgressStepLike[] = [
+    { detail: "a", label: "Memahami usaha", status: "done" },
+    { detail: "b", label: "Menulis file", status: "done" },
+    { detail: "c", label: "Menulis file", status: "done" },
+  ];
+
+  it("keeps live rows when the server list is shorter", () => {
+    const merged = mergeHydratedBuildProgress(live, [
+      { detail: "a", label: "Memahami usaha", status: "done" },
+    ]);
+    expect(merged).toBe(live);
+  });
+
+  it("keeps live rows when the lists are the same length", () => {
+    const merged = mergeHydratedBuildProgress(live, [
+      { detail: "", label: "Memahami usaha", status: "done" },
+      { detail: "", label: "Menulis file", status: "done" },
+      { detail: "", label: "Menulis file", status: "done" },
+    ]);
+    expect(merged).toBe(live);
+  });
+
+  it("adopts the server list when it is strictly longer", () => {
+    const hydrated: ProgressStepLike[] = [
+      ...live,
+      { detail: "d", label: "Menyiapkan preview", status: "active" },
+    ];
+    expect(mergeHydratedBuildProgress(live, hydrated)).toBe(hydrated);
+  });
+});
+
+describe("resolveCurrentBuildProgressStep", () => {
+  it("returns null when there are no steps", () => {
+    expect(resolveCurrentBuildProgressStep([])).toBeNull();
+  });
+
+  it("returns the newest row even when it is already done", () => {
+    const step = resolveCurrentBuildProgressStep<ProgressStepLike>([
+      { detail: "brief", label: "Memahami usaha", status: "active" },
+      { detail: "src/routes/index.tsx", label: "Menulis file", status: "done" },
+    ]);
+    expect(step?.label).toBe("Menulis file");
   });
 });
