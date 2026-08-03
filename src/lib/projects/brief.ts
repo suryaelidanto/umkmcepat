@@ -83,7 +83,21 @@ export type BriefQuestion = {
 export type WorkspaceCard =
   | { type: "none" }
   | { type: "question"; question: BriefQuestion }
-  | { type: "build_recommendation"; title: string; summary: string[] };
+  | {
+      type: "build_recommendation";
+      title: string;
+      summary: string[];
+      // contract-v1 only: opaque handoff id + review proof. These do NOT enter
+      // the consumed/hold signature (kept stable for legacy cards).
+      handoffId?: string;
+      reviewHash?: string;
+      reviewItems?: Array<{
+        id: string;
+        kind: string;
+        label: string;
+        value: string;
+      }>;
+    };
 
 export type ProjectBriefPatch = Partial<
   Pick<

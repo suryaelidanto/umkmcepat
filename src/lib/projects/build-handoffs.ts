@@ -11,6 +11,58 @@ export type ActiveHandoff = {
   planRevision: number;
 };
 
+export type CreateHandoffInput = {
+  projectId: string;
+  userId: string;
+  engine: string;
+  contract: unknown;
+  plan: unknown;
+  contractHash: string;
+  planHash: string;
+  reviewItems: unknown;
+  reviewHash: string;
+  contractRevision: number;
+  planRevision: number;
+};
+
+/** Create (or reuse) an immutable draft handoff for a contract/plan pair.
+ * Idempotent on the revision-unique constraint; equal semantic content at a
+ * later revision creates a distinct row. */
+export async function createDraftHandoff(
+  input: CreateHandoffInput,
+): Promise<{ id: string; reused: boolean }> {
+  const existing = await prisma.projectBuildHandoff.findUnique({
+    where: {
+      projectId_contractRevision_planRevision: {
+        projectId: input.projectId,
+        contractRevision: input.contractRevision,
+        planRevision: input.planRevision,
+      },
+    },
+    select: { id: true },
+  });
+  if (existing) {
+    return { id: existing.id, reused: true };
+  }
+  const created = await prisma.projectBuildHandoff.create({
+    data: {
+      projectId: input.projectId,
+      userId: input.userId,
+      engine: input.engine,
+      contract: input.contract as object,
+      plan: input.plan as object,
+      contractHash: input.contractHash,
+      planHash: input.planHash,
+      reviewItems: input.reviewItems as object,
+      reviewHash: input.reviewHash,
+      contractRevision: input.contractRevision,
+      planRevision: input.planRevision,
+    },
+    select: { id: true },
+  });
+  return { id: created.id, reused: false };
+}
+
 /** Resolve the selected contract-v1 deployment's handoff for a project. */
 export async function loadActiveHandoff(
   projectId: string,

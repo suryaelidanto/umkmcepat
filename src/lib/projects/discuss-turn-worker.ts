@@ -22,6 +22,7 @@ import { devLog } from "@/lib/dev-log";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
+import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   buildProjectChatContext,
@@ -66,7 +67,13 @@ export async function runDiscussTurn({
   abortSignal,
 }: {
   turnId: string;
-  project: { id: string; prompt: string; status: string; title: string };
+  project: {
+    id: string;
+    prompt: string;
+    status: string;
+    title: string;
+    generationEngine: string;
+  };
   chatContext: ReturnType<typeof buildProjectChatContext>;
   effectiveBrief: ReturnType<typeof parseProjectBrief>;
   memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
@@ -780,6 +787,48 @@ export async function runDiscussTurn({
 
     if (hasCard) {
       const title = workspaceTurn.projectTitle || project.title;
+      // contract-v1: prepare an immutable handoff before showing the build
+      // card. legacy-v1 never runs this; it keeps post-click spec generation.
+      let handoffId: string | undefined;
+      let reviewHash: string | undefined;
+      let reviewItems: Array<{
+        id: string;
+        kind: string;
+        label: string;
+        value: string;
+      }> = [];
+      if (
+        workspaceTurn.workspaceCard.type === "build_recommendation" &&
+        project.generationEngine === "contract-v1" &&
+        workspaceTurn.readyForBuild
+      ) {
+        const prepared = await prepareBuildHandoff({
+          projectId: project.id,
+          userId,
+          engine: "contract-v1",
+          brief: workspaceTurn.brief,
+          turnId,
+        });
+        if (prepared.state === "ready") {
+          handoffId = prepared.handoffId;
+          reviewHash = prepared.reviewHash;
+          reviewItems = prepared.reviewItems.map((i) => ({
+            id: i.id,
+            kind: i.kind,
+            label: i.label,
+            value: i.value,
+          }));
+          workspaceTurn = {
+            ...workspaceTurn,
+            workspaceCard: {
+              ...workspaceTurn.workspaceCard,
+              handoffId,
+              reviewHash,
+              reviewItems,
+            },
+          };
+        }
+      }
       await writeAiRequestLog({
         event: "discuss:finish",
         model: modelName,

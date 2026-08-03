@@ -140,7 +140,13 @@ async function handlePreviewPost(request: Request) {
 
   const project = await prisma.project.findFirst({
     where: { id: body.projectId, userId },
-    select: { id: true, prompt: true, status: true, title: true },
+    select: {
+      id: true,
+      prompt: true,
+      status: true,
+      title: true,
+      generationEngine: true,
+    },
   });
 
   if (!project) {
@@ -402,7 +408,13 @@ async function handleDiscussTurnOneCall({
   effectiveBrief: ReturnType<typeof parseProjectBrief>;
   memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
   messages: UIMessage[];
-  project: { id: string; prompt: string; status: string; title: string };
+  project: {
+    id: string;
+    prompt: string;
+    status: string;
+    title: string;
+    generationEngine: string;
+  };
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
@@ -469,6 +481,7 @@ async function handleDiscussTurnOneCall({
       projectPrompt: project.prompt,
       projectStatus: project.status,
       projectTitle: project.title,
+      generationEngine: project.generationEngine,
     });
   } catch (error) {
     // English log for developers; Indonesian only in DB + client message.

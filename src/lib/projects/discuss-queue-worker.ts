@@ -95,6 +95,7 @@ export async function runQueuedDiscussTurn(
         prompt: job.projectPrompt,
         status: job.projectStatus,
         title: job.projectTitle,
+        generationEngine: job.generationEngine,
       },
       chatContext,
       effectiveBrief,

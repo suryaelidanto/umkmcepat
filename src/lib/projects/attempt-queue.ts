@@ -66,6 +66,7 @@ export type DiscussAttemptJob = {
   projectPrompt: string;
   projectStatus: string;
   projectTitle: string;
+  generationEngine: string;
 };
 
 export type AttemptJob =
