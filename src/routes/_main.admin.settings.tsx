@@ -12,6 +12,7 @@ import {
 import type { CategoryGroup } from "./-_main.admin.settings.helpers";
 
 import { AdvancedSettingsDisclosure } from "@/components/admin/AdvancedSettingsDisclosure";
+import { settingsSaveInvalidateKeys } from "@/lib/admin-settings-sync";
 import { fetchJson } from "@/lib/query-client";
 
 export const Route = createFileRoute("/_main/admin/settings")({
@@ -182,8 +183,12 @@ function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         method: "PUT",
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "settings"] });
+    onSuccess: async () => {
+      await Promise.all(
+        settingsSaveInvalidateKeys().map((queryKey) =>
+          queryClient.invalidateQueries({ queryKey: [...queryKey] }),
+        ),
+      );
       setDraft({});
       toast.success("Pengaturan disimpan.");
     },
