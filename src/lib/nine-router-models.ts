@@ -9,6 +9,10 @@ export function resetNineRouterModelsCacheForTests() {
   cache = null;
 }
 
+/**
+ * 9Router combos only (not upstream provider models).
+ * Combos appear in GET /v1/models with owned_by: "combo".
+ */
 export async function listNineRouterModels(): Promise<string[]> {
   if (cache && cache.expiresAt > Date.now()) {
     return cache.models;
@@ -32,11 +36,12 @@ export async function listNineRouterModels(): Promise<string[]> {
       return [];
     }
     const body = (await response.json()) as {
-      data?: Array<{ id?: unknown }>;
+      data?: Array<{ id?: unknown; owned_by?: unknown }>;
     };
     const models = [
       ...new Set(
         (body.data ?? [])
+          .filter((row) => row.owned_by === "combo")
           .map((row) => (typeof row.id === "string" ? row.id.trim() : ""))
           .filter(Boolean),
       ),

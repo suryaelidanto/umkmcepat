@@ -130,7 +130,7 @@ function CategorySection({
               ) : entry.optionsSource === "nine_router_models" ? (
                 <div className="flex flex-col items-end gap-spacing-1">
                   <select
-                    className="max-w-xs rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
+                    className="max-w-xs rounded-radius-md border border-surface-warm-white/15 bg-zinc-900 px-spacing-2 py-spacing-1 text-sm text-white"
                     disabled={isPending}
                     onChange={(e) =>
                       setDraft({ ...draft, [entry.key]: e.target.value })
@@ -138,10 +138,16 @@ function CategorySection({
                     value={String(value ?? "")}
                   >
                     {entry.key !== "ai.models_default" ? (
-                      <option value="">(pakai default)</option>
+                      <option className="bg-white text-zinc-900" value="">
+                        (pakai default)
+                      </option>
                     ) : null}
                     {modelSelectOptions(entry, value, modelIds).map((id) => (
-                      <option key={id} value={id}>
+                      <option
+                        className="bg-white text-zinc-900"
+                        key={id}
+                        value={id}
+                      >
                         {id}
                       </option>
                     ))}
@@ -150,12 +156,12 @@ function CategorySection({
                   modelIds.length > 0 &&
                   !modelIds.includes(String(value)) ? (
                     <p className="text-xs text-amber-200/90">
-                      Tidak ada di daftar 9Router
+                      Tidak ada di daftar combo 9Router
                     </p>
                   ) : null}
                   {modelsLoadFailed || modelIds.length === 0 ? (
                     <p className="text-xs text-surface-warm-white/60">
-                      Daftar model 9Router kosong / gagal dimuat
+                      Daftar combo 9Router kosong / gagal dimuat
                     </p>
                   ) : null}
                 </div>
