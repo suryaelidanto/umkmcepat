@@ -161,7 +161,7 @@ function CategorySection({
                           }}
                           value={id}
                         >
-                          {id}
+                          {id === defaultModelId ? `${id} (default)` : id}
                         </option>
                       ),
                     )}
