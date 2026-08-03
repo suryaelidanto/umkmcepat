@@ -426,7 +426,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("falls back to the embedded question when AI emits a brief_review below threshold", () => {
+  it("accepts brief_review as build_recommendation when min brief is filled (even if confidence low)", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Laundry kiloan",
@@ -461,10 +461,9 @@ describe("normalizeWorkspaceTurn", () => {
       brief,
     );
 
-    expect(turn.workspaceCard.type).toBe("question");
-    if (turn.workspaceCard.type === "question") {
-      expect(turn.workspaceCard.question.id).toBe("operational_hours");
-    }
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    expect(turn.readyForBuild).toBe(true);
+    expect(turn.brief.confidence).toBeGreaterThanOrEqual(95);
   });
 
   it("emits build_recommendation when AI sends brief_review and confidence is 95+", () => {
@@ -498,7 +497,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("emits none when brief_review arrives below threshold without an embedded question", () => {
+  it("accepts brief_review without nested question when min brief is filled", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Laundry kiloan",
@@ -522,18 +521,38 @@ describe("normalizeWorkspaceTurn", () => {
       brief,
     );
 
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    expect(turn.readyForBuild).toBe(true);
+  });
+
+  it("emits none when brief_review arrives with thin brief and no nested question", () => {
+    const brief = parseProjectBrief(
+      {
+        businessType: "Laundry kiloan",
+        confidence: 60,
+      },
+      "laundry",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "brief_review",
+          title: "Arah website laundry",
+          summary: ["Laundry"],
+          actions: [{ label: "Paksa build", prompt: "Paksa build." }],
+        },
+      },
+      brief,
+    );
+
     expect(turn.workspaceCard.type).toBe("none");
   });
 
-  it("downgrades a premature build_recommendation below 95% into a question", () => {
+  it("downgrades build_recommendation when brief is still too thin", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Katering sekolah",
         confidence: 70,
-        offer: "Nasi kotak",
-        targetCustomer: "Anak sekolah",
-        contactOrCta: "WhatsApp",
-        stylePreference: "Cerah",
       },
       "katering",
     );
@@ -561,6 +580,149 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("question");
     if (turn.workspaceCard.type === "question") {
       expect(turn.workspaceCard.question.id).toBe("price_range");
+    }
+  });
+
+  it("promotes build_confirm question to build_recommendation when brief is enough", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Surya Beauty",
+        businessType: "Salon",
+        offer: "Perawatan",
+        targetCustomer: "Wanita",
+        contactOrCta: "WA",
+        stylePreference: "Elegan",
+        confidence: 1,
+      },
+      "salon",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "build_confirm",
+            question: "Langsung bangun website Surya Beauty sekarang?",
+            answerMode: "text",
+            options: [],
+            selectionMode: "single",
+          },
+        },
+      },
+      brief,
+    );
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    expect(turn.readyForBuild).toBe(true);
+    expect(turn.brief.confidence).toBeGreaterThanOrEqual(95);
+  });
+
+  it("accepts build_recommendation when confidence is low but brief is enough", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Surya Beauty",
+        businessType: "Salon",
+        offer: "Perawatan wajah",
+        targetCustomer: "Wanita dewasa",
+        contactOrCta: "WhatsApp",
+        stylePreference: "Elegan",
+        confidence: 1,
+        openQuestions: [],
+      },
+      "salon",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Siap dibuild",
+          summary: ["Landing salon", "CTA WhatsApp"],
+        },
+      },
+      brief,
+    );
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    expect(turn.readyForBuild).toBe(true);
+    expect(turn.brief.confidence).toBeGreaterThanOrEqual(95);
+  });
+
+  it("promotes when user affirms after previous build_confirm card", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Surya Beauty",
+        businessType: "Salon",
+        offer: "Perawatan",
+        targetCustomer: "Wanita",
+        contactOrCta: "WA",
+        stylePreference: "Elegan",
+        confidence: 1,
+      },
+      "salon",
+    );
+    const turn = normalizeWorkspaceTurn(
+      { workspaceCard: { type: "none" } },
+      brief,
+      {
+        lastUserText: "ya",
+        previousWorkspaceCard: {
+          type: "question",
+          question: {
+            id: "build_confirm",
+            question: "Mulai bangun website sekarang?",
+            answerMode: "text",
+            options: [],
+            selectionMode: "single",
+          },
+        },
+      },
+    );
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    expect(turn.readyForBuild).toBe(true);
+  });
+
+  it("does not promote bare ya after a content question", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Surya Beauty",
+        businessType: "Salon",
+        offer: "Perawatan",
+        targetCustomer: "Wanita",
+        contactOrCta: "WA",
+        stylePreference: "Elegan",
+        confidence: 1,
+      },
+      "salon",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "operational_hours",
+            question: "Jam buka berapa?",
+            answerMode: "text",
+            options: [],
+            selectionMode: "single",
+          },
+        },
+      },
+      brief,
+      {
+        lastUserText: "ya",
+        previousWorkspaceCard: {
+          type: "question",
+          question: {
+            id: "operational_hours",
+            question: "Jam buka berapa?",
+            answerMode: "text",
+            options: [],
+            selectionMode: "single",
+          },
+        },
+      },
+    );
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("operational_hours");
     }
   });
 

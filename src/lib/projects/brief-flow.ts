@@ -12,6 +12,7 @@ import {
   type BriefQuestion,
   type ProjectBrief,
   type WorkspaceCard,
+  BRIEF_CONFIDENCE_THRESHOLD,
   getBriefReadiness,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
@@ -162,13 +163,93 @@ export function applyBriefPatch(
   return next;
 }
 
+export type NormalizeWorkspaceTurnOptions = {
+  hasBuiltSite?: boolean;
+  /** Last user message text this turn (affirm detection). */
+  lastUserText?: string;
+  /** Prior workspace card from project state, if any. */
+  previousWorkspaceCard?: WorkspaceCard;
+};
+
+const BUILD_CONFIRM_ID_RE =
+  /^(build_confirm|confirm_build|mulai_build|ready_build)$/i;
+const BUILD_CONFIRM_COPY_RE =
+  /langsung\s*bangun|mulai\s*bangun|bangun\s*website|build\s*now|siap\s*dibuild|mulai\s*buat/i;
+const USER_AFFIRM_START_RE =
+  /^(ya|iya|yoi|oke|ok|yes|yep|gas|lanjut|boleh|setuju|silakan|silahkan)\b/i;
+const USER_AFFIRM_BUILD_RE =
+  /langsung\s*bangun|bangun\s*aja|mulai\s*build|mulai\s*bangun|build\s*sekarang|udah\s*dulu|cukup(\s*sudah)?/i;
+
+const MIN_BRIEF_FIELDS = [
+  "businessName",
+  "businessType",
+  "offer",
+  "targetCustomer",
+  "contactOrCta",
+  "stylePreference",
+] as const;
+
+/** Basics known enough to show Mulai build (not model confidence). */
+export function hasMinimumBriefForBuild(brief: ProjectBrief): boolean {
+  const filled = MIN_BRIEF_FIELDS.filter((field) => {
+    const value = brief[field];
+    return typeof value === "string" && value.trim().length > 0;
+  });
+  const hasProductSignal =
+    (typeof brief.businessName === "string" &&
+      brief.businessName.trim().length > 0) ||
+    (typeof brief.offer === "string" && brief.offer.trim().length > 0);
+  return hasProductSignal && filled.length >= 2;
+}
+
+export function isBuildConfirmQuestion(question: {
+  id?: string;
+  question?: string;
+}): boolean {
+  if (question.id && BUILD_CONFIRM_ID_RE.test(question.id.trim())) {
+    return true;
+  }
+  if (
+    typeof question.question === "string" &&
+    BUILD_CONFIRM_COPY_RE.test(question.question)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function isUserAffirmingBuild(text: string | undefined): boolean {
+  if (!text || typeof text !== "string") {
+    return false;
+  }
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return (
+    USER_AFFIRM_START_RE.test(trimmed) || USER_AFFIRM_BUILD_RE.test(trimmed)
+  );
+}
+
+function isBuildConfirmCard(card: WorkspaceCard | undefined): boolean {
+  return card?.type === "question" && isBuildConfirmQuestion(card.question);
+}
+
+function withHandoffReadiness(brief: ProjectBrief): ProjectBrief {
+  return {
+    ...brief,
+    confidence: Math.max(brief.confidence ?? 0, BRIEF_CONFIDENCE_THRESHOLD),
+    openQuestions: [],
+  };
+}
+
 // Single authority for turning best-effort model output into a valid turn.
 // Never throws: malformed input becomes an explicit missing-card state so the
 // caller can retry or surface recovery instead of inventing user-facing data.
 export function normalizeWorkspaceTurn(
   input: unknown,
   fallbackBrief: ProjectBrief,
-  options: { hasBuiltSite?: boolean } = {},
+  options: NormalizeWorkspaceTurnOptions = {},
 ) {
   const value =
     input && typeof input === "object" ? (input as WorkspaceTurnToolInput) : {};
@@ -176,7 +257,7 @@ export function normalizeWorkspaceTurn(
   // strings instead of nested objects. Un-stringify before applying so the
   // patch data isn't silently dropped (the tool schema also tolerates this shape,
   // but the server is the authority — see the design note above applyBriefPatch).
-  const brief = applyBriefPatch(
+  let brief = applyBriefPatch(
     fallbackBrief,
     unstringifyJsonObject(value.briefPatch),
   );
@@ -196,6 +277,36 @@ export function normalizeWorkspaceTurn(
       workspaceCard.type === "build_recommendation")
   ) {
     workspaceCard = createFallbackWorkspaceCard(brief);
+  } else if (!options.hasBuiltSite) {
+    // Reliable handoff: promote to build_recommendation when build-time is
+    // clear so Mulai build appears. No force-build UI; no auto-generate.
+    const minBrief = hasMinimumBriefForBuild(brief);
+    const modelTitle =
+      workspaceCard.type === "build_recommendation"
+        ? workspaceCard.title
+        : undefined;
+    const modelSummary =
+      workspaceCard.type === "build_recommendation"
+        ? workspaceCard.summary
+        : undefined;
+
+    const promoteBuildConfirmQuestion =
+      minBrief &&
+      workspaceCard.type === "question" &&
+      isBuildConfirmQuestion(workspaceCard.question);
+
+    const promoteAfterAffirm =
+      minBrief &&
+      isUserAffirmingBuild(options.lastUserText) &&
+      isBuildConfirmCard(options.previousWorkspaceCard);
+
+    if (promoteBuildConfirmQuestion || promoteAfterAffirm) {
+      brief = withHandoffReadiness(brief);
+      workspaceCard = buildRecommendationCard(brief, modelTitle, modelSummary);
+    } else if (minBrief && workspaceCard.type === "build_recommendation") {
+      // Model sent build card (or min-brief accepted it) — lock confidence for UI.
+      brief = withHandoffReadiness(brief);
+    }
   }
 
   // Card type is the single source of truth for buildability: derive
@@ -286,25 +397,21 @@ function normalizeWorkspaceCard(
   }
 
   if (value.type === "build_recommendation" || value.type === "brief_review") {
-    const readiness = getBriefReadiness(brief);
+    const summary = Array.isArray(value.summary)
+      ? (value.summary as unknown[]).filter(
+          (item): item is string => typeof item === "string",
+        )
+      : undefined;
+    const title = typeof value.title === "string" ? value.title : undefined;
 
-    if (readiness.ready) {
-      const summary = Array.isArray(value.summary)
-        ? (value.summary as unknown[]).filter(
-            (item): item is string => typeof item === "string",
-          )
-        : undefined;
-      return buildRecommendationCard(
-        brief,
-        typeof value.title === "string" ? value.title : undefined,
-        summary,
-      );
+    // Accept when AI confidence is high OR minimum brief fields are known
+    // (model often leaves confidence at 0–1 while basics are already filled).
+    if (getBriefReadiness(brief).ready || hasMinimumBriefForBuild(brief)) {
+      return buildRecommendationCard(brief, title, summary);
     }
 
-    // Below 95% confidence: discussion is not done. Fall through to a
-    // question from the same tool output (the AI usually includes one) so
-    // the interview keeps flowing. No brief_review card, no force-build
-    // affordance.
+    // Insufficient brief: fall through to a nested question if present so
+    // the interview keeps flowing. No force-build affordance.
     const rawQuestion =
       value.question ??
       (Array.isArray(value.questions) ? value.questions[0] : undefined);
