@@ -124,6 +124,12 @@ describe("cssCoversClassName (meaningful rule semantics)", () => {
     expect(cssCoversClassName("", "scroll-mt-24")).toBe(true);
   });
 
+  it("treats Tailwind v4 outline utilities as covered (regression)", () => {
+    expect(isTailwindUtilityClass("outline")).toBe(true);
+    expect(isTailwindUtilityClass("outline-2")).toBe(true);
+    expect(isTailwindUtilityClass("outline-offset-2")).toBe(true);
+  });
+
   it("treats a bare class name with no rule as not covered", () => {
     expect(cssCoversClassName("", "product-card")).toBe(false);
   });
