@@ -42,7 +42,12 @@ vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
-vi.mock("@/lib/ai-models", () => ({ getDefaultAiModel: () => "test/model" }));
+vi.mock("@/lib/ai-models", () => ({
+  getDefaultAiModel: () => "test/model",
+  getModerationModel: () => "test/moderation-model",
+  getDiscussModel: () => "test/model",
+  getGenerationModel: () => "test/model",
+}));
 vi.mock("@/lib/ai-moderation", () => ({
   moderateProjectRequest: moderateProjectRequestMock,
 }));
