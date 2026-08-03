@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { presentWorkspaceCardInputSchema } from "./discuss-tool";
 
-// Regression: the combo model (umkmcepat-combo) double-encodes briefPatch and
+// Regression: the combo model (default-combo) double-encodes briefPatch and
 // workspaceCard as JSON strings instead of nested objects, e.g.
 //   { "briefPatch": "{\"businessType\":\"retail\"}", "workspaceCard": "{\"type\":\"q..." }
 // The strict z.object() schema rejected these (AI_TypeValidationError), and every

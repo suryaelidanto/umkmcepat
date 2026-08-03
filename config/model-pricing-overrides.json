@@ -1,12 +1,21 @@
 {
+  "default-combo": {
+    "sourceModelId": "default-combo",
+    "openRouterModelId": null,
+    "promptPrice": null,
+    "completionPrice": null,
+    "source": null,
+    "checkedAt": "2026-08-03",
+    "note": "9Router combo label (not a priced provider model). Fill manually before relying on exact pricing. Legacy id umkmcepat-combo may still appear in old logs."
+  },
   "umkmcepat-combo": {
     "sourceModelId": "umkmcepat-combo",
     "openRouterModelId": null,
     "promptPrice": null,
     "completionPrice": null,
     "source": null,
-    "checkedAt": "2026-07-30",
-    "note": "No OpenRouter metadata match found. Fill manually before relying on exact pricing."
+    "checkedAt": "2026-08-03",
+    "note": "Legacy combo id; prefer default-combo. Kept so old charges/logs still resolve."
   },
   "cmc/deepseek/deepseek-v4-pro": {
     "sourceModelId": "cmc/deepseek/deepseek-v4-pro",

@@ -2,7 +2,7 @@
 
 ## Problem
 
-Almost every AI call in UMKM Cepat uses one model id — `umkmcepat-combo` via `getDefaultAiModel()` / `ai.models_default` / `AI_MODELS`. Only the build pipeline has a partial escape hatch (`getGenerationModel()` → env `AI_GENERATION_MODEL` only; no admin setting).
+Almost every AI call in UMKM Cepat used one model id — historically `umkmcepat-combo`, now `default-combo` — via `getDefaultAiModel()` / `ai.models_default` / `AI_MODELS`. Only the build pipeline had a partial escape hatch (`getGenerationModel()` → env `AI_GENERATION_MODEL` only; no admin setting).
 
 That forces one 9Router combo (cost, latency, vision, tool-call skill) onto jobs that need different profiles:
 
@@ -17,7 +17,7 @@ Admin `/admin/settings` only offers free-text for `ai.models_default`. Ops must 
 
 ## Goal
 
-1. **Three task models + one global default**, all configurable via admin settings (DB-first) and env, with hard fallback `umkmcepat-combo`.
+1. **Three task models + one global default**, all configurable via admin settings (DB-first) and env, with hard fallback `default-combo`.
 2. **Call sites use the correct getter** for their product job (not “everything uses default”).
 3. **Admin UI selects model ids from 9Router** (`GET {NINE_ROUTER_BASE_URL}/models`) as a dropdown — not free text for those keys.
 4. **Empty task settings keep today’s behavior** (fall through to default → hardcode).
@@ -39,7 +39,7 @@ Admin `/admin/settings` only offers free-text for `ai.models_default`. Ops must 
 | Edit (Ubah) model? | **Share build** (`getGenerationModel()`) |
 | Chat compaction model? | **Share moderation** |
 | Discuss repairs? | **Inherit discuss** (already pass `model` / `modelName`) |
-| Hardcoded last resort? | **`umkmcepat-combo`** (`DEFAULT_AI_MODEL`) |
+| Hardcoded last resort? | **`default-combo`** (`DEFAULT_AI_MODEL`) |
 | Default setting role? | **Global fallback only** — not a fourth product job |
 | Admin UX for model keys? | **Dropdown from 9Router `/models`** |
 | Empty task value? | Fall through (not “use empty string as model id”) |
@@ -58,9 +58,10 @@ Admin `/admin/settings` only offers free-text for `ai.models_default`. Ops must 
 
 **Suggested 9Router label names** (ops creates; not required as app fallbacks):
 
-- `umkmcepat-moderation`
-- `umkmcepat-discuss`
-- `umkmcepat-build`
+- `default-combo`
+- `moderation-combo`
+- `discuss-combo`
+- `build-combo`
 
 App does not require these strings to exist until ops creates them. Day-one ship with empty task settings → everyone uses default → hardcode.
 
@@ -75,14 +76,14 @@ task setting (DB via getSettingSync) → task env → getDefaultAiModel()
 For **default**:
 
 ```text
-ai.models_default (DB) → AI_MODELS → "umkmcepat-combo"
+ai.models_default (DB) → AI_MODELS → "default-combo"
 ```
 
 `getDefaultAiModel` keeps existing behavior: comma-separated list → **first** non-empty trimmed id. Task knobs are **single** ids (trim; empty/whitespace → treat as unset and fall through).
 
 ```text
 moderation ──┐
-discuss    ──┼── empty? ──► default ── empty? ──► umkmcepat-combo
+discuss    ──┼── empty? ──► default ── empty? ──► default-combo
 build      ──┘
 ```
 
@@ -110,7 +111,7 @@ Apply `optionsSource: "nine_router_models"` to:
 - `ai.model.discuss`
 - `ai.model.build`
 
-`fallback` for default stays `"umkmcepat-combo"`. Task fallbacks stay `""` (inherit).
+`fallback` for default stays `"default-combo"`. Task fallbacks stay `""` (inherit).
 
 No secrets in registry. `NINE_ROUTER_BASE_URL` / `NINE_ROUTER_API_KEY` remain env-only.
 
@@ -126,7 +127,7 @@ Authorization: Bearer {NINE_ROUTER_API_KEY}
 With `NINE_ROUTER_BASE_URL=http://…/v1`, path is `/v1/models`. Response shape (OpenAI list):
 
 ```json
-{ "data": [ { "id": "umkmcepat-combo", "object": "model", ... }, ... ] }
+{ "data": [ { "id": "default-combo", "object": "model", ... }, ... ] }
 ```
 
 Docs: returns models **and** combos.
@@ -164,7 +165,7 @@ For entries with `optionsSource === "nine_router_models"`:
 1. React Query loads `GET /api/admin/ai-models` once per settings page (key e.g. `["admin", "ai-models"]`).
 2. Render `<select>`:
    - Task knobs: first option value `""` label e.g. `(pakai default)`
-   - Default knob: options are model ids; if list empty, still show current effective value + hardcode option `umkmcepat-combo` if missing
+   - Default knob: options are model ids; if list empty, still show current effective value + hardcode option `default-combo` if missing
 3. If `effectiveValue` / draft not in list: include an extra `<option>` for that value so save is not forced; show small warning text “Tidak ada di daftar 9Router”.
 4. No free-text field required for these four keys.
 5. Optional “Muat ulang daftar” invalidates the query (nice-to-have; not required for v1 if refetch on focus exists).
@@ -185,7 +186,7 @@ API GET `/api/admin/settings` must surface `optionsSource` on each entry (or cli
 | `src/lib/projects/source-edit-agent.ts` | default model → `getGenerationModel()` |
 | `src/lib/projects/edit-attempt-worker.ts` | `getGenerationModel()` |
 | Build workers / generator | already `getGenerationModel()` — getter body only |
-| Routes hardcoding `"umkmcepat-combo"` as `modelId` fallback | use `getModerationModel()` / `getDefaultAiModel()` / `DEFAULT_AI_MODEL` — no new magic strings |
+| Routes hardcoding `"default-combo"` as `modelId` fallback | use `getModerationModel()` / `getDefaultAiModel()` / `DEFAULT_AI_MODEL` — no new magic strings |
 
 **Unchanged:** `discuss-turn-shared` repair helpers (receive parent model). Pricing/credits still use `response.modelId` when present.
 
@@ -195,7 +196,7 @@ Pass the **requested** model id (getter result) into existing `getAiTelemetry` /
 
 ## Tests
 
-- `ai-models.test.ts`: task resolve order DB > env > default > hardcode; empty task → default; empty default → `umkmcepat-combo`; build aliases `AI_MODEL_BUILD` / `AI_GENERATION_MODEL`; default comma-list first entry.
+- `ai-models.test.ts`: task resolve order DB > env > default > hardcode; empty task → default; empty default → `default-combo`; build aliases `AI_MODEL_BUILD` / `AI_GENERATION_MODEL`; default comma-list first entry.
 - `app-settings-registry.test.ts`: env maps for three new keys; `optionsSource` present on four model keys.
 - `nine-router-models` unit: parse sample JSON; empty on error; cache TTL behavior if easy.
 - Admin AI models route: 401/403 non-admin; 200 + models for admin (mock list helper).
@@ -209,7 +210,7 @@ Pass the **requested** model id (getter result) into existing `getAiTelemetry` /
 ## Rollout
 
 1. Ship app with empty task settings → behavior matches today.
-2. Ops creates three combos in 9Router (optional fourth name for default if splitting default away from legacy `umkmcepat-combo`).
+2. Ops creates combos in 9Router: `default-combo`, `moderation-combo`, `discuss-combo`, `build-combo` (rename or alias away from legacy `umkmcepat-combo`).
 3. Set moderation first (cheap + vision), then discuss, then build.
 
 ## Success criteria
@@ -217,7 +218,7 @@ Pass the **requested** model id (getter result) into existing `getAiTelemetry` /
 - [ ] Moderation, discuss, and build/edit can use different model ids without code change.
 - [ ] Empty overrides → single-model behavior as today.
 - [ ] `/admin/settings` shows dropdowns populated from 9Router when available.
-- [ ] Hard last resort remains `umkmcepat-combo`.
+- [ ] Hard last resort remains `default-combo`.
 - [ ] No secrets in tracked settings; no fake pricing for combo labels beyond existing pricing rules.
 
 ## Out of scope / later

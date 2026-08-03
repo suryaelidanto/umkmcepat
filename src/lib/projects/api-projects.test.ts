@@ -99,7 +99,7 @@ describe("POST /api/projects — project limit enforcement", () => {
     checkRateLimitMock.mockResolvedValue(null);
     moderateProjectRequestMock.mockResolvedValue({
       allowed: true,
-      modelId: "umkmcepat-combo",
+      modelId: "default-combo",
       usage: { inputTokens: 0, outputTokens: 0 },
     });
     chargeEnergyForAiUsageMock.mockResolvedValue(null);

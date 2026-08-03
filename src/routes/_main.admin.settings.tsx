@@ -46,9 +46,9 @@ function modelSelectOptions(
   defaultModelId: string,
 ): string[] {
   const current = String(value ?? "").trim();
-  const fallback = defaultModelId.trim() || "umkmcepat-combo";
+  const fallback = defaultModelId.trim() || "default-combo";
   const ids = [...modelIds];
-  for (const id of [current, fallback, "umkmcepat-combo"]) {
+  for (const id of [current, fallback, "default-combo"]) {
     if (id && !ids.includes(id)) {
       ids.push(id);
     }
@@ -61,7 +61,7 @@ function modelSelectValue(value: unknown, defaultModelId: string): string {
   if (current) {
     return current;
   }
-  return defaultModelId.trim() || "umkmcepat-combo";
+  return defaultModelId.trim() || "default-combo";
 }
 
 function CategorySection({
@@ -284,7 +284,7 @@ function SettingsPage() {
   const defaultModelEntry = entries.find((e) => e.key === "ai.models_default");
   const defaultModelId = modelSelectValue(
     draft["ai.models_default"] ?? defaultModelEntry?.effectiveValue,
-    "umkmcepat-combo",
+    "default-combo",
   );
 
   return (

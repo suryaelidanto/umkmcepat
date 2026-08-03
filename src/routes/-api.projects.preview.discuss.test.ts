@@ -140,7 +140,7 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     checkRateLimitMock.mockResolvedValue(null);
     moderateProjectRequestMock.mockResolvedValue({
       allowed: true,
-      modelId: "umkmcepat-combo",
+      modelId: "default-combo",
       usage: { inputTokens: 0, outputTokens: 0 },
     });
     checkEnergyMock.mockResolvedValue({ allowed: true, remaining: 100_000 });
@@ -150,7 +150,7 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     prismaProjectFindFirstMock.mockResolvedValue({
       id: "p_test",
       prompt: "Jualan kue",
-      model: "umkmcepat-combo",
+      model: "default-combo",
       status: "ready",
       title: "Kue Lebaran",
       chatMessages: [],

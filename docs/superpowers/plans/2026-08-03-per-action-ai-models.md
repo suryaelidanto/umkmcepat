@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Route moderation, discuss, and build/edit through separate configurable 9Router model ids (admin dropdown + env), with global default and hard fallback `umkmcepat-combo`.
+**Goal:** Route moderation, discuss, and build/edit through separate configurable 9Router model ids (admin dropdown + env), with global default and hard fallback `default-combo`.
 
 **Architecture:** Extend `ai-models.ts` with task getters that resolve setting → env → default → hardcode. Register three new AI settings plus `optionsSource: "nine_router_models"` on all four model keys. Fetch combo/model ids via OpenAI-compatible `GET {NINE_ROUTER_BASE_URL}/models` for admin-only dropdowns on `/admin/settings`. Rewire call sites to the correct getter; edit shares build; compaction shares moderation.
 
@@ -171,7 +171,7 @@ git commit -m "feat(ai): register per-action model settings"
 **Interfaces:**
 - Produces:
   ```ts
-  export const DEFAULT_AI_MODEL = "umkmcepat-combo";
+  export const DEFAULT_AI_MODEL = "default-combo";
   export function getDefaultAiModel(rawModels?: string): string;
   export function getModerationModel(): string;
   export function getDiscussModel(): string;
@@ -285,7 +285,7 @@ Replace `src/lib/ai-models.ts` with:
 ```ts
 import { getSettingSync } from "@/lib/app-settings";
 
-export const DEFAULT_AI_MODEL = "umkmcepat-combo";
+export const DEFAULT_AI_MODEL = "default-combo";
 
 function readSettingString(key: string): string | undefined {
   const raw = (
@@ -649,9 +649,9 @@ const modelIds = modelsQuery.data?.models ?? [];
         }
         if (
           entry.key === "ai.models_default" &&
-          !ids.includes("umkmcepat-combo")
+          !ids.includes("default-combo")
         ) {
-          ids.push("umkmcepat-combo");
+          ids.push("default-combo");
         }
         return ids.map((id) => (
           <option key={id} value={id}>
@@ -746,7 +746,7 @@ import { getGenerationModel } from "@/lib/ai-models";
 // replace getDefaultAiModel() defaults with getGenerationModel()
 ```
 
-- [ ] **Step 5: Hardcoded `"umkmcepat-combo"` fallbacks in routes**
+- [ ] **Step 5: Hardcoded `"default-combo"` fallbacks in routes**
 
 ```ts
 // api.moderation.project-request.ts, api.projects.moderate.ts, api.projects.ts
@@ -762,11 +762,11 @@ Update `src/lib/ai-moderation.test.ts` and any file that mocks `@/lib/ai-models`
 
 ```ts
 vi.mock("@/lib/ai-models", () => ({
-  DEFAULT_AI_MODEL: "umkmcepat-combo",
-  getDefaultAiModel: vi.fn(() => "umkmcepat-combo"),
-  getModerationModel: vi.fn(() => "umkmcepat-combo"),
-  getDiscussModel: vi.fn(() => "umkmcepat-combo"),
-  getGenerationModel: vi.fn(() => "umkmcepat-combo"),
+  DEFAULT_AI_MODEL: "default-combo",
+  getDefaultAiModel: vi.fn(() => "default-combo"),
+  getModerationModel: vi.fn(() => "default-combo"),
+  getDiscussModel: vi.fn(() => "default-combo"),
+  getGenerationModel: vi.fn(() => "default-combo"),
 }));
 ```
 
@@ -808,7 +808,7 @@ Task model ids (9Router labels) are configurable in `/admin/settings` (AI advanc
 | `ai.model.discuss` | `AI_MODEL_DISCUSS` | Guided discuss (+ repairs inherit) |
 | `ai.model.build` | `AI_MODEL_BUILD` (alias `AI_GENERATION_MODEL`) | Build pipeline + edit agent |
 
-Empty task value → default → hardcode `umkmcepat-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models`. Create combos in 9Router; suggested names: `umkmcepat-moderation`, `umkmcepat-discuss`, `umkmcepat-build`.
+Empty task value → default → hardcode `default-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models`. Create combos in 9Router; suggested names: `moderation-combo`, `discuss-combo`, `build-combo`.
 ```
 
 - [ ] **Step 2: Run check**
@@ -833,7 +833,7 @@ git commit -m "docs: per-action AI model knobs"
 | Spec requirement | Task |
 |------------------|------|
 | 3 task knobs + default configurable | 1, 2 |
-| Hard fallback `umkmcepat-combo` | 2 |
+| Hard fallback `default-combo` | 2 |
 | Edit shares build | 6 |
 | Compaction shares moderation | 6 |
 | Discuss repairs inherit | 6 (no change to shared) |

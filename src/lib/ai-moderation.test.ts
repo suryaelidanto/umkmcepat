@@ -7,11 +7,11 @@ vi.mock("@/lib/ai", () => ({
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
 }));
 vi.mock("@/lib/ai-models", () => ({
-  DEFAULT_AI_MODEL: "umkmcepat-combo",
-  getDefaultAiModel: vi.fn(() => "umkmcepat-combo"),
-  getModerationModel: vi.fn(() => "umkmcepat-combo"),
-  getDiscussModel: vi.fn(() => "umkmcepat-combo"),
-  getGenerationModel: vi.fn(() => "umkmcepat-combo"),
+  DEFAULT_AI_MODEL: "default-combo",
+  getDefaultAiModel: vi.fn(() => "default-combo"),
+  getModerationModel: vi.fn(() => "default-combo"),
+  getDiscussModel: vi.fn(() => "default-combo"),
+  getGenerationModel: vi.fn(() => "default-combo"),
 }));
 
 const generateTextMock = generateText as Mock;
@@ -27,7 +27,7 @@ describe("moderateProjectRequest", () => {
 
     await expect(moderateProjectRequest("jual kopi")).resolves.toEqual({
       allowed: true,
-      modelId: "umkmcepat-combo",
+      modelId: "default-combo",
       usage: { inputTokens: 10, outputTokens: 1 },
     });
   });
@@ -40,7 +40,7 @@ describe("moderateProjectRequest", () => {
 
     await expect(moderateProjectRequest("bad")).resolves.toMatchObject({
       allowed: false,
-      modelId: "umkmcepat-combo",
+      modelId: "default-combo",
       usage: { inputTokens: 8, outputTokens: 1 },
     });
   });
@@ -53,7 +53,7 @@ describe("moderateProjectRequest", () => {
 
     await expect(moderateProjectRequest("jual teh kosong")).resolves.toEqual({
       allowed: true,
-      modelId: "umkmcepat-combo",
+      modelId: "default-combo",
       usage: { inputTokens: 5, outputTokens: 0 },
     });
   });
@@ -67,7 +67,7 @@ describe("moderateProjectRequest", () => {
 
     await expect(moderateProjectRequest("jual teh retry")).resolves.toEqual({
       allowed: true,
-      modelId: "umkmcepat-combo",
+      modelId: "default-combo",
       usage: { inputTokens: 12, outputTokens: 2 },
     });
   });

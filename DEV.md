@@ -144,7 +144,7 @@ Task model ids (9Router labels) are configurable in `/admin/settings` (AI advanc
 | `ai.model.discuss`    | `AI_MODEL_DISCUSS`                             | Guided discuss (+ repairs inherit) |
 | `ai.model.build`      | `AI_MODEL_BUILD` (alias `AI_GENERATION_MODEL`) | Build pipeline + edit agent        |
 
-Empty task value → default → hardcode `umkmcepat-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models` filtered to `owned_by: "combo"` (not upstream provider models). Create combos in 9Router dashboard; suggested names: `umkmcepat-moderation`, `umkmcepat-discuss`, `umkmcepat-build`.
+Empty task value → default → hardcode `default-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models` filtered to `owned_by: "combo"` (not upstream provider models). Create combos in 9Router dashboard with these ids: `default-combo`, `moderation-combo`, `discuss-combo`, `build-combo`.
 
 `STORAGE_PROVIDER` is not user-configurable: local dev always speaks S3 to the MinIO container `bun run infra` starts, and production points the same `S3_*` variables at Cloudflare R2. Set Google OAuth, Turnstile, Chromatic, and AI provider secrets only in `.env` or deployment secrets. Error tracking (Sentry) was intentionally removed; there is currently no error-tracking provider wired.
 

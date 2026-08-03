@@ -1,6 +1,6 @@
 import { getSettingSync } from "@/lib/app-settings";
 
-export const DEFAULT_AI_MODEL = "umkmcepat-combo";
+export const DEFAULT_AI_MODEL = "default-combo";
 
 function readSettingString(key: string): string | undefined {
   const raw = (

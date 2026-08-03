@@ -564,7 +564,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     tier: "advanced",
     type: "string",
     label: "AI — default model id",
-    fallback: "umkmcepat-combo",
+    fallback: "default-combo",
     env: "AI_MODELS",
     optionsSource: "nine_router_models",
   },
