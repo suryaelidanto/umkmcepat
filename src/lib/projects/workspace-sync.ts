@@ -472,3 +472,73 @@ export function isFreshWorkspaceCard(
 
   return false;
 }
+
+const PRESENT_WORKSPACE_CARD_TOOL_TYPE = "tool-presentWorkspaceCard";
+
+export function getWorkspaceCardFromMessages(messages: UIMessage[]): {
+  projectTitle?: string;
+  workspaceCard: WorkspaceCard;
+} | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "assistant") {
+      continue;
+    }
+
+    for (
+      let partIndex = message.parts.length - 1;
+      partIndex >= 0;
+      partIndex -= 1
+    ) {
+      const part = message.parts[partIndex] as {
+        type?: string;
+        state?: string;
+        output?: {
+          projectTitle?: unknown;
+          workspaceCard?: WorkspaceCard;
+        };
+        toolInvocation?: {
+          toolName?: string;
+          state?: string;
+          output?: {
+            projectTitle?: unknown;
+            workspaceCard?: WorkspaceCard;
+          };
+        };
+      };
+
+      const isPresentCardTool =
+        part.type === PRESENT_WORKSPACE_CARD_TOOL_TYPE ||
+        part.toolInvocation?.toolName === "presentWorkspaceCard";
+      if (!isPresentCardTool) {
+        continue;
+      }
+
+      const state = part.state || part.toolInvocation?.state;
+      if (state !== "output-available") {
+        continue;
+      }
+
+      const output = part.output || part.toolInvocation?.output;
+      const card = output?.workspaceCard;
+      if (!card || typeof card !== "object") {
+        continue;
+      }
+      // Terminal clear: do not resurrect older build_recommendation / question
+      // cards from earlier turns once a later presentWorkspaceCard emitted none.
+      if (card.type === "none") {
+        return null;
+      }
+
+      return {
+        workspaceCard: card,
+        projectTitle:
+          typeof output?.projectTitle === "string"
+            ? output.projectTitle
+            : undefined,
+      };
+    }
+  }
+
+  return null;
+}

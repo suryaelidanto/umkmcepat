@@ -93,6 +93,7 @@ import {
 } from "@/lib/projects/visual-annotations";
 import {
   getBuildRecommendationHoldSignature,
+  getWorkspaceCardFromMessages,
   getWorkspaceComposerState,
   getWorkspacePreviewIssue,
   hasAnsweredWorkspaceQuestion,
@@ -1523,6 +1524,30 @@ export function WorkspaceShell({
   useEffect(() => {
     workspaceCardRef.current = workspaceCard;
   }, [workspaceCard]);
+
+  useEffect(() => {
+    if (!buildComplete || !heldBuildRecommendationSignature) {
+      return;
+    }
+    const signature = getBuildRecommendationHoldSignature(workspaceCard);
+    const consumed =
+      Boolean(signature) &&
+      consumedBuildRecommendationSignatures.has(signature);
+    if (
+      workspaceCard.type !== "build_recommendation" ||
+      consumed ||
+      !signature
+    ) {
+      window.localStorage.removeItem(buildRecommendationStorageKey);
+      setHeldBuildRecommendationSignature(null);
+    }
+  }, [
+    buildComplete,
+    buildRecommendationStorageKey,
+    consumedBuildRecommendationSignatures,
+    heldBuildRecommendationSignature,
+    workspaceCard,
+  ]);
 
   useEffect(() => {
     isPreparingNextQuestionRef.current = isPreparingNextQuestion;
@@ -3018,9 +3043,14 @@ export function WorkspaceShell({
               <motion.div key="composer-post-build" {...COMPOSER_TRANSITION}>
                 <CompletedBuildNotice
                   onDiscuss={() => {
-                    // Park the current build recommendation so free discuss
-                    // opens first; a fresh recommendation can surface later.
-                    if (buildRecommendationSignature) {
+                    // Park only an unconsumed rancangan so free discuss opens
+                    // first; never re-hold a plan already used to start a build.
+                    if (
+                      buildRecommendationSignature &&
+                      !consumedBuildRecommendationSignatures.has(
+                        buildRecommendationSignature,
+                      )
+                    ) {
                       window.localStorage.setItem(
                         buildRecommendationStorageKey,
                         buildRecommendationSignature,
@@ -3250,7 +3280,12 @@ export function WorkspaceShell({
                 <CompletedBuildNotice
                   variant="recovery"
                   onDiscuss={() => {
-                    if (buildRecommendationSignature) {
+                    if (
+                      buildRecommendationSignature &&
+                      !consumedBuildRecommendationSignatures.has(
+                        buildRecommendationSignature,
+                      )
+                    ) {
                       window.localStorage.setItem(
                         buildRecommendationStorageKey,
                         buildRecommendationSignature,
@@ -3444,71 +3479,6 @@ function createRuntimeControl({
     onPublish,
     publishedPath: runtimePublishedPath,
   };
-}
-
-const PRESENT_WORKSPACE_CARD_TOOL_TYPE = "tool-presentWorkspaceCard";
-
-function getWorkspaceCardFromMessages(messages: UIMessage[]): {
-  projectTitle?: string;
-  workspaceCard: WorkspaceCard;
-} | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role !== "assistant") {
-      continue;
-    }
-
-    for (
-      let partIndex = message.parts.length - 1;
-      partIndex >= 0;
-      partIndex -= 1
-    ) {
-      const part = message.parts[partIndex] as {
-        type?: string;
-        state?: string;
-        output?: {
-          projectTitle?: unknown;
-          workspaceCard?: WorkspaceCard;
-        };
-        toolInvocation?: {
-          toolName?: string;
-          state?: string;
-          output?: {
-            projectTitle?: unknown;
-            workspaceCard?: WorkspaceCard;
-          };
-        };
-      };
-
-      const isPresentCardTool =
-        part.type === PRESENT_WORKSPACE_CARD_TOOL_TYPE ||
-        part.toolInvocation?.toolName === "presentWorkspaceCard";
-      if (!isPresentCardTool) {
-        continue;
-      }
-
-      const state = part.state || part.toolInvocation?.state;
-      if (state !== "output-available") {
-        continue;
-      }
-
-      const output = part.output || part.toolInvocation?.output;
-      const card = output?.workspaceCard;
-      if (!card || typeof card !== "object" || card.type === "none") {
-        continue;
-      }
-
-      return {
-        workspaceCard: card,
-        projectTitle:
-          typeof output?.projectTitle === "string"
-            ? output.projectTitle
-            : undefined,
-      };
-    }
-  }
-
-  return null;
 }
 
 function filterDiscussionMessagesWithWorkspaceUi(

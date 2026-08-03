@@ -5,6 +5,7 @@ import { DISCUSS_CARD_SERVER_DEADLINE_MS } from "@/lib/ai-timeouts";
 import { type WorkspaceCard } from "@/lib/projects/brief";
 import {
   getBuildRecommendationHoldSignature,
+  getWorkspaceCardFromMessages,
   getWorkspacePreviewIssue,
   getWorkspaceComposerState,
   hasAnsweredWorkspaceQuestion,
@@ -656,5 +657,81 @@ describe("previewReadyState", () => {
         silentRecoveries: PREVIEW_STUCK_MAX_ATTEMPTS + 5,
       }),
     ).toBe("ready");
+  });
+});
+
+describe("getWorkspaceCardFromMessages", () => {
+  const present = (
+    card: WorkspaceCard,
+    projectTitle?: string,
+  ): UIMessage["parts"][number] =>
+    ({
+      type: "tool-presentWorkspaceCard",
+      state: "output-available",
+      output: { workspaceCard: card, projectTitle },
+    }) as unknown as UIMessage["parts"][number];
+
+  const assistant = (id: string, parts: UIMessage["parts"]): UIMessage => ({
+    id,
+    role: "assistant",
+    parts,
+  });
+
+  it("returns the latest non-none workspace card", () => {
+    const card: WorkspaceCard = {
+      type: "build_recommendation",
+      title: "Siap dibangun!",
+      summary: ["A"],
+    };
+    expect(
+      getWorkspaceCardFromMessages([assistant("a1", [present(card, "Title")])]),
+    ).toEqual({ workspaceCard: card, projectTitle: "Title" });
+  });
+
+  it("treats a later none card as terminal and ignores older recommendations", () => {
+    const old: WorkspaceCard = {
+      type: "build_recommendation",
+      title: "Siap dibangun!",
+      summary: ["A"],
+    };
+    expect(
+      getWorkspaceCardFromMessages([
+        assistant("a1", [present(old)]),
+        assistant("a2", [present({ type: "none" })]),
+        {
+          id: "u1",
+          role: "user",
+          parts: [{ type: "text", text: "ganti warnanya" }],
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  it("returns a newer real card that appears after a none", () => {
+    const next: WorkspaceCard = {
+      type: "question",
+      question: {
+        id: "color",
+        question: "Warna apa?",
+        answerMode: "text",
+        options: [],
+        placeholder: "",
+        selectionMode: "single",
+        whyThisQuestionMatters: "",
+      },
+    };
+    expect(
+      getWorkspaceCardFromMessages([
+        assistant("a1", [
+          present({
+            type: "build_recommendation",
+            title: "Old",
+            summary: ["x"],
+          }),
+        ]),
+        assistant("a2", [present({ type: "none" })]),
+        assistant("a3", [present(next)]),
+      ])?.workspaceCard,
+    ).toEqual(next);
   });
 });
