@@ -20,12 +20,13 @@ import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
-import { parseProjectBrief } from "@/lib/projects/brief";
+import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
+  getTextFromUIMessage,
   parseProjectChatSummary,
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
@@ -55,6 +56,7 @@ export async function runDiscussTurn({
   effectiveBrief,
   memoryFacts,
   messages,
+  previousWorkspaceCard,
   summary,
   userId,
   modelOverride,
@@ -66,6 +68,7 @@ export async function runDiscussTurn({
   effectiveBrief: ReturnType<typeof parseProjectBrief>;
   memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
   messages: UIMessage[];
+  previousWorkspaceCard?: WorkspaceCard;
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
   // ponytail: production omits → uses the real model via getAiModel(modelName).
@@ -88,6 +91,18 @@ export async function runDiscussTurn({
     }
     const modelName = getDefaultAiModel();
     const model = modelOverride ?? getAiModel(modelName);
+    const lastUserText = [...messages]
+      .reverse()
+      .find((message) => message.role === "user");
+    const lastUserTextValue = lastUserText
+      ? getTextFromUIMessage(lastUserText)
+      : undefined;
+    const hasBuiltSite = project.status === "ready";
+    const handoffNormalizeOptions = {
+      hasBuiltSite,
+      lastUserText: lastUserTextValue,
+      previousWorkspaceCard,
+    };
     const chatContextWithInlineAssets = {
       ...chatContext,
       messages: await inlineChatAssetFileParts(chatContext.messages),
@@ -95,7 +110,7 @@ export async function runDiscussTurn({
     const systemPrompt = buildOneCallSystemPrompt({
       brief: effectiveBrief,
       context: chatContext.systemContext,
-      hasBuiltSite: project.status === "ready",
+      hasBuiltSite,
     });
     const cardSystemPrompt = buildCardSystemPrompt();
     const modelMessages = await convertToModelMessages(
@@ -347,7 +362,9 @@ export async function runDiscussTurn({
         brief: effectiveBrief,
         cardSystemPrompt,
         chatText: "",
-        hasBuiltSite: project.status === "ready",
+        hasBuiltSite,
+        lastUserText: lastUserTextValue,
+        previousWorkspaceCard,
         model,
         modelMessages,
         modelName,
@@ -457,9 +474,11 @@ export async function runDiscussTurn({
       return;
     }
 
-    let workspaceTurn = normalizeWorkspaceTurn(toolInput, effectiveBrief, {
-      hasBuiltSite: project.status === "ready",
-    });
+    let workspaceTurn = normalizeWorkspaceTurn(
+      toolInput,
+      effectiveBrief,
+      handoffNormalizeOptions,
+    );
     let primaryToolFailed = workspaceTurn.workspaceCard.type === "none";
     let repairsUsed = 0;
 
@@ -470,7 +489,9 @@ export async function runDiscussTurn({
         brief: effectiveBrief,
         cardSystemPrompt,
         chatText,
-        hasBuiltSite: project.status === "ready",
+        hasBuiltSite,
+        lastUserText: lastUserTextValue,
+        previousWorkspaceCard,
         model,
         modelMessages,
         modelName,
@@ -489,6 +510,19 @@ export async function runDiscussTurn({
         repairsUsed = repaired.repairsUsed;
         totalInputTokens += repaired.usage.inputTokens;
         totalOutputTokens += repaired.usage.outputTokens;
+      }
+    }
+
+    // Affirm after prior build_confirm can promote even when model returned none.
+    if (workspaceTurn.workspaceCard.type === "none" && !hasBuiltSite) {
+      const promoted = normalizeWorkspaceTurn(
+        { workspaceCard: { type: "none" } },
+        effectiveBrief,
+        handoffNormalizeOptions,
+      );
+      if (promoted.readyForBuild) {
+        workspaceTurn = promoted;
+        primaryToolFailed = false;
       }
     }
 

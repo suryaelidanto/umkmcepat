@@ -2,7 +2,8 @@ import { validateUIMessages, type UIMessage } from "ai";
 
 import { prisma } from "@/lib/prisma";
 import { type DiscussAttemptJob } from "@/lib/projects/attempt-queue";
-import { parseProjectBrief } from "@/lib/projects/brief";
+import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
+import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
@@ -40,9 +41,10 @@ export async function runQueuedDiscussTurn(
       chatSummary: unknown;
       memoryFacts: unknown;
       brief: unknown;
+      workspaceCard: unknown;
     }>
   >`
-    SELECT "chatMessages", "chatSummary", "memoryFacts", "brief"
+    SELECT "chatMessages", "chatSummary", "memoryFacts", "brief", "workspaceCard"
     FROM "Project"
     WHERE id = ${job.projectId} AND "userId" = ${job.userId}
   `;
@@ -66,6 +68,9 @@ export async function runQueuedDiscussTurn(
   const summary = parseProjectChatSummary(row.chatSummary);
   const memoryFacts = parseProjectMemoryFacts(row.memoryFacts);
   const effectiveBrief = parseProjectBrief(row.brief, job.projectPrompt);
+  const previousWorkspaceCard: WorkspaceCard | undefined = row.workspaceCard
+    ? parseWorkspaceCard(row.workspaceCard, effectiveBrief)
+    : undefined;
 
   const chatContext = buildProjectChatContext({
     fieldState: {},
@@ -95,6 +100,7 @@ export async function runQueuedDiscussTurn(
       effectiveBrief,
       memoryFacts,
       messages: messages as UIMessage[],
+      previousWorkspaceCard,
       summary,
       userId: job.userId,
       abortSignal,

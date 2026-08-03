@@ -19,7 +19,7 @@ import {
 } from "@/lib/ai-timeouts";
 import { prisma } from "@/lib/prisma";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
-import { parseProjectBrief } from "@/lib/projects/brief";
+import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import { validateBrief } from "@/lib/projects/brief-rich-fields";
 import {
@@ -101,6 +101,8 @@ export async function repairDiscussCardWithTool({
   cardSystemPrompt,
   chatText,
   hasBuiltSite,
+  lastUserText,
+  previousWorkspaceCard,
   model,
   modelMessages,
   modelName,
@@ -111,6 +113,8 @@ export async function repairDiscussCardWithTool({
   cardSystemPrompt: string;
   chatText: string;
   hasBuiltSite: boolean;
+  lastUserText?: string;
+  previousWorkspaceCard?: WorkspaceCard;
   model: LanguageModel;
   modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
   modelName: string;
@@ -175,7 +179,11 @@ Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choi
         const toolCall = repaired.toolCalls?.[0] as
           { input?: unknown; args?: unknown } | undefined;
         const input = toolCall?.input ?? toolCall?.args ?? null;
-        const turn = normalizeWorkspaceTurn(input, brief, { hasBuiltSite });
+        const turn = normalizeWorkspaceTurn(input, brief, {
+          hasBuiltSite,
+          lastUserText,
+          previousWorkspaceCard,
+        });
         if (turn.workspaceCard.type !== "none") {
           return {
             ...turn,
