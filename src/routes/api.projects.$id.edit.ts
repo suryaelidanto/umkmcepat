@@ -12,6 +12,7 @@ import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { createReadStreamFromChannel } from "@/lib/projects/build-attempt-pubsub";
 import { parseProjectChatMessages } from "@/lib/projects/chat-memory";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import { classifyEditStructure } from "@/lib/projects/edit-structure";
 import { parseGeneratedProjectFiles } from "@/lib/projects/generated-source";
 import {
   claimProjectOperation,
@@ -124,6 +125,7 @@ async function handleEditPost(request: Request, routeId: string) {
     select: {
       buildStatus: true,
       chatMessages: true,
+      generationEngine: true,
       id: true,
       prompt: true,
       siteSchema: true,
@@ -159,6 +161,23 @@ async function handleEditPost(request: Request, routeId: string) {
       },
       { status: 400 },
     );
+  }
+
+  // contract-v1: structural edits (page/route/CTA/capability) require a new
+  // reviewed handoff; only non-structural content/style edits reuse the
+  // active handoff. legacy-v1 keeps free-form route edits.
+  if (project.generationEngine === "contract-v1") {
+    const structure = classifyEditStructure(instruction);
+    if (structure.kind === "structural") {
+      return Response.json(
+        {
+          code: "edit_requires_structural_handoff",
+          message:
+            "Perubahan ini mengubah struktur website. Simpan dulu rencana halaman baru untuk melanjutkan.",
+        },
+        { status: 409 },
+      );
+    }
   }
 
   if (instruction.length > 16_000 || summary.length > 8_000) {

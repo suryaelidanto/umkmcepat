@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
+import { isSnapshotRestorableAgainstActiveHandoff } from "@/lib/projects/build-handoffs";
 import { restoreSnapshot } from "@/lib/projects/snapshots";
 
 export const Route = createFileRoute(
@@ -25,7 +26,7 @@ export const Route = createFileRoute(
         const { id, snapshotId } = params;
         const project = await prisma.project.findFirst({
           where: { id, userId: session.user.id },
-          select: { id: true },
+          select: { id: true, generationEngine: true },
         });
         if (!project) {
           return Response.json(
@@ -36,13 +37,33 @@ export const Route = createFileRoute(
 
         const snapshot = await prisma.projectSnapshot.findFirst({
           where: { id: snapshotId, projectId: project.id },
-          select: { id: true, files: true, sourceRef: true },
+          select: { id: true, files: true, sourceRef: true, metadata: true },
         });
         if (!snapshot) {
           return Response.json(
             { message: "Riwayat tidak ditemukan." },
             { status: 404 },
           );
+        }
+
+        // contract-v1: a snapshot may only be restored directly when its
+        // contract/plan hashes match the active handoff; otherwise it is a
+        // structural change needing a new reviewed handoff (E2).
+        if (project.generationEngine === "contract-v1") {
+          const restorableAgainstActive =
+            await isSnapshotRestorableAgainstActiveHandoff({
+              projectId: project.id,
+              snapshotMetadata: snapshot.metadata,
+            });
+          if (!restorableAgainstActive) {
+            return Response.json(
+              {
+                message:
+                  "Riwayat ini perlu persetujuan rencana baru untuk dipulihkan.",
+              },
+              { status: 409 },
+            );
+          }
         }
 
         // Only restorable snapshots (files or sourceRef present) can branch.

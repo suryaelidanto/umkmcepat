@@ -89,6 +89,43 @@ export async function loadActiveHandoff(
   };
 }
 
+/** A contract-v1 snapshot is directly restorable only when its recorded
+ * contract/plan hashes match the project's active handoff. Otherwise restoring
+ * it is a structural change requiring a new reviewed handoff. */
+export async function isSnapshotRestorableAgainstActiveHandoff(input: {
+  projectId: string;
+  snapshotMetadata: unknown;
+}): Promise<boolean> {
+  const active = await loadActiveHandoff(input.projectId);
+  if (!active) {
+    return true;
+  }
+  const meta = asRecord(input.snapshotMetadata);
+  if (!meta) {
+    return false;
+  }
+  const generation = asRecord(meta.generation);
+  const contractHash =
+    generation && typeof generation.contractHash === "string"
+      ? generation.contractHash
+      : null;
+  const planHash =
+    generation && typeof generation.planHash === "string"
+      ? generation.planHash
+      : null;
+  if (typeof contractHash !== "string" || typeof planHash !== "string") {
+    return false;
+  }
+  return contractHash === active.contractHash && planHash === active.planHash;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
 /**
  * Atomically select a qualified candidate's handoff as the project's active
  * handoff. Verifies the operation lease, updates the project, and supersedes
