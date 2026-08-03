@@ -1,35 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { requireDevAdmin } from "@/lib/dev-admin";
 import { prisma } from "@/lib/prisma";
 
 export const Route = createFileRoute("/api/dev/skip-verification")({
   server: {
     handlers: {
       POST: async () => {
-        if (process.env.NODE_ENV !== "development") {
+        const gate = await requireDevAdmin();
+        if (!gate.ok) {
           return Response.json(
-            { message: "Endpoint ini hanya tersedia di mode development." },
-            { status: 403 },
-          );
-        }
-
-        const session = await auth();
-
-        if (!session?.user?.id) {
-          return Response.json(
-            { message: "Masuk dulu untuk melanjutkan." },
-            { status: 401 },
+            { message: gate.message },
+            { status: gate.status },
           );
         }
 
         await prisma.user.upsert({
-          where: { id: session.user.id },
+          where: { id: gate.admin.userId },
           update: { verifiedAt: new Date() },
           create: {
-            id: session.user.id,
-            email: session.user.email ?? "",
-            name: session.user.name ?? "",
+            id: gate.admin.userId,
+            email: gate.admin.email,
+            name: "",
             verifiedAt: new Date(),
           },
         });

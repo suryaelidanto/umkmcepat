@@ -128,6 +128,8 @@ export type UserVerification = {
   /** Server session present for this request. */
   signedIn: boolean;
   verified: boolean;
+  /** Development + ADMIN_EMAILS only; skip/reset tools. */
+  canUseDevTools: boolean;
 };
 
 /** Guest-safe verification: 401 means not signed in, not a failed request. */
@@ -144,14 +146,21 @@ export async function fetchUserVerification(): Promise<UserVerification> {
   });
 
   if (response.status === 401) {
-    return { signedIn: false, verified: false };
+    return { signedIn: false, verified: false, canUseDevTools: false };
   }
 
-  const result = await parseApiResponse<{ verified: boolean }>(response);
+  const result = await parseApiResponse<{
+    verified: boolean;
+    canUseDevTools?: boolean;
+  }>(response);
   if (!result.ok) {
     throw new Error(result.error.message || "Request failed");
   }
-  return { signedIn: true, verified: Boolean(result.data.verified) };
+  return {
+    signedIn: true,
+    verified: Boolean(result.data.verified),
+    canUseDevTools: Boolean(result.data.canUseDevTools),
+  };
 }
 
 async function handleUnauthorizedError(

@@ -6,18 +6,20 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { useRouter } from "@/lib/navigation";
+import { postVerifyDestination } from "@/lib/post-verify-destination";
 import {
   fetchJson,
   fetchUserVerification,
+  fetchWaitlistStatus,
   GATE_QUERY_OPTIONS,
   invalidateWaitlistStatus,
   queryKeys,
+  type UserVerification,
 } from "@/lib/query-client";
 import { isUserVerified } from "@/lib/user-credits";
 
 // Server-side gate: signed-in AND not yet verified. Already-verified users
-// are redirected to /, so the OTP form never mounts for them — same UX as the
-// waitlist gate when the user is already approved.
+// follow the same post-verify destination rule (home vs waitlist).
 const requireUnverified = createServerFn({ method: "GET" }).handler(
   async () => {
     const session = await auth();
@@ -25,7 +27,19 @@ const requireUnverified = createServerFn({ method: "GET" }).handler(
       throw redirect({ to: "/" });
     }
     if (await isUserVerified(session.user.id)) {
-      throw redirect({ to: "/" });
+      const { resolveUserWaitlistStatus } =
+        await import("@/routes/api.user.waitlist");
+      const { isAdminEmail, isWaitlistApproved } =
+        await import("@/lib/waitlist");
+      const { isWaitlistEnabled } = await import("@/lib/waitlist-enabled");
+      const email = session.user.email ?? "";
+      const resolved = resolveUserWaitlistStatus({
+        email,
+        isAdmin: email ? isAdminEmail(email) : false,
+        isApproved: email ? await isWaitlistApproved(email) : null,
+        waitlistEnabled: await isWaitlistEnabled(),
+      });
+      throw redirect({ to: postVerifyDestination(resolved.status) });
     }
     return { ok: true as const };
   },
@@ -48,13 +62,41 @@ function VerifyPage() {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const isDev = import.meta.env.DEV;
+  const [doneDestination, setDoneDestination] = useState<"/" | "/waitlist">(
+    "/",
+  );
 
   const verificationQuery = useQuery({
     queryKey: queryKeys.verification,
     queryFn: fetchUserVerification,
     ...GATE_QUERY_OPTIONS,
   });
+
+  const canUseDevTools = Boolean(verificationQuery.data?.canUseDevTools);
+
+  async function finishVerificationSuccess() {
+    setFlowState("done");
+    // Write through cache immediately so MainChrome doesn't redirect back.
+    const previous = queryClient.getQueryData<UserVerification>(
+      queryKeys.verification,
+    );
+    queryClient.setQueryData(queryKeys.verification, {
+      signedIn: true,
+      verified: true,
+      canUseDevTools: previous?.canUseDevTools ?? false,
+    });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
+    await invalidateWaitlistStatus(queryClient);
+    let destination: "/" | "/waitlist" = "/waitlist";
+    try {
+      const status = await fetchWaitlistStatus();
+      destination = postVerifyDestination(status.status);
+    } catch {
+      destination = "/waitlist";
+    }
+    setDoneDestination(destination);
+    setTimeout(() => router.replace(destination), 1500);
+  }
 
   const sendOtpMutation = useMutation({
     mutationFn: async (phoneValue: string) =>
@@ -85,15 +127,7 @@ function VerifyPage() {
         body: JSON.stringify(payload),
       }),
     onSuccess: async () => {
-      setFlowState("done");
-      // Write through cache immediately so MainChrome doesn't redirect back.
-      queryClient.setQueryData(queryKeys.verification, {
-        signedIn: true,
-        verified: true,
-      });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
-      await invalidateWaitlistStatus(queryClient);
-      setTimeout(() => router.replace("/"), 1500);
+      await finishVerificationSuccess();
     },
     onError: (mutationError) => {
       setError(
@@ -110,14 +144,7 @@ function VerifyPage() {
         method: "POST",
       }),
     onSuccess: async () => {
-      setFlowState("done");
-      queryClient.setQueryData(queryKeys.verification, {
-        signedIn: true,
-        verified: true,
-      });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.verification });
-      await invalidateWaitlistStatus(queryClient);
-      setTimeout(() => router.replace("/"), 1500);
+      await finishVerificationSuccess();
     },
     onError: () => {
       setError("Gagal skip verifikasi.");
@@ -160,7 +187,9 @@ function VerifyPage() {
             Verifikasi berhasil!
           </h1>
           <p className="mt-2 text-sm text-surface-warm-white/62">
-            Selamat datang di UMKM Cepat. Mengalihkan...
+            {doneDestination === "/waitlist"
+              ? "Lanjut isi formulir antrean…"
+              : "Selamat datang di UMKM Cepat. Mengalihkan..."}
           </p>
         </div>
       </div>
@@ -247,7 +276,7 @@ function VerifyPage() {
                 {sendOtpMutation.isPending ? "Mengirim..." : "Kirim Kode OTP"}
               </Button>
 
-              {isDev && (
+              {canUseDevTools && (
                 <>
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">

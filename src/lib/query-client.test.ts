@@ -175,6 +175,7 @@ describe("useCacheMutation helpers", () => {
       await expect(fetchUserVerification()).resolves.toEqual({
         signedIn: false,
         verified: false,
+        canUseDevTools: false,
       });
       expect(signOut).not.toHaveBeenCalled();
       vi.unstubAllGlobals();
@@ -182,12 +183,15 @@ describe("useCacheMutation helpers", () => {
 
     it("returns verified payload on success", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ verified: true }), { status: 200 }),
+        new Response(JSON.stringify({ verified: true, canUseDevTools: true }), {
+          status: 200,
+        }),
       );
 
       await expect(fetchUserVerification()).resolves.toEqual({
         signedIn: true,
         verified: true,
+        canUseDevTools: true,
       });
     });
 

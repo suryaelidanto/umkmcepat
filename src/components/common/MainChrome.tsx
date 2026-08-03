@@ -69,7 +69,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
 
-  const isDev = import.meta.env.DEV;
+  const canUseDevTools = Boolean(verificationQuery.data?.canUseDevTools);
   const hasOwnWaitlistEntry = Boolean(waitlistQuery.data?.own);
   const queryClient = useQueryClient();
 
@@ -180,7 +180,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative flex min-h-screen flex-col bg-[#151515]">
-      {isDev ? (
+      {canUseDevTools ? (
         <div className="flex items-center justify-center gap-spacing-3 border-b border-aurora-orange/30 bg-aurora-orange/10 px-spacing-4 py-spacing-2 text-xs text-aurora-orange">
           <span>DEV: Mode Pengembang</span>
           {isVerified ? (

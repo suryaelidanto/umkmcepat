@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
+import { canUseDevTools } from "@/lib/dev-admin";
 import { isUserVerified } from "@/lib/user-credits";
+import { isAdminEmail } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/user/verification")({
   server: {
@@ -17,8 +19,12 @@ export const Route = createFileRoute("/api/user/verification")({
         }
 
         const verified = await isUserVerified(session.user.id);
+        const canUse = canUseDevTools({
+          isDevelopment: process.env.NODE_ENV === "development",
+          isAdmin: isAdminEmail(session.user.email ?? ""),
+        });
 
-        return Response.json({ verified });
+        return Response.json({ verified, canUseDevTools: canUse });
       },
     },
   },
