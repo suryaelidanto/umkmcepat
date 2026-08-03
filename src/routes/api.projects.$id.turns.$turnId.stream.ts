@@ -3,10 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encodeSseEvent } from "@/lib/projects/build-attempt-pubsub";
-import {
-  readTurnState,
-  subscribeProgress,
-} from "@/lib/projects/discuss-turn-pubsub";
+import { readTurnState } from "@/lib/projects/discuss-turn-pubsub";
+import { runDiscussProgressTail } from "@/lib/projects/discuss-turn-sse-tail";
 
 const RESTART_RECOVERY_ERROR =
   "Server restart terputus. Coba jalankan chat lagi.";
@@ -48,7 +46,7 @@ export async function handleTurnStreamGet(projectId: string, turnId: string) {
   }
 
   if (readTurnState(turnId) === "live") {
-    return createDiscussReadStream(turnId);
+    return createDiscussReadStream(turnId, project.id);
   }
 
   // Channel gone: terminal from DB or fail-clean if still running (process death).
@@ -70,29 +68,48 @@ export async function handleTurnStreamGet(projectId: string, turnId: string) {
   return replayDiscussStream(replay);
 }
 
-function createDiscussReadStream(turnId: string): Response {
+function createDiscussReadStream(turnId: string, projectId: string): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
-      let resolveTail!: () => void;
-      const tailDone = new Promise<void>((resolve) => {
-        resolveTail = resolve;
-      });
       const writeSafe = (event: { type: string; [key: string]: unknown }) => {
         try {
           controller.enqueue(encoder.encode(encodeSseEvent(event.type, event)));
         } catch {
-          resolveTail();
+          /* client gone */
         }
       };
-      const unsubscribe = subscribeProgress(turnId, (event) => {
-        writeSafe(event);
-        if (event.type === "finish" || event.type === "error") {
-          resolveTail();
-        }
-      });
-      void tailDone.then(() => {
-        unsubscribe();
+      void runDiscussProgressTail({
+        turnId,
+        write: writeSafe,
+        isTerminalDb: async () => {
+          const turn = await prisma.projectChatTurn.findFirst({
+            where: { id: turnId, projectId },
+            select: { status: true, errorMessage: true },
+          });
+          if (!turn) {
+            return { kind: "missing" as const };
+          }
+          if (turn.status === "running") {
+            return { kind: "running" as const };
+          }
+          if (turn.status === "succeeded") {
+            return { kind: "succeeded" as const };
+          }
+          if (turn.status === "cancelled") {
+            return {
+              kind: "cancelled" as const,
+              errorText: "Proses dihentikan.",
+            };
+          }
+          return {
+            kind: "failed" as const,
+            errorText:
+              turn.errorMessage ??
+              "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
+          };
+        },
+      }).finally(() => {
         try {
           controller.close();
         } catch {

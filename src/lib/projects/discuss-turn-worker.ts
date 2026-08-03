@@ -502,42 +502,42 @@ export async function runDiscussTurn({
     });
     const resolvedToolCallId = streamToolCallId || toolCallId;
 
-    if (hasCard) {
-      publishProgress(turnId, {
-        type: "tool-input-available",
-        toolCallId: resolvedToolCallId,
-        toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-        input: toolInput ?? {},
-      });
-      publishProgress(turnId, {
-        type: "tool-output-available",
-        toolCallId: resolvedToolCallId,
-        output: {
-          workspaceCard: workspaceTurn.workspaceCard,
-          projectTitle: workspaceTurn.projectTitle || project.title,
-          repairsUsed,
-        },
-      });
-    }
+    // Always emit tool protocol events (including type:"none") so useChat
+    // stream shape settles; product still forbids inventing question content.
+    publishProgress(turnId, {
+      type: "tool-input-available",
+      toolCallId: resolvedToolCallId,
+      toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+      input: hasCard ? (toolInput ?? {}) : {},
+    });
+    publishProgress(turnId, {
+      type: "tool-output-available",
+      toolCallId: resolvedToolCallId,
+      output: {
+        workspaceCard: hasCard ? workspaceTurn.workspaceCard : { type: "none" },
+        projectTitle: workspaceTurn.projectTitle || project.title,
+        repairsUsed,
+      },
+    });
 
     const assistantMessage: UIMessage = {
       id: messageId,
       role: "assistant",
-      parts: hasCard
-        ? [
-            { type: "text", text: chatText, state: "done" },
-            {
-              type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-              toolCallId: resolvedToolCallId,
-              state: "output-available",
-              input: toolInput ?? {},
-              output: {
-                workspaceCard: workspaceTurn.workspaceCard,
-                projectTitle: workspaceTurn.projectTitle || project.title,
-              },
-            } as UIMessage["parts"][number],
-          ]
-        : [{ type: "text", text: chatText, state: "done" }],
+      parts: [
+        { type: "text", text: chatText, state: "done" },
+        {
+          type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
+          toolCallId: resolvedToolCallId,
+          state: "output-available",
+          input: hasCard ? (toolInput ?? {}) : {},
+          output: {
+            workspaceCard: hasCard
+              ? workspaceTurn.workspaceCard
+              : { type: "none" },
+            projectTitle: workspaceTurn.projectTitle || project.title,
+          },
+        } as UIMessage["parts"][number],
+      ],
     };
 
     const safeMessages = stripTransportDiagnosticMessages(

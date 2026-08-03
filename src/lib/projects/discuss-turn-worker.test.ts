@@ -272,10 +272,15 @@ describe("runDiscussTurn worker", () => {
         status: "succeeded",
       }),
     );
-    // No tool-output progress for a none card.
-    expect(publishProgressMock).not.toHaveBeenCalledWith(
+    // Protocol none tool events so the stream settles without inventing cards.
+    expect(publishProgressMock).toHaveBeenCalledWith(
       "ct_text_only",
-      expect.objectContaining({ type: "tool-output-available" }),
+      expect.objectContaining({
+        type: "tool-output-available",
+        output: expect.objectContaining({
+          workspaceCard: { type: "none" },
+        }),
+      }),
     );
     expect(publishProgressMock).toHaveBeenCalledWith(
       "ct_text_only",

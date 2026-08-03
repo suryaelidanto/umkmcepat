@@ -32,12 +32,12 @@ import {
   claimDiscussTurn,
   finalizeDiscussTurn,
 } from "@/lib/projects/discuss-turn";
-import { subscribeProgress } from "@/lib/projects/discuss-turn-pubsub";
 import {
   persistProjectChatTurn,
   repairDiscussCardWithTool,
   scrubBriefForStorage,
 } from "@/lib/projects/discuss-turn-shared";
+import { runDiscussProgressTail } from "@/lib/projects/discuss-turn-sse-tail";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
@@ -514,24 +514,38 @@ async function handleDiscussTurnOneCall({
           }
         };
 
-        let resolveTail: () => void;
-        const tailDone = new Promise<void>((resolve) => {
-          resolveTail = resolve;
+        // Live progress bus + DB terminal poll (covers multi-process Redis miss).
+        await runDiscussProgressTail({
+          turnId,
+          write: writeSafe,
+          isTerminalDb: async () => {
+            const turn = await prisma.projectChatTurn.findFirst({
+              where: { id: turnId, projectId: project.id },
+              select: { status: true, errorMessage: true },
+            });
+            if (!turn) {
+              return { kind: "missing" as const };
+            }
+            if (turn.status === "running") {
+              return { kind: "running" as const };
+            }
+            if (turn.status === "succeeded") {
+              return { kind: "succeeded" as const };
+            }
+            if (turn.status === "cancelled") {
+              return {
+                kind: "cancelled" as const,
+                errorText: "Proses dihentikan.",
+              };
+            }
+            return {
+              kind: "failed" as const,
+              errorText:
+                turn.errorMessage ??
+                "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
+            };
+          },
         });
-        const unsubscribe = subscribeProgress(turnId, (event) => {
-          writeSafe(event);
-          if (event.type === "finish" || event.type === "error") {
-            resolveTail();
-          }
-        });
-        // Subscribe returns after replaying any buffered events; if a
-        // terminal event was already in the buffer the resolve above fired.
-        // Otherwise wait for the worker's live terminal event. A missing
-        // terminal only happens if the process crashed mid-turn — but a
-        // crash also drops this SSE connection, and the client's GET
-        // /chat/turn poll job is the recovery path for that case.
-        await tailDone;
-        unsubscribe();
       },
       onError: (error) => {
         const reason = error instanceof Error ? error.message : "unknown";

@@ -119,6 +119,14 @@ Two Redis-backed BullMQ queues (local Redis: compose `redis` on `127.0.0.1:6379`
 
 Workers boot with the app process (`startAttemptQueueWorker`). On boot the worker also fire-and-forget pre-warms the shared golden `node_modules` under `.data/project-build-workspaces/_shared` so the first generate can skip install.
 
+### Discuss progress stream
+
+Discuss AI runs in the BullMQ worker and **persists regardless of the browser**. Live streaming uses a **shared progress bus** (local buffer + Redis pub/sub on `discuss-progress:{turnId}`, same `REDIS_URL` as BullMQ) so HTTP and worker can be different Node isolates.
+
+The POST `/api/projects/preview` SSE tail also **polls `ProjectChatTurn`** until `succeeded`/`failed`/`cancelled` (or a hard ceiling). If Redis progress is dropped, the client still gets `finish`/`error` without a hard refresh. Logs: `discuss:sse-tail-db-fallback`, `discuss-progress:redis-publish-failed`.
+
+Text-only fallback (no valid workspace card after one repair) still streams progressive text and emits protocol `tool-output-available` with `workspaceCard: { type: "none" }` — no invented questions/options. Expect **1** model call when the card is valid on primary, **2** when repair runs.
+
 ## Environment
 
 `.env.example` is the canonical placeholder list, grouped by concern (app, database, auth, AI, storage, email, OTP, payment, analytics, public sites) — read it directly rather than trusting a copy here; a stale duplicate of this block is exactly how past drift happened.

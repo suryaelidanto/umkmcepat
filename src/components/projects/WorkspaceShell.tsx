@@ -30,6 +30,7 @@ import {
   ComposerAttachButton,
   ComposerAttachments,
 } from "@/components/projects/ComposerAttachments";
+import { settleDiscussAfterChatReady } from "@/components/projects/discuss-chat-settle";
 import {
   useBuildAttemptStream,
   type BuildStreamEvent,
@@ -1695,9 +1696,32 @@ export function WorkspaceShell({
     window.dispatchEvent(new Event("umkm:energy-changed"));
     void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
 
-    // Prefer card from one-call tool output before falling back to poll.
+    // Prefer card from one-call tool output; settle text-only without endless preparing.
     const toolCard = getWorkspaceCardFromMessages(allMessagesRef.current);
-    if (toolCard && toolCard.workspaceCard.type !== "none") {
+    const lastAssistant = [...allMessagesRef.current]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    const lastAssistantHasText = Boolean(
+      lastAssistant?.parts.some(
+        (part) =>
+          part.type === "text" &&
+          typeof part.text === "string" &&
+          isUserVisibleAssistantText(part.text),
+      ),
+    );
+    const answered = hasAnsweredWorkspaceQuestion({
+      card: workspaceCardRef.current,
+      messages: allMessagesRef.current,
+      mode: modeRef.current,
+    });
+    const settle = settleDiscussAfterChatReady({
+      toolCard,
+      lastAssistantHasText,
+      mode: modeRef.current,
+      answeredPreviousQuestion: answered,
+    });
+
+    if (settle.applyToolCard && toolCard) {
       if (
         isFreshWorkspaceCard(
           toolCard.workspaceCard,
@@ -1712,24 +1736,19 @@ export function WorkspaceShell({
         }
         setWorkspaceCardError(false);
         setIsPreparingNextQuestion(false);
-        // The streamed assistant message is already the rendered source of
-        // truth — a `reloadLatestChat()` here would fetch the server copy and
-        // re-replace the thread (re-key + scroll reset = the reorder flicker).
-        // reloadLatestChat is now a no-op when render-equal anyway, but skipping
-        // the round-trip avoids the render entirely.
-        // Card from tool is instant; brief for Mulai build lives on server only.
         void loadWorkspaceState({ preserveCard: true });
         return;
       }
     }
 
-    const answered = hasAnsweredWorkspaceQuestion({
-      card: workspaceCardRef.current,
-      messages: allMessagesRef.current,
-      mode: modeRef.current,
-    });
+    if (settle.clearPreparing) {
+      setWorkspaceCardError(false);
+      setIsPreparingNextQuestion(false);
+      void loadWorkspaceState({ preserveCard: true });
+      return;
+    }
 
-    if (answered && modeRef.current === "discuss") {
+    if (settle.enterPreparingPoll) {
       setWorkspaceCardError(false);
       setIsPreparingNextQuestion(true);
       return;
@@ -1739,7 +1758,8 @@ export function WorkspaceShell({
       if (
         modeRef.current === "discuss" &&
         !buildComplete &&
-        result?.workspaceCard.type === "none"
+        result?.workspaceCard.type === "none" &&
+        settle.setCardError
       ) {
         setWorkspaceCardError(true);
       }
