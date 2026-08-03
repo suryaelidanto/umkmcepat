@@ -3,10 +3,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
 
-import { loadStreamerMode } from "@/lib/admin-streamer-mode";
-import { queryKeys } from "@/lib/query-client";
+import { fetchJson, queryKeys } from "@/lib/query-client";
 
 const StreamerModeContext = createContext<boolean>(false);
+
+async function fetchStreamerMode(): Promise<boolean> {
+  const data = await fetchJson<{ enabled?: boolean }>(
+    "/api/admin/streamer-mode",
+    { cache: "no-store" },
+  );
+  return Boolean(data.enabled);
+}
 
 export function StreamerModeProvider({
   initialData,
@@ -17,7 +24,7 @@ export function StreamerModeProvider({
 }) {
   const { data } = useQuery({
     queryKey: queryKeys.adminStreamerMode,
-    queryFn: () => loadStreamerMode(),
+    queryFn: fetchStreamerMode,
     initialData,
   });
 
