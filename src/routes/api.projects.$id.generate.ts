@@ -11,6 +11,8 @@ import {
   createReadStreamFromChannel,
   publishBuildProgress,
 } from "@/lib/projects/build-attempt-pubsub";
+import { acceptHandoffAndCreateAttempt } from "@/lib/projects/build-handoff-acceptance";
+import { loadActiveHandoff } from "@/lib/projects/build-handoffs";
 import { loadPersistedProjectSourceFiles } from "@/lib/projects/load-persisted-project-source";
 import {
   claimProjectOperation,
@@ -48,11 +50,22 @@ async function handleGeneratePost(request: Request, routeId: string) {
   }
 
   let requestedMode: "first_generate" | "retry_build" = "first_generate";
+  let contractHandoffId: string | undefined;
+  let contractReviewHash: string | undefined;
+  let clientIdempotencyKey: string | undefined;
   try {
-    const body = (await request.json()) as { mode?: string };
+    const body = (await request.json()) as {
+      mode?: string;
+      handoffId?: string;
+      reviewHash?: string;
+      idempotencyKey?: string;
+    };
     if (body?.mode === "retry_build") {
       requestedMode = "retry_build";
     }
+    contractHandoffId = body?.handoffId;
+    contractReviewHash = body?.reviewHash;
+    clientIdempotencyKey = body?.idempotencyKey;
   } catch {
     // empty body = first generate
   }
@@ -106,7 +119,13 @@ async function handleGeneratePost(request: Request, routeId: string) {
   devLog("generate", "request", { projectId: id, userId });
   const project = await prisma.project.findFirst({
     where: { id, userId },
-    select: { buildStatus: true, id: true, prompt: true, status: true },
+    select: {
+      buildStatus: true,
+      id: true,
+      prompt: true,
+      status: true,
+      generationEngine: true,
+    },
   });
 
   devLog("generate", "project.loaded", {
@@ -153,6 +172,8 @@ async function handleGeneratePost(request: Request, routeId: string) {
   const generateMode = resolveGenerateMode({
     requestedMode,
     hasPersistedSource: persistedSourceFiles.length > 0,
+    generationEngine: project.generationEngine,
+    hasAcceptedHandoff: Boolean(await loadActiveHandoff(projectId)),
   });
   devLog("generate", "mode.resolved", {
     projectId,
@@ -181,19 +202,43 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
   let earlyBuildId: string | null = null;
   try {
-    await prisma.projectEditAttempt.create({
-      data: {
-        id: operationAttemptId,
-        instruction: "Generate project from the accepted brief.",
-        kind: "generate",
-        leaseToken: operation.token,
+    const isContractPath =
+      project.generationEngine === "contract-v1" &&
+      Boolean(contractHandoffId) &&
+      Boolean(contractReviewHash);
+
+    if (isContractPath) {
+      const acceptance = await acceptHandoffAndCreateAttempt({
         projectId,
-        startedAt: new Date(),
-        status: "generating",
         userId,
-      },
-      select: { id: true },
-    });
+        handoffId: contractHandoffId!,
+        reviewHash: contractReviewHash!,
+        generationEngine: project.generationEngine,
+        clientIdempotencyKey:
+          clientIdempotencyKey || `build_${randomUUID().replace(/-/g, "")}`,
+        attemptId: operationAttemptId,
+      });
+      if (!acceptance.created) {
+        return Response.json(
+          { message: "Build ini sudah diproses." },
+          { status: 200 },
+        );
+      }
+    } else {
+      await prisma.projectEditAttempt.create({
+        data: {
+          id: operationAttemptId,
+          instruction: "Generate project from the accepted brief.",
+          kind: "generate",
+          leaseToken: operation.token,
+          projectId,
+          startedAt: new Date(),
+          status: "generating",
+          userId,
+        },
+        select: { id: true },
+      });
+    }
 
     // Placeholder snapshot so a ProjectBuild row exists before agent work.
     // Without it, agent-phase failures leave project=failed and canRetry=false.
