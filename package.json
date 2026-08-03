@@ -18,6 +18,7 @@
     "dev": "vite dev --port 3000",
     "dev:logs": "bun scripts/dev-logs.ts",
     "dev:reset": "bun scripts/dev-reset.ts",
+    "evaluate:generation": "bun scripts/run-generation-evaluation.ts",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\" --ignore-path .prettierignore",
     "format:check": "prettier --check --cache --cache-location .prettiercache \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\" --ignore-path .prettierignore",
     "graph:index": "graphify extract . --out . && graphify cluster-only . --no-label && graphify tree --label umkmcepat",

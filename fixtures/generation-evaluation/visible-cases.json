@@ -1,0 +1,24 @@
+{
+  "visibleCases": [
+    {
+      "id": "cmscsmrj9000d4l9nr3gxt0ct",
+      "shape": "duplicate-shell-and-missing-hash-history",
+      "note": "Generated __root owns header/footer/WhatsApp while layout owns them again; router omits hash history."
+    },
+    {
+      "id": "cmsbkwxmt002b4l6mspjvkfv8",
+      "shape": "full-bleed-section-with-constrained-inner",
+      "note": "Full-bleed background with max-w-6xl inner; visual-intent mismatch, not a universal width violation."
+    },
+    {
+      "id": "cms75zhvl00014lc6280skref",
+      "shape": "coherent-multi-page",
+      "note": "Positive example: three-page app with hash history and single shell mount."
+    },
+    {
+      "id": "cmsbquu2r00024lr8mwkxy74o",
+      "shape": "intentional-one-page",
+      "note": "Intentionally one page; may be correct for its visitor jobs."
+    }
+  ]
+}

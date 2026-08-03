@@ -1,0 +1,34 @@
+{
+  "mutations": [
+    {
+      "id": "duplicate-shell",
+      "category": "topology",
+      "note": "Both __root and a layout component mount header/footer."
+    },
+    {
+      "id": "missing-hash-history",
+      "category": "topology",
+      "note": "Router omits createHashHistory so preview navigation is broken."
+    },
+    {
+      "id": "unregistered-route",
+      "category": "topology",
+      "note": "A planned page file is present but not registered in the router."
+    },
+    {
+      "id": "unsupported-claim",
+      "category": "claim",
+      "note": "Rendered high-risk claim with no matching accepted fact."
+    },
+    {
+      "id": "wrong-cta-target",
+      "category": "cta",
+      "note": "Primary CTA resolves to a destination other than the accepted target."
+    },
+    {
+      "id": "full-bleed-vs-contained",
+      "category": "layout",
+      "note": "Declared surface intent conflicts with rendered geometry."
+    }
+  ]
+}
