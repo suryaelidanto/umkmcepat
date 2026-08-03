@@ -1,0 +1,110 @@
+// src/lib/projects/build-hash.ts
+// Canonical SHA-256 hashing for contract, plan, and review items. Semantic
+// content only: acceptance status, revisions, handoff ids, timestamps, and
+// attempt state are never hash inputs. Uses an explicit projection so a
+// future field addition has a single migration point.
+import { createHash } from "node:crypto";
+
+import type { BuildContractV1 } from "./build-contract";
+import type { BuildPlanV1 } from "./build-plan";
+import type { ReviewItemV1 } from "./review-items";
+
+const CONTRACT_PREFIX = "umkmcepat:build-contract:v1:";
+const PLAN_PREFIX = "umkmcepat:build-plan:v1:";
+const REVIEW_PREFIX = "umkmcepat:build-review:v1:";
+
+function sha256Hex(data: string): string {
+  return createHash("sha256").update(data, "utf8").digest("hex");
+}
+
+/** Contract arrays are unordered sets; sort by a stable id key. */
+function sortById<T>(arr: T[], key: (item: T) => string): T[] {
+  return [...arr].sort((a, b) => key(a).localeCompare(key(b)));
+}
+
+/** Plan set-like arrays sort by normalized value; ordered arrays keep order. */
+function sortValues(arr: unknown[]): unknown[] {
+  return [...arr].map(String).sort((a, b) => a.localeCompare(b));
+}
+
+/** Contract hash projection: schemaVersion + every semantic field except
+ * revision and contentHash. */
+function contractHashInput(c: BuildContractV1): unknown {
+  return {
+    schemaVersion: c.schemaVersion,
+    identity: c.identity,
+    facts: sortById(c.facts, (f) => f.id),
+    decisions: sortById(c.decisions, (d) => d.decisionId),
+    visitorJobs: sortById(c.visitorJobs, (j) => j.id),
+    ctaIntents: sortById(c.ctaIntents, (c) => c.id),
+    hardRequirements: sortById(c.hardRequirements, (h) => h.id),
+    prohibitedClaims: sortById(c.prohibitedClaims, (p) => p.id),
+    preferences: c.preferences,
+    assets: sortById(c.assets, (a) => a.assetId),
+    blockers: sortById(c.blockers, (b) => b.decisionId),
+    omissions: sortById(c.omissions, (o) => o.decisionId),
+  };
+}
+
+/** Plan hash projection: schemaVersion, contractHash, and every semantic
+ * field except revision and contentHash. Pages/sections/navigation keep
+ * presentation order; set-like id arrays and anti-references sort. */
+function planHashInput(p: BuildPlanV1): unknown {
+  return {
+    schemaVersion: p.schemaVersion,
+    contractHash: p.contractHash,
+    appKind: p.appKind,
+    archetype: p.archetype,
+    pages: p.pages.map((page) => ({
+      ...page,
+      visitorJobIds: sortValues(page.visitorJobIds),
+      requiredFactIds: sortValues(page.requiredFactIds),
+      sections: page.sections.map((section) => ({
+        ...section,
+        requiredFactIds: sortValues(section.requiredFactIds),
+        requiredAssetIds: sortValues(section.requiredAssetIds),
+      })),
+    })),
+    navigation: p.navigation,
+    capabilities: sortValues(p.capabilities),
+    artDirection: {
+      ...p.artDirection,
+      antiReferences: sortValues(p.artDirection.antiReferences),
+    },
+  };
+}
+
+function canonicalize(v: unknown): unknown {
+  if (typeof v === "string") {
+    return v.normalize("NFC").replace(/\r\n/g, "\n");
+  }
+  if (Array.isArray(v)) {
+    return v.map(canonicalize);
+  }
+  if (v !== null && typeof v === "object") {
+    const record = v as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(record).sort()) {
+      out[key] = canonicalize(record[key]);
+    }
+    return out;
+  }
+  return v;
+}
+
+/** Stable canonical JSON: sorted keys, NFC, \n line endings. */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(canonicalize(value)) ?? "null";
+}
+
+export function hashBuildContract(c: BuildContractV1): string {
+  return sha256Hex(CONTRACT_PREFIX + canonicalJson(contractHashInput(c)));
+}
+
+export function hashBuildPlan(p: BuildPlanV1): string {
+  return sha256Hex(PLAN_PREFIX + canonicalJson(planHashInput(p)));
+}
+
+export function hashReviewItems(items: ReviewItemV1[]): string {
+  return sha256Hex(REVIEW_PREFIX + canonicalJson(items));
+}

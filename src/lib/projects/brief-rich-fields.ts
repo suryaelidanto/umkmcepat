@@ -50,6 +50,30 @@ export type ProductOrServiceItem = {
   isPrimary?: boolean;
 };
 
+export type AddressValue = {
+  line1: string;
+  city?: string;
+  postalCode?: string;
+  note?: string;
+};
+
+export type ServiceAreaValue = {
+  area: string;
+  note?: string;
+};
+
+export type PriceValue = {
+  amount: string;
+  currency?: string;
+  note?: string;
+};
+
+export type PromotionValue = {
+  title: string;
+  detail?: string;
+  validUntil?: string;
+};
+
 const PAYMENT_METHODS: readonly PaymentMethod[] = [
   "cash",
   "transfer",
