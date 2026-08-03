@@ -76,6 +76,14 @@ export const APP_SETTINGS: ConfigEntry[] = [
     label: "Streamer mode (mask PII in admin)",
     fallback: true,
   },
+  {
+    key: "generation.contract_compiled_rollout",
+    category: "feature_flag",
+    tier: "advanced",
+    type: "string",
+    label: "Contract-compiled generation rollout",
+    fallback: "off",
+  },
   // economics
   {
     key: "economics.project_limit",

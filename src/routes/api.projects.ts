@@ -9,11 +9,17 @@ import {
   type ModerationImage,
 } from "@/lib/ai-moderation";
 import { apiError } from "@/lib/api-errors";
+import { getSettingSync } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import { prisma } from "@/lib/prisma";
 import { createInitialBrief } from "@/lib/projects/brief";
 import { createFallbackWorkspaceCard } from "@/lib/projects/brief-flow";
+import {
+  isContractCompiledRollout,
+  resolveGenerationEngine,
+  type GenerationEngine,
+} from "@/lib/projects/generation-engine";
 import { validateProjectRequest } from "@/lib/projects/input";
 import {
   decodeProjectCursor,
@@ -34,6 +40,7 @@ import {
   isAtOrOverProjectLimit,
   ProjectLimitExceededError,
 } from "@/lib/user-credits";
+import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
 
 const CREATE_PROJECT_IDEMPOTENCY_ACTION = "project.create";
 const IDEMPOTENCY_KEY_MAX_LENGTH = 120;
@@ -256,10 +263,14 @@ export const Route = createFileRoute("/api/projects")({
 
         const brief = createInitialBrief(validation.value);
         const workspaceCard = createFallbackWorkspaceCard(brief);
+        const generationEngine = await resolveEngineForOwner(
+          session.user.email,
+        );
         let project: { id: string } | null;
         try {
           project = await createProjectOnce({
             brief,
+            generationEngine,
             idempotencyKey,
             mode,
             prompt: validation.value,
@@ -363,6 +374,7 @@ async function findIdempotentProject(userId: string, key: string) {
 
 async function createProjectOnce({
   brief,
+  generationEngine,
   idempotencyKey,
   mode,
   prompt,
@@ -370,6 +382,7 @@ async function createProjectOnce({
   workspaceCard,
 }: {
   brief: unknown;
+  generationEngine: GenerationEngine;
   idempotencyKey: string;
   mode: WorkspaceMode;
   prompt: string;
@@ -386,6 +399,7 @@ async function createProjectOnce({
       const project = await tx.project.create({
         data: createProjectData({
           brief,
+          generationEngine,
           mode,
           prompt,
           sessionUserId,
@@ -437,12 +451,14 @@ async function createProjectOnce({
 
 function createProjectData({
   brief,
+  generationEngine,
   mode,
   prompt,
   sessionUserId,
   workspaceCard,
 }: {
   brief: unknown;
+  generationEngine: GenerationEngine;
   mode: WorkspaceMode;
   prompt: string;
   sessionUserId: string;
@@ -455,8 +471,23 @@ function createProjectData({
     status: mode === "build" ? "draft" : "discussing",
     brief: brief as Prisma.InputJsonValue,
     workspaceCard: workspaceCard as Prisma.InputJsonValue,
+    generationEngine,
     userId: sessionUserId,
   };
+}
+
+/** Resolve the sticky engine at project creation from one settings snapshot
+ * and one normalized owner identity. Never recomputed later. */
+async function resolveEngineForOwner(
+  email: string | null | undefined,
+): Promise<GenerationEngine> {
+  const raw = getSettingSync("generation.contract_compiled_rollout", "off");
+  const rollout = isContractCompiledRollout(raw) ? raw : "off";
+  const admin = email ? isAdminEmail(email) : false;
+  const waitlistApproved = email
+    ? (await isWaitlistApproved(email)) === "approved"
+    : false;
+  return resolveGenerationEngine({ rollout, admin, waitlistApproved });
 }
 
 function isUniqueConstraintError(error: unknown) {

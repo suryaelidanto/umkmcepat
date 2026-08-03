@@ -151,6 +151,15 @@ describe("existing entries carry env + bounds", () => {
     ).toBeUndefined();
   });
 
+  it("includes the contract-compiled rollout flag defaulting off", () => {
+    const e = APP_SETTINGS.find(
+      (x) => x.key === "generation.contract_compiled_rollout",
+    );
+    expect(e).toBeDefined();
+    expect(e?.type).toBe("string");
+    expect(e?.fallback).toBe("off");
+  });
+
   it("every numeric entry declares min and max", () => {
     for (const entry of APP_SETTINGS) {
       if (entry.type === "number") {

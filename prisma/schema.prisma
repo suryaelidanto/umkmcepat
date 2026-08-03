@@ -95,6 +95,7 @@ model User {
   payments        Payment[]
   supportTickets  SupportTicket[]
   supportAssets   SupportAsset[]
+  buildHandoffs   ProjectBuildHandoff[]
 
   @@index([email])
   @@index([name])
@@ -137,6 +138,10 @@ model Project {
   assets                    ProjectAsset[]
   chatTurns                 ProjectChatTurn[]
   userCredits               UserCredit[]
+  generationEngine          String                  @default("legacy-v1") @db.VarChar(32)
+  activeHandoffId           String?                 @unique
+  activeHandoff             ProjectBuildHandoff?    @relation("ProjectActiveHandoff", fields: [activeHandoffId], references: [id], onDelete: SetNull)
+  buildHandoffs             ProjectBuildHandoff[]   @relation("ProjectBuildHandoffs")
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
 
@@ -144,6 +149,35 @@ model Project {
   @@index([updatedAt])
   @@index([activeOperationExpiresAt])
   @@index([userId, updatedAt, id])
+}
+
+model ProjectBuildHandoff {
+  id               String    @id @default(cuid())
+  projectId        String
+  project          Project   @relation("ProjectBuildHandoffs", fields: [projectId], references: [id], onDelete: Cascade)
+  activeForProject Project?  @relation("ProjectActiveHandoff")
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  engine           String    @db.VarChar(32)
+  status           String    @default("draft") @db.VarChar(32)
+  contract         Json
+  plan             Json
+  contractHash     String    @db.VarChar(64)
+  planHash         String    @db.VarChar(64)
+  reviewItems      Json
+  reviewHash       String    @db.VarChar(64)
+  contractRevision Int
+  planRevision     Int
+  acceptedAt       DateTime?
+  supersededAt     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  attempts ProjectEditAttempt[]
+
+  @@unique([projectId, contractRevision, planRevision])
+  @@index([projectId, status, createdAt])
+  @@index([userId])
 }
 
 model ProjectChatTurn {
@@ -204,27 +238,29 @@ model ProjectAsset {
 }
 
 model ProjectEditAttempt {
-  id               String    @id @default(cuid())
+  id               String              @id @default(cuid())
   projectId        String
-  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project          Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   userId           String
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  handoffId        String?
+  handoff          ProjectBuildHandoff? @relation(fields: [handoffId], references: [id], onDelete: SetNull)
   parentSnapshotId String?
   snapshotId       String?
   buildId          String?
-  kind             String    @db.VarChar(32)
-  status           String    @default("received") @db.VarChar(32)
-  instruction      String    @db.Text
-  summary          String?   @db.Text
+  kind             String              @db.VarChar(32)
+  status           String              @default("received") @db.VarChar(32)
+  instruction      String              @db.Text
+  summary          String?             @db.Text
   annotations      Json?
   validationIssues Json?
   advisoryIssues   Json?
-  errorMessage     String?   @db.Text
-  leaseToken       String?   @db.VarChar(64)
+  errorMessage     String?             @db.Text
+  leaseToken       String?             @db.VarChar(64)
   startedAt        DateTime?
   finishedAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@index([projectId, createdAt])
   @@index([userId])
