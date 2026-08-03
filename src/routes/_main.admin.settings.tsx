@@ -130,22 +130,29 @@ function CategorySection({
               ) : entry.optionsSource === "nine_router_models" ? (
                 <div className="flex flex-col items-end gap-spacing-1">
                   <select
-                    className="max-w-xs rounded-radius-md border border-surface-warm-white/15 bg-zinc-900 px-spacing-2 py-spacing-1 text-sm text-white"
+                    className="max-w-xs rounded-radius-md border border-surface-warm-white/15 px-spacing-2 py-spacing-1 text-sm"
                     disabled={isPending}
                     onChange={(e) =>
                       setDraft({ ...draft, [entry.key]: e.target.value })
                     }
+                    style={{
+                      backgroundColor: "#18181b",
+                      color: "#fafafa",
+                    }}
                     value={String(value ?? "")}
                   >
                     {entry.key !== "ai.models_default" ? (
-                      <option className="bg-white text-zinc-900" value="">
+                      <option
+                        style={{ backgroundColor: "#ffffff", color: "#18181b" }}
+                        value=""
+                      >
                         (pakai default)
                       </option>
                     ) : null}
                     {modelSelectOptions(entry, value, modelIds).map((id) => (
                       <option
-                        className="bg-white text-zinc-900"
                         key={id}
+                        style={{ backgroundColor: "#ffffff", color: "#18181b" }}
                         value={id}
                       >
                         {id}
