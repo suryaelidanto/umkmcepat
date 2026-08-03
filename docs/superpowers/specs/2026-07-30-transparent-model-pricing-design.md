@@ -24,7 +24,7 @@ That is safe because it never prices a model as free, but it is not transparent 
 
 - Showing model/provider names in the default user-facing ledger.
 - Replacing 9Router, CMC, or the current AI SDK provider path.
-- Making `umkmcepat-combo` a real priced model. It is a local routing label and must be resolved to the actual child model when possible.
+- Making `default-combo` a real priced model. It is a local routing label and must be resolved to the actual child model when possible.
 - Changing the energy formula, free/premium split, daily limit, or WIB day boundary.
 - Building a full billing/invoice system.
 
@@ -61,7 +61,7 @@ Rules:
 - `source` must be a public URL or short source note. No secrets.
 - `checkedAt` is an ISO date for review freshness.
 
-The generated initial file covers the currently active 9Router models. `umkmcepat-combo` stays unpriced with a note because it is not a provider model.
+The generated initial file covers the currently active 9Router models. `default-combo` stays unpriced with a note because it is not a provider model.
 
 ### 2. Pricing resolver order
 
@@ -110,14 +110,14 @@ Refresh should build an in-memory alias index from `/models` metadata in additio
 
 If OpenRouter is unavailable, serve fresh/stale DB cache first, then manual override prices, then conservative floor.
 
-### 4. `umkmcepat-combo` handling
+### 4. `default-combo` handling
 
-`umkmcepat-combo` is a local preset/routing label. It must not get a fake exact price unless the combo is truly fixed to one child model.
+`default-combo` is a local preset/routing label. It must not get a fake exact price unless the combo is truly fixed to one child model.
 
 Preferred behavior:
 
 - Charge by the actual model id reported on each AI SDK step/response.
-- If only `umkmcepat-combo` is available, use conservative floor and store `rawModelId: "umkmcepat-combo"`, `pricedModelId: "unknown"`, `pricingSource: "conservative-floor"`.
+- If only `default-combo` is available, use conservative floor and store `rawModelId: "default-combo"`, `pricedModelId: "unknown"`, `pricingSource: "conservative-floor"`.
 - Log once per process that combo did not expose a child model.
 
 This keeps user charges safe and auditable without pretending the combo has a precise price.
@@ -192,7 +192,7 @@ Focused integration/manual check:
 - Trigger a generation using a CMC model.
 - Confirm no `[model-pricing] no price for "cmc/..."` warning for matched models.
 - Confirm `UserCredit` row stores raw id, priced id, source, prompt price, completion price.
-- Confirm `umkmcepat-combo` either resolves to actual child model or records conservative-floor proof honestly.
+- Confirm `default-combo` either resolves to actual child model or records conservative-floor proof honestly.
 
 ## Docs
 
@@ -209,4 +209,4 @@ Update the canonical energy/product docs to explain:
 - One override file, not separate alias and price files.
 - DB migration is required for historical transparency.
 - Default user UI stays non-technical.
-- `umkmcepat-combo` is not assigned a fake exact price.
+- `default-combo` is not assigned a fake exact price.

@@ -17,7 +17,7 @@
 - Do not commit secrets, `.env`, logs, screenshots, local uploads, `.data`, build artifacts, or generated junk.
 - Energy formula stays USD cost × 1,000,000.
 - Do not change the free/premium split, daily limit, or WIB day boundary.
-- `umkmcepat-combo` is not a real priced model; do not assign a fake exact price.
+- `default-combo` is not a real priced model; do not assign a fake exact price.
 - Unknown models use conservative floor and warn once.
 - Energy charging must never throw into request paths.
 - Do not run `bun run build` unless requested.

@@ -181,6 +181,7 @@ describe("verifyMayarWebhookRequest", () => {
 
 describe("getBoosterPack", () => {
   it("falls back to BOOSTER_PACKS when no AppSetting override exists", async () => {
+    vi.resetModules();
     vi.doMock("@/lib/app-settings", () => ({
       getSetting: vi.fn(async (_key: string, fallback: number) => fallback),
     }));
@@ -193,5 +194,6 @@ describe("getBoosterPack", () => {
       name: BOOSTER_PACKS.starter.name,
     });
     vi.doUnmock("@/lib/app-settings");
+    vi.resetModules();
   });
 });

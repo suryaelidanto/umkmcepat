@@ -115,4 +115,4 @@ Behavior tests, not private-implementation tests. Trivial one-liners (e.g. `publ
 
 ## Open questions for implementation
 
-- Confirm which models in the 9Router `umkmcepat-combo` are multimodal — needed for the **photo-upload** spec (topic 2), not this one. Tracked there, not here.
+- Confirm which models in the 9Router `default-combo` are multimodal — needed for the **photo-upload** spec (topic 2), not this one. Tracked there, not here.

@@ -381,7 +381,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     category: "ai",
     type: "string",
     label: "AI — default model id",
-    fallback: "umkmcepat-combo",
+    fallback: "default-combo",
   },
 ];
 

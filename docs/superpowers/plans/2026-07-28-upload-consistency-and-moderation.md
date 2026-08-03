@@ -1029,7 +1029,7 @@ POST: async ({ request }) => {
     if (moderation.usage) {
       await chargeEnergyForAiUsage({
         userId,
-        modelId: moderation.modelId || "umkmcepat-combo",
+        modelId: moderation.modelId || "default-combo",
         inputTokens: moderation.usage.inputTokens,
         outputTokens: moderation.usage.outputTokens,
         reason: "moderation",

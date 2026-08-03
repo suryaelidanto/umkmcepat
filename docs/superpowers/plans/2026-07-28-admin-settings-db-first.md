@@ -919,7 +919,7 @@ export function getAgentMaxSteps(key: AiAgentStepKey): number {
 ```ts
 import { getSettingSync } from "@/lib/app-settings";
 
-export const DEFAULT_AI_MODEL = "umkmcepat-combo";
+export const DEFAULT_AI_MODEL = "default-combo";
 
 export function getDefaultAiModel(
   rawModels = getSettingSync("ai.models_default", "") ||

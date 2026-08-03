@@ -2,7 +2,7 @@
 
 ## Problem
 
-Almost every AI call in UMKM Cepat used one model id — historically `umkmcepat-combo`, now `default-combo` — via `getDefaultAiModel()` / `ai.models_default` / `AI_MODELS`. Only the build pipeline had a partial escape hatch (`getGenerationModel()` → env `AI_GENERATION_MODEL` only; no admin setting).
+Almost every AI call in UMKM Cepat used one model id — historically `default-combo`, now `default-combo` — via `getDefaultAiModel()` / `ai.models_default` / `AI_MODELS`. Only the build pipeline had a partial escape hatch (`getGenerationModel()` → env `AI_GENERATION_MODEL` only; no admin setting).
 
 That forces one 9Router combo (cost, latency, vision, tool-call skill) onto jobs that need different profiles:
 
@@ -210,7 +210,7 @@ Pass the **requested** model id (getter result) into existing `getAiTelemetry` /
 ## Rollout
 
 1. Ship app with empty task settings → behavior matches today.
-2. Ops creates combos in 9Router: `default-combo`, `moderation-combo`, `discuss-combo`, `build-combo` (rename or alias away from legacy `umkmcepat-combo`).
+2. Ops creates combos in 9Router: `default-combo`, `moderation-combo`, `discuss-combo`, `build-combo` (rename or alias away from legacy `default-combo`).
 3. Set moderation first (cheap + vision), then discuss, then build.
 
 ## Success criteria

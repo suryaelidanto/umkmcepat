@@ -55,8 +55,8 @@ describe("AI model config", () => {
   });
 
   it("uses a single model list value as the default", () => {
-    expect(getDefaultAiModel("combo/umkmcepat-combo")).toBe(
-      "combo/umkmcepat-combo",
+    expect(getDefaultAiModel("combo/default-combo")).toBe(
+      "combo/default-combo",
     );
   });
 
