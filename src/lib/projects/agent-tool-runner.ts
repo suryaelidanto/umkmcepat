@@ -606,6 +606,24 @@ function getGeneratedDesignIssues(files: GeneratedProjectFile[]) {
     );
   }
 
+  // Theme-token invariant: the generated app must keep a real color system.
+  // The TSX uses semantic tokens (bg-background, text-foreground, bg-primary,
+  // border-border, ...). If index.css drops every color token, every semantic
+  // class resolves to nothing and the site renders black/white.
+  const indexCss =
+    files.find((file) => file.path === "src/index.css")?.content ?? "";
+  const usesSemanticColor =
+    /(?:bg|text|border|ring|from|to|via)-(?:background|foreground|card|popover|primary|secondary|muted|accent|destructive)\b/.test(
+      sourceText,
+    );
+  const hasBackgroundToken = /--background\s*:/.test(indexCss);
+  const hasForegroundToken = /--foreground\s*:/.test(indexCss);
+  if (usesSemanticColor && (!hasBackgroundToken || !hasForegroundToken)) {
+    issues.push(
+      "src/index.css is missing the theme color tokens (--background/--foreground) required by the semantic classes used in TSX.",
+    );
+  }
+
   return issues;
 }
 

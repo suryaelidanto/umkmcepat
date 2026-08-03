@@ -942,6 +942,19 @@ export function isTailwindUtilityClass(className: string): boolean {
     "ease-",
     "origin-",
     "blur-",
+    "backdrop-",
+    "scroll-",
+    "scroll-mt-",
+    "scroll-mb-",
+    "scroll-ml-",
+    "scroll-mr-",
+    "scroll-p-",
+    "scroll-px-",
+    "scroll-py-",
+    "scroll-pt-",
+    "scroll-pb-",
+    "scroll-pl-",
+    "scroll-pr-",
   ];
 
   return standardPrefixes.some((prefix) => baseClass.startsWith(prefix));

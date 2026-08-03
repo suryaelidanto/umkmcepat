@@ -16,6 +16,7 @@ import {
   generateCustomProjectFilesWithAgent,
   getTailwindCssRule,
   isStarterStylesContent,
+  isTailwindUtilityClass,
   seedBriefBasedHome,
 } from "@/lib/projects/custom-source-generator";
 import { createGeneratedViteTanStackStarterFiles } from "@/lib/projects/generated-source";
@@ -112,6 +113,15 @@ describe("cssCoversClassName (meaningful rule semantics)", () => {
   it("accepts allowlisted utility class with a single color declaration", () => {
     const css = `.muted{color:var(--muted)}`;
     expect(cssCoversClassName(css, "muted")).toBe(true);
+  });
+
+  it("treats a Tailwind v4 backdrop/scroll utility as covered (regression: black-white)", () => {
+    // backdrop-blur and scroll-mt-24 are real Tailwind v4 utilities generated
+    // by @tailwindcss/vite; they must NOT be flagged as missing custom CSS.
+    expect(isTailwindUtilityClass("backdrop-blur")).toBe(true);
+    expect(isTailwindUtilityClass("scroll-mt-24")).toBe(true);
+    expect(cssCoversClassName("", "backdrop-blur")).toBe(true);
+    expect(cssCoversClassName("", "scroll-mt-24")).toBe(true);
   });
 
   it("treats a bare class name with no rule as not covered", () => {
