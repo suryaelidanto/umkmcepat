@@ -200,7 +200,8 @@ Never put JSON in chat text. Never call the tool before chat text.
 Use type="question" with a single question (question.id is a short slug like business_name or services).
 Prefer choice options with label+description (2-5). Never include a catch-all "other"/"write your own" option — the UI already appends one automatically. Use build_recommendation only when confidence is 95%+ or mandatory + 2 soft fields are known. Below that, keep asking a question. Never use any other card type.
 
-Build early — do not extract every field. Once the basics are known, show the build_recommendation card.`;
+Build early — do not extract every field. Once the basics are known, show the build_recommendation card.
+If you are asking whether to build now (build confirm), emit type="build_recommendation" — never type="question" with id build_confirm.`;
 }
 
 export function buildCardSystemPrompt() {
@@ -220,7 +221,7 @@ Rules:
 - question.options must be an array of objects with label and description strings (not plain strings)
 - Never include a catch-all "other"/"write your own" option in question.options — the UI already appends a custom-answer option automatically
 - Set confidence to 95+ only when genuinely build-ready
-- Use "build_recommendation" only when confidence is 95+ AND openQuestions is empty. Otherwise ask the next question.
+- Use "build_recommendation" when build-ready (confidence 95+ / basics known). If asking whether to build, emit build_recommendation — not a build_confirm question.
 - briefPatch and workspaceCard MUST be JSON objects (nested inside the tool call), NOT JSON-encoded strings. Never put a stringified JSON blob where an object belongs.
 
 Output valid JSON only.

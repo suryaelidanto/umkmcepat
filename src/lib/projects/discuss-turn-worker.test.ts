@@ -264,8 +264,9 @@ describe("runDiscussTurn worker", () => {
 
     expect(generateTextMock).toHaveBeenCalledTimes(1);
     // Primary normalize + pre-text-only promote attempt.
-    expect(normalizeWorkspaceTurnMock).toHaveBeenCalled();
-    expect(normalizeWorkspaceTurnMock.mock.calls[0]?.[2]).toEqual(
+    expect(normalizeWorkspaceTurnMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
       expect.objectContaining({
         hasBuiltSite: false,
         lastUserText: "hai",
