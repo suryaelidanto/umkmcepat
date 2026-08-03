@@ -114,6 +114,37 @@ describe("existing entries carry env + bounds", () => {
     );
   });
 
+  it("maps ai.model.moderation to AI_MODEL_MODERATION", () => {
+    expect(APP_SETTINGS.find((e) => e.key === "ai.model.moderation")?.env).toBe(
+      "AI_MODEL_MODERATION",
+    );
+  });
+
+  it("maps ai.model.discuss to AI_MODEL_DISCUSS", () => {
+    expect(APP_SETTINGS.find((e) => e.key === "ai.model.discuss")?.env).toBe(
+      "AI_MODEL_DISCUSS",
+    );
+  });
+
+  it("maps ai.model.build to AI_MODEL_BUILD", () => {
+    expect(APP_SETTINGS.find((e) => e.key === "ai.model.build")?.env).toBe(
+      "AI_MODEL_BUILD",
+    );
+  });
+
+  it("marks four model keys with nine_router_models optionsSource", () => {
+    for (const key of [
+      "ai.models_default",
+      "ai.model.moderation",
+      "ai.model.discuss",
+      "ai.model.build",
+    ]) {
+      expect(APP_SETTINGS.find((e) => e.key === key)?.optionsSource).toBe(
+        "nine_router_models",
+      );
+    }
+  });
+
   it("streamer_mode has no env var (DB-only)", () => {
     expect(
       APP_SETTINGS.find((e) => e.key === "feature.streamer_mode")?.env,

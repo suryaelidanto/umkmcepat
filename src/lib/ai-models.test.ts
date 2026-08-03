@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_AI_MODEL, getDefaultAiModel } from "./ai-models";
+import {
+  DEFAULT_AI_MODEL,
+  getDefaultAiModel,
+  getDiscussModel,
+  getGenerationModel,
+  getModerationModel,
+} from "./ai-models";
 
 import { invalidateSettingCache } from "@/lib/app-settings";
 
@@ -104,5 +110,82 @@ describe("getDefaultAiModel DB-first", () => {
   it("falls back to the default when neither DB nor env is set", () => {
     invalidateSettingCache();
     expect(getDefaultAiModel()).toBe(DEFAULT_AI_MODEL);
+  });
+});
+
+describe("task model getters", () => {
+  afterEach(async () => {
+    invalidateSettingCache();
+    delete process.env.AI_MODELS;
+    delete process.env.AI_MODEL_MODERATION;
+    delete process.env.AI_MODEL_DISCUSS;
+    delete process.env.AI_MODEL_BUILD;
+    delete process.env.AI_GENERATION_MODEL;
+    const { prisma } = await import("@/lib/prisma");
+    for (const key of [
+      "ai.models_default",
+      "ai.model.moderation",
+      "ai.model.discuss",
+      "ai.model.build",
+    ]) {
+      await prisma.appSetting.delete({ where: { key } }).catch(() => {});
+    }
+  });
+
+  it("falls through empty task to default then hardcode", async () => {
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getModerationModel()).toBe(DEFAULT_AI_MODEL);
+    expect(getDiscussModel()).toBe(DEFAULT_AI_MODEL);
+    expect(getGenerationModel()).toBe(DEFAULT_AI_MODEL);
+  });
+
+  it("prefers task env over default", async () => {
+    process.env.AI_MODELS = "default-combo";
+    process.env.AI_MODEL_MODERATION = "mod-combo";
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getModerationModel()).toBe("mod-combo");
+    expect(getDiscussModel()).toBe("default-combo");
+  });
+
+  it("prefers task DB over task env", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "ai.model.discuss" },
+      create: {
+        key: "ai.model.discuss",
+        category: "ai",
+        value: "discuss-db",
+      },
+      update: { value: "discuss-db" },
+    });
+    process.env.AI_MODEL_DISCUSS = "discuss-env";
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getDiscussModel()).toBe("discuss-db");
+  });
+
+  it("build prefers AI_MODEL_BUILD then AI_GENERATION_MODEL", async () => {
+    process.env.AI_GENERATION_MODEL = "legacy-gen";
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getGenerationModel()).toBe("legacy-gen");
+
+    process.env.AI_MODEL_BUILD = "build-new";
+    expect(getGenerationModel()).toBe("build-new");
+  });
+
+  it("treats whitespace task value as unset", async () => {
+    process.env.AI_MODEL_MODERATION = "   ";
+    process.env.AI_MODELS = "default-combo";
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getModerationModel()).toBe("default-combo");
   });
 });

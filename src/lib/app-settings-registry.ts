@@ -49,6 +49,9 @@ export type ConfigEntry = {
   // True when the value is read once at process start, so a change needs a
   // restart to take effect. Surfaced as a badge in the admin UI.
   requiresRestart?: boolean;
+  // When set, /admin/settings renders a select populated from this source
+  // instead of a free-text input. Values remain plain strings in DB.
+  optionsSource?: "nine_router_models";
 };
 
 // Source of truth for DB-overridable, non-secret config. Adding a setting
@@ -563,6 +566,37 @@ export const APP_SETTINGS: ConfigEntry[] = [
     label: "AI — default model id",
     fallback: "umkmcepat-combo",
     env: "AI_MODELS",
+    optionsSource: "nine_router_models",
+  },
+  {
+    key: "ai.model.moderation",
+    category: "ai",
+    tier: "advanced",
+    type: "string",
+    label: "AI — moderation model id",
+    fallback: "",
+    env: "AI_MODEL_MODERATION",
+    optionsSource: "nine_router_models",
+  },
+  {
+    key: "ai.model.discuss",
+    category: "ai",
+    tier: "advanced",
+    type: "string",
+    label: "AI — discuss model id",
+    fallback: "",
+    env: "AI_MODEL_DISCUSS",
+    optionsSource: "nine_router_models",
+  },
+  {
+    key: "ai.model.build",
+    category: "ai",
+    tier: "advanced",
+    type: "string",
+    label: "AI — build/edit model id",
+    fallback: "",
+    env: "AI_MODEL_BUILD",
+    optionsSource: "nine_router_models",
   },
   {
     key: "ai.timeout.discuss_card_ms",
