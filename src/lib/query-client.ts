@@ -24,6 +24,7 @@ export const queryKeys = {
   projectChat: (projectId: string) => ["projects", projectId, "chat"] as const,
   waitlistStatus: ["waitlist-status"] as const,
   adminWaitlist: ["admin", "waitlist"] as const,
+  adminStreamerMode: ["admin", "streamer-mode"] as const,
   boosterPacks: ["booster-packs"] as const,
 };
 
