@@ -150,6 +150,15 @@ Empty task value → default → hardcode `default-combo`. Admin dropdown loads 
 
 Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Home project thumbnails are derived JPEGs under `.data/project-thumbnails`; keep that directory persistent when thumbnail continuity matters, or let missing images fall back to the deterministic gradient until the next successful build or first preview recovery. Capture runs in an isolated Node subprocess with a hidden browser window; local Windows uses installed Chrome when `PROJECT_THUMBNAIL_BROWSER_PATH` is empty. Set that path only to override browser discovery. Runtime/build workspaces are rebuildable. Local/test generated execution stays enabled by default; production Compose explicitly disables build and public execution until the isolated-worker and separate-origin gates pass.
 
+## Contract-compiled generation (staged, off)
+
+`contract-v1` is a staged generation engine (see `docs/superpowers/specs/2026-08-03-contract-compiled-generation-design.md`). Two admin settings control it, both DB-first:
+
+- `generation.contract_compiled_rollout` (`off | internal | pilot | all`, default `off`) — assignment at project creation only. Sticky on `Project.generationEngine`.
+- `generation.contract_admission` (`paused | enabled`, default `paused`) — execution admission. No contract attempt is enqueued until an operator flips it to `enabled`. This is the emergency rollback knob: flipping to `paused` stops new contract attempts immediately without changing sticky engines or selected deployments.
+
+Contract-v1 discussion prepares an immutable contract/plan handoff before the build card; generation compiles protected topology and enforces an AI write allow-list, claim grammar, and browser gates. Legacy-v1 remains the default and is unaffected.
+
 Idle runtime cleanup:
 
 ```bash

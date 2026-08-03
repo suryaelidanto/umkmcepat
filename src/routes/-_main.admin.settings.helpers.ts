@@ -16,6 +16,7 @@ export type SettingEntry = {
   max: null | number;
   min: null | number;
   optionsSource: "nine_router_models" | null;
+  enumOptions: string[] | null;
   requiresRestart: boolean;
   source: string;
   tier: SettingTier;

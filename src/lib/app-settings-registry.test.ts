@@ -158,6 +158,16 @@ describe("existing entries carry env + bounds", () => {
     expect(e).toBeDefined();
     expect(e?.type).toBe("string");
     expect(e?.fallback).toBe("off");
+    expect(e?.enumOptions).toEqual(["off", "internal", "pilot", "all"]);
+  });
+
+  it("includes the contract admission flag defaulting paused", () => {
+    const e = APP_SETTINGS.find(
+      (x) => x.key === "generation.contract_admission",
+    );
+    expect(e).toBeDefined();
+    expect(e?.fallback).toBe("paused");
+    expect(e?.enumOptions).toEqual(["paused", "enabled"]);
   });
 
   it("every numeric entry declares min and max", () => {

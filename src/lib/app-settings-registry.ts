@@ -52,6 +52,9 @@ export type ConfigEntry = {
   // When set, /admin/settings renders a select populated from this source
   // instead of a free-text input. Values remain plain strings in DB.
   optionsSource?: "nine_router_models";
+  // When set, /admin/settings renders a fixed-option select (enum). Mutually
+  // exclusive with optionsSource.
+  enumOptions?: readonly string[];
 };
 
 // Source of truth for DB-overridable, non-secret config. Adding a setting
@@ -83,6 +86,16 @@ export const APP_SETTINGS: ConfigEntry[] = [
     type: "string",
     label: "Contract-compiled generation rollout",
     fallback: "off",
+    enumOptions: ["off", "internal", "pilot", "all"],
+  },
+  {
+    key: "generation.contract_admission",
+    category: "feature_flag",
+    tier: "advanced",
+    type: "string",
+    label: "Contract-compiled generation admission",
+    fallback: "paused",
+    enumOptions: ["paused", "enabled"],
   },
   // economics
   {

@@ -29,6 +29,11 @@ export function validateSettingValue(
   if (entry.type === "string" && typeof value !== "string") {
     return `${key} must be a string.`;
   }
+  if (entry.type === "string" && entry.enumOptions) {
+    if (!entry.enumOptions.includes(value as string)) {
+      return `${key} must be one of: ${entry.enumOptions.join(", ")}.`;
+    }
+  }
   if (entry.type === "number") {
     if (typeof value !== "number" || !Number.isFinite(value)) {
       return `${key} must be a number.`;
@@ -85,6 +90,7 @@ export const Route = createFileRoute("/api/admin/settings")({
             max: e.max ?? null,
             min: e.min ?? null,
             optionsSource: e.optionsSource ?? null,
+            enumOptions: e.enumOptions ? [...e.enumOptions] : null,
             requiresRestart: e.requiresRestart ?? false,
             source,
             tier: e.tier,

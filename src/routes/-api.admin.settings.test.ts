@@ -36,4 +36,24 @@ describe("validateSettingValue", () => {
       validateSettingValue("feature.streamer_mode", 1, "feature_flag"),
     ).toMatch(/must be a boolean/);
   });
+
+  it("rejects an out-of-enum rollout value", () => {
+    expect(
+      validateSettingValue(
+        "generation.contract_compiled_rollout",
+        "all-the-way",
+        "feature_flag",
+      ),
+    ).toMatch(/must be one of/);
+  });
+
+  it("accepts a valid rollout enum value", () => {
+    expect(
+      validateSettingValue(
+        "generation.contract_compiled_rollout",
+        "pilot",
+        "feature_flag",
+      ),
+    ).toBeNull();
+  });
 });

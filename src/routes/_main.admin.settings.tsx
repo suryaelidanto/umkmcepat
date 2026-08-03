@@ -181,6 +181,21 @@ function CategorySection({
                     </p>
                   ) : null}
                 </div>
+              ) : entry.enumOptions && entry.enumOptions.length ? (
+                <select
+                  className="rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
+                  disabled={isPending}
+                  onChange={(e) =>
+                    setDraft({ ...draft, [entry.key]: e.target.value })
+                  }
+                  value={String(value)}
+                >
+                  {entry.enumOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
               ) : (
                 <input
                   className="w-32 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"

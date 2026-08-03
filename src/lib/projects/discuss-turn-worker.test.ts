@@ -143,6 +143,7 @@ const baseProject = {
   prompt: "Saya jual kopi",
   status: "draft",
   title: "T",
+  generationEngine: "legacy-v1",
 };
 const baseMessages: UIMessage[] = [
   { id: "m1", role: "user", parts: [{ type: "text", text: "hai" }] as never },
