@@ -64,9 +64,20 @@ export function publishProgress(
   });
 }
 
+/** Open channel early so the SSE tail can subscribe before the first event. */
+export function ensureProgressChannel(turnId: string): void {
+  if (testBackend) {
+    return;
+  }
+  if (!channels.has(turnId)) {
+    channels.set(turnId, { events: [], subscribers: new Set() });
+  }
+}
+
 export function subscribeProgress(
   turnId: string,
   onEvent: (e: DiscussProgressEvent) => void,
+  options?: { replayBuffered?: boolean },
 ): () => void {
   if (testBackend) {
     return testBackend.subscribe(turnId, onEvent);
@@ -79,11 +90,14 @@ export function subscribeProgress(
     ch = { events: [], subscribers: new Set() };
     channels.set(turnId, ch);
   }
-  for (const e of ch.events) {
-    try {
-      onEvent(e);
-    } catch {
-      /* swallow */
+  const replayBuffered = options?.replayBuffered !== false;
+  if (replayBuffered) {
+    for (const e of ch.events) {
+      try {
+        onEvent(e);
+      } catch {
+        /* swallow */
+      }
     }
   }
   ch.subscribers.add(onEvent);

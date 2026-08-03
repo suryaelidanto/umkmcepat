@@ -381,11 +381,7 @@ describe("runDiscussTurn worker", () => {
       workspaceCard: card,
       readyForBuild: false,
     } as never);
-    const fullToolJson = JSON.stringify({
-      assistantText: fullText,
-      workspaceCard: card,
-    });
-    const mid = fullToolJson.indexOf("bantu");
+    // Provider dumps entire tool args in one delta (common with 9Router).
     streamTextMock.mockReturnValueOnce(
       makeStreamResult([
         {
@@ -396,12 +392,10 @@ describe("runDiscussTurn worker", () => {
         {
           type: "tool-input-delta",
           id: "tc_tool_only",
-          delta: fullToolJson.slice(0, mid),
-        },
-        {
-          type: "tool-input-delta",
-          id: "tc_tool_only",
-          delta: fullToolJson.slice(mid),
+          delta: JSON.stringify({
+            assistantText: fullText,
+            workspaceCard: card,
+          }),
         },
         {
           type: "tool-call",
@@ -435,6 +429,7 @@ describe("runDiscussTurn worker", () => {
           event.type === "text-delta",
       )
       .map(([, event]) => event.delta as string);
+    // Display pacing must split one provider dump into many text-deltas.
     expect(textDeltas.length).toBeGreaterThan(1);
     expect(textDeltas.join("")).toBe(fullText);
     const progressTypes = publishProgressMock.mock.calls
@@ -496,13 +491,15 @@ describe("runDiscussTurn worker", () => {
       modelOverride: "test-model" as never,
     });
 
-    expect(publishProgressMock).toHaveBeenCalledWith(
-      "ct_repair_text",
-      expect.objectContaining({
-        type: "text-delta",
-        delta: "Aku siap bantu. Pertama, nama usahanya apa?",
-      }),
-    );
+    const repairText = "Aku siap bantu. Pertama, nama usahanya apa?";
+    const textDeltas = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_repair_text" && event.type === "text-delta",
+      )
+      .map(([, event]) => event.delta as string);
+    expect(textDeltas.length).toBeGreaterThan(1);
+    expect(textDeltas.join("")).toBe(repairText);
     expect(publishProgressMock).toHaveBeenCalledWith("ct_repair_text", {
       type: "text-start",
       id: "discuss-text-repair",
@@ -514,8 +511,6 @@ describe("runDiscussTurn worker", () => {
     const persistedValues = prismaExecuteRawMock.mock.calls
       .flatMap((call) => call.slice(1))
       .join("\n");
-    expect(persistedValues).toContain(
-      "Aku siap bantu. Pertama, nama usahanya apa?",
-    );
+    expect(persistedValues).toContain(repairText);
   });
 });

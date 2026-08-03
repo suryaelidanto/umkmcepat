@@ -32,6 +32,7 @@ import {
   claimDiscussTurn,
   finalizeDiscussTurn,
 } from "@/lib/projects/discuss-turn";
+import { ensureProgressChannel } from "@/lib/projects/discuss-turn-pubsub";
 import {
   persistProjectChatTurn,
   repairDiscussCardWithTool,
@@ -451,7 +452,11 @@ async function handleDiscussTurnOneCall({
     );
   }
 
-  // 3. Fire the detached worker. NOT awaited â€” the POST returns the tail
+  // 3. Open the progress channel before enqueue so the SSE tail can attach
+  //    before the worker's first publish (avoids sync buffer dump on late join).
+  ensureProgressChannel(turnId);
+
+  // 4. Fire the detached worker. NOT awaited — the POST returns the tail
   //    stream immediately. The worker publishes progress to the pub/sub
   //    channel; this route subscribes below. If the worker rejects, log +
   //    let the client's reconnect-after-restart path surface the error.
@@ -485,23 +490,11 @@ async function handleDiscussTurnOneCall({
     );
   }
 
-  // 4. Tail stream: relay the worker's pub/sub events to the client. The
-  //    worker runs detached (`void runDiscussTurn` above) and publishes a
-  //    terminal `finish`/`error` in every path; `subscribeProgress` replays
-  //    any events buffered before we subscribed. So the tail simply waits
-  //    for that terminal event — it never needs to second-guess the channel.
-  //
-  //    The pub/sub channel is created lazily on the worker's FIRST
-  //    `publishProgress`, which happens after `convertToModelMessages` +
-  //    `writeAiRequestLog` + the `streamText` network call. So at tail-start
-  //    the channel almost always does not exist yet — that is the NORMAL
-  //    startup state of a fresh turn, not a "lost to restart" state. The old
-  //    `readTurnState === "gone"` DB-replay fallback misread that as a stall
-  //    and emitted a spurious `turn_stalled` error while the worker was
-  //    still (successfully) starting up — the user's "it works but shows
-  //    error; refresh fixes it" symptom. Restart recovery (a `running` row
-  //    left dangling by a crash) is handled by the client's GET /chat/turn
-  //    poll path, not by this SSE tail.
+  // 5. Tail stream: relay the worker's pub/sub events to the client. The
+  //    worker publishes a terminal `finish`/`error` in every path. Channel
+  //    is pre-opened above so subscribe attaches before first publish.
+  //    Restart recovery (a `running` row left dangling by a crash) is
+  //    handled by the client's GET /chat/turn poll path, not this SSE tail.
   return createUIMessageStreamResponse({
     stream: createUIMessageStream({
       execute: async ({ writer }) => {

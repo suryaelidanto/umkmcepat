@@ -81,6 +81,7 @@ vi.mock("@/lib/projects/attempt-queue", () => ({
 
 vi.mock("@/lib/projects/discuss-turn-pubsub", () => ({
   subscribeProgress: subscribeProgressMock,
+  ensureProgressChannel: vi.fn(),
 }));
 
 vi.mock("@/lib/projects/chat-memory", async () => {

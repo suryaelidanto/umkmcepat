@@ -30,6 +30,7 @@ import {
   parseProjectChatSummary,
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
+import { publishPacedTextDeltas } from "@/lib/projects/discuss-text-pacing";
 import {
   buildCardSystemPrompt,
   buildOneCallSystemPrompt,
@@ -204,10 +205,16 @@ export async function runDiscussTurn({
             continue;
           }
           fullText += delta;
-          publishProgress(turnId, {
-            type: "text-delta",
-            id: textPartId,
-            delta,
+          await publishPacedTextDeltas({
+            text: delta,
+            abortSignal,
+            publish: (piece) => {
+              publishProgress(turnId, {
+                type: "text-delta",
+                id: textPartId,
+                delta: piece,
+              });
+            },
           });
           continue;
         }
@@ -230,7 +237,7 @@ export async function runDiscussTurn({
             streamToolCallId = part.id;
           }
           toolInputJson += delta;
-          if (fullText) {
+          if (fullText && !streamedToolAssistantText) {
             // Free chat text already streaming; don't dual-stream tool prose.
             continue;
           }
@@ -241,10 +248,16 @@ export async function runDiscussTurn({
           if (next.delta) {
             streamedToolAssistantText = next.seenText;
             fullText = next.seenText;
-            publishProgress(turnId, {
-              type: "text-delta",
-              id: textPartId,
-              delta: next.delta,
+            await publishPacedTextDeltas({
+              text: next.delta,
+              abortSignal,
+              publish: (piece) => {
+                publishProgress(turnId, {
+                  type: "text-delta",
+                  id: textPartId,
+                  delta: piece,
+                });
+              },
             });
           }
           continue;
@@ -287,10 +300,16 @@ export async function runDiscussTurn({
       const fromTool = extractAssistantTextFromToolInput(toolInput);
       if (fromTool) {
         fullText = fromTool;
-        publishProgress(turnId, {
-          type: "text-delta",
-          id: textPartId,
-          delta: fromTool,
+        await publishPacedTextDeltas({
+          text: fromTool,
+          abortSignal,
+          publish: (piece) => {
+            publishProgress(turnId, {
+              type: "text-delta",
+              id: textPartId,
+              delta: piece,
+            });
+          },
         });
       }
     } else if (streamedToolAssistantText) {
@@ -301,10 +320,16 @@ export async function runDiscussTurn({
       ) {
         const tail = finalToolText.slice(streamedToolAssistantText.length);
         fullText = finalToolText;
-        publishProgress(turnId, {
-          type: "text-delta",
-          id: textPartId,
-          delta: tail,
+        await publishPacedTextDeltas({
+          text: tail,
+          abortSignal,
+          publish: (piece) => {
+            publishProgress(turnId, {
+              type: "text-delta",
+              id: textPartId,
+              delta: piece,
+            });
+          },
         });
       }
     }
@@ -532,10 +557,16 @@ export async function runDiscussTurn({
             type: "text-start",
             id: repairTextPartId,
           });
-          publishProgress(turnId, {
-            type: "text-delta",
-            id: repairTextPartId,
-            delta: repairedText,
+          await publishPacedTextDeltas({
+            text: repairedText,
+            abortSignal,
+            publish: (piece) => {
+              publishProgress(turnId, {
+                type: "text-delta",
+                id: repairTextPartId,
+                delta: piece,
+              });
+            },
           });
           publishProgress(turnId, {
             type: "text-end",

@@ -193,11 +193,26 @@ export function extractPartialAssistantTextFromToolInput(
  * Diff newly-parsed assistantText against what was already streamed.
  * Callers accumulate tool-input-delta JSON, then feed the buffer here.
  */
+let parsePartialJsonFn:
+  | ((jsonText: string | undefined) => Promise<{
+      value: unknown;
+      state: string;
+    }>)
+  | null = null;
+
+async function getParsePartialJson() {
+  if (!parsePartialJsonFn) {
+    const mod = await import("ai");
+    parsePartialJsonFn = mod.parsePartialJson;
+  }
+  return parsePartialJsonFn;
+}
+
 export async function nextAssistantTextDeltaFromPartialToolJson(
   partialToolJson: string,
   alreadyStreamed: string,
 ): Promise<{ delta: string; seenText: string }> {
-  const { parsePartialJson } = await import("ai");
+  const parsePartialJson = await getParsePartialJson();
   const { value } = await parsePartialJson(partialToolJson);
   const partial = extractPartialAssistantTextFromToolInput(value);
   if (!partial || !partial.startsWith(alreadyStreamed)) {
