@@ -41,19 +41,27 @@ function parseGroupedNumber(raw: string): number | "" {
 }
 
 function modelSelectOptions(
-  entry: SettingEntry,
   value: unknown,
   modelIds: string[],
+  defaultModelId: string,
 ): string[] {
-  const current = String(value ?? "");
+  const current = String(value ?? "").trim();
+  const fallback = defaultModelId.trim() || "umkmcepat-combo";
   const ids = [...modelIds];
-  if (current && !ids.includes(current)) {
-    ids.unshift(current);
-  }
-  if (entry.key === "ai.models_default" && !ids.includes("umkmcepat-combo")) {
-    ids.push("umkmcepat-combo");
+  for (const id of [current, fallback, "umkmcepat-combo"]) {
+    if (id && !ids.includes(id)) {
+      ids.push(id);
+    }
   }
   return ids;
+}
+
+function modelSelectValue(value: unknown, defaultModelId: string): string {
+  const current = String(value ?? "").trim();
+  if (current) {
+    return current;
+  }
+  return defaultModelId.trim() || "umkmcepat-combo";
 }
 
 function CategorySection({
@@ -62,6 +70,7 @@ function CategorySection({
   isPending,
   modelIds,
   modelsLoadFailed,
+  defaultModelId,
   setDraft,
   onSave,
 }: {
@@ -70,6 +79,7 @@ function CategorySection({
   isPending: boolean;
   modelIds: string[];
   modelsLoadFailed: boolean;
+  defaultModelId: string;
   setDraft: (d: Record<string, unknown>) => void;
   onSave: (category: string, values: Record<string, unknown>) => void;
 }) {
@@ -139,29 +149,28 @@ function CategorySection({
                       backgroundColor: "#18181b",
                       color: "#fafafa",
                     }}
-                    value={String(value ?? "")}
+                    value={modelSelectValue(value, defaultModelId)}
                   >
-                    {entry.key !== "ai.models_default" ? (
-                      <option
-                        style={{ backgroundColor: "#ffffff", color: "#18181b" }}
-                        value=""
-                      >
-                        (pakai default)
-                      </option>
-                    ) : null}
-                    {modelSelectOptions(entry, value, modelIds).map((id) => (
-                      <option
-                        key={id}
-                        style={{ backgroundColor: "#ffffff", color: "#18181b" }}
-                        value={id}
-                      >
-                        {id}
-                      </option>
-                    ))}
+                    {modelSelectOptions(value, modelIds, defaultModelId).map(
+                      (id) => (
+                        <option
+                          key={id}
+                          style={{
+                            backgroundColor: "#ffffff",
+                            color: "#18181b",
+                          }}
+                          value={id}
+                        >
+                          {id}
+                        </option>
+                      ),
+                    )}
                   </select>
-                  {String(value ?? "") &&
+                  {modelSelectValue(value, defaultModelId) &&
                   modelIds.length > 0 &&
-                  !modelIds.includes(String(value)) ? (
+                  !modelIds.includes(
+                    modelSelectValue(value, defaultModelId),
+                  ) ? (
                     <p className="text-xs text-amber-200/90">
                       Tidak ada di daftar combo 9Router
                     </p>
@@ -272,11 +281,17 @@ function SettingsPage() {
     (sum, g) => sum + g.entries.length,
     0,
   );
+  const defaultModelEntry = entries.find((e) => e.key === "ai.models_default");
+  const defaultModelId = modelSelectValue(
+    draft["ai.models_default"] ?? defaultModelEntry?.effectiveValue,
+    "umkmcepat-combo",
+  );
 
   return (
     <div className="flex flex-col gap-spacing-6">
       {groups.basic.map((group) => (
         <CategorySection
+          defaultModelId={defaultModelId}
           draft={draft}
           group={group}
           isPending={save.isPending}
@@ -291,6 +306,7 @@ function SettingsPage() {
         <AdvancedSettingsDisclosure count={advancedCount}>
           {groups.advanced.map((group) => (
             <CategorySection
+              defaultModelId={defaultModelId}
               draft={draft}
               group={group}
               isPending={save.isPending}
