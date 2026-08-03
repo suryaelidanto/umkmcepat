@@ -34,6 +34,8 @@ vi.mock("@/lib/ai", () => ({
 vi.mock("@/lib/ai-models", () => ({
   getGenerationModel: vi.fn(() => "mock-model"),
   getDefaultAiModel: vi.fn(() => "mock-model"),
+  getModerationModel: vi.fn(() => "mock-model"),
+  getDiscussModel: vi.fn(() => "mock-model"),
 }));
 
 vi.mock("@/lib/projects/custom-source-generator", () => ({
