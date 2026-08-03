@@ -12,7 +12,7 @@ export type SnapshotSummary = {
   restorable: boolean;
 };
 
-export type SnapshotKind = "initial" | "edit" | "repair";
+export type SnapshotKind = "initial" | "edit" | "repair" | "restore";
 
 /**
  * List a project's snapshots newest-first with build status + a restorability
@@ -74,13 +74,19 @@ export function countFiles(files: unknown): number | null {
 export function kindOf(sourceType: string, metadata: unknown): SnapshotKind {
   if (metadata && typeof metadata === "object" && "kind" in metadata) {
     const kind = (metadata as { kind?: string }).kind;
-    if (kind === "edit" || kind === "repair") {
+    if (kind === "edit" || kind === "repair" || kind === "restore") {
       return kind;
     }
   }
   // SourceType "generated" with no parent is the initial generate; with a
   // parent it's a follow-up. Fall back to "initial" when undecidable.
-  return sourceType === "edit" ? "edit" : "initial";
+  if (sourceType === "edit") {
+    return "edit";
+  }
+  if (sourceType === "restore") {
+    return "restore";
+  }
+  return "initial";
 }
 
 /**
