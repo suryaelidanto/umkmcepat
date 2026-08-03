@@ -23,6 +23,7 @@ import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import { validateBrief } from "@/lib/projects/brief-rich-fields";
 import {
+  extractAssistantTextFromToolInput,
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
   presentWorkspaceCardTool,
 } from "@/lib/projects/discuss-tool";
@@ -146,8 +147,9 @@ export async function repairDiscussCardWithTool({
 
 REPAIR attempt ${semanticAttempt + 1}: previous card was invalid or missing.
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with a valid workspace card.
+Include assistantText: one short Indonesian chat sentence (max 20 words, aku/kamu).
 Emit type="question" with a single question (never type="questions"), or type="build_recommendation" only at 95%+ confidence.
-Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
+Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
           messages: [
             ...modelMessages,
             ...(chatText
@@ -193,6 +195,7 @@ Keep a short Indonesian chat preface only if needed. Prefer 2-5 options per choi
         if (turn.workspaceCard.type !== "none") {
           return {
             ...turn,
+            assistantText: extractAssistantTextFromToolInput(input),
             repairsUsed: semanticAttempt + 1,
             usage: {
               inputTokens: totalInputTokens,

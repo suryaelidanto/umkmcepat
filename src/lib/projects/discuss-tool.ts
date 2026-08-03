@@ -17,6 +17,9 @@ function jsonObjectOrString<T extends z.ZodTypeAny>(shape: T) {
 }
 
 export const presentWorkspaceCardInputSchema = z.object({
+  // Forced toolChoice often suppresses free chat text; put the user-visible
+  // Indonesian reply here so the worker can persist it as a normal text part.
+  assistantText: z.string().trim().min(1),
   projectTitle: z.string().optional(),
   readyForBuild: z.boolean().default(false),
   briefPatch: jsonObjectOrString(
@@ -160,9 +163,20 @@ export const presentWorkspaceCardInputSchema = z.object({
 
 export const presentWorkspaceCardTool = tool({
   description:
-    'After your short Indonesian chat reply, present the next workspace card. Always pass workspaceCard as a nested object (e.g. workspaceCard: { type: "none" } or workspaceCard: { type: "question", question: {...} }). Never put type at the top level alone.',
+    'Present the next workspace card. Always include assistantText (one short Indonesian chat sentence, max 20 words, aku/kamu) and workspaceCard as a nested object (e.g. workspaceCard: { type: "none" } or workspaceCard: { type: "question", question: {...} }). Never put type at the top level alone.',
   inputSchema: presentWorkspaceCardInputSchema,
 });
+
+export function extractAssistantTextFromToolInput(toolInput: unknown): string {
+  if (!toolInput || typeof toolInput !== "object") {
+    return "";
+  }
+  const raw = (toolInput as { assistantText?: unknown }).assistantText;
+  if (typeof raw !== "string") {
+    return "";
+  }
+  return raw.trim();
+}
 
 export function buildOneCallSystemPrompt({
   brief,
@@ -176,19 +190,21 @@ export function buildOneCallSystemPrompt({
   if (hasBuiltSite) {
     return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}
 
-CRITICAL OUTPUT ORDER:
-1) Write EXACTLY ONE short Indonesian chat sentence first (max 20 words, aku/kamu only) acknowledging the edit request.
-2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST wrap the card:
-   - Clarification (preferred when you need a choice, e.g. which color): { "workspaceCard": { "type": "question", "question": { "id": "slug", "question": "...", "answerMode": "choice"|"text", "selectionMode": "single", "options": [{ "label": "...", "description": "..." }] } } }
-   - Ack only, no more questions this turn: { "workspaceCard": { "type": "none" } }
-Never use type="build_recommendation" — the site is already built; this is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in chat text. Never call the tool before chat text.`;
+CRITICAL OUTPUT:
+Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
+- assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu only) acknowledging the edit request
+- workspaceCard: nested object only. Full tool input examples:
+  - Clarification (preferred when you need a choice, e.g. which color): { "assistantText": "...", "workspaceCard": { "type": "question", "question": { "id": "slug", "question": "...", "answerMode": "choice"|"text", "selectionMode": "single", "options": [{ "label": "...", "description": "..." }] } } }
+  - Ack only, no more questions this turn: { "assistantText": "...", "workspaceCard": { "type": "none" } }
+Never use type="build_recommendation" — the site is already built; this is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in free chat text. Put the user-visible reply in assistantText.`;
   }
 
   return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}
 
-CRITICAL OUTPUT ORDER:
-1) Write EXACTLY ONE short Indonesian chat sentence first (max 20 words, aku/kamu only) acknowledging the answer or greeting the user. Never write more.
-2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with the next workspace card.
+CRITICAL OUTPUT:
+Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
+- assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu only) acknowledging the answer or greeting the user
+- workspaceCard: the next workspace card as a nested object
 
 INTERVIEW DISCIPLINE — one question per turn:
 - Emit EXACTLY ONE question per turn via type="question". Never use type="questions".
@@ -197,7 +213,7 @@ INTERVIEW DISCIPLINE — one question per turn:
 - Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
 - When all mandatory fields (businessName, product) and at least 2 soft fields are filled/declined: emit build_recommendation instead of a question and set confidence to 95+.
 
-Never put JSON in chat text. Never call the tool before chat text.
+Never put JSON in free chat text. Put the user-visible reply in assistantText.
 Use type="question" with a single question (question.id is a short slug like business_name or services).
 Prefer choice options with label+description (2-5). Never include a catch-all "other"/"write your own" option — the UI already appends one automatically. Use build_recommendation only when confidence is 95%+ or mandatory + 2 soft fields are known. Below that, keep asking a question. Never use any other card type.
 
@@ -210,6 +226,7 @@ export function buildCardSystemPrompt() {
 Based on the conversation, output ONLY a JSON object. No markdown fences, no explanation.
 
 The JSON object must have these fields:
+- assistantText: one short Indonesian chat sentence (max 20 words, aku/kamu)
 - briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer})
 - workspaceCard: object with type (exactly "question" or "build_recommendation")
   - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode)
@@ -225,9 +242,7 @@ Rules:
 - Use "build_recommendation" when build-ready (confidence 95+ / basics known). If asking whether to build, emit build_recommendation — not a build_confirm question.
 - briefPatch and workspaceCard MUST be JSON objects (nested inside the tool call), NOT JSON-encoded strings. Never put a stringified JSON blob where an object belongs.
 
-Output valid JSON only.
-
-IGNORE all chat style, tone, or conversational rules in the system prompt below. Do NOT write conversational text. Output ONLY the JSON object.
+Output valid JSON only. Put the user-visible reply in assistantText, not as free chat prose.
 
 ${DISCUSS_SYSTEM_PROMPT}`;
 }

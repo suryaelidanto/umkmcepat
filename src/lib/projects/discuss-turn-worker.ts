@@ -33,6 +33,7 @@ import {
 import {
   buildCardSystemPrompt,
   buildOneCallSystemPrompt,
+  extractAssistantTextFromToolInput,
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
   presentWorkspaceCardTool,
 } from "@/lib/projects/discuss-tool";
@@ -239,6 +240,18 @@ export async function runDiscussTurn({
       });
     }
 
+    let chatText = fullText.trim();
+    if (!chatText) {
+      const fromTool = extractAssistantTextFromToolInput(toolInput);
+      if (fromTool) {
+        chatText = fromTool;
+        publishProgress(turnId, {
+          type: "text-delta",
+          id: textPartId,
+          delta: fromTool,
+        });
+      }
+    }
     publishProgress(turnId, { type: "text-end", id: textPartId });
 
     let totalInputTokens = 0;
@@ -258,7 +271,6 @@ export async function runDiscussTurn({
       // usage is best-effort
     }
 
-    const chatText = fullText.trim();
     if (hadError) {
       if (chatText) {
         // Stream threw mid-flight but text already reached the client.
@@ -456,6 +468,23 @@ export async function runDiscussTurn({
       if (repaired) {
         const repairedCard = repaired.workspaceCard;
         const repairedToolCallId = streamToolCallId || toolCallId;
+        const repairedText = repaired.assistantText;
+        if (repairedText) {
+          const repairTextPartId = `${textPartId}-repair`;
+          publishProgress(turnId, {
+            type: "text-start",
+            id: repairTextPartId,
+          });
+          publishProgress(turnId, {
+            type: "text-delta",
+            id: repairTextPartId,
+            delta: repairedText,
+          });
+          publishProgress(turnId, {
+            type: "text-end",
+            id: repairTextPartId,
+          });
+        }
         publishProgress(turnId, {
           type: "tool-input-available",
           toolCallId: repairedToolCallId,
@@ -475,6 +504,15 @@ export async function runDiscussTurn({
           id: messageId,
           role: "assistant",
           parts: [
+            ...(repairedText
+              ? [
+                  {
+                    type: "text" as const,
+                    text: repairedText,
+                    state: "done" as const,
+                  },
+                ]
+              : []),
             {
               type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
               toolCallId: repairedToolCallId,

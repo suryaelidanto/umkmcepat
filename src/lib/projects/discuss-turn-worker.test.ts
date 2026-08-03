@@ -104,12 +104,15 @@ vi.mock("@/lib/projects/brief-rich-fields", () => ({
   validateBrief: (b: unknown) => ({ cleaned: b ?? {}, dropped: [] }),
 }));
 
-vi.mock("@/lib/projects/discuss-tool", () => ({
-  PRESENT_WORKSPACE_CARD_TOOL_NAME: "presentWorkspaceCard",
-  presentWorkspaceCardTool: {},
-  buildOneCallSystemPrompt: vi.fn(() => "system-prompt"),
-  buildCardSystemPrompt: vi.fn(() => "card-prompt"),
-}));
+vi.mock("@/lib/projects/discuss-tool", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./discuss-tool")>();
+  return {
+    ...actual,
+    presentWorkspaceCardTool: {},
+    buildOneCallSystemPrompt: vi.fn(() => "system-prompt"),
+    buildCardSystemPrompt: vi.fn(() => "card-prompt"),
+  };
+});
 
 import { createEmptyChatSummary, createEmptyMemoryFacts } from "./chat-memory";
 import { runDiscussTurn } from "./discuss-turn-worker";
@@ -350,6 +353,142 @@ describe("runDiscussTurn worker", () => {
           workspaceCard: { type: "none" },
         }),
       }),
+    );
+  });
+
+  it("forced tool-only: uses assistantText from tool input as chat text without repair", async () => {
+    const card = {
+      type: "question",
+      question: {
+        id: "business_name",
+        question: "Nama usahanya apa?",
+        answerMode: "text",
+        options: [],
+      },
+    };
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "Jualan Sayur",
+      workspaceCard: card,
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        {
+          type: "tool-call",
+          toolCallId: "tc_tool_only",
+          toolName: "presentWorkspaceCard",
+          input: {
+            assistantText:
+              "Oke, siap bantu bikin halaman jualan sayur! Pertama, nama usahanya apa?",
+            workspaceCard: card,
+          },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_tool_only_text",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(publishProgressMock).toHaveBeenCalledWith(
+      "ct_tool_only_text",
+      expect.objectContaining({
+        type: "text-delta",
+        delta:
+          "Oke, siap bantu bikin halaman jualan sayur! Pertama, nama usahanya apa?",
+      }),
+    );
+    const progressTypes = publishProgressMock.mock.calls
+      .filter(([publishedTurnId]) => publishedTurnId === "ct_tool_only_text")
+      .map(([, event]) => event.type);
+    expect(progressTypes.indexOf("text-delta")).toBeLessThan(
+      progressTypes.indexOf("text-end"),
+    );
+    const persistedValues = prismaExecuteRawMock.mock.calls
+      .flatMap((call) => call.slice(1))
+      .join("\n");
+    expect(persistedValues).toContain(
+      "Oke, siap bantu bikin halaman jualan sayur! Pertama, nama usahanya apa?",
+    );
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turnId: "ct_tool_only_text",
+        status: "succeeded",
+      }),
+    );
+  });
+
+  it("card repair: persists assistantText returned with the repaired card", async () => {
+    const card = {
+      type: "question",
+      question: {
+        id: "business_name",
+        question: "Nama usahanya apa?",
+        answerMode: "text",
+        options: [],
+      },
+    };
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "Jualan Sayur",
+      workspaceCard: card,
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(makeStreamResult([]));
+    generateTextMock.mockResolvedValueOnce({
+      usage: { inputTokens: 2, outputTokens: 3 },
+      toolCalls: [
+        {
+          input: {
+            assistantText: "Aku siap bantu. Pertama, nama usahanya apa?",
+            workspaceCard: card,
+          },
+        },
+      ],
+    });
+
+    await runDiscussTurn({
+      turnId: "ct_repair_text",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(publishProgressMock).toHaveBeenCalledWith(
+      "ct_repair_text",
+      expect.objectContaining({
+        type: "text-delta",
+        delta: "Aku siap bantu. Pertama, nama usahanya apa?",
+      }),
+    );
+    expect(publishProgressMock).toHaveBeenCalledWith("ct_repair_text", {
+      type: "text-start",
+      id: "discuss-text-repair",
+    });
+    expect(publishProgressMock).toHaveBeenCalledWith("ct_repair_text", {
+      type: "text-end",
+      id: "discuss-text-repair",
+    });
+    const persistedValues = prismaExecuteRawMock.mock.calls
+      .flatMap((call) => call.slice(1))
+      .join("\n");
+    expect(persistedValues).toContain(
+      "Aku siap bantu. Pertama, nama usahanya apa?",
     );
   });
 });

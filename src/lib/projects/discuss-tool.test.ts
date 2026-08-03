@@ -13,6 +13,7 @@ describe("presentWorkspaceCard inputSchema tolerates stringified JSON fields", (
 
   it("accepts briefPatch and workspaceCard as nested objects (the happy path)", () => {
     const result = parse({
+      assistantText: "Aku siap bantu. Nama usahanya apa?",
       projectTitle: "Surya Thrift",
       briefPatch: { businessName: "Surya Thrift", businessType: "retail" },
       workspaceCard: {
@@ -33,6 +34,7 @@ describe("presentWorkspaceCard inputSchema tolerates stringified JSON fields", (
 
   it("accepts briefPatch and workspaceCard as JSON strings (the combo model failure mode)", () => {
     const result = parse({
+      assistantText: "Aku siap bantu. Nama usahanya apa?",
       projectTitle: "Jual Beli Baju Thrifting",
       briefPatch: JSON.stringify({
         businessName: "Surya Thrift",
@@ -63,11 +65,40 @@ describe("presentWorkspaceCard inputSchema tolerates stringified JSON fields", (
 
   it("still rejects a briefPatch string that is not parseable JSON", () => {
     const result = parse({
+      assistantText: "Aku siap bantu.",
       briefPatch: "not-json",
       workspaceCard: { type: "none" },
     });
 
     // Non-object, non-JSON-string briefPatch must not silently pass through.
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts assistantText for forced-tool chat prose", () => {
+    const result = parse({
+      assistantText: "Oke, siap bantu bikin halaman jualan sayur!",
+      workspaceCard: {
+        type: "question",
+        question: {
+          id: "business_name",
+          question: "Nama usahanya apa?",
+          answerMode: "text",
+        },
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.assistantText).toBe(
+        "Oke, siap bantu bikin halaman jualan sayur!",
+      );
+    }
+  });
+
+  it("rejects a tool call without user-visible assistantText", () => {
+    const result = parse({
+      workspaceCard: { type: "none" },
+    });
+
     expect(result.success).toBe(false);
   });
 });
