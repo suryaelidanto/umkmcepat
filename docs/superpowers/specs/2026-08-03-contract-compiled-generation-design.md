@@ -920,9 +920,12 @@ Use a DB-first admin setting, not a new environment variable:
 
 ```text
 generation.contract_compiled_rollout = off | internal | pilot | all
+generation.contract_admission = paused | enabled
 ```
 
-The setting controls engine assignment only when creating a project:
+Two independent knobs: `rollout` controls **assignment** at project creation only; `contract_admission` controls **execution admission** (whether any contract-v1 attempt may be enqueued or mutated by a worker). Admission defaults to `paused`; no contract attempt runs until an operator flips it to `enabled`.
+
+The rollout setting controls engine assignment only when creating a project:
 
 | Value | New-project assignment |
 |---|---|
@@ -935,13 +938,19 @@ The assignment resolver reads one settings snapshot and one normalized owner ide
 
 Rollout:
 
-1. `off` by default while baseline and tests are built.
-2. `internal` for admin-owned test projects.
+1. `off` by default while baseline and tests are built; `contract_admission` stays `paused`.
+2. `internal` for admin-owned test projects (flip admission to `enabled` before assignment).
 3. `pilot` for the existing approved pilot-whitelist cohort.
 4. `all` for new projects after exit metrics pass.
 5. Keep legacy execution available only for sticky legacy projects; contract projects never silently fall back to weaker legacy generation.
 
-Changing rollout to `off` stops new assignment only. Existing contract projects, accepted handoffs, in-flight attempts, retries, edits, and restores continue under contract-v1 so their guarantees do not change mid-project. Emergency rollback is: set assignment to `off`, stop admitting new contract-v1 attempts, cancel/expire affected operation leases through existing controls, and continue serving each project's selected last-known-good deployment. Operators never rewrite a contract project to `legacy-v1`, select a failed candidate, or delete contracts/plans as rollback. Resuming admission uses the same sticky engine and accepted handoff.
+Changing rollout to `off` stops new assignment only. Existing contract projects, accepted handoffs, in-flight attempts, retries, edits, and restores continue under contract-v1 so their guarantees do not change mid-project.
+
+There is no admin emergency-stop route in the codebase today; the only stop paths are owner-scoped `/api/projects/$id/cancel` (aborts in-memory jobs + clears the lease) and `/api/projects/$id/stop` (runtime deployment). Emergency rollback therefore uses two levers:
+1. Set `generation.contract_admission = paused` — the admission guard rejects new contract-v1 attempt enqueue and any worker source mutation immediately.
+2. Cancel/expire in-flight operation leases via the existing owner cancel route or lease expiry (15-minute TTL, reaped to `failed`).
+
+In-flight jobs already past the admission check finish or fail-clean through the existing reaper path; they never change the selected last-known-good deployment. Operators never rewrite a contract project to `legacy-v1`, select a failed candidate, or delete contracts/plans as rollback. Resuming admission uses the same sticky engine and accepted handoff.
 
 ### Database migration safety
 

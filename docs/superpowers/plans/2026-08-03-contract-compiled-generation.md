@@ -24,6 +24,26 @@
 - Do not run `bun run build` during ordinary implementation; run it only when a task changes build/deployment behavior.
 - End each task with its focused tests and `bun run check`; never bypass a failing gate.
 
+## Codebase Audit (2026-08-03) — Corrections Folded Into Tasks 4-14
+
+Three parallel read-only audits of the live codebase surfaced gaps the original plan assumed away. Each is now a per-task note; this is the consolidated record.
+
+| # | Finding | Task |
+|---|---|---|
+| **G1** | No true idempotency in `/generate` — every POST makes a fresh `build_<uuid>`; `claimProjectOperation` blocks concurrency but not dedup. Must add `idempotencyKey` for contract-v1. | 6 |
+| **G2** | Admin settings have no enum `<select>` — `optionsSource` only supports `"nine_router_models"`; rollout flag renders free-text and PUT has no enum validation. New plumbing needed. | 14 |
+| **G3** | No admin emergency-stop route exists; only owner-scoped `/cancel` (lease abort) + `/stop` (runtime). Rollout flag affects creation only, not in-flight jobs. Add `generation.contract_admission` (default `paused`). | 14 |
+| **G4** | `cleanupProjectResources` does not delete gate-screenshot evidence (only runtime/artifact/thumbnail/asset). Extend cleanup + add 30-day sweep. | 10 |
+| **G5** | Plan AI step has no energy accounting; discuss charges once per turn via `discuss:step`. Fold plan tokens into the turn's single charge; insert before the single `persistProjectChatTurn`. | 5 |
+| **G6** | Build-recommendation consumed/hold signature = `JSON([title, summary])`. Adding `handoffId`/`reviewHash` would orphan legacy held cards. Keep signature stable; add fields outside it. | 7, 11 |
+| **G7** | Readiness is AI-owned + clamped up; a server field-gate (`hasMinimumBriefForBuild`) already overrides it. Layer the decision registry on top for contract-v1; keep the field-gate for legacy. | 4 |
+| **E1** | Status transitions are inline, no central machine; document `stale` etc. and keep child/gate reports consistent. | 7, 9 |
+| **E2** | `kindOf` maps `restore` sourceType to `"initial"` (cosmetic). Fix or document. | 12 |
+| **E3** | `resolveGenerateMode` demotes empty-source `retry_build` → `first_generate`; contract-v1 retries must reuse the accepted handoff, not re-enter first-generate. | 6 |
+| **E4** | Lease TTL 15 min; `markStaleProjectBuilds` reaps `running` at 10 min. Slow contract-v1 qualification (browser gates) must renew the lease. | 9 |
+| **E5** | Energy `reason` capped at 64 chars. Keep new charge reasons short. | 12 |
+| **E6** | Gate screenshots are private evidence, separate from thumbnails; telemetry logs only ids/counts/categories/timings/failure classes. | 10, 14 |
+
 ## Delivery Gates
 
 1. Phase 0 must freeze a baseline/corpus/evaluator version before treatment behavior is enabled.
@@ -31,6 +51,8 @@
 3. Tasks 8-12 must pass the visible corpus and security fixtures before `internal` assignment.
 4. Task 13 remains shadow-only until human calibration passes.
 5. `pilot` and `all` require the quantitative thresholds in the design spec, not implementation completion alone.
+6. **Admission pause precedes any contract-v1 execution.** `generation.contract_admission` defaults to `paused`; no contract attempt is enqueued until an operator flips it to `enabled`. This is the emergency rollback knob for in-flight contract work (no admin stop route exists today — see Task 14).
+7. **Edge-case audit (2026-08-03, G1-G7 + E1-E6) is folded into Tasks 4-14 below.** Read the per-task notes before implementing; several correct prior assumptions about the codebase (idempotency, energy accounting, admin controls, cleanup, card signatures).
 
 ---
 
@@ -248,6 +270,13 @@ git commit -m "feat: persist generation handoffs"
 
 ### Task 4: Replace Model Confidence With A Decision Registry
 
+**Note (G7):** Read-only audit found readiness is AI-owned + clamped up:
+- `brief.ts:347-361` `getBriefReadiness()`: `confidence >= 95 && remainingOpenQuestions.length === 0`.
+- `brief-flow.ts:238-244` `withHandoffReadiness()` clamps confidence up to 95.
+- `brief-flow.ts:193-203` `hasMinimumBriefForBuild()` is a **server field-gate** (businessName/offer + >=2 of 6 fields) that already overrides low confidence.
+
+**Do NOT remove the field-gate** — it is the safe base that keeps existing projects building. This task is **additive**: layer the decision-registry on top for `contract-v1` only, dispatch by `Project.generationEngine`, and leave `legacy-v1` on the field-gate+confidence path untouched. Resolve the real prompt conflict (`discuss-system.md:22` "extract every field to 95%" vs `discuss-tool.ts:266` "build early") by making `contract-v1` readiness server-authoritative and `legacy-v1` keep today's behavior.
+
 **Files:**
 - Create: `src/lib/projects/build-decisions.ts`
 - Create: `src/lib/projects/build-decisions.test.ts`
@@ -264,6 +293,7 @@ git commit -m "feat: persist generation handoffs"
 - Produces: `BUILD_DECISIONS`, `selectNextBuildDecision`, `evaluateContractReadiness`.
 - Consumes: normalized `BuildContractV1` from Task 2.
 - Returns: `{ state: "needs_decision" | "ready_for_plan"; blockers; omissions; nextDecisionId }`.
+- Dispatch by `Project.generationEngine`; `legacy-v1` continues to use `hasMinimumBriefForBuild` unchanged.
 
 - [ ] **Step 1: Write failing readiness-table tests**
 
@@ -313,6 +343,13 @@ git commit -m "feat: add deterministic contract readiness"
 
 ### Task 5: Prepare And Persist The Pre-Build Plan
 
+**Note (G5):** Read-only audit found the plan AI step needs explicit energy accounting:
+- Discuss charges once per turn via `chargeEnergyForAiUsage({ reason: "discuss:step", ... })` at `user-credits.ts` (normal + degraded + repair paths in `discuss-turn-worker.ts`).
+- In-turn repair charges a second time with `reason: "discuss:repair"` (`discuss-turn-shared.ts:274-281`).
+- `reason` is capped at 64 chars.
+
+The plan call must **fold its tokens into the turn's single `discuss:step` charge** (reuse the accumulated usage object), not open a separate debit path, so the existing single-persist + single-charge-per-turn invariant holds. Insert the plan stage inside `runDiscussTurn` after `normalizeWorkspaceTurn` yields ready-for-build (`discuss-turn-worker.ts` ~L674-727) and **before** the single `persistProjectChatTurn` (~L793), so contract+plan+card persist atomically. `legacy-v1` keeps post-click spec generation (`build-attempt-worker.ts:485-640`) untouched.
+
 **Files:**
 - Create: `src/lib/projects/build-planner.ts`
 - Create: `src/lib/projects/build-planner.test.ts`
@@ -326,7 +363,8 @@ git commit -m "feat: add deterministic contract readiness"
 **Interfaces:**
 - Produces: `prepareBuildHandoff({ projectId, userId, contract }): Promise<{ state: "ready"; handoffId: string } | { state: "superseded" | "failed" }>`.
 - Uses: `getGenerationModel()`, one primary plan call and one bounded retry.
-- Persists: exact contract, plan, review items, hashes, revisions, planner cost proof, and `build_recommendation` card payload.
+- Persists: exact contract, plan, review items, hashes, revisions, planner cost proof (folded into `discuss:step`), and `build_recommendation` card payload.
+- Dispatch by `Project.generationEngine`; `legacy-v1` never runs this stage.
 
 - [ ] **Step 1: Write failing planner lifecycle tests**
 
@@ -360,7 +398,7 @@ export async function prepareBuildHandoff(input: {
 }): Promise<{ state: "ready"; handoffId: string } | { state: "superseded" | "failed" }>;
 ```
 
-Cache by contract hash, charge only new plan calls, emit `Menyusun rencana halaman`, persist no fallback plan, and emit recoverable Indonesian failure copy after both model attempts fail.
+Cache by contract hash, charge only new plan calls (folded into `discuss:step`), emit `Menyusun rencana halaman`, persist no fallback plan, and emit recoverable Indonesian failure copy after both model attempts fail.
 
 - [ ] **Step 4: Run focused tests**
 
@@ -379,6 +417,13 @@ git commit -m "feat: prepare validated build handoffs"
 
 ### Task 6: Accept Handoffs Idempotently At Generate
 
+**Note (G1 + E3):** Read-only audit found there is **no true idempotency today**:
+- `api.projects.$id.generate.ts:180` makes a fresh `build_<uuid>` attempt id on every POST; `claimProjectOperation` (project-operation.ts:15-53) only blocks concurrency via `buildStatus != running` — it does NOT dedup repeated requests.
+- BullMQ jobId = attempt id (attempt-queue.ts:139-144), always fresh.
+- `resolveGenerateMode` (resolve-generate-mode.ts:7-15) demotes empty-source `retry_build` → `first_generate`; a contract-v1 retry against a handoff must NOT be re-demoted to a fresh first-generate.
+
+For `contract-v1`, accept an explicit `idempotencyKey` in the request body, store it on the attempt (or a dedicated handoff-acceptance row) and return the existing attempt on replay of the same key. For `legacy-v1`, keep today's claim-guard-only behavior unchanged. Also branch the mode resolution on `Project.generationEngine` so `contract-v1` retries reuse the accepted handoff instead of re-entering first-generate.
+
 **Files:**
 - Modify: `src/routes/api.projects.$id.generate.ts`
 - Create: `src/routes/-api.projects.$id.generate.contract.test.ts`
@@ -386,11 +431,14 @@ git commit -m "feat: prepare validated build handoffs"
 - Modify: `src/lib/projects/project-operation.test.ts`
 - Modify: `src/lib/projects/attempt-queue.ts`
 - Modify: `src/lib/projects/attempt-queue.test.ts`
+- Modify: `src/lib/projects/resolve-generate-mode.ts`
+- Modify: `src/lib/projects/resolve-generate-mode.test.ts`
 
 **Interfaces:**
-- Input: `{ handoffId: string; reviewHash: string; idempotencyKey: string }` for contract-v1.
-- Produces: one accepted handoff and one attempt per idempotency key.
-- Explicit retry creates a new charged attempt against the same accepted handoff.
+- Input: `{ handoffId: string; reviewHash: string; idempotencyKey: string }` for contract-v1; `{ mode }` for legacy-v1 (unchanged).
+- Produces: one accepted handoff and one attempt per `idempotencyKey`; replay returns the same attempt id.
+- Explicit retry with a new key creates a new charged attempt against the same accepted handoff.
+- Dispatch by `Project.generationEngine`; `legacy-v1` path and mode resolution are unchanged.
 
 - [ ] **Step 1: Write failing route transaction tests**
 
@@ -424,7 +472,7 @@ type ContractGenerateRequest = {
 };
 ```
 
-Lock project/handoff, verify owner/engine/revisions/hashes/review/current state, CAS `draft` to `accepted`, create attempt/placeholder snapshot/build, commit, then enqueue by attempt id. Mark only the attempt failed on enqueue failure; leave the handoff accepted.
+Lock project/handoff, verify owner/engine/revisions/hashes/review/current state, CAS `draft` to `accepted`, create attempt/placeholder snapshot/build, commit, then enqueue by attempt id. On replay of the same `idempotencyKey`, return the existing attempt id instead of creating a new one. Mark only the attempt failed on enqueue failure; leave the handoff accepted.
 
 - [ ] **Step 4: Run focused tests**
 
@@ -437,11 +485,16 @@ Expected: PASS for stale, cancelled, superseded, replayed, enqueue-failed, and e
 Run: `bun run check`
 
 ```bash
-git add src/routes/api.projects.$id.generate.ts src/routes/-api.projects.$id.generate.contract.test.ts src/lib/projects/project-operation.ts src/lib/projects/project-operation.test.ts src/lib/projects/attempt-queue.ts src/lib/projects/attempt-queue.test.ts
+git add src/routes/api.projects.$id.generate.ts src/routes/-api.projects.$id.generate.contract.test.ts src/lib/projects/project-operation.ts src/lib/projects/project-operation.test.ts src/lib/projects/attempt-queue.ts src/lib/projects/attempt-queue.test.ts src/lib/projects/resolve-generate-mode.ts src/lib/projects/resolve-generate-mode.test.ts
 git commit -m "feat: accept immutable generation handoffs"
 ```
 
 ### Task 7: Compile Protected Topology From The Plan
+
+**Note (G6 + E1):**
+- Read-only audit: AI file writes are a broad `src/**` rule (`agent-tool-runner.ts:686-699` via `isAgentEditablePath`), NOT a narrow allow-list. The manifest silent default is one-route `/` (`generated-app-manifest.ts:177-206`). Both must be fixed for `contract-v1` only.
+- The build-recommendation card consumed/hold signature is `JSON.stringify([title, summary])` (`workspace-sync.ts:87-93`, localStorage `umkmcepat:build-recommendation-hold`/`-consumed`). Adding `handoffId`/`reviewHash` to the card **changes that signature**, which would orphan existing held/consumed legacy cards. Keep the signature computed from a **stable** subset (title + summary) for both engines, and store `handoffId`/`reviewHash` as additional card fields that do not enter the signature. Add a regression test proving a legacy held card still matches after the payload change.
+- Status transitions are set inline (no central machine); this task must keep `buildStatus`/`status`/attempt transitions consistent and document them.
 
 **Files:**
 - Create: `src/lib/projects/topology-compiler.ts`
@@ -452,10 +505,13 @@ git commit -m "feat: accept immutable generation handoffs"
 - Modify: `src/lib/projects/generated-app-manifest.test.ts`
 - Modify: `src/lib/projects/generated-build-policy.ts`
 - Modify: `src/lib/projects/generated-build-policy.test.ts`
+- Modify: `src/lib/projects/agent-tool-runner.ts`
+- Modify: `src/lib/projects/agent-tool-runner.test.ts`
 
 **Interfaces:**
 - Produces: `compileGeneratedTopology(contract, plan): CompiledTopology`.
-- `CompiledTopology` contains protected files, exact AI allow-list, route patterns, representative paths, and manifest.
+- `CompiledTopology` contains protected files, exact AI allow-list (replacing the broad `src/**` rule for `contract-v1`), route patterns, representative paths, and manifest.
+- Dispatch by `Project.generationEngine`; `legacy-v1` keeps the broad `src/**` path policy.
 
 - [ ] **Step 1: Write failing topology parity tests**
 
@@ -503,7 +559,7 @@ Expected: PASS, including regression fixtures for duplicate chrome and missing h
 Run: `bun run check`
 
 ```bash
-git add src/lib/projects/topology-compiler.ts src/lib/projects/topology-compiler.test.ts src/lib/projects/scaffold/vite-tanstack-shadcn-starter.ts src/lib/projects/scaffold/scaffold.test.ts src/lib/projects/generated-app-manifest.ts src/lib/projects/generated-app-manifest.test.ts src/lib/projects/generated-build-policy.ts src/lib/projects/generated-build-policy.test.ts
+git add src/lib/projects/topology-compiler.ts src/lib/projects/topology-compiler.test.ts src/lib/projects/scaffold/vite-tanstack-shadcn-starter.ts src/lib/projects/scaffold/scaffold.test.ts src/lib/projects/generated-app-manifest.ts src/lib/projects/generated-app-manifest.test.ts src/lib/projects/generated-build-policy.ts src/lib/projects/generated-build-policy.test.ts src/lib/projects/agent-tool-runner.ts src/lib/projects/agent-tool-runner.test.ts
 git commit -m "feat: compile protected generated topology"
 ```
 
@@ -581,6 +637,11 @@ git commit -m "feat: enforce generated claim provenance"
 
 ### Task 9: Make Qualification Runs And Candidates Immutable
 
+**Note (E1 + E4):**
+- Read-only audit: compile repair today **mutates the same snapshot in place** (`build-attempt-worker.ts:851-861` via `projectSnapshot.update`); no child, no `parentSnapshotId`. This task introduces the immutable child for `contract-v1` only; `legacy-v1` keeps in-place repair.
+- Operation lease TTL is 15 min (`project-operation.ts:30`, `renewProjectOperation` at :55-83). `markStaleProjectBuilds` clears stale `running` at `STALE_BUILD_TIMEOUT_MS` = 10 min. A slow `contract-v1` qualification run (planner + build + browser gates) can exceed the lease and be reaped mid-flight. This task must **renew the lease** before long browser stages and confirm the reaper path keeps the attempt `failed`/retryable rather than silently dropping work.
+- Status values (E1): ProjectBuild `queued|running|succeeded|failed|canceled|stale`; Project.status `building|stopping|ready|failed|draft|discussing|running`; ProjectEditAttempt `generating|editing|repairing|building|succeeded|failed|canceled|received|completed`. Every child candidate and gate report must set these consistently and persist `rootAttemptId` so an explicit retry starts a fresh budget.
+
 **Files:**
 - Create: `src/lib/projects/candidate-qualification.ts`
 - Create: `src/lib/projects/candidate-qualification.test.ts`
@@ -594,6 +655,8 @@ git commit -m "feat: enforce generated claim provenance"
 **Interfaces:**
 - Produces: `QualificationRunBudget`, `createCandidateChild`, `recordGateReport`, `selectQualifiedCandidate`.
 - Every automatic child records `rootAttemptId`, `parentSnapshotId`, handoff hashes/revisions, and gate-report version.
+- `legacy-v1` continues in-place repair; `contract-v1` creates immutable children.
+- Renew the operation lease across long qualification stages.
 
 - [ ] **Step 1: Write failing immutability and budget tests**
 
@@ -647,6 +710,12 @@ git commit -m "feat: qualify immutable generation candidates"
 
 ### Task 10: Add Actual-Preview Browser Gates And Private Evidence
 
+**Note (G4 + E2 + E6):**
+- Read-only audit: `cleanupProjectResources` (`project-cleanup.ts:33-118`) deletes runtime dirs, source/dist artifact refs, thumbnail (S3), and owner assets — but **NOT gate-screenshot evidence**. `artifactRefs` passed into cleanup must be extended (or a separate gate-evidence ref set) so project deletion removes gate evidence. Add a 30-day expiry sweep for non-selected candidate evidence.
+- Thumbnail capture is gated by `feature.thumbnail_capture_enabled` and derives a project thumbnail (S3). Contract-v1 gate screenshots are **separate private evidence**, stored under owner/project/candidate scope, and must NOT be conflated with thumbnails (spec: 30-day expiry, private, not telemetry).
+- `scripts/self-verify-preview.ts` is a standalone operator harness (requires cookie + running app) and `runtime-self-heal.ts` is dead code today; neither runs on the live generate path. Task 10 wires a real browser gate into `contract-v1` qualification only.
+- `scripts/capture-runtime-errors.cjs` and `capture-project-thumbnail.cjs` exist as headless harnesses; reuse their browser-launch plumbing rather than duplicating it.
+
 **Files:**
 - Create: `src/lib/projects/browser-gates.ts`
 - Create: `src/lib/projects/browser-gates.test.ts`
@@ -663,6 +732,8 @@ git commit -m "feat: qualify immutable generation candidates"
 - Produces: `runBrowserGates({ previewUrl, plan, contract, candidateId }): BrowserGateReport`.
 - Produces: `storeGateEvidence`, `readGateEvidence`, `deleteExpiredGateEvidence`.
 - Returns exactly `pass | fail | infrastructure_error`.
+- `cleanupProjectResources` now accepts and deletes gate-evidence refs; a sweep expires non-selected evidence after 30 days.
+- Dispatch by `Project.generationEngine`; `legacy-v1` keeps today's post-success thumbnail-only capture.
 
 - [ ] **Step 1: Write failing browser-report and storage-policy tests**
 
@@ -712,8 +783,9 @@ Run: `bun run check`
 git add scripts/self-verify-preview.ts scripts/capture-project-thumbnail.cjs src/lib/projects/browser-gates.ts src/lib/projects/browser-gates.test.ts src/lib/projects/gate-evidence.ts src/lib/projects/gate-evidence.test.ts src/lib/object-storage.ts src/lib/object-storage.test.ts src/lib/projects/project-cleanup.ts src/lib/projects/project-cleanup.test.ts
 git commit -m "feat: gate generated previews in browser"
 ```
-
 ### Task 11: Render And Accept The Complete Review Card
+
+**Note (G6):** The consumed/hold signature is `JSON.stringify([title, summary])` (`workspace-sync.ts:87-93`, localStorage `umkmcepat:build-recommendation-hold`/`-consumed`). Adding `handoffId`/`reviewHash` must **not** change the signature (would orphan held/consumed legacy cards). Compute the signature from a stable subset (title + summary) for both engines; `handoffId`/`reviewHash`/`reviewItems` are additional card fields excluded from the signature. Add a regression test: a card held under the old signature still matches after the payload grows.
 
 **Files:**
 - Modify: `src/components/projects/WorkspaceShell.tsx`
@@ -721,12 +793,14 @@ git commit -m "feat: gate generated previews in browser"
 - Modify: `src/components/projects/WorkspacePrimitives.tsx`
 - Modify: `src/components/projects/WorkspacePrimitives.test.ts`
 - Create: `src/components/projects/ContractBuildRecommendation.stories.tsx`
+- Modify: `src/lib/projects/workspace-sync.ts` (signature stays stable)
 - Modify: `src/lib/projects/workspace-sync.test.ts`
 
 **Interfaces:**
 - Consumes persisted `{ handoffId, reviewHash, reviewItems }` only.
 - Posts `{ handoffId, reviewHash, idempotencyKey }`.
 - Shows grouped facts, AI drafts, CTA, omissions, pages, and assets without truncation.
+- Build-recommendation signature remains `JSON.stringify([title, summary])` for both engines.
 
 - [ ] **Step 1: Write failing UI-state tests and stories**
 
@@ -764,11 +838,16 @@ Expected: PASS at mobile/desktop stories with keyboard-reachable groups and acti
 Run: `bun run check`
 
 ```bash
-git add src/components/projects/WorkspaceShell.tsx src/components/projects/WorkspaceShell.test.ts src/components/projects/WorkspacePrimitives.tsx src/components/projects/WorkspacePrimitives.test.ts src/components/projects/ContractBuildRecommendation.stories.tsx src/lib/projects/workspace-sync.test.ts
+git add src/components/projects/WorkspaceShell.tsx src/components/projects/WorkspaceShell.test.ts src/components/projects/WorkspacePrimitives.tsx src/components/projects/WorkspacePrimitives.test.ts src/components/projects/ContractBuildRecommendation.stories.tsx src/lib/projects/workspace-sync.ts src/lib/projects/workspace-sync.test.ts
 git commit -m "feat: review immutable build handoffs"
 ```
 
 ### Task 12: Route Edits And Restores Through Active Handoffs
+
+**Note (E2 + E5):**
+- Read-only audit: the edit agent today **freely adds/removes routes** — `source-edit-agent.ts` `EDIT_AGENT_INSTRUCTIONS:200` says "add one route file per page under src/routes/ and register each in src/router.tsx", and `write_file`/`replace_in_file` can rewrite `src/router.tsx`. There is **no structural vs non-structural split**. This task adds it for `contract-v1`; `legacy-v1` keeps free-form edits.
+- `kindOf` (`snapshots.ts:74-84`) treats a `restore` sourceType as `"initial"` (cosmetic). Fix the `SnapshotKind` mapping so restores are labeled `"restore"`, or document acceptance — do not leave it silently `"initial"`.
+- Energy `reason` is capped at 64 chars (user-credits.ts:202); keep any new edit charge reasons short.
 
 **Files:**
 - Create: `src/lib/projects/edit-structure.ts`
@@ -776,6 +855,8 @@ git commit -m "feat: review immutable build handoffs"
 - Modify: `src/lib/projects/edit-attempt-worker.ts`
 - Modify: `src/lib/projects/edit-validation.test.ts`
 - Modify: `src/lib/projects/edit-build-queue-worker.ts`
+- Modify: `src/lib/projects/source-edit-agent.ts`
+- Modify: `src/lib/projects/snapshots.ts`
 - Modify: `src/routes/api.projects.$id.edit.ts`
 - Modify: `src/routes/api.projects.$id.snapshots.$snapshotId.restore.ts`
 - Create: `src/routes/-api.projects.$id.restore.contract.test.ts`
@@ -784,6 +865,7 @@ git commit -m "feat: review immutable build handoffs"
 - Produces: `classifyEditStructure(request): "non_structural" | "structural"`.
 - Non-structural operations load contract/plan from `Project.activeHandoffId`.
 - Structural operations create and require acceptance of a replacement handoff before source mutation.
+- `legacy-v1` edits keep the current free-form route behavior unchanged.
 
 - [ ] **Step 1: Write failing edit/restore boundary tests**
 
@@ -827,7 +909,7 @@ Expected: PASS for legacy dispatch, contract non-structural edit, structural edi
 Run: `bun run check`
 
 ```bash
-git add src/lib/projects/edit-structure.ts src/lib/projects/edit-structure.test.ts src/lib/projects/edit-attempt-worker.ts src/lib/projects/edit-validation.test.ts src/lib/projects/edit-build-queue-worker.ts src/routes/api.projects.$id.edit.ts src/routes/api.projects.$id.snapshots.$snapshotId.restore.ts src/routes/-api.projects.$id.restore.contract.test.ts
+git add src/lib/projects/edit-structure.ts src/lib/projects/edit-structure.test.ts src/lib/projects/edit-attempt-worker.ts src/lib/projects/edit-validation.test.ts src/lib/projects/edit-build-queue-worker.ts src/lib/projects/source-edit-agent.ts src/lib/projects/snapshots.ts src/routes/api.projects.$id.edit.ts src/routes/api.projects.$id.snapshots.$snapshotId.restore.ts src/routes/-api.projects.$id.restore.contract.test.ts
 git commit -m "feat: preserve contract edit boundaries"
 ```
 
@@ -898,6 +980,13 @@ git commit -m "feat: evaluate generated visuals in shadow mode"
 
 ### Task 14: Wire Observability, Rollback Admission, And Canary Gates
 
+**Note (G2 + G3 + G4):** Read-only audit findings that change this task's scope:
+
+- **G2 — Rollout dropdown:** `app-settings-registry.ts` only supports `optionsSource: "nine_router_models"` (a `<select>` populated from `/api/admin/ai-models`); every other string renders as free-text (`_main.admin.settings.tsx:140-195`), and `api.admin.settings.ts` PUT only checks `typeof value === "string"` — no enum validation. To give the rollout flag a real `off|internal|pilot|all` dropdown you must (a) extend `optionsSource` to an enum-source union, (b) branch the settings render to render a fixed-option `<select>`, (c) extend the helpers type, and (d) validate the PUT value against `isContractCompiledRollout`. This is new plumbing not present today.
+- **G3 — No admin emergency stop exists.** The only stop paths are owner-scoped `/api/projects/$id/cancel` (aborts in-memory jobs + clears lease) and `/api/projects/$id/stop` (runtime deployment). There is no admin route to halt in-flight contract attempts. The `generation.contract_compiled_rollout` flag only affects **project creation**; it does not stop in-flight jobs. So the rollback knob must be a **new `generation.contract_admission` setting** (`paused` by default) checked at attempt-enqueue and before worker mutation, plus document that in-flight stop uses lease expiry / the owner cancel route. Add a DB `ContractBuildAttempt` admission guard, not a new admin cancel route (keep owner-scoped cancel).
+- **G4 — cleanup:** `cleanupProjectResources` does not delete gate-evidence; handled in Task 10 (gate-evidence refs added to cleanup + 30-day sweep).
+- **E6 — telemetry:** log only ids/counts/categories/booleans/timings/failure classes; never contract text, prompts, or private screenshot URLs (spec: Observability).
+
 **Files:**
 - Create: `src/lib/projects/contract-generation-admission.ts`
 - Create: `src/lib/projects/contract-generation-admission.test.ts`
@@ -905,15 +994,20 @@ git commit -m "feat: evaluate generated visuals in shadow mode"
 - Create: `src/lib/projects/generation-observability.test.ts`
 - Modify: `src/lib/projects/build-attempt-worker.ts`
 - Modify: `src/lib/projects/build-worker.test.ts`
-- Modify: `src/lib/app-settings-registry.ts`
+- Modify: `src/lib/app-settings-registry.ts` (add `generation.contract_admission`, default `paused`; add enum `optionsSource`)
 - Modify: `src/lib/app-settings-registry.test.ts`
+- Modify: `src/routes/_main.admin.settings.tsx` (enum `<select>` render)
+- Modify: `src/routes/-_main.admin.settings.helpers.ts` (optionsSource type)
+- Modify: `src/routes/api.admin.settings.ts` (enum PUT validation)
+- Modify: `src/lib/config.ts` or the admission resolver so the pause gate is read at enqueue
 - Modify: `PRODUCT.md`
 - Modify: `DEV.md`
 
 **Interfaces:**
-- Produces: `assertContractGenerationAdmitted(project, settingsSnapshot)`.
+- Produces: `assertContractGenerationAdmitted(project, settingsSnapshot)` — throws when `admission: "paused"` for a `contract-v1` project.
 - Produces sanitized candidate/attempt metrics with ids, counts, categories, booleans, timings, and failure classes only.
 - Supports assignment `off | internal | pilot | all` and execution admission `enabled | paused` without changing sticky engines.
+- Adds `optionsSource: "enum"` (or equivalent) for a fixed `off|internal|pilot|all` `<select>` in admin settings, with server-side enum validation.
 
 - [ ] **Step 1: Write failing rollback and telemetry tests**
 
@@ -945,7 +1039,6 @@ export function assertContractGenerationAdmitted(input: {
 ```
 
 Check admission before creating a new contract attempt and again before worker mutation. Preserve accepted handoffs and active deployments while paused. Document exact operator sequence: assignment off, admission paused, cancel/expire leases, inspect last-known-good, repair, admission enabled. Document the contract-v1 user flow and privacy boundary.
-
 - [ ] **Step 4: Run focused tests and evaluator treatment dry-run**
 
 Run: `bun run test -- src/lib/projects/contract-generation-admission.test.ts src/lib/projects/generation-observability.test.ts src/lib/projects/build-worker.test.ts src/lib/app-settings-registry.test.ts && bun run evaluate:generation -- --baseline-id frozen --mode treatment`
@@ -957,7 +1050,7 @@ Expected: tests PASS; dry-run either produces a complete versioned report or exi
 Run: `bun run verify`
 
 ```bash
-git add src/lib/projects/contract-generation-admission.ts src/lib/projects/contract-generation-admission.test.ts src/lib/projects/generation-observability.ts src/lib/projects/generation-observability.test.ts src/lib/projects/build-attempt-worker.ts src/lib/projects/build-worker.test.ts src/lib/app-settings-registry.ts src/lib/app-settings-registry.test.ts PRODUCT.md DEV.md
+git add src/lib/projects/contract-generation-admission.ts src/lib/projects/contract-generation-admission.test.ts src/lib/projects/generation-observability.ts src/lib/projects/generation-observability.test.ts src/lib/projects/build-attempt-worker.ts src/lib/projects/build-worker.test.ts src/lib/app-settings-registry.ts src/lib/app-settings-registry.test.ts src/routes/_main.admin.settings.tsx src/routes/-_main.admin.settings.helpers.ts src/routes/api.admin.settings.ts PRODUCT.md DEV.md
 git commit -m "feat: gate contract generation rollout"
 ```
 
@@ -985,7 +1078,7 @@ Record explicit zero counts for secret exposure, cross-project access, origin es
 
 - [ ] **Step 3: Enable internal assignment only after the report passes**
 
-Set `generation.contract_compiled_rollout = internal` and keep execution admission enabled. Create fresh admin-owned projects; do not alter existing projects. Observe at least the predeclared internal sample before changing cohort.
+Set `generation.contract_compiled_rollout = internal` **and** `generation.contract_admission = enabled` (flip admission first, then assignment, per the canary sequence). Create fresh admin-owned projects; do not alter existing projects. Observe at least the predeclared internal sample before changing cohort.
 
 - [ ] **Step 4: Enable pilot assignment only after internal canary passes**
 
