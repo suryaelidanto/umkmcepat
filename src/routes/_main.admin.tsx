@@ -4,8 +4,8 @@ import { Toaster } from "sonner";
 
 import { AdminShell } from "@/components/admin/AdminShell";
 import { StreamerModeProvider } from "@/components/admin/streamer-mode-context";
+import { loadStreamerMode } from "@/lib/admin-streamer-mode";
 import { requireAdmin } from "@/lib/auth-admin";
-import { isStreamerModeEnabled } from "@/lib/config";
 
 const loadAdmin = createServerFn({ method: "GET" }).handler(async () => {
   const admin = await requireAdmin();
@@ -13,10 +13,6 @@ const loadAdmin = createServerFn({ method: "GET" }).handler(async () => {
     throw redirect({ to: "/" });
   }
   return { ok: true as const };
-});
-
-const loadStreamerMode = createServerFn({ method: "GET" }).handler(async () => {
-  return isStreamerModeEnabled();
 });
 
 export const Route = createFileRoute("/_main/admin")({
@@ -31,7 +27,7 @@ export const Route = createFileRoute("/_main/admin")({
 function AdminRoute() {
   const { streamerMode } = Route.useLoaderData();
   return (
-    <StreamerModeProvider value={streamerMode}>
+    <StreamerModeProvider initialData={streamerMode}>
       <AdminShell>
         <Outlet />
       </AdminShell>
