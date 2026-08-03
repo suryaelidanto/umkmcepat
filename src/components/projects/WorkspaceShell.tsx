@@ -860,11 +860,23 @@ export function WorkspaceShell({
         requestedMode: hasPersistedSource ? "retry_build" : "first_generate",
         hasPersistedSource,
       });
+      const activeCard = workspaceCardRef.current;
+      const handoffFields =
+        activeCard?.type === "build_recommendation" &&
+        activeCard.handoffId &&
+        activeCard.reviewHash
+          ? {
+              handoffId: activeCard.handoffId,
+              reviewHash: activeCard.reviewHash,
+              idempotencyKey: `build-${projectId}-${activeCard.handoffId}`,
+            }
+          : undefined;
       const response = await fetch(`/api/projects/${projectId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: generateMode,
+          ...handoffFields,
         }),
         signal: abortController.signal,
       });

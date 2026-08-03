@@ -62,6 +62,23 @@ describe("workspace chat sync", () => {
     expect(isBuildRecommendationHeld(changedCard, signature)).toBe(false);
   });
 
+  it("keeps the signature stable when handoffId/reviewHash are added (G6)", () => {
+    const base: WorkspaceCard = {
+      type: "build_recommendation",
+      title: "Brief sudah siap dibuild",
+      summary: ["Warung fisik", "Menu klasik"],
+    };
+    const withHandoff: WorkspaceCard = {
+      ...base,
+      handoffId: "h1",
+      reviewHash: "r1",
+      reviewItems: [{ id: "f1", kind: "fact", label: "contact", value: "..." }],
+    };
+    expect(getBuildRecommendationHoldSignature(withHandoff)).toBe(
+      getBuildRecommendationHoldSignature(base),
+    );
+  });
+
   it("does not show the build recommendation composer after a build has completed", () => {
     const card: WorkspaceCard = {
       type: "build_recommendation",
