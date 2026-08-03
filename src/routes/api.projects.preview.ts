@@ -8,7 +8,7 @@ import {
 } from "ai";
 
 import { getAiModel } from "@/lib/ai";
-import { getDefaultAiModel } from "@/lib/ai-models";
+import { getDiscussModel, getModerationModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
@@ -284,7 +284,7 @@ async function handlePreviewPost(request: Request) {
     if (moderation.usage) {
       await chargeEnergyForAiUsage({
         userId,
-        modelId: moderation.modelId || getDefaultAiModel(),
+        modelId: moderation.modelId || getModerationModel(),
         inputTokens: moderation.usage.inputTokens,
         outputTokens: moderation.usage.outputTokens,
         reason: "moderation",
@@ -577,7 +577,7 @@ async function repairWorkspaceCard({
     );
   }
 
-  const modelName = getDefaultAiModel();
+  const modelName = getDiscussModel();
   const latestAssistantIndex = findLastMessageIndex(
     messages,
     (message) => message.role === "assistant",

@@ -15,7 +15,7 @@ import {
   getAiTelemetry,
   getNoReasoningCallOptions,
 } from "@/lib/ai";
-import { getDefaultAiModel } from "@/lib/ai-models";
+import { getDiscussModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
@@ -89,7 +89,7 @@ export async function runDiscussTurn({
       });
       return;
     }
-    const modelName = getDefaultAiModel();
+    const modelName = getDiscussModel();
     const model = modelOverride ?? getAiModel(modelName);
     const lastUserText = [...messages]
       .reverse()

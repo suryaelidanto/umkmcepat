@@ -14,7 +14,7 @@ import {
   getAiTelemetry,
   getNoReasoningCallOptions,
 } from "@/lib/ai";
-import { getDefaultAiModel } from "@/lib/ai-models";
+import { getGenerationModel } from "@/lib/ai-models";
 import { withAiTimeout } from "@/lib/ai-timeouts";
 import { type StepCharger } from "@/lib/projects/energy-step-charger";
 
@@ -69,7 +69,7 @@ export async function editGeneratedSourceWithAgent({
   };
 
   const agent = new ToolLoopAgent({
-    model: getAiModel(model || getDefaultAiModel()),
+    model: getAiModel(model || getGenerationModel()),
     maxRetries: 2,
     // Reasoning models spend tokens on hidden reasoning_content per step;
     // raise the per-step budget so visible tool calls still land.
@@ -78,7 +78,7 @@ export async function editGeneratedSourceWithAgent({
     instructions: EDIT_AGENT_INSTRUCTIONS,
     telemetry: getAiTelemetry("project-source-edit-agent", {
       fileCount: files.length,
-      model: model || getDefaultAiModel(),
+      model: model || getGenerationModel(),
     }),
     onStepFinish: stepCharger?.onStepFinish,
     stopWhen: [isStepCount(18), () => stepCharger?.isExhausted() ?? false],
@@ -172,7 +172,7 @@ export async function editGeneratedSourceWithAgent({
     modelId:
       "response" in result && result.response
         ? result.response.modelId
-        : model || getDefaultAiModel(),
+        : model || getGenerationModel(),
     operations: operationTrace.length ? operationTrace : finalCheck.operations,
     sideEffects,
     usage: {

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getDefaultAiModel } from "@/lib/ai-models";
+import { getDefaultAiModel, getModerationModel } from "@/lib/ai-models";
 import {
   moderateProjectRequest,
   type ModerationImage,
@@ -223,7 +223,7 @@ export const Route = createFileRoute("/api/projects")({
           if (moderation.usage) {
             await chargeEnergyForAiUsage({
               userId,
-              modelId: moderation.modelId || "umkmcepat-combo",
+              modelId: moderation.modelId || getModerationModel(),
               inputTokens: moderation.usage.inputTokens,
               outputTokens: moderation.usage.outputTokens,
               reason: "moderation",

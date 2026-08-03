@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
-import { getDefaultAiModel } from "@/lib/ai-models";
+import { getModerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 
@@ -49,7 +49,7 @@ export async function moderateProjectRequest(
 
   devLog("moderation", "request-start", {
     promptHash: hashPrompt(key),
-    model: getDefaultAiModel(),
+    model: getModerationModel(),
   });
 
   const contentParts: Array<
@@ -73,11 +73,11 @@ export async function moderateProjectRequest(
       generateText({
         abortSignal: abortController.signal,
         maxOutputTokens: 256,
-        model: getAiModel(getDefaultAiModel()),
+        model: getAiModel(getModerationModel()),
         temperature: 0,
         timeout: timeoutMs,
         telemetry: getAiTelemetry("project-moderation", {
-          model: getDefaultAiModel(),
+          model: getModerationModel(),
         }),
         system:
           "You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when intent is unclear but potentially unsafe. ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action.",
@@ -93,7 +93,7 @@ export async function moderateProjectRequest(
     inputTokens: result.usage?.inputTokens ?? 0,
     outputTokens: result.usage?.outputTokens ?? 0,
   };
-  const modelId = result.response?.modelId || getDefaultAiModel();
+  const modelId = result.response?.modelId || getModerationModel();
   const label = result.text.trim().toUpperCase();
   if (!["ALLOW", "BLOCK", "CLARIFY"].includes(label)) {
     devLog("moderation", "unexpected-response", {

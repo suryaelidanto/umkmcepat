@@ -40,16 +40,36 @@ function parseGroupedNumber(raw: string): number | "" {
   return Number(digits);
 }
 
+function modelSelectOptions(
+  entry: SettingEntry,
+  value: unknown,
+  modelIds: string[],
+): string[] {
+  const current = String(value ?? "");
+  const ids = [...modelIds];
+  if (current && !ids.includes(current)) {
+    ids.unshift(current);
+  }
+  if (entry.key === "ai.models_default" && !ids.includes("umkmcepat-combo")) {
+    ids.push("umkmcepat-combo");
+  }
+  return ids;
+}
+
 function CategorySection({
   group,
   draft,
   isPending,
+  modelIds,
+  modelsLoadFailed,
   setDraft,
   onSave,
 }: {
   group: CategoryGroup;
   draft: Record<string, unknown>;
   isPending: boolean;
+  modelIds: string[];
+  modelsLoadFailed: boolean;
   setDraft: (d: Record<string, unknown>) => void;
   onSave: (category: string, values: Record<string, unknown>) => void;
 }) {
@@ -107,6 +127,38 @@ function CategorySection({
                   type="text"
                   value={formatGroupedNumber(value)}
                 />
+              ) : entry.optionsSource === "nine_router_models" ? (
+                <div className="flex flex-col items-end gap-spacing-1">
+                  <select
+                    className="max-w-xs rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
+                    disabled={isPending}
+                    onChange={(e) =>
+                      setDraft({ ...draft, [entry.key]: e.target.value })
+                    }
+                    value={String(value ?? "")}
+                  >
+                    {entry.key !== "ai.models_default" ? (
+                      <option value="">(pakai default)</option>
+                    ) : null}
+                    {modelSelectOptions(entry, value, modelIds).map((id) => (
+                      <option key={id} value={id}>
+                        {id}
+                      </option>
+                    ))}
+                  </select>
+                  {String(value ?? "") &&
+                  modelIds.length > 0 &&
+                  !modelIds.includes(String(value)) ? (
+                    <p className="text-xs text-amber-200/90">
+                      Tidak ada di daftar 9Router
+                    </p>
+                  ) : null}
+                  {modelsLoadFailed || modelIds.length === 0 ? (
+                    <p className="text-xs text-surface-warm-white/60">
+                      Daftar model 9Router kosong / gagal dimuat
+                    </p>
+                  ) : null}
+                </div>
               ) : (
                 <input
                   className="w-32 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
@@ -167,6 +219,13 @@ function SettingsPage() {
       fetchJson<{ entries: SettingEntry[] }>("/api/admin/settings"),
     queryKey: ["admin", "settings"],
   });
+  const modelsQuery = useQuery({
+    queryFn: () => fetchJson<{ models: string[] }>("/api/admin/ai-models"),
+    queryKey: ["admin", "ai-models"],
+    staleTime: 60_000,
+  });
+  const modelIds = modelsQuery.data?.models ?? [];
+  const modelsLoadFailed = modelsQuery.isError;
   const [baseline, setBaseline] = useState<SettingEntry[]>([]);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
 
@@ -209,6 +268,8 @@ function SettingsPage() {
           group={group}
           isPending={save.isPending}
           key={group.category}
+          modelIds={modelIds}
+          modelsLoadFailed={modelsLoadFailed}
           onSave={(category, values) => save.mutate({ category, values })}
           setDraft={setDraft}
         />
@@ -221,6 +282,8 @@ function SettingsPage() {
               group={group}
               isPending={save.isPending}
               key={group.category}
+              modelIds={modelIds}
+              modelsLoadFailed={modelsLoadFailed}
               onSave={(category, values) => save.mutate({ category, values })}
               setDraft={setDraft}
             />

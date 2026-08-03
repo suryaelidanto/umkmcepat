@@ -1,4 +1,4 @@
-import { getDefaultAiModel } from "@/lib/ai-models";
+import { getGenerationModel } from "@/lib/ai-models";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
@@ -236,7 +236,7 @@ export async function runEditAttempt({
     userId,
     projectId: project.id,
     reason: "edit:step",
-    modelId: getDefaultAiModel(),
+    modelId: getGenerationModel(),
   });
 
   const send = (event: string, data: Record<string, unknown>) => {
@@ -287,7 +287,7 @@ export async function runEditAttempt({
           "The fast edit attempt failed. Retry carefully with the stronger default model.",
           "Keep the edit minimal and run check_app.",
         ].join("\n\n"),
-        model: getDefaultAiModel(),
+        model: getGenerationModel(),
         onOperation: persistEditProgress,
         onFilesChanged,
         stepCharger: editStepCharger,
@@ -353,7 +353,7 @@ export async function runEditAttempt({
 
       const repairResult = await editGeneratedSourceWithAgent({
         files: editResult.files,
-        model: getDefaultAiModel(),
+        model: getGenerationModel(),
         instruction: [
           instruction,
           "Previous edit did not make a meaningful rendered-source change.",

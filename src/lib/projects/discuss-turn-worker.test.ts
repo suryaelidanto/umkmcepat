@@ -47,6 +47,9 @@ vi.mock("@/lib/ai", () => ({
 vi.mock("@/lib/ai-models", () => ({
   DEFAULT_AI_MODEL: "test/model",
   getDefaultAiModel: vi.fn(() => "test/model"),
+  getDiscussModel: vi.fn(() => "test/model"),
+  getModerationModel: vi.fn(() => "test/model"),
+  getGenerationModel: vi.fn(() => "test/model"),
 }));
 
 vi.mock("@/lib/prisma", () => ({

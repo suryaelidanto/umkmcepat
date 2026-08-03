@@ -1,6 +1,7 @@
 import { generateObject, jsonSchema, type UIMessage } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getModerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import {
   createEmptyChatSummary,
@@ -110,7 +111,7 @@ export async function maybeCompactProjectChat({
   const timeout = setTimeout(() => abortController.abort(), timeoutMs);
 
   const result = await generateObject({
-    model: getAiModel(),
+    model: getAiModel(getModerationModel()),
     temperature: 0.2,
     abortSignal: abortController.signal,
     telemetry: getAiTelemetry("project-chat-compaction", {

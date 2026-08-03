@@ -84,6 +84,7 @@ export const Route = createFileRoute("/api/admin/settings")({
             label: e.label,
             max: e.max ?? null,
             min: e.min ?? null,
+            optionsSource: e.optionsSource ?? null,
             requiresRestart: e.requiresRestart ?? false,
             source,
             tier: e.tier,

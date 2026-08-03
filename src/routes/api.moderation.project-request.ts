@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { getModerationModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
 import { auth } from "@/lib/auth";
 import { validateProjectRequest } from "@/lib/projects/input";
@@ -56,7 +57,7 @@ export const Route = createFileRoute("/api/moderation/project-request")({
           if (session?.user?.id && result.usage) {
             await chargeEnergyForAiUsage({
               userId: session.user.id,
-              modelId: result.modelId || "umkmcepat-combo",
+              modelId: result.modelId || getModerationModel(),
               inputTokens: result.usage.inputTokens,
               outputTokens: result.usage.outputTokens,
               reason: "moderation",

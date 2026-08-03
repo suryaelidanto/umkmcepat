@@ -133,6 +133,19 @@ Text-only fallback (no valid workspace card after one repair) still streams prog
 
 Model pricing uses a hybrid resolver. `config/model-pricing-overrides.json` is the Git-tracked manual source for 9Router/CMC naming mismatches and provider-only prices; OpenRouter `/api/v1/models` remains the automatic cache/refresh source for supported models. Every energy debit stores pricing proof (`rawModelId`, `pricedModelId`, `pricingSource`, prompt price, completion price) on `UserCredit`; user-facing UI intentionally hides provider/model names unless an admin/debug surface needs them.
 
+### Per-action AI models
+
+Task model ids (9Router labels) are configurable in `/admin/settings` (AI advanced) and env:
+
+| Setting | Env | Used for |
+|---------|-----|----------|
+| `ai.models_default` | `AI_MODELS` | Global fallback (first CSV entry) |
+| `ai.model.moderation` | `AI_MODEL_MODERATION` | Safety gate + chat compaction |
+| `ai.model.discuss` | `AI_MODEL_DISCUSS` | Guided discuss (+ repairs inherit) |
+| `ai.model.build` | `AI_MODEL_BUILD` (alias `AI_GENERATION_MODEL`) | Build pipeline + edit agent |
+
+Empty task value → default → hardcode `umkmcepat-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models`. Create combos in 9Router; suggested names: `umkmcepat-moderation`, `umkmcepat-discuss`, `umkmcepat-build`.
+
 `STORAGE_PROVIDER` is not user-configurable: local dev always speaks S3 to the MinIO container `bun run infra` starts, and production points the same `S3_*` variables at Cloudflare R2. Set Google OAuth, Turnstile, Chromatic, and AI provider secrets only in `.env` or deployment secrets. Error tracking (Sentry) was intentionally removed; there is currently no error-tracking provider wired.
 
 Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Home project thumbnails are derived JPEGs under `.data/project-thumbnails`; keep that directory persistent when thumbnail continuity matters, or let missing images fall back to the deterministic gradient until the next successful build or first preview recovery. Capture runs in an isolated Node subprocess with a hidden browser window; local Windows uses installed Chrome when `PROJECT_THUMBNAIL_BROWSER_PATH` is empty. Set that path only to override browser discovery. Runtime/build workspaces are rebuildable. Local/test generated execution stays enabled by default; production Compose explicitly disables build and public execution until the isolated-worker and separate-origin gates pass.

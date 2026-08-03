@@ -9,6 +9,9 @@ vi.mock("@/lib/ai", () => ({
 vi.mock("@/lib/ai-models", () => ({
   DEFAULT_AI_MODEL: "umkmcepat-combo",
   getDefaultAiModel: vi.fn(() => "umkmcepat-combo"),
+  getModerationModel: vi.fn(() => "umkmcepat-combo"),
+  getDiscussModel: vi.fn(() => "umkmcepat-combo"),
+  getGenerationModel: vi.fn(() => "umkmcepat-combo"),
 }));
 
 const generateTextMock = generateText as Mock;
