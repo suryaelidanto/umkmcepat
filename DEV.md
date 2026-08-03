@@ -137,12 +137,12 @@ Model pricing uses a hybrid resolver. `config/model-pricing-overrides.json` is t
 
 Task model ids (9Router labels) are configurable in `/admin/settings` (AI advanced) and env:
 
-| Setting | Env | Used for |
-|---------|-----|----------|
-| `ai.models_default` | `AI_MODELS` | Global fallback (first CSV entry) |
-| `ai.model.moderation` | `AI_MODEL_MODERATION` | Safety gate + chat compaction |
-| `ai.model.discuss` | `AI_MODEL_DISCUSS` | Guided discuss (+ repairs inherit) |
-| `ai.model.build` | `AI_MODEL_BUILD` (alias `AI_GENERATION_MODEL`) | Build pipeline + edit agent |
+| Setting               | Env                                            | Used for                           |
+| --------------------- | ---------------------------------------------- | ---------------------------------- |
+| `ai.models_default`   | `AI_MODELS`                                    | Global fallback (first CSV entry)  |
+| `ai.model.moderation` | `AI_MODEL_MODERATION`                          | Safety gate + chat compaction      |
+| `ai.model.discuss`    | `AI_MODEL_DISCUSS`                             | Guided discuss (+ repairs inherit) |
+| `ai.model.build`      | `AI_MODEL_BUILD` (alias `AI_GENERATION_MODEL`) | Build pipeline + edit agent        |
 
 Empty task value → default → hardcode `umkmcepat-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models`. Create combos in 9Router; suggested names: `umkmcepat-moderation`, `umkmcepat-discuss`, `umkmcepat-build`.
 
