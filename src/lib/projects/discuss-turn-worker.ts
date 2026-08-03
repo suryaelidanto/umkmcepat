@@ -34,6 +34,7 @@ import {
   buildCardSystemPrompt,
   buildOneCallSystemPrompt,
   extractAssistantTextFromToolInput,
+  nextAssistantTextDeltaFromPartialToolJson,
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
   presentWorkspaceCardTool,
 } from "@/lib/projects/discuss-tool";
@@ -180,6 +181,8 @@ export async function runDiscussTurn({
     let hadError = false;
     let toolInput: unknown = null;
     let streamToolCallId: string | null = null;
+    let toolInputJson = "";
+    let streamedToolAssistantText = "";
     const primaryResponsePromise = Promise.resolve(primary.response).catch(
       () => null,
     );
@@ -206,6 +209,44 @@ export async function runDiscussTurn({
             id: textPartId,
             delta,
           });
+          continue;
+        }
+
+        if (part.type === "tool-input-start") {
+          if ("id" in part && typeof part.id === "string") {
+            streamToolCallId = part.id;
+          }
+          toolInputJson = "";
+          continue;
+        }
+
+        if (part.type === "tool-input-delta") {
+          const delta =
+            "delta" in part && typeof part.delta === "string" ? part.delta : "";
+          if (!delta) {
+            continue;
+          }
+          if ("id" in part && typeof part.id === "string") {
+            streamToolCallId = part.id;
+          }
+          toolInputJson += delta;
+          if (fullText) {
+            // Free chat text already streaming; don't dual-stream tool prose.
+            continue;
+          }
+          const next = await nextAssistantTextDeltaFromPartialToolJson(
+            toolInputJson,
+            streamedToolAssistantText,
+          );
+          if (next.delta) {
+            streamedToolAssistantText = next.seenText;
+            fullText = next.seenText;
+            publishProgress(turnId, {
+              type: "text-delta",
+              id: textPartId,
+              delta: next.delta,
+            });
+          }
           continue;
         }
 
@@ -240,18 +281,34 @@ export async function runDiscussTurn({
       });
     }
 
-    let chatText = fullText.trim();
-    if (!chatText) {
+    // Final tool-call may complete chars partial JSON never closed; or fill
+    // gap when provider only emits tool-call (no tool-input-delta).
+    if (!fullText.trim()) {
       const fromTool = extractAssistantTextFromToolInput(toolInput);
       if (fromTool) {
-        chatText = fromTool;
+        fullText = fromTool;
         publishProgress(turnId, {
           type: "text-delta",
           id: textPartId,
           delta: fromTool,
         });
       }
+    } else if (streamedToolAssistantText) {
+      const finalToolText = extractAssistantTextFromToolInput(toolInput);
+      if (
+        finalToolText.startsWith(streamedToolAssistantText) &&
+        finalToolText.length > streamedToolAssistantText.length
+      ) {
+        const tail = finalToolText.slice(streamedToolAssistantText.length);
+        fullText = finalToolText;
+        publishProgress(turnId, {
+          type: "text-delta",
+          id: textPartId,
+          delta: tail,
+        });
+      }
     }
+    const chatText = fullText.trim();
     publishProgress(turnId, { type: "text-end", id: textPartId });
 
     let totalInputTokens = 0;

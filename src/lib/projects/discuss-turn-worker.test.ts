@@ -29,14 +29,21 @@ const {
   })),
 }));
 
-vi.mock("ai", () => ({
-  streamText: streamTextMock,
-  convertToModelMessages: convertToModelMessagesMock,
-  generateText: generateTextMock,
-  tool: vi.fn((opts: unknown) => opts),
-  jsonSchema: vi.fn((schema: unknown) => schema),
-  Output: { json: vi.fn(() => ({})), object: vi.fn((opts: unknown) => opts) },
-}));
+vi.mock("ai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("ai")>();
+  return {
+    ...actual,
+    streamText: streamTextMock,
+    convertToModelMessages: convertToModelMessagesMock,
+    generateText: generateTextMock,
+    tool: vi.fn((opts: unknown) => opts),
+    jsonSchema: vi.fn((schema: unknown) => schema),
+    Output: {
+      json: vi.fn(() => ({})),
+      object: vi.fn((opts: unknown) => opts),
+    },
+  };
+});
 
 vi.mock("@/lib/ai", () => ({
   getAiModel: vi.fn(() => "test-model"),
@@ -356,7 +363,7 @@ describe("runDiscussTurn worker", () => {
     );
   });
 
-  it("forced tool-only: uses assistantText from tool input as chat text without repair", async () => {
+  it("forced tool-only: streams assistantText incrementally from tool-input-delta", async () => {
     const card = {
       type: "question",
       question: {
@@ -366,21 +373,42 @@ describe("runDiscussTurn worker", () => {
         options: [],
       },
     };
+    const fullText =
+      "Oke, siap bantu bikin halaman jualan sayur! Pertama, nama usahanya apa?";
     normalizeWorkspaceTurnMock.mockReturnValue({
       brief: baseBrief,
       projectTitle: "Jualan Sayur",
       workspaceCard: card,
       readyForBuild: false,
     } as never);
+    const fullToolJson = JSON.stringify({
+      assistantText: fullText,
+      workspaceCard: card,
+    });
+    const mid = fullToolJson.indexOf("bantu");
     streamTextMock.mockReturnValueOnce(
       makeStreamResult([
+        {
+          type: "tool-input-start",
+          id: "tc_tool_only",
+          toolName: "presentWorkspaceCard",
+        },
+        {
+          type: "tool-input-delta",
+          id: "tc_tool_only",
+          delta: fullToolJson.slice(0, mid),
+        },
+        {
+          type: "tool-input-delta",
+          id: "tc_tool_only",
+          delta: fullToolJson.slice(mid),
+        },
         {
           type: "tool-call",
           toolCallId: "tc_tool_only",
           toolName: "presentWorkspaceCard",
           input: {
-            assistantText:
-              "Oke, siap bantu bikin halaman jualan sayur! Pertama, nama usahanya apa?",
+            assistantText: fullText,
             workspaceCard: card,
           },
         },
@@ -400,14 +428,15 @@ describe("runDiscussTurn worker", () => {
     });
 
     expect(generateTextMock).not.toHaveBeenCalled();
-    expect(publishProgressMock).toHaveBeenCalledWith(
-      "ct_tool_only_text",
-      expect.objectContaining({
-        type: "text-delta",
-        delta:
-          "Oke, siap bantu bikin halaman jualan sayur! Pertama, nama usahanya apa?",
-      }),
-    );
+    const textDeltas = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_tool_only_text" &&
+          event.type === "text-delta",
+      )
+      .map(([, event]) => event.delta as string);
+    expect(textDeltas.length).toBeGreaterThan(1);
+    expect(textDeltas.join("")).toBe(fullText);
     const progressTypes = publishProgressMock.mock.calls
       .filter(([publishedTurnId]) => publishedTurnId === "ct_tool_only_text")
       .map(([, event]) => event.type);
@@ -417,9 +446,7 @@ describe("runDiscussTurn worker", () => {
     const persistedValues = prismaExecuteRawMock.mock.calls
       .flatMap((call) => call.slice(1))
       .join("\n");
-    expect(persistedValues).toContain(
-      "Oke, siap bantu bikin halaman jualan sayur! Pertama, nama usahanya apa?",
-    );
+    expect(persistedValues).toContain(fullText);
     expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
       expect.objectContaining({
         turnId: "ct_tool_only_text",

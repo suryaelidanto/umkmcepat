@@ -178,6 +178,37 @@ export function extractAssistantTextFromToolInput(toolInput: unknown): string {
   return raw.trim();
 }
 
+/** Prefix-safe partial assistantText from incomplete tool JSON (no trailing trim). */
+export function extractPartialAssistantTextFromToolInput(
+  toolInput: unknown,
+): string {
+  if (!toolInput || typeof toolInput !== "object") {
+    return "";
+  }
+  const raw = (toolInput as { assistantText?: unknown }).assistantText;
+  return typeof raw === "string" ? raw : "";
+}
+
+/**
+ * Diff newly-parsed assistantText against what was already streamed.
+ * Callers accumulate tool-input-delta JSON, then feed the buffer here.
+ */
+export async function nextAssistantTextDeltaFromPartialToolJson(
+  partialToolJson: string,
+  alreadyStreamed: string,
+): Promise<{ delta: string; seenText: string }> {
+  const { parsePartialJson } = await import("ai");
+  const { value } = await parsePartialJson(partialToolJson);
+  const partial = extractPartialAssistantTextFromToolInput(value);
+  if (!partial || !partial.startsWith(alreadyStreamed)) {
+    return { delta: "", seenText: alreadyStreamed };
+  }
+  return {
+    delta: partial.slice(alreadyStreamed.length),
+    seenText: partial,
+  };
+}
+
 export function buildOneCallSystemPrompt({
   brief,
   context,

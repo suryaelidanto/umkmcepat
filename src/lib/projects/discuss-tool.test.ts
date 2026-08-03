@@ -102,3 +102,32 @@ describe("presentWorkspaceCard inputSchema tolerates stringified JSON fields", (
     expect(result.success).toBe(false);
   });
 });
+
+describe("nextAssistantTextDeltaFromPartialToolJson", () => {
+  it("emits only newly completed assistantText characters across partial JSON", async () => {
+    const { nextAssistantTextDeltaFromPartialToolJson } =
+      await import("./discuss-tool");
+    let seen = "";
+
+    const first = await nextAssistantTextDeltaFromPartialToolJson(
+      '{"assistantText":"Oke, siap',
+      seen,
+    );
+    expect(first.delta).toBe("Oke, siap");
+    seen = first.seenText;
+
+    const second = await nextAssistantTextDeltaFromPartialToolJson(
+      '{"assistantText":"Oke, siap bantu","workspaceCard":{"type":"ques',
+      seen,
+    );
+    expect(second.delta).toBe(" bantu");
+    seen = second.seenText;
+
+    const third = await nextAssistantTextDeltaFromPartialToolJson(
+      '{"assistantText":"Oke, siap bantu","workspaceCard":{"type":"question"}}',
+      seen,
+    );
+    expect(third.delta).toBe("");
+    expect(third.seenText).toBe("Oke, siap bantu");
+  });
+});
