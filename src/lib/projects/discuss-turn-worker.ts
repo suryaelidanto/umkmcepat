@@ -132,7 +132,12 @@ export async function runDiscussTurn({
       system: systemPrompt,
       messages: modelMessages,
       tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
-      toolChoice: "auto",
+      // Always require the card tool. "auto" let post-build turns skip the
+      // call entirely (text-only), so the UI never got a question card.
+      toolChoice: {
+        type: "tool",
+        toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+      },
       repairToolCall: async ({ toolCall, error, messages }) =>
         repairToolCallInTurn({
           error,
@@ -354,6 +359,72 @@ export async function runDiscussTurn({
 
     const primaryMs = Date.now() - discussStartedAt;
     if (!chatText) {
+      // Post-build: none is a legal card. Do not repair for interview cards
+      // or invent assistant prose.
+      if (hasBuiltSite) {
+        const resolvedToolCallId = streamToolCallId || toolCallId;
+        publishProgress(turnId, {
+          type: "tool-input-available",
+          toolCallId: resolvedToolCallId,
+          toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+          input: {},
+        });
+        publishProgress(turnId, {
+          type: "tool-output-available",
+          toolCallId: resolvedToolCallId,
+          output: {
+            workspaceCard: { type: "none" },
+            projectTitle: project.title,
+            repairsUsed: 0,
+          },
+        });
+        const assistantMessage: UIMessage = {
+          id: messageId,
+          role: "assistant",
+          parts: [
+            {
+              type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
+              toolCallId: resolvedToolCallId,
+              state: "output-available",
+              input: {},
+              output: {
+                workspaceCard: { type: "none" },
+                projectTitle: project.title,
+              },
+            } as UIMessage["parts"][number],
+          ],
+        };
+        const safeMessages = stripTransportDiagnosticMessages(
+          dedupeUiMessages([...messages, assistantMessage]),
+        );
+        await writeAiRequestLog({
+          event: "discuss:finish",
+          model: modelName,
+          mode: "one_call_tools",
+          projectId: project.id,
+          didWorkspaceToolUpdate: true,
+          primaryToolFailed: false,
+          repairsUsed: 0,
+          workspaceCard: { type: "none" },
+        });
+        await persistProjectChatTurn({
+          messages: safeMessages,
+          projectId: project.id,
+          userId,
+          workspaceCard: { type: "none" },
+        });
+        await chargeEnergyForAiUsage({
+          userId,
+          modelId: discussModelId,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          reason: "discuss:step",
+        });
+        publishProgress(turnId, { type: "finish" });
+        await finalizeDiscussTurn({ turnId, status: "succeeded" });
+        return;
+      }
+
       // ponytail: tool-only response (no prose). Retry the card via
       // repairDiscussCardWithTool, then persist a card-only assistant turn
       // (no fake text). Never surface a dummy string.
@@ -479,7 +550,10 @@ export async function runDiscussTurn({
       effectiveBrief,
       handoffNormalizeOptions,
     );
-    let primaryToolFailed = workspaceTurn.workspaceCard.type === "none";
+    // Post-build policy: none is an allowed card. Do not treat it as a
+    // missing tool or spend energy on interview-card repair.
+    let primaryToolFailed =
+      workspaceTurn.workspaceCard.type === "none" && !hasBuiltSite;
     let repairsUsed = 0;
 
     let repairMs = 0;
@@ -601,6 +675,23 @@ export async function runDiscussTurn({
         title,
         userId,
         workspaceCard: workspaceTurn.workspaceCard,
+      });
+    } else if (hasBuiltSite) {
+      await writeAiRequestLog({
+        event: "discuss:finish",
+        model: modelName,
+        mode: "one_call_tools",
+        projectId: project.id,
+        didWorkspaceToolUpdate: true,
+        primaryToolFailed: false,
+        repairsUsed,
+        workspaceCard: { type: "none" },
+      });
+      await persistProjectChatTurn({
+        messages: safeMessages,
+        projectId: project.id,
+        userId,
+        workspaceCard: { type: "none" },
       });
     } else {
       devLog("discuss", "text-only-fallback", {

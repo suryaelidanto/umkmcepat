@@ -121,6 +121,12 @@ export async function repairDiscussCardWithTool({
   projectId: string;
   userId: string;
 }) {
+  // Post-build discuss only allows workspaceCard none / clarification;
+  // interview repair is impossible under hasBuiltSite and must not spend energy.
+  if (hasBuiltSite) {
+    return null;
+  }
+
   const abortController = new AbortController();
   let deadline: ReturnType<typeof setTimeout> | undefined;
   let totalInputTokens = 0;

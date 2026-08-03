@@ -160,7 +160,7 @@ export const presentWorkspaceCardInputSchema = z.object({
 
 export const presentWorkspaceCardTool = tool({
   description:
-    "Present the next workspace card after your short Indonesian chat reply.",
+    'After your short Indonesian chat reply, present the next workspace card. Always pass workspaceCard as a nested object (e.g. workspaceCard: { type: "none" } or workspaceCard: { type: "question", question: {...} }). Never put type at the top level alone.',
   inputSchema: presentWorkspaceCardInputSchema,
 });
 
@@ -178,9 +178,10 @@ export function buildOneCallSystemPrompt({
 
 CRITICAL OUTPUT ORDER:
 1) Write EXACTLY ONE short Indonesian chat sentence first (max 20 words, aku/kamu only) acknowledging the edit request.
-2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with { type: "none" }. Do not ask a brief question and do not emit build_recommendation — the site is already built, this turn is an edit request, not an interview.
-
-Never put JSON in chat text. Never call the tool before chat text.`;
+2) Then call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST wrap the card:
+   - Clarification (preferred when you need a choice, e.g. which color): { "workspaceCard": { "type": "question", "question": { "id": "slug", "question": "...", "answerMode": "choice"|"text", "selectionMode": "single", "options": [{ "label": "...", "description": "..." }] } } }
+   - Ack only, no more questions this turn: { "workspaceCard": { "type": "none" } }
+Never use type="build_recommendation" — the site is already built; this is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in chat text. Never call the tool before chat text.`;
   }
 
   return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}

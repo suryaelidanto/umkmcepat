@@ -299,4 +299,57 @@ describe("runDiscussTurn worker", () => {
       expect.objectContaining({ type: "finish" }),
     );
   });
+
+  it("built site: intentional none is success without repair or text-only-fallback", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: { type: "none" },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Siap, aku bikinin varian warna baru." },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_built_none",
+      project: { ...baseProject, status: "ready" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(writeAiRequestLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "discuss:finish",
+        primaryToolFailed: false,
+        workspaceCard: { type: "none" },
+      }),
+    );
+    expect(writeAiRequestLogMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: "discuss:text-only-fallback" }),
+    );
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turnId: "ct_built_none",
+        status: "succeeded",
+      }),
+    );
+    expect(publishProgressMock).toHaveBeenCalledWith(
+      "ct_built_none",
+      expect.objectContaining({
+        type: "tool-output-available",
+        output: expect.objectContaining({
+          workspaceCard: { type: "none" },
+        }),
+      }),
+    );
+  });
 });

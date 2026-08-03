@@ -759,7 +759,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("suppresses a question card once the site is built, even if the model ignores its prompt and asks one anyway", () => {
+  it("allows a clarification question card once the site is built (post-build edit choices)", () => {
     const brief = parseProjectBrief(
       { businessType: "Kopi Senja Roastery", offer: "Biji kopi roasting" },
       "jualan kopi",
@@ -769,11 +769,11 @@ describe("normalizeWorkspaceTurn", () => {
         workspaceCard: {
           type: "question",
           question: {
-            id: "business_hours",
-            question: "Jam berapa biasanya buka?",
+            id: "color_palette",
+            question: "Mau nuansa warna yang mana?",
             options: [
-              { label: "Setiap hari", description: "09:00 - 22:00" },
-              { label: "Senin - Jumat", description: "09:00 - 18:00" },
+              { label: "Neon biru", description: "Gamer, segar" },
+              { label: "Ungu gelap", description: "Malam, premium" },
             ],
           },
         },
@@ -782,7 +782,10 @@ describe("normalizeWorkspaceTurn", () => {
       { hasBuiltSite: true },
     );
 
-    expect(turn.workspaceCard.type).toBe("none");
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("color_palette");
+    }
     expect(turn.readyForBuild).toBe(false);
   });
 

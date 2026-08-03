@@ -266,16 +266,10 @@ export function normalizeWorkspaceTurn(
     brief,
   );
 
-  // Server-side enforcement, not just prompt guidance: once the site is
-  // built, the model must never resurface the brief interview (question /
-  // build_recommendation cards), even if it ignores its system prompt and
-  // calls the tool with one anyway. The interview is over; this turn is an
-  // edit request.
-  if (
-    options.hasBuiltSite &&
-    (workspaceCard.type === "question" ||
-      workspaceCard.type === "build_recommendation")
-  ) {
+  // Server-side enforcement: once the site is built, never re-offer
+  // build_recommendation (that restarts the interview handoff). Clarifying
+  // questions (e.g. which color) are still allowed for post-build edits.
+  if (options.hasBuiltSite && workspaceCard.type === "build_recommendation") {
     workspaceCard = createFallbackWorkspaceCard(brief);
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is
