@@ -309,6 +309,53 @@ describe("runBatchedGenerate — admission + failure paths", () => {
     expect(repairPrompt).toMatch(/invalid|syntax|diagnostic/i);
   });
 
+  it("drops repair files emitted outside the requested scope", async () => {
+    const badTsx = `export function HomeRouteComponent() { return (<div>broken`;
+    streamTextMock
+      // Writer: broken index → gates fail, index.tsx implicated.
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${badTsx}\n</file>\n<done summary="1" />`,
+        ),
+      )
+      // Repair 1: fixes index.tsx but also sneaks in an unrequested file.
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${HOME_TSX}</file>\n` +
+            `<file path="src/routes/sneaky.tsx">\nexport function SneakyRouteComponent() { return <div>sneaky</div>; }\n</file>\n` +
+            `<done summary="2" />`,
+        ),
+      )
+      // Repair 2 (triggered by the out-of-scope diagnostic): in-scope only.
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${HOME_TSX}</file>\n<done summary="3" />`,
+        ),
+      );
+
+    const result = await runBatchedGenerate({
+      ...baseArgs(),
+      stepCharger: makeCharger(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.repairRounds).toBe(2);
+      // Out-of-scope file never landed in the stage or the merged output.
+      expect(result.writtenPaths).not.toContain("src/routes/sneaky.tsx");
+      expect(
+        result.files.find((f) => f.path === "src/routes/sneaky.tsx"),
+      ).toBeUndefined();
+    }
+    // Round 2's repair prompt cites the dropped path as a diagnostic.
+    const round2Call = streamTextMock.mock.calls[2][0];
+    const round2Prompt = JSON.stringify(
+      round2Call.messages ?? round2Call.prompt,
+    );
+    expect(round2Prompt).toContain("src/routes/sneaky.tsx");
+    expect(round2Prompt).toMatch(/outside the requested scope/i);
+  });
+
   it("exhausts 2 targeted repairs then signals fallback", async () => {
     const badTsx = `export function HomeRouteComponent() { return (<div>broken`;
     streamTextMock

@@ -183,7 +183,7 @@ MISSING IMAGES: use <img src="/placeholder.svg" alt="<short description>" /> for
 
 ${DESIGN_DIRECTIVE}
 
-SCAFFOLD MANIFEST (the exact starter your files extend — do not rewrite these):
+SCAFFOLD MANIFEST (the exact starter your files extend — do not rewrite these; src/router.tsx is the ONE exception — it is writer-owned, so DO rewrite it to register new routes per SPEED RULE 3):
 
 File tree:
 ${manifest.fileTree.map((path) => `- ${path}`).join("\n")}
@@ -680,8 +680,27 @@ export async function runBatchedGenerate(input: {
         repairRounds,
       };
     }
+    // Scope enforcement: a repair response may ONLY rewrite the files it was
+    // asked to fix (implicated paths) or supply a still-missing required file.
+    // Anything else is dropped and surfaced as a diagnostic for the next
+    // round — never silently merged into the stage.
+    const requiredMissing = REQUIRED_STAGE_PATHS.filter(
+      (path) => !staged.has(path),
+    );
+    const repairScope = new Set<string>([
+      ...implicatedPaths,
+      ...requiredMissing,
+    ]);
     for (const [path, file] of repairCall.response.files) {
-      staged.set(path, file);
+      if (repairScope.has(path)) {
+        staged.set(path, file);
+      } else {
+        devLog("generate", "batched.repair-out-of-scope", {
+          path,
+          projectId: input.projectId,
+          repairRounds,
+        });
+      }
     }
     lastDiagnostics = gateStage({
       allowedPackages,
@@ -689,6 +708,13 @@ export async function runBatchedGenerate(input: {
       staged,
       starterFiles,
     });
+    for (const path of repairCall.response.files.keys()) {
+      if (!repairScope.has(path)) {
+        lastDiagnostics.push(
+          `${path}: repair response emitted a file outside the requested scope — ignoring. Re-emit ONLY the files listed in the repair prompt.`,
+        );
+      }
+    }
   }
 
   if (lastDiagnostics.length > 0) {
