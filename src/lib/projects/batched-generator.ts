@@ -34,6 +34,7 @@ import {
   BatchedParseError,
   createBatchedResponseParser,
   type BatchedDiagnostic,
+  type BatchedFile,
 } from "@/lib/projects/batched-response";
 import { briefToBuildPrompt, type ProjectBrief } from "@/lib/projects/brief";
 import {
@@ -391,6 +392,8 @@ type StreamCallResult = {
 async function runOneStreamedResponse(args: {
   abortSignal?: AbortSignal;
   onEvent?: BatchedGenerateEventSink;
+  /** Durable write-through: full staged content as each block closes. */
+  onFileStaged?: (file: BatchedFile) => void;
   onFileWritten?: (path: string) => void;
   phase: "writer" | "format-repair" | "repair";
   projectId: string;
@@ -435,6 +438,10 @@ async function runOneStreamedResponse(args: {
           for (const path of parser.stagedPaths) {
             if (!writtenThisCall.has(path)) {
               writtenThisCall.add(path);
+              const stagedFile = parser.stagedFile(path);
+              if (stagedFile) {
+                args.onFileStaged?.(stagedFile);
+              }
               args.onFileWritten?.(path);
               args.onEvent?.("operation", {
                 detail: "File ditulis writer batched.",
@@ -539,6 +546,7 @@ export async function runBatchedGenerate(input: {
   buildId?: string | null;
   implementationSpec?: ImplementationSpec;
   onEvent?: BatchedGenerateEventSink;
+  onFileStaged?: (file: BatchedFile) => void;
   projectId: string;
   schema: ProjectSiteSchema;
   stepCharger?: StepCharger;
@@ -588,6 +596,7 @@ export async function runBatchedGenerate(input: {
     attemptId: input.attemptId,
     buildId: input.buildId,
     onEvent: input.onEvent,
+    onFileStaged: input.onFileStaged,
     phase: "writer",
     projectId: input.projectId,
     retryCount: 0,
@@ -611,6 +620,7 @@ export async function runBatchedGenerate(input: {
       attemptId: input.attemptId,
       buildId: input.buildId,
       onEvent: input.onEvent,
+      onFileStaged: input.onFileStaged,
       phase: "format-repair",
       projectId: input.projectId,
       retryCount: 1,
@@ -660,6 +670,7 @@ export async function runBatchedGenerate(input: {
       attemptId: input.attemptId,
       buildId: input.buildId,
       onEvent: input.onEvent,
+      onFileStaged: input.onFileStaged,
       phase: "repair",
       projectId: input.projectId,
       retryCount: repairRounds,

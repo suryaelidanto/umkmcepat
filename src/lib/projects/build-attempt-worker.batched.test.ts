@@ -350,6 +350,38 @@ describe("runBuildAttempt — batched rollout wiring", () => {
     expect(generateCustomProjectFilesWithAgentMock).toHaveBeenCalledTimes(1);
   });
 
+  it("flag=all → batched files write through to the progressive saver (durable staging)", async () => {
+    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
+      key === "generation.batched_rollout" ? "all" : fb,
+    );
+    runBatchedGenerateMock.mockImplementation(
+      (args: {
+        onFileStaged?: (file: { content: string; path: string }) => void;
+      }) => {
+        args.onFileStaged?.({
+          content: "export const x = 1;",
+          path: "src/routes/kontak.tsx",
+        });
+        return Promise.resolve({
+          ok: true,
+          files: [
+            { path: "src/routes/kontak.tsx", content: "export const x = 1;" },
+          ],
+          repairRounds: 0,
+          summary: "writer ok",
+          writtenPaths: ["src/routes/kontak.tsx"],
+        });
+      },
+    );
+
+    await runBuildAttempt(baseContext());
+
+    const saves = prismaMock.project.updateMany.mock.calls.filter(([args]) =>
+      JSON.stringify((args as { data?: unknown }).data).includes("kontak.tsx"),
+    );
+    expect(saves.length).toBeGreaterThan(0);
+  });
+
   it("admission block → legacy agent still runs (no user-visible abort)", async () => {
     getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
       key === "generation.batched_rollout" ? "all" : fb,

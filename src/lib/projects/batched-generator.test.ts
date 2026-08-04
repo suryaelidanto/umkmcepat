@@ -232,6 +232,37 @@ describe("runBatchedGenerate — happy path", () => {
   });
 });
 
+describe("runBatchedGenerate — durable stage write-through", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("calls onFileStaged with content as each file closes, mid-stream", async () => {
+    const responseText =
+      `<file path="src/routes/index.tsx">\n${HOME_TSX}</file>\n` +
+      `<file path="src/routes/katalog.tsx">\nexport function KatalogRouteComponent() { return <div>katalog</div>; }\n</file>\n` +
+      `<done summary="Wrote 2 pages." />`;
+    streamTextMock.mockReturnValueOnce(writerStream(responseText));
+
+    const staged: { content: string; path: string }[] = [];
+    const operationOrder: string[] = [];
+    const result = await runBatchedGenerate({
+      ...baseArgs(),
+      onEvent: () => undefined,
+      onFileStaged(file: { content: string; path: string }) {
+        staged.push(file);
+      },
+      stepCharger: makeCharger(),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(staged.map((f) => f.path).sort()).toEqual(
+      ["src/routes/index.tsx", "src/routes/katalog.tsx"].sort(),
+    );
+    // Content lands whole — a crash mid-flight already has these bytes on disk.
+    expect(staged[0].content).toContain("function");
+    expect(operationOrder).toEqual([]);
+  });
+});
+
 describe("runBatchedGenerate — admission + failure paths", () => {
   afterEach(() => vi.clearAllMocks());
 

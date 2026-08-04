@@ -722,6 +722,19 @@ export async function runBuildAttempt({
       saver.save(currentFiles);
     };
 
+    // Batched durable staging: the writer/parser stage is in-memory only, so
+    // write each file through to Project.sourceFiles the moment its block
+    // closes — same progressive-saver the legacy agent loop uses. A worker
+    // crash mid-stream then leaves every completed file persisted, not lost.
+    // ponytail: writes the whole array per file O(n²); the saver queues
+    // serially so it stays correct — switch to per-file patch rows if this
+    // ever shows up in profiles.
+    const batchedStageFiles = new Map<string, GeneratedProjectFile>();
+    const persistBatchedStage = (file: GeneratedProjectFile) => {
+      batchedStageFiles.set(file.path, file);
+      onFilesChanged([...batchedStageFiles.values()]);
+    };
+
     const agentStartedAt = Date.now();
     // Batched rollout: flag-on owners run the single-shot writer; any
     // batched failure (parse, gates, repair budget) falls back to the legacy
@@ -760,6 +773,7 @@ export async function runBuildAttempt({
           onEvent(type, data) {
             send(type, data);
           },
+          onFileStaged: persistBatchedStage,
           projectId,
           schema: finalSchema,
           stepCharger: sourceStepCharger,

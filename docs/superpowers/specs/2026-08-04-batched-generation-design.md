@@ -126,7 +126,7 @@ The legacy path is unchanged code under a different entry condition. If the new 
 |---|---|
 | Browser refresh / disconnect | Nothing breaks — SSE is an observer over Redis/BullMQ. Job continues server-side. User re-tails from the DB on next load. |
 | Server process dies | BullMQ lease (15min) expires; `project-attempt` worker marks attempt failed via `isStaleBuildAttempt` mechanism; user retries cleanly. No zombie state. |
-| Mid-stream crash | Per-file write-through to a staging table keyed by projectId+attemptId. On resume we ask the model only for missing files (targeted continue prompt); never a RAM-resume. |
+| Mid-stream crash | Per-file write-through: each staged file persists to `Project.sourceFiles` via the progressive saver (`createProgressiveSaver`, same hook as the legacy agent loop) as its `</file>` closes. On crash, the BullMQ lease expires and a fresh attempt resumes against the persisted partial stage instead of losing it. **Resume-missing-files continuation prompt deferred** (2026-08-05): the wire-up cost exceeds the win for a single-shot writer whose full retry costs one response; the fresh attempt regenerates any missing files. Revisit only if batch corpora exceed ~30 files per attempt. |
 | Model abort / HTTP error | Transport retry ×2 with exponential backoff; then targeted format-repair ×1; then legacy fallback. |
 | Validation parse error (bad tag) | Format-repair prompt: "Your previous response had malformed blocks at byte offsets X,Y — re-emit only those." Max 1 retry of this kind. |
 | Validation gate fail | Targeted repair prompt with only implicated files + rule text. Max 2 of these. |
@@ -216,7 +216,7 @@ Why this exists: the old logs claimed Warnet took 9.5min for agent codegen; we c
 | Model emits malformed structure | Strict parser + format-repair retry + fallback. Gates enforce "never ship unparseable." |
 | Model can't handle 20 files in one shot | Prompt scaling mitigations: batch by page group. Validators + repair loop keep it bounded. A/B decides. |
 | One bad file ruins whole generate | Targeted repair with diagnostics from validation. |
-| Streaming response gets cut off mid-way | Per-file write-through + resume-missing-files continuation prompt. |
+| Streaming response gets cut off mid-way | Per-file write-through (persisted stage survives the crash; see Recovery). The fresh attempt regenerates missing files; the targeted resume-missing-files continuation prompt is deferred as disproportionate (see Recovery row). |
 | `batched_rollout=all` ships a bad engine | Instant rollback via flag; DB state untouched. Tests + staging flag catch it first. |
 
 ## Success criteria ("ship gate")

@@ -89,6 +89,8 @@ export type BatchedResponseParser = {
   finalize: () => BatchedParseResult;
   /** Read-only snapshot of files staged so far (streaming progress). */
   readonly stagedPaths: readonly string[];
+  /** Staged content for one path (durable write-through consumers). */
+  stagedFile: (path: string) => BatchedFile | undefined;
   /** True once a hard error has latched. */
   readonly failed: boolean;
 };
@@ -476,6 +478,9 @@ export function createBatchedResponseParser(): BatchedResponseParser {
     },
     get stagedPaths() {
       return [...files.keys()];
+    },
+    stagedFile(path: string) {
+      return files.get(path);
     },
     push(chunk: string): void {
       if (hardError) {
