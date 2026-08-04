@@ -174,7 +174,7 @@ function heroWordTransition(i: number, baseDelay: number) {
     opacity: { duration: 0.5, delay },
     y: { type: "spring", stiffness: 140, damping: 16, delay },
     filter: { duration: 0.4, delay },
-  };
+  } as const;
 }
 
 // Delays the sub-hero until the headline underline bar has finished drawing.
