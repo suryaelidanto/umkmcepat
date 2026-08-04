@@ -704,10 +704,19 @@ export async function runDiscussTurn({
 
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    // Primary's own usage, captured pre-hijack: total* below gets hedge legs
+    // summed in for the single UserCredit debit (1:1 transparency), while the
+    // primary's own ledger row must record ONLY its leg — per-racer hedge
+    // rows in settleHedgeRows already carry hedge usage, so reusing the sum
+    // here would double-count (AiCallRecord sum != UserCredit debit).
+    let primaryOwnInputTokens = 0;
+    let primaryOwnOutputTokens = 0;
     try {
       const primaryUsage = await primary.usage;
       totalInputTokens = primaryUsage?.inputTokens ?? 0;
       totalOutputTokens = primaryUsage?.outputTokens ?? 0;
+      primaryOwnInputTokens = totalInputTokens;
+      primaryOwnOutputTokens = totalOutputTokens;
       const primaryResponse = await Promise.resolve(primary.response).catch(
         () => null,
       );
@@ -840,9 +849,9 @@ export async function runDiscussTurn({
     // (hedged only): unhedged keeps its existing early latch.
     if (!hadError && !hedged) {
       recordDiscussCall({
-        inputTokens: totalInputTokens,
+        inputTokens: primaryOwnInputTokens,
         modelServed: discussModelId,
-        outputTokens: totalOutputTokens,
+        outputTokens: primaryOwnOutputTokens,
         status: "ok",
       });
     }
@@ -940,6 +949,8 @@ export async function runDiscussTurn({
       });
       totalInputTokens += repaired?.usage.inputTokens ?? 0;
       totalOutputTokens += repaired?.usage.outputTokens ?? 0;
+      primaryOwnInputTokens += repaired?.usage.inputTokens ?? 0;
+      primaryOwnOutputTokens += repaired?.usage.outputTokens ?? 0;
 
       if (repaired) {
         const repairedCard = repaired.workspaceCard;
@@ -1092,9 +1103,9 @@ export async function runDiscussTurn({
       if (!primaryCardValid && !hadError) {
         recordDiscussCall({
           errorClass: "invalid-card",
-          inputTokens: totalInputTokens,
+          inputTokens: primaryOwnInputTokens,
           modelServed: discussModelId,
-          outputTokens: totalOutputTokens,
+          outputTokens: primaryOwnOutputTokens,
           status: "error",
         });
       }
@@ -1104,9 +1115,9 @@ export async function runDiscussTurn({
       if (!hadError && !discussRecorded) {
         recordDiscussCall({
           errorClass: primaryCardValid ? undefined : "invalid-card",
-          inputTokens: totalInputTokens,
+          inputTokens: primaryOwnInputTokens,
           modelServed: discussModelId,
-          outputTokens: totalOutputTokens,
+          outputTokens: primaryOwnOutputTokens,
           status: primaryCardValid ? "ok" : "error",
         });
       }
@@ -1116,9 +1127,9 @@ export async function runDiscussTurn({
       await settleHedgeRows({ index: winner.modelIndex, kind: "hedge" });
       if (!hadError && !discussRecorded) {
         recordDiscussCall({
-          inputTokens: totalInputTokens,
+          inputTokens: primaryOwnInputTokens,
           modelServed: discussModelId,
-          outputTokens: totalOutputTokens,
+          outputTokens: primaryOwnOutputTokens,
           status: "ok",
         });
       }
@@ -1159,6 +1170,8 @@ export async function runDiscussTurn({
         repairsUsed = repaired.repairsUsed;
         totalInputTokens += repaired.usage.inputTokens;
         totalOutputTokens += repaired.usage.outputTokens;
+        primaryOwnInputTokens += repaired.usage.inputTokens;
+        primaryOwnOutputTokens += repaired.usage.outputTokens;
       }
     }
 

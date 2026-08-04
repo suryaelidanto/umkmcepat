@@ -1007,6 +1007,113 @@ describe("runDiscussTurn hedged race", () => {
     );
   });
 
+  it("hedge wins: ledger rows sum to exactly the single UserCredit debit", async () => {
+    enableHedging(["discuss-combo-2"]);
+    okNormalize();
+    // Hedge finishes its card synchronously (async iterator yields before the
+    // primary's first await turn), so it promotes and aborts the primary
+    // mid-flight with the primary's partial usage already accumulated.
+    const hedgeParts = [
+      { type: "text-delta", text: "H" },
+      {
+        type: "tool-call",
+        toolCallId: "tc-hedge",
+        toolName: "presentWorkspaceCard",
+        input: { assistantText: "Halo", workspaceCard: raceCard },
+      },
+    ];
+    const hedgeStream = makeRaceStreamResult({
+      parts: hedgeParts,
+      modelId: "discuss-combo-2",
+      usage: { inputTokens: 8, outputTokens: 4 },
+    });
+    const primaryStream = makeRaceStreamResult({
+      // One delta, no terminal tool-call — the hedge winner aborts it while
+      // its usage promise still reports what the partial stream spent.
+      parts: [{ type: "text-delta", text: "loser-text-partial" }],
+      modelId: "test/model",
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+    // Primary's first yield is interleaving-slow so the hedge leg promotes
+    // to winner before the primary's stream loop starts; the worker then
+    // adopts the winner and aborts the primary mid-flight.
+    const slowPrimaryStream = (async function* () {
+      for (let i = 0; i < 10; i++) {
+        await Promise.resolve();
+      }
+      for (const part of [{ type: "text-delta", text: "loser-text-partial" }]) {
+        yield part;
+      }
+    })();
+    let primarySignal: AbortSignal | undefined;
+    streamTextMock.mockImplementation(
+      (opts: {
+        model: { modelId: string };
+        messages: unknown;
+        abortSignal?: AbortSignal;
+      }) => {
+        // Hedge call has no messages array (model-only leg wrapped per-leg);
+        // disambiguate by model id instead: hedge model is its own combo.
+        if (opts.model.modelId === "discuss-combo-2") {
+          return hedgeStream.result;
+        }
+        primarySignal = opts.abortSignal;
+        return { ...primaryStream.result, stream: slowPrimaryStream };
+      },
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_hedge_winner_ledger",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(hedgeStream.state().aborted).toBe(false);
+    expect(primarySignal?.aborted).toBe(true);
+    const discussRows = recordAiCallMock.mock.calls
+      .filter(([entry]) => entry.task === "discuss")
+      .map(([entry]) => entry);
+    expect(discussRows).toHaveLength(2);
+    const winnerRow = discussRows.find((r) => r.raceRole === "winner");
+    const abortedRow = discussRows.find((r) => r.raceRole === "aborted");
+    expect(winnerRow).toEqual(
+      expect.objectContaining({ modelRequested: "discuss-combo-2" }),
+    );
+    expect(abortedRow).toEqual(
+      expect.objectContaining({ modelRequested: "test/model" }),
+    );
+    // Hedge won; the debit includes every leg under its served model.
+    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledTimes(1);
+    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputTokens: 10 + 8,
+        outputTokens: 5 + 4,
+        modelId: "discuss-combo-2",
+      }),
+    );
+    // Regression pin: per-racer input rows must sum to the debit 1:1 — no
+    // double-counted hedge usage inside the primary's own row.
+    const debit = chargeEnergyForAiUsageMock.mock.calls[0][0] as {
+      inputTokens: number;
+      outputTokens: number;
+    };
+    const sumInput = discussRows.reduce(
+      (acc, row) => acc + (row.inputTokens ?? 0),
+      0,
+    );
+    const sumOutput = discussRows.reduce(
+      (acc, row) => acc + (row.outputTokens ?? 0),
+      0,
+    );
+    expect(sumInput).toBe(debit.inputTokens);
+    expect(sumOutput).toBe(debit.outputTokens);
+  });
+
   it("late loser leg settles before the debit includes its usage", async () => {
     enableHedging(["discuss-combo-2"]);
     okNormalize();
