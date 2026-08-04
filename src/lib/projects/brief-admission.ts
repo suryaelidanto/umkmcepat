@@ -30,6 +30,20 @@ export type BatchedBriefAdmissionResult =
   | { ok: true; blockers: []; reason: null }
   | { ok: false; blockers: string[]; reason: string };
 
+/** Thrown by the batched generator when the admission gate blocks. Never an
+ * AI-call failure — the worker surfaces `reason` to the user uncharged. */
+export class BatchedAdmissionBlockedError extends Error {
+  readonly blockers: string[];
+  readonly reason: string;
+
+  constructor(input: { blockers: string[]; reason: string }) {
+    super(input.reason);
+    this.name = "BatchedAdmissionBlockedError";
+    this.blockers = input.blockers;
+    this.reason = input.reason;
+  }
+}
+
 const FIELD_LABELS: Record<string, string> = {
   businessName: "nama usaha",
   contactOrCta: "kontak atau CTA (misalnya WhatsApp)",

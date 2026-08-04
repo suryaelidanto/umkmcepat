@@ -1,0 +1,417 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { streamTextMock, recordAiCallMock, chargeEnergyForStepMock } =
+  vi.hoisted(() => ({
+    streamTextMock: vi.fn(),
+    recordAiCallMock: vi.fn(),
+    chargeEnergyForStepMock: vi.fn(async () => ({
+      charged: true,
+      energyUsed: 5,
+      remaining: 1_000,
+    })),
+  }));
+
+vi.mock("ai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("ai")>();
+  return { ...actual, streamText: streamTextMock };
+});
+
+vi.mock("@/lib/ai", () => ({
+  getAiModel: vi.fn((name?: string) => ({ modelId: name ?? "test-model" })),
+  getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
+  getNoReasoningCallOptions: vi.fn(() => ({ reasoning: "none" })),
+}));
+
+vi.mock("@/lib/ai-models", () => ({
+  DEFAULT_AI_MODEL: "test/model",
+  getDefaultAiModel: vi.fn(() => "test/model"),
+  getGenerationModel: vi.fn(() => "test/model"),
+}));
+
+vi.mock("@/lib/ai-call-record", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ai-call-record")>()),
+  recordAiCall: recordAiCallMock,
+}));
+
+vi.mock("@/lib/user-credits", () => ({
+  chargeEnergyForStep: chargeEnergyForStepMock,
+}));
+
+import {
+  buildBatchedWriterPrompt,
+  collectBatchedGateIssues,
+  runBatchedGenerate,
+} from "./batched-generator";
+import { BatchedAdmissionBlockedError } from "./brief-admission";
+import { createStepCharger } from "./energy-step-charger";
+import { type GeneratedProjectFile } from "./generated-types";
+import { createViteTanStackShadcnStarterFiles } from "./scaffold/vite-tanstack-shadcn-starter";
+import { createProjectSiteSchemaFromBrief } from "./site-schema";
+
+import type { ProjectBrief } from "./brief";
+import type { ImplementationSpec } from "./implementation-spec";
+
+const HOME_TSX = `import { Link } from "@tanstack/react-router";
+import { ArrowRight } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { site } from "@/content/site";
+import { usePreviewReady } from "@/lib/preview-ready";
+
+export function HomeRouteComponent() {
+  usePreviewReady();
+  return (
+    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-6 py-16">
+      <p className="text-sm font-medium text-muted-foreground">{site.eyebrow}</p>
+      <h1 className="text-4xl font-semibold tracking-tight text-foreground">{site.headline}</h1>
+      <Button size="lg" asChild>
+        <Link to="/" hash="kontak">
+          {site.primaryCta}
+          <ArrowRight className="size-4" />
+        </Link>
+      </Button>
+      <Card><CardContent>{site.offer}</CardContent></Card>
+    </main>
+  );
+}
+`;
+
+function writerStream(text: string, chunkSize = 37) {
+  const chunks: string[] = [];
+  for (let i = 0; i < text.length; i += chunkSize) {
+    chunks.push(text.slice(i, i + chunkSize));
+  }
+  return {
+    fullStream: (async function* () {
+      for (const chunk of chunks) {
+        yield { type: "text-delta", text: chunk };
+      }
+    })(),
+    usage: Promise.resolve({
+      inputTokens: 1200,
+      outputTokens: 800,
+      totalTokens: 2000,
+    }),
+    response: Promise.resolve({ modelId: "served/model-x" }),
+  };
+}
+
+function makeBrief(overrides: Partial<ProjectBrief> = {}): ProjectBrief {
+  return {
+    version: 1,
+    notes: [],
+    readyForBuild: true,
+    prompt: "buatkan website coffee shop untuk kerja remote",
+    businessName: "Kopi Sela",
+    businessType: "Coffee shop kecil",
+    offer: "Espresso based, manual brew, pastry",
+    targetCustomer: "Mahasiswa dan pekerja remote",
+    contactOrCta: "Pesan dan tanya lokasi lewat WhatsApp",
+    stylePreference: "Hangat premium sederhana",
+    productOrService: null,
+    contact: null,
+    tagline: null,
+    usp: null,
+    priceRange: null,
+    visuals: null,
+    hours: null,
+    address: null,
+    deliveryArea: null,
+    since: null,
+    testimonials: null,
+    certifications: null,
+    paymentMethods: null,
+    socialLinks: null,
+    currentPromo: null,
+    secondaryCta: null,
+    ...overrides,
+  } as ProjectBrief;
+}
+
+function makeSpec(): ImplementationSpec | undefined {
+  return undefined; // spec is optional on the writer path
+}
+
+function makeCharger() {
+  return createStepCharger({
+    modelId: "test/model",
+    projectId: "p1",
+    reason: "build:step",
+    userId: "u-test",
+  });
+}
+
+const baseArgs = () => {
+  const brief = makeBrief();
+  const schema = createProjectSiteSchemaFromBrief(brief);
+  return {
+    brief,
+    implementationSpec: makeSpec(),
+    projectId: "p1",
+    schema,
+    attemptId: "a1",
+    userId: "u-test",
+  };
+};
+
+describe("runBatchedGenerate — happy path", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("streams a valid multi-file response, emits file events, records writer telemetry", async () => {
+    const responseText =
+      `<file path="src/routes/index.tsx">\n${HOME_TSX}</file>\n` +
+      `<file path="src/routes/katalog.tsx">\nexport function KatalogRouteComponent() { return <div>katalog</div>; }\n</file>\n` +
+      `<done summary="Wrote 2 pages." />`;
+    streamTextMock.mockReturnValueOnce(writerStream(responseText));
+
+    const events: Array<Record<string, unknown>> = [];
+    const result = await runBatchedGenerate({
+      ...baseArgs(),
+      onEvent: (type, data) => events.push({ ...data, eventType: type }),
+      stepCharger: makeCharger(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected ok result");
+    }
+    expect(result.writtenPaths).toContain("src/routes/katalog.tsx");
+    expect(result.repairRounds).toBe(0);
+    expect(result.summary).toBe("Wrote 2 pages.");
+
+    const writerCalls = recordAiCallMock.mock.calls.filter(
+      ([entry]) => entry.phase === "writer" && entry.task === "build-step",
+    );
+    expect(writerCalls).toHaveLength(1);
+    expect(writerCalls[0][0]).toMatchObject({
+      attemptId: "a1",
+      projectId: "p1",
+      status: "ok",
+      modelRequested: "test/model",
+      inputTokens: 1200,
+      outputTokens: 800,
+    });
+
+    const operationEvents = events.filter((e) => e.eventType === "operation");
+    expect(
+      operationEvents.some((e) => e.path === "src/routes/katalog.tsx"),
+    ).toBe(true);
+
+    // Starter files merge; batched files overlay.
+    const batchedArgs = baseArgs();
+    const starter = createViteTanStackShadcnStarterFiles(
+      batchedArgs.projectId,
+      batchedArgs.schema,
+    );
+    expect(result.files.length).toBeGreaterThan(starter.length - 2);
+    expect(
+      result.files.find((f) => f.path === "src/routes/katalog.tsx"),
+    ).toBeDefined();
+  });
+
+  it("auto-approves valid propose blocks by materializing registry components", async () => {
+    const responseText =
+      `<propose path="src/components/ui/badge.tsx">need trust badges</propose>\n` +
+      `<file path="src/routes/index.tsx">\n${HOME_TSX}\n</file>\n` +
+      `<done summary="with badge" />`;
+    streamTextMock.mockReturnValueOnce(writerStream(responseText));
+
+    const result = await runBatchedGenerate({
+      ...baseArgs(),
+      stepCharger: makeCharger(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected ok result");
+    }
+    expect(
+      result.files.find((f) => f.path === "src/components/ui/badge.tsx"),
+    ).toBeDefined();
+  });
+});
+
+describe("runBatchedGenerate — admission + failure paths", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("blocks before any AI call when the brief is incomplete (no energy spent)", async () => {
+    const args = baseArgs();
+    args.brief = makeBrief({ contactOrCta: "" });
+    let caught: unknown;
+    try {
+      await runBatchedGenerate({ ...args, stepCharger: makeCharger() });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(BatchedAdmissionBlockedError);
+    expect((caught as BatchedAdmissionBlockedError).reason).toMatch(
+      /kontak|cta|whatsapp/i,
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(chargeEnergyForStepMock).not.toHaveBeenCalled();
+  });
+
+  it("malformed stream triggers exactly one format-repair then succeeds", async () => {
+    streamTextMock
+      .mockReturnValueOnce(writerStream('<file path="src/a.ts">x</edit>'))
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${HOME_TSX}</file>\n<done summary="fixed" />`,
+        ),
+      );
+
+    const result = await runBatchedGenerate({
+      ...baseArgs(),
+      stepCharger: makeCharger(),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(streamTextMock).toHaveBeenCalledTimes(2);
+    const phases = recordAiCallMock.mock.calls.map(([entry]) => entry.phase);
+    expect(phases).toContain("format-repair");
+  });
+
+  it("gate failure triggers one targeted repair with diagnostics", async () => {
+    const badTsx = `export function HomeRouteComponent() { return (<div>broken`; // syntax error
+    streamTextMock
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${badTsx}\n</file>\n<done summary="oops" />`,
+        ),
+      )
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${HOME_TSX}</file>\n<done summary="fixed" />`,
+        ),
+      );
+
+    const events: Array<Record<string, unknown>> = [];
+    const result = await runBatchedGenerate({
+      ...baseArgs(),
+      onEvent: (type, data) => events.push({ ...data, eventType: type }),
+      stepCharger: makeCharger(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.repairRounds).toBe(1);
+    }
+    const phases = recordAiCallMock.mock.calls.map(([entry]) => entry.phase);
+    expect(phases).toContain("writer");
+    expect(phases.filter((p) => p === "repair")).toHaveLength(1);
+    // Repair prompt cites the implicated file + diagnostics.
+    const repairCall = streamTextMock.mock.calls[1][0];
+    const repairPrompt = JSON.stringify(
+      repairCall.messages ?? repairCall.prompt,
+    );
+    expect(repairPrompt).toContain("src/routes/index.tsx");
+    expect(repairPrompt).toMatch(/invalid|syntax|diagnostic/i);
+  });
+
+  it("exhausts 2 targeted repairs then signals fallback", async () => {
+    const badTsx = `export function HomeRouteComponent() { return (<div>broken`;
+    streamTextMock
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${badTsx}\n</file>\n<done summary="1" />`,
+        ),
+      )
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${badTsx}\n</file>\n<done summary="2" />`,
+        ),
+      )
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${badTsx}\n</file>\n<done summary="3" />`,
+        ),
+      );
+
+    const result = await runBatchedGenerate({
+      ...baseArgs(),
+      stepCharger: makeCharger(),
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.needsFallback).toBe(true);
+      expect(result.repairRounds).toBe(2);
+    }
+    expect(streamTextMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("transport error on writer throws (worker falls back)", async () => {
+    streamTextMock.mockImplementationOnce(() => ({
+      fullStream: (async function* () {
+        yield { type: "text-delta", text: "<file path=" };
+        throw new Error("socket hangup");
+      })(),
+      usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
+      response: Promise.resolve({ modelId: "served/model-x" }),
+    }));
+
+    await expect(
+      runBatchedGenerate({ ...baseArgs(), stepCharger: makeCharger() }),
+    ).rejects.toThrow(/socket hangup/i);
+    const errorRows = recordAiCallMock.mock.calls.filter(
+      ([entry]) => entry.status === "error",
+    );
+    expect(errorRows.length).toBeGreaterThan(0);
+    expect(errorRows[0][0].phase).toBe("writer");
+  });
+});
+
+describe("collectBatchedGateIssues", () => {
+  it("flags missing required files and placeholder URLs", () => {
+    const issues = collectBatchedGateIssues(
+      [{ path: "public/x.svg", content: "<svg />" }] as GeneratedProjectFile[],
+      { indexCss: "--background: oklch(0.99 0 0);" },
+    );
+    expect(issues.join("\n")).toMatch(/src\/routes\/index\.tsx/);
+  });
+
+  it("flags external placeholder URLs in TSX", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            'export function HomeRouteComponent() { return <img src="https://placehold.co/600x400" />; }',
+        },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: oklch(0.99 0 0);" },
+    );
+    expect(issues.join("\n")).toMatch(/placeholder|external/i);
+  });
+
+  it("passes a clean stage", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        { path: "src/routes/index.tsx", content: HOME_TSX },
+      ] as GeneratedProjectFile[],
+      {
+        indexCss:
+          "--background: oklch(0.98 0.01 95); --foreground: oklch(0.2 0.01 95); --accent: oklch(0.6 0.15 40);",
+      },
+    );
+    expect(issues).toEqual([]);
+  });
+});
+
+describe("buildBatchedWriterPrompt", () => {
+  it("system prompt contains the response contract, scaffold manifest, and speed rules", () => {
+    const { system, user } = buildBatchedWriterPrompt({
+      brief: makeBrief(),
+      implementationSpec: undefined,
+      projectId: "p1",
+      schema: createProjectSiteSchemaFromBrief(makeBrief()),
+    });
+    expect(system).toContain("<file");
+    expect(system).toContain("<done");
+    expect(system).toContain("src/routes/index.tsx");
+    expect(system).toContain("SPEED RULES");
+    expect(system).toContain("<file path=");
+    expect(user).toContain("Kopi Sela");
+  });
+});

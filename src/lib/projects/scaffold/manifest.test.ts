@@ -17,7 +17,7 @@ function sampleStarterFiles() {
     targetCustomer: "Remote workers",
     contactOrCta: "WhatsApp",
     stylePreference: "Warm",
-  });
+  } as never);
   return createViteTanStackShadcnStarterFiles("proj_test", schema);
 }
 

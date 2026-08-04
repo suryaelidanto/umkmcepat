@@ -87,6 +87,8 @@ export type BatchedResponseParser = {
   push: (chunk: string) => void;
   /** Close the stream; throws on truncation. */
   finalize: () => BatchedParseResult;
+  /** Read-only snapshot of files staged so far (streaming progress). */
+  readonly stagedPaths: readonly string[];
   /** True once a hard error has latched. */
   readonly failed: boolean;
 };
@@ -471,6 +473,9 @@ export function createBatchedResponseParser(): BatchedResponseParser {
   return {
     get failed() {
       return hardError !== null;
+    },
+    get stagedPaths() {
+      return [...files.keys()];
     },
     push(chunk: string): void {
       if (hardError) {
