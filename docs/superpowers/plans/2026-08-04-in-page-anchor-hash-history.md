@@ -206,9 +206,81 @@ git commit -m "docs(projects): document <Link hash> in-page anchors under hash h
 
 ---
 
-### Task 4: Final verification
+### Task 4: Guarantee smooth scroll in the scaffold CSS
+
+**Rationale:** smooth scrolling must be guaranteed by construction, not left to
+the LLM's discretion. `shadcnThemeCss` is the single source of truth for the
+shared `src/index.css` emitted by both the scaffold starter and
+`generated-source.ts`, so adding `scroll-behavior:smooth` there covers every
+shadcn-based generated site.
+
+**Files:**
+- Modify: `src/lib/projects/scaffold/shadcn-theme.ts`
+- Modify: `src/lib/projects/generated-source.test.ts`
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: `shadcnThemeCss` output includes `scroll-behavior:smooth` on `html`
+  with a `prefers-reduced-motion: reduce` fallback to `auto`.
+
+- [ ] **Step 1: Write the failing test**
+
+In `src/lib/projects/generated-source.test.ts`, inside the existing
+`starter contract CSS includes shadcn theme tokens...` `it` block (after the
+`--card` / `.starter-shell` assertions), add:
+
+```ts
+    expect(css).toContain("scroll-behavior: smooth");
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
+    expect(css).toMatch(/scroll-behavior: auto/);
+```
+
+(`schema` is scoped inside that block — do not add a separate `it` that
+references it.)
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `bun run test src/lib/projects/generated-source.test.ts`
+Expected: FAIL — assertions unmet (no `scroll-behavior` in the CSS).
+
+- [ ] **Step 3: Update `shadcnThemeCss`**
+
+In `src/lib/projects/scaffold/shadcn-theme.ts`, inside the `@layer base` block,
+add a smooth-scroll rule with a reduced-motion fallback:
+
+```css
+  html {
+    scroll-behavior: smooth;
+  }
+```
+
+and after the `@layer base` block:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+```
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `bun run test src/lib/projects/generated-source.test.ts src/lib/projects/scaffold/scaffold.test.ts`
+Expected: all PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/lib/projects/scaffold/shadcn-theme.ts src/lib/projects/generated-source.test.ts
+git commit -m "feat(scaffold): guarantee native smooth scroll in generated CSS"
+```
+
+---
+
+### Task 5: Final verification
 
 - [ ] **Step 1: Run the local quality gate**
 
 Run: `bun run check`
-Expected: PASS (format, lint, typecheck, tests, Knip, docs). Fix any failures before proceeding.
+Expected: PASS (format, lint, typecheck, tests, Knip, docs). Fix any failures before proceeding. (Note: a pre-existing `_main.index.tsx` framer-motion typecheck error is unrelated to this change.)

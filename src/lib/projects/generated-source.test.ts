@@ -89,6 +89,9 @@ describe("generated project source", () => {
     expect(css).toContain("--ring");
     expect(css).toContain("--card");
     expect(css).not.toContain(".starter-shell");
+    expect(css).toContain("scroll-behavior: smooth");
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
+    expect(css).toMatch(/scroll-behavior: auto/);
   });
 
   it("rejects unsafe paths", () => {
