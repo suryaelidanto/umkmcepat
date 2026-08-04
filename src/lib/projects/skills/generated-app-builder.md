@@ -61,6 +61,7 @@ Replace the starter placeholder with real JSX.
 - Keep `usePreviewReady()` call — signals the parent iframe the app is ready
 - Read business data from `src/content/site.ts` (name, contact, hours, etc.) via `import { site } from "@/content/site"`
 - Write real Indonesian customer-facing copy, not placeholders
+- For missing images, use `/placeholder.svg` in wide/landscape slots and `/placeholder-vertical.svg` in tall/portrait slots (both ship with the scaffold). Never use remote placeholder URLs.
 
 ### Step 3: Add extra pages and register routes (when the brief has distinct sections)
 

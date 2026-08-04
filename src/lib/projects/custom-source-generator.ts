@@ -2450,7 +2450,7 @@ Do not add or remove dependencies — package.json is platform-owned.
 
 UPLOADED IMAGES: when the owner attaches images, read each (vision) + place it where it fits (hero, gallery, product card). Reference each via the mediaPath given in the turn metadata as <img src="/media/<assetId>" alt="<short alt>" /> — NEVER the raw cloud URL. If you cannot understand an image, ask the user where to place it instead of guessing.
 
-MISSING IMAGES: use <img src="/placeholder.svg" alt="<short description>" /> only when an image slot is structurally necessary and no owner image exists. Alt text is supplied at use site. Never use remote placeholder URLs. For typographic layouts, prefer omitting the image slot instead of adding a gratuitous placeholder.
+MISSING IMAGES: use <img src="/placeholder.svg" alt="<short description>" /> for landscape/wide image slots, and <img src="/placeholder-vertical.svg" alt="<short description>" /> for portrait/tall slots, only when an image slot is structurally necessary and no owner image exists. Alt text is supplied at use site. Never use remote placeholder URLs. For typographic layouts, prefer omitting the image slot instead of adding a gratuitous placeholder.
 
 Call check_app after all writes.`;
 }
