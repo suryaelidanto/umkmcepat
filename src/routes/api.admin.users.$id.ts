@@ -62,6 +62,20 @@ export const Route = createFileRoute("/api/admin/users/$id")({
             where: { id },
             data: { bannedAt: new Date() },
           });
+          const deployments = await prisma.projectDeployment.findMany({
+            where: { kind: "published", project: { userId: id } },
+            select: { id: true },
+          });
+          if (deployments.length > 0) {
+            const { getRuntimeSupervisor } =
+              await import("@/lib/projects/runtime-supervisor");
+            const supervisor = getRuntimeSupervisor();
+            await Promise.all(
+              deployments.map((deployment) =>
+                supervisor.stopDeployment(deployment.id).catch(() => undefined),
+              ),
+            );
+          }
           // Non-fatal email
           if (user?.email) {
             sendBannedNotification(user.email, user.name ?? undefined).catch(
