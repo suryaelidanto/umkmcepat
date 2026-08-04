@@ -847,11 +847,13 @@ export function VisualFeedbackWidget({
 export function PreviewIssueState({
   detail,
   onRebuild,
+  onRestart,
   onRetry,
   title,
 }: {
   detail: string;
   onRebuild?: () => void;
+  onRestart?: () => void;
   onRetry?: () => void;
   title: string;
 }) {
@@ -867,11 +869,16 @@ export function PreviewIssueState({
         <p className="mx-auto mt-spacing-3 max-w-md text-sm leading-6 text-surface-warm-white/58">
           {detail}
         </p>
-        {onRetry || onRebuild ? (
+        {onRestart || onRetry || onRebuild ? (
           <div className="mt-spacing-5 flex flex-wrap justify-center gap-spacing-3">
             {onRetry ? (
               <Button type="button" onClick={onRetry}>
                 Muat ulang tampilan
+              </Button>
+            ) : null}
+            {onRestart ? (
+              <Button type="button" variant="outline" onClick={onRestart}>
+                Mulai ulang tampilan
               </Button>
             ) : null}
             {onRebuild ? (

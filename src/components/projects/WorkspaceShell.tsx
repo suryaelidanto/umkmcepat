@@ -736,10 +736,20 @@ export function WorkspaceShell({
     [projectId],
   );
 
-  const recoverPreviewRuntime = useCallback(() => {
+  const recoverPreviewRuntime = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/restart`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        setRuntimeError("Tampilan website belum bisa dimuat ulang.");
+      }
+    } catch {
+      setRuntimeError("Tampilan website belum bisa dimuat ulang.");
+    }
     setPreviewReloadKey((current) => current + 1);
     void loadRuntimeState();
-  }, [loadRuntimeState]);
+  }, [loadRuntimeState, projectId]);
 
   const publishProject = useCallback(async () => {
     if (readOnly || isPublishing) {
@@ -3246,7 +3256,10 @@ export function WorkspaceShell({
                 <PreviewIssueState
                   detail={previewIssue.detail}
                   onRebuild={readOnly ? undefined : () => void startBuild()}
-                  onRetry={recoverPreviewRuntime}
+                  onRestart={
+                    readOnly ? undefined : () => void recoverPreviewRuntime()
+                  }
+                  onRetry={() => void recoverPreviewRuntime()}
                   title={previewIssue.title}
                 />
               ) : shouldRenderGeneratedPreview ||

@@ -3,7 +3,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { ProcessingControl, WorkspaceTopBar } from "./WorkspacePrimitives";
+import {
+  PreviewIssueState,
+  ProcessingControl,
+  WorkspaceTopBar,
+} from "./WorkspacePrimitives";
 
 describe("WorkspaceTopBar mobile layout", () => {
   const baseProps = {
@@ -101,5 +105,18 @@ describe("ProcessingControl copy", () => {
 
     expect(markup).toContain("Menyusun jawaban");
     expect(markup).not.toContain("Menulis file");
+  });
+});
+
+describe("PreviewIssueState restart button", () => {
+  it("shows a restart button when onRestart is provided", () => {
+    const markup = renderToStaticMarkup(
+      createElement(PreviewIssueState, {
+        detail: "Tampilan website belum bisa dimuat.",
+        onRestart: vi.fn(),
+        title: "Tampilan website belum bisa dimuat",
+      }),
+    );
+    expect(markup).toContain("Mulai ulang tampilan");
   });
 });
