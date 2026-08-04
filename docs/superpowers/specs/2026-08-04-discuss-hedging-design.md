@@ -67,6 +67,8 @@ userEnergy = winnerTokens + loserATokens + loserBTokens
 
 `UserCredit` sees a single debit for the total. `AiCallRecord` has one row per racer, labeled winner/aborted, which is what you use when users ask, "why did this turn cost 4k energy?" — because the answer is "you paid for three races; here's exactly what each did." That transparency is the product truth, not a bug.
 
+Repair and compaction calls (when they run) are billed additively on top of the race: the turn's repair leg gets its own `AiCallRecord` row and its tokens join the same turn debit — the user pays for racer calls and repair calls alike, and the ledger shows each as its own row.
+
 ## Hedges seen by the UI
 
 - **Perceived latency**: winner arrives at min(A,B,C). When B is enabled — best-effort partial tool-JSON extraction — the leading stream starts showing card text as it streams (existing `nextAssistantTextDeltaFromPartialToolJson`). The other two streams don't paint to the UI.

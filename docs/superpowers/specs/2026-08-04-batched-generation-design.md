@@ -120,6 +120,8 @@ Two failure paths trigger the existing ToolLoopAgent with the same brief:
 
 The legacy path is unchanged code under a different entry condition. If the new engine is buggy at scale, flipping `batched_rollout: off` re-enables legacy for ALL attempts with no data migration.
 
+**Fallback billing is additive:** the batched attempt's own calls (writer, format-repair, repairs) are billed first, then the legacy fallback's calls are billed separately — the user pays for both, and the ledger shows both rows (`phase="writer|repair|format-repair"` plus `phase="fallback"` and legacy `build-step` rows) under one attempt.
+
 ## Recovery, durability, refresh safety
 
 | Event | Handling |
