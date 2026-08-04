@@ -454,7 +454,11 @@ async function waitForRuntime(internalUrl: string) {
 async function isRuntimeReachable(internalUrl: string) {
   try {
     const response = await fetchRuntime(internalUrl, { kind: "health" });
-    return response.status < 500;
+    // A healthy preview never 404s its own root: the static server always
+    // resolves "/" to index.html. A 404 here means the serving docroot is
+    // gone (e.g. the project-runtimes dir was removed), so treat it as
+    // unhealthy so the deployment is marked stopped and re-materialized.
+    return response.status < 500 && response.status !== 404;
   } catch {
     return false;
   }

@@ -190,4 +190,62 @@ describe("noop runtime supervisor", () => {
     expect(deployment.status).toBe("stopped");
     expect(events).toHaveLength(2);
   }, 30_000);
+
+  it("marks a running deployment stopped when its serving docroot is deleted (404 health)", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-runtime-"));
+    const artifactRef = await writeProjectDistArtifact({
+      artifactId: "build_404",
+      files: [
+        {
+          content: "<h1>Runtime preview</h1>",
+          contentType: "text/html; charset=utf-8",
+          path: "index.html",
+        },
+      ],
+    });
+    let deployment = {
+      build: { artifactRef },
+      containerName: null as string | null,
+      id: "deployment_404",
+      internalUrl: null as string | null,
+      projectId: "project_404",
+      runtimeNodeId: null as string | null,
+      status: "created",
+    };
+    const prisma = {
+      projectDeployment: {
+        findUnique: vi.fn(async () => deployment),
+        update: vi.fn(async (input: unknown) => {
+          const data = (input as { data: Partial<typeof deployment> }).data;
+          deployment = { ...deployment, ...data };
+          return deployment;
+        }),
+      },
+      runtimeEvent: { create: vi.fn(async () => ({ id: "event_404" })) },
+      runtimeNode: { upsert: vi.fn(async () => ({ id: "node_404" })) },
+    };
+    const supervisor = createLocalProcessRuntimeSupervisor({
+      prisma,
+      runtimeRootDir: path.join(tempDir, "runtime"),
+    });
+
+    try {
+      await expect(supervisor.startDeployment("deployment_404")).resolves.toBe(
+        "running",
+      );
+      expect(deployment.status).toBe("running");
+
+      await rm(path.join(tempDir, "runtime", "deployment_404"), {
+        force: true,
+        recursive: true,
+      });
+
+      await expect(
+        supervisor.getDeploymentStatus("deployment_404"),
+      ).resolves.toBe("stopped");
+      expect(deployment.status).toBe("stopped");
+    } finally {
+      await supervisor.stopDeployment("deployment_404").catch(() => "stopped");
+    }
+  }, 30_000);
 });
