@@ -5,7 +5,8 @@
 // silently recomputed mid-attempt.
 //
 // - off:      always legacy agent loop.
-// - internal: projects whose owner is an admin.
+// - internal: projects whose owner is an admin — "admin" here means the
+//             isAdminEmail() check (branch-allowlisted emails), not a DB role.
 // - pilot:    deterministic bucket from projectId (see computeProjectBucket).
 // - all:      always batched.
 
