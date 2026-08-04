@@ -212,6 +212,10 @@ The batched engine replaces the agent tool-loop with a single streamed response 
 - **Telemetry:** per-call `AiCallRecord` rows use `phase: "writer" | "format-repair" | "repair" | "fallback"`, always under `task: "build-step"` (writer) / `"build-repair"` (repair rounds). Query by `attemptId` for the full picture.
 - **Prompt inputs:** the system prompt derives its scaffold manifest from `src/lib/projects/scaffold/manifest.ts` (auto-extracted from `createViteTanStackShadcnStarterFiles`). Scaffold changes break the companion drift test until consciously updated — no silent prompt drift.
 
+### Batched edit (Phase 2)
+
+Edits ride the SAME `generation.batched_rollout` flag — no separate toggle. `src/lib/projects/batched-edit.ts` picks target files deterministically from the instruction (path-stem noun tokens with stop-token filter and an 8-file ambiguity cap), runs ONE streamed response with the same parser + gates as Phase 1, repairs up to 2 rounds on the implicated paths, and returns `needsFallback` when the budget is spent — the worker then runs `editGeneratedSourceWithAgent` unchanged. Per-call ledger rows carry `task: "edit"` and `phase: "writer" | "format-repair" | "repair" | "fallback"` under the same `attemptId`, so the additive fallback billing mirrors Phase 1. Per-file write-through keeps flowing to the existing ProgressiveSaver hook while a batched edit streams, so refresh safety matches the legacy loop.
+
 ## Graphify
 
 Graphify is recommended for non-trivial discovery and reuse checks. It is user-local, not a project dependency.

@@ -335,10 +335,12 @@ export async function runEditAttempt({
         });
         if (batched.ok) {
           editResult = {
+            check: null,
             files: batched.files,
             modelId: getGenerationModel(),
             ok: true,
             operations: batched.writtenPaths.map((path) => ({
+              detail: "File ditulis writer batched.",
               id: path,
               path,
               state: "succeeded",
