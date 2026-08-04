@@ -5,6 +5,7 @@ import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
 import { runBatchedEdit } from "@/lib/projects/batched-edit";
+import { isBatchedFilePersistable } from "@/lib/projects/batched-generator";
 import {
   type BatchedRolloutValue,
   isBatchedRolloutValue,
@@ -303,8 +304,13 @@ export async function runEditAttempt({
 
     // Durable write-through while the batched writer streams: overlay the
     // batched-staged paths onto the LIVE base so interrupted edits still land.
+    // Semantic gate mirrors the merge-time filter (protected / TSX-broken
+    // blocks never persist mid-stream; targeted repair re-emits them later).
     const batchedStageFiles = new Map<string, GeneratedProjectFile>();
     const persistBatchedStage = (file: GeneratedProjectFile) => {
+      if (!isBatchedFilePersistable(file)) {
+        return;
+      }
       batchedStageFiles.set(file.path, file);
       const merged = new Map<string, GeneratedProjectFile>();
       for (const base of baseFiles) {

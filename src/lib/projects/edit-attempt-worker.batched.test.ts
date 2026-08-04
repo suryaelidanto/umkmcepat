@@ -306,6 +306,55 @@ describe("runEditAttempt — batched rollout wiring", () => {
     expect(saves.length).toBeGreaterThan(0);
   });
 
+  it("flag=all → protected/TSX-broken staged files never reach the progressive saver", async () => {
+    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
+      key === "generation.batched_rollout" ? "all" : fb,
+    );
+    // Mocked leg emits one clean overlay plus three invalid ones the merge
+    // would never accept: a protected scaffold path, a protected route root,
+    // and a TSX-broken block. None of the three may leak into the durable
+    // project.sourceFiles snapshots mid-stream.
+    runBatchedEditMock.mockImplementation(
+      (args: {
+        onFileStaged?: (file: { content: string; path: string }) => void;
+      }) => {
+        args.onFileStaged?.({
+          content: "export const k = 2;",
+          path: "src/routes/katalog.tsx",
+        });
+        args.onFileStaged?.({
+          content: "/* hijacked */",
+          path: "src/content/site.ts",
+        });
+        args.onFileStaged?.({
+          content: "/* hijacked root */",
+          path: "src/main.tsx",
+        });
+        args.onFileStaged?.({
+          content: "export function Broken( { return (<div>;",
+          path: "src/routes/broken.tsx",
+        });
+        return Promise.resolve(batchedOk());
+      },
+    );
+
+    await runEditAttempt(baseArgs());
+
+    const writes = prismaMock.project.updateMany.mock.calls as unknown as [
+      { data?: { sourceFiles?: { path: string }[] } },
+    ][];
+    const stagedPaths = new Set<string>();
+    for (const [call] of writes) {
+      for (const file of call.data?.sourceFiles ?? []) {
+        stagedPaths.add(file.path);
+      }
+    }
+    expect(stagedPaths.has("src/routes/katalog.tsx")).toBe(true);
+    expect(stagedPaths.has("src/content/site.ts")).toBe(false);
+    expect(stagedPaths.has("src/main.tsx")).toBe(false);
+    expect(stagedPaths.has("src/routes/broken.tsx")).toBe(false);
+  });
+
   it("user cancel (AbortError) → NO legacy fallback, abort propagates", async () => {
     getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
       key === "generation.batched_rollout" ? "all" : fb,

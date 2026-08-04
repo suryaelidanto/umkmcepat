@@ -434,6 +434,21 @@ function firstTsxSyntaxError(
   };
 }
 
+/**
+ * Semantic gate a staged <file> block must pass before the batched-edit
+ * worker may persist it to `project.sourceFiles`. Mirrors the merge-time
+ * rules the runners apply: protected scaffold paths never land, and a
+ * structurally-broken TSX block never lands mid-stream (targeted repair
+ * re-emits it). ponytail: extend with a caller-supplied scope set if/when a
+ * caller tracks writer targets or repair implicated paths at persist time.
+ */
+export function isBatchedFilePersistable(file: BatchedFile): boolean {
+  if (isProtectedScaffoldPath(file.path)) {
+    return false;
+  }
+  return firstTsxSyntaxError(file) === null;
+}
+
 /** Snapshot of parser-stage into the plain map shape results carry. */
 function parserStagedMap(
   parser: ReturnType<typeof createBatchedResponseParser>,
@@ -451,7 +466,12 @@ function parserStagedMap(
 export async function runOneStreamedResponse(args: {
   abortSignal?: AbortSignal;
   onEvent?: BatchedGenerateEventSink;
-  /** Durable write-through: full staged content as each block closes. */
+  /**
+   * Durable write-through: full staged content as each block closes. The
+   * callback receives each complete block as-is; the CALLER is responsible
+   * for running `isBatchedFilePersistable` (protected-path / TSX / scope
+   * gate) before persisting — see edit-attempt-worker's persistBatchedStage.
+   */
   onFileStaged?: (file: BatchedFile) => void;
   onFileWritten?: (path: string) => void;
   phase: "writer" | "format-repair" | "repair";
