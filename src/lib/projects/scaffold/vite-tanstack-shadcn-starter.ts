@@ -137,7 +137,7 @@ export function createViteTanStackShadcnStarterFiles(
       content: JSON.stringify(
         {
           compilerOptions: {
-            tsBuildInfoFile: "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+            tsBuildInfoFile: "./.cache/generated-app/tsconfig.app.tsbuildinfo",
             target: "es2023",
             lib: ["ES2023", "DOM"],
             module: "esnext",
@@ -178,7 +178,7 @@ export function createViteTanStackShadcnStarterFiles(
       content: JSON.stringify(
         {
           compilerOptions: {
-            tsBuildInfoFile: "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+            tsBuildInfoFile: "./.cache/generated-app/tsconfig.node.tsbuildinfo",
             target: "es2023",
             lib: ["ES2023"],
             types: ["node"],

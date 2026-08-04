@@ -104,6 +104,17 @@ describe("createViteTanStackShadcnStarterFiles", () => {
     expect(tsconfig).toContain('"@/*"');
   });
 
+  it("writes tsbuildinfo into the per-workspace .cache/generated-app dir", () => {
+    for (const name of ["app", "node"]) {
+      const tsconfig = JSON.parse(
+        files.find((f) => f.path === `tsconfig.${name}.json`)?.content ?? "{}",
+      );
+      expect(tsconfig.compilerOptions.tsBuildInfoFile).toBe(
+        `./.cache/generated-app/tsconfig.${name}.tsbuildinfo`,
+      );
+    }
+  });
+
   it("main.tsx imports index.css (not styles.css)", () => {
     const main = files.find((f) => f.path === "src/main.tsx")?.content ?? "";
     expect(main).toContain("./index.css");

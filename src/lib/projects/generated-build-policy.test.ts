@@ -68,6 +68,7 @@ import tailwindcss from "@tailwindcss/vite";
 // https://vite.dev/config/
 export default defineConfig({
   base: "./",
+  cacheDir: ".cache/generated-app/vite",
   plugins: [tailwindcss(), react()],
   resolve: {
     alias: {

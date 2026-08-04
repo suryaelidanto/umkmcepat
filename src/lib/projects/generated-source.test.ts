@@ -679,6 +679,57 @@ describe("generated project source", () => {
     ).rejects.toThrow();
   });
 
+  it("preserves .cache/generated-app across workspace syncs", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const files = buildableFiles("project_cache_preserve");
+    const commandRunner = async (command: string[], cwd: string) => {
+      if (normalizeCommand(command) === "<bun> install --ignore-scripts") {
+        await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+      }
+      if (normalizeCommand(command) === "<bun> x tsc -b") {
+        await mkdir(path.join(cwd, ".cache", "generated-app"), {
+          recursive: true,
+        });
+        await writeFile(
+          path.join(cwd, ".cache", "generated-app", "tsconfig.app.tsbuildinfo"),
+          "tsbuildinfo",
+        );
+      }
+      if (normalizeCommand(command) === "<bun> x vite build") {
+        await writeDist(cwd, "cached");
+      }
+      return { log: command.join(" "), ok: true };
+    };
+
+    await buildGeneratedProject(files, {
+      commandRunner,
+      workspaceRoot: tempDir,
+    });
+    const second = await buildGeneratedProject(
+      files.map((file) =>
+        file.path === "src/App.tsx"
+          ? { ...file, content: "export default 'changed';" }
+          : file,
+      ),
+      { commandRunner, workspaceRoot: tempDir },
+    );
+
+    expect(second.ok).toBe(true);
+    await expect(
+      readFile(
+        path.join(
+          tempDir,
+          "project_cache_preserve",
+          "vite-react-tanstack-v1",
+          ".cache",
+          "generated-app",
+          "tsconfig.app.tsbuildinfo",
+        ),
+        "utf8",
+      ),
+    ).resolves.toBe("tsbuildinfo");
+  });
+
   it("resets a warm workspace and retries once after a build failure", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
     const commands: string[] = [];

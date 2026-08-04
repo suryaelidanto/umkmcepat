@@ -574,7 +574,9 @@ async function removeStaleWorkspaceFiles(
 
     const relative = path.relative(root, absolute).replace(/\\/g, "/");
 
-    if (relative === ".cache/generated-app/build-cache.json") {
+    // Per-workspace caches (tsbuildinfo, vite cacheDir, build metadata)
+    // survive syncs; stale cleanup never treats them as deletable files.
+    if (relative.startsWith(".cache/generated-app/")) {
       continue;
     }
 
