@@ -499,6 +499,53 @@ model AppSetting {
   @@index([category])
 }
 
+/// One row per upstream AI request, metadata only (ids, enums, counts,
+/// durations — never prompts/file contents). Answers "what happened and
+/// when"; UserCredit answers "what did it cost". Query by turnId/attemptId/
+/// projectId for the full call chain of an operation.
+model AiCallRecord {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+
+  // Correlation — at least one is set.
+  projectId      String?
+  attemptId      String? // ProjectEditAttempt.id when applicable
+  turnId         String? // ProjectChatTurn.id when applicable
+  buildId        String? // ProjectBuild.id when applicable
+
+  // What kind of call
+  task           String   @db.VarChar(32) // moderation|discuss|compaction|build-spec|build-step|edit|edit-repair|build-repair
+  phase          String?  @db.VarChar(32) // engine-specific: writer|repair|fallback|hedge|spec ...
+  stepIndex      Int? // agent step ordinal when applicable
+
+  // Models
+  modelRequested String   @db.VarChar(160) // combo label requested
+  modelServed    String?  @db.VarChar(160) // actual model from response.modelId
+
+  // Latency (ms)
+  requestMs      Int?
+  ttftMs         Int?
+
+  // Tokens
+  inputTokens    Int?
+  outputTokens   Int?
+  cachedTokens   Int?
+
+  // Outcome
+  status         String   @db.VarChar(16) // ok|error|aborted|timeout
+  errorClass     String?  @db.VarChar(64) // schema-422|transport|rate-limit|parse|... coarse only
+  retryCount     Int      @default(0)
+
+  // Hedge metadata (discuss only)
+  hedged         Boolean  @default(false)
+  raceRole       String?  @db.VarChar(16) // winner|aborted — only when hedged
+
+  @@index([projectId, createdAt])
+  @@index([attemptId])
+  @@index([turnId])
+  @@index([task, createdAt])
+}
+
 enum SupportCategory {
   TEKNIS
   PEMBAYARAN
