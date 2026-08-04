@@ -486,7 +486,7 @@ export async function runOneStreamedResponse(args: {
   user: string;
 }): Promise<BatchedStreamCallResult> {
   const requestedModel = getGenerationModel();
-  const stopTimer = startAiCallTimer();
+  const stopTimer = startAiCallTimer({ withTtft: true });
   const parser = createBatchedResponseParser();
   let modelServed: string | undefined;
   let usage: { inputTokens?: number; outputTokens?: number } | undefined;
@@ -517,6 +517,7 @@ export async function runOneStreamedResponse(args: {
     let lastFileCount = 0;
     for await (const part of result.fullStream) {
       if (part.type === "text-delta") {
+        stopTimer.firstChunk();
         parser.push(part.text);
         // Emit per-file progress as each block closes — the parser stages
         // files incrementally, so a size bump means a file just finished.
@@ -563,7 +564,7 @@ export async function runOneStreamedResponse(args: {
     )?.modelId;
     sawDone = parsed.done !== null;
 
-    const requestMs = stopTimer().requestMs;
+    const { requestMs, ttftMs } = stopTimer();
     const ledgerTask =
       args.task ?? (args.phase === "writer" ? "build-step" : "build-repair");
     recordAiCall({
@@ -579,6 +580,7 @@ export async function runOneStreamedResponse(args: {
       retryCount: args.retryCount,
       status: "ok",
       task: ledgerTask,
+      ttftMs,
     });
     if (usage?.inputTokens || usage?.outputTokens) {
       await args.stepCharger?.onStepFinish({
@@ -606,7 +608,7 @@ export async function runOneStreamedResponse(args: {
     // to the throw are still real usage — charge them via the same step
     // charger the success path uses, and tag the ledger row status=error.
     if (error instanceof WriterTsxSyntaxError) {
-      const requestMs = stopTimer().requestMs;
+      const { requestMs, ttftMs } = stopTimer();
       const ledgerTask =
         args.task ?? (args.phase === "writer" ? "build-step" : "build-repair");
       // Best-effort: usage/model may already be resolvable even though the
@@ -632,6 +634,7 @@ export async function runOneStreamedResponse(args: {
         retryCount: args.retryCount,
         status: "error",
         task: ledgerTask,
+        ttftMs,
       });
       if (
         args.stepCharger &&
@@ -654,7 +657,7 @@ export async function runOneStreamedResponse(args: {
         syntaxIssue: error.message,
       };
     }
-    const requestMs = stopTimer().requestMs;
+    const { requestMs, ttftMs } = stopTimer();
     const errorClass = classifyAiError(error);
     const ledgerTask =
       args.task ?? (args.phase === "writer" ? "build-step" : "build-repair");
@@ -669,6 +672,7 @@ export async function runOneStreamedResponse(args: {
       retryCount: args.retryCount,
       status: "error",
       task: ledgerTask,
+      ttftMs,
     });
     if (error instanceof BatchedParseError) {
       return {

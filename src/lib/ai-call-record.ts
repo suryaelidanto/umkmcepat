@@ -21,7 +21,7 @@ export type AiCallEntry = {
   modelRequested: string;
   modelServed?: string | null;
   requestMs?: number;
-  ttftMs?: number;
+  ttftMs?: number | null;
   inputTokens?: number;
   outputTokens?: number;
   cachedTokens?: number;
@@ -99,11 +99,59 @@ export function classifyAiError(error: unknown): string {
   return "unknown";
 }
 
+export type AiCallTiming = {
+  requestMs: number;
+  /**
+   * Time to first token/chunk for streaming calls; equals `requestMs` for
+   * buffered (non-streaming) calls; null when the call ended before any
+   * content chunk arrived.
+   */
+  ttftMs: number | null;
+};
+
+export type AiCallTimer = {
+  (opts?: { nonStreaming?: boolean }): AiCallTiming;
+  /**
+   * Mark the first content chunk of a stream (text-delta / tool-input-delta).
+   * Latches: only the first mark counts. No-op unless created `withTtft`.
+   */
+  firstChunk: () => void;
+};
+
 /**
  * Capture `performance.now()` before an AI call; the returned closure yields
  * the elapsed request duration at the boundary closest to the wire.
+ *
+ * With `{ withTtft: true }` the closure also reports `ttftMs`:
+ * - streaming: call `firstChunk()` on the first content chunk — TTFT is the
+ *   delta to that mark; stays null when the stream fails pre-chunk.
+ * - non-streaming (generateText/generateObject/ToolLoopAgent): a buffered
+ *   response has no first-token moment, so pass `{ nonStreaming: true }` at
+ *   stop time to record `ttftMs = requestMs`.
+ * Without `withTtft` the legacy shape `{ requestMs }` is returned.
  */
-export function startAiCallTimer(): () => { requestMs: number } {
+export function startAiCallTimer(): () => { requestMs: number };
+export function startAiCallTimer(opts: { withTtft: true }): AiCallTimer;
+export function startAiCallTimer(opts?: { withTtft?: boolean }) {
   const startedAt = performance.now();
-  return () => ({ requestMs: Math.round(performance.now() - startedAt) });
+  if (!opts?.withTtft) {
+    return () => ({ requestMs: Math.round(performance.now() - startedAt) });
+  }
+  let firstChunkAt: number | null = null;
+  const stop = (stopOpts?: { nonStreaming?: boolean }): AiCallTiming => {
+    const requestMs = Math.round(performance.now() - startedAt);
+    const ttftMs =
+      firstChunkAt !== null
+        ? Math.round(firstChunkAt - startedAt)
+        : stopOpts?.nonStreaming
+          ? requestMs
+          : null;
+    return { requestMs, ttftMs };
+  };
+  stop.firstChunk = () => {
+    if (firstChunkAt === null) {
+      firstChunkAt = performance.now();
+    }
+  };
+  return stop;
 }

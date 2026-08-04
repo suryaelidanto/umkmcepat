@@ -80,7 +80,9 @@ export async function moderateProjectRequest(
   }
 
   const requestedModel = getModerationModel();
-  const stopTimer = startAiCallTimer();
+  // Non-streaming generateText: ttftMs = requestMs on success (buffered
+  // response has no first-token moment).
+  const stopTimer = startAiCallTimer({ withTtft: true });
   let attemptedRetry = false;
   let result;
   try {
@@ -132,15 +134,17 @@ export async function moderateProjectRequest(
     outputTokens: result.usage?.outputTokens ?? 0,
   };
   const modelId = result.response?.modelId || requestedModel;
+  const timing = stopTimer({ nonStreaming: true });
   recordAiCall({
     inputTokens: usage.inputTokens,
     modelRequested: requestedModel,
     modelServed: result.response?.modelId,
     outputTokens: usage.outputTokens,
-    requestMs: stopTimer().requestMs,
+    requestMs: timing.requestMs,
     retryCount: attemptedRetry ? 1 : 0,
     status: "ok",
     task: "moderation",
+    ttftMs: timing.ttftMs,
     ...ledgerCorrelation,
   });
   const label = result.text.trim().toUpperCase();

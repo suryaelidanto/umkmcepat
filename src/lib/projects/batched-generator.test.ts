@@ -192,6 +192,11 @@ describe("runBatchedGenerate — happy path", () => {
       inputTokens: 1200,
       outputTokens: 800,
     });
+    // Streaming: first text-delta marks ttftMs, bounded by requestMs.
+    expect(writerCalls[0][0].ttftMs).toBeGreaterThanOrEqual(0);
+    expect(writerCalls[0][0].ttftMs).toBeLessThanOrEqual(
+      writerCalls[0][0].requestMs,
+    );
 
     const operationEvents = events.filter((e) => e.eventType === "operation");
     expect(
@@ -417,6 +422,26 @@ describe("runBatchedGenerate — admission + failure paths", () => {
       expect(result.repairRounds).toBe(2);
     }
     expect(streamTextMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("transport error before any chunk leaves ttftMs null, requestMs set", async () => {
+    streamTextMock.mockImplementationOnce(() => ({
+      fullStream: (async function* () {
+        throw new Error("socket hangup");
+      })(),
+      usage: Promise.resolve({ inputTokens: 0, outputTokens: 0 }),
+      response: Promise.resolve({ modelId: "served/model-x" }),
+    }));
+
+    await expect(
+      runBatchedGenerate({ ...baseArgs(), stepCharger: makeCharger() }),
+    ).rejects.toThrow(/socket hangup/i);
+    const errorRows = recordAiCallMock.mock.calls.filter(
+      ([entry]) => entry.status === "error",
+    );
+    expect(errorRows.length).toBeGreaterThan(0);
+    expect(errorRows[0][0].ttftMs).toBeNull();
+    expect(errorRows[0][0].requestMs).toBeGreaterThanOrEqual(0);
   });
 
   it("transport error on writer throws (worker falls back)", async () => {

@@ -71,7 +71,7 @@ type HedgeUsage = {
 type HedgeOutcome = {
   errorClass?: string;
   hasCard: boolean;
-  ttftMs?: number;
+  stopTimer?: import("@/lib/ai-call-record").AiCallTimer;
   usage: HedgeUsage;
 };
 type HedgeWinner = {
@@ -166,8 +166,7 @@ export async function runDiscussTurn({
     });
 
     const discussStartedAt = Date.now();
-    const stopDiscussTimer = startAiCallTimer();
-    let discussTtftMs: number | undefined;
+    const stopDiscussTimer = startAiCallTimer({ withTtft: true });
     let discussRecorded = false;
     let discussRaceRole: "winner" | "aborted" | undefined;
     const recordDiscussCall = (opts: {
@@ -181,6 +180,7 @@ export async function runDiscussTurn({
         return;
       }
       discussRecorded = true;
+      const discussTiming = stopDiscussTimer();
       recordAiCall({
         hedged: hedged ? true : discussRaceRole ? true : undefined,
         inputTokens: opts.inputTokens,
@@ -189,10 +189,10 @@ export async function runDiscussTurn({
         outputTokens: opts.outputTokens,
         projectId: project.id,
         raceRole: discussRaceRole,
-        requestMs: stopDiscussTimer().requestMs,
+        requestMs: discussTiming.requestMs,
         status: opts.status,
         task: "discuss",
-        ttftMs: discussTtftMs,
+        ttftMs: discussTiming.ttftMs,
         turnId,
         ...(opts.errorClass ? { errorClass: opts.errorClass } : {}),
       });
@@ -249,20 +249,20 @@ export async function runDiscussTurn({
             outcome.errorClass = classifyAiError(error);
           },
         });
-        const stopHedgeTimer = startAiCallTimer();
+        const stopHedgeTimer = startAiCallTimer({ withTtft: true });
         hedgePromises.push(
           (async () => {
             let fullText = "";
             let toolInput: unknown = null;
             let streamToolCallId: string | null = null;
+            outcome.stopTimer = stopHedgeTimer;
             try {
               for await (const part of hedgeStream.stream) {
                 if (
-                  outcome.ttftMs === undefined &&
-                  (part.type === "text-delta" ||
-                    part.type === "tool-input-delta")
+                  part.type === "text-delta" ||
+                  part.type === "tool-input-delta"
                 ) {
-                  outcome.ttftMs = stopHedgeTimer().requestMs;
+                  stopHedgeTimer.firstChunk();
                 }
                 if (
                   hedgeControllers[index].signal.aborted ||
@@ -367,6 +367,7 @@ export async function runDiscussTurn({
         const outcome = hedgeOutcomes[index];
         const winner =
           winnerMarker.kind === "hedge" && winnerMarker.index === index;
+        const hedgeTiming = outcome.stopTimer?.();
         recordAiCall({
           hedged: true,
           inputTokens: outcome.usage.inputTokens ?? 0,
@@ -375,10 +376,10 @@ export async function runDiscussTurn({
           outputTokens: outcome.usage.outputTokens ?? 0,
           projectId: project.id,
           raceRole: winner ? "winner" : "aborted",
-          requestMs: stopDiscussTimer().requestMs,
+          requestMs: hedgeTiming?.requestMs ?? stopDiscussTimer().requestMs,
           status: outcome.errorClass ? "error" : winner ? "ok" : "aborted",
           task: "discuss",
-          ttftMs: outcome.ttftMs,
+          ttftMs: hedgeTiming?.ttftMs,
           turnId,
           ...(outcome.errorClass ? { errorClass: outcome.errorClass } : {}),
         });
@@ -511,13 +512,10 @@ export async function runDiscussTurn({
             break;
           }
         }
-        // TTFT measured on the first *content* chunk (not stream-open parts)
+        // TTFT marked on the first *content* chunk (not stream-open parts)
         // so mocked/abort shapes that never emit content leave it undefined.
-        if (
-          discussTtftMs === undefined &&
-          (part.type === "text-delta" || part.type === "tool-input-delta")
-        ) {
-          discussTtftMs = stopDiscussTimer().requestMs;
+        if (part.type === "text-delta" || part.type === "tool-input-delta") {
+          stopDiscussTimer.firstChunk();
         }
         if (abortSignal?.aborted) {
           hadError = true;

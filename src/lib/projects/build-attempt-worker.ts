@@ -514,7 +514,7 @@ export async function runBuildAttempt({
         const timeout = setTimeout(() => abortController.abort(), timeoutMs);
         specAttempts += 1;
         const thisAttempt = specAttempts;
-        const stopSpecTimer = startAiCallTimer();
+        const stopSpecTimer = startAiCallTimer({ withTtft: true });
         const specRequestedModel = getGenerationModel();
 
         let result;
@@ -558,6 +558,8 @@ export async function runBuildAttempt({
           clearTimeout(timeout);
         }
 
+        // Non-streaming generateText: ttftMs = requestMs (buffered response).
+        const specTiming = stopSpecTimer({ nonStreaming: true });
         recordAiCall({
           attemptId,
           buildId: runtimeBuildId ?? undefined,
@@ -566,10 +568,11 @@ export async function runBuildAttempt({
           modelServed: result.response?.modelId,
           outputTokens: result.usage?.outputTokens ?? undefined,
           projectId,
-          requestMs: stopSpecTimer().requestMs,
+          requestMs: specTiming.requestMs,
           retryCount: thisAttempt - 1,
           status: "ok",
           task: "build-spec",
+          ttftMs: specTiming.ttftMs,
         });
 
         const usage = result.usage;

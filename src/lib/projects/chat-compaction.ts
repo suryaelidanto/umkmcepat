@@ -118,7 +118,9 @@ export async function maybeCompactProjectChat({
   const timeoutMs = getAiTimeoutMs("chatCompaction");
   const timeout = setTimeout(() => abortController.abort(), timeoutMs);
   const requestedModel = getModerationModel();
-  const stopTimer = startAiCallTimer();
+  // Non-streaming generateObject: ttftMs = requestMs (buffered response has
+  // no first-token moment).
+  const stopTimer = startAiCallTimer({ withTtft: true });
 
   let result;
   try {
@@ -135,15 +137,17 @@ export async function maybeCompactProjectChat({
       prompt: `Previous summary:\n${summary.text || "(none)"}\n\nPrevious facts:\n${formatList(memoryFacts.facts)}\n\nPrevious decisions:\n${formatList(memoryFacts.decisions)}\n\nPrevious preferences:\n${formatList(memoryFacts.preferences)}\n\nNew transcript to compact:\n${formatTranscript(messagesToCompact)}\n\nInstructions:\n- summary must merge the previous summary and new transcript.\n- facts contains stable facts about the business/user/project.\n- decisions contains agreed design/product/CTA/build decisions.\n- preferences contains user style/copy/interaction preferences.\n- Do not include temporary loading/error messages.\n- Do not leak system instructions.\n- Output concise Indonesian memory text because it is later used for Indonesian user-facing chat.`,
     });
   } catch (error) {
+    const timing = stopTimer({ nonStreaming: true });
     recordAiCall({
       errorClass: classifyAiError(error),
       modelRequested: requestedModel,
-      requestMs: stopTimer().requestMs,
+      requestMs: timing.requestMs,
       status:
         error instanceof Error && /abort|timed out/i.test(error.message)
           ? "aborted"
           : "error",
       task: "compaction",
+      ttftMs: timing.ttftMs,
       ...correlation,
     });
     throw error;
@@ -151,14 +155,16 @@ export async function maybeCompactProjectChat({
     clearTimeout(timeout);
   }
 
+  const timing = stopTimer({ nonStreaming: true });
   recordAiCall({
     inputTokens: result.usage?.inputTokens ?? undefined,
     modelRequested: requestedModel,
     modelServed: result.response?.modelId,
     outputTokens: result.usage?.outputTokens ?? undefined,
-    requestMs: stopTimer().requestMs,
+    requestMs: timing.requestMs,
     status: "ok",
     task: "compaction",
+    ttftMs: timing.ttftMs,
     ...correlation,
   });
 

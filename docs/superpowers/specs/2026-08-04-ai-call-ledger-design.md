@@ -99,7 +99,7 @@ Wire points (each one line at the call site):
 | `src/lib/projects/custom-source-generator.ts` (agent steps; batched writer later) | `build-step` | projectId, attemptId, stepIndex |
 | `src/lib/projects/source-edit-agent.ts` | `edit` | projectId, attemptId |
 
-TTFT capture: for `streamText` call sites, hook the first chunk callback; for `generateText`/`ToolLoopAgent.generate` non-streaming, `ttftMs` stays null (the response is atomic).
+Telemetry: `requestMs` is always the full request duration. `ttftMs` differs by call shape — streaming (`streamText`) records the delta to the first content chunk (`text-delta` / `tool-input-delta`), staying null when the stream fails pre-chunk; buffered calls (`generateText`/`generateObject`/`ToolLoopAgent.generate`) have no first-token moment, so `ttftMs = requestMs`. Call sites get both from `startAiCallTimer({ withTtft: true })` (mark `firstChunk()` per stream; pass `{ nonStreaming: true }` at stop for buffered calls). Agent step chargers record `ttftMs` only for stepIndex 0 of the logical call; later steps leave it unset.
 
 `modelServed`: populated from the AI SDK result's `response.modelId` when present. If 9Router never exposes the underlying child model in responses, this column stays null — visible in data within a day, and it becomes a concrete, evidence-backed question to the 9Router operator instead of a guess.
 

@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { chargeEnergyForStepMock } = vi.hoisted(() => ({
+const { chargeEnergyForStepMock, recordAiCallMock } = vi.hoisted(() => ({
   chargeEnergyForStepMock: vi.fn(),
+  recordAiCallMock: vi.fn(),
 }));
 
 vi.mock("@/lib/user-credits", () => ({
   chargeEnergyForStep: chargeEnergyForStepMock,
+}));
+
+vi.mock("@/lib/ai-call-record", () => ({
+  recordAiCall: recordAiCallMock,
 }));
 
 import { createStepCharger } from "./energy-step-charger";
@@ -18,6 +23,7 @@ const step = (inputTokens: number, outputTokens: number) => ({
 describe("createStepCharger", () => {
   beforeEach(() => {
     chargeEnergyForStepMock.mockReset();
+    recordAiCallMock.mockReset();
   });
 
   it("charges each step and accumulates totals", async () => {
@@ -151,5 +157,48 @@ describe("createStepCharger", () => {
     expect(charger.userId).toBe("u1");
     expect(charger.modelId).toBe("fallback-model");
     expect(charger.onCharge).toBe(onCharge);
+  });
+
+  it("records ttftMs === requestMs on step 0 of a buffered agent call", async () => {
+    vi.useFakeTimers();
+    try {
+      const charger = createStepCharger({
+        userId: "u1",
+        reason: "build:step",
+        modelId: "m",
+      });
+
+      vi.advanceTimersByTime(300);
+      await charger.onStepFinish(step(10, 10));
+
+      expect(recordAiCallMock).toHaveBeenCalledWith(
+        expect.objectContaining({ requestMs: 300, stepIndex: 0, ttftMs: 300 }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("records no ttftMs on steps after step 0", async () => {
+    vi.useFakeTimers();
+    try {
+      const charger = createStepCharger({
+        userId: "u1",
+        reason: "build:step",
+        modelId: "m",
+      });
+
+      vi.advanceTimersByTime(100);
+      await charger.onStepFinish(step(5, 5));
+      vi.advanceTimersByTime(250);
+      await charger.onStepFinish(step(5, 5));
+
+      const second = recordAiCallMock.mock.calls[1][0];
+      expect(second.stepIndex).toBe(1);
+      expect(second.requestMs).toBe(250);
+      expect(second.ttftMs).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -69,6 +69,9 @@ export function createStepCharger(opts: {
     async onStepFinish(step) {
       // The ai-sdk has no per-step start hook, so step latency is measured
       // from the previous step's finish (charger creation for step 0).
+      // Steps are buffered (ToolLoopAgent never streams): there is no
+      // first-token moment, so step 0 reports ttftMs = requestMs for the
+      // logical call; later steps carry no ttftMs.
       const requestMs = Math.round(performance.now() - stepStartedAt);
       stepStartedAt = performance.now();
       recordAiCall({
@@ -81,6 +84,7 @@ export function createStepCharger(opts: {
         requestMs,
         stepIndex,
         task: REASON_TO_RECORD_TASK[opts.reason] ?? "unknown",
+        ...(stepIndex === 0 ? { ttftMs: requestMs } : {}),
         ...opts.recordMeta,
       });
       stepIndex += 1;

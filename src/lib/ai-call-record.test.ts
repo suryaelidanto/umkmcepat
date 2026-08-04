@@ -195,4 +195,58 @@ describe("startAiCallTimer", () => {
     expect(Number.isInteger(requestMs)).toBe(true);
     expect(requestMs).toBeGreaterThan(0);
   });
+
+  it("withTtft measures ttftMs from the first marked content chunk", async () => {
+    vi.useFakeTimers();
+    try {
+      const stop = startAiCallTimer({ withTtft: true });
+      // Stream emits content chunk at t=120ms, completes at t=500ms.
+      vi.advanceTimersByTime(120);
+      stop.firstChunk();
+      vi.advanceTimersByTime(380);
+      expect(stop()).toEqual({ requestMs: 500, ttftMs: 120 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("withTtft latches on the first mark — later chunks do not move ttftMs", () => {
+    vi.useFakeTimers();
+    try {
+      const stop = startAiCallTimer({ withTtft: true });
+      vi.advanceTimersByTime(120);
+      stop.firstChunk();
+      vi.advanceTimersByTime(180);
+      stop.firstChunk();
+      vi.advanceTimersByTime(200);
+      expect(stop()).toEqual({ requestMs: 500, ttftMs: 120 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("withTtft leaves ttftMs null when the stream fails before any chunk", () => {
+    vi.useFakeTimers();
+    try {
+      const stop = startAiCallTimer({ withTtft: true });
+      vi.advanceTimersByTime(250);
+      expect(stop()).toEqual({ requestMs: 250, ttftMs: null });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("withTtft mirrors requestMs for non-streaming calls that never mark a chunk", () => {
+    vi.useFakeTimers();
+    try {
+      const stop = startAiCallTimer({ withTtft: true });
+      vi.advanceTimersByTime(400);
+      expect(stop({ nonStreaming: true })).toEqual({
+        requestMs: 400,
+        ttftMs: 400,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
