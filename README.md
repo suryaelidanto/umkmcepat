@@ -17,7 +17,7 @@
 
 UMKM Cepat helps Indonesian small businesses turn plain Indonesian prompts into useful websites — the outcome is buyers, not just a website. The product is chat-first: users describe the business, AI clarifies the brief, then the workspace builds previewable frontend output. Photos attach in the chat; the vision-capable agent places them. Published sites are indexable landing pages (per-page SEO + sitemap + `LocalBusiness` schema). Free, R2-backed media, mobile-native.
 
-The platform is 100% free for users — every feature is usable without paying. An optional paid Energy Booster exists for users who want extra energy beyond the free daily quota, but paying never locks out functionality, so the core experience stays free. Access is managed via a pilot whitelist with admin approval (targeting ~10 initial real UMKM businesses).
+The platform is 100% free for users — every feature is usable without paying. Approved pilot users receive a one-time 500,000 Energy grant with no automatic refill. Optional non-expiring Energy Boosters and manual pilot grants add more energy without locking features behind payment. Access is managed via a pilot whitelist with admin approval (targeting ~10 initial real UMKM businesses).
 
 ## Current direction
 

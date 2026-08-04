@@ -1,6 +1,7 @@
 import { getEnv } from "@/lib/config";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
+import { grantSignupEnergy } from "@/lib/user-credits";
 
 const MIN_STORY_LENGTH = 80;
 
@@ -224,20 +225,40 @@ export async function approveWaitlistEntry(
   entryId: string,
   reviewerId: string,
 ): Promise<void> {
-  await prisma.waitlistEntry.update({
+  const entry = await prisma.waitlistEntry.update({
     data: {
       reviewedAt: new Date(),
       reviewerId,
       status: "approved",
     },
     where: { id: entryId },
+    select: { email: true, linkedUserId: true },
   });
+  let userId = entry.linkedUserId;
+  if (!userId) {
+    const email = normalizeEmail(entry.email);
+    const user = email
+      ? await prisma.user.findFirst({
+          where: { email: { equals: email, mode: "insensitive" } },
+          select: { id: true },
+        })
+      : null;
+    userId = user?.id ?? null;
+    if (userId) {
+      await prisma.waitlistEntry.updateMany({
+        data: { linkedUserId: userId },
+        where: { id: entryId, linkedUserId: null },
+      });
+    }
+  }
+  if (userId) {
+    await grantSignupEnergy(userId);
+  }
   devLog("waitlist", "approve", { entryId, reviewerId });
 }
 
 // Dev-mode convenience: pretend the signed-in user is approved so the
-// MainChrome waitlist gate lets them straight through. Mirrors
-// /api/dev/skip-verification for the verification gate. Real production
+// MainChrome waitlist gate lets them straight through. Real production
 // onboarding still has to go through submit + approve.
 export async function devApproveOwnWaitlistEntry(email: string): Promise<void> {
   const normalized = normalizeEmail(email);
@@ -306,8 +327,11 @@ export async function linkApprovedWaitlistOnSignup(
   if (!normalized) {
     return;
   }
-  await prisma.waitlistEntry.updateMany({
+  const result = await prisma.waitlistEntry.updateMany({
     data: { linkedUserId: userId },
     where: { email: normalized, status: "approved" },
   });
+  if (result.count > 0) {
+    await grantSignupEnergy(userId);
+  }
 }

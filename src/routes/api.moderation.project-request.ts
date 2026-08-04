@@ -44,7 +44,8 @@ export const Route = createFileRoute("/api/moderation/project-request")({
               return Response.json(
                 {
                   allowed: false,
-                  message: "Energi harian habis. Coba lagi besok.",
+                  message:
+                    "Energi kamu sudah habis. Tambah energi untuk lanjut.",
                   code: "energy_exhausted",
                   remaining: energy.remaining,
                 },

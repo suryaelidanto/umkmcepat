@@ -4,7 +4,6 @@ import {
   paymentStatusDisplay,
   projectStatusTone,
   ticketStatusDisplay,
-  userFlagsDisplay,
   waitlistStatusDisplay,
 } from "./admin-status";
 
@@ -80,17 +79,5 @@ describe("ticketStatusDisplay", () => {
       tone: "neutral",
       label: "Selesai",
     });
-  });
-});
-
-describe("userFlagsDisplay", () => {
-  it("returns verified and optional banned badges", () => {
-    expect(userFlagsDisplay({ verified: true, banned: false })).toEqual([
-      { tone: "success", label: "Terverifikasi" },
-    ]);
-    expect(userFlagsDisplay({ verified: false, banned: true })).toEqual([
-      { tone: "neutral", label: "Belum verifikasi" },
-      { tone: "danger", label: "Diblokir" },
-    ]);
   });
 });

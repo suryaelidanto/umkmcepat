@@ -43,9 +43,10 @@ describe("DISCUSS_SYSTEM_PROMPT", () => {
     }
   });
 
-  it("mentions the confidence rule", () => {
+  it("defers build authorization to the server, not model confidence", () => {
     expect(DISCUSS_SYSTEM_PROMPT).toContain("readyForBuild");
-    expect(DISCUSS_SYSTEM_PROMPT).toMatch(/95\+/);
+    expect(DISCUSS_SYSTEM_PROMPT).toMatch(/server authorizes/i);
+    expect(DISCUSS_SYSTEM_PROMPT).not.toMatch(/95\+/);
   });
 
   it("forbids hallucinating values", () => {

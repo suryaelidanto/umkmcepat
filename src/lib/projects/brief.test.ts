@@ -29,6 +29,29 @@ describe("project brief", () => {
     ).toBe("Fashion");
   });
 
+  it("persists typed UMKM classification and field state", () => {
+    const brief = parseProjectBrief({
+      umkmType: "fnb",
+      fieldState: { address: "answered", hours: "declined" },
+    });
+
+    expect(brief.umkmType).toBe("fnb");
+    expect(brief.fieldState).toEqual({
+      address: "answered",
+      hours: "declined",
+    });
+
+    const merged = mergeProjectBriefPatch(brief, {
+      fieldState: { visuals: "explicitly_empty" },
+    });
+
+    expect(merged.fieldState).toEqual({
+      address: "answered",
+      hours: "declined",
+      visuals: "explicitly_empty",
+    });
+  });
+
   it("does not mark ready from legacy fields alone; confidence is the gate", () => {
     const brief = parseProjectBrief(
       {

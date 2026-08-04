@@ -58,11 +58,11 @@ const PAKET_DETAILS: Record<
   popular: {
     label: "Laris Manis",
     desc: "Paling Populer! Pendamping tumbuh cepat",
-    detail: "Kebutuhan harian terpenuhi tanpa takut kehabisan energi.",
+    detail: "Energi tambahan untuk melanjutkan proyek tanpa takut kehabisan.",
   },
   max: {
     label: "Juragan Besar",
-    desc: "Sangat hemat, kuota melimpah harian",
+    desc: "Sangat hemat, energi tambahan melimpah",
     detail: "Pilihan terbaik untuk bisnis yang sering update halaman.",
   },
 };
@@ -193,8 +193,8 @@ export function EnergyBoosterModal({
             <span>Booster Energi UMKM</span>
           </DialogTitle>
           <DialogDescription className="text-surface-warm-white/60">
-            Energi gratis harian habis? Beli paket booster tambahan sekali
-            bayar. Berlaku selamanya & tidak kedaluwarsa.
+            Energi kamu habis? Beli paket booster tambahan sekali bayar. Berlaku
+            selamanya & tidak kedaluwarsa.
           </DialogDescription>
         </DialogHeader>
 

@@ -10,9 +10,8 @@ import { fetchJson, queryKeys } from "@/lib/query-client";
 
 type EnergyStats = {
   remaining: number;
+  granted: number;
   used: number;
-  limit: number;
-  resetsAt: string;
   inputTokens: number;
   outputTokens: number;
 };
@@ -65,21 +64,23 @@ export function EnergyDisplay() {
     return null;
   }
 
-  const percentage = Math.round((stats.remaining / stats.limit) * 100);
+  const percentage =
+    stats.granted > 0
+      ? Math.min(100, Math.round((stats.remaining / stats.granted) * 100))
+      : 0;
   const isLow = percentage < 20;
   const isEmpty = stats.remaining === 0;
-  const resetLabel = formatResetTime(stats.resetsAt);
 
   return (
     <div
       className="flex items-center gap-2"
       title={[
-        `Energi: ${formatNumber(stats.remaining)}/${formatNumber(stats.limit)}`,
+        `Energi tersisa: ${formatNumber(stats.remaining)}`,
+        `Diberikan: ${formatNumber(stats.granted)}`,
         `Terpakai: ${formatNumber(stats.used)}`,
         `Input: ${formatNumber(stats.inputTokens)} token`,
         `Output: ${formatNumber(stats.outputTokens)} token`,
         "Energi = biaya model (USD) × 1.000.000",
-        `Reset ${resetLabel} (WIB)`,
         energyQuery.isFetching ? "Memperbarui…" : "",
       ]
         .filter(Boolean)
@@ -115,23 +116,4 @@ export function EnergyDisplay() {
       <EnergyBoosterModal open={modalOpen} onOpenChange={setModalOpen} />
     </div>
   );
-}
-
-function formatResetTime(resetsAt: string): string {
-  const reset = new Date(resetsAt);
-  const now = new Date();
-  const diffMs = reset.getTime() - now.getTime();
-
-  if (diffMs <= 0) {
-    return "segera";
-  }
-
-  const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
-  const diffMinutes = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
-
-  if (diffHours >= 1) {
-    return `dalam ${diffHours} jam`;
-  }
-
-  return `dalam ${diffMinutes} menit`;
 }

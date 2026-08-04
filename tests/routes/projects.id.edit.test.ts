@@ -92,7 +92,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/user-credits", () => ({
   getEnergyConfig: vi.fn(() => ({
-    dailyLimit: "100000",
+    signupGrant: 500_000,
     microUsdPerEnergy: "100",
     minBuild: "10000",
     minDiscuss: "5000",
@@ -100,7 +100,6 @@ vi.mock("@/lib/user-credits", () => ({
     minGeneration: "5000",
     minModeration: "1000",
   })),
-  isUserVerified: vi.fn(async () => true),
   checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 200_000 })),
   addEnergyUsage: vi.fn(async () => ({
     energyUsed: 0,

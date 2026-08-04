@@ -10,6 +10,7 @@ describe("resolveUserWaitlistStatus", () => {
       email: "user@example.com",
       isAdmin: false,
       isApproved: null,
+      isDevelopment: false,
       waitlistEnabled: false,
     });
     expect(r.status).toBe("approved");
@@ -20,6 +21,7 @@ describe("resolveUserWaitlistStatus", () => {
       email: "user@example.com",
       isAdmin: false,
       isApproved: null,
+      isDevelopment: false,
       waitlistEnabled: true,
     });
     expect(r.status).toBeNull();
@@ -30,9 +32,11 @@ describe("resolveUserWaitlistStatus", () => {
       email: "user@example.com",
       isAdmin: false,
       isApproved: "approved",
+      isDevelopment: false,
       waitlistEnabled: true,
     });
     expect(r.status).toBe("approved");
+    expect(r.canUseDevTools).toBe(false);
   });
 
   it("admin in non-dev env is approved regardless of entry status", () => {
@@ -41,25 +45,32 @@ describe("resolveUserWaitlistStatus", () => {
       email: "admin@example.com",
       isAdmin: true,
       isApproved: "pending",
+      isDevelopment: false,
       waitlistEnabled: true,
     });
     expect(r.status).toBe("approved");
   });
 
-  it("admin in dev env is gated like a normal user", () => {
-    const orig = process.env.NODE_ENV;
-    process.env.NODE_ENV = "development";
-    try {
-      const r = resolveUserWaitlistStatus({
-        email: "admin@example.com",
-        isAdmin: true,
-        isApproved: "pending",
-        waitlistEnabled: true,
-      });
-      expect(r.status).toBeNull();
-    } finally {
-      process.env.NODE_ENV = orig;
-    }
+  it("admin in dev env is gated like a normal user and gets dev tools", () => {
+    const r = resolveUserWaitlistStatus({
+      email: "admin@example.com",
+      isAdmin: true,
+      isApproved: "pending",
+      isDevelopment: true,
+      waitlistEnabled: true,
+    });
+    expect(r).toMatchObject({ canUseDevTools: true, status: null });
+  });
+
+  it("admin in dev env keeps dev tools after approval", () => {
+    const r = resolveUserWaitlistStatus({
+      email: "admin@example.com",
+      isAdmin: true,
+      isApproved: "approved",
+      isDevelopment: true,
+      waitlistEnabled: true,
+    });
+    expect(r).toMatchObject({ canUseDevTools: true, status: "approved" });
   });
 
   it("toggle on + non-admin + pending entry -> null (not yet approved)", () => {
@@ -67,6 +78,7 @@ describe("resolveUserWaitlistStatus", () => {
       email: "user@example.com",
       isAdmin: false,
       isApproved: "pending",
+      isDevelopment: false,
       waitlistEnabled: true,
     });
     expect(r.status).toBeNull();
@@ -77,6 +89,7 @@ describe("resolveUserWaitlistStatus", () => {
       email: "user@example.com",
       isAdmin: false,
       isApproved: "rejected",
+      isDevelopment: false,
       waitlistEnabled: true,
     });
     expect(r.status).toBeNull();
@@ -87,6 +100,7 @@ describe("resolveUserWaitlistStatus", () => {
       email: null,
       isAdmin: false,
       isApproved: null,
+      isDevelopment: false,
       waitlistEnabled: true,
     });
     expect(r.status).toBeNull();

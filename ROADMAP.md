@@ -73,7 +73,7 @@ Free is what makes it _possible_. Useful is what makes it _happen_. We build for
 
 A chat-first AI builder. The owner describes their business in plain Indonesian; the AI asks only what actually matters, then builds a real site they can preview, edit by pointing at it, and publish — no code, no designer, no waiting.
 
-Free forever, every feature. An optional paid top-up exists for power users who burn through the daily free quota, but it only adds — it never locks anything behind a paywall. We're proving this with a small pilot of real UMKM before opening the doors wider.
+Free forever, every feature. Approved pilot users receive a one-time 500,000 Energy grant with no automatic refill. Optional non-expiring top-ups and manual pilot grants only add energy — they never lock functionality behind a paywall. We're proving this with a small pilot of real UMKM before opening the doors wider.
 
 ## What we will not build
 

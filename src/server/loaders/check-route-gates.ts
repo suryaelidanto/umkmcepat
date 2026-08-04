@@ -6,7 +6,6 @@ import "@tanstack/react-start/server-only";
 import { redirect } from "@tanstack/react-router";
 
 import { getAuthState } from "@/lib/auth";
-import { isUserVerified } from "@/lib/user-credits";
 import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
 import { isWaitlistGateBypassPath } from "@/lib/waitlist-route-access";
@@ -29,11 +28,6 @@ export async function checkRouteGates(pathname: string) {
     return { ok: true as const };
   }
 
-  const verified = await isUserVerified(session.user.id);
-  if (!verified) {
-    throw redirect({ to: "/verify" });
-  }
-
   // Admin UI is gated by requireAdmin() (ADMIN_EMAILS allowlist), not
   // waitlist. Waitlisted real admins must still open /admin; product routes
   // stay waitlist-blocked so they experience the product as a normal user.
@@ -42,11 +36,13 @@ export async function checkRouteGates(pathname: string) {
     const isAdmin = email ? isAdminEmail(email) : false;
     const waitlistEnabled = await isWaitlistEnabled();
     const isApproved = email ? await isWaitlistApproved(email) : null;
+    const isDev = process.env.NODE_ENV === "development";
 
     const resolved = resolveUserWaitlistStatus({
       email,
       isAdmin,
       isApproved,
+      isDevelopment: isDev,
       waitlistEnabled,
     });
 

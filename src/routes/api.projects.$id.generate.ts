@@ -27,11 +27,7 @@ import {
 } from "@/lib/projects/runtime-types";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
-import {
-  checkEnergy,
-  getEnergyConfig,
-  isUserVerified,
-} from "@/lib/user-credits";
+import { checkEnergy, getEnergyConfig } from "@/lib/user-credits";
 
 export const Route = createFileRoute("/api/projects/$id/generate")({
   server: {
@@ -77,22 +73,11 @@ async function handleGeneratePost(request: Request, routeId: string) {
   // Worker runs via BullMQ (survives browser disconnect). Cancel via
   // POST /api/projects/$id/cancel which finalizes the operation lease.
 
-  const verified = await isUserVerified(userId);
-  if (!verified) {
-    return Response.json(
-      {
-        message: "Verifikasi nomor telepon diperlukan.",
-        code: "verification_required",
-      },
-      { status: 403 },
-    );
-  }
-
   const energy = await checkEnergy(userId, getEnergyConfig().minBuild);
   if (!energy.allowed) {
     return Response.json(
       {
-        message: "Energi harian habis. Coba lagi besok.",
+        message: "Energi kamu sudah habis. Tambah energi untuk lanjut.",
         code: "energy_exhausted",
         remaining: energy.remaining,
       },

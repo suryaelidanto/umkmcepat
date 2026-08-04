@@ -70,18 +70,3 @@ export function ticketStatusDisplay(status: string): AdminStatusDisplay {
       return { tone: "neutral", label: status };
   }
 }
-
-export function userFlagsDisplay(input: {
-  verified: boolean;
-  banned: boolean;
-}): AdminStatusDisplay[] {
-  const flags: AdminStatusDisplay[] = [
-    input.verified
-      ? { tone: "success", label: "Terverifikasi" }
-      : { tone: "neutral", label: "Belum verifikasi" },
-  ];
-  if (input.banned) {
-    flags.push({ tone: "danger", label: "Diblokir" });
-  }
-  return flags;
-}

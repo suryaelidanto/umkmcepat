@@ -10,7 +10,6 @@ const validProductionEnv = {
   NEXTAUTH_SECRET: "a-strong-auth-secret-with-at-least-32-characters",
   NEXTAUTH_URL: "https://umkmcepat.example",
   NEXT_PUBLIC_APP_URL: "https://umkmcepat.example",
-  OTP_SPACE_API_KEY: "otp-space-production-key",
   PROJECT_RUNTIME_SUPERVISOR: "noop",
   STORAGE_PROVIDER: "local",
   TURNSTILE_SECRET_KEY: "turnstile-production-secret",
@@ -42,12 +41,6 @@ describe("production config preflight", () => {
     );
 
     vi.stubEnv("NEXTAUTH_SECRET", validProductionEnv.NEXTAUTH_SECRET);
-    vi.stubEnv("OTP_SPACE_API_KEY", "");
-    expect(() => assertProductionConfigReady()).toThrow(
-      "OTP_SPACE_API_KEY must be configured in production.",
-    );
-
-    vi.stubEnv("OTP_SPACE_API_KEY", validProductionEnv.OTP_SPACE_API_KEY);
     vi.stubEnv("NEXTAUTH_URL", "http://localhost:3000");
     expect(() => assertProductionConfigReady()).toThrow(
       "NEXTAUTH_URL must use HTTPS in production.",

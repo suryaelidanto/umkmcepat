@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth";
+import { canUseDevTools } from "@/lib/dev-admin";
 import {
   type WaitlistStatus,
   isAdminEmail,
@@ -13,6 +14,7 @@ type ResolveInput = {
   email: string | null;
   isAdmin: boolean;
   isApproved: WaitlistStatus | null;
+  isDevelopment: boolean;
   waitlistEnabled: boolean;
 };
 
@@ -20,26 +22,28 @@ export function resolveUserWaitlistStatus({
   email,
   isAdmin,
   isApproved,
+  isDevelopment,
   waitlistEnabled,
-}: ResolveInput): { own?: OwnEntry; status: string | null } {
+}: ResolveInput): {
+  own?: OwnEntry;
+  status: string | null;
+  canUseDevTools: boolean;
+} {
+  const hasDevTools = canUseDevTools({ isDevelopment, isAdmin });
   if (!email) {
-    return { status: null };
+    return { status: null, canUseDevTools: false };
   }
   // In production, admins always bypass the gate. In dev, admins are treated
   // like normal users so the full gate flow (waitlist form, pending screen,
   // rejection banner) can be exercised without a separate test account — the
   // dev-only skip/reset buttons on the page are the escape hatch instead.
-  const isDev = process.env.NODE_ENV === "development";
-  if (isAdmin && !isDev) {
-    return { status: "approved" };
-  }
-  if (!waitlistEnabled) {
-    return { status: "approved" };
+  if ((isAdmin && !isDevelopment) || !waitlistEnabled) {
+    return { status: "approved", canUseDevTools: hasDevTools };
   }
   if (isApproved === "approved") {
-    return { status: "approved" };
+    return { status: "approved", canUseDevTools: hasDevTools };
   }
-  return { status: null };
+  return { status: null, canUseDevTools: hasDevTools };
 }
 
 export const Route = createFileRoute("/api/user/waitlist")({
@@ -58,13 +62,14 @@ export const Route = createFileRoute("/api/user/waitlist")({
         const isAdmin = email ? isAdminEmail(email) : false;
         const waitlistEnabled = await isWaitlistEnabled();
         const isApproved = email ? await isWaitlistApproved(email) : null;
+        const isDev = process.env.NODE_ENV === "development";
         const resolved = resolveUserWaitlistStatus({
           email,
           isAdmin,
           isApproved,
+          isDevelopment: isDev,
           waitlistEnabled,
         });
-        const isDev = process.env.NODE_ENV === "development";
         const own =
           email && (!isAdmin || isDev)
             ? await getOwnWaitlistEntry(email)

@@ -47,7 +47,6 @@ import {
   chargeEnergyForAiUsage,
   checkEnergy,
   getEnergyConfig,
-  isUserVerified,
 } from "@/lib/user-credits";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
@@ -82,17 +81,6 @@ async function handlePreviewPost(request: Request) {
   }
 
   const userId = session.user.id;
-
-  const verified = await isUserVerified(userId);
-  if (!verified) {
-    return Response.json(
-      {
-        message: "Verifikasi nomor telepon diperlukan.",
-        code: "verification_required",
-      },
-      { status: 403 },
-    );
-  }
 
   const rateLimitResponse = await checkRateLimit(request, "ai", userId);
 
@@ -131,7 +119,7 @@ async function handlePreviewPost(request: Request) {
     const energy = await checkEnergy(userId, getEnergyConfig().minDiscuss);
     if (!energy.allowed) {
       return sseError({
-        message: "Energi harian habis. Coba lagi besok.",
+        message: "Energi kamu sudah habis. Tambah energi untuk lanjut.",
         code: "energy_exhausted",
         remaining: energy.remaining,
       });
@@ -713,8 +701,8 @@ Hidden context:
 ${context}`;
   }
 
-  return `You are a fast, friendly website-discovery interviewer for Indonesian small businesses.
-Your job is to get the core details (business name, primary product, and 1-2 soft details like USP or contact) and then immediately recommend building the website.
+  return `You are a friendly website-discovery interviewer for Indonesian small businesses.
+Your job is to ask one clear question per turn until every decision that shapes the site (primary offer, visitor job + CTA, local-vs-online, media strategy, visual direction) is resolved or explicitly declined — then the build recommendation follows. The server decides when enough is known; never claim the information is sufficient while structural decisions remain.
 
 Write user-visible chat copy in natural, ultra-concise Indonesian.
 Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
@@ -731,13 +719,13 @@ Interview discipline:
 - Walk the decision tree one branch at a time, resolving the deepest open dependency first.
 - Recommend a sensible default option for each question.
 - If something can be inferred from context or the existing brief, do not ask it.
-- As soon as mandatory fields (business name, product) + 2 soft fields (USP, contact) are known, recommend building.
+- Keep asking until every structural decision (primary offer, visitor job + CTA, local-vs-online, media strategy, visual direction) is answered or explicitly declined. The server authorizes the build recommendation; model confidence alone never does.
 
 Chat style:
 - EXACTLY ONE short Indonesian sentence (max 20 words). Never write 2-3 sentences.
 - Acknowledge the answer briefly, then introduce the card.
 - Do not restate options (the card shows them).
-- When recommending build, say: "Sip, infonya udah cukup banget. Yuk langsung kita bangun!"
+- When recommending build, say: "Sip, arahnya sudah jelas. Yuk kita bangun."
 
 Current brief:
 ${JSON.stringify(brief)}

@@ -7,11 +7,10 @@ import type {
   SocialLinkValue,
   TestimonialValue,
 } from "@/lib/projects/brief-rich-fields";
+import type { UmkmType, CleanedBrief } from "@/lib/projects/brief-rich-fields";
+import type { FieldStateMap } from "@/lib/projects/chat-memory";
 
-import {
-  type CleanedBrief,
-  validateBrief,
-} from "@/lib/projects/brief-rich-fields";
+import { validateBrief } from "@/lib/projects/brief-rich-fields";
 
 export type ProjectFact = {
   key: string;
@@ -58,6 +57,8 @@ export type ProjectBrief = {
   currentPromo: string | null;
   secondaryCta: { label: string; action: string } | null;
   readyForBuild: boolean;
+  umkmType?: UmkmType | null;
+  fieldState?: FieldStateMap;
 };
 
 export type BriefQuestion = {
@@ -131,6 +132,8 @@ export type ProjectBriefPatch = Partial<
   facts?: ProjectFact[];
   notes?: string[];
   openQuestions?: string[];
+  umkmType?: UmkmType | null;
+  fieldState?: FieldStateMap;
 };
 
 export const REQUIRED_BRIEF_FIELDS = [
@@ -180,6 +183,8 @@ export function createInitialBrief(prompt = ""): ProjectBrief {
     currentPromo: null,
     secondaryCta: null,
     readyForBuild: false,
+    umkmType: null,
+    fieldState: {},
   };
 }
 
@@ -233,6 +238,12 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
         ? input.secondaryCta
         : null,
     readyForBuild: input.readyForBuild === true,
+    umkmType:
+      typeof input.umkmType === "string" ? (input.umkmType as UmkmType) : null,
+    fieldState:
+      input.fieldState && typeof input.fieldState === "object"
+        ? (input.fieldState as FieldStateMap)
+        : {},
   };
 }
 
@@ -254,6 +265,14 @@ export function mergeProjectBriefPatch(
 
   if (businessName) {
     next.businessName = businessName;
+  }
+
+  if (patch.umkmType !== undefined && patch.umkmType !== null) {
+    next.umkmType = patch.umkmType;
+  }
+
+  if (patch.fieldState) {
+    next.fieldState = { ...next.fieldState, ...patch.fieldState };
   }
 
   if (Array.isArray(patch.facts)) {

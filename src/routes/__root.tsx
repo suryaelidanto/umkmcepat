@@ -98,10 +98,10 @@ function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#151515] px-4 text-center">
       <AlertTriangle className="mb-6 size-16 text-yellow-600" />
-      <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground-primary sm:text-6xl">
+      <h1 className="mb-4 text-4xl font-bold tracking-tight text-white sm:text-6xl">
         404 - Halaman tidak ditemukan
       </h1>
-      <p className="mt-4 max-w-md text-lg leading-8 text-text-secondary">
+      <p className="mt-4 max-w-md text-lg leading-8 text-gray-300">
         URL salah ketik atau halaman ini sudah tidak tersedia.
       </p>
       <div className="mt-10 flex items-center justify-center gap-x-6">

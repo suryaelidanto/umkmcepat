@@ -10,7 +10,7 @@ Boot instructions for AI agents working on UMKM Cepat.
 - `DESIGN.md`: required before UI, styling, layout, typography, colors, or components.
 - `docs/superpowers/specs/`: active feature specs
 - `docs/superpowers/plans/`: active implementation plans
-- Key modules: `src/lib/s3-client.ts` (MinIO/R2), `src/lib/email.ts` (Resend), `src/lib/otp.ts` (OTPSpace), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), `/media/<assetId>` route, `/admin` dashboard
+- Key modules: `src/lib/s3-client.ts` (MinIO/R2), `src/lib/email.ts` (Resend), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), `/media/<assetId>` route, `/admin` dashboard
 
 ## Commands
 

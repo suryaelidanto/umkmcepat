@@ -4,6 +4,8 @@
 **Topic:** 7 of the eight-topic roadmap (see `umkmcepat-eight-topic-roadmap` memory)
 **Status:** Shipped — plan complete (`3c317bb`). `src/lib/email.ts` (Resend REST, mock-in-dev, throw-in-prod), `src/lib/otp.ts` (OTPSpace `/v1/send`, `crypto.randomInt`), `src/lib/provider-startup-check.ts` asserts both keys in prod. Standalone (no dependency on other topics).
 
+> Superseded for OTP by `docs/superpowers/specs/2026-08-04-remove-otp-verification-design.md`. WhatsApp OTP is no longer active product behavior; this doc is historical. The Resend email adapter guidance remains contextual.
+
 ## Goal
 
 Stand up a transactional-email adapter (Resend) behind an env-driven boundary, and fix + harden the existing WhatsApp-OTP adapter (OTPSpace): correct the endpoint, implement the documented mock mode, and enforce that mock mode is impossible in production. Both verified working live (2026-07-24: email to `suryaelidanto@gmail.com`, OTP to `+6287877618724`).

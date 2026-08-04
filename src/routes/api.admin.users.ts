@@ -7,15 +7,10 @@ import { prisma } from "@/lib/prisma";
 
 const PAGE_SIZE = 20;
 
-export type AdminUserStatusFilter = "active" | "banned" | "unverified" | "all";
+export type AdminUserStatusFilter = "active" | "banned" | "all";
 
 function parseUserStatus(raw: string | null): AdminUserStatusFilter {
-  if (
-    raw === "active" ||
-    raw === "banned" ||
-    raw === "unverified" ||
-    raw === "all"
-  ) {
+  if (raw === "active" || raw === "banned" || raw === "all") {
     return raw;
   }
   return "all";
@@ -30,8 +25,6 @@ function userWhere(
     parts.push({ bannedAt: null });
   } else if (status === "banned") {
     parts.push({ bannedAt: { not: null } });
-  } else if (status === "unverified") {
-    parts.push({ verifiedAt: null, bannedAt: null });
   }
   if (q) {
     parts.push({
@@ -78,8 +71,6 @@ export const Route = createFileRoute("/api/admin/users")({
               email: true,
               id: true,
               name: true,
-              phone: true,
-              verifiedAt: true,
               _count: { select: { projects: true } },
             },
           }),
@@ -92,9 +83,7 @@ export const Route = createFileRoute("/api/admin/users")({
             email: u.email,
             id: u.id,
             name: u.name,
-            phone: u.phone,
             projectsCount: u._count.projects,
-            verified: Boolean(u.verifiedAt),
           })),
           page,
           status,

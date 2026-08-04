@@ -5,7 +5,6 @@ import { signOut } from "./auth-client";
 import {
   applyPatches,
   fetchJson,
-  fetchUserVerification,
   restoreSnapshots,
   waitlistPendingPollInterval,
   WAITLIST_PENDING_POLL_MS,
@@ -135,12 +134,11 @@ describe("useCacheMutation helpers", () => {
     });
 
     it("does not trigger signOut for guest-safe user endpoints returning 401", async () => {
-      // Endpoints like /api/user/verification and /api/user/credits are
-      // designed to be called by every page; a 401 just means "guest user"
-      // and must NOT trigger signOut (which would cause a redirect loop
-      // when a visitor lands on a host whose auth cookie is for a different
-      // domain).
-      for (const path of ["/api/user/verification", "/api/user/credits"]) {
+      // Endpoints like /api/user/credits are designed to be called by every
+      // page; a 401 just means "guest user" and must NOT trigger signOut
+      // (which would cause a redirect loop when a visitor lands on a host
+      // whose auth cookie is for a different domain).
+      for (const path of ["/api/user/credits"]) {
         vi.stubGlobal("window", {});
         const mockResponse = new Response(
           JSON.stringify({ message: "Unauthorized" }),
@@ -152,57 +150,6 @@ describe("useCacheMutation helpers", () => {
         expect(signOut).not.toHaveBeenCalled();
         vi.unstubAllGlobals();
       }
-    });
-  });
-
-  describe("fetchUserVerification", () => {
-    afterEach(() => {
-      vi.clearAllMocks();
-      vi.restoreAllMocks();
-    });
-
-    it("maps 401 to signedIn:false without signOut", async () => {
-      vi.stubGlobal("window", {});
-      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ message: "Masuk dulu untuk melanjutkan." }),
-          {
-            status: 401,
-          },
-        ),
-      );
-
-      await expect(fetchUserVerification()).resolves.toEqual({
-        signedIn: false,
-        verified: false,
-        canUseDevTools: false,
-      });
-      expect(signOut).not.toHaveBeenCalled();
-      vi.unstubAllGlobals();
-    });
-
-    it("returns verified payload on success", async () => {
-      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ verified: true, canUseDevTools: true }), {
-          status: 200,
-        }),
-      );
-
-      await expect(fetchUserVerification()).resolves.toEqual({
-        signedIn: true,
-        verified: true,
-        canUseDevTools: true,
-      });
-    });
-
-    it("throws on non-401 failures", async () => {
-      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ message: "Server error" }), {
-          status: 500,
-        }),
-      );
-
-      await expect(fetchUserVerification()).rejects.toThrow();
     });
   });
 });

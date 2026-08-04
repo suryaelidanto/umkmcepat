@@ -11,7 +11,6 @@ import { apiNetworkError, parseApiResponse } from "@/lib/api-client";
 
 export const queryKeys = {
   energy: ["energy"] as const,
-  verification: ["verification"] as const,
   projects: ["projects"] as const,
   projectRuntime: (projectId: string) =>
     ["projects", projectId, "runtime"] as const,
@@ -39,6 +38,7 @@ export const GATE_QUERY_OPTIONS = {
 export const WAITLIST_PENDING_POLL_MS = 30_000;
 
 export type WaitlistStatusResponse = {
+  canUseDevTools?: boolean;
   status: string | null;
   own?: {
     businessName?: string;
@@ -124,45 +124,6 @@ export async function fetchJson<T>(
   return result.data;
 }
 
-export type UserVerification = {
-  /** Server session present for this request. */
-  signedIn: boolean;
-  verified: boolean;
-  /** Development + ADMIN_EMAILS only; skip/reset tools. */
-  canUseDevTools: boolean;
-};
-
-/** Guest-safe verification: 401 means not signed in, not a failed request. */
-export async function fetchUserVerification(): Promise<UserVerification> {
-  const response = await fetch("/api/user/verification", {
-    cache: "no-store",
-  }).catch((error: unknown) => {
-    const networkError = apiNetworkError(error);
-    throw new Error(
-      networkError.ok
-        ? "Network error"
-        : networkError.error.message || "Network error",
-    );
-  });
-
-  if (response.status === 401) {
-    return { signedIn: false, verified: false, canUseDevTools: false };
-  }
-
-  const result = await parseApiResponse<{
-    verified: boolean;
-    canUseDevTools?: boolean;
-  }>(response);
-  if (!result.ok) {
-    throw new Error(result.error.message || "Request failed");
-  }
-  return {
-    signedIn: true,
-    verified: Boolean(result.data.verified),
-    canUseDevTools: Boolean(result.data.canUseDevTools),
-  };
-}
-
 async function handleUnauthorizedError(
   input: RequestInfo | URL,
 ): Promise<void> {
@@ -177,7 +138,7 @@ async function handleUnauthorizedError(
         ? input.toString()
         : input.url;
 
-  // Do not intercept auth calls (callbacks, sessions, CSRF token, Otp verification, etc)
+  // Do not intercept auth calls (callbacks, sessions, CSRF token, etc)
   if (urlString.includes("/api/auth/")) {
     return;
   }
@@ -188,7 +149,6 @@ async function handleUnauthorizedError(
   // a fresh host where the auth cookie is for a different domain) would
   // enter a signOut → reload → 401 → signOut loop.
   if (
-    urlString.includes("/api/user/verification") ||
     urlString.includes("/api/user/credits") ||
     urlString.includes("/api/support/unread-count")
   ) {

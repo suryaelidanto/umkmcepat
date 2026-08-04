@@ -16,10 +16,6 @@ const KNOWN: Array<{ match: RegExp; message: string }> = [
     message: "Gagal mengirim email. Coba lagi.",
   },
   {
-    match: /otp|otpspace/i,
-    message: "Gagal mengirim OTP. Coba lagi.",
-  },
-  {
     match: /R2|r2|cloudflarestorage|signed.*fetch/i,
     message: "Gagal mengunggah file. Coba lagi.",
   },

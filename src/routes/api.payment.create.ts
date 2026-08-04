@@ -82,7 +82,7 @@ export const Route = createFileRoute("/api/payment/create")({
         // Fetch user details needed for Mayar invoice creation
         const user = await prisma.user.findUniqueOrThrow({
           where: { id: session.user.id },
-          select: { name: true, email: true, phone: true },
+          select: { name: true, email: true },
         });
 
         try {
@@ -94,7 +94,7 @@ export const Route = createFileRoute("/api/payment/create")({
             expiredAt: new Date(Date.now() + PAYMENT_LINK_TTL_MS).toISOString(),
             customerName: user.name ?? "Customer",
             customerEmail: user.email ?? "",
-            customerMobile: user.phone ?? "081000000000",
+            customerMobile: "081000000000",
           });
 
           // 2. Save payment record in DB with PENDING status

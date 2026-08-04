@@ -1,5 +1,7 @@
 # Post-Verify Waitlist Redirect + Dev-Admin Gate Design
 
+> Superseded by `docs/superpowers/specs/2026-08-04-remove-otp-verification-design.md`. The product no longer has a post-OTP verify step; waitlist routing now starts after Google OAuth sign-in.
+
 ## Goal
 
 1. After OTP verification succeeds, send the user straight to the next required step when waitlist is on (`/waitlist`), so they do not land on `/` and have to discover “Isi formulir antrean”.

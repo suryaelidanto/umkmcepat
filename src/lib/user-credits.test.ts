@@ -48,6 +48,7 @@ vi.mock("@/lib/model-pricing", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $executeRaw: prismaExecuteRawMock,
     $queryRaw: prismaQueryRawMock,
     $transaction: prismaTransactionMock,
     appSetting: prismaAppSettingMock,
@@ -58,8 +59,8 @@ import {
   calculateEnergyCost,
   chargeEnergyForAiUsage,
   chargeEnergyForStep,
-  getDayBoundaries,
   getEnergyConfig,
+  grantSignupEnergy,
   getProjectLimit,
 } from "./user-credits";
 
@@ -90,26 +91,26 @@ describe("user-credits energy cost formula", () => {
     await expect(calculateEnergyCost("x", 2.8, -1)).resolves.toBe(1); // 2 * 0.0000003 * 1e6 = 0.6 → 1
   });
 
-  it("uses token-scale daily limits", () => {
+  it("uses a one-time 500k signup grant", () => {
     const config = getEnergyConfig();
-    expect(config.dailyLimit).toBe(250_000);
+    expect(config.signupGrant).toBe(500_000);
     expect(config.minDiscuss).toBeLessThan(config.minEdit);
     expect(config.minEdit).toBeLessThan(config.minBuild);
   });
+});
 
-  it("uses Asia/Jakarta day boundaries", () => {
-    // 2026-07-15 01:30 UTC = 08:30 WIB → same WIB day
-    const morning = getDayBoundaries(new Date("2026-07-15T01:30:00.000Z"));
-    expect(morning.startOfDay.toISOString()).toBe("2026-07-14T17:00:00.000Z");
-    expect(morning.endOfDay.toISOString()).toBe("2026-07-15T17:00:00.000Z");
+describe("grantSignupEnergy", () => {
+  beforeEach(() => {
+    prismaExecuteRawMock.mockReset();
+    prismaExecuteRawMock.mockResolvedValue(1);
+  });
 
-    // 2026-07-14 17:30 UTC = 00:30 WIB next day
-    const afterMidnightWib = getDayBoundaries(
-      new Date("2026-07-14T17:30:00.000Z"),
-    );
-    expect(afterMidnightWib.startOfDay.toISOString()).toBe(
-      "2026-07-14T17:00:00.000Z",
-    );
+  it("grants 500k exactly once through the database constraint", async () => {
+    await expect(grantSignupEnergy("u1")).resolves.toBe(true);
+    expect(prismaExecuteRawMock).toHaveBeenCalledTimes(1);
+    const sql = String(prismaExecuteRawMock.mock.calls[0]?.[0] ?? "");
+    expect(sql).toContain('"UserCredit"');
+    expect(sql).toContain("ON CONFLICT DO NOTHING");
   });
 });
 
@@ -343,27 +344,27 @@ describe("economics settings are DB-first", () => {
     expect(getProjectLimit()).toBe(5);
   });
 
-  it("getEnergyConfig reads the daily limit from the DB", async () => {
+  it("getEnergyConfig reads the signup grant from the DB", async () => {
     const { prisma } = await import("@/lib/prisma");
     await prisma.appSetting.upsert({
-      where: { key: "economics.daily_energy_limit" },
+      where: { key: "economics.signup_energy_grant" },
       create: {
-        key: "economics.daily_energy_limit",
+        key: "economics.signup_energy_grant",
         category: "economics",
-        value: 500_000,
+        value: 750_000,
       },
-      update: { value: 500_000 },
+      update: { value: 750_000 },
     });
     invalidateSettingCache();
     await primeSettingCache();
 
-    expect(getEnergyConfig().dailyLimit).toBe(500_000);
+    expect(getEnergyConfig().signupGrant).toBe(750_000);
   });
 
   it("getEnergyConfig returns code defaults with an empty DB", () => {
     invalidateSettingCache();
     const config = getEnergyConfig();
-    expect(config.dailyLimit).toBe(250_000);
+    expect(config.signupGrant).toBe(500_000);
     expect(config.minDiscuss).toBe(5_000);
     expect(config.minBuild).toBe(40_000);
     expect(config.minEdit).toBe(10_000);

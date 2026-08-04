@@ -66,9 +66,8 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/user-credits", () => ({
   chargeEnergyForAiUsage: chargeEnergyForAiUsageMock,
   checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 100 })),
-  isUserVerified: vi.fn(async () => true),
   getEnergyConfig: vi.fn(() => ({
-    dailyLimit: 250_000,
+    signupGrant: 500_000,
     microUsdPerEnergy: 1_000_000,
     minBuild: 40_000,
     minDiscuss: 5_000,
@@ -513,5 +512,119 @@ describe("runDiscussTurn worker", () => {
       .flatMap((call) => call.slice(1))
       .join("\n");
     expect(persistedValues).toContain(repairText);
+  });
+
+  it("legacy gate demotes a premature build recommendation to a question", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "Kedai Kopi",
+      workspaceCard: {
+        type: "build_recommendation",
+        title: "Siap dibangun",
+        summary: ["Yuk langsung"],
+      },
+      readyForBuild: true,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Sip, siap dibangun" },
+        {
+          type: "tool-call",
+          toolCallId: "tc1",
+          toolName: "presentWorkspaceCard",
+          input: {
+            assistantText: "Sip, siap dibangun",
+            workspaceCard: { type: "build_recommendation" },
+          },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_gate_demote",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    // build_recommendation was demoted to a question card.
+    const cardEvent = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_gate_demote" &&
+          event.type === "tool-output-available",
+      )
+      .map(([, event]) => event.output.workspaceCard)[0] as {
+      type: "question";
+      question: { id: string };
+    };
+    expect(cardEvent.type).toBe("question");
+    expect(cardEvent.question.id).toBe("businessName");
+    expect(writeAiRequestLogMock).toHaveBeenCalled();
+  });
+
+  it("legacy gate lets an explicit early build through with a warning", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "Kedai Kopi",
+      workspaceCard: {
+        type: "build_recommendation",
+        title: "Siap dibangun",
+        summary: ["Yuk langsung"],
+      },
+      readyForBuild: true,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Oke, aku bangun" },
+        {
+          type: "tool-call",
+          toolCallId: "tc1",
+          toolName: "presentWorkspaceCard",
+          input: {
+            assistantText: "Oke, aku bangun",
+            workspaceCard: { type: "build_recommendation" },
+          },
+        },
+      ]),
+    );
+    const eagerMessages: UIMessage[] = [
+      {
+        id: "m1",
+        role: "user",
+        parts: [{ type: "text", text: "langsung bangun aja" }] as never,
+      },
+    ];
+
+    await runDiscussTurn({
+      turnId: "ct_gate_eager",
+      project: baseProject,
+      chatContext: { ...baseChatContext, messages: eagerMessages },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: eagerMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    const cardEvent = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_gate_eager" &&
+          event.type === "tool-output-available",
+      )
+      .map(([, event]) => event.output.workspaceCard)[0] as {
+      type: "build_recommendation";
+    };
+    expect(cardEvent.type).toBe("build_recommendation");
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ turnId: "ct_gate_eager", status: "succeeded" }),
+    );
   });
 });

@@ -37,7 +37,6 @@ const {
   prismaUserFindUniqueOrThrowMock: vi.fn(async () => ({
     name: "Test User",
     email: "test@example.com",
-    phone: "081234567890",
   })),
   prismaExecuteRawMock: vi.fn(async () => 1),
   sendPaymentReceiptMock: vi.fn(async () => undefined),
@@ -130,7 +129,6 @@ describe("Payment API Routes", () => {
     prismaUserFindUniqueOrThrowMock.mockResolvedValue({
       name: "Test User",
       email: "test@example.com",
-      phone: "081234567890",
     });
     prismaExecuteRawMock.mockClear();
     prismaTransactionMock.mockClear();
@@ -238,7 +236,7 @@ describe("Payment API Routes", () => {
           expiredAt: expect.any(String),
           customerName: "Test User",
           customerEmail: "test@example.com",
-          customerMobile: "081234567890",
+          customerMobile: "081000000000",
         }),
       );
       expect(prismaPaymentCreateMock).toHaveBeenCalledWith(

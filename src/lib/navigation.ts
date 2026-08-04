@@ -53,7 +53,7 @@ type PushReplaceOptions = { href: string };
 
 // next/navigation's useRouter exposed push/replace taking a string href.
 // TanStack Router's navigate takes { to }. This wrapper preserves call sites
-// like router.replace("/verify") and router.push("/projects/new").
+// like router.replace("/") and router.push("/projects/new").
 export function useRouter() {
   let router: ReturnType<typeof useTanstackRouter> | null = null;
   try {

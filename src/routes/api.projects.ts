@@ -146,7 +146,7 @@ export const Route = createFileRoute("/api/projects")({
           return Response.json(
             {
               code: "energy_exhausted",
-              message: "Energi harian habis. Coba lagi besok.",
+              message: "Energi kamu sudah habis. Tambah energi untuk lanjut.",
               remaining: energy.remaining,
             },
             { status: 429 },

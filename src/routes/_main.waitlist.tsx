@@ -57,11 +57,13 @@ const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
   const isAdmin = isAdminEmail(email);
   const isApproved = await isWaitlistApproved(email);
   const waitlistEnabled = await isWaitlistEnabled();
+  const isDev = process.env.NODE_ENV === "development";
 
   const resolved = resolveUserWaitlistStatus({
     email,
     isAdmin,
     isApproved,
+    isDevelopment: isDev,
     waitlistEnabled,
   });
 

@@ -3,7 +3,6 @@ export function isWaitlistMarketingPublicPath(pathname: string): boolean {
     pathname === "/" ||
     pathname === "/blocked" ||
     pathname === "/waitlist" ||
-    pathname === "/verify" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname.startsWith("/booster/success/")

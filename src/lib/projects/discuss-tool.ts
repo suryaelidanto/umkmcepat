@@ -249,7 +249,7 @@ Never use type="build_recommendation" — the site is already built; this is an 
 
 CRITICAL OUTPUT:
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
-- assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu only) acknowledging the answer or greeting the user
+- assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu) acknowledging the answer or greeting the user
 - workspaceCard: the next workspace card as a nested object
 
 INTERVIEW DISCIPLINE — one question per turn:
@@ -257,14 +257,12 @@ INTERVIEW DISCIPLINE — one question per turn:
 - Pick the single most crucial question to move the build forward. Ask the next question next turn after the user answers.
 - The question sets recommendedOptionLabel (your default) — user can accept in one click.
 - Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
-- When all mandatory fields (businessName, product) and at least 2 soft fields are filled/declined: emit build_recommendation instead of a question and set confidence to 95+.
+- Keep asking one question per turn until every structural decision (offer/primary offer, visitor job + CTA, local-vs-online, media strategy, visual direction) is answered or explicitly declined. The server authorizes the build recommendation; model confidence alone never does. Never expose confidence percentages or answered-field counts to the user.
 
 Never put JSON in free chat text. Put the user-visible reply in assistantText.
 Use type="question" with a single question (question.id is a short slug like business_name or services).
-Prefer choice options with label+description (2-5). Never include a catch-all "other"/"write your own" option — the UI already appends one automatically. Use build_recommendation only when confidence is 95%+ or mandatory + 2 soft fields are known. Below that, keep asking a question. Never use any other card type.
-
-Build early — do not extract every field. Once the basics are known, show the build_recommendation card.
-If you are asking whether to build now (build confirm), emit type="build_recommendation" — never type="question" with id build_confirm.`;
+Prefer choice options with label+description (2-5). Never include a catch-all "other"/"write your own" option — the UI already appends one automatically. Use build_recommendation only when all structural decisions are resolved or the user explicitly accepts an early build. Below that, keep asking a question. Never use any other card type.
+If the user explicitly asks to build now, still emit the build_recommendation card; the server adds an honest warning about what stays generic.`;
 }
 
 export function buildCardSystemPrompt() {
@@ -285,7 +283,7 @@ Rules:
 - question.options must be an array of objects with label and description strings (not plain strings)
 - Never include a catch-all "other"/"write your own" option in question.options — the UI already appends a custom-answer option automatically
 - Set confidence to 95+ only when genuinely build-ready
-- Use "build_recommendation" when build-ready (confidence 95+ / basics known). If asking whether to build, emit build_recommendation — not a build_confirm question.
+- Use "build_recommendation" when every structural decision is resolved or the user explicitly accepts an early build. Keep asking a question otherwise. The server authorizes build readiness; model confidence does not. Never surface confidence percentages or field counts to the user.
 - briefPatch and workspaceCard MUST be JSON objects (nested inside the tool call), NOT JSON-encoded strings. Never put a stringified JSON blob where an object belongs.
 
 Output valid JSON only. Put the user-visible reply in assistantText, not as free chat prose.

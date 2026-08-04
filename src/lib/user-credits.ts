@@ -6,19 +6,18 @@ import { resolveModelPricing } from "@/lib/model-pricing";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Cost-based energy system.
+ * Cost-based energy system with one-time pilot grant.
  *
  * "Energy" = USD cost × 1,000,000 (micro-USD), computed from the actual
  * OpenRouter model that served each generation (see model-pricing.ts) —
  * not a flat multiplier. This is fair across the 7-model combo, since each
  * model has a different prompt:completion price ratio.
  *
- * Daily limit: 250,000 energy ≈ $0.25/day/user (~Rp 4,500/day), the
- * "generous but not wasteful" tier confirmed against real usage.
- * Day boundary: Asia/Jakarta (WIB).
+ * Signup grant: configured per-user at approval time (default 500k ≈ $0.50).
+ * No automatic refill; paid booster remains non-expiring.
  */
 const DEFAULT_MICRO_USD_PER_ENERGY = 1_000_000;
-const DEFAULT_DAILY_ENERGY_LIMIT = 250_000;
+const DEFAULT_SIGNUP_GRANT = 500_000;
 const DEFAULT_MIN_ENERGY_DISCUSS = 5_000;
 const DEFAULT_MIN_ENERGY_BUILD = 40_000;
 const DEFAULT_MIN_ENERGY_EDIT = 10_000;
@@ -33,13 +32,13 @@ export const PROJECT_LIMIT_DEFAULT = 5;
 // capture the fallback before priming ever runs.
 export function getEnergyConfig() {
   return {
-    dailyLimit: getSettingSync(
-      "economics.daily_energy_limit",
-      DEFAULT_DAILY_ENERGY_LIMIT,
-    ),
     microUsdPerEnergy: getSettingSync(
       "economics.micro_usd_per_energy",
       DEFAULT_MICRO_USD_PER_ENERGY,
+    ),
+    signupGrant: getSettingSync(
+      "economics.signup_energy_grant",
+      DEFAULT_SIGNUP_GRANT,
     ),
     minBuild: getSettingSync(
       "economics.min_energy_build",
@@ -70,8 +69,6 @@ export function getProjectLimit(): number {
     : PROJECT_LIMIT_DEFAULT;
 }
 
-const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
-
 export async function calculateEnergyCost(
   modelId: string,
   inputTokens: number,
@@ -93,23 +90,6 @@ function calculateEnergyCostFromPricing(
   return Math.round(usd * getEnergyConfig().microUsdPerEnergy);
 }
 
-/** Day boundaries in Asia/Jakarta (WIB, UTC+7). */
-export function getDayBoundaries(now: Date = new Date()): {
-  startOfDay: Date;
-  endOfDay: Date;
-} {
-  const wibMs = now.getTime() + WIB_OFFSET_MS;
-  const wib = new Date(wibMs);
-  const startWibUtcMs = Date.UTC(
-    wib.getUTCFullYear(),
-    wib.getUTCMonth(),
-    wib.getUTCDate(),
-  );
-  const startOfDay = new Date(startWibUtcMs - WIB_OFFSET_MS);
-  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-  return { startOfDay, endOfDay };
-}
-
 export async function getRemainingEnergy(userId: string): Promise<number> {
   const stats = await getEnergyStats(userId);
   return stats.remaining;
@@ -124,11 +104,7 @@ export async function checkEnergy(
   return { allowed: remaining >= resolvedCost, remaining };
 }
 
-/**
- * Deduct energy based on actual model cost (USD × 1e6).
- * Price comes from OpenRouter via model-pricing cache for `modelId`.
- * Prioritizes daily free energy, then falls back to premium booster credit.
- */
+/** Deduct energy from the user's non-expiring balance. */
 export async function addEnergyUsage(
   userId: string,
   modelId: string,
@@ -146,88 +122,28 @@ export async function addEnergyUsage(
     return { energyUsed: 0, inputTokens: 0, outputTokens: 0 };
   }
 
-  const { startOfDay, endOfDay } = getDayBoundaries();
-  const premiumExpiryLimit = new Date("9999-01-01");
-
-  // Serialize per user: the SUM below and the INSERT that follows are a
-  // read-modify-write over an aggregate, which a transaction alone does not
-  // make safe at READ COMMITTED. The advisory lock is transaction-scoped and
-  // releases on commit or rollback.
+  const expiry = new Date("9999-12-31T23:59:59.999Z");
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
-
-    const [freeRow] = await tx.$queryRaw<Array<{ used: number | null }>>`
-      SELECT SUM(ABS("amount"))::int AS "used"
-      FROM "UserCredit"
-      WHERE "userId" = ${userId}
-        AND "createdAt" >= ${startOfDay}
-        AND "createdAt" < ${endOfDay}
-        AND "expiresAt" < ${premiumExpiryLimit}
+    await tx.$executeRaw`
+      INSERT INTO "UserCredit" ("id", "userId", "projectId", "amount", "inputTokens", "outputTokens", "rawModelId", "pricedModelId", "pricingSource", "promptPrice", "completionPrice", "reason", "expiresAt", "createdAt")
+      VALUES (
+        ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
+        ${userId},
+        ${options.projectId ?? null},
+        ${-energyUsed},
+        ${input},
+        ${output},
+        ${pricing.rawModelId.slice(0, 160)},
+        ${pricing.pricedModelId.slice(0, 160)},
+        ${pricing.pricingSource.slice(0, 32)},
+        ${pricing.promptPrice},
+        ${pricing.completionPrice},
+        ${reason.slice(0, 64)},
+        ${expiry},
+        NOW()
+      )
     `;
-
-    const freeUsedToday = Math.abs(freeRow?.used ?? 0);
-    const remainingFree = Math.max(
-      0,
-      getEnergyConfig().dailyLimit - freeUsedToday,
-    );
-
-    let freeDeduction = 0;
-    let premiumDeduction = 0;
-
-    if (remainingFree > 0) {
-      freeDeduction = Math.min(energyUsed, remainingFree);
-      premiumDeduction = energyUsed - freeDeduction;
-    } else {
-      premiumDeduction = energyUsed;
-    }
-
-    const totalDeducted = freeDeduction + premiumDeduction;
-    const freeRatio = totalDeducted > 0 ? freeDeduction / totalDeducted : 0;
-
-    if (freeDeduction > 0) {
-      await tx.$executeRaw`
-        INSERT INTO "UserCredit" ("id", "userId", "projectId", "amount", "inputTokens", "outputTokens", "rawModelId", "pricedModelId", "pricingSource", "promptPrice", "completionPrice", "reason", "expiresAt", "createdAt")
-        VALUES (
-          ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
-          ${userId},
-          ${options.projectId ?? null},
-          ${-freeDeduction},
-          ${Math.round(input * freeRatio)},
-          ${Math.round(output * freeRatio)},
-          ${pricing.rawModelId.slice(0, 160)},
-          ${pricing.pricedModelId.slice(0, 160)},
-          ${pricing.pricingSource.slice(0, 32)},
-          ${pricing.promptPrice},
-          ${pricing.completionPrice},
-          ${reason.slice(0, 64)},
-          ${endOfDay},
-          NOW()
-        )
-      `;
-    }
-
-    if (premiumDeduction > 0) {
-      const premiumExpiry = new Date("9999-12-31T23:59:59.999Z");
-      await tx.$executeRaw`
-        INSERT INTO "UserCredit" ("id", "userId", "projectId", "amount", "inputTokens", "outputTokens", "rawModelId", "pricedModelId", "pricingSource", "promptPrice", "completionPrice", "reason", "expiresAt", "createdAt")
-        VALUES (
-          ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
-          ${userId},
-          ${options.projectId ?? null},
-          ${-premiumDeduction},
-          ${input - Math.round(input * freeRatio)},
-          ${output - Math.round(output * freeRatio)},
-          ${pricing.rawModelId.slice(0, 160)},
-          ${pricing.pricedModelId.slice(0, 160)},
-          ${pricing.pricingSource.slice(0, 32)},
-          ${pricing.promptPrice},
-          ${pricing.completionPrice},
-          ${(reason + " (Premium)").slice(0, 64)},
-          ${premiumExpiry},
-          NOW()
-        )
-      `;
-    }
   });
 
   logCreditTransaction({
@@ -239,6 +155,40 @@ export async function addEnergyUsage(
   });
 
   return { energyUsed, inputTokens: input, outputTokens: output };
+}
+
+async function grantEnergy(
+  userId: string,
+  amount: number,
+  reason: "grant:pilot" | "grant:admin",
+): Promise<boolean> {
+  const expiry = new Date("9999-12-31T23:59:59.999Z");
+  const inserted = await prisma.$executeRaw`
+    INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
+    VALUES (
+      ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
+      ${userId},
+      ${amount},
+      0,
+      0,
+      ${reason},
+      ${expiry},
+      NOW()
+    )
+    ON CONFLICT DO NOTHING
+  `;
+  return inserted > 0;
+}
+
+export async function grantSignupEnergy(userId: string): Promise<boolean> {
+  return grantEnergy(userId, getEnergyConfig().signupGrant, "grant:pilot");
+}
+
+export async function grantAdminEnergy(
+  userId: string,
+  amount: number,
+): Promise<boolean> {
+  return grantEnergy(userId, amount, "grant:admin");
 }
 
 /**
@@ -324,67 +274,37 @@ export async function chargeEnergyForStep(opts: {
 
 export async function getEnergyStats(userId: string): Promise<{
   remaining: number;
-  remainingFree: number;
-  remainingPremium: number;
+  granted: number;
   used: number;
-  limit: number;
-  resetsAt: Date;
   inputTokens: number;
   outputTokens: number;
 }> {
-  const { startOfDay, endOfDay } = getDayBoundaries();
-
-  const premiumExpiryLimit = new Date("9999-01-01");
-
-  const [freeRow] = await prisma.$queryRaw<
+  const [row] = await prisma.$queryRaw<
     Array<{
-      amount: number | null;
+      balance: number | null;
+      granted: number | null;
+      used: number | null;
       inputTokens: number | null;
       outputTokens: number | null;
     }>
   >`
     SELECT
-      SUM("amount")::int AS "amount",
+      SUM("amount")::int AS "balance",
+      SUM("amount") FILTER (WHERE "amount" > 0)::int AS "granted",
+      SUM(ABS("amount")) FILTER (WHERE "amount" < 0)::int AS "used",
       SUM("inputTokens")::int AS "inputTokens",
       SUM("outputTokens")::int AS "outputTokens"
     FROM "UserCredit"
     WHERE "userId" = ${userId}
-      AND "createdAt" >= ${startOfDay}
-      AND "createdAt" < ${endOfDay}
-      AND "expiresAt" < ${premiumExpiryLimit}
   `;
-
-  const [premiumRow] = await prisma.$queryRaw<Array<{ amount: number | null }>>`
-    SELECT SUM("amount")::int AS "amount"
-    FROM "UserCredit"
-    WHERE "userId" = ${userId}
-      AND "expiresAt" >= ${premiumExpiryLimit}
-  `;
-
-  const freeUsed = Math.abs(freeRow?.amount ?? 0);
-  const remainingFree = Math.max(0, getEnergyConfig().dailyLimit - freeUsed);
-  const remainingPremium = premiumRow?.amount ?? 0; // raw — can be negative (IOU)
-  const remaining = Math.max(0, remainingFree + remainingPremium);
 
   return {
-    remaining,
-    remainingFree,
-    remainingPremium,
-    used: freeUsed,
-    limit: getEnergyConfig().dailyLimit,
-    resetsAt: endOfDay,
-    inputTokens: freeRow?.inputTokens ?? 0,
-    outputTokens: freeRow?.outputTokens ?? 0,
+    remaining: Math.max(0, row?.balance ?? 0),
+    granted: row?.granted ?? 0,
+    used: row?.used ?? 0,
+    inputTokens: row?.inputTokens ?? 0,
+    outputTokens: row?.outputTokens ?? 0,
   };
-}
-
-export async function isUserVerified(userId: string): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { verifiedAt: true },
-  });
-
-  return Boolean(user?.verifiedAt);
 }
 
 export async function getProjectCount(userId: string): Promise<number> {

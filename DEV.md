@@ -14,7 +14,7 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 - Open-source mindset: this repo is public and seen by millions. Treat every tracked file, commit, and log line as public forever; secrets live only in `.env` (gitignored) or deployment secrets.
 - Never surface mock, dummy, sample, inferred, or deterministic fallback content as a successful user-facing AI response, workspace card, implementation spec, project source, preview, or generated output. Preserve last-known-good user data when available; otherwise show an honest empty/error state.
 - Recovery order is bounded automatic retry for safe transient failures, then an explicit user-triggered retry. Semantic AI failures (empty text, invalid structured output, incomplete source) must remain failures; never convert them into fabricated success. Manual repair must retry only the failed stage when replaying the full user action could duplicate messages, charges, builds, or side effects.
-- Development-only mocks must be explicit and impossible in production. Missing providers, moderation, OTP delivery, storage, or other trust-boundary dependencies must fail clearly instead of returning success.
+- Development-only mocks must be explicit and impossible in production. Missing providers, moderation, storage, or other trust-boundary dependencies must fail clearly instead of returning success.
 
 ## Cleanliness contract
 
@@ -108,7 +108,9 @@ When something breaks, an agent (or you) reconstructs the causal chain without c
 
 ## Admin settings (live product knobs)
 
-Non-secret product config lives in `/admin/settings` (DB-first over `.env`). After save the server re-primes the settings snapshot so `getSettingSync` consumers pick up values without process restart. Booster packs (`amount`, `compare_at_amount` list price for discount UI, `energy`) resolve via `getBoosterPack` / `GET /api/payment/packs` — change pricing in admin, not hardcoded UI. Secrets, OAuth, DB/S3 URLs, and topology stay env-only and still need an app restart when changed.
+Non-secret product config lives in `/admin/settings` (DB-first over `.env`). After save the server re-primes the settings snapshot so `getSettingSync` consumers pick up values without process restart. Approved users receive the configured one-time signup Energy grant (default 500,000); there is no automatic refill. Booster packs (`amount`, `compare_at_amount` list price for discount UI, `energy`) resolve via `getBoosterPack` / `GET /api/payment/packs` — change pricing in admin, not hardcoded UI. Secrets, OAuth, DB/S3 URLs, and topology stay env-only and still need an app restart when changed.
+
+After deploying the one-time-grant migration, preview the existing approved-user reconciliation with `bun run energy:backfill`. Apply it once with `bun run energy:backfill --apply`; the partial unique index makes reruns idempotent. The backfill matches approved waitlist entries to users by normalized email, preserves completed-payment remainder, and reconciles other historical test credit into the 500,000 grant target.
 
 ## Attempt queue (BullMQ)
 
@@ -127,9 +129,15 @@ The POST `/api/projects/preview` SSE tail also **polls `ProjectChatTurn`** until
 
 Text-only fallback (no valid workspace card after one repair) still streams progressive text and emits protocol `tool-output-available` with `workspaceCard: { type: "none" }` — no invented questions/options. Expect **1** model call when the card is valid on primary, **2** when repair runs.
 
+### Legacy discuss readiness gate
+
+Legacy-v1 builds are authorized by a deterministic server gate (`src/lib/projects/discuss-readiness.ts`), not model confidence. When the AI emits a `build_recommendation`, the worker re-checks the brief against the structural blockers (primary offer, visitor job + CTA, local-vs-online, media strategy, visual direction). If any blocker is unresolved, the card is demoted to the next question. Only an explicit early-build request ("langsung bangun aja") passes with an honest warning naming what stays generic/omitted. Structural blockers are per `UmkmType` (`fnb`, `retail`, `jasa_lokal`, `jasa_online`, `kursus`, `other`); `targetCustomer`, `visuals`, and `stylePreference` are always structural. Logged as `discuss:gate`.
+
+Generated apps bundle `public/placeholder.svg`; the generator guidance (`custom-source-generator.ts`) emits `<img src="/placeholder.svg">` only when an image slot is structurally necessary and no owner image exists — never a remote placeholder URL. Typographic layouts omit the slot instead.
+
 ## Environment
 
-`.env.example` is the canonical placeholder list, grouped by concern (app, database, auth, AI, storage, email, OTP, payment, analytics, public sites) — read it directly rather than trusting a copy here; a stale duplicate of this block is exactly how past drift happened.
+`.env.example` is the canonical placeholder list, grouped by concern (app, database, auth, AI, storage, email, payment, analytics, public sites) — read it directly rather than trusting a copy here; a stale duplicate of this block is exactly how past drift happened.
 
 Model pricing uses a hybrid resolver. `config/model-pricing-overrides.json` is the Git-tracked manual source for 9Router/CMC naming mismatches and provider-only prices; OpenRouter `/api/v1/models` remains the automatic cache/refresh source for supported models. Every energy debit stores pricing proof (`rawModelId`, `pricedModelId`, `pricingSource`, prompt price, completion price) on `UserCredit`; user-facing UI intentionally hides provider/model names unless an admin/debug surface needs them.
 
@@ -255,7 +263,7 @@ Do not paste raw component source from external pages.
 
 Hybrid model: **route loaders / `createServerFn`** own auth gates, ban checks, admin allowlist, and first paint. **TanStack Query** owns mutable client status after load.
 
-Gate keys (`queryKeys.waitlistStatus`, `queryKeys.verification`) use `GATE_QUERY_OPTIONS` (10s stale, refetch on window focus + reconnect). While the user is waitlisted with a pending/waitlisted own entry, waitlist status polls every 30s. After waitlist submit or OTP verify, call `invalidateWaitlistStatus` so `/` chrome updates without a full browser refresh.
+Gate keys such as `queryKeys.waitlistStatus` use `GATE_QUERY_OPTIONS` (10s stale, refetch on window focus + reconnect). While the user is waitlisted with a pending/waitlisted own entry, waitlist status polls every 30s. After waitlist submit or dev waitlist changes, call `invalidateWaitlistStatus` so `/` chrome updates without a full browser refresh.
 
 Do not migrate security gates fully to client-only queries.
 

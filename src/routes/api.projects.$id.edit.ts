@@ -22,11 +22,7 @@ import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
-import {
-  checkEnergy,
-  getEnergyConfig,
-  isUserVerified,
-} from "@/lib/user-credits";
+import { checkEnergy, getEnergyConfig } from "@/lib/user-credits";
 
 type EditRequest = {
   annotations?: unknown;
@@ -61,22 +57,11 @@ async function handleEditPost(request: Request, routeId: string) {
     return rateLimitResponse;
   }
 
-  const verified = await isUserVerified(userId);
-  if (!verified) {
-    return Response.json(
-      {
-        message: "Verifikasi nomor telepon diperlukan.",
-        code: "verification_required",
-      },
-      { status: 403 },
-    );
-  }
-
   const energy = await checkEnergy(userId, getEnergyConfig().minEdit);
   if (!energy.allowed) {
     return Response.json(
       {
-        message: "Energi harian habis. Coba lagi besok.",
+        message: "Energi kamu sudah habis. Tambah energi untuk lanjut.",
         code: "energy_exhausted",
         remaining: energy.remaining,
       },

@@ -8,13 +8,11 @@ const {
   prismaQueryRawMock,
   prismaExecuteRawMock,
   prismaTransactionMock,
-  prismaUserFindUniqueMock,
   claimDiscussTurnMock,
   enqueueAttemptJobMock,
   subscribeProgressMock,
   parseProjectChatMessagesMock,
   validateUIMessagesMock,
-  isUserVerifiedMock,
   checkEnergyMock,
   chargeEnergyForAiUsageMock,
   markStaleProjectBuildsMock,
@@ -26,13 +24,11 @@ const {
   prismaQueryRawMock: vi.fn(),
   prismaExecuteRawMock: vi.fn(),
   prismaTransactionMock: vi.fn(),
-  prismaUserFindUniqueMock: vi.fn(),
   claimDiscussTurnMock: vi.fn(),
   enqueueAttemptJobMock: vi.fn(),
   subscribeProgressMock: vi.fn(),
   parseProjectChatMessagesMock: vi.fn(),
   validateUIMessagesMock: vi.fn(),
-  isUserVerifiedMock: vi.fn(),
   checkEnergyMock: vi.fn(),
   chargeEnergyForAiUsageMock: vi.fn(),
   markStaleProjectBuildsMock: vi.fn(),
@@ -44,7 +40,6 @@ vi.mock("@/lib/prisma", () => ({
     $queryRaw: prismaQueryRawMock,
     $executeRaw: prismaExecuteRawMock,
     project: { findFirst: prismaProjectFindFirstMock },
-    user: { findUnique: prismaUserFindUniqueMock },
   },
 }));
 
@@ -61,7 +56,6 @@ vi.mock("@/lib/user-credits", async () => {
     );
   return {
     ...actual,
-    isUserVerified: isUserVerifiedMock,
     checkEnergy: checkEnergyMock,
     chargeEnergyForAiUsage: chargeEnergyForAiUsageMock,
   };
@@ -137,7 +131,6 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({ user: { id: "u_test" } });
-    isUserVerifiedMock.mockResolvedValue(true);
     checkRateLimitMock.mockResolvedValue(null);
     moderateProjectRequestMock.mockResolvedValue({
       allowed: true,
@@ -147,7 +140,6 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     checkEnergyMock.mockResolvedValue({ allowed: true, remaining: 100_000 });
     chargeEnergyForAiUsageMock.mockResolvedValue(null);
     markStaleProjectBuildsMock.mockResolvedValue(0);
-    prismaUserFindUniqueMock.mockResolvedValue({ verifiedAt: new Date() });
     prismaProjectFindFirstMock.mockResolvedValue({
       id: "p_test",
       prompt: "Jualan kue",

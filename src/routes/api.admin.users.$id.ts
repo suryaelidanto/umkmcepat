@@ -6,6 +6,39 @@ import {
   sendUnbannedNotification,
 } from "@/lib/email/templates";
 import { prisma } from "@/lib/prisma";
+import { grantAdminEnergy } from "@/lib/user-credits";
+
+export type AdminActionParseError = { ok: false; message: string };
+export type AdminEnergyGrantParseOk = { ok: true; amount: number };
+
+function parseGrantArgs(body: unknown): number | null {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+  const obj = body as Record<string, unknown>;
+  const raw = obj.amount;
+  if (typeof raw !== "number" || Number.isNaN(raw)) {
+    return null;
+  }
+  const n = Math.floor(raw);
+  if (raw !== n || n < 1 || n > 2_000_000) {
+    return null;
+  }
+  return n;
+}
+
+export function parseAdminEnergyGrant(
+  body: unknown,
+): AdminActionParseError | AdminEnergyGrantParseOk {
+  const amount = parseGrantArgs(body);
+  if (amount === null) {
+    return {
+      ok: false,
+      message: "amount harus bilangan bulat antara 1 dan 2.000.000.",
+    };
+  }
+  return { ok: true, amount };
+}
 
 export const Route = createFileRoute("/api/admin/users/$id")({
   server: {
@@ -54,8 +87,24 @@ export const Route = createFileRoute("/api/admin/users/$id")({
           }
           return Response.json({ status: "unbanned" });
         }
+        if (action === "grant-energy") {
+          try {
+            const body = (await request.json()) as unknown;
+            const parse = parseAdminEnergyGrant(body);
+            if (!parse.ok) {
+              return Response.json({ message: parse.message }, { status: 400 });
+            }
+            await grantAdminEnergy(id, parse.amount);
+            return Response.json({ granted: parse.amount });
+          } catch {
+            return Response.json(
+              { message: "Internal server error." },
+              { status: 500 },
+            );
+          }
+        }
         return Response.json(
-          { message: "action harus ban atau unban." },
+          { message: "action harus ban, unban, atau grant-energy." },
           { status: 400 },
         );
       },

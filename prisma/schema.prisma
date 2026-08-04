@@ -75,10 +75,6 @@ model User {
   email           String?                 @unique @db.VarChar(100)
   emailVerified   DateTime?
   image           String?                 @db.Text
-  phone           String?                 @unique @db.VarChar(20)
-  verifiedAt      DateTime?
-  otpAttempts     Int                     @default(0)
-  otpLockedUntil  DateTime?
   bannedAt        DateTime?
   createdAt       DateTime @default(now())
   accounts        Account[]
@@ -91,7 +87,6 @@ model User {
   assets          ProjectAsset[]
   waitlistEntries WaitlistEntry[]
   credits         UserCredit[]
-  otpRequests     OtpRequest[]
   payments        Payment[]
   supportTickets  SupportTicket[]
   supportAssets   SupportAsset[]
@@ -99,7 +94,6 @@ model User {
 
   @@index([email])
   @@index([name])
-  @@index([verifiedAt])
   @@index([createdAt])
 }
 
@@ -425,21 +419,6 @@ model ModelPricing {
   completionPrice Decimal  @db.Decimal(20, 12)
   fetchedAt       DateTime @default(now())
   createdAt       DateTime @default(now())
-}
-
-model OtpRequest {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  phone     String   @db.VarChar(20)
-  codeHash  String   @db.VarChar(64)
-  attempts  Int      @default(0)
-  used      Boolean  @default(false)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@index([userId, phone])
-  @@index([expiresAt])
 }
 
 model RefreshToken {

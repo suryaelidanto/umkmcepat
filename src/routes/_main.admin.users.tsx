@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { userFlagsDisplay } from "@/components/admin/admin-status";
 import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
@@ -16,9 +15,7 @@ type AdminUser = {
   email: string | null;
   id: string;
   name: string | null;
-  phone: string | null;
   projectsCount: number;
-  verified: boolean;
 };
 
 type UsersResponse = {
@@ -30,7 +27,6 @@ type UsersResponse = {
 
 const USER_STATUS_OPTIONS = [
   { value: "all", label: "Semua" },
-  { value: "unverified", label: "Belum verifikasi" },
   { value: "banned", label: "Diblokir" },
   { value: "active", label: "Aktif" },
 ] as const;
@@ -67,6 +63,19 @@ function UsersPage() {
     onError: () => toast.error("Gagal. Coba lagi."),
   });
 
+  const grant = useMutation({
+    mutationFn: (vars: { id: string; amount: number }) =>
+      fetchJson(`/api/admin/users/${vars.id}?action=grant-energy`, {
+        method: "POST",
+        body: JSON.stringify({ amount: vars.amount }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      toast.success("Energi ditambahkan.");
+    },
+    onError: () => toast.error("Gagal menambah energi."),
+  });
+
   const users = data?.users ?? [];
   return (
     <div className="flex flex-col gap-spacing-3">
@@ -88,11 +97,7 @@ function UsersPage() {
         value={q}
       />
       {users.length === 0 ? (
-        <p className="text-surface-warm-white/70">
-          {status === "unverified"
-            ? "Tidak ada pengguna belum verifikasi."
-            : "Tidak ada pengguna."}
-        </p>
+        <p className="text-surface-warm-white/70">Tidak ada pengguna.</p>
       ) : (
         users.map((u) => (
           <div
@@ -116,28 +121,34 @@ function UsersPage() {
               </p>
               <div className="mt-spacing-1 flex flex-wrap items-center gap-spacing-2 text-surface-warm-white/70">
                 <span>{u.projectsCount} proyek</span>
-                {userFlagsDisplay({
-                  verified: u.verified,
-                  banned: Boolean(u.bannedAt),
-                }).map((flag) => (
-                  <AdminStatusBadge key={flag.label} tone={flag.tone}>
-                    {flag.label}
-                  </AdminStatusBadge>
-                ))}
+                {u.bannedAt ? (
+                  <AdminStatusBadge tone="danger">Diblokir</AdminStatusBadge>
+                ) : null}
               </div>
             </div>
-            <button
-              className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
-              onClick={() =>
-                ban.mutate({
-                  action: u.bannedAt ? "unban" : "ban",
-                  id: u.id,
-                })
-              }
-              type="button"
-            >
-              {u.bannedAt ? "Buka blokir" : "Blokir"}
-            </button>
+            <div className="flex gap-spacing-2">
+              <button
+                className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+                onClick={() => {
+                  grant.mutate({ amount: 100_000, id: u.id });
+                }}
+                type="button"
+              >
+                Tambah energi
+              </button>
+              <button
+                className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+                onClick={() =>
+                  ban.mutate({
+                    action: u.bannedAt ? "unban" : "ban",
+                    id: u.id,
+                  })
+                }
+                type="button"
+              >
+                {u.bannedAt ? "Buka blokir" : "Blokir"}
+              </button>
+            </div>
           </div>
         ))
       )}

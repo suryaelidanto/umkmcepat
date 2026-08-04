@@ -11,7 +11,7 @@ describe("discuss system prompts respect hasBuiltSite", () => {
     const afterBuild = buildChatSystemPrompt({ ...args, hasBuiltSite: true });
 
     expect(beforeBuild).toContain("Interview discipline");
-    expect(beforeBuild).toContain("recommend building the website");
+    expect(beforeBuild).toContain("server authorizes the build recommendation");
 
     expect(afterBuild).not.toContain("Interview discipline");
     expect(afterBuild).toContain("NOT a brief interview");

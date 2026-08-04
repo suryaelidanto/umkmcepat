@@ -976,6 +976,24 @@ describe("buildGeneratedAppAgentInstructions (prompt coherence)", () => {
     expect(instructions).toContain("shadcn");
   });
 
+  it("uses only the local placeholder for structurally necessary missing images", () => {
+    expect(instructions).toContain('src="/placeholder.svg"');
+    expect(instructions).toContain('alt="<short description>"');
+    expect(instructions).toMatch(/structurally (?:needed|necessary)/i);
+    expect(instructions).toMatch(/prefer omitting the image slot/i);
+    expect(instructions).toMatch(/never (?:use )?remote placeholder URLs/i);
+  });
+
+  it("allows alt text supplied at use site for accessibility", () => {
+    const rewrite = buildGeneratedAppAgentInstructions(
+      schema,
+      undefined,
+      "rewrite",
+    );
+    expect(rewrite).toMatch(/alt=["'][^"]+["']/);
+    expect(rewrite).toMatch(/supplied at use site/i);
+  });
+
   it("still forbids backend/auth/db", () => {
     expect(instructions.toLowerCase()).toContain("no auth");
     expect(instructions.toLowerCase()).toContain("no backend");

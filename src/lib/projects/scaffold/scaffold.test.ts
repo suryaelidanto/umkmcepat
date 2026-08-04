@@ -226,3 +226,19 @@ describe("starter lean seed (JIT)", () => {
     expect(files.map((f) => f.path)).toContain("components.json");
   });
 });
+
+describe("scaffold local placeholder asset", () => {
+  it("includes a neutral public/placeholder.svg", () => {
+    const files = createViteTanStackShadcnStarterFiles(
+      "proj_placeholder",
+      schema(),
+    );
+    const placeholder = files.find((f) => f.path === "public/placeholder.svg");
+
+    expect(placeholder).toBeDefined();
+    expect(placeholder!.content).toContain('viewBox="0 0 600 400"');
+    expect(placeholder!.content).toContain("Tidak ada foto");
+    expect(placeholder!.content).toContain("</svg>");
+    expect(placeholder!.content).not.toContain("Test Biz");
+  });
+});

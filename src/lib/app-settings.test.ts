@@ -216,21 +216,21 @@ describe("primeSettingCache", () => {
   it("after invalidate + prime, getSettingSync returns primed DB value", async () => {
     const { prisma } = await import("@/lib/prisma");
     await prisma.appSetting.upsert({
-      where: { key: "economics.daily_energy_limit" },
+      where: { key: "economics.signup_energy_grant" },
       create: {
-        key: "economics.daily_energy_limit",
+        key: "economics.signup_energy_grant",
         category: "economics",
         value: 999_000,
       },
       update: { value: 999_000 },
     });
     await primeSettingCache();
-    expect(getSettingSync("economics.daily_energy_limit", 250_000)).toBe(
+    expect(getSettingSync("economics.signup_energy_grant", 500_000)).toBe(
       999_000,
     );
     invalidateSettingCache();
     await primeSettingCache();
-    expect(getSettingSync("economics.daily_energy_limit", 250_000)).toBe(
+    expect(getSettingSync("economics.signup_energy_grant", 500_000)).toBe(
       999_000,
     );
   });

@@ -20,7 +20,6 @@ export function assertProductionConfigReady() {
   }
 
   assertStrongSecret("NEXTAUTH_SECRET");
-  assertRequiredSecret("OTP_SPACE_API_KEY");
   assertRequiredSecret("TURNSTILE_SECRET_KEY");
   assertDatabaseUrl();
 
