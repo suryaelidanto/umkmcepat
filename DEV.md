@@ -181,6 +181,11 @@ S3 dist on the next page load. The owner can also restart a preview explicitly
 via `POST /api/projects/:id/restart` (owner-only). Full AI rebuilds remain the
 separate `POST /api/projects/:id/generate` path.
 
+Generated previews/published sites inject a capture-phase error listener that
+swaps a failing `<img>` to an aspect-aware placeholder data-URI (landscape vs
+portrait), so broken images never show a browser error icon and work even for
+old builds whose dist lacks a placeholder file.
+
 ## Graphify
 
 Graphify is recommended for non-trivial discovery and reuse checks. It is user-local, not a project dependency.
