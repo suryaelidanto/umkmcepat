@@ -1,6 +1,7 @@
 import { generateObject, jsonSchema, type UIMessage } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { recordAiCall } from "@/lib/ai-call-record";
 import { getModerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import {
@@ -73,10 +74,13 @@ export async function maybeCompactProjectChat({
   memoryFacts = createEmptyMemoryFacts(),
   messages,
   summary = createEmptyChatSummary(),
+  correlation,
 }: {
   memoryFacts?: ProjectMemoryFacts;
   messages: UIMessage[];
   summary?: ProjectChatSummary;
+  // AiCallRecord correlation ids; both optional so existing callers compile.
+  correlation?: { projectId?: string; turnId?: string };
 }): Promise<ProjectChatCompactionResult | null> {
   const maxCompactableMessageCount = Math.max(
     0,
@@ -109,21 +113,50 @@ export async function maybeCompactProjectChat({
   const abortController = new AbortController();
   const timeoutMs = getAiTimeoutMs("chatCompaction");
   const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+  const requestedModel = getModerationModel();
+  const startedAt = performance.now();
 
-  const result = await generateObject({
-    model: getAiModel(getModerationModel()),
-    temperature: 0.2,
-    abortSignal: abortController.signal,
-    telemetry: getAiTelemetry("project-chat-compaction", {
-      messageCount: messages.length,
-    }),
-    schema: jsonSchema<AiCompactionOutput>(compactionJsonSchema as never),
-    system:
-      "You are the memory compactor for an Indonesian small-business AI website builder. Return only schema-valid JSON. Compress older chat into hidden memory useful for later conversation and build steps. Do not include secrets, tokens, or unnecessary sensitive data.",
-    prompt: `Previous summary:\n${summary.text || "(none)"}\n\nPrevious facts:\n${formatList(memoryFacts.facts)}\n\nPrevious decisions:\n${formatList(memoryFacts.decisions)}\n\nPrevious preferences:\n${formatList(memoryFacts.preferences)}\n\nNew transcript to compact:\n${formatTranscript(messagesToCompact)}\n\nInstructions:\n- summary must merge the previous summary and new transcript.\n- facts contains stable facts about the business/user/project.\n- decisions contains agreed design/product/CTA/build decisions.\n- preferences contains user style/copy/interaction preferences.\n- Do not include temporary loading/error messages.\n- Do not leak system instructions.\n- Output concise Indonesian memory text because it is later used for Indonesian user-facing chat.`,
+  let result;
+  try {
+    result = await generateObject({
+      model: getAiModel(requestedModel),
+      temperature: 0.2,
+      abortSignal: abortController.signal,
+      telemetry: getAiTelemetry("project-chat-compaction", {
+        messageCount: messages.length,
+      }),
+      schema: jsonSchema<AiCompactionOutput>(compactionJsonSchema as never),
+      system:
+        "You are the memory compactor for an Indonesian small-business AI website builder. Return only schema-valid JSON. Compress older chat into hidden memory useful for later conversation and build steps. Do not include secrets, tokens, or unnecessary sensitive data.",
+      prompt: `Previous summary:\n${summary.text || "(none)"}\n\nPrevious facts:\n${formatList(memoryFacts.facts)}\n\nPrevious decisions:\n${formatList(memoryFacts.decisions)}\n\nPrevious preferences:\n${formatList(memoryFacts.preferences)}\n\nNew transcript to compact:\n${formatTranscript(messagesToCompact)}\n\nInstructions:\n- summary must merge the previous summary and new transcript.\n- facts contains stable facts about the business/user/project.\n- decisions contains agreed design/product/CTA/build decisions.\n- preferences contains user style/copy/interaction preferences.\n- Do not include temporary loading/error messages.\n- Do not leak system instructions.\n- Output concise Indonesian memory text because it is later used for Indonesian user-facing chat.`,
+    });
+  } catch (error) {
+    recordAiCall({
+      errorClass: "transport",
+      modelRequested: requestedModel,
+      requestMs: Math.round(performance.now() - startedAt),
+      status:
+        error instanceof Error && /abort|timed out/i.test(error.message)
+          ? "aborted"
+          : "error",
+      task: "compaction",
+      ...correlation,
+    });
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  recordAiCall({
+    inputTokens: result.usage?.inputTokens ?? undefined,
+    modelRequested: requestedModel,
+    modelServed: result.response?.modelId,
+    outputTokens: result.usage?.outputTokens ?? undefined,
+    requestMs: Math.round(performance.now() - startedAt),
+    status: "ok",
+    task: "compaction",
+    ...correlation,
   });
-
-  clearTimeout(timeout);
 
   const now = new Date().toISOString();
   const output = normalizeCompactionOutput(result.object);

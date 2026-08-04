@@ -15,6 +15,7 @@ import {
   getAiTelemetry,
   getNoReasoningCallOptions,
 } from "@/lib/ai";
+import { recordAiCall } from "@/lib/ai-call-record";
 import { getDiscussModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
@@ -142,6 +143,34 @@ export async function runDiscussTurn({
     });
 
     const discussStartedAt = Date.now();
+    const discussPerfStartedAt = performance.now();
+    let discussTtftMs: number | undefined;
+    let discussRecorded = false;
+    const recordDiscussCall = (opts: {
+      status: string;
+      errorClass?: string;
+      inputTokens?: number;
+      outputTokens?: number;
+      modelServed?: string | null;
+    }) => {
+      if (discussRecorded) {
+        return;
+      }
+      discussRecorded = true;
+      recordAiCall({
+        inputTokens: opts.inputTokens,
+        modelRequested: modelName,
+        modelServed: opts.modelServed,
+        outputTokens: opts.outputTokens,
+        projectId: project.id,
+        requestMs: Math.round(performance.now() - discussPerfStartedAt),
+        status: opts.status,
+        task: "discuss",
+        ttftMs: discussTtftMs,
+        turnId,
+        ...(opts.errorClass ? { errorClass: opts.errorClass } : {}),
+      });
+    };
     const primary = streamText({
       model,
       system: systemPrompt,
@@ -202,8 +231,20 @@ export async function runDiscussTurn({
 
     try {
       for await (const part of primary.stream) {
+        // TTFT measured on the first *content* chunk (not stream-open parts)
+        // so mocked/abort shapes that never emit content leave it undefined.
+        if (
+          discussTtftMs === undefined &&
+          (part.type === "text-delta" || part.type === "tool-input-delta")
+        ) {
+          discussTtftMs = Math.round(performance.now() - discussPerfStartedAt);
+        }
         if (abortSignal?.aborted) {
           hadError = true;
+          recordDiscussCall({
+            modelServed: modelName,
+            status: "aborted",
+          });
           break;
         }
         if (part.type === "text-delta") {
@@ -292,6 +333,11 @@ export async function runDiscussTurn({
       hadError = true;
       const servedModel = (await primaryResponsePromise)?.modelId ?? modelName;
       const safeError = getSafeAiErrorLog(error);
+      recordDiscussCall({
+        errorClass: "stream",
+        modelServed: servedModel,
+        status: "error",
+      });
       console.error("[preview-chat] one-call stream consume error", {
         projectId: project.id,
         model: servedModel,
@@ -464,6 +510,14 @@ export async function runDiscussTurn({
     }
 
     const primaryMs = Date.now() - discussStartedAt;
+    recordDiscussCall({
+      inputTokens: totalInputTokens,
+      modelServed: discussModelId,
+      outputTokens: totalOutputTokens,
+      // ponynote: mid-stream aborts with text already delivered degrade to a
+      // card; still ok for the ledger — hadError path above recorded errors.
+      status: hadError && !chatText ? "error" : "ok",
+    });
     if (!chatText) {
       // Post-build: none is a legal card. Do not repair for interview cards
       // or invent assistant prose.
@@ -928,6 +982,7 @@ export async function runDiscussTurn({
     }
 
     const compaction = await maybeCompactProjectChat({
+      correlation: { projectId: project.id, turnId },
       memoryFacts,
       messages: safeMessages,
       summary,

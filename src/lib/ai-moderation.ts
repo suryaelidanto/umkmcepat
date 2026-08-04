@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { recordAiCall } from "@/lib/ai-call-record";
 import { getModerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
@@ -67,33 +68,68 @@ export async function moderateProjectRequest(
     });
   }
 
-  const result = await callWithRetry(() => {
-    const abortController = new AbortController();
-    return withAiTimeout(
-      generateText({
-        abortSignal: abortController.signal,
-        maxOutputTokens: 256,
-        model: getAiModel(getModerationModel()),
-        temperature: 0,
-        timeout: timeoutMs,
-        telemetry: getAiTelemetry("project-moderation", {
-          model: getModerationModel(),
-        }),
-        system:
-          "You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when intent is unclear but potentially unsafe. ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action.",
-        messages: [{ role: "user", content: contentParts }],
-      }),
-      "moderation",
-      abortController,
-      timeoutMs,
+  const requestedModel = getModerationModel();
+  const startedAt = performance.now();
+  let attemptedRetry = false;
+  let result;
+  try {
+    result = await callWithRetry(
+      () => {
+        const abortController = new AbortController();
+        return withAiTimeout(
+          generateText({
+            abortSignal: abortController.signal,
+            maxOutputTokens: 256,
+            model: getAiModel(requestedModel),
+            temperature: 0,
+            timeout: timeoutMs,
+            telemetry: getAiTelemetry("project-moderation", {
+              model: requestedModel,
+            }),
+            system:
+              "You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when intent is unclear but potentially unsafe. ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action.",
+            messages: [{ role: "user", content: contentParts }],
+          }),
+          "moderation",
+          abortController,
+          timeoutMs,
+        );
+      },
+      () => {
+        attemptedRetry = true;
+      },
     );
-  });
+  } catch (error) {
+    recordAiCall({
+      errorClass: classifyModerationError(error),
+      modelRequested: requestedModel,
+      requestMs: Math.round(performance.now() - startedAt),
+      retryCount: attemptedRetry ? 1 : 0,
+      status: /timed out|timeout|aborted/i.test(
+        error instanceof Error ? error.message : String(error),
+      )
+        ? "timeout"
+        : "error",
+      task: "moderation",
+    });
+    throw error;
+  }
 
   const usage = {
     inputTokens: result.usage?.inputTokens ?? 0,
     outputTokens: result.usage?.outputTokens ?? 0,
   };
-  const modelId = result.response?.modelId || getModerationModel();
+  const modelId = result.response?.modelId || requestedModel;
+  recordAiCall({
+    inputTokens: usage.inputTokens,
+    modelRequested: requestedModel,
+    modelServed: result.response?.modelId,
+    outputTokens: usage.outputTokens,
+    requestMs: Math.round(performance.now() - startedAt),
+    retryCount: attemptedRetry ? 1 : 0,
+    status: "ok",
+    task: "moderation",
+  });
   const label = result.text.trim().toUpperCase();
   if (!["ALLOW", "BLOCK", "CLARIFY"].includes(label)) {
     devLog("moderation", "unexpected-response", {
@@ -120,13 +156,17 @@ export async function moderateProjectRequest(
   return moderationResult;
 }
 
-async function callWithRetry<T>(fn: () => Promise<T>): Promise<T> {
+async function callWithRetry<T>(
+  fn: () => Promise<T>,
+  onRetry?: () => void,
+): Promise<T> {
   try {
     return await fn();
   } catch (firstError) {
     console.error("[moderation] attempt-1 failed, retrying in 1s", {
       error: firstError instanceof Error ? firstError.message : firstError,
     });
+    onRetry?.();
     await new Promise((resolve) => setTimeout(resolve, 1000));
     try {
       return await fn();
@@ -137,6 +177,21 @@ async function callWithRetry<T>(fn: () => Promise<T>): Promise<T> {
       throw secondError;
     }
   }
+}
+
+/** Coarse error class only — never the raw provider message. */
+function classifyModerationError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/rate.?limit|429|too many/i.test(message)) {
+    return "rate-limit";
+  }
+  if (/timed out|timeout|aborted/i.test(message)) {
+    return "timeout";
+  }
+  if (/schema|422|invalid/i.test(message)) {
+    return "schema-422";
+  }
+  return "transport";
 }
 
 export function getModerationTimeoutMs() {

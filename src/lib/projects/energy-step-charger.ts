@@ -1,3 +1,4 @@
+import { recordAiCall } from "@/lib/ai-call-record";
 import { chargeEnergyForStep } from "@/lib/user-credits";
 
 export type StepChargeEvent = {
@@ -24,8 +25,16 @@ export type StepCharger = {
   };
 };
 
+/** Ledger task per charge reason. */
+const REASON_TO_RECORD_TASK: Record<string, string> = {
+  "build:step": "build-step",
+  "edit:step": "edit",
+  "build:subagent": "build-step",
+};
+
 /**
- * Charges energy once per agent step via the ai-sdk `onStepFinish` hook.
+ * Charges energy once per agent step via the ai-sdk `onStepFinish` hook and
+ * records one AiCallRecord row per step (fire-and-forget).
  * `isExhausted` is latching: once the balance hits zero the loop must stop,
  * and a concurrently-granted top-up should not silently resume it.
  */
@@ -40,6 +49,8 @@ export function createStepCharger(opts: {
   let outputTokens = 0;
   let energyUsed = 0;
   let exhausted = false;
+  let stepIndex = 0;
+  let stepStartedAt = performance.now();
 
   return {
     userId: opts.userId,
@@ -48,6 +59,23 @@ export function createStepCharger(opts: {
     isExhausted: () => exhausted,
     totals: () => ({ inputTokens, outputTokens, energyUsed }),
     async onStepFinish(step) {
+      // The ai-sdk has no per-step start hook, so step latency is measured
+      // from the previous step's finish (charger creation for step 0).
+      const requestMs = Math.round(performance.now() - stepStartedAt);
+      stepStartedAt = performance.now();
+      recordAiCall({
+        modelRequested: opts.modelId,
+        modelServed: step?.response?.modelId,
+        projectId: opts.projectId ?? undefined,
+        status: "ok",
+        inputTokens: step?.usage?.inputTokens ?? undefined,
+        outputTokens: step?.usage?.outputTokens ?? undefined,
+        requestMs,
+        stepIndex,
+        task: REASON_TO_RECORD_TASK[opts.reason] ?? "unknown",
+      });
+      stepIndex += 1;
+
       const input = Math.max(0, Math.floor(step?.usage?.inputTokens ?? 0));
       const output = Math.max(0, Math.floor(step?.usage?.outputTokens ?? 0));
       if (input <= 0 && output <= 0) {

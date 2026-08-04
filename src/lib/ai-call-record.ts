@@ -33,35 +33,42 @@ export type AiCallEntry = {
 };
 
 export function recordAiCall(entry: AiCallEntry): void {
-  prisma.aiCallRecord
-    .create({
-      data: {
-        attemptId: entry.attemptId,
-        buildId: entry.buildId,
-        cachedTokens: entry.cachedTokens,
-        errorClass: entry.errorClass?.slice(0, 64),
-        hedged: entry.hedged,
-        inputTokens: entry.inputTokens,
-        modelRequested: entry.modelRequested.slice(0, 160),
-        modelServed: entry.modelServed?.slice(0, 160),
-        outputTokens: entry.outputTokens,
-        phase: entry.phase?.slice(0, 32),
-        projectId: entry.projectId,
-        raceRole: entry.raceRole?.slice(0, 16),
-        requestMs: entry.requestMs,
-        retryCount: entry.retryCount,
-        status: entry.status.slice(0, 16),
-        stepIndex: entry.stepIndex,
-        task: entry.task.slice(0, 32),
-        ttftMs: entry.ttftMs,
-        turnId: entry.turnId,
-      },
-    })
-    .catch((error: unknown) => {
-      devLog("ai-call-ledger", "write-failed", {
-        error: error instanceof Error ? error.message : String(error),
+  try {
+    void prisma.aiCallRecord
+      .create({
+        data: {
+          attemptId: entry.attemptId,
+          buildId: entry.buildId,
+          cachedTokens: entry.cachedTokens,
+          errorClass: entry.errorClass?.slice(0, 64),
+          hedged: entry.hedged,
+          inputTokens: entry.inputTokens,
+          modelRequested: entry.modelRequested.slice(0, 160),
+          modelServed: entry.modelServed?.slice(0, 160),
+          outputTokens: entry.outputTokens,
+          phase: entry.phase?.slice(0, 32),
+          projectId: entry.projectId,
+          raceRole: entry.raceRole?.slice(0, 16),
+          requestMs: entry.requestMs,
+          retryCount: entry.retryCount,
+          status: entry.status.slice(0, 16),
+          stepIndex: entry.stepIndex,
+          task: entry.task.slice(0, 32),
+          ttftMs: entry.ttftMs,
+          turnId: entry.turnId,
+        },
+      })
+      .catch((error: unknown) => {
+        devLog("ai-call-ledger", "write-failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
+  } catch (error) {
+    // Sync throws (stubbed prisma in unit tests) must never reach callers.
+    devLog("ai-call-ledger", "write-failed", {
+      error: error instanceof Error ? error.message : String(error),
     });
+  }
 }
 
 /**
