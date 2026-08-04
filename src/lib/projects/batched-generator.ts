@@ -491,9 +491,14 @@ export async function runOneStreamedResponse(args: {
   let modelServed: string | undefined;
   let usage: { inputTokens?: number; outputTokens?: number } | undefined;
   const writtenThisCall = new Set<string>();
+  // Declared OUTSIDE the try so the WriterTsxSyntaxError catch below can
+  // still resolve partial usage/modelServed. Kept as `| undefined` even
+  // though the catch is only reachable when streamText already assigned —
+  // TS can't prove that across the try/catch boundary.
+  let result: ReturnType<typeof streamText> | undefined;
 
   try {
-    const result = streamText({
+    result = streamText({
       model: getAiModel(requestedModel),
       maxOutputTokens: 24_000,
       maxRetries: 2,
@@ -597,22 +602,46 @@ export async function runOneStreamedResponse(args: {
   } catch (error) {
     // Fast-fail on a structurally-broken TSX block mid-stream (see above):
     // the remainder of the response can't repair it, so hand the caller a
-    // partial-snapshot result instead of a thrown transport error.
+    // partial-snapshot result instead of a thrown transport error. Tokens up
+    // to the throw are still real usage — charge them via the same step
+    // charger the success path uses, and tag the ledger row status=error.
     if (error instanceof WriterTsxSyntaxError) {
       const requestMs = stopTimer().requestMs;
       const ledgerTask =
         args.task ?? (args.phase === "writer" ? "build-step" : "build-repair");
+      // Best-effort: usage/model may already be resolvable even though the
+      // text loop bailed early. Never let a usage-resolution failure mask the
+      // syntax signal — the caller still gets the partial snapshot.
+      const partialUsage = result
+        ? await Promise.resolve(result.usage).catch(() => undefined)
+        : undefined;
+      const partialModel = result
+        ? (await Promise.resolve(result.response).catch(() => undefined))
+            ?.modelId
+        : undefined;
       recordAiCall({
         attemptId: args.attemptId,
         buildId: args.buildId ?? undefined,
+        inputTokens: partialUsage?.inputTokens ?? undefined,
         modelRequested: requestedModel,
+        modelServed: partialModel,
+        outputTokens: partialUsage?.outputTokens ?? undefined,
         phase: args.phase,
         projectId: args.projectId,
         requestMs,
         retryCount: args.retryCount,
-        status: "ok",
+        status: "error",
         task: ledgerTask,
       });
+      if (
+        args.stepCharger &&
+        (partialUsage?.inputTokens || partialUsage?.outputTokens)
+      ) {
+        await args.stepCharger.onStepFinish({
+          response: { modelId: partialModel },
+          usage: partialUsage ?? {},
+        });
+      }
       return {
         finishedText: false,
         requestMs,

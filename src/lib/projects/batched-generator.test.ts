@@ -438,6 +438,55 @@ describe("runBatchedGenerate — admission + failure paths", () => {
     expect(errorRows.length).toBeGreaterThan(0);
     expect(errorRows[0][0].phase).toBe("writer");
   });
+
+  it("WriterTsxSyntaxError fast-fail still charges energy and records an error-tagged row", async () => {
+    const broken = `<file path="src/routes/index.tsx">\nexport function HomeRouteComponent() { return (<div>;\n</file>\n<done summary="x" />`;
+    streamTextMock
+      .mockReturnValueOnce(writerStream(broken))
+      // Targeted repair re-receives the same broken stream so the writer-phase
+      // assertions below stay deterministic (the run still ends needsFallback).
+      .mockReturnValueOnce(writerStream(broken))
+      .mockReturnValueOnce(writerStream(broken));
+
+    const result = await runBatchedGenerate({
+      ...baseArgs(),
+      stepCharger: makeCharger(),
+    });
+
+    // Fast-fail short-circuits the writer; the caller falls back. Either way
+    // the attempt cannot succeed from a structurally-broken stream.
+    expect(result.ok).toBe(false);
+    // Energy was consumed generating tokens up to the broken block — the same
+    // per-step ledger used on success must charge them (writer + 2 repairs all
+    // fast-fail the same way here, so each leg produces exactly one debit).
+    expect(chargeEnergyForStepMock).toHaveBeenCalledTimes(3);
+    expect(chargeEnergyForStepMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputTokens: 1200,
+        outputTokens: 800,
+        reason: "build:step",
+        userId: "u-test",
+      }),
+    );
+    // The writer leg's AiCall row is tagged status=error (not "ok"), with the
+    // partial usage attached so telemetry matches the energy debit.
+    const writerErrorRows = recordAiCallMock.mock.calls.filter(
+      ([entry]) => entry.phase === "writer" && entry.status === "error",
+    );
+    expect(writerErrorRows).toHaveLength(1);
+    expect(writerErrorRows[0][0]).toMatchObject({
+      attemptId: "a1",
+      projectId: "p1",
+      inputTokens: 1200,
+      outputTokens: 800,
+      task: "build-step",
+    });
+    // No extra "ok" writer row for this leg.
+    const okWriterRows = recordAiCallMock.mock.calls.filter(
+      ([entry]) => entry.phase === "writer" && entry.status === "ok",
+    );
+    expect(okWriterRows).toHaveLength(0);
+  });
 });
 
 describe("collectBatchedGateIssues", () => {
