@@ -808,39 +808,70 @@ export async function runBuildAttempt({
         }
       } catch (error) {
         if (error instanceof BatchedAdmissionBlockedError) {
-          // Brief gate failed: never burn energy on legacy — surface the
-          // Indonesian reason and stop the attempt before charging.
-          send("error", {
-            message: "Brief belum siap untuk di-build.",
-            detail: error.reason,
+          // Admission gate divergence: discuss-readiness may have accepted
+          // this brief via fieldState (declined/explicitly_empty) while the
+          // independent zod gate blocks it. Never abort — the user still
+          // gets their site via the legacy agent loop; the block only keeps
+          // this brief off the batched path.
+          devLog("generate", "batched.admission-fallback", {
+            blockers: error.blockers,
+            projectId,
+            reason: error.reason,
           });
-          throw new Error(`Batched admission blocked: ${error.reason}`);
+          sourceGeneration = await generateCustomProjectFilesWithAgent({
+            implementationBrief: buildPrompt,
+            implementationSpec,
+            onOperation(operation) {
+              send("operation", operation);
+            },
+            projectId,
+            schema: finalSchema,
+            onFilesChanged,
+            abortSignal,
+            stepCharger: sourceStepCharger,
+          });
+          recordAiCall({
+            attemptId,
+            buildId: runtimeBuildId ?? undefined,
+            modelRequested: getGenerationModel(),
+            phase: "fallback",
+            projectId,
+            status: "ok",
+            task: "build-step",
+          });
+        } else if (
+          // User cancel: never fall back — rethrow so the attempt aborts.
+          (error instanceof Error && error.name === "AbortError") ||
+          abortSignal?.aborted
+        ) {
+          throw error;
+        } else {
+          devLog("generate", "batched.error-fallback", {
+            error: error instanceof Error ? error.message : String(error),
+            projectId,
+          });
+          sourceGeneration = await generateCustomProjectFilesWithAgent({
+            implementationBrief: buildPrompt,
+            implementationSpec,
+            onOperation(operation) {
+              send("operation", operation);
+            },
+            projectId,
+            schema: finalSchema,
+            onFilesChanged,
+            abortSignal,
+            stepCharger: sourceStepCharger,
+          });
+          recordAiCall({
+            attemptId,
+            buildId: runtimeBuildId ?? undefined,
+            modelRequested: getGenerationModel(),
+            phase: "fallback",
+            projectId,
+            status: "ok",
+            task: "build-step",
+          });
         }
-        devLog("generate", "batched.error-fallback", {
-          error: error instanceof Error ? error.message : String(error),
-          projectId,
-        });
-        sourceGeneration = await generateCustomProjectFilesWithAgent({
-          implementationBrief: buildPrompt,
-          implementationSpec,
-          onOperation(operation) {
-            send("operation", operation);
-          },
-          projectId,
-          schema: finalSchema,
-          onFilesChanged,
-          abortSignal,
-          stepCharger: sourceStepCharger,
-        });
-        recordAiCall({
-          attemptId,
-          buildId: runtimeBuildId ?? undefined,
-          modelRequested: getGenerationModel(),
-          phase: "fallback",
-          projectId,
-          status: "ok",
-          task: "build-step",
-        });
       }
     } else {
       sourceGeneration = await generateCustomProjectFilesWithAgent({

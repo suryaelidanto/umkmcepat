@@ -349,4 +349,68 @@ describe("runBuildAttempt — batched rollout wiring", () => {
     expect(runBatchedGenerateMock).not.toHaveBeenCalled();
     expect(generateCustomProjectFilesWithAgentMock).toHaveBeenCalledTimes(1);
   });
+
+  it("admission block → legacy agent still runs (no user-visible abort)", async () => {
+    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
+      key === "generation.batched_rollout" ? "all" : fb,
+    );
+    const { BatchedAdmissionBlockedError } = await import("./brief-admission");
+    runBatchedGenerateMock.mockRejectedValue(
+      new BatchedAdmissionBlockedError({
+        blockers: ["contactOrCta"],
+        reason: "Brief belum siap: kontak atau CTA masih kosong.",
+      }),
+    );
+    generateCustomProjectFilesWithAgentMock.mockResolvedValue({
+      buildSpec: "spec",
+      energyExhausted: false,
+      files: [{ path: "src/routes/index.tsx", content: "legacy" }],
+      generationMode: "agent-custom",
+      operationTrace: [],
+      repairAttempts: 0,
+      summary: "legacy ok",
+      touchedFiles: ["src/routes/index.tsx"],
+    });
+
+    await runBuildAttempt(baseContext());
+
+    expect(runBatchedGenerateMock).toHaveBeenCalledTimes(1);
+    expect(generateCustomProjectFilesWithAgentMock).toHaveBeenCalledTimes(1);
+    // Fallback telemetry row records the legacy pass.
+    const fallbackRows = recordAiCallMock.mock.calls.filter(
+      ([entry]) => entry.phase === "fallback",
+    );
+    expect(fallbackRows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("user cancel (AbortError) → NO legacy fallback, abort propagates", async () => {
+    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
+      key === "generation.batched_rollout" ? "all" : fb,
+    );
+    const abortError = new Error("The operation was aborted.");
+    abortError.name = "AbortError";
+    runBatchedGenerateMock.mockRejectedValue(abortError);
+
+    // runBuildAttempt swallows errors into a user-facing "error" event; the
+    // pin is that legacy never ran and no fallback telemetry was written.
+    await runBuildAttempt(baseContext());
+
+    expect(runBatchedGenerateMock).toHaveBeenCalledTimes(1);
+    expect(generateCustomProjectFilesWithAgentMock).not.toHaveBeenCalled();
+    expect(
+      recordAiCallMock.mock.calls.filter(
+        ([entry]) => entry.phase === "fallback",
+      ),
+    ).toHaveLength(0);
+    // The attempt was marked failed with the abort message preserved raw.
+    const attemptUpdate = prismaMock.projectEditAttempt.updateMany;
+    expect(attemptUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "failed",
+          errorMessage: expect.stringMatching(/aborted/i),
+        }),
+      }),
+    );
+  });
 });
