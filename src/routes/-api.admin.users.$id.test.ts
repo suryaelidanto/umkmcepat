@@ -36,7 +36,10 @@ import { getHandler } from "../../tests/routes/_handler";
 
 import { Route, parseAdminEnergyGrant } from "@/routes/api.admin.users.$id";
 
-const POST = getHandler(Route, "POST");
+const POST = getHandler(
+  Route as never as Parameters<typeof getHandler>[0],
+  "POST",
+);
 
 describe("parseAdminEnergyGrant", () => {
   it("accepts an integer grant in range", () => {
