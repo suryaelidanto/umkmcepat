@@ -376,8 +376,11 @@ describe("runBuildAttempt — batched rollout wiring", () => {
 
     await runBuildAttempt(baseContext());
 
-    const saves = prismaMock.project.updateMany.mock.calls.filter(([args]) =>
-      JSON.stringify((args as { data?: unknown }).data).includes("kontak.tsx"),
+    const calls = prismaMock.project.updateMany.mock.calls as unknown as [
+      { data?: unknown },
+    ][];
+    const saves = calls.filter(([args]) =>
+      JSON.stringify(args.data).includes("kontak.tsx"),
     );
     expect(saves.length).toBeGreaterThan(0);
   });

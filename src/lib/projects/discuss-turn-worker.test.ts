@@ -1098,10 +1098,11 @@ describe("runDiscussTurn hedged race", () => {
     );
     // Regression pin: per-racer input rows must sum to the debit 1:1 — no
     // double-counted hedge usage inside the primary's own row.
-    const debit = chargeEnergyForAiUsageMock.mock.calls[0][0] as {
-      inputTokens: number;
-      outputTokens: number;
-    };
+    const debit = (
+      chargeEnergyForAiUsageMock.mock.calls[0] as unknown as [
+        { inputTokens: number; outputTokens: number },
+      ]
+    )[0];
     const sumInput = discussRows.reduce(
       (acc, row) => acc + (row.inputTokens ?? 0),
       0,
