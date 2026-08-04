@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaAiCallRecordCreateMock, devLogMock } = vi.hoisted(() => ({
-  prismaAiCallRecordCreateMock: vi.fn(async () => ({})),
+  prismaAiCallRecordCreateMock: vi.fn(
+    async (_args: { data: Record<string, unknown> }) => ({}),
+  ),
   devLogMock: vi.fn(),
 }));
 
@@ -121,8 +123,8 @@ describe("recordAiCall", () => {
       task: "t".repeat(200),
     });
 
-    const data = prismaAiCallRecordCreateMock.mock.calls[0]?.[0]
-      ?.data as Record<string, string>;
+    const call = prismaAiCallRecordCreateMock.mock.calls[0];
+    const data = call?.[0]?.data as Record<string, string>;
     expect(data.task).toHaveLength(32);
     expect(data.phase).toHaveLength(32);
     expect(data.status).toHaveLength(16);
