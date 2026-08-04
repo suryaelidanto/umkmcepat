@@ -175,6 +175,12 @@ bun run runtime:idle-stop
 
 Use this from cron/systemd/timer-equivalent in a single-node deployment until a dedicated worker owns the loop.
 
+Preview runtime self-heals: a deleted/removed serving docroot surfaces as a 404
+on the health probe, which marks the deployment stopped and re-materializes the
+S3 dist on the next page load. The owner can also restart a preview explicitly
+via `POST /api/projects/:id/restart` (owner-only). Full AI rebuilds remain the
+separate `POST /api/projects/:id/generate` path.
+
 ## Graphify
 
 Graphify is recommended for non-trivial discovery and reuse checks. It is user-local, not a project dependency.

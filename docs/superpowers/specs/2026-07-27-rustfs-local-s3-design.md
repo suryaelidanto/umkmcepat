@@ -27,6 +27,13 @@ Process-execution dirs are not S3-shaped and stay on disk:
 
 These are unchanged. Only object-storage dirs go away.
 
+Recovery: if the materialized runtime docroot is removed while the static server
+is alive, the health probe receives a 404 and treats the deployment as stopped,
+so the next preview request re-materializes the S3 dist
+(`materializeProjectDistArtifact`) and restarts automatically. Owners may also
+force a restart via `POST /api/projects/:id/restart` (owner-only). Neither path
+runs an AI rebuild.
+
 ## Design
 
 ### Env (one toggle, endpoint-driven)
