@@ -112,6 +112,16 @@ Non-secret product config lives in `/admin/settings` (DB-first over `.env`). Aft
 
 After deploying the one-time-grant migration, preview the existing approved-user reconciliation with `bun run energy:backfill`. Apply it once with `bun run energy:backfill --apply`; the partial unique index makes reruns idempotent. The backfill matches approved waitlist entries to users by normalized email, preserves completed-payment remainder, and reconciles other historical test credit into the 500,000 grant target.
 
+## Moderation: banning a user unpublishes their sites
+
+Banning a user (`/admin/users` → Blokir, sets `User.bannedAt`) also unpublishes
+every one of their published sites: `p/<slug>` for a banned owner returns 410
+Gone with `X-Robots-Tag: noindex` (deindex signal), and their running published
+containers are stopped best-effort. The sitemap omits banned owners. Unbanning
+restores everything — nothing is deleted, and sites come back online
+automatically because the gate is a live read of `User.bannedAt`. The gate lives
+in `src/routes/p.$slug.$.ts`.
+
 ## Attempt queue (BullMQ)
 
 Two Redis-backed BullMQ queues (local Redis: compose `redis` on `127.0.0.1:6379`; override with `REDIS_URL`):
