@@ -97,6 +97,7 @@ If Docker is missing, install/start Docker Desktop or Docker Engine. If the Vite
 
 ## Debugging
 
+Read `dev.log` at the repo root first, then `docker compose logs` for the backing service. UI-side regressions usually need a `bun run dev` tail plus browser console. Hedged discuss turns record three `AiCallRecord` rows grouped by `turnId`; grep the turnId for the full per-racer picture (`hedged`, `raceRole`, `ttftMs`).
 When something breaks, an agent (or you) reconstructs the causal chain without copy-pasting logs:
 
 1. **Read `dev.log` at repo root.** Grep for the project id or error string; read the matching `[umkm:scope] event {json}` lines in order. Every event carries a correlation id (`projectId` + `turnId` or request scope) so one id surfaces the full chain — e.g. a discuss turn: `discuss-turn:claim` → `[umkm:ai] discuss:start` → `discuss-turn:finalize`.
@@ -156,12 +157,16 @@ Model pricing uses a hybrid resolver. `config/model-pricing-overrides.json` is t
 
 Task model ids (9Router labels) are configurable in `/admin/settings` (AI advanced) and env:
 
-| Setting               | Env                                            | Used for                           |
-| --------------------- | ---------------------------------------------- | ---------------------------------- |
-| `ai.models_default`   | `AI_MODELS`                                    | Global fallback (first CSV entry)  |
-| `ai.model.moderation` | `AI_MODEL_MODERATION`                          | Safety gate + chat compaction      |
-| `ai.model.discuss`    | `AI_MODEL_DISCUSS`                             | Guided discuss (+ repairs inherit) |
-| `ai.model.build`      | `AI_MODEL_BUILD` (alias `AI_GENERATION_MODEL`) | Build pipeline + edit agent        |
+| Setting                    | Env                                            | Used for                           |
+| -------------------------- | ---------------------------------------------- | ---------------------------------- |
+| `ai.models_default`        | `AI_MODELS`                                    | Global fallback (first CSV entry)  |
+| `ai.model.moderation`      | `AI_MODEL_MODERATION`                          | Safety gate + chat compaction      |
+| `ai.model.discuss`         | `AI_MODEL_DISCUSS`                             | Guided discuss (+ repairs inherit) |
+| `ai.model.discuss_hedge_2` | `AI_MODEL_DISCUSS_HEDGE_2`                     | Discuss hedge leg 2 (empty = off)  |
+| `ai.model.discuss_hedge_3` | `AI_MODEL_DISCUSS_HEDGE_3`                     | Discuss hedge leg 3 (empty = off)  |
+| `ai.model.build`           | `AI_MODEL_BUILD` (alias `AI_GENERATION_MODEL`) | Build pipeline + edit agent        |
+
+Hedging is gated by `discuss.hedging` (feature_flag category, `DISCUSS_HEDGING_ENABLED`, default off). When on AND at least one hedge leg is set, the discuss turn runs primary + hedges in parallel; first card-valid stream wins, others are aborted. Hedged turns record per-racer `AiCallRecord` rows (`hedged: true`, `raceRole: winner|aborted`) grouped by `turnId`; the `UserCredit` debit is the sum of all racers (1:1 transparency). Best-effort partial tool-args streaming (`nextAssistantTextDeltaFromPartialToolJson`, winner's stream only) is gated by `discuss.partial_tool_streaming` (`DISCUSS_PARTIAL_TOOL_STREAMING`, default `true`). Deploy-time schema compat gate: `bun scripts/verify-hedge-schemas.ts` — hard-fails if any configured combo rejects the card tool schema (the 422 class).
 
 Empty task value → default → hardcode `default-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models` filtered to `owned_by: "combo"` (not upstream provider models). Create combos in 9Router dashboard with these ids: `default-combo`, `moderation-combo`, `discuss-combo`, `build-combo`.
 

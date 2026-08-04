@@ -126,18 +126,29 @@ describe("existing entries carry env + bounds", () => {
     );
   });
 
+  it("maps discuss hedge keys to AI_MODEL_DISCUSS_HEDGE_*", () => {
+    expect(
+      APP_SETTINGS.find((e) => e.key === "ai.model.discuss_hedge_2")?.env,
+    ).toBe("AI_MODEL_DISCUSS_HEDGE_2");
+    expect(
+      APP_SETTINGS.find((e) => e.key === "ai.model.discuss_hedge_3")?.env,
+    ).toBe("AI_MODEL_DISCUSS_HEDGE_3");
+  });
+
   it("maps ai.model.build to AI_MODEL_BUILD", () => {
     expect(APP_SETTINGS.find((e) => e.key === "ai.model.build")?.env).toBe(
       "AI_MODEL_BUILD",
     );
   });
 
-  it("marks four model keys with nine_router_models optionsSource", () => {
+  it("marks model keys with nine_router_models optionsSource", () => {
     for (const key of [
       "ai.models_default",
       "ai.model.moderation",
       "ai.model.discuss",
       "ai.model.build",
+      "ai.model.discuss_hedge_2",
+      "ai.model.discuss_hedge_3",
     ]) {
       expect(APP_SETTINGS.find((e) => e.key === key)?.optionsSource).toBe(
         "nine_router_models",

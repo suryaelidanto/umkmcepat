@@ -12,6 +12,8 @@ const {
   maybeCompactProjectChatMock,
   normalizeWorkspaceTurnMock,
   recordAiCallMock,
+  getDiscussHedgeModelsMock,
+  getSettingSyncMock,
 } = vi.hoisted(() => ({
   streamTextMock: vi.fn(),
   convertToModelMessagesMock: vi.fn(async () => []),
@@ -23,6 +25,14 @@ const {
   writeAiRequestLogMock: vi.fn(async () => undefined),
   maybeCompactProjectChatMock: vi.fn(async () => null),
   recordAiCallMock: vi.fn(),
+  // Hedging tests override these; defaults keep hedging off.
+  getDiscussHedgeModelsMock: vi.fn(() => [] as string[]),
+  getSettingSyncMock: vi.fn((key: string, fallback: unknown) => {
+    if (key === "discuss.hedging") {
+      return false;
+    }
+    return fallback;
+  }),
   normalizeWorkspaceTurnMock: vi.fn(() => ({
     brief: { prompt: "p", confidence: 0 },
     projectTitle: "t",
@@ -48,7 +58,7 @@ vi.mock("ai", async (importOriginal) => {
 });
 
 vi.mock("@/lib/ai", () => ({
-  getAiModel: vi.fn(() => "test-model"),
+  getAiModel: vi.fn((name?: string) => ({ modelId: name ?? "test-model" })),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
   getNoReasoningCallOptions: vi.fn(() => ({ reasoning: "none" })),
 }));
@@ -57,8 +67,13 @@ vi.mock("@/lib/ai-models", () => ({
   DEFAULT_AI_MODEL: "test/model",
   getDefaultAiModel: vi.fn(() => "test/model"),
   getDiscussModel: vi.fn(() => "test/model"),
+  getDiscussHedgeModels: getDiscussHedgeModelsMock,
   getModerationModel: vi.fn(() => "test/model"),
   getGenerationModel: vi.fn(() => "test/model"),
+}));
+
+vi.mock("@/lib/app-settings", () => ({
+  getSettingSync: getSettingSyncMock,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -673,6 +688,329 @@ describe("runDiscussTurn worker", () => {
     expect(cardEvent.type).toBe("build_recommendation");
     expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
       expect.objectContaining({ turnId: "ct_gate_eager", status: "succeeded" }),
+    );
+  });
+});
+
+function makeRaceStreamResult({
+  parts,
+  usage = { inputTokens: 10, outputTokens: 5 },
+  modelId,
+}: {
+  parts: unknown[];
+  usage?: { inputTokens: number; outputTokens: number };
+  modelId: string;
+}) {
+  let aborted = false;
+  let abortedBeforeFirstYield = false;
+  return {
+    abort: vi.fn(() => {
+      aborted = true;
+    }),
+    state: () => ({ aborted, abortedBeforeFirstYield }),
+    result: {
+      stream: (async function* () {
+        for (const part of parts) {
+          if (aborted) {
+            abortedBeforeFirstYield = true;
+            break;
+          }
+          yield part;
+        }
+      })(),
+      usage: Promise.resolve(usage),
+      response: Promise.resolve({ modelId }),
+    },
+  };
+}
+
+function enableHedging(hedges: string[]) {
+  getDiscussHedgeModelsMock.mockImplementation(() => hedges);
+  getSettingSyncMock.mockImplementation(
+    (key: string, fallback: unknown) =>
+      (key === "discuss.hedging" ? true : fallback) as never,
+  );
+}
+
+const raceCard = {
+  type: "question",
+  question: {
+    id: "business_name",
+    question: "Nama usahanya apa?",
+    answerMode: "text",
+    options: [],
+  },
+};
+
+function okNormalize() {
+  normalizeWorkspaceTurnMock.mockReturnValue({
+    brief: { prompt: "p", confidence: 0 },
+    projectTitle: "T",
+    workspaceCard: raceCard,
+    readyForBuild: false,
+  } as never);
+}
+
+describe("runDiscussTurn hedged race", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("hedge on: primary wins cleanly, hedge aborted, events only from winner", async () => {
+    enableHedging(["discuss-combo-2"]);
+    okNormalize();
+    const winnerParts = [
+      { type: "text-delta", text: "Halo" },
+      {
+        type: "tool-call",
+        toolCallId: "tc-win",
+        toolName: "presentWorkspaceCard",
+        input: { assistantText: "Halo", workspaceCard: raceCard },
+      },
+    ];
+    const primaryStream = makeRaceStreamResult({
+      parts: winnerParts,
+      modelId: "test/model",
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+    const hedgeStream = makeRaceStreamResult({
+      // Loser streams nothing before the primary wins — aborted legs would
+      // otherwise leak deltas while they complete before the winner check.
+      parts: [],
+      modelId: "discuss-combo-2",
+      usage: { inputTokens: 4, outputTokens: 2 },
+    });
+    // Worker creates hedge streams first, then primary; mockReturnValueOnce
+    // consumes in that call order (hedge first, then primary).
+    streamTextMock
+      .mockReturnValueOnce(hedgeStream.result)
+      .mockReturnValueOnce(primaryStream.result);
+
+    await runDiscussTurn({
+      turnId: "ct_hedge_win",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(streamTextMock).toHaveBeenCalledTimes(2);
+    const requestedModels = streamTextMock.mock.calls.map(
+      ([opts]) => (opts as { model: { modelId: string } }).model.modelId,
+    );
+    expect(requestedModels).toEqual(["discuss-combo-2", "test/model"]);
+    // Each leg got its own abortSignal.
+    for (const [opts] of streamTextMock.mock.calls) {
+      expect(
+        (opts as { abortSignal?: AbortSignal }).abortSignal,
+      ).toBeInstanceOf(AbortSignal);
+    }
+
+    // Events seen by the UI came only from the winning stream.
+    const deltas = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_hedge_win" && event.type === "text-delta",
+      )
+      .map(([, event]) => event.delta as string);
+    expect(deltas.join("")).toBe("Halo");
+    expect(
+      publishProgressMock.mock.calls.some(([, event]) =>
+        JSON.stringify(event).includes("HEDGE-EVENT-MUST-NOT-PUBLISH"),
+      ),
+    ).toBe(false);
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ turnId: "ct_hedge_win", status: "succeeded" }),
+    );
+
+    // Per-racer ledger rows.
+    const discussRows = recordAiCallMock.mock.calls
+      .filter(([entry]) => entry.task === "discuss")
+      .map(([entry]) => entry);
+    expect(discussRows).toHaveLength(2);
+    const winnerRow = discussRows.find((r) => r.raceRole === "winner");
+    const abortedRow = discussRows.find((r) => r.raceRole === "aborted");
+    expect(winnerRow).toEqual(
+      expect.objectContaining({
+        hedged: true,
+        status: "ok",
+        modelRequested: "test/model",
+      }),
+    );
+    expect(abortedRow).toEqual(
+      expect.objectContaining({
+        hedged: true,
+        status: "aborted",
+        modelRequested: "discuss-combo-2",
+      }),
+    );
+
+    // Single debit equal to the sum of per-racer usage.
+    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledTimes(1);
+    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "u1",
+        inputTokens: 10 + 4,
+        outputTokens: 5 + 2,
+        reason: "discuss:step",
+      }),
+    );
+  });
+
+  it("all legs fail: text-only fallback reached, per-racer error rows", async () => {
+    enableHedging(["discuss-combo-2"]);
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: { type: "none" },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockImplementation(
+      (opts: { model: { modelId: string } }) =>
+        makeRaceStreamResult({
+          parts: [{ type: "text-delta", text: `ans-${opts.model.modelId}` }],
+          modelId: opts.model.modelId,
+          usage: { inputTokens: 3, outputTokens: 3 },
+        }).result,
+    );
+    generateTextMock.mockResolvedValue({
+      usage: { inputTokens: 1, outputTokens: 1 },
+      toolCalls: [],
+    });
+
+    await runDiscussTurn({
+      turnId: "ct_hedge_fail",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    // Existing text-only fallback path (repair attempted once, failed).
+    expect(writeAiRequestLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "discuss:text-only-fallback" }),
+    );
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ turnId: "ct_hedge_fail", status: "succeeded" }),
+    );
+    const discussRows = recordAiCallMock.mock.calls
+      .filter(([entry]) => entry.task === "discuss")
+      .map(([entry]) => entry);
+    expect(discussRows).toHaveLength(2);
+    for (const row of discussRows) {
+      expect(row.hedged).toBe(true);
+      // No winner: primary errored out, hedges aborted invalid.
+      expect(row.raceRole).not.toBe("winner");
+      expect(row.status).toBe("error");
+      expect(row.errorClass).toBe("invalid-card");
+    }
+    // Tokens from every racer still reach the single UserCredit debit.
+    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ inputTokens: 6, outputTokens: 6 }),
+    );
+  });
+
+  it("winner with invalid card: repair runs once on winner state only", async () => {
+    enableHedging(["discuss-combo-2"]);
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: { type: "none" },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockImplementation(
+      (opts: { model: { modelId: string } }) =>
+        makeRaceStreamResult({
+          parts: [{ type: "text-delta", text: `teks-${opts.model.modelId}` }],
+          modelId: opts.model.modelId,
+        }).result,
+    );
+    generateTextMock.mockResolvedValueOnce({
+      usage: { inputTokens: 2, outputTokens: 3 },
+      toolCalls: [
+        {
+          input: {
+            assistantText: "Nama usahanya apa?",
+            workspaceCard: raceCard,
+          },
+        },
+      ],
+    });
+
+    await runDiscussTurn({
+      turnId: "ct_hedge_repair",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    // One repair call, on the winner's model only.
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+    expect(
+      (generateTextMock.mock.calls[0][0] as { model: { modelId: string } })
+        .model.modelId,
+    ).toBe("test/model");
+    expect(
+      publishProgressMock.mock.calls.some(([, event]) =>
+        JSON.stringify(event).includes("teks-discuss-combo-2"),
+      ),
+    ).toBe(false);
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turnId: "ct_hedge_repair",
+        status: "succeeded",
+      }),
+    );
+  });
+
+  it("flag off: single call, no hedged rows, identical to today", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: raceCard,
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Halo" },
+        {
+          type: "tool-call",
+          toolCallId: "tc1",
+          toolName: "presentWorkspaceCard",
+          input: { workspaceCard: raceCard },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_no_hedge",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+    const discussRows = recordAiCallMock.mock.calls
+      .filter(([entry]) => entry.task === "discuss")
+      .map(([entry]) => entry);
+    expect(discussRows).toHaveLength(1);
+    expect(discussRows[0].hedged).toBeUndefined();
+    expect(discussRows[0].raceRole).toBeUndefined();
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ turnId: "ct_no_hedge", status: "succeeded" }),
     );
   });
 });

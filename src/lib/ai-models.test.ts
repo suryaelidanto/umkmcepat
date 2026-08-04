@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_AI_MODEL,
   getDefaultAiModel,
+  getDiscussHedgeModels,
   getDiscussModel,
   getGenerationModel,
   getModerationModel,
@@ -187,5 +188,73 @@ describe("task model getters", () => {
     const { primeSettingCache } = await import("@/lib/app-settings");
     await primeSettingCache();
     expect(getModerationModel()).toBe("default-combo");
+  });
+});
+
+describe("getDiscussHedgeModels", () => {
+  afterEach(async () => {
+    invalidateSettingCache();
+    delete process.env.AI_MODEL_DISCUSS_HEDGE_2;
+    delete process.env.AI_MODEL_DISCUSS_HEDGE_3;
+    const { prisma } = await import("@/lib/prisma");
+    for (const key of [
+      "ai.model.discuss_hedge_2",
+      "ai.model.discuss_hedge_3",
+    ]) {
+      await prisma.appSetting.delete({ where: { key } }).catch(() => {});
+    }
+  });
+
+  it("returns empty when no hedge legs configured (hedge off)", async () => {
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getDiscussHedgeModels()).toEqual([]);
+  });
+
+  it("returns configured legs in stable env order", async () => {
+    process.env.AI_MODEL_DISCUSS_HEDGE_2 = "discuss-combo-2";
+    process.env.AI_MODEL_DISCUSS_HEDGE_3 = "discuss-combo-3";
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getDiscussHedgeModels()).toEqual([
+      "discuss-combo-2",
+      "discuss-combo-3",
+    ]);
+  });
+
+  it("keeps order when only hedge 3 is set", async () => {
+    process.env.AI_MODEL_DISCUSS_HEDGE_3 = "discuss-combo-3";
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getDiscussHedgeModels()).toEqual(["discuss-combo-3"]);
+  });
+
+  it("prefers DB values over env", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "ai.model.discuss_hedge_2" },
+      create: {
+        key: "ai.model.discuss_hedge_2",
+        category: "ai",
+        value: "db-hedge-2",
+      },
+      update: { value: "db-hedge-2" },
+    });
+    process.env.AI_MODEL_DISCUSS_HEDGE_2 = "env-hedge-2";
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getDiscussHedgeModels()).toEqual(["db-hedge-2"]);
+  });
+
+  it("treats whitespace leg value as unset", async () => {
+    process.env.AI_MODEL_DISCUSS_HEDGE_2 = "   ";
+    invalidateSettingCache();
+    const { primeSettingCache } = await import("@/lib/app-settings");
+    await primeSettingCache();
+    expect(getDiscussHedgeModels()).toEqual([]);
   });
 });
