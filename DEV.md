@@ -102,7 +102,8 @@ When something breaks, an agent (or you) reconstructs the causal chain without c
 1. **Read `dev.log` at repo root.** Grep for the project id or error string; read the matching `[umkm:scope] event {json}` lines in order. Every event carries a correlation id (`projectId` + `turnId` or request scope) so one id surfaces the full chain — e.g. a discuss turn: `discuss-turn:claim` → `[umkm:ai] discuss:start` → `discuss-turn:finalize`.
 2. **Cross-reference infra with Docker logs** for 9Router / Headroom / Postgres failures: `bun run infra:logs` (or `docker compose logs -f`).
 3. **Cross-reference raw AI payloads** in `.data/tmp/ai-debug/requests.ndjson` when a model call looks wrong (full request/response bodies that would bloat `dev.log`).
-4. **Navigate before you grep.** Run `bun run graph:update` then read the source tree Graphify returns — non-trivial discovery goes through Graphify first, never blind search.
+4. **Cross-reference per-request AI metadata** in the `AiCallRecord` table (query by `turnId`/`attemptId`/`projectId`) for latency, served model, tokens, and error class of every upstream call; raw payloads stay in `.data/tmp/ai-debug/requests.ndjson` (dev-only).
+5. **Navigate before you grep.** Run `bun run graph:update` then read the source tree Graphify returns — non-trivial discovery goes through Graphify first, never blind search.
 
 `dev.log` rotates at ~5 MB to `dev.log.1`; it is never deleted on crash (a crash is when it matters most). Both are gitignored.
 
