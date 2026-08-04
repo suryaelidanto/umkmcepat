@@ -147,7 +147,6 @@ export async function maybeCompactProjectChat({
           ? "aborted"
           : "error",
       task: "compaction",
-      ttftMs: timing.ttftMs,
       ...correlation,
     });
     throw error;
