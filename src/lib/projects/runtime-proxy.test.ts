@@ -6,6 +6,7 @@ import {
   applyPreviewSandboxHeaders,
   injectPreviewAnnotationBridge,
   injectPublishedHead,
+  pickPreviewAnnotationCandidateIndex,
   proxyDeploymentRequest,
   rewritePreviewAssetUrls,
   rewritePublicAssetUrls,
@@ -23,12 +24,13 @@ describe("runtime proxy", () => {
     expect(html).toContain(
       "element.closest('.umkm-annotation-marker,.umkm-annotation-hover')",
     );
-    expect(html).toContain("document.elementsFromPoint");
     expect(html).toContain("function selectionAt");
-    expect(html).toContain("function isLeafTarget");
-    expect(html).toContain("function selectionAt");
+    expect(html).toContain("function deepElementFromPoint");
+    expect(html).toContain("function pickElement");
+    expect(html).toContain("lastHoverTarget");
+    expect(html).toContain("Date.now() - lastHoverTarget.timestamp <= 250");
     expect(html).toContain("range.getBoundingClientRect()");
-    expect(html).toContain("p|label|li|blockquote");
+    expect(html).toContain("p,label,li,blockquote");
     expect(html).toContain("badge|card|capsule|chip");
     expect(html).toContain(":nth-of-type(");
     expect(injectPreviewAnnotationBridge(html)).toBe(html);
@@ -40,6 +42,88 @@ describe("runtime proxy", () => {
       await new Promise<void>((resolve) => server?.close(() => resolve()));
       server = null;
     }
+  });
+
+  describe("preview annotation element picking", () => {
+    it("selects a nested heading instead of its large section", () => {
+      const candidates = [
+        { tag: "h1", text: "Servis motor panggilan" },
+        {
+          className: "hero-copy",
+          tag: "div",
+          text: "Servis motor panggilan",
+        },
+        {
+          className: "hero-section",
+          tag: "section",
+          text: "Servis motor panggilan",
+        },
+        { tag: "main", text: "Servis motor panggilan" },
+      ];
+
+      expect(pickPreviewAnnotationCandidateIndex(candidates)).toBe(0);
+    });
+
+    it("selects paragraph text inside a card instead of the card", () => {
+      const candidates = [
+        { tag: "p", text: "Paket servis ringan untuk motor harian." },
+        {
+          className: "service-card-body",
+          tag: "div",
+          text: "Paket servis ringan untuk motor harian.",
+        },
+        {
+          className: "service-card",
+          tag: "article",
+          text: "Paket servis ringan untuk motor harian.",
+        },
+      ];
+
+      expect(pickPreviewAnnotationCandidateIndex(candidates)).toBe(0);
+    });
+
+    it("selects a button when clicking text or icon inside the button", () => {
+      expect(
+        pickPreviewAnnotationCandidateIndex([
+          { ignored: true, tag: "svg" },
+          { tag: "span", text: "Pesan sekarang" },
+          {
+            className: "primary-action",
+            tag: "button",
+            text: "Pesan sekarang",
+          },
+        ]),
+      ).toBe(2);
+
+      expect(
+        pickPreviewAnnotationCandidateIndex([
+          { tag: "span", text: "Pesan sekarang" },
+          {
+            className: "primary-action",
+            tag: "button",
+            text: "Pesan sekarang",
+          },
+        ]),
+      ).toBe(1);
+    });
+
+    it("selects an image directly", () => {
+      expect(
+        pickPreviewAnnotationCandidateIndex([
+          { tag: "img" },
+          { tag: "section" },
+        ]),
+      ).toBe(0);
+    });
+
+    it("selects a card when clicking generic card padding", () => {
+      expect(
+        pickPreviewAnnotationCandidateIndex([
+          { className: "card-padding", tag: "div" },
+          { className: "product-card", tag: "article", text: "Paket hemat" },
+        ]),
+      ).toBe(1);
+    });
   });
 
   it("cold-starts stopped deployments and proxies the runtime response", async () => {

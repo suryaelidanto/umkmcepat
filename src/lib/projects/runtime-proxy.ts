@@ -265,6 +265,95 @@ export function injectPublishedHead(
   return html.replace(/<head>/i, `<head>\n    ${headInjection}`);
 }
 
+export type PreviewAnnotationCandidate = {
+  annotatable?: boolean;
+  className?: string;
+  directText?: string;
+  hasClickHandler?: boolean;
+  ignored?: boolean;
+  role?: string | null;
+  tag: string;
+  text?: string;
+};
+
+export function pickPreviewAnnotationCandidateIndex(
+  candidates: PreviewAnnotationCandidate[],
+) {
+  const usable = candidates
+    .map((candidate, index) => ({ candidate, index }))
+    .filter((item) => !item.candidate.ignored);
+
+  return (
+    findCandidateIndex(usable, isPreviewInteractiveCandidate) ??
+    findCandidateIndex(usable, isPreviewMediaCandidate) ??
+    findCandidateIndex(usable, isPreviewTextCandidate) ??
+    findCandidateIndex(usable, (candidate) =>
+      Boolean(cleanPreviewAnnotationText(candidate.directText || "")),
+    ) ??
+    findCandidateIndex(usable, isPreviewAtomicCandidate) ??
+    findCandidateIndex(usable, isPreviewContainerCandidate) ??
+    usable[0]?.index ??
+    -1
+  );
+}
+
+function findCandidateIndex(
+  candidates: Array<{ candidate: PreviewAnnotationCandidate; index: number }>,
+  predicate: (candidate: PreviewAnnotationCandidate) => boolean,
+) {
+  return candidates.find((item) => predicate(item.candidate))?.index;
+}
+
+function isPreviewInteractiveCandidate(candidate: PreviewAnnotationCandidate) {
+  return (
+    /^(button|a|input|select|textarea)$/.test(candidate.tag) ||
+    candidate.role === "button" ||
+    Boolean(candidate.hasClickHandler)
+  );
+}
+
+function isPreviewMediaCandidate(candidate: PreviewAnnotationCandidate) {
+  return /^(img|picture|video|svg)$/.test(candidate.tag);
+}
+
+function isPreviewTextCandidate(candidate: PreviewAnnotationCandidate) {
+  return (
+    /^(h1|h2|h3|h4|h5|h6|p|label|li|blockquote|figcaption|caption|span|strong|em|b|i|small|code|pre)$/.test(
+      candidate.tag,
+    ) && Boolean(cleanPreviewAnnotationText(candidate.text || ""))
+  );
+}
+
+function isPreviewAtomicCandidate(candidate: PreviewAnnotationCandidate) {
+  if (candidate.tag === "article") {
+    return true;
+  }
+
+  if (candidate.role === "listitem" || candidate.annotatable) {
+    return true;
+  }
+
+  if (
+    /(^|[-_\s])(body|container|content|inner|padding|wrapper)([-_\s]|$)/i.test(
+      candidate.className || "",
+    )
+  ) {
+    return false;
+  }
+
+  return /(^|[-_\s])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([-_\s]|$)/i.test(
+    candidate.className || "",
+  );
+}
+
+function isPreviewContainerCandidate(candidate: PreviewAnnotationCandidate) {
+  return /^(section|nav|header|footer|main|aside)$/.test(candidate.tag);
+}
+
+function cleanPreviewAnnotationText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 const PREVIEW_ANNOTATION_BRIDGE = String.raw`
 (() => {
   if (window.__umkmAnnotationBridge) return;
@@ -278,6 +367,7 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
 
   let active = false;
   let hoverBox = null;
+  let lastHoverTarget = null;
   const markers = new Map();
 
   const style = document.createElement('style');
@@ -306,24 +396,19 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     if (hoverBox) hoverBox.hidden = true;
   }
 
-  function elementAt(x, y) {
-    const elements = typeof document.elementsFromPoint === 'function'
-      ? document.elementsFromPoint(x, y)
-      : [document.elementFromPoint(x, y)];
-
-    for (let element of elements) {
-      while (element && element.shadowRoot) {
-        const deeper = element.shadowRoot.elementFromPoint(x, y);
-        if (!deeper || deeper === element) break;
-        element = deeper;
-      }
-
-      if (!(element instanceof HTMLElement) || shouldIgnore(element)) continue;
-      const target = meaningfulElement(element);
-      if (target) return target;
+  function deepElementFromPoint(x, y) {
+    let element = document.elementFromPoint(x, y);
+    while (element instanceof HTMLElement && element.shadowRoot) {
+      const deeper = element.shadowRoot.elementFromPoint(x, y);
+      if (!deeper || deeper === element) break;
+      element = deeper;
     }
+    return element instanceof HTMLElement ? element : null;
+  }
 
-    return null;
+  function elementAt(x, y) {
+    const element = deepElementFromPoint(x, y);
+    return element ? pickElement(element) : null;
   }
 
   function selectionAt(x, y) {
@@ -346,69 +431,67 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     if (!containsPoint) return null;
 
     const pointed = elementAt(x, y);
-    const target =
-      element instanceof HTMLElement && (isLeafTarget(element) || isAtomicBlock(element))
-        ? meaningfulElement(element)
-        : pointed;
+    const target = element instanceof HTMLElement ? pickElement(element) || pointed : pointed;
 
     return target ? { rect, target, text: text.slice(0, 500) } : null;
   }
 
-  function shouldIgnore(element) {
+  function pickElement(element) {
+    if (isBridgeUi(element)) return null;
+
+    const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
+    if (interactive) return interactive;
+
+    const media = closestElement(element, 'img,picture,video,svg');
+    if (media && !isIgnorableDecoration(media)) return media;
+
+    const text = closestElement(element, 'h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption,caption,span,strong,em,b,i,small,code,pre');
+    if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) return text;
+
+    if (!isIgnorableDecoration(element) && hasDirectText(element)) return element;
+
+    const atomic = closestAtomicBlock(element);
+    if (atomic) return atomic;
+
+    const container = closestElement(element, 'section,nav,header,footer,main,aside,[aria-label]');
+    return container || element;
+  }
+
+  function closestElement(element, selector) {
+    let current = element;
+    while (current && current !== document.body) {
+      if (current instanceof HTMLElement && current.matches(selector) && !isBridgeUi(current)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  function isBridgeUi(element) {
     if (element.closest('.umkm-annotation-marker,.umkm-annotation-hover')) return true;
+    return false;
+  }
+
+  function isIgnorableDecoration(element) {
     if (element.getAttribute('aria-hidden') === 'true') return true;
 
     const className = typeof element.className === 'string' ? element.className : '';
     const isDecoration = /(backdrop|decoration|gradient|glow|overlay|veil)/i.test(className);
     const hasText = Boolean(clean(element.innerText || element.textContent || ''));
-    const isInteractive = element.matches('a,button,input,select,textarea,[role="button"]');
+    const isInteractive = element.matches('a,button,input,select,textarea,[role="button"],[onclick]');
 
     return isDecoration && !hasText && !isInteractive;
   }
 
-  function meaningfulElement(element) {
-    if (shouldIgnore(element)) return null;
-
-    const interactive = element.closest('button,a,input,select,textarea,[role="button"]');
-    if (interactive instanceof HTMLElement) return interactive;
-
-    const atomic = closestAtomicBlock(element);
-    if (atomic && atomic !== element && isInlineAtomicBlock(atomic)) return atomic;
-
-    let current = element;
-    while (current && current !== document.body) {
-      if (isLeafTarget(current)) return current;
-      if (isAtomicBlock(current)) return current;
-      current = current.parentElement;
-    }
-
-    const container = element.closest('article,[role="listitem"],section,nav,header,footer,main,aside,[aria-label]');
-    return container instanceof HTMLElement ? container : element;
-  }
-
-  function isLeafTarget(element) {
-    const tag = element.tagName.toLowerCase();
-    if (/^h[1-6]$/.test(tag) || /^(p|label|li|blockquote|figcaption|caption|img|picture|video|svg)$/.test(tag)) return true;
-    if (tag === 'span') {
-      const parent = element.parentElement;
-      return Boolean(clean(element.innerText || element.textContent || '')) &&
-        !(parent && parent.matches('a,button,h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption'));
-    }
-
-    return tag === 'div' && isTextOnlyElement(element);
-  }
-
-  function isTextOnlyElement(element) {
-    const text = clean(element.innerText || element.textContent || '');
-    if (!text) return false;
-
-    return !element.querySelector('a,article,button,h1,h2,h3,h4,h5,h6,img,input,li,p,section,textarea,video');
+  function hasDirectText(element) {
+    return Array.from(element.childNodes).some((node) =>
+      node.nodeType === Node.TEXT_NODE && clean(node.textContent || ''),
+    );
   }
 
   function closestAtomicBlock(element) {
     let current = element;
     while (current && current !== document.body) {
-      if (isAtomicBlock(current)) return current;
+      if (current instanceof HTMLElement && !isIgnorableDecoration(current) && isAtomicBlock(current)) return current;
       current = current.parentElement;
     }
     return null;
@@ -418,12 +501,21 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     if (element.matches('article,[role="listitem"],[data-umkm-annotatable]')) return true;
 
     const className = typeof element.className === 'string' ? element.className : '';
+    if (/(^|[-_\\s])(body|container|content|inner|padding|wrapper)([-_\\s]|$)/i.test(className)) return false;
     return /(^|[-_\\s])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([-_\\s]|$)/i.test(className);
   }
 
-  function isInlineAtomicBlock(element) {
-    const className = typeof element.className === 'string' ? element.className : '';
-    return /(^|[-_\\s])(badge|capsule|chip|pill|tag)([-_\\s]|$)/i.test(className);
+  function pointInRect(x, y, rect) {
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+
+  function recentHoverTargetAt(x, y) {
+    if (!lastHoverTarget) return null;
+    if (!document.contains(lastHoverTarget.element)) return null;
+    if (!(Date.now() - lastHoverTarget.timestamp <= 250)) return null;
+
+    const rect = lastHoverTarget.selectionRect || lastHoverTarget.rect;
+    return pointInRect(x, y, rect) ? lastHoverTarget : null;
   }
 
   function targetData(element, selection) {
@@ -507,10 +599,19 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     const selection = selectionAt(event.clientX, event.clientY);
     const element = selection ? selection.target : elementAt(event.clientX, event.clientY);
     if (!element) {
+      lastHoverTarget = null;
       hideHoverBox();
       return;
     }
-    setHoverBox(selection ? selection.rect : element.getBoundingClientRect());
+    const rect = selection ? selection.rect : element.getBoundingClientRect();
+    lastHoverTarget = {
+      element,
+      rect: element.getBoundingClientRect(),
+      selectedText: selection ? selection.text : undefined,
+      selectionRect: selection ? selection.rect : undefined,
+      timestamp: Date.now(),
+    };
+    setHoverBox(rect);
     window.parent.postMessage({ type: 'umkmcepat-annotation-hover', payload: targetData(element, selection) }, PARENT_ORIGIN);
   }
 
@@ -518,8 +619,13 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     if (!active) return;
     event.preventDefault();
     event.stopPropagation();
+    const hovered = recentHoverTargetAt(event.clientX, event.clientY);
     const selection = selectionAt(event.clientX, event.clientY);
-    const element = selection ? selection.target : elementAt(event.clientX, event.clientY);
+    const element = selection
+      ? selection.target
+      : hovered
+        ? hovered.element
+        : elementAt(event.clientX, event.clientY);
     if (!element) return;
     window.parent.postMessage({ type: 'umkmcepat-annotation-target', payload: targetData(element, selection) }, PARENT_ORIGIN);
   }
