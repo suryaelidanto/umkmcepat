@@ -286,12 +286,6 @@ export function pickPreviewAnnotationCandidateIndex(
   return (
     findCandidateIndex(usable, isPreviewInteractiveCandidate) ??
     findCandidateIndex(usable, isPreviewMediaCandidate) ??
-    findCandidateIndex(usable, isPreviewTextCandidate) ??
-    findCandidateIndex(usable, (candidate) =>
-      Boolean(cleanPreviewAnnotationText(candidate.directText || "")),
-    ) ??
-    findCandidateIndex(usable, isPreviewAtomicCandidate) ??
-    findCandidateIndex(usable, isPreviewContainerCandidate) ??
     usable[0]?.index ??
     -1
   );
@@ -316,44 +310,6 @@ function isPreviewMediaCandidate(candidate: PreviewAnnotationCandidate) {
   return /^(img|picture|video|svg)$/.test(candidate.tag);
 }
 
-function isPreviewTextCandidate(candidate: PreviewAnnotationCandidate) {
-  return (
-    /^(h1|h2|h3|h4|h5|h6|p|label|li|blockquote|figcaption|caption|span|strong|em|b|i|small|code|pre)$/.test(
-      candidate.tag,
-    ) && Boolean(cleanPreviewAnnotationText(candidate.text || ""))
-  );
-}
-
-function isPreviewAtomicCandidate(candidate: PreviewAnnotationCandidate) {
-  if (candidate.tag === "article") {
-    return true;
-  }
-
-  if (candidate.role === "listitem" || candidate.annotatable) {
-    return true;
-  }
-
-  if (
-    /(^|[-_\s])(body|container|content|inner|padding|wrapper)([-_\s]|$)/i.test(
-      candidate.className || "",
-    )
-  ) {
-    return false;
-  }
-
-  return /(^|[-_\s])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([-_\s]|$)/i.test(
-    candidate.className || "",
-  );
-}
-
-function isPreviewContainerCandidate(candidate: PreviewAnnotationCandidate) {
-  return /^(section|nav|header|footer|main|aside)$/.test(candidate.tag);
-}
-
-function cleanPreviewAnnotationText(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
 const PREVIEW_ANNOTATION_BRIDGE = String.raw`
 (() => {
   if (window.__umkmAnnotationBridge) return;
@@ -367,7 +323,6 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
 
   let active = false;
   let hoverBox = null;
-  let lastHoverTarget = null;
   const markers = new Map();
 
   const style = document.createElement('style');
@@ -445,10 +400,7 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     const media = closestElement(element, 'img,picture,video,svg');
     if (media && !isIgnorableDecoration(media)) return media;
 
-    const text = closestElement(element, 'h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption,caption,span,strong,em,b,i,small,code,pre');
-    if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) return text;
-
-    if (!isIgnorableDecoration(element) && hasDirectText(element)) return element;
+    if (!isIgnorableDecoration(element)) return element;
 
     const atomic = closestAtomicBlock(element);
     if (atomic) return atomic;
@@ -482,12 +434,6 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     return isDecoration && !hasText && !isInteractive;
   }
 
-  function hasDirectText(element) {
-    return Array.from(element.childNodes).some((node) =>
-      node.nodeType === Node.TEXT_NODE && clean(node.textContent || ''),
-    );
-  }
-
   function closestAtomicBlock(element) {
     let current = element;
     while (current && current !== document.body) {
@@ -501,21 +447,8 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     if (element.matches('article,[role="listitem"],[data-umkm-annotatable]')) return true;
 
     const className = typeof element.className === 'string' ? element.className : '';
-    if (/(^|[-_\\s])(body|container|content|inner|padding|wrapper)([-_\\s]|$)/i.test(className)) return false;
-    return /(^|[-_\\s])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([-_\\s]|$)/i.test(className);
-  }
-
-  function pointInRect(x, y, rect) {
-    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-  }
-
-  function recentHoverTargetAt(x, y) {
-    if (!lastHoverTarget) return null;
-    if (!document.contains(lastHoverTarget.element)) return null;
-    if (!(Date.now() - lastHoverTarget.timestamp <= 250)) return null;
-
-    const rect = lastHoverTarget.selectionRect || lastHoverTarget.rect;
-    return pointInRect(x, y, rect) ? lastHoverTarget : null;
+    if (/(^|[\s_-])(body|container|content|inner|padding|wrapper)([\s_-]|$)/i.test(className)) return false;
+    return /(^|[\s_-])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([\s_-]|$)/i.test(className);
   }
 
   function targetData(element, selection) {
@@ -599,18 +532,11 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     const selection = selectionAt(event.clientX, event.clientY);
     const element = selection ? selection.target : elementAt(event.clientX, event.clientY);
     if (!element) {
-      lastHoverTarget = null;
       hideHoverBox();
       return;
     }
+
     const rect = selection ? selection.rect : element.getBoundingClientRect();
-    lastHoverTarget = {
-      element,
-      rect: element.getBoundingClientRect(),
-      selectedText: selection ? selection.text : undefined,
-      selectionRect: selection ? selection.rect : undefined,
-      timestamp: Date.now(),
-    };
     setHoverBox(rect);
     window.parent.postMessage({ type: 'umkmcepat-annotation-hover', payload: targetData(element, selection) }, PARENT_ORIGIN);
   }
@@ -619,13 +545,8 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     if (!active) return;
     event.preventDefault();
     event.stopPropagation();
-    const hovered = recentHoverTargetAt(event.clientX, event.clientY);
     const selection = selectionAt(event.clientX, event.clientY);
-    const element = selection
-      ? selection.target
-      : hovered
-        ? hovered.element
-        : elementAt(event.clientX, event.clientY);
+    const element = selection ? selection.target : elementAt(event.clientX, event.clientY);
     if (!element) return;
     window.parent.postMessage({ type: 'umkmcepat-annotation-target', payload: targetData(element, selection) }, PARENT_ORIGIN);
   }

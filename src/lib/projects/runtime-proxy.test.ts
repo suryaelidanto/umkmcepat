@@ -27,12 +27,10 @@ describe("runtime proxy", () => {
     expect(html).toContain("function selectionAt");
     expect(html).toContain("function deepElementFromPoint");
     expect(html).toContain("function pickElement");
-    expect(html).toContain("lastHoverTarget");
-    expect(html).toContain("Date.now() - lastHoverTarget.timestamp <= 250");
-    expect(html).toContain("range.getBoundingClientRect()");
-    expect(html).toContain("p,label,li,blockquote");
-    expect(html).toContain("badge|card|capsule|chip");
-    expect(html).toContain(":nth-of-type(");
+    expect(html).toContain(
+      "if (!isIgnorableDecoration(element)) return element;",
+    );
+    expect(html).not.toContain("const hovered = recentHoverTargetAt");
     expect(injectPreviewAnnotationBridge(html)).toBe(html);
   });
   afterEach(async () => {
@@ -116,13 +114,22 @@ describe("runtime proxy", () => {
       ).toBe(0);
     });
 
-    it("selects a card when clicking generic card padding", () => {
+    it("keeps the exact card padding element clicked", () => {
       expect(
         pickPreviewAnnotationCandidateIndex([
           { className: "card-padding", tag: "div" },
           { className: "product-card", tag: "article", text: "Paket hemat" },
         ]),
-      ).toBe(1);
+      ).toBe(0);
+    });
+
+    it("keeps a generic clicked element instead of climbing to its section", () => {
+      expect(
+        pickPreviewAnnotationCandidateIndex([
+          { className: "hero-artwork", tag: "div" },
+          { className: "hero-section", tag: "section" },
+        ]),
+      ).toBe(0);
     });
   });
 
