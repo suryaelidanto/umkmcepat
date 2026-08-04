@@ -11,6 +11,7 @@ const {
   writeAiRequestLogMock,
   maybeCompactProjectChatMock,
   normalizeWorkspaceTurnMock,
+  recordAiCallMock,
 } = vi.hoisted(() => ({
   streamTextMock: vi.fn(),
   convertToModelMessagesMock: vi.fn(async () => []),
@@ -21,6 +22,7 @@ const {
   chargeEnergyForAiUsageMock: vi.fn(async () => null),
   writeAiRequestLogMock: vi.fn(async () => undefined),
   maybeCompactProjectChatMock: vi.fn(async () => null),
+  recordAiCallMock: vi.fn(),
   normalizeWorkspaceTurnMock: vi.fn(() => ({
     brief: { prompt: "p", confidence: 0 },
     projectTitle: "t",
@@ -78,6 +80,11 @@ vi.mock("@/lib/user-credits", () => ({
 
 vi.mock("@/lib/ai-request-log", () => ({
   writeAiRequestLog: writeAiRequestLogMock,
+}));
+
+vi.mock("@/lib/ai-call-record", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ai-call-record")>()),
+  recordAiCall: recordAiCallMock,
 }));
 
 vi.mock("@/lib/projects/discuss-turn", () => ({
@@ -244,6 +251,47 @@ describe("runDiscussTurn worker", () => {
       }),
     );
     expect(prismaExecuteRawMock).not.toHaveBeenCalled();
+  });
+
+  it("mid-stream error after text yields one latched row with status=error", async () => {
+    streamTextMock.mockReturnValueOnce({
+      stream: (async function* () {
+        yield { type: "text-delta", text: "Halo, setengah jalan" };
+        throw new Error("socket hang up");
+      })(),
+      usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+      response: Promise.resolve({ modelId: "test-model" }),
+    });
+
+    await runDiscussTurn({
+      turnId: "ct_midstream",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    // Degraded path: partial text persists, turn succeeds.
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ turnId: "ct_midstream", status: "succeeded" }),
+    );
+    // Ledger: exactly one discuss row, marked error with a classified cause.
+    const discussRows = recordAiCallMock.mock.calls.filter(
+      ([entry]) => entry.task === "discuss",
+    );
+    expect(discussRows).toHaveLength(1);
+    expect(discussRows[0][0]).toEqual(
+      expect.objectContaining({
+        projectId: "p1",
+        turnId: "ct_midstream",
+        status: "error",
+        errorClass: "transport",
+      }),
+    );
   });
 
   it("text-only when card missing and one repair fails", async () => {

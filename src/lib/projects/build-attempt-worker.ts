@@ -5,7 +5,11 @@ import {
   getAiTelemetry,
   getNoReasoningCallOptions,
 } from "@/lib/ai";
-import { recordAiCall } from "@/lib/ai-call-record";
+import {
+  classifyAiError,
+  recordAiCall,
+  startAiCallTimer,
+} from "@/lib/ai-call-record";
 import { getGenerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
@@ -502,7 +506,7 @@ export async function runBuildAttempt({
         const timeout = setTimeout(() => abortController.abort(), timeoutMs);
         specAttempts += 1;
         const thisAttempt = specAttempts;
-        const specStartedAt = performance.now();
+        const stopSpecTimer = startAiCallTimer();
         const specRequestedModel = getGenerationModel();
 
         let result;
@@ -533,10 +537,10 @@ export async function runBuildAttempt({
           recordAiCall({
             attemptId,
             buildId: runtimeBuildId ?? undefined,
-            errorClass: "transport",
+            errorClass: classifyAiError(error),
             modelRequested: specRequestedModel,
             projectId,
-            requestMs: Math.round(performance.now() - specStartedAt),
+            requestMs: stopSpecTimer().requestMs,
             retryCount: thisAttempt - 1,
             status: "error",
             task: "build-spec",
@@ -554,7 +558,7 @@ export async function runBuildAttempt({
           modelServed: result.response?.modelId,
           outputTokens: result.usage?.outputTokens ?? undefined,
           projectId,
-          requestMs: Math.round(performance.now() - specStartedAt),
+          requestMs: stopSpecTimer().requestMs,
           retryCount: thisAttempt - 1,
           status: "ok",
           task: "build-spec",

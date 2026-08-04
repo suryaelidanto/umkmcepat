@@ -1,7 +1,11 @@
 import { generateObject, jsonSchema, type UIMessage } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
-import { recordAiCall } from "@/lib/ai-call-record";
+import {
+  classifyAiError,
+  recordAiCall,
+  startAiCallTimer,
+} from "@/lib/ai-call-record";
 import { getModerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import {
@@ -114,7 +118,7 @@ export async function maybeCompactProjectChat({
   const timeoutMs = getAiTimeoutMs("chatCompaction");
   const timeout = setTimeout(() => abortController.abort(), timeoutMs);
   const requestedModel = getModerationModel();
-  const startedAt = performance.now();
+  const stopTimer = startAiCallTimer();
 
   let result;
   try {
@@ -132,9 +136,9 @@ export async function maybeCompactProjectChat({
     });
   } catch (error) {
     recordAiCall({
-      errorClass: "transport",
+      errorClass: classifyAiError(error),
       modelRequested: requestedModel,
-      requestMs: Math.round(performance.now() - startedAt),
+      requestMs: stopTimer().requestMs,
       status:
         error instanceof Error && /abort|timed out/i.test(error.message)
           ? "aborted"
@@ -152,7 +156,7 @@ export async function maybeCompactProjectChat({
     modelRequested: requestedModel,
     modelServed: result.response?.modelId,
     outputTokens: result.usage?.outputTokens ?? undefined,
-    requestMs: Math.round(performance.now() - startedAt),
+    requestMs: stopTimer().requestMs,
     status: "ok",
     task: "compaction",
     ...correlation,

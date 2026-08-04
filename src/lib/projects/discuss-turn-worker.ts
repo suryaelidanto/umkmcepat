@@ -15,7 +15,11 @@ import {
   getAiTelemetry,
   getNoReasoningCallOptions,
 } from "@/lib/ai";
-import { recordAiCall } from "@/lib/ai-call-record";
+import {
+  classifyAiError,
+  recordAiCall,
+  startAiCallTimer,
+} from "@/lib/ai-call-record";
 import { getDiscussModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
@@ -143,7 +147,7 @@ export async function runDiscussTurn({
     });
 
     const discussStartedAt = Date.now();
-    const discussPerfStartedAt = performance.now();
+    const stopDiscussTimer = startAiCallTimer();
     let discussTtftMs: number | undefined;
     let discussRecorded = false;
     const recordDiscussCall = (opts: {
@@ -163,7 +167,7 @@ export async function runDiscussTurn({
         modelServed: opts.modelServed,
         outputTokens: opts.outputTokens,
         projectId: project.id,
-        requestMs: Math.round(performance.now() - discussPerfStartedAt),
+        requestMs: stopDiscussTimer().requestMs,
         status: opts.status,
         task: "discuss",
         ttftMs: discussTtftMs,
@@ -237,7 +241,7 @@ export async function runDiscussTurn({
           discussTtftMs === undefined &&
           (part.type === "text-delta" || part.type === "tool-input-delta")
         ) {
-          discussTtftMs = Math.round(performance.now() - discussPerfStartedAt);
+          discussTtftMs = stopDiscussTimer().requestMs;
         }
         if (abortSignal?.aborted) {
           hadError = true;
@@ -334,7 +338,7 @@ export async function runDiscussTurn({
       const servedModel = (await primaryResponsePromise)?.modelId ?? modelName;
       const safeError = getSafeAiErrorLog(error);
       recordDiscussCall({
-        errorClass: "stream",
+        errorClass: classifyAiError(error),
         modelServed: servedModel,
         status: "error",
       });
@@ -510,14 +514,14 @@ export async function runDiscussTurn({
     }
 
     const primaryMs = Date.now() - discussStartedAt;
-    recordDiscussCall({
-      inputTokens: totalInputTokens,
-      modelServed: discussModelId,
-      outputTokens: totalOutputTokens,
-      // ponynote: mid-stream aborts with text already delivered degrade to a
-      // card; still ok for the ledger — hadError path above recorded errors.
-      status: hadError && !chatText ? "error" : "ok",
-    });
+    if (!hadError) {
+      recordDiscussCall({
+        inputTokens: totalInputTokens,
+        modelServed: discussModelId,
+        outputTokens: totalOutputTokens,
+        status: "ok",
+      });
+    }
     if (!chatText) {
       // Post-build: none is a legal card. Do not repair for interview cards
       // or invent assistant prose.

@@ -19,7 +19,11 @@ vi.mock("@/lib/dev-log", () => ({
   devLog: devLogMock,
 }));
 
-import { recordAiCall, startAiCallTimer } from "./ai-call-record";
+import {
+  classifyAiError,
+  recordAiCall,
+  startAiCallTimer,
+} from "./ai-call-record";
 
 describe("recordAiCall", () => {
   beforeEach(() => {
@@ -132,6 +136,54 @@ describe("recordAiCall", () => {
     expect(data.modelServed).toHaveLength(160);
     expect(data.errorClass).toHaveLength(64);
     expect(data.raceRole).toHaveLength(16);
+  });
+});
+
+describe("classifyAiError", () => {
+  it("maps rate-limit patterns", () => {
+    expect(classifyAiError(new Error("rate limit exceeded"))).toBe(
+      "rate-limit",
+    );
+    expect(classifyAiError(new Error("HTTP 429 Too Many Requests"))).toBe(
+      "rate-limit",
+    );
+  });
+
+  it("maps timeout patterns", () => {
+    expect(classifyAiError(new Error("request timed out"))).toBe("timeout");
+    expect(classifyAiError(new Error("This operation was aborted"))).toBe(
+      "timeout",
+    );
+  });
+
+  it("maps schema patterns", () => {
+    expect(classifyAiError(new Error("schema validation failed"))).toBe(
+      "schema",
+    );
+    expect(classifyAiError(new Error("HTTP 422 Unprocessable Entity"))).toBe(
+      "schema",
+    );
+    expect(classifyAiError(new Error("invalid request body"))).toBe("schema");
+  });
+
+  it("maps parse patterns", () => {
+    expect(
+      classifyAiError(new Error("Unexpected token in JSON at position 0")),
+    ).toBe("parse");
+    expect(
+      classifyAiError(new SyntaxError("Unexpected end of JSON input")),
+    ).toBe("parse");
+  });
+
+  it("maps transport patterns", () => {
+    expect(classifyAiError(new Error("socket hang up"))).toBe("transport");
+    expect(classifyAiError(new Error("ECONNRESET"))).toBe("transport");
+  });
+
+  it("falls back to unknown", () => {
+    expect(classifyAiError(new Error("weird provider state"))).toBe("unknown");
+    expect(classifyAiError("string error")).toBe("unknown");
+    expect(classifyAiError(undefined)).toBe("unknown");
   });
 });
 
