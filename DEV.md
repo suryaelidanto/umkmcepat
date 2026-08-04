@@ -202,6 +202,16 @@ swaps a failing `<img>` to an aspect-aware placeholder data-URI (landscape vs
 portrait), so broken images never show a browser error icon and work even for
 old builds whose dist lacks a placeholder file.
 
+## Batched generation (Phase 1, off by default)
+
+The batched engine replaces the agent tool-loop with a single streamed response that emits all project files as parseable blocks. Spec: `docs/superpowers/specs/2026-08-04-batched-generation-design.md`.
+
+- **Rollout flag:** `generation.batched_rollout` (`off | internal | pilot | all`, default `off`). `off` runs today's path. `internal` gates on admin owner email; `pilot` buckets ~10% of projects deterministically (FNV-1a hash); `all` rolls everyone in.
+- **Response contract:** `src/lib/projects/batched-response.ts` — strict state machine over `<file path>…</file>`, `<propose>`, `<done summary/>`. Unknown tags / missing attrs / disallowed paths / truncation throw `BatchedParseError` with byte offsets so repair prompts can cite them.
+- **Fallback:** any irrecoverable batched failure (final parse error, failed validation after 2 targeted repairs, transport error) escalates to `generateCustomProjectFilesWithAgent` within the same attempt. No user-visible breakage.
+- **Telemetry:** per-call `AiCallRecord` rows use `phase: "writer" | "format-repair" | "repair" | "fallback"`, always under `task: "build-step"` (writer) / `"build-repair"` (repair rounds). Query by `attemptId` for the full picture.
+- **Prompt inputs:** the system prompt derives its scaffold manifest from `src/lib/projects/scaffold/manifest.ts` (auto-extracted from `createViteTanStackShadcnStarterFiles`). Scaffold changes break the companion drift test until consciously updated — no silent prompt drift.
+
 ## Graphify
 
 Graphify is recommended for non-trivial discovery and reuse checks. It is user-local, not a project dependency.

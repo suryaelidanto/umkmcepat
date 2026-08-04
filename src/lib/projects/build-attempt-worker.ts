@@ -12,9 +12,16 @@ import {
 } from "@/lib/ai-call-record";
 import { getGenerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
+import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
+import { runBatchedGenerate } from "@/lib/projects/batched-generator";
+import {
+  isBatchedRolloutValue,
+  isBatchedWriterRolledOut,
+} from "@/lib/projects/batched-rollout";
 import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
+import { BatchedAdmissionBlockedError } from "@/lib/projects/brief-admission";
 import {
   publishBuildProgress,
   type BuildProgressEvent,
@@ -65,6 +72,7 @@ import {
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 import { chargeEnergyForAiUsage } from "@/lib/user-credits";
+import { isAdminEmail } from "@/lib/waitlist";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
   "generated" satisfies ProjectSnapshotSourceType;
@@ -715,18 +723,139 @@ export async function runBuildAttempt({
     };
 
     const agentStartedAt = Date.now();
-    const sourceGeneration = await generateCustomProjectFilesWithAgent({
-      implementationBrief: buildPrompt,
-      implementationSpec,
-      onOperation(operation) {
-        send("operation", operation);
-      },
-      projectId: projectId,
-      schema: finalSchema,
-      onFilesChanged,
-      abortSignal: abortSignal,
-      stepCharger: sourceStepCharger,
+    // Batched rollout: flag-on owners run the single-shot writer; any
+    // batched failure (parse, gates, repair budget) falls back to the legacy
+    // agent loop within the same attempt — never user-visible breakage.
+    const batchedRolloutRaw: string = getSettingSync(
+      "generation.batched_rollout",
+      "off",
+    );
+    const batchedRollout = isBatchedRolloutValue(batchedRolloutRaw)
+      ? batchedRolloutRaw
+      : "off";
+    let batchedIsAdmin = false;
+    if (batchedRollout === "internal") {
+      const owner = await prisma.user
+        .findUnique({ where: { id: userId }, select: { email: true } })
+        .catch(() => null);
+      batchedIsAdmin = owner?.email ? isAdminEmail(owner.email) : false;
+    }
+    const useBatched = isBatchedWriterRolledOut({
+      isAdmin: batchedIsAdmin,
+      projectId,
+      rollout: batchedRollout,
     });
+
+    let sourceGeneration: Awaited<
+      ReturnType<typeof generateCustomProjectFilesWithAgent>
+    >;
+    if (useBatched) {
+      try {
+        const batched = await runBatchedGenerate({
+          abortSignal,
+          attemptId,
+          brief,
+          buildId: runtimeBuildId,
+          implementationSpec,
+          onEvent(type, data) {
+            send(type, data);
+          },
+          projectId,
+          schema: finalSchema,
+          stepCharger: sourceStepCharger,
+          userId,
+        });
+
+        if (batched.ok) {
+          const touched = batched.writtenPaths;
+          sourceGeneration = {
+            buildSpec: buildPrompt,
+            energyExhausted: sourceStepCharger.isExhausted(),
+            files: batched.files,
+            generationMode: "agent-custom",
+            operationTrace: [],
+            repairAttempts: batched.repairRounds,
+            summary: batched.summary,
+            touchedFiles: touched,
+          };
+        } else {
+          devLog("generate", "batched.fallback", {
+            projectId,
+            reason: batched.reason,
+            repairRounds: batched.repairRounds,
+          });
+          sourceGeneration = await generateCustomProjectFilesWithAgent({
+            implementationBrief: buildPrompt,
+            implementationSpec,
+            onOperation(operation) {
+              send("operation", operation);
+            },
+            projectId,
+            schema: finalSchema,
+            onFilesChanged,
+            abortSignal,
+            stepCharger: sourceStepCharger,
+          });
+          recordAiCall({
+            attemptId,
+            buildId: runtimeBuildId ?? undefined,
+            modelRequested: getGenerationModel(),
+            phase: "fallback",
+            projectId,
+            status: "ok",
+            task: "build-step",
+          });
+        }
+      } catch (error) {
+        if (error instanceof BatchedAdmissionBlockedError) {
+          // Brief gate failed: never burn energy on legacy — surface the
+          // Indonesian reason and stop the attempt before charging.
+          send("error", {
+            message: "Brief belum siap untuk di-build.",
+            detail: error.reason,
+          });
+          throw new Error(`Batched admission blocked: ${error.reason}`);
+        }
+        devLog("generate", "batched.error-fallback", {
+          error: error instanceof Error ? error.message : String(error),
+          projectId,
+        });
+        sourceGeneration = await generateCustomProjectFilesWithAgent({
+          implementationBrief: buildPrompt,
+          implementationSpec,
+          onOperation(operation) {
+            send("operation", operation);
+          },
+          projectId,
+          schema: finalSchema,
+          onFilesChanged,
+          abortSignal,
+          stepCharger: sourceStepCharger,
+        });
+        recordAiCall({
+          attemptId,
+          buildId: runtimeBuildId ?? undefined,
+          modelRequested: getGenerationModel(),
+          phase: "fallback",
+          projectId,
+          status: "ok",
+          task: "build-step",
+        });
+      }
+    } else {
+      sourceGeneration = await generateCustomProjectFilesWithAgent({
+        implementationBrief: buildPrompt,
+        implementationSpec,
+        onOperation(operation) {
+          send("operation", operation);
+        },
+        projectId: projectId,
+        schema: finalSchema,
+        onFilesChanged,
+        abortSignal: abortSignal,
+        stepCharger: sourceStepCharger,
+      });
+    }
     agentMs = Date.now() - agentStartedAt;
     if (sourceGeneration.energyExhausted) {
       send("energy_exhausted", {
