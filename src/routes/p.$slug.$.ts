@@ -80,7 +80,12 @@ export const Route = createFileRoute("/p/$slug/$")({
                 id: true,
                 snapshot: {
                   select: {
-                    project: { select: { title: true } },
+                    project: {
+                      select: {
+                        title: true,
+                        user: { select: { bannedAt: true } },
+                      },
+                    },
                   },
                 },
                 snapshotId: true,
@@ -98,6 +103,19 @@ export const Route = createFileRoute("/p/$slug/$")({
           },
         });
         const deployment = selectActivePublishedDeployment(deployments);
+
+        if (deployment?.build?.snapshot?.project?.user?.bannedAt) {
+          return createPublicIssueResponse({
+            detail:
+              "Website ini tidak lagi tersedia. Jika kamu pemiliknya, hubungi dukungan.",
+            headers: {
+              "Cache-Control": "no-store",
+              "X-Robots-Tag": "noindex",
+            },
+            status: 410,
+            title: "Website tidak tersedia",
+          });
+        }
 
         if (!deployment?.build?.artifactRef) {
           return createPublicIssueResponse({

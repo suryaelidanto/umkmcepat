@@ -126,4 +126,82 @@ describe("published generated route", () => {
       }),
     );
   });
+
+  it("returns 410 for a published deployment whose owner is banned, without proxying", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
+    prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
+      {
+        build: {
+          artifactRef: "project-artifact:local:dist:abc",
+          createdAt: new Date(),
+          id: "build_banned",
+          snapshotId: "snapshot_banned",
+          snapshot: {
+            project: {
+              title: "Warung",
+              user: { bannedAt: new Date("2026-08-01") },
+            },
+          },
+          status: "succeeded",
+          updatedAt: new Date(),
+        },
+        buildId: "build_banned",
+        createdAt: new Date(),
+        id: "deployment_banned",
+        kind: "published",
+        snapshotId: "snapshot_banned",
+        status: "running",
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const response = await GET(
+      new Request("https://sites.example.net/p/warung/"),
+      { slug: "warung" },
+    );
+
+    expect(response.status).toBe(410);
+    expect(response.headers.get("X-Robots-Tag")).toBe("noindex");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(proxyDeploymentRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("still proxies for an active (non-banned) owner", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
+    prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
+      {
+        build: {
+          artifactRef: "project-artifact:local:dist:abc",
+          createdAt: new Date(),
+          id: "build_2",
+          snapshotId: "snapshot_2",
+          snapshot: {
+            project: { title: "Warung", user: { bannedAt: null } },
+          },
+          status: "succeeded",
+          updatedAt: new Date(),
+        },
+        buildId: "build_2",
+        createdAt: new Date(),
+        id: "deployment_2",
+        kind: "published",
+        snapshotId: "snapshot_2",
+        status: "running",
+        updatedAt: new Date(),
+      },
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValueOnce(
+      new Response("<html></html>", {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      }),
+    );
+
+    const response = await GET(
+      new Request("https://sites.example.net/p/warung/"),
+      { slug: "warung" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(proxyDeploymentRequestMock).toHaveBeenCalled();
+  });
 });
