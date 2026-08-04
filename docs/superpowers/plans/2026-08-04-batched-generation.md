@@ -30,6 +30,8 @@ Status: done in 8d77380 (timers), 063508a (caches), 6e726c3 (A/B harness).
 
 ### Phase 2 — Build speed (independent behavior change)
 
+Status: not started (deferred). Do after Phase 1+3 are stable in production; each item gated by measurement.
+
 14. **Ss3 parallel upload + client reuse** in `runtime-artifacts.ts` + `s3-client.ts`.
 15. **Skip-build-on-unchanged-hash** in `generated-source.ts` before invoking Bun.
 16. **Thumbnail detached** — in `build-attempt-worker.ts`, mark `done` after deployment commit; thumbnail in `Promise.allSettled`-style background continuation, already partially handled.
@@ -37,10 +39,12 @@ Status: done in 8d77380 (timers), 063508a (caches), 6e726c3 (A/B harness).
 
 ### Phase 3 — Edit path (after generate gate passes)
 
-18. **Deterministic target-finder** in the edit worker: from instruction → candidate files. Falls into `read_file`-by-model-one-shot if ambiguous.
-19. **Batched edit call** — inlined candidate files in prompt; model emits targeted `<file>`s.
-20. **Same validation/fix/fallback** as Phase 1.
-21. Same A/B methodology; same flag family.
+Status: done in 473f096, 5361bce, dad0acc, 7425843, b47a9de + fixes 8ffbfb5, 032f1c0.
+
+18. **Deterministic target-finder** in the edit worker: from instruction → candidate files (`selectBatchedEditTargets` in `batched-edit-targets.ts`). Ambiguity is resolved inside the same single prompt (self-selection directive), not a separate exploratory loop.
+19. **Batched edit call** — inlined candidate files in prompt; model emits targeted `<file>`s (`runBatchedEdit`).
+20. **Same validation/fix/fallback** as Phase 1 — gates + targeted repair (≤2) + legacy `source-edit-agent.ts` fallback.
+21. Same A/B methodology; same flag family — rides `generation.batched_rollout`.
 
 ### Quality gates at every step
 

@@ -11,6 +11,9 @@ Boot instructions for AI agents working on UMKM Cepat.
 - `docs/superpowers/specs/`: active feature specs
 - `docs/superpowers/plans/`: active implementation plans
 - Key modules: `src/lib/s3-client.ts` (MinIO/R2), `src/lib/email.ts` (Resend), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), `/media/<assetId>` route, `/admin` dashboard
+- Generation engine: `src/lib/projects/batched-response.ts` (streamed `<file>` parser), `scaffold/manifest.ts` (auto-derived scaffold manifest), `brief-admission.ts`, `batched-generator.ts`, `batched-edit-targets.ts` + `edit-attempt-worker` wiring. Rollout flag: `generation.batched_rollout` (off|internal|pilot|all); legacy agent loop is the fallback.
+- Observability: `AiCallRecord` table + `src/lib/ai-call-record.ts` (`recordAiCall`, `startAiCallTimer`, ttftMs capture). Query by `turnId`/`attemptId`/`projectId`. Raw payloads stay in `.data/tmp/ai-debug/requests.ndjson` (dev-only).
+- Discuss hedging: `src/lib/projects/discuss-turn-worker.ts` races up to 3 combos; toggles `discuss.hedging`, `ai.model.discuss_hedge_2/3`; ledger rows tagged `raceRole`; energy debit sums all racers.
 
 ## Commands
 
