@@ -15,21 +15,45 @@ export const Route = createFileRoute("/sitemap.xml")({
 
         const deployments = await prisma.projectDeployment
           .findMany({
-            select: { slug: true, updatedAt: true },
+            select: {
+              slug: true,
+              updatedAt: true,
+              build: {
+                select: {
+                  snapshot: {
+                    select: {
+                      project: {
+                        select: {
+                          user: { select: { bannedAt: true } },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
             where: { kind: "published" },
           })
           .catch(() => []);
 
         const published = (
-          deployments as Array<{ slug: string; updatedAt: Date }>
+          deployments as Array<{
+            slug: string;
+            updatedAt: Date;
+            build: {
+              snapshot: {
+                project: { user: { bannedAt: Date | null } | null };
+              } | null;
+            } | null;
+          }>
         )
+          .filter((d) => !d.build?.snapshot?.project?.user?.bannedAt)
           .map((d) => {
             const safeSlug = encodeURIComponent(d.slug);
             const lastmod = d.updatedAt.toISOString();
             return `  <url>\n    <loc>${origin}/p/${safeSlug}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`;
           })
           .join("\n");
-
         const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${home}\n${published}\n</urlset>`;
 
         return new Response(body, {
