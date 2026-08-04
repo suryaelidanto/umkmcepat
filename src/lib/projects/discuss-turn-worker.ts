@@ -69,7 +69,6 @@ type HedgeUsage = {
   outputTokens?: number;
 };
 type HedgeOutcome = {
-  abortedBeforeFirstEvent?: boolean;
   errorClass?: string;
   hasCard: boolean;
   ttftMs?: number;
@@ -79,7 +78,6 @@ type HedgeWinner = {
   fullText: string;
   modelIndex: number;
   modelName: string;
-  seq: number;
   streamToolCallId: string | null;
   toolInput: unknown;
 };
@@ -209,15 +207,14 @@ export async function runDiscussTurn({
       : [];
     const hedged = hedgeModelNames.length > 0 && !modelOverride;
     const hedgeOutcomes: HedgeOutcome[] = [];
-    // Monotonic promotion sequence so late-completing legs stay silent
-    // even if a winner (primary or hedge) already landed.
-    let hedgeSeq = 1;
-    let hedgePromoted: HedgeWinner | null = null;
+    const hedgePromises: Promise<void>[] = [];
+    // Boxed promotion: CFA narrows `let` bindings across async closures to
+    // `never` at use sites; a property write stays outside CFA's reach.
+    const hedgeWinner: { current: HedgeWinner | null } = { current: null };
     const hedgeControllers = hedgeModelNames.map(() => new AbortController());
     const primaryController = hedged ? new AbortController() : null;
     if (hedged) {
       hedgeModelNames.forEach((hedgeModelName, index) => {
-        void index;
         const outcome: HedgeOutcome = {
           hasCard: false,
           usage: {} as HedgeUsage,
@@ -253,94 +250,99 @@ export async function runDiscussTurn({
           },
         });
         const stopHedgeTimer = startAiCallTimer();
-        void (async () => {
-          let fullText = "";
-          let toolInput: unknown = null;
-          let streamToolCallId: string | null = null;
-          try {
-            for await (const part of hedgeStream.stream) {
-              if (
-                outcome.ttftMs === undefined &&
-                (part.type === "text-delta" || part.type === "tool-input-delta")
-              ) {
-                outcome.ttftMs = stopHedgeTimer().requestMs;
-              }
-              if (hedgeControllers[index].signal.aborted || hedgePromoted) {
-                break;
-              }
-              if (part.type === "text-delta") {
-                const delta =
-                  "text" in part && typeof part.text === "string"
-                    ? part.text
-                    : "delta" in part && typeof part.delta === "string"
-                      ? part.delta
-                      : "";
-                fullText += delta;
-                continue;
-              }
-              if (part.type === "tool-input-start") {
-                if ("id" in part && typeof part.id === "string") {
-                  streamToolCallId = part.id;
-                }
-                continue;
-              }
-              if (part.type === "tool-call") {
-                streamToolCallId =
-                  "toolCallId" in part && typeof part.toolCallId === "string"
-                    ? part.toolCallId
-                    : streamToolCallId;
-                toolInput =
-                  "input" in part
-                    ? part.input
-                    : "args" in part
-                      ? (part as { args?: unknown }).args
-                      : toolInput;
-                const probe = normalizeWorkspaceTurn(
-                  toolInput,
-                  effectiveBrief,
-                  handoffNormalizeOptions,
-                );
+        hedgePromises.push(
+          (async () => {
+            let fullText = "";
+            let toolInput: unknown = null;
+            let streamToolCallId: string | null = null;
+            try {
+              for await (const part of hedgeStream.stream) {
                 if (
-                  probe.workspaceCard.type !== "none" &&
-                  !hedgePromoted &&
-                  !hedgeControllers[index].signal.aborted
+                  outcome.ttftMs === undefined &&
+                  (part.type === "text-delta" ||
+                    part.type === "tool-input-delta")
                 ) {
-                  outcome.hasCard = true;
-                  if (!fullText.trim()) {
-                    fullText = extractAssistantTextFromToolInput(toolInput);
-                  }
-                  hedgePromoted = {
-                    fullText,
-                    modelIndex: index,
-                    modelName: hedgeModelName,
-                    seq: hedgeSeq++,
-                    toolInput,
-                    streamToolCallId,
-                  };
-                  hedgeControllers.forEach((controller, i) => {
-                    if (i !== index) {
-                      controller.abort();
-                    }
-                  });
+                  outcome.ttftMs = stopHedgeTimer().requestMs;
+                }
+                if (
+                  hedgeControllers[index].signal.aborted ||
+                  hedgeWinner.current
+                ) {
                   break;
                 }
+                if (part.type === "text-delta") {
+                  const delta =
+                    "text" in part && typeof part.text === "string"
+                      ? part.text
+                      : "delta" in part && typeof part.delta === "string"
+                        ? part.delta
+                        : "";
+                  fullText += delta;
+                  continue;
+                }
+                if (part.type === "tool-input-start") {
+                  if ("id" in part && typeof part.id === "string") {
+                    streamToolCallId = part.id;
+                  }
+                  continue;
+                }
+                if (part.type === "tool-call") {
+                  streamToolCallId =
+                    "toolCallId" in part && typeof part.toolCallId === "string"
+                      ? part.toolCallId
+                      : streamToolCallId;
+                  toolInput =
+                    "input" in part
+                      ? part.input
+                      : "args" in part
+                        ? (part as { args?: unknown }).args
+                        : toolInput;
+                  const probe = normalizeWorkspaceTurn(
+                    toolInput,
+                    effectiveBrief,
+                    handoffNormalizeOptions,
+                  );
+                  if (
+                    probe.workspaceCard.type !== "none" &&
+                    !hedgeWinner.current &&
+                    !hedgeControllers[index].signal.aborted
+                  ) {
+                    outcome.hasCard = true;
+                    if (!fullText.trim()) {
+                      fullText = extractAssistantTextFromToolInput(toolInput);
+                    }
+                    hedgeWinner.current = {
+                      fullText,
+                      modelIndex: index,
+                      modelName: hedgeModelName,
+                      toolInput,
+                      streamToolCallId,
+                    };
+                    hedgeControllers.forEach((controller, i) => {
+                      if (i !== index) {
+                        controller.abort();
+                      }
+                    });
+                    break;
+                  }
+                }
+              }
+            } catch (error) {
+              // Aborted legs land here; make sure they don't surface as
+              // provider errors when the abort was deliberate.
+              if (!hedgeControllers[index].signal.aborted) {
+                outcome.errorClass = classifyAiError(error);
               }
             }
-          } catch (error) {
-            // Aborted legs land here; make sure they don't surface as
-            // provider errors when the abort was deliberate.
-            if (!hedgeControllers[index].signal.aborted) {
-              outcome.errorClass = classifyAiError(error);
-            }
-          }
-          const usage = await Promise.resolve(hedgeStream.usage).catch(
-            () => undefined,
-          );
-          outcome.usage = {
-            inputTokens: usage?.inputTokens ?? 0,
-            outputTokens: usage?.outputTokens ?? 0,
-          };
-        })();
+            const usage = await Promise.resolve(hedgeStream.usage).catch(
+              () => undefined,
+            );
+            outcome.usage = {
+              inputTokens: usage?.inputTokens ?? 0,
+              outputTokens: usage?.outputTokens ?? 0,
+            };
+          })(),
+        );
       });
     }
     const abortAllHedges = () => {
@@ -381,6 +383,13 @@ export async function runDiscussTurn({
           ...(outcome.errorClass ? { errorClass: outcome.errorClass } : {}),
         });
       });
+    };
+    // Settle hedge-leg promises (abort + per-call timeout keep this bounded)
+    // so per-racer outcomes stay read-only from here to the debit.
+    const settleHedgeLegs = async () => {
+      if (hedgePromises.length > 0) {
+        await Promise.allSettled(hedgePromises);
+      }
     };
     const primary = streamText({
       model,
@@ -443,7 +452,7 @@ export async function runDiscussTurn({
     // picks the last-completed leg's text).
     const racePendingText: string[] = [];
     const adoptHedgeWinner = () => {
-      const winner = hedgePromoted as HedgeWinner | null;
+      const winner = hedgeWinner.current;
       if (!winner) {
         return false;
       }
@@ -487,7 +496,7 @@ export async function runDiscussTurn({
         // Hedge leg promoted while we were reading primary: adopt its state
         // and stop spending tokens on the losing streams. Losers never paint
         // even partial text: the winner's buffered text is published whole.
-        if (hedged && (hedgePromoted as HedgeWinner | null)) {
+        if (hedged && hedgeWinner.current) {
           if (adoptHedgeWinner()) {
             primaryController?.abort();
             if (fullText) {
@@ -512,6 +521,7 @@ export async function runDiscussTurn({
         }
         if (abortSignal?.aborted) {
           hadError = true;
+          abortAllHedges();
           recordDiscussCall({
             modelServed: modelName,
             status: "aborted",
@@ -600,21 +610,26 @@ export async function runDiscussTurn({
                 ? (part as { args?: unknown }).args
                 : toolInput;
           if (hedged) {
+            // Primary reached a terminal outcome: winner selection is done
+            // (winner = first finisher), so hedge legs are dead weight now —
+            // abort them whether this card is valid (primary won) or not
+            // (repair applies to the primary's state either way).
+            abortAllHedges();
             const probe = normalizeWorkspaceTurn(
               toolInput,
               effectiveBrief,
               handoffNormalizeOptions,
             );
             if (probe.workspaceCard.type !== "none") {
-              abortAllHedges();
               flushRaceBuffer();
             }
           }
         }
       }
     } catch (error) {
-      // Hedge leg promoted while the primary stream threw: degrade silently
-      // into the winner instead of surfacing an error to the user.
+      // Primary stream threw: the race is over either way. Degrade silently
+      // into a promoted hedge winner when one already landed, else surface.
+      abortAllHedges();
       if (hedged && adoptHedgeWinner()) {
         toolInputJson = "";
       } else {
@@ -632,6 +647,7 @@ export async function runDiscussTurn({
           model: servedModel,
           error: safeError,
         });
+        await settleHedgeLegs();
         await writeAiRequestLog({
           event: "discuss:stream_error",
           model: servedModel,
@@ -641,6 +657,8 @@ export async function runDiscussTurn({
         });
       }
     }
+    // Winner picked or crash handled: no more outcome churn from hedge legs.
+    await settleHedgeLegs();
 
     // Final tool-call may complete chars partial JSON never closed; or fill
     // gap when provider only emits tool-call (no tool-input-delta).
@@ -675,7 +693,7 @@ export async function runDiscussTurn({
     }
     // Hedge settles here: flush any buffer from a winner, drop loser's text.
     if (hedged) {
-      if (hedgePromoted || !hadError) {
+      if (hedgeWinner.current || !hadError) {
         flushRaceBuffer();
       } else {
         racePendingText.length = 0;
@@ -695,8 +713,7 @@ export async function runDiscussTurn({
       );
       if (primaryResponse?.modelId) {
         discussModelId =
-          (hedgePromoted as HedgeWinner | null)?.modelName ??
-          primaryResponse.modelId;
+          hedgeWinner.current?.modelName ?? primaryResponse.modelId;
       }
     } catch {
       // usage is best-effort
@@ -709,9 +726,9 @@ export async function runDiscussTurn({
 
     // Hedged all-fail (stream threw, no card anywhere): mark hedge legs and
     // settle the race rows now, since hadError branches return early.
-    if (hedged && hadError && !(hedgePromoted as HedgeWinner | null)) {
+    if (hedged && hadError && !hedgeWinner.current) {
       abortAllHedges();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await settleHedgeLegs();
       for (const outcome of hedgeOutcomes) {
         if (!outcome.hasCard && !outcome.errorClass) {
           outcome.errorClass = "invalid-card";
@@ -1058,10 +1075,11 @@ export async function runDiscussTurn({
     // card, mark unblowned legs as invalid-card so the ledger explains why
     // the race settles text-only; repair then runs on the winner's model.
     const primaryCardValid = workspaceTurn.workspaceCard.type !== "none";
-    if (hedged && !hedgePromoted) {
+    if (hedged && !hedgeWinner.current) {
       abortAllHedges();
-      // Let aborted legs record their partial usage before we debit.
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // Bounded drain (abort + per-call timeout): per-racer tokens must land
+      // before the user-facing debit or ledger rows would race each other.
+      await settleHedgeLegs();
       if (!primaryCardValid) {
         for (const outcome of hedgeOutcomes) {
           if (!outcome.hasCard && !outcome.errorClass) {
@@ -1093,8 +1111,8 @@ export async function runDiscussTurn({
         });
       }
     }
-    if (hedged && (hedgePromoted as HedgeWinner | null)) {
-      const winner = hedgePromoted as unknown as HedgeWinner;
+    if (hedged && hedgeWinner.current) {
+      const winner = hedgeWinner.current;
       await settleHedgeRows({ index: winner.modelIndex, kind: "hedge" });
       if (!hadError && !discussRecorded) {
         recordDiscussCall({
@@ -1115,7 +1133,7 @@ export async function runDiscussTurn({
     let repairMs = 0;
     if (primaryToolFailed) {
       const repairStartedAt = Date.now();
-      const repairWinner = hedgePromoted as HedgeWinner | null;
+      const repairWinner = hedgeWinner.current;
       const repaired = await repairDiscussCardWithTool({
         brief: effectiveBrief,
         cardSystemPrompt,

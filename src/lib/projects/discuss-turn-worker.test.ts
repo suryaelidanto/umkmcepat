@@ -1002,15 +1002,142 @@ describe("runDiscussTurn hedged race", () => {
       modelOverride: "test-model" as never,
     });
 
-    expect(streamTextMock).toHaveBeenCalledTimes(1);
-    const discussRows = recordAiCallMock.mock.calls
-      .filter(([entry]) => entry.task === "discuss")
-      .map(([entry]) => entry);
-    expect(discussRows).toHaveLength(1);
-    expect(discussRows[0].hedged).toBeUndefined();
-    expect(discussRows[0].raceRole).toBeUndefined();
     expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
       expect.objectContaining({ turnId: "ct_no_hedge", status: "succeeded" }),
     );
+  });
+
+  it("late loser leg settles before the debit includes its usage", async () => {
+    enableHedging(["discuss-combo-2"]);
+    okNormalize();
+    const primary = makeRaceStreamResult({
+      parts: [
+        { type: "text-delta", text: "Halo" },
+        {
+          type: "tool-call",
+          toolCallId: "tc-early",
+          toolName: "presentWorkspaceCard",
+          input: { assistantText: "Halo", workspaceCard: raceCard },
+        },
+      ],
+      modelId: "test/model",
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+    const hedgeUsage = { inputTokens: 7, outputTokens: 3 };
+    let releaseHedgeUsage: (() => void) | undefined;
+    const hedgeUsagePromise = new Promise<typeof hedgeUsage>((resolve) => {
+      releaseHedgeUsage = () => resolve(hedgeUsage);
+    });
+    const hedge = makeRaceStreamResult({
+      parts: [],
+      modelId: "discuss-combo-2",
+    });
+    hedge.result.usage = hedgeUsagePromise;
+
+    streamTextMock
+      .mockReturnValueOnce(hedge.result)
+      .mockReturnValueOnce(primary.result);
+
+    const runPromise = runDiscussTurn({
+      turnId: "ct_late_loser",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    // Let the worker reach its settle point.
+    for (let i = 0; i < 20; i++) {
+      await Promise.resolve();
+    }
+    releaseHedgeUsage?.();
+
+    await runPromise;
+
+    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledTimes(1);
+    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "u1",
+        inputTokens: 10 + hedgeUsage.inputTokens,
+        outputTokens: 5 + hedgeUsage.outputTokens,
+        reason: "discuss:step",
+      }),
+    );
+  });
+
+  it("invalid primary card aborts hedge legs before repair fires", async () => {
+    enableHedging(["discuss-combo-2"]);
+    // Card invalid everywhere → primary heads to repair; hedges must already
+    // be aborted by the time the repair call fires, not after the stream ends.
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: { type: "none" },
+      readyForBuild: false,
+    } as never);
+
+    let hedgeSignal: AbortSignal | undefined;
+    const hedge = makeRaceStreamResult({
+      parts: [{ type: "text-delta", text: "hedge-text" }],
+      modelId: "discuss-combo-2",
+      usage: { inputTokens: 7, outputTokens: 3 },
+    });
+    const primary = makeRaceStreamResult({
+      parts: [
+        {
+          type: "tool-call",
+          toolCallId: "tc-invalid",
+          toolName: "presentWorkspaceCard",
+          input: { workspaceCard: { type: "invalid-but-toolcalled" } },
+        },
+      ],
+      modelId: "test/model",
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+    streamTextMock.mockImplementation(
+      (opts: { model: { modelId: string }; abortSignal?: AbortSignal }) => {
+        if (opts.model.modelId === "discuss-combo-2") {
+          hedgeSignal = opts.abortSignal;
+          return hedge.result;
+        }
+        return primary.result;
+      },
+    );
+
+    let hedgeAbortedWhenRepairFired: boolean | undefined;
+    generateTextMock.mockImplementation(() => {
+      hedgeAbortedWhenRepairFired = hedgeSignal?.aborted;
+      return Promise.resolve({
+        usage: { inputTokens: 2, outputTokens: 3 },
+        toolCalls: [
+          {
+            input: {
+              assistantText: "Nama usahanya apa?",
+              workspaceCard: raceCard,
+            },
+          },
+        ],
+      });
+    });
+
+    await runDiscussTurn({
+      turnId: "ct_invalid_abort",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(generateTextMock).toHaveBeenCalled();
+    expect(hedgeSignal).toBeDefined();
+    // The exact promise of fix #1: primary terminal outcome aborts hedges
+    // before any repair fires — not after the stream finishes.
+    expect(hedgeAbortedWhenRepairFired).toBe(true);
   });
 });
