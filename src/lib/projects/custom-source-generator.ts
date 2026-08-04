@@ -1092,6 +1092,7 @@ export function seedBriefBasedHome(
 ): { editedPaths: string[]; files: GeneratedProjectFile[] } {
   const siteContent = `export const site = ${JSON.stringify(schema, null, 2)} as const;\nexport default site;\n`;
   const homeContent = `import { ArrowRight } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -1118,10 +1119,10 @@ export function HomeRouteComponent() {
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Button size="lg" asChild>
-          <a href="#kontak">
+          <Link to="/" hash="kontak">
             {site.primaryCta}
             <ArrowRight className="size-4" />
-          </a>
+          </Link>
         </Button>
         <Button size="lg" variant="outline">
           {site.secondaryCta}
@@ -2309,6 +2310,7 @@ LAYOUT:
 MOTION:
 - Ease-out exponential curves (ease-out-quart/quint/expo). No bounce, no elastic. Don't animate layout properties.
 - Every animation needs @media (prefers-reduced-motion:reduce) fallback. Reveals enhance already-visible content — never gate visibility on a class-triggered transition.
+- Section navigation: use <Link to="/" hash="id"> for in-page anchors (never raw href="#id" — hash history turns it into a route and 404s). For smooth in-page scroll set scroll-behavior:smooth on the root and add scroll-mt-* on each id-target section to clear any fixed header.
 
 CONTENT:
 - Real, specific Indonesian copy ("Sewa PS Rp 5.000/jam", not "Harga terjangkau"). No "Lorem ipsum" / "Coming soon".
@@ -2338,6 +2340,8 @@ Do NOT edit src/index.css — it is platform-owned and pre-wired with shadcn the
 
 STATIC ONLY: no auth, no backend, no DB, no payment gateway, no fake /api routes. Use WhatsApp/contact CTA and real Indonesian business copy.
 Do not add or remove dependencies — package.json is platform-owned.
+
+ROUTING: router uses hash history (createHashHistory). In-page section links MUST use <Link to="/" hash="sectionId"> from "@tanstack/react-router" targeting <section id="sectionId">. NEVER use raw <a href="#sectionId"> — with hash history "#sectionId" is treated as a route path, hits the 404 catch-all, and glitches (first click re-renders + scrolls to top, only works on the second). <Link to="/" hash="..."> renders #/sectionId and uses TanStack's native hash-scroll.
 
 Keep usePreviewReady() called in the rendered route.`;
 }
@@ -2441,6 +2445,8 @@ ROUTING & PAGE CONTRACT:
 - Prefer REAL multi-page routing when the brief has distinct sections (Home, Catalog, Contact, Product detail, etc.). Add one route file per page under src/routes/ (e.g. katalog.tsx, kontak.tsx) and register each in src/router.tsx via createRoute({ getParentRoute: () => rootRoute, path: "/katalog", component: ... }) then add it to rootRoute.addChildren([...]). Keep the existing index route and the path:"*" 404 catch-all.
 - MULTI-PAGE CONSISTENCY: every extra route file MUST be imported + registered in src/router.tsx in the same turn. Shared chrome (nav, footer, brand colors, fonts) belongs in __root.tsx layout so all pages match. Same palette tokens + type scale on every page — no one-off colors per route.
 - Navigate between pages with <Link to="/katalog"> from "@tanstack/react-router". Do NOT fake routing with useState tabs.
+- In-page section links (anchor scroll within one page) MUST use <Link to="/" hash="sectionId"> from "@tanstack/react-router", targeting a <section id="sectionId">. NEVER use raw <a href="#sectionId">: with hash history the URL hash is the route path, so "#sectionId" resolves to no route and triggers the 404 catch-all — the anchor glitches (first click re-renders + scrolls to top) and only works on a second click. <Link to="/" hash="..."> produces #/sectionId and uses TanStack's native hash-scroll.
+- Add scroll-mt-<size> (e.g. scroll-mt-24) to each id-target section so a fixed/sticky header does not cover it.
 - Do NOT edit src/main.tsx or src/routes/__root.tsx (you may add a shared layout in __root.tsx if the brief calls for header/footer, but keep <Outlet />). You MAY edit src/router.tsx to register your extra routes — nothing else there.
 - Import usePreviewReady from "@/lib/preview-ready".
 - Import the business data using: import { site } from "@/content/site". Do NOT edit src/content/site.ts — it is fully populated and exports site as both named and default exports.

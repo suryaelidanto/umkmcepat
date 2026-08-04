@@ -352,6 +352,17 @@ describe("custom generated source agent", () => {
     ]);
   });
 
+  it("seedBriefBasedHome uses <Link hash> not raw href=#", () => {
+    const starter = createGeneratedViteTanStackStarterFiles("p_seed", schema());
+    const seeded = seedBriefBasedHome(starter, schema());
+    const home = seeded.files.find((f) => f.path === "src/routes/index.tsx");
+    expect(home?.content).toContain(
+      'import { Link } from "@tanstack/react-router"',
+    );
+    expect(home?.content).toContain('<Link to="/" hash="kontak"');
+    expect(home?.content).not.toContain('href="#kontak"');
+  });
+
   it("blocks check_app until src/routes/index.tsx is written, even if other files exist", async () => {
     const checkAppResults: { error?: string }[] = [];
     agentGenerate.mockImplementation(async (tools) => {
@@ -970,6 +981,14 @@ describe("buildGeneratedAppAgentInstructions (prompt coherence)", () => {
     expect(instructions).toContain("<Link to=");
     expect(instructions).toContain("createRoute({ getParentRoute");
     expect(instructions).toContain("rootRoute.addChildren");
+  });
+
+  it("requires <Link to= hash= for in-page anchors, never raw href=#", () => {
+    expect(instructions).toContain('<Link to="/" hash="');
+    expect(instructions).toMatch(/in-page/i);
+    expect(instructions).toMatch(/hash history/i);
+    expect(instructions).toMatch(/404/i);
+    expect(instructions).toMatch(/href="#/);
   });
 
   it("directs the agent to use shadcn components", () => {

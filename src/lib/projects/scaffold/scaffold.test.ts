@@ -120,6 +120,9 @@ describe("createViteTanStackShadcnStarterFiles", () => {
     expect(index).toContain("Card");
     expect(index).toContain("Button");
     expect(index).toContain("usePreviewReady");
+    expect(index).toContain('import { Link } from "@tanstack/react-router"');
+    expect(index).toContain('<Link to="/" hash="kontak"');
+    expect(index).not.toContain('href="#kontak"');
   });
 
   it("not-found route uses Button and links home", () => {
