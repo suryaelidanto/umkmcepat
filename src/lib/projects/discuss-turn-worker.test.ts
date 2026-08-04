@@ -1248,4 +1248,85 @@ describe("runDiscussTurn hedged race", () => {
     // before any repair fires — not after the stream finishes.
     expect(hedgeAbortedWhenRepairFired).toBe(true);
   });
+
+  it("each leg records its own timing: aborted leg shorter than winner, pre-chunk error ttftMs null", async () => {
+    enableHedging(["discuss-combo-2"]);
+    okNormalize();
+    const winnerParts = [
+      { type: "text-delta", text: "Halo" },
+      {
+        type: "tool-call",
+        toolCallId: "tc-win",
+        toolName: "presentWorkspaceCard",
+        input: { assistantText: "Halo", workspaceCard: raceCard },
+      },
+    ];
+    const primaryStream = makeRaceStreamResult({
+      parts: winnerParts,
+      modelId: "test/model",
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+    // Real 5ms before the winner's first chunk: the publish path awaits only
+    // microtasks, so without a wall-clock delay ttftMs floors to 0 and the
+    // per-leg-timing assertion cannot distinguish winner from shared timer.
+    const slowWinnerResult = {
+      ...primaryStream.result,
+      stream: (async function* () {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        yield* primaryStream.result.stream;
+      })(),
+    };
+    // Pre-chunk transport failure: never emits a content chunk, so the leg's
+    // timer sees firstChunkAt=null → ttftMs must be null, not 0/requestMs.
+    const hedgeStream = {
+      stream: (async function* () {
+        throw new Error("socket hang up");
+      })(),
+      usage: Promise.resolve({ inputTokens: 4, outputTokens: 2 }),
+      response: Promise.resolve({ modelId: "discuss-combo-2" }),
+    };
+    streamTextMock
+      .mockReturnValueOnce(hedgeStream)
+      .mockReturnValueOnce(slowWinnerResult);
+
+    await runDiscussTurn({
+      turnId: "ct_hedge_timing",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    const discussRows = recordAiCallMock.mock.calls
+      .filter(([entry]) => entry.task === "discuss")
+      .map(([entry]) => entry);
+    expect(discussRows).toHaveLength(2);
+    const winnerRow = discussRows.find((r) => r.raceRole === "winner");
+    const errorRow = discussRows.find((r) => r.status === "error");
+    expect(winnerRow).toEqual(
+      expect.objectContaining({
+        status: "ok",
+        modelRequested: "test/model",
+      }),
+    );
+    // Winner carries its own ttftMs from its marked first chunk (+ hedge
+    // polling ticks), 0-bounded and capped by its own requestMs — never the
+    // hedge leg's shared-timer-sourced fallback duration.
+    expect(winnerRow.ttftMs).toBeGreaterThan(0);
+    expect(winnerRow.ttftMs).toBeLessThanOrEqual(winnerRow.requestMs);
+    expect(errorRow).toEqual(
+      expect.objectContaining({
+        modelRequested: "discuss-combo-2",
+        errorClass: "transport",
+      }),
+    );
+    expect(errorRow.ttftMs).toBeNull();
+    // No stopTimer on the throwing leg: requestMs fell back to the shared
+    // discuss timer (>= winner's full duration) instead of the leg's own
+    // shorter elapsed time.
+    expect(errorRow.requestMs).toBeGreaterThanOrEqual(winnerRow.requestMs);
+  });
 });
