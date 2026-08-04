@@ -58,5 +58,10 @@ export function resolveBatchedRollout(input: {
   }
 }
 
-/** Alias kept for call-site symmetry with legacy rollout helpers. */
-export const isBatchedWriterRolledOut = resolveBatchedRollout;
+export function isBatchedWriterRolledOut(input: {
+  isAdmin: boolean;
+  projectId: string;
+  rollout: BatchedRolloutValue;
+}): boolean {
+  return resolveBatchedRollout(input);
+}
