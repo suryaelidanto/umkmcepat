@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -45,15 +45,18 @@ export function ProjectList({
 }: ProjectListProps) {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const { count, limit, overLimit } = useProjectLimit();
+  const queryClient = useQueryClient();
+
+  async function fetchProjectsPage(pageParam: string | null) {
+    const path = pageParam
+      ? `/api/projects?cursor=${encodeURIComponent(pageParam)}`
+      : "/api/projects";
+    return fetchJson<ProjectsPage>(path, { cache: "no-store" });
+  }
 
   const projectsQuery = useInfiniteQuery({
     queryKey: queryKeys.projects,
-    queryFn: async ({ pageParam }) => {
-      const path = pageParam
-        ? `/api/projects?cursor=${encodeURIComponent(pageParam)}`
-        : "/api/projects";
-      return fetchJson<ProjectsPage>(path, { cache: "no-store" });
-    },
+    queryFn: ({ pageParam }) => fetchProjectsPage(pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     // Seed cache once from the route loader. Always refetch page 0 from API
@@ -120,11 +123,21 @@ export function ProjectList({
         },
       },
     ],
-    invalidateKeys: [queryKeys.projects],
     successMessage: "Website dihapus.",
     errorMessage: "Website belum berhasil dihapus.",
-    onSuccess: () => {
+    onSuccess: async () => {
       setSelectedProject(null);
+      // Replace the whole cache with fresh page 0 so later items slide up
+      // across page boundaries and hasNextPage recomputes truthfully.
+      try {
+        const fresh = await fetchProjectsPage(null);
+        queryClient.setQueryData(queryKeys.projects, {
+          pages: [fresh],
+          pageParams: [null],
+        });
+      } catch {
+        // Optimistic removal already applied; nothing to recover.
+      }
     },
   });
 
