@@ -161,6 +161,41 @@ const deleteProjectFn = createServerFn({ method: "POST" })
 
 const HERO_LEAD_WORDS = ["Bikin", "Website", "UMKM", "dalam", "5", "Menit,"];
 const HERO_ACCENT = "100% Gratis.";
+const HERO_SUBLINE_WORDS = ["Tanpa coding,", "tanpa desainer,", "tanpa ribet."];
+
+const wordMotion = {
+  initial: { opacity: 0, y: 14, filter: "blur(6px)" },
+  animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+};
+
+function heroWordTransition(i: number, baseDelay: number) {
+  const delay = baseDelay + 0.09 * i;
+  return {
+    opacity: { duration: 0.5, delay },
+    y: { type: "spring", stiffness: 140, damping: 16, delay },
+    filter: { duration: 0.4, delay },
+  };
+}
+
+// Delays the sub-hero until the headline underline bar has finished drawing.
+const SUBLINE_DELAY = 0.09 * HERO_LEAD_WORDS.length + 0.55 + 0.08;
+
+function HeroSubline() {
+  return (
+    <span className="flex flex-wrap justify-center gap-x-[0.28em]">
+      {HERO_SUBLINE_WORDS.map((word, i) => (
+        <motion.span
+          key={word}
+          initial={wordMotion.initial}
+          animate={wordMotion.animate}
+          transition={heroWordTransition(i, SUBLINE_DELAY)}
+        >
+          {word}
+        </motion.span>
+      ))}
+    </span>
+  );
+}
 
 function HeroHeadline() {
   return (
@@ -168,31 +203,18 @@ function HeroHeadline() {
       {HERO_LEAD_WORDS.map((word, i) => (
         <motion.span
           key={word}
-          initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{
-            opacity: { duration: 0.5, delay: 0.09 * i },
-            y: { type: "spring", stiffness: 140, damping: 16, delay: 0.09 * i },
-            filter: { duration: 0.4, delay: 0.09 * i },
-          }}
+          initial={wordMotion.initial}
+          animate={wordMotion.animate}
+          transition={heroWordTransition(i, 0)}
         >
           {word}
         </motion.span>
       ))}
       <motion.span
         className="relative"
-        initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
-        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-        transition={{
-          opacity: { duration: 0.5, delay: 0.09 * HERO_LEAD_WORDS.length },
-          y: {
-            type: "spring",
-            stiffness: 140,
-            damping: 16,
-            delay: 0.09 * HERO_LEAD_WORDS.length,
-          },
-          filter: { duration: 0.4, delay: 0.09 * HERO_LEAD_WORDS.length },
-        }}
+        initial={wordMotion.initial}
+        animate={wordMotion.animate}
+        transition={heroWordTransition(HERO_LEAD_WORDS.length, 0)}
       >
         {HERO_ACCENT}
         <motion.span
@@ -297,6 +319,11 @@ function HomePage() {
             {waitlisted ? (
               <p className="mt-spacing-4 max-w-2xl text-base leading-7 text-surface-warm-white/62">
                 Setelah disetujui, kamu bisa buat website di sini.
+              </p>
+            ) : null}
+            {!waitlisted && !hasUser ? (
+              <p className="mx-auto mt-spacing-7 max-w-2xl text-balance text-base leading-7 text-surface-warm-white/62 sm:text-lg">
+                <HeroSubline />
               </p>
             ) : null}
           </HeroMotionItem>
