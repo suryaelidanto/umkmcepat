@@ -370,7 +370,7 @@ describe("generated project source", () => {
           await mkdir(path.join(cwd, "node_modules"), { recursive: true });
         }
 
-        if (normalizeCommand(command) === "<bun> run build") {
+        if (normalizeCommand(command) === "<bun> x vite build") {
           await writeDist(cwd, "<html>ok</html>");
         }
 
@@ -386,6 +386,72 @@ describe("generated project source", () => {
         path: "index.html",
       },
     ]);
+  });
+
+  it("times tsc and vite separately on build success", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const commands: string[] = [];
+    const result = await buildGeneratedProject(buildableFiles("timer_split"), {
+      commandRunner: async (command, cwd) => {
+        const normalized = normalizeCommand(command);
+        commands.push(normalized);
+        if (normalized === "<bun> install --ignore-scripts") {
+          await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+        }
+        if (normalized === "<bun> x vite build") {
+          await writeDist(cwd, "ok");
+        }
+        return { log: command.join(" "), ok: true };
+      },
+      workspaceRoot: tempDir,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(commands).toEqual([
+      "<bun> install --ignore-scripts",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
+    ]);
+    const timings = JSON.parse(
+      result.log.match(/\[umkm:build\] timings (.*)/)?.[1] ?? "{}",
+    );
+    expect(typeof timings.tscMs).toBe("number");
+    expect(typeof timings.viteMs).toBe("number");
+    expect(timings.buildMs).toBe(timings.tscMs + timings.viteMs);
+  });
+
+  it("records tscMs only when tsc gates the build and vite never runs", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-build-cache-"));
+    const commands: string[] = [];
+    let viteRuns = 0;
+    const result = await buildGeneratedProject(buildableFiles("tsc_gate"), {
+      commandRunner: async (command, cwd) => {
+        const normalized = normalizeCommand(command);
+        commands.push(normalized);
+        if (normalized === "<bun> install --ignore-scripts") {
+          await mkdir(path.join(cwd, "node_modules"), { recursive: true });
+        }
+        if (normalized === "<bun> x tsc -b") {
+          return { log: "error TS2322", ok: false };
+        }
+        if (normalized === "<bun> x vite build") {
+          viteRuns += 1;
+        }
+        return { log: command.join(" "), ok: true };
+      },
+      workspaceRoot: tempDir,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(viteRuns).toBe(0);
+    for (const timingsLine of result.log.matchAll(
+      /\[umkm:build\] timings (.*)/g,
+    )) {
+      const timings = JSON.parse(timingsLine[1]);
+      expect(typeof timings.tscMs).toBe("number");
+      expect(timings.viteMs).toBe(0);
+      expect(timings.buildMs).toBe(timings.tscMs + timings.viteMs);
+    }
   });
 
   it("first build skips workspace bun install when golden link succeeds", async () => {
@@ -408,7 +474,7 @@ describe("generated project source", () => {
     const commandRunner = async (command: string[], cwd: string) => {
       const normalized = normalizeCommand(command);
       commands.push(normalized);
-      if (normalized === "<bun> run build") {
+      if (normalized === "<bun> x vite build") {
         await writeDist(cwd, "shared");
       }
       return { ok: true, log: command.join(" ") };
@@ -434,7 +500,7 @@ describe("generated project source", () => {
     // must NOT invoke bun install on the workspace itself — the golden link
     // short-circuits shouldInstall on a true first build.
     expect(goldenInstall).toHaveBeenCalledTimes(1);
-    expect(commands).toEqual(["<bun> run build"]);
+    expect(commands).toEqual(["<bun> x tsc -b", "<bun> x vite build"]);
   });
 
   it("skips dependency install for repeat workspace builds with unchanged packages", async () => {
@@ -449,7 +515,7 @@ describe("generated project source", () => {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
-      if (normalized === "<bun> run build") {
+      if (normalized === "<bun> x vite build") {
         await writeDist(cwd, "cached");
       }
 
@@ -471,8 +537,10 @@ describe("generated project source", () => {
 
     expect(commands).toEqual([
       "<bun> install --ignore-scripts",
-      "<bun> run build",
-      "<bun> run build",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
     ]);
     expect(second.log).toContain('"installSkipped":true');
   });
@@ -488,7 +556,7 @@ describe("generated project source", () => {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
-      if (normalized === "<bun> run build") {
+      if (normalized === "<bun> x vite build") {
         await writeDist(cwd, "stable-key");
       }
 
@@ -513,8 +581,10 @@ describe("generated project source", () => {
     expect(second.ok).toBe(true);
     expect(commands).toEqual([
       "<bun> install --ignore-scripts",
-      "<bun> run build",
-      "<bun> run build",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
     ]);
     expect(second.log).toContain('"installSkipped":true');
   });
@@ -529,7 +599,7 @@ describe("generated project source", () => {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
-      if (normalizeCommand(command) === "<bun> run build") {
+      if (normalizeCommand(command) === "<bun> x vite build") {
         await writeDist(cwd, "package-change");
       }
 
@@ -561,9 +631,11 @@ describe("generated project source", () => {
 
     expect(commands).toEqual([
       "<bun> install --ignore-scripts",
-      "<bun> run build",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
       "<bun> install --ignore-scripts",
-      "<bun> run build",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
     ]);
   });
 
@@ -577,7 +649,7 @@ describe("generated project source", () => {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
-      if (normalizeCommand(command) === "<bun> run build") {
+      if (normalizeCommand(command) === "<bun> x vite build") {
         await writeDist(cwd, "stale");
       }
 
@@ -620,7 +692,7 @@ describe("generated project source", () => {
         await mkdir(path.join(cwd, "node_modules"), { recursive: true });
       }
 
-      if (normalized === "<bun> run build") {
+      if (normalized === "<bun> x vite build") {
         buildAttempts += 1;
 
         if (buildAttempts === 2) {
@@ -645,9 +717,12 @@ describe("generated project source", () => {
     expect(result.ok).toBe(true);
     expect(commands).toEqual([
       "<bun> install --ignore-scripts",
-      "<bun> run build",
-      "<bun> run build",
-      "<bun> run build",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
+      "<bun> x tsc -b",
+      "<bun> x vite build",
     ]);
     expect(result.log).toContain('"cacheReset":true');
   }, 15_000);

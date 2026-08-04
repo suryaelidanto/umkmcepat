@@ -397,16 +397,30 @@ async function buildGeneratedProjectInWorkspace(
       });
     }
 
-    const buildStartedAt = Date.now();
-    const build = await commandRunner(
-      [BUNDLED_RUNNER, "run", "build"],
+    // tsc gates vite (same failure semantics as `tsc -b && vite build` in a
+    // single npm script), but as two invocations so each step is timed.
+    const tscStartedAt = Date.now();
+    const tsc = await commandRunner(
+      [BUNDLED_RUNNER, "x", "tsc", "-b"],
       workspace,
     );
+    const viteStartedAt = Date.now();
+    let vite: BuildCommandResult = { ok: true, log: "" };
+
+    if (tsc.ok) {
+      vite = await commandRunner(
+        [BUNDLED_RUNNER, "x", "vite", "build"],
+        workspace,
+      );
+    }
+    const tscMs = viteStartedAt - tscStartedAt;
+    const viteMs = tsc.ok ? Date.now() - viteStartedAt : 0;
+    const buildOk = tsc.ok && vite.ok;
     const collectStartedAt = Date.now();
     let distFiles: GeneratedDistFile[] = [];
     let collectionError = "";
 
-    if (build.ok) {
+    if (buildOk) {
       try {
         distFiles = await collectDistFiles(path.join(workspace, "dist"));
       } catch (error) {
@@ -419,21 +433,24 @@ async function buildGeneratedProjectInWorkspace(
 
     const log = [
       createBuildTimingLog({
-        buildMs: collectStartedAt - buildStartedAt,
+        buildMs: tscMs + viteMs,
         cacheReset: resetBeforeBuild,
         collectMs: Date.now() - collectStartedAt,
         installMs,
         installSkipped,
+        tscMs,
         totalMs: Date.now() - startedAt,
+        viteMs,
       }),
       install.log,
-      build.log,
+      tsc.log,
+      vite.log,
       collectionError,
     ]
       .filter(Boolean)
       .join("\n");
 
-    return { distFiles, ok: build.ok && !collectionError, log };
+    return { distFiles, ok: buildOk && !collectionError, log };
   }
 
   let result = await attemptBuild(resetWorkspace);
@@ -695,14 +712,18 @@ function createBuildTimingLog({
   collectMs,
   installMs,
   installSkipped,
+  tscMs,
   totalMs,
+  viteMs,
 }: {
   buildMs: number;
   cacheReset: boolean;
   collectMs: number;
   installMs: number;
   installSkipped: boolean;
+  tscMs: number;
   totalMs: number;
+  viteMs: number;
 }) {
   return `[umkm:build] timings ${JSON.stringify({
     buildMs,
@@ -710,7 +731,9 @@ function createBuildTimingLog({
     collectMs,
     installMs,
     installSkipped,
+    tscMs,
     totalMs,
+    viteMs,
   })}`;
 }
 
