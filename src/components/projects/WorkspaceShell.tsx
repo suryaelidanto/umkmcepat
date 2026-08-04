@@ -1606,6 +1606,36 @@ export function WorkspaceShell({
         }
 
         if (Date.now() - startedAt >= PREPARING_TIMEOUT_MS) {
+          // Final check before declaring failure: the server may have landed a
+          // card between the last poll and this timeout (turn TTL > UI budget).
+          try {
+            const response = await fetch(
+              `/api/projects/${projectId}/workspace`,
+              { cache: "no-store" },
+            );
+            if (canceled) {
+              return;
+            }
+            if (response.ok) {
+              const result = (await response.json()) as WorkspaceStateResponse;
+              if (canceled) {
+                return;
+              }
+              if (isFreshWorkspaceCard(result.workspaceCard, previousCard)) {
+                setWorkspaceCard(result.workspaceCard);
+                if (result.projectTitle) {
+                  setProjectTitle(result.projectTitle);
+                  setDraftTitle(result.projectTitle);
+                }
+                setWorkspaceCardError(false);
+                setIsPreparingNextQuestion(false);
+                void reloadLatestChat();
+                return;
+              }
+            }
+          } catch {
+            // Fall through to error path.
+          }
           setWorkspaceCardError(true);
           setIsPreparingNextQuestion(false);
           return;
