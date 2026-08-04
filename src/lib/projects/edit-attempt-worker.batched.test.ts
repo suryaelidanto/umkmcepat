@@ -41,7 +41,14 @@ const prismaMock = vi.hoisted(() => ({
   projectDeployment: {
     findMany: vi.fn(async () => [
       {
-        build: null,
+        build: {
+          artifactRef: "artifact-prev",
+          createdAt: new Date(),
+          id: "build-prev",
+          snapshotId: "snap-base",
+          status: "succeeded",
+          updatedAt: new Date(),
+        },
         buildId: "build-prev",
         createdAt: new Date(),
         id: "deploy-prev",
@@ -314,7 +321,7 @@ describe("runEditAttempt — batched rollout wiring", () => {
     expect(
       recordAiCallMock.mock.calls.filter(([e]) => e.phase === "fallback"),
     ).toHaveLength(0);
-    expect(prismaMock.projectEditAttempt.updateMany).toHaveBeenCalledWith(
+    expect(prismaMock.projectEditAttempt.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: "failed",

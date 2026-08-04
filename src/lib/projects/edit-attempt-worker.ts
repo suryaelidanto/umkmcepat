@@ -1,7 +1,15 @@
+import { recordAiCall } from "@/lib/ai-call-record";
 import { getGenerationModel } from "@/lib/ai-models";
+import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
+import { runBatchedEdit } from "@/lib/projects/batched-edit";
+import {
+  type BatchedRolloutValue,
+  isBatchedRolloutValue,
+  isBatchedWriterRolledOut,
+} from "@/lib/projects/batched-rollout";
 import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { type DiffLine } from "@/lib/projects/diff";
@@ -32,6 +40,7 @@ import {
 } from "@/lib/projects/runtime-types";
 import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
 import { editGeneratedSourceWithAgent } from "@/lib/projects/source-edit-agent";
+import { isAdminEmail } from "@/lib/waitlist";
 
 async function updateProjectEditAttempt(
   id: string,
@@ -264,14 +273,129 @@ export async function runEditAttempt({
       saver.save(currentFiles);
     };
 
-    const editResult = await editGeneratedSourceWithAgent({
-      files: baseFiles,
-      instruction,
-      onOperation: persistEditProgress,
-      onFilesChanged,
-      stepCharger: editStepCharger,
-      abortSignal: abortSignal,
-    });
+    // Batched rollout (same flag as generate): batched writer tries the edit
+    // as ONE response, falling back to the legacy ToolLoopAgent on
+    // needsFallback/throw — never surfaces breakage.
+    let useBatchedEdit = false;
+    try {
+      const rolloutRaw: string = getSettingSync(
+        "generation.batched_rollout",
+        "off",
+      );
+      const rollout: BatchedRolloutValue = isBatchedRolloutValue(rolloutRaw)
+        ? rolloutRaw
+        : "off";
+      let batchedIsAdmin = false;
+      if (rollout === "internal") {
+        const owner = await prisma.user
+          .findUnique({ where: { id: userId }, select: { email: true } })
+          .catch(() => null);
+        batchedIsAdmin = owner?.email ? isAdminEmail(owner.email) : false;
+      }
+      useBatchedEdit = isBatchedWriterRolledOut({
+        isAdmin: batchedIsAdmin,
+        projectId: project.id,
+        rollout,
+      });
+    } catch {
+      useBatchedEdit = false;
+    }
+
+    // Durable write-through while the batched writer streams: overlay the
+    // batched-staged paths onto the LIVE base so interrupted edits still land.
+    const batchedStageFiles = new Map<string, GeneratedProjectFile>();
+    const persistBatchedStage = (file: GeneratedProjectFile) => {
+      batchedStageFiles.set(file.path, file);
+      const merged = new Map<string, GeneratedProjectFile>();
+      for (const base of baseFiles) {
+        merged.set(base.path, base);
+      }
+      for (const [path, overlay] of batchedStageFiles) {
+        merged.set(path, overlay);
+      }
+      onFilesChanged([...merged.values()]);
+    };
+
+    let editResult:
+      Awaited<ReturnType<typeof editGeneratedSourceWithAgent>> | undefined;
+
+    if (useBatchedEdit) {
+      try {
+        const batched = await runBatchedEdit({
+          abortSignal,
+          attemptId: attempt.id,
+          instruction,
+          onEvent(type, data) {
+            send(type, data);
+          },
+          onFileStaged: persistBatchedStage,
+          projectId: project.id,
+          sourceFiles: baseFiles,
+          stepCharger: editStepCharger,
+        });
+        if (batched.ok) {
+          editResult = {
+            files: batched.files,
+            modelId: getGenerationModel(),
+            ok: true,
+            operations: batched.writtenPaths.map((path) => ({
+              id: path,
+              path,
+              state: "succeeded",
+              title: "Menulis file",
+              type: "write_file",
+            })),
+            outputs: [],
+            sideEffects: batched.writtenPaths.map((path) => ({
+              path,
+              type: "write_file",
+            })),
+            usage: { inputTokens: 0, outputTokens: 0 },
+          };
+        } else {
+          devLog("edit", "batched.fallback", {
+            projectId: project.id,
+            reason: batched.reason,
+            repairRounds: batched.repairRounds,
+          });
+          recordAiCall({
+            attemptId: attempt.id,
+            modelRequested: getGenerationModel(),
+            phase: "fallback",
+            projectId: project.id,
+            status: "ok",
+            task: "edit",
+          });
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          throw error;
+        }
+        devLog("edit", "batched.error-fallback", {
+          error: error instanceof Error ? error.message : String(error),
+          projectId: project.id,
+        });
+        recordAiCall({
+          attemptId: attempt.id,
+          modelRequested: getGenerationModel(),
+          phase: "fallback",
+          projectId: project.id,
+          status: "ok",
+          task: "edit",
+        });
+      }
+    }
+
+    if (!editResult) {
+      editResult = await editGeneratedSourceWithAgent({
+        files: baseFiles,
+        instruction,
+        onOperation: persistEditProgress,
+        onFilesChanged,
+        stepCharger: editStepCharger,
+        abortSignal: abortSignal,
+      });
+    }
     devLog("edit", "tools.finished", {
       ok: editResult.ok,
       operations: editResult.operations.length,
