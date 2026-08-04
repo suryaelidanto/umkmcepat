@@ -5,6 +5,7 @@ import {
   getAiTelemetry,
   getNoReasoningCallOptions,
 } from "@/lib/ai";
+import { recordAiCall } from "@/lib/ai-call-record";
 import { getGenerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
@@ -192,6 +193,7 @@ export async function runBuildAttempt({
   let specInputTokens = 0;
   let specOutputTokens = 0;
   let specModelId: string | undefined;
+  let specAttempts = 0;
   let energyCharged = false;
 
   const sourceStepCharger = createStepCharger({
@@ -199,6 +201,7 @@ export async function runBuildAttempt({
     projectId,
     reason: "build:step",
     modelId: getGenerationModel(),
+    recordMeta: { attemptId },
     onCharge(event) {
       send("energy", event);
     },
@@ -497,11 +500,15 @@ export async function runBuildAttempt({
         const abortController = new AbortController();
         const timeoutMs = getAiTimeoutMs("buildSpec");
         const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+        specAttempts += 1;
+        const thisAttempt = specAttempts;
+        const specStartedAt = performance.now();
+        const specRequestedModel = getGenerationModel();
 
         let result;
         try {
           result = await generateText({
-            model: getAiModel(getGenerationModel()),
+            model: getAiModel(specRequestedModel),
             maxRetries: 2,
             maxOutputTokens: maxTokens,
             temperature: 0.35,
@@ -522,9 +529,36 @@ export async function runBuildAttempt({
               userId,
             }),
           });
+        } catch (error) {
+          recordAiCall({
+            attemptId,
+            buildId: runtimeBuildId ?? undefined,
+            errorClass: "transport",
+            modelRequested: specRequestedModel,
+            projectId,
+            requestMs: Math.round(performance.now() - specStartedAt),
+            retryCount: thisAttempt - 1,
+            status: "error",
+            task: "build-spec",
+          });
+          throw error;
         } finally {
           clearTimeout(timeout);
         }
+
+        recordAiCall({
+          attemptId,
+          buildId: runtimeBuildId ?? undefined,
+          inputTokens: result.usage?.inputTokens ?? undefined,
+          modelRequested: specRequestedModel,
+          modelServed: result.response?.modelId,
+          outputTokens: result.usage?.outputTokens ?? undefined,
+          projectId,
+          requestMs: Math.round(performance.now() - specStartedAt),
+          retryCount: thisAttempt - 1,
+          status: "ok",
+          task: "build-spec",
+        });
 
         const usage = result.usage;
         const toolCall = result.toolCalls?.[0] as

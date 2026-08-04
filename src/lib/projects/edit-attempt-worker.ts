@@ -237,6 +237,7 @@ export async function runEditAttempt({
     projectId: project.id,
     reason: "edit:step",
     modelId: getGenerationModel(),
+    recordMeta: { attemptId },
   });
 
   const send = (event: string, data: Record<string, unknown>) => {

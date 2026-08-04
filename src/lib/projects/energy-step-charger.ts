@@ -44,6 +44,14 @@ export function createStepCharger(opts: {
   modelId: string;
   projectId?: string | null;
   onCharge?: (event: StepChargeEvent) => void;
+  /** Extra AiCallRecord fields merged into every per-step row. */
+  recordMeta?: {
+    attemptId?: string;
+    buildId?: string;
+    phase?: string;
+    task?: string;
+    turnId?: string;
+  };
 }): StepCharger {
   let inputTokens = 0;
   let outputTokens = 0;
@@ -73,6 +81,7 @@ export function createStepCharger(opts: {
         requestMs,
         stepIndex,
         task: REASON_TO_RECORD_TASK[opts.reason] ?? "unknown",
+        ...opts.recordMeta,
       });
       stepIndex += 1;
 
