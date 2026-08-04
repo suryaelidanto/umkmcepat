@@ -89,6 +89,15 @@ export const APP_SETTINGS: ConfigEntry[] = [
     enumOptions: ["off", "internal", "pilot", "all"],
   },
   {
+    key: "generation.batched_rollout",
+    category: "feature_flag",
+    tier: "advanced",
+    type: "string",
+    label: "Batched generation rollout",
+    fallback: "off",
+    enumOptions: ["off", "internal", "pilot", "all"],
+  },
+  {
     key: "generation.contract_admission",
     category: "feature_flag",
     tier: "advanced",
