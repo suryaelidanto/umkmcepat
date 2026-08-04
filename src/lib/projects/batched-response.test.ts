@@ -4,8 +4,11 @@ import {
   BatchedParseError,
   createBatchedResponseParser,
   isAllowedBatchedPath,
-  PROTECTED_SCAFFOLD_PATHS,
 } from "./batched-response";
+import {
+  isProtectedScaffoldPath,
+  PROTECTED_SCAFFOLD_PATHS,
+} from "./scaffold/protected-paths";
 
 describe("isAllowedBatchedPath", () => {
   it("allows src/ and public/ paths", () => {
@@ -22,9 +25,13 @@ describe("isAllowedBatchedPath", () => {
     expect(isAllowedBatchedPath("")).toBe(false);
   });
 
-  it("rejects protected scaffold files", () => {
+  it("flags protected scaffold files (semantic gate; parser still accepts syntactically)", () => {
+    // The parser's allow-list is syntactic — protected paths are dropped by
+    // the runners' merge gate, not by isAllowedBatchedPath. See
+    // scaffold/protected-paths.ts header.
     for (const path of PROTECTED_SCAFFOLD_PATHS) {
-      expect(isAllowedBatchedPath(path)).toBe(false);
+      expect(isProtectedScaffoldPath(path)).toBe(true);
+      expect(isAllowedBatchedPath(path)).toBe(true);
     }
   });
 

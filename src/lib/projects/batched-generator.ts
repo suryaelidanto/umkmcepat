@@ -43,6 +43,7 @@ import {
 } from "@/lib/projects/brief-admission";
 import { buildGeneratedAppBuildSpec } from "@/lib/projects/custom-source-generator";
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
+import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
 import { resolveShadcnDeps } from "@/lib/projects/scaffold/shadcn-components";
 import { SHADCN_COMPONENT_BY_NAME } from "@/lib/projects/scaffold/shadcn-components";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
@@ -374,7 +375,12 @@ export function collectBatchedGateIssues(
 // ---------------------------------------------------------------------------
 // Runner
 
-type StreamCallResult = {
+/**
+ * Normalized result of one streamed response (writer / format-repair /
+ * targeted repair). Exported so the batched edit runner (Phase 2) shares the
+ * same call chassis — parser, per-file events, telemetry, write-through.
+ */
+export type BatchedStreamCallResult = {
   errorClass?: string;
   finishedText: boolean; // saw a <done/>
   parseError?: BatchedParseError;
@@ -387,9 +393,62 @@ type StreamCallResult = {
   usage?: { inputTokens?: number; outputTokens?: number };
   modelServed?: string;
   requestMs: number;
+  /** Set when the stream fast-failed on a structurally broken .tsx block. */
+  syntaxIssue?: string;
 };
 
-async function runOneStreamedResponse(args: {
+/** Syntax error in one emitted <file/> block, thrown to fast-fail the stream. */
+export class WriterTsxSyntaxError extends Error {
+  readonly path: string;
+  constructor(input: { message: string; path: string }) {
+    super(input.message);
+    this.name = "WriterTsxSyntaxError";
+    this.path = input.path;
+  }
+}
+
+function firstTsxSyntaxError(
+  file: BatchedFile,
+): { message: string; path: string } | null {
+  if (!/\.tsx$/.test(file.path)) {
+    return null;
+  }
+  const transpiled = ts.transpileModule(file.content, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2023,
+    },
+    fileName: file.path,
+    reportDiagnostics: true,
+  });
+  const first = (transpiled.diagnostics ?? []).find(
+    (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error,
+  );
+  if (!first) {
+    return null;
+  }
+  return {
+    message: `${file.path}: TSX parse error — ${ts.flattenDiagnosticMessageText(first.messageText, " ")}`,
+    path: file.path,
+  };
+}
+
+/** Snapshot of parser-stage into the plain map shape results carry. */
+function parserStagedMap(
+  parser: ReturnType<typeof createBatchedResponseParser>,
+): Map<string, { content: string; path: string }> {
+  const map = new Map<string, { content: string; path: string }>();
+  for (const path of parser.stagedPaths) {
+    const file = parser.stagedFile(path);
+    if (file) {
+      map.set(path, file);
+    }
+  }
+  return map;
+}
+
+export async function runOneStreamedResponse(args: {
   abortSignal?: AbortSignal;
   onEvent?: BatchedGenerateEventSink;
   /** Durable write-through: full staged content as each block closes. */
@@ -402,8 +461,10 @@ async function runOneStreamedResponse(args: {
   retryCount: number;
   stepCharger?: StepCharger;
   system: string;
+  /** Ledger task. Phase 1 generate uses build-step/build-repair; Phase 2 edit uses "edit" for every leg. */
+  task?: "build-step" | "edit";
   user: string;
-}): Promise<StreamCallResult> {
+}): Promise<BatchedStreamCallResult> {
   const requestedModel = getGenerationModel();
   const stopTimer = startAiCallTimer();
   const parser = createBatchedResponseParser();
@@ -441,6 +502,15 @@ async function runOneStreamedResponse(args: {
               const stagedFile = parser.stagedFile(path);
               if (stagedFile) {
                 args.onFileStaged?.(stagedFile);
+                // Cheap per-file TSX gate at stage time: the tail of the
+                // response can't fix an already-broken block, but it CAN
+                // re-emit the same path (duplicate-diagnostic, last-wins) —
+                // so bail immediately and let the caller's targeted repair
+                // handle it instead of burning the rest of the stream.
+                const tsxError = firstTsxSyntaxError(stagedFile);
+                if (tsxError) {
+                  throw new WriterTsxSyntaxError(tsxError);
+                }
               }
               args.onFileWritten?.(path);
               args.onEvent?.("operation", {
@@ -469,6 +539,8 @@ async function runOneStreamedResponse(args: {
     sawDone = parsed.done !== null;
 
     const requestMs = stopTimer().requestMs;
+    const ledgerTask =
+      args.task ?? (args.phase === "writer" ? "build-step" : "build-repair");
     recordAiCall({
       attemptId: args.attemptId,
       buildId: args.buildId ?? undefined,
@@ -481,7 +553,7 @@ async function runOneStreamedResponse(args: {
       requestMs,
       retryCount: args.retryCount,
       status: "ok",
-      task: args.phase === "writer" ? "build-step" : "build-repair",
+      task: ledgerTask,
     });
     if (usage?.inputTokens || usage?.outputTokens) {
       await args.stepCharger?.onStepFinish({
@@ -503,8 +575,40 @@ async function runOneStreamedResponse(args: {
       ...(usage ? { usage } : {}),
     };
   } catch (error) {
+    // Fast-fail on a structurally-broken TSX block mid-stream (see above):
+    // the remainder of the response can't repair it, so hand the caller a
+    // partial-snapshot result instead of a thrown transport error.
+    if (error instanceof WriterTsxSyntaxError) {
+      const requestMs = stopTimer().requestMs;
+      const ledgerTask =
+        args.task ?? (args.phase === "writer" ? "build-step" : "build-repair");
+      recordAiCall({
+        attemptId: args.attemptId,
+        buildId: args.buildId ?? undefined,
+        modelRequested: requestedModel,
+        phase: args.phase,
+        projectId: args.projectId,
+        requestMs,
+        retryCount: args.retryCount,
+        status: "ok",
+        task: ledgerTask,
+      });
+      return {
+        finishedText: false,
+        requestMs,
+        response: {
+          diagnostics: [],
+          doneSummary: null,
+          files: parserStagedMap(parser),
+          proposals: [],
+        },
+        syntaxIssue: error.message,
+      };
+    }
     const requestMs = stopTimer().requestMs;
     const errorClass = classifyAiError(error);
+    const ledgerTask =
+      args.task ?? (args.phase === "writer" ? "build-step" : "build-repair");
     recordAiCall({
       attemptId: args.attemptId,
       buildId: args.buildId ?? undefined,
@@ -515,7 +619,7 @@ async function runOneStreamedResponse(args: {
       requestMs,
       retryCount: args.retryCount,
       status: "error",
-      task: args.phase === "writer" ? "build-step" : "build-repair",
+      task: ledgerTask,
     });
     if (error instanceof BatchedParseError) {
       return {
@@ -526,7 +630,10 @@ async function runOneStreamedResponse(args: {
         response: {
           diagnostics: [],
           doneSummary: null,
-          files: new Map(),
+          // Keep whatever the parser staged before the hard error — a
+          // truncated tail must not wipe complete earlier blocks; the
+          // format-repair retry overlays them via duplicate-file last-wins.
+          files: parserStagedMap(parser),
           proposals: [],
         },
       };
@@ -756,6 +863,13 @@ function gateStage(input: {
 }): string[] {
   const stagedFiles: GeneratedProjectFile[] = [...input.staged.values()];
   const issues: string[] = [];
+  for (const path of input.staged.keys()) {
+    if (isProtectedScaffoldPath(path)) {
+      issues.push(
+        `${path}: protected scaffold file — never rewrite platform-owned source. Do NOT emit this file.`,
+      );
+    }
+  }
   for (const file of stagedFiles) {
     issues.push(
       ...collectBatchedPerFileIssues({
@@ -828,6 +942,11 @@ function mergeFinalFiles(
   }
 
   for (const [path, file] of staged) {
+    if (isProtectedScaffoldPath(path)) {
+      // Never land platform-owned source — the repair loop surfaces the
+      // diagnostic; merge just drops the staged overlay for these paths.
+      continue;
+    }
     byPath.set(path, { content: file.content, path });
   }
   return [...byPath.values()];

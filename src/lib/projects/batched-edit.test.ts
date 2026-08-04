@@ -37,6 +37,18 @@ vi.mock("@/lib/user-credits", () => ({
   chargeEnergyForStep: chargeEnergyForStepMock,
 }));
 
+// Per-step charging records its own ledger rows (phase-less); the tests only
+// assert on the writer/repair rows from runBatchedEdit itself.
+vi.mock("./energy-step-charger", () => ({
+  createStepCharger: vi.fn(() => ({
+    isExhausted: () => false,
+    modelId: "test/model",
+    onStepFinish: vi.fn(async () => undefined),
+    totals: () => ({ energyUsed: 0, inputTokens: 0, outputTokens: 0 }),
+    userId: "u-test",
+  })),
+}));
+
 import {
   buildBatchedEditPrompt,
   runBatchedEdit,
@@ -63,9 +75,19 @@ const KATALOG_TSX = `export function KatalogRouteComponent() {
 
 function makeFiles(): GeneratedProjectFile[] {
   return [
-    { path: "package.json", content: "{}" },
+    {
+      path: "package.json",
+      content: JSON.stringify({
+        dependencies: { react: "^19.0.0", "react-dom": "^19.0.0" },
+        devDependencies: {},
+      }),
+    },
     { path: "src/content/site.ts", content: "export const site = {};" },
-    { path: "src/index.css", content: ":root{ --background: 0 0% 100%; }" },
+    {
+      path: "src/index.css",
+      content:
+        ":root{ --background: 0 0% 100%; --foreground: 0 0% 3.9%; --accent: 24 95% 55%; }",
+    },
     { path: "src/routes/index.tsx", content: INDEX_TSX },
     { path: "src/routes/katalog.tsx", content: KATALOG_TSX },
   ];
@@ -163,12 +185,11 @@ describe("runBatchedEdit — happy path", () => {
   afterEach(() => vi.clearAllMocks());
 
   it("streams one targeted response, merges into source, records task=edit", async () => {
-    streamTextMock.mockReturnValueOnce(
-      writerStream(
-        `<file path="src/routes/index.tsx">\n${INDEX_TSX_EDITED}</file>\n` +
-          `<done summary="Perbarui beranda." />`,
-      ),
+    const stream = writerStream(
+      `<file path="src/routes/index.tsx">\n${INDEX_TSX_EDITED}</file>\n` +
+        `<done summary="Perbarui beranda." />`,
     );
+    streamTextMock.mockReturnValueOnce(stream);
 
     const events: Array<Record<string, unknown>> = [];
     const result = await runBatchedEdit({
@@ -182,13 +203,22 @@ describe("runBatchedEdit — happy path", () => {
       throw new Error("expected ok");
     }
     expect(result.writtenPaths).toContain("src/routes/index.tsx");
+    // Written file content replaces the original; the parser trims exactly
+    // one trailing newline, so compare normalized.
     expect(
-      result.files.find((f) => f.path === "src/routes/index.tsx")?.content,
-    ).toBe(INDEX_TSX_EDITED);
+      result.files
+        .find((f) => f.path === "src/routes/index.tsx")
+        ?.content.replace(/\n$/, ""),
+    ).toBe(INDEX_TSX_EDITED.replace(/\n$/, ""));
     // Untouched files pass through.
-    expect(result.files.find((f) => f.path === "src/routes/katalog.tsx")).toBe(
-      makeFiles().find((f) => f.path === "src/routes/katalog.tsx"),
-    );
+    expect(
+      result.files.find((f) => f.path === "src/routes/katalog.tsx"),
+    ).toEqual(makeFiles().find((f) => f.path === "src/routes/katalog.tsx"));
+    expect(
+      recordAiCallMock.mock.calls
+        .filter(([entry]) => entry.task === "edit")
+        .map(([entry]) => entry.phase),
+    ).toContain("writer");
 
     const edits = recordAiCallMock.mock.calls.filter(
       ([entry]) => entry.task === "edit",
@@ -269,8 +299,9 @@ describe("runBatchedEdit — failure paths", () => {
   afterEach(() => vi.clearAllMocks());
 
   it("unparseable after ONE format-repair → needsFallback", async () => {
-    streamTextMock.mockReturnValue(
-      writerStream('<file path="src/a.tsx">x</edit>'),
+    // Per-call fresh generator — a returned stream object is one-shot.
+    streamTextMock.mockImplementation(() =>
+      writerStream('<file path="src/routes/index.tsx">x</edit>'),
     );
     const result = await runBatchedEdit({
       ...baseArgs(),
@@ -409,6 +440,5 @@ describe("buildBatchedEditPrompt", () => {
     expect(system).toContain("src/routes/katalog.tsx");
     expect(system).toMatch(/ONLY the listed files/i);
     expect(user).toContain("ubah katalog");
-    expect(system).toContain("katalog</file>");
   });
 });

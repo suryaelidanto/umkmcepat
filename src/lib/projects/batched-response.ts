@@ -9,19 +9,13 @@
 // Hard errors (unknown tags, missing attrs, disallowed paths, truncation)
 // throw BatchedParseError carrying the byte offset so repair prompts can cite
 // exactly where the stream went bad. Prose between blocks is ignored.
+//
+// Path allow-list here is SYNTACTIC (src/ + public/ only). Platform-owned
+// scaffold files (site.ts, index.css, main.tsx, __root.tsx, ...) are a
+// SEMANTIC gate: the runners (batched-generator / batched-edit) validate and
+// drop them at merge time so a stray emission triggers targeted repair
+// instead of a hard parse error.
 import { SHADCN_COMPONENT_BY_NAME } from "./scaffold/shadcn-components";
-
-/** Scaffold paths the writer may never overwrite (platform-owned). */
-export const PROTECTED_SCAFFOLD_PATHS: readonly string[] = [
-  "src/content/site.ts",
-  "src/index.css",
-  "src/main.tsx",
-  "src/routes/__root.tsx",
-  "src/lib/preview-ready.ts",
-  "src/lib/utils.ts",
-];
-
-const PROTECTED_SET = new Set<string>(PROTECTED_SCAFFOLD_PATHS);
 
 export function isAllowedBatchedPath(path: string): boolean {
   if (!path || typeof path !== "string") {
@@ -39,9 +33,6 @@ export function isAllowedBatchedPath(path: string): boolean {
     }
   }
   if (!(path.startsWith("src/") || path.startsWith("public/"))) {
-    return false;
-  }
-  if (PROTECTED_SET.has(path)) {
     return false;
   }
   return true;
