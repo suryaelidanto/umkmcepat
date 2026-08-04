@@ -8,22 +8,11 @@ import { shadcnThemeCss } from "./shadcn-theme";
 
 import { PLATFORM_VITE_CONFIG } from "@/lib/projects/generated-build-policy";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
+import {
+  LANDSCAPE_PLACEHOLDER_SVG,
+  PORTRAIT_PLACEHOLDER_SVG,
+} from "@/lib/projects/placeholders";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
-
-const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-labelledby="title description">
-  <title id="title">Tidak ada foto</title>
-  <desc id="description">Tempat untuk foto yang akan ditambahkan pemilik usaha</desc>
-  <defs>
-    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#f5f1ea" />
-      <stop offset="1" stop-color="#e4ddd2" />
-    </linearGradient>
-  </defs>
-  <rect width="600" height="400" fill="url(#background)" />
-  <circle cx="300" cy="170" r="42" fill="none" stroke="#8c8174" stroke-width="3" />
-  <path d="m274 181 17-18 15 14 12-10 18 14" fill="none" stroke="#8c8174" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-  <text x="300" y="250" fill="#655c52" font-family="system-ui, sans-serif" font-size="20" font-weight="600" text-anchor="middle">Tidak ada foto</text>
-</svg>`;
 
 /**
  * shadcn-seeded locked-stack scaffold for generated UMKM apps.
@@ -42,7 +31,11 @@ export function createViteTanStackShadcnStarterFiles(
   schema: ProjectSiteSchema,
 ): GeneratedProjectFile[] {
   return [
-    { path: "public/placeholder.svg", content: PLACEHOLDER_SVG },
+    { path: "public/placeholder.svg", content: LANDSCAPE_PLACEHOLDER_SVG },
+    {
+      path: "public/placeholder-vertical.svg",
+      content: PORTRAIT_PLACEHOLDER_SVG,
+    },
     {
       path: "package.json",
       content: JSON.stringify(

@@ -241,4 +241,20 @@ describe("scaffold local placeholder asset", () => {
     expect(placeholder!.content).toContain("</svg>");
     expect(placeholder!.content).not.toContain("Test Biz");
   });
+
+  it("includes a portrait public/placeholder-vertical.svg", () => {
+    const files = createViteTanStackShadcnStarterFiles(
+      "proj_placeholder",
+      schema(),
+    );
+    const placeholder = files.find(
+      (f) => f.path === "public/placeholder-vertical.svg",
+    );
+
+    expect(placeholder).toBeDefined();
+    expect(placeholder!.content).toContain('viewBox="0 0 400 600"');
+    expect(placeholder!.content).toContain("Tidak ada foto");
+    expect(placeholder!.content).toContain("</svg>");
+    expect(placeholder!.content).not.toContain("Test Biz");
+  });
 });
