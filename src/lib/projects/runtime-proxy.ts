@@ -1,6 +1,10 @@
 import { devLog } from "@/lib/dev-log";
 import { escapeHtml } from "@/lib/escape-html";
 import {
+  PLACEHOLDER_DATA_URIS,
+  pickPlaceholderDataUri,
+} from "@/lib/projects/placeholders";
+import {
   createPreviewAssetToken,
   PREVIEW_ASSET_TOKEN_PARAM,
 } from "@/lib/projects/preview-asset-token";
@@ -10,6 +14,8 @@ import {
   type RuntimeSupervisor,
 } from "@/lib/projects/runtime-supervisor";
 import { assertRuntimeTargetAllowed } from "@/lib/projects/runtime-target-policy";
+
+export { pickPlaceholderDataUri };
 
 type ProxyDeploymentRequestInput = {
   assetRewrite?: {
@@ -169,14 +175,28 @@ function encodeRuntimePath(pathSegments: string[]) {
 export function injectPreviewAnnotationBridge(html: string) {
   const origin = process.env.NEXT_PUBLIC_APP_URL || "";
   const script = `<script data-umkm-annotation-bridge data-umkm-origin="${origin}">${PREVIEW_ANNOTATION_BRIDGE}</script>`;
+  const fallback = buildImageFallbackScript();
 
   if (html.includes("data-umkm-annotation-bridge")) {
     return html;
   }
 
   return html.includes("</body>")
-    ? html.replace("</body>", `${script}</body>`)
-    : `${html}${script}`;
+    ? html.replace("</body>", `${script}${fallback}</body>`)
+    : `${html}${script}${fallback}`;
+}
+
+export function buildImageFallbackScript(): string {
+  return `<script data-umkm-image-fallback>(() => {
+  const LANDSCAPE = ${JSON.stringify(PLACEHOLDER_DATA_URIS.landscape)};
+  const PORTRAIT = ${JSON.stringify(PLACEHOLDER_DATA_URIS.portrait)};
+  document.addEventListener('error', (e) => {
+    const t = e.target;
+    if (!t || t.tagName !== 'IMG' || t.dataset.umkmPlaceholder) return;
+    t.dataset.umkmPlaceholder = '1';
+    t.src = t.clientHeight > t.clientWidth ? PORTRAIT : LANDSCAPE;
+  }, true);
+})();</script>`;
 }
 
 export function rewritePreviewAssetUrls(
@@ -262,7 +282,10 @@ export function injectPublishedHead(
   ]
     .filter(Boolean)
     .join("\n    ");
-  return html.replace(/<head>/i, `<head>\n    ${headInjection}`);
+  return html.replace(
+    /<head>/i,
+    `<head>\n    ${buildImageFallbackScript()}\n    ${headInjection}`,
+  );
 }
 
 export type PreviewAnnotationCandidate = {

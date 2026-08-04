@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyPreviewSandboxHeaders,
+  buildImageFallbackScript,
   injectPreviewAnnotationBridge,
   injectPublishedHead,
   pickPreviewAnnotationCandidateIndex,
+  pickPlaceholderDataUri,
   proxyDeploymentRequest,
   rewritePreviewAssetUrls,
   rewritePublicAssetUrls,
@@ -157,6 +159,37 @@ describe("runtime proxy", () => {
     );
     expect(response?.headers.get("X-Robots-Tag")).toBe("noindex");
     await expect(response?.text()).resolves.toBe("/assets/app.js?cache=0");
+  });
+
+  it("injects an image-fallback listener into preview HTML", () => {
+    const html = "<html><body><main></main></body></html>";
+    const res = injectPreviewAnnotationBridge(html);
+    expect(res).toContain("umkm-image-fallback");
+    expect(res).toContain("addEventListener('error'");
+  });
+
+  it("injects an image-fallback listener into published HTML", () => {
+    const html = "<html><head></head><body></body></html>";
+    const res = injectPublishedHead(html, {
+      businessName: "Usaha",
+      noindex: false,
+      slug: "usaha",
+    });
+    expect(res).toContain("umkm-image-fallback");
+    expect(res).toContain("addEventListener('error'");
+  });
+
+  it("builds an aspect-aware fallback script with data URIs", () => {
+    const script = buildImageFallbackScript();
+    expect(script).toContain("data:image/svg+xml;base64,");
+    expect(script).toContain("clientHeight");
+    expect(script).toContain("clientWidth");
+    expect(script).toContain("dataset");
+  });
+
+  it("picks a portrait data URI for tall images", () => {
+    const dataUri = pickPlaceholderDataUri(200, 500);
+    expect(dataUri).toMatch(/^data:image\/svg\+xml;base64,/);
   });
 
   it("restarts stale running deployments in the same request", async () => {
