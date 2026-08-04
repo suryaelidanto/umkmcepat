@@ -324,6 +324,7 @@ export async function runEditAttempt({
 
     let editResult:
       Awaited<ReturnType<typeof editGeneratedSourceWithAgent>> | undefined;
+    let editEngine: "agent-edit" | "batched-edit" = "agent-edit";
 
     if (useBatchedEdit) {
       try {
@@ -340,6 +341,7 @@ export async function runEditAttempt({
           stepCharger: editStepCharger,
         });
         if (batched.ok) {
+          editEngine = "batched-edit";
           editResult = {
             check: null,
             files: batched.files,
@@ -583,7 +585,7 @@ export async function runEditAttempt({
             sourceType: "edited",
           },
           generation: {
-            mode: "agent-edit",
+            mode: editEngine,
             operationTrace: editResult.operations,
             editValidation,
             touchedFiles,

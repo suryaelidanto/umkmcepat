@@ -226,6 +226,15 @@ describe("runEditAttempt — batched rollout wiring", () => {
     expect(
       recordAiCallMock.mock.calls.filter(([e]) => e.phase === "fallback"),
     ).toHaveLength(0);
+    expect(prismaMock.projectSnapshot.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({
+            generation: expect.objectContaining({ mode: "batched-edit" }),
+          }),
+        }),
+      }),
+    );
   });
 
   it("flag=all + batched needsFallback → legacy agent runs; fallback telemetry task=edit", async () => {
@@ -252,6 +261,15 @@ describe("runEditAttempt — batched rollout wiring", () => {
       attemptId: "attempt-1",
       projectId: "p1",
     });
+    expect(prismaMock.projectSnapshot.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({
+            generation: expect.objectContaining({ mode: "agent-edit" }),
+          }),
+        }),
+      }),
+    );
   });
 
   it("flag=internal + admin owner → batched tried", async () => {
