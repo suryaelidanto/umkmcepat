@@ -9,6 +9,8 @@
 
 ### Phase 0 — Instrumentation + A/B harness (no behavior change)
 
+Status: done in 8d77380 (timers), 063508a (caches), 6e726c3 (A/B harness).
+
 1. **AiCallRecord plumbing done** (see its spec/plan; here we assume it's merged).
 2. **Timer split** — in `src/lib/projects/generated-source.ts`, add `tscMs`/`viteMs` around the existing `bun run build` and emit both in the existing `[umkm:build] timings` line without changing the command itself.
 3. **Per-project caches** — move `tsBuildInfoFile` + Vite `cacheDir` out of golden `node_modules`. Edit `createGeneratedViteTanStackStarterFiles` to emit per-workspace paths under `.cache/generated-app/`, preserve those paths in `syncWorkspaceFiles`.
