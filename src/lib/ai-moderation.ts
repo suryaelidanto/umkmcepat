@@ -1,7 +1,11 @@
 import { generateText } from "ai";
 
 import { getAiModel, getAiTelemetry } from "@/lib/ai";
-import { recordAiCall } from "@/lib/ai-call-record";
+import {
+  classifyAiError,
+  recordAiCall,
+  startAiCallTimer,
+} from "@/lib/ai-call-record";
 import { getModerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
@@ -21,6 +25,12 @@ export type ModerationResult =
 
 export type ModerationImage = { bytes: Buffer; mediaType: string };
 
+/** AiCallRecord correlation ids the caller already has. */
+export type ModerationLedgerCorrelation = {
+  projectId?: string;
+  turnId?: string;
+};
+
 const BLOCK_MESSAGE =
   "Maaf, AI tidak bisa membantu membuat website untuk topik ini. Kamu bisa ubah chat dan coba lagi.";
 const CLARIFY_MESSAGE =
@@ -36,6 +46,7 @@ export async function moderateProjectRequest(
   prompt: string,
   images: ModerationImage[] = [],
   timeoutMs = getModerationTimeoutMs(),
+  ledgerCorrelation?: ModerationLedgerCorrelation,
 ): Promise<ModerationResult> {
   const hasImages = images.length > 0;
   const key = normalizePrompt(prompt);
@@ -69,7 +80,7 @@ export async function moderateProjectRequest(
   }
 
   const requestedModel = getModerationModel();
-  const startedAt = performance.now();
+  const stopTimer = startAiCallTimer();
   let attemptedRetry = false;
   let result;
   try {
@@ -101,9 +112,9 @@ export async function moderateProjectRequest(
     );
   } catch (error) {
     recordAiCall({
-      errorClass: classifyModerationError(error),
+      errorClass: classifyAiError(error),
       modelRequested: requestedModel,
-      requestMs: Math.round(performance.now() - startedAt),
+      requestMs: stopTimer().requestMs,
       retryCount: attemptedRetry ? 1 : 0,
       status: /timed out|timeout|aborted/i.test(
         error instanceof Error ? error.message : String(error),
@@ -111,6 +122,7 @@ export async function moderateProjectRequest(
         ? "timeout"
         : "error",
       task: "moderation",
+      ...ledgerCorrelation,
     });
     throw error;
   }
@@ -125,10 +137,11 @@ export async function moderateProjectRequest(
     modelRequested: requestedModel,
     modelServed: result.response?.modelId,
     outputTokens: usage.outputTokens,
-    requestMs: Math.round(performance.now() - startedAt),
+    requestMs: stopTimer().requestMs,
     retryCount: attemptedRetry ? 1 : 0,
     status: "ok",
     task: "moderation",
+    ...ledgerCorrelation,
   });
   const label = result.text.trim().toUpperCase();
   if (!["ALLOW", "BLOCK", "CLARIFY"].includes(label)) {
@@ -177,21 +190,6 @@ async function callWithRetry<T>(
       throw secondError;
     }
   }
-}
-
-/** Coarse error class only — never the raw provider message. */
-function classifyModerationError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (/rate.?limit|429|too many/i.test(message)) {
-    return "rate-limit";
-  }
-  if (/timed out|timeout|aborted/i.test(message)) {
-    return "timeout";
-  }
-  if (/schema|422|invalid/i.test(message)) {
-    return "schema-422";
-  }
-  return "transport";
 }
 
 export function getModerationTimeoutMs() {

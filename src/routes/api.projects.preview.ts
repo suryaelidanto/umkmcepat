@@ -261,7 +261,9 @@ async function handlePreviewPost(request: Request) {
   if (latestUserText.trim()) {
     let moderation;
     try {
-      moderation = await moderateProjectRequest(latestUserText);
+      moderation = await moderateProjectRequest(latestUserText, [], undefined, {
+        projectId: project.id,
+      });
     } catch (error) {
       console.error(
         "[moderation] failed:",

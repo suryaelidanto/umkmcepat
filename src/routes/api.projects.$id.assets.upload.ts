@@ -62,9 +62,12 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
         if (rawAssetId) {
           try {
             const claimed = await claimTempImage(session.user.id, rawAssetId);
-            const moderation = await moderateProjectRequest("", [
-              { bytes: claimed.body, mediaType: claimed.contentType },
-            ]);
+            const moderation = await moderateProjectRequest(
+              "",
+              [{ bytes: claimed.body, mediaType: claimed.contentType }],
+              undefined,
+              { projectId: id },
+            );
             if (!moderation.allowed) {
               return Response.json(
                 {
@@ -122,9 +125,12 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
         const contentType = contentTypeFromExt(detectedFormat);
 
         try {
-          const moderation = await moderateProjectRequest("", [
-            { bytes, mediaType: contentType },
-          ]);
+          const moderation = await moderateProjectRequest(
+            "",
+            [{ bytes, mediaType: contentType }],
+            undefined,
+            { projectId: id },
+          );
           if (!moderation.allowed) {
             return Response.json(
               {

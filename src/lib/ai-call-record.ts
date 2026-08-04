@@ -72,6 +72,34 @@ export function recordAiCall(entry: AiCallEntry): void {
 }
 
 /**
+ * Coarse, bounded error vocabulary for the ledger — never the raw provider
+ * message. Order matters: rate-limit/timeout/schema before the transport
+ * fallback, `fetch failed` (Node undici transport) maps to parse only via
+ * TypeError name since its message says nothing useful.
+ */
+export function classifyAiError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/rate.?limit|429|too many/i.test(message)) {
+    return "rate-limit";
+  }
+  if (/timed out|timeout|aborted/i.test(message)) {
+    return "timeout";
+  }
+  if (/schema|422|invalid/i.test(message)) {
+    return "schema";
+  }
+  if (/json|parse|unexpected token/i.test(message)) {
+    return "parse";
+  }
+  if (
+    /socket|econnreset|econnrefused|network|dns|fetch failed/i.test(message)
+  ) {
+    return "transport";
+  }
+  return "unknown";
+}
+
+/**
  * Capture `performance.now()` before an AI call; the returned closure yields
  * the elapsed request duration at the boundary closest to the wire.
  */

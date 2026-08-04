@@ -1,7 +1,15 @@
 import { generateText } from "ai";
 import { describe, expect, it, vi, type Mock } from "vitest";
 
+const { recordAiCallMock } = vi.hoisted(() => ({
+  recordAiCallMock: vi.fn(),
+}));
+
 vi.mock("ai", () => ({ generateText: vi.fn() }));
+vi.mock("@/lib/ai-call-record", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ai-call-record")>()),
+  recordAiCall: recordAiCallMock,
+}));
 vi.mock("@/lib/ai", () => ({
   getAiModel: vi.fn(() => "test/model"),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
@@ -79,6 +87,26 @@ describe("moderateProjectRequest", () => {
     await expect(
       moderateProjectRequest("jual teh provider down"),
     ).rejects.toThrow("provider down");
+  });
+
+  it("records a failed call row with caller correlation ids", async () => {
+    recordAiCallMock.mockClear();
+    generateTextMock.mockRejectedValueOnce(new Error("provider down"));
+    generateTextMock.mockRejectedValueOnce(new Error("provider down"));
+
+    await expect(
+      moderateProjectRequest("jual teh ledger", [], undefined, {
+        projectId: "prj-1",
+      }),
+    ).rejects.toThrow("provider down");
+
+    expect(recordAiCallMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "prj-1",
+        status: "error",
+        task: "moderation",
+      }),
+    );
   });
 
   it("times out", async () => {
