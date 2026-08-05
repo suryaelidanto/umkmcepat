@@ -315,6 +315,7 @@ export async function generateCustomProjectFilesWithAgent({
     files = ensureRouterRouteWired(files);
     files = ensurePreviewReadyCalled(files);
     files = ensureRegisteredRouteLinks(files);
+    files = ensureRouterExtraRoutesRegistered(files);
 
     // Ensure a index.css file exists (starter contract if absent), but do
     // NOT inject per-class stubs here — stubs would mask the missing-CSS gap
@@ -362,6 +363,7 @@ export async function generateCustomProjectFilesWithAgent({
       files = ensureRouterRouteWired(files);
       files = ensurePreviewReadyCalled(files);
       files = ensureRegisteredRouteLinks(files);
+      files = ensureRouterExtraRoutesRegistered(files);
       files = ensureStylesFileExists(files, schema);
       touchedFiles.add(AUTO_STYLE_PATH);
       quality = checkAgentSourceQuality(files, agentEditedFiles);
@@ -1316,6 +1318,85 @@ export function ensureRegisteredRouteLinks(
     );
     return content === file.content ? file : { ...file, content };
   });
+}
+
+/**
+ * Auto-heal multi-page routing: register route files the agent created under
+ * src/routes/ but forgot to wire into src/router.tsx. TanStack's typed router
+ * requires every route module to be imported + added via createRoute + added
+ * to rootRoute.addChildren([...]) — otherwise tsc fails the build after the
+ * whole AI pass and the repair loop re-emits the same broken router.
+ *
+ * Heals:
+ *  - Adds `import { X } from "./routes/x"` for each unregistered route file
+ *  - Adds a `createRoute({ getParentRoute: () => rootRoute, path, component })`
+ *    block and appends the route to the existing addChildren([...]) list.
+ */
+export function ensureRouterExtraRoutesRegistered(
+  files: GeneratedProjectFile[],
+): GeneratedProjectFile[] {
+  const routerFile = files.find((file) => file.path === "src/router.tsx");
+  if (!routerFile) {
+    return files;
+  }
+  const orphans = findUnregisteredRouteFiles(files);
+  if (orphans.length === 0) {
+    return files;
+  }
+
+  let content = routerFile.content;
+  let mutated = false;
+
+  for (const orphanPath of orphans) {
+    const match = orphanPath.match(/^src\/routes\/([^/]+)\.tsx$/);
+    if (!match) {
+      continue;
+    }
+    const base = match[1];
+    const componentName =
+      "Route" + base.charAt(0).toUpperCase() + base.slice(1) + "Component";
+    const importPath = `./routes/${base}`;
+
+    // 1) Import the route component (skip if already imported).
+    if (!content.includes(importPath)) {
+      content = content.replace(
+        /import\s*\{[^}]*\}\s*from\s*["']\.\/routes\/__root["'];\n?/,
+        `import { rootRoute } from "./routes/__root";\nimport { ${componentName} } from "${importPath}";\n`,
+      );
+      mutated = true;
+    }
+
+    // 2) Add the createRoute block (after the not-found route if present).
+    if (!content.includes(`${base}Route = createRoute(`)) {
+      content = content.replace(
+        /(const\s+notFoundRoute\s*=\s*createRoute\(\{[\s\S]*?\}\);[\s\S]*?\n?)/,
+        `$1const ${base}Route = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/${base}",\n  component: ${componentName},\n});\n`,
+      );
+      mutated = true;
+    }
+
+    // 3) Register in addChildren([...]).
+    if (content.includes(`${base}Route`)) {
+      content = content.replace(
+        /(rootRoute\.addChildren\(\[)([^\]]*?)(\]\))/,
+        (all, open: string, list: string, close: string) => {
+          if (list.includes(`${base}Route`)) {
+            return all;
+          }
+          const sep = list.trim().length > 0 ? ", " : "";
+          return `${open}${list}${sep}${base}Route${close}`;
+        },
+      );
+      mutated = true;
+    }
+  }
+
+  if (!mutated) {
+    return files;
+  }
+  return files.map((file) =>
+    file.path === "src/router.tsx" ? { ...file, content } : file,
+  );
 }
 
 /**

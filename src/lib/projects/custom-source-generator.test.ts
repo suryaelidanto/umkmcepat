@@ -9,6 +9,7 @@ import {
   cssCoversClassName,
   ensurePreviewReadyCalled,
   ensureRegisteredRouteLinks,
+  ensureRouterExtraRoutesRegistered,
   ensureRouterRouteWired,
   ensureStylesFileExists,
   extractClassNamesFromTsx,
@@ -1007,6 +1008,67 @@ export function Home() {
       expect(index?.content).toContain(
         '<Link to="/" hash="kontak">Kontak</Link>',
       );
+    });
+  });
+
+  describe("ensureRouterExtraRoutesRegistered", () => {
+    it("registers an orphan route file into router.tsx", () => {
+      const files = [
+        {
+          path: "src/router.tsx",
+          content: `import { createHashHistory, createRoute, createRouter } from "@tanstack/react-router";
+import { rootRoute } from "./routes/__root";
+import { HomeRouteComponent } from "./routes/index";
+import { NotFoundRouteComponent } from "./routes/not-found";
+
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: HomeRouteComponent,
+});
+
+const notFoundRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "*",
+  component: NotFoundRouteComponent,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, notFoundRoute]);
+const history = createHashHistory();
+
+export const router = createRouter({ history, routeTree });`,
+        },
+        {
+          path: "src/routes/menu.tsx",
+          content:
+            "export function RouteMenuComponent() { return <div>Menu</div>; }",
+        },
+      ];
+      const healed = ensureRouterExtraRoutesRegistered(files);
+      const router = healed.find((f) => f.path === "src/router.tsx");
+      expect(router?.content).toContain(
+        `import { RouteMenuComponent } from "./routes/menu";`,
+      );
+      expect(router?.content).toContain(`const menuRoute = createRoute({`);
+      expect(router?.content).toContain(`path: "/menu"`);
+      expect(router?.content).toContain(
+        `rootRoute.addChildren([indexRoute, notFoundRoute, menuRoute])`,
+      );
+      // No further orphans remain after heal.
+      expect(findUnregisteredRouteFiles(healed)).toEqual([]);
+    });
+
+    it("does not modify a router with no orphan routes", () => {
+      const files = [
+        {
+          path: "src/router.tsx",
+          content: `const indexRoute = createRoute({ path: '/' });
+const routeTree = rootRoute.addChildren([indexRoute]);`,
+        },
+        { path: "src/routes/index.tsx", content: "export function Home() {}" },
+      ];
+      const healed = ensureRouterExtraRoutesRegistered(files);
+      expect(healed).toEqual(files);
     });
   });
 
