@@ -373,6 +373,42 @@ export function collectBatchedGateIssues(
     );
   }
 
+  // site.ts schema-drift detector: only read fields that exist on the
+  // scaffold's site object. Invented fields (site.phone, site.tagline,
+  // site.name, site.address) fail tsc after the AI pass and burn repairs.
+  const SITE_KNOWN_FIELDS = new Set([
+    "businessName",
+    "eyebrow",
+    "headline",
+    "subheadline",
+    "primaryCta",
+    "secondaryCta",
+    "audience",
+    "offer",
+    "theme",
+    "trustPoints",
+    "sections",
+    "version",
+  ]);
+  for (const file of stagedFiles) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    for (const match of file.content.matchAll(
+      /site\.([a-zA-Z_][a-zA-Z0-9_]*)/g,
+    )) {
+      const field = match[1];
+      if (field === "map" || field === "filter" || field === "length") {
+        continue;
+      }
+      if (!SITE_KNOWN_FIELDS.has(field)) {
+        issues.push(
+          `${file.path}: site.${field} does not exist on src/content/site.ts — use the actual fields (businessName, headline, offer, trustPoints, sections, ...).`,
+        );
+      }
+    }
+  }
+
   // The scaffold uses manual routing (createRoute in src/router.tsx), not
   // TanStack file-route boilerplate. createFileRoute is a type-only helper in
   // this router version — calling it with a path string fails the tsc build
