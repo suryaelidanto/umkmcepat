@@ -35,6 +35,16 @@ describe("runtime proxy", () => {
     expect(html).not.toContain("const hovered = recentHoverTargetAt");
     expect(injectPreviewAnnotationBridge(html)).toBe(html);
   });
+
+  it("injects the direct edit-mode bridge", () => {
+    const html = injectPreviewAnnotationBridge("<html><body></body></html>");
+    expect(html).toContain("data-umkm-edit-bridge");
+    expect(html).toContain("umkmcepat-edit-mode");
+    expect(html).toContain("umkmcepat-edit-layout");
+    expect(html).toContain("umkmcepat-edit-ready");
+    expect(html).toContain("umkmcepat-edit-state");
+    expect(html).toContain("data-umkm-id");
+  });
   afterEach(async () => {
     vi.restoreAllMocks();
 

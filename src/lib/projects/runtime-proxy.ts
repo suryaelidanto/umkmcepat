@@ -175,6 +175,7 @@ function encodeRuntimePath(pathSegments: string[]) {
 export function injectPreviewAnnotationBridge(html: string) {
   const origin = process.env.NEXT_PUBLIC_APP_URL || "";
   const script = `<script data-umkm-annotation-bridge data-umkm-origin="${origin}">${PREVIEW_ANNOTATION_BRIDGE}</script>`;
+  const editBridge = `<script data-umkm-edit-bridge data-umkm-origin="${origin}">${EDIT_MODE_BRIDGE}</script>`;
   const fallback = buildImageFallbackScript();
 
   if (html.includes("data-umkm-annotation-bridge")) {
@@ -182,8 +183,8 @@ export function injectPreviewAnnotationBridge(html: string) {
   }
 
   return html.includes("</body>")
-    ? html.replace("</body>", `${script}${fallback}</body>`)
-    : `${html}${script}${fallback}`;
+    ? html.replace("</body>", `${script}${editBridge}${fallback}</body>`)
+    : `${html}${script}${editBridge}${fallback}`;
 }
 
 export function buildImageFallbackScript(): string {
@@ -605,3 +606,186 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   document.addEventListener('click', handleClick, true);
 })();
 `;
+
+const EDIT_MODE_BRIDGE = String.raw`(() => {
+  const PARENT_ORIGIN = document.currentScript?.getAttribute('data-umkm-origin') || '*';
+  let active = false;
+  let removedIds = new Set();
+  const blocks = new Map();
+  let idCounter = 0;
+
+  const ATOMIC_RE = /(^|[-_\s])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([-_\s]|$)/i;
+  function isAtomicBlock(el) {
+    if (el.matches('article,[role="listitem"],[data-umkm-annotatable]')) return true;
+    if (el.tagName === 'SECTION') return true;
+    const className = typeof el.className === 'string' ? el.className : '';
+    if (/(^|[\s_-])(body|container|content|inner|padding|wrapper)([\s_-]|$)/i.test(className)) return false;
+    return ATOMIC_RE.test(className);
+  }
+
+  function parentIdOf(el) {
+    const parent = el.parentElement;
+    if (!parent) return 'body';
+    return parent.id || parent.tagName.toLowerCase();
+  }
+
+  function selectorPath(el) {
+    const parts = [];
+    let current = el;
+    while (current && current.nodeType === 1 && current !== document.body && parts.length < 7) {
+      let part = current.tagName.toLowerCase();
+      if (current.id) {
+        part += '#' + current.id.replace(/[^a-zA-Z0-9_-]/g, '');
+      } else {
+        const classes = typeof current.className === 'string' ? current.className.split(/\s+/) : [];
+        const cls = classes.find((n) => /^[a-z][a-z0-9_-]{2,}$/i.test(n) && !/(^css-|__[a-z0-9_-]{5,}$)/i.test(n));
+        if (cls) part += '.' + cls;
+        const siblings = current.parentElement ? Array.from(current.parentElement.children).filter((i) => i.tagName === current.tagName) : [];
+        if (siblings.length > 1) part += ':nth-of-type(' + (siblings.indexOf(current) + 1) + ')';
+      }
+      parts.unshift(part);
+      current = current.parentElement;
+    }
+    return parts.join(' > ');
+  }
+
+  function labelFor(el) {
+    const tag = el.tagName.toLowerCase();
+    const text = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const snippet = text ? ' — "' + text + '"' : '';
+    if (tag === 'section') return 'Bagian' + snippet;
+    return 'Blok' + snippet;
+  }
+
+  function scan() {
+    blocks.clear();
+    document.querySelectorAll('[data-umkm-id]').forEach((el) => {
+      const id = el.getAttribute('data-umkm-id');
+      blocks.set(id, { element: el, label: labelFor(el), selectorPath: selectorPath(el), tag: el.tagName.toLowerCase() });
+    });
+  }
+
+  function layout() {
+    const parents = {};
+    const parentRefs = {};
+    const blockRefs = {};
+    const byParent = new Map();
+    blocks.forEach((info, id) => {
+      const pid = parentIdOf(info.element);
+      if (!byParent.has(pid)) byParent.set(pid, []);
+      byParent.get(pid).push(id);
+      blockRefs[id] = { id, label: info.label, selectorPath: info.selectorPath, tag: info.tag };
+      parentRefs[pid] = selectorPath(info.element.parentElement);
+    });
+    byParent.forEach((ids, pid) => { parents[pid] = ids; });
+    return { parentRefs, parents, removed: Array.from(removedIds), blocks: blockRefs };
+  }
+
+  function post(type) {
+    window.parent.postMessage({ type, payload: layout() }, PARENT_ORIGIN);
+  }
+
+  function applyLayout(next) {
+    removedIds = new Set(next.removed || []);
+    if (next.parents) {
+      for (const pid of Object.keys(next.parents)) {
+        const container = blocks.get(pid)?.element?.parentElement || document.body;
+        const ordered = (next.parents[pid] || []).map((id) => blocks.get(id)?.element).filter(Boolean);
+        ordered.forEach((el) => container.appendChild(el));
+      }
+    }
+    blocks.forEach((info, id) => {
+      const removed = removedIds.has(id);
+      info.element.style.display = removed ? 'none' : '';
+      info.element.setAttribute('data-umkm-removed', removed ? 'true' : 'false');
+    });
+  }
+
+  function makeId() { idCounter += 1; return 'eb_' + Date.now().toString(36) + '_' + idCounter; }
+
+  function findBlock(node) {
+    let current = node;
+    while (current && current.nodeType === 1 && current !== document.body) {
+      const id = current.getAttribute && current.getAttribute('data-umkm-id');
+      if (id && blocks.has(id)) return blocks.get(id);
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  function ensureOverlays() {
+    if (document.querySelector('[data-umkm-edit-overlay]')) return;
+    const overlay = document.createElement('div');
+    overlay.setAttribute('data-umkm-edit-overlay', 'true');
+    overlay.style.cssText = 'position:absolute;z-index:2147483647;pointer-events:none;';
+    document.body.appendChild(overlay);
+
+    document.addEventListener('mouseover', (e) => {
+      if (!active) return;
+      const block = findBlock(e.target);
+      overlay.textContent = '';
+      if (!block) return;
+      const r = block.element.getBoundingClientRect();
+      const badge = document.createElement('div');
+      badge.style.cssText = 'position:absolute;left:' + (r.left + window.scrollX) + 'px;top:' + (r.top + window.scrollY) + 'px;background:#0d9488;color:#fff;padding:2px 6px;font:12px system-ui;border-radius:4px;pointer-events:auto;cursor:grab;';
+      badge.textContent = '⣿ ' + block.label;
+      badge.draggable = true;
+      badge.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('text/plain', block.id); });
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕';
+      closeBtn.style.cssText = 'margin-left:6px;background:#b91c1c;border:0;color:#fff;cursor:pointer;border-radius:3px;padding:0 5px;pointer-events:auto;';
+      closeBtn.addEventListener('click', () => {
+        block.element.setAttribute('data-umkm-removed', 'true');
+        block.element.style.display = 'none';
+        removedIds.add(block.id);
+        post('umkmcepat-edit-state');
+      });
+      badge.appendChild(closeBtn);
+      overlay.appendChild(badge);
+    });
+
+    document.addEventListener('dragover', (e) => { if (active && e.target.closest && e.target.closest('[data-umkm-id]')) e.preventDefault(); });
+    document.addEventListener('drop', (e) => {
+      if (!active) return;
+      const target = findBlock(e.target);
+      const dragId = e.dataTransfer.getData('text/plain');
+      if (!target || !dragId) return;
+      e.preventDefault();
+      const src = blocks.get(dragId)?.element;
+      const dst = target.element;
+      if (!src || src === dst) return;
+      src.parentElement.insertBefore(src, dst.nextSibling);
+      scan();
+      post('umkmcepat-edit-state');
+    });
+  }
+
+  function activate() {
+    active = true;
+    document.querySelectorAll('article, section, [data-umkm-annotatable]').forEach((el) => {
+      if (!el.hasAttribute('data-umkm-id')) el.setAttribute('data-umkm-id', makeId());
+    });
+    scan();
+    ensureOverlays();
+    post('umkmcepat-edit-ready');
+  }
+
+  function deactivate() {
+    active = false;
+    const overlay = document.querySelector('[data-umkm-edit-overlay]');
+    if (overlay) overlay.remove();
+  }
+
+  window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'umkmcepat-edit-mode') {
+      data.active ? activate() : deactivate();
+    }
+    if (data.type === 'umkmcepat-edit-layout' && data.layout) {
+      scan();
+      applyLayout(data.layout);
+      post('umkmcepat-edit-state');
+    }
+  });
+})();`;
