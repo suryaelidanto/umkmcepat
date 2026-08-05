@@ -110,7 +110,7 @@ export function DirectEditToolbar({
         type="button"
         size="sm"
         onClick={onSave}
-        className="h-8 rounded-radius-md bg-[#0d9488] px-spacing-3 text-xs text-white hover:bg-[#0f766e]"
+        className="h-8 rounded-radius-md bg-[#0f766e] px-spacing-3 text-xs text-white hover:bg-[#115e59]"
       >
         Simpan
       </Button>
