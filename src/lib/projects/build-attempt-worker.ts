@@ -31,6 +31,7 @@ import {
   getIndonesianBuildFailureSummary,
 } from "@/lib/projects/build-logs";
 import {
+  ensureRegisteredRouteLinks,
   generateCustomProjectFilesWithAgent,
   repairGeneratedProjectFiles,
 } from "@/lib/projects/custom-source-generator";
@@ -268,6 +269,10 @@ export async function runBuildAttempt({
         label: "Build website dari source tersimpan",
         detail: `${sourceFiles.length} file dimuat. Validasi build.`,
       });
+
+      // Deterministic heal: rewrite unregistered <Link to="/x"> to hash
+      // anchors so TanStack's typed Link does not fail the TS build on retry.
+      sourceFiles = ensureRegisteredRouteLinks(sourceFiles);
 
       const [retryBriefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
       SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
