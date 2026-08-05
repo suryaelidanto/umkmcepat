@@ -83,8 +83,8 @@ export function buildContentSecurityPolicy(nonce: string) {
     `script-src ${script.join(" ")}`,
     `connect-src ${connect.join(" ")}`,
     // Tailwind injects inline styles; a nonce cannot cover them.
-    "style-src 'self' 'unsafe-inline'",
-    "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
     // Workspace embeds the preview iframe under /api/projects/<id>/preview/,
     // and Turnstile under https://challenges.cloudflare.com. 'self' covers
     // same-origin framing; anything cross-origin (Turnstile) needs an explicit
