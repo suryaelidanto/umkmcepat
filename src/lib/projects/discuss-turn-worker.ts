@@ -172,6 +172,8 @@ export async function runDiscussTurn({
 
     await primeSettingCache({ force: true });
 
+    publishProgress(turnId, { type: "activity", phase: "responding" });
+
     const discussStartedAt = Date.now();
     const stopDiscussTimer = startAiCallTimer({ withTtft: true });
     let discussRecorded = false;
