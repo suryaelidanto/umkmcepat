@@ -62,6 +62,8 @@ export type BuildProgressStep = {
   status?: "active" | "done" | "error";
 };
 
+export type PreviewEditTarget = Omit<VisualAnnotationDraft, "comment" | "id">;
+
 export type WorkspaceRuntimeControl = {
   canPublish?: boolean;
   isPublishing?: boolean;
@@ -472,6 +474,7 @@ export function GeneratedPreviewFrame({
   editLayout = null,
   editLayoutSignal = 0,
   onAnnotationTarget,
+  onDirectEditAction,
   onLoad,
   onRecover,
   onStuck,
@@ -490,6 +493,10 @@ export function GeneratedPreviewFrame({
   editLayout?: EditLayout | null;
   editLayoutSignal?: number;
   onAnnotationTarget?: (target: unknown) => void;
+  onDirectEditAction?: (
+    action: "remove" | "move-up" | "move-down",
+    target: PreviewEditTarget,
+  ) => void;
   onLoad?: () => void;
   onRecover?: () => void;
   onStuck?: () => void;
@@ -507,6 +514,11 @@ export function GeneratedPreviewFrame({
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
+  const [hoverTarget, setHoverTarget] = useState<PreviewEditTarget | null>(
+    null,
+  );
+  const [selectedTarget, setSelectedTarget] =
+    useState<PreviewEditTarget | null>(null);
   // Consecutive 12s silent-recovery timeouts that fired without the generated app
   // ever posting its preview-ready signal. Capped so a preview that can never
   // start (e.g. `noop` runtime supervisor in production, or the generated app
@@ -556,6 +568,16 @@ export function GeneratedPreviewFrame({
         return;
       }
 
+      if (event.data?.type === "umkmcepat-edit-hover") {
+        setHoverTarget(event.data.payload ?? null);
+        return;
+      }
+
+      if (event.data?.type === "umkmcepat-edit-target") {
+        setSelectedTarget(event.data.payload ?? null);
+        return;
+      }
+
       if (
         event.data?.type !== "umkmcepat-preview-ready" &&
         event.data?.type !== "generated-app-preview-ready"
@@ -571,6 +593,13 @@ export function GeneratedPreviewFrame({
       window.removeEventListener("message", handleMessage);
     };
   }, [onAnnotationTarget, onRecover, projectId, reloadKey]);
+
+  useEffect(() => {
+    if (!directEditActive) {
+      setHoverTarget(null);
+      setSelectedTarget(null);
+    }
+  }, [directEditActive]);
 
   const previewState = previewReadyState({
     readyReached: ready,
@@ -648,6 +677,14 @@ export function GeneratedPreviewFrame({
             target={pendingAnnotation.target}
           />
         ) : null}
+        {directEditActive ? (
+          <PreviewEditOverlay
+            hoverTarget={hoverTarget}
+            onComment={(target) => onAnnotationTarget?.(target)}
+            onDirectEditAction={onDirectEditAction}
+            selectedTarget={selectedTarget}
+          />
+        ) : null}
       </div>
       {previewState === "stuck" ? (
         <div className="absolute inset-0">
@@ -672,6 +709,80 @@ export function GeneratedPreviewFrame({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function PreviewEditOverlay({
+  hoverTarget,
+  onComment,
+  onDirectEditAction,
+  selectedTarget,
+}: {
+  hoverTarget: PreviewEditTarget | null;
+  onComment: (target: PreviewEditTarget) => void;
+  onDirectEditAction?: (
+    action: "remove" | "move-up" | "move-down",
+    target: PreviewEditTarget,
+  ) => void;
+  selectedTarget: PreviewEditTarget | null;
+}) {
+  const visibleTarget = selectedTarget ?? hoverTarget;
+  const rect = visibleTarget?.target.boundingBox;
+  const chipTop = Math.max(8, (rect?.y ?? 0) - 44);
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-30">
+      {rect ? (
+        <div
+          className="absolute rounded-radius-lg border-2 border-[#0d9488] bg-[#0d9488]/10"
+          style={{
+            height: rect.height,
+            left: rect.x,
+            top: rect.y,
+            width: rect.width,
+          }}
+        />
+      ) : null}
+      {selectedTarget && rect ? (
+        <div
+          className="pointer-events-auto absolute flex max-w-[calc(100%-16px)] flex-wrap items-center gap-spacing-1 rounded-radius-lg bg-[#0d9488] p-spacing-1 text-xs font-semibold text-white shadow-[0_12px_36px_rgba(0,0,0,0.28)]"
+          style={{ left: Math.max(8, rect.x), top: chipTop }}
+        >
+          <button
+            type="button"
+            onClick={() => onComment(selectedTarget)}
+            className="rounded-radius-md px-spacing-2 py-spacing-1 hover:bg-white/18"
+          >
+            Komentar
+          </button>
+          <button
+            type="button"
+            onClick={() => onDirectEditAction?.("move-up", selectedTarget)}
+            className="rounded-radius-md px-spacing-2 py-spacing-1 hover:bg-white/18"
+          >
+            Naik
+          </button>
+          <button
+            type="button"
+            onClick={() => onDirectEditAction?.("move-down", selectedTarget)}
+            className="rounded-radius-md px-spacing-2 py-spacing-1 hover:bg-white/18"
+          >
+            Turun
+          </button>
+          <button
+            type="button"
+            onClick={() => onDirectEditAction?.("remove", selectedTarget)}
+            className="rounded-radius-md px-spacing-2 py-spacing-1 hover:bg-white/18"
+          >
+            Hapus
+          </button>
+        </div>
+      ) : null}
+      <div className="absolute bottom-spacing-4 left-1/2 w-[min(32rem,calc(100%-24px))] -translate-x-1/2 rounded-radius-xl border border-white/16 bg-[#171715]/92 px-spacing-4 py-spacing-3 text-center text-xs font-semibold leading-5 text-white shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
+        Pilih bagian website. Setelah terpilih: Komentar, Naik, Turun, Hapus.
+        Matikan Ubah untuk klik website normal.
+      </div>
     </div>
   );
 }
