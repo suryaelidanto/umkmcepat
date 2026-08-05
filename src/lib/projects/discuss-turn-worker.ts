@@ -76,6 +76,7 @@ type HedgeUsage = {
 type HedgeOutcome = {
   errorClass?: string;
   hasCard: boolean;
+  servedModelId?: string | null;
   stopTimer?: import("@/lib/ai-call-record").AiCallTimer;
   usage: HedgeUsage;
 };
@@ -346,6 +347,9 @@ export async function runDiscussTurn({
               inputTokens: usage?.inputTokens ?? 0,
               outputTokens: usage?.outputTokens ?? 0,
             };
+            outcome.servedModelId = (
+              await Promise.resolve(hedgeStream.response).catch(() => undefined)
+            )?.modelId;
           })(),
         );
       });
@@ -377,7 +381,7 @@ export async function runDiscussTurn({
           hedged: true,
           inputTokens: outcome.usage.inputTokens ?? 0,
           modelRequested: hedgeModelName,
-          modelServed: hedgeModelName,
+          modelServed: outcome.servedModelId ?? hedgeModelName,
           outputTokens: outcome.usage.outputTokens ?? 0,
           projectId: project.id,
           raceRole: winner ? "winner" : "aborted",
@@ -720,6 +724,7 @@ export async function runDiscussTurn({
     // model, not the winner's.
     let primaryLegInputTokens = 0;
     let primaryLegOutputTokens = 0;
+    let primaryServedModelId: string | undefined;
     try {
       const primaryUsage = await primary.usage;
       totalInputTokens = primaryUsage?.inputTokens ?? 0;
@@ -731,9 +736,17 @@ export async function runDiscussTurn({
       const primaryResponse = await Promise.resolve(primary.response).catch(
         () => null,
       );
-      if (primaryResponse?.modelId) {
+      primaryServedModelId = primaryResponse?.modelId;
+      if (primaryServedModelId || hedgeWinner.current) {
+        const winnerOutcome =
+          hedgeWinner.current != null
+            ? hedgeOutcomes[hedgeWinner.current.modelIndex]
+            : undefined;
         discussModelId =
-          hedgeWinner.current?.modelName ?? primaryResponse.modelId;
+          winnerOutcome?.servedModelId ??
+          primaryServedModelId ??
+          hedgeWinner.current?.modelName ??
+          modelName;
       }
     } catch {
       // usage is best-effort
@@ -765,7 +778,7 @@ export async function runDiscussTurn({
       }
       const legs: EnergyUsageLeg[] = [
         {
-          modelId: modelName,
+          modelId: primaryServedModelId ?? modelName,
           inputTokens: primaryLegInputTokens,
           outputTokens: primaryLegOutputTokens,
         },
@@ -773,7 +786,7 @@ export async function runDiscussTurn({
       hedgeModelNames.forEach((hedgeModelName, index) => {
         const outcome = hedgeOutcomes[index];
         legs.push({
-          modelId: hedgeModelName,
+          modelId: outcome.servedModelId ?? hedgeModelName,
           inputTokens: outcome.usage.inputTokens ?? 0,
           outputTokens: outcome.usage.outputTokens ?? 0,
         });

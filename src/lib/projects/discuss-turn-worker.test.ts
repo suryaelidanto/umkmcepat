@@ -782,7 +782,7 @@ describe("runDiscussTurn hedged race", () => {
       // Loser streams nothing before the primary wins — aborted legs would
       // otherwise leak deltas while they complete before the winner check.
       parts: [],
-      modelId: "discuss-combo-2",
+      modelId: "z-ai/glm-4.6v",
       usage: { inputTokens: 4, outputTokens: 2 },
     });
     // Worker creates hedge streams first, then primary; mockReturnValueOnce
@@ -843,6 +843,7 @@ describe("runDiscussTurn hedged race", () => {
         hedged: true,
         status: "ok",
         modelRequested: "test/model",
+        modelServed: "test/model",
       }),
     );
     expect(abortedRow).toEqual(
@@ -850,10 +851,12 @@ describe("runDiscussTurn hedged race", () => {
         hedged: true,
         status: "aborted",
         modelRequested: "discuss-combo-2",
+        modelServed: "z-ai/glm-4.6v",
       }),
     );
 
-    // Single debit equal to the sum of per-racer usage.
+    // Single debit equal to the sum of per-racer usage, each leg priced at
+    // its own real served model.
     expect(addEnergyUsageLegsMock).toHaveBeenCalledTimes(1);
     const legCall = addEnergyUsageLegsMock.mock.calls[0] as unknown as [
       string,
@@ -864,6 +867,8 @@ describe("runDiscussTurn hedged race", () => {
     const legsSumOutput = legs.reduce((acc, l) => acc + l.outputTokens, 0);
     expect(legsSumInput).toBe(10 + 4);
     expect(legsSumOutput).toBe(5 + 2);
+    const legModels = legs.map((l) => l.modelId).sort();
+    expect(legModels).toEqual(["test/model", "z-ai/glm-4.6v"]);
   });
 
   it("all legs fail: text-only fallback reached, per-racer error rows", async () => {
@@ -1040,7 +1045,7 @@ describe("runDiscussTurn hedged race", () => {
     ];
     const hedgeStream = makeRaceStreamResult({
       parts: hedgeParts,
-      modelId: "discuss-combo-2",
+      modelId: "z-ai/glm-4.6v",
       usage: { inputTokens: 8, outputTokens: 4 },
     });
     const primaryStream = makeRaceStreamResult({
@@ -1098,10 +1103,16 @@ describe("runDiscussTurn hedged race", () => {
     const winnerRow = discussRows.find((r) => r.raceRole === "winner");
     const abortedRow = discussRows.find((r) => r.raceRole === "aborted");
     expect(winnerRow).toEqual(
-      expect.objectContaining({ modelRequested: "discuss-combo-2" }),
+      expect.objectContaining({
+        modelRequested: "discuss-combo-2",
+        modelServed: "z-ai/glm-4.6v",
+      }),
     );
     expect(abortedRow).toEqual(
-      expect.objectContaining({ modelRequested: "test/model" }),
+      expect.objectContaining({
+        modelRequested: "test/model",
+        modelServed: "z-ai/glm-4.6v",
+      }),
     );
     // Hedge won; the per-leg debit prices every racer at its own model.
     expect(addEnergyUsageLegsMock).toHaveBeenCalledTimes(1);
@@ -1115,6 +1126,8 @@ describe("runDiscussTurn hedged race", () => {
     const legsSumOutput = legs.reduce((acc, l) => acc + l.outputTokens, 0);
     expect(legsSumInput).toBe(10 + 8);
     expect(legsSumOutput).toBe(5 + 4);
+    const legModels = legs.map((l) => l.modelId).sort();
+    expect(legModels).toEqual(["test/model", "z-ai/glm-4.6v"]);
     // Regression pin: per-racer input rows must sum to the debit 1:1 — no
     // double-counted hedge usage inside the primary's own row.
     const debit = {

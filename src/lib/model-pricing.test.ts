@@ -80,11 +80,11 @@ describe("getModelPricing", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns manual override pricing with proof for CMC model ids", async () => {
-    const price = await resolveModelPricing("cmc/MiniMaxAI/MiniMax-M3");
+  it("returns manual override pricing for bare OpenRouter served ids", async () => {
+    const price = await resolveModelPricing("minimax/minimax-m3");
 
     expect(price).toEqual({
-      rawModelId: "cmc/MiniMaxAI/MiniMax-M3",
+      rawModelId: "minimax/minimax-m3",
       pricedModelId: "minimax/minimax-m3",
       pricingSource: "manual-override",
       promptPrice: 0.0000003,
@@ -94,24 +94,20 @@ describe("getModelPricing", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns manual override pricing for openrouter/* ids when present", async () => {
-    const price = await resolveModelPricing("openrouter/minimax/minimax-m3");
-
-    expect(price).toEqual({
-      rawModelId: "openrouter/minimax/minimax-m3",
-      pricedModelId: "minimax/minimax-m3",
-      pricingSource: "manual-override",
-      promptPrice: 0.0000003,
-      completionPrice: 0.0000012,
-    });
-    expect(findUniqueMock).not.toHaveBeenCalled();
+  it("does not price prefixed aliases via manual override", async () => {
+    const cmcPrice = await resolveModelPricing("cmc/MiniMaxAI/MiniMax-M3");
+    expect(cmcPrice.pricingSource).not.toBe("manual-override");
+    const openRouterPrice = await resolveModelPricing(
+      "openrouter/minimax/minimax-m3",
+    );
+    expect(openRouterPrice.pricingSource).not.toBe("manual-override");
   });
 
   it("returns manual override pricing for every hedged combo primary", async () => {
     const cases = [
-      ["openrouter/xiaomi/mimo-v2.5", 0.00000014, 0.00000028],
-      ["openrouter/z-ai/glm-4.6v", 0.0000003, 0.0000009],
-      ["openrouter/moonshotai/kimi-k2.6", 0.000000589, 0.00000248],
+      ["xiaomi/mimo-v2.5", 0.00000014, 0.00000028],
+      ["z-ai/glm-4.6v", 0.0000003, 0.0000009],
+      ["moonshotai/kimi-k2.6", 0.000000589, 0.00000248],
     ] as const;
     for (const [id, promptPrice, completionPrice] of cases) {
       const price = await resolveModelPricing(id);

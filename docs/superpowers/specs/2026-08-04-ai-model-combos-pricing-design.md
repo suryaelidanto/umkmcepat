@@ -28,26 +28,27 @@ Operator owns combo contents; this spec does not change them.
 
 ## What the override file is
 
-`config/model-pricing-overrides.json` is a git-tracked static lookup that overrides the dynamic OpenRouter cache when ids differ (e.g. `openrouter/x/...` 9Router id vs `x/...` upstream OpenRouter id). Every energy charge stores pricing proof (`sourceModelId`, `openRouterModelId`, `pricingSource`). Without entries here it falls through to the resolver's heuristic path, which is not guaranteed for new ids.
+`config/model-pricing-overrides.json` is a git-tracked static lookup that overrides the dynamic OpenRouter cache for the models 9Router actually serves. Keys are the **bare OpenRouter ids** (`provider/model`, e.g. `xiaomi/mimo-v2.5`) — 9Router returns bare ids in `response.modelId`, never `openrouter/...` or `cmc/...` prefixed, and never combo names. Every energy charge stores pricing proof (`sourceModelId`, `openRouterModelId`, `pricingSource`). Without entries here it falls through to the resolver's heuristic path, which is not guaranteed for new ids.
 
 ## Entries to add (verified prices, fetched 2026-08-04 from OpenRouter `/api/v1/models`)
 
 All prices are USD per token (multiply ×10⁶ to get energy micro-USD). `checkedAt: "2026-08-04"`.
 
-| sourceModelId | openRouterModelId | promptPrice | completionPrice | Notes |
-|---|---|---:|---:|---|
-| `openrouter/xiaomi/mimo-v2.5` | `xiaomi/mimo-v2.5` | 1.4e-7 | 2.8e-7 | default primary, discuss hedge A |
-| `openrouter/minimax/minimax-m3` | `minimax/minimax-m3` | 3e-7 | 1.2e-6 | default fallback, discuss hedge C, build fallback |
-| `openrouter/z-ai/glm-4.6v` | `z-ai/glm-4.6v` | 3e-7 | 9e-7 | moderation primary, discuss hedge B |
-| `openrouter/x-ai/grok-4.20` | `x-ai/grok-4.20` | 1.25e-6 | 2.5e-6 | moderation fallback |
-| `openrouter/moonshotai/kimi-k2.6` | `moonshotai/kimi-k2.6` | 5.9e-7 | 2.48e-6 | build primary |
-| `openrouter/stepfun/step-3.5-flash` | `stepfun/step-3.5-flash` | 1e-7 | 3e-7 | previous moderation fallback (kept for historical rows) |
-| `openrouter/deepseek/deepseek-v4-flash-0731` | `deepseek/deepseek-v4-flash-0731` | 9e-8 | 1.8e-7 | verify existing entry still matches |
+| sourceModelId (bare served id) | openRouterModelId | promptPrice | completionPrice | Notes |
+|---|---:|---:|---:|---|
+| `xiaomi/mimo-v2.5` | `xiaomi/mimo-v2.5` | 1.4e-7 | 2.8e-7 | default primary, discuss hedge A |
+| `minimax/minimax-m3` | `minimax/minimax-m3` | 3e-7 | 1.2e-6 | default fallback, discuss hedge C, build fallback |
+| `z-ai/glm-4.6v` | `z-ai/glm-4.6v` | 3e-7 | 9e-7 | moderation primary, discuss hedge B |
+| `x-ai/grok-4.20` | `x-ai/grok-4.20` | 1.25e-6 | 2.5e-6 | moderation fallback |
+| `moonshotai/kimi-k2.6` | `moonshotai/kimi-k2.6` | 5.9e-7 | 2.48e-6 | build primary |
+| `stepfun/step-3.5-flash` | `stepfun/step-3.5-flash` | 1e-7 | 3e-7 | previous moderation fallback (kept for historical rows) |
+| `deepseek/deepseek-v4-flash-0731` | `deepseek/deepseek-v4-flash-0731` | 9e-8 | 1.8e-7 | verify existing entry still matches |
 
 ## Constraints / non-goals
 
 - Do NOT change combo contents.
-- Do NOT add entries for combos `cmc/...` variants unless operator says so.
+- Do NOT add combo-name keys (`default-combo`, `discuss-combo*`, `moderation-combo`, `build-combo`) — combos are operator config, not billable models. Hedge legs price by the real served model id (see the hedge-fairness spec).
+- Do NOT add `openrouter/...` or `cmc/...` prefixed keys — 9Router serves bare ids, so prefixed keys never match.
 - Do NOT add `qwen3-coder-plus` — it was considered as build fallback and rejected (text-only breaks owner-image flow).
 
 ## Risks and mitigations
@@ -61,7 +62,7 @@ All prices are USD per token (multiply ×10⁶ to get energy micro-USD). `checke
 ## Success criteria
 
 1. `bun run check` passes.
-2. `resolveModelPricing("openrouter/xiaomi/mimo-v2.5")` etc. return the overrides (verified via a basic script test or a read of the returned object in a dev REPL).
+2. `resolveModelPricing("xiaomi/mimo-v2.5")` etc. return the overrides (verified via a basic script test or a read of the returned object in a dev REPL).
 3. No existing combos' charges change until their checkedAt is updated explicitly.
 4. A fresh model id that ever lands in UserCredit via hedging builds (spec B) prices correctly without further overrides.
 

@@ -15,7 +15,7 @@ Three problems surfaced while using the new-stack trial (contract-v1 + batched +
 
 ### A. Per-model energy pricing for hedged discuss
 - New `addEnergyUsageLegs(userId, legs[], reason, opts)` in `src/lib/user-credits.ts`. Prices each leg at its **own** model via the existing `calculateEnergyCost`, sums energy into one UserCredit row. `addEnergyUsage`/`chargeEnergyForAiUsage` unchanged for non-hedged paths.
-- `discuss-turn-worker.ts` centralizes all debits into `chargeDiscussEnergy()`: unhedged → `chargeEnergyForAiUsage`; hedged → `addEnergyUsageLegs` with a leg per racer (primary at its own model, each hedge at its own model), plus an extra leg for repair/compaction tokens priced at the served (winner) model. Token counts stay 1:1 with `AiCallRecord` per-racer rows.
+- `discuss-turn-worker.ts` centralizes all debits into `chargeDiscussEnergy()`: unhedged → `chargeEnergyForAiUsage`; hedged → `addEnergyUsageLegs` with a leg per racer (primary at its own served model, each hedge at its own served model), plus an extra leg for repair/compaction tokens priced at the served (winner) model. Served model ids come from each racer's `response.modelId` (bare OpenRouter id, e.g. `xiaomi/mimo-v2.5`), never combo names. Token counts stay 1:1 with `AiCallRecord` per-racer rows.
 
 ### B. Card richness
 - `src/lib/projects/card-richness.ts`: `ensureQuestionCardRichness(card)` backfills a default placeholder on a text question that lacks one. Applied to the normalized workspace card in the worker.
