@@ -49,6 +49,7 @@ import {
   buildOneCallSystemPrompt,
   extractAssistantTextFromToolInput,
   nextAssistantTextDeltaFromPartialToolJson,
+  nextPartialWorkspaceCardFromToolJson,
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
   presentWorkspaceCardTool,
 } from "@/lib/projects/discuss-tool";
@@ -603,6 +604,14 @@ export async function runDiscussTurn({
               publish: (piece) => {
                 bufferPiece(piece);
               },
+            });
+          }
+          const partialCard =
+            await nextPartialWorkspaceCardFromToolJson(toolInputJson);
+          if (partialCard) {
+            publishProgress(turnId, {
+              type: "workspace-card-delta",
+              workspaceCard: partialCard,
             });
           }
           continue;

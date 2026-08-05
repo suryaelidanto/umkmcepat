@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { presentWorkspaceCardInputSchema } from "./discuss-tool";
+import {
+  nextPartialWorkspaceCardFromToolJson,
+  presentWorkspaceCardInputSchema,
+} from "./discuss-tool";
 
 // Regression: the combo model (default-combo) double-encodes briefPatch and
 // workspaceCard as JSON strings instead of nested objects, e.g.
@@ -129,5 +132,24 @@ describe("nextAssistantTextDeltaFromPartialToolJson", () => {
     );
     expect(third.delta).toBe("");
     expect(third.seenText).toBe("Oke, siap bantu");
+  });
+});
+
+describe("nextPartialWorkspaceCardFromToolJson", () => {
+  it("returns the partial workspaceCard object when parseable", async () => {
+    const card = await nextPartialWorkspaceCardFromToolJson(
+      '{"assistantText":"Oke","workspaceCard":{"type":"question","question":{"id":"q1"}}}',
+    );
+    expect(card).toEqual({
+      type: "question",
+      question: { id: "q1" },
+    });
+  });
+
+  it("returns null when workspaceCard is not yet parseable", async () => {
+    expect(
+      await nextPartialWorkspaceCardFromToolJson('{"assistantText":"Oke"}'),
+    ).toBeNull();
+    expect(await nextPartialWorkspaceCardFromToolJson("")).toBeNull();
   });
 });

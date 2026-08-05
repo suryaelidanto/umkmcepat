@@ -234,6 +234,27 @@ export async function nextAssistantTextDeltaFromPartialToolJson(
   };
 }
 
+/**
+ * Best-effort partial workspaceCard from incomplete tool JSON. Returns the
+ * raw nested object when it is parseable and non-empty; otherwise null. The
+ * final normalized card is still produced by `normalizeWorkspaceTurn` on the
+ * complete tool input — this only enables earlier skeleton rendering.
+ */
+export async function nextPartialWorkspaceCardFromToolJson(
+  partialToolJson: string,
+): Promise<Record<string, unknown> | null> {
+  const parsePartialJson = await getParsePartialJson();
+  const { value } = await parsePartialJson(partialToolJson);
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const card = (value as { workspaceCard?: unknown }).workspaceCard;
+  if (!card || typeof card !== "object" || Array.isArray(card)) {
+    return null;
+  }
+  return card as Record<string, unknown>;
+}
+
 export function buildOneCallSystemPrompt({
   brief,
   context,
