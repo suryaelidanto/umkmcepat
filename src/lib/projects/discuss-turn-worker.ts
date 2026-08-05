@@ -62,7 +62,11 @@ import {
 } from "@/lib/projects/discuss-turn-shared";
 import { inlineChatAssetFileParts } from "@/lib/projects/inline-chat-asset-file-parts";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
-import { chargeEnergyForAiUsage } from "@/lib/user-credits";
+import {
+  addEnergyUsageLegs,
+  chargeEnergyForAiUsage,
+  type EnergyUsageLeg,
+} from "@/lib/user-credits";
 
 type HedgeUsage = {
   inputTokens?: number;
@@ -709,12 +713,20 @@ export async function runDiscussTurn({
     // here would double-count (AiCallRecord sum != UserCredit debit).
     let primaryOwnInputTokens = 0;
     let primaryOwnOutputTokens = 0;
+    // Immutable snapshot of the primary's OWN leg (pre-hijack, pre-repair).
+    // Repair/compaction tokens are added later to primaryOwn* and total*, but
+    // the per-leg fair debit must price the primary leg at the primary's own
+    // model, not the winner's.
+    let primaryLegInputTokens = 0;
+    let primaryLegOutputTokens = 0;
     try {
       const primaryUsage = await primary.usage;
       totalInputTokens = primaryUsage?.inputTokens ?? 0;
       totalOutputTokens = primaryUsage?.outputTokens ?? 0;
       primaryOwnInputTokens = totalInputTokens;
       primaryOwnOutputTokens = totalOutputTokens;
+      primaryLegInputTokens = totalInputTokens;
+      primaryLegOutputTokens = totalOutputTokens;
       const primaryResponse = await Promise.resolve(primary.response).catch(
         () => null,
       );
@@ -726,10 +738,61 @@ export async function runDiscussTurn({
       // usage is best-effort
     }
     // Sum hedge-leg usage into the turn debit (1:1 transparency).
+    let hedgeLegInputTokens = 0;
+    let hedgeLegOutputTokens = 0;
     for (const outcome of hedgeOutcomes) {
+      hedgeLegInputTokens += outcome.usage.inputTokens ?? 0;
+      hedgeLegOutputTokens += outcome.usage.outputTokens ?? 0;
       totalInputTokens += outcome.usage.inputTokens ?? 0;
       totalOutputTokens += outcome.usage.outputTokens ?? 0;
     }
+    // Fair per-leg debit: each racer is priced at its OWN model. Repair and
+    // compaction tokens (added later to total*/primaryOwn*) are extra on top
+    // of the primary leg; those are priced at the served (winner) model since
+    // they share its run. Falls back to single-model chargeEnergyForAiUsage
+    // when not hedged.
+    const chargeDiscussEnergy = async () => {
+      if (!hedged) {
+        await chargeEnergyForAiUsage({
+          userId,
+          modelId: discussModelId,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          reason: "discuss:step",
+        });
+        return;
+      }
+      const legs: EnergyUsageLeg[] = [
+        {
+          modelId: modelName,
+          inputTokens: primaryLegInputTokens,
+          outputTokens: primaryLegOutputTokens,
+        },
+      ];
+      hedgeModelNames.forEach((hedgeModelName, index) => {
+        const outcome = hedgeOutcomes[index];
+        legs.push({
+          modelId: hedgeModelName,
+          inputTokens: outcome.usage.inputTokens ?? 0,
+          outputTokens: outcome.usage.outputTokens ?? 0,
+        });
+      });
+      // Extra (repair/compaction) tokens, priced at the served winner model.
+      const extraInput =
+        totalInputTokens - primaryLegInputTokens - hedgeLegInputTokens;
+      const extraOutput =
+        totalOutputTokens - primaryLegOutputTokens - hedgeLegOutputTokens;
+      if (extraInput > 0 || extraOutput > 0) {
+        legs.push({
+          modelId: discussModelId,
+          inputTokens: Math.max(0, extraInput),
+          outputTokens: Math.max(0, extraOutput),
+        });
+      }
+      await addEnergyUsageLegs(userId, legs, "discuss:step", {
+        projectId: project.id,
+      });
+    };
 
     // Hedged all-fail (stream threw, no card anywhere): mark hedge legs and
     // settle the race rows now, since hadError branches return early.
@@ -801,13 +864,7 @@ export async function runDiscussTurn({
           userId,
           workspaceCard: { type: "none" },
         });
-        await chargeEnergyForAiUsage({
-          userId,
-          modelId: discussModelId,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          reason: "discuss:step",
-        });
+        await chargeDiscussEnergy();
         await writeAiRequestLog({
           event: "discuss:degraded",
           model: modelName,
@@ -822,13 +879,7 @@ export async function runDiscussTurn({
 
       // Stream threw immediately: no text, no tool. Charge once, surface
       // a clean error. Never persist a dummy assistant turn.
-      await chargeEnergyForAiUsage({
-        userId,
-        modelId: discussModelId,
-        inputTokens: totalInputTokens,
-        outputTokens: totalOutputTokens,
-        reason: "discuss:step",
-      });
+      await chargeDiscussEnergy();
       const streamFailMessage = "AI lagi gangguan. Coba lagi sebentar.";
       publishProgress(turnId, {
         type: "error",
@@ -908,13 +959,7 @@ export async function runDiscussTurn({
           userId,
           workspaceCard: { type: "none" },
         });
-        await chargeEnergyForAiUsage({
-          userId,
-          modelId: discussModelId,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          reason: "discuss:step",
-        });
+        await chargeDiscussEnergy();
         publishProgress(turnId, { type: "finish" });
         await finalizeDiscussTurn({ turnId, status: "succeeded" });
         return;
@@ -1041,26 +1086,14 @@ export async function runDiscussTurn({
           userId,
           workspaceCard: repairedCard,
         });
-        await chargeEnergyForAiUsage({
-          userId,
-          modelId: discussModelId,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          reason: "discuss:step",
-        });
+        await chargeDiscussEnergy();
         publishProgress(turnId, { type: "finish" });
         await finalizeDiscussTurn({ turnId, status: "succeeded" });
         return;
       }
 
       // All repair attempts failed. Charge once, surface a clean error.
-      await chargeEnergyForAiUsage({
-        userId,
-        modelId: discussModelId,
-        inputTokens: totalInputTokens,
-        outputTokens: totalOutputTokens,
-        reason: "discuss:step",
-      });
+      await chargeDiscussEnergy();
       const repairFailMessage = "AI lagi gangguan. Coba lagi sebentar.";
       publishProgress(turnId, {
         type: "error",
@@ -1394,13 +1427,7 @@ export async function runDiscussTurn({
       totalOutputTokens += compaction.usage?.outputTokens ?? 0;
     }
 
-    await chargeEnergyForAiUsage({
-      userId,
-      modelId: discussModelId,
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
-      reason: "discuss:step",
-    });
+    await chargeDiscussEnergy();
 
     publishProgress(turnId, { type: "finish" });
     await finalizeDiscussTurn({ turnId, status: "succeeded" });

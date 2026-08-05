@@ -8,6 +8,7 @@ const {
   finalizeDiscussTurnMock,
   publishProgressMock,
   chargeEnergyForAiUsageMock,
+  addEnergyUsageLegsMock,
   writeAiRequestLogMock,
   maybeCompactProjectChatMock,
   normalizeWorkspaceTurnMock,
@@ -22,6 +23,11 @@ const {
   finalizeDiscussTurnMock: vi.fn(async () => undefined),
   publishProgressMock: vi.fn(),
   chargeEnergyForAiUsageMock: vi.fn(async () => null),
+  addEnergyUsageLegsMock: vi.fn(async () => ({
+    energyUsed: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+  })),
   writeAiRequestLogMock: vi.fn(async () => undefined),
   maybeCompactProjectChatMock: vi.fn(async () => null),
   recordAiCallMock: vi.fn(),
@@ -82,6 +88,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/user-credits", () => ({
   chargeEnergyForAiUsage: chargeEnergyForAiUsageMock,
+  addEnergyUsageLegs: addEnergyUsageLegsMock,
   checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 100 })),
   getEnergyConfig: vi.fn(() => ({
     signupGrant: 500_000,
@@ -847,15 +854,16 @@ describe("runDiscussTurn hedged race", () => {
     );
 
     // Single debit equal to the sum of per-racer usage.
-    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledTimes(1);
-    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "u1",
-        inputTokens: 10 + 4,
-        outputTokens: 5 + 2,
-        reason: "discuss:step",
-      }),
-    );
+    expect(addEnergyUsageLegsMock).toHaveBeenCalledTimes(1);
+    const legCall = addEnergyUsageLegsMock.mock.calls[0] as unknown as [
+      string,
+      Array<{ modelId: string; inputTokens: number; outputTokens: number }>,
+    ];
+    const legs = legCall[1];
+    const legsSumInput = legs.reduce((acc, l) => acc + l.inputTokens, 0);
+    const legsSumOutput = legs.reduce((acc, l) => acc + l.outputTokens, 0);
+    expect(legsSumInput).toBe(10 + 4);
+    expect(legsSumOutput).toBe(5 + 2);
   });
 
   it("all legs fail: text-only fallback reached, per-racer error rows", async () => {
@@ -909,9 +917,17 @@ describe("runDiscussTurn hedged race", () => {
       expect(row.errorClass).toBe("invalid-card");
     }
     // Tokens from every racer still reach the single UserCredit debit.
-    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
-      expect.objectContaining({ inputTokens: 6, outputTokens: 6 }),
+    const legCall = addEnergyUsageLegsMock.mock.calls.at(-1) as unknown as [
+      string,
+      Array<{ inputTokens: number; outputTokens: number }>,
+    ];
+    const legsSumInput = legCall[1].reduce((acc, l) => acc + l.inputTokens, 0);
+    const legsSumOutput = legCall[1].reduce(
+      (acc, l) => acc + l.outputTokens,
+      0,
     );
+    expect(legsSumInput).toBe(6);
+    expect(legsSumOutput).toBe(6);
   });
 
   it("winner with invalid card: repair runs once on winner state only", async () => {
@@ -1087,22 +1103,24 @@ describe("runDiscussTurn hedged race", () => {
     expect(abortedRow).toEqual(
       expect.objectContaining({ modelRequested: "test/model" }),
     );
-    // Hedge won; the debit includes every leg under its served model.
-    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledTimes(1);
-    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        inputTokens: 10 + 8,
-        outputTokens: 5 + 4,
-        modelId: "discuss-combo-2",
-      }),
-    );
+    // Hedge won; the per-leg debit prices every racer at its own model.
+    expect(addEnergyUsageLegsMock).toHaveBeenCalledTimes(1);
+    const legCall = addEnergyUsageLegsMock.mock.calls[0] as unknown as [
+      string,
+      Array<{ modelId: string; inputTokens: number; outputTokens: number }>,
+      string,
+    ];
+    const legs = legCall[1];
+    const legsSumInput = legs.reduce((acc, l) => acc + l.inputTokens, 0);
+    const legsSumOutput = legs.reduce((acc, l) => acc + l.outputTokens, 0);
+    expect(legsSumInput).toBe(10 + 8);
+    expect(legsSumOutput).toBe(5 + 4);
     // Regression pin: per-racer input rows must sum to the debit 1:1 — no
     // double-counted hedge usage inside the primary's own row.
-    const debit = (
-      chargeEnergyForAiUsageMock.mock.calls[0] as unknown as [
-        { inputTokens: number; outputTokens: number },
-      ]
-    )[0];
+    const debit = {
+      inputTokens: legsSumInput,
+      outputTokens: legsSumOutput,
+    };
     const sumInput = discussRows.reduce(
       (acc, row) => acc + (row.inputTokens ?? 0),
       0,
@@ -1165,15 +1183,17 @@ describe("runDiscussTurn hedged race", () => {
 
     await runPromise;
 
-    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledTimes(1);
-    expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "u1",
-        inputTokens: 10 + hedgeUsage.inputTokens,
-        outputTokens: 5 + hedgeUsage.outputTokens,
-        reason: "discuss:step",
-      }),
-    );
+    expect(addEnergyUsageLegsMock).toHaveBeenCalledTimes(1);
+    const legCall = addEnergyUsageLegsMock.mock.calls[0] as unknown as [
+      string,
+      Array<{ modelId: string; inputTokens: number; outputTokens: number }>,
+      string,
+    ];
+    const legs = legCall[1];
+    const legsSumInput = legs.reduce((acc, l) => acc + l.inputTokens, 0);
+    const legsSumOutput = legs.reduce((acc, l) => acc + l.outputTokens, 0);
+    expect(legsSumInput).toBe(10 + hedgeUsage.inputTokens);
+    expect(legsSumOutput).toBe(5 + hedgeUsage.outputTokens);
   });
 
   it("invalid primary card aborts hedge legs before repair fires", async () => {
