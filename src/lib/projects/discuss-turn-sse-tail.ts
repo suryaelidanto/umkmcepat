@@ -25,6 +25,8 @@ export async function runDiscussProgressTail(options: {
   turnId: string;
   write: (event: DiscussProgressEvent) => void;
   writeComment?: (comment: string) => void;
+  loadSnapshot?: () => Promise<Record<string, unknown>>;
+  afterSequence?: number;
   pollIntervalMs?: number;
   heartbeatIntervalMs?: number;
   hardCeilingMs?: number;
@@ -34,6 +36,8 @@ export async function runDiscussProgressTail(options: {
     turnId,
     write,
     writeComment,
+    loadSnapshot,
+    afterSequence,
     pollIntervalMs = DEFAULT_POLL_MS,
     heartbeatIntervalMs = DEFAULT_HEARTBEAT_MS,
     hardCeilingMs = DEFAULT_CEILING_MS,
@@ -66,8 +70,15 @@ export async function runDiscussProgressTail(options: {
     settle();
   };
 
+  let synchronizing = Boolean(loadSnapshot);
+  const syncBuffer: DiscussProgressEvent[] = [];
+
   const unsubscribe = subscribeProgress(turnId, (event) => {
     if (settled) {
+      return;
+    }
+    if (synchronizing) {
+      syncBuffer.push(event);
       return;
     }
     try {
@@ -80,6 +91,32 @@ export async function runDiscussProgressTail(options: {
       settle();
     }
   });
+
+  if (loadSnapshot) {
+    try {
+      const snapshot = await loadSnapshot();
+      write({ type: "snapshot", ...snapshot });
+      for (const event of syncBuffer) {
+        if (
+          typeof afterSequence === "number" &&
+          typeof event.sequence === "number" &&
+          event.sequence <= afterSequence
+        ) {
+          continue;
+        }
+        write(event);
+      }
+      write({ type: "synchronized" });
+    } catch (error) {
+      devLog("discuss", "sse-tail-snapshot-error", {
+        turnId,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    } finally {
+      synchronizing = false;
+      syncBuffer.length = 0;
+    }
+  }
 
   const startedAt = Date.now();
   const heartbeatTimer = setInterval(() => {

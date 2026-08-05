@@ -8,12 +8,17 @@ import Redis from "ioredis";
 import { devLog } from "@/lib/dev-log";
 import { getRedisUrl } from "@/lib/redis-url";
 
-export type DiscussProgressEvent = { type: string; [key: string]: unknown };
+export type DiscussProgressEvent = {
+  type: string;
+  sequence?: number;
+  [key: string]: unknown;
+};
 
 type TurnState = "live" | "gone";
 
 type Channel = {
   events: DiscussProgressEvent[];
+  nextSequence: number;
   subscribers: Set<(e: DiscussProgressEvent) => void>;
 };
 
@@ -81,7 +86,11 @@ export function ensureProgressChannel(turnId: string): void {
     return;
   }
   if (!channels.has(turnId)) {
-    channels.set(turnId, { events: [], subscribers: new Set() });
+    channels.set(turnId, {
+      events: [],
+      nextSequence: 0,
+      subscribers: new Set(),
+    });
   }
 }
 
@@ -98,7 +107,7 @@ export function subscribeProgress(
 
   let ch = channels.get(turnId);
   if (!ch) {
-    ch = { events: [], subscribers: new Set() };
+    ch = { events: [], nextSequence: 0, subscribers: new Set() };
     channels.set(turnId, ch);
   }
   const replayBuffered = options?.replayBuffered !== false;
@@ -121,6 +130,16 @@ export function readTurnState(turnId: string): TurnState {
   return channels.has(turnId) ? "live" : "gone";
 }
 
+export function replayProgressAfter(
+  turnId: string,
+  afterSequence: number,
+): DiscussProgressEvent[] {
+  return (channels.get(turnId)?.events ?? []).filter(
+    (event) =>
+      typeof event.sequence === "number" && event.sequence > afterSequence,
+  );
+}
+
 function deliverLocal(
   turnId: string,
   event: DiscussProgressEvent,
@@ -128,11 +147,15 @@ function deliverLocal(
 ): void {
   let ch = channels.get(turnId);
   if (!ch) {
-    ch = { events: [], subscribers: new Set() };
+    ch = { events: [], nextSequence: 0, subscribers: new Set() };
     channels.set(turnId, ch);
   }
+  const stamped =
+    typeof event.sequence === "number"
+      ? event
+      : { ...event, sequence: ch.nextSequence++ };
   if (opts.buffer) {
-    ch.events.push(event);
+    ch.events.push(stamped);
     if (ch.events.length > MAX_BUFFERED_EVENTS) {
       ch.events.splice(0, ch.events.length - MAX_BUFFERED_EVENTS);
     }
@@ -140,13 +163,13 @@ function deliverLocal(
   if (opts.notifyLocal) {
     for (const sub of ch.subscribers) {
       try {
-        sub(event);
+        sub(stamped);
       } catch {
         /* swallow subscriber errors */
       }
     }
   }
-  if (event.type === "finish" || event.type === "error") {
+  if (stamped.type === "finish" || stamped.type === "error") {
     setTimeout(() => {
       channels.delete(turnId);
     }, CHANNEL_GRACE_MS);

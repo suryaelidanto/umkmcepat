@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   publishProgress,
+  replayProgressAfter,
   subscribeProgress,
   readTurnState,
 } from "./discuss-turn-pubsub";
@@ -36,5 +37,21 @@ describe("discuss-turn pub/sub", () => {
     unsub();
     publishProgress("t4", { type: "text-delta", delta: "after" });
     expect(received).toHaveLength(1);
+  });
+
+  it("stamps monotonic sequence values and replays after a cursor", () => {
+    publishProgress("t5", { type: "text-delta", delta: "a" });
+    publishProgress("t5", { type: "text-delta", delta: "b" });
+    publishProgress("t5", { type: "finish" });
+
+    const received: unknown[] = [];
+    subscribeProgress("t5", (event) => received.push(event));
+
+    expect(
+      received.map((event) => (event as { sequence?: number }).sequence),
+    ).toEqual([0, 1, 2]);
+    expect(replayProgressAfter("t5", 0).map((event) => event.sequence)).toEqual(
+      [1, 2],
+    );
   });
 });

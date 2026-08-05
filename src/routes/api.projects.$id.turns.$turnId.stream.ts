@@ -12,12 +12,17 @@ const RESTART_RECOVERY_ERROR =
 export const Route = createFileRoute("/api/projects/$id/turns/$turnId/stream")({
   server: {
     handlers: {
-      GET: ({ params }) => handleTurnStreamGet(params.id, params.turnId),
+      GET: ({ params, request }) =>
+        handleTurnStreamGet(params.id, params.turnId, request),
     },
   },
 });
 
-export async function handleTurnStreamGet(projectId: string, turnId: string) {
+export async function handleTurnStreamGet(
+  projectId: string,
+  turnId: string,
+  request: Request,
+) {
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json(
@@ -46,7 +51,12 @@ export async function handleTurnStreamGet(projectId: string, turnId: string) {
   }
 
   if (readTurnState(turnId) === "live") {
-    return createDiscussReadStream(turnId, project.id);
+    const url = new URL(request.url);
+    const afterSequence = parseSequenceCursor(
+      request.headers.get("Last-Event-ID") ??
+        url.searchParams.get("afterSequence"),
+    );
+    return createDiscussReadStream(turnId, project.id, afterSequence);
   }
 
   // Channel gone: terminal from DB or fail-clean if still running (process death).
@@ -68,7 +78,11 @@ export async function handleTurnStreamGet(projectId: string, turnId: string) {
   return replayDiscussStream(replay);
 }
 
-function createDiscussReadStream(turnId: string, projectId: string): Response {
+function createDiscussReadStream(
+  turnId: string,
+  projectId: string,
+  afterSequence?: number,
+): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -89,6 +103,18 @@ function createDiscussReadStream(turnId: string, projectId: string): Response {
           } catch {
             /* client gone */
           }
+        },
+        afterSequence,
+        loadSnapshot: async () => {
+          const turn = await prisma.projectChatTurn.findFirst({
+            where: { id: turnId, projectId },
+            select: { id: true, status: true, errorMessage: true },
+          });
+          return {
+            turnId,
+            status: turn?.status ?? "missing",
+            errorMessage: turn?.errorMessage ?? null,
+          };
         },
         isTerminalDb: async () => {
           const turn = await prisma.projectChatTurn.findFirst({
@@ -134,6 +160,14 @@ function createDiscussReadStream(turnId: string, projectId: string): Response {
       Connection: "keep-alive",
     },
   });
+}
+
+function parseSequenceCursor(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 function replayDiscussStream(

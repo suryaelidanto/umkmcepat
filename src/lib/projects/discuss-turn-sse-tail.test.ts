@@ -133,4 +133,40 @@ describe("runDiscussProgressTail", () => {
       __setDiscussProgressBackendForTests(null);
     }
   });
+
+  it("loads snapshot after subscribing, then replays buffered live events and synchronized", async () => {
+    let subscriber: (event: {
+      type: string;
+      sequence?: number;
+    }) => void = () => {};
+    __setDiscussProgressBackendForTests({
+      publish() {},
+      subscribe(_turnId, onEvent) {
+        subscriber = onEvent;
+        return () => {};
+      },
+    });
+    try {
+      const events: string[] = [];
+      const done = runDiscussProgressTail({
+        turnId: "t-snapshot",
+        write: (e) => events.push(String(e.type)),
+        pollIntervalMs: 10_000,
+        hardCeilingMs: 10_000,
+        isTerminalDb: async () => ({ kind: "running" }),
+        loadSnapshot: async () => {
+          subscriber({ type: "text-delta", sequence: 1 });
+          return { turnId: "t-snapshot", status: "running" };
+        },
+      });
+
+      await vi.waitFor(() =>
+        expect(events).toEqual(["snapshot", "text-delta", "synchronized"]),
+      );
+      subscriber({ type: "finish", sequence: 2 });
+      await done;
+    } finally {
+      __setDiscussProgressBackendForTests(null);
+    }
+  });
 });
