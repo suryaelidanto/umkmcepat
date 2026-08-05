@@ -240,8 +240,7 @@ CRITICAL OUTPUT:
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
 - assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu only) acknowledging the edit request
 - workspaceCard: nested object only. Full tool input examples:
-  - Clarification (preferred when you need a choice, e.g. which color): { "assistantText": "...", "workspaceCard": { "type": "question", "question": { "id": "slug", "question": "...", "answerMode": "choice"|"text", "selectionMode": "single", "options": [{ "label": "...", "description": "..." }] } } }
-  - Ack only, no more questions this turn: { "assistantText": "...", "workspaceCard": { "type": "none" } }
+  - Clarification (preferred when you need a choice, e.g. which color): { "assistantText": "...", "workspaceCard": { "type": "question", "question": { "id": "slug", "question": "...", "answerMode": "choice"|"text", "selectionMode": "single", "options": [{ "label": "...", "description": "..." }] } } }  - Ack only, no more questions this turn: { "assistantText": "...", "workspaceCard": { "type": "none" } }
 Never use type="build_recommendation" — the site is already built; this is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in free chat text. Put the user-visible reply in assistantText.`;
   }
 
@@ -262,6 +261,7 @@ INTERVIEW DISCIPLINE — one question per turn:
 Never put JSON in free chat text. Put the user-visible reply in assistantText.
 Use type="question" with a single question (question.id is a short slug like business_name or services).
 Prefer choice options with label+description (2-5). Never include a catch-all "other"/"write your own" option — the UI already appends one automatically. Use build_recommendation only when all structural decisions are resolved or the user explicitly accepts an early build. Below that, keep asking a question. Never use any other card type.
+Card richness: for answerMode "text", ALWAYS set a short Indonesian placeholder (e.g. "Contoh: Kopi Senja"). For answerMode "choice", set selectionMode "multiple" only when the answer naturally allows several (e.g. "produk apa saja"), otherwise "single".
 If the user explicitly asks to build now, still emit the build_recommendation card; the server adds an honest warning about what stays generic.`;
 }
 
@@ -273,7 +273,7 @@ The JSON object must have these fields:
 - assistantText: one short Indonesian chat sentence (max 20 words, aku/kamu)
 - briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer})
 - workspaceCard: object with type (exactly "question" or "build_recommendation")
-  - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode)
+  - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode). For answerMode "text", ALWAYS include placeholder (short Indonesian example). For answerMode "choice", use selectionMode "multiple" only when several choices naturally apply.
   - For type "build_recommendation": title (string), summary (string array)
 - projectTitle: concise Indonesian project name string
 

@@ -29,6 +29,7 @@ import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
+import { ensureQuestionCardRichness } from "@/lib/projects/card-richness";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   buildProjectChatContext,
@@ -1112,6 +1113,10 @@ export async function runDiscussTurn({
       effectiveBrief,
       handoffNormalizeOptions,
     );
+    workspaceTurn = {
+      ...workspaceTurn,
+      workspaceCard: ensureQuestionCardRichness(workspaceTurn.workspaceCard),
+    };
 
     // Hedged turn: all streams consumed by now. If nobody produced a valid
     // card, mark unblowned legs as invalid-card so the ledger explains why
