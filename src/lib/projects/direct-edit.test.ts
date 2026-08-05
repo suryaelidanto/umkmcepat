@@ -8,6 +8,9 @@ import {
   editHistoryPush,
   editHistoryRedo,
   editHistoryUndo,
+  intentHistoryPush,
+  intentHistoryRedo,
+  intentHistoryUndo,
   type EditBlockRef,
   type EditHistory,
   type EditLayout,
@@ -178,5 +181,34 @@ describe("direct edit history availability", () => {
     // After one undo: present=base, past empty, future=[reordered].
     expect(canUndoDirectEdit(undone)).toBe(false);
     expect(canRedoDirectEdit(undone)).toBe(true);
+  });
+});
+
+describe("direct edit intent history", () => {
+  const removeIntent = {
+    action: "remove" as const,
+    target: {
+      label: 'Judul — "Segar"',
+      selectorPath: "main > h1",
+      tag: "h1",
+      text: "Segar",
+    },
+  };
+
+  it("pushes, undoes, and redoes queued overlay intents", () => {
+    const pushed = intentHistoryPush(
+      { past: [], present: [], future: [] },
+      removeIntent,
+    );
+    expect(pushed.present).toEqual([removeIntent]);
+    expect(pushed.past).toEqual([[]]);
+
+    const undone = intentHistoryUndo(pushed);
+    expect(undone.present).toEqual([]);
+    expect(undone.future).toEqual([[removeIntent]]);
+
+    const redone = intentHistoryRedo(undone);
+    expect(redone.present).toEqual([removeIntent]);
+    expect(redone.future).toEqual([]);
   });
 });

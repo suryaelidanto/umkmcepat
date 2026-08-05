@@ -24,6 +24,12 @@ export type DirectEditIntent = {
   target: DirectEditTargetRef;
 };
 
+export type DirectEditIntentHistory = {
+  present: DirectEditIntent[];
+  past: DirectEditIntent[][];
+  future: DirectEditIntent[][];
+};
+
 function sameOrder(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((id, index) => id === b[index]);
 }
@@ -158,4 +164,41 @@ export function canUndoDirectEdit(stack: EditHistory): boolean {
 
 export function canRedoDirectEdit(stack: EditHistory): boolean {
   return Boolean(stack.present && stack.future.length);
+}
+
+export function intentHistoryPush(
+  stack: DirectEditIntentHistory,
+  intent: DirectEditIntent,
+): DirectEditIntentHistory {
+  return {
+    present: [...stack.present, intent],
+    past: [...stack.past, stack.present],
+    future: [],
+  };
+}
+
+export function intentHistoryUndo(
+  stack: DirectEditIntentHistory,
+): DirectEditIntentHistory {
+  if (!stack.past.length) {
+    return stack;
+  }
+  return {
+    present: stack.past[stack.past.length - 1],
+    past: stack.past.slice(0, -1),
+    future: [stack.present, ...stack.future],
+  };
+}
+
+export function intentHistoryRedo(
+  stack: DirectEditIntentHistory,
+): DirectEditIntentHistory {
+  if (!stack.future.length) {
+    return stack;
+  }
+  return {
+    present: stack.future[0],
+    past: [...stack.past, stack.present],
+    future: stack.future.slice(1),
+  };
 }

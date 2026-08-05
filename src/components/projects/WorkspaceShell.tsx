@@ -86,11 +86,17 @@ import {
 } from "@/lib/projects/composer-attachments";
 import {
   buildDirectEditInstruction,
+  buildDirectEditIntentInstruction,
   canRedoDirectEdit,
   canUndoDirectEdit,
+  intentHistoryPush,
+  intentHistoryRedo,
+  intentHistoryUndo,
   editHistoryPush,
   editHistoryRedo,
   editHistoryUndo,
+  type DirectEditIntent,
+  type DirectEditIntentHistory,
   type EditHistory,
   type EditLayout,
 } from "@/lib/projects/direct-edit";
@@ -373,6 +379,12 @@ export function WorkspaceShell({
     past: [],
     future: [],
   });
+  const [editIntentHistory, setEditIntentHistory] =
+    useState<DirectEditIntentHistory>({
+      present: [],
+      past: [],
+      future: [],
+    });
   const [editLayoutSignal, setEditLayoutSignal] = useState(0);
   const [pendingEditLayout, setPendingEditLayout] = useState<EditLayout | null>(
     null,
@@ -2124,6 +2136,10 @@ export function WorkspaceShell({
   }
 
   const handleUndo = useCallback(() => {
+    if (editIntentHistory.present.length || editIntentHistory.past.length) {
+      setEditIntentHistory((current) => intentHistoryUndo(current));
+      return;
+    }
     setEditHistory((current) => {
       const next = editHistoryUndo(current);
       if (next !== current) {
@@ -2131,9 +2147,13 @@ export function WorkspaceShell({
       }
       return next;
     });
-  }, []);
+  }, [editIntentHistory.past.length, editIntentHistory.present.length]);
 
   const handleRedo = useCallback(() => {
+    if (editIntentHistory.future.length) {
+      setEditIntentHistory((current) => intentHistoryRedo(current));
+      return;
+    }
     setEditHistory((current) => {
       const next = editHistoryRedo(current);
       if (next !== current) {
@@ -2141,10 +2161,11 @@ export function WorkspaceShell({
       }
       return next;
     });
-  }, []);
+  }, [editIntentHistory.future.length]);
 
   function handleDiscard() {
     setEditHistory({ present: null, past: [], future: [] });
+    setEditIntentHistory({ present: [], past: [], future: [] });
     setPendingEditLayout(null);
     setDirectEditMode(false);
     setPreviewReloadKey((current) => current + 1);
@@ -2239,6 +2260,7 @@ export function WorkspaceShell({
       setBuildStatus("ready");
       setBuildProgress((current) => completeBuildProgressSteps(current));
       setEditHistory({ present: null, past: [], future: [] });
+      setEditIntentHistory({ present: [], past: [], future: [] });
       setPendingEditLayout(null);
       setDirectEditMode(false);
       setPreviewReloadKey((current) => current + 1);
@@ -2257,6 +2279,18 @@ export function WorkspaceShell({
   }
 
   async function saveDirectEdit() {
+    const intentInstruction = buildDirectEditIntentInstruction(
+      editIntentHistory.present,
+    );
+    if (intentInstruction) {
+      setDirectEditMode(false);
+      await submitDirectEdit({
+        instruction: intentInstruction,
+        summary: intentInstruction,
+      });
+      return;
+    }
+
     const original = editHistory.past[0] ?? null;
     const current = lastEditLayoutRef.current;
     if (!current || !original) {
@@ -2269,6 +2303,10 @@ export function WorkspaceShell({
     }
     setDirectEditMode(false);
     await submitDirectEdit({ instruction, summary: instruction });
+  }
+
+  function queueDirectEditIntent(intent: DirectEditIntent) {
+    setEditIntentHistory((current) => intentHistoryPush(current, intent));
   }
 
   const replaceImageFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -3515,8 +3553,12 @@ export function WorkspaceShell({
           directEditActive={directEditMode}
           onToggleDirectEdit={toggleDirectEdit}
           directEditActions={{
-            canUndo: canUndoDirectEdit(editHistory),
-            canRedo: canRedoDirectEdit(editHistory),
+            canUndo:
+              Boolean(editIntentHistory.past.length) ||
+              canUndoDirectEdit(editHistory),
+            canRedo:
+              Boolean(editIntentHistory.future.length) ||
+              canRedoDirectEdit(editHistory),
             onUndo: handleUndo,
             onRedo: handleRedo,
             onSave: () => void saveDirectEdit(),
@@ -3568,6 +3610,17 @@ export function WorkspaceShell({
                     editLayoutSignal={editLayoutSignal}
                     editLayout={pendingEditLayout}
                     onAnnotationTarget={handleAnnotationTarget}
+                    onDirectEditAction={(action, target) => {
+                      queueDirectEditIntent({
+                        action,
+                        target: {
+                          label: target.label,
+                          selectorPath: target.target.selectorPath,
+                          tag: target.target.tag,
+                          text: target.target.text,
+                        },
+                      });
+                    }}
                     onLoad={() => void loadRuntimeState()}
                     onRecover={recoverPreviewRuntime}
                     onStuck={() => void loadRuntimeState()}
