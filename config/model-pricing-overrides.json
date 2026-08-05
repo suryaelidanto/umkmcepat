@@ -150,5 +150,29 @@
     "completionPrice": 1.2e-6,
     "source": "https://openrouter.ai/minimax/minimax-m3",
     "checkedAt": "2026-08-04"
+  },
+  "discuss-combo": {
+    "sourceModelId": "discuss-combo",
+    "openRouterModelId": "xiaomi/mimo-v2.5",
+    "promptPrice": 1.4e-7,
+    "completionPrice": 2.8e-7,
+    "source": "https://openrouter.ai/xiaomi/mimo-v2.5",
+    "checkedAt": "2026-08-05"
+  },
+  "discuss-combo-2": {
+    "sourceModelId": "discuss-combo-2",
+    "openRouterModelId": "z-ai/glm-4.6v",
+    "promptPrice": 3e-7,
+    "completionPrice": 9e-7,
+    "source": "https://openrouter.ai/z-ai/glm-4.6v",
+    "checkedAt": "2026-08-05"
+  },
+  "discuss-combo-3": {
+    "sourceModelId": "discuss-combo-3",
+    "openRouterModelId": "minimax/minimax-m3",
+    "promptPrice": 3e-7,
+    "completionPrice": 1.2e-6,
+    "source": "https://openrouter.ai/minimax/minimax-m3",
+    "checkedAt": "2026-08-05"
   }
 }
