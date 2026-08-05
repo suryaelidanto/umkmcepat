@@ -14,10 +14,13 @@ import {
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelsTopLeft,
+  Redo2,
   RefreshCw,
   Send,
   Smartphone,
   Trash2,
+  Undo2,
   X,
   LifeBuoy,
 } from "lucide-react";
@@ -66,6 +69,63 @@ export type WorkspaceRuntimeControl = {
   publishedPath?: string | null;
 };
 
+export function DirectEditToolbar({
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  onSave,
+  onDiscard,
+}: {
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  onSave: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-spacing-2 rounded-radius-md border border-[#8fd3ff]/25 bg-[#0f2a3a] px-spacing-3 py-spacing-2">
+      <span className="text-xs text-[#d6f0ff]">Ubah langsung</span>
+      <button
+        type="button"
+        aria-label="Undo"
+        disabled={!canUndo}
+        onClick={onUndo}
+        className="grid size-8 place-items-center rounded-radius-sm border border-surface-warm-white/15 text-surface-warm-white/85 hover:bg-surface-warm-white/10 disabled:opacity-40"
+      >
+        <Undo2 className="size-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Redo"
+        disabled={!canRedo}
+        onClick={onRedo}
+        className="grid size-8 place-items-center rounded-radius-sm border border-surface-warm-white/15 text-surface-warm-white/85 hover:bg-surface-warm-white/10 disabled:opacity-40"
+      >
+        <Redo2 className="size-4" />
+      </button>
+      <Button
+        type="button"
+        size="sm"
+        onClick={onSave}
+        className="h-8 rounded-radius-md bg-[#0d9488] px-spacing-3 text-xs text-white hover:bg-[#0f766e]"
+      >
+        Simpan
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={onDiscard}
+        className="h-8 rounded-radius-md border-surface-warm-white/20 bg-transparent text-xs text-surface-warm-white/80 hover:bg-surface-warm-white/8"
+      >
+        Batalkan
+      </Button>
+    </div>
+  );
+}
+
 export function WorkspaceTopBar({
   activeTab,
   setActiveTab,
@@ -77,6 +137,9 @@ export function WorkspaceTopBar({
   annotationActive = false,
   annotationAvailable = false,
   onToggleAnnotation,
+  directEditActive = false,
+  directEditAvailable = false,
+  onToggleDirectEdit,
   runtime,
   projectId,
 }: {
@@ -90,6 +153,9 @@ export function WorkspaceTopBar({
   annotationActive?: boolean;
   annotationAvailable?: boolean;
   onToggleAnnotation?: () => void;
+  directEditActive?: boolean;
+  directEditAvailable?: boolean;
+  onToggleDirectEdit?: () => void;
   runtime?: WorkspaceRuntimeControl;
   projectId?: string;
 }) {
@@ -167,6 +233,24 @@ export function WorkspaceTopBar({
               <MessageSquarePlus className="size-4" />
               <span className="hidden sm:inline">
                 {annotationActive ? "Ubah aktif" : "Ubah"}
+              </span>
+            </button>
+          ) : null}
+          {directEditAvailable && activeTab === "preview" ? (
+            <button
+              type="button"
+              onClick={onToggleDirectEdit}
+              aria-pressed={directEditActive}
+              aria-label={
+                directEditActive
+                  ? "Nonaktifkan ubah langsung"
+                  : "Aktifkan ubah langsung"
+              }
+              className={`hidden md:inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+            >
+              <PanelsTopLeft className="size-4" />
+              <span className="hidden sm:inline">
+                {directEditActive ? "Ubah langsung aktif" : "Ubah langsung"}
               </span>
             </button>
           ) : null}
@@ -261,6 +345,27 @@ export function WorkspaceTopBar({
             >
               <MessageSquarePlus className="size-4" />
               <span>{annotationActive ? "Ubah aktif" : "Ubah"}</span>
+            </button>
+          ) : null}
+          {directEditAvailable && activeTab === "preview" ? (
+            <button
+              type="button"
+              onClick={() => {
+                onToggleDirectEdit?.();
+                setIsMobileMenuOpen(false);
+              }}
+              aria-pressed={directEditActive}
+              aria-label={
+                directEditActive
+                  ? "Nonaktifkan ubah langsung"
+                  : "Aktifkan ubah langsung"
+              }
+              className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-3 text-sm ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 text-surface-warm-white hover:bg-surface-warm-white/8"}`}
+            >
+              <PanelsTopLeft className="size-4" />
+              <span>
+                {directEditActive ? "Ubah langsung aktif" : "Ubah langsung"}
+              </span>
             </button>
           ) : null}
           {activeTab === "preview" ? (

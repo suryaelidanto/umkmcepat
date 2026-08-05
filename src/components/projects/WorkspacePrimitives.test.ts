@@ -8,6 +8,7 @@ import {
   ProcessingControl,
   WorkspaceTopBar,
 } from "./WorkspacePrimitives";
+import { DirectEditToolbar } from "./WorkspacePrimitives";
 
 describe("WorkspaceTopBar mobile layout", () => {
   const baseProps = {
@@ -118,5 +119,24 @@ describe("PreviewIssueState restart button", () => {
       }),
     );
     expect(markup).toContain("Mulai ulang tampilan");
+  });
+});
+
+describe("DirectEditToolbar", () => {
+  it("renders undo/redo/save/discard actions", () => {
+    const markup = renderToStaticMarkup(
+      createElement(DirectEditToolbar, {
+        canUndo: true,
+        canRedo: false,
+        onUndo: vi.fn(),
+        onRedo: vi.fn(),
+        onSave: vi.fn(),
+        onDiscard: vi.fn(),
+      }),
+    );
+    expect(markup).toMatch(/aria-label="Undo"/);
+    expect(markup).toMatch(/aria-label="Redo"/);
+    expect(markup).toMatch(/Simpan/);
+    expect(markup).toMatch(/Batalkan/);
   });
 });
