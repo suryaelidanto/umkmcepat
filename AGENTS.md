@@ -13,7 +13,8 @@ Boot instructions for AI agents working on UMKM Cepat.
 - Key modules: `src/lib/s3-client.ts` (MinIO/R2), `src/lib/email.ts` (Resend), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), `/media/<assetId>` route, `/admin` dashboard
 - Generation engine: `src/lib/projects/batched-response.ts` (streamed `<file>` parser), `scaffold/manifest.ts` (auto-derived scaffold manifest), `brief-admission.ts`, `batched-generator.ts`, `batched-edit-targets.ts` + `edit-attempt-worker` wiring. Rollout flag: `generation.batched_rollout` (off|internal|pilot|all); legacy agent loop is the fallback.
 - Observability: `AiCallRecord` table + `src/lib/ai-call-record.ts` (`recordAiCall`, `startAiCallTimer`, ttftMs capture). Query by `turnId`/`attemptId`/`projectId`. Raw payloads stay in `.data/tmp/ai-debug/requests.ndjson` (dev-only).
-- Discuss hedging: `src/lib/projects/discuss-turn-worker.ts` races up to 3 combos; toggles `discuss.hedging`, `ai.model.discuss_hedge_2/3`; ledger rows tagged `raceRole`; energy debit sums all racers.
+- Discuss hedging: `src/lib/projects/discuss-turn-worker.ts` races up to 3 combos; toggles `discuss.hedging`, `ai.model.discuss_hedge_2/3`; ledger rows tagged `raceRole`; **energy debit is per-model** (`addEnergyUsageLegs` prices each leg at its own model into one row — not winner-priced).
+- Workspace cards: `WorkspaceCard` in `brief.ts` is `none | question | image_upload | build_recommendation`. The `image_upload` card (UI `ImageUploadComposer` in `WorkspacePrimitives.tsx`) collects jpeg/png/webp ≤5MB via `uploadTempImageFile`, single or multiple, always skippable. Answers persist `ProjectBrief.businessImages` (`{id, purpose}`) and are emitted in `briefToBuildPrompt` as `/media/<id> (purpose)` so the build agent's UPLOADED IMAGES placement instruction has real refs. `card-richness.ts` backfills a placeholder on text cards that lack one.
 
 ## Commands
 
