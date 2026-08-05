@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   __setDiscussProgressBackendForTests,
@@ -7,6 +7,10 @@ import {
 import { runDiscussProgressTail } from "./discuss-turn-sse-tail";
 
 describe("runDiscussProgressTail", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("resolves via DB succeeded when no live publish", async () => {
     __setDiscussProgressBackendForTests({
       publish() {},
@@ -82,6 +86,49 @@ describe("runDiscussProgressTail", () => {
       expect(
         events.some((e) => e.type === "error" && e.errorText === "Gagal."),
       ).toBe(true);
+    } finally {
+      __setDiscussProgressBackendForTests(null);
+    }
+  });
+
+  it("writes heartbeat events and comments while the turn is still running", async () => {
+    vi.useFakeTimers();
+    let subscriber: ((event: { type: string }) => void) | null = null;
+    __setDiscussProgressBackendForTests({
+      publish() {},
+      subscribe(_turnId, onEvent) {
+        subscriber = onEvent;
+        return () => {};
+      },
+    });
+    try {
+      const events: string[] = [];
+      const comments: string[] = [];
+      const done = runDiscussProgressTail({
+        turnId: "t-heartbeat",
+        write: (e) => events.push(String(e.type)),
+        writeComment: (comment) => comments.push(comment),
+        pollIntervalMs: 10_000,
+        heartbeatIntervalMs: 25,
+        hardCeilingMs: 10_000,
+        isTerminalDb: async () => ({ kind: "running" }),
+      });
+
+      await vi.advanceTimersByTimeAsync(30);
+
+      expect(events).toContain("heartbeat");
+      expect(comments).toContain("ping");
+
+      subscriber?.({ type: "finish" });
+      await done;
+      const heartbeatCount = events.filter(
+        (event) => event === "heartbeat",
+      ).length;
+
+      await vi.advanceTimersByTimeAsync(30);
+      expect(events.filter((event) => event === "heartbeat")).toHaveLength(
+        heartbeatCount,
+      );
     } finally {
       __setDiscussProgressBackendForTests(null);
     }

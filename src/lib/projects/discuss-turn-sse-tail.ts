@@ -13,6 +13,7 @@ export type DiscussTurnDbState =
 
 const DEFAULT_POLL_MS = 1_500;
 const DEFAULT_CEILING_MS = 8 * 60_000;
+const DEFAULT_HEARTBEAT_MS = 15_000;
 const HARD_CEILING_ERROR =
   "Obrolan terlalu lama. Coba kirim ulang atau muat ulang halaman.";
 
@@ -23,14 +24,18 @@ const HARD_CEILING_ERROR =
 export async function runDiscussProgressTail(options: {
   turnId: string;
   write: (event: DiscussProgressEvent) => void;
+  writeComment?: (comment: string) => void;
   pollIntervalMs?: number;
+  heartbeatIntervalMs?: number;
   hardCeilingMs?: number;
   isTerminalDb: () => Promise<DiscussTurnDbState>;
 }): Promise<void> {
   const {
     turnId,
     write,
+    writeComment,
     pollIntervalMs = DEFAULT_POLL_MS,
+    heartbeatIntervalMs = DEFAULT_HEARTBEAT_MS,
     hardCeilingMs = DEFAULT_CEILING_MS,
     isTerminalDb,
   } = options;
@@ -77,6 +82,17 @@ export async function runDiscussProgressTail(options: {
   });
 
   const startedAt = Date.now();
+  const heartbeatTimer = setInterval(() => {
+    if (settled) {
+      return;
+    }
+    try {
+      write({ type: "heartbeat" });
+      writeComment?.("ping");
+    } catch {
+      settle();
+    }
+  }, heartbeatIntervalMs);
   const pollTimer = setInterval(() => {
     void (async () => {
       if (settled) {
@@ -137,6 +153,7 @@ export async function runDiscussProgressTail(options: {
   try {
     await tailDone;
   } finally {
+    clearInterval(heartbeatTimer);
     clearInterval(pollTimer);
     unsubscribe();
   }

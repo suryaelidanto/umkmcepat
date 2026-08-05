@@ -72,6 +72,7 @@ function createDiscussReadStream(turnId: string, projectId: string): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
+      controller.enqueue(encoder.encode("retry: 3000\n\n"));
       const writeSafe = (event: { type: string; [key: string]: unknown }) => {
         try {
           controller.enqueue(encoder.encode(encodeSseEvent(event.type, event)));
@@ -82,6 +83,13 @@ function createDiscussReadStream(turnId: string, projectId: string): Response {
       void runDiscussProgressTail({
         turnId,
         write: writeSafe,
+        writeComment: (comment) => {
+          try {
+            controller.enqueue(encoder.encode(`: ${comment}\n\n`));
+          } catch {
+            /* client gone */
+          }
+        },
         isTerminalDb: async () => {
           const turn = await prisma.projectChatTurn.findFirst({
             where: { id: turnId, projectId },
@@ -134,6 +142,7 @@ function replayDiscussStream(
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
+      controller.enqueue(encoder.encode("retry: 3000\n\n"));
       controller.enqueue(
         encoder.encode(
           events.map((event) => encodeSseEvent(event.type, event)).join(""),
