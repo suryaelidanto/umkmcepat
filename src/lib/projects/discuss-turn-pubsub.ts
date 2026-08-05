@@ -38,6 +38,17 @@ let redisSub: Redis | null = null;
 let redisInitFailed = false;
 let pmessageHooked = false;
 
+function resetRedisPub(): void {
+  redisPub = null;
+  redisInitFailed = false;
+}
+
+function resetRedisSub(): void {
+  redisSub = null;
+  pmessageHooked = false;
+  redisInitFailed = false;
+}
+
 /** Test-only: inject a backend; null restores default Redis+local. */
 export function __setDiscussProgressBackendForTests(
   backend: DiscussProgressBackend | null,
@@ -167,6 +178,8 @@ function ensureRedisSub(): void {
       enableOfflineQueue: false,
       lazyConnect: true,
     });
+    redisSub.on("error", resetRedisSub);
+    redisSub.on("close", resetRedisSub);
     if (!pmessageHooked) {
       pmessageHooked = true;
       redisSub.on("pmessage", (_pattern, channel, message) => {
@@ -225,6 +238,8 @@ async function getRedisPub(): Promise<Redis | null> {
       enableOfflineQueue: false,
       lazyConnect: true,
     });
+    redisPub.on("error", resetRedisPub);
+    redisPub.on("close", resetRedisPub);
     await redisPub.connect();
     return redisPub;
   } catch (error) {
