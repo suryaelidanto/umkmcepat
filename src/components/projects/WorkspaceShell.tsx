@@ -2725,6 +2725,48 @@ export function WorkspaceShell({
             const es = new EventSource(
               `/api/projects/${projectId}/turns/${turnId}/stream`,
             );
+            const assistantMessageId = `reattach-${turnId}`;
+            const appendAssistantDelta = (delta: string) => {
+              if (!delta) {
+                return;
+              }
+              setMessages((current) => {
+                const index = current.findIndex(
+                  (message) => message.id === assistantMessageId,
+                );
+                if (index === -1) {
+                  return [
+                    ...current,
+                    {
+                      id: assistantMessageId,
+                      role: "assistant",
+                      parts: [{ type: "text", text: delta }],
+                    },
+                  ];
+                }
+                return current.map((message, messageIndex) => {
+                  if (messageIndex !== index) {
+                    return message;
+                  }
+                  const parts = message.parts.length
+                    ? [...message.parts]
+                    : [{ type: "text" as const, text: "" }];
+                  const first = parts[0];
+                  if (first?.type === "text") {
+                    parts[0] = { ...first, text: `${first.text}${delta}` };
+                  }
+                  return { ...message, parts };
+                });
+              });
+              shouldStickToBottomRef.current = true;
+            };
+            const parseEvent = (event: MessageEvent) => {
+              try {
+                return JSON.parse(event.data) as Record<string, unknown>;
+              } catch {
+                return null;
+              }
+            };
             const finish = async () => {
               es.close();
               try {
@@ -2735,6 +2777,37 @@ export function WorkspaceShell({
                 setIsRetrying(false);
               }
             };
+            es.addEventListener("text-delta", (event) => {
+              const parsed = parseEvent(event);
+              const delta =
+                typeof parsed?.delta === "string"
+                  ? parsed.delta
+                  : typeof parsed?.text === "string"
+                    ? parsed.text
+                    : "";
+              appendAssistantDelta(delta);
+            });
+            es.addEventListener("tool-output-available", (event) => {
+              const parsed = parseEvent(event);
+              const output = parsed?.output as
+                | { projectTitle?: unknown; workspaceCard?: WorkspaceCard }
+                | undefined;
+              if (
+                !output?.workspaceCard ||
+                output.workspaceCard.type === "none"
+              ) {
+                return;
+              }
+              setWorkspaceCard(output.workspaceCard);
+              if (typeof output.projectTitle === "string") {
+                setProjectTitle(output.projectTitle);
+                setDraftTitle(output.projectTitle);
+              }
+              setWorkspaceCardError(false);
+            });
+            es.addEventListener("heartbeat", () => {
+              setIsRetrying(true);
+            });
             es.addEventListener("finish", () => {
               void finish();
             });
