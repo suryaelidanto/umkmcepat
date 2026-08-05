@@ -430,6 +430,15 @@ export const APP_SETTINGS: ConfigEntry[] = [
     env: "DISCUSS_PARTIAL_TOOL_STREAMING",
   },
   {
+    key: "discuss.parallel_moderation",
+    category: "feature_flag",
+    tier: "advanced",
+    type: "boolean",
+    label: "Discuss parallel moderation (stream before verdict)",
+    fallback: false,
+    env: "DISCUSS_PARALLEL_MODERATION",
+  },
+  {
     key: "feature.thumbnail_capture_enabled",
     category: "feature_flag",
     tier: "advanced",
