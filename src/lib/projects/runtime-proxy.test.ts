@@ -40,10 +40,11 @@ describe("runtime proxy", () => {
     const html = injectPreviewAnnotationBridge("<html><body></body></html>");
     expect(html).toContain("data-umkm-edit-bridge");
     expect(html).toContain("umkmcepat-edit-mode");
-    expect(html).toContain("umkmcepat-edit-layout");
-    expect(html).toContain("umkmcepat-edit-ready");
-    expect(html).toContain("umkmcepat-edit-state");
-    expect(html).toContain("data-umkm-id");
+    expect(html).toContain("umkmcepat-edit-hit-test");
+    expect(html).toContain("umkmcepat-edit-target");
+    expect(html).toContain("elementFromPoint");
+    expect(html).not.toContain("appendChild(chip)");
+    expect(html).not.toContain("style.display = removed ? 'none' : ''");
   });
   afterEach(async () => {
     vi.restoreAllMocks();
