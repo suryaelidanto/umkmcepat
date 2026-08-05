@@ -177,6 +177,7 @@ ROUTING & PAGE CONTRACT:
 - Add scroll-mt-<size> (e.g. scroll-mt-24) to each id-target section so a fixed/sticky header does not cover it.
 - Import usePreviewReady from "@/lib/preview-ready" and call usePreviewReady() in HomeRouteComponent so the preview iframe unlocks.
 - Import the business data using: import { site } from "@/content/site". Do NOT edit src/content/site.ts — it is fully populated and exports site as both named and default exports.
+- FILE TYPE RULES: components and pages go in .tsx files (src/components/*.tsx or src/routes/*.tsx). src/content/* files are DATA-ONLY .ts modules — never put JSX/TSX markup in a .ts file, and never create src/content/*.tsx. Menu/product data you need beyond site.ts must live in src/content/*.ts as plain TypeScript objects (no JSX).
 
 STATIC ONLY: no auth, no backend, no database, no payment gateway, no fake /api routes. Use WhatsApp/contact CTAs and real Indonesian business copy.
 Do not add or remove dependencies — package.json is platform-owned.
@@ -274,6 +275,18 @@ export function collectBatchedPerFileIssues(input: {
 }): string[] {
   const issues: string[] = [];
   const { file } = input;
+
+  // JSX must never appear in a .ts file — content files are data-only modules
+  // (ts.transpileModule flags this too, but with a confusing --jsx option
+  // message). Flag it directly so the writer repair gets a clear instruction.
+  if (
+    /\.ts$/.test(file.path) &&
+    /<[A-Za-z][^>]*>|<\/[A-Za-z]/.test(file.content)
+  ) {
+    issues.push(
+      `${file.path}: contains JSX markup but is a .ts file — content files are data-only modules. Move JSX into a .tsx file under src/components/ or src/routes/.`,
+    );
+  }
 
   if (/\.(ts|tsx)$/.test(file.path)) {
     const transpiled = ts.transpileModule(file.content, {
