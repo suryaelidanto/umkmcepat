@@ -592,6 +592,21 @@ describe("custom generated source agent", () => {
     );
   });
 
+  it("checkAgentSourceQuality fails invented site.* fields (schema drift)", () => {
+    const files = createGeneratedViteTanStackStarterFiles("p1", schema());
+    const home = files.find((f) => f.path === "src/routes/index.tsx")!;
+    files[files.indexOf(home)] = {
+      ...home,
+      content:
+        "import { usePreviewReady } from '@/lib/preview-ready';\nimport { site } from '@/content/site';\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return <div><h1>{site.businessName}</h1><p>{site.phone}</p><p>{site.tagline}</p></div>;\n}\n",
+    };
+    const edited = new Set<string>(["src/routes/index.tsx"]);
+    const quality = checkAgentSourceQuality(files, edited);
+    expect(quality.ok).toBe(false);
+    expect(quality.issues.join("\n")).toContain("site.phone does not exist");
+    expect(quality.issues.join("\n")).toContain("site.tagline does not exist");
+  });
+
   it("fails the gate when the agent did not edit src/routes/index.tsx", () => {
     const files = createGeneratedViteTanStackStarterFiles("p1", schema());
     // Agent edited site.ts only — NOT index.tsx.

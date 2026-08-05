@@ -2308,6 +2308,44 @@ export function checkAgentSourceQuality(
     }
   }
 
+  // site.ts schema-drift detector: the agent must only read fields that exist
+  // on the scaffold's site object (businessName, headline, offer, ...). It
+  // frequently invents site.phone / site.tagline / site.name / site.address —
+  // those fail tsc after the whole AI pass and burn repair rounds. Catch them
+  // in the quality gate so the rewrite fixes the access instead.
+  const SITE_KNOWN_FIELDS = new Set([
+    "businessName",
+    "eyebrow",
+    "headline",
+    "subheadline",
+    "primaryCta",
+    "secondaryCta",
+    "audience",
+    "offer",
+    "theme",
+    "trustPoints",
+    "sections",
+    "version",
+  ]);
+  for (const file of files) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    for (const match of file.content.matchAll(
+      /site\.([a-zA-Z_][a-zA-Z0-9_]*)/g,
+    )) {
+      const field = match[1];
+      if (field === "map" || field === "filter" || field === "length") {
+        continue;
+      }
+      if (!SITE_KNOWN_FIELDS.has(field)) {
+        issues.push(
+          `${file.path}: site.${field} does not exist on src/content/site.ts — use the actual fields (businessName, headline, offer, trustPoints, sections, ...).`,
+        );
+      }
+    }
+  }
+
   const styleFile = files.find((file) => file.path === "src/index.css");
   const styleContent = styleFile?.content || "";
   const missingCss = findMissingCssClasses(files, styleContent);
@@ -2540,6 +2578,11 @@ ROUTING & PAGE CONTRACT:
 - Do NOT edit src/main.tsx or src/routes/__root.tsx (you may add a shared layout in __root.tsx if the brief calls for header/footer, but keep <Outlet />). You MAY edit src/router.tsx to register your extra routes — nothing else there.
 - Import usePreviewReady from "@/lib/preview-ready".
 - Import the business data using: import { site } from "@/content/site". Do NOT edit src/content/site.ts — it is fully populated and exports site as both named and default exports.
+- site.ts shape (the ONLY fields that exist — never invent others like site.phone / site.tagline / site.name / site.address / site.hours):
+  site.businessName, site.eyebrow, site.headline, site.subheadline, site.primaryCta, site.secondaryCta,
+  site.audience, site.offer, site.theme (site.theme.background/.foreground/.muted/.accent),
+  site.trustPoints (string[]), site.sections (Array<{ title, body }>).
+  Contact info (WhatsApp number, address, hours) lives inside site.offer / site.sections copy — reference the text, or parse it out of site.offer/site.sections strings.
 
 STATIC ONLY: no auth, no backend, no database, no payment gateway, no fake /api routes. Use WhatsApp/contact CTAs and real Indonesian business copy.
 Do not add or remove dependencies — package.json is platform-owned.
