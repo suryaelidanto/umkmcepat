@@ -10,6 +10,8 @@ import type {
 
 import {
   type BriefQuestion,
+  type ImageUploadCard,
+  type ImageUploadPurpose,
   type ProjectBrief,
   type WorkspaceCard,
   BRIEF_CONFIDENCE_THRESHOLD,
@@ -332,6 +334,43 @@ export const REQUIRED_BRIEF_FIELD_IDS: ReadonlySet<string> = new Set([
   "contactOrCta",
 ]);
 
+const IMAGE_UPLOAD_PURPOSES = new Set<ImageUploadPurpose>([
+  "business-image",
+  "logo",
+  "reference",
+]);
+
+export function createImageUploadCard(raw: unknown): ImageUploadCard | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const src = raw as Record<string, unknown>;
+  if (src.type !== "image_upload") {
+    return null;
+  }
+  const img = (src.imageUpload ?? {}) as Record<string, unknown>;
+  const id = typeof img.id === "string" ? img.id.slice(0, 100) : "";
+  const question =
+    typeof img.question === "string" ? img.question.slice(0, 300) : "";
+  if (!id || !question) {
+    return null;
+  }
+  const purpose =
+    typeof img.purpose === "string" &&
+    IMAGE_UPLOAD_PURPOSES.has(img.purpose as ImageUploadPurpose)
+      ? (img.purpose as ImageUploadPurpose)
+      : "business-image";
+  const selectionMode =
+    img.selectionMode === "multiple" ? "multiple" : "single";
+  const hint =
+    typeof img.hint === "string" ? img.hint.slice(0, 180) : undefined;
+  const required = img.required === true;
+  return {
+    type: "image_upload",
+    imageUpload: { id, question, hint, selectionMode, purpose, required },
+  };
+}
+
 export function parseWorkspaceCard(
   value: unknown,
   brief: ProjectBrief,
@@ -382,9 +421,19 @@ function normalizeWorkspaceCard(
     question?: unknown;
     // Backward compatibility: older stored cards used a questions[] array.
     questions?: unknown;
+    imageUpload?: unknown;
     summary?: unknown;
     title?: unknown;
   };
+
+  if (value.type === "image_upload") {
+    return (
+      createImageUploadCard({
+        type: "image_upload",
+        imageUpload: value.imageUpload,
+      }) ?? createFallbackWorkspaceCard(brief)
+    );
+  }
 
   if (value.type === "questions") {
     return normalizeQuestionsArray(value.questions, brief);

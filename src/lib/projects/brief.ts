@@ -81,9 +81,27 @@ export type BriefQuestion = {
 // One question per turn. The AI asks a single question, the user answers, the
 // next turn asks the next question. Legacy `type: "questions"` payloads stored
 // in the DB are collapsed to their first question by the normalizer.
+export type ImageUploadPurpose = "business-image" | "logo" | "reference";
+
+export type ImageUploadQuestion = {
+  id: string;
+  question: string;
+  hint?: string;
+  selectionMode: "single" | "multiple";
+  purpose: ImageUploadPurpose;
+  /** Default false → user can skip with the existing skip affordance. */
+  required?: boolean;
+};
+
+export type ImageUploadCard = {
+  type: "image_upload";
+  imageUpload: ImageUploadQuestion;
+};
+
 export type WorkspaceCard =
   | { type: "none" }
   | { type: "question"; question: BriefQuestion }
+  | { type: "image_upload"; imageUpload: ImageUploadQuestion }
   | {
       type: "build_recommendation";
       title: string;

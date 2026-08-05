@@ -139,6 +139,16 @@ export const presentWorkspaceCardInputSchema = z.object({
           options: z.array(z.any()).optional(),
         })
         .optional(),
+      imageUpload: z
+        .object({
+          id: z.string().optional(),
+          question: z.string().optional(),
+          hint: z.string().optional(),
+          selectionMode: z.enum(["single", "multiple"]).optional(),
+          purpose: z.enum(["business-image", "logo", "reference"]).optional(),
+          required: z.boolean().optional(),
+        })
+        .optional(),
       questions: z
         .array(
           z.object({
@@ -274,11 +284,12 @@ The JSON object must have these fields:
 - briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer})
 - workspaceCard: object with type (exactly "question" or "build_recommendation")
   - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode). For answerMode "text", ALWAYS include placeholder (short Indonesian example). For answerMode "choice", use selectionMode "multiple" only when several choices naturally apply.
+  - For type "image_upload": imageUpload object with id (string slug), question (Indonesian), hint (optional), selectionMode ("single" or "multiple"), purpose ("business-image" | "logo" | "reference"), and optional required. Use this card when you need the owner to upload one or more images (e.g. logo, product photos); the server keeps it optional so the user can skip.
   - For type "build_recommendation": title (string), summary (string array)
 - projectTitle: concise Indonesian project name string
 
 Rules:
-- workspaceCard.type must be exactly one of: "question", "build_recommendation"
+- workspaceCard.type must be exactly one of: "question", "image_upload", "build_recommendation"
 - question.id must be a string (not a number)
 - question.options must be an array of objects with label and description strings (not plain strings)
 - Never include a catch-all "other"/"write your own" option in question.options — the UI already appends a custom-answer option automatically
