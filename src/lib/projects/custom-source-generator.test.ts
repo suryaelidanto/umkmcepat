@@ -560,6 +560,38 @@ describe("custom generated source agent", () => {
     );
   });
 
+  it("checkAgentSourceQuality fails a generic template home route with no brief content", () => {
+    const files = createGeneratedViteTanStackStarterFiles("p1", schema());
+    const home = files.find((f) => f.path === "src/routes/index.tsx")!;
+    // Agent "wrote" a boilerplate restaurant template with zero brief content.
+    files[files.indexOf(home)] = {
+      ...home,
+      content:
+        "import { usePreviewReady } from '@/lib/preview-ready';\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (\n    <div>\n      <h1>Welcome to Our Restaurant</h1>\n      <p>Experience the finest cuisine made with fresh, locally sourced ingredients.</p>\n    </div>\n  );\n}\n",
+    };
+    const edited = new Set<string>(["src/routes/index.tsx"]);
+    const quality = checkAgentSourceQuality(files, edited);
+    expect(quality.ok).toBe(false);
+    expect(quality.issues.join("\n")).toContain(
+      "generic template with no brief content",
+    );
+  });
+
+  it("checkAgentSourceQuality passes a home route that imports site content", () => {
+    const files = createGeneratedViteTanStackStarterFiles("p1", schema());
+    const home = files.find((f) => f.path === "src/routes/index.tsx")!;
+    files[files.indexOf(home)] = {
+      ...home,
+      content:
+        "import { usePreviewReady } from '@/lib/preview-ready';\nimport { site } from '@/content/site';\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return <div><h1>{site.businessName}</h1><p>{site.offer}</p></div>;\n}\n",
+    };
+    const edited = new Set<string>(["src/routes/index.tsx"]);
+    const quality = checkAgentSourceQuality(files, edited);
+    expect(quality.issues.join("\n")).not.toContain(
+      "generic template with no brief content",
+    );
+  });
+
   it("fails the gate when the agent did not edit src/routes/index.tsx", () => {
     const files = createGeneratedViteTanStackStarterFiles("p1", schema());
     // Agent edited site.ts only — NOT index.tsx.

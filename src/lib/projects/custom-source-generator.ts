@@ -2229,6 +2229,32 @@ export function checkAgentSourceQuality(
     issues.push("home route is still the starter placeholder");
   }
 
+  // Generic-template detector: the agent sometimes ships a boilerplate
+  // restaurant/business template with zero brief content ("Welcome to Our
+  // Restaurant", "finest cuisine", "Lorem ipsum"). It compiles, exports
+  // HomeRouteComponent, and passes every structural gate, but the user gets a
+  // site with the wrong business. The home route must reference the brief
+  // content (site.ts import) or a business-specific string.
+  if (homeRoute) {
+    const HOME_TEMPLATE_MARKERS = [
+      "welcome to our restaurant",
+      "welcome to our business",
+      "finest cuisine",
+      "lorem ipsum",
+      "experience the finest",
+      "we offer the best",
+    ];
+    const lower = homeRoute.content.toLowerCase();
+    const importsSite =
+      /from\s+["']@\/content\/site["']/.test(homeRoute.content) ||
+      /site\.(businessName|name|headline|offer)/.test(homeRoute.content);
+    if (!importsSite && HOME_TEMPLATE_MARKERS.some((m) => lower.includes(m))) {
+      issues.push(
+        "home route is a generic template with no brief content — reference @/content/site or the business name",
+      );
+    }
+  }
+
   const presentationEdited = [...agentEditedFiles].some(
     (path) =>
       path.startsWith("src/components/") ||
