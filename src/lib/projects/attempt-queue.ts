@@ -195,7 +195,13 @@ export async function enqueueAndWaitEditBuild(
   timeoutMs = 15 * 60_000,
 ): Promise<EditBuildJobResult> {
   const q = getQueue();
-  const existing = await q.getJob(job.attemptId);
+  // Use a jobId DISTINCT from the parent edit attempt (which is enqueued with
+  // jobId=attemptId). Reusing attemptId collides: BullMQ treats the sub-job as
+  // a duplicate of the still-running parent, so getJob(attemptId) returns the
+  // parent and waitUntilFinished waits on it forever -> the edit-build never
+  // runs -> build sits queued and goes stale. Derive from buildId instead.
+  const subJobId = job.buildId;
+  const existing = await q.getJob(subJobId);
   if (existing) {
     const state = await existing.getState();
     if (state === "completed") {
@@ -205,9 +211,10 @@ export async function enqueueAndWaitEditBuild(
       throw new Error(existing.failedReason || "Edit build job failed");
     }
   } else {
-    await q.add(job.kind, job, { jobId: job.attemptId });
+    await q.add(job.kind, job, { jobId: subJobId });
     devLog("attempt-queue", "enqueued", {
       attemptId: job.attemptId,
+      buildId: job.buildId,
       kind: job.kind,
       projectId: job.projectId,
       queue: ATTEMPT_QUEUE_NAME,
@@ -216,7 +223,7 @@ export async function enqueueAndWaitEditBuild(
 
   const events = getQueueEvents();
   await events.waitUntilReady();
-  const result = await q.getJob(job.attemptId).then((j) => {
+  const result = await q.getJob(subJobId).then((j) => {
     if (!j) {
       throw new Error("Edit build job missing after enqueue");
     }
