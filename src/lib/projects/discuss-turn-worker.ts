@@ -26,11 +26,11 @@ import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { getSettingSync, primeSettingCache } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
+import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { ensureQuestionCardRichness } from "@/lib/projects/card-richness";
-import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
@@ -55,7 +55,6 @@ import {
 import { finalizeDiscussTurn } from "@/lib/projects/discuss-turn";
 import { publishProgress } from "@/lib/projects/discuss-turn-pubsub";
 import {
-  persistProjectChatCompaction,
   persistProjectChatTurn,
   repairDiscussCardWithTool,
   repairToolCallInTurn,
@@ -93,10 +92,10 @@ export async function runDiscussTurn({
   project,
   chatContext,
   effectiveBrief,
-  memoryFacts,
+  memoryFacts: _memoryFacts,
   messages,
   previousWorkspaceCard,
-  summary,
+  summary: _summary,
   userId,
   modelOverride,
   abortSignal,
@@ -1428,29 +1427,21 @@ export async function runDiscussTurn({
       });
     }
 
-    const compaction = await maybeCompactProjectChat({
-      correlation: { projectId: project.id, turnId },
-      memoryFacts,
-      messages: safeMessages,
-      summary,
-    }).catch(() => null);
-
-    if (compaction) {
-      await persistProjectChatCompaction({
-        compactedMessageCount: compaction.compactedMessageCount,
-        memoryFacts: compaction.memoryFacts,
-        projectId: project.id,
-        summary: compaction.summary,
-        userId,
-      });
-      totalInputTokens += compaction.usage?.inputTokens ?? 0;
-      totalOutputTokens += compaction.usage?.outputTokens ?? 0;
-    }
-
     await chargeDiscussEnergy();
 
     publishProgress(turnId, { type: "finish" });
     await finalizeDiscussTurn({ turnId, status: "succeeded" });
+    enqueueAttemptJob({
+      kind: "compaction",
+      projectId: project.id,
+      turnId,
+      userId,
+    }).catch((error) => {
+      console.error("[discuss] compaction enqueue failed", {
+        turnId,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    });
   } catch (error) {
     // Developer log (English). User-facing copy always Indonesian.
     console.error("[discuss-turn-worker] turn failed", {

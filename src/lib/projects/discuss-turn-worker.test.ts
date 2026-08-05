@@ -9,6 +9,7 @@ const {
   publishProgressMock,
   chargeEnergyForAiUsageMock,
   addEnergyUsageLegsMock,
+  enqueueAttemptJobMock,
   writeAiRequestLogMock,
   maybeCompactProjectChatMock,
   normalizeWorkspaceTurnMock,
@@ -29,6 +30,7 @@ const {
     inputTokens: 0,
     outputTokens: 0,
   })),
+  enqueueAttemptJobMock: vi.fn(async () => undefined),
   writeAiRequestLogMock: vi.fn(async () => undefined),
   maybeCompactProjectChatMock: vi.fn(async () => null),
   recordAiCallMock: vi.fn(),
@@ -115,6 +117,10 @@ vi.mock("@/lib/ai-call-record", async (importOriginal) => ({
 vi.mock("@/lib/projects/discuss-turn", () => ({
   finalizeDiscussTurn: finalizeDiscussTurnMock,
   claimDiscussTurn: vi.fn(async () => ({ claimed: true, turnId: "ct_test" })),
+}));
+
+vi.mock("@/lib/projects/attempt-queue", () => ({
+  enqueueAttemptJob: enqueueAttemptJobMock,
 }));
 
 vi.mock("@/lib/projects/discuss-turn-pubsub", () => ({
@@ -243,6 +249,60 @@ describe("runDiscussTurn worker", () => {
     expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "u1", reason: "discuss:step" }),
     );
+  });
+
+  it("publishes finish before enqueueing background compaction", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: {
+        type: "question",
+        question: {
+          id: "q1",
+          question: "Pilih?",
+          answerMode: "text",
+          options: [],
+        },
+      },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Halo" },
+        {
+          type: "tool-call",
+          toolCallId: "tc1",
+          toolName: "presentWorkspaceCard",
+          input: { workspaceCard: { type: "question" } },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_compact_bg",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(maybeCompactProjectChatMock).not.toHaveBeenCalled();
+    expect(enqueueAttemptJobMock).toHaveBeenCalledWith({
+      kind: "compaction",
+      projectId: "p1",
+      turnId: "ct_compact_bg",
+      userId: "u1",
+    });
+    expect(publishProgressMock).toHaveBeenCalledWith("ct_compact_bg", {
+      type: "finish",
+    });
+    expect(
+      publishProgressMock.mock.invocationCallOrder.at(-1) ?? 0,
+    ).toBeLessThan(enqueueAttemptJobMock.mock.invocationCallOrder[0] ?? 0);
   });
 
   it("finalizes failed + publishes error when streamText throws", async () => {
