@@ -537,6 +537,23 @@ describe("collectBatchedGateIssues", () => {
     expect(issues.join("\n")).toMatch(/placeholder|external/i);
   });
 
+  it("flags createFileRoute in route files (regression: tsc build gate)", () => {
+    // The scaffold routes manually via createRoute in src/router.tsx; the
+    // file-route API (createFileRoute('/')) fails tsc and never reaches the
+    // router tree, failing the whole build after the AI pass.
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            "import { createFileRoute } from '@tanstack/react-router';\nexport const Route = createFileRoute('/')({ component: HomeRouteComponent });\nexport function HomeRouteComponent() { return <div>Home</div>; }",
+        },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: oklch(0.99 0 0);" },
+    );
+    expect(issues.join("\n")).toMatch(/createFileRoute/);
+  });
+
   it("passes a clean stage", () => {
     const issues = collectBatchedGateIssues(
       [

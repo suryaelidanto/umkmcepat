@@ -350,6 +350,22 @@ export function collectBatchedGateIssues(
     );
   }
 
+  // The scaffold uses manual routing (createRoute in src/router.tsx), not
+  // TanStack file-route boilerplate. createFileRoute is a type-only helper in
+  // this router version — calling it with a path string fails the tsc build
+  // gate ("Argument of type '\"/\"' is not assignable to parameter of type
+  // 'undefined'") and the Route export never reaches the router tree.
+  for (const file of stagedFiles) {
+    if (
+      /^src\/routes\/.+\.tsx$/.test(file.path) &&
+      /\bcreateFileRoute\b/.test(file.content)
+    ) {
+      issues.push(
+        `${file.path}: uses createFileRoute — the scaffold routes manually via createRoute in src/router.tsx. Export plain components and register them there.`,
+      );
+    }
+  }
+
   for (const file of stagedFiles) {
     if (!/\.(tsx?|css|html|svg)$/.test(file.path)) {
       continue;
