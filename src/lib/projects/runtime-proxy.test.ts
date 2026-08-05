@@ -43,6 +43,9 @@ describe("runtime proxy", () => {
     expect(html).toContain("umkmcepat-edit-hit-test");
     expect(html).toContain("umkmcepat-edit-target");
     expect(html).toContain("elementFromPoint");
+    expect(html).toContain("umkm-edit-hover");
+    expect(html).toContain("setHoverBox");
+    expect(html).toContain('data-umkm-origin="*"');
     expect(html).not.toContain("appendChild(chip)");
     expect(html).not.toContain("style.display = removed ? 'none' : ''");
   });

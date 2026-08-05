@@ -173,7 +173,7 @@ function encodeRuntimePath(pathSegments: string[]) {
 }
 
 export function injectPreviewAnnotationBridge(html: string) {
-  const origin = process.env.NEXT_PUBLIC_APP_URL || "";
+  const origin = "*";
   const script = `<script data-umkm-annotation-bridge data-umkm-origin="${origin}">${PREVIEW_ANNOTATION_BRIDGE}</script>`;
   const editBridge = `<script data-umkm-edit-bridge data-umkm-origin="${origin}">${EDIT_MODE_BRIDGE}</script>`;
   const fallback = buildImageFallbackScript();
@@ -353,6 +353,12 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
 
   let active = false;
+  let hoverBox = null;
+
+  const style = document.createElement('style');
+  style.textContent =
+    '.umkm-edit-hover{position:absolute;z-index:2147483644;pointer-events:none;border:2px solid #0d9488;border-radius:10px;background:rgba(13,148,136,.08)}';
+  document.head.appendChild(style);
   let hoverBox = null;
   const markers = new Map();
 
@@ -749,9 +755,34 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     window.parent.postMessage({ type, payload }, PARENT_ORIGIN);
   }
 
+  function ensureHoverBox() {
+    if (hoverBox) return hoverBox;
+    hoverBox = document.createElement('div');
+    hoverBox.className = 'umkm-edit-hover';
+    hoverBox.hidden = true;
+    document.body.appendChild(hoverBox);
+    return hoverBox;
+  }
+
+  function setHoverBox(rect) {
+    const box = ensureHoverBox();
+    box.hidden = false;
+    box.style.left = String(rect.left + window.scrollX) + 'px';
+    box.style.top = String(rect.top + window.scrollY) + 'px';
+    box.style.width = String(rect.width) + 'px';
+    box.style.height = String(rect.height) + 'px';
+  }
+
+  function hideHoverBox() {
+    if (hoverBox) hoverBox.hidden = true;
+  }
+
   function handleMove(event) {
     if (!active) return;
-    post('umkmcepat-edit-hover', targetAt(event.clientX, event.clientY));
+    const target = targetAt(event.clientX, event.clientY);
+    if (target) setHoverBox(target.target.boundingBox);
+    else hideHoverBox();
+    post('umkmcepat-edit-hover', target);
   }
 
   function handleClick(event) {
@@ -767,10 +798,11 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     if (data.type === 'umkmcepat-edit-mode') {
       active = Boolean(data.active);
       document.documentElement.style.cursor = active ? 'crosshair' : '';
+      if (!active) hideHoverBox();
       post('umkmcepat-edit-ready', { active });
     }
     if (data.type === 'umkmcepat-edit-hit-test' && typeof data.x === 'number' && typeof data.y === 'number') {
-      post('umkmcepat-edit-target', targetAt(data.x, data.y));
+      post(data.intent === 'hover' ? 'umkmcepat-edit-hover' : 'umkmcepat-edit-target', targetAt(data.x, data.y));
     }
   });
 
