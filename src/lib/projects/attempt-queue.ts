@@ -12,6 +12,7 @@ import { getRedisUrl } from "@/lib/redis-url";
 
 export const ATTEMPT_QUEUE_NAME = "project-attempt";
 export const DISCUSS_QUEUE_NAME = "project-discuss";
+export const COMPACTION_QUEUE_NAME = "project-compaction";
 
 /** Default when setting/env unset — raised for ~100 concurrent product users. */
 export const DEFAULT_BUILD_CONCURRENCY = 3;
@@ -69,8 +70,19 @@ export type DiscussAttemptJob = {
   generationEngine: string;
 };
 
+export type CompactionAttemptJob = {
+  kind: "compaction";
+  projectId: string;
+  turnId: string;
+  userId: string;
+};
+
 export type AttemptJob =
-  GenerateAttemptJob | EditBuildAttemptJob | EditAttemptJob | DiscussAttemptJob;
+  | GenerateAttemptJob
+  | EditBuildAttemptJob
+  | EditAttemptJob
+  | DiscussAttemptJob
+  | CompactionAttemptJob;
 
 export type EditBuildJobResult = {
   artifactRef: string | null;
@@ -80,9 +92,11 @@ export type EditBuildJobResult = {
 
 let queue: Queue | null = null;
 let discussQueue: Queue | null = null;
+let compactionQueue: Queue | null = null;
 let queueEvents: QueueEvents | null = null;
 let worker: Worker | null = null;
 let discussWorker: Worker | null = null;
+let compactionWorker: Worker | null = null;
 
 export function getBuildConcurrencyLimit(): number {
   const parsed = getSettingSync(
@@ -99,7 +113,13 @@ export function getDiscussConcurrencyLimit(): number {
 }
 
 export function queueNameForJob(job: AttemptJob): string {
-  return job.kind === "discuss" ? DISCUSS_QUEUE_NAME : ATTEMPT_QUEUE_NAME;
+  if (job.kind === "discuss") {
+    return DISCUSS_QUEUE_NAME;
+  }
+  if (job.kind === "compaction") {
+    return COMPACTION_QUEUE_NAME;
+  }
+  return ATTEMPT_QUEUE_NAME;
 }
 
 function connectionOptions(): ConnectionOptions {
@@ -130,6 +150,14 @@ function getDiscussQueue(): Queue {
   return discussQueue;
 }
 
+function getCompactionQueue(): Queue {
+  compactionQueue ??= new Queue(COMPACTION_QUEUE_NAME, {
+    connection: connectionOptions(),
+    defaultJobOptions: defaultJobOptions(),
+  });
+  return compactionQueue;
+}
+
 function getQueueEvents(): QueueEvents {
   queueEvents ??= new QueueEvents(ATTEMPT_QUEUE_NAME, {
     connection: connectionOptions(),
@@ -138,7 +166,7 @@ function getQueueEvents(): QueueEvents {
 }
 
 function jobIdFor(job: AttemptJob): string {
-  if (job.kind === "discuss") {
+  if (job.kind === "discuss" || job.kind === "compaction") {
     return job.turnId;
   }
   return job.attemptId;
@@ -147,7 +175,12 @@ function jobIdFor(job: AttemptJob): string {
 export async function enqueueAttemptJob(job: AttemptJob): Promise<void> {
   const jobId = jobIdFor(job);
   const queueName = queueNameForJob(job);
-  const target = job.kind === "discuss" ? getDiscussQueue() : getQueue();
+  const target =
+    job.kind === "discuss"
+      ? getDiscussQueue()
+      : job.kind === "compaction"
+        ? getCompactionQueue()
+        : getQueue();
   await target.add(job.kind, job, { jobId });
   devLog("attempt-queue", "enqueued", {
     jobId,
@@ -282,7 +315,7 @@ function attachWorkerHandlers(w: Worker, label: string) {
 }
 
 export function startAttemptQueueWorker(): void {
-  if (worker && discussWorker) {
+  if (worker && discussWorker && compactionWorker) {
     return;
   }
 
@@ -385,10 +418,34 @@ export function startAttemptQueueWorker(): void {
     attachWorkerHandlers(discussWorker, DISCUSS_QUEUE_NAME);
   }
 
+  if (!compactionWorker) {
+    compactionWorker = new Worker(
+      COMPACTION_QUEUE_NAME,
+      async (bullJob) => {
+        const data = bullJob.data as AttemptJob;
+        if (data.kind !== "compaction") {
+          throw new Error(
+            `Unexpected job kind on compaction queue: ${String((data as AttemptJob).kind)}`,
+          );
+        }
+        const { runQueuedProjectCompaction } =
+          await import("./chat-compaction-queue-worker");
+        await runQueuedProjectCompaction(data);
+        return { ok: true };
+      },
+      {
+        concurrency: getDiscussConcurrencyLimit(),
+        connection: connectionOptions(),
+        lockDuration: JOB_LOCK_DURATION_MS,
+      },
+    );
+    attachWorkerHandlers(compactionWorker, COMPACTION_QUEUE_NAME);
+  }
+
   devLog("attempt-queue", "worker.started", {
     buildConcurrency: getBuildConcurrencyLimit(),
     discussConcurrency: getDiscussConcurrencyLimit(),
     lockDurationMs: JOB_LOCK_DURATION_MS,
-    queues: [ATTEMPT_QUEUE_NAME, DISCUSS_QUEUE_NAME],
+    queues: [ATTEMPT_QUEUE_NAME, DISCUSS_QUEUE_NAME, COMPACTION_QUEUE_NAME],
   });
 }

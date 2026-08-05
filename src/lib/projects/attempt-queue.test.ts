@@ -7,6 +7,7 @@ vi.mock("@/lib/app-settings", () => ({
 import { getSettingSync } from "@/lib/app-settings";
 import {
   ATTEMPT_QUEUE_NAME,
+  COMPACTION_QUEUE_NAME,
   DEFAULT_BUILD_CONCURRENCY,
   DEFAULT_DISCUSS_CONCURRENCY,
   DISCUSS_QUEUE_NAME,
@@ -37,7 +38,7 @@ describe("getBuildConcurrencyLimit", () => {
 });
 
 describe("queueNameForJob", () => {
-  it("routes discuss to project-discuss and generate to project-attempt", () => {
+  it("routes jobs to their dedicated queues", () => {
     const discuss: AttemptJob = {
       kind: "discuss",
       turnId: "ct_1",
@@ -59,8 +60,15 @@ describe("queueNameForJob", () => {
       projectStatus: "building",
       userId: "u1",
     };
+    const compaction: AttemptJob = {
+      kind: "compaction",
+      projectId: "p1",
+      turnId: "ct_1",
+      userId: "u1",
+    };
     expect(queueNameForJob(discuss)).toBe(DISCUSS_QUEUE_NAME);
     expect(queueNameForJob(generate)).toBe(ATTEMPT_QUEUE_NAME);
+    expect(queueNameForJob(compaction)).toBe(COMPACTION_QUEUE_NAME);
     expect(getDiscussConcurrencyLimit()).toBe(DEFAULT_DISCUSS_CONCURRENCY);
   });
 });
