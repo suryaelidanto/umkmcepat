@@ -189,6 +189,18 @@ describe("runtime proxy", () => {
     expect(res).toContain("addEventListener('error'");
   });
 
+  it("injects an image-fallback listener into bare published HTML without a head", () => {
+    const html =
+      '<script src="/p/usaha/assets/index.js"></script>\n<div id="root"></div>\n';
+    const res = injectPublishedHead(html, {
+      businessName: "Usaha",
+      noindex: false,
+      slug: "usaha",
+    });
+    expect(res).toContain("umkm-image-fallback");
+    expect(res).toContain("addEventListener('error'");
+  });
+
   it("builds an aspect-aware fallback script with data URIs", () => {
     const script = buildImageFallbackScript();
     expect(script).toContain("data:image/svg+xml;base64,");

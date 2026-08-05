@@ -283,10 +283,17 @@ export function injectPublishedHead(
   ]
     .filter(Boolean)
     .join("\n    ");
-  return html.replace(
-    /<head>/i,
-    `<head>\n    ${buildImageFallbackScript()}\n    ${headInjection}`,
-  );
+  // The image-fallback script must always be present. Real Vite build output
+  // (generated-source.ts / vite-tanstack-shadcn-starter.ts) is bare HTML with
+  // no <head> tag, so a head-only replace would drop the fallback and leave
+  // broken images broken on the published URL. Append to the document end when
+  // there is no <head>; browsers hoist <title>/<meta> into the head either way.
+  return html.match(/<head>/i)
+    ? html.replace(
+        /<head>/i,
+        `<head>\n    ${buildImageFallbackScript()}\n    ${headInjection}`,
+      )
+    : `${html}\n    ${buildImageFallbackScript()}\n    ${headInjection}`;
 }
 
 export type PreviewAnnotationCandidate = {
