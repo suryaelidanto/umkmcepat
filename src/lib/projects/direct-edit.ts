@@ -12,6 +12,18 @@ export type EditLayout = {
   blocks: Record<string, EditBlockRef>;
 };
 
+export type DirectEditTargetRef = {
+  label: string;
+  selectorPath: string;
+  tag: string;
+  text?: string;
+};
+
+export type DirectEditIntent = {
+  action: "remove" | "move-up" | "move-down";
+  target: DirectEditTargetRef;
+};
+
 function sameOrder(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((id, index) => id === b[index]);
 }
@@ -61,6 +73,30 @@ export function buildDirectEditInstruction(
 
   return [
     "Ubah struktur halaman agar sesuai susunan berikut. Pertahankan semua konten dan teks lain; jangan ubah gaya. Hanya lakukan penataan ulang dan penghapusan yang disebutkan:",
+    ...lines,
+  ].join("\n");
+}
+
+export function buildDirectEditIntentInstruction(
+  intents: DirectEditIntent[],
+): string {
+  if (!intents.length) {
+    return "";
+  }
+
+  const lines = intents.map((intent) => {
+    const action =
+      intent.action === "remove"
+        ? "Hapus bagian/elemen ini"
+        : intent.action === "move-up"
+          ? "Pindahkan bagian/elemen ini ke atas"
+          : "Pindahkan bagian/elemen ini ke bawah";
+    const text = intent.target.text ? `; teks: "${intent.target.text}"` : "";
+    return `- ${action}: ${intent.target.label} (${intent.target.selectorPath}; tag: ${intent.target.tag}${text})`;
+  });
+
+  return [
+    "Ubah halaman berdasarkan aksi yang dipilih user di preview. Cocokkan target memakai selector, tag, dan teks sekitar. Pertahankan konten dan gaya lain.",
     ...lines,
   ].join("\n");
 }

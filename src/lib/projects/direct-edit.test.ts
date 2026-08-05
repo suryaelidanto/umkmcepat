@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDirectEditInstruction,
+  buildDirectEditIntentInstruction,
   canRedoDirectEdit,
   canUndoDirectEdit,
   editHistoryPush,
@@ -80,6 +81,40 @@ describe("buildDirectEditInstruction", () => {
     expect(instruction).toContain("Urutkan");
     expect(instruction).toContain("Hapus");
     expect(instruction).toContain(gallery.label);
+  });
+});
+
+describe("buildDirectEditIntentInstruction", () => {
+  it("is empty when there are no queued overlay actions", () => {
+    expect(buildDirectEditIntentInstruction([])).toBe("");
+  });
+
+  it("describes remove and move actions from selected overlay targets", () => {
+    const instruction = buildDirectEditIntentInstruction([
+      {
+        action: "remove",
+        target: {
+          label: 'Judul — "Segar"',
+          selectorPath: "main > div:nth-of-type(1) > h1",
+          tag: "h1",
+          text: "Segar & Sehat",
+        },
+      },
+      {
+        action: "move-down",
+        target: {
+          label: 'Bagian — "Menu"',
+          selectorPath: "main > div:nth-of-type(2)",
+          tag: "div",
+          text: "Menu unggulan",
+        },
+      },
+    ]);
+
+    expect(instruction).toContain("Hapus bagian/elemen ini");
+    expect(instruction).toContain("Pindahkan bagian/elemen ini ke bawah");
+    expect(instruction).toContain("main > div:nth-of-type(1) > h1");
+    expect(instruction).toContain("Segar & Sehat");
   });
 });
 
