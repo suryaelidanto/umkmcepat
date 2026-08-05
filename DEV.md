@@ -114,44 +114,9 @@ Non-secret product config lives in `/admin/settings` (DB-first over `.env`). Aft
 
 After deploying the one-time-grant migration, preview the existing approved-user reconciliation with `bun run energy:backfill`. Apply it once with `bun run energy:backfill --apply`; the partial unique index makes reruns idempotent. The backfill matches approved waitlist entries to users by normalized email, preserves completed-payment remainder, and reconciles other historical test credit into the 500,000 grant target.
 
-## Moderation: banning a user unpublishes their sites
-
-Banning a user (`/admin/users` → Blokir, sets `User.bannedAt`) also unpublishes
-every one of their published sites: `p/<slug>` for a banned owner returns 410
-Gone with `X-Robots-Tag: noindex` (deindex signal), and their running published
-containers are stopped best-effort. The sitemap omits banned owners. Unbanning
-restores everything — nothing is deleted, and sites come back online
-automatically because the gate is a live read of `User.bannedAt`. The gate lives
-in `src/routes/p.$slug.$.ts`.
-
-## Attempt queue (BullMQ)
-
-Two Redis-backed BullMQ queues (local Redis: compose `redis` on `127.0.0.1:6379`; override with `REDIS_URL`):
-
-- **`project-attempt`** — generate, edit, and edit-build. Concurrency follows admin **Runtime — build concurrency** (default 3 in code; live after save).
-- **`project-discuss`** — discuss turns only (default concurrency 5). Chat is not blocked by long generates.
-
-Workers boot with the app process (`startAttemptQueueWorker`). On boot the worker also fire-and-forget pre-warms the shared golden `node_modules` under `.data/project-build-workspaces/_shared` so the first generate can skip install.
-
-### Discuss progress stream
-
-Discuss AI runs in the BullMQ worker and **persists regardless of the browser**. Live streaming uses a **shared progress bus** (local buffer + Redis pub/sub on `discuss-progress:{turnId}`, same `REDIS_URL` as BullMQ) so HTTP and worker can be different Node isolates.
-
-The POST `/api/projects/preview` SSE tail also **polls `ProjectChatTurn`** until `succeeded`/`failed`/`cancelled` (or a hard ceiling). If Redis progress is dropped, the client still gets `finish`/`error` without a hard refresh. Logs: `discuss:sse-tail-db-fallback`, `discuss-progress:redis-publish-failed`.
-
-Text-only fallback (no valid workspace card after one repair) still streams progressive text and emits protocol `tool-output-available` with `workspaceCard: { type: "none" }` — no invented questions/options. Expect **1** model call when the card is valid on primary, **2** when repair runs.
-
-### Legacy discuss readiness gate
-
-Legacy-v1 builds are authorized by a deterministic server gate (`src/lib/projects/discuss-readiness.ts`), not model confidence. When the AI emits a `build_recommendation`, the worker re-checks the brief against the structural blockers (primary offer, visitor job + CTA, local-vs-online, media strategy, visual direction). If any blocker is unresolved, the card is demoted to the next question. Only an explicit early-build request ("langsung bangun aja") passes with an honest warning naming what stays generic/omitted. Structural blockers are per `UmkmType` (`fnb`, `retail`, `jasa_lokal`, `jasa_online`, `kursus`, `other`); `targetCustomer`, `visuals`, and `stylePreference` are always structural. Logged as `discuss:gate`.
-
-Generated apps bundle `public/placeholder.svg`; the generator guidance (`custom-source-generator.ts`) emits `<img src="/placeholder.svg">` only when an image slot is structurally necessary and no owner image exists — never a remote placeholder URL. Typographic layouts omit the slot instead.
-
 ## Environment
 
 `.env.example` is the canonical placeholder list, grouped by concern (app, database, auth, AI, storage, email, payment, analytics, public sites) — read it directly rather than trusting a copy here; a stale duplicate of this block is exactly how past drift happened.
-
-Model pricing uses a hybrid resolver. `config/model-pricing-overrides.json` is the Git-tracked manual source for 9Router/CMC naming mismatches and provider-only prices; OpenRouter `/api/v1/models` remains the automatic cache/refresh source for supported models. Every energy debit stores pricing proof (`rawModelId`, `pricedModelId`, `pricingSource`, prompt price, completion price) on `UserCredit`; user-facing UI intentionally hides provider/model names unless an admin/debug surface needs them.
 
 ### Per-action AI models
 
@@ -166,57 +131,11 @@ Task model ids (9Router labels) are configurable in `/admin/settings` (AI advanc
 | `ai.model.discuss_hedge_3` | `AI_MODEL_DISCUSS_HEDGE_3`                     | Discuss hedge leg 3 (empty = off)  |
 | `ai.model.build`           | `AI_MODEL_BUILD` (alias `AI_GENERATION_MODEL`) | Build pipeline + edit agent        |
 
-Hedging is gated by `discuss.hedging` (feature_flag category, `DISCUSS_HEDGING_ENABLED`, default off). When on AND at least one hedge leg is set, the discuss turn runs primary + hedges in parallel; first card-valid stream wins, others are aborted. Hedged turns record per-racer `AiCallRecord` rows (`hedged: true`, `raceRole: winner|aborted`) grouped by `turnId`; the `UserCredit` debit is the sum of all racers (1:1 transparency). Best-effort partial tool-args streaming (`nextAssistantTextDeltaFromPartialToolJson`, winner's stream only) is gated by `discuss.partial_tool_streaming` (`DISCUSS_PARTIAL_TOOL_STREAMING`, default `true`). Deploy-time schema compat gate: `bun scripts/verify-hedge-schemas.ts` — hard-fails if any configured combo rejects the card tool schema (the 422 class).
-
 Empty task value → default → hardcode `default-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models` filtered to `owned_by: "combo"` (not upstream provider models). Create combos in 9Router dashboard with these ids: `default-combo`, `moderation-combo`, `discuss-combo`, `build-combo`.
 
 `STORAGE_PROVIDER` is not user-configurable: local dev always speaks S3 to the MinIO container `bun run infra` starts, and production points the same `S3_*` variables at Cloudflare R2. Set Google OAuth, Turnstile, Chromatic, and AI provider secrets only in `.env` or deployment secrets. Error tracking (Sentry) was intentionally removed; there is currently no error-tracking provider wired.
 
 Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Home project thumbnails are derived JPEGs under `.data/project-thumbnails`; keep that directory persistent when thumbnail continuity matters, or let missing images fall back to the deterministic gradient until the next successful build or first preview recovery. Capture runs in an isolated Node subprocess with a hidden browser window; local Windows uses installed Chrome when `PROJECT_THUMBNAIL_BROWSER_PATH` is empty. Set that path only to override browser discovery. Runtime/build workspaces are rebuildable. Local/test generated execution stays enabled by default; production Compose explicitly disables build and public execution until the isolated-worker and separate-origin gates pass.
-
-## Contract-compiled generation (staged, off)
-
-`contract-v1` is a staged generation engine (see `docs/superpowers/specs/2026-08-03-contract-compiled-generation-design.md`). Two admin settings control it, both DB-first:
-
-- `generation.contract_compiled_rollout` (`off | internal | pilot | all`, default `off`) — assignment at project creation only. Sticky on `Project.generationEngine`.
-- `generation.contract_admission` (`paused | enabled`, default `paused`) — execution admission. No contract attempt is enqueued until an operator flips it to `enabled`. This is the emergency rollback knob: flipping to `paused` stops new contract attempts immediately without changing sticky engines or selected deployments.
-
-Contract-v1 discussion prepares an immutable contract/plan handoff before the build card; generation compiles protected topology and enforces an AI write allow-list, claim grammar, and browser gates. Legacy-v1 remains the default and is unaffected.
-
-Idle runtime cleanup:
-
-```bash
-bun run runtime:idle-stop
-```
-
-Use this from cron/systemd/timer-equivalent in a single-node deployment until a dedicated worker owns the loop.
-
-Preview runtime self-heals: a deleted/removed serving docroot surfaces as a 404
-on the health probe, which marks the deployment stopped and re-materializes the
-S3 dist on the next page load. The owner can also restart a preview explicitly
-via `POST /api/projects/:id/restart` (owner-only). Full AI rebuilds remain the
-separate `POST /api/projects/:id/generate` path.
-
-Generated previews/published sites inject a capture-phase error listener that
-swaps a failing `<img>` to an aspect-aware placeholder data-URI (landscape vs
-portrait), so broken images never show a browser error icon and work even for
-old builds whose dist lacks a placeholder file.
-
-## Batched generation (Phase 1, off by default)
-
-The batched engine replaces the agent tool-loop with a single streamed response that emits all project files as parseable blocks. Spec: `docs/superpowers/specs/2026-08-04-batched-generation-design.md`.
-
-- **Rollout flag:** `generation.batched_rollout` (`off | internal | pilot | all`, default `off`). `off` runs today's path. `internal` gates on admin owner email; `pilot` buckets ~10% of projects deterministically (FNV-1a hash); `all` rolls everyone in.
-- **Response contract:** `src/lib/projects/batched-response.ts` — strict state machine over `<file path>…</file>`, `<propose>`, `<done summary/>`. Unknown tags / missing attrs / disallowed paths / truncation throw `BatchedParseError` with byte offsets so repair prompts can cite them.
-- **Fallback:** any irrecoverable batched failure (final parse error, failed validation after 2 targeted repairs, transport error) escalates to `generateCustomProjectFilesWithAgent` within the same attempt. No user-visible breakage.
-- **Telemetry:** per-call `AiCallRecord` rows use `phase: "writer" | "format-repair" | "repair" | "fallback"`, always under `task: "build-step"` (writer) / `"build-repair"` (repair rounds). Query by `attemptId` for the full picture.
-- **Prompt inputs:** the system prompt derives its scaffold manifest from `src/lib/projects/scaffold/manifest.ts` (auto-extracted from `createViteTanStackShadcnStarterFiles`). Scaffold changes break the companion drift test until consciously updated — no silent prompt drift.
-
-### Batched edit (Phase 2)
-
-Edits ride the SAME `generation.batched_rollout` flag — no separate toggle. `src/lib/projects/batched-edit.ts` picks target files deterministically from the instruction (path-stem noun tokens with stop-token filter and an 8-file ambiguity cap), runs ONE streamed response with the same parser + gates as Phase 1, repairs up to 2 rounds on the implicated paths, and returns `needsFallback` when the budget is spent — the worker then runs `editGeneratedSourceWithAgent` unchanged. Per-call ledger rows carry `task: "edit"` and `phase: "writer" | "format-repair" | "repair" | "fallback"` under the same `attemptId`, so the additive fallback billing mirrors Phase 1. Per-file write-through keeps flowing to the existing ProgressiveSaver hook while a batched edit streams, so refresh safety matches the legacy loop.
-
-- **Edit snapshot `generation.mode`** is `"batched-edit"` when the batched writer produced the files, `"agent-edit"` for the legacy loop (incl. fallback) — useful when debugging which engine owned an edit.
 
 ## Graphify
 
