@@ -554,6 +554,42 @@ describe("collectBatchedGateIssues", () => {
     expect(issues.join("\n")).toMatch(/createFileRoute/);
   });
 
+  it("flags a home route that never calls usePreviewReady (preview iframe hangs)", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            "export function HomeRouteComponent() { return <div>Kopi Lanang</div>; }",
+        },
+        {
+          path: "src/lib/preview-ready.ts",
+          content: "export function usePreviewReady() {}",
+        },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: oklch(0.99 0 0);" },
+    );
+    expect(issues.join("\n")).toMatch(/usePreviewReady/);
+  });
+
+  it("flags a generic stub home route with no brief content", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            "export function HomeRouteComponent() {\n  usePreviewReady();\n  return <div><h1>Home</h1><p>Welcome to the home page.</p></div>;\n}",
+        },
+        {
+          path: "src/lib/preview-ready.ts",
+          content: "export function usePreviewReady() {}",
+        },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: oklch(0.99 0 0);" },
+    );
+    expect(issues.join("\n")).toMatch(/generic stub/);
+  });
+
   it("passes a clean stage", () => {
     const issues = collectBatchedGateIssues(
       [

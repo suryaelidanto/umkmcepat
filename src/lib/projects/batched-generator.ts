@@ -350,6 +350,29 @@ export function collectBatchedGateIssues(
     );
   }
 
+  // The preview iframe hangs forever on "Menyiapkan tampilan website" unless
+  // usePreviewReady() is actually called from the home route. The scaffold's
+  // preview-ready.ts defines the hook, so its mere presence in the staged
+  // files is not enough — Vite tree-shakes unused modules. Mirrors the legacy
+  // checkAgentSourceQuality call-site assertion.
+  if (indexFile && !/usePreviewReady\s*\(/.test(indexFile.content)) {
+    issues.push(
+      "src/routes/index.tsx must call usePreviewReady() inside HomeRouteComponent so the preview iframe unlocks.",
+    );
+  }
+
+  // Reject a home route that is only a generic stub ("Home"/"Welcome home")
+  // with no brief-derived content — it compiles and exports the component but
+  // ships a broken site. The brief content must be referenced.
+  if (
+    indexFile &&
+    /welcome\s+to\s+the\s+home\s+page|>Home<\/h1>/i.test(indexFile.content)
+  ) {
+    issues.push(
+      "src/routes/index.tsx is still a generic stub — build the real home page from the brief content (site.ts, sections, menu, contact).",
+    );
+  }
+
   // The scaffold uses manual routing (createRoute in src/router.tsx), not
   // TanStack file-route boilerplate. createFileRoute is a type-only helper in
   // this router version — calling it with a path string fails the tsc build
