@@ -218,6 +218,10 @@ Edits ride the SAME `generation.batched_rollout` flag — no separate toggle. `s
 
 - **Edit snapshot `generation.mode`** is `"batched-edit"` when the batched writer produced the files, `"agent-edit"` for the legacy loop (incl. fallback) — useful when debugging which engine owned an edit.
 
+### Direct-edit mode + image replace
+
+Generated previews support a frontend direct-edit mode ("Ubah langsung"), separate from commentary annotation. The injected preview bridge (`src/lib/projects/runtime-proxy.ts`, `EDIT_MODE_BRIDGE`) enables drag-reorder + remove on atomic blocks and posts an `EditLayout` to the parent (`WorkspaceShell`), which keeps undo/redo history (`src/lib/projects/direct-edit.ts`). Save builds an Indonesian instruction diff and triggers the existing `/api/projects/:id/edit` AI rebuild + snapshot. "Ganti gambar" on an image in annotation mode uploads a temp image, claims it as a project asset (`/media/<id>`), and sends an `image_replace` edit. All DOM edits are temporary until Save.
+
 ## Graphify
 
 Graphify is recommended for non-trivial discovery and reuse checks. It is user-local, not a project dependency.
