@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseProjectBrief, briefToBuildPrompt } from "./brief";
+import {
+  parseProjectBrief,
+  briefToBuildPrompt,
+  mergeProjectBriefPatch,
+} from "./brief";
 
 describe("businessImages", () => {
   it("parses and normalizes businessImages, dropping invalid purposes", () => {
@@ -41,5 +45,19 @@ describe("businessImages", () => {
     );
     const scrubbed = scrubBriefForStorage(brief, true, "p1");
     expect(scrubbed.businessImages).toEqual([{ id: "a1", purpose: "logo" }]);
+  });
+
+  it("mergeProjectBriefPatch accumulates businessImages across turns", () => {
+    const current = parseProjectBrief({}, "prompt");
+    const merged = mergeProjectBriefPatch(current, {
+      businessImages: [{ id: "a1", purpose: "business-image" }],
+    });
+    const merged2 = mergeProjectBriefPatch(merged, {
+      businessImages: [{ id: "a2", purpose: "logo" }],
+    });
+    expect(merged2.businessImages).toEqual([
+      { id: "a1", purpose: "business-image" },
+      { id: "a2", purpose: "logo" },
+    ]);
   });
 });

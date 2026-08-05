@@ -294,4 +294,102 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     const resBody = (await response.json()) as Record<string, unknown>;
     expect(resBody).toMatchObject({ code: "chat_turn_not_user" });
   });
+
+  it("persists businessImages from an image_upload card answer", async () => {
+    const { Route } = await import("./api.projects.preview");
+    const handler = (
+      Route as unknown as {
+        options: {
+          server: {
+            handlers: {
+              POST: (ctx: { request: Request }) => Promise<Response>;
+            };
+          };
+        };
+      }
+    ).options.server.handlers.POST;
+
+    prismaProjectFindFirstMock.mockResolvedValue({
+      id: "p_test",
+      prompt: "Jualan kue",
+      model: "default-combo",
+      status: "discussing",
+      title: "Kue Lebaran",
+      chatMessages: [],
+      chatSummary: null,
+      memoryFacts: null,
+      brief: null,
+      lastCompactedMessageCount: 0,
+      userId: "u_test",
+      workspaceCard: {
+        type: "image_upload",
+        imageUpload: {
+          id: "img1",
+          question: "Upload foto produk?",
+          purpose: "business-image",
+          selectionMode: "multiple",
+        },
+      },
+    });
+    claimDiscussTurnMock.mockResolvedValue({
+      claimed: true,
+      turnId: "ct_img",
+    });
+    prismaQueryRawMock.mockResolvedValue([
+      {
+        chatMessages: [],
+        chatSummary: null,
+        memoryFacts: null,
+        lastCompactedMessageCount: 0,
+        brief: null,
+        workspaceCard: {
+          type: "image_upload",
+          imageUpload: {
+            id: "img1",
+            question: "Upload foto produk?",
+            purpose: "business-image",
+            selectionMode: "multiple",
+          },
+        },
+      },
+    ]);
+
+    const body = {
+      mode: "discuss",
+      projectId: "p_test",
+      messages: [
+        {
+          id: "u2",
+          role: "user",
+          parts: [{ type: "text", text: "2 gambar diunggah" }],
+        },
+      ],
+      workspaceAnswers: [
+        {
+          questionId: "img1",
+          question: "Upload foto produk?",
+          answer: "2 gambar diunggah",
+          source: "custom",
+          assetIds: ["a1", "a2"],
+        },
+      ],
+    };
+    const request = new Request("http://localhost/api/projects/preview", {
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    await handler({ request });
+
+    const briefCall = prismaExecuteRawMock.mock.calls.find((call) =>
+      String(call[0] ?? "").includes('"brief"'),
+    );
+    expect(briefCall).toBeDefined();
+    const briefText = briefCall
+      ? briefCall.map((arg) => String(arg ?? "")).join("\n")
+      : "";
+    expect(briefText).toContain('"businessImages"');
+    expect(briefText).toContain("a1");
+    expect(briefText).toContain("business-image");
+  });
 });

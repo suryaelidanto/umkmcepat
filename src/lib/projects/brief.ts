@@ -387,6 +387,16 @@ export function mergeProjectBriefPatch(
     next.secondaryCta = patch.secondaryCta;
   }
 
+  if (Array.isArray(patch.businessImages)) {
+    const merged = new Map(
+      (next.businessImages ?? []).map((img) => [img.id, img]),
+    );
+    for (const img of normalizeBusinessImages(patch.businessImages)) {
+      merged.set(img.id, img);
+    }
+    next.businessImages = [...merged.values()].slice(-12);
+  }
+
   return next;
 }
 
