@@ -854,6 +854,15 @@ export function isTailwindUtilityClass(className: string): boolean {
     "shrink-0",
     "outline-none",
     "group",
+    "tabular-nums",
+    "ordinal",
+    "slashed-zero",
+    "lining-nums",
+    "oldstyle-nums",
+    "proportional-nums",
+    "diagonal-fractions",
+    "stacked-fractions",
+    "normal-nums",
   ]);
 
   if (standardTrivial.has(baseClass)) {
@@ -960,6 +969,7 @@ export function isTailwindUtilityClass(className: string): boolean {
     "scroll-pb-",
     "scroll-pl-",
     "scroll-pr-",
+    "order-",
   ];
 
   return standardPrefixes.some((prefix) => baseClass.startsWith(prefix));
