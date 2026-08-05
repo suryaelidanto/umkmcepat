@@ -317,6 +317,83 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("preserves the structured question card contract", () => {
+    const brief = createInitialBrief("jualan jamu sehat");
+    const turn = normalizeWorkspaceTurn(
+      {
+        assistantText: "Aku butuh arah visualnya dulu.",
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "visual_direction",
+            question: "Vibe website Jamu Surya mau gimana?",
+            answerMode: "choice",
+            selectionMode: "single",
+            recommendedOptionLabel: "Natural",
+            options: [
+              { label: "Natural", description: "Hijau, hangat, herbal." },
+              { label: "Modern", description: "Putih, bersih, premium." },
+            ],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.readyForBuild).toBe(false);
+    expect(turn.workspaceCard).toEqual({
+      type: "question",
+      question: {
+        id: "visual_direction",
+        question: "Vibe website Jamu Surya mau gimana?",
+        answerMode: "choice",
+        selectionMode: "single",
+        recommendedOptionLabel: "Natural",
+        options: [
+          { label: "Natural", description: "Hijau, hangat, herbal." },
+          { label: "Modern", description: "Putih, bersih, premium." },
+        ],
+        placeholder: undefined,
+        required: false,
+        whyThisQuestionMatters: undefined,
+      },
+    });
+  });
+
+  it("preserves the structured image upload card contract", () => {
+    const brief = createInitialBrief("jualan jamu sehat");
+    const turn = normalizeWorkspaceTurn(
+      {
+        assistantText: "Foto produk bisa bikin websitenya lebih dipercaya.",
+        workspaceCard: {
+          type: "image_upload",
+          imageUpload: {
+            id: "product_images",
+            question: "Kirim foto produk atau proses produksi Jamu Surya.",
+            hint: "Botol jamu, bahan herbal, atau tempat produksi.",
+            selectionMode: "multiple",
+            purpose: "business-image",
+            required: true,
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.readyForBuild).toBe(false);
+    expect(turn.workspaceCard).toEqual({
+      type: "image_upload",
+      imageUpload: {
+        id: "product_images",
+        question: "Kirim foto produk atau proses produksi Jamu Surya.",
+        hint: "Botol jamu, bahan herbal, atau tempat produksi.",
+        selectionMode: "multiple",
+        purpose: "business-image",
+        required: true,
+      },
+    });
+  });
+
   it("keeps a valid multiple-choice question mode", () => {
     const brief = createInitialBrief("jualan hampers lebaran");
     const turn = normalizeWorkspaceTurn(
@@ -690,6 +767,39 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("build_recommendation");
     expect(turn.readyForBuild).toBe(true);
     expect(turn.brief.confidence).toBeGreaterThanOrEqual(95);
+  });
+
+  it("preserves build recommendation as a handoff card, not a side effect", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Jamu Surya",
+        businessType: "Minuman herbal",
+        offer: "Jamu kunyit asam dan beras kencur",
+        targetCustomer: "Pelanggan sehat alami",
+        contactOrCta: "WhatsApp",
+        stylePreference: "Natural dan hangat",
+        confidence: 1,
+      },
+      "jualan jamu",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        assistantText: "Brief sudah cukup, aku bisa mulai susun websitenya.",
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Website Jamu Surya siap dibuat",
+          summary: ["Fokus produk jamu herbal", "CTA utama WhatsApp"],
+        },
+      },
+      brief,
+    );
+
+    expect(turn.readyForBuild).toBe(true);
+    expect(turn.workspaceCard).toEqual({
+      type: "build_recommendation",
+      title: "Website Jamu Surya siap dibuat",
+      summary: ["Fokus produk jamu herbal", "CTA utama WhatsApp"],
+    });
   });
 
   it("promotes when user affirms after previous build_confirm card", () => {
