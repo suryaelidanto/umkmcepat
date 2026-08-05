@@ -87,7 +87,8 @@ export function applyBriefPatch(
     // the slow legacy loop.
     for (const fact of patch.facts) {
       const key = cleanSlug(fact.key);
-      const field = FACT_KEY_TO_BRIEF_FIELD[key];
+      const field = FACT_KEY_TO_BRIEF_FIELD[key] as
+        (typeof BRIEF_PATCH_FIELDS)[number] | undefined;
       if (!field) {
         continue;
       }

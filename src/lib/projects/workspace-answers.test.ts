@@ -140,6 +140,7 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
         question: {
           id: "business_name",
           question: "Nama brand warung kopinya apa?",
+          options: [],
         },
       },
       fallbackText: "1. Nama brand warung kopinya apa?\nJawaban: Kopi Lanang",
@@ -163,6 +164,7 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
         question: {
           id: "contact",
           question: "Nomor WhatsApp-nya berapa?",
+          options: [],
         },
       },
       fallbackText: "1. Nomor WhatsApp-nya berapa?\nJawaban: 081234567890",
@@ -178,6 +180,7 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
         question: {
           id: "visual_direction",
           question: "Mau nuansa visual apa?",
+          options: [],
         },
       },
       fallbackText: "1. Mau nuansa visual apa?\nJawaban: Modern & Minimalis",

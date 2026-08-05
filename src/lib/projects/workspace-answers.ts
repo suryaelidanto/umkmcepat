@@ -70,7 +70,18 @@ export function buildBriefPatchFromWorkspaceAnswers({
     if (isLegacyBriefPatchField(answer.questionId)) {
       patch[answer.questionId] = value;
     } else {
-      const promotedField = QUESTION_ID_TO_BRIEF_FIELD[answer.questionId];
+      const promotedField = QUESTION_ID_TO_BRIEF_FIELD[answer.questionId] as
+        | "businessName"
+        | "businessType"
+        | "offer"
+        | "targetCustomer"
+        | "contactOrCta"
+        | "stylePreference"
+        | "priceRange"
+        | "deliveryArea"
+        | "address"
+        | "tagline"
+        | undefined;
       if (promotedField) {
         patch[promotedField] = value;
       } else {
