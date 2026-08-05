@@ -1,7 +1,7 @@
 # Discuss Streaming & Reliability — Design (t3code-informed)
 
 **Date:** 2026-08-05
-**Status:** Draft
+**Status:** Audited draft — implementation not started
 **Related:**
 - `src/lib/projects/discuss-turn-worker.ts` (turn lifecycle, compaction on critical path)
 - `src/lib/projects/attempt-queue.ts` (BullMQ queue/worker wiring)
@@ -14,6 +14,8 @@
 - `src/components/projects/WorkspaceShell.tsx` (client reattach + card render)
 - `src/lib/projects/discuss-tool.ts` (tool prompt + partial-tool streaming)
 - `src/routes/__root.tsx:86` (Plus Jakarta Sans `<link>`)
+- `/tmp/umkmcepat-handoff-2026-08-05-discuss-hedging-latency.md` (hedging/latency handoff)
+- `6bcfc38 fix(discuss): refresh settings before hedging` (settings cache refresh before hedge decision)
 
 **Read first if you have zero context:** `docs/superpowers/handoffs/2026-08-05-discuss-reliability-t3code-study.md` — the report this spec implements. It is self-contained; read it before touching any file listed here.
 
@@ -28,8 +30,13 @@ Discuss turns are functionally reliable (162/162 succeeded in DB) but **feel** b
 5. **Reattach discards deltas** — `WorkspaceShell.tsx:2617` reattach `EventSource` only listens for `finish`/`error` then `reloadLatestChat()`; all `text-delta` ignored.
 6. **Dead Redis client cached forever** — `discuss-turn-pubsub.ts:219` returns a dead `redisPub` on reconnect; no recovery path short of process restart.
 7. **CSP blocks the brand font** — `security-headers.ts:86-87` omit `fonts.googleapis.com`/`fonts.gstatic.com`, so Plus Jakarta Sans (in `__root.tsx:86`, `DESIGN.md`) fails to load on every page.
+8. **CSP report-only noise hides real signal** — generated preview report-only spam was not the root cause, but it makes true enforced CSP issues harder to see.
+9. **Discuss energy rows can lose `projectId`** — unhedged `chargeDiscussEnergy` lacks `projectId`, so per-project cost accounting is incomplete.
+10. **Connection state is implicit** — t3code has explicit `connecting/synchronizing/connected/backoff/offline/blocked` phases; UMKM mostly collapses stream failure into generic reload/error UI.
 
 **Domain note (from the t3code study):** t3code is an agent-harness control surface, not a site builder. Its product flow is unrelated. What we adopt is transport discipline only: **snapshot → event → synchronized**, subscribe-before-snapshot, cursor-based resume, explicit connection state, and a separate activity feed.
+
+**Hedging note (from the 2026-08-05 hedging handoff):** hedging can help backend tail latency in limited historical data, but current hedged streaming buffers text and creates dead air. Keep `discuss.hedging=false`; commit `6bcfc38` already makes the worker refresh settings before deciding whether to hedge. Do not re-enable hedging in this project.
 
 ## Design
 
@@ -74,7 +81,7 @@ In `discuss-turn-sse-tail.ts` (and the `stream.ts` write path), emit an SSE comm
 
 ### R7 — Snapshot + sequence + `afterSequence` resume
 
-The full t3code-style transport. Add to the pub/sub events a monotonically increasing `sequence`. The stream route emits a `snapshot` event (current persisted state) first, then live events, then a `synchronized` marker. Client resumes via `afterSequence` (HTTP header `Last-Event-ID` or query param); server replays buffered events after that sequence, falling back to a fresh snapshot if the gap exceeds a ceiling.
+The full t3code-style transport. Add to the pub/sub events a monotonically increasing `sequence`. The stream route must **subscribe to live progress before reading the DB snapshot**, buffer any live events that arrive during snapshot load, emit `snapshot`, flush buffered/replayed live events, then emit `synchronized`. Client resumes via `afterSequence` (HTTP header `Last-Event-ID` or query param); server replays buffered events after that sequence, falling back to a fresh snapshot if the gap exceeds a ceiling.
 
 > ponytail: this is the architectural investment. It pairs with the eventual web/worker process split. Plan ships the server-side snapshot + sequence + replay; client consume is R7b gated on the R7 server tests passing.
 
@@ -88,15 +95,33 @@ The full t3code-style transport. Add to the pub/sub events a monotonically incre
 
 `WorkspaceShell.tsx:2620-2651`: the reattach `EventSource` should listen for `text-delta`, `tool-input-available`, `tool-output-available`, and `workspace-card` events and render them (or at least surface a "still running" activity) instead of only waiting for `finish`/`error` and reloading. Align the two transports (main `useChat` path vs reattach path).
 
+### R10 — Reduce generated-preview CSP report-only noise
+
+Keep the security posture, but stop reporting known-benign generated-preview inline script noise as if it were actionable. Either narrow the `Content-Security-Policy-Report-Only` route policy or suppress/report-rate-limit the known generated-preview report-only signature in `/api/csp-violation`. Enforced control-plane CSP remains unchanged except R4.
+
+### R11 — Preserve `projectId` in discuss energy debit
+
+Pass `projectId: project.id` in every `chargeEnergyForAiUsage`/`addEnergyUsageLegs` path for `reason: "discuss:step"` and `reason: "discuss:compaction"`. This fixes accounting only; it must not change pricing.
+
+### R12 — Explicit connection state and activity feed
+
+Adopt t3code's state-machine idea without its stack. Workspace discuss should expose explicit phases (`connecting`, `checking`, `responding`, `synchronizing`, `connected`, `backoff`, `blocked`) and show activity copy separately from assistant text. This is UX/state plumbing, not a protocol migration.
+
 ## Constraints / non-goals
 
 - Do NOT rework the hedge race (option 3 in the prior handoff) or touch `discuss.hedging`. Leave hedged streaming behavior as-is.
+- Do NOT re-enable hedging. `6bcfc38` already made `discuss.hedging=false` authoritative even when hedge model settings remain filled.
 - Do NOT touch R2's moderation *decision* to be parallel by default (R3) — product decision, default off.
 - Do NOT migrate to WebSocket or Effect.
+- Do NOT turn R3 on by default. The user approved planning all phases; runtime default remains serial moderation until a separate enablement change flips the setting.
 - Do NOT "fix" tests to reduce error counts; `p1`/`project_1`/`deployment_timeout` rows are fixtures and correct.
 - Do NOT change combo contents, model pricing, or hedge config.
 - Asset transport already matches t3code (signed short-lived URLs) — no change.
 - `git status` shows ~200 phantom modified files; verify real state with `git diff --quiet HEAD`; stage explicit paths, never `git add -A`.
+
+## Post-Scope: Adaptive Hedging
+
+Revisit hedging only after R1/R2/R5/R6/R7/R9 remove dead-air and resume failures. Any future hedging work must optimize visible-progress latency, not just backend completion latency; first streamed text/card progress must remain visible. Adaptive hedging belongs in a separate spec/plan.
 
 ## Risks and mitigations
 
@@ -109,6 +134,8 @@ The full t3code-style transport. Add to the pub/sub events a monotonically incre
 | R5 partial card parse brittleness | Scope to emitting fields; client render deferred (R5b). |
 | R7 sequence/resume regressions | Server-side snapshot + replay first, gated on unit tests; client consume is R7b. |
 | CSP change weakens policy | `style-src` already `'unsafe-inline'`; only adding the two font hosts. No `script-src` change. |
+| Early-open stream changes error semantics | Keep pre-stream validation for auth/rate/body/project. Only moderation/discuss lifecycle becomes streamed. |
+| Activity feed creates noisy UI | Show coarse phases only; never stream internal prompt/model/provider details. |
 
 ## Success criteria
 
@@ -116,9 +143,25 @@ The full t3code-style transport. Add to the pub/sub events a monotonically incre
 2. Font loads: Plus Jakarta Sans renders (R4).
 3. SSE stream survives idle gaps: heartbeat comment + `retry:` present, reattach shows deltas (R6/R9).
 4. Redis socket drop no longer permanently breaks progress publishing (R8).
-5. Snapshot + sequence + `afterSequence` replay path works under unit test (R7).
-6. `bun run check` green. Existing fixture-based error counts unchanged.
+5. Snapshot + sequence + `afterSequence` replay path works under unit test and uses subscribe-before-snapshot ordering (R7).
+6. Known generated-preview CSP report-only noise no longer hides real enforced violations (R10).
+7. Discuss energy debit includes `projectId` (R11).
+8. UI exposes explicit connection/activity phases without leaking provider details (R12).
+9. `bun run check` green. Existing fixture-based error counts unchanged.
 
 ## Done when
 
-R1, R4, R6, R8, R9 shipped with tests; R2/R5/R7 in their scoped form with server-side tests + fallback checkpoints honored; R3 documented behind an off-by-default flag (not executed); specs/plans updated in the same diff; `bun run check` green.
+R1, R4, R6, R8, R9, R10, R11, R12 shipped with tests; R2/R5/R7 shipped in full phased form (not vague emission-only placeholders); R3 is implemented only as an off-by-default capability flag; specs/plans updated in the same diff; `bun run check` green.
+
+## Audit Addendum — 2026-08-05
+
+The first plan was directionally right but not execution-complete. Missing items:
+
+- R7 missed t3code's key race fix: **subscribe live before loading snapshot**.
+- R10/R11 from the report were omitted even though they are cheap and useful.
+- R12 (explicit connection state/activity feed) was mentioned as a t3code lesson but not planned.
+- R2/R5 were too vague as "emission-only" fallbacks. Full execution needs separate tasks for protocol, reducer, and UI rendering.
+- R6 over-specified raw `retry:` injection into the AI SDK `createUIMessageStreamResponse`; implementation must only add raw SSE directives where the route owns the event stream, and use typed heartbeat/activity events for AI SDK streams.
+- The hedging-latency handoff confirms hedging stays out of scope. `discuss.hedging=false` remains the runtime default/decision; adaptive hedging is post-scope.
+
+This audited spec is the source of truth for the next implementation pass.

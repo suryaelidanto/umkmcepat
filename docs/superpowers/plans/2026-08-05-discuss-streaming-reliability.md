@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove the perceived discuss "hang" and harden the SSE transport, using t3code's snapshot/sequence/heartbeat/activity discipline while keeping our SSE stack. Ship R1 (compaction off critical path), R4 (Google Fonts CSP), R6 (heartbeat), R8 (Redis client fix), R9 (reattach deltas) fully; R2/R5/R7 in scoped form; R3 behind an off-by-default flag (not executed).
+**Goal:** Remove the perceived discuss "hang" and harden the SSE transport, using t3code's snapshot/sequence/heartbeat/activity discipline while keeping our SSE stack. Ship R1, R2, R4, R5, R6, R7, R8, R9, R10, R11, R12 in atomic phases; implement R3 only behind an off-by-default flag.
 
-**Architecture:** Compaction becomes a dedicated BullMQ job so the turn publishes `finish` immediately. The SSE transport gains heartbeat + snapshot + sequence. The dead Redis client is re-created on reconnect. CSP allows Google Fonts. Reattach renders deltas.
+**Architecture:** Compaction becomes a dedicated BullMQ job so the turn publishes `finish` immediately. The SSE transport gains heartbeat, snapshot, sequence, subscribe-before-snapshot, resume, and explicit activity phases. The dead Redis client is re-created on reconnect. CSP allows Google Fonts and reduces report-only noise. Reattach renders deltas.
 
 **Tech Stack:** Bun, TypeScript, TanStack Start, Prisma/Postgres, BullMQ/ioredis, Vitest.
 
@@ -17,9 +17,19 @@
 - Docs are part of the change when behavior changes (this plan + spec already created).
 - `git status` shows ~200 phantom modified files. Verify real state with `git diff --quiet HEAD`. Stage explicit paths only — **never** `git add -A`.
 - Do NOT touch hedging (`discuss.hedging`), combos, model pricing, or R3's parallel-moderation default.
+- Handoff `/tmp/umkmcepat-handoff-2026-08-05-discuss-hedging-latency.md` + commit `6bcfc38` are authoritative for hedging: keep hedging off; settings cache refresh before hedge decision already shipped.
+- R3 runtime default stays serial moderation. Only add an off-by-default setting unless a separate approval explicitly enables it.
 - Do NOT "fix" tests to lower error counts; `p1`/`project_1`/`deployment_timeout` rows are fixtures.
 - Never commit `.env`, secrets, uploads, logs, `.next/`, `.pi/`, `.browser/`, coverage artifacts.
 - User-facing copy Indonesian; developer logs/code English.
+
+---
+
+## Related Work Already Shipped
+
+- `6bcfc38 fix(discuss): refresh settings before hedging` — `runDiscussTurn()` force-refreshes settings before deciding hedging. This prevents stale `discuss.hedging` snapshots from launching hedge calls after the setting is off.
+- Do not duplicate that work. Phase 1 starts with compaction after `finish`, not settings cache refresh.
+- Hedging remains disabled until a separate adaptive-hedging spec optimizes visible-progress latency, not just backend completion latency.
 
 ---
 
@@ -394,12 +404,13 @@ git commit -m "fix(security): allow Google Fonts in CSP for brand font"
 ### Task 4: SSE heartbeat + `retry:` (R6)
 
 **Files:**
-- Modify: `src/lib/projects/discuss-turn-sse-tail.ts` (heartbeat comment + typed `heartbeat` event)
-- Modify: `src/routes/api.projects.$id.turns.$turnId.stream.ts` and `src/routes/api.projects.preview.ts` (include `retry:` in SSE response)
+- Modify: `src/lib/projects/discuss-turn-sse-tail.ts` (typed `heartbeat` event + optional raw comment callback)
+- Modify: `src/routes/api.projects.$id.turns.$turnId.stream.ts` (raw `retry:` + `: ping` comment; this route owns raw SSE)
+- Modify: `src/routes/api.projects.preview.ts` (typed heartbeat/activity only; do **not** inject raw SSE bytes into AI SDK's `createUIMessageStreamResponse` unless its API exposes an official hook)
 - Test: `src/lib/projects/discuss-turn-sse-tail.test.ts`, `src/lib/projects/build-attempt-pubsub.test.ts` (for `encodeSseEvent`)
 
 **Interfaces:**
-- Produces: `runDiscussProgressTail` emits a `{ type: "heartbeat" }` event every `heartbeatIntervalMs` (default 15_000) while running, plus writes an SSE `: ping` comment; stream responses include `retry: 3000`.
+- Produces: `runDiscussProgressTail` emits a `{ type: "heartbeat" }` event every `heartbeatIntervalMs` (default 15_000) while running. Raw reattach SSE responses include `retry: 3000` and optional `: ping`; AI SDK streams receive typed events only.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -411,18 +422,18 @@ Expected: FAIL (no heartbeat emitted).
 
 - [ ] **Step 3: Implement heartbeat in the tail**
 
-Add `heartbeatIntervalMs = 15_000` option to `runDiscussProgressTail`; in the interval callback (next to the DB poll), if not settled, call `write({ type: "heartbeat" })`. Also write the SSE comment form via a small helper so clients using raw SSE see liveness:
+Add `heartbeatIntervalMs = 15_000` option to `runDiscussProgressTail`; in the interval callback (next to the DB poll), if not settled, call `write({ type: "heartbeat" })`. Add optional `writeComment?: (comment: string) => void` so raw SSE routes can emit comments:
 ```ts
 // inside the poll interval, alongside the DB poll:
 if (!settled) {
   try { write({ type: "heartbeat" }); } catch { /* client gone */ }
 }
 ```
-Note: `write` receives event objects; for the raw `: ping` comment form, add an option `writeComment` (default no-op) and emit `: ping` from the stream routes. Keep the tail's `write` for the typed heartbeat.
+Note: `write` receives event objects. Keep raw SSE comments confined to `src/routes/api.projects.$id.turns.$turnId.stream.ts`, where `encodeSseEvent` is manually used.
 
 - [ ] **Step 4: Add `retry:` to stream responses**
 
-In `stream.ts` `createDiscussReadStream` and `replayDiscussStream`, and `preview.ts` `createUIMessageStreamResponse` usage, prepend `retry: 3000\n` to the response body (or via a stream chunk). Locate how `createUIMessageStreamResponse` composes the body and prepend the retry directive.
+In `stream.ts` `createDiscussReadStream` and `replayDiscussStream`, enqueue `retry: 3000\n\n` before event replay/live events. For `preview.ts`, do not prepend raw SSE bytes; rely on typed heartbeat/activity events through `writer.write`.
 
 - [ ] **Step 5: Run tests**
 
@@ -502,34 +513,34 @@ git commit -m "fix(workspace): render live deltas on turn-stream reattach"
 
 ---
 
-### Task 7: Snapshot + sequence + `afterSequence` resume (R7 server)
+### Task 7: Snapshot + sequence + `afterSequence` resume (R7 server + client handshake)
 
 **Files:**
-- Modify: `src/lib/projects/discuss-turn-pubsub.ts` (sequence), `src/lib/projects/discuss-turn-sse-tail.ts` (snapshot/synchronized), `src/routes/api.projects.$id.turns.$turnId.stream.ts` (replay + afterSequence)
+- Modify: `src/lib/projects/discuss-turn-pubsub.ts` (sequence + buffered replay helpers), `src/lib/projects/discuss-turn-sse-tail.ts` (snapshot/synchronized + subscribe-before-snapshot), `src/routes/api.projects.$id.turns.$turnId.stream.ts` (replay + afterSequence), `src/components/projects/WorkspaceShell.tsx` (store last sequence during reattach)
 - Test: `src/lib/projects/discuss-turn-pubsub.test.ts`, `src/lib/projects/discuss-turn-sse-tail.test.ts`
 
 **Interfaces:**
-- Produces: every published event carries a monotonically increasing `sequence`; the stream route emits `snapshot` → buffered events → `synchronized`; honors `afterSequence` (from `Last-Event-ID`) with a gap ceiling fallback to fresh snapshot.
+- Produces: every published event carries a monotonically increasing `sequence`; the stream route subscribes live **before** reading snapshot, emits `snapshot` → replay/buffered events → `synchronized`; honors `afterSequence` (from `Last-Event-ID` or query param) with a gap ceiling fallback to fresh snapshot. Client dedupes by sequence.
 
-**Scope note:** This is the architectural piece tied to the web/worker split. Ship server-side only. Client consume (`Last-Event-ID` send + dedupe) is a follow-up (R7b) — note it in the plan but do not implement.
+**Scope note:** This is the architectural piece tied to the web/worker split. Keep it backwards-compatible: clients that ignore `snapshot`/`synchronized` still receive `text-delta`/terminal events.
 
 - [ ] **Step 1: Write failing tests**
 
-Add tests asserting: (a) events carry incrementing `sequence`; (b) the tail emits a `snapshot` then `synchronized` when replay requested; (c) replay honors `afterSequence` (drops events ≤ sequence) and falls back to fresh snapshot on a too-large gap.
+Add tests asserting: (a) events carry incrementing `sequence`; (b) the tail subscribes before snapshot load and buffers live events that happen during snapshot load; (c) output order is `snapshot` → buffered/replayed events → `synchronized` → live events; (d) replay honors `afterSequence` (drops events ≤ sequence) and falls back to fresh snapshot on a too-large gap.
 
 - [ ] **Step 2: Implement sequence in pub/sub**
 
-In `discuss-turn-pubsub.ts`, track a per-channel or module `sequence` counter and stamp `event.sequence` in `publishProgress`. Keep `type` intact.
+In `discuss-turn-pubsub.ts`, track a per-channel sequence counter and stamp `event.sequence` in `publishProgress`. Keep `type` intact. Export helpers to read buffered events after a sequence and to detect replay gaps.
 
 - [ ] **Step 3: Implement snapshot + synchronized in the tail**
 
-In `discuss-turn-sse-tail.ts`, accept an `onSnapshot`/replay provider. When a client subscribes with `afterSequence`, first emit `{ type: "snapshot", ... }` (persisted state from the route), then replay buffered events with `sequence > afterSequence`, then `{ type: "synchronized" }`.
+In `discuss-turn-sse-tail.ts`, accept an `loadSnapshot`/replay provider. Subscribe to live progress first, buffering events while `loadSnapshot()` reads DB. Then emit `{ type: "snapshot", ... }`, replay buffered events with `sequence > afterSequence`, emit `{ type: "synchronized" }`, then switch to live pass-through.
 
 - [ ] **Step 4: Wire afterSequence in the stream route**
 
-In `stream.ts`, read `Last-Event-ID` header; if the turn is live, replay from that sequence with the gap ceiling; else terminal replay as today.
+In `stream.ts`, read `Last-Event-ID` header and `?afterSequence=`. If the turn is live, replay from that sequence with the gap ceiling; else terminal replay as today. In `WorkspaceShell.tsx`, remember the latest event sequence seen during reattach and pass it back on reconnect.
 
-- [ ] **Step 5: Run tests + full gate**
+- [ ] **Step 5: Run tests + focused UI typecheck**
 
 Run the pub/sub and sse-tail tests; then `bun run check`.
 
@@ -542,39 +553,98 @@ git commit -m "feat(discuss): SSE snapshot + sequence + afterSequence resume (se
 
 ---
 
-### Task 8: Scoped R2 progress events + R5 field emission + R3 flag (R2/R5/R3)
+### Task 8: Early stream phases + connection state (R2/R12)
 
 **Files:**
-- Modify: `src/routes/api.projects.preview.ts` (progress events; optional R3 flag), `src/lib/projects/discuss-tool.ts` (R5 partial fields), `src/lib/app-settings-registry.ts` (R3 flag)
-- Test: `src/lib/projects/discuss-tool.test.ts`, existing preview tests
+- Modify: `src/routes/api.projects.preview.ts` (early stream + phase events), `src/components/projects/WorkspaceShell.tsx` (connection/activity state), `src/lib/app-settings-registry.ts` (optional flags if needed)
+- Test: existing preview/discuss route tests, component tests if present
 
-**Scope:** This task ships the *emission* halves of R2 and R5 and the R3 off-by-default flag. The full early-open stream (R2b) and client progressive card render (R5b) are documented as follow-ups, gated on the emission tests passing.
+**Scope:** Ship R2 fully: the client receives stream bytes/progress before moderation and discuss TTFT. Keep pre-stream validation for auth, rate-limit, body shape, energy, and project existence. Moderation still runs serially inside the stream before discuss enqueue unless R3 is explicitly enabled later.
 
-**R2 (emission-only):**
-- [ ] Emit `{ type: "phase", phase: "checking" }` etc. from within the existing tail when the worker signals phases. Wire the worker to publish phase events at turn start (`thinking`, `responding`) so the client shows liveness during the current dead air.
+- [ ] Split `handlePreviewPost` after safe pre-stream validation: auth/rate/body/project/energy errors still return JSON/SSE errors as today; moderation and enqueue happen inside a stream `execute` block.
+- [ ] Emit coarse phase events: `{ type: "activity", phase: "checking" }` before moderation, `{ type: "activity", phase: "saving" }` before DB persist/claim, `{ type: "activity", phase: "responding" }` before/after enqueue, `{ type: "activity", phase: "synchronizing" }` during reattach.
+- [ ] In `WorkspaceShell.tsx`, add explicit connection/activity state values: `connecting`, `checking`, `responding`, `synchronizing`, `connected`, `backoff`, `blocked`; render short Indonesian status copy separate from assistant text. Do not show provider/model/internal details.
 
-**R5 (emit partial card fields):**
-- [ ] Extend `nextAssistantTextDeltaFromPartialToolJson` (or add `nextPartialCardFromToolJson`) to return the partial `workspaceCard` object alongside the text delta when `discuss.partial_tool_streaming` is on. Add tests in `discuss-tool.test.ts` covering a partially-parsed card.
+**R3 flag (off by default):**
+- [ ] Add `AppSetting` `discuss.parallel_moderation` (default `false`) in `src/lib/app-settings-registry.ts`. The route reads the setting but keeps serial moderation unless the setting is true. Do **not** seed/flip it to true.
 
-**R3 (flag, off by default):**
-- [ ] Add `AppSetting` `discuss.parallel_moderation` (default `false`) in `src/lib/app-settings-registry.ts`. Document the behavior change + risk in the spec. Do NOT change the moderation ordering to parallel by default.
-
-- [ ] **Verify:** run `discuss-tool.test.ts` + preview tests + `bun run check`.
+- [ ] **Verify:** run preview/discuss tests + `bun run check`.
 
 - [ ] **Commit**
 ```bash
-git add src/routes/api.projects.preview.ts src/lib/projects/discuss-tool.ts src/lib/app-settings-registry.ts <test-files>
-git commit -m "feat(discuss): phase progress + partial card emission; parallel-moderation flag (off)"
+git add src/routes/api.projects.preview.ts src/components/projects/WorkspaceShell.tsx src/lib/app-settings-registry.ts <test-files>
+git commit -m "feat(discuss): stream preamble activity and connection state"
 ```
 
 ---
 
-### Task 9: Docs sync + full gate
+### Task 9: Progressive workspace card streaming (R5)
 
 **Files:**
-- Modify: this plan + `docs/superpowers/specs/2026-08-05-discuss-streaming-reliability-design.md` (mark shipped items; note R2b/R5b/R7b follow-ups)
+- Modify: `src/lib/projects/discuss-tool.ts` (partial card parser), `src/lib/projects/discuss-turn-worker.ts` (publish partial-card events), `src/components/projects/WorkspaceShell.tsx` / `WorkspacePrimitives.tsx` (card skeleton/fill)
+- Test: `src/lib/projects/discuss-tool.test.ts`, `src/lib/projects/discuss-turn-worker.test.ts`, component tests/story if present
 
-- [ ] Update the spec's status/notes to reflect shipped vs deferred.
+**Interfaces:**
+- Produces: `nextPartialWorkspaceCardFromToolJson(partialToolJson, previous)` returns an incremental card patch safe to render, controlled by existing `discuss.partial_tool_streaming`.
+
+- [ ] Add parser tests for partial JSON where only `workspaceCard.type` is known, then question text, then first option, then all options. Expected result: parser emits monotonic patches and never downgrades/removes already-rendered fields.
+- [ ] Implement `nextPartialWorkspaceCardFromToolJson` beside `nextAssistantTextDeltaFromPartialToolJson`.
+- [ ] In `discuss-turn-worker.ts` `tool-input-delta` handling (`:569-607`), when partial card state changes, publish a typed event such as `{ type: "workspace-card-delta", workspaceCard }`.
+- [ ] In the workspace UI, render a skeleton card when `workspaceCard.type` arrives but fields are incomplete; fill question/options as patches arrive. Keep accessibility intact: labels, buttons, focus order.
+- [ ] On final `tool-output-available`, replace partial card with normalized final card exactly as today.
+- [ ] Verify with focused unit/component tests + `bun run check`.
+- [ ] Commit:
+```bash
+git add src/lib/projects/discuss-tool.ts src/lib/projects/discuss-turn-worker.ts src/components/projects/WorkspaceShell.tsx src/components/projects/WorkspacePrimitives.tsx <test-files>
+git commit -m "feat(discuss): stream workspace card skeletons progressively"
+```
+
+---
+
+### Task 10: CSP report-only noise + discuss energy projectId (R10/R11)
+
+**Files:**
+- Modify: `src/routes/api.csp-violation.ts` or `src/lib/security-headers.ts` (depending current implementation), `src/lib/projects/discuss-turn-worker.ts`
+- Test: CSP violation test if present, `src/lib/projects/discuss-turn-worker.test.ts`
+
+- [ ] Locate `/api/csp-violation` route. Add suppression/rate-limit for generated-preview report-only inline script signatures while keeping enforced violations logged.
+- [ ] Add a test: report-only generated-preview inline script payload is accepted but not logged as a high-signal violation; enforced Google Fonts violations are no longer expected after R4.
+- [ ] In unhedged `chargeDiscussEnergy`, pass `{ projectId: project.id }` to `chargeEnergyForAiUsage` just like hedged `addEnergyUsageLegs` already does at `discuss-turn-worker.ts:806-808`.
+- [ ] Add/adjust test asserting `reason: "discuss:step"` energy charge includes `projectId`.
+- [ ] Run focused tests + `bun run check`.
+- [ ] Commit:
+```bash
+git add src/routes/api.csp-violation.ts src/lib/security-headers.ts src/lib/projects/discuss-turn-worker.ts <test-files>
+git commit -m "fix(discuss): keep CSP reports actionable and tag energy by project"
+```
+
+---
+
+### Task 11: Optional parallel moderation wiring (R3, off by default)
+
+**Files:**
+- Modify: `src/routes/api.projects.preview.ts`, `src/lib/app-settings-registry.ts`
+- Test: preview/discuss route tests
+
+**Scope:** Implement the capability only. Default remains `false`, so production behavior is unchanged until a separate setting flip.
+
+- [ ] Add setting `discuss.parallel_moderation` default `false` with description that streaming can begin before moderation verdict if enabled.
+- [ ] In `api.projects.preview.ts`, branch on the setting. If false: keep serial moderation inside early stream (Task 8). If true: start moderation promise and discuss preparation concurrently; if moderation rejects before enqueue, emit blocked error and do not enqueue; if moderation rejects after enqueue, cancel/finalize the turn and emit error.
+- [ ] Tests: default false preserves serial behavior; true cancels/blocks correctly on rejection.
+- [ ] Commit:
+```bash
+git add src/routes/api.projects.preview.ts src/lib/app-settings-registry.ts <test-files>
+git commit -m "feat(discuss): add off-by-default parallel moderation path"
+```
+
+---
+
+### Task 12: Docs sync + full gate
+
+**Files:**
+- Modify: this plan + `docs/superpowers/specs/2026-08-05-discuss-streaming-reliability-design.md` (mark shipped items; note deferred enablement only for R3)
+
+- [ ] Update the spec's status/notes to reflect shipped items and R3's off-by-default runtime status.
 - [ ] `bun run check` passes (format, lint, typecheck, tests, knip, docs).
 - [ ] Confirm no fixture error counts changed (`git diff --stat` on test files shows only intended additions).
 
@@ -584,10 +654,12 @@ git commit -m "feat(discuss): phase progress + partial card emission; parallel-m
 
 - **R1** fully specified (Task 1 worker + Task 2 reorder) with energy charge + `compaction-failed` log + failure-visibility preserved.
 - **R4** trivial (Task 3), **R6** (Task 4), **R8** (Task 5), **R9** (Task 6) each have a test + a commit.
-- **R7** server-only (Task 7) with client R7b deferred.
-- **R2/R5/R3** (Task 8) emission-only + off-by-default flag; full structural R2b / client R5b deferred.
-- **R3** explicitly NOT executed (product risk, off by default) — matches the spec's constraint.
-- No hedging/combo/pricing changes anywhere.
+- **R7** now includes subscribe-before-snapshot + client sequence memory; no longer server-only vague scope.
+- **R2/R12** now have a full early-stream/activity-state task, not emission-only.
+- **R5** now has a dedicated progressive-card task with parser, worker, and UI steps.
+- **R10/R11** added from the report: CSP report noise + projectId energy accounting.
+- **R3** capability is off by default — matches the spec's safety constraint.
+- No hedging/combo/pricing changes anywhere. `6bcfc38` already handled the settings-refresh prerequisite.
 
 ## Execution handoff
 
@@ -596,4 +668,15 @@ Plan saved to `docs/superpowers/plans/2026-08-05-discuss-streaming-reliability.m
 1. **Subagent-Driven (recommended)** — I dispatch a fresh subagent per task, review between tasks.
 2. **Inline Execution** — execute tasks in this session with checkpoints.
 
-Which approach? (Also confirm before starting: Task 2's energy handling — I chose to price compaction at its own model in the job; and R3 stays off-by-default, not executed.)
+Which approach? (Also confirm before starting: compaction is priced at its own model in the job; R3 stays off-by-default unless a separate setting flip is approved.)
+
+## Audit Addendum — 2026-08-05
+
+Deep audit result: the first plan was not complete enough for "all phases" execution. This updated plan fixes these gaps:
+
+- Added R10/R11/R12 tasks that were missing from the report-derived scope.
+- Replaced vague R2/R5 fallback language with concrete early-stream, activity-state, parser, worker, and UI steps.
+- Tightened R7 with t3code's subscribe-before-snapshot race fix and client sequence memory.
+- Corrected R6 so raw SSE directives are only emitted on the raw `EventSource` route, not blindly injected into AI SDK streams.
+- Kept R3 safe: capability planned, default off.
+- Incorporated the hedging-latency handoff: do not re-enable hedging; adaptive hedging is post-scope and separate.
