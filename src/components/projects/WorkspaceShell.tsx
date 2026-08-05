@@ -37,6 +37,7 @@ import {
 } from "@/components/projects/useBuildAttemptStream";
 import {
   BuildProgressPanel,
+  DirectEditToolbar,
   EmptyPreviewState,
   GeneratedPreviewFrame,
   PreviewIssueState,
@@ -84,9 +85,20 @@ import {
   toUploadPlan,
   type PendingAttachment,
 } from "@/lib/projects/composer-attachments";
+import {
+  buildDirectEditInstruction,
+  canRedoDirectEdit,
+  canUndoDirectEdit,
+  editHistoryPush,
+  editHistoryRedo,
+  editHistoryUndo,
+  type EditHistory,
+  type EditLayout,
+} from "@/lib/projects/direct-edit";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { resolveGenerateMode } from "@/lib/projects/resolve-generate-mode";
 import {
+  createImageReplaceEditInstruction,
   createVisualAnnotationEditInstruction,
   createVisualAnnotationId,
   createVisualAnnotationSummary,
@@ -357,6 +369,17 @@ export function WorkspaceShell({
     "comment" | "id"
   > | null>(null);
   const [pendingAnnotationComment, setPendingAnnotationComment] = useState("");
+  const [directEditMode, setDirectEditMode] = useState(false);
+  const [editHistory, setEditHistory] = useState<EditHistory>({
+    present: null,
+    past: [],
+    future: [],
+  });
+  const [editLayoutSignal, setEditLayoutSignal] = useState(0);
+  const [pendingEditLayout, setPendingEditLayout] = useState<EditLayout | null>(
+    null,
+  );
+  const lastEditLayoutRef = useRef<EditLayout | null>(null);
   const [rateLimitError, setRateLimitError] = useState<{
     message: string;
     retryAfter: number;
@@ -2053,6 +2076,223 @@ export function WorkspaceShell({
     }
   }
 
+  const handleDirectEditMessage = useCallback((event: MessageEvent) => {
+    const data = event.data;
+    if (!data || typeof data !== "object") {
+      return;
+    }
+    if (data.type === "umkmcepat-edit-ready") {
+      const layout = data.payload as EditLayout;
+      lastEditLayoutRef.current = layout;
+      setEditHistory((current) => editHistoryPush(current, layout));
+    }
+    if (data.type === "umkmcepat-edit-state") {
+      const layout = data.payload as EditLayout;
+      lastEditLayoutRef.current = layout;
+      setEditHistory((current) => editHistoryPush(current, layout));
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("message", handleDirectEditMessage);
+    return () => window.removeEventListener("message", handleDirectEditMessage);
+  }, [handleDirectEditMessage]);
+
+  function toggleDirectEdit() {
+    setDirectEditMode((current) => {
+      setPendingAnnotationTarget(null);
+      return !current;
+    });
+    setActiveTab("preview");
+  }
+
+  function applyHistoryLayout(layout: EditLayout | null) {
+    setPendingEditLayout(layout);
+    setEditLayoutSignal((current) => current + 1);
+  }
+
+  const handleUndo = useCallback(() => {
+    setEditHistory((current) => {
+      const next = editHistoryUndo(current);
+      if (next !== current) {
+        applyHistoryLayout(next.present);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    setEditHistory((current) => {
+      const next = editHistoryRedo(current);
+      if (next !== current) {
+        applyHistoryLayout(next.present);
+      }
+      return next;
+    });
+  }, []);
+
+  function handleDiscard() {
+    setEditHistory({ present: null, past: [], future: [] });
+    setPendingEditLayout(null);
+    setDirectEditMode(false);
+    setPreviewReloadKey((current) => current + 1);
+  }
+
+  async function submitDirectEdit({
+    instruction,
+    summary,
+  }: {
+    instruction: string;
+    summary: string;
+  }) {
+    if (readOnly || isProcessing) {
+      return false;
+    }
+    setIsEditingPreview(true);
+    setBuildStartedAt(Date.now());
+    setBuildProgress((current) =>
+      appendBuildProgressStep(current, {
+        detail: "AI menerapkan perubahan struktur ke source preview terakhir.",
+        label: "Merevisi struktur dari ubah langsung",
+        status: "active",
+      }),
+    );
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction, kind: "instruction", summary }),
+      });
+      let result: { buildStatus?: string; message?: string } | null = null;
+
+      if (response.ok && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split("\n\n");
+          buffer = events.pop() || "";
+
+          for (const rawEvent of events) {
+            const eventName = rawEvent.match(/^event: (.+)$/m)?.[1];
+            const dataText = rawEvent.match(/^data: (.+)$/m)?.[1];
+            if (!eventName || !dataText) {
+              continue;
+            }
+            const data = JSON.parse(dataText) as {
+              buildStatus?: string;
+              detail?: string;
+              label?: string;
+              message?: string;
+            };
+            if (eventName === "progress" && data.label) {
+              setBuildProgress((current) =>
+                appendBuildProgressStep(current, {
+                  detail: data.detail || "",
+                  label: data.label as string,
+                  status: "active",
+                }),
+              );
+            } else if (eventName === "done" || eventName === "error") {
+              result = data;
+            }
+          }
+        }
+      } else if (!response.ok) {
+        result = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+      }
+
+      if (!response.ok || result?.buildStatus !== "succeeded") {
+        setBuildProgress((current) =>
+          appendBuildProgressStep(current, {
+            detail:
+              result?.message || "Perubahan belum berhasil dibuild. Coba lagi.",
+            label: "Revisi belum selesai",
+            status: "error",
+          }),
+        );
+        return false;
+      }
+
+      setBuildStatus("ready");
+      setBuildProgress((current) => completeBuildProgressSteps(current));
+      setEditHistory({ present: null, past: [], future: [] });
+      setPendingEditLayout(null);
+      setDirectEditMode(false);
+      setPreviewReloadKey((current) => current + 1);
+      patchProjectInList({ buildStatus: "ready" });
+      void loadRuntimeState();
+      window.dispatchEvent(new Event("umkm:energy-changed"));
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.projects,
+        refetchType: "active",
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
+      return true;
+    } finally {
+      setIsEditingPreview(false);
+    }
+  }
+
+  async function saveDirectEdit() {
+    const original = editHistory.past[0] ?? null;
+    const current = lastEditLayoutRef.current;
+    if (!current || !original) {
+      return;
+    }
+    const instruction = buildDirectEditInstruction(original, current);
+    if (!instruction) {
+      handleDiscard();
+      return;
+    }
+    setDirectEditMode(false);
+    await submitDirectEdit({ instruction, summary: instruction });
+  }
+
+  const replaceImageFileInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceTargetRef = useRef<VisualAnnotationDraft["target"] | null>(null);
+
+  function openReplaceImage(target: VisualAnnotationDraft["target"]) {
+    replaceTargetRef.current = target;
+    replaceImageFileInputRef.current?.click();
+  }
+
+  async function handleReplaceImageFile(file: File) {
+    const target = replaceTargetRef.current;
+    if (!target || !target.src) {
+      return;
+    }
+    const uploaded = await uploadTempImageFile(file);
+    const claimForm = new FormData();
+    claimForm.append("assetId", uploaded.assetId);
+    claimForm.append("purpose", "business-image");
+    const claimRes = await fetch(`/api/projects/${projectId}/assets/upload`, {
+      method: "POST",
+      body: claimForm,
+    });
+    if (!claimRes.ok) {
+      return;
+    }
+    const asset = (await claimRes.json()) as { id: string };
+    const mediaPath = `/media/${asset.id}`;
+    const instruction = createImageReplaceEditInstruction({
+      replaceWith: [{ alt: "Gambar baru", mediaPath }],
+      target,
+    });
+    setPendingAnnotationTarget(null);
+    await submitDirectEdit({ instruction, summary: "Ganti gambar." });
+  }
+
   const saveTitleMutation = useCacheMutation<
     { title: string },
     { title: string }
@@ -3261,6 +3501,9 @@ export function WorkspaceShell({
         <WorkspaceTopBar
           annotationActive={annotationMode}
           annotationAvailable={!readOnly && shouldRenderGeneratedPreview}
+          directEditActive={directEditMode}
+          directEditAvailable={!readOnly && shouldRenderGeneratedPreview}
+          onToggleDirectEdit={toggleDirectEdit}
           projectId={projectId}
           onToggleAnnotation={() => {
             setAnnotationMode((current) => {
@@ -3315,6 +3558,9 @@ export function WorkspaceShell({
                   <GeneratedPreviewFrame
                     annotationActive={annotationMode}
                     annotationMarkers={annotations}
+                    directEditActive={directEditMode}
+                    editLayoutSignal={editLayoutSignal}
+                    editLayout={pendingEditLayout}
                     onAnnotationTarget={handleAnnotationTarget}
                     onLoad={() => void loadRuntimeState()}
                     onRecover={recoverPreviewRuntime}
@@ -3328,6 +3574,8 @@ export function WorkspaceShell({
                               setPendingAnnotationComment("");
                             },
                             onChange: setPendingAnnotationComment,
+                            onReplaceImage: () =>
+                              openReplaceImage(pendingAnnotationTarget.target),
                             onSave: addPendingAnnotation,
                             target: pendingAnnotationTarget,
                           }
@@ -3336,6 +3584,31 @@ export function WorkspaceShell({
                     projectId={projectId}
                     reloadKey={previewReloadKey}
                     viewport={viewport}
+                  />
+                  {directEditMode ? (
+                    <div className="absolute inset-x-0 top-0 z-20 flex justify-center px-4 py-2">
+                      <DirectEditToolbar
+                        canUndo={canUndoDirectEdit(editHistory)}
+                        canRedo={canRedoDirectEdit(editHistory)}
+                        onUndo={handleUndo}
+                        onRedo={handleRedo}
+                        onSave={() => void saveDirectEdit()}
+                        onDiscard={handleDiscard}
+                      />
+                    </div>
+                  ) : null}
+                  <input
+                    ref={replaceImageFileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        void handleReplaceImageFile(file);
+                      }
+                      event.target.value = "";
+                    }}
                   />
                   {isBuilding && hasLastGoodPreview && (
                     <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-[#10100f]/80 px-4 py-2 text-xs text-surface-warm-white/78 backdrop-blur-sm">

@@ -1,22 +1,21 @@
-import { fn } from "@storybook/test";
-
 import { DirectEditToolbar } from "./WorkspacePrimitives";
 
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 
 const meta = {
-  component: DirectEditToolbar,
   args: {
     canUndo: true,
     canRedo: false,
-    onUndo: fn(),
-    onRedo: fn(),
-    onSave: fn(),
-    onDiscard: fn(),
+    onDiscard: () => {},
+    onRedo: () => {},
+    onSave: () => {},
+    onUndo: () => {},
   },
+  component: DirectEditToolbar,
 } satisfies Meta<typeof DirectEditToolbar>;
 
 export default meta;
+
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};

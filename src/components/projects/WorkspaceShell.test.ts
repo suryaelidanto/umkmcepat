@@ -14,6 +14,8 @@ import {
 
 import type { ProjectBrief } from "@/lib/projects/brief";
 
+import { createImageReplaceEditInstruction } from "@/lib/projects/visual-annotations";
+
 function makeBrief(overrides: Partial<ProjectBrief>): ProjectBrief {
   return {
     businessName: "Kopi Tuku",
@@ -263,5 +265,16 @@ describe("MAX_CHAT_BYTES", () => {
     expect(new TextEncoder().encode(long).length).toBeGreaterThan(
       MAX_CHAT_BYTES,
     );
+  });
+});
+
+describe("image replace instruction", () => {
+  it("references the new media path and original src", () => {
+    const instruction = createImageReplaceEditInstruction({
+      replaceWith: [{ alt: "Foto", mediaPath: "/media/abc" }],
+      target: { src: "/placeholder.svg", tag: "img" },
+    });
+    expect(instruction).toContain("/media/abc");
+    expect(instruction).toContain("/placeholder.svg");
   });
 });

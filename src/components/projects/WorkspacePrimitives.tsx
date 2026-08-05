@@ -34,6 +34,7 @@ import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
 import { type DiffLine } from "@/lib/projects/diff";
+import { type EditLayout } from "@/lib/projects/direct-edit";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
 import {
@@ -523,6 +524,9 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
 export function GeneratedPreviewFrame({
   annotationActive = false,
   annotationMarkers = [],
+  directEditActive = false,
+  editLayout = null,
+  editLayoutSignal = 0,
   onAnnotationTarget,
   onLoad,
   onRecover,
@@ -539,6 +543,9 @@ export function GeneratedPreviewFrame({
       boundingBox: { height: number; width: number; x: number; y: number };
     };
   }>;
+  directEditActive?: boolean;
+  editLayout?: EditLayout | null;
+  editLayoutSignal?: number;
   onAnnotationTarget?: (target: unknown) => void;
   onLoad?: () => void;
   onRecover?: () => void;
@@ -641,6 +648,22 @@ export function GeneratedPreviewFrame({
       "*",
     );
   }, [annotationActive, ready, reloadKey]);
+
+  useEffect(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { active: directEditActive, type: "umkmcepat-edit-mode" },
+      "*",
+    );
+  }, [directEditActive, ready, reloadKey]);
+
+  useEffect(() => {
+    if (editLayoutSignal > 0) {
+      iframeRef.current?.contentWindow?.postMessage(
+        { layout: editLayout, type: "umkmcepat-edit-layout" },
+        "*",
+      );
+    }
+  }, [editLayoutSignal, editLayout, ready, reloadKey]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(
