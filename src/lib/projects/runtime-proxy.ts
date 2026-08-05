@@ -353,6 +353,10 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
 
   let active = false;
+  let selectedId = null;
+  let idCounter = 0;
+  const blocks = new Map();
+  const removedIds = new Set();
   let hoverBox = null;
 
   const style = document.createElement('style');
@@ -664,6 +668,17 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     );
   }
 
+  function makeId() {
+    idCounter += 1;
+    return 'eb_' + Date.now().toString(36) + '_' + idCounter;
+  }
+
+  function isAtomicBlock(element) {
+    if (element.matches('article,[role="listitem"],[data-umkm-annotatable]')) return true;
+    const className = typeof element.className === 'string' ? element.className : '';
+    return /(^|[-_\s])(card|feature|item|product|service|tile)([-_\s]|$)/i.test(className);
+  }
+
   function pickElement(element) {
     const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
     if (interactive) return interactive;
@@ -673,6 +688,15 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) return text;
     if (!isIgnorableDecoration(element) && hasDirectText(element)) return element;
     return closestElement(element, 'article,section,nav,header,footer,main,aside,[aria-label],[data-umkm-annotatable]') || element;
+  }
+
+  function structuralElement(element) {
+    let current = element;
+    while (current && current !== document.body) {
+      if (current instanceof HTMLElement && (current.matches('section,article,header,footer,nav,[data-umkm-annotatable]') || isAtomicBlock(current))) return current;
+      current = current.parentElement;
+    }
+    return element;
   }
 
   function selectorPath(element) {
@@ -745,6 +769,42 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     };
   }
 
+  function parentIdOf(element) {
+    const parent = element.parentElement;
+    if (!parent) return 'body';
+    return parent.id || parent.tagName.toLowerCase();
+  }
+
+  function ensureIds() {
+    document.querySelectorAll('section,article,header,footer,nav,[data-umkm-annotatable]').forEach((element) => {
+      if (!element.hasAttribute('data-umkm-id')) element.setAttribute('data-umkm-id', makeId());
+    });
+  }
+
+  function scan() {
+    blocks.clear();
+    document.querySelectorAll('[data-umkm-id]').forEach((element) => {
+      const id = element.getAttribute('data-umkm-id');
+      blocks.set(id, { element, label: labelFor(element, clean(element.innerText || element.textContent || '')), selectorPath: selectorPath(element), tag: element.tagName.toLowerCase() });
+    });
+  }
+
+  function layout() {
+    const parents = {};
+    const parentRefs = {};
+    const blockRefs = {};
+    const byParent = new Map();
+    blocks.forEach((info, id) => {
+      const pid = parentIdOf(info.element);
+      if (!byParent.has(pid)) byParent.set(pid, []);
+      byParent.get(pid).push(id);
+      blockRefs[id] = { id, label: info.label, selectorPath: info.selectorPath, tag: info.tag };
+      parentRefs[pid] = selectorPath(info.element.parentElement);
+    });
+    byParent.forEach((ids, pid) => { parents[pid] = ids; });
+    return { parentRefs, parents, removed: Array.from(removedIds), blocks: blockRefs };
+  }
+
   function targetAt(x, y) {
     const element = deepElementFromPoint(x, y);
     const picked = element ? pickElement(element) : null;
@@ -753,6 +813,10 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
 
   function post(type, payload) {
     window.parent.postMessage({ type, payload }, PARENT_ORIGIN);
+  }
+
+  function postState() {
+    post('umkmcepat-edit-state', layout());
   }
 
   function ensureHoverBox() {
@@ -789,7 +853,37 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     if (!active) return;
     event.preventDefault();
     event.stopPropagation();
-    post('umkmcepat-edit-target', targetAt(event.clientX, event.clientY));
+    const element = deepElementFromPoint(event.clientX, event.clientY);
+    const picked = element ? pickElement(element) : null;
+    const structural = picked ? structuralElement(picked) : null;
+    if (structural && !structural.hasAttribute('data-umkm-id')) structural.setAttribute('data-umkm-id', makeId());
+    scan();
+    selectedId = structural?.getAttribute('data-umkm-id') || null;
+    post('umkmcepat-edit-target', picked ? targetData(picked) : null);
+  }
+
+  function moveSelected(direction) {
+    if (!selectedId) return;
+    const element = blocks.get(selectedId)?.element;
+    const parent = element?.parentElement;
+    if (!element || !parent) return;
+    const siblings = Array.from(parent.children).filter((item) => item.hasAttribute('data-umkm-id') && item.style.display !== 'none');
+    const index = siblings.indexOf(element);
+    const other = siblings[index + direction];
+    if (!other) return;
+    if (direction < 0) parent.insertBefore(element, other);
+    else parent.insertBefore(other, element);
+    scan();
+    postState();
+  }
+
+  function removeSelected() {
+    if (!selectedId) return;
+    const element = blocks.get(selectedId)?.element;
+    if (!element) return;
+    element.style.display = 'none';
+    removedIds.add(selectedId);
+    postState();
   }
 
   window.addEventListener('message', (event) => {
@@ -797,12 +891,21 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     if (!data || typeof data !== 'object') return;
     if (data.type === 'umkmcepat-edit-mode') {
       active = Boolean(data.active);
+      if (active) {
+        ensureIds();
+        scan();
+        post('umkmcepat-edit-ready', layout());
+      }
       document.documentElement.style.cursor = active ? 'crosshair' : '';
       if (!active) hideHoverBox();
-      post('umkmcepat-edit-ready', { active });
     }
     if (data.type === 'umkmcepat-edit-hit-test' && typeof data.x === 'number' && typeof data.y === 'number') {
       post(data.intent === 'hover' ? 'umkmcepat-edit-hover' : 'umkmcepat-edit-target', targetAt(data.x, data.y));
+    }
+    if (data.type === 'umkmcepat-edit-action') {
+      if (data.action === 'move-up') moveSelected(-1);
+      if (data.action === 'move-down') moveSelected(1);
+      if (data.action === 'remove') removeSelected();
     }
   });
 

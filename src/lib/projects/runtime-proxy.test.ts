@@ -46,8 +46,9 @@ describe("runtime proxy", () => {
     expect(html).toContain("umkm-edit-hover");
     expect(html).toContain("setHoverBox");
     expect(html).toContain('data-umkm-origin="*"');
-    expect(html).not.toContain("appendChild(chip)");
-    expect(html).not.toContain("style.display = removed ? 'none' : ''");
+    expect(html).toContain("umkmcepat-edit-action");
+    expect(html).toContain("moveSelected");
+    expect(html).toContain("data-umkm-id");
   });
   afterEach(async () => {
     vi.restoreAllMocks();

@@ -687,7 +687,13 @@ export function GeneratedPreviewFrame({
             hoverTarget={hoverTarget}
             intents={directEditIntents}
             onComment={(target) => onAnnotationTarget?.(target)}
-            onDirectEditAction={onDirectEditAction}
+            onDirectEditAction={(action, target) => {
+              iframeRef.current?.contentWindow?.postMessage(
+                { action, type: "umkmcepat-edit-action" },
+                "*",
+              );
+              onDirectEditAction?.(action, target);
+            }}
             selectedTarget={selectedTarget}
           />
         ) : null}
