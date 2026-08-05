@@ -212,6 +212,7 @@ export function createInitialBrief(prompt = ""): ProjectBrief {
     readyForBuild: false,
     umkmType: null,
     fieldState: {},
+    businessImages: [],
   };
 }
 
@@ -271,6 +272,7 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
       input.fieldState && typeof input.fieldState === "object"
         ? (input.fieldState as FieldStateMap)
         : {},
+    businessImages: normalizeBusinessImages(input.businessImages),
   };
 }
 
@@ -441,6 +443,9 @@ export function briefToBuildPrompt(brief: ProjectBrief) {
       ? `Keputusan diskusi: ${brief.decisions.map((decision) => `${decision.question}: ${decision.answer}`).join("; ")}`
       : "",
     brief.notes.length ? `Catatan tambahan: ${brief.notes.join("; ")}` : "",
+    brief.businessImages?.length
+      ? `Gambar pelanggan: ${brief.businessImages.map((img) => `/media/${img.id} (${img.purpose})`).join("; ")}`
+      : "",
     `Tingkat keyakinan: ${brief.confidence ?? 0}%`,
     brief.openQuestions?.length
       ? `Pertanyaan terbuka: ${brief.openQuestions.join("; ")}`
@@ -448,6 +453,31 @@ export function briefToBuildPrompt(brief: ProjectBrief) {
   ].filter(Boolean);
 
   return lines.join("\n");
+}
+
+function normalizeBusinessImages(value: unknown): BusinessImageRef[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const result: BusinessImageRef[] = [];
+  for (const item of value) {
+    const input = item as Partial<BusinessImageRef> | null;
+    if (
+      !input ||
+      typeof input.id !== "string" ||
+      !input.id.trim() ||
+      (input.purpose !== "business-image" &&
+        input.purpose !== "logo" &&
+        input.purpose !== "reference")
+    ) {
+      continue;
+    }
+    result.push({ id: input.id.trim().slice(0, 200), purpose: input.purpose });
+    if (result.length >= 12) {
+      break;
+    }
+  }
+  return result;
 }
 
 function normalizeFacts(value: unknown): ProjectFact[] {
