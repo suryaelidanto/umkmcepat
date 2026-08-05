@@ -34,6 +34,10 @@ fi
 
 CURL_OPTS=(--silent --cookie "$COOKIE_FILE" --max-time 30 --show-error)
 
+# Browser-equivalent headers so the API CSRF guard (isCrossSiteMutation) sees a
+# same-origin mutation, exactly like the app's own fetch calls.
+BROWSER_HEADERS=(-H "Origin: $BASE_URL" -H "Sec-Fetch-Site: same-origin" -H "Sec-Fetch-Mode: cors")
+
 # JSON helper: extract a top-level field from a JSON string.
 jget() {
   local json="$1" field="$2"
@@ -52,9 +56,8 @@ fi
 echo "Auth OK (200)"
 
 step "1. Create project (POST /api/projects)"
-create_payload=$(node -e "process.stdout.write(JSON.stringify({prompt:process.argv[1],mode:'discuss'}))" "$PROMPT")
-code=$(curl "${CURL_OPTS[@]}" -H "Content-Type: application/json" \
-  -d "$create_payload" \
+code=$(curl "${CURL_OPTS[@]}" "${BROWSER_HEADERS[@]}" \
+  -F "prompt=$PROMPT" -F "mode=discuss" \
   -o .data/tmp/e2e-create.json -w "%{http_code}" \
   "$BASE_URL/api/projects")
 if [ "$code" != "200" ]; then
@@ -133,6 +136,7 @@ turn() {
   " "$text" "$PROJECT_ID" "$n" "$answers_json")
   local code
   code=$(curl --silent --cookie "$COOKIE_FILE" --show-error --max-time 180 \
+    "${BROWSER_HEADERS[@]}" \
     -H "Content-Type: application/json" \
     -d "$payload" \
     --no-buffer \
@@ -230,8 +234,8 @@ create_and_build() {
   # Create project
   local create_code create_body
   create_code=$(curl --silent --cookie "$COOKIE_FILE" --show-error --max-time 30 \
-    -H "Content-Type: application/json" \
-    -d "$CREATE_PAYLOAD" \
+    "${BROWSER_HEADERS[@]}" \
+    "${CREATE_PAYLOAD[@]}" \
     -o .data/tmp/e2e-create-$attempt.json -w "%{http_code}" \
     "$BASE_URL/api/projects")
   if [ "$create_code" != "200" ]; then
@@ -271,6 +275,7 @@ const p = new PrismaClient();
   : > "$RUN_LOG"
   local code
   code=$(curl --silent --cookie "$COOKIE_FILE" --show-error \
+    "${BROWSER_HEADERS[@]}" \
     -H "Content-Type: application/json" \
     -d '{"mode":"first_generate"}' \
     --no-buffer \
@@ -294,7 +299,7 @@ const p = new PrismaClient();
   return 1
 }
 
-CREATE_PAYLOAD=$(node -e "process.stdout.write(JSON.stringify({prompt:process.argv[1],mode:'discuss'}))" "$PROMPT")
+CREATE_PAYLOAD=(--form "prompt=$PROMPT" --form "mode=discuss")
 BUILD_RETRIES="${BUILD_RETRIES:-3}"
 build_ok=false
 build_started_at=$(date +%s)
