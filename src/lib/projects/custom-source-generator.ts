@@ -1355,6 +1355,12 @@ export function ensurePreviewReadyCalled(
  * visually correct.
  */
 export function getTailwindCssRule(className: string): string | null {
+  const orderMatch = className.match(/^order-(none|\d+)$/);
+  if (orderMatch) {
+    const orderValue = orderMatch[1] === "none" ? "0" : orderMatch[1];
+    return `.${className}{order:${orderValue}}`;
+  }
+
   const spaceY = className.match(/^space-y-(\d+|px|\[[^\]]+\])$/);
   if (spaceY) {
     const value = twSpacingValue(spaceY[1]);

@@ -934,6 +934,9 @@ export const router = createRouter({ routeTree });`,
       expect(getTailwindCssRule("rounded-lg")).toBe(
         ".rounded-lg{border-radius:0.5rem}",
       );
+      expect(getTailwindCssRule("order-1")).toBe(".order-1{order:1}");
+      expect(getTailwindCssRule("order-2")).toBe(".order-2{order:2}");
+      expect(getTailwindCssRule("order-none")).toBe(".order-none{order:0}");
     });
   });
 
