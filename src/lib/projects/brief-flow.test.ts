@@ -553,6 +553,7 @@ describe("normalizeWorkspaceTurn", () => {
   it("accepts brief_review as build_recommendation when min brief is filled (even if confidence low)", () => {
     const brief = parseProjectBrief(
       {
+        businessName: "Laundry Berkah",
         businessType: "Laundry kiloan",
         confidence: 80,
         offer: "Cuci setrika dan antar jemput",
@@ -593,6 +594,7 @@ describe("normalizeWorkspaceTurn", () => {
   it("emits build_recommendation when AI sends brief_review and confidence is 95+", () => {
     const brief = parseProjectBrief(
       {
+        businessName: "Laundry Berkah",
         businessType: "Laundry kiloan",
         confidence: 95,
         offer: "Cuci setrika dan antar jemput",
@@ -624,6 +626,7 @@ describe("normalizeWorkspaceTurn", () => {
   it("accepts brief_review without nested question when min brief is filled", () => {
     const brief = parseProjectBrief(
       {
+        businessName: "Laundry Berkah",
         businessType: "Laundry kiloan",
         confidence: 60,
         offer: "Cuci setrika",
@@ -966,6 +969,7 @@ describe("normalizeWorkspaceTurn", () => {
   it("accepts a build recommendation with a flexible summary only when confidence is high", () => {
     const brief = parseProjectBrief(
       {
+        businessName: "Dapur Bu Ani",
         businessType: "Katering sekolah",
         confidence: 95,
         offer: "Nasi kotak harian",

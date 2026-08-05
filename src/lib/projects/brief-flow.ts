@@ -240,11 +240,12 @@ export function hasMinimumBriefForBuild(brief: ProjectBrief): boolean {
     const value = brief[field];
     return typeof value === "string" && value.trim().length > 0;
   });
-  const hasProductSignal =
-    (typeof brief.businessName === "string" &&
-      brief.businessName.trim().length > 0) ||
-    (typeof brief.offer === "string" && brief.offer.trim().length > 0);
-  return hasProductSignal && filled.length >= 2;
+  // Align with the batched build admission gate: all six typed fields must be
+  // present. A looser threshold (e.g. any 2 fields) let the build card appear
+  // with a thin brief — the user clicked Mulai build, admission blocked, and
+  // the build fell back to the slow legacy agent loop instead of the fast
+  // batched writer. The interview keeps asking until the brief is buildable.
+  return filled.length >= MIN_BRIEF_FIELDS.length;
 }
 
 export function isBuildConfirmQuestion(question: {
