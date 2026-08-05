@@ -23,7 +23,7 @@ import {
 import { getDiscussHedgeModels, getDiscussModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync, primeSettingCache } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
@@ -170,6 +170,8 @@ export async function runDiscussTurn({
       messageCount: messages.length,
       briefConfidence: effectiveBrief.confidence,
     });
+
+    await primeSettingCache({ force: true });
 
     const discussStartedAt = Date.now();
     const stopDiscussTimer = startAiCallTimer({ withTtft: true });

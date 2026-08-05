@@ -234,6 +234,33 @@ describe("primeSettingCache", () => {
       999_000,
     );
   });
+
+  it("force re-primes an already-primed snapshot", async () => {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.appSetting.upsert({
+      where: { key: "discuss.hedging" },
+      create: {
+        key: "discuss.hedging",
+        category: "feature_flag",
+        value: true,
+      },
+      update: { value: true },
+    });
+    await primeSettingCache();
+    expect(getSettingSync("discuss.hedging", false)).toBe(true);
+
+    await prisma.appSetting.upsert({
+      where: { key: "discuss.hedging" },
+      create: {
+        key: "discuss.hedging",
+        category: "feature_flag",
+        value: false,
+      },
+      update: { value: false },
+    });
+    await primeSettingCache({ force: true });
+    expect(getSettingSync("discuss.hedging", true)).toBe(false);
+  });
 });
 
 describe("runtime settings registry", () => {

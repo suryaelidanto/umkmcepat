@@ -36,7 +36,12 @@ export function invalidateSettingCache(key?: string): void {
   primePromise = null;
 }
 
-export function primeSettingCache(): Promise<void> {
+export function primeSettingCache(
+  opts: { force?: boolean } = {},
+): Promise<void> {
+  if (opts.force) {
+    primePromise = null;
+  }
   primePromise ??= (async () => {
     try {
       const appSetting = await getDb();

@@ -15,6 +15,7 @@ const {
   recordAiCallMock,
   getDiscussHedgeModelsMock,
   getSettingSyncMock,
+  primeSettingCacheMock,
 } = vi.hoisted(() => ({
   streamTextMock: vi.fn(),
   convertToModelMessagesMock: vi.fn(async () => []),
@@ -39,6 +40,7 @@ const {
     }
     return fallback;
   }),
+  primeSettingCacheMock: vi.fn(async () => undefined),
   normalizeWorkspaceTurnMock: vi.fn(() => ({
     brief: { prompt: "p", confidence: 0 },
     projectTitle: "t",
@@ -80,6 +82,7 @@ vi.mock("@/lib/ai-models", () => ({
 
 vi.mock("@/lib/app-settings", () => ({
   getSettingSync: getSettingSyncMock,
+  primeSettingCache: primeSettingCacheMock,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -1026,6 +1029,40 @@ describe("runDiscussTurn hedged race", () => {
     expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
       expect.objectContaining({ turnId: "ct_no_hedge", status: "succeeded" }),
     );
+  });
+
+  it("force refreshes settings before deciding whether to hedge", async () => {
+    getDiscussHedgeModelsMock.mockImplementation(() => ["discuss-combo-2"]);
+    getSettingSyncMock.mockImplementation(
+      (key: string, fallback: unknown) =>
+        (key === "discuss.hedging" ? false : fallback) as never,
+    );
+    okNormalize();
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Halo" },
+        {
+          type: "tool-call",
+          toolCallId: "tc1",
+          toolName: "presentWorkspaceCard",
+          input: { assistantText: "Halo", workspaceCard: raceCard },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_force_refresh_no_hedge",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(primeSettingCacheMock).toHaveBeenCalledWith({ force: true });
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
   });
 
   it("hedge wins: ledger rows sum to exactly the single UserCredit debit", async () => {
