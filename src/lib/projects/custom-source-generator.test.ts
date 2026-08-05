@@ -8,6 +8,7 @@ import {
   createReadOnlyAgentTools,
   cssCoversClassName,
   ensurePreviewReadyCalled,
+  ensureRegisteredRouteLinks,
   ensureRouterRouteWired,
   ensureStylesFileExists,
   extractClassNamesFromTsx,
@@ -915,6 +916,38 @@ export const router = createRouter({ routeTree });`,
       ];
       const healed = ensureRouterRouteWired(files);
       expect(healed).toEqual(files);
+    });
+  });
+
+  describe("ensureRegisteredRouteLinks", () => {
+    it("rewrites unregistered route links to in-page hash anchors", () => {
+      const files = [
+        {
+          path: "src/router.tsx",
+          content: `const indexRoute = createRoute({ path: '/' });`,
+        },
+        {
+          path: "src/routes/index.tsx",
+          content: `import { Link } from "@tanstack/react-router";
+export function Home() {
+  return (
+    <nav>
+      <Link to="/produk">Produk</Link>
+      <Link to="/" hash="kontak">Kontak</Link>
+    </nav>
+  );
+}`,
+        },
+      ];
+      const healed = ensureRegisteredRouteLinks(files);
+      const index = healed.find((f) => f.path === "src/routes/index.tsx");
+      expect(index?.content).toContain(
+        '<Link to="/" hash="produk">Produk</Link>',
+      );
+      // Registered "/" + already-hash links are untouched.
+      expect(index?.content).toContain(
+        '<Link to="/" hash="kontak">Kontak</Link>',
+      );
     });
   });
 

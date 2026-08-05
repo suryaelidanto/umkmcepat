@@ -314,6 +314,7 @@ export async function generateCustomProjectFilesWithAgent({
     // and auto-heal the usePreviewReady signal so the preview iframe never hangs.
     files = ensureRouterRouteWired(files);
     files = ensurePreviewReadyCalled(files);
+    files = ensureRegisteredRouteLinks(files);
 
     // Ensure a index.css file exists (starter contract if absent), but do
     // NOT inject per-class stubs here — stubs would mask the missing-CSS gap
@@ -360,6 +361,7 @@ export async function generateCustomProjectFilesWithAgent({
       // with fresh components that drop necessary wiring. Re-heal both.
       files = ensureRouterRouteWired(files);
       files = ensurePreviewReadyCalled(files);
+      files = ensureRegisteredRouteLinks(files);
       files = ensureStylesFileExists(files, schema);
       touchedFiles.add(AUTO_STYLE_PATH);
       quality = checkAgentSourceQuality(files, agentEditedFiles);
@@ -1258,6 +1260,52 @@ export function ensureRouterRouteWired(
   return files.map((file) =>
     file.path === "src/router.tsx" ? { ...file, content } : file,
   );
+}
+
+/**
+ * Auto-heal cross-page <Link to="/x"> where "/x" is NOT a registered route
+ * (single-page briefs). TanStack's typed Link rejects unregistered paths at
+ * typecheck, which fails `vite build`, which trips the repair loop, which
+ * re-emits the same broken nav → lease timeout. Convert such links to
+ * in-page anchors: <Link to="/" hash="x">. If no <section id="x"> exists the
+ * hash-scroll no-ops (no TS error), so this is always safe.
+ */
+export function ensureRegisteredRouteLinks(
+  files: GeneratedProjectFile[],
+): GeneratedProjectFile[] {
+  const router = files.find((file) => file.path === "src/router.tsx")?.content;
+  if (!router) {
+    return files;
+  }
+  const registered = new Set<string>(["/"]);
+  const pathRe = /path:\s*["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = pathRe.exec(router)) !== null) {
+    const p = m[1];
+    if (p === "*") {
+      continue;
+    }
+    registered.add(p.startsWith("/") ? p : `/${p}`);
+  }
+
+  return files.map((file) => {
+    if (!file.path.endsWith(".tsx")) {
+      return file;
+    }
+    // Match <Link to="/produk" ...> or <Link ... to="/produk" ...>
+    const content = file.content.replace(
+      /<Link([^>]*?)\sto="(\/[^"/]+)"([^>]*?)>/g,
+      (all, before: string, target: string, after: string) => {
+        if (registered.has(target)) {
+          return all;
+        }
+        const slug = target.slice(1);
+        const hash = `hash="${slug}"`;
+        return `<Link${before} to="/" ${hash}${after}>`;
+      },
+    );
+    return content === file.content ? file : { ...file, content };
+  });
 }
 
 /**
@@ -2695,6 +2743,7 @@ Steps:
 
   currentFiles = ensureRouterRouteWired(currentFiles);
   currentFiles = ensurePreviewReadyCalled(currentFiles);
+  currentFiles = ensureRegisteredRouteLinks(currentFiles);
   currentFiles = ensureStylesFileExists(currentFiles, schema);
   touchedFiles.add(AUTO_STYLE_PATH);
 
