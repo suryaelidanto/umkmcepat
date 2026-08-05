@@ -12,6 +12,7 @@ import {
   ensureRouterExtraRoutesRegistered,
   ensureRouterRouteWired,
   ensureStylesFileExists,
+  ensureTypeOnlyImports,
   extractClassNamesFromTsx,
   findMissingCssClasses,
   findUnregisteredRouteFiles,
@@ -1069,6 +1070,44 @@ const routeTree = rootRoute.addChildren([indexRoute]);`,
       ];
       const healed = ensureRouterExtraRoutesRegistered(files);
       expect(healed).toEqual(files);
+    });
+
+    it("normalizes a wrong not-found component import name (TS2724)", () => {
+      const files = [
+        {
+          path: "src/router.tsx",
+          content: `import { NotFoundComponent } from "./routes/not-found";
+const notFoundRoute = createRoute({ path: "*", component: NotFoundComponent });`,
+        },
+        {
+          path: "src/routes/not-found.tsx",
+          content: "export function NotFoundRouteComponent() {}",
+        },
+      ];
+      const healed = ensureRouterExtraRoutesRegistered(files);
+      const router = healed.find((f) => f.path === "src/router.tsx");
+      expect(router?.content).toContain(
+        `import { NotFoundRouteComponent } from "./routes/not-found";`,
+      );
+      expect(router?.content).toContain("component: NotFoundRouteComponent");
+      expect(router?.content).not.toContain("NotFoundComponent");
+    });
+  });
+
+  describe("ensureTypeOnlyImports", () => {
+    it("converts a standalone ReactNode import to a type-only import (TS1484)", () => {
+      const files = [
+        {
+          path: "src/components/Layout.tsx",
+          content: `import { ReactNode } from "react";
+export function Layout({ children }: { children: ReactNode }) { return <div>{children}</div>; }`,
+        },
+      ];
+      const healed = ensureTypeOnlyImports(files);
+      const layout = healed.find((f) => f.path === "src/components/Layout.tsx");
+      expect(layout?.content).toContain(
+        `import type { ReactNode } from "react";`,
+      );
     });
   });
 

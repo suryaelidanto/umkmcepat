@@ -316,6 +316,7 @@ export async function generateCustomProjectFilesWithAgent({
     files = ensurePreviewReadyCalled(files);
     files = ensureRegisteredRouteLinks(files);
     files = ensureRouterExtraRoutesRegistered(files);
+    files = ensureTypeOnlyImports(files);
 
     // Ensure a index.css file exists (starter contract if absent), but do
     // NOT inject per-class stubs here — stubs would mask the missing-CSS gap
@@ -364,6 +365,7 @@ export async function generateCustomProjectFilesWithAgent({
       files = ensurePreviewReadyCalled(files);
       files = ensureRegisteredRouteLinks(files);
       files = ensureRouterExtraRoutesRegistered(files);
+      files = ensureTypeOnlyImports(files);
       files = ensureStylesFileExists(files, schema);
       touchedFiles.add(AUTO_STYLE_PATH);
       quality = checkAgentSourceQuality(files, agentEditedFiles);
@@ -1341,7 +1343,18 @@ export function ensureRouterExtraRoutesRegistered(
   }
   const orphans = findUnregisteredRouteFiles(files);
   if (orphans.length === 0) {
-    return files;
+    // Still normalize the not-found import: the agent sometimes rewrites
+    // router.tsx and imports the 404 component under a wrong name
+    // (NotFoundComponent instead of the scaffold's NotFoundRouteComponent),
+    // which fails tsc (TS2724) after the whole AI pass.
+    const normalized = normalizeNotFoundImport(routerFile.content);
+    return normalized === routerFile.content
+      ? files
+      : files.map((file) =>
+          file.path === "src/router.tsx"
+            ? { ...file, content: normalized }
+            : file,
+        );
   }
 
   let content = routerFile.content;
@@ -1397,6 +1410,100 @@ export function ensureRouterExtraRoutesRegistered(
   return files.map((file) =>
     file.path === "src/router.tsx" ? { ...file, content } : file,
   );
+}
+
+/**
+ * Normalize the 404 component import in router.tsx to the scaffold's actual
+ * export name (NotFoundRouteComponent). The agent occasionally imports it as
+ * NotFoundComponent or NotFound — the scaffold's not-found.tsx only exports
+ * NotFoundRouteComponent, so a wrong name fails tsc (TS2724).
+ */
+function normalizeNotFoundImport(content: string): string {
+  const wrongImport =
+    /import\s*\{\s*(NotFoundComponent|NotFound)\s*\}\s*from\s*["']\.\/routes\/not-found["'];?/;
+  if (!wrongImport.test(content)) {
+    return content;
+  }
+  let next = content.replace(
+    wrongImport,
+    `import { NotFoundRouteComponent } from "./routes/not-found";`,
+  );
+  next = next.replace(
+    /component:\s*(NotFoundComponent|NotFound)\b/g,
+    "component: NotFoundRouteComponent",
+  );
+  return next;
+}
+
+// Type-only symbols the scaffold uses with verbatimModuleSyntax enabled. The
+// agent imports them as values (import { ReactNode } from "react"), which
+// fails tsc with TS1484. Rewrite to a type-only import.
+const TYPE_ONLY_IMPORT_SYMBOLS = new Set([
+  "ReactNode",
+  "ReactElement",
+  "ReactNodeArray",
+  "ComponentProps",
+  "ComponentPropsWithoutRef",
+  "CSSProperties",
+  "ElementType",
+  "FC",
+  "MouseEvent",
+  "ChangeEvent",
+  "FormEvent",
+  "KeyboardEvent",
+  "FocusEvent",
+  "SyntheticEvent",
+  "HTMLAttributes",
+  "InputHTMLAttributes",
+  "ButtonHTMLAttributes",
+  "AnchorHTMLAttributes",
+  "SVGProps",
+  "Dispatch",
+  "SetStateAction",
+  "ReactNodeLike",
+]);
+
+/**
+ * Fix imports of type-only symbols under verbatimModuleSyntax: the agent
+ * writes `import { ReactNode } from "react"` where the symbol is only ever
+ * used as a type — tsc fails TS1484. Split the import into a type-only
+ * import when the identifier is a known type symbol.
+ */
+export function ensureTypeOnlyImports(
+  files: GeneratedProjectFile[],
+): GeneratedProjectFile[] {
+  return files.map((file) => {
+    if (!/\.(ts|tsx)$/.test(file.path)) {
+      return file;
+    }
+    let content = file.content;
+    let changed = false;
+    for (const symbol of TYPE_ONLY_IMPORT_SYMBOLS) {
+      const re = new RegExp(
+        `(import\\s*\\{\\s*)([^}]*?\\b${symbol}\\b[^}]*?)(\\}\\s*from)`,
+      );
+      const match = content.match(re);
+      if (!match) {
+        continue;
+      }
+      const list = match[2];
+      // If another non-type symbol shares the import, split; else make
+      // the whole import type-only.
+      const hasTypeOnly = list
+        .split(",")
+        .every((part) => part.trim() === symbol);
+      if (hasTypeOnly) {
+        content = content.replace(
+          new RegExp(
+            `import\\s*\\{\\s*\\b${symbol}\\b\\s*\\}\\s*from\\s*["'][^"']+["'];?`,
+          ),
+          (all) => all.replace(/^import\s*\{/, "import type {"),
+        );
+        changed = true;
+      }
+    }
+    return changed ? { ...file, content } : file;
+  });
 }
 
 /**
