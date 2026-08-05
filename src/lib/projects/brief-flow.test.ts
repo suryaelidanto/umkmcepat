@@ -84,6 +84,53 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("keeps choice mode when AI sends answerMode choice but options are empty strings", () => {
+    const brief = createInitialBrief("jualan jamu");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "visual_direction",
+            question: "Vibe website mau gimana?",
+            answerMode: "choice",
+            options: ["", "", ""],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.answerMode).toBe("choice");
+    }
+  });
+
+  it("keeps choice mode when only one valid option parses", () => {
+    const brief = createInitialBrief("jualan jamu");
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "visual_direction",
+            question: "Vibe website mau gimana?",
+            answerMode: "choice",
+            options: [{ label: "Natural & Earthy", description: "" }, "", ""],
+          },
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.answerMode).toBe("choice");
+      expect(turn.workspaceCard.question.options).toHaveLength(1);
+    }
+  });
+
   it("migrates a legacy questions[] card to a single question", () => {
     const brief = createInitialBrief("jualan katering");
     const turn = normalizeWorkspaceTurn(

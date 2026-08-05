@@ -513,7 +513,13 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     : [];
 
   const answerMode =
-    candidate.answerMode === "text" || options.length < 2 ? "text" : "choice";
+    candidate.answerMode === "text"
+      ? "text"
+      : candidate.answerMode === "choice"
+        ? "choice"
+        : options.length > 0
+          ? "choice"
+          : "text";
 
   if (!question) {
     return null;
