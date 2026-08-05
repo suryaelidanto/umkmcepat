@@ -110,6 +110,7 @@ model Project {
   lastCompactedMessageCount Int                     @default(0)
   brief                     Json?
   workspaceCard             Json?
+  visualAnnotations         Json?
   sourceFiles               Json?
   distFiles                 Json?
   buildStatus               String                  @default("not_started") @db.VarChar(32)

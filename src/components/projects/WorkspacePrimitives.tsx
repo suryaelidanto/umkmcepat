@@ -471,6 +471,7 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
 export function GeneratedPreviewFrame({
   annotationMarkers = [],
   directEditActive = false,
+  directEditIntents = [],
   editLayout = null,
   editLayoutSignal = 0,
   onAnnotationTarget,
@@ -490,6 +491,10 @@ export function GeneratedPreviewFrame({
     };
   }>;
   directEditActive?: boolean;
+  directEditIntents?: Array<{
+    action: "remove" | "move-up" | "move-down";
+    target: { selectorPath: string };
+  }>;
   editLayout?: EditLayout | null;
   editLayoutSignal?: number;
   onAnnotationTarget?: (target: unknown) => void;
@@ -680,6 +685,7 @@ export function GeneratedPreviewFrame({
         {directEditActive ? (
           <PreviewEditOverlay
             hoverTarget={hoverTarget}
+            intents={directEditIntents}
             onComment={(target) => onAnnotationTarget?.(target)}
             onDirectEditAction={onDirectEditAction}
             selectedTarget={selectedTarget}
@@ -715,11 +721,16 @@ export function GeneratedPreviewFrame({
 
 function PreviewEditOverlay({
   hoverTarget,
+  intents,
   onComment,
   onDirectEditAction,
   selectedTarget,
 }: {
   hoverTarget: PreviewEditTarget | null;
+  intents: Array<{
+    action: "remove" | "move-up" | "move-down";
+    target: { selectorPath: string };
+  }>;
   onComment: (target: PreviewEditTarget) => void;
   onDirectEditAction?: (
     action: "remove" | "move-up" | "move-down",
@@ -730,6 +741,12 @@ function PreviewEditOverlay({
   const visibleTarget = selectedTarget ?? hoverTarget;
   const rect = visibleTarget?.target.boundingBox;
   const chipTop = Math.max(8, (rect?.y ?? 0) - 44);
+  const selectedIntentCount = selectedTarget
+    ? intents.filter(
+        (intent) =>
+          intent.target.selectorPath === selectedTarget.target.selectorPath,
+      ).length
+    : 0;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30">
@@ -779,9 +796,21 @@ function PreviewEditOverlay({
           </button>
         </div>
       ) : null}
+      {selectedTarget && selectedIntentCount ? (
+        <div
+          className="absolute rounded-radius-md border border-[#0d9488]/70 bg-[#0d9488] px-spacing-2 py-spacing-1 text-[11px] font-semibold text-white shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
+          style={{
+            left: Math.max(8, rect?.x ?? 8),
+            top: (rect?.y ?? 0) + (rect?.height ?? 0) + 8,
+          }}
+        >
+          {selectedIntentCount} perubahan siap disimpan
+        </div>
+      ) : null}
       <div className="absolute bottom-spacing-4 left-1/2 w-[min(32rem,calc(100%-24px))] -translate-x-1/2 rounded-radius-xl border border-white/16 bg-[#171715]/92 px-spacing-4 py-spacing-3 text-center text-xs font-semibold leading-5 text-white shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
-        Pilih bagian website. Setelah terpilih: Komentar, Naik, Turun, Hapus.
-        Matikan Ubah untuk klik website normal.
+        {intents.length
+          ? `${intents.length} perubahan siap disimpan. Klik Simpan untuk menerapkan.`
+          : "Arahkan kursor untuk memilih bagian. Klik untuk mengunci pilihan, lalu beri komentar atau tandai perubahan."}
       </div>
     </div>
   );

@@ -373,6 +373,7 @@ export function WorkspaceShell({
     "comment" | "id"
   > | null>(null);
   const [pendingAnnotationComment, setPendingAnnotationComment] = useState("");
+  const visualAnnotationsLoadedRef = useRef(false);
   const [directEditMode, setDirectEditMode] = useState(false);
   const [editHistory, setEditHistory] = useState<EditHistory>({
     present: null,
@@ -445,6 +446,56 @@ export function WorkspaceShell({
       window.localStorage.getItem(buildRecommendationStorageKey),
     );
   }, [buildRecommendationStorageKey]);
+
+  useEffect(() => {
+    if (readOnly) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadVisualAnnotations() {
+      const response = await fetch(
+        `/api/projects/${projectId}/visual-annotations`,
+      ).catch(() => null);
+      if (!response?.ok || cancelled) {
+        return;
+      }
+      const body = (await response.json().catch(() => null)) as {
+        annotations?: VisualAnnotationDraft[];
+      } | null;
+      if (Array.isArray(body?.annotations)) {
+        setAnnotations(body.annotations);
+      }
+      visualAnnotationsLoadedRef.current = true;
+    }
+
+    void loadVisualAnnotations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, readOnly]);
+
+  useEffect(() => {
+    if (readOnly) {
+      return;
+    }
+
+    if (!visualAnnotationsLoadedRef.current) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void fetch(`/api/projects/${projectId}/visual-annotations`, {
+        body: JSON.stringify({ annotations }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [annotations, projectId, readOnly]);
 
   useEffect(() => {
     if (readOnly) {
@@ -2061,6 +2112,11 @@ export function WorkspaceShell({
       }
 
       pendingVisualRevisionRef.current = false;
+      await fetch(`/api/projects/${projectId}/visual-annotations`, {
+        body: JSON.stringify({ annotations: [] }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      }).catch(() => undefined);
       setAnnotations([]);
       setAnnotationInstruction("");
       setPendingAnnotationTarget(null);
@@ -3607,6 +3663,7 @@ export function WorkspaceShell({
                   <GeneratedPreviewFrame
                     annotationMarkers={annotations}
                     directEditActive={directEditMode}
+                    directEditIntents={editIntentHistory.present}
                     editLayoutSignal={editLayoutSignal}
                     editLayout={pendingEditLayout}
                     onAnnotationTarget={handleAnnotationTarget}
