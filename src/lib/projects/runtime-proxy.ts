@@ -765,6 +765,29 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     return parent.id || parent.tagName.toLowerCase();
   }
 
+  // Build the same target shape the annotation popover expects.
+  function editTargetData(el) {
+    const rect = el.getBoundingClientRect();
+    const text = clean(el.innerText || el.textContent || '');
+    const tag = el.tagName.toLowerCase();
+    const src = /^(img|picture|svg)$/.test(tag)
+      ? (el.currentSrc || el.getAttribute('src') || el.src || '')
+      : '';
+    return {
+      label: labelFor(el),
+      selectedText: undefined,
+      target: {
+        boundingBox: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+        classes: typeof el.className === 'string' ? clean(el.className).slice(0, 300) : '',
+        nearbyText: text.slice(0, 500),
+        selectorPath: selectorPath(el),
+        ...(src ? { src } : {}),
+        tag,
+        text: text.slice(0, 300),
+      },
+    };
+  }
+
   // Ensure movable sections/blocks carry a stable data-umkm-id.
   function ensureIds() {
     document.querySelectorAll('section,article,header,footer,nav,[data-umkm-annotatable]').forEach((el) => {
@@ -884,11 +907,22 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     const grip = document.createElement('span');
     grip.textContent = '⣿';
     grip.title = 'Tarik untuk memindahkan';
+    const commentBtn = document.createElement('button');
+    commentBtn.textContent = '💬';
+    commentBtn.title = 'Beri komentar';
+    commentBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const info = blocks.get(selectedId);
+      if (!info) return;
+      const target = editTargetData(info.element);
+      window.parent.postMessage({ type: 'umkmcepat-edit-comment', payload: target }, PARENT_ORIGIN);
+    });
     const removeBtn = document.createElement('button');
     removeBtn.textContent = '✕';
     removeBtn.title = 'Hapus';
     removeBtn.addEventListener('click', (e) => { e.stopPropagation(); remove(); });
     chip.appendChild(grip);
+    chip.appendChild(commentBtn);
     chip.appendChild(removeBtn);
     chip.draggable = true;
     chip.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', '__umkm-selected__'); });

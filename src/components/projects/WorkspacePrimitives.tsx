@@ -14,7 +14,6 @@ import {
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
-  PanelsTopLeft,
   Redo2,
   RefreshCw,
   Send,
@@ -78,11 +77,8 @@ export function WorkspaceTopBar({
   chatCollapsed,
   openChatPanel,
   closeChatPanel,
-  annotationActive = false,
   annotationAvailable = false,
-  onToggleAnnotation,
   directEditActive = false,
-  directEditAvailable = false,
   onToggleDirectEdit,
   directEditActions,
   runtime,
@@ -95,11 +91,8 @@ export function WorkspaceTopBar({
   chatCollapsed: boolean;
   openChatPanel: () => void;
   closeChatPanel: () => void;
-  annotationActive?: boolean;
   annotationAvailable?: boolean;
-  onToggleAnnotation?: () => void;
   directEditActive?: boolean;
-  directEditAvailable?: boolean;
   onToggleDirectEdit?: () => void;
   directEditActions?: {
     canUndo: boolean;
@@ -176,34 +169,16 @@ export function WorkspaceTopBar({
           {annotationAvailable && activeTab === "preview" ? (
             <button
               type="button"
-              onClick={onToggleAnnotation}
+              onClick={onToggleDirectEdit}
               aria-label={
-                annotationActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
+                directEditActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
               }
-              aria-pressed={annotationActive}
-              className={`hidden md:inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+              aria-pressed={directEditActive}
+              className={`hidden md:inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
             >
               <MessageSquarePlus className="size-4" />
               <span className="hidden sm:inline">
-                {annotationActive ? "Ubah aktif" : "Ubah"}
-              </span>
-            </button>
-          ) : null}
-          {directEditAvailable && activeTab === "preview" ? (
-            <button
-              type="button"
-              onClick={onToggleDirectEdit}
-              aria-pressed={directEditActive}
-              aria-label={
-                directEditActive
-                  ? "Nonaktifkan ubah langsung"
-                  : "Aktifkan ubah langsung"
-              }
-              className={`hidden md:inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
-            >
-              <PanelsTopLeft className="size-4" />
-              <span className="hidden sm:inline">
-                {directEditActive ? "Ubah langsung aktif" : "Ubah langsung"}
+                {directEditActive ? "Ubah aktif" : "Ubah"}
               </span>
             </button>
           ) : null}
@@ -326,38 +301,17 @@ export function WorkspaceTopBar({
             <button
               type="button"
               onClick={() => {
-                onToggleAnnotation?.();
-                setIsMobileMenuOpen(false);
-              }}
-              aria-label={
-                annotationActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
-              }
-              aria-pressed={annotationActive}
-              className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-3 text-sm ${annotationActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 text-surface-warm-white hover:bg-surface-warm-white/8"}`}
-            >
-              <MessageSquarePlus className="size-4" />
-              <span>{annotationActive ? "Ubah aktif" : "Ubah"}</span>
-            </button>
-          ) : null}
-          {directEditAvailable && activeTab === "preview" ? (
-            <button
-              type="button"
-              onClick={() => {
                 onToggleDirectEdit?.();
                 setIsMobileMenuOpen(false);
               }}
               aria-pressed={directEditActive}
               aria-label={
-                directEditActive
-                  ? "Nonaktifkan ubah langsung"
-                  : "Aktifkan ubah langsung"
+                directEditActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
               }
               className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-3 text-sm ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 text-surface-warm-white hover:bg-surface-warm-white/8"}`}
             >
-              <PanelsTopLeft className="size-4" />
-              <span>
-                {directEditActive ? "Ubah langsung aktif" : "Ubah langsung"}
-              </span>
+              <MessageSquarePlus className="size-4" />
+              <span>{directEditActive ? "Ubah aktif" : "Ubah"}</span>
             </button>
           ) : null}
           {activeTab === "preview" ? (
@@ -513,7 +467,6 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
 }
 
 export function GeneratedPreviewFrame({
-  annotationActive = false,
   annotationMarkers = [],
   directEditActive = false,
   editLayout = null,
@@ -527,7 +480,6 @@ export function GeneratedPreviewFrame({
   reloadKey,
   viewport,
 }: {
-  annotationActive?: boolean;
   annotationMarkers?: Array<{
     id: string;
     target: {
@@ -632,13 +584,6 @@ export function GeneratedPreviewFrame({
       onStuck?.();
     }
   }, [onStuck, previewState]);
-
-  useEffect(() => {
-    iframeRef.current?.contentWindow?.postMessage(
-      { active: annotationActive, type: "umkmcepat-annotation-mode" },
-      "*",
-    );
-  }, [annotationActive, ready, reloadKey]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(

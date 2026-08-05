@@ -357,7 +357,6 @@ export function WorkspaceShell({
   const visualEditInFlightRef = useRef(false);
   // Survives refresh: if user sent visual comments, clear them when server job ends OK.
   const pendingVisualRevisionRef = useRef(false);
-  const [annotationMode, setAnnotationMode] = useState(false);
   const [annotationInstruction, setAnnotationInstruction] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<
     PendingAttachment[]
@@ -680,7 +679,7 @@ export function WorkspaceShell({
         pendingVisualRevisionRef.current = false;
         setAnnotations([]);
         setAnnotationInstruction("");
-        setAnnotationMode(false);
+        setDirectEditMode(false);
         setPendingAnnotationTarget(null);
         setPendingAnnotationComment("");
         window.localStorage.removeItem(visualAnnotationStorageKey);
@@ -2055,7 +2054,7 @@ export function WorkspaceShell({
       setPendingAnnotationTarget(null);
       setPendingAnnotationComment("");
       window.localStorage.removeItem(visualAnnotationStorageKey);
-      setAnnotationMode(false);
+      setDirectEditMode(false);
       setBuildStatus("ready");
       setBuildProgress((current) => completeBuildProgressSteps(current));
       setActiveTab("preview");
@@ -2075,22 +2074,28 @@ export function WorkspaceShell({
     }
   }
 
-  const handleDirectEditMessage = useCallback((event: MessageEvent) => {
-    const data = event.data;
-    if (!data || typeof data !== "object") {
-      return;
-    }
-    if (data.type === "umkmcepat-edit-ready") {
-      const layout = data.payload as EditLayout;
-      lastEditLayoutRef.current = layout;
-      setEditHistory((current) => editHistoryPush(current, layout));
-    }
-    if (data.type === "umkmcepat-edit-state") {
-      const layout = data.payload as EditLayout;
-      lastEditLayoutRef.current = layout;
-      setEditHistory((current) => editHistoryPush(current, layout));
-    }
-  }, []);
+  const handleDirectEditMessage = useCallback(
+    (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== "object") {
+        return;
+      }
+      if (data.type === "umkmcepat-edit-ready") {
+        const layout = data.payload as EditLayout;
+        lastEditLayoutRef.current = layout;
+        setEditHistory((current) => editHistoryPush(current, layout));
+      }
+      if (data.type === "umkmcepat-edit-state") {
+        const layout = data.payload as EditLayout;
+        lastEditLayoutRef.current = layout;
+        setEditHistory((current) => editHistoryPush(current, layout));
+      }
+      if (data.type === "umkmcepat-edit-comment") {
+        handleAnnotationTarget(data.payload);
+      }
+    },
+    [handleAnnotationTarget],
+  );
 
   useEffect(() => {
     window.addEventListener("message", handleDirectEditMessage);
@@ -2099,8 +2104,16 @@ export function WorkspaceShell({
 
   function toggleDirectEdit() {
     setDirectEditMode((current) => {
+      const next = !current;
       setPendingAnnotationTarget(null);
-      return !current;
+      if (next) {
+        setChatCollapsed(true);
+        window.requestAnimationFrame(() => {
+          chatPanelRef.current?.collapse();
+          previewPanelRef.current?.resize("100%");
+        });
+      }
+      return next;
     });
     setActiveTab("preview");
   }
@@ -3498,10 +3511,8 @@ export function WorkspaceShell({
     <section className={previewPanelClass}>
       <div className="flex h-full min-h-0 flex-col bg-[#10100f] text-surface-warm-white">
         <WorkspaceTopBar
-          annotationActive={annotationMode}
           annotationAvailable={!readOnly && shouldRenderGeneratedPreview}
           directEditActive={directEditMode}
-          directEditAvailable={!readOnly && shouldRenderGeneratedPreview}
           onToggleDirectEdit={toggleDirectEdit}
           directEditActions={{
             canUndo: canUndoDirectEdit(editHistory),
@@ -3512,17 +3523,6 @@ export function WorkspaceShell({
             onDiscard: handleDiscard,
           }}
           projectId={projectId}
-          onToggleAnnotation={() => {
-            setAnnotationMode((current) => {
-              if (current) {
-                setPendingAnnotationTarget(null);
-                setPendingAnnotationComment("");
-              }
-
-              return !current;
-            });
-            setActiveTab("preview");
-          }}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           viewport={viewport}
@@ -3563,7 +3563,6 @@ export function WorkspaceShell({
                 (isBuilding && hasLastGoodPreview) ? (
                 <div className="relative h-full">
                   <GeneratedPreviewFrame
-                    annotationActive={annotationMode}
                     annotationMarkers={annotations}
                     directEditActive={directEditMode}
                     editLayoutSignal={editLayoutSignal}
@@ -3573,7 +3572,7 @@ export function WorkspaceShell({
                     onRecover={recoverPreviewRuntime}
                     onStuck={() => void loadRuntimeState()}
                     pendingAnnotation={
-                      annotationMode && pendingAnnotationTarget
+                      directEditMode && pendingAnnotationTarget
                         ? {
                             comment: pendingAnnotationComment,
                             onCancel: () => {
@@ -3771,7 +3770,7 @@ export function WorkspaceShell({
             setAnnotationInstruction("");
             pendingVisualRevisionRef.current = false;
             window.localStorage.removeItem(visualAnnotationStorageKey);
-            setAnnotationMode(false);
+            setDirectEditMode(false);
             setPendingAnnotationTarget(null);
             setPendingAnnotationComment("");
           }}
