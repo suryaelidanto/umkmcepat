@@ -1344,9 +1344,10 @@ describe("runDiscussTurn hedged race", () => {
       }),
     );
     expect(errorRow.ttftMs).toBeNull();
-    // No stopTimer on the throwing leg: requestMs fell back to the shared
-    // discuss timer (>= winner's full duration) instead of the leg's own
-    // shorter elapsed time.
-    expect(errorRow.requestMs).toBeGreaterThanOrEqual(winnerRow.requestMs);
+    // Every racer gets its own stopTimer (set when the hedge leg is launched),
+    // so the throwing leg records its own (finite) requestMs and never a
+    // null/absent timing. Its ttftMs stays null (no content chunk).
+    expect(typeof errorRow.requestMs).toBe("number");
+    expect(errorRow.requestMs).toBeGreaterThanOrEqual(0);
   });
 });
