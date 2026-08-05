@@ -3887,7 +3887,7 @@ function getEditorLanguage(path = "") {
     return "markdown";
   }
 
-  if (path.endsWith(".xml")) {
+  if (path.endsWith(".svg") || path.endsWith(".xml")) {
     return "xml";
   }
 
@@ -3943,17 +3943,7 @@ function FileTree({
   selectedPath: string;
 }) {
   const root = buildFileTree(files);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    const visit = (node: FileTreeNode) => {
-      if (node.type === "directory") {
-        initial[node.path] = true;
-        node.children.forEach((child) => visit(child));
-      }
-    };
-    root.children.forEach((child) => visit(child));
-    return initial;
-  });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggle = useCallback((path: string) => {
     setExpanded((current) => ({ ...current, [path]: !current[path] }));
@@ -4014,7 +4004,7 @@ function FileTreeItem({
     );
   }
 
-  const isOpen = expanded[node.path] !== false;
+  const isOpen = expanded[node.path] === true;
   const children = sortFileTreeEntries(node.children);
 
   return (
