@@ -14,7 +14,7 @@ Indonesian small-business owners and operators who need a credible web presence 
 
 ## Product Purpose
 
-UMKM Cepat is an AI builder platform for Indonesian UMKM websites and full-stack customer-facing web apps. Success means a business owner can move from an informal prompt to a trustworthy, editable, publishable web experience with visible progress, safe defaults, and no hidden technical burden.
+UMKM Cepat is an AI builder platform for Indonesian UMKM websites. Current generated output is static/front-end customer-facing web apps; full-stack generated apps are a future architecture decision, not current scope. Success means a business owner can move from an informal prompt to a trustworthy, editable, publishable web experience with visible progress, safe defaults, and no hidden technical burden.
 
 The platform is one control-plane app that guides the user, stores project metadata, generates standalone source artifacts, builds previews, and supports review/edit/publish flows without locking generated source to UMKM Cepat internals.
 

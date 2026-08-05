@@ -39,7 +39,7 @@ bun run dev
 
 ## Production build & run
 
-The app runs in Docker via `docker-compose.prod.yml` (TanStack Start Nitro server, image `umkmcepat-app:local`). Build once, then run:
+The app runs in Docker via `docker-compose.prod.yml` (TanStack Start Nitro server, image `ghcr.io/suryaelidanto/umkmcepat-app:${APP_IMAGE_TAG:-latest}`). Build once, then run:
 
 ```bash
 bun run prod:build     # build the production app image (docker compose -f docker-compose.prod.yml build)
@@ -50,7 +50,7 @@ bun run prod:down      # stop production stack (volumes persist)
 bun run prod:rebuild   # rebuild + restart (after code changes)
 ```
 
-The app binds `127.0.0.1:3000`; put Cloudflare Tunnel / Nginx / Caddy in front for TLS. `.github/workflows/deploy.yml` is a backup/disabled deploy workflow (manual-only); uncomment its `push:` trigger when the VPS is provisioned.
+The app binds `127.0.0.1:3000`; put Cloudflare Tunnel / Nginx / Caddy in front for TLS. `.github/workflows/deploy.yml` is a backup/disabled deploy workflow (manual-only with `confirm_deploy=true`); uncomment its `push:` trigger when the VPS is provisioned.
 
 Server logs are written to `dev.log` at the repo root automatically during `bun run dev` (no toggle). Tail it live in a second terminal:
 
@@ -104,7 +104,7 @@ When something breaks, an agent (or you) reconstructs the causal chain without c
 2. **Cross-reference infra with Docker logs** for 9Router / Headroom / Postgres failures: `bun run infra:logs` (or `docker compose logs -f`).
 3. **Cross-reference raw AI payloads** in `.data/tmp/ai-debug/requests.ndjson` when a model call looks wrong (full request/response bodies that would bloat `dev.log`).
 4. **Cross-reference per-request AI metadata** in the `AiCallRecord` table (query by `turnId`/`attemptId`/`projectId`) for latency, served model, tokens, and error class of every upstream call; raw payloads stay in `.data/tmp/ai-debug/requests.ndjson` (dev-only).
-5. **Navigate before you grep.** Run `bun run graph:update` then read the source tree Graphify returns — non-trivial discovery goes through Graphify first, never blind search.
+5. **Navigate before broad grep.** When Graphify is available, run `bun run graph:update` then read the source tree Graphify returns. If Graphify is unavailable, use targeted `Glob`/`Grep` and document the fallback in handoff.
 
 `dev.log` rotates at ~5 MB to `dev.log.1`; it is never deleted on crash (a crash is when it matters most). Both are gitignored.
 
@@ -133,7 +133,7 @@ Task model ids (9Router labels) are configurable in `/admin/settings` (AI advanc
 
 Empty task value → default → hardcode `default-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models` filtered to `owned_by: "combo"` (not upstream provider models). Create combos in 9Router dashboard with these ids: `default-combo`, `moderation-combo`, `discuss-combo`, `build-combo`.
 
-`STORAGE_PROVIDER` is not user-configurable: local dev always speaks S3 to the MinIO container `bun run infra` starts, and production points the same `S3_*` variables at Cloudflare R2. Set Google OAuth, Turnstile, Chromatic, and AI provider secrets only in `.env` or deployment secrets. Error tracking (Sentry) was intentionally removed; there is currently no error-tracking provider wired.
+`STORAGE_PROVIDER` is env-only, not user-configurable: local dev speaks S3 to the MinIO container `bun run infra` starts, and production points the same `S3_*` variables at Cloudflare R2. Set Google OAuth, Turnstile, Chromatic, and AI provider secrets only in `.env` or deployment secrets. Error tracking (Sentry) was intentionally removed; there is currently no error-tracking provider wired.
 
 Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Home project thumbnails are derived JPEGs under `.data/project-thumbnails`; keep that directory persistent when thumbnail continuity matters, or let missing images fall back to the deterministic gradient until the next successful build or first preview recovery. Capture runs in an isolated Node subprocess with a hidden browser window; local Windows uses installed Chrome when `PROJECT_THUMBNAIL_BROWSER_PATH` is empty. Set that path only to override browser discovery. Runtime/build workspaces are rebuildable. Local/test generated execution stays enabled by default; production Compose explicitly disables build and public execution until the isolated-worker and separate-origin gates pass.
 
@@ -157,7 +157,7 @@ Run before handoff or PR:
 bun run check
 ```
 
-This runs lockfile guard, Prettier, ESLint, TypeScript, Vitest, and Knip.
+This runs lockfile guard, Prettier, ESLint, TypeScript, changed Vitest unit tests, Knip, and doc-link checks in parallel.
 
 The pre-commit hook (`scripts/check-staged-fix.ts`) **auto-fixes staged files** before a commit: it runs `prettier --write` + `eslint --fix` on the staged content, re-stages the result, then runs the read-only Prettier + ESLint check. If an unfixable lint error remains, the commit is blocked. It only ever touches staged content — unstaged working-tree changes are snapshotted and restored, so half-written edits never leak into a commit. To run the read-only gate manually (no auto-fix), use `bun scripts/check-staged.ts`.
 
@@ -167,7 +167,7 @@ Do not run build during normal development unless requested or touching build/de
 bun run build
 ```
 
-CI runs Storybook build/tests, optional Chromatic, `bun run build`, `bun run verify`, then `bun run test:integration` against a real database.
+CI runs route generation, Storybook build/tests, optional Chromatic, `bun run build`, `bun run verify`, generated-file diff check, then `bun run test:integration` against a real database.
 
 ## TDD workflow
 

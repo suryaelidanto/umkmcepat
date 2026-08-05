@@ -107,7 +107,7 @@ If a proposed feature can't be argued to move one of these, it goes in Later or 
 
 The core loop works, today, for real pilot users: describe your business, chat with the AI, get a real generated site, preview it, edit it by pointing at it or by chatting, upload photos and have the AI place them, and pick up where you left off.
 
-Also shipped and load-bearing: ten business archetypes driving generation (F&B, retail, service, education, community, event, property, health, creative, agri), per-step energy metering with an itemized ledger, publishing with per-page SEO + sitemap + `LocalBusiness` schema, R2-backed media, a pilot waitlist with an admin dashboard, Pakasir payments for the Energy Booster, and Umami analytics.
+Also shipped and load-bearing: ten business archetypes driving generation (F&B, retail, service, education, community, event, property, health, creative, agri), per-step energy metering with an itemized ledger, publishing with per-page SEO + sitemap + `LocalBusiness` schema, R2-backed media, a pilot waitlist with an admin dashboard, Mayar payments for the Energy Booster, and Umami analytics.
 
 ### M1 — In production 🎯 target August 2026
 
@@ -191,7 +191,7 @@ No dates. No promises. Listed so contributors know these are _thought about_, no
 What protects quality is not a closed surface, it's the **spec-first workflow** this repo already runs on:
 
 1. **Small and obvious** — bug fix, test, a11y fix, doc correction, perf win: just open a PR into `dev`.
-2. **Non-trivial** — new behavior, new UI, prompt or generation changes, architecture: **open an issue first, or write a design doc in `docs/superpowers/specs/`.** Agree the shape before writing code. Every milestone above followed this path; see the specs folder for ~36 worked examples of the expected depth.
+2. **Non-trivial** — new behavior, new UI, prompt or generation changes, architecture: **open an issue first, or write a design doc in `docs/superpowers/specs/`.** Agree the shape before writing code. Every milestone above followed this path; see the specs folder for worked examples of the expected depth.
 
 This is how taste stays consistent without gatekeeping who is allowed to touch what. It also means your work gets merged instead of closed.
 

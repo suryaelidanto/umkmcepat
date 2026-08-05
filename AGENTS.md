@@ -8,10 +8,9 @@ Boot instructions for AI agents working on UMKM Cepat.
 - `DEV.md`: local workflow, commands, quality gate, + the **Cleanliness contract** (behavior-preserving refactors, comment hygiene).
 - `PRODUCT.md`: required before product positioning, builder flow, generated-project UX, or design-system decisions.
 - `DESIGN.md`: required before UI, styling, layout, typography, colors, or components.
-- `docs/superpowers/specs/`: active feature specs
-- `docs/superpowers/plans/`: active implementation plans
+- `docs/superpowers/README.md`: how to read specs/plans; many are historical decision trail, not current truth.
 - Key modules: `src/lib/s3-client.ts` (MinIO/R2), `src/lib/email.ts` (Resend), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), `/media/<assetId>` route, `/admin` dashboard
-- Generation engine: `src/lib/projects/batched-response.ts` (streamed `<file>` parser), `scaffold/manifest.ts` (auto-derived scaffold manifest), `brief-admission.ts`, `batched-generator.ts`, `batched-edit-targets.ts` + `edit-attempt-worker` wiring. Rollout flag: `generation.batched_rollout` (off|internal|pilot|all); legacy agent loop is the fallback.
+- Generation engine: `src/lib/projects/batched-response.ts` (streamed `<file>` parser), `src/lib/projects/scaffold/manifest.ts` (auto-derived scaffold manifest), `brief-admission.ts`, `batched-generator.ts`, `batched-edit-targets.ts` + `edit-attempt-worker` wiring. Rollout flags: `generation.contract_compiled_rollout`, `generation.batched_rollout`, and `generation.contract_admission`; legacy agent loop is the fallback.
 - Observability: `AiCallRecord` table + `src/lib/ai-call-record.ts` (`recordAiCall`, `startAiCallTimer`, ttftMs capture). Query by `turnId`/`attemptId`/`projectId`. Raw payloads stay in `.data/tmp/ai-debug/requests.ndjson` (dev-only).
 - Discuss hedging: `src/lib/projects/discuss-turn-worker.ts` races up to 3 combos; toggles `discuss.hedging`, `ai.model.discuss_hedge_2/3`; ledger rows tagged `raceRole`; **energy debit is per-model** (`addEnergyUsageLegs` prices each leg at its own model into one row — not winner-priced).
 - Workspace cards: `WorkspaceCard` in `brief.ts` is `none | question | image_upload | build_recommendation`. The `image_upload` card (UI `ImageUploadComposer` in `WorkspacePrimitives.tsx`) collects jpeg/png/webp ≤5MB via `uploadTempImageFile`, single or multiple, always skippable. Answers persist `ProjectBrief.businessImages` (`{id, purpose}`) and are emitted in `briefToBuildPrompt` as `/media/<id> (purpose)` so the build agent's UPLOADED IMAGES placement instruction has real refs. `card-richness.ts` backfills a placeholder on text cards that lack one.
@@ -24,21 +23,21 @@ cp .env.example .env
 bun run infra
 bun run db:migrate
 bun run dev
-bun run check      # fast manual gate: parallel format/lint/typecheck/affected tests/Knip
-bun run verify     # locks + route regen + format/lint/typecheck/full tests/Knip (CI also runs build + Storybook)
+bun run check      # fast manual gate: locks + parallel format/lint/typecheck/affected tests/Knip/docs
+bun run verify     # locks + docs + route regen + format/lint/typecheck/full tests/Knip
 ```
 
 - When debugging, read `dev.log` at repo root and `docker compose logs`; see `DEV.md`'s Debugging section for the full workflow.
 
 Local quality gates are automated:
 
-- **Pre-commit** runs `bun run check:commit`: lockfile guard plus prettier/eslint on staged files only. No typecheck, no tests, no Knip at commit time.
+- **Pre-commit** runs `bun scripts/check-staged-fix.ts`: staged-file secret scan plus Prettier/ESLint auto-fix and read-only check. No typecheck, no tests, no Knip at commit time.
 - **No pre-push hook.** Push is intentionally cheap locally; CI runs the full suite on every push to `dev`/`main` and on every PR.
-- **CI** runs Storybook build, Storybook tests, Chromatic visual tests (if token), `bun run build`, then `bun run verify`. This is the real quality gate.
+- **CI** runs route generation, Storybook build/tests, Chromatic visual tests (if token), `bun run build`, `bun run verify`, generated-file diff check, and integration tests. This is the real quality gate.
 - The local `bun run check` is the manual fast gate (parallel format/lint/typecheck/`test:changed`/Knip) — a feedback loop, not a substitute for CI. Both must pass before anything reaches `main`.
 - During fast iteration, run the nearest focused test plus targeted ESLint; do not repeatedly run the full suite. Never bypass a failing gate.
 
-`bun run verify` regenerates the route tree and runs format/lint/typecheck/full unit tests/Knip. It does not run `bun run build` or Storybook — those are separate CI steps. Use it before handoff without a push, or when you want to confirm a clean state locally.
+`bun run verify` checks docs, regenerates the route tree, and runs format/lint/typecheck/full unit tests/Knip. It does not run `bun run build`, Storybook, integration tests, or generated-file diff check — those are separate CI steps. Use it before handoff without a push, or when you want to confirm a clean state locally.
 
 `bun run sweep:project-orphans` purges `.data/project-*` dirs whose IDs are not in the DB. Run after deleting projects via the DB / CLI (the homepage's delete path runs cleanup automatically).
 
@@ -66,7 +65,7 @@ bun run test:storybook
 - New reusable UI or repeated visual patterns must be added to Storybook first or in the same change.
 - Use Graphify for non-trivial codebase discovery when available; do not add it as a project dependency.
 - Docs are part of the change: if behavior, setup, env, architecture, provider, storage, deployment, UI system, or product flow changes, update the canonical doc in the same diff or state why docs did not change.
-- Pre-commit runs `bun run check:commit`; CI runs `bun run verify`. Never bypass a failing gate. Before handoff without a push, run `bun run check` explicitly.
+- Pre-commit runs `bun scripts/check-staged-fix.ts`; CI runs the real gate. Never bypass a failing gate. Before handoff without a push, run `bun run check` explicitly.
 - Do not run `bun run build` unless requested or touching build/deployment behavior.
 - Never commit `.env`, secrets, OAuth credentials, API keys, private data, local uploads, logs, screenshots, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, `storybook-static/`, or coverage artifacts.
 - Never write secrets into tracked files: no API keys, access keys, secret keys, tokens, passwords, account IDs, or credentialed connection strings in `.md`, docs, specs, plans, comments, commits, or fixtures. Env blocks in docs use empty `""` values, never real values — not even as a "before" block or a "to show current state" example. This repo is public; a secret in a tracked file is a secret leaked.

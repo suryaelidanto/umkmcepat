@@ -45,14 +45,14 @@ bun run db:migrate
 bun run dev
 ```
 
-`bun run infra` starts Postgres, 9Router, Headroom, and MinIO (local S3 dev mirror).
+`bun run infra` starts Postgres, Redis, 9Router, Headroom, and MinIO (local S3 dev mirror).
 
 ```text
 App: http://localhost:3000
 9Router: http://localhost:20129
 ```
 
-Use `bun run infra:minimal` only when you need Postgres without AI/observability services.
+Use `bun run infra:minimal` only when you need Postgres + Redis without AI/observability/storage services.
 
 ## Contributing
 
