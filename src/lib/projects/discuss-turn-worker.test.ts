@@ -247,7 +247,11 @@ describe("runDiscussTurn worker", () => {
     );
     // Charged energy for the turn.
     expect(chargeEnergyForAiUsageMock).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "u1", reason: "discuss:step" }),
+      expect.objectContaining({
+        userId: "u1",
+        projectId: "p1",
+        reason: "discuss:step",
+      }),
     );
   });
 

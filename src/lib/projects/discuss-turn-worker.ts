@@ -770,6 +770,7 @@ export async function runDiscussTurn({
       if (!hedged) {
         await chargeEnergyForAiUsage({
           userId,
+          projectId: project.id,
           modelId: discussModelId,
           inputTokens: totalInputTokens,
           outputTokens: totalOutputTokens,

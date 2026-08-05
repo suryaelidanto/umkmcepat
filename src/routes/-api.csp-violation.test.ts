@@ -1,10 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/dev-log", () => ({
   devLog: vi.fn(),
 }));
 
 import { Route } from "./api.csp-violation";
+
+import { devLog } from "@/lib/dev-log";
+
+const devLogMock = vi.mocked(devLog);
 
 const handler = (
   Route as unknown as {
@@ -17,6 +21,10 @@ const handler = (
 ).options.server.handlers.POST;
 
 describe("POST /api/csp-violation", () => {
+  beforeEach(() => {
+    devLogMock.mockClear();
+  });
+
   it("returns 200 for a valid JSON payload under 50 KB", async () => {
     const request = new Request("http://localhost/api/csp-violation", {
       body: JSON.stringify({
@@ -33,6 +41,35 @@ describe("POST /api/csp-violation", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toEqual({ received: true });
+    expect(devLogMock).toHaveBeenCalledWith(
+      "csp-violation",
+      "received",
+      expect.any(Object),
+    );
+  });
+
+  it("suppresses known report-only generated preview inline script noise", async () => {
+    const request = new Request("http://localhost/api/csp-violation", {
+      body: JSON.stringify({
+        "csp-report": {
+          "blocked-uri": "inline",
+          disposition: "report",
+          "document-uri":
+            "https://dev.umkmcepat.com/api/projects/project_1/preview/?v=0",
+          "effective-directive": "script-src-elem",
+          "violated-directive": "script-src-elem",
+        },
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    const response = await handler({ request });
+
+    expect(response.status).toBe(200);
+    expect(devLogMock).not.toHaveBeenCalled();
   });
 
   it("returns 413 if payload content-length exceeds 50 KB", async () => {

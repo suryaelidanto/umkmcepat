@@ -28,7 +28,9 @@ export const Route = createFileRoute("/api/csp-violation")({
             throw new Error("Invalid JSON structure");
           }
 
-          devLog("csp-violation", "received", body);
+          if (!isGeneratedPreviewReportOnlyInlineScript(body)) {
+            devLog("csp-violation", "received", body);
+          }
 
           return Response.json({ received: true }, { status: 200 });
         } catch (error) {
@@ -42,3 +44,21 @@ export const Route = createFileRoute("/api/csp-violation")({
     },
   },
 });
+
+function isGeneratedPreviewReportOnlyInlineScript(
+  body: Record<string, unknown>,
+): boolean {
+  const report = body["csp-report"];
+  if (!report || typeof report !== "object" || Array.isArray(report)) {
+    return false;
+  }
+  const cspReport = report as Record<string, unknown>;
+  return (
+    cspReport.disposition === "report" &&
+    cspReport["blocked-uri"] === "inline" &&
+    typeof cspReport["document-uri"] === "string" &&
+    cspReport["document-uri"].includes("/api/projects/") &&
+    cspReport["document-uri"].includes("/preview") &&
+    String(cspReport["effective-directive"] ?? "").startsWith("script-src")
+  );
+}
