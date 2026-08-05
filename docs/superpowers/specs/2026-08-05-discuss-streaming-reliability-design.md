@@ -13,6 +13,8 @@
 - `src/lib/security-headers.ts` (CSP)
 - `src/components/projects/WorkspaceShell.tsx` (client reattach + card render)
 - `src/lib/projects/discuss-tool.ts` (tool prompt + partial-tool streaming)
+- `src/lib/projects/brief-flow.ts` (final workspace-card normalization)
+- `src/components/projects/WorkspacePrimitives.tsx` (final card/build recommendation UI)
 - `src/routes/__root.tsx:86` (Plus Jakarta Sans `<link>`)
 - `/tmp/umkmcepat-handoff-2026-08-05-discuss-hedging-latency.md` (hedging/latency handoff)
 - `6bcfc38 fix(discuss): refresh settings before hedging` (settings cache refresh before hedge decision)
@@ -33,6 +35,7 @@ Discuss turns are functionally reliable (162/162 succeeded in DB) but **feel** b
 8. **CSP report-only noise hides real signal** — generated preview report-only spam was not the root cause, but it makes true enforced CSP issues harder to see.
 9. **Discuss energy rows can lose `projectId`** — unhedged `chargeDiscussEnergy` lacks `projectId`, so per-project cost accounting is incomplete.
 10. **Connection state is implicit** — t3code has explicit `connecting/synchronizing/connected/backoff/offline/blocked` phases; UMKM mostly collapses stream failure into generic reload/error UI.
+11. **Protocol work can accidentally change product semantics** — discuss currently uses a structured-response / pseudo-tool contract for cards and build recommendations. Transport work must not convert that into side-effectful real tool execution or change when builds start.
 
 **Domain note (from the t3code study):** t3code is an agent-harness control surface, not a site builder. Its product flow is unrelated. What we adopt is transport discipline only: **snapshot → event → synchronized**, subscribe-before-snapshot, cursor-based resume, explicit connection state, and a separate activity feed.
 
@@ -41,6 +44,17 @@ Discuss turns are functionally reliable (162/162 succeeded in DB) but **feel** b
 ## Design
 
 We implement these in order of impact-per-effort, keeping SSE (no WebSocket/Effect migration):
+
+### R0 — Behavior locks before transport changes
+
+Before touching risky streaming/card work, add regression coverage for the current pseudo-tool contract:
+
+- The final persisted assistant message shape stays compatible with today's `present_workspace_card` envelope / structured card output.
+- `workspaceCard`, `readyForBuild`, and build recommendation semantics are unchanged.
+- No discuss stream event auto-starts build/edit/generation. Builds still start only through the existing explicit build path.
+- Progressive/reattach/snapshot events may render earlier UI, but the final normalized card must match today's final card.
+
+This is a guardrail, not a redesign.
 
 ### R1 — Compaction off the turn's critical path
 
@@ -114,6 +128,9 @@ Adopt t3code's state-machine idea without its stack. Workspace discuss should ex
 - Do NOT touch R2's moderation *decision* to be parallel by default (R3) — product decision, default off.
 - Do NOT migrate to WebSocket or Effect.
 - Do NOT turn R3 on by default. The user approved planning all phases; runtime default remains serial moderation until a separate enablement change flips the setting.
+- Do NOT replace the existing structured-response / pseudo-tool contract with side-effectful real tool execution. Tool envelopes may still be used as data format, but they must not trigger build/edit side effects directly.
+- Do NOT change build trigger semantics. Build starts only through the existing explicit build path.
+- Do NOT change final `messages`, `workspaceCard`, `readyForBuild`, or build recommendation semantics except where a task explicitly adds earlier *preview/progress* rendering of the same final data.
 - Do NOT "fix" tests to reduce error counts; `p1`/`project_1`/`deployment_timeout` rows are fixtures and correct.
 - Do NOT change combo contents, model pricing, or hedge config.
 - Asset transport already matches t3code (signed short-lived URLs) — no change.
@@ -136,22 +153,24 @@ Revisit hedging only after R1/R2/R5/R6/R7/R9 remove dead-air and resume failures
 | CSP change weakens policy | `style-src` already `'unsafe-inline'`; only adding the two font hosts. No `script-src` change. |
 | Early-open stream changes error semantics | Keep pre-stream validation for auth/rate/body/project. Only moderation/discuss lifecycle becomes streamed. |
 | Activity feed creates noisy UI | Show coarse phases only; never stream internal prompt/model/provider details. |
+| Streaming/card work changes build behavior | R0 behavior-lock tests run before R2/R5/R7/R9; final persisted output remains the source of truth. |
 
 ## Success criteria
 
-1. `finish` is published before compaction runs (R1): turn wall-clock drops the compaction cost; a `compaction-failed` dev-log appears on failure, never a stuck composer.
-2. Font loads: Plus Jakarta Sans renders (R4).
-3. SSE stream survives idle gaps: heartbeat comment + `retry:` present, reattach shows deltas (R6/R9).
-4. Redis socket drop no longer permanently breaks progress publishing (R8).
-5. Snapshot + sequence + `afterSequence` replay path works under unit test and uses subscribe-before-snapshot ordering (R7).
-6. Known generated-preview CSP report-only noise no longer hides real enforced violations (R10).
-7. Discuss energy debit includes `projectId` (R11).
-8. UI exposes explicit connection/activity phases without leaking provider details (R12).
-9. `bun run check` green. Existing fixture-based error counts unchanged.
+1. Behavior-lock tests prove the pseudo-tool/structured-response contract and build trigger semantics are unchanged (R0).
+2. `finish` is published before compaction runs (R1): turn wall-clock drops the compaction cost; a `compaction-failed` dev-log appears on failure, never a stuck composer.
+3. Font loads: Plus Jakarta Sans renders (R4).
+4. SSE stream survives idle gaps: heartbeat comment + `retry:` present, reattach shows deltas (R6/R9).
+5. Redis socket drop no longer permanently breaks progress publishing (R8).
+6. Snapshot + sequence + `afterSequence` replay path works under unit test and uses subscribe-before-snapshot ordering (R7).
+7. Known generated-preview CSP report-only noise no longer hides real enforced violations (R10).
+8. Discuss energy debit includes `projectId` (R11).
+9. UI exposes explicit connection/activity phases without leaking provider details (R12).
+10. `bun run check` green. Existing fixture-based error counts unchanged.
 
 ## Done when
 
-R1, R4, R6, R8, R9, R10, R11, R12 shipped with tests; R2/R5/R7 shipped in full phased form (not vague emission-only placeholders); R3 is implemented only as an off-by-default capability flag; specs/plans updated in the same diff; `bun run check` green.
+R0 behavior locks shipped first; R1, R4, R6, R8, R9, R10, R11, R12 shipped with tests; R2/R5/R7 shipped in full phased form (not vague emission-only placeholders); R3 is implemented only as an off-by-default capability flag; specs/plans updated in the same diff; `bun run check` green.
 
 ## Audit Addendum — 2026-08-05
 
@@ -163,5 +182,6 @@ The first plan was directionally right but not execution-complete. Missing items
 - R2/R5 were too vague as "emission-only" fallbacks. Full execution needs separate tasks for protocol, reducer, and UI rendering.
 - R6 over-specified raw `retry:` injection into the AI SDK `createUIMessageStreamResponse`; implementation must only add raw SSE directives where the route owns the event stream, and use typed heartbeat/activity events for AI SDK streams.
 - The hedging-latency handoff confirms hedging stays out of scope. `discuss.hedging=false` remains the runtime default/decision; adaptive hedging is post-scope.
+- The user confirmed the existing pseudo-tool / structured-response behavior is intentional. Add R0 behavior locks before implementation so transport improvements cannot accidentally make build/edit side effects happen through tool calls.
 
 This audited spec is the source of truth for the next implementation pass.

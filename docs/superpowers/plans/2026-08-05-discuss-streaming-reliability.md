@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove the perceived discuss "hang" and harden the SSE transport, using t3code's snapshot/sequence/heartbeat/activity discipline while keeping our SSE stack. Ship R1, R2, R4, R5, R6, R7, R8, R9, R10, R11, R12 in atomic phases; implement R3 only behind an off-by-default flag.
+**Goal:** Remove the perceived discuss "hang" and harden the SSE transport, using t3code's snapshot/sequence/heartbeat/activity discipline while keeping our SSE stack. Ship R0 behavior locks first, then R1, R2, R4, R5, R6, R7, R8, R9, R10, R11, R12 in atomic phases; implement R3 only behind an off-by-default flag.
 
-**Architecture:** Compaction becomes a dedicated BullMQ job so the turn publishes `finish` immediately. The SSE transport gains heartbeat, snapshot, sequence, subscribe-before-snapshot, resume, and explicit activity phases. The dead Redis client is re-created on reconnect. CSP allows Google Fonts and reduces report-only noise. Reattach renders deltas.
+**Architecture:** Behavior-lock tests pin the existing structured-response / pseudo-tool contract before protocol changes. Compaction becomes a dedicated BullMQ job so the turn publishes `finish` immediately. The SSE transport gains heartbeat, snapshot, sequence, subscribe-before-snapshot, resume, and explicit activity phases. The dead Redis client is re-created on reconnect. CSP allows Google Fonts and reduces report-only noise. Reattach renders deltas.
 
 **Tech Stack:** Bun, TypeScript, TanStack Start, Prisma/Postgres, BullMQ/ioredis, Vitest.
 
@@ -19,6 +19,9 @@
 - Do NOT touch hedging (`discuss.hedging`), combos, model pricing, or R3's parallel-moderation default.
 - Handoff `/tmp/umkmcepat-handoff-2026-08-05-discuss-hedging-latency.md` + commit `6bcfc38` are authoritative for hedging: keep hedging off; settings cache refresh before hedge decision already shipped.
 - R3 runtime default stays serial moderation. Only add an off-by-default setting unless a separate approval explicitly enables it.
+- Preserve the current structured-response / pseudo-tool contract. Do not convert cards/build recommendations into side-effectful real tool execution.
+- Preserve build trigger semantics. Build starts only through the existing explicit build path.
+- Preserve final persisted `messages`, `workspaceCard`, `readyForBuild`, and build recommendation semantics. Earlier progressive rendering is allowed only when the final normalized output remains equivalent.
 - Do NOT "fix" tests to lower error counts; `p1`/`project_1`/`deployment_timeout` rows are fixtures.
 - Never commit `.env`, secrets, uploads, logs, `.next/`, `.pi/`, `.browser/`, coverage artifacts.
 - User-facing copy Indonesian; developer logs/code English.
@@ -30,6 +33,46 @@
 - `6bcfc38 fix(discuss): refresh settings before hedging` — `runDiscussTurn()` force-refreshes settings before deciding hedging. This prevents stale `discuss.hedging` snapshots from launching hedge calls after the setting is off.
 - Do not duplicate that work. Phase 1 starts with compaction after `finish`, not settings cache refresh.
 - Hedging remains disabled until a separate adaptive-hedging spec optimizes visible-progress latency, not just backend completion latency.
+
+---
+
+### Task 0: Behavior Locks for Pseudo-Tool Contract (R0)
+
+**Files:**
+- Test: `src/lib/projects/discuss-turn-worker.test.ts`, `src/lib/projects/brief-flow.test.ts`, and/or existing workspace-card/build-recommendation tests
+
+**Interfaces:**
+- Consumes: current `present_workspace_card` envelope, `normalizeWorkspaceTurn`, `persistProjectChatTurn`, existing build recommendation card behavior.
+- Produces: regression tests proving transport/card changes cannot alter build trigger semantics or final card shape.
+
+- [ ] **Step 1: Add final-card shape regression**
+
+Add a test that feeds the current structured/pseudo-tool input through `normalizeWorkspaceTurn` and asserts the final `workspaceCard` shape is unchanged for:
+- `type: "question"` with `answerMode: "choice"`
+- `type: "image_upload"`
+- `type: "build_recommendation"`
+
+Expected: final normalized cards match current snapshots/inline objects. Use explicit objects, not broad snapshots.
+
+- [ ] **Step 2: Add no-auto-build regression**
+
+Add or adjust a discuss worker test proving a `build_recommendation` card persists a card/output but does **not** enqueue a build/generate/edit job by itself. Build must still require the existing explicit build action.
+
+- [ ] **Step 3: Add final-message compatibility regression**
+
+Add a test that a successful discuss turn persists an assistant message with the same tool-envelope/structured output shape the UI currently reads via `getWorkspaceCardFromMessages`.
+
+- [ ] **Step 4: Run focused tests**
+
+Run: `bunx vitest run --project unit src/lib/projects/brief-flow.test.ts src/lib/projects/discuss-turn-worker.test.ts`
+Expected: PASS. If adding the tests reveals current behavior is unclear, stop and ask before implementing protocol changes.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/lib/projects/brief-flow.test.ts src/lib/projects/discuss-turn-worker.test.ts
+git commit -m "test(discuss): lock structured card contract before transport work"
+```
 
 ---
 
@@ -564,6 +607,7 @@ git commit -m "feat(discuss): SSE snapshot + sequence + afterSequence resume (se
 - [ ] Split `handlePreviewPost` after safe pre-stream validation: auth/rate/body/project/energy errors still return JSON/SSE errors as today; moderation and enqueue happen inside a stream `execute` block.
 - [ ] Emit coarse phase events: `{ type: "activity", phase: "checking" }` before moderation, `{ type: "activity", phase: "saving" }` before DB persist/claim, `{ type: "activity", phase: "responding" }` before/after enqueue, `{ type: "activity", phase: "synchronizing" }` during reattach.
 - [ ] In `WorkspaceShell.tsx`, add explicit connection/activity state values: `connecting`, `checking`, `responding`, `synchronizing`, `connected`, `backoff`, `blocked`; render short Indonesian status copy separate from assistant text. Do not show provider/model/internal details.
+- [ ] Re-run Task 0 behavior-lock tests after the route/UI changes. Expected: final card/message/build trigger semantics unchanged.
 
 **R3 flag (off by default):**
 - [ ] Add `AppSetting` `discuss.parallel_moderation` (default `false`) in `src/lib/app-settings-registry.ts`. The route reads the setting but keeps serial moderation unless the setting is true. Do **not** seed/flip it to true.
@@ -592,6 +636,7 @@ git commit -m "feat(discuss): stream preamble activity and connection state"
 - [ ] In `discuss-turn-worker.ts` `tool-input-delta` handling (`:569-607`), when partial card state changes, publish a typed event such as `{ type: "workspace-card-delta", workspaceCard }`.
 - [ ] In the workspace UI, render a skeleton card when `workspaceCard.type` arrives but fields are incomplete; fill question/options as patches arrive. Keep accessibility intact: labels, buttons, focus order.
 - [ ] On final `tool-output-available`, replace partial card with normalized final card exactly as today.
+- [ ] Re-run Task 0 behavior-lock tests. Expected: progressive skeleton never changes final persisted card/message shape and never auto-starts build.
 - [ ] Verify with focused unit/component tests + `bun run check`.
 - [ ] Commit:
 ```bash
@@ -644,7 +689,7 @@ git commit -m "feat(discuss): add off-by-default parallel moderation path"
 **Files:**
 - Modify: this plan + `docs/superpowers/specs/2026-08-05-discuss-streaming-reliability-design.md` (mark shipped items; note deferred enablement only for R3)
 
-- [ ] Update the spec's status/notes to reflect shipped items and R3's off-by-default runtime status.
+- [ ] Update the spec's status/notes to reflect shipped items, R0 behavior locks, and R3's off-by-default runtime status.
 - [ ] `bun run check` passes (format, lint, typecheck, tests, knip, docs).
 - [ ] Confirm no fixture error counts changed (`git diff --stat` on test files shows only intended additions).
 
@@ -652,6 +697,7 @@ git commit -m "feat(discuss): add off-by-default parallel moderation path"
 
 ## Self-review notes
 
+- **R0** added so the current structured-response / pseudo-tool contract and build trigger semantics are locked before risky transport/card work.
 - **R1** fully specified (Task 1 worker + Task 2 reorder) with energy charge + `compaction-failed` log + failure-visibility preserved.
 - **R4** trivial (Task 3), **R6** (Task 4), **R8** (Task 5), **R9** (Task 6) each have a test + a commit.
 - **R7** now includes subscribe-before-snapshot + client sequence memory; no longer server-only vague scope.
@@ -680,3 +726,4 @@ Deep audit result: the first plan was not complete enough for "all phases" execu
 - Corrected R6 so raw SSE directives are only emitted on the raw `EventSource` route, not blindly injected into AI SDK streams.
 - Kept R3 safe: capability planned, default off.
 - Incorporated the hedging-latency handoff: do not re-enable hedging; adaptive hedging is post-scope and separate.
+- Added R0 behavior locks after user confirmed the pseudo-tool / structured-response contract is intentional and must not be replaced by real side-effectful tool execution.
