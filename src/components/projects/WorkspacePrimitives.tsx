@@ -27,6 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import { EnergyLedgerButton } from "@/components/common/EnergyLedgerButton";
 import { WorkspaceHistoryButton } from "@/components/projects/WorkspaceHistoryDrawer";
 import { Button } from "@/components/ui/button";
+import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { type BriefQuestion, type WorkspaceCard } from "@/lib/projects/brief";
 import { type DiffLine } from "@/lib/projects/diff";
@@ -36,6 +37,7 @@ import {
   previewReadyState,
   PREVIEW_STUCK_MAX_ATTEMPTS,
 } from "@/lib/projects/workspace-sync";
+import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
 import { cn } from "@/lib/utils";
 
 export type BuildTab = "preview" | "code";
@@ -45,6 +47,7 @@ export type WorkspaceAnswerPayload = {
   question: string;
   questionId: BriefQuestion["id"];
   source: "custom" | "option";
+  assetIds?: string[];
 };
 
 export type BuildProgressStep = {
@@ -1540,6 +1543,214 @@ export function QuestionComposer({
             className="rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
           >
             Kirim jawaban
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type PendingImageUpload = {
+  assetId: string;
+  url: string;
+};
+
+export function ImageUploadComposer({
+  imageUpload,
+  onClose,
+  onSubmit,
+}: {
+  imageUpload: import("@/lib/projects/brief").ImageUploadQuestion;
+  onClose?: () => void;
+  onSubmit: (
+    answer: string,
+    workspaceAnswers?: WorkspaceAnswerPayload[],
+  ) => void;
+}) {
+  const [uploads, setUploads] = useState<PendingImageUpload[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMultiple = imageUpload.selectionMode === "multiple";
+  const max = isMultiple ? 6 : 1;
+
+  useEffect(() => {
+    setIsSubmitting(false);
+    submitLockRef.current = false;
+  }, [imageUpload.id]);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files) {
+      return;
+    }
+    const list = Array.from(files);
+    if (isMultiple && uploads.length + list.length > max) {
+      setError(`Maksimal ${max} gambar.`);
+      return;
+    }
+    setUploading(true);
+    setError("");
+    try {
+      for (const file of list) {
+        if (uploads.length >= max) {
+          break;
+        }
+        const uploaded = await uploadTempImageFile(file);
+        setUploads((current) => [...current, uploaded]);
+      }
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Gagal unggah gambar.",
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeUpload(assetId: string) {
+    setUploads((current) => current.filter((item) => item.assetId !== assetId));
+  }
+
+  const canSubmit =
+    !isSubmitting && !submitLockRef.current && uploads.length > 0;
+
+  function submitAnswer() {
+    if (!canSubmit) {
+      return;
+    }
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    onSubmit(
+      uploads.length === 1
+        ? "1 gambar diunggah."
+        : `${uploads.length} gambar diunggah.`,
+      [
+        {
+          answer: `${uploads.length} gambar diunggah.`,
+          question: imageUpload.question,
+          questionId: imageUpload.id,
+          source: "custom",
+          assetIds: uploads.map((item) => item.assetId),
+        },
+      ],
+    );
+  }
+
+  function skip() {
+    if (isSubmitting || submitLockRef.current) {
+      return;
+    }
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    onSubmit("Lewati.", [
+      {
+        answer: "Lewati.",
+        question: imageUpload.question,
+        questionId: imageUpload.id,
+        source: "custom",
+      },
+    ]);
+  }
+
+  return (
+    <div className="mt-spacing-3 overflow-hidden border-y border-surface-warm-white/10 bg-[#1d1d1a] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+      <div className="border-b border-surface-warm-white/8 bg-[#20201d] px-spacing-5 py-spacing-4">
+        <h2 className="max-w-3xl text-base font-semibold leading-6 text-surface-warm-white">
+          {imageUpload.question}
+        </h2>
+        {imageUpload.hint ? (
+          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/50">
+            {imageUpload.hint}
+          </p>
+        ) : (
+          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-surface-warm-white/50">
+            {isMultiple
+              ? "Unggah beberapa gambar (maksimal 6)."
+              : "Unggah 1 gambar."}
+          </p>
+        )}
+      </div>
+
+      <div className="px-spacing-5 py-spacing-4">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          multiple={isMultiple}
+          className="hidden"
+          onChange={(event) => {
+            void handleFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || uploads.length >= max}
+          className="flex w-full items-center justify-center gap-spacing-2 rounded-[14px] border border-dashed border-surface-warm-white/20 bg-[#181817] px-spacing-4 py-spacing-6 text-sm text-surface-warm-white/70 hover:bg-surface-warm-white/[0.03] disabled:opacity-50"
+        >
+          {uploading ? (
+            <Loader2 aria-hidden className="size-4 animate-spin" />
+          ) : (
+            <ImagePlus aria-hidden className="size-4" />
+          )}
+          {uploading
+            ? "Mengunggah..."
+            : uploads.length >= max
+              ? `Maksimal ${max} gambar`
+              : "Pilih gambar (PNG, JPEG, WEBP)"}
+        </button>
+        {error ? (
+          <p className="mt-spacing-2 text-xs text-red-300">{error}</p>
+        ) : null}
+
+        {uploads.length > 0 ? (
+          <div className="mt-spacing-3 flex flex-wrap gap-spacing-2">
+            {uploads.map((item) => (
+              <ImageUploadThumb
+                key={item.assetId}
+                src={item.url}
+                alt="Gambar yang diunggah"
+                onRemove={() => removeUpload(item.assetId)}
+                className="size-20"
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex items-center justify-between gap-spacing-3 border-t border-surface-warm-white/8 px-spacing-5 py-spacing-4">
+        <Button
+          type="button"
+          onClick={skip}
+          disabled={isSubmitting}
+          variant="outline"
+          className="rounded-full border-surface-warm-white/12 bg-transparent text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+        >
+          Lewati
+        </Button>
+        <div className="flex items-center gap-spacing-2">
+          {onClose ? (
+            <Button
+              type="button"
+              onClick={onClose}
+              variant="outline"
+              className="rounded-full border-surface-warm-white/12 bg-transparent text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+            >
+              Tulis bebas
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            disabled={!canSubmit}
+            onClick={submitAnswer}
+            className="rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+          >
+            Kirim gambar
           </Button>
         </div>
       </div>

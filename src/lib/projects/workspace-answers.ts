@@ -10,6 +10,8 @@ export type WorkspaceAnswerPayload = {
   question?: string;
   questionId: BriefQuestion["id"];
   source?: "custom" | "option";
+  /** Owner-uploaded image asset ids (from image_upload cards). */
+  assetIds?: string[];
 };
 
 export function buildBriefPatchFromWorkspaceAnswers({
@@ -21,6 +23,9 @@ export function buildBriefPatchFromWorkspaceAnswers({
   fallbackText: string;
   workspaceAnswers: unknown;
 }): ProjectBriefPatch {
+  if (card.type === "image_upload") {
+    return buildImageUploadPatch(card, workspaceAnswers);
+  }
   if (card.type !== "question") {
     return {};
   }
@@ -72,6 +77,44 @@ export function buildBriefPatchFromWorkspaceAnswers({
   return patch;
 }
 
+function buildImageUploadPatch(
+  card: Extract<WorkspaceCard, { type: "image_upload" }>,
+  workspaceAnswers: unknown,
+): ProjectBriefPatch {
+  const answers = parseWorkspaceAnswers(workspaceAnswers);
+  const assetIds: string[] = [];
+  for (const answer of answers) {
+    if (answer.questionId !== card.imageUpload.id) {
+      continue;
+    }
+    if (Array.isArray(answer.assetIds)) {
+      for (const id of answer.assetIds) {
+        const normalized = normalizeAssetId(id);
+        if (normalized && !assetIds.includes(normalized)) {
+          assetIds.push(normalized);
+        }
+      }
+    }
+  }
+  if (!assetIds.length) {
+    return {};
+  }
+  return {
+    businessImages: assetIds.map((id) => ({
+      id,
+      purpose: card.imageUpload.purpose,
+    })),
+  };
+}
+
+function normalizeAssetId(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim().slice(0, 200);
+  return trimmed ? trimmed : null;
+}
+
 function parseWorkspaceAnswers(value: unknown): WorkspaceAnswerPayload[] {
   if (!Array.isArray(value)) {
     return [];
@@ -92,7 +135,7 @@ function parseWorkspaceAnswers(value: unknown): WorkspaceAnswerPayload[] {
 
     const answer = normalizeAnswer(input.answer);
 
-    if (!answer) {
+    if (!answer && !input.assetIds?.length) {
       continue;
     }
 
@@ -101,10 +144,17 @@ function parseWorkspaceAnswers(value: unknown): WorkspaceAnswerPayload[] {
       question: normalizeAnswer(input.question) || undefined,
       questionId: input.questionId,
       source: input.source === "custom" ? "custom" : "option",
+      assetIds: Array.isArray(input.assetIds)
+        ? input.assetIds.filter(isStringValue).slice(0, 12)
+        : undefined,
     });
   }
 
   return answers.slice(0, 3);
+}
+
+function isStringValue(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function parseFormattedWorkspaceAnswers(

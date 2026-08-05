@@ -42,6 +42,7 @@ import {
   PreviewIssueState,
   ProcessingControl,
   QuestionComposer,
+  ImageUploadComposer,
   VisualFeedbackWidget,
   WorkspaceCardView,
   WorkspaceTopBar,
@@ -2867,6 +2868,22 @@ export function WorkspaceShell({
                 className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62"
               >
                 Tunggu sebentar sebelum mengirim jawaban berikutnya.
+              </motion.div>
+            ) : isPreparingNextQuestion ||
+              workspaceCardError ? null : !hasAnsweredActiveQuestion &&
+              composerState === "question" &&
+              workspaceCard.type === "image_upload" ? (
+              <motion.div
+                key="composer-image-upload"
+                {...COMPOSER_TRANSITION}
+                className="mt-spacing-3"
+              >
+                <ImageUploadComposer
+                  imageUpload={workspaceCard.imageUpload}
+                  onSubmit={(answer, workspaceAnswers) =>
+                    submitChatText(answer, { workspaceAnswers })
+                  }
+                />
               </motion.div>
             ) : isPreparingNextQuestion ||
               workspaceCardError ? null : !hasAnsweredActiveQuestion &&

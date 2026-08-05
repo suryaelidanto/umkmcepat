@@ -24,6 +24,11 @@ export type ProjectDecision = {
   question: string;
 };
 
+export type BusinessImageRef = {
+  id: string;
+  purpose: ImageUploadPurpose;
+};
+
 export type ProjectBrief = {
   version: 1;
   prompt: string;
@@ -59,6 +64,9 @@ export type ProjectBrief = {
   readyForBuild: boolean;
   umkmType?: UmkmType | null;
   fieldState?: FieldStateMap;
+  /** Owner-uploaded image refs (from image_upload cards), used by the build
+   * agent for real image placement. */
+  businessImages?: BusinessImageRef[];
 };
 
 export type BriefQuestion = {
@@ -143,6 +151,7 @@ export type ProjectBriefPatch = Partial<
     | "socialLinks"
     | "currentPromo"
     | "secondaryCta"
+    | "businessImages"
   >
 > & {
   confidence?: number;
