@@ -8,7 +8,6 @@ import {
   ProcessingControl,
   WorkspaceTopBar,
 } from "./WorkspacePrimitives";
-import { DirectEditToolbar } from "./WorkspacePrimitives";
 
 describe("WorkspaceTopBar mobile layout", () => {
   const baseProps = {
@@ -122,17 +121,41 @@ describe("PreviewIssueState restart button", () => {
   });
 });
 
-describe("DirectEditToolbar", () => {
-  it("renders undo/redo/save/discard actions", () => {
+describe("WorkspaceTopBar direct edit actions", () => {
+  const props = {
+    activeTab: "preview" as const,
+    setActiveTab: vi.fn(),
+    viewport: "desktop" as const,
+    setViewport: vi.fn(),
+    chatCollapsed: false,
+    openChatPanel: vi.fn(),
+    closeChatPanel: vi.fn(),
+    runtime: undefined,
+    projectId: "test-project",
+  };
+
+  it("renders undo/redo/save/discard when direct edit is active", () => {
     const markup = renderToStaticMarkup(
-      createElement(DirectEditToolbar, {
-        canUndo: true,
-        canRedo: false,
-        onUndo: vi.fn(),
-        onRedo: vi.fn(),
-        onSave: vi.fn(),
-        onDiscard: vi.fn(),
-      }),
+      createElement(
+        QueryClientProvider,
+        {
+          client: new QueryClient({
+            defaultOptions: { queries: { retry: false } },
+          }),
+        },
+        createElement(WorkspaceTopBar, {
+          ...props,
+          directEditActive: true,
+          directEditActions: {
+            canUndo: true,
+            canRedo: false,
+            onUndo: vi.fn(),
+            onRedo: vi.fn(),
+            onSave: vi.fn(),
+            onDiscard: vi.fn(),
+          },
+        }),
+      ),
     );
     expect(markup).toMatch(/aria-label="Undo"/);
     expect(markup).toMatch(/aria-label="Redo"/);

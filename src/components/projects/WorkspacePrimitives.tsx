@@ -70,63 +70,6 @@ export type WorkspaceRuntimeControl = {
   publishedPath?: string | null;
 };
 
-export function DirectEditToolbar({
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-  onSave,
-  onDiscard,
-}: {
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
-  onSave: () => void;
-  onDiscard: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-spacing-2 rounded-radius-md border border-[#8fd3ff]/25 bg-[#0f2a3a] px-spacing-3 py-spacing-2">
-      <span className="text-xs text-[#d6f0ff]">Ubah langsung</span>
-      <button
-        type="button"
-        aria-label="Undo"
-        disabled={!canUndo}
-        onClick={onUndo}
-        className="grid size-8 place-items-center rounded-radius-sm border border-surface-warm-white/15 text-surface-warm-white/85 hover:bg-surface-warm-white/10 disabled:opacity-40"
-      >
-        <Undo2 className="size-4" />
-      </button>
-      <button
-        type="button"
-        aria-label="Redo"
-        disabled={!canRedo}
-        onClick={onRedo}
-        className="grid size-8 place-items-center rounded-radius-sm border border-surface-warm-white/15 text-surface-warm-white/85 hover:bg-surface-warm-white/10 disabled:opacity-40"
-      >
-        <Redo2 className="size-4" />
-      </button>
-      <Button
-        type="button"
-        size="sm"
-        onClick={onSave}
-        className="h-8 rounded-radius-md bg-[#0f766e] px-spacing-3 text-xs text-white hover:bg-[#115e59]"
-      >
-        Simpan
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        onClick={onDiscard}
-        className="h-8 rounded-radius-md border-surface-warm-white/20 bg-transparent text-xs text-surface-warm-white/80 hover:bg-surface-warm-white/8"
-      >
-        Batalkan
-      </Button>
-    </div>
-  );
-}
-
 export function WorkspaceTopBar({
   activeTab,
   setActiveTab,
@@ -141,6 +84,7 @@ export function WorkspaceTopBar({
   directEditActive = false,
   directEditAvailable = false,
   onToggleDirectEdit,
+  directEditActions,
   runtime,
   projectId,
 }: {
@@ -157,6 +101,14 @@ export function WorkspaceTopBar({
   directEditActive?: boolean;
   directEditAvailable?: boolean;
   onToggleDirectEdit?: () => void;
+  directEditActions?: {
+    canUndo: boolean;
+    canRedo: boolean;
+    onUndo: () => void;
+    onRedo: () => void;
+    onSave: () => void;
+    onDiscard: () => void;
+  };
   runtime?: WorkspaceRuntimeControl;
   projectId?: string;
 }) {
@@ -273,6 +225,45 @@ export function WorkspaceTopBar({
 
         {/* Desktop cluster (unchanged) */}
         <div className="hidden min-w-0 w-full items-center justify-between gap-spacing-2 sm:flex sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
+          {directEditActive && directEditActions ? (
+            <div className="flex items-center gap-spacing-1">
+              <button
+                type="button"
+                aria-label="Undo"
+                disabled={!directEditActions.canUndo}
+                onClick={directEditActions.onUndo}
+                className="grid size-8 place-items-center rounded-radius-sm border border-surface-warm-white/15 text-surface-warm-white/85 hover:bg-surface-warm-white/10 disabled:opacity-40"
+              >
+                <Undo2 className="size-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Redo"
+                disabled={!directEditActions.canRedo}
+                onClick={directEditActions.onRedo}
+                className="grid size-8 place-items-center rounded-radius-sm border border-surface-warm-white/15 text-surface-warm-white/85 hover:bg-surface-warm-white/10 disabled:opacity-40"
+              >
+                <Redo2 className="size-4" />
+              </button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={directEditActions.onSave}
+                className="h-8 rounded-radius-md bg-[#0d9488] px-spacing-3 text-xs text-white hover:bg-[#0f766e]"
+              >
+                Simpan
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={directEditActions.onDiscard}
+                className="h-8 rounded-radius-md border-surface-warm-white/20 bg-transparent text-xs text-surface-warm-white/80 hover:bg-surface-warm-white/8"
+              >
+                Batalkan
+              </Button>
+            </div>
+          ) : null}
           {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
           {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
           {runtime ? <RuntimeControl runtime={runtime} /> : null}

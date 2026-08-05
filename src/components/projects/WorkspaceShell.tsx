@@ -37,7 +37,6 @@ import {
 } from "@/components/projects/useBuildAttemptStream";
 import {
   BuildProgressPanel,
-  DirectEditToolbar,
   EmptyPreviewState,
   GeneratedPreviewFrame,
   PreviewIssueState,
@@ -3504,6 +3503,14 @@ export function WorkspaceShell({
           directEditActive={directEditMode}
           directEditAvailable={!readOnly && shouldRenderGeneratedPreview}
           onToggleDirectEdit={toggleDirectEdit}
+          directEditActions={{
+            canUndo: canUndoDirectEdit(editHistory),
+            canRedo: canRedoDirectEdit(editHistory),
+            onUndo: handleUndo,
+            onRedo: handleRedo,
+            onSave: () => void saveDirectEdit(),
+            onDiscard: handleDiscard,
+          }}
           projectId={projectId}
           onToggleAnnotation={() => {
             setAnnotationMode((current) => {
@@ -3585,18 +3592,6 @@ export function WorkspaceShell({
                     reloadKey={previewReloadKey}
                     viewport={viewport}
                   />
-                  {directEditMode ? (
-                    <div className="absolute inset-x-0 top-0 z-20 flex justify-center px-4 py-2">
-                      <DirectEditToolbar
-                        canUndo={canUndoDirectEdit(editHistory)}
-                        canRedo={canRedoDirectEdit(editHistory)}
-                        onUndo={handleUndo}
-                        onRedo={handleRedo}
-                        onSave={() => void saveDirectEdit()}
-                        onDiscard={handleDiscard}
-                      />
-                    </div>
-                  ) : null}
                   <input
                     ref={replaceImageFileInputRef}
                     type="file"

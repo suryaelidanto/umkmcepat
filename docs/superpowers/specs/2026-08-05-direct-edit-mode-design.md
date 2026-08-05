@@ -98,12 +98,14 @@ The `WorkspaceTopBar` gains, when a generated preview is available, a second mod
 - **"Ubah"** (commentary) — existing annotation mode, unchanged.
 - **"Ubah langsung"** — toggles direct edit.
 
-When direct edit is active, a small toolbar shows:
+When direct edit is active, the top bar shows:
 
 - **Undo** (disabled when no undo history).
 - **Redo** (disabled when no redo history).
 - **Simpan** — commits + rebuilds.
 - **Batalkan** — discards local edits, reloads preview.
+
+The selector works exactly like commentary: hover outlines the deepest meaningful element, click selects the whole movable section/article it belongs to, and a small chip (drag handle + remove) floats over the selection. No floating toolbar overlay.
 
 Keyboard: `Ctrl+Z` undo, `Ctrl+Shift+Z` / `Ctrl+Y` redo, only while direct edit is active.
 
@@ -130,7 +132,7 @@ The bridge body is string-injected JS, so follow the existing pattern:
 
 - **Pure helper tests** (Node Vitest): `editHistoryReducer` (push/undo/redo), and a pure `buildDirectEditInstruction(original, current, blocks)` that produces the Indonesian instruction. These carry the real logic.
 - **String assertions** on the injected bridge script: contains `umkmcepat-edit-mode`, `umkmcepat-edit-layout`, `data-umkm-id`, drag/remove handler names.
-- **Storybook**: a `DirectEditToolbar` stories file if a reusable toolbar is extracted.
+- **Selector parity:** the edit-mode bridge reuses the same deep-element / interactive / media / text / atomic / container priority as the commentary selector, so selection "feels" identical. The top bar hosts the undo/redo/save/discard controls (no floating toolbar).
 
 ## Verification
 

@@ -615,26 +615,117 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
 `;
 
 const EDIT_MODE_BRIDGE = String.raw`(() => {
-  const PARENT_ORIGIN = document.currentScript?.getAttribute('data-umkm-origin') || '*';
+  const bridgeScript = document.currentScript || document.querySelector('script[data-umkm-edit-bridge]');
+  const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
+
   let active = false;
-  let removedIds = new Set();
-  const blocks = new Map();
+  let hoverBox = null;
+  let selectedId = null;
   let idCounter = 0;
+  const blocks = new Map(); // id -> { element, label, selectorPath, tag }
+  const removedIds = new Set();
 
-  const ATOMIC_RE = /(^|[-_\s])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([-_\s]|$)/i;
-  function isAtomicBlock(el) {
-    if (el.matches('article,[role="listitem"],[data-umkm-annotatable]')) return true;
-    if (el.tagName === 'SECTION') return true;
-    const className = typeof el.className === 'string' ? el.className : '';
+  const style = document.createElement('style');
+  style.textContent =
+    '.umkm-edit-hover{position:absolute;z-index:2147483644;pointer-events:none;border:2px solid #0d9488;border-radius:10px;background:rgba(13,148,136,.08)}' +
+    '.umkm-edit-selected{outline:2px solid #0d9488;outline-offset:-2px;border-radius:10px}' +
+    '.umkm-edit-chip{position:absolute;z-index:2147483647;display:flex;align-items:center;gap:4px;background:#0d9488;color:#fff;padding:3px 6px;border-radius:8px;font:600 12px ui-sans-serif,system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.3);pointer-events:auto;cursor:grab}' +
+    '.umkm-edit-chip button{background:transparent;border:0;color:#fff;cursor:pointer;font:600 14px ui-sans-serif,system-ui,sans-serif;padding:0 2px}' +
+    '.umkm-edit-chip button:hover{opacity:.7}';
+  document.head.appendChild(style);
+
+  // ---- selector (mirrors the commentary bridge "feel") ----
+  function deepElementFromPoint(x, y) {
+    let element = document.elementFromPoint(x, y);
+    while (element instanceof HTMLElement && element.shadowRoot) {
+      const deeper = element.shadowRoot.elementFromPoint(x, y);
+      if (!deeper || deeper === element) break;
+      element = deeper;
+    }
+    return element instanceof HTMLElement ? element : null;
+  }
+
+  function clean(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function isBridgeUi(element) {
+    return Boolean(element.closest('.umkm-edit-chip,.umkm-edit-hover'));
+  }
+
+  function isIgnorableDecoration(element) {
+    if (element.getAttribute('aria-hidden') === 'true') return true;
+    const className = typeof element.className === 'string' ? element.className : '';
+    const isDecoration = /(backdrop|decoration|gradient|glow|overlay|veil)/i.test(className);
+    const hasText = Boolean(clean(element.innerText || element.textContent || ''));
+    const isInteractive = element.matches('a,button,input,select,textarea,[role="button"],[onclick]');
+    return isDecoration && !hasText && !isInteractive;
+  }
+
+  function isAtomicBlock(element) {
+    if (element.matches('article,[role="listitem"],[data-umkm-annotatable]')) return true;
+    const className = typeof element.className === 'string' ? element.className : '';
     if (/(^|[\s_-])(body|container|content|inner|padding|wrapper)([\s_-]|$)/i.test(className)) return false;
-    return ATOMIC_RE.test(className);
+    return /(^|[-_\s])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([-_\s]|$)/i.test(className);
   }
 
-  function parentIdOf(el) {
-    const parent = el.parentElement;
-    if (!parent) return 'body';
-    return parent.id || parent.tagName.toLowerCase();
+  function closestElement(element, selector) {
+    let current = element;
+    while (current && current !== document.body) {
+      if (current instanceof HTMLElement && current.matches(selector) && !isBridgeUi(current)) return current;
+      current = current.parentElement;
+    }
+    return null;
   }
+
+  function hasDirectText(element) {
+    return Array.from(element.childNodes).some((node) =>
+      node.nodeType === Node.TEXT_NODE && clean(node.textContent || ''),
+    );
+  }
+
+  // The deepest meaningful element under the pointer, exactly like commentary.
+  function pickElement(element) {
+    if (isBridgeUi(element)) return null;
+    const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
+    if (interactive) return interactive;
+    const media = closestElement(element, 'img,picture,video,svg');
+    if (media && !isIgnorableDecoration(media)) return media;
+    const text = closestElement(element, 'h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption,caption,span,strong,em,b,i,small,code,pre');
+    if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) return text;
+    if (!isIgnorableDecoration(element) && hasDirectText(element)) return element;
+    const atomic = closestElement(element, 'article,[role="listitem"],[data-umkm-annotatable]') || closestAtomicBlock(element);
+    if (atomic) return atomic;
+    const container = closestElement(element, 'section,nav,header,footer,main,aside,[aria-label]');
+    return container || element;
+  }
+
+  function closestAtomicBlock(element) {
+    let current = element;
+    while (current && current !== document.body) {
+      if (current instanceof HTMLElement && !isIgnorableDecoration(current) && isAtomicBlock(current)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  // The nearest movable unit: the whole section/article the picked element
+  // lives in, so dragging/removing always moves a coherent section.
+  function movableElement(element) {
+    if (isBridgeUi(element)) return null;
+    if (element.matches('section,article,header,footer,nav,[data-umkm-annotatable]')) return element;
+    const atomic = closestAtomicBlock(element);
+    if (atomic) return atomic;
+    return closestElement(element, 'section,article,header,footer,nav');
+  }
+
+  function elementAt(x, y) {
+    const element = deepElementFromPoint(x, y);
+    return element ? pickElement(element) : null;
+  }
+
+  // ---- helpers ----
+  function makeId() { idCounter += 1; return 'eb_' + Date.now().toString(36) + '_' + idCounter; }
 
   function selectorPath(el) {
     const parts = [];
@@ -658,10 +749,27 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
 
   function labelFor(el) {
     const tag = el.tagName.toLowerCase();
-    const text = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const text = clean(el.innerText || el.textContent || '').slice(0, 40);
     const snippet = text ? ' — "' + text + '"' : '';
-    if (tag === 'section') return 'Bagian' + snippet;
+    if (/^h[1-6]$/.test(tag)) return 'Judul' + snippet;
+    if (tag === 'button' || tag === 'a') return 'Tombol' + snippet;
+    if (/^(img|picture|video|svg)$/.test(tag)) return 'Gambar' + snippet;
+    if (/^(p|span|label|li|blockquote|figcaption|caption)$/.test(tag)) return 'Teks' + snippet;
+    if (tag === 'article' || tag === 'section') return 'Bagian' + snippet;
     return 'Blok' + snippet;
+  }
+
+  function parentIdOf(el) {
+    const parent = el.parentElement;
+    if (!parent) return 'body';
+    return parent.id || parent.tagName.toLowerCase();
+  }
+
+  // Ensure movable sections/blocks carry a stable data-umkm-id.
+  function ensureIds() {
+    document.querySelectorAll('section,article,header,footer,nav,[data-umkm-annotatable]').forEach((el) => {
+      if (!el.hasAttribute('data-umkm-id')) el.setAttribute('data-umkm-id', makeId());
+    });
   }
 
   function scan() {
@@ -670,6 +778,16 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
       const id = el.getAttribute('data-umkm-id');
       blocks.set(id, { element: el, label: labelFor(el), selectorPath: selectorPath(el), tag: el.tagName.toLowerCase() });
     });
+  }
+
+  function findBlock(node) {
+    let current = node;
+    while (current && current.nodeType === 1 && current !== document.body) {
+      const id = current.getAttribute && current.getAttribute('data-umkm-id');
+      if (id && blocks.has(id)) return blocks.get(id);
+      current = current.parentElement;
+    }
+    return null;
   }
 
   function layout() {
@@ -693,7 +811,8 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   }
 
   function applyLayout(next) {
-    removedIds = new Set(next.removed || []);
+    removedIds.clear();
+    (next.removed || []).forEach((id) => removedIds.add(id));
     if (next.parents) {
       for (const pid of Object.keys(next.parents)) {
         const container = blocks.get(pid)?.element?.parentElement || document.body;
@@ -705,82 +824,157 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
       const removed = removedIds.has(id);
       info.element.style.display = removed ? 'none' : '';
       info.element.setAttribute('data-umkm-removed', removed ? 'true' : 'false');
+      if (removed) info.element.classList.remove('umkm-edit-selected');
     });
   }
 
-  function makeId() { idCounter += 1; return 'eb_' + Date.now().toString(36) + '_' + idCounter; }
+  // ---- hover / selection ----
+  function ensureHoverBox() {
+    if (hoverBox) return hoverBox;
+    hoverBox = document.createElement('div');
+    hoverBox.className = 'umkm-edit-hover';
+    hoverBox.hidden = true;
+    document.body.appendChild(hoverBox);
+    return hoverBox;
+  }
 
-  function findBlock(node) {
-    let current = node;
-    while (current && current.nodeType === 1 && current !== document.body) {
-      const id = current.getAttribute && current.getAttribute('data-umkm-id');
-      if (id && blocks.has(id)) return blocks.get(id);
-      current = current.parentElement;
+  function setHoverBox(rect) {
+    const box = ensureHoverBox();
+    box.hidden = false;
+    box.style.left = String(rect.left + window.scrollX) + 'px';
+    box.style.top = String(rect.top + window.scrollY) + 'px';
+    box.style.width = String(rect.width) + 'px';
+    box.style.height = String(rect.height) + 'px';
+  }
+
+  function hideHoverBox() {
+    if (hoverBox) hoverBox.hidden = true;
+  }
+
+  function select(blockId) {
+    clearSelection();
+    const info = blocks.get(blockId);
+    if (!info) return;
+    selectedId = blockId;
+    info.element.classList.add('umkm-edit-selected');
+    info.element.setAttribute('data-umkm-selected', 'true');
+    showChip(info.element);
+    post('umkmcepat-edit-state');
+  }
+
+  function clearSelection() {
+    if (selectedId) {
+      const info = blocks.get(selectedId);
+      if (info) {
+        info.element.classList.remove('umkm-edit-selected');
+        info.element.removeAttribute('data-umkm-selected');
+      }
     }
-    return null;
+    selectedId = null;
+    removeChip();
   }
 
-  function ensureOverlays() {
-    if (document.querySelector('[data-umkm-edit-overlay]')) return;
-    const overlay = document.createElement('div');
-    overlay.setAttribute('data-umkm-edit-overlay', 'true');
-    overlay.style.cssText = 'position:absolute;z-index:2147483647;pointer-events:none;';
-    document.body.appendChild(overlay);
-
-    document.addEventListener('mouseover', (e) => {
-      if (!active) return;
-      const block = findBlock(e.target);
-      overlay.textContent = '';
-      if (!block) return;
-      const r = block.element.getBoundingClientRect();
-      const badge = document.createElement('div');
-      badge.style.cssText = 'position:absolute;left:' + (r.left + window.scrollX) + 'px;top:' + (r.top + window.scrollY) + 'px;background:#0d9488;color:#fff;padding:2px 6px;font:12px system-ui;border-radius:4px;pointer-events:auto;cursor:grab;';
-      badge.textContent = '⣿ ' + block.label;
-      badge.draggable = true;
-      badge.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('text/plain', block.id); });
-      const closeBtn = document.createElement('button');
-      closeBtn.textContent = '✕';
-      closeBtn.style.cssText = 'margin-left:6px;background:#b91c1c;border:0;color:#fff;cursor:pointer;border-radius:3px;padding:0 5px;pointer-events:auto;';
-      closeBtn.addEventListener('click', () => {
-        block.element.setAttribute('data-umkm-removed', 'true');
-        block.element.style.display = 'none';
-        removedIds.add(block.id);
-        post('umkmcepat-edit-state');
-      });
-      badge.appendChild(closeBtn);
-      overlay.appendChild(badge);
-    });
-
-    document.addEventListener('dragover', (e) => { if (active && e.target.closest && e.target.closest('[data-umkm-id]')) e.preventDefault(); });
-    document.addEventListener('drop', (e) => {
-      if (!active) return;
-      const target = findBlock(e.target);
-      const dragId = e.dataTransfer.getData('text/plain');
-      if (!target || !dragId) return;
-      e.preventDefault();
-      const src = blocks.get(dragId)?.element;
-      const dst = target.element;
-      if (!src || src === dst) return;
-      src.parentElement.insertBefore(src, dst.nextSibling);
-      scan();
-      post('umkmcepat-edit-state');
-    });
+  function showChip(el) {
+    removeChip();
+    const chip = document.createElement('div');
+    chip.className = 'umkm-edit-chip';
+    const r = el.getBoundingClientRect();
+    chip.style.left = String(r.left + window.scrollX) + 'px';
+    chip.style.top = String(r.top + window.scrollY - 30) + 'px';
+    const grip = document.createElement('span');
+    grip.textContent = '⣿';
+    grip.title = 'Tarik untuk memindahkan';
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Hapus';
+    removeBtn.addEventListener('click', (e) => { e.stopPropagation(); remove(); });
+    chip.appendChild(grip);
+    chip.appendChild(removeBtn);
+    chip.draggable = true;
+    chip.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', '__umkm-selected__'); });
+    document.body.appendChild(chip);
   }
+
+  function removeChip() {
+    const chip = document.querySelector('.umkm-edit-chip');
+    if (chip) chip.remove();
+  }
+
+  function remove() {
+    if (!selectedId) return;
+    const info = blocks.get(selectedId);
+    if (!info) return;
+    info.element.setAttribute('data-umkm-removed', 'true');
+    info.element.style.display = 'none';
+    removedIds.add(selectedId);
+    post('umkmcepat-edit-state');
+    clearSelection();
+    hideHoverBox();
+  }
+
+  function onClick(event) {
+    if (!active) return;
+    if (event.target.closest && event.target.closest('.umkm-edit-chip')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const picked = elementAt(event.clientX, event.clientY);
+    const movable = picked ? movableElement(picked) : null;
+    const block = movable ? findBlock(movable) : null;
+    if (block) {
+      select(block.id);
+    } else {
+      clearSelection();
+    }
+  }
+
+  function onMove(event) {
+    if (!active) return;
+    const picked = elementAt(event.clientX, event.clientY);
+    if (!picked) {
+      hideHoverBox();
+      return;
+    }
+    const rect = picked.getBoundingClientRect();
+    setHoverBox(rect);
+  }
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('click', onClick, true);
+
+  document.addEventListener('dragover', (e) => {
+    if (!active || !selectedId) return;
+    const movable = movableElement(e.target);
+    if (movable && movable !== blocks.get(selectedId)?.element) e.preventDefault();
+  });
+
+  document.addEventListener('drop', (e) => {
+    if (!active || !selectedId) return;
+    if (e.dataTransfer.getData('text/plain') !== '__umkm-selected__') return;
+    const movable = movableElement(e.target);
+    if (!movable) return;
+    e.preventDefault();
+    const src = blocks.get(selectedId)?.element;
+    if (!src || src === movable) return;
+    src.parentElement.insertBefore(src, movable.nextSibling);
+    scan();
+    post('umkmcepat-edit-state');
+  });
 
   function activate() {
     active = true;
-    document.querySelectorAll('article, section, [data-umkm-annotatable]').forEach((el) => {
-      if (!el.hasAttribute('data-umkm-id')) el.setAttribute('data-umkm-id', makeId());
-    });
+    ensureIds();
     scan();
-    ensureOverlays();
+    document.documentElement.classList.add('umkm-edit-active');
+    document.documentElement.style.cursor = 'crosshair';
     post('umkmcepat-edit-ready');
   }
 
   function deactivate() {
     active = false;
-    const overlay = document.querySelector('[data-umkm-edit-overlay]');
-    if (overlay) overlay.remove();
+    clearSelection();
+    hideHoverBox();
+    document.documentElement.classList.remove('umkm-edit-active');
+    document.documentElement.style.cursor = '';
   }
 
   window.addEventListener('message', (event) => {
