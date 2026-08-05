@@ -15,7 +15,6 @@ import {
   type ProjectBrief,
   type WorkspaceCard,
   BRIEF_CONFIDENCE_THRESHOLD,
-  getBriefReadiness,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
@@ -79,6 +78,24 @@ export function applyBriefPatch(
 
   if (Array.isArray(patch.facts)) {
     next.facts = mergeBriefFacts(next.facts ?? [], patch.facts);
+    // The discuss model frequently answers questions by only appending facts
+    // (keys like business_name, primary_offer, contact) without mirroring them
+    // into the typed brief fields (businessName, offer, contactOrCta). The
+    // batched build admission + MIN_BRIEF_FIELDS gate depend on the typed
+    // fields, so promote recognized fact keys deterministically — otherwise a
+    // complete interview leaves the brief "thin" and every build falls back to
+    // the slow legacy loop.
+    for (const fact of patch.facts) {
+      const key = cleanSlug(fact.key);
+      const field = FACT_KEY_TO_BRIEF_FIELD[key];
+      if (!field) {
+        continue;
+      }
+      const value = cleanText(fact.value, 160);
+      if (value && !next[field]) {
+        next[field] = value;
+      }
+    }
   }
 
   if (Array.isArray(patch.decisions)) {
@@ -190,6 +207,32 @@ const MIN_BRIEF_FIELDS = [
   "contactOrCta",
   "stylePreference",
 ] as const;
+
+/**
+ * Deterministic mapping from the discuss model's fact keys (snake_case) to the
+ * typed brief fields the batched build admission + MIN_BRIEF_FIELDS gate read.
+ * The model stores answers as facts under these keys; without this promotion a
+ * fully answered interview still yields a "thin" brief and every build falls
+ * back to the slow legacy agent loop.
+ */
+const FACT_KEY_TO_BRIEF_FIELD: Record<string, string> = {
+  business_name: "businessName",
+  business_type: "businessType",
+  primary_offer: "offer",
+  offer: "offer",
+  product_or_service: "offer",
+  target_customer: "targetCustomer",
+  contact: "contactOrCta",
+  primary_contact: "contactOrCta",
+  contact_or_cta: "contactOrCta",
+  whatsapp: "contactOrCta",
+  visual_direction: "stylePreference",
+  style_preference: "stylePreference",
+  price_range: "priceRange",
+  delivery_area: "deliveryArea",
+  address: "address",
+  tagline: "tagline",
+};
 
 /** Basics known enough to show Mulai build (not model confidence). */
 export function hasMinimumBriefForBuild(brief: ProjectBrief): boolean {
@@ -447,9 +490,12 @@ function normalizeWorkspaceCard(
       : undefined;
     const title = typeof value.title === "string" ? value.title : undefined;
 
-    // Accept when AI confidence is high OR minimum brief fields are known
-    // (model often leaves confidence at 0–1 while basics are already filled).
-    if (getBriefReadiness(brief).ready || hasMinimumBriefForBuild(brief)) {
+    // Accept when minimum brief fields are known. The old confidence-only
+    // readiness check (confidence 95 + no open questions) let the model emit
+    // build_recommendation with an empty brief — the build then fell back to
+    // the slow legacy loop instead of the fast batched writer. The typed
+    // fields are what both the admission gate and MIN_BRIEF_FIELDS read.
+    if (hasMinimumBriefForBuild(brief)) {
       return buildRecommendationCard(brief, title, summary);
     }
 

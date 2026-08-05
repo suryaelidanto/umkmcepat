@@ -707,6 +707,86 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("downgrades build_recommendation even at confidence 95 when typed brief fields are empty (regression: slow legacy loop)", () => {
+    // The model stamped confidence 95 + empty openQuestions with a fact-only
+    // brief; readiness alone must NOT unlock the build card — the typed fields
+    // are what the batched admission gate reads.
+    const brief = parseProjectBrief(
+      {
+        businessType: "fnb",
+        confidence: 95,
+        openQuestions: [],
+      },
+      "warung kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Siap dibuild",
+          summary: ["fnb"],
+        },
+      },
+      brief,
+    );
+
+    expect(turn.workspaceCard.type).toBe("none");
+    expect(turn.readyForBuild).toBe(false);
+  });
+
+  it("promotes snake_case fact answers into typed brief fields (regression: batched admission blocked)", () => {
+    // The discuss model answers questions by appending facts only; the typed
+    // fields must be promoted deterministically so a complete interview yields
+    // a buildable brief.
+    const brief = parseProjectBrief(
+      {
+        businessType: "fnb",
+        confidence: 55,
+      },
+      "warung kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        briefPatch: {
+          confidence: 95,
+          facts: [
+            { key: "business_name", label: "Nama brand", value: "Kopi Lanang" },
+            {
+              key: "primary_offer",
+              label: "Menu utama",
+              value: "Kopi Susu Gula Aren",
+            },
+            { key: "contact", label: "Kontak", value: "WhatsApp 081234567890" },
+            {
+              key: "target_customer",
+              label: "Target",
+              value: "Anak muda di Jogja",
+            },
+            {
+              key: "visual_direction",
+              label: "Gaya visual",
+              value: "Modern & Minimalis",
+            },
+          ],
+        },
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Siap dibuild",
+          summary: ["fnb"],
+        },
+      },
+      brief,
+    );
+
+    expect(turn.brief.businessName).toBe("Kopi Lanang");
+    expect(turn.brief.offer).toBe("Kopi Susu Gula Aren");
+    expect(turn.brief.contactOrCta).toBe("WhatsApp 081234567890");
+    expect(turn.brief.targetCustomer).toBe("Anak muda di Jogja");
+    expect(turn.brief.stylePreference).toBe("Modern & Minimalis");
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    expect(turn.readyForBuild).toBe(true);
+  });
+
   it("promotes build_confirm question to build_recommendation when brief is enough", () => {
     const brief = parseProjectBrief(
       {
