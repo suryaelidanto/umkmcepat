@@ -113,7 +113,7 @@ import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
 import { useIsDesktopViewport } from "@/lib/use-is-desktop-viewport";
 import { cn } from "@/lib/utils";
 
-const MonacoEditor = clientOnly(() => import("@monaco-editor/react"));
+const MonacoEditor = clientOnly(() => import("@/lib/monaco-editor"));
 
 // Must match the server limit in api.projects.preview.ts
 export const MAX_CHAT_BYTES = 16 * 1024;
@@ -3378,22 +3378,21 @@ export function WorkspaceShell({
             </div>
           ) : null}
 
-          {activeTab === "code" ? (
-            <div
-              id="workspace-code-panel"
-              role="tabpanel"
-              aria-labelledby="workspace-code-tab"
-              className="h-full min-h-0"
-            >
-              <CodeView
-                files={sourceFiles}
-                buildStatus={sourceStatus}
-                error={sourceError}
-                isLoading={isLoadingSource}
-                onRetry={() => setSourceReloadKey((current) => current + 1)}
-              />
-            </div>
-          ) : null}
+          <div
+            id="workspace-code-panel"
+            role="tabpanel"
+            aria-labelledby="workspace-code-tab"
+            hidden={activeTab !== "code"}
+            className="h-full min-h-0"
+          >
+            <CodeView
+              files={sourceFiles}
+              buildStatus={sourceStatus}
+              error={sourceError}
+              isLoading={isLoadingSource}
+              onRetry={() => setSourceReloadKey((current) => current + 1)}
+            />
+          </div>
         </div>
       </div>
     </section>
@@ -3860,8 +3859,20 @@ function getEditorLanguage(path = "") {
     return "typescript";
   }
 
+  if (path.endsWith(".jsx") || path.endsWith(".js") || path.endsWith(".mjs")) {
+    return "javascript";
+  }
+
   if (path.endsWith(".css")) {
     return "css";
+  }
+
+  if (path.endsWith(".scss")) {
+    return "scss";
+  }
+
+  if (path.endsWith(".less")) {
+    return "less";
   }
 
   if (path.endsWith(".json")) {
@@ -3874,6 +3885,30 @@ function getEditorLanguage(path = "") {
 
   if (path.endsWith(".md")) {
     return "markdown";
+  }
+
+  if (path.endsWith(".xml")) {
+    return "xml";
+  }
+
+  if (path.endsWith(".yaml") || path.endsWith(".yml")) {
+    return "yaml";
+  }
+
+  if (path.endsWith(".sh") || path.endsWith(".bash")) {
+    return "shell";
+  }
+
+  if (path.endsWith(".sql")) {
+    return "sql";
+  }
+
+  if (path.endsWith(".py")) {
+    return "python";
+  }
+
+  if (path.endsWith(".env")) {
+    return "ini";
   }
 
   return "plaintext";
@@ -3908,6 +3943,21 @@ function FileTree({
   selectedPath: string;
 }) {
   const root = buildFileTree(files);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    const visit = (node: FileTreeNode) => {
+      if (node.type === "directory") {
+        initial[node.path] = true;
+        node.children.forEach((child) => visit(child));
+      }
+    };
+    root.children.forEach((child) => visit(child));
+    return initial;
+  });
+
+  const toggle = useCallback((path: string) => {
+    setExpanded((current) => ({ ...current, [path]: !current[path] }));
+  }, []);
 
   if (!files.length) {
     return (
@@ -3926,6 +3976,8 @@ function FileTree({
           node={node}
           onSelect={onSelect}
           selectedPath={selectedPath}
+          expanded={expanded}
+          onToggle={toggle}
         />
       ))}
     </div>
@@ -3937,11 +3989,15 @@ function FileTreeItem({
   node,
   onSelect,
   selectedPath,
+  expanded,
+  onToggle,
 }: {
   name: string;
   node: FileTreeNode;
   onSelect: (path: string) => void;
   selectedPath: string;
+  expanded: Record<string, boolean>;
+  onToggle: (path: string) => void;
 }) {
   if (node.type === "file") {
     const selected = node.path === selectedPath;
@@ -3958,32 +4014,39 @@ function FileTreeItem({
     );
   }
 
-  const isParent = selectedPath.startsWith(node.path + "/");
+  const isOpen = expanded[node.path] !== false;
+  const children = sortFileTreeEntries(node.children);
 
   return (
-    <details
-      key={node.path + "-" + isParent}
-      {...({ defaultOpen: isParent } as Record<string, unknown>)}
-      className="group"
-    >
-      <summary className="cursor-pointer list-none px-spacing-4 py-spacing-1.5 text-sm font-medium text-surface-warm-white/72 hover:bg-surface-warm-white/7 hover:text-surface-warm-white [&::-webkit-details-marker]:hidden">
-        <span className="mr-spacing-2 inline-block text-surface-warm-white/38 group-open:rotate-90">
+    <div key={node.path} className="group">
+      <button
+        type="button"
+        onClick={() => onToggle(node.path)}
+        className="flex w-full cursor-pointer items-center px-spacing-4 py-spacing-1.5 text-left text-sm font-medium text-surface-warm-white/72 hover:bg-surface-warm-white/7 hover:text-surface-warm-white"
+      >
+        <span
+          className={`mr-spacing-2 inline-block text-surface-warm-white/38 transition-transform ${isOpen ? "rotate-90" : ""}`}
+        >
           ›
         </span>
         {name}
-      </summary>
-      <div className="border-l border-surface-warm-white/8 pl-spacing-3 ml-spacing-5">
-        {sortFileTreeEntries(node.children).map(([childName, child]) => (
-          <FileTreeItem
-            key={child.path || `${node.path}/${childName}`}
-            name={childName}
-            node={child}
-            onSelect={onSelect}
-            selectedPath={selectedPath}
-          />
-        ))}
-      </div>
-    </details>
+      </button>
+      {isOpen ? (
+        <div className="ml-spacing-5 border-l border-surface-warm-white/8 pl-spacing-3">
+          {children.map(([childName, child]) => (
+            <FileTreeItem
+              key={child.path || `${node.path}/${childName}`}
+              name={childName}
+              node={child}
+              onSelect={onSelect}
+              selectedPath={selectedPath}
+              expanded={expanded}
+              onToggle={onToggle}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -4334,6 +4397,15 @@ function CodeView({
             language={getEditorLanguage(selectedFile?.path)}
             value={selectedFile?.content || ""}
             theme="vs-dark"
+            loading={
+              <div
+                role="status"
+                className="flex h-full min-h-0 items-center justify-center gap-spacing-3 bg-[#10100f] text-sm text-surface-warm-white/64"
+              >
+                <div className="size-5 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
+                Memuat editor kode...
+              </div>
+            }
             options={{
               readOnly: true,
               domReadOnly: true,
