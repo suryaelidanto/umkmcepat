@@ -93,7 +93,7 @@ describe("runDiscussProgressTail", () => {
 
   it("writes heartbeat events and comments while the turn is still running", async () => {
     vi.useFakeTimers();
-    let subscriber: ((event: { type: string }) => void) | null = null;
+    let subscriber: (event: { type: string }) => void = () => {};
     __setDiscussProgressBackendForTests({
       publish() {},
       subscribe(_turnId, onEvent) {
@@ -119,7 +119,7 @@ describe("runDiscussProgressTail", () => {
       expect(events).toContain("heartbeat");
       expect(comments).toContain("ping");
 
-      subscriber?.({ type: "finish" });
+      subscriber({ type: "finish" });
       await done;
       const heartbeatCount = events.filter(
         (event) => event === "heartbeat",

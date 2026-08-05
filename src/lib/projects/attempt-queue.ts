@@ -334,9 +334,9 @@ export function startAttemptQueueWorker(): void {
       ATTEMPT_QUEUE_NAME,
       async (bullJob) => {
         const data = bullJob.data as AttemptJob;
-        if (data.kind === "discuss") {
+        if (data.kind === "discuss" || data.kind === "compaction") {
           throw new Error(
-            "Discuss jobs must use project-discuss queue, not project-attempt.",
+            `${data.kind} jobs must use their dedicated queue, not project-attempt.`,
           );
         }
         const jobId = jobIdFor(data);
