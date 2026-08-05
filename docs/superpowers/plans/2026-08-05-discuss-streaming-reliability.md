@@ -716,6 +716,26 @@ Plan saved to `docs/superpowers/plans/2026-08-05-discuss-streaming-reliability.m
 
 Which approach? (Also confirm before starting: compaction is priced at its own model in the job; R3 stays off-by-default unless a separate setting flip is approved.)
 
+## Execution Status — 2026-08-05 (shipped)
+
+Shipped and committed on `dev`:
+
+- **R0** `507c094` — behavior-lock tests for the structured card contract.
+- **R1** `4df4499` + `d5eb10a` — background compaction queue; `finish` published before enqueue.
+- **R4** `5822723` — Google Fonts allowed in CSP.
+- **R6** `2692e2c` — SSE heartbeat + `retry:`.
+- **R8** `bc8df7f` — Redis pub/sub clients recreated on socket drop.
+- **R9** `b4951a8` — reattach renders live deltas + card.
+- **R7** `823f36c` — snapshot + sequence + `afterSequence` resume on turn streams.
+- **R10/R11** `9fd85fa` — CSP report-only noise suppressed; discuss energy tagged by project.
+- **R3** `eb34c1f` — off-by-default parallel moderation capability.
+- **R12 (partial)** `5e90251` — worker emits `responding` activity phase.
+- **R5 (server)** `4e89229` — partial workspace-card skeleton deltas streamed.
+
+**Deferred (not shipped):**
+- **R2 full early-open stream** — restructure of `api.projects.preview.ts` to open the SSE stream before the serial preamble. Deferred because it touches many early-return error paths (auth/rate/body/energy/moderation/dedupe) and is high-risk to change unattended. The liveness benefit is partially covered by the R12 `activity` phase event. Do this in a dedicated, reviewed session.
+- **R12 full connection-state machine + R5 client-side skeleton render** — UI-side progressive rendering. Server emits the deltas; client progressive render is a follow-up.
+
 ## Audit Addendum — 2026-08-05
 
 Deep audit result: the first plan was not complete enough for "all phases" execution. This updated plan fixes these gaps:
