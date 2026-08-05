@@ -70,12 +70,47 @@ export function buildBriefPatchFromWorkspaceAnswers({
     if (isLegacyBriefPatchField(answer.questionId)) {
       patch[answer.questionId] = value;
     } else {
-      patch.notes = [...(patch.notes ?? []), `${question.question}: ${value}`];
+      const promotedField = QUESTION_ID_TO_BRIEF_FIELD[answer.questionId];
+      if (promotedField) {
+        patch[promotedField] = value;
+      } else {
+        patch.notes = [
+          ...(patch.notes ?? []),
+          `${question.question}: ${value}`,
+        ];
+      }
     }
   }
 
   return patch;
 }
+
+/**
+ * Deterministic mapping from the discuss model's question ids (snake_case,
+ * e.g. business_name, primary_offer, contact) to the typed brief fields the
+ * batched build admission + MIN_BRIEF_FIELDS gate read. The model generates
+ * fresh question ids each interview and stores answers as facts; without this
+ * promotion a fully answered interview still yields a "thin" brief and every
+ * build falls back to the slow legacy agent loop.
+ */
+const QUESTION_ID_TO_BRIEF_FIELD: Record<string, string> = {
+  business_name: "businessName",
+  business_type: "businessType",
+  primary_offer: "offer",
+  offer: "offer",
+  product_or_service: "offer",
+  target_customer: "targetCustomer",
+  contact: "contactOrCta",
+  primary_contact: "contactOrCta",
+  contact_or_cta: "contactOrCta",
+  whatsapp: "contactOrCta",
+  visual_direction: "stylePreference",
+  style_preference: "stylePreference",
+  price_range: "priceRange",
+  delivery_area: "deliveryArea",
+  address: "address",
+  tagline: "tagline",
+};
 
 function buildImageUploadPatch(
   card: Extract<WorkspaceCard, { type: "image_upload" }>,

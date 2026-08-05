@@ -129,4 +129,62 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
 
     expect(patch).toEqual({});
   });
+
+  it("promotes snake_case question ids to typed brief fields (regression: thin brief)", () => {
+    // The discuss model generates question ids like business_name / primary_offer
+    // / contact; answers to those must fill the typed brief fields the batched
+    // build admission reads, not just facts/decisions.
+    const patch = buildBriefPatchFromWorkspaceAnswers({
+      card: {
+        type: "question",
+        question: {
+          id: "business_name",
+          question: "Nama brand warung kopinya apa?",
+        },
+      },
+      fallbackText: "1. Nama brand warung kopinya apa?\nJawaban: Kopi Lanang",
+      workspaceAnswers: undefined,
+    });
+
+    expect(patch).toEqual(
+      expect.objectContaining({ businessName: "Kopi Lanang" }),
+    );
+    expect(patch.facts).toContainEqual({
+      key: "business_name",
+      label: "Nama brand warung kopinya apa?",
+      value: "Kopi Lanang",
+    });
+  });
+
+  it("promotes contact / visual_direction question ids to typed brief fields", () => {
+    const contactPatch = buildBriefPatchFromWorkspaceAnswers({
+      card: {
+        type: "question",
+        question: {
+          id: "contact",
+          question: "Nomor WhatsApp-nya berapa?",
+        },
+      },
+      fallbackText: "1. Nomor WhatsApp-nya berapa?\nJawaban: 081234567890",
+      workspaceAnswers: undefined,
+    });
+    expect(contactPatch).toEqual(
+      expect.objectContaining({ contactOrCta: "081234567890" }),
+    );
+
+    const visualPatch = buildBriefPatchFromWorkspaceAnswers({
+      card: {
+        type: "question",
+        question: {
+          id: "visual_direction",
+          question: "Mau nuansa visual apa?",
+        },
+      },
+      fallbackText: "1. Mau nuansa visual apa?\nJawaban: Modern & Minimalis",
+      workspaceAnswers: undefined,
+    });
+    expect(visualPatch).toEqual(
+      expect.objectContaining({ stylePreference: "Modern & Minimalis" }),
+    );
+  });
 });
