@@ -43,18 +43,30 @@ describe("writeAiRequestLog", () => {
 
   it("no-ops in production", async () => {
     const orig = process.env.NODE_ENV;
+    const origLogFile = process.env.DEV_LOG_FILE;
+    // Point the log at a private path so concurrent parallel tests writing to
+    // the shared dev.log can't recreate it between our rmSync and assertion.
+    const isolated = path.join(
+      process.cwd(),
+      `.data/tmp/ai-debug/test-prod-noop-${process.pid}.log`,
+    );
     process.env.NODE_ENV = "production";
+    process.env.DEV_LOG_FILE = isolated;
 
-    // Clear log first if it exists from prior tests
-    if (existsSync(DEV_LOG)) {
-      rmSync(DEV_LOG);
+    if (existsSync(isolated)) {
+      rmSync(isolated);
     }
 
     await writeAiRequestLog({ event: "prod-evt" });
 
     // In production, the log file should not be created.
     // (If it was created, readFileSync succeeds and the test fails).
-    expect(() => readFileSync(DEV_LOG, "utf8")).toThrow();
+    expect(() => readFileSync(isolated, "utf8")).toThrow();
+
+    if (existsSync(isolated)) {
+      rmSync(isolated);
+    }
     process.env.NODE_ENV = orig;
+    process.env.DEV_LOG_FILE = origLogFile;
   });
 });
