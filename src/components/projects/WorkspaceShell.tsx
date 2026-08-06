@@ -8,6 +8,8 @@ import {
   ArrowLeft,
   ArrowUp,
   Check,
+  Globe2,
+  MessageCircle,
   PanelRightClose,
   PanelRightOpen,
   Pencil,
@@ -3713,6 +3715,11 @@ export function WorkspaceShell({
           openChatPanel={openChatPanel}
           closeChatPanel={closeChatPanel}
           runtime={runtimeControl}
+          title={initialTitle}
+          onPickTab={(tab) => {
+            setActiveTab(tab);
+            setMobileSurface("preview");
+          }}
         />
         <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
           {activeTab === "preview" ? (
@@ -3874,37 +3881,25 @@ export function WorkspaceShell({
       ) : null}
       <nav
         aria-label="Pilih tampilan ruang kerja"
-        className="sticky bottom-0 z-20 flex h-14 shrink-0 items-stretch gap-spacing-2 border-t border-surface-warm-white/10 bg-[#1b1b19] px-spacing-3 pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="sticky bottom-0 z-20 flex h-12 shrink-0 items-stretch gap-spacing-1 border-t border-surface-warm-white/10 bg-[#1b1b19] px-spacing-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <button
           type="button"
           aria-pressed={mobileSurface === "chat"}
           onClick={openChatPanel}
-          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
+          className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-spacing-2 truncate rounded-radius-lg text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
         >
-          Diskusi
+          <MessageCircle className="size-4 shrink-0" />
+          <span className="truncate">Diskusi</span>
         </button>
         <button
           type="button"
-          aria-pressed={mobileSurface === "preview" && activeTab === "preview"}
-          onClick={() => {
-            setActiveTab("preview");
-            openPreviewPanel();
-          }}
-          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
+          aria-pressed={mobileSurface === "preview"}
+          onClick={openPreviewPanel}
+          className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-spacing-2 truncate rounded-radius-lg text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
         >
-          Tampilan
-        </button>
-        <button
-          type="button"
-          aria-pressed={mobileSurface === "preview" && activeTab === "code"}
-          onClick={() => {
-            setActiveTab("code");
-            openPreviewPanel();
-          }}
-          className="min-h-11 flex-1 rounded-radius-lg px-spacing-4 text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
-        >
-          Kode
+          <Globe2 className="size-4 shrink-0" />
+          <span className="truncate">Tampilan</span>
         </button>
       </nav>
       {/* Mobile/tablet: single full-screen surface toggled by bottom nav */}
