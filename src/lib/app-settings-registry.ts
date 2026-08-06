@@ -80,6 +80,22 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: true,
   },
   {
+    key: "feature.composer_uploads_enabled",
+    category: "feature_flag",
+    tier: "basic",
+    type: "boolean",
+    label: "Home prompt image uploads",
+    fallback: true,
+  },
+  {
+    key: "feature.direct_edit_enabled",
+    category: "feature_flag",
+    tier: "basic",
+    type: "boolean",
+    label: "Workspace Ubah (element edit) mode",
+    fallback: true,
+  },
+  {
     key: "generation.contract_compiled_rollout",
     category: "feature_flag",
     tier: "advanced",
