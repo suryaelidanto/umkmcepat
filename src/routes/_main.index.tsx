@@ -4,10 +4,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { motion } from "motion/react";
 import { useState } from "react";
 
-import {
-  CommunitySection,
-  getCommunityContributors,
-} from "@/components/home/CommunitySection";
+import { CommunitySection } from "@/components/home/CommunitySection";
 import { HeroAuroraBackground } from "@/components/home/HeroAuroraBackground";
 import {
   HeroContentMotion,
@@ -74,14 +71,8 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
     : 0;
   const projectLimit = getProjectLimit();
   const overProjectLimit = isAtOrOverProjectLimit(projectCount, projectLimit);
-  // Contributor cards only render for logged-out visitors; fetch server-side so
-  // the GitHub token stays on the server and the component can stay synchronous.
-  const contributors = session?.user?.id
-    ? []
-    : await getCommunityContributors();
 
   return {
-    contributors,
     greetingName,
     hasUser: Boolean(session?.user),
     initialNextCursor,
@@ -239,13 +230,8 @@ export const Route = createFileRoute("/_main/")({
 });
 
 function HomePage() {
-  const {
-    contributors,
-    greetingName,
-    hasUser,
-    initialNextCursor,
-    initialProjects,
-  } = Route.useLoaderData();
+  const { greetingName, hasUser, initialNextCursor, initialProjects } =
+    Route.useLoaderData();
   const { status } = useSession();
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
@@ -344,7 +330,7 @@ function HomePage() {
         </HeroContentMotion>
       </section>
 
-      {!hasUser ? <CommunitySection contributors={contributors} /> : null}
+      {!hasUser ? <CommunitySection /> : null}
 
       {hasUser && !waitlisted ? (
         <section className="border-t border-surface-warm-white/10 bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">

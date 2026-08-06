@@ -1,51 +1,34 @@
+import { useQuery } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { SponsorTable } from "@/components/home/SponsorTable";
 import { Image } from "@/components/ui/image";
+import {
+  type ContributionWeek,
+  type ContributorCard,
+  formatCompact,
+} from "@/lib/community-contributors";
+import { fetchJson } from "@/lib/query-client";
 
-type GithubStatsContributor = {
-  total: number;
-  author: {
-    login: string;
-    avatar_url: string;
-    html_url: string;
-  };
-  weeks: Array<{
-    w: number;
-    a: number;
-    d: number;
-    c: number;
-  }>;
-};
-
-type ContributionWeek = {
-  label: string;
-  monthLabel: string;
-  commits: number;
-  additions: number;
-  deletions: number;
-};
-
-type ContributorCard = {
-  login: string;
-  avatarUrl: string;
-  profileUrl: string;
-  totalCommits: number;
-  recentCommits: number;
-  recentAdditions: number;
-  recentDeletions: number;
-  weeks?: ContributionWeek[];
-};
-
-const STATS_URL =
-  "https://api.github.com/repos/suryaelidanto/umkmcepat/stats/contributors";
-const CONTRIBUTORS_URL =
-  "https://api.github.com/repos/suryaelidanto/umkmcepat/contributors";
 const ALL_CONTRIBUTORS_URL =
   "https://github.com/suryaelidanto/umkmcepat/graphs/contributors";
 const REPOSITORY_URL = "https://github.com/suryaelidanto/umkmcepat";
-const RECENT_WEEK_COUNT = 12;
+
+const CONTRIBUTOR_QUERY_OPTIONS = {
+  staleTime: 15 * 60_000,
+  gcTime: 15 * 60_000,
+  refetchOnWindowFocus: false,
+} as const;
+
+function useCommunityContributors() {
+  return useQuery({
+    queryKey: ["community", "contributors"],
+    queryFn: () => fetchJson<ContributorCard[]>("/api/community/contributors"),
+    enabled: typeof window !== "undefined",
+    ...CONTRIBUTOR_QUERY_OPTIONS,
+  });
+}
 
 const sponsors = [
   {
@@ -85,147 +68,6 @@ const faqs = [
       "Mulai dari mode Diskusi untuk mematangkan kebutuhan. Kalau arahnya sudah jelas, lanjutkan dengan mode Buat.",
   },
 ];
-
-function getGithubHeaders() {
-  return {
-    Accept: "application/vnd.github+json",
-    "User-Agent": "umkmcepat.com",
-    ...(process.env.GITHUB_TOKEN
-      ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
-      : {}),
-  };
-}
-
-function formatWeek(timestamp: number) {
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "numeric",
-    month: "short",
-  }).format(new Date(timestamp * 1000));
-}
-
-function formatMonth(timestamp: number) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    year: "2-digit",
-  }).format(new Date(timestamp * 1000));
-}
-
-function formatCompact(value: number) {
-  if (value >= 1000) {
-    return `${(value / 1000).toLocaleString("id-ID", {
-      maximumFractionDigits: 1,
-    })}k`;
-  }
-
-  return value.toLocaleString("id-ID");
-}
-
-async function getTopContributors(): Promise<ContributorCard[]> {
-  try {
-    // GitHub computes /stats/contributors lazily and often returns 202 with an
-    // empty body. Do not sleep/retry here — this runs in the home SSR loader and
-    // multi-second waits block first paint. Fall through to /contributors.
-    const response = await fetch(STATS_URL, {
-      headers: getGithubHeaders(),
-    });
-    if (response.status === 202 || !response.ok) {
-      return [];
-    }
-    const body = (await response.json()) as GithubStatsContributor[];
-    const stats = Array.isArray(body) ? body : [];
-
-    if (stats.length === 0) {
-      return [];
-    }
-
-    return stats
-      .filter(
-        (contributor) => contributor.author.login.toLowerCase() !== "claude",
-      )
-      .map((contributor) => {
-        const weeks = contributor.weeks
-          .slice(-RECENT_WEEK_COUNT)
-          .map((week) => ({
-            label: formatWeek(week.w),
-            monthLabel: formatMonth(week.w),
-            commits: week.c,
-            additions: week.a,
-            deletions: week.d,
-          }));
-        const recentCommits = weeks.reduce(
-          (total, week) => total + week.commits,
-          0,
-        );
-        const recentAdditions = weeks.reduce(
-          (total, week) => total + week.additions,
-          0,
-        );
-        const recentDeletions = weeks.reduce(
-          (total, week) => total + week.deletions,
-          0,
-        );
-
-        return {
-          login: contributor.author.login,
-          avatarUrl: `${contributor.author.avatar_url}&s=104`,
-          profileUrl: contributor.author.html_url,
-          totalCommits: contributor.total,
-          recentCommits,
-          recentAdditions,
-          recentDeletions,
-          weeks,
-        };
-      })
-      .sort(
-        (left, right) =>
-          right.recentCommits - left.recentCommits ||
-          right.totalCommits - left.totalCommits,
-      )
-      .slice(0, 3);
-  } catch {
-    return [];
-  }
-}
-
-// Fallback when /stats/contributors is stuck on GitHub's lazy 202: the plain
-// /contributors endpoint returns immediately but has no weekly breakdown, so
-// the card renders without the mini-chart (just avatar + login + total).
-type GithubContributor = {
-  login: string;
-  contributions: number;
-  avatar_url: string;
-  html_url: string;
-};
-
-async function getContributorsFallback(): Promise<ContributorCard[]> {
-  try {
-    const response = await fetch(CONTRIBUTORS_URL, {
-      headers: getGithubHeaders(),
-    });
-    if (!response.ok) {
-      return [];
-    }
-    const body = (await response.json()) as GithubContributor[];
-    if (!Array.isArray(body)) {
-      return [];
-    }
-    return body
-      .filter((contributor) => contributor.login.toLowerCase() !== "claude")
-      .map((contributor) => ({
-        login: contributor.login,
-        avatarUrl: `${contributor.avatar_url}&s=104`,
-        profileUrl: contributor.html_url,
-        totalCommits: contributor.contributions,
-        recentCommits: contributor.contributions,
-        recentAdditions: 0,
-        recentDeletions: 0,
-      }))
-      .sort((left, right) => right.totalCommits - left.totalCommits)
-      .slice(0, 3);
-  } catch {
-    return [];
-  }
-}
 
 function MiniChart({
   weeks,
@@ -268,16 +110,32 @@ function MiniChart({
   );
 }
 
-export async function getCommunityContributors(): Promise<ContributorCard[]> {
-  const stats = await getTopContributors();
-  return stats.length > 0 ? stats : getContributorsFallback();
+function ContributorSkeleton() {
+  return (
+    <div className="mt-spacing-8 divide-y divide-white/[0.07] border-t border-white/[0.07]">
+      {[0, 1, 2].map((index) => (
+        <div
+          key={index}
+          className="flex flex-col gap-spacing-5 py-spacing-6 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex min-w-0 items-center gap-spacing-4">
+            <span className="w-5 shrink-0" />
+            <div className="size-10 shrink-0 animate-pulse rounded-full bg-white/10" />
+            <div className="min-w-0 space-y-spacing-2">
+              <div className="h-4 w-28 animate-pulse rounded bg-white/10" />
+              <div className="h-3 w-40 animate-pulse rounded bg-white/10" />
+            </div>
+          </div>
+          <div className="h-16 w-full animate-pulse rounded bg-white/10 sm:w-48" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
-export function CommunitySection({
-  contributors = [],
-}: {
-  contributors?: ContributorCard[];
-}) {
+export function CommunitySection() {
+  const contributorsQuery = useCommunityContributors();
+  const contributors = contributorsQuery.data ?? [];
   const maxCommits = Math.max(
     1,
     ...contributors.flatMap((contributor) =>
@@ -320,7 +178,9 @@ export function CommunitySection({
               </div>
             </div>
 
-            {contributors.length ? (
+            {contributorsQuery.isPending ? (
+              <ContributorSkeleton />
+            ) : contributors.length ? (
               <div className="mt-spacing-8 divide-y divide-white/[0.07] border-t border-white/[0.07]">
                 {contributors.map((contributor, index) => (
                   <div
@@ -380,7 +240,7 @@ export function CommunitySection({
 
         <ScrollReveal>
           <div className="text-left">
-            <div className="flex flex-col gap-spacing-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-spacing-5 text-left sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white sm:text-4xl">
                   Sponsor
