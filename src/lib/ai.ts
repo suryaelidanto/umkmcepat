@@ -46,6 +46,12 @@ export function getAiModel(model = getDefaultAiModel()) {
 /**
  * Best-effort: AI SDK portable flag to disable hidden reasoning.
  * Effective only if 9Router + child model honor it.
+ *
+ * NOTE: flipping this off (e.g. to reasoning: "auto") changes the discuss UX
+ * contract — WorkspaceShell's AI-thinking strip reacts to streamed reasoning
+ * parts (tier "reasoning"), and reasoning tokens would be billed. Persisted
+ * messages strip reasoning parts via chat-memory.ts. Keep in sync with the
+ * composer's thinking-tier handling.
  */
 export function getNoReasoningCallOptions() {
   return {
