@@ -84,7 +84,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     category: "feature_flag",
     tier: "basic",
     type: "boolean",
-    label: "Home prompt image uploads",
+    label: "Composer image uploads",
     fallback: true,
   },
   {
