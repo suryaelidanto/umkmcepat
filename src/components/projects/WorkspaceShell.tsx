@@ -102,6 +102,10 @@ import {
   type EditHistory,
   type EditLayout,
 } from "@/lib/projects/direct-edit";
+import {
+  isTerminalChatError,
+  nextRetryAttempt,
+} from "@/lib/projects/discuss-chat-error";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { resolveGenerateMode } from "@/lib/projects/resolve-generate-mode";
 import {
@@ -2886,6 +2890,48 @@ export function WorkspaceShell({
       setIsRetrying(false);
     }
   }, [clearError, isRetrying, projectId, regenerate, reloadLatestChat, status]);
+
+  const lastAutoRetriedErrorRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    if (!error || readOnly) {
+      return;
+    }
+    if (isRetrying || status === "streaming" || status === "submitted") {
+      return;
+    }
+    // Same error already handled (React 18 StrictMode double-invoke guard).
+    if (lastAutoRetriedErrorRef.current === error) {
+      return;
+    }
+    const err = error as ChatError;
+    const terminal = isTerminalChatError({
+      code: err.code,
+      message: err.message,
+      status: err.status,
+    });
+    if (terminal) {
+      return; // banner renders with redacted copy
+    }
+    const next = nextRetryAttempt(retryAttemptRef.current, _autoRetryAttempts);
+    if (next === null) {
+      return; // cap reached — banner renders
+    }
+    lastAutoRetriedErrorRef.current = error;
+    retryAttemptRef.current = next;
+    setRetryAttempt(next);
+    setIsRetrying(true);
+    void retryChat();
+  }, [error, isRetrying, status, readOnly, _autoRetryAttempts, retryChat]);
+
+  // Reset retry counter on a successful turn completion.
+  useEffect(() => {
+    if (status === "ready") {
+      retryAttemptRef.current = 0;
+      setRetryAttempt(0);
+      lastAutoRetriedErrorRef.current = null;
+    }
+  }, [status]);
 
   const retryWorkspaceCard = useCallback(async () => {
     if (status === "streaming" || status === "submitted" || isRetrying) {
