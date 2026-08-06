@@ -34,10 +34,10 @@ export function MobileSheet({
                 onOpenChange(false);
               }
             }}
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-[#151515] p-spacing-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] md:hidden"
+            className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-[#151515] p-spacing-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] md:hidden"
             transition={{ damping: 30, stiffness: 320, type: "spring" }}
           >
-            <div className="mx-auto mb-spacing-3 h-1.5 w-10 rounded-full bg-surface-warm-white/20" />
+            <div className="mx-auto mb-spacing-4 h-1.5 w-10 rounded-full bg-surface-warm-white/35" />
             {title ? (
               <DialogPrimitive.Title className="mb-spacing-3 text-sm font-medium">
                 {title}
