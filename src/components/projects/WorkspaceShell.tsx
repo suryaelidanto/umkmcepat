@@ -147,6 +147,7 @@ type WorkspaceShellProps = {
   initialWorkspaceCard: WorkspaceCard;
   initialBrief?: ProjectBrief;
   readOnly?: boolean;
+  autoRetryAttempts?: number;
 };
 
 type RuntimeWorkspaceState = {
@@ -261,6 +262,8 @@ export function WorkspaceShell({
   initialWorkspaceCard,
   initialBrief,
   readOnly = false,
+  // Rename to `autoRetryAttempts` when the composer auto-retry task consumes it.
+  autoRetryAttempts: _autoRetryAttempts = 2,
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);

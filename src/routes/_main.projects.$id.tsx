@@ -7,6 +7,7 @@ import type { UIMessage } from "ai";
 import { ClearProjectDraft } from "@/components/projects/ClearProjectDraft";
 import { WorkspaceShell } from "@/components/projects/WorkspaceShell";
 import { loadProjectForViewer } from "@/lib/admin-project-observer";
+import { getSettingSync } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 
 const loadProject = createServerFn({ method: "GET" })
@@ -27,9 +28,15 @@ const loadProject = createServerFn({ method: "GET" })
       throw notFound();
     }
 
+    const autoRetryAttempts = getSettingSync(
+      "discuss.chat.auto_retry_attempts",
+      2,
+    );
+
     return {
       mode: result.mode,
       projectJson: JSON.stringify(result.project),
+      autoRetryAttempts,
     };
   });
 
@@ -43,6 +50,7 @@ function ProjectPage() {
   const project = JSON.parse(data.projectJson);
 
   const readOnly = data.mode === "observer";
+  const autoRetryAttempts = data.autoRetryAttempts ?? 2;
   const initialMessages = project.initialChatPage.messages as UIMessage[];
   const initialWorkspaceCard = project.initialWorkspaceCard as WorkspaceCard;
   const initialBrief = project.initialBrief as ProjectBrief;
@@ -61,6 +69,7 @@ function ProjectPage() {
         initialWorkspaceCard={initialWorkspaceCard}
         initialBrief={initialBrief}
         readOnly={readOnly}
+        autoRetryAttempts={autoRetryAttempts}
       />
     </>
   );
