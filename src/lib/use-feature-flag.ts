@@ -2,16 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 
 import type { PublicFeatureFlag } from "@/lib/feature-flags-keys";
 
-import { getPublicFlags } from "@/lib/feature-flags";
-
 const FLAGS_KEY = ["public-flags"] as const;
+
+async function fetchPublicFlags(): Promise<Record<PublicFeatureFlag, boolean>> {
+  const response = await fetch("/api/flags", { cache: "no-store" });
+  return (await response.json()) as Record<PublicFeatureFlag, boolean>;
+}
 
 export function usePublicFlags() {
   return useQuery({
-    queryFn: getPublicFlags,
+    queryFn: fetchPublicFlags,
     queryKey: FLAGS_KEY,
     refetchOnWindowFocus: true,
-    staleTime: 30_000,
+    staleTime: 0,
   });
 }
 

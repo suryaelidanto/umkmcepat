@@ -29,7 +29,7 @@ describe("GET /api/flags", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=30, s-maxage=30",
+      "no-store, must-revalidate",
     );
 
     const body = await response.json();

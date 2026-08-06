@@ -8,7 +8,7 @@ export const Route = createFileRoute("/api/flags")({
       GET: async () => {
         const flags = await getPublicFlags();
         return Response.json(flags, {
-          headers: { "Cache-Control": "public, max-age=30, s-maxage=30" },
+          headers: { "Cache-Control": "no-store, must-revalidate" },
         });
       },
     },
