@@ -210,7 +210,7 @@ describe("getPublicFlags", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `bun test tests/lib/feature-flags.test.ts`
+Run: `bun run test -- tests/lib/feature-flags.test.ts`
 
 Expected: FAIL — module not found (`@/lib/feature-flags`).
 
@@ -244,7 +244,7 @@ export async function getPublicFlags(): Promise<
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `bun test tests/lib/feature-flags.test.ts`
+Run: `bun run test -- tests/lib/feature-flags.test.ts`
 
 Expected: 3 passing tests.
 
@@ -367,7 +367,7 @@ describe("GET /api/flags", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `bun test tests/routes/api.flags.test.ts`
+Run: `bun run test -- tests/routes/api.flags.test.ts`
 
 Expected: FAIL — module `@/routes/api.flags` not found.
 
@@ -396,7 +396,7 @@ export const Route = createFileRoute("/api/flags")({
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `bun test tests/routes/api.flags.test.ts`
+Run: `bun run test -- tests/routes/api.flags.test.ts`
 
 Expected: 1 passing test.
 
@@ -615,13 +615,13 @@ Add the `vi.mock("@/lib/app-settings", () => ({ getSetting: getSettingMock }))` 
 
 - [ ] **Step 3: Run the test file to verify it fails (red)**
 
-Run: `bun test tests/routes/projects.id.edit.test.ts`
+Run: `bun run test -- tests/routes/projects.id.edit.test.ts`
 
 Expected: new test fails (handler currently doesn't check the flag).
 
 - [ ] **Step 4: Verify the test passes after Step 1's edit**
 
-Re-run: `bun test tests/routes/projects.id.edit.test.ts`
+Re-run: `bun run test -- tests/routes/projects.id.edit.test.ts`
 
 Expected: new test passes; existing tests still pass.
 
