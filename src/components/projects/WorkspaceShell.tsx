@@ -3683,6 +3683,7 @@ export function WorkspaceShell({
         <WorkspaceTopBar
           annotationAvailable={!readOnly && shouldRenderGeneratedPreview}
           directEditActive={effectiveDirectEditMode}
+          directEditFlagEnabled={directEditFlagEnabled}
           onToggleDirectEdit={toggleDirectEdit}
           directEditActions={
             effectiveDirectEditMode
@@ -3743,6 +3744,7 @@ export function WorkspaceShell({
                   <GeneratedPreviewFrame
                     annotationMarkers={annotations}
                     directEditActive={effectiveDirectEditMode}
+                    directEditFlagEnabled={directEditFlagEnabled}
                     directEditIntents={editIntentHistory.present}
                     editLayoutSignal={editLayoutSignal}
                     editLayout={pendingEditLayout}

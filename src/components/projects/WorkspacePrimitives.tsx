@@ -81,6 +81,7 @@ export function WorkspaceTopBar({
   closeChatPanel,
   annotationAvailable = false,
   directEditActive = false,
+  directEditFlagEnabled = true,
   onToggleDirectEdit,
   directEditActions,
   runtime,
@@ -95,6 +96,7 @@ export function WorkspaceTopBar({
   closeChatPanel: () => void;
   annotationAvailable?: boolean;
   directEditActive?: boolean;
+  directEditFlagEnabled?: boolean;
   onToggleDirectEdit?: () => void;
   directEditActions?: {
     canUndo: boolean;
@@ -168,7 +170,9 @@ export function WorkspaceTopBar({
               Kode
             </TabButton>
           </div>
-          {annotationAvailable && activeTab === "preview" ? (
+          {annotationAvailable &&
+          activeTab === "preview" &&
+          directEditFlagEnabled ? (
             <button
               type="button"
               onClick={onToggleDirectEdit}
@@ -202,7 +206,7 @@ export function WorkspaceTopBar({
 
         {/* Desktop cluster (unchanged) */}
         <div className="hidden min-w-0 w-full items-center justify-between gap-spacing-2 sm:flex sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
-          {directEditActive && directEditActions ? (
+          {directEditFlagEnabled && directEditActive && directEditActions ? (
             <div className="flex items-center gap-spacing-1">
               <button
                 type="button"
@@ -299,7 +303,9 @@ export function WorkspaceTopBar({
         title="Menu"
       >
         <div className="flex flex-col gap-spacing-3">
-          {annotationAvailable && activeTab === "preview" ? (
+          {annotationAvailable &&
+          activeTab === "preview" &&
+          directEditFlagEnabled ? (
             <button
               type="button"
               onClick={() => {
@@ -471,6 +477,7 @@ function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
 export function GeneratedPreviewFrame({
   annotationMarkers = [],
   directEditActive = false,
+  directEditFlagEnabled = true,
   directEditIntents = [],
   editLayout = null,
   editLayoutSignal = 0,
@@ -491,6 +498,7 @@ export function GeneratedPreviewFrame({
     };
   }>;
   directEditActive?: boolean;
+  directEditFlagEnabled?: boolean;
   directEditIntents?: Array<{
     action: "remove" | "move-up" | "move-down";
     target: { selectorPath: string };
@@ -682,7 +690,7 @@ export function GeneratedPreviewFrame({
             target={pendingAnnotation.target}
           />
         ) : null}
-        {directEditActive ? (
+        {directEditFlagEnabled && directEditActive ? (
           <PreviewEditOverlay
             hoverTarget={hoverTarget}
             intents={directEditIntents}
