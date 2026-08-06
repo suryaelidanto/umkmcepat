@@ -392,6 +392,40 @@ describe("runBatchedGenerate — admission + failure paths", () => {
     expect(round2Prompt).toMatch(/outside the requested scope/i);
   });
 
+  it("accepts a repair that renames a JSX-bearing .ts content file to .tsx", async () => {
+    // The writer emits JSX into a data-only .ts file (src/content/menu.ts);
+    // the gate flags it. The natural repair renames the file to .tsx — the
+    // renamed sibling must be in scope, otherwise the fix is dropped and the
+    // whole build falls back to the slow legacy loop.
+    streamTextMock
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/routes/index.tsx">\n${HOME_TSX}</file>\n` +
+            `<file path="src/content/menu.ts">\nexport const menu = <div>Menu</div>;\n</file>\n<done summary="1" />`,
+        ),
+      )
+      .mockReturnValueOnce(
+        writerStream(
+          `<file path="src/content/menu.tsx">\nexport const menu = <div>Menu</div>;\n</file>\n<done summary="2" />`,
+        ),
+      );
+
+    const result = await runBatchedGenerate({
+      ...baseArgs(),
+      stepCharger: makeCharger(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.repairRounds).toBe(1);
+      expect(result.writtenPaths).toContain("src/content/menu.tsx");
+      expect(result.writtenPaths).not.toContain("src/content/menu.ts");
+      expect(
+        result.files.find((f) => f.path === "src/content/menu.tsx"),
+      ).toBeDefined();
+    }
+  });
+
   it("exhausts 2 targeted repairs then signals fallback", async () => {
     const badTsx = `export function HomeRouteComponent() { return (<div>broken`;
     streamTextMock

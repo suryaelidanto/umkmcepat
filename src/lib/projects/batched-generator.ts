@@ -943,12 +943,19 @@ export async function runBatchedGenerate(input: {
     // asked to fix (implicated paths) or supply a still-missing required file.
     // Anything else is dropped and surfaced as a diagnostic for the next
     // round — never silently merged into the stage.
+    // Renamed-sibling allowance: when a .ts content file is flagged for JSX,
+    // the natural fix is renaming it to .tsx. Allow the .tsx sibling of any
+    // implicated .ts path so that legit rename fixes are not dropped as
+    // out-of-scope (which previously forced the slow legacy fallback).
     const requiredMissing = REQUIRED_STAGE_PATHS.filter(
       (path) => !staged.has(path),
     );
     const repairScope = new Set<string>([
       ...implicatedPaths,
       ...requiredMissing,
+      ...implicatedPaths
+        .filter((path) => path.endsWith(".ts") && !path.endsWith(".d.ts"))
+        .map((path) => path.replace(/\.ts$/, ".tsx")),
     ]);
     for (const [path, file] of repairCall.response.files) {
       if (repairScope.has(path)) {
@@ -959,6 +966,18 @@ export async function runBatchedGenerate(input: {
           projectId: input.projectId,
           repairRounds,
         });
+      }
+    }
+    // Renamed-sibling cleanup: when a repair renames src/content/menu.ts to
+    // menu.tsx, drop the stale .ts entry — otherwise the gate keeps flagging
+    // the old JSX-bearing file and the build falls back to the legacy loop.
+    for (const stagedPath of [...staged.keys()]) {
+      if (
+        stagedPath.endsWith(".ts") &&
+        !stagedPath.endsWith(".d.ts") &&
+        staged.has(stagedPath.replace(/\.ts$/, ".tsx"))
+      ) {
+        staged.delete(stagedPath);
       }
     }
     lastDiagnostics = gateStage({
