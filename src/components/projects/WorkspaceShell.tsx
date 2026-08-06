@@ -127,6 +127,7 @@ import {
 } from "@/lib/projects/workspace-sync";
 import { fetchJson, queryKeys, useCacheMutation } from "@/lib/query-client";
 import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
+import { useFeatureFlag } from "@/lib/use-feature-flag";
 import { useIsDesktopViewport } from "@/lib/use-is-desktop-viewport";
 import { cn } from "@/lib/utils";
 
@@ -375,6 +376,8 @@ export function WorkspaceShell({
   const [pendingAnnotationComment, setPendingAnnotationComment] = useState("");
   const visualAnnotationsLoadedRef = useRef(false);
   const [directEditMode, setDirectEditMode] = useState(false);
+  const directEditFlagEnabled = useFeatureFlag("feature.direct_edit_enabled");
+  const effectiveDirectEditMode = directEditMode && directEditFlagEnabled;
   const [editHistory, setEditHistory] = useState<EditHistory>({
     present: null,
     past: [],
@@ -3679,20 +3682,24 @@ export function WorkspaceShell({
       <div className="flex h-full min-h-0 flex-col bg-[#10100f] text-surface-warm-white">
         <WorkspaceTopBar
           annotationAvailable={!readOnly && shouldRenderGeneratedPreview}
-          directEditActive={directEditMode}
+          directEditActive={effectiveDirectEditMode}
           onToggleDirectEdit={toggleDirectEdit}
-          directEditActions={{
-            canUndo:
-              Boolean(editIntentHistory.past.length) ||
-              canUndoDirectEdit(editHistory),
-            canRedo:
-              Boolean(editIntentHistory.future.length) ||
-              canRedoDirectEdit(editHistory),
-            onUndo: handleUndo,
-            onRedo: handleRedo,
-            onSave: () => void saveDirectEdit(),
-            onDiscard: handleDiscard,
-          }}
+          directEditActions={
+            effectiveDirectEditMode
+              ? {
+                  canUndo:
+                    Boolean(editIntentHistory.past.length) ||
+                    canUndoDirectEdit(editHistory),
+                  canRedo:
+                    Boolean(editIntentHistory.future.length) ||
+                    canRedoDirectEdit(editHistory),
+                  onUndo: handleUndo,
+                  onRedo: handleRedo,
+                  onSave: () => void saveDirectEdit(),
+                  onDiscard: handleDiscard,
+                }
+              : undefined
+          }
           projectId={projectId}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -3735,7 +3742,7 @@ export function WorkspaceShell({
                 <div className="relative h-full">
                   <GeneratedPreviewFrame
                     annotationMarkers={annotations}
-                    directEditActive={directEditMode}
+                    directEditActive={effectiveDirectEditMode}
                     directEditIntents={editIntentHistory.present}
                     editLayoutSignal={editLayoutSignal}
                     editLayout={pendingEditLayout}
