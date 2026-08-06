@@ -37,12 +37,34 @@ const defaults: Record<
   },
 };
 
-function getClientIp(request: Request): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    "127.0.0.1"
-  );
+function isPlausibleIp(value: string | null | undefined): value is string {
+  if (!value) {
+    return false;
+  }
+  return value.length <= 45 && /^[0-9a-fA-F:.]+$/.test(value);
+}
+
+export function getClientIp(request: Request): string {
+  const cfConnectingIp = request.headers.get("cf-connecting-ip");
+  if (isPlausibleIp(cfConnectingIp)) {
+    return cfConnectingIp;
+  }
+
+  // Cloudflare appends the real client IP as the LAST hop and preserves any
+  // client-supplied leading hops; the leading entries are attacker-controlled
+  // and must never be trusted for rate limiting.
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const lastHop = forwardedFor?.split(",").at(-1)?.trim();
+  if (isPlausibleIp(lastHop)) {
+    return lastHop;
+  }
+
+  const realIp = request.headers.get("x-real-ip");
+  if (isPlausibleIp(realIp)) {
+    return realIp;
+  }
+
+  return "127.0.0.1";
 }
 
 export async function getRateLimitConfig(

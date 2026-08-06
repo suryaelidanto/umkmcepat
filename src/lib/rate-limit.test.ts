@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invalidateSettingCache } from "@/lib/app-settings";
 import {
   checkRateLimit,
+  getClientIp,
   getRateLimitConfig,
   shouldEnforceProductRateLimit,
 } from "@/lib/rate-limit";
@@ -89,6 +90,44 @@ describe("getRateLimitConfig", () => {
     const buildLimit = (await getRateLimitConfig("build", "ip")).limit;
     const aiLimit = (await getRateLimitConfig("ai", "ip")).limit;
     expect(buildLimit).toBeLessThan(aiLimit);
+  });
+});
+
+describe("getClientIp", () => {
+  it("prefers cf-connecting-ip when present (Cloudflare sets it, spoofing cannot)", () => {
+    const request = new Request("http://localhost/", {
+      headers: {
+        "cf-connecting-ip": "203.0.113.7",
+        "x-forwarded-for": "1.2.3.4, 198.51.100.9",
+        "x-real-ip": "10.0.0.1",
+      },
+    });
+    expect(getClientIp(request)).toBe("203.0.113.7");
+  });
+
+  it("uses the LAST x-forwarded-for hop, ignoring attacker-supplied leading hops", () => {
+    const request = new Request("http://localhost/", {
+      headers: { "x-forwarded-for": "6.6.6.6, 7.7.7.7, 203.0.113.99" },
+    });
+    expect(getClientIp(request)).toBe("203.0.113.99");
+  });
+
+  it("falls back to x-real-ip", () => {
+    const request = new Request("http://localhost/", {
+      headers: { "x-real-ip": "198.51.100.4" },
+    });
+    expect(getClientIp(request)).toBe("198.51.100.4");
+  });
+
+  it("falls back to 127.0.0.1 when no header is present", () => {
+    expect(getClientIp(new Request("http://localhost/"))).toBe("127.0.0.1");
+  });
+
+  it("ignores implausible values (e.g. path traversal strings)", () => {
+    const request = new Request("http://localhost/", {
+      headers: { "x-forwarded-for": "../../etc/passwd" },
+    });
+    expect(getClientIp(request)).toBe("127.0.0.1");
   });
 });
 
