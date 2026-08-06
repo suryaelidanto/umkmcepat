@@ -19,3 +19,21 @@ Task 5 (businessImages persist + build prompt): complete (6bdb5df)
 Task 6 (preview persist wiring): complete (287d199, route test green)
 Task 7 (docs + full gate): complete (17ca5d6, bun run check green)
 
+
+# SDD Progress — 2026-08-06 discuss chat error feedback + AI thinking UX
+Plan: docs/superpowers/plans/2026-08-06-discuss-chat-error-feedback-ux.md
+Task 1 (classifier + retry math): complete (93aceb2 + 98e35dd fix 503-transient, review clean/approved, 11/11 tests)
+Task 2 (AppSetting registry): complete (3acbb49, review approved, 23/23 tests; minor: .env.example deferred to consumer task)
+
+# SDD Progress — 2026-08-06 mobile workspace polish
+Plan: docs/superpowers/plans/2026-08-06-mobile-workspace-polish.md
+Task 1 (MobileSheet visual polish): complete (a6d6ee9, review approved)
+Task 2 (EnergyLedgerButton variant): complete (a50fea8d via cherry-pick of 276cba5f, review approved)
+Task 3 (WorkspaceHistoryButton variant): complete (b1d1188b, review approved)
+Task 4 (MobileMenuContent + title/onPickTab): complete (7a3a2e85, review approved; RuntimeStatusInline removed per controller pre-flag)
+Task 5 (shrink bottom nav + wire props): complete (4fa02686, review approved; out-of-scope hunks extracted to b0005271)
+Task 6 (tests for sheet sections + nav count): complete (59feb71, review approved; 27/27 pass)
+Task 7 (verification): complete (49/49 components+ui tests pass; prettier + tsc clean on touched files; full bun run check blocked on unrelated feature-flag plan lint)
+Final review (whole-branch): ab12f7d applied — restored directEditFlagEnabled guard on Ubah, refactored closeSheetForRow module-level mutable to onActivate prop, added onActivate to History/Energy/Runtime row variants so sheet closes on dialog-opens, dropped JSX section comments duplicating kicker spans, added 2 regression tests (29/29 in target files; 46/46 across projects/). Stray `f6d8efe6` (autoRetryAttempts dead prop) is other agent's work, noted but not fixed in this branch.
+Task 3 (loader prop wiring): complete (f6d8efe, review approved; note: shared brief file clobbered by parallel session — namespace files per-plan from here)
+Task 4 (banner redaction + clearError): complete (f505987 + f0fe68a WIP-restore + 9b9f428 WIP-restore; net: WorkspaceShell banner "Mencoba lagi (puturan ke-N)" + toUserFacingDiscussError wrap, clearError on send; review + typecheck clean)
