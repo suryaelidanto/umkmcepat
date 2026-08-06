@@ -53,7 +53,14 @@ async function visit(url: string): Promise<void> {
   }
   const text = await response.text();
   stats.push({ url, ms: elapsedMs, size: text.length });
-  const importPattern = /(?:from\s+|import\s*\(\s*)["']([^"']+)["']/g;
+  // Follow static imports everywhere; additionally follow the `await
+  // import(...)` bootstrap in the virtual dev entry (it loads the client
+  // graph at startup). Other dynamic imports are code-split chunks loaded on
+  // demand, so they are not part of the initial page load.
+  const isDevEntry = url.includes("dev-client-entry");
+  const importPattern = isDevEntry
+    ? /(?:from\s+|await\s+import\s*\(\s*)[\"']([^\"']+)[\"']/g
+    : /from\s+[\"']([^\"']+)[\"']/g;
   let match: RegExpExecArray | null;
   while ((match = importPattern.exec(text))) {
     const resolved = resolvePath(url, match[1]);
