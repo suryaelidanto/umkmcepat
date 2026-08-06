@@ -14,9 +14,128 @@ concurrency:
   group: quality-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CI: true
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/umkmcepat?schema=public
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  STORAGE_PROVIDER: local
+  S3_ENDPOINT: http://localhost:9000
+  S3_REGION: us-east-1
+  S3_ACCESS_KEY_ID: minioadmin
+  S3_SECRET_ACCESS_KEY: minioadmin
+  S3_PUBLIC_BUCKET: umkmcepat-public-dev
+  S3_PRIVATE_BUCKET: umkmcepat-private-dev
+  S3_PUBLIC_BASE_URL: http://localhost:9000
+  PROJECT_BUILD_WORKSPACE_DIR: .data/project-build-workspaces
+  PROJECT_RUNTIME_DIR: .data/project-runtimes
+  PROJECT_RUNTIME_SUPERVISOR: noop
+  PROJECT_THUMBNAIL_DIR: .data/project-thumbnails
+  RATE_LIMIT_PROVIDER: memory
+  CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+
 jobs:
   verify:
     name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Cache Bun install
+        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Prisma migrate
+        run: bunx prisma migrate deploy
+
+      - name: Generate routes
+        run: bun run routes:generate
+
+      - name: Verify full suite
+        run: bun run verify
+
+      - name: Check generated files are committed
+        run: git diff --exit-code
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Cache Bun install
+        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+  storybook:
+    name: Storybook
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Cache Bun install
+        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: bunx playwright install --with-deps chromium
+
+      - name: Storybook build and tests
+        run: bun run storybook:ci
+
+      - name: Chromatic visual tests
+        if: ${{ env.CHROMATIC_PROJECT_TOKEN != '' }}
+        run: bun run chromatic
+
+  integration:
+    name: Integration
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -35,60 +154,28 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    env:
-      CI: true
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/umkmcepat?schema=public
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      STORAGE_PROVIDER: local
-      S3_ENDPOINT: http://localhost:9000
-      S3_REGION: us-east-1
-      S3_ACCESS_KEY_ID: minioadmin
-      S3_SECRET_ACCESS_KEY: minioadmin
-      S3_PUBLIC_BUCKET: umkmcepat-public-dev
-      S3_PRIVATE_BUCKET: umkmcepat-private-dev
-      S3_PUBLIC_BASE_URL: http://localhost:9000
-      PROJECT_BUILD_WORKSPACE_DIR: .data/project-build-workspaces
-      PROJECT_RUNTIME_DIR: .data/project-runtimes
-      PROJECT_RUNTIME_SUPERVISOR: noop
-      PROJECT_THUMBNAIL_DIR: .data/project-thumbnails
-      RATE_LIMIT_PROVIDER: memory
-      CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        # setup-bun reads the pinned packageManager version from package.json.
+
+      - name: Cache Bun install
+        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Prisma migrate
         run: bunx prisma migrate deploy
-
-      - name: Generate routes
-        run: bun run routes:generate
-
-      - name: Install Playwright browser
-        run: bunx playwright install --with-deps chromium
-
-      - name: Storybook build and tests
-        run: bun run storybook:ci
-
-      - name: Chromatic visual tests
-        if: ${{ env.CHROMATIC_PROJECT_TOKEN != '' }}
-        run: bun run chromatic
-
-      - name: Build
-        run: bun run build
-
-      - name: Verify full suite
-        run: bun run verify
-
-      - name: Check generated files are committed
-        run: git diff --exit-code
 
       - name: Integration tests (real database)
         run: bun run test:integration
