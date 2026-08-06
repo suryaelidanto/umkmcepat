@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  MobileMenuContent,
   PreviewIssueState,
   ProcessingControl,
   WorkspaceTopBar,
@@ -161,5 +162,50 @@ describe("WorkspaceTopBar direct edit actions", () => {
     expect(markup).toMatch(/aria-label="Redo"/);
     expect(markup).toMatch(/Simpan/);
     expect(markup).toMatch(/Batalkan/);
+  });
+});
+
+describe("MobileMenuContent", () => {
+  const baseProps = {
+    activeTab: "preview" as const,
+    setActiveTab: vi.fn(),
+    viewport: "desktop" as const,
+    setViewport: vi.fn(),
+    annotationAvailable: false,
+    directEditActive: false,
+    onClose: vi.fn(),
+  };
+
+  const renderMenu = (overrides: Record<string, unknown> = {}) =>
+    renderToStaticMarkup(
+      createElement(
+        QueryClientProvider,
+        {
+          client: new QueryClient({
+            defaultOptions: { queries: { retry: false } },
+          }),
+        },
+        createElement(MobileMenuContent, {
+          ...baseProps,
+          ...overrides,
+          projectId: "test-project",
+        }),
+      ),
+    );
+
+  it("renders three named sections: Tampilan, Tampilan perangkat, Aksi", () => {
+    const markup = renderMenu();
+    expect(markup).toContain(">Tampilan<");
+    expect(markup).toContain(">Tampilan perangkat<");
+    expect(markup).toContain(">Aksi<");
+  });
+
+  it("renders the Kode sub-control button inside the sheet", () => {
+    const markup = renderMenu();
+    // Kode tab is the second child of the Tampilan sub-control.
+    expect(markup).toContain(">Kode<");
+    expect(markup).toMatch(
+      /role="tab"[^>]*aria-selected="false"[^>]*>[\s\S]*?Kode</,
+    );
   });
 });

@@ -248,6 +248,46 @@ describe("workspace panel split", () => {
     // Desktop tree's ResizablePanelGroup output should be absent.
     expect(html).not.toContain("ResizablePanelGroup");
   });
+
+  it("renders a 2-segment mobile bottom nav (Diskusi + Tampilan)", () => {
+    const queryClient = new QueryClient();
+    const html = renderToStaticMarkup(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(WorkspaceShell, {
+          projectId: "test",
+          initialTitle: "Dapur Nasi Box",
+          initialStatus: "passed",
+          initialMessages: [],
+          initialChatCursor: null,
+          initialChatHasMore: false,
+          initialWorkspaceCard: { type: "none" },
+          initialBrief: makeBrief({
+            businessName: "Kopi Tuku",
+            businessType: "Kedai kopi",
+            offer: "Kopi susu tetangga",
+            targetCustomer: "Anak muda",
+            stylePreference: "Modern",
+            contactOrCta: "Pesan online",
+          }),
+        }),
+      ),
+    );
+    // Bottom nav is the only <nav> with aria-label="Pilih tampilan ruang kerja".
+    const navMatch = html.match(
+      /<nav[^>]*aria-label="Pilih tampilan ruang kerja"[\s\S]*?<\/nav>/,
+    );
+    expect(navMatch).not.toBeNull();
+    const navHtml = navMatch?.[0] ?? "";
+    // Two buttons, one per segment.
+    expect((navHtml.match(/aria-pressed=/g) ?? []).length).toBe(2);
+    expect(navHtml).toContain("Diskusi");
+    expect(navHtml).toContain("Tampilan");
+    // Kode is no longer in the bottom nav — it lives in the sheet (which is
+    // closed in static render, so its markup is not in the output).
+    expect(navHtml).not.toContain(">Kode<");
+  });
 });
 
 describe("MAX_CHAT_BYTES", () => {
