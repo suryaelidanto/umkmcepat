@@ -8,6 +8,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { primeSettingCache } from "@/lib/app-settings";
 import { getAuthStore } from "@/lib/auth";
 import { generateNonce, getNonceStore } from "@/lib/csp-nonce";
+import { applyLandingCacheHeaders } from "@/lib/landing-cache";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
   applySecurityHeaders,
@@ -93,6 +94,7 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
     pathname,
     nonce,
   });
+  applyLandingCacheHeaders(request, result.response);
 
   return result;
 });
