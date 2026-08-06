@@ -348,6 +348,8 @@ export function WorkspaceShell({
   const shouldStickToBottomRef = useRef(true);
   const ignoreNextScrollRef = useRef(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const retryAttemptRef = useRef(0);
   const [workspaceCardError, setWorkspaceCardError] = useState(false);
   const [isPreparingNextQuestion, setIsPreparingNextQuestion] = useState(false);
   const isPreparingNextQuestionRef = useRef(false);
@@ -2607,6 +2609,9 @@ export function WorkspaceShell({
       // User is sending a new turn: re-pin and jump to latest.
       shouldStickToBottomRef.current = true;
       setRateLimitError(null);
+      clearError(); // hide stale banner from the previous failed turn
+      retryAttemptRef.current = 0;
+      setRetryAttempt(0);
       setMessage("");
       setBuildProgress([]);
       requestAnimationFrame(() =>
@@ -2638,6 +2643,7 @@ export function WorkspaceShell({
     },
     [
       authStatus,
+      clearError,
       composerState,
       isProcessing,
       mode,
@@ -3227,8 +3233,8 @@ export function WorkspaceShell({
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
               <p className="text-sm font-medium text-[#ffb4a6]">
                 {isRetrying
-                  ? "AI sempat terputus. Mencoba menyambung ulang..."
-                  : "AI sempat terputus. Coba kirim ulang pesanmu."}
+                  ? `Mencoba lagi (putaran ke-${Math.max(1, retryAttempt)})…`
+                  : toUserFacingDiscussError(error.message)}
               </p>
               {!readOnly && !isRetrying ? (
                 <Button
