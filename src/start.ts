@@ -6,6 +6,7 @@ import {
 import { getRequest } from "@tanstack/react-start/server";
 
 import { primeSettingCache } from "@/lib/app-settings";
+import { getAuthStore } from "@/lib/auth";
 import { generateNonce, getNonceStore } from "@/lib/csp-nonce";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -82,8 +83,10 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
     }
   }
 
-  const result = await getNonceStore().run(nonce, async () => {
-    return await next();
+  const result = await getAuthStore().run(new Map(), async () => {
+    return await getNonceStore().run(nonce, async () => {
+      return await next();
+    });
   });
   applySecurityHeaders(result.response.headers, {
     generatedOrigin,

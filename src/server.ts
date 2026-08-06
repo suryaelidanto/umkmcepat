@@ -6,6 +6,8 @@ import { register } from "@/lib/instrumentation";
 
 // Initialize the global nonce store on server boot
 globalThis.__nonceStore = new AsyncLocalStorage<string>();
+// Initialize the per-request auth memoization store on server boot
+globalThis.__authStore = new AsyncLocalStorage<Map<string, unknown>>();
 
 // Run one-time startup validation + observability setup at server boot.
 const ready = register().catch((error) => {

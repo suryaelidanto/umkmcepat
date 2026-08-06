@@ -1,8 +1,10 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { Auth } from "@auth/core";
 import { getRequest } from "@tanstack/react-start/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { auth, getAuthState, requireNotBanned } from "@/lib/auth";
+import { auth, getAuthState, getAuthStore, requireNotBanned } from "@/lib/auth";
 
 const prismaUserFindUniqueMock = vi.fn();
 
@@ -29,6 +31,7 @@ vi.mock("@/lib/prisma", () => ({
 describe("server-side auth() helper", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    globalThis.__authStore = new AsyncLocalStorage<Map<string, unknown>>();
   });
 
   afterEach(() => {
@@ -108,6 +111,7 @@ describe("server-side auth() helper", () => {
 describe("getAuthState()", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    globalThis.__authStore = new AsyncLocalStorage<Map<string, unknown>>();
   });
 
   afterEach(() => {
@@ -179,6 +183,7 @@ describe("getAuthState()", () => {
 describe("requireNotBanned()", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    globalThis.__authStore = new AsyncLocalStorage<Map<string, unknown>>();
   });
 
   afterEach(() => {
@@ -212,5 +217,51 @@ describe("requireNotBanned()", () => {
       expect(thrown).toBeInstanceOf(Response);
       expect((thrown as Response).status).toBe(307);
     }
+  });
+});
+
+describe("per-request auth memoization", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    globalThis.__authStore = new AsyncLocalStorage<Map<string, unknown>>();
+  });
+
+  it("resolves the session only once within a request scope", async () => {
+    const mockRequest = new Request("http://localhost:3000/", {
+      headers: { cookie: "session-token=123" },
+    });
+    vi.mocked(getRequest).mockReturnValue(mockRequest);
+    const mockSessionResponse = new Response(
+      JSON.stringify({ user: { id: "user-1", name: "Jane" } }),
+      { status: 200 },
+    );
+    vi.mocked(Auth).mockResolvedValue(mockSessionResponse as never);
+
+    await getAuthStore().run(new Map(), async () => {
+      const first = await getAuthState();
+      const second = await getAuthState();
+
+      expect(first).toEqual(second);
+      expect(first.session?.user?.id).toBe("user-1");
+      expect(vi.mocked(Auth)).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("does not leak the memo across request scopes", async () => {
+    const mockRequest = new Request("http://localhost:3000/", {
+      headers: { cookie: "session-token=123" },
+    });
+    vi.mocked(getRequest).mockReturnValue(mockRequest);
+    vi.mocked(Auth).mockImplementation(async () => {
+      return new Response(
+        JSON.stringify({ user: { id: "user-1", name: "Jane" } }),
+        { status: 200 },
+      ) as never;
+    });
+
+    await getAuthStore().run(new Map(), () => getAuthState());
+    await getAuthStore().run(new Map(), () => getAuthState());
+
+    expect(vi.mocked(Auth)).toHaveBeenCalledTimes(2);
   });
 });

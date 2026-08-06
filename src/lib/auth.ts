@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { Auth } from "@auth/core";
 import { redirect } from "@tanstack/react-router";
 import { getRequest } from "@tanstack/react-start/server";
@@ -6,6 +8,23 @@ import type { Session } from "@auth/core/types";
 
 import { authConfig } from "@/lib/auth-config";
 import { prisma } from "@/lib/prisma";
+
+declare global {
+  var __authStore: AsyncLocalStorage<Map<string, unknown>> | undefined;
+}
+
+// Per-request scope for memoizing session resolution. Mirrors the CSP nonce
+// store pattern (csp-nonce.ts + server.ts boot init): every request gets a
+// fresh store, and callers that resolve the same session more than once
+// (route gates + loaders) share a single Auth.js resolve + banned check.
+export function getAuthStore(): AsyncLocalStorage<Map<string, unknown>> {
+  if (typeof window !== "undefined") {
+    throw new Error("Auth store is only available on the server side");
+  }
+  return (globalThis.__authStore ??= new AsyncLocalStorage<
+    Map<string, unknown>
+  >());
+}
 
 // Handles every /api/auth/* request (sign-in, callback, sign-out, csrf,
 // session, providers) via Auth.js Core. Mounted from the auth catch-all
@@ -50,6 +69,20 @@ export type AuthState = {
 // whether the resolved user is banned. Use this in route gates that need to
 // distinguish "guest" from "banned" — auth() collapses both into null.
 export async function getAuthState(): Promise<AuthState> {
+  const store = getAuthStore().getStore();
+  if (store) {
+    const cached = store.get("authState") as AuthState | undefined;
+    if (cached !== undefined) {
+      return cached;
+    }
+    const state = await resolveAuthState();
+    store.set("authState", state);
+    return state;
+  }
+  return resolveAuthState();
+}
+
+async function resolveAuthState(): Promise<AuthState> {
   const request = getRequest();
   if (!request) {
     return { session: null, banned: false };
