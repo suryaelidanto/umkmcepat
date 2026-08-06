@@ -9,7 +9,7 @@ import {
   type ModerationImage,
 } from "@/lib/ai-moderation";
 import { apiError } from "@/lib/api-errors";
-import { getSettingSync } from "@/lib/app-settings";
+import { getSetting, getSettingSync } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import { prisma } from "@/lib/prisma";
@@ -159,6 +159,18 @@ export const Route = createFileRoute("/api/projects")({
             { message: "Permintaan tidak valid." },
             { status: 400 },
           );
+        }
+
+        const uploadsEnabled = await getSetting(
+          "feature.composer_uploads_enabled",
+          true,
+        );
+        if (!uploadsEnabled) {
+          for (const key of Array.from(form.keys())) {
+            if (key === "assetIds" || key === "files") {
+              form.delete(key);
+            }
+          }
         }
 
         const prompt = String(form.get("prompt") ?? "").trim();
