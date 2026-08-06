@@ -38,3 +38,5 @@ Final review (whole-branch): ab12f7d applied — restored directEditFlagEnabled 
 Task 3 (loader prop wiring): complete (f6d8efe, review approved; note: shared brief file clobbered by parallel session — namespace files per-plan from here)
 Task 4 (banner redaction + clearError): complete (f505987 + f0fe68a WIP-restore + 9b9f428 WIP-restore; net: WorkspaceShell banner "Mencoba lagi (puturan ke-N)" + toUserFacingDiscussError wrap, clearError on send; review + typecheck clean)
 Task 5 (auto-retry effect): complete (bd23180, review approved; 12/12 tests; flag: _autoRetryAttempts destructure alias correct, rename deferred)
+Task 6 (AI thinking strip): complete (12ad3ecc, 17/17 tests, review clean; text-delta arm dropped - not a valid UIMessagePart)
+Task 7 (reasoning docstring): complete (ced230f)
