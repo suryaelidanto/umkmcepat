@@ -57,9 +57,11 @@ function formatDate(iso: string): string {
 export function WorkspaceHistoryButton({
   projectId,
   variant = "pill",
+  onActivate,
 }: {
   projectId: string;
   variant?: "pill" | "row";
+  onActivate?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const isRow = variant === "row";
@@ -67,7 +69,10 @@ export function WorkspaceHistoryButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          onActivate?.();
+          setOpen(true);
+        }}
         aria-label="Lihat riwayat versi"
         className={
           isRow

@@ -115,7 +115,6 @@ export function WorkspaceTopBar({
   onPickTab?: (tab: BuildTab) => void;
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  closeSheetForRow = () => setIsMobileMenuOpen(false);
   return (
     <>
       <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
@@ -321,6 +320,7 @@ export function WorkspaceTopBar({
           setViewport={setViewport}
           annotationAvailable={annotationAvailable}
           directEditActive={directEditActive}
+          directEditFlagEnabled={directEditFlagEnabled}
           onToggleDirectEdit={onToggleDirectEdit}
           runtime={runtime}
           projectId={projectId}
@@ -392,6 +392,7 @@ type MobileMenuContentProps = {
   setViewport: (viewport: "desktop" | "mobile") => void;
   annotationAvailable: boolean;
   directEditActive: boolean;
+  directEditFlagEnabled: boolean;
   onToggleDirectEdit?: () => void;
   runtime?: WorkspaceRuntimeControl;
   projectId?: string;
@@ -406,6 +407,7 @@ export function MobileMenuContent({
   setViewport,
   annotationAvailable,
   directEditActive,
+  directEditFlagEnabled,
   onToggleDirectEdit,
   runtime,
   projectId,
@@ -423,7 +425,6 @@ export function MobileMenuContent({
 
   return (
     <div className="flex flex-col gap-spacing-5">
-      {/* Section: Tampilan (sub-control) */}
       <section className="flex flex-col gap-spacing-2">
         <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-surface-warm-white/44">
           Tampilan
@@ -456,7 +457,6 @@ export function MobileMenuContent({
         </div>
       </section>
 
-      {/* Section: Tampilan perangkat (only when preview is active) */}
       {activeTab === "preview" ? (
         <section className="flex flex-col gap-spacing-2">
           <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-surface-warm-white/44">
@@ -497,13 +497,14 @@ export function MobileMenuContent({
         </section>
       ) : null}
 
-      {/* Section: Aksi */}
       <section className="flex flex-col gap-spacing-2">
         <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-surface-warm-white/44">
           Aksi
         </span>
         <div className="flex flex-col gap-spacing-1">
-          {annotationAvailable && activeTab === "preview" ? (
+          {annotationAvailable &&
+          activeTab === "preview" &&
+          directEditFlagEnabled ? (
             <button
               type="button"
               onClick={() => {
@@ -538,26 +539,40 @@ export function MobileMenuContent({
             </a>
           ) : null}
           {projectId ? (
-            <WorkspaceHistoryButton projectId={projectId} variant="row" />
+            <WorkspaceHistoryButton
+              onActivate={onClose}
+              projectId={projectId}
+              variant="row"
+            />
           ) : null}
           {projectId ? (
-            <EnergyLedgerButton projectId={projectId} variant="row" />
+            <EnergyLedgerButton
+              onActivate={onClose}
+              projectId={projectId}
+              variant="row"
+            />
           ) : null}
-          {runtime ? <RuntimeControl runtime={runtime} variant="row" /> : null}
+          {runtime ? (
+            <RuntimeControl
+              onActivate={onClose}
+              runtime={runtime}
+              variant="row"
+            />
+          ) : null}
         </div>
       </section>
     </div>
   );
 }
 
-let closeSheetForRow: () => void = () => {};
-
 function RuntimeControl({
   runtime,
   variant = "pill",
+  onActivate,
 }: {
   runtime: WorkspaceRuntimeControl;
   variant?: "pill" | "row";
+  onActivate?: () => void;
 }) {
   if (variant === "row") {
     return (
@@ -567,7 +582,7 @@ function RuntimeControl({
             href={runtime.publishedPath}
             target="_blank"
             rel="noreferrer"
-            onClick={closeSheetForRow}
+            onClick={onActivate}
             aria-label="Buka website yang diterbitkan"
             className="inline-flex h-11 w-full items-center justify-center gap-spacing-2 rounded-radius-md bg-surface-warm-white px-spacing-4 text-sm font-medium text-foreground-primary hover:bg-surface-warm-white/90"
           >
@@ -580,7 +595,7 @@ function RuntimeControl({
             disabled={!runtime.canPublish || runtime.isPublishing}
             onClick={() => {
               runtime.onPublish?.();
-              closeSheetForRow();
+              onActivate?.();
             }}
             aria-label={
               runtime.isPublishing

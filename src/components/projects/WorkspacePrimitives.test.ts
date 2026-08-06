@@ -173,6 +173,7 @@ describe("MobileMenuContent", () => {
     setViewport: vi.fn(),
     annotationAvailable: false,
     directEditActive: false,
+    directEditFlagEnabled: true,
     onClose: vi.fn(),
   };
 
@@ -207,5 +208,19 @@ describe("MobileMenuContent", () => {
     expect(markup).toMatch(
       /role="tab"[^>]*aria-selected="false"[^>]*>[\s\S]*?Kode</,
     );
+  });
+
+  it("hides the Tampilan perangkat section when activeTab is code", () => {
+    const markup = renderMenu({ activeTab: "code" });
+    expect(markup).not.toContain(">Tampilan perangkat<");
+  });
+
+  it("hides the Ubah row when directEditFlagEnabled is false", () => {
+    const markup = renderMenu({
+      annotationAvailable: true,
+      directEditFlagEnabled: false,
+    });
+    expect(markup).not.toContain(">Ubah<");
+    expect(markup).not.toContain("Aktifkan ubah");
   });
 });
