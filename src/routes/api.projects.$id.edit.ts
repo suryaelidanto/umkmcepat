@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { getSetting } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
@@ -47,6 +48,14 @@ async function handleEditPost(request: Request, routeId: string) {
       { message: "Masuk dulu untuk melanjutkan." },
       { status: 401 },
     );
+  }
+
+  const directEditEnabled = await getSetting(
+    "feature.direct_edit_enabled",
+    true,
+  );
+  if (!directEditEnabled) {
+    return new Response("Not Found", { status: 404 });
   }
 
   const userId = session.user.id;

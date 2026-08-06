@@ -24,6 +24,7 @@ const {
   stopSupersededPreviewDeploymentsMock,
   writeProjectDistArtifactMock,
   writeProjectSourceArtifactMock,
+  getSettingMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   prismaTransactionMock: vi.fn(),
@@ -48,9 +49,11 @@ const {
   stopSupersededPreviewDeploymentsMock: vi.fn(async () => []),
   writeProjectDistArtifactMock: vi.fn(),
   writeProjectSourceArtifactMock: vi.fn(),
+  getSettingMock: vi.fn(async (_key: string, fallback: boolean) => fallback),
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/app-settings", () => ({ getSetting: getSettingMock }));
 vi.mock("@/lib/prisma", () => {
   const prisma = {
     $executeRaw: prismaExecuteRawMock,
@@ -479,5 +482,15 @@ data: ${JSON.stringify({ attemptId, buildId: "build_edit", buildStatus: "succeed
     expect(body.code).toBe("edit_instruction_required");
     expect(prismaProjectUpdateManyMock).not.toHaveBeenCalled();
     expect(prismaProjectSnapshotCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when feature.direct_edit_enabled is off", async () => {
+    getSettingMock.mockResolvedValueOnce(false);
+
+    const response = await POST(request([], "ubah judul website"), {
+      id: "project_1",
+    });
+
+    expect(response.status).toBe(404);
   });
 });
