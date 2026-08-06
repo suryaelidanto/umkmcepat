@@ -107,7 +107,7 @@ describe("security headers", () => {
     });
 
     expect(headers.get("Content-Security-Policy")).toBe(
-      "sandbox allow-scripts allow-same-origin; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
+      "sandbox allow-scripts; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
     );
     expect(headers.get("Content-Security-Policy-Report-Only")).toBe(
       "script-src 'nonce-testnonce123' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",

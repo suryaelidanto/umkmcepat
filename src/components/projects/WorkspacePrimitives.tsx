@@ -737,10 +737,10 @@ export function GeneratedPreviewFrame({
     }, 12_000);
 
     function handleMessage(event: MessageEvent) {
-      // Sandbox "allow-scripts" (no allow-same-origin) makes the iframe
-      // cross-origin, so event.source is null/window proxy and a strict
-      // equality check always fails. Validate by message type + origin
-      // instead so the preview-ready signal actually reaches us.
+      // Sandboxed WITHOUT allow-same-origin (deliberate — see security
+      // hardening spec): the iframe is an opaque origin, so event.source is
+      // null/window proxy and a strict equality check always fails. Validate
+      // by message type so the preview-ready signal actually reaches us.
       const readyTypes = new Set([
         "umkmcepat-preview-ready",
         "generated-app-preview-ready",
@@ -857,7 +857,7 @@ export function GeneratedPreviewFrame({
             onLoad?.();
             window.setTimeout(() => setReady(true), 0);
           }}
-          sandbox="allow-scripts allow-same-origin allow-forms"
+          sandbox="allow-scripts allow-forms"
           className="h-full w-full border-0 bg-white"
         />
         {pendingAnnotation ? (
