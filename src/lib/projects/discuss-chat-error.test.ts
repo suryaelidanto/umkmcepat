@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   classifyDiscussChatError,
+  isTerminalChatError,
   nextRetryAttempt,
 } from "@/lib/projects/discuss-chat-error";
 
@@ -53,6 +54,18 @@ describe("classifyDiscussChatError", () => {
 
   it("treats an empty/unknown error as transient (safest: retry once)", () => {
     expect(classifyDiscussChatError({})).toBe("transient");
+  });
+});
+
+describe("isTerminalChatError", () => {
+  it("returns true for terminal errors", () => {
+    expect(isTerminalChatError({ code: "project_request_blocked" })).toBe(true);
+    expect(isTerminalChatError({ message: "Proses dihentikan." })).toBe(true);
+  });
+
+  it("returns false for transient errors", () => {
+    expect(isTerminalChatError({ code: "stream_error_no_text" })).toBe(false);
+    expect(isTerminalChatError({ status: 503 })).toBe(false);
   });
 });
 

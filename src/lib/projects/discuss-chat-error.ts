@@ -32,7 +32,7 @@ export function classifyDiscussChatError(input: {
   if (TERMINAL_PATTERNS.some((re) => re.test(message))) {
     return "terminal";
   }
-  if (status >= 400 && status !== 429 && status !== 408) {
+  if (status >= 400 && status !== 429 && status !== 408 && status !== 503) {
     return "terminal";
   }
   if (

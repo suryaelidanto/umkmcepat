@@ -1,37 +1,86 @@
-# Task 1 Report: Custom input disconnect AI (#4)
+# Task 1 Report: Pure transient/terminal classification + retry-cap math
+
+**Status:** DONE
 
 ## What was implemented
 
-1. **MAX_CHAT_BYTES constant** — exported from `WorkspaceShell.tsx` set to `16 * 1024` (16384 bytes).
-2. **Byte guard in `submitChatText`** — after trimming input text, checks byte length via `new TextEncoder().encode(trimmed).length > MAX_CHAT_BYTES`. Shows toast error "Pesan terlalu panjang. Maksimal 16.000 karakter." and returns early.
-3. **`maxLength={16000}` on two inputs in WorkspacePrimitives** — the free-text `<input>` (Tulis jawabanmu di sini...) and the custom-answer `<textarea>` (Tulis jawabanmu sendiri...).
-4. **413 interception in `rateLimitAwareFetch`** — after the 400 handler, checks for `response.status === 413` and `body.code === "chat_turn_too_large"`, throws a `ChatError` with status 413 and code `chat_turn_too_large`.
-5. **413-specific error rendering** — before the generic error block in the chat error rendering, checks for `(error as ChatError).code === "chat_turn_too_large"` and shows "Pesan terlalu panjang. Ringkas dulu sebelum dikirim." in a styled error div without a retry button.
-6. **Unit test** — exports `MAX_CHAT_BYTES`, tests that it equals 16384, and that 17000 ASCII chars exceed it while 16000 don't.
+Created two files exactly as specified in `task-1-brief.md`:
 
-## Testing and test results
+- `src/lib/projects/discuss-chat-error.ts` — pure, React-free module:
+  - `export type DiscussChatErrorKind = "transient" | "terminal"`
+  - `export function classifyDiscussChatError(input: { code?: string; message?: string; status?: number }): DiscussChatErrorKind`
+  - `export function isTerminalChatError(input): boolean` (convenience wrapper)
+  - `export function nextRetryAttempt(current: number, cap: number): number | null`
+- `src/lib/projects/discuss-chat-error.test.ts` — vitest suite with all 9 cases from the brief (6 for classification, 3 for retry math).
 
-`bun run check` — all passes:
-- Format: OK
-- Lint: OK
-- Typecheck: OK
-- Test: 144/144 passing
-- Knip: OK
-- Docs: OK
+Logic (verbatim from brief): terminal wins on exact blocked/too-large codes, Indonesian terminal copy, and status ≥ 400 excluding 429/408; transient wins on internal transient codes, stack/network/timeout/queue patterns, and 429/408; unknown/empty falls back to transient. `nextRetryAttempt` clamps cap to `Math.max(0, Math.floor(cap))` and returns `current + 1` below cap, else `null`.
+
+## Test results
+
+```
+bunx vitest run --project unit src/lib/projects/discuss-chat-error.test.ts
+Test Files  1 passed (1)
+Tests       9 passed (9)
+```
+
+## TDD evidence
+
+**RED** (before implementation — test file only, module missing):
+```
+bunx vitest run --project unit src/lib/projects/discuss-chat-error.test.ts
+Test Files  1 failed (1)
+Tests       no tests
+→ "Cannot find module '@/lib/projects/discuss-chat-error'" (failed to resolve import at discuss-chat-error.test.ts:3)
+```
+
+**GREEN** (after implementation):
+```
+bunx vitest run --project unit src/lib/projects/discuss-chat-error.test.ts
+Test Files  1 passed (1)
+Tests       9 passed (9)
+```
 
 ## Files changed
 
-- `src/components/projects/WorkspaceShell.tsx` — MAX_CHAT_BYTES constant, byte guard in submitChatText, 413 interception in rateLimitAwareFetch, 413 error rendering block
-- `src/components/projects/WorkspacePrimitives.tsx` — maxLength={16000} on text answer input and custom answer textarea
-- `src/components/projects/WorkspaceShell.test.ts` — MAX_CHAT_BYTES import + 2 test cases
+- `src/lib/projects/discuss-chat-error.ts` (new, 47 lines)
+- `src/lib/projects/discuss-chat-error.test.ts` (new, 89 lines)
 
-## Self-review findings
+Commit: `93aceb2 feat(discuss): add transient/terminal chat error classifier + retry-cap math` (on `dev`).
 
-- The initial Edit tool calls partially corrupted `rateLimitAwareFetch` due to mixed tabs/spaces from a first edit. Fixed by replacing the entire corrupted section via Python script.
-- The test environment is `node` (not jsdom), so the brief's recommended `render`/`screen`/`userEvent` test pattern doesn't work. Used the existing test pattern instead: exported `MAX_CHAT_BYTES`, wrote a unit test with `new TextEncoder()` assertions.
-- The pre-post-build-chat rendering changes in `WorkspaceShell.tsx` (`hasLastGoodPreview`, etc.) are from unrelated pre-staged code. They are not part of this task.
-- The brief's `maxLength={16000}` vs `MAX_CHAT_BYTES = 16 * 1024` values are intentionally different: `maxLength` is character-based as a rough UI guard, while the server-enforced limit is byte-based at 16 KiB.
+## Self-review
 
-## Issues or concerns
+- **Completeness:** All interfaces from the brief's "Produces" list are exported; test file matches the brief's test code verbatim; implementation matches the brief's implementation code verbatim (diffed line-by-line). No extra files, no stray changes — commit contains exactly the two task files.
+- **Quality:** Pre-commit hook (`check-staged-fix.ts`) ran and reported Prettier clean, ESLint auto-fix no errors. Focused test passes.
+- **Discipline:** Only task files staged/committed. Pre-existing unrelated working-tree changes (`src/routes/api.projects.$id.edit.ts`, `tests/routes/projects.id.edit.test.ts`) were left untouched.
+- **Testing:** 9/9 focused tests pass. `isTerminalChatError` has no dedicated test in the brief's suite (it's a one-line wrapper over `classifyDiscussChatError`); noted but followed the brief exactly — the plan's reviewer will diff against the brief.
+- **Notes for later tasks:** The implementation's `TRANSIENT_PATTERNS` include `/worker |queue /` which would classify an Indonesian terminal message containing "queue" as transient if it reached the transient check — but terminal patterns and blocked/too-large codes are checked first, so per-brief behavior is preserved. No action taken (brief-exact code).
 
-None.
+## Verification
+
+- Focused test: PASS (9/9)
+- Pre-commit gate: PASS
+
+## Task 1 fix report (review findings)
+
+### What changed
+
+- `src/lib/projects/discuss-chat-error.ts`: in `classifyDiscussChatError`, HTTP 503 is no longer classified terminal — it now falls through to the transient branch (retryable), alongside 429 and 408.
+- `src/lib/projects/discuss-chat-error.test.ts`: added `isTerminalChatError` to the import and a `describe("isTerminalChatError")` block covering terminal (blocked code, "Proses dihentikan." message) and transient (stream_error_no_text, status 503) cases.
+
+### Verify
+
+Command: `bunx vitest run --project unit src/lib/projects/discuss-chat-error.test.ts`
+
+Output:
+
+```
+ RUN  v4.1.10 /mnt/data/code/side/umkmcepat
+
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  14:00:57
+   Duration  2.19s (transform 484ms, setup 0ms, import 698ms, tests 51ms, environment 1ms)
+```
+
+Pass count: 11/11 (existing 9 + 2 new `isTerminalChatError` cases).
