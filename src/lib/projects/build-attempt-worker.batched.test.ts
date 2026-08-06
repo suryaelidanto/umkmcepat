@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const {
-  generateCustomProjectFilesWithAgentMock,
   runBatchedGenerateMock,
   recordAiCallMock,
   getSettingSyncMock,
   buildGeneratedProjectMock,
-  isAdminEmailMock,
+  generateTextMock,
 } = vi.hoisted(() => ({
-  generateCustomProjectFilesWithAgentMock: vi.fn(),
   runBatchedGenerateMock: vi.fn(),
   recordAiCallMock: vi.fn(),
   getSettingSyncMock: vi.fn((_key: string, fallback: unknown) => fallback),
@@ -19,7 +17,35 @@ const {
       { path: "index.html", content: "<html/>", contentType: "text/html" },
     ],
   })),
-  isAdminEmailMock: vi.fn(() => true),
+  generateTextMock: vi.fn(async () => ({
+    finishReason: "stop",
+    text: `<spec>\n${JSON.stringify({
+      appKind: "landing",
+      archetype: "generic",
+      businessName: "Kopi Sela",
+      pages: [{ slug: "/", title: "Home", purpose: "landing" }],
+      components: [
+        { name: "Hero", purpose: "headline" },
+        { name: "ContactCard", purpose: "wa cta" },
+      ],
+      features: ["landing"],
+      content: {},
+      style: {
+        direction: "warm",
+        palette: {
+          background: "#ffffff",
+          foreground: "#222222",
+          muted: "#888888",
+          accent: "#f05a28",
+        },
+      },
+      primaryCta: "Hubungi kami",
+      notes: [],
+    })}\n</spec>`,
+    response: { modelId: "served/spec" },
+    usage: { inputTokens: 10, outputTokens: 5 },
+    toolCalls: [],
+  })),
 }));
 
 // -- Prisma: single stub object; every call lands on vi.fn so we can assert
@@ -96,10 +122,6 @@ vi.mock("@/lib/app-settings", () => ({
   getSettingSync: getSettingSyncMock,
 }));
 
-vi.mock("@/lib/waitlist", () => ({
-  isAdminEmail: isAdminEmailMock,
-}));
-
 vi.mock("@/lib/ai", () => ({
   getAiModel: vi.fn((name?: string) => ({ modelId: name ?? "test-model" })),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
@@ -116,18 +138,6 @@ vi.mock("@/lib/ai-call-record", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/ai-call-record")>()),
   recordAiCall: recordAiCallMock,
 }));
-
-vi.mock("@/lib/projects/custom-source-generator", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import("@/lib/projects/custom-source-generator")
-    >();
-  return {
-    ...actual,
-    generateCustomProjectFilesWithAgent:
-      generateCustomProjectFilesWithAgentMock,
-  };
-});
 
 vi.mock("@/lib/projects/batched-generator", () => ({
   runBatchedGenerate: runBatchedGenerateMock,
@@ -163,41 +173,9 @@ vi.mock("ai", async (importOriginal) => {
   const actual = await importOriginal<typeof import("ai")>();
   return {
     ...actual,
-    // Spec generation succeeds immediately with a minimal valid spec via a
-    // single tool call so the attempt always reaches the source-write branch.
-    generateText: vi.fn(async () => ({
-      finishReason: "tool-calls",
-      text: "",
-      response: { modelId: "served/spec" },
-      usage: { inputTokens: 10, outputTokens: 5 },
-      toolCalls: [
-        {
-          input: {
-            appKind: "landing",
-            archetype: "generic",
-            businessName: "Kopi Sela",
-            pages: [{ slug: "/", title: "Home", purpose: "landing" }],
-            components: [
-              { name: "Hero", purpose: "headline" },
-              { name: "ContactCard", purpose: "wa cta" },
-            ],
-            features: ["landing"],
-            content: {},
-            style: {
-              direction: "warm",
-              palette: {
-                background: "#fff",
-                foreground: "#222",
-                muted: "#888",
-                accent: "#f05a28",
-              },
-            },
-            primaryCta: "Hubungi kami",
-            notes: [],
-          },
-        },
-      ],
-    })),
+    // Spec generation succeeds immediately with a minimal valid spec so the
+    // attempt always reaches the source-write branch.
+    generateText: generateTextMock,
   };
 });
 
@@ -213,42 +191,12 @@ const baseContext = () => ({
   userId: "user-1",
 });
 
-describe("runBuildAttempt — batched rollout wiring", () => {
+describe("runBuildAttempt — contract-v1 batched writer", () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("flag=off →batched runner NOT called, legacy agent runs", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "off" : fb,
-    );
-    generateCustomProjectFilesWithAgentMock.mockResolvedValue({
-      buildSpec: "spec",
-      energyExhausted: false,
-      files: [{ path: "src/routes/index.tsx", content: "export const x = 1;" }],
-      generationMode: "agent-custom",
-      operationTrace: [],
-      repairAttempts: 0,
-      summary: "ok",
-      touchedFiles: ["src/routes/index.tsx"],
-    });
-
-    await runBuildAttempt(baseContext());
-
-    expect(runBatchedGenerateMock).not.toHaveBeenCalled();
-    expect(generateCustomProjectFilesWithAgentMock).toHaveBeenCalledTimes(1);
-    // No fallback marker — the legacy path is plain build-step here.
-    expect(
-      recordAiCallMock.mock.calls.filter(
-        ([entry]) => entry.phase === "fallback",
-      ),
-    ).toHaveLength(0);
-  });
-
-  it("flag=all + batched success → legacy agent NOT called", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
+  it("batched writer ALWAYS runs (no rollout flag, no legacy fallback)", async () => {
     runBatchedGenerateMock.mockResolvedValue({
       ok: true,
       files: [
@@ -263,9 +211,7 @@ describe("runBuildAttempt — batched rollout wiring", () => {
     await runBuildAttempt(baseContext());
 
     expect(runBatchedGenerateMock).toHaveBeenCalledTimes(1);
-    expect(generateCustomProjectFilesWithAgentMock).not.toHaveBeenCalled();
-    // Writer telemetry rows flow through the runner itself (mocked out
-    // here), but the worker must NOT write an agent-pass fallback row.
+    // No agent-pass fallback telemetry row is ever written.
     expect(
       recordAiCallMock.mock.calls.filter(
         ([entry]) => entry.phase === "fallback",
@@ -273,87 +219,56 @@ describe("runBuildAttempt — batched rollout wiring", () => {
     ).toHaveLength(0);
   });
 
-  it("flag=all + batched needsFallback → legacy agent runs + telemetry marks phase=fallback", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
+  it("batched needsFallback → attempt FAILS; no legacy fallback", async () => {
     runBatchedGenerateMock.mockResolvedValue({
       needsFallback: true,
       ok: false,
       reason: "validation gates failed after repairs",
       repairRounds: 2,
     });
-    generateCustomProjectFilesWithAgentMock.mockResolvedValue({
-      buildSpec: "spec",
-      energyExhausted: false,
-      files: [{ path: "src/routes/index.tsx", content: "legacy" }],
-      generationMode: "agent-custom",
-      operationTrace: [],
-      repairAttempts: 0,
-      summary: "legacy ok",
-      touchedFiles: ["src/routes/index.tsx"],
-    });
 
     await runBuildAttempt(baseContext());
 
     expect(runBatchedGenerateMock).toHaveBeenCalledTimes(1);
-    expect(generateCustomProjectFilesWithAgentMock).toHaveBeenCalledTimes(1);
-    const fallbackRows = recordAiCallMock.mock.calls.filter(
-      ([entry]) => entry.phase === "fallback",
+    // The batched failure surfaces as a failed attempt, not a legacy retry.
+    const attemptUpdate = prismaMock.projectEditAttempt.updateMany;
+    expect(attemptUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "failed",
+        }),
+      }),
     );
-    expect(fallbackRows.length).toBeGreaterThanOrEqual(1);
-    expect(fallbackRows[0][0]).toMatchObject({
-      attemptId: "attempt-1",
-      projectId: "p1",
-      task: "build-step",
-    });
   });
 
-  it("flag=internal + admin owner → batched tried", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "internal" : fb,
+  it("batched admission block → attempt FAILS; no legacy fallback", async () => {
+    const { BatchedAdmissionBlockedError } = await import("./brief-admission");
+    runBatchedGenerateMock.mockRejectedValue(
+      new BatchedAdmissionBlockedError({
+        blockers: ["contactOrCta"],
+        reason: "Brief belum siap: kontak atau CTA masih kosong.",
+      }),
     );
-    isAdminEmailMock.mockReturnValue(true);
-    runBatchedGenerateMock.mockResolvedValue({
-      ok: true,
-      files: [{ path: "src/routes/index.tsx", content: "export const x = 1;" }],
-      repairRounds: 0,
-      summary: "writer ok",
-      writtenPaths: ["src/routes/index.tsx"],
-    });
 
     await runBuildAttempt(baseContext());
 
     expect(runBatchedGenerateMock).toHaveBeenCalledTimes(1);
-    expect(generateCustomProjectFilesWithAgentMock).not.toHaveBeenCalled();
+    expect(
+      recordAiCallMock.mock.calls.filter(
+        ([entry]) => entry.phase === "fallback",
+      ),
+    ).toHaveLength(0);
+    const attemptUpdate = prismaMock.projectEditAttempt.updateMany;
+    expect(attemptUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "failed",
+        }),
+      }),
+    );
   });
 
-  it("flag=internal + non-admin owner → legacy only", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "internal" : fb,
-    );
-    isAdminEmailMock.mockReturnValue(false);
-    generateCustomProjectFilesWithAgentMock.mockResolvedValue({
-      buildSpec: "spec",
-      energyExhausted: false,
-      files: [{ path: "src/routes/index.tsx", content: "x" }],
-      generationMode: "agent-custom",
-      operationTrace: [],
-      repairAttempts: 0,
-      summary: "legacy ok",
-      touchedFiles: ["src/routes/index.tsx"],
-    });
-
-    await runBuildAttempt(baseContext());
-
-    expect(runBatchedGenerateMock).not.toHaveBeenCalled();
-    expect(generateCustomProjectFilesWithAgentMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("flag=all → batched files write through to the progressive saver (durable staging)", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
+  it("batched files write through to the progressive saver (durable staging)", async () => {
     runBatchedGenerateMock.mockImplementation(
       (args: {
         onFileStaged?: (file: { content: string; path: string }) => void;
@@ -385,53 +300,14 @@ describe("runBuildAttempt — batched rollout wiring", () => {
     expect(saves.length).toBeGreaterThan(0);
   });
 
-  it("admission block → legacy agent still runs (no user-visible abort)", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
-    const { BatchedAdmissionBlockedError } = await import("./brief-admission");
-    runBatchedGenerateMock.mockRejectedValue(
-      new BatchedAdmissionBlockedError({
-        blockers: ["contactOrCta"],
-        reason: "Brief belum siap: kontak atau CTA masih kosong.",
-      }),
-    );
-    generateCustomProjectFilesWithAgentMock.mockResolvedValue({
-      buildSpec: "spec",
-      energyExhausted: false,
-      files: [{ path: "src/routes/index.tsx", content: "legacy" }],
-      generationMode: "agent-custom",
-      operationTrace: [],
-      repairAttempts: 0,
-      summary: "legacy ok",
-      touchedFiles: ["src/routes/index.tsx"],
-    });
-
-    await runBuildAttempt(baseContext());
-
-    expect(runBatchedGenerateMock).toHaveBeenCalledTimes(1);
-    expect(generateCustomProjectFilesWithAgentMock).toHaveBeenCalledTimes(1);
-    // Fallback telemetry row records the legacy pass.
-    const fallbackRows = recordAiCallMock.mock.calls.filter(
-      ([entry]) => entry.phase === "fallback",
-    );
-    expect(fallbackRows.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("user cancel (AbortError) → NO legacy fallback, abort propagates", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
+  it("user cancel (AbortError) → abort propagates, attempt failed", async () => {
     const abortError = new Error("The operation was aborted.");
     abortError.name = "AbortError";
     runBatchedGenerateMock.mockRejectedValue(abortError);
 
-    // runBuildAttempt swallows errors into a user-facing "error" event; the
-    // pin is that legacy never ran and no fallback telemetry was written.
     await runBuildAttempt(baseContext());
 
     expect(runBatchedGenerateMock).toHaveBeenCalledTimes(1);
-    expect(generateCustomProjectFilesWithAgentMock).not.toHaveBeenCalled();
     expect(
       recordAiCallMock.mock.calls.filter(
         ([entry]) => entry.phase === "fallback",

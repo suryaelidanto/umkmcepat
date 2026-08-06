@@ -14,6 +14,9 @@ export function isWaitlistGateBypassPath(pathname: string): boolean {
   return (
     isWaitlistMarketingPublicPath(pathname) ||
     pathname === "/admin" ||
-    pathname.startsWith("/admin/")
+    pathname.startsWith("/admin/") ||
+    pathname === "/profile" ||
+    pathname === "/support" ||
+    pathname.startsWith("/support/")
   );
 }

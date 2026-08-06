@@ -38,25 +38,6 @@ vi.mock("@/lib/ai-models", () => ({
   getDiscussModel: vi.fn(() => "mock-model"),
 }));
 
-vi.mock("@/lib/projects/custom-source-generator", () => ({
-  generateCustomProjectFilesWithAgent: vi.fn().mockResolvedValue({
-    buildSpec: "mock build spec",
-    files: [
-      {
-        path: "src/routes/index.tsx",
-        content: "export default function Home() { return <h1>Test</h1>; }",
-      },
-      { path: "src/styles.css", content: "body { margin: 0; }" },
-    ],
-    generationMode: "agent-custom",
-    operationTrace: [],
-    partial: false,
-    repairAttempts: 0,
-    summary: "Mock source generation",
-    touchedFiles: ["src/routes/index.tsx", "src/styles.css"],
-  }),
-}));
-
 vi.mock("@/lib/projects/generated-source", async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
@@ -210,26 +191,6 @@ vi.mock("@/lib/dev-log", () => ({
 }));
 
 describe("Build pipeline integration", () => {
-  it("source generation returns files with correct structure", async () => {
-    const { generateCustomProjectFilesWithAgent } =
-      await import("@/lib/projects/custom-source-generator");
-
-    const result = await generateCustomProjectFilesWithAgent({
-      implementationBrief: "test",
-      projectId: "test-id",
-      schema: { type: "site", pages: [], components: [] } as never,
-    });
-
-    expect(result.files.length).toBeGreaterThan(0);
-    expect(
-      result.files.some(
-        (f: { path: string }) => f.path === "src/routes/index.tsx",
-      ),
-    ).toBe(true);
-    expect(result.generationMode).toBe("agent-custom");
-    expect(result.partial).toBe(false);
-  });
-
   it("moderation defaults to ALLOW for empty model responses", async () => {
     generateTextMock.mockResolvedValueOnce({
       text: "",

@@ -37,23 +37,19 @@ describe("validateSettingValue", () => {
     ).toMatch(/must be a boolean/);
   });
 
-  it("rejects an out-of-enum rollout value", () => {
+  it("rejects the removed generation rollout key", () => {
     expect(
       validateSettingValue(
         "generation.contract_compiled_rollout",
-        "all-the-way",
+        "all",
         "feature_flag",
       ),
-    ).toMatch(/must be one of/);
+    ).toMatch(/Invalid key/);
   });
 
-  it("accepts a valid rollout enum value", () => {
+  it("rejects the removed batched rollout key", () => {
     expect(
-      validateSettingValue(
-        "generation.contract_compiled_rollout",
-        "pilot",
-        "feature_flag",
-      ),
-    ).toBeNull();
+      validateSettingValue("generation.batched_rollout", "all", "feature_flag"),
+    ).toMatch(/Invalid key/);
   });
 });

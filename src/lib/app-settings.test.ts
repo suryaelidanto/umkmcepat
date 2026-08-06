@@ -238,28 +238,28 @@ describe("primeSettingCache", () => {
   it("force re-primes an already-primed snapshot", async () => {
     const { prisma } = await import("@/lib/prisma");
     await prisma.appSetting.upsert({
-      where: { key: "discuss.hedging" },
+      where: { key: "feature.streamer_mode" },
       create: {
-        key: "discuss.hedging",
+        key: "feature.streamer_mode",
         category: "feature_flag",
         value: true,
       },
       update: { value: true },
     });
     await primeSettingCache();
-    expect(getSettingSync("discuss.hedging", false)).toBe(true);
+    expect(getSettingSync("feature.streamer_mode", false)).toBe(true);
 
     await prisma.appSetting.upsert({
-      where: { key: "discuss.hedging" },
+      where: { key: "feature.streamer_mode" },
       create: {
-        key: "discuss.hedging",
+        key: "feature.streamer_mode",
         category: "feature_flag",
         value: false,
       },
       update: { value: false },
     });
     await primeSettingCache({ force: true });
-    expect(getSettingSync("discuss.hedging", true)).toBe(false);
+    expect(getSettingSync("feature.streamer_mode", true)).toBe(false);
   });
 });
 

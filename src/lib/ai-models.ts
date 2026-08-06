@@ -55,19 +55,6 @@ export function getDiscussModel() {
   return resolveTaskModel("ai.model.discuss", ["AI_MODEL_DISCUSS"]);
 }
 
-/**
- * Configured hedge combo ids for the discuss race, in stable order
- * (hedge 2 first). Empty = hedging off, single-call behavior.
- */
-export function getDiscussHedgeModels(): string[] {
-  return [
-    readSettingString("ai.model.discuss_hedge_2") ??
-      process.env.AI_MODEL_DISCUSS_HEDGE_2?.trim(),
-    readSettingString("ai.model.discuss_hedge_3") ??
-      process.env.AI_MODEL_DISCUSS_HEDGE_3?.trim(),
-  ].filter((model): model is string => Boolean(model));
-}
-
 /** Build pipeline + edit agent. */
 export function getGenerationModel() {
   return resolveTaskModel("ai.model.build", [

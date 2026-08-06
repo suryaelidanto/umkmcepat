@@ -20,7 +20,7 @@ import {
   recordAiCall,
   startAiCallTimer,
 } from "@/lib/ai-call-record";
-import { getDiscussHedgeModels, getDiscussModel } from "@/lib/ai-models";
+import { getDiscussModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { getSettingSync, primeSettingCache } from "@/lib/app-settings";
@@ -63,30 +63,7 @@ import {
 } from "@/lib/projects/discuss-turn-shared";
 import { inlineChatAssetFileParts } from "@/lib/projects/inline-chat-asset-file-parts";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
-import {
-  addEnergyUsageLegs,
-  chargeEnergyForAiUsage,
-  type EnergyUsageLeg,
-} from "@/lib/user-credits";
-
-type HedgeUsage = {
-  inputTokens?: number;
-  outputTokens?: number;
-};
-type HedgeOutcome = {
-  errorClass?: string;
-  hasCard: boolean;
-  servedModelId?: string | null;
-  stopTimer?: import("@/lib/ai-call-record").AiCallTimer;
-  usage: HedgeUsage;
-};
-type HedgeWinner = {
-  fullText: string;
-  modelIndex: number;
-  modelName: string;
-  streamToolCallId: string | null;
-  toolInput: unknown;
-};
+import { chargeEnergyForAiUsage } from "@/lib/user-credits";
 
 export async function runDiscussTurn({
   turnId,
@@ -178,7 +155,6 @@ export async function runDiscussTurn({
     const discussStartedAt = Date.now();
     const stopDiscussTimer = startAiCallTimer({ withTtft: true });
     let discussRecorded = false;
-    let discussRaceRole: "winner" | "aborted" | undefined;
     const recordDiscussCall = (opts: {
       status: string;
       errorClass?: string;
@@ -192,13 +168,11 @@ export async function runDiscussTurn({
       discussRecorded = true;
       const discussTiming = stopDiscussTimer();
       recordAiCall({
-        hedged: hedged ? true : discussRaceRole ? true : undefined,
         inputTokens: opts.inputTokens,
         modelRequested: modelName,
         modelServed: opts.modelServed,
         outputTokens: opts.outputTokens,
         projectId: project.id,
-        raceRole: discussRaceRole,
         requestMs: discussTiming.requestMs,
         status: opts.status,
         task: "discuss",
@@ -207,207 +181,8 @@ export async function runDiscussTurn({
         ...(opts.errorClass ? { errorClass: opts.errorClass } : {}),
       });
     };
-    // Hedge race: primary + configured hedge legs (stable order) fire in
-    // parallel, one AbortController each. Hedge legs consume silently and
-    // probe for a parseable card; the first card-valid leg promotes to
-    // winner (its full text is then published) and aborts the rest. If the
-    // primary's own card lands first, hedges are aborted on the spot.
-    const hedgeModelNames = getSettingSync("discuss.hedging", false)
-      ? getDiscussHedgeModels().slice(0, 2)
-      : [];
-    const hedged = hedgeModelNames.length > 0 && !modelOverride;
-    const hedgeOutcomes: HedgeOutcome[] = [];
-    const hedgePromises: Promise<void>[] = [];
-    // Boxed promotion: CFA narrows `let` bindings across async closures to
-    // `never` at use sites; a property write stays outside CFA's reach.
-    const hedgeWinner: { current: HedgeWinner | null } = { current: null };
-    const hedgeControllers = hedgeModelNames.map(() => new AbortController());
-    const primaryController = hedged ? new AbortController() : null;
-    if (hedged) {
-      hedgeModelNames.forEach((hedgeModelName, index) => {
-        const outcome: HedgeOutcome = {
-          hasCard: false,
-          usage: {} as HedgeUsage,
-        };
-        hedgeOutcomes.push(outcome);
-        const hedgeModel = modelOverride ?? getAiModel(hedgeModelName);
-        const hedgeStream = streamText({
-          model: hedgeModel,
-          abortSignal: hedgeControllers[index].signal,
-          system: systemPrompt,
-          messages: modelMessages,
-          tools: {
-            [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool,
-          },
-          toolChoice: {
-            type: "tool",
-            toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-          },
-          temperature: 0.25,
-          maxOutputTokens: 1024,
-          timeout: getAiTimeoutMs("discussOneCall"),
-          ...getNoReasoningCallOptions(),
-          telemetry: getAiTelemetry("project-guided-discuss-one-call", {
-            hedged: true,
-            mode: "discuss-one-call",
-            model: hedgeModelName,
-            projectId: project.id,
-            route: "api.projects.preview",
-            userId,
-          }),
-          onError({ error }) {
-            outcome.errorClass = classifyAiError(error);
-          },
-        });
-        const stopHedgeTimer = startAiCallTimer({ withTtft: true });
-        hedgePromises.push(
-          (async () => {
-            let fullText = "";
-            let toolInput: unknown = null;
-            let streamToolCallId: string | null = null;
-            outcome.stopTimer = stopHedgeTimer;
-            try {
-              for await (const part of hedgeStream.stream) {
-                if (
-                  part.type === "text-delta" ||
-                  part.type === "tool-input-delta"
-                ) {
-                  stopHedgeTimer.firstChunk();
-                }
-                if (
-                  hedgeControllers[index].signal.aborted ||
-                  hedgeWinner.current
-                ) {
-                  break;
-                }
-                if (part.type === "text-delta") {
-                  const delta =
-                    "text" in part && typeof part.text === "string"
-                      ? part.text
-                      : "delta" in part && typeof part.delta === "string"
-                        ? part.delta
-                        : "";
-                  fullText += delta;
-                  continue;
-                }
-                if (part.type === "tool-input-start") {
-                  if ("id" in part && typeof part.id === "string") {
-                    streamToolCallId = part.id;
-                  }
-                  continue;
-                }
-                if (part.type === "tool-call") {
-                  streamToolCallId =
-                    "toolCallId" in part && typeof part.toolCallId === "string"
-                      ? part.toolCallId
-                      : streamToolCallId;
-                  toolInput =
-                    "input" in part
-                      ? part.input
-                      : "args" in part
-                        ? (part as { args?: unknown }).args
-                        : toolInput;
-                  const probe = normalizeWorkspaceTurn(
-                    toolInput,
-                    effectiveBrief,
-                    handoffNormalizeOptions,
-                  );
-                  if (
-                    probe.workspaceCard.type !== "none" &&
-                    !hedgeWinner.current &&
-                    !hedgeControllers[index].signal.aborted
-                  ) {
-                    outcome.hasCard = true;
-                    if (!fullText.trim()) {
-                      fullText = extractAssistantTextFromToolInput(toolInput);
-                    }
-                    hedgeWinner.current = {
-                      fullText,
-                      modelIndex: index,
-                      modelName: hedgeModelName,
-                      toolInput,
-                      streamToolCallId,
-                    };
-                    hedgeControllers.forEach((controller, i) => {
-                      if (i !== index) {
-                        controller.abort();
-                      }
-                    });
-                    break;
-                  }
-                }
-              }
-            } catch (error) {
-              // Aborted legs land here; make sure they don't surface as
-              // provider errors when the abort was deliberate.
-              if (!hedgeControllers[index].signal.aborted) {
-                outcome.errorClass = classifyAiError(error);
-              }
-            }
-            const usage = await Promise.resolve(hedgeStream.usage).catch(
-              () => undefined,
-            );
-            outcome.usage = {
-              inputTokens: usage?.inputTokens ?? 0,
-              outputTokens: usage?.outputTokens ?? 0,
-            };
-            outcome.servedModelId = (
-              await Promise.resolve(hedgeStream.response).catch(() => undefined)
-            )?.modelId;
-          })(),
-        );
-      });
-    }
-    const abortAllHedges = () => {
-      for (const controller of hedgeControllers) {
-        controller.abort();
-      }
-    };
-    const settleHedgeRows = async (
-      winnerMarker:
-        | { kind: "primary" }
-        | { kind: "hedge"; index: number }
-        | { kind: "none" },
-    ) => {
-      // Primary's row rides the shared recordDiscussCall latch; mark it here.
-      discussRaceRole =
-        winnerMarker.kind === "primary"
-          ? "winner"
-          : winnerMarker.kind === "hedge"
-            ? "aborted"
-            : undefined;
-      hedgeModelNames.forEach((hedgeModelName, index) => {
-        const outcome = hedgeOutcomes[index];
-        const winner =
-          winnerMarker.kind === "hedge" && winnerMarker.index === index;
-        const hedgeTiming = outcome.stopTimer?.();
-        recordAiCall({
-          hedged: true,
-          inputTokens: outcome.usage.inputTokens ?? 0,
-          modelRequested: hedgeModelName,
-          modelServed: outcome.servedModelId ?? hedgeModelName,
-          outputTokens: outcome.usage.outputTokens ?? 0,
-          projectId: project.id,
-          raceRole: winner ? "winner" : "aborted",
-          requestMs: hedgeTiming?.requestMs ?? stopDiscussTimer().requestMs,
-          status: outcome.errorClass ? "error" : winner ? "ok" : "aborted",
-          task: "discuss",
-          ttftMs: hedgeTiming?.ttftMs,
-          turnId,
-          ...(outcome.errorClass ? { errorClass: outcome.errorClass } : {}),
-        });
-      });
-    };
-    // Settle hedge-leg promises (abort + per-call timeout keep this bounded)
-    // so per-racer outcomes stay read-only from here to the debit.
-    const settleHedgeLegs = async () => {
-      if (hedgePromises.length > 0) {
-        await Promise.allSettled(hedgePromises);
-      }
-    };
     const primary = streamText({
       model,
-      ...(primaryController ? { abortSignal: primaryController.signal } : {}),
       system: systemPrompt,
       messages: modelMessages,
       tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
@@ -461,70 +236,12 @@ export async function runDiscussTurn({
     let toolInputJson = "";
     let streamedToolAssistantText = "";
     let discussModelId = modelName;
-    // Race gate: while hedged, deltas sit in racePendingText until a winner
-    // is picked (buffer + publish whole) or all legs fail (text fallback
-    // picks the last-completed leg's text).
-    const racePendingText: string[] = [];
-    const adoptHedgeWinner = () => {
-      const winner = hedgeWinner.current;
-      if (!winner) {
-        return false;
-      }
-      fullText = winner.fullText;
-      toolInput = winner.toolInput;
-      streamToolCallId = winner.streamToolCallId;
-      discussModelId = winner.modelName;
-      toolInputJson = "";
-      streamedToolAssistantText = "";
-      return true;
-    };
     const primaryResponsePromise = Promise.resolve(primary.response).catch(
       () => null,
     );
 
-    let raceStreamingLegIndex: number | null = hedged ? null : 0;
-    const bufferPiece = (piece: string) => {
-      if (raceStreamingLegIndex !== null) {
-        publishProgress(turnId, {
-          type: "text-delta",
-          id: textPartId,
-          delta: piece,
-        });
-        return;
-      }
-      racePendingText.push(piece);
-    };
-    const flushRaceBuffer = () => {
-      for (const piece of racePendingText) {
-        publishProgress(turnId, {
-          type: "text-delta",
-          id: textPartId,
-          delta: piece,
-        });
-      }
-      racePendingText.length = 0;
-      raceStreamingLegIndex = raceStreamingLegIndex ?? 0;
-    };
     try {
       for await (const part of primary.stream) {
-        // Hedge leg promoted while we were reading primary: adopt its state
-        // and stop spending tokens on the losing streams. Losers never paint
-        // even partial text: the winner's buffered text is published whole.
-        if (hedged && hedgeWinner.current) {
-          if (adoptHedgeWinner()) {
-            primaryController?.abort();
-            if (fullText) {
-              await publishPacedTextDeltas({
-                text: fullText,
-                abortSignal,
-                publish: (piece) => {
-                  bufferPiece(piece);
-                },
-              });
-            }
-            break;
-          }
-        }
         // TTFT marked on the first *content* chunk (not stream-open parts)
         // so mocked/abort shapes that never emit content leave it undefined.
         if (part.type === "text-delta" || part.type === "tool-input-delta") {
@@ -532,7 +249,6 @@ export async function runDiscussTurn({
         }
         if (abortSignal?.aborted) {
           hadError = true;
-          abortAllHedges();
           recordDiscussCall({
             modelServed: modelName,
             status: "aborted",
@@ -554,7 +270,11 @@ export async function runDiscussTurn({
             text: delta,
             abortSignal,
             publish: (piece) => {
-              bufferPiece(piece);
+              publishProgress(turnId, {
+                type: "text-delta",
+                id: textPartId,
+                delta: piece,
+              });
             },
           });
           continue;
@@ -582,8 +302,8 @@ export async function runDiscussTurn({
             // Free chat text already streaming; don't dual-stream tool prose.
             continue;
           }
-          // Best-effort partial tool-JSON streaming, winner stream only,
-          // gated by the admin setting (default on).
+          // Best-effort partial tool-JSON streaming, gated by the admin
+          // setting (default on).
           const partialToolStreamingOn = getSettingSync(
             "discuss.partial_tool_streaming",
             true,
@@ -602,7 +322,11 @@ export async function runDiscussTurn({
               text: next.delta,
               abortSignal,
               publish: (piece) => {
-                bufferPiece(piece);
+                publishProgress(turnId, {
+                  type: "text-delta",
+                  id: textPartId,
+                  delta: piece,
+                });
               },
             });
           }
@@ -628,56 +352,30 @@ export async function runDiscussTurn({
               : "args" in part
                 ? (part as { args?: unknown }).args
                 : toolInput;
-          if (hedged) {
-            // Primary reached a terminal outcome: winner selection is done
-            // (winner = first finisher), so hedge legs are dead weight now —
-            // abort them whether this card is valid (primary won) or not
-            // (repair applies to the primary's state either way).
-            abortAllHedges();
-            const probe = normalizeWorkspaceTurn(
-              toolInput,
-              effectiveBrief,
-              handoffNormalizeOptions,
-            );
-            if (probe.workspaceCard.type !== "none") {
-              flushRaceBuffer();
-            }
-          }
         }
       }
     } catch (error) {
-      // Primary stream threw: the race is over either way. Degrade silently
-      // into a promoted hedge winner when one already landed, else surface.
-      abortAllHedges();
-      if (hedged && adoptHedgeWinner()) {
-        toolInputJson = "";
-      } else {
-        hadError = true;
-        const servedModel =
-          (await primaryResponsePromise)?.modelId ?? modelName;
-        const safeError = getSafeAiErrorLog(error);
-        recordDiscussCall({
-          errorClass: classifyAiError(error),
-          modelServed: servedModel,
-          status: "error",
-        });
-        console.error("[preview-chat] one-call stream consume error", {
-          projectId: project.id,
-          model: servedModel,
-          error: safeError,
-        });
-        await settleHedgeLegs();
-        await writeAiRequestLog({
-          event: "discuss:stream_error",
-          model: servedModel,
-          mode: "one_call_tools",
-          projectId: project.id,
-          error: safeError,
-        });
-      }
+      hadError = true;
+      const servedModel = (await primaryResponsePromise)?.modelId ?? modelName;
+      const safeError = getSafeAiErrorLog(error);
+      recordDiscussCall({
+        errorClass: classifyAiError(error),
+        modelServed: servedModel,
+        status: "error",
+      });
+      console.error("[preview-chat] one-call stream consume error", {
+        projectId: project.id,
+        model: servedModel,
+        error: safeError,
+      });
+      await writeAiRequestLog({
+        event: "discuss:stream_error",
+        model: servedModel,
+        mode: "one_call_tools",
+        projectId: project.id,
+        error: safeError,
+      });
     }
-    // Winner picked or crash handled: no more outcome churn from hedge legs.
-    await settleHedgeLegs();
 
     // Final tool-call may complete chars partial JSON never closed; or fill
     // gap when provider only emits tool-call (no tool-input-delta).
@@ -689,7 +387,11 @@ export async function runDiscussTurn({
           text: fromTool,
           abortSignal,
           publish: (piece) => {
-            bufferPiece(piece);
+            publishProgress(turnId, {
+              type: "text-delta",
+              id: textPartId,
+              delta: piece,
+            });
           },
         });
       }
@@ -705,17 +407,13 @@ export async function runDiscussTurn({
           text: tail,
           abortSignal,
           publish: (piece) => {
-            bufferPiece(piece);
+            publishProgress(turnId, {
+              type: "text-delta",
+              id: textPartId,
+              delta: piece,
+            });
           },
         });
-      }
-    }
-    // Hedge settles here: flush any buffer from a winner, drop loser's text.
-    if (hedged) {
-      if (hedgeWinner.current || !hadError) {
-        flushRaceBuffer();
-      } else {
-        racePendingText.length = 0;
       }
     }
     let chatText = fullText.trim();
@@ -723,116 +421,35 @@ export async function runDiscussTurn({
 
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
-    // Primary's own usage, captured pre-hijack: total* below gets hedge legs
-    // summed in for the single UserCredit debit (1:1 transparency), while the
-    // primary's own ledger row must record ONLY its leg — per-racer hedge
-    // rows in settleHedgeRows already carry hedge usage, so reusing the sum
-    // here would double-count (AiCallRecord sum != UserCredit debit).
+    // Primary's own usage: ledger row records its own leg; repair/compaction
+    // tokens are added later to total* and primaryOwn*.
     let primaryOwnInputTokens = 0;
     let primaryOwnOutputTokens = 0;
-    // Immutable snapshot of the primary's OWN leg (pre-hijack, pre-repair).
-    // Repair/compaction tokens are added later to primaryOwn* and total*, but
-    // the per-leg fair debit must price the primary leg at the primary's own
-    // model, not the winner's.
-    let primaryLegInputTokens = 0;
-    let primaryLegOutputTokens = 0;
-    let primaryServedModelId: string | undefined;
     try {
       const primaryUsage = await primary.usage;
       totalInputTokens = primaryUsage?.inputTokens ?? 0;
       totalOutputTokens = primaryUsage?.outputTokens ?? 0;
       primaryOwnInputTokens = totalInputTokens;
       primaryOwnOutputTokens = totalOutputTokens;
-      primaryLegInputTokens = totalInputTokens;
-      primaryLegOutputTokens = totalOutputTokens;
       const primaryResponse = await Promise.resolve(primary.response).catch(
         () => null,
       );
-      primaryServedModelId = primaryResponse?.modelId;
-      if (primaryServedModelId || hedgeWinner.current) {
-        const winnerOutcome =
-          hedgeWinner.current != null
-            ? hedgeOutcomes[hedgeWinner.current.modelIndex]
-            : undefined;
-        discussModelId =
-          winnerOutcome?.servedModelId ??
-          primaryServedModelId ??
-          hedgeWinner.current?.modelName ??
-          modelName;
+      if (primaryResponse?.modelId) {
+        discussModelId = primaryResponse.modelId;
       }
     } catch {
       // usage is best-effort
     }
-    // Sum hedge-leg usage into the turn debit (1:1 transparency).
-    let hedgeLegInputTokens = 0;
-    let hedgeLegOutputTokens = 0;
-    for (const outcome of hedgeOutcomes) {
-      hedgeLegInputTokens += outcome.usage.inputTokens ?? 0;
-      hedgeLegOutputTokens += outcome.usage.outputTokens ?? 0;
-      totalInputTokens += outcome.usage.inputTokens ?? 0;
-      totalOutputTokens += outcome.usage.outputTokens ?? 0;
-    }
-    // Fair per-leg debit: each racer is priced at its OWN model. Repair and
-    // compaction tokens (added later to total*/primaryOwn*) are extra on top
-    // of the primary leg; those are priced at the served (winner) model since
-    // they share its run. Falls back to single-model chargeEnergyForAiUsage
-    // when not hedged.
     const chargeDiscussEnergy = async () => {
-      if (!hedged) {
-        await chargeEnergyForAiUsage({
-          userId,
-          projectId: project.id,
-          modelId: discussModelId,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          reason: "discuss:step",
-        });
-        return;
-      }
-      const legs: EnergyUsageLeg[] = [
-        {
-          modelId: primaryServedModelId ?? modelName,
-          inputTokens: primaryLegInputTokens,
-          outputTokens: primaryLegOutputTokens,
-        },
-      ];
-      hedgeModelNames.forEach((hedgeModelName, index) => {
-        const outcome = hedgeOutcomes[index];
-        legs.push({
-          modelId: outcome.servedModelId ?? hedgeModelName,
-          inputTokens: outcome.usage.inputTokens ?? 0,
-          outputTokens: outcome.usage.outputTokens ?? 0,
-        });
-      });
-      // Extra (repair/compaction) tokens, priced at the served winner model.
-      const extraInput =
-        totalInputTokens - primaryLegInputTokens - hedgeLegInputTokens;
-      const extraOutput =
-        totalOutputTokens - primaryLegOutputTokens - hedgeLegOutputTokens;
-      if (extraInput > 0 || extraOutput > 0) {
-        legs.push({
-          modelId: discussModelId,
-          inputTokens: Math.max(0, extraInput),
-          outputTokens: Math.max(0, extraOutput),
-        });
-      }
-      await addEnergyUsageLegs(userId, legs, "discuss:step", {
+      await chargeEnergyForAiUsage({
+        userId,
         projectId: project.id,
+        modelId: discussModelId,
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        reason: "discuss:step",
       });
     };
-
-    // Hedged all-fail (stream threw, no card anywhere): mark hedge legs and
-    // settle the race rows now, since hadError branches return early.
-    if (hedged && hadError && !hedgeWinner.current) {
-      abortAllHedges();
-      await settleHedgeLegs();
-      for (const outcome of hedgeOutcomes) {
-        if (!outcome.hasCard && !outcome.errorClass) {
-          outcome.errorClass = "invalid-card";
-        }
-      }
-      await settleHedgeRows({ kind: "none" });
-    }
 
     if (hadError) {
       if (chatText) {
@@ -921,9 +538,7 @@ export async function runDiscussTurn({
     }
 
     const primaryMs = Date.now() - discussStartedAt;
-    // Primary's winner row waits for raceRole set during hedge settlement
-    // (hedged only): unhedged keeps its existing early latch.
-    if (!hadError && !hedged) {
+    if (!hadError) {
       recordDiscussCall({
         inputTokens: primaryOwnInputTokens,
         modelServed: discussModelId,
@@ -1144,59 +759,6 @@ export async function runDiscussTurn({
       workspaceCard: ensureQuestionCardRichness(workspaceTurn.workspaceCard),
     };
 
-    // Hedged turn: all streams consumed by now. If nobody produced a valid
-    // card, mark unblowned legs as invalid-card so the ledger explains why
-    // the race settles text-only; repair then runs on the winner's model.
-    const primaryCardValid = workspaceTurn.workspaceCard.type !== "none";
-    if (hedged && !hedgeWinner.current) {
-      abortAllHedges();
-      // Bounded drain (abort + per-call timeout): per-racer tokens must land
-      // before the user-facing debit or ledger rows would race each other.
-      await settleHedgeLegs();
-      if (!primaryCardValid) {
-        for (const outcome of hedgeOutcomes) {
-          if (!outcome.hasCard && !outcome.errorClass) {
-            outcome.errorClass = "invalid-card";
-          }
-        }
-      }
-      // Primary's row hasn't been latched yet — mark it error/invalid-card
-      // too when the shared ledger uses ok later.
-      if (!primaryCardValid && !hadError) {
-        recordDiscussCall({
-          errorClass: "invalid-card",
-          inputTokens: primaryOwnInputTokens,
-          modelServed: discussModelId,
-          outputTokens: primaryOwnOutputTokens,
-          status: "error",
-        });
-      }
-      await settleHedgeRows(
-        primaryCardValid ? { kind: "primary" } : { kind: "none" },
-      );
-      if (!hadError && !discussRecorded) {
-        recordDiscussCall({
-          errorClass: primaryCardValid ? undefined : "invalid-card",
-          inputTokens: primaryOwnInputTokens,
-          modelServed: discussModelId,
-          outputTokens: primaryOwnOutputTokens,
-          status: primaryCardValid ? "ok" : "error",
-        });
-      }
-    }
-    if (hedged && hedgeWinner.current) {
-      const winner = hedgeWinner.current;
-      await settleHedgeRows({ index: winner.modelIndex, kind: "hedge" });
-      if (!hadError && !discussRecorded) {
-        recordDiscussCall({
-          inputTokens: primaryOwnInputTokens,
-          modelServed: discussModelId,
-          outputTokens: primaryOwnOutputTokens,
-          status: "ok",
-        });
-      }
-    }
-
     // Post-build policy: none is an allowed card. Do not treat it as a
     // missing tool or spend energy on interview-card repair.
     let primaryToolFailed =
@@ -1206,7 +768,6 @@ export async function runDiscussTurn({
     let repairMs = 0;
     if (primaryToolFailed) {
       const repairStartedAt = Date.now();
-      const repairWinner = hedgeWinner.current;
       const repaired = await repairDiscussCardWithTool({
         brief: effectiveBrief,
         cardSystemPrompt,
@@ -1214,9 +775,9 @@ export async function runDiscussTurn({
         hasBuiltSite,
         lastUserText: lastUserTextValue,
         previousWorkspaceCard,
-        model: repairWinner ? getAiModel(repairWinner.modelName) : model,
+        model,
         modelMessages,
-        modelName: repairWinner?.modelName ?? modelName,
+        modelName,
         projectId: project.id,
         userId,
       });

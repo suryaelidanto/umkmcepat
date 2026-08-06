@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
-  editGeneratedSourceWithAgentMock,
   enqueueAttemptJobMock,
   createReadStreamFromChannelMock,
   prismaTransactionMock,
@@ -28,7 +27,6 @@ const {
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   prismaTransactionMock: vi.fn(),
-  editGeneratedSourceWithAgentMock: vi.fn(),
   enqueueAttemptJobMock: vi.fn(),
   createReadStreamFromChannelMock: vi.fn(),
   prismaProjectBuildCreateMock: vi.fn(),
@@ -117,9 +115,6 @@ vi.mock("@/lib/user-credits", () => ({
 }));
 vi.mock("@/lib/projects/runtime-supervisor", () => ({
   stopSupersededPreviewDeployments: stopSupersededPreviewDeploymentsMock,
-}));
-vi.mock("@/lib/projects/source-edit-agent", () => ({
-  editGeneratedSourceWithAgent: editGeneratedSourceWithAgentMock,
 }));
 vi.mock("@/lib/projects/stale-builds", () => ({
   markStaleProjectBuilds: vi.fn(async () => 0),
@@ -286,23 +281,6 @@ describe("project edit route", () => {
     prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
     prismaExecuteRawMock.mockResolvedValue(1);
     prismaProjectUpdateManyMock.mockResolvedValue({ count: 1 });
-    editGeneratedSourceWithAgentMock.mockImplementation(
-      async ({ files }: { files: typeof baseFiles }) => ({
-        check: { issues: [], ok: true },
-        files: files.map((file) =>
-          file.path === "src/App.tsx"
-            ? {
-                ...file,
-                content: file.content.replace("old headline", "new headline"),
-              }
-            : file,
-        ),
-        ok: true,
-        operations: [],
-        outputs: [],
-        sideEffects: [{ path: "src/App.tsx", type: "replace_in_file" }],
-      }),
-    );
     prismaProjectSnapshotCreateMock.mockResolvedValue({ id: "snapshot_edit" });
     writeProjectSourceArtifactMock.mockResolvedValue(
       "project-artifact:local:source:snapshot_edit",
@@ -373,7 +351,6 @@ data: ${JSON.stringify({ attemptId, buildId: "build_edit", buildStatus: "succeed
       buildStatus: "succeeded",
     });
     // Work happens in worker, not on the request thread.
-    expect(editGeneratedSourceWithAgentMock).not.toHaveBeenCalled();
     expect(prismaProjectSnapshotCreateMock).not.toHaveBeenCalled();
   });
 

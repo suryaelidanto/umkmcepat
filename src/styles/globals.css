@@ -324,6 +324,12 @@
     animation-delay: var(--word-delay, 0s);
   }
 
+  .hero-block-in {
+    will-change: transform, filter;
+    animation: hero-word-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--block-delay, 0s);
+  }
+
   .hero-underline {
     transform-origin: left;
     animation: draw 0.55s ease-out both;
@@ -332,6 +338,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .hero-word,
+    .hero-block-in,
     .hero-underline {
       animation: none;
     }

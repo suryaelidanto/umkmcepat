@@ -1,17 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const {
-  editGeneratedSourceWithAgentMock,
-  runBatchedEditMock,
-  recordAiCallMock,
-  getSettingSyncMock,
-  isAdminEmailMock,
-} = vi.hoisted(() => ({
-  editGeneratedSourceWithAgentMock: vi.fn(),
+const { runBatchedEditMock, recordAiCallMock } = vi.hoisted(() => ({
   runBatchedEditMock: vi.fn(),
   recordAiCallMock: vi.fn(),
-  getSettingSyncMock: vi.fn((_key: string, fallback: unknown) => fallback),
-  isAdminEmailMock: vi.fn(() => true),
 }));
 
 // -- Prisma: stubbed so the worker runs without a DB. Minimal surface for the
@@ -87,14 +78,6 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 
-vi.mock("@/lib/app-settings", () => ({
-  getSettingSync: getSettingSyncMock,
-}));
-
-vi.mock("@/lib/waitlist", () => ({
-  isAdminEmail: isAdminEmailMock,
-}));
-
 vi.mock("@/lib/ai", () => ({
   getAiModel: vi.fn((name?: string) => ({ modelId: name ?? "test-model" })),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
@@ -110,10 +93,6 @@ vi.mock("@/lib/ai-models", () => ({
 vi.mock("@/lib/ai-call-record", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/ai-call-record")>()),
   recordAiCall: recordAiCallMock,
-}));
-
-vi.mock("@/lib/projects/source-edit-agent", () => ({
-  editGeneratedSourceWithAgent: editGeneratedSourceWithAgentMock,
 }));
 
 vi.mock("@/lib/projects/batched-edit", () => ({
@@ -165,18 +144,6 @@ const baseArgs = () => ({
   userId: "user-1",
 });
 
-function legacyOk() {
-  return {
-    files: [{ content: "export const x = 2;", path: "src/routes/index.tsx" }],
-    modelId: "test/model",
-    ok: true,
-    operations: [{ path: "src/routes/index.tsx", type: "write_file" }],
-    outputs: [],
-    sideEffects: [{ path: "src/routes/index.tsx", type: "write_file" }],
-    usage: { inputTokens: 10, outputTokens: 5 },
-  };
-}
-
 function batchedOk() {
   return {
     ok: true as const,
@@ -190,28 +157,10 @@ function batchedOk() {
   };
 }
 
-describe("runEditAttempt — batched rollout wiring", () => {
+describe("runEditAttempt — contract-v1 batched edit", () => {
   afterEach(() => vi.clearAllMocks());
 
-  it("flag=off → batched edit NOT called; legacy agent runs", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "off" : fb,
-    );
-    editGeneratedSourceWithAgentMock.mockResolvedValue(legacyOk());
-
-    await runEditAttempt(baseArgs());
-
-    expect(runBatchedEditMock).not.toHaveBeenCalled();
-    expect(editGeneratedSourceWithAgentMock).toHaveBeenCalled();
-    expect(
-      recordAiCallMock.mock.calls.filter(([e]) => e.phase === "fallback"),
-    ).toHaveLength(0);
-  });
-
-  it("flag=all + batched success → legacy agent NOT called; no fallback row", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
+  it("batched edit ALWAYS runs (no rollout flag, no legacy fallback)", async () => {
     runBatchedEditMock.mockResolvedValue(batchedOk());
 
     await runEditAttempt(baseArgs());
@@ -222,7 +171,6 @@ describe("runEditAttempt — batched rollout wiring", () => {
       attemptId: "attempt-1",
       instruction: "ubah katalog jadi dua kolom",
     });
-    expect(editGeneratedSourceWithAgentMock).not.toHaveBeenCalled();
     expect(
       recordAiCallMock.mock.calls.filter(([e]) => e.phase === "fallback"),
     ).toHaveLength(0);
@@ -237,71 +185,30 @@ describe("runEditAttempt — batched rollout wiring", () => {
     );
   });
 
-  it("flag=all + batched needsFallback → legacy agent runs; fallback telemetry task=edit", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
+  it("batched needsFallback → attempt FAILS; no legacy fallback", async () => {
     runBatchedEditMock.mockResolvedValue({
       needsFallback: true,
       ok: false,
       reason: "gates failed after 2 repairs",
       repairRounds: 2,
     });
-    editGeneratedSourceWithAgentMock.mockResolvedValue(legacyOk());
 
     await runEditAttempt(baseArgs());
 
     expect(runBatchedEditMock).toHaveBeenCalledTimes(1);
-    expect(editGeneratedSourceWithAgentMock).toHaveBeenCalled();
-    const fallbackRows = recordAiCallMock.mock.calls.filter(
-      ([e]) => e.phase === "fallback" && e.task === "edit",
-    );
-    expect(fallbackRows.length).toBeGreaterThanOrEqual(1);
-    expect(fallbackRows[0][0]).toMatchObject({
-      attemptId: "attempt-1",
-      projectId: "p1",
-    });
-    expect(prismaMock.projectSnapshot.create).toHaveBeenCalledWith(
+    expect(
+      recordAiCallMock.mock.calls.filter(([e]) => e.phase === "fallback"),
+    ).toHaveLength(0);
+    expect(prismaMock.projectEditAttempt.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          metadata: expect.objectContaining({
-            generation: expect.objectContaining({ mode: "agent-edit" }),
-          }),
+          status: "failed",
         }),
       }),
     );
   });
 
-  it("flag=internal + admin owner → batched tried", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "internal" : fb,
-    );
-    isAdminEmailMock.mockReturnValue(true);
-    runBatchedEditMock.mockResolvedValue(batchedOk());
-
-    await runEditAttempt(baseArgs());
-
-    expect(runBatchedEditMock).toHaveBeenCalledTimes(1);
-    expect(editGeneratedSourceWithAgentMock).not.toHaveBeenCalled();
-  });
-
-  it("flag=internal + non-admin owner → legacy only", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "internal" : fb,
-    );
-    isAdminEmailMock.mockReturnValue(false);
-    editGeneratedSourceWithAgentMock.mockResolvedValue(legacyOk());
-
-    await runEditAttempt(baseArgs());
-
-    expect(runBatchedEditMock).not.toHaveBeenCalled();
-    expect(editGeneratedSourceWithAgentMock).toHaveBeenCalled();
-  });
-
-  it("flag=all → batched durable write-through reaches the progressive saver", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
+  it("batched durable write-through reaches the progressive saver", async () => {
     runBatchedEditMock.mockImplementation(
       (args: {
         onFileStaged?: (file: { content: string; path: string }) => void;
@@ -324,14 +231,7 @@ describe("runEditAttempt — batched rollout wiring", () => {
     expect(saves.length).toBeGreaterThan(0);
   });
 
-  it("flag=all → protected/TSX-broken staged files never reach the progressive saver", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
-    // Mocked leg emits one clean overlay plus three invalid ones the merge
-    // would never accept: a protected scaffold path, a protected route root,
-    // and a TSX-broken block. None of the three may leak into the durable
-    // project.sourceFiles snapshots mid-stream.
+  it("protected/TSX-broken staged files never reach the progressive saver", async () => {
     runBatchedEditMock.mockImplementation(
       (args: {
         onFileStaged?: (file: { content: string; path: string }) => void;
@@ -373,10 +273,7 @@ describe("runEditAttempt — batched rollout wiring", () => {
     expect(stagedPaths.has("src/routes/broken.tsx")).toBe(false);
   });
 
-  it("user cancel (AbortError) → NO legacy fallback, abort propagates", async () => {
-    getSettingSyncMock.mockImplementation((key: string, fb: unknown) =>
-      key === "generation.batched_rollout" ? "all" : fb,
-    );
+  it("user cancel (AbortError) → abort propagates, attempt failed", async () => {
     const abortError = new Error("The operation was aborted.");
     abortError.name = "AbortError";
     runBatchedEditMock.mockRejectedValue(abortError);
@@ -384,7 +281,6 @@ describe("runEditAttempt — batched rollout wiring", () => {
     await runEditAttempt(baseArgs());
 
     expect(runBatchedEditMock).toHaveBeenCalledTimes(1);
-    expect(editGeneratedSourceWithAgentMock).not.toHaveBeenCalled();
     expect(
       recordAiCallMock.mock.calls.filter(([e]) => e.phase === "fallback"),
     ).toHaveLength(0);

@@ -9,14 +9,13 @@ import {
   type ModerationImage,
 } from "@/lib/ai-moderation";
 import { apiError } from "@/lib/api-errors";
-import { getSetting, getSettingSync } from "@/lib/app-settings";
+import { getSetting } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import { prisma } from "@/lib/prisma";
 import { createInitialBrief } from "@/lib/projects/brief";
 import { createFallbackWorkspaceCard } from "@/lib/projects/brief-flow";
 import {
-  isContractCompiledRollout,
   resolveGenerationEngine,
   type GenerationEngine,
 } from "@/lib/projects/generation-engine";
@@ -40,8 +39,6 @@ import {
   isAtOrOverProjectLimit,
   ProjectLimitExceededError,
 } from "@/lib/user-credits";
-import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
-
 const CREATE_PROJECT_IDEMPOTENCY_ACTION = "project.create";
 const IDEMPOTENCY_KEY_MAX_LENGTH = 120;
 
@@ -275,9 +272,7 @@ export const Route = createFileRoute("/api/projects")({
 
         const brief = createInitialBrief(validation.value);
         const workspaceCard = createFallbackWorkspaceCard(brief);
-        const generationEngine = await resolveEngineForOwner(
-          session.user.email,
-        );
+        const generationEngine = resolveGenerationEngine();
         let project: { id: string } | null;
         try {
           project = await createProjectOnce({
@@ -488,19 +483,7 @@ function createProjectData({
   };
 }
 
-/** Resolve the sticky engine at project creation from one settings snapshot
- * and one normalized owner identity. Never recomputed later. */
-async function resolveEngineForOwner(
-  email: string | null | undefined,
-): Promise<GenerationEngine> {
-  const raw = getSettingSync("generation.contract_compiled_rollout", "off");
-  const rollout = isContractCompiledRollout(raw) ? raw : "off";
-  const admin = email ? isAdminEmail(email) : false;
-  const waitlistApproved = email
-    ? (await isWaitlistApproved(email)) === "approved"
-    : false;
-  return resolveGenerationEngine({ rollout, admin, waitlistApproved });
-}
+/** Resolve the sticky engine at project creation. Contract-v1 only. */
 
 function isUniqueConstraintError(error: unknown) {
   return (

@@ -9,8 +9,7 @@
 // fall back to a "self-select files from this manifest" prompt — the writer
 // gets the file tree + path stem sample and picks; still one call, no tool
 // loop. Format-repair (one round) and targeted repairs (two rounds) mirror
-// generate; budget exhausted → `needsFallback` and the caller runs the
-// legacy `editGeneratedSourceWithAgent` unchanged.
+// generate; budget exhausted → the attempt fails (no legacy fallback).
 import type { BatchedFile } from "@/lib/projects/batched-response";
 import type { StepCharger } from "@/lib/projects/energy-step-charger";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";

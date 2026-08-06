@@ -269,7 +269,7 @@ function HomePage() {
           <HeroMotionItem className={siblingClass}>
             <h1
               id="hero-heading"
-              className="max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white"
+              className={`${hasUser || waitlisted ? "hero-block-in " : ""}max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white`}
             >
               {waitlisted ? (
                 greetingName ? (
@@ -308,7 +308,10 @@ function HomePage() {
               </div>
             </HeroMotionItem>
           ) : (
-            <HeroMotionItem className="w-full">
+            <HeroMotionItem
+              className="hero-block-in w-full"
+              style={{ "--block-delay": "0.15s" } as CSSProperties}
+            >
               <HomePromptForm onFocusChange={setPromptFocused} />
             </HeroMotionItem>
           )}

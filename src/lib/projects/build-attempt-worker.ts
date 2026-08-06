@@ -12,16 +12,10 @@ import {
 } from "@/lib/ai-call-record";
 import { getGenerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
-import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { runBatchedGenerate } from "@/lib/projects/batched-generator";
-import {
-  isBatchedRolloutValue,
-  isBatchedWriterRolledOut,
-} from "@/lib/projects/batched-rollout";
 import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
-import { BatchedAdmissionBlockedError } from "@/lib/projects/brief-admission";
 import {
   publishBuildProgress,
   type BuildProgressEvent,
@@ -30,11 +24,6 @@ import {
   classifyBuildFailure,
   getIndonesianBuildFailureSummary,
 } from "@/lib/projects/build-logs";
-import {
-  ensureRegisteredRouteLinks,
-  generateCustomProjectFilesWithAgent,
-  repairGeneratedProjectFiles,
-} from "@/lib/projects/custom-source-generator";
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
@@ -57,6 +46,7 @@ import {
 } from "@/lib/projects/project-operation";
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import { resolveGenerateMode } from "@/lib/projects/resolve-generate-mode";
+import { ensureRegisteredRouteLinks } from "@/lib/projects/route-links";
 import {
   resolveArtifactFilesDir,
   writeProjectDistArtifact,
@@ -73,7 +63,6 @@ import {
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 import { chargeEnergyForAiUsage } from "@/lib/user-credits";
-import { isAdminEmail } from "@/lib/waitlist";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
   "generated" satisfies ProjectSnapshotSourceType;
@@ -312,73 +301,9 @@ export async function runBuildAttempt({
         });
       }
 
-      let finalBuildResult = await buildGeneratedProject(sourceFiles, {
+      const finalBuildResult = await buildGeneratedProject(sourceFiles, {
         workspaceKey: projectId,
       });
-
-      if (!finalBuildResult.ok && !sourceStepCharger.isExhausted()) {
-        for (let repairAttempt = 0; repairAttempt < 2; repairAttempt++) {
-          const renewed = await renewProjectOperation({
-            projectId,
-            token: operationToken,
-            userId,
-          });
-          if (!renewed) {
-            throw new Error("Build operation lease was superseded.");
-          }
-          send("progress", {
-            label: "AI memperbaiki kode",
-            detail: `Perbaikan ${repairAttempt + 1}/2. Memperbaiki error build.`,
-          });
-          try {
-            const repair = await repairGeneratedProjectFiles({
-              buildLog: finalBuildResult.log,
-              files: sourceFiles,
-              onOperation(op) {
-                send("operation", op);
-              },
-              projectId,
-              schema: retrySchema,
-              stepCharger: sourceStepCharger,
-            });
-            sourceFiles = repair.files;
-            await prisma.projectSnapshot.update({
-              where: { id: snapshot.id },
-              data: {
-                files: sourceFiles,
-                metadata: createGeneratedSourceSnapshotMetadata(
-                  sourceFiles,
-                  retrySchema,
-                  {
-                    generationMode: "retry_build",
-                    repairAttempts: repairAttempt + 1,
-                    summary: "Retry build repair",
-                  },
-                ),
-              },
-            });
-            await writeProjectSourceArtifact({
-              artifactId: snapshot.id,
-              files: sourceFiles,
-            }).catch(() => undefined);
-            finalBuildResult = await buildGeneratedProject(sourceFiles, {
-              workspaceKey: projectId,
-            });
-            if (finalBuildResult.ok) {
-              break;
-            }
-          } catch (repairError) {
-            devLog("generate", "build.repair.error", {
-              attempt: repairAttempt + 1,
-              message:
-                repairError instanceof Error
-                  ? repairError.message
-                  : String(repairError),
-              mode: "retry_build",
-            });
-          }
-        }
-      }
 
       const buildOk = finalBuildResult.ok;
       let distRef: string | null = null;
@@ -489,8 +414,6 @@ export async function runBuildAttempt({
     let specMs = 0;
     let agentMs = 0;
     let viteMs = 0;
-    let repairMs = 0;
-    let repairAttemptsUsed = 0;
 
     const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
     SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
@@ -744,171 +667,60 @@ export async function runBuildAttempt({
     };
 
     const agentStartedAt = Date.now();
-    // Batched rollout: flag-on owners run the single-shot writer; any
-    // batched failure (parse, gates, repair budget) falls back to the legacy
-    // agent loop within the same attempt — never user-visible breakage.
-    const batchedRolloutRaw: string = getSettingSync(
-      "generation.batched_rollout",
-      "off",
-    );
-    const batchedRollout = isBatchedRolloutValue(batchedRolloutRaw)
-      ? batchedRolloutRaw
-      : "off";
-    let batchedIsAdmin = false;
-    if (batchedRollout === "internal") {
-      const owner = await prisma.user
-        .findUnique({ where: { id: userId }, select: { email: true } })
-        .catch(() => null);
-      batchedIsAdmin = owner?.email ? isAdminEmail(owner.email) : false;
-    }
-    const useBatched = isBatchedWriterRolledOut({
-      isAdmin: batchedIsAdmin,
+    // Contract-v1 single-shot writer: the ONLY generation path. Any batched
+    // failure (parse, gates, repair budget, admission block) fails the attempt
+    // outright — there is no legacy fallback. Abort propagates via the catch
+    // below.
+    const batched = await runBatchedGenerate({
+      abortSignal,
+      attemptId,
+      brief,
+      buildId: runtimeBuildId,
+      implementationSpec,
+      onEvent(type, data) {
+        send(type, data);
+      },
+      onFileStaged: persistBatchedStage,
       projectId,
-      rollout: batchedRollout,
+      schema: finalSchema,
+      stepCharger: sourceStepCharger,
+      userId,
     });
 
-    let sourceGeneration: Awaited<
-      ReturnType<typeof generateCustomProjectFilesWithAgent>
-    >;
-    if (useBatched) {
-      try {
-        const batched = await runBatchedGenerate({
-          abortSignal,
-          attemptId,
-          brief,
-          buildId: runtimeBuildId,
-          implementationSpec,
-          onEvent(type, data) {
-            send(type, data);
-          },
-          onFileStaged: persistBatchedStage,
-          projectId,
-          schema: finalSchema,
-          stepCharger: sourceStepCharger,
-          userId,
-        });
-
-        if (batched.ok) {
-          const touched = batched.writtenPaths;
-          sourceGeneration = {
-            buildSpec: buildPrompt,
-            energyExhausted: sourceStepCharger.isExhausted(),
-            files: batched.files,
-            generationMode: "agent-custom",
-            operationTrace: [],
-            repairAttempts: batched.repairRounds,
-            summary: batched.summary,
-            touchedFiles: touched,
-          };
-        } else {
-          devLog("generate", "batched.fallback", {
-            projectId,
-            reason: batched.reason,
-            repairRounds: batched.repairRounds,
-          });
-          sourceGeneration = await generateCustomProjectFilesWithAgent({
-            implementationBrief: buildPrompt,
-            implementationSpec,
-            onOperation(operation) {
-              send("operation", operation);
-            },
-            projectId,
-            schema: finalSchema,
-            onFilesChanged,
-            abortSignal,
-            stepCharger: sourceStepCharger,
-          });
-          recordAiCall({
-            attemptId,
-            buildId: runtimeBuildId ?? undefined,
-            modelRequested: getGenerationModel(),
-            phase: "fallback",
-            projectId,
-            status: "ok",
-            task: "build-step",
-          });
-        }
-      } catch (error) {
-        if (error instanceof BatchedAdmissionBlockedError) {
-          // Admission gate divergence: discuss-readiness may have accepted
-          // this brief via fieldState (declined/explicitly_empty) while the
-          // independent zod gate blocks it. Never abort — the user still
-          // gets their site via the legacy agent loop; the block only keeps
-          // this brief off the batched path.
-          devLog("generate", "batched.admission-fallback", {
-            blockers: error.blockers,
-            projectId,
-            reason: error.reason,
-          });
-          sourceGeneration = await generateCustomProjectFilesWithAgent({
-            implementationBrief: buildPrompt,
-            implementationSpec,
-            onOperation(operation) {
-              send("operation", operation);
-            },
-            projectId,
-            schema: finalSchema,
-            onFilesChanged,
-            abortSignal,
-            stepCharger: sourceStepCharger,
-          });
-          recordAiCall({
-            attemptId,
-            buildId: runtimeBuildId ?? undefined,
-            modelRequested: getGenerationModel(),
-            phase: "fallback",
-            projectId,
-            status: "ok",
-            task: "build-step",
-          });
-        } else if (
-          // User cancel: never fall back — rethrow so the attempt aborts.
-          (error instanceof Error && error.name === "AbortError") ||
-          abortSignal?.aborted
-        ) {
-          throw error;
-        } else {
-          devLog("generate", "batched.error-fallback", {
-            error: error instanceof Error ? error.message : String(error),
-            projectId,
-          });
-          sourceGeneration = await generateCustomProjectFilesWithAgent({
-            implementationBrief: buildPrompt,
-            implementationSpec,
-            onOperation(operation) {
-              send("operation", operation);
-            },
-            projectId,
-            schema: finalSchema,
-            onFilesChanged,
-            abortSignal,
-            stepCharger: sourceStepCharger,
-          });
-          recordAiCall({
-            attemptId,
-            buildId: runtimeBuildId ?? undefined,
-            modelRequested: getGenerationModel(),
-            phase: "fallback",
-            projectId,
-            status: "ok",
-            task: "build-step",
-          });
-        }
-      }
-    } else {
-      sourceGeneration = await generateCustomProjectFilesWithAgent({
-        implementationBrief: buildPrompt,
-        implementationSpec,
-        onOperation(operation) {
-          send("operation", operation);
-        },
-        projectId: projectId,
-        schema: finalSchema,
-        onFilesChanged,
-        abortSignal: abortSignal,
-        stepCharger: sourceStepCharger,
+    if (!batched.ok) {
+      devLog("generate", "batched.failed", {
+        projectId,
+        reason: batched.reason,
+        repairRounds: batched.repairRounds,
       });
+      throw new Error(batched.reason || "Batched generation failed.");
     }
+
+    const touched = batched.writtenPaths;
+    const sourceGeneration: {
+      buildSpec: string;
+      energyExhausted: boolean;
+      files: GeneratedProjectFile[];
+      generationMode: "agent-custom";
+      operationTrace: {
+        detail: string;
+        state: string;
+        title: string;
+        type: string;
+      }[];
+      repairAttempts: number;
+      summary: string;
+      touchedFiles: string[];
+    } = {
+      buildSpec: buildPrompt,
+      energyExhausted: sourceStepCharger.isExhausted(),
+      files: batched.files,
+      generationMode: "agent-custom",
+      operationTrace: [],
+      repairAttempts: batched.repairRounds,
+      summary: batched.summary,
+      touchedFiles: touched,
+    };
     agentMs = Date.now() - agentStartedAt;
     if (sourceGeneration.energyExhausted) {
       send("energy_exhausted", {
@@ -923,10 +735,8 @@ export async function runBuildAttempt({
       mode: sourceGeneration.generationMode,
       projectId: projectId,
       touchedFiles: sourceGeneration.touchedFiles.length,
-      partial: sourceGeneration.partial,
     });
-    let sourceFiles = sourceGeneration.files;
-    const isPartial = sourceGeneration.partial === true;
+    const sourceFiles = sourceGeneration.files;
     const sourceLeaseRenewed = await renewProjectOperation({
       projectId,
       token: operationToken,
@@ -983,13 +793,6 @@ export async function runBuildAttempt({
       }),
     });
 
-    if (isPartial) {
-      send("progress", {
-        label: "AI belum selesai menulis file",
-        detail: "Melanjutkan build dengan file hasil penulisan.",
-      });
-    }
-
     const build = runtimeBuildId
       ? await prisma.projectBuild.update({
           where: { id: runtimeBuildId },
@@ -1035,100 +838,7 @@ export async function runBuildAttempt({
       projectId: projectId,
     });
 
-    let finalBuildResult = buildResult;
-
-    if (!buildResult.ok && !sourceGeneration.energyExhausted) {
-      for (let repairAttempt = 0; repairAttempt < 2; repairAttempt++) {
-        const renewed = await renewProjectOperation({
-          projectId,
-          token: operationToken,
-          userId,
-        });
-        if (!renewed) {
-          throw new Error("Build operation lease was superseded.");
-        }
-
-        send("progress", {
-          label: "AI memperbaiki kode",
-          detail: `Perbaikan ${repairAttempt + 1}/2. Memperbaiki error build.`,
-        });
-
-        try {
-          const repairPhaseStartedAt = Date.now();
-          const repair = await repairGeneratedProjectFiles({
-            buildLog: finalBuildResult.log,
-            files: sourceFiles,
-            implementationSpec,
-            onOperation(operation) {
-              send("operation", operation);
-            },
-            projectId: projectId,
-            schema: finalSchema,
-            stepCharger: sourceStepCharger,
-          });
-          sourceFiles = repair.files;
-
-          await prisma.projectSnapshot.update({
-            where: { id: snapshot.id },
-            data: {
-              files: sourceFiles,
-              metadata: createGeneratedSourceSnapshotMetadata(
-                sourceFiles,
-                finalSchema,
-                repair,
-              ),
-            },
-          });
-          await writeProjectSourceArtifact({
-            artifactId: snapshot.id,
-            files: sourceFiles,
-          });
-
-          const retryBuild = await buildGeneratedProject(sourceFiles, {
-            workspaceKey: projectId,
-          });
-          repairMs += Date.now() - repairPhaseStartedAt;
-          repairAttemptsUsed = repairAttempt + 1;
-          finalBuildResult = retryBuild;
-          devLog("generate", "build.retry.finished", {
-            attempt: repairAttempt + 1,
-            ok: retryBuild.ok,
-            projectId: projectId,
-          });
-
-          if (retryBuild.ok) {
-            send("progress", {
-              label: "Build website berhasil",
-              detail: `Berhasil divalidasi setelah ${repairAttempt + 1} perbaikan.`,
-            });
-            await prisma.projectBuild.update({
-              where: { id: build.id },
-              data: {
-                finishedAt: new Date(),
-                logText: retryBuild.log,
-                status: "succeeded" satisfies ProjectBuildStatus,
-              },
-            });
-            runtimeBuildFinalized = true;
-            break;
-          }
-
-          if (repairAttempt === 1) {
-            send("progress", {
-              label: "Build website gagal",
-              detail: "File disimpan. Silakan cek log di tab Kode.",
-            });
-          }
-        } catch (repairError) {
-          devLog("generate", "build.repair.error", {
-            attempt: repairAttempt + 1,
-            error:
-              repairError instanceof Error ? repairError.message : "unknown",
-            projectId: projectId,
-          });
-        }
-      }
-    }
+    const finalBuildResult = buildResult;
 
     const finalBuildOk = finalBuildResult.ok;
     devLog("generate", "timings", {
@@ -1136,8 +846,6 @@ export async function runBuildAttempt({
       specMs,
       agentMs,
       viteMs,
-      repairMs,
-      repairAttempts: repairAttemptsUsed,
       totalMs: Date.now() - generateStartedAt,
       ok: finalBuildOk,
     });

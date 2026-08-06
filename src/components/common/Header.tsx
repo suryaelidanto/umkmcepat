@@ -1,18 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-
 import { AuthButton } from "@/components/common/AuthButton";
 import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
 import { useSession } from "@/lib/auth-client";
-import {
-  fetchWaitlistStatus,
-  GATE_QUERY_OPTIONS,
-  queryKeys,
-  waitlistPendingPollInterval,
-} from "@/lib/query-client";
 
 export function Header({
   devResetPending = false,
@@ -25,18 +17,7 @@ export function Header({
   showDevBanner?: boolean;
   showResetButton?: boolean;
 } = {}) {
-  const { data: session, status } = useSession();
-  const waitlistQuery = useQuery({
-    queryKey: queryKeys.waitlistStatus,
-    queryFn: fetchWaitlistStatus,
-    enabled: status === "authenticated",
-    ...GATE_QUERY_OPTIONS,
-    refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
-  });
-  const waitlisted =
-    status === "authenticated" &&
-    waitlistQuery.isSuccess &&
-    waitlistQuery.data.status !== "approved";
+  const { data: session } = useSession();
   void session;
 
   return (
@@ -77,7 +58,7 @@ export function Header({
         <div aria-hidden="true" />
 
         <div className="flex items-center justify-end gap-3">
-          {!waitlisted ? <EnergyDisplay /> : null}
+          <EnergyDisplay />
           <AuthButton />
         </div>
       </div>

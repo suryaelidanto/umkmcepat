@@ -137,15 +137,6 @@ describe("existing entries carry env + bounds", () => {
     );
   });
 
-  it("maps discuss hedge keys to AI_MODEL_DISCUSS_HEDGE_*", () => {
-    expect(
-      APP_SETTINGS.find((e) => e.key === "ai.model.discuss_hedge_2")?.env,
-    ).toBe("AI_MODEL_DISCUSS_HEDGE_2");
-    expect(
-      APP_SETTINGS.find((e) => e.key === "ai.model.discuss_hedge_3")?.env,
-    ).toBe("AI_MODEL_DISCUSS_HEDGE_3");
-  });
-
   it("maps ai.model.build to AI_MODEL_BUILD", () => {
     expect(APP_SETTINGS.find((e) => e.key === "ai.model.build")?.env).toBe(
       "AI_MODEL_BUILD",
@@ -158,8 +149,6 @@ describe("existing entries carry env + bounds", () => {
       "ai.model.moderation",
       "ai.model.discuss",
       "ai.model.build",
-      "ai.model.discuss_hedge_2",
-      "ai.model.discuss_hedge_3",
     ]) {
       expect(APP_SETTINGS.find((e) => e.key === key)?.optionsSource).toBe(
         "nine_router_models",
@@ -171,25 +160,6 @@ describe("existing entries carry env + bounds", () => {
     expect(
       APP_SETTINGS.find((e) => e.key === "feature.streamer_mode")?.env,
     ).toBeUndefined();
-  });
-
-  it("includes the contract-compiled rollout flag defaulting off", () => {
-    const e = APP_SETTINGS.find(
-      (x) => x.key === "generation.contract_compiled_rollout",
-    );
-    expect(e).toBeDefined();
-    expect(e?.type).toBe("string");
-    expect(e?.fallback).toBe("off");
-    expect(e?.enumOptions).toEqual(["off", "internal", "pilot", "all"]);
-  });
-
-  it("includes the contract admission flag defaulting paused", () => {
-    const e = APP_SETTINGS.find(
-      (x) => x.key === "generation.contract_admission",
-    );
-    expect(e).toBeDefined();
-    expect(e?.fallback).toBe("paused");
-    expect(e?.enumOptions).toEqual(["paused", "enabled"]);
   });
 
   it("every numeric entry declares min and max", () => {

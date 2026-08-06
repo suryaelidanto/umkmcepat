@@ -103,7 +103,7 @@ describe("getModelPricing", () => {
     expect(openRouterPrice.pricingSource).not.toBe("manual-override");
   });
 
-  it("returns manual override pricing for every hedged combo primary", async () => {
+  it("returns manual override pricing for every cheap combo primary", async () => {
     const cases = [
       ["xiaomi/mimo-v2.5", 0.00000014, 0.00000028],
       ["z-ai/glm-4.6v", 0.0000003, 0.0000009],

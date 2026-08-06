@@ -41,12 +41,70 @@ import {
   BatchedAdmissionBlockedError,
   checkBatchedGenerateAdmission,
 } from "@/lib/projects/brief-admission";
-import { buildGeneratedAppBuildSpec } from "@/lib/projects/custom-source-generator";
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
 import { resolveShadcnDeps } from "@/lib/projects/scaffold/shadcn-components";
 import { SHADCN_COMPONENT_BY_NAME } from "@/lib/projects/scaffold/shadcn-components";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
+
+// The batched writer's prompt needs the same "app spec" summary of the
+// schema/implementation spec that the (now removed) legacy agent loop used.
+export function buildGeneratedAppBuildSpec(
+  input:
+    | ProjectSiteSchema
+    | {
+        conversationBrief?: string;
+        implementationSpec?: ImplementationSpec;
+        schema: ProjectSiteSchema;
+      },
+  legacyConversationBrief = "",
+) {
+  const { conversationBrief, implementationSpec, schema } =
+    "schema" in input
+      ? {
+          conversationBrief: input.conversationBrief ?? "",
+          implementationSpec: input.implementationSpec,
+          schema: input.schema,
+        }
+      : {
+          conversationBrief: legacyConversationBrief,
+          implementationSpec: undefined,
+          schema: input,
+        };
+  return [
+    implementationSpec
+      ? `App kind: ${implementationSpec.appKind}`
+      : "App kind: landing page",
+    `Business: ${implementationSpec?.businessName || schema.businessName}`,
+    implementationSpec
+      ? `Pages: ${implementationSpec.pages.map((page) => `${page.slug} — ${page.title}: ${page.purpose}`).join(" | ")}`
+      : `Audience: ${schema.audience}`,
+    implementationSpec
+      ? `Components: ${implementationSpec.components.map((component) => `${component.name}: ${component.purpose}`).join(" | ")}`
+      : `Offer: ${schema.offer}`,
+    implementationSpec
+      ? `Features: ${implementationSpec.features.join(", ")}`
+      : `Primary CTA: ${schema.primaryCta}`,
+    `Visual direction: ${implementationSpec?.style.direction || `background ${schema.theme.background}; foreground ${schema.theme.foreground}; muted ${schema.theme.muted}; accent ${schema.theme.accent}`}`,
+    conversationBrief ? `Conversation summary:\n${conversationBrief}` : "",
+    implementationSpec
+      ? `Structured content:\n${JSON.stringify(implementationSpec.content, null, 2)}`
+      : "",
+    "Build intent:",
+    "- Build the structure declared above. Do not force everything into one generic landing page.",
+    "- If appKind is interactive_app, create useful static frontend interactions only; no backend persistence.",
+    "- Invent layout, hierarchy, cards, flows, pages, and proof points that fit the business.",
+    "- Rewrite user answers into customer-facing Indonesian copy; the result must feel designed, not a transcript.",
+    "- Use business-specific visual metaphors; avoid generic white cards copied from a schema.",
+    "Required source shape:",
+    "- Routes own composition only.",
+    "- Content module owns structured copy/data.",
+    "- CSS owns visual identity.",
+    "- Components own specific visual or interactive sections.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
 // ---------------------------------------------------------------------------
 // Constants shared with gates
@@ -1112,11 +1170,10 @@ function mergeFinalFiles(
   return [...byPath.values()];
 }
 
-// DESIGN_DIRECTIVE reuse — kept verbatim so the batched prompt carries
-// the exact same taste rules as the legacy agent loop. Import from the shared
-// local copy in custom-source-generator is not exported; duplicate is
-// intentional for now. ponytail: extract to src/lib/projects/design-directive.ts
-// when a third builder appears.
+// DESIGN_DIRECTIVE reuse — kept verbatim so the batched prompt carries the
+// exact same taste rules the legacy agent loop used. The legacy module is
+// removed; this is now the single copy. ponytail: extract to
+// src/lib/projects/design-directive.ts when a second builder appears.
 const DESIGN_DIRECTIVE = `DESIGN STANDARDS (non-negotiable — output must look designed, not templated):
 
 TASTE READ (decide before writing CSS): infer vibe from business (warung=friendly/warm, bengkel=industrial/bold, kopi=editorial/calm, laundry=clean/trust). Set 3 dials: DESIGN_VARIANCE (1 symmetrical→10 artsy, default 8), MOTION_INTENSITY (1 static→10 cinematic, default 6), VISUAL_DENSITY (1 airy→10 packed, default 4).

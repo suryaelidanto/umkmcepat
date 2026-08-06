@@ -16,6 +16,9 @@ describe("isWaitlistMarketingPublicPath", () => {
   it("blocks product and admin pages (admin uses gate-bypass helper)", () => {
     expect(isWaitlistMarketingPublicPath("/projects")).toBe(false);
     expect(isWaitlistMarketingPublicPath("/projects/abc")).toBe(false);
+    expect(isWaitlistMarketingPublicPath("/profile")).toBe(false);
+    expect(isWaitlistMarketingPublicPath("/support")).toBe(false);
+    expect(isWaitlistMarketingPublicPath("/support/abc")).toBe(false);
     expect(isWaitlistMarketingPublicPath("/admin")).toBe(false);
   });
 });
@@ -28,8 +31,15 @@ describe("isWaitlistGateBypassPath", () => {
     expect(isWaitlistGateBypassPath("/admin/waitlist")).toBe(true);
   });
 
+  it("allows /profile and /support (incl. ticket threads)", () => {
+    expect(isWaitlistGateBypassPath("/profile")).toBe(true);
+    expect(isWaitlistGateBypassPath("/support")).toBe(true);
+    expect(isWaitlistGateBypassPath("/support/abc")).toBe(true);
+  });
+
   it("still blocks product routes", () => {
     expect(isWaitlistGateBypassPath("/projects")).toBe(false);
     expect(isWaitlistGateBypassPath("/projects/abc")).toBe(false);
+    expect(isWaitlistGateBypassPath("/projects/new")).toBe(false);
   });
 });

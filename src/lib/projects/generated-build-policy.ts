@@ -28,23 +28,9 @@ export default defineConfig({
 })
 `;
 
-const PLATFORM_OWNED_PATHS = new Set([
-  "components.json",
-  "generated-app.manifest.json",
-  "package.json",
-  "vite.config.ts",
-]);
 const VITE_CONFIG_PATH = /^vite\.config\.(?:cjs|cts|js|mjs|mts|ts)$/;
 const EXECUTABLE_BUILD_CONFIG_PATH =
   /^(?:postcss|rollup|tailwind)\.config\.(?:cjs|cts|js|mjs|mts|ts)$/;
-
-export function isPlatformOwnedGeneratedPath(filePath: string) {
-  return (
-    PLATFORM_OWNED_PATHS.has(filePath) ||
-    VITE_CONFIG_PATH.test(filePath) ||
-    EXECUTABLE_BUILD_CONFIG_PATH.test(filePath)
-  );
-}
 
 export function validateGeneratedBuildPolicy(
   files: GeneratedBuildPolicyFile[],

@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getSettingSync } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
 import { devLog } from "@/lib/dev-log";
@@ -14,7 +13,6 @@ import {
 } from "@/lib/projects/build-attempt-pubsub";
 import { acceptHandoffAndCreateAttempt } from "@/lib/projects/build-handoff-acceptance";
 import { loadActiveHandoff } from "@/lib/projects/build-handoffs";
-import { assertContractGenerationAdmitted } from "@/lib/projects/contract-generation-admission";
 import { loadPersistedProjectSourceFiles } from "@/lib/projects/load-persisted-project-source";
 import {
   claimProjectOperation,
@@ -196,18 +194,6 @@ async function handleGeneratePost(request: Request, routeId: string) {
       Boolean(contractReviewHash);
 
     if (isContractPath) {
-      // Emergency rollback gate (G3): refuse new contract attempts while
-      // admission is paused. This does not change the sticky engine or the
-      // selected last-known-good deployment.
-      const admission = getSettingSync(
-        "generation.contract_admission",
-        "paused",
-      );
-      assertContractGenerationAdmitted({
-        generationEngine: project.generationEngine,
-        admission,
-      });
-
       const acceptance = await acceptHandoffAndCreateAttempt({
         projectId,
         userId,

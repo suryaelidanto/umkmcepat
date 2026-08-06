@@ -4,12 +4,11 @@
 // + the sanitized build log), this returns the NEXT action the driver should
 // take — repair, re-spec, give up, or re-run. It makes NO AI calls and touches
 // NO live app; it is a deterministic, unit-testable core. The caller (the
-// iteration driver / a CLI) executes the chosen action via the existing
-// repairGeneratedProjectFiles path or the generate route.
+// iteration driver / a CLI) executes the chosen action via the generate route.
 //
-// This composes with — never replaces — the existing 2-attempt repair loop in
-// api.projects.$id.generate.ts. That loop is in-request; this planner governs
-// the OUTER loop across multiple generate attempts when a build stays red.
+// This composes with — never replaces — the build retry handling. This
+// planner governs the OUTER loop across multiple generate attempts when a
+// build stays red.
 
 import type { BuildFailureReason } from "@/lib/projects/build-logs";
 

@@ -28,7 +28,6 @@ export type AiCallEntry = {
   status: string; // ok|error|aborted|timeout
   errorClass?: string;
   retryCount?: number;
-  hedged?: boolean;
   raceRole?: string;
 };
 
@@ -41,7 +40,6 @@ export function recordAiCall(entry: AiCallEntry): void {
           buildId: entry.buildId,
           cachedTokens: entry.cachedTokens,
           errorClass: entry.errorClass?.slice(0, 64),
-          hedged: entry.hedged,
           inputTokens: entry.inputTokens,
           modelRequested: entry.modelRequested.slice(0, 160),
           modelServed: entry.modelServed?.slice(0, 160),

@@ -1,16 +1,9 @@
-import { recordAiCall } from "@/lib/ai-call-record";
 import { getGenerationModel } from "@/lib/ai-models";
-import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
 import { runBatchedEdit } from "@/lib/projects/batched-edit";
 import { isBatchedFilePersistable } from "@/lib/projects/batched-generator";
-import {
-  type BatchedRolloutValue,
-  isBatchedRolloutValue,
-  isBatchedWriterRolledOut,
-} from "@/lib/projects/batched-rollout";
 import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { type DiffLine } from "@/lib/projects/diff";
@@ -40,8 +33,6 @@ import {
   type ProjectDeploymentStatus,
 } from "@/lib/projects/runtime-types";
 import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
-import { editGeneratedSourceWithAgent } from "@/lib/projects/source-edit-agent";
-import { isAdminEmail } from "@/lib/waitlist";
 
 async function updateProjectEditAttempt(
   id: string,
@@ -274,34 +265,8 @@ export async function runEditAttempt({
       saver.save(currentFiles);
     };
 
-    // Batched rollout (same flag as generate): batched writer tries the edit
-    // as ONE response, falling back to the legacy ToolLoopAgent on
-    // needsFallback/throw — never surfaces breakage.
-    let useBatchedEdit = false;
-    try {
-      const rolloutRaw: string = getSettingSync(
-        "generation.batched_rollout",
-        "off",
-      );
-      const rollout: BatchedRolloutValue = isBatchedRolloutValue(rolloutRaw)
-        ? rolloutRaw
-        : "off";
-      let batchedIsAdmin = false;
-      if (rollout === "internal") {
-        const owner = await prisma.user
-          .findUnique({ where: { id: userId }, select: { email: true } })
-          .catch(() => null);
-        batchedIsAdmin = owner?.email ? isAdminEmail(owner.email) : false;
-      }
-      useBatchedEdit = isBatchedWriterRolledOut({
-        isAdmin: batchedIsAdmin,
-        projectId: project.id,
-        rollout,
-      });
-    } catch {
-      useBatchedEdit = false;
-    }
-
+    // Contract-v1 batched writer: the ONLY edit path. It tries the edit as ONE
+    // response. On needsFallback/throw the attempt fails — no legacy fallback.
     // Durable write-through while the batched writer streams: overlay the
     // batched-staged paths onto the LIVE base so interrupted edits still land.
     // Semantic gate mirrors the merge-time filter (protected / TSX-broken
@@ -322,123 +287,54 @@ export async function runEditAttempt({
       onFilesChanged([...merged.values()]);
     };
 
-    let editResult:
-      Awaited<ReturnType<typeof editGeneratedSourceWithAgent>> | undefined;
-    let editEngine: "agent-edit" | "batched-edit" = "agent-edit";
+    const batched = await runBatchedEdit({
+      abortSignal,
+      attemptId: attempt.id,
+      instruction,
+      onEvent(type, data) {
+        send(type, data);
+      },
+      onFileStaged: persistBatchedStage,
+      projectId: project.id,
+      sourceFiles: baseFiles,
+      stepCharger: editStepCharger,
+    });
 
-    if (useBatchedEdit) {
-      try {
-        const batched = await runBatchedEdit({
-          abortSignal,
-          attemptId: attempt.id,
-          instruction,
-          onEvent(type, data) {
-            send(type, data);
-          },
-          onFileStaged: persistBatchedStage,
-          projectId: project.id,
-          sourceFiles: baseFiles,
-          stepCharger: editStepCharger,
-        });
-        if (batched.ok) {
-          editEngine = "batched-edit";
-          editResult = {
-            check: null,
-            files: batched.files,
-            modelId: getGenerationModel(),
-            ok: true,
-            operations: batched.writtenPaths.map((path) => ({
-              detail: "File ditulis writer batched.",
-              id: path,
-              path,
-              state: "succeeded",
-              title: "Menulis file",
-              type: "write_file",
-            })),
-            outputs: [],
-            sideEffects: batched.writtenPaths.map((path) => ({
-              path,
-              type: "write_file",
-            })),
-            usage: { inputTokens: 0, outputTokens: 0 },
-          };
-        } else {
-          devLog("edit", "batched.fallback", {
-            projectId: project.id,
-            reason: batched.reason,
-            repairRounds: batched.repairRounds,
-          });
-          recordAiCall({
-            attemptId: attempt.id,
-            modelRequested: getGenerationModel(),
-            phase: "fallback",
-            projectId: project.id,
-            status: "ok",
-            task: "edit",
-          });
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") {
-          throw error;
-        }
-        devLog("edit", "batched.error-fallback", {
-          error: error instanceof Error ? error.message : String(error),
-          projectId: project.id,
-        });
-        recordAiCall({
-          attemptId: attempt.id,
-          modelRequested: getGenerationModel(),
-          phase: "fallback",
-          projectId: project.id,
-          status: "ok",
-          task: "edit",
-        });
-      }
-    }
-
-    if (!editResult) {
-      editResult = await editGeneratedSourceWithAgent({
-        files: baseFiles,
-        instruction,
-        onOperation: persistEditProgress,
-        onFilesChanged,
-        stepCharger: editStepCharger,
-        abortSignal: abortSignal,
+    if (!batched.ok) {
+      devLog("edit", "batched.failed", {
+        projectId: project.id,
+        reason: batched.reason,
+        repairRounds: batched.repairRounds,
       });
+      throw new Error(batched.reason || "Batched edit failed.");
     }
+
+    const editResult = {
+      check: null,
+      files: batched.files,
+      modelId: getGenerationModel(),
+      ok: true as const,
+      operations: batched.writtenPaths.map((path) => ({
+        detail: "File ditulis writer batched.",
+        id: path,
+        path,
+        state: "succeeded",
+        title: "Menulis file",
+        type: "write_file",
+      })),
+      outputs: [],
+      sideEffects: batched.writtenPaths.map((path) => ({
+        path,
+        type: "write_file",
+      })),
+      usage: { inputTokens: 0, outputTokens: 0 },
+    };
     devLog("edit", "tools.finished", {
       ok: editResult.ok,
       operations: editResult.operations.length,
       projectId: project.id,
       sideEffects: editResult.sideEffects.length,
     });
-
-    if (!editResult.ok) {
-      await updateProjectEditAttempt(attempt.id, { status: "repairing" });
-      const fallbackResult = await editGeneratedSourceWithAgent({
-        files: baseFiles,
-        instruction: [
-          instruction,
-          "The fast edit attempt failed. Retry carefully with the stronger default model.",
-          "Keep the edit minimal and run check_app.",
-        ].join("\n\n"),
-        model: getGenerationModel(),
-        onOperation: persistEditProgress,
-        onFilesChanged,
-        stepCharger: editStepCharger,
-        abortSignal: abortSignal,
-      });
-
-      if (fallbackResult.ok) {
-        editResult.files = fallbackResult.files;
-        editResult.operations = [
-          ...editResult.operations,
-          ...fallbackResult.operations,
-        ];
-        editResult.outputs = [...editResult.outputs, ...fallbackResult.outputs];
-        editResult.sideEffects = fallbackResult.sideEffects;
-      }
-    }
 
     await saver.flush();
 
@@ -473,58 +369,12 @@ export async function runEditAttempt({
     const touchedFiles = editResult.sideEffects
       .map((effect) => effect.path)
       .filter((path): path is string => Boolean(path));
-    let editValidation = validateGeneratedEdit({
+    const editValidation = validateGeneratedEdit({
       baseFiles,
       instruction,
       nextFiles: editResult.files,
       touchedFiles,
     });
-
-    if (!editValidation.ok) {
-      await updateProjectEditAttempt(attempt.id, {
-        status: "repairing",
-        validationIssues: editValidation.blockingIssues,
-      });
-
-      const repairResult = await editGeneratedSourceWithAgent({
-        files: editResult.files,
-        model: getGenerationModel(),
-        instruction: [
-          instruction,
-          "Previous edit did not make a meaningful rendered-source change.",
-          "Repair it now. Make concrete edits to rendered JSX/content/CSS. Run check_app.",
-          `Validation issues: ${editValidation.blockingIssues.join("; ")}`,
-        ].join("\n\n"),
-        onOperation: persistEditProgress,
-        onFilesChanged,
-        stepCharger: editStepCharger,
-        abortSignal: abortSignal,
-      });
-
-      if (repairResult.ok) {
-        editResult.files = repairResult.files;
-        editResult.operations = [
-          ...editResult.operations,
-          ...repairResult.operations,
-        ];
-        editResult.outputs = [...editResult.outputs, ...repairResult.outputs];
-        editResult.sideEffects = [
-          ...editResult.sideEffects,
-          ...repairResult.sideEffects,
-        ];
-        touchedFiles.push(
-          ...repairResult.sideEffects
-            .map((effect) => effect.path)
-            .filter((path): path is string => Boolean(path)),
-        );
-        editValidation = validateGeneratedEdit({
-          baseFiles,
-          instruction,
-          nextFiles: editResult.files,
-          touchedFiles,
-        });
-      }
-    }
 
     await saver.flush();
 
@@ -580,12 +430,12 @@ export async function runEditAttempt({
             siteSchema,
           ),
           origin: {
-            generator: "agent-tool-runner",
+            generator: "batched-edit",
             parentSnapshotId: activeSnapshot.id,
             sourceType: "edited",
           },
           generation: {
-            mode: editEngine,
+            mode: "batched-edit",
             operationTrace: editResult.operations,
             editValidation,
             touchedFiles,

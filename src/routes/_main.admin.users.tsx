@@ -7,7 +7,35 @@ import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { fetchJson } from "@/lib/query-client";
+
+/** id-ID thousands: 1000000 → "1.000.000" */
+function formatGroupedNumber(value: unknown): string {
+  if (value === "" || value === null || value === undefined) {
+    return "";
+  }
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) {
+    return "";
+  }
+  return Math.trunc(n).toLocaleString("id-ID");
+}
+
+/** Strip non-digits; empty → "" for draft, else number. */
+function parseGroupedNumber(raw: string): number | "" {
+  const digits = raw.replace(/\D/g, "");
+  if (digits === "") {
+    return "";
+  }
+  return Number(digits);
+}
 
 type AdminUser = {
   bannedAt: string | null;
@@ -69,12 +97,26 @@ function UsersPage() {
         method: "POST",
         body: JSON.stringify({ amount: vars.amount }),
       }),
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-      toast.success("Energi ditambahkan.");
+      toast.success(
+        vars.amount >= 1_000_000
+          ? `Energi ${formatGroupedNumber(vars.amount)} ditambahkan.`
+          : "Energi ditambahkan.",
+      );
+      setGrantTarget(null);
     },
     onError: () => toast.error("Gagal menambah energi."),
   });
+
+  const [grantTarget, setGrantTarget] = useState<AdminUser | null>(null);
+  const [grantRaw, setGrantRaw] = useState("");
+  const grantAmount = parseGroupedNumber(grantRaw);
+
+  const openGrant = (user: AdminUser) => {
+    setGrantTarget(user);
+    setGrantRaw("");
+  };
 
   const users = data?.users ?? [];
   return (
@@ -129,9 +171,7 @@ function UsersPage() {
             <div className="flex gap-spacing-2">
               <button
                 className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
-                onClick={() => {
-                  grant.mutate({ amount: 100_000, id: u.id });
-                }}
+                onClick={() => openGrant(u)}
                 type="button"
               >
                 Tambah energi
@@ -175,6 +215,58 @@ function UsersPage() {
           </button>
         </div>
       ) : null}
+      <Dialog
+        open={grantTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setGrantTarget(null);
+          }
+        }}
+      >
+        <DialogContent showCloseButton className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tambah energi</DialogTitle>
+            <DialogDescription>
+              Tambahkan energi untuk{" "}
+              {grantTarget?.name || grantTarget?.email || "pengguna"}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-spacing-3">
+            <label className="text-sm text-surface-warm-white/80">
+              Jumlah energi
+            </label>
+            <input
+              autoFocus
+              className="rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-3 py-spacing-2 text-sm"
+              inputMode="numeric"
+              onChange={(e) => setGrantRaw(e.target.value)}
+              placeholder="1.000.000"
+              value={formatGroupedNumber(grantAmount)}
+            />
+            <div className="flex justify-end gap-spacing-2">
+              <button
+                className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+                onClick={() => setGrantTarget(null)}
+                type="button"
+              >
+                Batal
+              </button>
+              <button
+                className="rounded-radius-md bg-surface-warm-white px-spacing-3 py-spacing-2 text-sm text-foreground-primary disabled:opacity-40"
+                disabled={grantAmount === "" || grantAmount <= 0}
+                onClick={() => {
+                  if (grantTarget && grantAmount !== "" && grantAmount > 0) {
+                    grant.mutate({ amount: grantAmount, id: grantTarget.id });
+                  }
+                }}
+                type="button"
+              >
+                Konfirmasi
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

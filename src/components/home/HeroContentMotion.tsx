@@ -11,9 +11,15 @@ export function HeroContentMotion({ children }: { children: React.ReactNode }) {
 export function HeroMotionItem({
   children,
   className = "",
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) {
-  return <div className={className}>{children}</div>;
+  return (
+    <div className={className} style={style}>
+      {children}
+    </div>
+  );
 }
