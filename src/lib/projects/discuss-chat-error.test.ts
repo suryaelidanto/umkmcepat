@@ -55,6 +55,14 @@ describe("classifyDiscussChatError", () => {
   it("treats an empty/unknown error as transient (safest: retry once)", () => {
     expect(classifyDiscussChatError({})).toBe("transient");
   });
+
+  it("classifies the server transient copy as transient (drives auto-retry)", () => {
+    expect(
+      classifyDiscussChatError({
+        message: "AI lagi gangguan. Coba lagi sebentar.",
+      }),
+    ).toBe("transient");
+  });
 });
 
 describe("isTerminalChatError", () => {

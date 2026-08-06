@@ -7,6 +7,7 @@ const TRANSIENT_PATTERNS = [
   /ECONN|failed to fetch|network|timeout|worker |queue |exception|undefined|null/i,
   /429|408|503/i,
   /rate.?limit|overloaded|unavailable/i,
+  /gangguan|coba lagi sebentar/i,
 ];
 
 // Terminal Indonesian copy from the server — retrying is pointless.
