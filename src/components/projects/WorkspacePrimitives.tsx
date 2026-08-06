@@ -3,6 +3,7 @@
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Code2,
   ExternalLink,
@@ -86,6 +87,8 @@ export function WorkspaceTopBar({
   directEditActions,
   runtime,
   projectId,
+  title,
+  onPickTab,
 }: {
   activeTab: BuildTab;
   setActiveTab: (tab: BuildTab) => void;
@@ -108,8 +111,11 @@ export function WorkspaceTopBar({
   };
   runtime?: WorkspaceRuntimeControl;
   projectId?: string;
+  title?: string;
+  onPickTab?: (tab: BuildTab) => void;
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  closeSheetForRow = () => setIsMobileMenuOpen(false);
   return (
     <>
       <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
@@ -190,15 +196,25 @@ export function WorkspaceTopBar({
           ) : null}
         </div>
 
-        {/* Mobile-only kebab */}
-        <div className="flex min-w-0 w-full items-center justify-end gap-spacing-2 sm:hidden">
+        {/* Mobile-only bar: project title + kebab */}
+        <div className="flex w-full items-center justify-between gap-spacing-2 sm:hidden">
+          {title ? (
+            <span
+              className="min-w-0 truncate text-sm font-medium text-surface-warm-white/82"
+              title={title}
+            >
+              {title}
+            </span>
+          ) : (
+            <span aria-hidden="true" />
+          )}
           <button
             type="button"
             aria-label="Buka menu"
             aria-haspopup="dialog"
             aria-expanded={isMobileMenuOpen}
             onClick={() => setIsMobileMenuOpen(true)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
           >
             <Menu className="size-4" />
           </button>
@@ -297,85 +313,20 @@ export function WorkspaceTopBar({
           ) : null}
         </div>
       </div>
-      <MobileSheet
-        open={isMobileMenuOpen}
-        onOpenChange={setIsMobileMenuOpen}
-        title="Menu"
-      >
-        <div className="flex flex-col gap-spacing-3">
-          {annotationAvailable &&
-          activeTab === "preview" &&
-          directEditFlagEnabled ? (
-            <button
-              type="button"
-              onClick={() => {
-                onToggleDirectEdit?.();
-                setIsMobileMenuOpen(false);
-              }}
-              aria-pressed={directEditActive}
-              aria-label={
-                directEditActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
-              }
-              className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-3 text-sm ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 text-surface-warm-white hover:bg-surface-warm-white/8"}`}
-            >
-              <MessageSquarePlus className="size-4" />
-              <span>{directEditActive ? "Ubah aktif" : "Ubah"}</span>
-            </button>
-          ) : null}
-          {activeTab === "preview" ? (
-            <div
-              role="tablist"
-              aria-label="Tampilan viewport"
-              className="flex items-center gap-spacing-2"
-            >
-              <span className="text-xs text-surface-warm-white/44">
-                Tampilan:
-              </span>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={viewport === "desktop"}
-                onClick={() => {
-                  setViewport("desktop");
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-sm ${viewport === "desktop" ? "border-surface-warm-white/20 bg-surface-warm-white/10 text-surface-warm-white" : "border-surface-warm-white/10 text-surface-warm-white/64 hover:bg-surface-warm-white/8"}`}
-              >
-                <Monitor className="size-4" />
-                Komputer
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={viewport === "mobile"}
-                onClick={() => {
-                  setViewport("mobile");
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`inline-flex items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-sm ${viewport === "mobile" ? "border-surface-warm-white/20 bg-surface-warm-white/10 text-surface-warm-white" : "border-surface-warm-white/10 text-surface-warm-white/64 hover:bg-surface-warm-white/8"}`}
-              >
-                <Smartphone className="size-4" />
-                HP
-              </button>
-            </div>
-          ) : null}
-          <hr className="border-surface-warm-white/10" />
-          {projectId ? (
-            <a
-              href="/support"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="inline-flex items-center gap-spacing-2 rounded-radius-md px-spacing-3 py-spacing-3 text-sm text-surface-warm-white/70 hover:bg-surface-warm-white/8"
-            >
-              <LifeBuoy className="size-4" />
-              Hubungi Dukungan
-            </a>
-          ) : null}
-          {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
-          {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
-          {runtime ? <RuntimeControl runtime={runtime} /> : null}
-        </div>
+      <MobileSheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        <MobileMenuContent
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          viewport={viewport}
+          setViewport={setViewport}
+          annotationAvailable={annotationAvailable}
+          directEditActive={directEditActive}
+          onToggleDirectEdit={onToggleDirectEdit}
+          runtime={runtime}
+          projectId={projectId}
+          onPickTab={onPickTab}
+          onClose={() => setIsMobileMenuOpen(false)}
+        />
       </MobileSheet>
     </>
   );
@@ -434,7 +385,221 @@ function TabButton({
   );
 }
 
-function RuntimeControl({ runtime }: { runtime: WorkspaceRuntimeControl }) {
+type MobileMenuContentProps = {
+  activeTab: BuildTab;
+  setActiveTab: (tab: BuildTab) => void;
+  viewport: "desktop" | "mobile";
+  setViewport: (viewport: "desktop" | "mobile") => void;
+  annotationAvailable: boolean;
+  directEditActive: boolean;
+  onToggleDirectEdit?: () => void;
+  runtime?: WorkspaceRuntimeControl;
+  projectId?: string;
+  onPickTab?: (tab: BuildTab) => void;
+  onClose: () => void;
+};
+
+export function MobileMenuContent({
+  activeTab,
+  setActiveTab,
+  viewport,
+  setViewport,
+  annotationAvailable,
+  directEditActive,
+  onToggleDirectEdit,
+  runtime,
+  projectId,
+  onPickTab,
+  onClose,
+}: MobileMenuContentProps) {
+  const pickTab = (tab: BuildTab) => {
+    if (onPickTab) {
+      onPickTab(tab);
+    } else {
+      setActiveTab(tab);
+    }
+    onClose();
+  };
+
+  return (
+    <div className="flex flex-col gap-spacing-5">
+      {/* Section: Tampilan (sub-control) */}
+      <section className="flex flex-col gap-spacing-2">
+        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-surface-warm-white/44">
+          Tampilan
+        </span>
+        <div
+          role="tablist"
+          aria-label="Konten tampilan"
+          className="flex h-9 w-full items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "preview"}
+            onClick={() => pickTab("preview")}
+            className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "preview" ? "bg-surface-warm-white/10 text-surface-warm-white" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+          >
+            <Globe2 className="size-4" />
+            <span>Tampilan</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "code"}
+            onClick={() => pickTab("code")}
+            className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "code" ? "bg-surface-warm-white/10 text-surface-warm-white" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+          >
+            <Code2 className="size-4" />
+            <span>Kode</span>
+          </button>
+        </div>
+      </section>
+
+      {/* Section: Tampilan perangkat (only when preview is active) */}
+      {activeTab === "preview" ? (
+        <section className="flex flex-col gap-spacing-2">
+          <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-surface-warm-white/44">
+            Tampilan perangkat
+          </span>
+          <div
+            role="tablist"
+            aria-label="Tampilan viewport"
+            className="flex h-9 w-full items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewport === "desktop"}
+              onClick={() => {
+                setViewport("desktop");
+                onClose();
+              }}
+              className={`flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${viewport === "desktop" ? "bg-surface-warm-white/10 text-surface-warm-white" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+            >
+              <Monitor className="size-4" />
+              <span>Komputer</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewport === "mobile"}
+              onClick={() => {
+                setViewport("mobile");
+                onClose();
+              }}
+              className={`flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${viewport === "mobile" ? "bg-surface-warm-white/10 text-surface-warm-white" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+            >
+              <Smartphone className="size-4" />
+              <span>HP</span>
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Section: Aksi */}
+      <section className="flex flex-col gap-spacing-2">
+        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-surface-warm-white/44">
+          Aksi
+        </span>
+        <div className="flex flex-col gap-spacing-1">
+          {annotationAvailable && activeTab === "preview" ? (
+            <button
+              type="button"
+              onClick={() => {
+                onToggleDirectEdit?.();
+                onClose();
+              }}
+              aria-pressed={directEditActive}
+              aria-label={
+                directEditActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
+              }
+              className={`inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm cursor-pointer ${directEditActive ? "bg-[#8fd3ff]/12 text-[#d6f0ff]" : "text-surface-warm-white/82 hover:bg-surface-warm-white/8"}`}
+            >
+              <MessageSquarePlus
+                className={`size-4 shrink-0 ${directEditActive ? "text-[#8fd3ff]" : "text-surface-warm-white/64"}`}
+              />
+              <span className="flex-1 text-left">
+                {directEditActive ? "Ubah aktif" : "Ubah"}
+              </span>
+            </button>
+          ) : null}
+          {projectId ? (
+            <a
+              href="/support"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onClose}
+              className="inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm text-surface-warm-white/82 hover:bg-surface-warm-white/8"
+            >
+              <LifeBuoy className="size-4 shrink-0 text-surface-warm-white/64" />
+              <span className="flex-1 text-left">Hubungi Dukungan</span>
+              <ChevronRight className="size-4 text-surface-warm-white/40" />
+            </a>
+          ) : null}
+          {projectId ? (
+            <WorkspaceHistoryButton projectId={projectId} variant="row" />
+          ) : null}
+          {projectId ? (
+            <EnergyLedgerButton projectId={projectId} variant="row" />
+          ) : null}
+          {runtime ? <RuntimeControl runtime={runtime} variant="row" /> : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+let closeSheetForRow: () => void = () => {};
+
+function RuntimeControl({
+  runtime,
+  variant = "pill",
+}: {
+  runtime: WorkspaceRuntimeControl;
+  variant?: "pill" | "row";
+}) {
+  if (variant === "row") {
+    return (
+      <div className="flex w-full flex-col gap-spacing-2">
+        {runtime.publishedPath ? (
+          <a
+            href={runtime.publishedPath}
+            target="_blank"
+            rel="noreferrer"
+            onClick={closeSheetForRow}
+            aria-label="Buka website yang diterbitkan"
+            className="inline-flex h-11 w-full items-center justify-center gap-spacing-2 rounded-radius-md bg-surface-warm-white px-spacing-4 text-sm font-medium text-foreground-primary hover:bg-surface-warm-white/90"
+          >
+            <ExternalLink className="size-4" />
+            <span>Buka website</span>
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled={!runtime.canPublish || runtime.isPublishing}
+            onClick={() => {
+              runtime.onPublish?.();
+              closeSheetForRow();
+            }}
+            aria-label={
+              runtime.isPublishing
+                ? "Sedang menerbitkan website..."
+                : "Terbitkan website ke domain publik"
+            }
+            className="inline-flex h-11 w-full items-center justify-center gap-spacing-2 rounded-radius-md bg-surface-warm-white px-spacing-4 text-sm font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-50 cursor-pointer"
+          >
+            {runtime.isPublishing ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Globe2 className="size-4" />
+            )}
+            <span>{runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}</span>
+          </button>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="flex min-w-0 items-center gap-spacing-1 sm:gap-spacing-2">
       {runtime.publishedPath ? (
