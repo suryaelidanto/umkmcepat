@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -45,7 +45,6 @@ export function ProjectList({
 }: ProjectListProps) {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const { count, limit, overLimit } = useProjectLimit();
-  const queryClient = useQueryClient();
 
   async function fetchProjectsPage(pageParam: string | null) {
     const path = pageParam
@@ -125,19 +124,12 @@ export function ProjectList({
     ],
     successMessage: "Website dihapus.",
     errorMessage: "Website belum berhasil dihapus.",
-    onSuccess: async () => {
+    onSuccess: () => {
       setSelectedProject(null);
-      // Replace the whole cache with fresh page 0 so later items slide up
-      // across page boundaries and hasNextPage recomputes truthfully.
-      try {
-        const fresh = await fetchProjectsPage(null);
-        queryClient.setQueryData(queryKeys.projects, {
-          pages: [fresh],
-          pageParams: [null],
-        });
-      } catch {
-        // Optimistic removal already applied; nothing to recover.
-      }
+      // Keep the optimistic filter: cached pages minus the deleted project
+      // stay loaded, so pagination ("Muat lebih banyak") is never reset.
+      // Keyset cursors skip the deleted anchor on the next fetch, so
+      // hasNextPage recomputes truthfully without refetching page 0.
     },
   });
 
