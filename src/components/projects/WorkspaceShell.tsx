@@ -385,6 +385,9 @@ export function WorkspaceShell({
   const [directEditMode, setDirectEditMode] = useState(false);
   const directEditFlagEnabled = useFeatureFlag("feature.direct_edit_enabled");
   const effectiveDirectEditMode = directEditMode && directEditFlagEnabled;
+  const composerUploadsEnabled = useFeatureFlag(
+    "feature.composer_uploads_enabled",
+  );
   const [editHistory, setEditHistory] = useState<EditHistory>({
     present: null,
     past: [],
@@ -3305,7 +3308,8 @@ export function WorkspaceShell({
             ) : isPreparingNextQuestion ||
               workspaceCardError ? null : !hasAnsweredActiveQuestion &&
               composerState === "question" &&
-              workspaceCard.type === "image_upload" ? (
+              workspaceCard.type === "image_upload" &&
+              composerUploadsEnabled ? (
               <motion.div
                 key="composer-image-upload"
                 {...COMPOSER_TRANSITION}
@@ -3470,45 +3474,47 @@ export function WorkspaceShell({
                         />
                         <div className="flex items-center justify-end gap-spacing-4">
                           <div className="flex items-center gap-spacing-2">
-                            <ComposerAttachButton
-                              attachments={pendingAttachments}
-                              onAdd={(next, rejected) => {
-                                const added = next.filter(
-                                  (item) =>
-                                    !pendingAttachments.some(
-                                      (prev) => prev.id === item.id,
-                                    ),
-                                );
-                                setPendingAttachments(next);
-                                for (const item of added) {
-                                  void uploadTempImageFile(item.file)
-                                    .then((uploaded) =>
-                                      setPendingAttachments((cur) =>
-                                        cur.map((candidate) =>
-                                          candidate.id === item.id
-                                            ? {
-                                                ...candidate,
-                                                assetId: uploaded.assetId,
-                                                status: "uploaded",
-                                              }
-                                            : candidate,
-                                        ),
+                            {composerUploadsEnabled ? (
+                              <ComposerAttachButton
+                                attachments={pendingAttachments}
+                                onAdd={(next, rejected) => {
+                                  const added = next.filter(
+                                    (item) =>
+                                      !pendingAttachments.some(
+                                        (prev) => prev.id === item.id,
                                       ),
-                                    )
-                                    .catch(() => {
-                                      setPendingAttachments((cur) =>
-                                        removeAttachment(cur, item.id),
-                                      );
-                                      toast.error("Gagal mengunggah gambar.");
-                                    });
-                                }
-                                if (rejected.length) {
-                                  toast.error(
-                                    `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
                                   );
-                                }
-                              }}
-                            />
+                                  setPendingAttachments(next);
+                                  for (const item of added) {
+                                    void uploadTempImageFile(item.file)
+                                      .then((uploaded) =>
+                                        setPendingAttachments((cur) =>
+                                          cur.map((candidate) =>
+                                            candidate.id === item.id
+                                              ? {
+                                                  ...candidate,
+                                                  assetId: uploaded.assetId,
+                                                  status: "uploaded",
+                                                }
+                                              : candidate,
+                                          ),
+                                        ),
+                                      )
+                                      .catch(() => {
+                                        setPendingAttachments((cur) =>
+                                          removeAttachment(cur, item.id),
+                                        );
+                                        toast.error("Gagal mengunggah gambar.");
+                                      });
+                                  }
+                                  if (rejected.length) {
+                                    toast.error(
+                                      `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                                    );
+                                  }
+                                }}
+                              />
+                            ) : null}
                             <Button
                               type="submit"
                               size="icon"
@@ -3626,45 +3632,47 @@ export function WorkspaceShell({
                   />
                   <div className="flex items-center justify-end gap-spacing-4">
                     <div className="flex items-center gap-spacing-2">
-                      <ComposerAttachButton
-                        attachments={pendingAttachments}
-                        onAdd={(next, rejected) => {
-                          const added = next.filter(
-                            (item) =>
-                              !pendingAttachments.some(
-                                (prev) => prev.id === item.id,
-                              ),
-                          );
-                          setPendingAttachments(next);
-                          for (const item of added) {
-                            void uploadTempImageFile(item.file)
-                              .then((uploaded) =>
-                                setPendingAttachments((cur) =>
-                                  cur.map((candidate) =>
-                                    candidate.id === item.id
-                                      ? {
-                                          ...candidate,
-                                          assetId: uploaded.assetId,
-                                          status: "uploaded",
-                                        }
-                                      : candidate,
-                                  ),
+                      {composerUploadsEnabled ? (
+                        <ComposerAttachButton
+                          attachments={pendingAttachments}
+                          onAdd={(next, rejected) => {
+                            const added = next.filter(
+                              (item) =>
+                                !pendingAttachments.some(
+                                  (prev) => prev.id === item.id,
                                 ),
-                              )
-                              .catch(() => {
-                                setPendingAttachments((cur) =>
-                                  removeAttachment(cur, item.id),
-                                );
-                                toast.error("Gagal mengunggah gambar.");
-                              });
-                          }
-                          if (rejected.length) {
-                            toast.error(
-                              `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
                             );
-                          }
-                        }}
-                      />
+                            setPendingAttachments(next);
+                            for (const item of added) {
+                              void uploadTempImageFile(item.file)
+                                .then((uploaded) =>
+                                  setPendingAttachments((cur) =>
+                                    cur.map((candidate) =>
+                                      candidate.id === item.id
+                                        ? {
+                                            ...candidate,
+                                            assetId: uploaded.assetId,
+                                            status: "uploaded",
+                                          }
+                                        : candidate,
+                                    ),
+                                  ),
+                                )
+                                .catch(() => {
+                                  setPendingAttachments((cur) =>
+                                    removeAttachment(cur, item.id),
+                                  );
+                                  toast.error("Gagal mengunggah gambar.");
+                                });
+                            }
+                            if (rejected.length) {
+                              toast.error(
+                                `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                              );
+                            }
+                          }}
+                        />
+                      ) : null}
                       <Button
                         type="submit"
                         size="icon"
