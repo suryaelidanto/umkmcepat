@@ -107,10 +107,10 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
-          envs: APP_IMAGE_TAG
+          envs: APP_IMAGE_TAG, DEPLOY_PATH
           script: |
             set -euo pipefail
-            cd "${{ secrets.DEPLOY_PATH }}"
+            cd "$DEPLOY_PATH"
 
             # Record what is running now so the rollback below can restore it.
             PREVIOUS_TAG="$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' umkmcepat-app 2>/dev/null || echo '')"
@@ -137,3 +137,4 @@ jobs:
             exit 1
         env:
           APP_IMAGE_TAG: ${{ needs.build-and-push.outputs.tag }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
