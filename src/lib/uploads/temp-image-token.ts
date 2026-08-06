@@ -11,7 +11,16 @@ export type TempImageTokenPayload = {
 };
 
 function getSecret() {
-  return getEnv("BETTER_AUTH_SECRET") || getEnv("AUTH_SECRET") || "dev-secret";
+  const configured = getEnv("NEXTAUTH_SECRET") || getEnv("AUTH_SECRET");
+  if (configured) {
+    return configured;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "A temp-image signing secret (NEXTAUTH_SECRET) is required in production.",
+    );
+  }
+  return "dev-secret";
 }
 
 function sign(body: string) {
