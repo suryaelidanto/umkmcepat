@@ -42,6 +42,17 @@ describe("APP_SETTINGS registry", () => {
       ).toBeDefined();
     }
   });
+
+  it("includes the discuss chat auto-retry cap with safe default 2", () => {
+    const e = APP_SETTINGS.find(
+      (x) => x.key === "discuss.chat.auto_retry_attempts",
+    );
+    expect(e).toBeDefined();
+    expect(e?.type).toBe("number");
+    expect(e?.fallback).toBe(2);
+    expect(e?.min).toBe(0);
+    expect(e?.max).toBe(5);
+  });
 });
 
 describe("registry schema", () => {

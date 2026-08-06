@@ -437,6 +437,17 @@ export const APP_SETTINGS: ConfigEntry[] = [
     env: "DISCUSS_HEDGING_ENABLED",
   },
   {
+    key: "discuss.chat.auto_retry_attempts",
+    category: "feature_flag",
+    tier: "advanced",
+    type: "number",
+    label: "Discuss chat auto-retry attempts",
+    fallback: 2,
+    min: 0,
+    max: 5,
+    env: "DISCUSS_CHAT_AUTO_RETRY_ATTEMPTS",
+  },
+  {
     key: "discuss.partial_tool_streaming",
     category: "feature_flag",
     tier: "advanced",
