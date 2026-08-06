@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { History, RotateCcw } from "lucide-react";
+import { ChevronRight, History, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -54,18 +54,38 @@ function formatDate(iso: string): string {
   }).format(date);
 }
 
-export function WorkspaceHistoryButton({ projectId }: { projectId: string }) {
+export function WorkspaceHistoryButton({
+  projectId,
+  variant = "pill",
+}: {
+  projectId: string;
+  variant?: "pill" | "row";
+}) {
   const [open, setOpen] = useState(false);
+  const isRow = variant === "row";
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-9 items-center gap-spacing-3 rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 px-spacing-5 text-xs font-[480] text-surface-warm-white/80 hover:bg-surface-warm-white/10 hover:text-surface-warm-white"
         aria-label="Lihat riwayat versi"
+        className={
+          isRow
+            ? "inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm text-surface-warm-white/82 hover:bg-surface-warm-white/8"
+            : "inline-flex min-h-9 items-center gap-spacing-3 rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 px-spacing-5 text-xs font-[480] text-surface-warm-white/80 hover:bg-surface-warm-white/10 hover:text-surface-warm-white"
+        }
       >
-        <History className="size-4" />
-        <span className="hidden sm:inline">Riwayat</span>
+        <History
+          className={
+            isRow ? "size-4 shrink-0 text-surface-warm-white/64" : "size-4"
+          }
+        />
+        <span className={isRow ? "flex-1 text-left" : "hidden sm:inline"}>
+          Riwayat
+        </span>
+        {isRow ? (
+          <ChevronRight className="size-4 text-surface-warm-white/40" />
+        ) : null}
       </button>
       <WorkspaceHistoryDrawer
         projectId={projectId}
