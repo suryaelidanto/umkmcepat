@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 
 import { CommunitySection } from "@/components/home/CommunitySection";
 import { HeroAuroraBackground } from "@/components/home/HeroAuroraBackground";
@@ -154,20 +153,6 @@ const HERO_LEAD_WORDS = ["Bikin", "Website", "UMKM", "dalam", "5", "Menit,"];
 const HERO_ACCENT = "100% Gratis.";
 const HERO_SUBLINE_WORDS = ["Tanpa coding,", "tanpa desainer,", "tanpa ribet."];
 
-const wordMotion = {
-  initial: { opacity: 0, y: 14, filter: "blur(6px)" },
-  animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-};
-
-function heroWordTransition(i: number, baseDelay: number) {
-  const delay = baseDelay + 0.09 * i;
-  return {
-    opacity: { duration: 0.5, delay },
-    y: { type: "spring", stiffness: 140, damping: 16, delay },
-    filter: { duration: 0.4, delay },
-  } as const;
-}
-
 // Delays the sub-hero until the headline underline bar has finished drawing.
 const SUBLINE_DELAY = 0.09 * HERO_LEAD_WORDS.length + 0.55 + 0.08;
 
@@ -175,14 +160,15 @@ function HeroSubline() {
   return (
     <span className="flex flex-wrap justify-center gap-x-[0.28em]">
       {HERO_SUBLINE_WORDS.map((word, i) => (
-        <motion.span
+        <span
           key={word}
-          initial={wordMotion.initial}
-          animate={wordMotion.animate}
-          transition={heroWordTransition(i, SUBLINE_DELAY)}
+          className="hero-word"
+          style={
+            { "--word-delay": `${SUBLINE_DELAY + 0.09 * i}s` } as CSSProperties
+          }
         >
           {word}
-        </motion.span>
+        </span>
       ))}
     </span>
   );
@@ -192,34 +178,33 @@ function HeroHeadline() {
   return (
     <span className="flex flex-wrap justify-center gap-x-[0.13em] gap-y-1">
       {HERO_LEAD_WORDS.map((word, i) => (
-        <motion.span
+        <span
           key={word}
-          initial={wordMotion.initial}
-          animate={wordMotion.animate}
-          transition={heroWordTransition(i, 0)}
+          className="hero-word"
+          style={{ "--word-delay": `${0.09 * i}s` } as CSSProperties}
         >
           {word}
-        </motion.span>
+        </span>
       ))}
-      <motion.span
-        className="relative"
-        initial={wordMotion.initial}
-        animate={wordMotion.animate}
-        transition={heroWordTransition(HERO_LEAD_WORDS.length, 0)}
+      <span
+        className="hero-word relative"
+        style={
+          {
+            "--word-delay": `${0.09 * HERO_LEAD_WORDS.length}s`,
+          } as CSSProperties
+        }
       >
         {HERO_ACCENT}
-        <motion.span
+        <span
           aria-hidden
-          className="absolute inset-x-0 -bottom-1 h-[5px] origin-left rounded-full bg-emerald-400"
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{
-            duration: 0.55,
-            delay: 0.09 * HERO_LEAD_WORDS.length + 0.55,
-            ease: "easeOut",
-          }}
+          className="hero-underline absolute inset-x-0 -bottom-1 h-[5px] origin-left rounded-full bg-emerald-400"
+          style={
+            {
+              "--underline-delay": `${0.09 * HERO_LEAD_WORDS.length + 0.55}s`,
+            } as CSSProperties
+          }
         />
-      </motion.span>
+      </span>
     </span>
   );
 }

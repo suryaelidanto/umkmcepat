@@ -306,6 +306,37 @@
     }
   }
 
+  @keyframes hero-word-in {
+    from {
+      filter: blur(6px);
+      transform: translateY(14px);
+    }
+    to {
+      filter: blur(0);
+      transform: translateY(0);
+    }
+  }
+
+  .hero-word {
+    display: inline-block;
+    will-change: transform, filter;
+    animation: hero-word-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--word-delay, 0s);
+  }
+
+  .hero-underline {
+    transform-origin: left;
+    animation: draw 0.55s ease-out both;
+    animation-delay: var(--underline-delay, 0s);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-word,
+    .hero-underline {
+      animation: none;
+    }
+  }
+
   .lovable-aurora {
     background:
       radial-gradient(
