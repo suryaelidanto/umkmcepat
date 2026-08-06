@@ -404,14 +404,16 @@ Expected: 1 passing test.
 
 Run: `bun run routes:generate`
 
-Expected: prints success; `src/routeTree.gen.ts` gains a `Route as ApiFlagsRouteImport` entry and matching `addChildren` / type additions (same pattern as the existing `api.admin.settings`).
+Expected: prints success; `src/routeTree.gen.ts` (gitignored) gains a `Route as ApiFlagsRouteImport` entry and matching `addChildren` / type additions (same pattern as the existing `api.admin.settings`). The regenerated file is **not** committed (gitignored).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/routes/api.flags.ts tests/routes/api.flags.test.ts src/routeTree.gen.ts
+git add src/routes/api.flags.ts tests/routes/api.flags.test.ts
 git commit -m "feat(admin): public GET /api/flags endpoint"
 ```
+
+(`src/routeTree.gen.ts` is gitignored and regenerated locally; do not commit it.)
 
 ---
 
