@@ -1,6 +1,10 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -45,6 +49,7 @@ export function ProjectList({
 }: ProjectListProps) {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const { count, limit, overLimit } = useProjectLimit();
+  const queryClient = useQueryClient();
 
   async function fetchProjectsPage(pageParam: string | null) {
     const path = pageParam
@@ -124,12 +129,33 @@ export function ProjectList({
     ],
     successMessage: "Website dihapus.",
     errorMessage: "Website belum berhasil dihapus.",
-    onSuccess: () => {
+    onSuccess: async () => {
       setSelectedProject(null);
-      // Keep the optimistic filter: cached pages minus the deleted project
-      // stay loaded, so pagination ("Muat lebih banyak") is never reset.
-      // Keyset cursors skip the deleted anchor on the next fetch, so
-      // hasNextPage recomputes truthfully without refetching page 0.
+      // Rebuild the loaded pages from the server so items slide up across
+      // page boundaries (deleting #6 pulls #7 into its slot) while keeping
+      // every loaded page — no collapse, no duplicates. Keyset cursors keep
+      // hasNextPage truthful. Optimistic filter already removed the card.
+      try {
+        const data = queryClient.getQueryData<InfiniteData<ProjectsPage>>(
+          queryKeys.projects,
+        );
+        const loadedCount = data?.pages.length ?? 1;
+        const pages: ProjectsPage[] = [];
+        const pageParams: (string | null)[] = [];
+        let cursor: string | null = null;
+        for (let i = 0; i < loadedCount; i++) {
+          const page = await fetchProjectsPage(cursor);
+          pages.push(page);
+          pageParams.push(cursor);
+          cursor = page.nextCursor;
+          if (!cursor) {
+            break;
+          }
+        }
+        queryClient.setQueryData(queryKeys.projects, { pages, pageParams });
+      } catch {
+        // Optimistic removal already applied; nothing to recover.
+      }
     },
   });
 
