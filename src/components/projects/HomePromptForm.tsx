@@ -37,6 +37,7 @@ import {
 import { useProjectLimit } from "@/lib/projects/use-project-limit";
 import { queryKeys, useCacheMutation } from "@/lib/query-client";
 import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
+import { useFeatureFlag } from "@/lib/use-feature-flag";
 
 function getProjectCreateIdempotencyKey(prompt: string) {
   const draft = parseProjectDraft(
@@ -72,6 +73,7 @@ export function HomePromptForm({
   const [loginOpen, setLoginOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const uploadsEnabled = useFeatureFlag("feature.composer_uploads_enabled");
   const hasAutoContinued = useRef(false);
   const isSubmittingRef = useRef(false);
 
@@ -313,58 +315,61 @@ export function HomePromptForm({
                 {isUploading ? "Mengunggah gambar..." : "Menyiapkan..."}
               </span>
             ) : null}
-            {status === "authenticated" ? (
-              <ComposerAttachButton
-                attachments={attachments}
-                onAdd={(next, rejected) => {
-                  const added = next.filter(
-                    (item) => !attachments.some((prev) => prev.id === item.id),
-                  );
-                  setAttachments(next);
-                  for (const item of added) {
-                    void uploadTempImageFile(item.file)
-                      .then((uploaded) =>
-                        setAttachments((current) =>
-                          current.map((candidate) =>
-                            candidate.id === item.id
-                              ? {
-                                  ...candidate,
-                                  assetId: uploaded.assetId,
-                                  status: "uploaded",
-                                }
-                              : candidate,
-                          ),
-                        ),
-                      )
-                      .catch((error) => {
-                        setAttachments((current) =>
-                          removeAttachment(current, item.id),
-                        );
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : "Gagal mengunggah gambar.",
-                        );
-                      });
-                  }
-                  if (rejected.length) {
-                    toast.error(
-                      "Maksimal 6 gambar dan kurang dari 5MB per gambar.",
+            {uploadsEnabled ? (
+              status === "authenticated" ? (
+                <ComposerAttachButton
+                  attachments={attachments}
+                  onAdd={(next, rejected) => {
+                    const added = next.filter(
+                      (item) =>
+                        !attachments.some((prev) => prev.id === item.id),
                     );
-                  }
-                }}
-              />
-            ) : (
-              <button
-                type="button"
-                aria-label="Lampirkan gambar"
-                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-surface-warm-white/60 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white/90"
-                onClick={() => setLoginOpen(true)}
-                title="Lampirkan gambar"
-              >
-                <Paperclip className="size-4" />
-              </button>
-            )}
+                    setAttachments(next);
+                    for (const item of added) {
+                      void uploadTempImageFile(item.file)
+                        .then((uploaded) =>
+                          setAttachments((current) =>
+                            current.map((candidate) =>
+                              candidate.id === item.id
+                                ? {
+                                    ...candidate,
+                                    assetId: uploaded.assetId,
+                                    status: "uploaded",
+                                  }
+                                : candidate,
+                            ),
+                          ),
+                        )
+                        .catch((error) => {
+                          setAttachments((current) =>
+                            removeAttachment(current, item.id),
+                          );
+                          toast.error(
+                            error instanceof Error
+                              ? error.message
+                              : "Gagal mengunggah gambar.",
+                          );
+                        });
+                    }
+                    if (rejected.length) {
+                      toast.error(
+                        "Maksimal 6 gambar dan kurang dari 5MB per gambar.",
+                      );
+                    }
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Lampirkan gambar"
+                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-surface-warm-white/60 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white/90"
+                  onClick={() => setLoginOpen(true)}
+                  title="Lampirkan gambar"
+                >
+                  <Paperclip className="size-4" />
+                </button>
+              )
+            ) : null}
             <Button
               type="submit"
               size="icon"
