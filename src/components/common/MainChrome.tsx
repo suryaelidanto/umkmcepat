@@ -54,14 +54,33 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Waitlist gate: product routes only. Marketing + /admin stay open
-    // (/admin still enforced by requireAdmin on the server).
+    // Waitlist gate. Two cases:
+    // 1. Fresh sign-in (no nudge flag yet this browser session): send the
+    //    user to /waitlist once, even from marketing pages like "/" — the
+    //    user is still free to browse away afterwards.
+    // 2. Product routes (non-bypass): keep redirecting while unapproved;
+    //    marketing + /admin stay open (/admin still enforced by requireAdmin
+    //    on the server).
+    let nudged = false;
+    try {
+      nudged = sessionStorage.getItem("umkm_waitlist_nudged") === "1";
+    } catch {
+      // sessionStorage unavailable (privacy mode): fall back to gate-only.
+    }
+
     if (
       sessionStatus === "authenticated" &&
       waitlistQuery.isSuccess &&
       waitlistQuery.data.status !== "approved" &&
-      !isWaitlistGateBypassPath(pathname)
+      (!nudged || !isWaitlistGateBypassPath(pathname))
     ) {
+      if (!nudged) {
+        try {
+          sessionStorage.setItem("umkm_waitlist_nudged", "1");
+        } catch {
+          // Best-effort; the next navigation just nudges again.
+        }
+      }
       router.replace("/waitlist");
     }
   }, [
