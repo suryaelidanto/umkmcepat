@@ -27,3 +27,40 @@ describe("mapToUserFacingError", () => {
     ).toBe("Permintaan belum bisa diproses. Coba lagi nanti.");
   });
 });
+
+describe("temp-image and support error mappings", () => {
+  it("round-trips benign temp-image upload messages", () => {
+    expect(mapToUserFacingError("Ukuran gambar maksimal 5 MB per file.")).toBe(
+      "Ukuran gambar maksimal 5 MB per file.",
+    );
+    expect(
+      mapToUserFacingError(
+        "Format gambar tidak didukung. Gunakan PNG, JPEG, atau WEBP.",
+      ),
+    ).toBe("Format gambar tidak didukung. Gunakan PNG, JPEG, atau WEBP.");
+    expect(
+      mapToUserFacingError(
+        "Upload gambar sudah kedaluwarsa. Pilih gambar lagi.",
+      ),
+    ).toBe("Upload gambar sudah kedaluwarsa. Pilih gambar lagi.");
+    expect(mapToUserFacingError("Gambar tidak valid.")).toBe(
+      "Gambar tidak valid.",
+    );
+    expect(mapToUserFacingError("Pilih gambar dulu.")).toBe(
+      "Pilih gambar dulu.",
+    );
+  });
+
+  it("maps raw infra errors to generic fallback (never the raw string)", () => {
+    expect(
+      mapToUserFacingError(
+        "connect ECONNREFUSED 10.0.0.5:9000 (minio internal host)",
+      ),
+    ).toBe("Permintaan belum bisa diproses. Coba lagi nanti.");
+    expect(
+      mapToUserFacingError(
+        "PrismaClientKnownRequestError: P2003 relation not found",
+      ),
+    ).toBe("Permintaan belum bisa diproses. Coba lagi nanti.");
+  });
+});

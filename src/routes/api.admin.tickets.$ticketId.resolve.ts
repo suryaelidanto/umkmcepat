@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth-admin";
 import { sendTicketResolved } from "@/lib/email/templates";
 import { prisma } from "@/lib/prisma";
 import { resolveTicket } from "@/lib/support/service";
+import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export const Route = createFileRoute("/api/admin/tickets/$ticketId/resolve")({
   server: {
@@ -41,13 +42,10 @@ export const Route = createFileRoute("/api/admin/tickets/$ticketId/resolve")({
 
           return Response.json(result);
         } catch (error) {
+          const raw = error instanceof Error ? error.message : "";
+          console.error("[admin][support] resolve failed:", raw);
           return Response.json(
-            {
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Gagal menyelesaikan tiket.",
-            },
+            { message: mapToUserFacingError(raw) },
             { status: 400 },
           );
         }

@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { sendSupportReplyEmail } from "@/lib/support/email";
 import { addMessage } from "@/lib/support/service";
+import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export const Route = createFileRoute("/api/admin/tickets/$ticketId/reply")({
   server: {
@@ -81,13 +82,10 @@ export const Route = createFileRoute("/api/admin/tickets/$ticketId/reply")({
 
           return Response.json(result, { status: 201 });
         } catch (error) {
+          const raw = error instanceof Error ? error.message : "";
+          console.error("[admin][support] reply failed:", raw);
           return Response.json(
-            {
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Gagal membalas tiket.",
-            },
+            { message: mapToUserFacingError(raw) },
             { status: 400 },
           );
         }

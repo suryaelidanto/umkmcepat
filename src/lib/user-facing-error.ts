@@ -16,8 +16,28 @@ const KNOWN: Array<{ match: RegExp; message: string }> = [
     message: "Gagal mengirim email. Coba lagi.",
   },
   {
-    match: /R2|r2|cloudflarestorage|signed.*fetch/i,
-    message: "Gagal mengunggah file. Coba lagi.",
+    match: /resend|email/i,
+    message: "Gagal mengirim email. Coba lagi.",
+  },
+  {
+    match: /ukuran gambar maksimal 5 mb/i,
+    message: "Ukuran gambar maksimal 5 MB per file.",
+  },
+  {
+    match: /format gambar tidak didukung/i,
+    message: "Format gambar tidak didukung. Gunakan PNG, JPEG, atau WEBP.",
+  },
+  {
+    match: /upload gambar sudah kedaluwarsa/i,
+    message: "Upload gambar sudah kedaluwarsa. Pilih gambar lagi.",
+  },
+  {
+    match: /gambar tidak valid/i,
+    message: "Gambar tidak valid.",
+  },
+  {
+    match: /pilih gambar dulu/i,
+    message: "Pilih gambar dulu.",
   },
 ];
 

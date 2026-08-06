@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getSetting } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 import { uploadTempImage } from "@/lib/uploads/temp-image-storage";
+import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export const Route = createFileRoute("/api/uploads/temp-images")({
   server: {
@@ -34,13 +35,10 @@ export const Route = createFileRoute("/api/uploads/temp-images")({
             status: 201,
           });
         } catch (error) {
+          const raw = error instanceof Error ? error.message : "";
+          console.error("[upload] temp image failed:", raw);
           return Response.json(
-            {
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Gagal mengunggah gambar.",
-            },
+            { message: mapToUserFacingError(raw) },
             { status: 400 },
           );
         }

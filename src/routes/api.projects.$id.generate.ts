@@ -28,6 +28,7 @@ import {
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { checkEnergy, getEnergyConfig } from "@/lib/user-credits";
+import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export const Route = createFileRoute("/api/projects/$id/generate")({
   server: {
@@ -306,7 +307,9 @@ async function handleGeneratePost(request: Request, routeId: string) {
     }).catch(() => false);
     publishBuildProgress(operationAttemptId, {
       type: "error",
-      detail: error instanceof Error ? error.message : String(error),
+      detail: mapToUserFacingError(
+        error instanceof Error ? error.message : String(error),
+      ),
       message: "Build belum bisa dimulai. Coba lagi sebentar.",
     });
     return Response.json(

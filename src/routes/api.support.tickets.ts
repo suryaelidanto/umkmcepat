@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createTicket } from "@/lib/support/service";
+import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export const Route = createFileRoute("/api/support/tickets")({
   server: {
@@ -73,11 +74,10 @@ export const Route = createFileRoute("/api/support/tickets")({
 
           return Response.json(result, { status: 201 });
         } catch (error) {
+          const raw = error instanceof Error ? error.message : "";
+          console.error("[support] create ticket failed:", raw);
           return Response.json(
-            {
-              message:
-                error instanceof Error ? error.message : "Gagal membuat tiket.",
-            },
+            { message: mapToUserFacingError(raw) },
             { status: 400 },
           );
         }
