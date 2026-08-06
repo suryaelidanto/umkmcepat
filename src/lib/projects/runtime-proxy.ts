@@ -150,7 +150,14 @@ export async function proxyDeploymentRequest(
   });
 }
 
-// Content-Security-Policy set here is overwritten later by applySecurityHeaders in the global securityMiddleware.
+// The preview iframe is sandboxed WITHOUT allow-same-origin (opaque origin),
+// so any subresource fetch() the generated app makes is a cross-origin
+// request that requires Access-Control-Allow-Origin. "*" is deliberate and
+// safe here: the iframe sends no credentials (no Allow-Credentials is ever
+// set), and opaque-origin requests carry no cookies. applySecurityHeaders
+// does NOT manage CORS headers — do not assume this is overwritten later.
+// The Content-Security-Policy set here IS overwritten by the global
+// securityMiddleware's applySecurityHeaders.
 export function applyPreviewSandboxHeaders(
   headers: Headers,
   { noindex = true }: { noindex?: boolean } = {},
