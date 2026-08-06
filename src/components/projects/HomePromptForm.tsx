@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { ArrowUp, Loader2, Paperclip } from "lucide-react";
 import {
   FormEvent,
@@ -35,7 +36,12 @@ import {
   validateProjectRequest,
 } from "@/lib/projects/input";
 import { useProjectLimit } from "@/lib/projects/use-project-limit";
-import { queryKeys, useCacheMutation } from "@/lib/query-client";
+import {
+  fetchWaitlistStatus,
+  GATE_QUERY_OPTIONS,
+  queryKeys,
+  useCacheMutation,
+} from "@/lib/query-client";
 import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
 import { useFeatureFlag } from "@/lib/use-feature-flag";
 
@@ -76,6 +82,21 @@ export function HomePromptForm({
   const uploadsEnabled = useFeatureFlag("feature.composer_uploads_enabled");
   const hasAutoContinued = useRef(false);
   const isSubmittingRef = useRef(false);
+
+  // Waitlist gate: never show the create form to signed-in users who have not
+  // been approved. While the status query is still loading, keep the form
+  // hidden too — otherwise it flashes for a few seconds before the homepage
+  // swaps in the waitlist banner. Shares the cache with MainChrome and the
+  // homepage, so it does not trigger an extra fetch.
+  const waitlistQuery = useQuery({
+    queryKey: queryKeys.waitlistStatus,
+    queryFn: fetchWaitlistStatus,
+    enabled: status === "authenticated",
+    ...GATE_QUERY_OPTIONS,
+  });
+  const waitlistedOrPending =
+    status === "authenticated" &&
+    (!waitlistQuery.isSuccess || waitlistQuery.data.status !== "approved");
 
   useEffect(() => {
     return () => {
@@ -256,6 +277,10 @@ export function HomePromptForm({
 
     event.preventDefault();
     event.currentTarget.form?.requestSubmit();
+  }
+
+  if (waitlistedOrPending) {
+    return null;
   }
 
   if (overLimit) {
