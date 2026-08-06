@@ -34,7 +34,7 @@ jobs:
   build-and-push:
     if: ${{ github.event.inputs.confirm_deploy == 'true' }}
     name: Build & push image (GHCR)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
       contents: read
@@ -96,7 +96,7 @@ jobs:
   # and the VPS is provisioned.
   deploy:
     name: Deploy to VPS
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     needs: build-and-push
     timeout-minutes: 15
     steps:
