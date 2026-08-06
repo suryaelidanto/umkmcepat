@@ -40,3 +40,15 @@ Task 4 (banner redaction + clearError): complete (f505987 + f0fe68a WIP-restore 
 Task 5 (auto-retry effect): complete (bd23180, review approved; 12/12 tests; flag: _autoRetryAttempts destructure alias correct, rename deferred)
 Task 6 (AI thinking strip): complete (12ad3ecc, 17/17 tests, review clean; text-delta arm dropped - not a valid UIMessagePart)
 Task 7 (reasoning docstring): complete (ced230f)
+
+
+# SDD Progress — 2026-08-06 homepage load performance
+Plan: docs/superpowers/plans/2026-08-06-homepage-load-performance.md
+Task 0 (measure script + baseline): complete (0fe2e41; baseline 255 modules / 23.8 MB, recharts 4938 KB top offender)
+Task 1 (auth memoization): complete (cbdec26, 12/12 auth tests pass; test body-read fix applied to leak test)
+Task 2 (contributors off SSR): complete (920a93a, 6/6 tests; guest TTFB 1.24s -> 0.12s; endpoint 200 + cache header)
+Task 3 (hero/reveal visible at paint): complete (dcecf62, SSR opacity:0 count 0)
+Task 4 (SSR session into SessionProvider): complete (a468f6c, signed-in HTML shows "Hai, Surya" from SSR)
+Task 5 (landing HTML cache): complete (2c3ba87, 4/4 tests; regex fixed for authjs.session-token name; live guest=cache headers, authed=no-store)
+Task 6 (admin route split): complete (8f4bbc94 + c84336ed script fix; initial-load graph 256 modules/23.8 MB -> 141 modules/11.5 MB, recharts/motion gone; /admin 200; routeTree.gen.ts is gitignored by design)
+Final verification: pending bun run check
