@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getSetting } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 import { uploadTempImage } from "@/lib/uploads/temp-image-storage";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
@@ -15,10 +14,6 @@ export const Route = createFileRoute("/api/uploads/temp-images")({
             { message: "Masuk dulu untuk melanjutkan." },
             { status: 401 },
           );
-        }
-
-        if (!(await getSetting("feature.composer_uploads_enabled", true))) {
-          return new Response("Not Found", { status: 404 });
         }
 
         const form = await request.formData().catch(() => null);
