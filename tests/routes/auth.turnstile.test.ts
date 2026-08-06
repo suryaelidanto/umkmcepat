@@ -22,6 +22,10 @@ describe("turnstile verification route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(response.headers.get("set-cookie")).toContain(
+      "umkm_turnstile_verified=",
+    );
+    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
   });
 
   it("rejects missing tokens", async () => {
