@@ -3762,7 +3762,7 @@ export function WorkspaceShell({
                     onRecover={recoverPreviewRuntime}
                     onStuck={() => void loadRuntimeState()}
                     pendingAnnotation={
-                      directEditMode && pendingAnnotationTarget
+                      effectiveDirectEditMode && pendingAnnotationTarget
                         ? {
                             comment: pendingAnnotationComment,
                             onCancel: () => {
