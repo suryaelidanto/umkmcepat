@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { Footer } from "@/components/common/Footer";
@@ -49,38 +49,33 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
 
+  // Tracks the previous auth status so we can detect a fresh login (any
+  // transition into "authenticated"), not just the first one ever.
+  const previousAuthStatus = useRef(sessionStatus);
+
   useEffect(() => {
     if (isWaitlistPage) {
       return;
     }
 
+    const justLoggedIn =
+      previousAuthStatus.current !== "authenticated" &&
+      sessionStatus === "authenticated";
+    previousAuthStatus.current = sessionStatus;
+
     // Waitlist gate. Two cases:
-    // 1. Fresh sign-in (no nudge flag yet this browser session): send the
-    //    user to /waitlist once, even from marketing pages like "/" — the
-    //    user is still free to browse away afterwards.
+    // 1. Right after login (auth transition): send the user to /waitlist so
+    //    they know what to do — even from marketing pages like "/". They can
+    //    still browse away afterwards.
     // 2. Product routes (non-bypass): keep redirecting while unapproved;
     //    marketing + /admin stay open (/admin still enforced by requireAdmin
     //    on the server).
-    let nudged = false;
-    try {
-      nudged = sessionStorage.getItem("umkm_waitlist_nudged") === "1";
-    } catch {
-      // sessionStorage unavailable (privacy mode): fall back to gate-only.
-    }
-
     if (
       sessionStatus === "authenticated" &&
       waitlistQuery.isSuccess &&
       waitlistQuery.data.status !== "approved" &&
-      (!nudged || !isWaitlistGateBypassPath(pathname))
+      (justLoggedIn || !isWaitlistGateBypassPath(pathname))
     ) {
-      if (!nudged) {
-        try {
-          sessionStorage.setItem("umkm_waitlist_nudged", "1");
-        } catch {
-          // Best-effort; the next navigation just nudges again.
-        }
-      }
       router.replace("/waitlist");
     }
   }, [
