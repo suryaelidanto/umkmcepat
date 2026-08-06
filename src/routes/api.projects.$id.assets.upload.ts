@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { moderateProjectRequest } from "@/lib/ai-moderation";
+import { getSetting } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
 import {
@@ -35,6 +36,10 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
             { message: "Proyek tidak ditemukan." },
             { status: 404 },
           );
+        }
+
+        if (!(await getSetting("feature.composer_uploads_enabled", true))) {
+          return new Response("Not Found", { status: 404 });
         }
 
         const form = await request.formData().catch(() => null);
