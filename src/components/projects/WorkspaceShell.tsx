@@ -103,6 +103,8 @@ import {
   type EditLayout,
 } from "@/lib/projects/direct-edit";
 import {
+  type AiThinkingTier,
+  decideAiThinkingTier,
   isTerminalChatError,
   nextRetryAttempt,
 } from "@/lib/projects/discuss-chat-error";
@@ -354,6 +356,15 @@ export function WorkspaceShell({
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const retryAttemptRef = useRef(0);
+  const [aiThinking, setAiThinking] = useState<AiThinkingTier>("idle");
+  const thinkingTimersRef = useRef<number[]>([]);
+  const thinkingStartRef = useRef(0);
+  const clearThinkingTimers = useCallback(() => {
+    for (const t of thinkingTimersRef.current) {
+      window.clearTimeout(t);
+    }
+    thinkingTimersRef.current = [];
+  }, []);
   const [workspaceCardError, setWorkspaceCardError] = useState(false);
   const [isPreparingNextQuestion, setIsPreparingNextQuestion] = useState(false);
   const isPreparingNextQuestionRef = useRef(false);
@@ -453,6 +464,7 @@ export function WorkspaceShell({
 
   useEffect(() => {
     return () => {
+      clearThinkingTimers();
       document.body.style.cursor = "";
       document.documentElement.style.cursor = "";
     };
@@ -1791,6 +1803,71 @@ export function WorkspaceShell({
       submitInFlightRef.current = false;
     }
   }, [status]);
+
+  useEffect(() => {
+    if (status === "submitted" || status === "streaming") {
+      clearThinkingTimers();
+      if (thinkingStartRef.current === 0) {
+        thinkingStartRef.current = Date.now();
+      }
+      thinkingTimersRef.current = [
+        window.setTimeout(() => {
+          setAiThinking(
+            decideAiThinkingTier({
+              hasToken: false,
+              hasReasoning: false,
+              elapsedMs: Date.now() - thinkingStartRef.current,
+            }),
+          );
+        }, 800),
+        window.setTimeout(() => {
+          setAiThinking((tier) =>
+            tier === "reasoning"
+              ? tier
+              : decideAiThinkingTier({
+                  hasToken: false,
+                  hasReasoning: false,
+                  elapsedMs: Date.now() - thinkingStartRef.current,
+                }),
+          );
+        }, 8_000),
+      ];
+      return;
+    }
+    clearThinkingTimers();
+    thinkingStartRef.current = 0;
+    setAiThinking("idle");
+    return clearThinkingTimers;
+  }, [status, clearThinkingTimers]);
+
+  useEffect(() => {
+    if (status !== "streaming") {
+      return;
+    }
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    const hasReasoning = Boolean(
+      lastAssistant?.parts.some(
+        (p) =>
+          p.type === "reasoning" && (p as { state?: string }).state !== "done",
+      ),
+    );
+    const hasToken = Boolean(
+      lastAssistant?.parts.some(
+        (p) => p.type === "text" || p.type === "tool-input-delta",
+      ),
+    );
+    if (hasToken) {
+      clearThinkingTimers();
+      thinkingStartRef.current = 0;
+      setAiThinking("idle");
+      return;
+    }
+    if (hasReasoning) {
+      setAiThinking("reasoning");
+    }
+  }, [messages, status, clearThinkingTimers]);
 
   // Mount-only reset: a reload always starts with a clean submit lock so a
   // mid-turn disconnect that never returned to `ready`/`error` can't wedge the
@@ -3276,6 +3353,25 @@ export function WorkspaceShell({
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
               <p className="text-sm font-medium text-[#ffb4a6]">
                 Pesan terlalu panjang. Ringkas dulu sebelum dikirim.
+              </p>
+            </div>
+          ) : aiThinking !== "idle" ? (
+            <div className="flex items-center gap-spacing-2 rounded-[18px] border border-surface-warm-white/10 bg-surface-warm-white/[0.04] px-spacing-5 py-spacing-3">
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full bg-surface-warm-white/60",
+                  aiThinking === "slow" && "animate-pulse",
+                )}
+              />
+              <p
+                className={cn(
+                  "text-sm text-surface-warm-white/60",
+                  aiThinking === "slow" && "animate-pulse",
+                )}
+              >
+                {aiThinking === "reasoning"
+                  ? "AI sedang menyusun ide…"
+                  : "Memproses…"}
               </p>
             </div>
           ) : error ? (
