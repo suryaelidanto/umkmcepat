@@ -116,6 +116,13 @@ import {
   type VisualAnnotationDraft,
 } from "@/lib/projects/visual-annotations";
 import {
+  RESUME_POLL_INTERVAL_MS,
+  resolveDiscussResume,
+  toUserFacingDiscussError,
+  type DiscussResume,
+  type TurnState,
+} from "@/lib/projects/workspace-resume";
+import {
   getBuildRecommendationHoldSignature,
   getWorkspaceCardFromMessages,
   getWorkspaceComposerState,
@@ -4992,21 +4999,9 @@ export function canStartBuild(brief: ProjectBrief | null | undefined): boolean {
   return true;
 }
 
-// Resume poll interval for a running discuss turn. ponytail: if useChat v4
-// grows a clean transport-resume API, swap the poll loop for it; the helper
-// stays.
-export const RESUME_POLL_INTERVAL_MS = 1_500;
-
 // Fetch the server-side turn state. Returns `null` on a 404 (no turn row for
 // this project — the pre-fix bug where a turn crashed before persist). The
 // caller treats `null` as `idle`.
-type TurnState = {
-  turnId: string;
-  status: "running" | "succeeded" | "failed" | "cancelled" | "expired";
-  userMessageId: string;
-  errorMessage?: string;
-};
-
 async function fetchDiscussTurn(projectId: string): Promise<TurnState | null> {
   try {
     const res = await fetch(`/api/projects/${projectId}/chat/turn`);
@@ -5017,74 +5012,6 @@ async function fetchDiscussTurn(projectId: string): Promise<TurnState | null> {
   } catch {
     return null;
   }
-}
-
-// Pure resume decision: given the server-side turn state, what should the
-// client do? Extracted so the branches are unit-testable without a DOM.
-export type DiscussResume =
-  | { kind: "idle" }
-  | { kind: "reload" }
-  | { kind: "poll" }
-  | { kind: "retry"; errorMessage: string; retryText: string };
-
-export function resolveDiscussResume(turn: TurnState | null): DiscussResume {
-  if (!turn) {
-    return { kind: "idle" };
-  }
-  if (turn.status === "running") {
-    return { kind: "poll" };
-  }
-  if (turn.status === "succeeded") {
-    return { kind: "reload" };
-  }
-  const message = toUserFacingDiscussError(turn.errorMessage);
-  return {
-    kind: "retry",
-    errorMessage: message,
-    retryText: "Kirim ulang",
-  };
-}
-
-/** Map stored turn errors to friendly Indonesian (never leak English internals). */
-export function toUserFacingDiscussError(
-  errorMessage: string | undefined | null,
-): string {
-  const raw = (errorMessage ?? "").trim();
-  if (!raw) {
-    return "Putaran AI sebelumnya gagal. Coba kirim ulang ya.";
-  }
-  // Already Indonesian product copy (contains spaces + non-ascii or common ID words).
-  if (
-    /[à-üÀ-Ü]|coba |belum |gagal|obrolan|sesi |proses |waktu|kirim|hentikan|gangguan|proyek/i.test(
-      raw,
-    )
-  ) {
-    return raw;
-  }
-  // Known internal codes / English leftovers from older builds.
-  const legacy: Record<string, string> = {
-    expired: "Sesi obrolan habis waktu. Coba kirim ulang pesanmu ya.",
-    stream_error_no_text: "AI lagi gangguan. Coba lagi sebentar.",
-    repair_failed: "AI lagi gangguan. Coba lagi sebentar.",
-    "discuss turn failed":
-      "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
-  };
-  if (legacy[raw]) {
-    return legacy[raw];
-  }
-  // Looks like a stack/module/dev error — never show raw.
-  if (
-    /cannot find module|error:|exception|undefined|null|worker |queue |failed to|ECONN|timeout/i.test(
-      raw,
-    )
-  ) {
-    return "Obrolan belum berhasil diproses. Coba kirim ulang ya.";
-  }
-  // Short English tokens without spaces → treat as internal code.
-  if (!/\s/.test(raw) && /^[a-z0-9_.:-]+$/i.test(raw)) {
-    return "Putaran AI sebelumnya gagal. Coba kirim ulang ya.";
-  }
-  return raw;
 }
 
 // Wrapper kept for the effect: fetch then resolve. Separate so the pure

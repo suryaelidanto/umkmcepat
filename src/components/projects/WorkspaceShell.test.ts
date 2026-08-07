@@ -5,16 +5,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   MAX_CHAT_BYTES,
-  RESUME_POLL_INTERVAL_MS,
   WorkspaceShell,
   canStartBuild,
   chatBubbleClass,
-  resolveDiscussResume,
 } from "./WorkspaceShell";
 
 import type { ProjectBrief } from "@/lib/projects/brief";
 
 import { createImageReplaceEditInstruction } from "@/lib/projects/visual-annotations";
+import {
+  RESUME_POLL_INTERVAL_MS,
+  resolveDiscussResume,
+} from "@/lib/projects/workspace-resume";
 
 function makeBrief(overrides: Partial<ProjectBrief>): ProjectBrief {
   return {
