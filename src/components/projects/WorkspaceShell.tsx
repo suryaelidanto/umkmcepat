@@ -1238,7 +1238,16 @@ export function WorkspaceShell({
 
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
-  const isProcessing = isResponding || isBuilding || isEditingPreview;
+  // First load: the initial prompt auto-sends via a macrotask, so useChat's
+  // `status` has not flipped to "submitted" yet and isProcessing would be false
+  // for a frame — flashing the textbox before the spinner card. Treat that gap
+  // as processing so the ProcessingControl (spinner) shows from first paint.
+  const firstTurnPending =
+    !readOnly &&
+    olderMessages.length + messages.length === 0 &&
+    Boolean(prompt);
+  const isProcessing =
+    firstTurnPending || isResponding || isBuilding || isEditingPreview;
   const allMessages = useMemo(
     () => dedupeUiMessages([...olderMessages, ...messages]),
     [messages, olderMessages],
