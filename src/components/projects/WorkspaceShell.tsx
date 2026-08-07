@@ -103,8 +103,6 @@ import {
   type EditLayout,
 } from "@/lib/projects/direct-edit";
 import {
-  type AiThinkingTier,
-  decideAiThinkingTier,
   isTerminalChatError,
   nextRetryAttempt,
 } from "@/lib/projects/discuss-chat-error";
@@ -354,17 +352,7 @@ export function WorkspaceShell({
   const shouldStickToBottomRef = useRef(true);
   const ignoreNextScrollRef = useRef(false);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [retryAttempt, setRetryAttempt] = useState(0);
   const retryAttemptRef = useRef(0);
-  const [aiThinking, setAiThinking] = useState<AiThinkingTier>("idle");
-  const thinkingTimersRef = useRef<number[]>([]);
-  const thinkingStartRef = useRef(0);
-  const clearThinkingTimers = useCallback(() => {
-    for (const t of thinkingTimersRef.current) {
-      window.clearTimeout(t);
-    }
-    thinkingTimersRef.current = [];
-  }, []);
   const [workspaceCardError, setWorkspaceCardError] = useState(false);
   const [isPreparingNextQuestion, setIsPreparingNextQuestion] = useState(false);
   const isPreparingNextQuestionRef = useRef(false);
@@ -464,7 +452,6 @@ export function WorkspaceShell({
 
   useEffect(() => {
     return () => {
-      clearThinkingTimers();
       document.body.style.cursor = "";
       document.documentElement.style.cursor = "";
     };
@@ -1240,21 +1227,35 @@ export function WorkspaceShell({
   const isBuilding = buildStatus === "building";
   // First load: the initial prompt auto-sends via a macrotask, so useChat's
   // `status` has not flipped to "submitted" yet and isProcessing would be false
-  // for a frame — flashing the textbox before the spinner card. Treat the whole
-  // first turn as processing: keyed on "no assistant reply AND no card yet", so
-  // the moment sendMessage appends the pending user message the spinner still
-  // holds until the AI reply lands AND its workspace card resolves. The free
-  // textbox only appears after the first-turn card is in place.
+  // for a frame — flashing the textbox before the spinner card. Hold the
+  // spinner until the first-turn WORKSPACE CARD actually lands (not just the
+  // assistant text), so the textbox only appears once the question/recommend
+  // card is on screen. Escape hatch: if the turn settles (ready/error) without
+  // a card — e.g. a text-only reply or a failed turn — release so we never
+  // deadlock on an endless spinner.
   const hasFirstAssistantReply =
     olderMessages.some((m) => m.role === "assistant") ||
     messages.some((m) => m.role === "assistant");
+  const firstTurnSettled =
+    (status === "ready" || status === "error") && hasFirstAssistantReply;
   const firstTurnPending =
     !readOnly &&
     Boolean(prompt) &&
     workspaceCard.type === "none" &&
-    !hasFirstAssistantReply;
+    !firstTurnSettled;
+  // `isRetrying` covers both retryChat() and retryWorkspaceCard() — both
+  // clear the visible error and keep working in the background.
+  // `isPreparingNextQuestion` covers the poll while the server finishes the
+  // next workspace card after a turn. Without both here, the composer falls
+  // through to the free textbox (or renders nothing) while the AI is still
+  // working — looking done when it is not.
   const isProcessing =
-    firstTurnPending || isResponding || isBuilding || isEditingPreview;
+    firstTurnPending ||
+    isResponding ||
+    isBuilding ||
+    isEditingPreview ||
+    isRetrying ||
+    isPreparingNextQuestion;
   const allMessages = useMemo(
     () => dedupeUiMessages([...olderMessages, ...messages]),
     [messages, olderMessages],
@@ -1819,71 +1820,6 @@ export function WorkspaceShell({
       submitInFlightRef.current = false;
     }
   }, [status]);
-
-  useEffect(() => {
-    if (status === "submitted" || status === "streaming") {
-      clearThinkingTimers();
-      if (thinkingStartRef.current === 0) {
-        thinkingStartRef.current = Date.now();
-      }
-      thinkingTimersRef.current = [
-        window.setTimeout(() => {
-          setAiThinking(
-            decideAiThinkingTier({
-              hasToken: false,
-              hasReasoning: false,
-              elapsedMs: Date.now() - thinkingStartRef.current,
-            }),
-          );
-        }, 800),
-        window.setTimeout(() => {
-          setAiThinking((tier) =>
-            tier === "reasoning"
-              ? tier
-              : decideAiThinkingTier({
-                  hasToken: false,
-                  hasReasoning: false,
-                  elapsedMs: Date.now() - thinkingStartRef.current,
-                }),
-          );
-        }, 8_000),
-      ];
-      return;
-    }
-    clearThinkingTimers();
-    thinkingStartRef.current = 0;
-    setAiThinking("idle");
-    return clearThinkingTimers;
-  }, [status, clearThinkingTimers]);
-
-  useEffect(() => {
-    if (status !== "streaming") {
-      return;
-    }
-    const lastAssistant = [...messages]
-      .reverse()
-      .find((m) => m.role === "assistant");
-    const hasReasoning = Boolean(
-      lastAssistant?.parts.some(
-        (p) =>
-          p.type === "reasoning" && (p as { state?: string }).state !== "done",
-      ),
-    );
-    const hasToken = Boolean(
-      lastAssistant?.parts.some(
-        (p) => p.type === "text" || p.type === "tool-input-delta",
-      ),
-    );
-    if (hasToken) {
-      clearThinkingTimers();
-      thinkingStartRef.current = 0;
-      setAiThinking("idle");
-      return;
-    }
-    if (hasReasoning) {
-      setAiThinking("reasoning");
-    }
-  }, [messages, status, clearThinkingTimers]);
 
   // Mount-only reset: a reload always starts with a clean submit lock so a
   // mid-turn disconnect that never returned to `ready`/`error` can't wedge the
@@ -2711,7 +2647,6 @@ export function WorkspaceShell({
       setRateLimitError(null);
       clearError(); // hide stale banner from the previous failed turn
       retryAttemptRef.current = 0;
-      setRetryAttempt(0);
       setMessage("");
       setBuildProgress([]);
       requestAnimationFrame(() =>
@@ -3012,7 +2947,6 @@ export function WorkspaceShell({
     }
     lastAutoRetriedErrorRef.current = error;
     retryAttemptRef.current = next;
-    setRetryAttempt(next);
     setIsRetrying(true);
     void retryChat();
   }, [error, isRetrying, status, readOnly, _autoRetryAttempts, retryChat]);
@@ -3021,7 +2955,6 @@ export function WorkspaceShell({
   useEffect(() => {
     if (status === "ready") {
       retryAttemptRef.current = 0;
-      setRetryAttempt(0);
       lastAutoRetriedErrorRef.current = null;
     }
   }, [status]);
@@ -3308,12 +3241,11 @@ export function WorkspaceShell({
             />
           ) : null}
 
-          {isResponding ? (
+          {isResponding || isRetrying || isPreparingNextQuestion ? (
             <p className="text-sm text-surface-warm-white/46">
-              AI sedang menyiapkan jawaban...
+              AI sedang memproses...
             </p>
-          ) : null}
-          {rateLimitError ? (
+          ) : rateLimitError ? (
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
               <p className="text-sm font-medium text-[#ffb4a6]">
                 {rateLimitError.message}
@@ -3332,18 +3264,12 @@ export function WorkspaceShell({
                 Login ulang
               </Button>
             </div>
-          ) : isPreparingNextQuestion ? (
-            <p className="text-sm text-surface-warm-white/46">
-              Menyiapkan pertanyaan berikutnya...
-            </p>
           ) : workspaceCardError ? (
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
               <p className="text-sm font-medium text-[#ffb4a6]">
-                {isRetrying
-                  ? "Mencoba menyiapkan pertanyaan lagi..."
-                  : "Pertanyaan berikutnya belum berhasil dibuat."}
+                Pertanyaan berikutnya belum berhasil dibuat.
               </p>
-              {!readOnly && !isRetrying ? (
+              {!readOnly ? (
                 <Button
                   type="button"
                   onClick={() => void retryWorkspaceCard()}
@@ -3371,33 +3297,12 @@ export function WorkspaceShell({
                 Pesan terlalu panjang. Ringkas dulu sebelum dikirim.
               </p>
             </div>
-          ) : aiThinking !== "idle" ? (
-            <div className="flex items-center gap-spacing-2 rounded-[18px] border border-surface-warm-white/10 bg-surface-warm-white/[0.04] px-spacing-5 py-spacing-3">
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full bg-surface-warm-white/60",
-                  aiThinking === "slow" && "animate-pulse",
-                )}
-              />
-              <p
-                className={cn(
-                  "text-sm text-surface-warm-white/60",
-                  aiThinking === "slow" && "animate-pulse",
-                )}
-              >
-                {aiThinking === "reasoning"
-                  ? "AI sedang menyusun ide…"
-                  : "Memproses…"}
-              </p>
-            </div>
           ) : error ? (
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
               <p className="text-sm font-medium text-[#ffb4a6]">
-                {isRetrying
-                  ? `Mencoba lagi (putaran ke-${Math.max(1, retryAttempt)})…`
-                  : toUserFacingDiscussError(error.message)}
+                {toUserFacingDiscussError(error.message)}
               </p>
-              {!readOnly && !isRetrying ? (
+              {!readOnly ? (
                 <Button
                   type="button"
                   onClick={() => void retryChat()}
@@ -3412,7 +3317,7 @@ export function WorkspaceShell({
               <p className="text-sm font-medium text-[#ffb4a6]">
                 {resumeError.message}
               </p>
-              {!readOnly && !isRetrying ? (
+              {!readOnly ? (
                 <Button
                   type="button"
                   onClick={() => void retryChat()}

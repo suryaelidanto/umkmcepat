@@ -1581,11 +1581,11 @@ export function ProcessingControl({
   onStop: () => void;
 }) {
   const fallbackTitle =
-    mode === "Buat" ? "Membuat website" : "Menyusun jawaban";
+    mode === "Buat" ? "Membuat website" : "AI sedang memproses...";
   const fallbackDetail =
     mode === "Buat"
       ? "AI sedang menyiapkan file website dan tampilannya."
-      : "AI sedang menyiapkan jawaban.";
+      : "Tunggu sebentar, jawaban akan muncul di sini.";
   const title =
     mode === "Buat" && currentStep?.label ? currentStep.label : fallbackTitle;
   const detail =

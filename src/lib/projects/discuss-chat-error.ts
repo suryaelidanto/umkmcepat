@@ -62,22 +62,3 @@ export function nextRetryAttempt(current: number, cap: number): number | null {
   }
   return null;
 }
-
-export type AiThinkingTier = "idle" | "active" | "slow" | "reasoning";
-
-export function decideAiThinkingTier(input: {
-  hasToken: boolean;
-  hasReasoning: boolean;
-  elapsedMs: number;
-}): AiThinkingTier {
-  if (input.hasToken || input.elapsedMs <= 0) {
-    return "idle";
-  }
-  if (input.hasReasoning) {
-    return "reasoning";
-  }
-  if (input.elapsedMs >= 8_000) {
-    return "slow";
-  }
-  return "active";
-}

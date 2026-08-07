@@ -104,7 +104,7 @@ describe("ProcessingControl copy", () => {
       }),
     );
 
-    expect(markup).toContain("Menyusun jawaban");
+    expect(markup).toContain("AI sedang memproses...");
     expect(markup).not.toContain("Menulis file");
   });
 });

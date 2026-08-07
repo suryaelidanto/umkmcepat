@@ -84,7 +84,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("keeps choice mode when AI sends answerMode choice but options are empty strings", () => {
+  it("falls back to text mode when AI sends answerMode choice but every option is empty (regression: card renders with no real choices)", () => {
     const brief = createInitialBrief("jualan jamu");
     const turn = normalizeWorkspaceTurn(
       {
@@ -103,7 +103,8 @@ describe("normalizeWorkspaceTurn", () => {
 
     expect(turn.workspaceCard.type).toBe("question");
     if (turn.workspaceCard.type === "question") {
-      expect(turn.workspaceCard.question.answerMode).toBe("choice");
+      expect(turn.workspaceCard.question.answerMode).toBe("text");
+      expect(turn.workspaceCard.question.options).toHaveLength(0);
     }
   });
 

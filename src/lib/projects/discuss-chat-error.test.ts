@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   classifyDiscussChatError,
-  decideAiThinkingTier,
   isTerminalChatError,
   nextRetryAttempt,
 } from "@/lib/projects/discuss-chat-error";
@@ -91,57 +90,5 @@ describe("nextRetryAttempt", () => {
 
   it("clamps negative cap to zero", () => {
     expect(nextRetryAttempt(0, -1)).toBeNull();
-  });
-});
-
-describe("decideAiThinkingTier", () => {
-  it("stays idle before any elapsed time", () => {
-    expect(
-      decideAiThinkingTier({
-        hasToken: false,
-        hasReasoning: false,
-        elapsedMs: 0,
-      }),
-    ).toBe("idle");
-  });
-
-  it("goes active after the grace period", () => {
-    expect(
-      decideAiThinkingTier({
-        hasToken: false,
-        hasReasoning: false,
-        elapsedMs: 1_500,
-      }),
-    ).toBe("active");
-  });
-
-  it("escalates to slow past 8s", () => {
-    expect(
-      decideAiThinkingTier({
-        hasToken: false,
-        hasReasoning: false,
-        elapsedMs: 9_000,
-      }),
-    ).toBe("slow");
-  });
-
-  it("prefers reasoning tier while reasoning is in flight", () => {
-    expect(
-      decideAiThinkingTier({
-        hasToken: false,
-        hasReasoning: true,
-        elapsedMs: 9_000,
-      }),
-    ).toBe("reasoning");
-  });
-
-  it("returns idle the moment a token lands", () => {
-    expect(
-      decideAiThinkingTier({
-        hasToken: true,
-        hasReasoning: true,
-        elapsedMs: 9_000,
-      }),
-    ).toBe("idle");
   });
 });

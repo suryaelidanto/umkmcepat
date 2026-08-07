@@ -560,14 +560,16 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
         .slice(0, 5)
     : [];
 
+  // AI-declared "choice" with every option filtered out by coerceQuestionOption
+  // (malformed shape, empty labels, string arrays) must fall back to "text" —
+  // otherwise the card renders with zero real choices, only the always-on
+  // "Sebutkan sendiri" custom-answer row.
   const answerMode =
     candidate.answerMode === "text"
       ? "text"
-      : candidate.answerMode === "choice"
+      : options.length > 0
         ? "choice"
-        : options.length > 0
-          ? "choice"
-          : "text";
+        : "text";
 
   if (!question) {
     return null;
