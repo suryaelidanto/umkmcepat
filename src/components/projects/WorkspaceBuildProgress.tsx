@@ -1,0 +1,303 @@
+"use client";
+
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { type DiffLine } from "@/lib/projects/diff";
+
+export type BuildProgressStep = {
+  detail: string;
+  diff?: DiffLine[];
+  durationMs?: number;
+  label: string;
+  startedAt?: number;
+  status?: "active" | "done" | "error";
+};
+
+function StepDuration({
+  durationMs,
+  isActive,
+  now,
+  startedAt,
+}: {
+  durationMs?: number;
+  isActive: boolean;
+  now: number;
+  startedAt?: number;
+}) {
+  if (isActive && startedAt) {
+    const liveSec = Math.max(0, (now - startedAt) / 1000);
+    return (
+      <span className="text-xs font-medium tabular-nums text-surface-warm-white/40">
+        {liveSec.toFixed(1)}s
+      </span>
+    );
+  }
+
+  if (durationMs !== undefined) {
+    if (durationMs < 1000) {
+      return (
+        <span className="text-xs font-medium tabular-nums text-surface-warm-white/40">
+          {durationMs}ms
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs font-medium tabular-nums text-surface-warm-white/40">
+        {(durationMs / 1000).toFixed(1)}s
+      </span>
+    );
+  }
+
+  return null;
+}
+
+export function BuildProgressPanel({
+  elapsedFrom,
+  isBuilding,
+  steps,
+}: {
+  elapsedFrom: number | null;
+  isBuilding: boolean;
+  steps: BuildProgressStep[];
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const [userToggles, setUserToggles] = useState<Record<string, boolean>>({});
+
+  const hasActiveStep = steps.some(
+    (step) => (step.status || "active") === "active",
+  );
+  const isRunning = isBuilding || hasActiveStep;
+
+  useEffect(() => {
+    if (!isRunning) {
+      return;
+    }
+
+    setNow(Date.now());
+    const interval = window.setInterval(() => setNow(Date.now()), 100);
+
+    return () => window.clearInterval(interval);
+  }, [isRunning]);
+
+  const elapsedSeconds = elapsedFrom
+    ? Math.max(0, Math.floor((now - elapsedFrom) / 1000))
+    : 0;
+  const visibleSteps = steps.length
+    ? steps
+    : [
+        {
+          detail: "AI sedang membuka sesi build dan menyiapkan konteks proyek.",
+          label: "Memulai build",
+          status: "active" as const,
+        },
+      ];
+
+  return (
+    <div className="overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#20201d] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
+        <div>
+          <p className="text-sm font-semibold text-surface-warm-white">
+            {isRunning ? "Proses sedang berjalan" : "Riwayat build terakhir"}
+          </p>
+          <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
+            {isRunning
+              ? "Tampilan website akan mengikuti hasil yang sudah berhasil dibaca."
+              : "Langkah build terakhir sudah selesai."}
+          </p>
+        </div>
+        <div className="rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.055] px-spacing-3 py-spacing-2 text-xs tabular-nums text-surface-warm-white/68">
+          {elapsedSeconds}s
+        </div>
+      </div>
+
+      <div className="space-y-spacing-3 p-spacing-5">
+        <AnimatePresence initial={false}>
+          {visibleSteps.map((step, index) => {
+            const status = step.status || "active";
+            const isActive = status === "active";
+            const isError = status === "error";
+            const hasDiff = Boolean(step.diff && step.diff.length > 0);
+
+            const stepKey = `${step.label}-${index}`;
+            const defaultExpanded = isActive || isError;
+            const isExpanded =
+              !hasDiff ||
+              (userToggles[stepKey] !== undefined
+                ? userToggles[stepKey]
+                : defaultExpanded);
+
+            const toggleExpand = () => {
+              if (!hasDiff) {
+                return;
+              }
+              setUserToggles((prev) => ({
+                ...prev,
+                [stepKey]: !isExpanded,
+              }));
+            };
+
+            return (
+              <motion.div
+                key={stepKey}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                role={hasDiff ? "button" : undefined}
+                tabIndex={hasDiff ? 0 : undefined}
+                onClick={hasDiff ? toggleExpand : undefined}
+                onKeyDown={
+                  hasDiff
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          toggleExpand();
+                        }
+                      }
+                    : undefined
+                }
+                aria-expanded={hasDiff ? isExpanded : undefined}
+                className={`flex flex-col rounded-[18px] border border-surface-warm-white/8 bg-surface-warm-white/[0.035] p-spacing-4 select-none ${hasDiff ? "cursor-pointer hover:bg-surface-warm-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/30" : ""}`}
+              >
+                <div className="flex items-start justify-between gap-spacing-3 w-full">
+                  <div className="flex items-start gap-spacing-4 min-w-0 flex-1">
+                    <div
+                      className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border ${isError ? "border-[#ffb4a6]/40 bg-[#ffb4a6]/10 text-[#ffb4a6]" : isActive ? "border-surface-warm-white/18 bg-surface-warm-white/10 text-surface-warm-white" : "border-[#8ce99a]/30 bg-[#8ce99a]/10 text-[#8ce99a]"}`}
+                    >
+                      <span
+                        className={`block ${isActive ? "size-3 animate-pulse rounded-full bg-current" : "size-2 bg-current"}`}
+                      />
+                    </div>
+                    <span className="text-sm text-surface-warm-white text-left pt-1 leading-5 min-w-0">
+                      <span className="font-semibold">{step.label}</span>
+                      {step.detail && step.detail !== step.label ? (
+                        <span className="font-normal text-surface-warm-white/50">
+                          {" "}
+                          — {step.detail}
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-spacing-2 shrink-0 mt-1.5">
+                    <StepDuration
+                      durationMs={step.durationMs}
+                      isActive={isActive}
+                      now={now}
+                      startedAt={step.startedAt}
+                    />
+                    {hasDiff && (
+                      <div className="text-surface-warm-white/40">
+                        {isExpanded ? (
+                          <ChevronUp className="size-4" />
+                        ) : (
+                          <ChevronDown className="size-4" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pl-12 pt-spacing-2 text-left">
+                        {step.diff && step.diff.length > 0 && (
+                          <div className="mt-spacing-3">
+                            <pre className="max-h-64 overflow-auto rounded-[12px] border border-surface-warm-white/8 bg-black/20 p-spacing-3 text-xs leading-5 [scrollbar-width:thin]">
+                              {step.diff.map((line, lineIndex) => (
+                                <div
+                                  key={lineIndex}
+                                  className={
+                                    line.type === "add"
+                                      ? "bg-[#8ce99a]/10 text-[#8ce99a]"
+                                      : line.type === "delete"
+                                        ? "bg-[#ffb4a6]/10 text-[#ffb4a6]"
+                                        : "text-surface-warm-white/54"
+                                  }
+                                >
+                                  {line.type === "add"
+                                    ? "+ "
+                                    : line.type === "delete"
+                                      ? "- "
+                                      : "  "}
+                                  {line.text}
+                                </div>
+                              ))}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+export function ProcessingControl({
+  currentStep,
+  mode,
+  onStop,
+}: {
+  /** Newest live build row; when present it replaces the generic build copy. */
+  currentStep?: { detail?: string; label: string } | null;
+  mode: "Diskusi" | "Buat";
+  onStop: () => void;
+}) {
+  const fallbackTitle =
+    mode === "Buat" ? "Membuat website" : "AI sedang memproses...";
+  const fallbackDetail =
+    mode === "Buat"
+      ? "AI sedang menyiapkan file website dan tampilannya."
+      : "Tunggu sebentar, jawaban akan muncul di sini.";
+  const title =
+    mode === "Buat" && currentStep?.label ? currentStep.label : fallbackTitle;
+  const detail =
+    mode === "Buat" && currentStep?.label
+      ? currentStep.detail || fallbackDetail
+      : fallbackDetail;
+
+  return (
+    <div className="mt-spacing-3 overflow-hidden rounded-[22px] border border-surface-warm-white/10 bg-[#242421] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="flex items-center justify-between gap-spacing-4 px-spacing-5 py-spacing-4">
+        <div className="flex min-w-0 items-center gap-spacing-4">
+          <div className="grid size-10 shrink-0 place-items-center rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.045]">
+            <span className="size-4 animate-spin rounded-full border-2 border-surface-warm-white/18 border-t-surface-warm-white/78" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-spacing-2">
+              <p className="text-sm font-semibold text-surface-warm-white">
+                {title}
+              </p>
+            </div>
+            <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/50">
+              {detail}
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onStop}
+          className="h-9 shrink-0 rounded-full border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/82 hover:bg-surface-warm-white/8"
+        >
+          Hentikan
+        </Button>
+      </div>
+    </div>
+  );
+}
