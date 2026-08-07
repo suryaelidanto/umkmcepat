@@ -1240,12 +1240,19 @@ export function WorkspaceShell({
   const isBuilding = buildStatus === "building";
   // First load: the initial prompt auto-sends via a macrotask, so useChat's
   // `status` has not flipped to "submitted" yet and isProcessing would be false
-  // for a frame — flashing the textbox before the spinner card. Treat that gap
-  // as processing so the ProcessingControl (spinner) shows from first paint.
+  // for a frame — flashing the textbox before the spinner card. Treat the whole
+  // first turn as processing: keyed on "no assistant reply AND no card yet", so
+  // the moment sendMessage appends the pending user message the spinner still
+  // holds until the AI reply lands AND its workspace card resolves. The free
+  // textbox only appears after the first-turn card is in place.
+  const hasFirstAssistantReply =
+    olderMessages.some((m) => m.role === "assistant") ||
+    messages.some((m) => m.role === "assistant");
   const firstTurnPending =
     !readOnly &&
-    olderMessages.length + messages.length === 0 &&
-    Boolean(prompt);
+    Boolean(prompt) &&
+    workspaceCard.type === "none" &&
+    !hasFirstAssistantReply;
   const isProcessing =
     firstTurnPending || isResponding || isBuilding || isEditingPreview;
   const allMessages = useMemo(
