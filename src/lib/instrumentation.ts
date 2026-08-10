@@ -20,7 +20,17 @@ export async function register() {
   ]);
 
   assertProductionConfigReady();
-  await assertProjectArtifactStorageReady();
+  try {
+    await assertProjectArtifactStorageReady();
+  } catch (error) {
+    if (process.env.NODE_ENV === "production") {
+      throw error;
+    }
+    console.warn(
+      "[storage] S3 not reachable - artifact features degraded until infra is up:",
+      error instanceof Error ? error.message : error,
+    );
+  }
   assertProvidersForProduction();
 
   // Fire-and-forget: don't block boot on MinIO being slow to come up — the
