@@ -65,49 +65,68 @@ export const Route = createFileRoute("/api/projects")({
           );
         }
 
-        const projects = await prisma.project.findMany({
-          where: {
-            userId: session.user.id,
-            ...(cursor
-              ? {
-                  OR: [
-                    { updatedAt: { lt: cursor.updatedAt } },
-                    { updatedAt: cursor.updatedAt, id: { lt: cursor.id } },
-                  ],
-                }
-              : {}),
-          },
-          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-          take: PROJECT_PAGE_SIZE + 1,
-          select: {
-            buildStatus: true,
-            id: true,
-            thumbnailBuildId: true,
-            thumbnailRef: true,
-            title: true,
-            updatedAt: true,
-          },
-        });
-        const hasMore = projects.length > PROJECT_PAGE_SIZE;
-        const items = hasMore ? projects.slice(0, PROJECT_PAGE_SIZE) : projects;
+        try {
+          const projects = await prisma.project.findMany({
+            where: {
+              userId: session.user.id,
+              ...(cursor
+                ? {
+                    OR: [
+                      { updatedAt: { lt: cursor.updatedAt } },
+                      { updatedAt: cursor.updatedAt, id: { lt: cursor.id } },
+                    ],
+                  }
+                : {}),
+            },
+            orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+            take: PROJECT_PAGE_SIZE + 1,
+            select: {
+              buildStatus: true,
+              id: true,
+              thumbnailBuildId: true,
+              thumbnailRef: true,
+              title: true,
+              updatedAt: true,
+            },
+          });
+          const hasMore = projects.length > PROJECT_PAGE_SIZE;
+          const items = hasMore
+            ? projects.slice(0, PROJECT_PAGE_SIZE)
+            : projects;
 
-        const lastItem = items.at(-1);
-        const projectCount = await getProjectCount(session.user.id);
-        const projectLimit = getProjectLimit();
+          const lastItem = items.at(-1);
+          const projectCount = await getProjectCount(session.user.id);
+          const projectLimit = getProjectLimit();
 
-        return Response.json({
-          projects: items,
-          nextCursor:
-            hasMore && lastItem
-              ? encodeProjectCursor({
-                  id: lastItem.id,
-                  updatedAt: lastItem.updatedAt,
-                })
-              : null,
-          projectCount,
-          projectLimit,
-          overProjectLimit: isAtOrOverProjectLimit(projectCount, projectLimit),
-        });
+          return Response.json({
+            projects: items,
+            nextCursor:
+              hasMore && lastItem
+                ? encodeProjectCursor({
+                    id: lastItem.id,
+                    updatedAt: lastItem.updatedAt,
+                  })
+                : null,
+            projectCount,
+            projectLimit,
+            overProjectLimit: isAtOrOverProjectLimit(
+              projectCount,
+              projectLimit,
+            ),
+          });
+        } catch (error) {
+          console.warn(
+            "[api.projects] DB unavailable - returning degraded 503:",
+            error instanceof Error ? error.message : error,
+          );
+          return Response.json(
+            {
+              code: "database_unavailable",
+              message: "Database sedang tidak tersedia. Coba lagi sebentar.",
+            },
+            { status: 503 },
+          );
+        }
       },
       POST: async ({ request }) => {
         const session = await auth();

@@ -35,51 +35,67 @@ import {
 } from "@/lib/user-credits";
 
 const loadHome = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await auth();
-  const [projects, user] = session?.user?.id
-    ? await Promise.all([
-        prisma.project.findMany({
-          where: { userId: session.user.id },
-          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-          take: PROJECT_PAGE_SIZE + 1,
-          select: {
-            buildStatus: true,
-            id: true,
-            thumbnailBuildId: true,
-            thumbnailRef: true,
-            title: true,
-            updatedAt: true,
-          },
-        }),
-        prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: { name: true },
-        }),
-      ])
-    : [[], null];
-  const greetingName = getGreetingName(user?.name || session?.user?.name);
-  const hasMore = projects.length > PROJECT_PAGE_SIZE;
-  const initialProjects = hasMore
-    ? projects.slice(0, PROJECT_PAGE_SIZE)
-    : projects;
-  const initialNextCursor = hasMore
-    ? encodeProjectCursor(initialProjects[initialProjects.length - 1])
-    : null;
-  const projectCount = session?.user?.id
-    ? await getProjectCount(session.user.id)
-    : 0;
-  const projectLimit = getProjectLimit();
-  const overProjectLimit = isAtOrOverProjectLimit(projectCount, projectLimit);
+  const session = await auth().catch(() => null);
+  try {
+    const [projects, user] = session?.user?.id
+      ? await Promise.all([
+          prisma.project.findMany({
+            where: { userId: session.user.id },
+            orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+            take: PROJECT_PAGE_SIZE + 1,
+            select: {
+              buildStatus: true,
+              id: true,
+              thumbnailBuildId: true,
+              thumbnailRef: true,
+              title: true,
+              updatedAt: true,
+            },
+          }),
+          prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { name: true },
+          }),
+        ])
+      : [[], null];
+    const greetingName = getGreetingName(user?.name || session?.user?.name);
+    const hasMore = projects.length > PROJECT_PAGE_SIZE;
+    const initialProjects = hasMore
+      ? projects.slice(0, PROJECT_PAGE_SIZE)
+      : projects;
+    const initialNextCursor = hasMore
+      ? encodeProjectCursor(initialProjects[initialProjects.length - 1])
+      : null;
+    const projectCount = session?.user?.id
+      ? await getProjectCount(session.user.id)
+      : 0;
+    const projectLimit = getProjectLimit();
+    const overProjectLimit = isAtOrOverProjectLimit(projectCount, projectLimit);
 
-  return {
-    greetingName,
-    hasUser: Boolean(session?.user),
-    initialNextCursor,
-    initialProjects,
-    overProjectLimit,
-    projectCount,
-    projectLimit,
-  };
+    return {
+      greetingName,
+      hasUser: Boolean(session?.user),
+      initialNextCursor,
+      initialProjects,
+      overProjectLimit,
+      projectCount,
+      projectLimit,
+    };
+  } catch (error) {
+    console.warn(
+      "[home] DB unavailable - rendering degraded homepage:",
+      error instanceof Error ? error.message : error,
+    );
+    return {
+      greetingName: getGreetingName(session?.user?.name),
+      hasUser: Boolean(session?.user),
+      initialNextCursor: null,
+      initialProjects: [],
+      overProjectLimit: false,
+      projectCount: 0,
+      projectLimit: getProjectLimit(),
+    };
+  }
 });
 
 const deleteProjectFn = createServerFn({ method: "POST" })
