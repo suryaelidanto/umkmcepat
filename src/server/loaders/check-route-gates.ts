@@ -14,7 +14,19 @@ import { resolveUserWaitlistStatus } from "@/routes/api.user.waitlist";
 export async function checkRouteGates(pathname: string) {
   const waitlistBypass = isWaitlistGateBypassPath(pathname);
 
-  const { session, banned } = await getAuthState();
+  let session: Awaited<ReturnType<typeof getAuthState>>["session"] = null;
+  let banned = false;
+  try {
+    const state = await getAuthState();
+    session = state.session;
+    banned = state.banned;
+  } catch (error) {
+    console.warn(
+      "[gates] DB unavailable - allowing request degraded:",
+      error instanceof Error ? error.message : error,
+    );
+    return { ok: true as const };
+  }
 
   if (banned && pathname !== "/blocked") {
     throw redirect({ to: "/blocked" });
@@ -32,22 +44,32 @@ export async function checkRouteGates(pathname: string) {
   // waitlist. Waitlisted real admins must still open /admin; product routes
   // stay waitlist-blocked so they experience the product as a normal user.
   if (!waitlistBypass) {
-    const email = session.user.email ?? null;
-    const isAdmin = email ? isAdminEmail(email) : false;
-    const waitlistEnabled = await isWaitlistEnabled();
-    const isApproved = email ? await isWaitlistApproved(email) : null;
-    const isDev = process.env.NODE_ENV === "development";
+    try {
+      const email = session.user.email ?? null;
+      const isAdmin = email ? isAdminEmail(email) : false;
+      const waitlistEnabled = await isWaitlistEnabled();
+      const isApproved = email ? await isWaitlistApproved(email) : null;
+      const isDev = process.env.NODE_ENV === "development";
 
-    const resolved = resolveUserWaitlistStatus({
-      email,
-      isAdmin,
-      isApproved,
-      isDevelopment: isDev,
-      waitlistEnabled,
-    });
+      const resolved = resolveUserWaitlistStatus({
+        email,
+        isAdmin,
+        isApproved,
+        isDevelopment: isDev,
+        waitlistEnabled,
+      });
 
-    if (resolved.status !== "approved") {
-      throw redirect({ to: "/waitlist" });
+      if (resolved.status !== "approved") {
+        throw redirect({ to: "/waitlist" });
+      }
+    } catch (error) {
+      if (error instanceof Response) {
+        throw error;
+      }
+      console.warn(
+        "[gates] waitlist check failed - allowing request degraded:",
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 

@@ -20,16 +20,29 @@ export async function loadProfile() {
     throw redirect({ to: "/" });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { name: true },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true },
+    });
 
-  if (!user) {
-    throw redirect({ to: "/" });
+    if (!user) {
+      throw redirect({ to: "/" });
+    }
+
+    return {
+      initialName: user.name || session.user.name || "",
+    };
+  } catch (error) {
+    if (error instanceof Response) {
+      throw error;
+    }
+    console.warn(
+      "[profile] DB unavailable - rendering degraded profile:",
+      error instanceof Error ? error.message : error,
+    );
+    return {
+      initialName: session.user.name || "",
+    };
   }
-
-  return {
-    initialName: user.name || session.user.name || "",
-  };
 }

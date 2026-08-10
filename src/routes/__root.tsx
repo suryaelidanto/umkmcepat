@@ -92,6 +92,7 @@ export const Route = createRootRoute({
   }),
   component: RootComponent,
   notFoundComponent: NotFound,
+  errorComponent: RootError,
 });
 
 function NotFound() {
@@ -109,6 +110,77 @@ function NotFound() {
           <Link href="/">Kembali ke beranda</Link>
         </Button>
       </div>
+    </div>
+  );
+}
+
+function isDbUnavailableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message;
+    return (
+      msg.includes("Can't reach database server") ||
+      msg.includes("P1001") ||
+      msg.includes("database_unavailable") ||
+      msg.includes("ECONNREFUSED")
+    );
+  }
+  return false;
+}
+
+function RootError({ error, reset }: { error: Error; reset: () => void }) {
+  const isDbDown = isDbUnavailableError(error);
+  if (isDbDown) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#151515] px-4 text-center">
+        <AlertTriangle className="mb-6 size-16 text-yellow-600" />
+        <h1 className="mb-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          Layanan sedang pemeliharaan
+        </h1>
+        <p className="mt-4 max-w-md text-lg leading-8 text-gray-300">
+          Database sedang tidak tersedia. Coba lagi sebentar atau jalankan{" "}
+          <code className="rounded bg-white/10 px-1.5 py-0.5 text-sm text-white">
+            bun run infra
+          </code>{" "}
+          jika di lokal.
+        </p>
+        <div className="mt-10 flex items-center justify-center gap-x-6">
+          <Button onClick={() => reset()} size="lg">
+            Coba lagi
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link href="/">Kembali ke beranda</Link>
+          </Button>
+        </div>
+        {process.env.NODE_ENV !== "production" && (
+          <p className="mt-6 max-w-md text-xs text-gray-500">
+            DB error: {error.message.slice(0, 300)}
+          </p>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#151515] px-4 text-center">
+      <AlertTriangle className="mb-6 size-16 text-red-600" />
+      <h1 className="mb-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        Terjadi kesalahan
+      </h1>
+      <p className="mt-4 max-w-md text-lg leading-8 text-gray-300">
+        Maaf, terjadi kesalahan tak terduga. Coba lagi.
+      </p>
+      <div className="mt-10 flex items-center justify-center gap-x-6">
+        <Button onClick={() => reset()} size="lg">
+          Coba lagi
+        </Button>
+        <Button asChild variant="outline" size="lg">
+          <Link href="/">Kembali ke beranda</Link>
+        </Button>
+      </div>
+      {process.env.NODE_ENV !== "production" && (
+        <pre className="mt-6 max-h-40 max-w-md overflow-auto rounded bg-white/10 p-3 text-left text-xs text-gray-300">
+          {error.message}
+        </pre>
+      )}
     </div>
   );
 }
