@@ -23,13 +23,16 @@ export async function register() {
   try {
     await assertProjectArtifactStorageReady();
   } catch (error) {
-    if (process.env.NODE_ENV === "production") {
-      throw error;
-    }
     console.warn(
       "[storage] S3 not reachable - artifact features degraded until infra is up:",
       error instanceof Error ? error.message : error,
     );
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[storage] S3 check failed in production — continuing degraded:",
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
   assertProvidersForProduction();
 
@@ -56,10 +59,15 @@ export async function register() {
       await import("@/lib/projects/attempt-queue");
     startAttemptQueueWorker();
   } catch (error) {
-    console.error(
-      "[attempt-queue] worker failed to start:",
+    console.warn(
+      "[attempt-queue] worker failed to start - queue degraded until Redis is up:",
       error instanceof Error ? error.message : error,
     );
-    throw error;
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[attempt-queue] worker failed in production — continuing degraded:",
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 }

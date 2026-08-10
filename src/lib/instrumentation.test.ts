@@ -72,7 +72,7 @@ describe("instrumentation S3 readiness - dev vs prod", () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
-  it("production: S3 probe failure SHOULD throw", async () => {
+  it("production: S3 probe failure should NOT throw - degraded (warn + error, continue)", async () => {
     vi.stubEnv("NODE_ENV", "production");
     s3Mock.mockRejectedValue(
       new Error("S3 storage is not reachable: EAI_AGAIN"),
@@ -81,7 +81,9 @@ describe("instrumentation S3 readiness - dev vs prod", () => {
     vi.resetModules();
     const { register } = await import("@/lib/instrumentation");
 
-    await expect(register()).rejects.toThrow("S3 storage is not reachable");
+    await expect(register()).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
   });
 
   it("dev: S3 probe success should resolve silently", async () => {

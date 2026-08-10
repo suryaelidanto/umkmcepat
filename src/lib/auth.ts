@@ -144,12 +144,20 @@ async function resolveAuthState(): Promise<AuthState> {
     return { session, banned: false };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { bannedAt: true },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { bannedAt: true },
+    });
 
-  return { session, banned: Boolean(user?.bannedAt) };
+    return { session, banned: Boolean(user?.bannedAt) };
+  } catch (error) {
+    console.warn(
+      "[auth] banned check failed - continuing as not banned until DB is up:",
+      error instanceof Error ? error.message : error,
+    );
+    return { session, banned: false };
+  }
 }
 
 // Defense-in-depth for routes that read User rows directly. auth() already
@@ -159,11 +167,21 @@ export async function requireNotBanned(session: Session | null) {
   if (!session?.user?.id) {
     return;
   }
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { bannedAt: true },
-  });
-  if (user?.bannedAt) {
-    throw redirect({ to: "/blocked" });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { bannedAt: true },
+    });
+    if (user?.bannedAt) {
+      throw redirect({ to: "/blocked" });
+    }
+  } catch (error) {
+    if (error instanceof Response) {
+      throw error;
+    }
+    console.warn(
+      "[auth] requireNotBanned check failed - allowing request until DB is up:",
+      error instanceof Error ? error.message : error,
+    );
   }
 }
