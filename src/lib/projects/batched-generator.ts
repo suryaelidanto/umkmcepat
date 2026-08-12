@@ -946,23 +946,30 @@ export async function runBatchedGenerate(input: {
 
   // Deterministic fix for AI hallucinated preview-ready import.
   // The scaffold provides src/lib/preview-ready.ts with `usePreviewReady`,
-  // but cheap models emit variants like `../hooks/usePreviewReady` or
-  // `../lib/usePreviewReady` (wrong dir / wrong filename) which then fails
-  // tsc as TS2307. Normalize any import containing usePreviewReady to the
-  // canonical alias before gating.
+  // but cheap models emit variants like `../hooks/usePreviewReady`,
+  // `../lib/usePreviewReady` or `../preview` (wrong dir / filename) which
+  // then fails tsc as TS2307. Normalize any preview-related import that
+  // co-occurs with usePreviewReady usage to the canonical alias.
   for (const [path, file] of staged) {
     if (path.endsWith(".tsx") || path.endsWith(".ts")) {
       let content = file.content;
       const before = content;
-      // Any import that mentions usePreviewReady -> canonical.
+      // Primary: any specifier containing usePreviewReady -> canonical
       content = content.replace(
         /from\s+["'][^"']*usePreviewReady[^"']*["']/g,
         'from "@/lib/preview-ready"',
       );
-      // Also normalize bare preview-ready without alias but with wrong
-      // relative depth (e.g. ../lib/preview-ready from src/routes is ok,
-      // but keep canonical for consistency).
-      // Keep as is if already correct; the above handles the broken case.
+      // Secondary: bare preview import (e.g. '../preview', '../lib/preview')
+      // when the file actually calls usePreviewReady() — also hallucinated.
+      if (
+        content.includes("usePreviewReady") &&
+        /from\s+["'][^"']*\/preview["']/.test(content)
+      ) {
+        content = content.replace(
+          /from\s+["'][^"']*\/preview["']/g,
+          'from "@/lib/preview-ready"',
+        );
+      }
       if (content !== before) {
         staged.set(path, { ...file, content });
       }
