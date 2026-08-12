@@ -61,6 +61,29 @@ export const authConfig: AuthConfig = {
         token.name = user.name;
         token.picture = getDiceBearAvatarUrl(user.name || "default");
         token.admin = isAdminEmail(user.email ?? "");
+        return token;
+      }
+
+      // Auto-logout stale JWTs: if User was deleted (TRUNCATE etc.) the
+      // cookie still decrypts but DB has no row. Force sign-out by
+      // returning an empty token so next session() is unauthenticated.
+      if (token.sub) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.sub },
+            select: { id: true, email: true },
+          });
+          if (!dbUser) {
+            return {} as typeof token;
+          }
+          // Keep admin flag fresh if allowlist changed since login.
+          if (dbUser.email) {
+            (token as { admin?: boolean }).admin = isAdminEmail(dbUser.email);
+          }
+        } catch {
+          // Fail open: if DB is down, keep existing token to avoid
+          // logging everyone out on a transient DB blip.
+        }
       }
 
       if (trigger === "update") {
