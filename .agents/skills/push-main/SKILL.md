@@ -1,6 +1,6 @@
 ---
 name: push-main
-description: Use to push changes from `dev` to `main`. This handles the full release loop: local checks, commit to `dev`, merge `dev` into `main`, push `main`, watch CI, and return back to `dev` locally. 
+description: "Use when completed work on `dev` must be released or deployed to `main`."
 ---
 
 # Push Main
