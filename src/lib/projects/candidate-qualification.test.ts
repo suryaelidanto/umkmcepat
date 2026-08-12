@@ -23,4 +23,13 @@ describe("createQualificationRunBudget", () => {
     budget.consume("compile");
     expect(() => budget.consume("compile")).toThrow("repair budget exhausted");
   });
+
+  it("enables exactly one visual repair when requested", () => {
+    const budget = new QualificationRunBudgetImpl(
+      createQualificationRunBudget({ visualRepairEnabled: true }),
+    );
+    budget.consume("visual");
+    expect(budget.snapshot().visualRepairsRemaining).toBe(0);
+    expect(() => budget.consume("visual")).toThrow("repair budget exhausted");
+  });
 });

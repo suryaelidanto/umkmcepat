@@ -33,6 +33,20 @@ describe("classifyBrowserReport", () => {
     expect(classifyBrowserReport(report("fail"))).toBe("fail");
   });
 
+  it("fails when any route assertion fails", () => {
+    const value = report("pass");
+    value.routes = [
+      {
+        route: "/",
+        viewport: "mobile",
+        assertions: [
+          { name: "horizontal-overflow", status: "fail", detail: "20px" },
+        ],
+      },
+    ];
+    expect(classifyBrowserReport(value)).toBe("fail");
+  });
+
   it("exposes bounded browser execution constants", () => {
     expect(BROWSER_ROUTE_MAX).toBe(6);
     expect(BROWSER_NAVIGATION_TIMEOUT_MS).toBe(10_000);

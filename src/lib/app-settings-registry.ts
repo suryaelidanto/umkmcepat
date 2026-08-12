@@ -103,6 +103,25 @@ export const APP_SETTINGS: ConfigEntry[] = [
     label: "Builder photo questions (visuals / image_upload)",
     fallback: true,
   },
+  {
+    key: "feature.generated_site_quality_rollout",
+    category: "feature_flag",
+    tier: "advanced",
+    type: "string",
+    label: "Generated-site quality pipeline rollout",
+    fallback: "off",
+    enumOptions: ["off", "internal", "pilot", "all"],
+  },
+  {
+    key: "quality.generated_site_critic_sample_rate",
+    category: "feature_flag",
+    tier: "advanced",
+    type: "number",
+    label: "Generated-site critic calibration sample rate",
+    fallback: 0.1,
+    min: 0,
+    max: 1,
+  },
   // economics
   {
     key: "economics.project_limit",

@@ -37,6 +37,30 @@ describe("validateSettingValue", () => {
     ).toMatch(/must be a boolean/);
   });
 
+  it("accepts generated-site quality rollout and critic sampling", () => {
+    expect(
+      validateSettingValue(
+        "feature.generated_site_quality_rollout",
+        "internal",
+        "feature_flag",
+      ),
+    ).toBeNull();
+    expect(
+      validateSettingValue(
+        "quality.generated_site_critic_sample_rate",
+        0.25,
+        "feature_flag",
+      ),
+    ).toBeNull();
+    expect(
+      validateSettingValue(
+        "feature.generated_site_quality_rollout",
+        "wrong",
+        "feature_flag",
+      ),
+    ).toMatch(/must be one of/);
+  });
+
   it("rejects the removed generation rollout key", () => {
     expect(
       validateSettingValue(

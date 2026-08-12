@@ -16,12 +16,14 @@ export type RepairKind = "compile" | "browser" | "visual";
 
 /** Fresh bounded budget for one explicit qualification run. Visual repair is
  * disabled in shadow mode (0); calibration may raise it later. */
-export function createQualificationRunBudget(): QualificationRunBudget {
+export function createQualificationRunBudget(options?: {
+  visualRepairEnabled?: boolean;
+}): QualificationRunBudget {
   return {
     initial: 1,
     compileRepairsRemaining: 2,
     browserRepairsRemaining: 1,
-    visualRepairsRemaining: 0,
+    visualRepairsRemaining: options?.visualRepairEnabled ? 1 : 0,
     candidatesCreated: 0,
   };
 }

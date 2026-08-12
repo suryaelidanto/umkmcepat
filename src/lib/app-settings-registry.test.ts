@@ -43,6 +43,26 @@ describe("APP_SETTINGS registry", () => {
     }
   });
 
+  it("includes generated-site quality rollout and critic sampling", () => {
+    const rollout = APP_SETTINGS.find(
+      (entry) => entry.key === "feature.generated_site_quality_rollout",
+    );
+    expect(rollout).toMatchObject({
+      type: "string",
+      fallback: "off",
+      enumOptions: ["off", "internal", "pilot", "all"],
+    });
+    const sampleRate = APP_SETTINGS.find(
+      (entry) => entry.key === "quality.generated_site_critic_sample_rate",
+    );
+    expect(sampleRate).toMatchObject({
+      type: "number",
+      fallback: 0.1,
+      min: 0,
+      max: 1,
+    });
+  });
+
   it("includes the discuss chat auto-retry cap with safe default 2", () => {
     const e = APP_SETTINGS.find(
       (x) => x.key === "discuss.chat.auto_retry_attempts",

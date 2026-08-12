@@ -8,8 +8,22 @@
 
 export type BrowserGateStatus = "pass" | "fail" | "infrastructure_error";
 
+export type BrowserAssertionName =
+  | "route-load"
+  | "console-clean"
+  | "required-content-visible"
+  | "primary-cta"
+  | "internal-links"
+  | "horizontal-overflow"
+  | "heading-overflow"
+  | "image-health"
+  | "media-policy"
+  | "computed-contrast"
+  | "focus-visible"
+  | "touch-target";
+
 export type BrowserAssertion = {
-  name: string;
+  name: BrowserAssertionName;
   status: "pass" | "fail" | "infrastructure_error";
   detail?: string;
 };
@@ -32,7 +46,12 @@ export type BrowserGateReport = {
 export function classifyBrowserReport(
   report: BrowserGateReport,
 ): "pass" | "fail" {
-  if (report.status === "pass") {
+  if (
+    report.status === "pass" &&
+    report.routes.every((route) =>
+      route.assertions.every((assertion) => assertion.status === "pass"),
+    )
+  ) {
     return "pass";
   }
   return "fail";
