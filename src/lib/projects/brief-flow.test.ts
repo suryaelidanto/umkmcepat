@@ -84,7 +84,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("falls back to text mode when AI sends answerMode choice but every option is empty (regression: card renders with no real choices)", () => {
+  it("repairs choice mode when every option is empty by synthesizing fallback choices (regression: card used to render with no real choices)", () => {
     const brief = createInitialBrief("jualan jamu");
     const turn = normalizeWorkspaceTurn(
       {
@@ -103,8 +103,11 @@ describe("normalizeWorkspaceTurn", () => {
 
     expect(turn.workspaceCard.type).toBe("question");
     if (turn.workspaceCard.type === "question") {
-      expect(turn.workspaceCard.question.answerMode).toBe("text");
-      expect(turn.workspaceCard.question.options).toHaveLength(0);
+      expect(turn.workspaceCard.question.answerMode).toBe("choice");
+      expect(turn.workspaceCard.question.options.length).toBeGreaterThanOrEqual(
+        2,
+      );
+      expect(turn.workspaceCard.question.options[0].label).toBeTruthy();
     }
   });
 

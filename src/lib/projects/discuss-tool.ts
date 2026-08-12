@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { getSettingSync } from "@/lib/app-settings";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { buildChatSystemPrompt } from "@/routes/api.projects.preview";
@@ -275,7 +276,18 @@ Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
 Never use type="build_recommendation" — the site is already built; this is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in free chat text. Put the user-visible reply in assistantText.`;
   }
 
-  return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}
+  const photoEnabled = (() => {
+    try {
+      return getSettingSync("feature.builder_photo_enabled", true) as boolean;
+    } catch {
+      return true;
+    }
+  })();
+  const photoRule = photoEnabled
+    ? ""
+    : "\nPHOTO FEATURE OFF: Builder photo questions are disabled via /admin/settings (feature.builder_photo_enabled=false). NEVER ask visuals, image_upload (visuals/photo/gambar), or media_strategy. Skip them entirely and pick the next unfilled applicable field.";
+
+  return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}
 
 CRITICAL OUTPUT:
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
@@ -287,6 +299,7 @@ INTERVIEW DISCIPLINE — one question per turn:
 - Pick the single most crucial question to move the build forward. Ask the next question next turn after the user answers.
 - The question sets recommendedOptionLabel (your default) — user can accept in one click.
 - Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
+- NEVER re-ask the same question id that already appears in brief.facts/decisions (e.g., if delivery_area, visuals, hours already answered, skip them — pick the next unfilled applicable field). Re-asking the same id wastes a turn and will be blocked by the server.
 - Keep asking one question per turn until every structural decision (offer/primary offer, visitor job + CTA, local-vs-online, media strategy, visual direction) is answered or explicitly declined. The server authorizes the build recommendation; model confidence alone never does. Never expose confidence percentages or answered-field counts to the user.
 
 Never put JSON in free chat text. Put the user-visible reply in assistantText.
@@ -297,7 +310,17 @@ If the user explicitly asks to build now, still emit the build_recommendation ca
 }
 
 export function buildCardSystemPrompt() {
-  return `You are a card generator for an Indonesian small business website brief flow.
+  const photoEnabled = (() => {
+    try {
+      return getSettingSync("feature.builder_photo_enabled", true) as boolean;
+    } catch {
+      return true;
+    }
+  })();
+  const photoNote = photoEnabled
+    ? ""
+    : " PHOTO OFF: Never generate visuals/image_upload/media_strategy.";
+  return `You are a card generator for an Indonesian small business website brief flow.${photoNote}
 Based on the conversation, output ONLY a JSON object. No markdown fences, no explanation.
 
 The JSON object must have these fields:
@@ -314,6 +337,7 @@ Rules:
 - question.id must be a string (not a number)
 - question.options must be an array of objects with label and description strings (not plain strings)
 - Never include a catch-all "other"/"write your own" option in question.options — the UI already appends a custom-answer option automatically
+- NEVER re-ask a question id that already appears in brief.facts/decisions — pick the next unfilled applicable field; re-asking the same id will be blocked
 - Set confidence to 95+ only when genuinely build-ready
 - Use "build_recommendation" when every structural decision is resolved or the user explicitly accepts an early build. Keep asking a question otherwise. The server authorizes build readiness; model confidence does not. Never surface confidence percentages or field counts to the user.
 - briefPatch and workspaceCard MUST be JSON objects (nested inside the tool call), NOT JSON-encoded strings. Never put a stringified JSON blob where an object belongs.

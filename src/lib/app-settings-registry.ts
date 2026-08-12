@@ -95,6 +95,14 @@ export const APP_SETTINGS: ConfigEntry[] = [
     label: "Workspace Ubah (element edit) mode",
     fallback: true,
   },
+  {
+    key: "feature.builder_photo_enabled",
+    category: "feature_flag",
+    tier: "basic",
+    type: "boolean",
+    label: "Builder photo questions (visuals / image_upload)",
+    fallback: true,
+  },
   // economics
   {
     key: "economics.project_limit",

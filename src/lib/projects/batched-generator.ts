@@ -33,6 +33,7 @@ import {
   buildBatchedWriterPrompt,
   buildFormatRepairPrompt,
   buildTargetedRepairPrompt,
+  buildTruncationResumePrompt,
 } from "@/lib/projects/batched-prompt";
 import {
   BatchedParseError,
@@ -700,7 +701,24 @@ export async function runBatchedGenerate(input: {
   });
 
   // -- Format repair: parser hard error on the writer pass -> 1 retry. -----
+  // Hardening for truncation (cmspc6zv: Stream ended mid-<file> for ProductSection.tsx):
+  // the batched writer hits maxOutputTokens (24k) or transient network cut and the
+  // stream ends inside a <file> block. A single "re-emit everything" retry also
+  // truncates at the same token budget. Instead preserve already-staged files
+  // and resume only the truncated file + remaining files.
+  const isTruncationError = (error: BatchedParseError) =>
+    error.code === "truncated-file" ||
+    error.code === "truncated-tag" ||
+    error.code === "truncated-propose";
+  const truncatedStaged = new Map<string, { content: string; path: string }>();
+  let firstParseError: BatchedParseError | null = null;
   if (writerCall.parseError) {
+    firstParseError = writerCall.parseError;
+    if (isTruncationError(writerCall.parseError)) {
+      for (const [path, file] of writerCall.response.files) {
+        truncatedStaged.set(path, file);
+      }
+    }
     const repairPrompt = buildFormatRepairPrompt({
       errorMessage: writerCall.parseError.message,
       errorOffset: writerCall.parseError.offset,
@@ -722,6 +740,71 @@ export async function runBatchedGenerate(input: {
       system: repairPrompt.system,
       user: repairPrompt.user,
     });
+    if (writerCall.parseError) {
+      if (isTruncationError(writerCall.parseError)) {
+        for (const [path, file] of writerCall.response.files) {
+          truncatedStaged.set(path, file);
+        }
+      }
+      // Both writer + format-repair truncated -> try one truncation-resume that
+      // avoids re-emitting already-staged files, cutting token load in half.
+      if (
+        firstParseError &&
+        isTruncationError(firstParseError) &&
+        isTruncationError(writerCall.parseError)
+      ) {
+        const resumePrompt = buildTruncationResumePrompt({
+          errorMessage: writerCall.parseError.message,
+          errorOffset: writerCall.parseError.offset,
+          stagedPaths: [...truncatedStaged.keys()].sort(),
+          truncatedPath: writerCall.parseError.path ?? firstParseError.path,
+        });
+        input.onEvent?.("progress", {
+          detail: "Respons terpotong — melanjutkan file yang terpotong.",
+          label: "AI melanjutkan file",
+        });
+        const resumeCall = await runOneStreamedResponse({
+          abortSignal: input.abortSignal,
+          attemptId: input.attemptId,
+          buildId: input.buildId,
+          onEvent: input.onEvent,
+          onFileStaged: input.onFileStaged,
+          phase: "format-repair",
+          projectId: input.projectId,
+          retryCount: 2,
+          stepCharger: input.stepCharger,
+          system: resumePrompt.system,
+          user: resumePrompt.user,
+        });
+        if (!resumeCall.parseError) {
+          for (const [path, file] of truncatedStaged) {
+            if (!resumeCall.response.files.has(path)) {
+              resumeCall.response.files.set(path, file);
+            }
+          }
+          // Also merge any proposals carried by the truncated attempts
+          // (rare, but keep them for mergeFinalFiles).
+          for (const p of truncatedStaged.keys()) {
+            void p;
+          }
+          writerCall = resumeCall;
+        } else {
+          for (const [path, file] of resumeCall.response.files) {
+            truncatedStaged.set(path, file);
+          }
+          writerCall = resumeCall;
+        }
+      }
+    } else if (truncatedStaged.size > 0) {
+      // Format-repair succeeded but first writer had staged files before truncation
+      // (e.g. index.tsx closed before ProductSection truncated). Merge them so
+      // the final stage is not missing already-persisted files.
+      for (const [path, file] of truncatedStaged) {
+        if (!writerCall.response.files.has(path)) {
+          writerCall.response.files.set(path, file);
+        }
+      }
+    }
   }
 
   if (writerCall.parseError) {

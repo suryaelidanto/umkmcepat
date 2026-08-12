@@ -194,6 +194,38 @@ Re-emit the COMPLETE response for the SAME task — every <file> block rewrite n
   };
 }
 
+export function buildTruncationResumePrompt(input: {
+  errorMessage: string;
+  errorOffset: number;
+  stagedPaths: string[];
+  truncatedPath?: string;
+}): { system: string; user: string } {
+  const stagedList =
+    input.stagedPaths.length > 0
+      ? input.stagedPaths.map((p) => `- ${p}`).join("\n")
+      : "- (none yet — first file truncated)";
+  const truncatedLine = input.truncatedPath
+    ? `Truncated file: ${input.truncatedPath}`
+    : "Truncated at unknown file boundary";
+  return {
+    system: `You emit ONLY the strict response contract for generated apps:
+
+<file path="src/...">full raw content</file>
+<propose path="src/components/ui/<name>.tsx">reason</propose>
+<done summary="..." />
+
+Nothing else. No markdown fences. No prose. Unknown tags are a hard parse error.
+You are resuming a PREVIOUS truncated stream. Some files were already staged successfully — DO NOT re-emit them. Only emit the truncated file (full content) and any remaining files, then <done />.`,
+    user: `Your previous response truncated mid-stream at byte offset ${input.errorOffset}: ${input.errorMessage}
+${truncatedLine}
+
+Already staged and persisted (DO NOT re-emit these — they are safe):
+${stagedList}
+
+Resume now: re-emit the truncated file IN FULL (if any), then every remaining file the project still needs, then exactly one <done summary="..." />. Do not repeat already-staged files.`,
+  };
+}
+
 export function buildTargetedRepairPrompt(input: {
   diagnostics: string[];
   implicatedPaths: string[];

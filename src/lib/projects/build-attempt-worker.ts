@@ -24,6 +24,7 @@ import {
   classifyBuildFailure,
   getIndonesianBuildFailureSummary,
 } from "@/lib/projects/build-logs";
+import { generateDiff } from "@/lib/projects/diff";
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
@@ -678,6 +679,41 @@ export async function runBuildAttempt({
       buildId: runtimeBuildId,
       implementationSpec,
       onEvent(type, data) {
+        // Enrich write_file operations with unified diff so the UI can show
+        // exactly what changed (file created vs updated) in the "Menulis file" step.
+        if (
+          type === "operation" &&
+          data &&
+          typeof data === "object" &&
+          (data as { type?: string }).type === "write_file" &&
+          typeof (data as { path?: unknown }).path === "string"
+        ) {
+          const op = data as {
+            path: string;
+            diff?: unknown;
+            type: string;
+            title: string;
+            detail: string;
+          };
+          if (!Array.isArray(op.diff) || op.diff.length === 0) {
+            const newFile = batchedStageFiles.get(op.path);
+            if (newFile) {
+              const oldContent =
+                persistedSourceFiles.find((f) => f.path === op.path)?.content ??
+                "";
+              try {
+                const diff = generateDiff(oldContent, newFile.content);
+                // Keep diff bounded for the progress channel (avoid huge payloads)
+                const maxLines = 120;
+                const sliced =
+                  diff.length > maxLines ? diff.slice(0, maxLines) : diff;
+                (data as { diff?: typeof diff }).diff = sliced;
+              } catch {
+                // diff is best-effort; never fail the build on diff generation
+              }
+            }
+          }
+        }
         send(type, data);
       },
       onFileStaged: persistBatchedStage,
