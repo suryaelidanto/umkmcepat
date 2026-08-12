@@ -7,7 +7,9 @@ import type { AuthConfig } from "@auth/core";
 import { sendWelcomeEmail } from "@/lib/email/templates";
 import { prisma } from "@/lib/prisma";
 import { getDiceBearAvatarUrl } from "@/lib/profile";
+import { grantSignupEnergy } from "@/lib/user-credits";
 import { isAdminEmail, linkApprovedWaitlistOnSignup } from "@/lib/waitlist";
+import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
 
 const googleConfigured = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
@@ -80,12 +82,30 @@ export const authConfig: AuthConfig = {
   events: {
     async linkAccount({ user }) {
       if (user?.id && user?.email) {
+        const waitlistEnabled = await isWaitlistEnabled().catch(() => true);
+        // When waitlist is OFF (feature.waitlist_enabled=false), grant
+        // instantly on signup. When ON, only approved waitlist entries get
+        // energy via linkApprovedWaitlistOnSignup (pilot gate).
+        const instantGrant = waitlistEnabled
+          ? Promise.resolve()
+          : grantSignupEnergy(user.id).catch(() => undefined);
         await Promise.all([
           linkApprovedWaitlistOnSignup(user.id, user.email).catch(
             () => undefined,
           ),
+          instantGrant,
           sendWelcomeEmail(user.email, user.name ?? "").catch(() => undefined),
         ]);
+      }
+    },
+    async createUser({ user }) {
+      // Credentials / email signup path (not OAuth). Same conditional:
+      // OFF => instant grant, ON => wait for approval.
+      if (user?.id) {
+        const waitlistEnabled = await isWaitlistEnabled().catch(() => true);
+        if (!waitlistEnabled) {
+          await grantSignupEnergy(user.id).catch(() => undefined);
+        }
       }
     },
   },
