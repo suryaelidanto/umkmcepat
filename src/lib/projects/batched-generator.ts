@@ -933,6 +933,32 @@ export async function runBatchedGenerate(input: {
     };
   }
 
+  // Deterministic fix for AI hallucinated preview-ready import.
+  // The scaffold provides src/lib/preview-ready.ts with `usePreviewReady`,
+  // but cheap models emit `../hooks/usePreviewReady` (wrong dir) which
+  // then fails tsc as TS2307 and wastes a repair round / fails the build.
+  // Normalize before gating so the gate sees the corrected import.
+  for (const [path, file] of staged) {
+    if (path.endsWith(".tsx") || path.endsWith(".ts")) {
+      let content = file.content;
+      const before = content;
+      // Replace any variant of hooks/usePreviewReady with the canonical alias.
+      content = content.replace(
+        /from\s+["'](?:\.\.\/hooks\/usePreviewReady|@\/hooks\/usePreviewReady|\.\/hooks\/usePreviewReady|..\/lib\/preview-ready)["']/g,
+        'from "@/lib/preview-ready"',
+      );
+      // Also handle relative from src/routes -> ../lib/preview-ready is valid,
+      // but normalize the hooks variant specifically.
+      content = content.replace(
+        /from\s+["']\.\.\/hooks\/usePreviewReady["']/g,
+        'from "@/lib/preview-ready"',
+      );
+      if (content !== before) {
+        staged.set(path, { ...file, content });
+      }
+    }
+  }
+
   // -- Merge: starter + proposals (registry-copied) + staged. ---------------
   const files = mergeFinalFiles(starterFiles, staged, proposals);
   return {
