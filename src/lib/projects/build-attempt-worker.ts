@@ -1,5 +1,7 @@
 import { generateText } from "ai";
 
+import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
+
 import {
   getAiModel,
   getAiTelemetry,
@@ -12,14 +14,19 @@ import {
 } from "@/lib/ai-call-record";
 import { getGenerationModel } from "@/lib/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
+import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
-import { runBatchedGenerate } from "@/lib/projects/batched-generator";
+import {
+  runBatchedGenerate,
+  runOneStreamedResponse,
+} from "@/lib/projects/batched-generator";
 import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
 import {
   publishBuildProgress,
   type BuildProgressEvent,
 } from "@/lib/projects/build-attempt-pubsub";
+import { loadAcceptedHandoffForAttempt } from "@/lib/projects/build-handoffs";
 import {
   classifyBuildFailure,
   getIndonesianBuildFailureSummary,
@@ -27,6 +34,19 @@ import {
 import { generateDiff } from "@/lib/projects/diff";
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
+import {
+  readGateEvidence,
+  storeGateEvidence,
+} from "@/lib/projects/gate-evidence";
+import { runGeneratedSiteBrowserGates } from "@/lib/projects/generated-site-browser-runner";
+import { compileGeneratedSiteContract } from "@/lib/projects/generated-site-contract";
+import { qualifyGeneratedSite } from "@/lib/projects/generated-site-qualification";
+import {
+  selectGeneratedSiteGoldExample,
+  selectGeneratedSiteRecipe,
+} from "@/lib/projects/generated-site-recipes";
+import { classifyGeneratedSiteRisk } from "@/lib/projects/generated-site-risk";
+import { isGeneratedSiteQualityEnabled } from "@/lib/projects/generated-site-rollout";
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
@@ -63,7 +83,9 @@ import {
 } from "@/lib/projects/runtime-types";
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
+import { runShadowCritic } from "@/lib/projects/visual-critic";
 import { chargeEnergyForAiUsage } from "@/lib/user-credits";
+import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
   "generated" satisfies ProjectSnapshotSourceType;
@@ -617,16 +639,71 @@ export async function runBuildAttempt({
       };
     }
 
-    const implementationSpecPrompt = buildImplementationSpecPrompt(brief);
-    const specStartedAt = Date.now();
-    const specResult = await generateImplementationSpec(
-      implementationSpecPrompt,
+    const rollout = String(
+      getSettingSync("feature.generated_site_quality_rollout", "off"),
     );
-    specMs = Date.now() - specStartedAt;
-    const implementationSpec = specResult.spec;
-    specInputTokens = specResult.inputTokens;
-    specOutputTokens = specResult.outputTokens;
-    specModelId = specResult.modelId;
+    const owner = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    const generatedSiteQualityEnabled = isGeneratedSiteQualityEnabled({
+      rollout,
+      admin: isAdminEmail(owner?.email ?? ""),
+      waitlistApproved: Boolean(
+        owner?.email && (await isWaitlistApproved(owner.email)),
+      ),
+    });
+    const acceptedHandoff = generatedSiteQualityEnabled
+      ? await loadAcceptedHandoffForAttempt({ attemptId, projectId, userId })
+      : null;
+    const useGeneratedSiteQuality =
+      acceptedHandoff !== null &&
+      (acceptedHandoff.plan.appKind === "landing" ||
+        acceptedHandoff.plan.appKind === "marketing_site");
+
+    let implementationSpec: ImplementationSpec | undefined;
+    let finalSchema = createProjectSiteSchemaFromBrief(brief);
+    let generatedSiteContract: ReturnType<
+      typeof compileGeneratedSiteContract
+    > | null = null;
+    let generatedSiteRecipe: ReturnType<
+      typeof selectGeneratedSiteRecipe
+    > | null = null;
+    let generatedSiteExample: ReturnType<
+      typeof selectGeneratedSiteGoldExample
+    > | null = null;
+
+    if (useGeneratedSiteQuality && acceptedHandoff) {
+      generatedSiteRecipe = selectGeneratedSiteRecipe(
+        acceptedHandoff.plan.archetype,
+      );
+      generatedSiteContract = compileGeneratedSiteContract({
+        contract: acceptedHandoff.contract,
+        plan: acceptedHandoff.plan,
+        brief,
+        photoEnabled: Boolean(
+          getSettingSync("feature.builder_photo_enabled", true),
+        ),
+        recipe: generatedSiteRecipe,
+      });
+      generatedSiteExample = selectGeneratedSiteGoldExample({
+        recipeId: generatedSiteRecipe.id,
+        mediaMode: generatedSiteContract.design.mediaMode,
+      });
+    } else {
+      const implementationSpecPrompt = buildImplementationSpecPrompt(brief);
+      const specStartedAt = Date.now();
+      const specResult = await generateImplementationSpec(
+        implementationSpecPrompt,
+      );
+      specMs = Date.now() - specStartedAt;
+      implementationSpec = specResult.spec;
+      specInputTokens = specResult.inputTokens;
+      specOutputTokens = specResult.outputTokens;
+      specModelId = specResult.modelId;
+      finalSchema = implementationSpecToSiteSchema(implementationSpec);
+    }
+
     const specLeaseRenewed = await renewProjectOperation({
       projectId,
       token: operationToken,
@@ -636,8 +713,6 @@ export async function runBuildAttempt({
     if (!specLeaseRenewed) {
       throw new Error("Build operation lease was superseded.");
     }
-
-    const finalSchema = implementationSpecToSiteSchema(implementationSpec);
     send("progress", {
       label: "AI menulis website",
       detail: "Agent coding menulis file source.",
@@ -678,6 +753,13 @@ export async function runBuildAttempt({
       brief,
       buildId: runtimeBuildId,
       implementationSpec,
+      ...(generatedSiteContract && generatedSiteRecipe && generatedSiteExample
+        ? {
+            contract: generatedSiteContract,
+            recipe: generatedSiteRecipe,
+            example: generatedSiteExample,
+          }
+        : {}),
       onEvent(type, data) {
         // Enrich write_file operations with unified diff so the UI can show
         // exactly what changed (file created vs updated) in the "Menulis file" step.
@@ -772,7 +854,7 @@ export async function runBuildAttempt({
       projectId: projectId,
       touchedFiles: sourceGeneration.touchedFiles.length,
     });
-    const sourceFiles = sourceGeneration.files;
+    let sourceFiles = sourceGeneration.files;
     const sourceLeaseRenewed = await renewProjectOperation({
       projectId,
       token: operationToken,
@@ -809,7 +891,7 @@ export async function runBuildAttempt({
       },
       select: { id: true },
     });
-    const sourceRef = await writeProjectSourceArtifact({
+    let sourceRef = await writeProjectSourceArtifact({
       artifactId: snapshot.id,
       files: sourceFiles,
     });
@@ -865,7 +947,7 @@ export async function runBuildAttempt({
       }),
     });
     const viteStartedAt = Date.now();
-    const buildResult = await buildGeneratedProject(sourceFiles, {
+    let buildResult = await buildGeneratedProject(sourceFiles, {
       workspaceKey: projectId,
     });
     viteMs = Date.now() - viteStartedAt;
@@ -873,6 +955,128 @@ export async function runBuildAttempt({
       ok: buildResult.ok,
       projectId: projectId,
     });
+
+    if (
+      buildResult.ok &&
+      useGeneratedSiteQuality &&
+      generatedSiteContract &&
+      generatedSiteRecipe &&
+      acceptedHandoff
+    ) {
+      const initialSourceFiles = sourceFiles;
+      const qualification = await qualifyGeneratedSite(sourceFiles, {
+        runBrowser: async (candidateFiles) => {
+          const candidateBuild =
+            candidateFiles === initialSourceFiles
+              ? buildResult
+              : await buildGeneratedProject(candidateFiles, {
+                  workspaceKey: projectId,
+                });
+          if (!candidateBuild.ok) {
+            return {
+              version: 1,
+              status: "fail",
+              routes: [],
+              evidenceIds: [],
+              overheadMs: 0,
+            };
+          }
+          buildResult = candidateBuild;
+          return runGeneratedSiteBrowserGates(
+            {
+              projectId,
+              candidateId: snapshot.id,
+              files: candidateBuild.distFiles,
+              contract: generatedSiteContract,
+              timeoutMs: 10_000,
+            },
+            {
+              storeEvidence: async (evidence) =>
+                storeGateEvidence({
+                  projectId: evidence.projectId,
+                  candidateId: evidence.candidateId,
+                  kind: "report",
+                  route: evidence.route,
+                  viewport: evidence.viewport,
+                  value: evidence.value,
+                }),
+            },
+          );
+        },
+        classifyRisk: (_candidateFiles, browserReport) =>
+          classifyGeneratedSiteRisk({
+            attemptId,
+            recipeId: generatedSiteRecipe.id,
+            recipeRiskTags: generatedSiteRecipe.riskTags,
+            sourceRiskSignals: [],
+            browserReport,
+            sampleRate: Number(
+              getSettingSync("quality.generated_site_critic_sample_rate", 0.1),
+            ),
+          }),
+        runCritic: async (_candidateFiles, browserReport) => {
+          const screenshots = (
+            await Promise.all(
+              browserReport.evidenceIds.map((ref) =>
+                readGateEvidence<Record<string, unknown>>(ref),
+              ),
+            )
+          ).filter((value): value is Record<string, unknown> => value !== null);
+          return runShadowCritic({
+            contract: acceptedHandoff.contract,
+            plan: acceptedHandoff.plan,
+            hardGateStatus: browserReport.status,
+            screenshots,
+          });
+        },
+        repair: async (candidateFiles, criticReport) => {
+          const implicatedPaths = ["src/routes/index.tsx"].filter((path) =>
+            candidateFiles.some((file) => file.path === path),
+          );
+          const repairCall = await runOneStreamedResponse({
+            abortSignal,
+            attemptId,
+            buildId: runtimeBuildId,
+            phase: "visual-repair",
+            projectId,
+            retryCount: 1,
+            stepCharger: sourceStepCharger,
+            system:
+              "Emit only full <file> blocks for implicated editable files, then one <done>. Do not change facts, routes, theme, or platform-owned files.",
+            user: `Visual findings:\n${JSON.stringify(criticReport.findings)}\n\nFiles:\n${implicatedPaths
+              .map(
+                (path) =>
+                  `<file path="${path}">${candidateFiles.find((file) => file.path === path)?.content ?? ""}</file>`,
+              )
+              .join("\n")}`,
+          });
+          if (repairCall.parseError || repairCall.response.files.size === 0) {
+            return candidateFiles;
+          }
+          const replacements = repairCall.response.files;
+          return candidateFiles.map(
+            (file) => replacements.get(file.path) ?? file,
+          );
+        },
+      });
+      if (!qualification.ok) {
+        buildResult = {
+          ok: false,
+          distFiles: [],
+          log: qualification.reason,
+        };
+      } else if (qualification.files !== sourceFiles) {
+        sourceFiles = qualification.files;
+        sourceRef = await writeProjectSourceArtifact({
+          artifactId: snapshot.id,
+          files: sourceFiles,
+        });
+        await prisma.projectSnapshot.update({
+          where: { id: snapshot.id },
+          data: { files: sourceFiles, sourceRef },
+        });
+      }
+    }
 
     const finalBuildResult = buildResult;
 

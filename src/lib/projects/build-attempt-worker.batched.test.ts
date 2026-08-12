@@ -6,6 +6,8 @@ const {
   getSettingSyncMock,
   buildGeneratedProjectMock,
   generateTextMock,
+  loadAcceptedHandoffMock,
+  qualifyGeneratedSiteMock,
 } = vi.hoisted(() => ({
   runBatchedGenerateMock: vi.fn(),
   recordAiCallMock: vi.fn(),
@@ -16,6 +18,21 @@ const {
     distFiles: [
       { path: "index.html", content: "<html/>", contentType: "text/html" },
     ],
+  })),
+  loadAcceptedHandoffMock: vi.fn(),
+  qualifyGeneratedSiteMock: vi.fn(async (files) => ({
+    ok: true,
+    files,
+    browserReport: {
+      version: 1,
+      status: "pass",
+      routes: [],
+      evidenceIds: [],
+      overheadMs: 1,
+    },
+    riskReport: { version: 1, risky: false, reasons: [] },
+    criticReport: null,
+    visualRepairCount: 0,
   })),
   generateTextMock: vi.fn(async () => ({
     finishReason: "stop",
@@ -143,6 +160,19 @@ vi.mock("@/lib/projects/batched-generator", () => ({
   runBatchedGenerate: runBatchedGenerateMock,
 }));
 
+vi.mock("@/lib/projects/generated-site-qualification", () => ({
+  qualifyGeneratedSite: qualifyGeneratedSiteMock,
+}));
+
+vi.mock("@/lib/projects/build-handoffs", () => ({
+  loadAcceptedHandoffForAttempt: loadAcceptedHandoffMock,
+}));
+
+vi.mock("@/lib/waitlist", () => ({
+  isAdminEmail: vi.fn(() => false),
+  isWaitlistApproved: vi.fn(async () => false),
+}));
+
 vi.mock("@/lib/projects/generated-source", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/lib/projects/generated-source")>();
@@ -194,6 +224,104 @@ const baseContext = () => ({
 describe("runBuildAttempt — contract-v1 batched writer", () => {
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("enabled landing quality skips the spec call and passes the compiled contract", async () => {
+    getSettingSyncMock.mockImplementation((key: string, fallback: unknown) => {
+      if (key === "feature.generated_site_quality_rollout") {
+        return "all";
+      }
+      if (key === "feature.builder_photo_enabled") {
+        return false;
+      }
+      return fallback;
+    });
+    const contract = {
+      schemaVersion: 1,
+      revision: 1,
+      contentHash: "c".repeat(64),
+      identity: { businessName: "Kopi Sela", businessType: "fnb" },
+      facts: [],
+      decisions: [],
+      visitorJobs: [{ id: "job", goal: "Memilih kopi", priority: "primary" }],
+      ctaIntents: [{ id: "cta", kind: "browse", label: "Lihat menu" }],
+      hardRequirements: [],
+      prohibitedClaims: [],
+      preferences: {
+        visualDirection: "hangat",
+        tone: null,
+        density: null,
+        motion: null,
+      },
+      assets: [],
+      blockers: [],
+      omissions: [],
+    };
+    const plan = {
+      schemaVersion: 1,
+      revision: 1,
+      contractHash: contract.contentHash,
+      contentHash: "p".repeat(64),
+      appKind: "landing",
+      archetype: "fnb-menu",
+      pages: [
+        {
+          id: "home",
+          path: "/",
+          title: "Kopi Sela",
+          purpose: "Memilih kopi",
+          visitorJobIds: ["job"],
+          requiredFactIds: [],
+          sections: [
+            {
+              id: "menu",
+              purpose: "Menu kopi",
+              surfaceIntent: "contained",
+              requiredFactIds: [],
+              requiredAssetIds: [],
+            },
+          ],
+        },
+      ],
+      navigation: [],
+      capabilities: ["catalog"],
+      artDirection: {
+        businessSpecificReference: "menu kedai",
+        antiReferences: [],
+        imageStrategy: "typographic",
+        fontStrategy: "system_stack",
+      },
+    };
+    loadAcceptedHandoffMock.mockResolvedValue({
+      id: "handoff-1",
+      contract,
+      plan,
+      contractHash: contract.contentHash,
+      planHash: plan.contentHash,
+      contractRevision: 1,
+      planRevision: 1,
+    });
+    runBatchedGenerateMock.mockResolvedValue({
+      ok: true,
+      files: [{ path: "src/routes/index.tsx", content: "export const x = 1;" }],
+      repairRounds: 0,
+      summary: "writer ok",
+      writtenPaths: ["src/routes/index.tsx"],
+    });
+
+    await runBuildAttempt(baseContext());
+
+    expect(loadAcceptedHandoffMock).toHaveBeenCalledTimes(1);
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(runBatchedGenerateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contract: expect.objectContaining({
+          page: expect.objectContaining({ appKind: "landing" }),
+          design: expect.objectContaining({ mediaMode: "graphic" }),
+        }),
+      }),
+    );
+    expect(qualifyGeneratedSiteMock).toHaveBeenCalledTimes(1);
   });
 
   it("batched writer ALWAYS runs (no rollout flag, no legacy fallback)", async () => {

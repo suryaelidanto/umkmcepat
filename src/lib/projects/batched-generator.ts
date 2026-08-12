@@ -228,6 +228,7 @@ export type BatchedGenerateResult =
   | {
       ok: true;
       files: GeneratedProjectFile[];
+      designPlan: WriterDesignPlanV1 | null;
       repairRounds: number;
       summary: string;
       writtenPaths: string[];
@@ -590,7 +591,7 @@ export async function runOneStreamedResponse(args: {
    */
   onFileStaged?: (file: BatchedFile) => void;
   onFileWritten?: (path: string) => void;
-  phase: "writer" | "format-repair" | "repair";
+  phase: "writer" | "format-repair" | "repair" | "visual-repair";
   projectId: string;
   attemptId?: string;
   buildId?: string | null;
@@ -1284,6 +1285,7 @@ export async function runBatchedGenerate(input: {
   return {
     ok: true,
     files,
+    designPlan: writerCall.response.designPlan,
     repairRounds,
     summary: writerCall.response.doneSummary ?? "Ringkasan tidak tersedia.",
     writtenPaths: [...staged.keys()].sort(),

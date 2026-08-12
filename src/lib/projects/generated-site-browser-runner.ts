@@ -55,14 +55,11 @@ export async function runGeneratedSiteBrowserGates(
     contract: GeneratedSiteContractV1;
     timeoutMs: number;
   },
-  deps: BrowserRunnerDeps = {
-    execute: executeBrowserRunner,
-    storeEvidence: async () => "",
-  },
+  deps: Partial<BrowserRunnerDeps> = {},
 ): Promise<BrowserGateReport> {
   const startedAt = Date.now();
   try {
-    const raw = await deps.execute({
+    const raw = await (deps.execute ?? executeBrowserRunner)({
       files: input.files,
       routes: input.contract.page.routes.map((route) => route.path).slice(0, 6),
       timeoutMs: input.timeoutMs,
@@ -70,7 +67,7 @@ export async function runGeneratedSiteBrowserGates(
     const parsed = parseBrowserRunnerOutput(raw);
     const evidenceIds: string[] = [];
     for (const route of parsed.routes) {
-      const evidence = await deps.storeEvidence({
+      const evidence = await (deps.storeEvidence ?? (async () => ""))({
         projectId: input.projectId,
         candidateId: input.candidateId,
         route: route.route,
