@@ -239,7 +239,7 @@ describe("runBatchedGenerate — happy path", () => {
     expect(streamTextMock.mock.calls[0]?.[0]?.abortSignal).toBeInstanceOf(
       AbortSignal,
     );
-    expect(streamTextMock.mock.calls[0]?.[0]?.maxOutputTokens).toBe(9_000);
+    expect(streamTextMock.mock.calls[0]?.[0]?.maxOutputTokens).toBe(24_000);
   });
 
   it("auto-approves valid propose blocks by materializing registry components", async () => {

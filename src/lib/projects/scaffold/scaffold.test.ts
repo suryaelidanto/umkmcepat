@@ -96,12 +96,18 @@ describe("createViteTanStackShadcnStarterFiles", () => {
     expect(vite).toContain("path.resolve");
   });
 
-  it("tsconfig.app.json has the @ path mapping", () => {
+  it("tsconfig.app.json has the @ path mapping without deprecated baseUrl", () => {
     const tsconfig =
       files.find((f) => f.path === "tsconfig.app.json")?.content ?? "";
-    expect(tsconfig).toContain('"baseUrl"');
+    expect(tsconfig).not.toContain('"baseUrl"');
     expect(tsconfig).toContain('"paths"');
     expect(tsconfig).toContain('"@/*"');
+  });
+
+  it("does not suppress deprecations for an unavailable compiler version", () => {
+    const tsconfig =
+      files.find((file) => file.path === "tsconfig.app.json")?.content ?? "";
+    expect(tsconfig).not.toContain("ignoreDeprecations");
   });
 
   it("writes tsbuildinfo into the per-workspace .cache/generated-app dir", () => {

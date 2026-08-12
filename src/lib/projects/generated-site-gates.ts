@@ -1,3 +1,5 @@
+import ts from "typescript";
+
 import type { WriterDesignPlanV1 } from "./batched-response";
 import type { GeneratedSiteContractV1 } from "./generated-site-contract";
 import type { GeneratedProjectFile } from "./generated-types";
@@ -152,6 +154,23 @@ export function inspectGeneratedSiteSource(input: {
       );
     }
   }
+  const siteValue = parseSiteValue(input.files);
+  if (siteValue) {
+    for (const file of input.files.filter((candidate) =>
+      candidate.path.endsWith(".tsx"),
+    )) {
+      for (const reference of invalidSiteReferences(file.content, siteValue)) {
+        add(
+          findings,
+          "content",
+          "critical",
+          "unknown-site-field",
+          `Generated source references ${reference}, which is absent from src/content/site.ts.`,
+          file.path,
+        );
+      }
+    }
+  }
   const requiredFields = requiredContentFields(input.contract);
   for (const field of requiredFields) {
     if (!new RegExp(`\\bsite\\.${escapeRegExp(field)}\\b`).test(source)) {
@@ -261,6 +280,135 @@ function add(
     message,
     ...(path ? { path } : {}),
   });
+}
+
+function parseSiteValue(
+  files: GeneratedProjectFile[],
+): Record<string, unknown> | null {
+  const content = files.find(
+    (file) => file.path === "src/content/site.ts",
+  )?.content;
+  const match = content?.match(/export const site =\s*([\s\S]+?)\s+as const;/);
+  if (!match) {
+    return null;
+  }
+  try {
+    const value: unknown = JSON.parse(match[1]);
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+    return value as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function invalidSiteReferences(
+  content: string,
+  site: Record<string, unknown>,
+): string[] {
+  const source = ts.createSourceFile(
+    "generated.tsx",
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const invalid = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isPropertyAccessExpression(node)) {
+      const chain = propertyChain(node);
+      if (chain?.[0] === "site" && !pathExists(site, chain.slice(1))) {
+        invalid.add(chain.join("."));
+      }
+    }
+    inspectMapCallback(node, site, invalid);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return [...invalid];
+}
+
+function inspectMapCallback(
+  node: ts.Node,
+  site: Record<string, unknown>,
+  invalid: Set<string>,
+): void {
+  if (
+    !ts.isCallExpression(node) ||
+    !ts.isPropertyAccessExpression(node.expression) ||
+    node.expression.name.text !== "map"
+  ) {
+    return;
+  }
+  const collection = propertyChain(node.expression.expression);
+  const callback = node.arguments[0];
+  if (
+    collection?.[0] !== "site" ||
+    !callback ||
+    (!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback)) ||
+    !callback.parameters[0] ||
+    !ts.isIdentifier(callback.parameters[0].name)
+  ) {
+    return;
+  }
+  const value = valueAtPath(site, collection.slice(1));
+  const item = Array.isArray(value) ? value[0] : undefined;
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return;
+  }
+  const alias = callback.parameters[0].name.text;
+  const visitAlias = (child: ts.Node): void => {
+    if (ts.isPropertyAccessExpression(child)) {
+      const chain = propertyChain(child);
+      if (
+        chain?.[0] === alias &&
+        !pathExists(item as Record<string, unknown>, chain.slice(1))
+      ) {
+        invalid.add(chain.join("."));
+      }
+    }
+    ts.forEachChild(child, visitAlias);
+  };
+  ts.forEachChild(callback.body, visitAlias);
+}
+
+function propertyChain(node: ts.Expression): string[] | null {
+  if (ts.isIdentifier(node)) {
+    return [node.text];
+  }
+  if (!ts.isPropertyAccessExpression(node)) {
+    return null;
+  }
+  const parent = propertyChain(node.expression);
+  return parent ? [...parent, node.name.text] : null;
+}
+
+function valueAtPath(value: unknown, path: string[]): unknown {
+  return path.reduce<unknown>((current, key) => {
+    if (!current || typeof current !== "object" || Array.isArray(current)) {
+      return undefined;
+    }
+    return (current as Record<string, unknown>)[key];
+  }, value);
+}
+
+function pathExists(value: Record<string, unknown>, path: string[]): boolean {
+  if (path.length === 0) {
+    return true;
+  }
+  let current: unknown = value;
+  for (const key of path) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) {
+      return false;
+    }
+    const record = current as Record<string, unknown>;
+    if (!(key in record)) {
+      return false;
+    }
+    current = record[key];
+  }
+  return true;
 }
 
 function escapeRegExp(value: string): string {

@@ -20,9 +20,6 @@ vi.mock("@/lib/production-config", () => ({
 vi.mock("@/lib/provider-startup-check", () => ({
   assertProvidersForProduction: (...args: unknown[]) => providerMock(...args),
 }));
-vi.mock("@/lib/model-pricing", () => ({
-  startModelPricingRefresh: vi.fn(),
-}));
 vi.mock("@/lib/app-settings", () => ({
   primeSettingCache: vi.fn().mockResolvedValue(undefined),
 }));

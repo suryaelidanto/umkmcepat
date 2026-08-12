@@ -1,7 +1,7 @@
 let registered = false;
 
 // One-time server startup: validate production configuration and artifact
-// storage, then warm OpenRouter pricing. Invoked from the server entry.
+// storage. Invoked from the server entry.
 // Idempotent so repeated imports do not re-run it.
 export async function register() {
   if (registered) {
@@ -46,10 +46,6 @@ export async function register() {
         error instanceof Error ? error.message : error,
       );
     });
-
-  // Warm OpenRouter pricing cache + schedule 24h refresh (non-blocking).
-  const { startModelPricingRefresh } = await import("@/lib/model-pricing");
-  startModelPricingRefresh();
 
   const { primeSettingCache } = await import("@/lib/app-settings");
   await primeSettingCache();

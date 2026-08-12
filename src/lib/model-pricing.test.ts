@@ -1,262 +1,93 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   CONSERVATIVE_DEFAULT_PRICE,
   getModelPricing,
-  normalizeOpenRouterModelId,
+  normalizeProviderModelId,
   resolveModelPricing,
 } from "./model-pricing";
-import pricingOverrides from "../../config/model-pricing-overrides.json";
+import modelPricing from "../../config/model-pricing.json";
 
-const { findUniqueMock, findManyMock, upsertMock, fetchMock } = vi.hoisted(
-  () => ({
-    findUniqueMock: vi.fn(),
-    findManyMock: vi.fn(),
-    upsertMock: vi.fn(),
-    fetchMock: vi.fn(),
-  }),
-);
-
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    modelPricing: {
-      findUnique: findUniqueMock,
-      findMany: findManyMock,
-      upsert: upsertMock,
-    },
-  },
-}));
-
-const FRESH = {
-  modelId: "xiaomi/mimo-v2",
-  promptPrice: 0.0000003,
-  completionPrice: 0.0000012,
-  fetchedAt: new Date(),
-};
-
-const STALE = {
-  ...FRESH,
-  fetchedAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
-};
-
-describe("normalizeOpenRouterModelId", () => {
-  it("strips gateway prefixes", () => {
-    expect(normalizeOpenRouterModelId("openrouter/minimax/minimax-m3")).toBe(
-      "minimax/minimax-m3",
+describe("normalizeProviderModelId", () => {
+  it("preserves qualified providers and treats bare legacy ids as OpenRouter", () => {
+    expect(normalizeProviderModelId("cmc/deepseek/deepseek-v4-pro")).toBe(
+      "cmc/deepseek/deepseek-v4-pro",
     );
-    expect(normalizeOpenRouterModelId("cmc/deepseek/deepseek-v4-pro")).toBe(
-      "deepseek/deepseek-v4-pro",
+    expect(normalizeProviderModelId("openrouter/minimax/minimax-m3")).toBe(
+      "openrouter/minimax/minimax-m3",
     );
-  });
-
-  it("maps empty to unknown", () => {
-    expect(normalizeOpenRouterModelId("")).toBe("unknown");
-    expect(normalizeOpenRouterModelId("   ")).toBe("unknown");
+    expect(normalizeProviderModelId("minimax/minimax-m3")).toBe(
+      "openrouter/minimax/minimax-m3",
+    );
+    expect(normalizeProviderModelId("future/model-x")).toBe(
+      "openrouter/future/model-x",
+    );
+    expect(normalizeProviderModelId(" ")).toBe("unknown");
   });
 });
 
-describe("getModelPricing", () => {
-  beforeEach(() => {
-    findUniqueMock.mockReset();
-    findManyMock.mockReset();
-    upsertMock.mockReset();
-    fetchMock.mockReset();
+describe("resolveModelPricing", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("uses the provider-qualified JSON catalog without DB or network", async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-  });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("returns fresh cache without network", async () => {
-    findUniqueMock.mockResolvedValueOnce(FRESH);
-    const price = await getModelPricing("openrouter/xiaomi/mimo-v2");
-    expect(price).toEqual({
-      promptPrice: 0.0000003,
-      completionPrice: 0.0000012,
+    await expect(
+      resolveModelPricing("cmc/deepseek/deepseek-v4-pro"),
+    ).resolves.toMatchObject({
+      pricedModelId: "cmc/deepseek/deepseek-v4-pro",
+      pricingSource: "catalog",
+      promptPrice: 0.000000435,
+      completionPrice: 0.00000087,
     });
-    expect(findUniqueMock).toHaveBeenCalledWith({
-      where: { modelId: "xiaomi/mimo-v2" },
+    await expect(
+      resolveModelPricing("openrouter/minimax/minimax-m3"),
+    ).resolves.toMatchObject({
+      pricedModelId: "openrouter/minimax/minimax-m3",
+      pricingSource: "catalog",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns manual override pricing for bare OpenRouter served ids", async () => {
-    const price = await resolveModelPricing("minimax/minimax-m3");
-
-    expect(price).toEqual({
-      rawModelId: "minimax/minimax-m3",
-      pricedModelId: "minimax/minimax-m3",
-      pricingSource: "manual-override",
-      promptPrice: 0.0000003,
-      completionPrice: 0.0000012,
-    });
-    expect(findUniqueMock).not.toHaveBeenCalled();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("does not price prefixed aliases via manual override", async () => {
-    const cmcPrice = await resolveModelPricing("cmc/MiniMaxAI/MiniMax-M3");
-    expect(cmcPrice.pricingSource).not.toBe("manual-override");
-    const openRouterPrice = await resolveModelPricing(
+  it("keeps legacy bare OpenRouter ids compatible", async () => {
+    const qualified = await resolveModelPricing(
       "openrouter/minimax/minimax-m3",
     );
-    expect(openRouterPrice.pricingSource).not.toBe("manual-override");
-  });
-
-  it("registers every current CommandCode model under its exact served id", async () => {
-    const cmcEntries = Object.entries(pricingOverrides).filter(([id]) =>
-      id.startsWith("cmc/"),
-    );
-    expect(cmcEntries).toHaveLength(54);
-    for (const [id, entry] of cmcEntries) {
-      expect(entry.sourceModelId).toBe(id);
-      expect(entry.openRouterModelId).toBeNull();
-      expect(entry.source).toMatch(/^https:\/\/commandcode\.ai\/models\//);
-      expect(entry.promptPrice).toBeGreaterThanOrEqual(0);
-      expect(entry.completionPrice).toBeGreaterThanOrEqual(0);
-      await expect(resolveModelPricing(id)).resolves.toMatchObject({
-        rawModelId: id,
-        pricedModelId: id,
-        pricingSource: "manual-override",
-        promptPrice: entry.promptPrice,
-        completionPrice: entry.completionPrice,
-      });
-    }
-    expect(findUniqueMock).not.toHaveBeenCalled();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("returns manual override pricing for every cheap combo primary", async () => {
-    const cases = [
-      ["cmc/deepseek/deepseek-v4-pro", 0.000000435, 0.00000087],
-      ["cmc/deepseek/deepseek-v4-flash", 0.00000014, 0.00000028],
-      ["xiaomi/mimo-v2.5", 0.00000014, 0.00000028],
-      ["z-ai/glm-4.6v", 0.0000003, 0.0000009],
-      ["moonshotai/kimi-k2.6", 0.000000589, 0.00000248],
-    ] as const;
-    for (const [id, promptPrice, completionPrice] of cases) {
-      const price = await resolveModelPricing(id);
-      expect(price.pricingSource).toBe("manual-override");
-      expect(price.promptPrice).toBe(promptPrice);
-      expect(price.completionPrice).toBe(completionPrice);
-    }
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("matches OpenRouter hugging_face_id aliases from the full model list", async () => {
-    findUniqueMock.mockResolvedValue(null);
-    fetchMock.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        data: [
-          {
-            id: "minimax/minimax-m3",
-            canonical_slug: "minimax/minimax-m3-20260531",
-            hugging_face_id: "MiniMaxAI/Minimax-M3",
-            name: "MiniMax: MiniMax M3",
-            pricing: { prompt: "0.0000003", completion: "0.0000012" },
-          },
-        ],
-      }),
-    });
-    upsertMock.mockResolvedValueOnce({});
-
-    const price = await resolveModelPricing("MiniMaxAI/MiniMax-M3");
-
-    expect(price).toMatchObject({
-      rawModelId: "MiniMaxAI/MiniMax-M3",
-      pricedModelId: "minimax/minimax-m3",
-      pricingSource: "openrouter-refresh",
-      promptPrice: 0.0000003,
-      completionPrice: 0.0000012,
+    const legacy = await resolveModelPricing("minimax/minimax-m3");
+    expect(legacy).toMatchObject({
+      rawModelId: "minimax/minimax-m3",
+      pricedModelId: "openrouter/minimax/minimax-m3",
+      promptPrice: qualified.promptPrice,
+      completionPrice: qualified.completionPrice,
+      pricingSource: "catalog",
     });
   });
 
-  it("warns once for an unresolved model and uses conservative floor", async () => {
+  it("uses the conservative floor for unknown models", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    findUniqueMock.mockResolvedValue(null);
-    fetchMock.mockResolvedValue({ ok: false });
-
-    const first = await resolveModelPricing("unknown/model");
-    const second = await resolveModelPricing("unknown/model");
-
-    expect(first).toEqual({
-      rawModelId: "unknown/model",
+    await expect(resolveModelPricing("new-provider/model-x")).resolves.toEqual({
+      rawModelId: "new-provider/model-x",
       pricedModelId: "unknown",
       pricingSource: "conservative-floor",
       ...CONSERVATIVE_DEFAULT_PRICE,
     });
-    expect(second.pricingSource).toBe("conservative-floor");
+    await expect(getModelPricing("new-provider/model-x")).resolves.toEqual(
+      CONSERVATIVE_DEFAULT_PRICE,
+    );
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(upsertMock).not.toHaveBeenCalled();
     warn.mockRestore();
   });
 
-  it("fetches single-model endpoint when cache is stale", async () => {
-    findUniqueMock.mockResolvedValueOnce(STALE);
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        data: {
-          pricing: { prompt: "0.0000004", completion: "0.0000015" },
-        },
-      }),
-    });
-    upsertMock.mockResolvedValueOnce({});
-
-    const price = await getModelPricing("xiaomi/mimo-v2");
-    expect(price).toEqual({
-      promptPrice: 0.0000004,
-      completionPrice: 0.0000015,
-    });
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
-      "/api/v1/model/xiaomi/mimo-v2",
-    );
-  });
-
-  it("uses conservative floor when no cache and fetches fail", async () => {
-    findUniqueMock.mockResolvedValue(null);
-    fetchMock
-      .mockResolvedValueOnce({ ok: false })
-      .mockResolvedValueOnce({ ok: false });
-    findManyMock.mockResolvedValueOnce([]);
-
-    const price = await getModelPricing("unknown/model");
-    expect(price).toEqual(CONSERVATIVE_DEFAULT_PRICE);
-    expect(upsertMock).not.toHaveBeenCalled();
-  });
-
-  it("dedupes concurrent refreshes for the same model", async () => {
-    findUniqueMock.mockResolvedValue(null);
-    let resolveFetch: (value: unknown) => void = () => {};
-    const fetchPromise = new Promise((resolve) => {
-      resolveFetch = resolve;
-    });
-    fetchMock.mockReturnValue(fetchPromise);
-    upsertMock.mockResolvedValue({});
-
-    const a = getModelPricing("xiaomi/mimo-v2");
-    // Let first call pass findUnique and register inflight before second starts.
-    await Promise.resolve();
-    await Promise.resolve();
-    const b = getModelPricing("openrouter/xiaomi/mimo-v2");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    resolveFetch({
-      ok: true,
-      json: async () => ({
-        data: {
-          pricing: { prompt: "0.0000003", completion: "0.0000012" },
-        },
-      }),
-    });
-
-    const [pa, pb] = await Promise.all([a, b]);
-    expect(pa).toEqual(pb);
-    expect(pa.promptPrice).toBe(0.0000003);
+  it("contains the complete fetched provider catalogs", () => {
+    const ids = Object.keys(modelPricing);
+    expect(ids.filter((id) => id.startsWith("cmc/"))).toHaveLength(54);
+    expect(ids.filter((id) => id.startsWith("openrouter/"))).toHaveLength(401);
+    for (const [id, entry] of Object.entries(modelPricing)) {
+      expect(entry.sourceModelId).toBe(id);
+      expect(entry.promptPrice).toBeGreaterThanOrEqual(0);
+      expect(entry.completionPrice).toBeGreaterThanOrEqual(0);
+      expect(entry.checkedAt).toBe("2026-08-12");
+    }
   });
 });

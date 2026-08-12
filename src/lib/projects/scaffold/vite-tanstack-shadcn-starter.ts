@@ -161,8 +161,6 @@ export function createViteTanStackShadcnStarterFiles(
             // fail every generated project's `tsc -b && vite build`. Keep
             // `baseUrl` (the scaffold test asserts it; the @/ path alias
             // relies on it) but silence the deprecation per TS guidance.
-            ignoreDeprecations: "6.0",
-            baseUrl: ".",
             paths: {
               "@/*": ["./src/*"],
             },

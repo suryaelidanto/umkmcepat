@@ -35,6 +35,24 @@ describe("isAllowedBatchedPath", () => {
     }
   });
 
+  it("drops a complete disallowed file and continues parsing valid files", () => {
+    const parser = createBatchedResponseParser();
+    parser.push(
+      '<file path="index.html">protected</file><file path="src/routes/index.tsx">export const Home = () => null;</file><done summary="ok" />',
+    );
+    const result = parser.finalize();
+    expect(result.files.has("index.html")).toBe(false);
+    expect(result.files.has("src/routes/index.tsx")).toBe(true);
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "disallowed-path",
+          path: "index.html",
+        }),
+      ]),
+    );
+  });
+
   it("rejects imports, backslashes, and env files", () => {
     expect(isAllowedBatchedPath("src\\routes\\index.tsx")).toBe(false);
     expect(isAllowedBatchedPath("src/.env.local")).toBe(false);
@@ -247,12 +265,6 @@ describe("batched response parser — hard errors", () => {
       runExpectingError('<file path="src/a.ts" path="src/a.ts">dup</file>')
         .code,
     ).toBe("duplicate-attr");
-  });
-
-  it("rejects a file block whose path fails the allow-list", () => {
-    expect(runExpectingError('<file path="package.json">{}</file>').code).toBe(
-      "disallowed-path",
-    );
   });
 
   it("detects truncation mid-file", () => {

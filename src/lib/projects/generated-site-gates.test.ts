@@ -111,6 +111,38 @@ function report(
 }
 
 describe("inspectGeneratedSiteSource", () => {
+  it("rejects site fields absent from platform-owned content", () => {
+    const input = contract();
+    const source = `import { site } from "@/content/site"; export function HomeRouteComponent(){ return <main><h1>{site.headline}</h1><p>{site.primaryCta.label}</p>{site.sections.map((section) => <p>{section.id}</p>)}</main> }`;
+    const result = inspectGeneratedSiteSource({
+      contract: input,
+      designPlan: plan(),
+      files: [
+        { path: "src/routes/index.tsx", content: source },
+        {
+          path: "src/content/site.ts",
+          content: `export const site = ${JSON.stringify({ headline: "SuryaPhone", primaryCta: "Pesan", sections: [{ title: "Penawaran", body: "Isi" }] })} as const;`,
+        },
+      ],
+      starterIndexSource: "data-generated-site-starter",
+      themeChecks: [],
+    });
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "unknown-site-field",
+          path: "src/routes/index.tsx",
+          message: expect.stringContaining("site.primaryCta.label"),
+        }),
+        expect.objectContaining({
+          code: "unknown-site-field",
+          path: "src/routes/index.tsx",
+          message: expect.stringContaining("section.id"),
+        }),
+      ]),
+    );
+  });
+
   it("rejects case-insensitive duplicate file paths", () => {
     const source = `<main><h1>SuryaPhone</h1><a href="#kontak">Chat WhatsApp</a><section id="kontak">iPhone 11 Garansi QRIS Jabodetabek</section></main>`;
     const files: GeneratedProjectFile[] = [

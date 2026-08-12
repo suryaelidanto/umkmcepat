@@ -482,14 +482,6 @@ export function createBatchedResponseParser(options?: {
           });
         }
         const path = requireAttr(tag, "path", tagOffset);
-        if (!isAllowedBatchedPath(path)) {
-          fail({
-            code: "disallowed-path",
-            message: `Path "${path}" is not writable by the batched writer.`,
-            offset: tagOffset,
-            path,
-          });
-        }
         const contentStart = gtIndex + 1;
         const closeIndex = findTerminator("</file>", contentStart);
         if (closeIndex < 0) {
@@ -502,6 +494,16 @@ export function createBatchedResponseParser(options?: {
             });
           }
           return false;
+        }
+        if (!isAllowedBatchedPath(path)) {
+          diagnostics.push({
+            code: "disallowed-path",
+            message: `Path "${path}" is not writable by the batched writer; block dropped.`,
+            offset: tagOffset,
+            path,
+          });
+          consume(closeIndex + "</file>".length);
+          return true;
         }
         const content = cleanContent(pending.slice(contentStart, closeIndex));
         if (!content.trim()) {

@@ -9,8 +9,8 @@ import { prisma } from "@/lib/prisma";
  * Cost-based energy system with one-time pilot grant.
  *
  * "Energy" = USD cost × 1,000,000 (micro-USD), computed from the actual
- * OpenRouter model that served each generation (see model-pricing.ts) —
- * not a flat multiplier. This is fair across the 7-model combo, since each
+ * provider-qualified model that served each generation (see model-pricing.ts) —
+ * not a flat multiplier. This is fair across mixed-provider combos, since each
  * model has a different prompt:completion price ratio.
  *
  * Signup grant: configured per-user at approval time (default 500k ≈ $0.50).

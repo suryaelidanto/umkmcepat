@@ -627,7 +627,7 @@ export async function runOneStreamedResponse(args: {
       : timeoutSignal;
     result = streamText({
       model: getAiModel(requestedModel),
-      maxOutputTokens: 9_000,
+      maxOutputTokens: 24_000,
       maxRetries: 2,
       ...getNoReasoningCallOptions(),
       system: args.system,

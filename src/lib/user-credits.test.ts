@@ -72,7 +72,7 @@ describe("user-credits energy cost formula", () => {
     resolveModelPricingMock.mockResolvedValue({
       rawModelId: "m1",
       pricedModelId: "minimax/minimax-m3",
-      pricingSource: "manual-override",
+      pricingSource: "catalog",
       promptPrice: 0.0000003, // $0.30 / 1M
       completionPrice: 0.0000012, // $1.20 / 1M
     });
@@ -120,7 +120,7 @@ describe("chargeEnergyForAiUsage", () => {
     resolveModelPricingMock.mockResolvedValue({
       rawModelId: "m1",
       pricedModelId: "minimax/minimax-m3",
-      pricingSource: "manual-override",
+      pricingSource: "catalog",
       promptPrice: 0.0000003,
       completionPrice: 0.0000012,
     });
@@ -160,7 +160,7 @@ describe("chargeEnergyForAiUsage", () => {
     resolveModelPricingMock.mockResolvedValue({
       rawModelId: "cmc/MiniMaxAI/MiniMax-M3",
       pricedModelId: "minimax/minimax-m3",
-      pricingSource: "manual-override",
+      pricingSource: "catalog",
       promptPrice: 0.0000003,
       completionPrice: 0.0000012,
     });
@@ -258,7 +258,7 @@ describe("chargeEnergyForStep", () => {
     resolveModelPricingMock.mockResolvedValue({
       rawModelId: "m1",
       pricedModelId: "minimax/minimax-m3",
-      pricingSource: "manual-override",
+      pricingSource: "catalog",
       promptPrice: 0.0000003,
       completionPrice: 0.0000012,
     });
