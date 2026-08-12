@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
   LifeBuoy,
+  LoaderCircle,
   LogOut,
   Shield,
   UserRound,
@@ -80,6 +81,7 @@ export function AuthButton() {
           aria-label="Memuat..."
           className="rounded-md border border-white/14 bg-transparent px-spacing-7 text-surface-warm-white opacity-50 cursor-not-allowed hover:bg-transparent focus-visible:ring-1 focus-visible:ring-white/50"
         >
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
           Masuk
         </Button>
         <LoginConsentDialog open={loginOpen} onOpenChange={setLoginOpen} />
