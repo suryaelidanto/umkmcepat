@@ -5,7 +5,9 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 ## Core rules
 
 - Keep changes small and reviewable.
-- **Prefer self-explanatory code over comments.** Write code that says what it does through clear names and structure. Only add a comment when it explains a non-obvious _why_ — an invariant, a guarded edge case, a decision that would otherwise look wrong. Never write a comment that restates the code ("// loop over items" above `for`), narrates the obvious, or splits a section that a function name already communicates. When a comment becomes unnecessary, delete it; do not leave it "just in case."
+- No any — `any` is lying to the compiler. Use `unknown` + narrowing, define the shape. Never `any`, `as any`, or `ts-ignore`/`eslint-disable` without one-liner why.
+- Solid as hell — nothing ships without `typecheck + lint + affected tests` green together. CI is not your safety net. Run `bun run check` before handoff. → See `AGENTS.md` god-tier Rules for single truth.
+- **Prefer self-explanatory code over comments.** Write code that says what it does through clear names and structure. Only add a one-liner `why` when it explains a non-obvious invariant, guarded edge case, or decision that would otherwise look wrong. Never restate code ("// loop over items" above `for`), narrate obvious, or split section that function name already communicates. When comment becomes unnecessary, delete it; do not leave it "just in case."
 - Keep every developer-facing or internal-facing surface in English: docs, system prompts, agent prompts, code names, comments, logs, errors, test names, commits, scripts, and internal tooling copy.
 - Keep only consumer-facing product UI copy in Indonesian unless an i18n layer is introduced.
 - Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, uploads, or generated junk.
@@ -19,7 +21,7 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 ## Cleanliness contract
 
 - Refactors are behavior-preserving only. `bun run check` green before + after every change; a refactor that breaks the gate is reverted, not "fixed forward."
-- Comments explain a non-obvious _why_, never restate the code. Delete obvious/restating/now-unnecessary comments; do not leave them "just in case." One-liner preferred.
+- Comments explain a non-obvious _why_ in one liner, never restate code. Self-explanatory names first; delete obvious/restating/now-unnecessary comments; do not leave them "just in case." `ponytail:` comments mark deliberate simplifications — keep them.
 - Prefer deletion over addition: a shallow wrapper removed is a win; a new abstraction for a single implementation or a "later" config value is a loss.
 - No new dependencies for what a few lines can do. No interface with one implementation, no factory for one product.
 - `ponytail:` comments mark deliberate simplifications and their upgrade ceiling — keep them.
@@ -97,7 +99,7 @@ If Docker is missing, install/start Docker Desktop or Docker Engine. If the Vite
 
 ## Debugging
 
-Read `dev.log` at the repo root first, then `docker compose logs` for the backing service. UI-side regressions usually need a `bun run dev` tail plus browser console. Hedged discuss turns record three `AiCallRecord` rows grouped by `turnId`; grep the turnId for the full per-racer picture (`hedged`, `raceRole`, `ttftMs`).
+Read `dev.log` at the repo root first, then `docker compose logs` for the backing service. UI-side regressions usually need a `bun run dev` tail plus browser console. Discuss turn makes ONE direct call via `getDiscussModel()`; query `AiCallRecord` by `turnId`/`attemptId`/`projectId`. Raw payloads in `.data/tmp/ai-debug/requests.ndjson` (dev-only).
 When something breaks, an agent (or you) reconstructs the causal chain without copy-pasting logs:
 
 1. **Read `dev.log` at repo root.** Grep for the project id or error string; read the matching `[umkm:scope] event {json}` lines in order. Every event carries a correlation id (`projectId` + `turnId` or request scope) so one id surfaces the full chain — e.g. a discuss turn: `discuss-turn:claim` → `[umkm:ai] discuss:start` → `discuss-turn:finalize`.
