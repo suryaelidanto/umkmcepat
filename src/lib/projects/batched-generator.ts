@@ -226,10 +226,21 @@ export function collectBatchedGateIssues(
   // ships a broken site. The brief content must be referenced.
   if (
     indexFile &&
-    /welcome\s+to\s+the\s+home\s+page|>Home<\/h1>/i.test(indexFile.content)
+    /welcome\s+to\s+the\s+home\s+page|>Home<\/h1>|>Welcome<\/h1>|Home page content goes here|Your new project is ready/i.test(
+      indexFile.content,
+    )
   ) {
     issues.push(
       "src/routes/index.tsx is still a generic stub — build the real home page from the brief content (site.ts, sections, menu, contact).",
+    );
+  }
+
+  // Stub that never references site.* is always generic — require brief-derived
+  // content. The writer must render from src/content/site.ts (site.headline,
+  // site.businessName, site.offer, etc.), not hard-coded Welcome.
+  if (indexFile && !/site\./.test(indexFile.content)) {
+    issues.push(
+      "src/routes/index.tsx does not reference site.* — the home page must render from src/content/site.ts (site.headline, site.businessName, site.offer) so brief content appears.",
     );
   }
 
