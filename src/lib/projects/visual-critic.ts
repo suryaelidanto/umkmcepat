@@ -8,6 +8,7 @@ import {
   getNoReasoningCallOptions,
 } from "@/lib/ai";
 import { getGenerationModel } from "@/lib/ai-models";
+import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 
 export type VisualFindingCategory =
   | "hierarchy"
@@ -68,7 +69,7 @@ export async function runShadowCritic(input: {
       maxOutputTokens: 2_048,
       maxRetries: 1,
       temperature: 0,
-      abortSignal: AbortSignal.timeout(30_000),
+      abortSignal: AbortSignal.timeout(getAiTimeoutMs("visualCritic")),
       ...getNoReasoningCallOptions(),
       telemetry: getAiTelemetry("generated-site-visual-critic"),
       system: `You are a read-only generated-site visual critic. Return JSON only: {"findings":[{"category":"hierarchy|business_fit|layout_intent|responsive|typography|color_contrast|imagery|consistency|genericness|content_density","severity":"critical|high|medium|low","route":"/","viewport":"mobile|desktop","evidence":"specific visible evidence","proposedCorrection":"bounded correction","confidence":0.0}]}. Never propose facts, files, tools, deployment, or contract changes. Empty findings means the supplied evidence meets the rubric.`,
@@ -133,9 +134,12 @@ function extractScreenshotParts(values: unknown[]): Uint8Array[] {
 }
 
 function parseFindings(text: string): VisualFinding[] | null {
+  // Models often wrap JSON in markdown fences or prose; extract the first
+  // balanced object so a stray prefix/suffix does not discard a valid report.
+  const jsonText = extractJsonObject(text) ?? text;
   let value: unknown;
   try {
-    value = JSON.parse(text);
+    value = JSON.parse(jsonText);
   } catch {
     return null;
   }
@@ -155,6 +159,44 @@ function parseFindings(text: string): VisualFinding[] | null {
     parsed.push(item);
   }
   return parsed;
+}
+
+function extractJsonObject(text: string): string | null {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    return fenced[1].trim();
+  }
+  const start = text.indexOf("{");
+  if (start < 0) {
+    return null;
+  }
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const char = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+  return null;
 }
 
 function parseFinding(value: unknown): VisualFinding | null {

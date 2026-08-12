@@ -235,7 +235,7 @@ export function HomeRouteComponent() {
     },
     {
       path: "src/content/site.ts",
-      content: `export const site = ${JSON.stringify(schema, null, 2)} as const;\nexport default site;\n`,
+      content: `export const site = ${JSON.stringify(normalizeSiteSchemaForEmit(schema), null, 2)};\nexport default site;\n`,
     },
     {
       path: "src/lib/preview-ready.ts",
@@ -251,4 +251,31 @@ export function toPackageName(value: string) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "") || "generated-app"
   );
+}
+
+/**
+ * Normalize a site schema before emitting `as const` so TS sees uniform
+ * object shapes per array. `as const` narrows each array element to its
+ * literal type, so arrays of objects with optional keys (e.g. paymentMethods
+ * where only some entries carry `detail`) become a union where accessing the
+ * optional key errors on members that lack it. Filling the missing keys with
+ * empty strings makes every element share the same shape, so the generated
+ * index route can safely read e.g. `pm.detail` without a TS error.
+ */
+function normalizeSiteSchemaForEmit(schema: ProjectSiteSchema): object {
+  const normalized = structuredClone(schema);
+  if (Array.isArray(normalized.paymentMethods)) {
+    normalized.paymentMethods = normalized.paymentMethods.map((entry) => ({
+      method: entry.method,
+      detail: entry.detail ?? "",
+    }));
+  }
+  if (Array.isArray(normalized.products)) {
+    normalized.products = normalized.products.map((entry) => ({
+      name: entry.name,
+      description: entry.description ?? "",
+      priceRange: entry.priceRange ?? "",
+    }));
+  }
+  return normalized;
 }

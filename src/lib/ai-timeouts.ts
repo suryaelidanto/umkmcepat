@@ -10,7 +10,8 @@ export type AiTimeoutKey =
   | "edit"
   | "editRepair"
   | "moderation"
-  | "sourceGeneration";
+  | "sourceGeneration"
+  | "visualCritic";
 
 export const DISCUSS_CARD_ATTEMPT_TIMEOUT_MS = 45_000;
 /** One AI repair after primary; then text-only (no multi-repair cascade). */
@@ -97,6 +98,13 @@ const AI_TIMEOUTS = {
     defaultMs: 300_000,
     minMs: 60_000,
     maxMs: 600_000,
+  },
+  visualCritic: {
+    key: "ai.timeout.visual_critic_ms",
+    env: "AI_TIMEOUT_VISUAL_CRITIC_MS",
+    defaultMs: 180_000,
+    minMs: 60_000,
+    maxMs: 240_000,
   },
 } satisfies Record<AiTimeoutKey, AiTimeoutConfig>;
 

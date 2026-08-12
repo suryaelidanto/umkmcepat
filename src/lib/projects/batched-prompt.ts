@@ -443,6 +443,14 @@ export function buildTargetedRepairPrompt(input: {
       return `<file path="${path}">\n${staged.content}\n</file>`;
     })
     .join("\n\n");
+  // The render-completeness gate names site.<field> fields that must appear in
+  // index.tsx. Without the actual site.ts data the model invents local arrays
+  // and abandons the schema, so every repair diverges further. Provide the
+  // staged site.ts as a READ-ONLY reference — it is never in the re-emit list.
+  const siteFile = input.staged.get("src/content/site.ts");
+  const siteReference = siteFile
+    ? `\n\nReference — src/content/site.ts (READ-ONLY data source; render these fields, do NOT re-emit site.ts):\n\n<file path="src/content/site.ts">\n${siteFile.content}\n</file>`
+    : "";
   return {
     system: `You emit ONLY targeted <file> blocks for the files listed in the user turn, then exactly one <done summary="..." />.
 
@@ -457,6 +465,6 @@ ${input.diagnostics.map((line) => `- ${line}`).join("\n")}
 
 Files to re-emit (current staged state, exactly as your previous response produced):
 
-${currentBlocks}`,
+${currentBlocks}${siteReference}`,
   };
 }

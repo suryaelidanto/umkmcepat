@@ -108,7 +108,7 @@ mkdirSync(evidenceDir, { recursive: true });
                   const id = href.slice(1);
                   return Boolean(id) && !document.getElementById(id);
                 }).length;
-                const primaryCta = anchors.find((anchor) => {
+                const ctaCandidates = anchors.filter((anchor) => {
                   if (!visible(anchor)) {
                     return false;
                   }
@@ -122,6 +122,23 @@ mkdirSync(evidenceDir, { recursive: true });
                     )
                   );
                 });
+                // The primary CTA is the most prominent action — the largest
+                // visible matching anchor by area. Picking the first match
+                // would flag a compact nav "Chat" button (size="sm") instead of
+                // the hero CTA it represents, producing a false touch-target
+                // failure. Largest-area wins; ties fall back to DOM order.
+                let primaryCta = ctaCandidates[0];
+                if (ctaCandidates.length > 1) {
+                  let bestArea = -1;
+                  for (const anchor of ctaCandidates) {
+                    const rect = anchor.getBoundingClientRect();
+                    const area = rect.width * rect.height;
+                    if (area > bestArea) {
+                      bestArea = area;
+                      primaryCta = anchor;
+                    }
+                  }
+                }
                 const firstTarget = targets[0];
                 if (firstTarget instanceof HTMLElement) {
                   firstTarget.focus();
@@ -145,6 +162,27 @@ mkdirSync(evidenceDir, { recursive: true });
                   ).length,
                   brokenInternalLinks,
                   primaryCta: Boolean(primaryCta),
+                  touchTargetDetail: targets
+                    .filter((target) => {
+                      if (
+                        target instanceof HTMLAnchorElement &&
+                        target !== primaryCta
+                      ) {
+                        return false;
+                      }
+                      const rect = target.getBoundingClientRect();
+                      return rect.width < 44 || rect.height < 44;
+                    })
+                    .map(
+                      (target) =>
+                        target.tagName +
+                        ":" +
+                        (target.textContent || "").trim().slice(0, 30) +
+                        " " +
+                        Math.round(target.getBoundingClientRect().width) +
+                        "x" +
+                        Math.round(target.getBoundingClientRect().height),
+                    ),
                   touchTargets: targets.filter((target) => {
                     if (
                       target instanceof HTMLAnchorElement &&
@@ -227,7 +265,11 @@ mkdirSync(evidenceDir, { recursive: true });
             {
               name: "touch-target",
               status: metrics.touchTargets ? "fail" : "pass",
-              detail: String(metrics.touchTargets),
+              detail:
+                String(metrics.touchTargets) +
+                (metrics.touchTargetDetail?.length
+                  ? " " + metrics.touchTargetDetail.join(" | ")
+                  : ""),
             },
           ];
           const screenshotPath = path.join(

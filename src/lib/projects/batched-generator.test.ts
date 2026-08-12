@@ -646,6 +646,37 @@ describe("collectBatchedGateIssues", () => {
     expect(issues.join("\n")).toMatch(/usePreviewReady/);
   });
 
+  it("flags a bare WhatsApp <a> CTA not wrapped in Button (touch-target gate)", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<main><a href="https://wa.me/6281234567890">{site.primaryCta}</a></main>);\n}',
+        },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: oklch(0.99 0 0);" },
+    );
+    expect(issues.join("\n")).toMatch(/primary WhatsApp CTA is a bare <a>/);
+  });
+
+  it("does not flag a Button-wrapped WhatsApp CTA", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nimport { Button } from "@/components/ui/button";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<main><Button asChild><a href="https://wa.me/6281234567890">{site.primaryCta}</a></Button></main>);\n}',
+        },
+      ] as GeneratedProjectFile[],
+      {
+        indexCss:
+          "--background: oklch(0.99 0 0); --foreground: ok; --accent: ok;",
+      },
+    );
+    expect(issues.join("\n")).not.toMatch(/primary WhatsApp CTA is a bare <a>/);
+  });
+
   it("flags a generic stub home route with no brief content", () => {
     const issues = collectBatchedGateIssues(
       [

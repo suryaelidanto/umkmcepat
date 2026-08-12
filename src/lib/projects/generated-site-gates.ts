@@ -288,7 +288,9 @@ function parseSiteValue(
   const content = files.find(
     (file) => file.path === "src/content/site.ts",
   )?.content;
-  const match = content?.match(/export const site =\s*([\s\S]+?)\s+as const;/);
+  const match = content?.match(
+    /export const site =\s*([\s\S]+?)(?:\s+as const)?;/,
+  );
   if (!match) {
     return null;
   }
@@ -302,6 +304,32 @@ function parseSiteValue(
     return null;
   }
 }
+
+const ARRAY_METHODS = new Set([
+  "map",
+  "filter",
+  "find",
+  "findIndex",
+  "forEach",
+  "some",
+  "every",
+  "reduce",
+  "reduceRight",
+  "slice",
+  "join",
+  "includes",
+  "indexOf",
+  "at",
+  "flatMap",
+  "sort",
+  "reverse",
+  "entries",
+  "keys",
+  "values",
+  "length",
+  "toString",
+  "isArray",
+]);
 
 function invalidSiteReferences(
   content: string,
@@ -319,7 +347,19 @@ function invalidSiteReferences(
     if (ts.isPropertyAccessExpression(node)) {
       const chain = propertyChain(node);
       if (chain?.[0] === "site" && !pathExists(site, chain.slice(1))) {
-        invalid.add(chain.join("."));
+        // Array method calls (site.<field>.map/filter/length/...) on an
+        // array-valued field are legitimate; pathExists fails them because the
+        // method name is not a data key. Skip when the parent chain resolves to
+        // an array so genuine unknown data fields are still caught.
+        const method = chain[chain.length - 1];
+        const parent = chain.slice(0, -1);
+        const parentValue =
+          parent.length > 1 ? valueAtPath(site, parent.slice(1)) : site;
+        if (ARRAY_METHODS.has(method) && Array.isArray(parentValue)) {
+          // legitimate array method — do not flag.
+        } else {
+          invalid.add(chain.join("."));
+        }
       }
     }
     inspectMapCallback(node, site, invalid);

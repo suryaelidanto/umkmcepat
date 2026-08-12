@@ -486,6 +486,26 @@ export function collectBatchedGateIssues(
     }
   }
 
+  // Touch-target gate (deterministic source-side mirror of the browser
+  // check): the primary WhatsApp/CTA anchor must be wrapped in the <Button>
+  // component so it inherits the 44px min-height from the design system. A
+  // bare <a> renders at text height (~32px) and fails the browser
+  // touch-target assertion after a full build — catch it here with a clear
+  // repair instruction instead.
+  const WRAPPED_CTA =
+    /<Button\b[^>]*>\s*<a[^>]*\bhref=["']https?:\/\/(?:wa\.me|api\.whatsapp\.com)/;
+  const ANY_CTA = /<a[^>]*\bhref=["']https?:\/\/(?:wa\.me|api\.whatsapp\.com)/;
+  for (const file of stagedFiles) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    if (ANY_CTA.test(file.content) && !WRAPPED_CTA.test(file.content)) {
+      issues.push(
+        `${file.path}: primary WhatsApp CTA is a bare <a> — wrap it in <Button asChild><a href=... >...</a></Button> so it meets the 44px touch-target minimum.`,
+      );
+    }
+  }
+
   return issues;
 }
 
