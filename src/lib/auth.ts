@@ -29,7 +29,7 @@ export function getAuthStore(): AsyncLocalStorage<Map<string, unknown>> {
 // Handles every /api/auth/* request (sign-in, callback, sign-out, csrf,
 // session, providers) via Auth.js Core. Mounted from the auth catch-all
 // server route.
-export function handleAuthRequest(request: Request): Promise<Response> {
+export async function handleAuthRequest(request: Request): Promise<Response> {
   const forwardedProto = request.headers.get("x-forwarded-proto");
   const forwardedHost = request.headers.get("x-forwarded-host");
 
@@ -40,11 +40,36 @@ export function handleAuthRequest(request: Request): Promise<Response> {
     const targetUrl = new URL(url.pathname + url.search, `${proto}://${host}`);
 
     if (targetUrl.toString() !== request.url) {
-      return Auth(new Request(targetUrl.toString(), request), authConfig);
+      try {
+        return await Auth(
+          new Request(targetUrl.toString(), request),
+          authConfig,
+        );
+      } catch (error) {
+        const { devLog } = await import("@/lib/dev-log");
+        devLog("auth", "handleAuthRequest-forwarded-error", {
+          error: error instanceof Error ? error.message : String(error),
+          stack:
+            error instanceof Error ? error.stack?.slice(0, 800) : undefined,
+          url: targetUrl.toString(),
+        });
+        throw error;
+      }
     }
   }
 
-  return Auth(request, authConfig);
+  try {
+    return await Auth(request, authConfig);
+  } catch (error) {
+    const { devLog } = await import("@/lib/dev-log");
+    devLog("auth", "handleAuthRequest-error", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.slice(0, 2000) : undefined,
+      url: request.url,
+      method: request.method,
+    });
+    throw error;
+  }
 }
 
 // Reads the current session for the in-flight request. Preserves the previous
