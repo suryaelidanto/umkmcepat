@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   runBatchedGenerateMock,
@@ -222,8 +222,32 @@ const baseContext = () => ({
 });
 
 describe("runBuildAttempt — contract-v1 batched writer", () => {
-  afterEach(() => {
+  beforeEach(() => {
     vi.clearAllMocks();
+    getSettingSyncMock.mockImplementation(
+      (_key: string, fallback: unknown) => fallback,
+    );
+    buildGeneratedProjectMock.mockResolvedValue({
+      ok: true,
+      log: "ok",
+      distFiles: [
+        { path: "index.html", content: "<html/>", contentType: "text/html" },
+      ],
+    });
+    qualifyGeneratedSiteMock.mockImplementation(async (files) => ({
+      ok: true,
+      files,
+      browserReport: {
+        version: 1,
+        status: "pass",
+        routes: [],
+        evidenceIds: [],
+        overheadMs: 1,
+      },
+      riskReport: { version: 1, risky: false, reasons: [] },
+      criticReport: null,
+      visualRepairCount: 0,
+    }));
   });
 
   it("enabled landing quality skips the spec call and passes the compiled contract", async () => {
