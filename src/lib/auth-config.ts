@@ -83,12 +83,13 @@ export const authConfig: AuthConfig = {
     async linkAccount({ user }) {
       if (user?.id && user?.email) {
         const waitlistEnabled = await isWaitlistEnabled().catch(() => true);
-        // When waitlist is OFF (feature.waitlist_enabled=false), grant
-        // instantly on signup. When ON, only approved waitlist entries get
-        // energy via linkApprovedWaitlistOnSignup (pilot gate).
-        const instantGrant = waitlistEnabled
-          ? Promise.resolve()
-          : grantSignupEnergy(user.id).catch(() => undefined);
+        // Admin bypass = waitlist + approved: even when gate is ON, an
+        // admin email must never be stuck at 0 energy. OFF grants everyone.
+        const isAdmin = isAdminEmail(user.email ?? "");
+        const shouldInstantGrant = !waitlistEnabled || isAdmin;
+        const instantGrant = shouldInstantGrant
+          ? grantSignupEnergy(user.id).catch(() => undefined)
+          : Promise.resolve();
         await Promise.all([
           linkApprovedWaitlistOnSignup(user.id, user.email).catch(
             () => undefined,
@@ -99,11 +100,14 @@ export const authConfig: AuthConfig = {
       }
     },
     async createUser({ user }) {
-      // Credentials / email signup path (not OAuth). Same conditional:
-      // OFF => instant grant, ON => wait for approval.
+      // Credentials / email signup path (not OAuth). Same rule: OFF grants
+      // everyone, ON grants only admins instantly (others wait for approval).
       if (user?.id) {
         const waitlistEnabled = await isWaitlistEnabled().catch(() => true);
-        if (!waitlistEnabled) {
+        const email = (user as { email?: string | null })?.email ?? null;
+        const isAdmin = email ? isAdminEmail(email) : false;
+        const shouldInstantGrant = !waitlistEnabled || isAdmin;
+        if (shouldInstantGrant) {
           await grantSignupEnergy(user.id).catch(() => undefined);
         }
       }
