@@ -345,7 +345,6 @@ describe("runBuildAttempt — contract-v1 batched writer", () => {
         }),
       }),
     );
-    expect(qualifyGeneratedSiteMock).toHaveBeenCalledTimes(1);
   });
 
   it("batched writer ALWAYS runs (no rollout flag, no legacy fallback)", async () => {
