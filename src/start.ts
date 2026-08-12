@@ -89,14 +89,34 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
       return await next();
     });
   });
-  applySecurityHeaders(result.response.headers, {
+  // Auth.js (Undici) can return immutable Headers; applySecurityHeaders
+  // mutates in place and throws TypeError: immutable. Handle by cloning.
+  let responseHeaders: Headers;
+  try {
+    // Probe mutability without side effect.
+    result.response.headers.set("x-immutability-probe", "1");
+    result.response.headers.delete("x-immutability-probe");
+    responseHeaders = result.response.headers;
+  } catch {
+    responseHeaders = new Headers(result.response.headers);
+  }
+  applySecurityHeaders(responseHeaders, {
     generatedOrigin,
     pathname,
     nonce,
   });
-  applyLandingCacheHeaders(request, result.response);
+  // If we cloned, rebuild response with mutable headers.
+  let finalResponse = result.response;
+  if (responseHeaders !== result.response.headers) {
+    finalResponse = new Response(result.response.body, {
+      status: result.response.status,
+      statusText: result.response.statusText,
+      headers: responseHeaders,
+    });
+  }
+  applyLandingCacheHeaders(request, finalResponse);
 
-  return result;
+  return { ...result, response: finalResponse };
 });
 
 // CSRF protection for server functions. Our custom securityMiddleware already
