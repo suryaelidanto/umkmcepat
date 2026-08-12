@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  CONSERVATIVE_DEFAULT_PRICE,
+  getModelPricing,
+  normalizeOpenRouterModelId,
+  resolveModelPricing,
+} from "./model-pricing";
+import pricingOverrides from "../../config/model-pricing-overrides.json";
+
 const { findUniqueMock, findManyMock, upsertMock, fetchMock } = vi.hoisted(
   () => ({
     findUniqueMock: vi.fn(),
@@ -18,13 +26,6 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-
-import {
-  CONSERVATIVE_DEFAULT_PRICE,
-  getModelPricing,
-  normalizeOpenRouterModelId,
-  resolveModelPricing,
-} from "./model-pricing";
 
 const FRESH = {
   modelId: "xiaomi/mimo-v2",
@@ -101,6 +102,29 @@ describe("getModelPricing", () => {
       "openrouter/minimax/minimax-m3",
     );
     expect(openRouterPrice.pricingSource).not.toBe("manual-override");
+  });
+
+  it("registers every current CommandCode model under its exact served id", async () => {
+    const cmcEntries = Object.entries(pricingOverrides).filter(([id]) =>
+      id.startsWith("cmc/"),
+    );
+    expect(cmcEntries).toHaveLength(54);
+    for (const [id, entry] of cmcEntries) {
+      expect(entry.sourceModelId).toBe(id);
+      expect(entry.openRouterModelId).toBeNull();
+      expect(entry.source).toMatch(/^https:\/\/commandcode\.ai\/models\//);
+      expect(entry.promptPrice).toBeGreaterThanOrEqual(0);
+      expect(entry.completionPrice).toBeGreaterThanOrEqual(0);
+      await expect(resolveModelPricing(id)).resolves.toMatchObject({
+        rawModelId: id,
+        pricedModelId: id,
+        pricingSource: "manual-override",
+        promptPrice: entry.promptPrice,
+        completionPrice: entry.completionPrice,
+      });
+    }
+    expect(findUniqueMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("returns manual override pricing for every cheap combo primary", async () => {
