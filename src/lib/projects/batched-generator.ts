@@ -970,6 +970,12 @@ export async function runBatchedGenerate(input: {
           'from "@/lib/preview-ready"',
         );
       }
+      // Tertiary: shadcn casing — AI emits "@/components/ui/Button" (capital)
+      // but file is lowercase "button.tsx" on case-sensitive Linux. Normalize.
+      content = content.replace(
+        /from\s+["']@\/components\/ui\/([^"']+)["']/g,
+        (_m, name) => `from "@/components/ui/${name.toLowerCase()}"`,
+      );
       if (content !== before) {
         staged.set(path, { ...file, content });
       }
