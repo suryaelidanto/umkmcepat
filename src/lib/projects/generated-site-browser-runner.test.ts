@@ -100,9 +100,51 @@ describe("runGeneratedSiteBrowserGates", () => {
         execute: async () => {
           throw new Error("browser unavailable");
         },
-        storeEvidence: async () => "ref",
+        storeEvidence: async () => ["ref"],
       },
     );
     expect(result.status).toBe("infrastructure_error");
+  });
+
+  const browserIt =
+    process.env.RUN_GENERATED_SITE_BROWSER_TESTS === "1" ? it : it.skip;
+
+  browserIt("qualifies a real static artifact at both viewports", async () => {
+    const evidence: Array<{ screenshot?: Uint8Array }> = [];
+    const result = await runGeneratedSiteBrowserGates(
+      {
+        projectId: "browser-smoke",
+        candidateId: "candidate-smoke",
+        files: [
+          {
+            path: "index.html",
+            contentType: "text/html; charset=utf-8",
+            content: `<!doctype html><html><head><style>*{box-sizing:border-box}body{margin:0;color:#172019;background:#fffaf0;font:18px system-ui}main{min-height:100vh;padding:48px}a{display:inline-flex;min-width:160px;min-height:48px;align-items:center;justify-content:center;background:#173f2a;color:white;border-radius:12px}a:focus{outline:3px solid #d18b22}</style></head><body><main><h1>Warung Uji</h1><p>Menu harian untuk keluarga sekitar.</p><a href="https://wa.me/6281100000000">Hubungi kami</a></main></body></html>`,
+          },
+        ],
+        contract,
+        timeoutMs: 10_000,
+      },
+      {
+        storeEvidence: async (item) => {
+          evidence.push({ screenshot: item.screenshot });
+          return [`evidence-${evidence.length}`];
+        },
+      },
+    );
+    expect(result.status).toBe("pass");
+    expect(result.routes).toHaveLength(2);
+    expect(result.routes.flatMap((route) => route.assertions)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "primary-cta", status: "pass" }),
+        expect.objectContaining({
+          name: "horizontal-overflow",
+          status: "pass",
+        }),
+      ]),
+    );
+    expect(evidence.every((item) => (item.screenshot?.length ?? 0) > 0)).toBe(
+      true,
+    );
   });
 });

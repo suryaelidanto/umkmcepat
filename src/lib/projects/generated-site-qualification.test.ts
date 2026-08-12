@@ -10,11 +10,29 @@ import type { VisualCriticReport } from "./visual-critic";
 const files: GeneratedProjectFile[] = [
   { path: "src/routes/index.tsx", content: "export const page = true" },
 ];
+const assertionNames = [
+  "route-load",
+  "console-clean",
+  "required-content-visible",
+  "primary-cta",
+  "internal-links",
+  "horizontal-overflow",
+  "heading-overflow",
+  "image-health",
+  "media-policy",
+  "computed-contrast",
+  "focus-visible",
+  "touch-target",
+] as const;
 const browser: BrowserGateReport = {
   version: 1,
   status: "pass",
-  routes: [],
-  evidenceIds: [],
+  routes: (["mobile", "desktop"] as const).map((viewport) => ({
+    route: "/",
+    viewport,
+    assertions: assertionNames.map((name) => ({ name, status: "pass" })),
+  })),
+  evidenceIds: ["mobile", "desktop"],
   overheadMs: 1,
 };
 const clean: GeneratedSiteRiskReportV1 = {

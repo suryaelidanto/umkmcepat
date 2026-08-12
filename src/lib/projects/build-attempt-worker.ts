@@ -1,5 +1,6 @@
 import { generateText } from "ai";
 
+import type { GeneratedSiteQualityProofV1 } from "@/lib/projects/generated-starter";
 import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
 
 import {
@@ -37,6 +38,7 @@ import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
   readGateEvidence,
   storeGateEvidence,
+  storeGateScreenshotEvidence,
 } from "@/lib/projects/gate-evidence";
 import { runGeneratedSiteBrowserGates } from "@/lib/projects/generated-site-browser-runner";
 import { compileGeneratedSiteContract } from "@/lib/projects/generated-site-contract";
@@ -956,6 +958,8 @@ export async function runBuildAttempt({
       projectId: projectId,
     });
 
+    const qualificationStartedAt = Date.now();
+    let qualityProof: GeneratedSiteQualityProofV1 | undefined;
     if (
       buildResult.ok &&
       useGeneratedSiteQuality &&
@@ -991,15 +995,30 @@ export async function runBuildAttempt({
               timeoutMs: 10_000,
             },
             {
-              storeEvidence: async (evidence) =>
-                storeGateEvidence({
-                  projectId: evidence.projectId,
-                  candidateId: evidence.candidateId,
-                  kind: "report",
-                  route: evidence.route,
-                  viewport: evidence.viewport,
-                  value: evidence.value,
-                }),
+              storeEvidence: async (evidence) => {
+                const refs = [
+                  await storeGateEvidence({
+                    projectId: evidence.projectId,
+                    candidateId: evidence.candidateId,
+                    kind: "report",
+                    route: evidence.route,
+                    viewport: evidence.viewport,
+                    value: evidence.value,
+                  }),
+                ];
+                if (evidence.screenshot) {
+                  refs.push(
+                    await storeGateScreenshotEvidence({
+                      projectId: evidence.projectId,
+                      candidateId: evidence.candidateId,
+                      route: evidence.route,
+                      viewport: evidence.viewport,
+                      bytes: evidence.screenshot,
+                    }),
+                  );
+                }
+                return refs;
+              },
             },
           );
         },
@@ -1059,6 +1078,27 @@ export async function runBuildAttempt({
           );
         },
       });
+      qualityProof = {
+        version: 1,
+        contractHash: acceptedHandoff.contractHash,
+        planHash: acceptedHandoff.planHash,
+        recipeId: generatedSiteRecipe.id,
+        recipeVersion: generatedSiteRecipe.version,
+        exampleId: generatedSiteExample?.id ?? "none",
+        designPlanVersion: batched.designPlan ? 1 : null,
+        sourceGateStatus: "pass",
+        browserGateStatus:
+          qualification.browserReport?.status ?? "infrastructure_error",
+        riskStatus: qualification.riskReport?.risky ? "risky" : "clean",
+        criticStatus: qualification.criticReport?.status ?? "not_invoked",
+        visualRepairCount: qualification.visualRepairCount,
+        outcome: qualification.ok ? "pass" : "fail",
+        timingsMs: {
+          writer: agentMs,
+          build: viteMs,
+          qualification: Date.now() - qualificationStartedAt,
+        },
+      };
       if (!qualification.ok) {
         buildResult = {
           ok: false,
@@ -1076,6 +1116,19 @@ export async function runBuildAttempt({
           data: { files: sourceFiles, sourceRef },
         });
       }
+    }
+
+    if (qualityProof) {
+      await prisma.projectSnapshot.update({
+        where: { id: snapshot.id },
+        data: {
+          metadata: createGeneratedSourceSnapshotMetadata(
+            sourceFiles,
+            finalSchema,
+            { ...sourceGeneration, qualityProof },
+          ),
+        },
+      });
     }
 
     const finalBuildResult = buildResult;

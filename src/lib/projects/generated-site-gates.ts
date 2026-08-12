@@ -48,6 +48,23 @@ export function inspectGeneratedSiteSource(input: {
 }): GeneratedSiteSourceGateReportV1 {
   const findings: GeneratedSiteGateFinding[] = [];
   const riskSignals: GeneratedSiteGateFinding[] = [];
+  const normalizedPaths = new Map<string, string>();
+  for (const file of input.files) {
+    const normalized = file.path.toLocaleLowerCase("en-US");
+    const prior = normalizedPaths.get(normalized);
+    if (prior && prior !== file.path) {
+      add(
+        findings,
+        "contract",
+        "critical",
+        "duplicate-case-insensitive-path",
+        `Generated paths differ only by case: ${prior} and ${file.path}.`,
+        file.path,
+      );
+    } else {
+      normalizedPaths.set(normalized, file.path);
+    }
+  }
   const source = input.files
     .filter((file) => file.path.endsWith(".tsx"))
     .map((file) => file.content)

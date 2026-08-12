@@ -5,6 +5,7 @@ import {
   isExpiredGateEvidence,
   readGateEvidence,
   storeGateEvidence,
+  storeGateScreenshotEvidence,
 } from "./gate-evidence";
 
 describe("evidenceRefForCandidate", () => {
@@ -36,5 +37,18 @@ describe("isExpiredGateEvidence", () => {
   it("exposes store/read helpers with a stable ref", () => {
     expect(typeof storeGateEvidence).toBe("function");
     expect(typeof readGateEvidence).toBe("function");
+    expect(typeof storeGateScreenshotEvidence).toBe("function");
+  });
+
+  it("uses a private JPEG ref for screenshot bytes", () => {
+    expect(
+      evidenceRefForCandidate({
+        projectId: "p1",
+        candidateId: "snap-1",
+        kind: "screenshot",
+        route: "/",
+        viewport: "desktop",
+      }),
+    ).toMatch(/\.jpg$/);
   });
 });

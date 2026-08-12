@@ -1,14 +1,12 @@
-// scripts/run-generation-evaluation.ts
-// CLI driver for the frozen generation-evaluation contract. Loads a manifest
-// and a trial-results file, validates that every scheduled trial is present,
-// and prints the versioned report. Missing/timed-out/infrastructure results
-// stay in the denominator.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import {
   buildEvaluationReport,
+  buildGeneratedSiteEvaluationReport,
   type EvaluationManifestV1,
   type EvaluationTrialResultV1,
+  type GeneratedSiteEvaluationManifestV2,
+  type GeneratedSiteEvaluationTrialV2,
 } from "../src/lib/projects/generation-evaluation";
 
 type CliArgs = {
@@ -19,47 +17,74 @@ type CliArgs = {
 
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
-  for (let i = 0; i < argv.length; i += 1) {
-    const key = argv[i];
+  for (let index = 0; index < argv.length; index += 1) {
+    const key = argv[index];
     if (key === "--baseline-id") {
-      args.baselineId = argv[i + 1];
-    } else if (key === "--manifest") {
-      args.manifestPath = argv[i + 1];
-    } else if (key === "--results") {
-      args.resultsPath = argv[i + 1];
+      args.baselineId = argv[index + 1];
+    }
+    if (key === "--manifest") {
+      args.manifestPath = argv[index + 1];
+    }
+    if (key === "--results") {
+      args.resultsPath = argv[index + 1];
     }
   }
   return args;
 }
 
-function readJson<T>(path: string, label: string): T {
-  const text = readFileSync(path, "utf8");
+function readJson<T>(filePath: string, label: string): T {
+  if (!existsSync(filePath)) {
+    throw new Error(`${label} JSON is missing at ${filePath}`);
+  }
   try {
-    return JSON.parse(text) as T;
+    return JSON.parse(readFileSync(filePath, "utf8")) as T;
   } catch {
-    throw new Error(`Cannot parse ${label} JSON at ${path}`);
+    throw new Error(`Cannot parse ${label} JSON at ${filePath}`);
   }
 }
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const baselineId = args.baselineId ?? "contract-v1-baseline-2026-08-03";
   const manifestPath =
     args.manifestPath ?? "fixtures/generation-evaluation/manifest.json";
+  const manifest = readJson<
+    EvaluationManifestV1 | GeneratedSiteEvaluationManifestV2
+  >(manifestPath, "manifest");
+
+  if (manifest.schemaVersion === 2) {
+    const resultsPath =
+      args.resultsPath ?? ".data/generation-evaluation/results.json";
+    const results = readJson<GeneratedSiteEvaluationTrialV2[]>(
+      resultsPath,
+      "runtime results",
+    );
+    const report = buildGeneratedSiteEvaluationReport(manifest, results);
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    if (!report.release.pass) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
   const resultsPath =
     args.resultsPath ?? "fixtures/generation-evaluation/results.json";
-
-  const manifest = readJson<EvaluationManifestV1>(manifestPath, "manifest");
-  manifest.baselineId = baselineId;
   const results = readJson<EvaluationTrialResultV1[]>(resultsPath, "results");
-
-  const report = buildEvaluationReport(manifest, results);
+  const report = buildEvaluationReport(
+    {
+      ...manifest,
+      baselineId:
+        args.baselineId ??
+        manifest.baselineId ??
+        "contract-v1-baseline-2026-08-03",
+    },
+    results,
+  );
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
 
 try {
   main();
 } catch (error) {
-  console.error((error as Error).message);
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }

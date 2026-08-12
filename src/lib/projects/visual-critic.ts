@@ -59,25 +59,44 @@ export async function runShadowCritic(input: {
   }
   try {
     const requestedModel = input.modelId ?? getGenerationModel();
+    const images = extractScreenshotParts(input.screenshots);
+    if (images.length === 0) {
+      return { status: "unknown", mode: "shadow", findings: [] };
+    }
     const result = await generateText({
       model: getAiModel(requestedModel),
       maxOutputTokens: 2_048,
       maxRetries: 1,
       temperature: 0,
+      abortSignal: AbortSignal.timeout(30_000),
       ...getNoReasoningCallOptions(),
       telemetry: getAiTelemetry("generated-site-visual-critic"),
       system: `You are a read-only generated-site visual critic. Return JSON only: {"findings":[{"category":"hierarchy|business_fit|layout_intent|responsive|typography|color_contrast|imagery|consistency|genericness|content_density","severity":"critical|high|medium|low","route":"/","viewport":"mobile|desktop","evidence":"specific visible evidence","proposedCorrection":"bounded correction","confidence":0.0}]}. Never propose facts, files, tools, deployment, or contract changes. Empty findings means the supplied evidence meets the rubric.`,
-      prompt: JSON.stringify({
-        contract: {
-          identity: input.contract.identity,
-          visitorJobs: input.contract.visitorJobs,
-          ctaIntents: input.contract.ctaIntents,
-          preferences: input.contract.preferences,
-          prohibitedClaims: input.contract.prohibitedClaims,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                contract: {
+                  identity: input.contract.identity,
+                  visitorJobs: input.contract.visitorJobs,
+                  ctaIntents: input.contract.ctaIntents,
+                  preferences: input.contract.preferences,
+                  prohibitedClaims: input.contract.prohibitedClaims,
+                },
+                plan: input.plan,
+              }),
+            },
+            ...images.map((data) => ({
+              type: "file" as const,
+              mediaType: "image/jpeg",
+              data,
+            })),
+          ],
         },
-        plan: input.plan,
-        screenshots: input.screenshots,
-      }),
+      ],
     });
     const findings = parseFindings(result.text);
     if (!findings) {
@@ -92,6 +111,25 @@ export async function runShadowCritic(input: {
   } catch {
     return { status: "unavailable", mode: "shadow", findings: [] };
   }
+}
+
+function extractScreenshotParts(values: unknown[]): Uint8Array[] {
+  const parts: Uint8Array[] = [];
+  for (const value of values) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      continue;
+    }
+    const screenshot = (value as Record<string, unknown>).screenshot;
+    if (typeof screenshot !== "string" || screenshot.length === 0) {
+      continue;
+    }
+    try {
+      parts.push(Buffer.from(screenshot, "base64"));
+    } catch {
+      continue;
+    }
+  }
+  return parts;
 }
 
 function parseFindings(text: string): VisualFinding[] | null {

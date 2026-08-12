@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- isolated CommonJS browser subprocess. */
+const { mkdirSync } = require("node:fs");
+const path = require("node:path");
+
 const { chromium } = require("playwright-core");
 
 const [
@@ -6,6 +9,7 @@ const [
   routesJson = '["/"]',
   executablePath = "",
   timeoutRaw = "10000",
+  evidenceDir = "",
 ] = process.argv.slice(2);
 const timeout = Number(timeoutRaw);
 const routes = JSON.parse(routesJson);
@@ -16,6 +20,7 @@ const viewports = {
 
 if (
   !origin ||
+  !evidenceDir ||
   !Array.isArray(routes) ||
   routes.length > 6 ||
   !Number.isInteger(timeout)
@@ -23,6 +28,7 @@ if (
   process.stderr.write("Invalid generated-site browser arguments.\n");
   process.exit(2);
 }
+mkdirSync(evidenceDir, { recursive: true });
 
 (async () => {
   const browser = await chromium.launch({
@@ -42,7 +48,7 @@ if (
         viewport,
       });
       try {
-        for (const routePath of routes) {
+        for (const [routeIndex, routePath] of routes.entries()) {
           const errors = [];
           const page = await context.newPage();
           page.setDefaultNavigationTimeout(timeout);
@@ -93,6 +99,29 @@ if (
                 const targets = [
                   ...document.querySelectorAll("a,button"),
                 ].filter(visible);
+                const anchors = [...document.querySelectorAll("a[href]")];
+                const brokenInternalLinks = anchors.filter((anchor) => {
+                  const href = anchor.getAttribute("href") || "";
+                  if (!href.startsWith("#") || href.startsWith("#/")) {
+                    return false;
+                  }
+                  const id = href.slice(1);
+                  return Boolean(id) && !document.getElementById(id);
+                }).length;
+                const primaryCta = anchors.find((anchor) => {
+                  if (!visible(anchor)) {
+                    return false;
+                  }
+                  const href = anchor.getAttribute("href") || "";
+                  return (
+                    /^(?:https?:\/\/(?:wa\.me|api\.whatsapp\.com)|tel:|mailto:)/i.test(
+                      href,
+                    ) ||
+                    /hubungi|pesan|lihat|mulai|daftar|janji|konsultasi|whatsapp|chat/i.test(
+                      anchor.textContent || "",
+                    )
+                  );
+                });
                 const firstTarget = targets[0];
                 if (firstTarget instanceof HTMLElement) {
                   firstTarget.focus();
@@ -100,7 +129,11 @@ if (
                 const focusStyle = firstTarget
                   ? getComputedStyle(firstTarget)
                   : null;
+                const bodyStyle = getComputedStyle(document.body);
+                const bodyColor = bodyStyle.color;
+                const bodyBackground = bodyStyle.backgroundColor;
                 return {
+                  textLength: (document.body.innerText || "").trim().length,
                   overflow:
                     document.documentElement.scrollWidth -
                     document.documentElement.clientWidth,
@@ -110,7 +143,15 @@ if (
                   brokenImages: images.filter(
                     (image) => !image.complete || image.naturalWidth === 0,
                   ).length,
+                  brokenInternalLinks,
+                  primaryCta: Boolean(primaryCta),
                   touchTargets: targets.filter((target) => {
+                    if (
+                      target instanceof HTMLAnchorElement &&
+                      target !== primaryCta
+                    ) {
+                      return false;
+                    }
                     const rect = target.getBoundingClientRect();
                     return rect.width < 44 || rect.height < 44;
                   }).length,
@@ -121,14 +162,21 @@ if (
                       (focusStyle.outlineStyle !== "none" ||
                         focusStyle.boxShadow !== "none"),
                     ),
+                  computedContrastKnown:
+                    bodyColor !== "rgba(0, 0, 0, 0)" &&
+                    bodyBackground !== "rgba(0, 0, 0, 0)",
                 };
               })
             : {
+                textLength: 0,
                 overflow: 0,
                 headingOverflow: false,
                 brokenImages: 0,
+                brokenInternalLinks: 0,
+                primaryCta: false,
                 touchTargets: 0,
                 focusVisible: false,
+                computedContrastKnown: false,
               };
           const assertions = [
             { name: "route-load", status: loaded ? "pass" : "fail" },
@@ -136,6 +184,19 @@ if (
               name: "console-clean",
               status: errors.length ? "fail" : "pass",
               detail: errors.slice(0, 3).join("; ") || undefined,
+            },
+            {
+              name: "required-content-visible",
+              status: metrics.textLength > 20 ? "pass" : "fail",
+            },
+            {
+              name: "primary-cta",
+              status: metrics.primaryCta ? "pass" : "fail",
+            },
+            {
+              name: "internal-links",
+              status: metrics.brokenInternalLinks ? "fail" : "pass",
+              detail: String(metrics.brokenInternalLinks),
             },
             {
               name: "horizontal-overflow",
@@ -152,6 +213,14 @@ if (
               detail: String(metrics.brokenImages),
             },
             {
+              name: "media-policy",
+              status: metrics.brokenImages ? "fail" : "pass",
+            },
+            {
+              name: "computed-contrast",
+              status: metrics.computedContrastKnown ? "pass" : "fail",
+            },
+            {
               name: "focus-visible",
               status: metrics.focusVisible ? "pass" : "fail",
             },
@@ -161,20 +230,23 @@ if (
               detail: String(metrics.touchTargets),
             },
           ];
-          const screenshot = loaded
-            ? (
-                await page.screenshot({
-                  fullPage: true,
-                  quality: 70,
-                  type: "jpeg",
-                })
-              ).toString("base64")
-            : "";
+          const screenshotPath = path.join(
+            evidenceDir,
+            `${routeIndex}-${viewportName}.jpg`,
+          );
+          if (loaded) {
+            await page.screenshot({
+              fullPage: true,
+              path: screenshotPath,
+              quality: 70,
+              type: "jpeg",
+            });
+          }
           reports.push({
             route: routePath,
             viewport: viewportName,
             assertions,
-            screenshot,
+            screenshotPath: loaded ? screenshotPath : undefined,
           });
           await page.close();
         }

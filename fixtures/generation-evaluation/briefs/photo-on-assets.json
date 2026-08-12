@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "photo-on-assets",
+  "brief": {
+    "businessName": "Usaha Sintetis Photo On Assets",
+    "businessType": "retail-catalog",
+    "contact": "+62 811 0000 0000",
+    "description": "Fixture sintetis tanpa data pemilik nyata."
+  },
+  "expected": {
+    "recipeId": "retail-catalog",
+    "mediaMode": "provided_assets",
+    "routes": ["/"],
+    "primaryCta": "Lihat produk",
+    "requiredContent": ["businessName", "products", "assets"],
+    "prohibitedClaims": ["nomor satu", "termurah", "pasti berhasil"],
+    "browserAssertions": [
+      "route-load",
+      "console-clean",
+      "required-content-visible",
+      "primary-cta",
+      "internal-links",
+      "horizontal-overflow",
+      "heading-overflow",
+      "image-health",
+      "media-policy",
+      "computed-contrast",
+      "focus-visible",
+      "touch-target"
+    ],
+    "risk": "risky"
+  }
+}

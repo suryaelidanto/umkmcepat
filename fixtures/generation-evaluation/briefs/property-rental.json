@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "property-rental",
+  "brief": {
+    "businessName": "Usaha Sintetis Property Rental",
+    "businessType": "property-rental",
+    "contact": "+62 811 0000 0000",
+    "description": "Fixture sintetis tanpa data pemilik nyata."
+  },
+  "expected": {
+    "recipeId": "property-rental",
+    "mediaMode": "replaceable_slots",
+    "routes": ["/", "/unit"],
+    "primaryCta": "Lihat unit",
+    "requiredContent": ["businessName", "products", "address"],
+    "prohibitedClaims": ["nomor satu", "termurah", "pasti berhasil"],
+    "browserAssertions": [
+      "route-load",
+      "console-clean",
+      "required-content-visible",
+      "primary-cta",
+      "internal-links",
+      "horizontal-overflow",
+      "heading-overflow",
+      "image-health",
+      "media-policy",
+      "computed-contrast",
+      "focus-visible",
+      "touch-target"
+    ],
+    "risk": "risky"
+  }
+}

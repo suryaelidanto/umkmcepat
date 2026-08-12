@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import type {
@@ -27,7 +29,8 @@ type BrowserRunnerDeps = {
     route: string;
     viewport: "mobile" | "desktop";
     value: unknown;
-  }) => Promise<string>;
+    screenshot?: Uint8Array;
+  }) => Promise<string[]>;
 };
 
 export function parseBrowserRunnerOutput(raw: string): BrowserRunnerOutput {
@@ -67,16 +70,18 @@ export async function runGeneratedSiteBrowserGates(
     const parsed = parseBrowserRunnerOutput(raw);
     const evidenceIds: string[] = [];
     for (const route of parsed.routes) {
-      const evidence = await (deps.storeEvidence ?? (async () => ""))({
+      const screenshot = route.screenshot
+        ? Buffer.from(route.screenshot, "base64")
+        : undefined;
+      const evidence = await (deps.storeEvidence ?? (async () => []))({
         projectId: input.projectId,
         candidateId: input.candidateId,
         route: route.route,
         viewport: route.viewport,
         value: route,
+        screenshot,
       });
-      if (evidence) {
-        evidenceIds.push(evidence);
-      }
+      evidenceIds.push(...evidence);
     }
     const failed = parsed.routes.some((route) =>
       route.assertions.some((assertion) => assertion.status !== "pass"),
@@ -107,15 +112,30 @@ async function executeBrowserRunner(input: {
   timeoutMs: number;
 }): Promise<string> {
   const server = await startArtifactServer(input.files);
+  const evidenceDir = await mkdtemp(`${tmpdir()}/umkmcepat-site-gate-`);
   try {
-    return await spawnRunner({
+    const raw = await spawnRunner({
       origin: server.origin,
       routes: input.routes,
       timeoutMs: input.timeoutMs,
+      evidenceDir,
     });
+    const parsed = JSON.parse(raw) as {
+      routes?: Array<Record<string, unknown>>;
+    };
+    for (const route of parsed.routes ?? []) {
+      if (typeof route.screenshotPath === "string") {
+        route.screenshot = readFileSync(route.screenshotPath).toString(
+          "base64",
+        );
+        delete route.screenshotPath;
+      }
+    }
+    return JSON.stringify(parsed);
   } finally {
     server.server.closeAllConnections?.();
     await new Promise<void>((resolve) => server.server.close(() => resolve()));
+    rmSync(evidenceDir, { force: true, recursive: true });
   }
 }
 
@@ -151,6 +171,7 @@ function spawnRunner(input: {
   origin: string;
   routes: string[];
   timeoutMs: number;
+  evidenceDir: string;
 }): Promise<string> {
   const script = path.resolve(
     process.cwd(),
@@ -167,6 +188,7 @@ function spawnRunner(input: {
         JSON.stringify(input.routes),
         executable ?? "",
         String(input.timeoutMs),
+        input.evidenceDir,
       ],
       { stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
     );

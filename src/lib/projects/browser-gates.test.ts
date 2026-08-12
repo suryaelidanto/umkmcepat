@@ -25,8 +25,33 @@ describe("classifyBrowserReport", () => {
     expect(classifyBrowserReport(report("infrastructure_error"))).toBe("fail");
   });
 
-  it("keeps a hard-gate pass as a pass", () => {
-    expect(classifyBrowserReport(report("pass"))).toBe("pass");
+  it("keeps a complete hard-gate report as a pass", () => {
+    const value = report("pass");
+    const assertions = [
+      "route-load",
+      "console-clean",
+      "required-content-visible",
+      "primary-cta",
+      "internal-links",
+      "horizontal-overflow",
+      "heading-overflow",
+      "image-health",
+      "media-policy",
+      "computed-contrast",
+      "focus-visible",
+      "touch-target",
+    ] as const;
+    value.routes = (["mobile", "desktop"] as const).map((viewport) => ({
+      route: "/",
+      viewport,
+      assertions: assertions.map((name) => ({ name, status: "pass" as const })),
+    }));
+    value.evidenceIds = ["mobile-report", "desktop-report"];
+    expect(classifyBrowserReport(value)).toBe("pass");
+  });
+
+  it("fails a pass label with missing route, viewport, assertion, or evidence", () => {
+    expect(classifyBrowserReport(report("pass"))).toBe("fail");
   });
 
   it("keeps a fail as a fail", () => {

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "appointment-service",
+  "brief": {
+    "businessName": "Usaha Sintetis Appointment Service",
+    "businessType": "appointment-service",
+    "contact": "+62 811 0000 0000",
+    "description": "Fixture sintetis tanpa data pemilik nyata."
+  },
+  "expected": {
+    "recipeId": "appointment-service",
+    "mediaMode": "graphic",
+    "routes": ["/", "/jadwal"],
+    "primaryCta": "Buat janji",
+    "requiredContent": ["businessName", "services", "contact"],
+    "prohibitedClaims": ["nomor satu", "termurah", "pasti berhasil"],
+    "browserAssertions": [
+      "route-load",
+      "console-clean",
+      "required-content-visible",
+      "primary-cta",
+      "internal-links",
+      "horizontal-overflow",
+      "heading-overflow",
+      "image-health",
+      "media-policy",
+      "computed-contrast",
+      "focus-visible",
+      "touch-target"
+    ],
+    "risk": "not_risky"
+  }
+}

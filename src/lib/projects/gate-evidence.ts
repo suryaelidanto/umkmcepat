@@ -27,7 +27,8 @@ export function evidenceRefForCandidate(input: {
   viewport: "mobile" | "desktop";
 }): string {
   const routeKey = input.route.replace(/[/?&#]/g, "_") || "root";
-  const key = `${GATE_EVIDENCE_PREFIX}/${input.projectId}/${input.candidateId}/${input.kind}/${routeKey}-${input.viewport}.json`;
+  const extension = input.kind === "screenshot" ? "jpg" : "json";
+  const key = `${GATE_EVIDENCE_PREFIX}/${input.projectId}/${input.candidateId}/${input.kind}/${routeKey}-${input.viewport}.${extension}`;
   return `object:s3:objects/${key}`;
 }
 
@@ -72,10 +73,30 @@ export async function storeGateEvidence(input: {
   return ref;
 }
 
+export async function storeGateScreenshotEvidence(input: {
+  projectId: string;
+  candidateId: string;
+  route: string;
+  viewport: "mobile" | "desktop";
+  bytes: Uint8Array;
+}): Promise<string> {
+  const ref = evidenceRefForCandidate({ ...input, kind: "screenshot" });
+  await putS3Object(
+    "private",
+    s3KeyFromRef(ref),
+    Buffer.from(input.bytes),
+    "image/jpeg",
+  );
+  return ref;
+}
+
 /** Read private gate evidence by object ref. */
 export async function readGateEvidence<T>(ref: string): Promise<T | null> {
   try {
     const body = await getS3Object("private", s3KeyFromRef(ref));
+    if (ref.endsWith(".jpg")) {
+      return { screenshot: body.toString("base64") } as T;
+    }
     return JSON.parse(body.toString("utf8")) as T;
   } catch {
     return null;

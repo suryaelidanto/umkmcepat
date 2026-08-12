@@ -1255,6 +1255,12 @@ At every checkpoint, run the listed focused tests and inspect `git diff --stat`.
 - Candidate failures before selection leave the active handoff, selected snapshot, deployment, and thumbnail unchanged.
 - If browser/critic infrastructure is unavailable during internal/pilot rollout, fail the new candidate and turn the quality rollout off; never mark missing evidence as pass.
 
+## Execution Evidence — 2026-08-12
+
+Implemented commits before final evaluator/docs commit: `aa7cf07`, `ab6749f`, `5aea9de`, `30deb84`. Focused generated-site suite passed 97 tests (one opt-in browser test skipped); the opt-in Chromium smoke separately passed 4/4 at mobile and desktop. `bun run check` passed. `bun run build` passed.
+
+Release qualification remains intentionally blocked and rollout remains `off`. `bun run evaluate:generation:quality` failed closed because `.data/generation-evaluation/results.json` has no funded 24-trial run. Real-account photo-off attempts reached accepted-handoff compilation and full browser qualification, exposing and fixing planner provenance/hash, case-insensitive file collisions, browser evidence lifecycle, timeout, CTA/touch checks, and format-repair context. Final attempt `cmsq41ah500014l3ydp8oss4g` was blocked before generation by upstream OpenRouter HTTP 402 credit limits even after the writer ceiling was reduced from 24,000 to 9,000 tokens. Photo-on/no-assets was not run because the required photo-off gate did not pass. No corpus or E2E success is claimed.
+
 ## Completion Definition
 
 Implementation is complete only when:

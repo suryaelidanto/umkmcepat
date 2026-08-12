@@ -14,6 +14,15 @@ export type SanitizedGenerationEvent = {
   failureClass?: string;
   overheadMs?: number;
   engine?: string;
+  recipeId?: string;
+  mediaMode?: string;
+  contractVersion?: number;
+  gateVersion?: number;
+  criticInvoked?: boolean;
+  visualRepairCount?: number;
+  outcome?: string;
+  sourceGateFindings?: number;
+  browserMs?: number;
 };
 
 export function sanitizeGenerationEvent(
@@ -38,5 +47,14 @@ export function sanitizeGenerationEvent(
     failureClass: str("failureClass"),
     overheadMs: numeric("overheadMs"),
     engine: str("engine"),
+    recipeId: str("recipeId"),
+    mediaMode: str("mediaMode"),
+    contractVersion: numeric("contractVersion"),
+    gateVersion: numeric("gateVersion"),
+    criticInvoked: bool("criticInvoked"),
+    visualRepairCount: numeric("visualRepairCount"),
+    outcome: str("outcome"),
+    sourceGateFindings: numeric("sourceGateFindings"),
+    browserMs: numeric("browserMs"),
   };
 }

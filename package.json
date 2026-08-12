@@ -20,6 +20,7 @@
     "dev:reset": "bun scripts/dev-reset.ts",
     "energy:backfill": "bun scripts/backfill-energy-grant.ts",
     "evaluate:generation": "bun scripts/run-generation-evaluation.ts",
+    "evaluate:generation:quality": "bun scripts/run-generation-evaluation.ts --manifest fixtures/generation-evaluation/manifest.json",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\" --ignore-path .prettierignore",
     "format:check": "prettier --check --cache --cache-location .prettiercache \"**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}\" --ignore-path .prettierignore",
     "graph:index": "graphify extract . --out . && graphify cluster-only . --no-label && graphify tree --label umkmcepat",

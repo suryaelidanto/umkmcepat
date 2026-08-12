@@ -111,6 +111,36 @@ function report(
 }
 
 describe("inspectGeneratedSiteSource", () => {
+  it("rejects case-insensitive duplicate file paths", () => {
+    const source = `<main><h1>SuryaPhone</h1><a href="#kontak">Chat WhatsApp</a><section id="kontak">iPhone 11 Garansi QRIS Jabodetabek</section></main>`;
+    const files: GeneratedProjectFile[] = [
+      { path: "src/routes/index.tsx", content: source },
+      { path: "src/components/ui/Button.tsx", content: "export const A = 1" },
+      { path: "src/components/ui/button.tsx", content: "export const B = 1" },
+    ];
+    const reportWithDuplicate = inspectGeneratedSiteSource({
+      contract: contract(),
+      designPlan: plan(),
+      files,
+      starterIndexSource: "data-generated-site-starter",
+      themeChecks: [
+        {
+          role: "foreground",
+          foreground: "#ffffff",
+          background: "#000000",
+          ratio: 21,
+          minimum: 4.5,
+          pass: true,
+        },
+      ],
+    });
+    expect(reportWithDuplicate.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "duplicate-case-insensitive-path" }),
+      ]),
+    );
+  });
+
   it("rejects the shipped SuryaPhone starter-derived failure", () => {
     const result = report(`
       // Replace this with the real home page built from the brief

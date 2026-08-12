@@ -347,6 +347,61 @@ describe("generated project source", () => {
     });
   });
 
+  it("records sanitized generated-site quality proof", () => {
+    const schema = createProjectSiteSchemaFromBrief({
+      businessName: "Proof Test",
+      businessType: "Jasa",
+      contactOrCta: "Hubungi",
+      notes: [],
+      offer: "Jasa lokal",
+      prompt: "buat website jasa",
+      stylePreference: "",
+      targetCustomer: "",
+      version: 1,
+      productOrService: null,
+      contact: null,
+      tagline: null,
+      usp: null,
+      priceRange: null,
+      visuals: null,
+      hours: null,
+      address: null,
+      deliveryArea: null,
+      since: null,
+      testimonials: null,
+      certifications: null,
+      paymentMethods: null,
+      socialLinks: null,
+      currentPromo: null,
+      secondaryCta: null,
+      readyForBuild: false,
+    });
+    const metadata = createGeneratedSourceSnapshotMetadata([], schema, {
+      generationMode: "agent-custom",
+      qualityProof: {
+        version: 1,
+        contractHash: "contract-hash",
+        planHash: "plan-hash",
+        recipeId: "retail-catalog",
+        recipeVersion: 1,
+        exampleId: "retail-catalog-v1",
+        designPlanVersion: 1,
+        sourceGateStatus: "pass",
+        browserGateStatus: "pass",
+        riskStatus: "clean",
+        criticStatus: "not_invoked",
+        visualRepairCount: 0,
+        outcome: "pass",
+        timingsMs: { writer: 100, build: 200, qualification: 300 },
+      },
+    });
+    expect(metadata.generation?.qualityProof).toMatchObject({
+      recipeId: "retail-catalog",
+      outcome: "pass",
+    });
+    expect(JSON.stringify(metadata)).not.toContain("screenshot");
+  });
+
   it("does not invoke the command runner when generated builds are disabled", async () => {
     vi.stubEnv("GENERATED_BUILD_EXECUTION_ENABLED", "false");
     const commandRunner = vi.fn(async () => ({ log: "unexpected", ok: true }));

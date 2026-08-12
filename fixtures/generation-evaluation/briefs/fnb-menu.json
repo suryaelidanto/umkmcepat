@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "fnb-menu",
+  "brief": {
+    "businessName": "Usaha Sintetis Fnb Menu",
+    "businessType": "fnb-menu",
+    "contact": "+62 811 0000 0000",
+    "description": "Fixture sintetis tanpa data pemilik nyata."
+  },
+  "expected": {
+    "recipeId": "fnb-menu",
+    "mediaMode": "graphic",
+    "routes": ["/", "/menu"],
+    "primaryCta": "Lihat menu",
+    "requiredContent": ["businessName", "products", "paymentMethods"],
+    "prohibitedClaims": ["nomor satu", "termurah", "pasti berhasil"],
+    "browserAssertions": [
+      "route-load",
+      "console-clean",
+      "required-content-visible",
+      "primary-cta",
+      "internal-links",
+      "horizontal-overflow",
+      "heading-overflow",
+      "image-health",
+      "media-policy",
+      "computed-contrast",
+      "focus-visible",
+      "touch-target"
+    ],
+    "risk": "not_risky"
+  }
+}

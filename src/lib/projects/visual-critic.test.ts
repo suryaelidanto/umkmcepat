@@ -64,7 +64,7 @@ describe("runShadowCritic", () => {
       contract,
       plan: {},
       hardGateStatus: "pass",
-      screenshots: [{ route: "/", viewport: "mobile", image: "base64" }],
+      screenshots: [{ route: "/", viewport: "mobile", screenshot: "aGVsbG8=" }],
     });
     expect(result).toMatchObject({
       status: "complete",
@@ -72,6 +72,20 @@ describe("runShadowCritic", () => {
       findings: [{ category: "hierarchy", severity: "high" }],
     });
     expect(JSON.stringify(result)).not.toContain("files");
+    expect(generateTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          expect.objectContaining({
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: "file",
+                mediaType: "image/jpeg",
+              }),
+            ]),
+          }),
+        ],
+      }),
+    );
   });
 
   it("returns unknown when evidence is insufficient", async () => {
@@ -90,7 +104,9 @@ describe("runShadowCritic", () => {
         contract,
         plan: {},
         hardGateStatus: "pass",
-        screenshots: [{ route: "/", viewport: "desktop" }],
+        screenshots: [
+          { route: "/", viewport: "desktop", screenshot: "aGVsbG8=" },
+        ],
       }),
     ).resolves.toMatchObject({ status: "unavailable" });
   });

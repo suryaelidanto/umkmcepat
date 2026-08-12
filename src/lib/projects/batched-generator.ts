@@ -33,6 +33,7 @@ import {
   startAiCallTimer,
 } from "@/lib/ai-call-record";
 import { getGenerationModel } from "@/lib/ai-models";
+import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 import {
   buildBatchedWriterPrompt,
@@ -618,15 +619,21 @@ export async function runOneStreamedResponse(args: {
   let result: ReturnType<typeof streamText> | undefined;
 
   try {
+    const timeoutSignal = AbortSignal.timeout(
+      getAiTimeoutMs("sourceGeneration"),
+    );
+    const abortSignal = args.abortSignal
+      ? AbortSignal.any([args.abortSignal, timeoutSignal])
+      : timeoutSignal;
     result = streamText({
       model: getAiModel(requestedModel),
-      maxOutputTokens: 24_000,
+      maxOutputTokens: 9_000,
       maxRetries: 2,
       ...getNoReasoningCallOptions(),
       system: args.system,
       messages: [{ role: "user", content: args.user }],
       temperature: 0.35,
-      ...(args.abortSignal ? { abortSignal: args.abortSignal } : {}),
+      abortSignal,
       telemetry: getAiTelemetry("batched-generation-writer", {
         phase: args.phase,
         projectId: args.projectId,
@@ -941,7 +948,7 @@ export async function runBatchedGenerate(input: {
       retryCount: 1,
       stepCharger: input.stepCharger,
       system: repairPrompt.system,
-      user: repairPrompt.user,
+      user: `${writerPrompt.user}\n\nFORMAT REPAIR:\n${repairPrompt.user}`,
     });
     if (writerCall.parseError) {
       if (isTruncationError(writerCall.parseError)) {
@@ -1019,6 +1026,7 @@ export async function runBatchedGenerate(input: {
     };
   }
 
+  const acceptedDesignPlan = writerCall.response.designPlan;
   for (const [path, file] of writerCall.response.files) {
     staged.set(path, file);
   }
@@ -1118,7 +1126,7 @@ export async function runBatchedGenerate(input: {
     lastDiagnostics = gateStage({
       allowedPackages,
       contract: input.contract,
-      designPlan: writerCall.response.designPlan,
+      designPlan: acceptedDesignPlan,
       indexCssForGate,
       schema: input.schema,
       staged,
@@ -1285,7 +1293,7 @@ export async function runBatchedGenerate(input: {
   return {
     ok: true,
     files,
-    designPlan: writerCall.response.designPlan,
+    designPlan: acceptedDesignPlan,
     repairRounds,
     summary: writerCall.response.doneSummary ?? "Ringkasan tidak tersedia.",
     writtenPaths: [...staged.keys()].sort(),

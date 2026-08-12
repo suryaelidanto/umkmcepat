@@ -329,6 +329,23 @@ function escapeTsx(value: string) {
   return value.replace(/[{}<>]/g, "");
 }
 
+export type GeneratedSiteQualityProofV1 = {
+  version: 1;
+  contractHash: string;
+  planHash: string;
+  recipeId: string;
+  recipeVersion: number;
+  exampleId: string;
+  designPlanVersion: number | null;
+  sourceGateStatus: "pass" | "fail";
+  browserGateStatus: "pass" | "fail" | "infrastructure_error";
+  riskStatus: "clean" | "risky";
+  criticStatus: "not_invoked" | "complete" | "unknown" | "unavailable";
+  visualRepairCount: 0 | 1;
+  outcome: "pass" | "fail";
+  timingsMs: { writer: number; build: number; qualification: number };
+};
+
 export function createGeneratedSourceSnapshotMetadata(
   files: GeneratedProjectFile[],
   schema: ProjectSiteSchema,
@@ -344,6 +361,7 @@ export function createGeneratedSourceSnapshotMetadata(
       type: string;
     }>;
     repairAttempts?: number;
+    qualityProof?: GeneratedSiteQualityProofV1;
     summary?: string;
     touchedFiles?: string[];
   },
@@ -360,6 +378,7 @@ export function createGeneratedSourceSnapshotMetadata(
           mode: generation.generationMode,
           operationTrace: generation.operationTrace ?? [],
           repairAttempts: generation.repairAttempts ?? 0,
+          qualityProof: generation.qualityProof,
           summary: generation.summary,
           touchedFiles: generation.touchedFiles ?? [],
         }

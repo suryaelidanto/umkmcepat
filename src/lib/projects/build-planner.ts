@@ -33,7 +33,7 @@ export type ContractDraftResult =
 export function buildContractFromBrief(
   brief: ProjectBrief,
   deps: PlannerDeps,
-  turnId?: string,
+  turnId = "server",
 ): ContractDraftResult {
   const identity = {
     businessName: brief.businessName.trim(),
@@ -254,7 +254,7 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
     });
   }
 
-  return {
+  const plan: BuildPlanV1 = {
     schemaVersion: 1,
     revision: 1,
     contractHash: contract.contentHash,
@@ -275,6 +275,7 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
       fontStrategy: "system_stack",
     },
   };
+  return { ...plan, contentHash: hashBuildPlan(plan) };
 }
 
 export type PrepareHandoffResult =

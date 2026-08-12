@@ -42,19 +42,52 @@ export type BrowserGateReport = {
   overheadMs: number;
 };
 
+const REQUIRED_BROWSER_ASSERTIONS = new Set<BrowserAssertionName>([
+  "route-load",
+  "console-clean",
+  "required-content-visible",
+  "primary-cta",
+  "internal-links",
+  "horizontal-overflow",
+  "heading-overflow",
+  "image-health",
+  "media-policy",
+  "computed-contrast",
+  "focus-visible",
+  "touch-target",
+]);
+
 /** Infrastructure or missing evidence never passes the gate. */
 export function classifyBrowserReport(
   report: BrowserGateReport,
 ): "pass" | "fail" {
-  if (
-    report.status === "pass" &&
-    report.routes.every((route) =>
-      route.assertions.every((assertion) => assertion.status === "pass"),
-    )
-  ) {
-    return "pass";
+  if (report.status !== "pass" || report.routes.length < 2) {
+    return "fail";
   }
-  return "fail";
+  const routePaths = new Set(report.routes.map((route) => route.route));
+  for (const routePath of routePaths) {
+    const reports = report.routes.filter((route) => route.route === routePath);
+    if (
+      !reports.some((route) => route.viewport === "mobile") ||
+      !reports.some((route) => route.viewport === "desktop")
+    ) {
+      return "fail";
+    }
+  }
+  if (report.evidenceIds.length < report.routes.length) {
+    return "fail";
+  }
+  for (const route of report.routes) {
+    const assertions = new Map(
+      route.assertions.map((assertion) => [assertion.name, assertion.status]),
+    );
+    for (const name of REQUIRED_BROWSER_ASSERTIONS) {
+      if (assertions.get(name) !== "pass") {
+        return "fail";
+      }
+    }
+  }
+  return "pass";
 }
 
 export const BROWSER_ROUTE_MAX = 6;

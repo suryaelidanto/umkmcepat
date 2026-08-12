@@ -229,6 +229,19 @@ describe("runBatchedGenerate — happy path", () => {
     ).toBeDefined();
   });
 
+  it("passes a bounded source-generation abort signal to the writer", async () => {
+    streamTextMock.mockReturnValueOnce(
+      writerStream(
+        `<file path="src/routes/index.tsx">\n${HOME_TSX}</file>\n<done summary="ok" />`,
+      ),
+    );
+    await runBatchedGenerate({ ...baseArgs(), stepCharger: makeCharger() });
+    expect(streamTextMock.mock.calls[0]?.[0]?.abortSignal).toBeInstanceOf(
+      AbortSignal,
+    );
+    expect(streamTextMock.mock.calls[0]?.[0]?.maxOutputTokens).toBe(9_000);
+  });
+
   it("auto-approves valid propose blocks by materializing registry components", async () => {
     const responseText =
       `<propose path="src/components/ui/badge.tsx">need trust badges</propose>\n` +
