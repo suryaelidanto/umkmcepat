@@ -95,3 +95,6 @@ __captures__/
 
 .playwright-mcp/
 tmp/
+
+# E2E build driver — contains real account id, never commit
+scripts/e2e-seed-and-build.ts

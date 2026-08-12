@@ -844,8 +844,16 @@ export async function runBatchedGenerate(input: {
     label: "AI menulis website",
   });
 
-  // Stage = batched files overlaying the starter.
+  // Stage = scaffold starter files as the base, overlaid by batched AI
+  // files. Pre-seeding the scaffold files (site.ts, index.css, preview-ready,
+  // __root.tsx, main.tsx) into staged is required for the completeness gate —
+  // it reads site.ts to learn which fields are populated, and those files are
+  // platform-owned (the AI never emits them), so they must already be present
+  // when the gate runs.
   const staged = new Map<string, { content: string; path: string }>();
+  for (const file of starterFiles) {
+    staged.set(file.path, { content: file.content, path: file.path });
+  }
   const proposals: { path: string; reason: string }[] = [];
   let lastDiagnostics: string[] = [];
   let repairRounds = 0;
@@ -1131,11 +1139,111 @@ export async function runBatchedGenerate(input: {
           'from "@/lib/preview-ready"',
         );
       }
+      // Tertiary: bare '../hooks' or '../hooks/usePreviewReady' import when
+      // the file calls usePreviewReady() — the scaffold has no hooks dir; the
+      // AI invented it. Rewrite to the canonical alias.
+      if (
+        content.includes("usePreviewReady") &&
+        /from\s+["'][^"']*hooks[^"']*["']/.test(content)
+      ) {
+        content = content.replace(
+          /from\s+["'][^"']*hooks[^"']*["']/g,
+          'from "@/lib/preview-ready"',
+        );
+      }
       // Tertiary: shadcn casing — AI emits "@/components/ui/Button" (capital)
       // but file is lowercase "button.tsx" on case-sensitive Linux. Normalize.
       content = content.replace(
         /from\s+["']@\/components\/ui\/([^"']+)["']/g,
         (_m, name) => `from "@/components/ui/${name.toLowerCase()}"`,
+      );
+      // Quaternary: "~/..." path alias — the scaffold uses "@/", not "~/".
+      // Some models emit "~/lib/..." or "~/components/..." which fails the
+      // package allow-list gate ("~" is not a declared package). Rewrite to
+      // the canonical "@/" alias.
+      content = content.replace(
+        /from\s+["']~\/([^"']+)["']/g,
+        (_m, rest) => `from "@/${rest}"`,
+      );
+      // Quinary: site.* nested field-name normalization. The AI often uses
+      // wrong property names in .map() callbacks on site.* arrays. Rewrite
+      // the common mismatches by scanning for the callback param name and
+      // fixing its property accesses. This is a targeted string rewrite, not
+      // a full AST walk — it handles the <80% case (map callbacks) that tsc
+      // would otherwise fail on. ponytail: upgrade to a real tsc type-check
+      // gate if the AI invents new wrong names outside this set.
+      const collectionFields: Array<{
+        collection: string;
+        rewrites: Array<[string, string]>;
+      }> = [
+        {
+          collection: "products",
+          rewrites: [
+            ["price", "priceRange"],
+            ["cost", "priceRange"],
+            ["amount", "priceRange"],
+            ["title", "name"],
+            ["model", "name"],
+            ["id", "name"],
+          ],
+        },
+        {
+          collection: "testimonials",
+          rewrites: [
+            ["content", "quote"],
+            ["comment", "quote"],
+            ["text", "quote"],
+            ["name", "author"],
+            ["role", "author"],
+          ],
+        },
+        {
+          collection: "faq",
+          rewrites: [
+            ["question", "q"],
+            ["answer", "a"],
+          ],
+        },
+        {
+          collection: "sections",
+          rewrites: [
+            ["content", "body"],
+            ["description", "body"],
+            ["text", "body"],
+          ],
+        },
+        {
+          collection: "socialLinks",
+          rewrites: [
+            ["name", "handle"],
+            ["link", "handle"],
+            ["label", "handle"],
+            ["url", "handle"],
+          ],
+        },
+      ];
+      for (const { collection, rewrites } of collectionFields) {
+        // Match .map((param) or .map((param, index) — capture param name.
+        const mapMatch = content.match(
+          new RegExp(
+            `\\bsite\\.${collection}\\.map\\(\\((\\w+)(?:,\\s*\\w+)?\\)`,
+          ),
+        );
+        if (mapMatch) {
+          const param = mapMatch[1];
+          for (const [wrong, right] of rewrites) {
+            content = content.replace(
+              new RegExp(`\\b${param}\\.${wrong}\\b`, "g"),
+              `${param}.${right}`,
+            );
+          }
+        }
+      }
+      // currentPromo is a string, not an object — strip object property
+      // accesses so it renders the string itself.
+      content = content.replace(
+        /site\.currentPromo\.(?:title|description|code|text|label|body|content|name)\b/g,
+        "site.currentPromo",
       );
       if (content !== before) {
         staged.set(path, { ...file, content });
@@ -1161,15 +1269,23 @@ function gateStage(input: {
   starterFiles: GeneratedProjectFile[];
 }): string[] {
   const stagedFiles: GeneratedProjectFile[] = [...input.staged.values()];
+  const starterPaths = new Set(input.starterFiles.map((f) => f.path));
   const issues: string[] = [];
+  // Flag protected scaffold paths the AI tried to overwrite — but NOT the
+  // pre-seeded starter files (those are the legitimate base layer).
   for (const path of input.staged.keys()) {
-    if (isProtectedScaffoldPath(path)) {
+    if (isProtectedScaffoldPath(path) && !starterPaths.has(path)) {
       issues.push(
         `${path}: protected scaffold file — never rewrite platform-owned source. Do NOT emit this file.`,
       );
     }
   }
+  // Per-file checks (TSX parse, import allow-list) run ONLY on AI-emitted
+  // files — the starter files are platform-owned and already validated.
   for (const file of stagedFiles) {
+    if (starterPaths.has(file.path)) {
+      continue;
+    }
     issues.push(
       ...collectBatchedPerFileIssues({
         allowedPackages: input.allowedPackages,

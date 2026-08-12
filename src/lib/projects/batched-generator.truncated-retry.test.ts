@@ -51,7 +51,7 @@ import { site } from "@/content/site";
 import { usePreviewReady } from "@/lib/preview-ready";
 export function HomeRouteComponent() {
   usePreviewReady();
-  return (<main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-6 py-16"><p>{site.eyebrow}</p><h1>{site.headline}</h1><Button size="lg" asChild><Link to="/" hash="kontak">{site.primaryCta}<ArrowRight className="size-4" /></Link></Button><Card><CardContent>{site.offer}</CardContent></Card></main>);
+  return (<main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-6 py-16"><p>{site.eyebrow}</p><h1>{site.headline}</h1><p>{site.subheadline}</p><Button size="lg" asChild><Link to="/" hash="kontak">{site.primaryCta}<ArrowRight className="size-4" /></Link></Button><Card><CardContent>{site.offer}</CardContent></Card><section>{site.trustPoints.map((tp) => <div key={tp}>{tp}</div>)}</section><section>{site.sections.map((s) => <article key={s.title}><h2>{s.title}</h2><p>{s.body}</p></article>)}</section></main>);
 }
 `;
 

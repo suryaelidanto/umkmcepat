@@ -65,6 +65,7 @@ export function HomeRouteComponent() {
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-6 py-16">
       <p className="text-sm font-medium text-muted-foreground">{site.eyebrow}</p>
       <h1 className="text-4xl font-semibold tracking-tight text-foreground">{site.headline}</h1>
+      <p className="text-muted-foreground">{site.subheadline}</p>
       <Button size="lg" asChild>
         <Link to="/" hash="kontak">
           {site.primaryCta}
@@ -72,6 +73,19 @@ export function HomeRouteComponent() {
         </Link>
       </Button>
       <Card><CardContent>{site.offer}</CardContent></Card>
+      <section>
+        {site.trustPoints.map((tp) => (
+          <div key={tp}>{tp}</div>
+        ))}
+      </section>
+      <section>
+        {site.sections.map((s) => (
+          <article key={s.title}>
+            <h2>{s.title}</h2>
+            <p>{s.body}</p>
+          </article>
+        ))}
+      </section>
     </main>
   );
 }
@@ -708,5 +722,19 @@ describe("buildBatchedWriterPrompt", () => {
     expect(system).toContain("SPEED RULES");
     expect(system).toContain("<file path=");
     expect(user).toContain("Kopi Sela");
+  });
+
+  it("system prompt contains EXACT FIELD NAMES table so the AI uses correct property names", () => {
+    const { system } = buildBatchedWriterPrompt({
+      brief: makeBrief(),
+      implementationSpec: undefined,
+      projectId: "p1",
+      schema: createProjectSiteSchemaFromBrief(makeBrief()),
+    });
+    expect(system).toContain("EXACT FIELD NAMES");
+    expect(system).toContain("priceRange");
+    expect(system).toContain("quote");
+    expect(system).toContain("author");
+    expect(system).toMatch(/NOT price|NOT question/i);
   });
 });

@@ -4,8 +4,14 @@ import { z } from "zod";
 import { KNOWN_ARCHETYPE_IDS } from "@/lib/projects/archetypes";
 import { type ProjectBrief } from "@/lib/projects/brief";
 import {
+  type HoursValue,
+  type PaymentMethodValue,
+  type SocialLinkValue,
+} from "@/lib/projects/brief-rich-fields";
+import {
   createProjectSiteSchemaFromBrief,
   type ProjectSiteSchema,
+  type SiteSchemaProduct,
 } from "@/lib/projects/site-schema";
 
 /**
@@ -209,6 +215,14 @@ export function implementationSpecToSiteSchema(
     ? `${clean(spec.businessName, 80) || "Usaha"} — ${clean(offer, 60)}`
     : rawHeadline;
 
+  // Rich fields: pass through from spec.content when the AI structured them.
+  // When absent (AI stuffed everything in offer), they stay undefined and the
+  // gate skips them — same data-driven contract as createProjectSiteSchemaFromBrief.
+  const products = parseSpecProducts(spec.content.products);
+  const testimonials = parseSpecTestimonials(spec.content.testimonials);
+  const faq = parseSpecFaq(spec.content.faq);
+  const socialLinks = parseSpecSocialLinks(spec.content.socialLinks);
+
   return {
     version: 1,
     businessName: spec.businessName,
@@ -235,10 +249,305 @@ export function implementationSpecToSiteSchema(
       title: component.name,
       body: component.purpose,
     })),
+    tagline: cleanOptionalString(spec.content.tagline, 160),
+    usp: parseSpecUsp(spec.content.usp),
+    products,
+    testimonials,
+    faq,
+    socialLinks,
+    currentPromo: cleanOptionalString(spec.content.currentPromo, 220),
+    hours: parseSpecHours(spec.content.hours),
+    paymentMethods: parseSpecPayments(spec.content.paymentMethods),
+    priceRange: cleanOptionalString(spec.content.priceRange, 80),
+    address: cleanOptionalString(spec.content.address, 160),
+    deliveryArea: cleanOptionalString(spec.content.deliveryArea, 120),
   };
 }
 
+function cleanOptionalString(
+  value: unknown,
+  maxLength: number,
+): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const text = value.trim().replace(/\s+/g, " ");
+  return text ? text.slice(0, maxLength) : undefined;
+}
+
+function parseSpecProducts(value: unknown): SiteSchemaProduct[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const name =
+        typeof obj.name === "string"
+          ? obj.name.trim()
+          : typeof obj.title === "string"
+            ? obj.title.trim()
+            : typeof obj.model === "string"
+              ? obj.model.trim()
+              : "";
+      if (!name) {
+        return null;
+      }
+      const description =
+        typeof obj.description === "string"
+          ? obj.description.trim() || undefined
+          : typeof obj.condition === "string"
+            ? obj.condition.trim() || undefined
+            : undefined;
+      const priceRange =
+        typeof obj.priceRange === "string"
+          ? obj.priceRange.trim() || undefined
+          : typeof obj.price === "string"
+            ? obj.price.trim() || undefined
+            : undefined;
+      const product: SiteSchemaProduct = { name, description, priceRange };
+      return product;
+    })
+    .filter((p): p is SiteSchemaProduct => p !== null)
+    .slice(0, 12);
+  return items.length ? items : undefined;
+}
+
+function parseSpecTestimonials(
+  value: unknown,
+): ProjectSiteSchema["testimonials"] {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const quote =
+        typeof obj.quote === "string"
+          ? obj.quote.trim()
+          : typeof obj.comment === "string"
+            ? obj.comment.trim()
+            : "";
+      const author =
+        typeof obj.author === "string"
+          ? obj.author.trim()
+          : typeof obj.name === "string"
+            ? obj.name.trim()
+            : "";
+      if (!quote || !author) {
+        return null;
+      }
+      const rawRating = obj.rating;
+      const ratingNum =
+        typeof rawRating === "number" ? rawRating : Number(rawRating);
+      const rating: 1 | 2 | 3 | 4 | 5 | undefined = Number.isFinite(ratingNum)
+        ? (Math.min(5, Math.max(1, Math.round(ratingNum))) as 1 | 2 | 3 | 4 | 5)
+        : undefined;
+      const testimonial: {
+        quote: string;
+        author: string;
+        rating?: 1 | 2 | 3 | 4 | 5;
+      } = { quote, author };
+      if (rating !== undefined) {
+        testimonial.rating = rating;
+      }
+      return testimonial;
+    })
+    .filter(
+      (t): t is { quote: string; author: string; rating?: 1 | 2 | 3 | 4 | 5 } =>
+        t !== null,
+    )
+    .slice(0, 8);
+  return items.length ? items : undefined;
+}
+
+function parseSpecFaq(value: unknown): ProjectSiteSchema["faq"] {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const q =
+        typeof obj.q === "string"
+          ? obj.q.trim()
+          : typeof obj.question === "string"
+            ? obj.question.trim()
+            : "";
+      const a =
+        typeof obj.a === "string"
+          ? obj.a.trim()
+          : typeof obj.answer === "string"
+            ? obj.answer.trim()
+            : "";
+      if (!q || !a) {
+        return null;
+      }
+      return { q, a };
+    })
+    .filter(
+      (i): i is NonNullable<ProjectSiteSchema["faq"]>[number] => i !== null,
+    )
+    .slice(0, 10);
+  return items.length ? items : undefined;
+}
+
+function parseSpecSocialLinks(value: unknown): SocialLinkValue[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const platform =
+        typeof obj.platform === "string" ? obj.platform.trim() : "";
+      const handle = typeof obj.handle === "string" ? obj.handle.trim() : "";
+      if (!platform || !handle) {
+        return null;
+      }
+      const url =
+        typeof obj.url === "string" ? obj.url.trim() || undefined : undefined;
+      const link: SocialLinkValue = {
+        platform: platform as SocialLinkValue["platform"],
+        handle,
+        url,
+      };
+      return link;
+    })
+    .filter((l): l is SocialLinkValue => l !== null)
+    .slice(0, 6);
+  return items.length ? items : undefined;
+}
+
+function parseSpecUsp(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 6);
+  return items.length ? items : undefined;
+}
+
+function parseSpecHours(value: unknown): HoursValue[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const dayRange =
+        typeof obj.dayRange === "string" ? obj.dayRange.trim() : "";
+      const open = typeof obj.open === "string" ? obj.open.trim() : "";
+      const close = typeof obj.close === "string" ? obj.close.trim() : "";
+      if (!dayRange || !open || !close) {
+        return null;
+      }
+      const note =
+        typeof obj.note === "string" ? obj.note.trim() || undefined : undefined;
+      const hour: HoursValue = { dayRange, open, close, note };
+      return hour;
+    })
+    .filter((h): h is HoursValue => h !== null)
+    .slice(0, 7);
+  return items.length ? items : undefined;
+}
+
+function parseSpecPayments(value: unknown): PaymentMethodValue[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => {
+      if (typeof item === "string") {
+        return { method: item as PaymentMethodValue["method"] };
+      }
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const method = typeof obj.method === "string" ? obj.method.trim() : "";
+      if (!method) {
+        return null;
+      }
+      const detail =
+        typeof obj.detail === "string"
+          ? obj.detail.trim() || undefined
+          : undefined;
+      const payment: PaymentMethodValue = {
+        method: method as PaymentMethodValue["method"],
+        detail,
+      };
+      return payment;
+    })
+    .filter((p): p is PaymentMethodValue => p !== null)
+    .slice(0, 8);
+  return items.length ? items : undefined;
+}
+
 export function buildImplementationSpecPrompt(brief: ProjectBrief) {
+  const richLines: string[] = [];
+  if (brief.tagline) {
+    richLines.push(`Tagline: ${brief.tagline}`);
+  }
+  if (brief.usp?.length) {
+    richLines.push(`Unique selling points: ${brief.usp.join("; ")}`);
+  }
+  if (brief.productOrService?.length) {
+    const items = brief.productOrService
+      .map(
+        (p) =>
+          `${p.name}${p.description ? ` (${p.description})` : ""}${p.priceRange ? ` — ${p.priceRange}` : ""}`,
+      )
+      .join("; ");
+    richLines.push(`Products/services: ${items}`);
+  }
+  if (brief.testimonials?.length) {
+    const items = brief.testimonials
+      .map(
+        (t) => `"${t.quote}" — ${t.author}${t.rating ? ` (${t.rating}★)` : ""}`,
+      )
+      .join("; ");
+    richLines.push(`Testimonials: ${items}`);
+  }
+  if (brief.currentPromo) {
+    richLines.push(`Current promo: ${brief.currentPromo}`);
+  }
+  if (brief.priceRange) {
+    richLines.push(`Price range: ${brief.priceRange}`);
+  }
+  if (brief.paymentMethods?.length) {
+    richLines.push(
+      `Payment methods: ${brief.paymentMethods.map((p) => p.method).join(", ")}`,
+    );
+  }
+  if (brief.socialLinks?.length) {
+    richLines.push(
+      `Social links: ${brief.socialLinks.map((s) => `${s.platform}:${s.handle}`).join(", ")}`,
+    );
+  }
+  if (brief.address) {
+    richLines.push(`Address: ${brief.address}`);
+  }
+  if (brief.deliveryArea) {
+    richLines.push(`Delivery area: ${brief.deliveryArea}`);
+  }
   return [
     `Initial request: ${brief.prompt}`,
     brief.businessName ? `Business name: ${brief.businessName}` : "",
@@ -249,8 +558,14 @@ export function buildImplementationSpecPrompt(brief: ProjectBrief) {
     brief.stylePreference
       ? `Known style direction: ${brief.stylePreference}`
       : "",
+    ...richLines,
     brief.notes.length ? `Conversation notes: ${brief.notes.join("; ")}` : "",
     `AI confidence: ${brief.confidence ?? 0}%`,
+    // Structured content directive: tell the AI to put rich fields in
+    // spec.content as structured arrays, not stuff them into offer. The
+    // schema + gate read these as separate fields; stuffing them in offer
+    // makes the gate skip them and the rendered page ignores them.
+    `STRUCTURED CONTENT RULE: put products, testimonials, faq, socialLinks, currentPromo in spec.content as separate structured arrays/strings — never stuff them into the offer field. Use offer for the one-line value proposition only.`,
   ]
     .filter(Boolean)
     .join("\n");

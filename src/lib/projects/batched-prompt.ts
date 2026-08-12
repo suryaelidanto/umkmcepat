@@ -303,6 +303,16 @@ RENDER COMPLETENESS RULE (enforced by the gate — read carefully):
 - NEVER ship starter boilerplate: no "Read the Blog", no "View on GitHub", no "⚡ Fast / 🎨 Beautiful / 📝 MDX Ready", no "Welcome to the home page", no "Your new project is ready". The gate rejects these.
 - NEVER hardcode href="/blog" or href="https://github.com". CTAs link to WhatsApp, #kontak, or real business actions.
 
+EXACT FIELD NAMES (tsc fails on any mismatch — use these EXACT property names):
+- site.products[] → { name, description?, priceRange? } — NOT price, NOT title, NOT model.
+- site.testimonials[] → { quote, author, rating? } — NOT content, NOT name, NOT role, NOT comment.
+- site.faq[] → { q, a } — NOT question, NOT answer.
+- site.socialLinks[] → { platform, handle, url? } — NOT name, NOT link.
+- site.sections[] → { title, body } — NOT content, NOT description.
+- site.trustPoints → string[] (array of strings, not objects).
+- site.theme → { background, foreground, muted, accent } (hex colors, already in index.css — do not re-declare).
+- Top-level: site.businessName, site.eyebrow, site.headline, site.subheadline, site.primaryCta, site.secondaryCta, site.audience, site.offer, site.currentPromo, site.tagline, site.usp.
+
 ${DESIGN_DIRECTIVE}
 
 SCAFFOLD MANIFEST (the exact starter your files extend — do not rewrite these; src/router.tsx is the ONE exception — it is writer-owned, so DO rewrite it to register new routes per SPEED RULE 3):
