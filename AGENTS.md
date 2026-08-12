@@ -106,6 +106,7 @@ bun run test:storybook
 - Explicit over clever — boring explicit beats clever abstraction. Deep modules hide complexity behind small stable interfaces
 - Fail loud — validate at trust boundaries, fail closed on auth/money/publish, bound time/size/retries/concurrency. Silent fallback is a bug
 - Prefer deletion, reuse, platform features, existing deps before adding code
+- Plain over technical — explain to a developer in everyday words, not jargon. Sacrifice terminology for understanding. Only drop a technical term when it changes what they must do; skip exhaustive honesty when it adds nothing the user can act on
 - Optimize for next capable agent with zero context: leave canonical docs/scripts/checks clear enough to resume in minutes
 - Use Bun only; keep `bun.lock` canonical; work from `dev`; PRs into `dev`
 - User-facing copy Indonesian; dev docs/code/logs English
