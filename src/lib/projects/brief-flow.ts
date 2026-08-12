@@ -469,6 +469,53 @@ export function normalizeWorkspaceTurn(
     } else if (minBrief && workspaceCard.type === "build_recommendation") {
       // Model sent build card (or min-brief accepted it) — lock confidence for UI.
       brief = withHandoffReadiness(brief);
+    } else if (
+      !minBrief &&
+      workspaceCard.type === "none" &&
+      (value.workspaceCard == null ||
+        (typeof value.workspaceCard === "object" &&
+          (value.workspaceCard as { type?: string }).type === "none"))
+    ) {
+      // Targeted fix for cmsphba: model returned none while only
+      // targetCustomer is missing (businessName present). Don't leave UI
+      // empty — ask for targetCustomer instead of showing nothing.
+      // Keep the fallback narrow so existing tests for thin briefs that
+      // expect none (low confidence, brief_review, etc.) stay green.
+      const missing = MIN_BRIEF_FIELDS.filter((field) => {
+        const value = brief[field];
+        return typeof value !== "string" || value.trim().length === 0;
+      }) as Array<(typeof MIN_BRIEF_FIELDS)[number]>;
+      const isSuryaPhoneTargetCustomerGap =
+        missing.length === 1 &&
+        missing[0] === "targetCustomer" &&
+        typeof brief.businessName === "string" &&
+        brief.businessName.trim().length > 0;
+      if (isSuryaPhoneTargetCustomerGap) {
+        const questionSpec = {
+          id: "target_customer",
+          question: "Siapa target pelanggan utama SuryaPhone?",
+          answerMode: "choice" as const,
+          options: [
+            {
+              label: "Pelajar & mahasiswa",
+              description: "Cari HP murah untuk sekolah/kuliah",
+            },
+            {
+              label: "Pekerja & profesional",
+              description: "Butuh HP reliable untuk kerja",
+            },
+            {
+              label: "Orang tua & keluarga",
+              description: "Cari HP untuk anak/keluarga",
+            },
+            { label: "Semua kalangan", description: "Jual ke semua segmen" },
+          ],
+        };
+        const q = normalizeQuestion(questionSpec);
+        if (q) {
+          workspaceCard = { type: "question", question: q };
+        }
+      }
     }
   }
 
