@@ -201,14 +201,22 @@ export function implementationSpecToSiteSchema(
   );
   const offer = clean(spec.content.offer, 100);
 
+  const rawHeadline = spec.pages[0].title?.trim() || "";
+  const isGenericHeadline = /^(beranda|home|welcome|beranda utama)$/i.test(
+    rawHeadline,
+  );
+  const headline = isGenericHeadline
+    ? `${clean(spec.businessName, 80) || "Usaha"} — ${clean(offer, 60)}`
+    : rawHeadline;
+
   return {
     version: 1,
     businessName: spec.businessName,
     eyebrow:
-      spec.appKind === "interactive_app"
+      spec.appKind === "interactive_app" && !isGenericHeadline
         ? "Aplikasi interaktif"
         : spec.businessName,
-    headline: spec.pages[0].title,
+    headline: headline,
     subheadline: spec.pages[0].purpose || contentText,
     primaryCta: spec.primaryCta,
     secondaryCta: spec.pages[1]?.title || spec.primaryCta,

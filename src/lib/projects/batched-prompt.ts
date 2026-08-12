@@ -145,6 +145,42 @@ Do not add or remove dependencies — package.json is platform-owned.
 
 MISSING IMAGES: use <img src="/placeholder.svg" alt="<short description>" /> for landscape/wide image slots, and <img src="/placeholder-vertical.svg" alt="<short description>" /> for portrait/tall slots, only when an image slot is structurally necessary and no owner image exists. Alt text is supplied at use site. Never use remote placeholder URLs. For typographic layouts, prefer omitting the image slot instead of adding a gratuitous placeholder.
 
+FEW-SHOT HEROES (copy the pattern, not the text — render from site.*):
+
+Example 1 — Warung Sate (friendly/warm, variance 8):
+\`\`\`tsx
+import { site } from "@/content/site";
+import { usePreviewReady } from "@/lib/preview-ready";
+import { Button } from "@/components/ui/button";
+export function HomeRouteComponent() {
+  usePreviewReady();
+  return (<main className="mx-auto max-w-6xl px-6 py-12">
+    <section className="grid gap-8 md:grid-cols-2 items-center py-16">
+      <div><p className="text-sm font-medium text-muted-foreground">{site.eyebrow}</p>
+        <h1 className="text-5xl font-bold tracking-tight text-balance" style={{letterSpacing:"-0.03em"}}>{site.headline}</h1>
+        <p className="mt-4 max-w-[65ch] text-pretty text-muted-foreground">{site.subheadline}</p>
+        <div className="mt-6 flex gap-3"><Button asChild><a href="#kontak">{site.primaryCta}</a></Button><Button variant="outline">{site.secondaryCta}</Button></div>
+      </div>
+      <img src="/placeholder.svg" alt="Warung sate" className="rounded-xl" />
+    </section>
+    <section className="grid gap-4 md:grid-cols-3"><div className="rounded-xl border p-6">{site.trustPoints[0]}</div><div className="rounded-xl border p-6">{site.trustPoints[1]}</div><div className="rounded-xl border p-6">{site.trustPoints[2]}</div></section>
+  </main>);
+}
+\`\`\`
+
+Example 2 — Laundry Kiloan (clean/trust, variance 8):
+\`\`\`tsx
+import { site } from "@/content/site";
+import { usePreviewReady } from "@/lib/preview-ready";
+export function HomeRouteComponent() {
+  usePreviewReady();
+  return (<main className="mx-auto max-w-5xl px-6">
+    <section className="py-20 text-center"><h1 className="text-5xl font-semibold text-balance">{site.headline}</h1><p className="mx-auto mt-4 max-w-[65ch] text-pretty text-muted-foreground">{site.subheadline}</p></section>
+    <section className="grid gap-6" style={{gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))"}}>{site.sections.slice(0,3).map(s=><article key={s.title} className="border rounded-xl p-6"><h3 className="font-semibold">{s.title}</h3><p className="text-sm text-muted-foreground">{s.body}</p></article>)}</section>
+  </main>);
+}
+\`\`\`
+
 ${DESIGN_DIRECTIVE}
 
 SCAFFOLD MANIFEST (the exact starter your files extend — do not rewrite these; src/router.tsx is the ONE exception — it is writer-owned, so DO rewrite it to register new routes per SPEED RULE 3):
