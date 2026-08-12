@@ -96,23 +96,29 @@ bun run storybook:build
 bun run test:storybook
 ```
 
-## Rules
+## Rules — god-tier
 
-- Optimize for the next capable agent with zero session context: leave canonical docs, scripts, and checks clear enough that future work resumes in minutes, not archaeology.
-- Use Bun only; keep `bun.lock` as the canonical lockfile.
-- Work from `dev`; open PRs into `dev` unless maintainers say otherwise.
-- Keep changes small, focused, and easy to review.
-- Surgical edits: touch only what the task requires. Match surrounding style. Don't refactor, "improve," or clean up adjacent code, comments, or formatting unless asked. Notice unrelated code that looks broken or dead? Mention it in your response — don't edit it. Clean up only your own mess (unused imports/vars your edit created).
-- Uncertain about a dependency or the intent of existing code? Stop and ask. Don't guess, and don't rewrite logic that already exists — search and reuse first.
-- Prefer deletion, reuse, platform features, and existing dependencies before adding code.
-- User-facing product UI copy uses Indonesian; developer-facing docs/code/logs/errors use English.
-- Follow `PRODUCT.md`, `DESIGN.md`, and `.agents/skills/impeccable` before frontend design work; do not introduce new visual language without updating the canonical design context.
-- New reusable UI or repeated visual patterns must be added to Storybook first or in the same change.
-- Use Graphify for non-trivial codebase discovery when available; do not add it as a project dependency.
-- Docs are part of the change: if behavior, setup, env, architecture, provider, storage, deployment, UI system, or product flow changes, update the canonical doc in the same diff or state why docs did not change.
-- Pre-commit runs `bun scripts/check-staged-fix.ts`; CI runs the real gate. Never bypass a failing gate. Before handoff without a push, run `bun run check` explicitly.
-- Do not run `bun run build` unless requested or touching build/deployment behavior.
-- Never commit `.env`, secrets, OAuth credentials, API keys, private data, local uploads, logs, screenshots, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, `storybook-static/`, or coverage artifacts.
-- Never write secrets into tracked files: no API keys, access keys, secret keys, tokens, passwords, account IDs, or credentialed connection strings in `.md`, docs, specs, plans, comments, commits, or fixtures. Env blocks in docs use empty `""` values, never real values — not even as a "before" block or a "to show current state" example. This repo is public; a secret in a tracked file is a secret leaked.
-- Never echo `process.env` or secrets to the terminal or logs. Assume a developer is watching on streaming mode and reads every `console.*`/log line live. To reference an env var in a log, print its name and a set/unset boolean, never the value. No parsed `.env` dumps, no auth-header logs, no "redacted" values that can be reversed.
-- Open-source mindset: this repo is public, seen by millions, and safe for anyone to clone. Treat every tracked file, commit, and log line as public forever. Secrets live only in `.env` (gitignored) or deployment secrets. Before writing any value into a tracked file, ask: "am I fine if this appears on the public GitHub front page tomorrow?"
+- No any — any is lying to the compiler. Use unknown + narrowing, define the shape. No any, no as any, no ts-ignore / eslint-disable without one-liner why
+- Comments — code must be self-explanatory. No // loop over items. Only one-liner why when code looks wrong but is right. Delete the rest
+- Solid as hell — nothing ships without typecheck + lint + affected tests green together. CI is not your safety net. Broken = rejected, no excuses
+- Small, surgical — one concern per change. 50-line fix beats 500-line refactor. If description says also, split it
+- No dead weight — no commented-out code, no dead exports, no TODO without ticket. Knip + typecheck must stay green
+- Explicit over clever — boring explicit beats clever abstraction. Deep modules hide complexity behind small stable interfaces
+- Fail loud — validate at trust boundaries, fail closed on auth/money/publish, bound time/size/retries/concurrency. Silent fallback is a bug
+- Prefer deletion, reuse, platform features, existing deps before adding code
+- Optimize for next capable agent with zero context: leave canonical docs/scripts/checks clear enough to resume in minutes
+- Use Bun only; keep `bun.lock` canonical; work from `dev`; PRs into `dev`
+- User-facing copy Indonesian; dev docs/code/logs English
+- Follow `PRODUCT.md`, `DESIGN.md`, `.agents/skills/impeccable` before frontend design; new reusable UI → Storybook in same change
+- Use Graphify for non-trivial discovery when available; do not add as project dep
+
+## Docs are part of change — you are the linter
+
+- If behavior/setup/env/architecture/provider/storage/deployment/UI changes, update the canonical doc in the same diff or state why not
+- If you see code/docs in/adjacent to your touched files that violate DEV.md (any, restating comments, stale docs, broken typecheck/lint/test) — fix it NOW as part of this change. Don't leave broken windows. You are the linter, not deterministic tools
+- Surgical but not blind — touch only what task requires, but fix violations you can see nearby. Mention only truly unrelated breaks
+- Verification before completion — no claim without fresh evidence. Run `bun run check` (or nearest focused test + lint + typecheck), read exit code, then claim. "Should pass" is not evidence
+- Pre-commit runs `bun scripts/check-staged-fix.ts`; CI is real gate. Never bypass failing gate. Before handoff without push, run `bun run check`
+- Do not run `bun run build` unless requested or touching build/deployment
+- Never commit `.env`/secrets/private data/uploads/logs/screenshots/.next/.pi/graphify-out/storybook-static; env blocks use empty "" values
+- Never echo `process.env` values to terminal/logs; log name + set/unset only. Open-source mindset: every tracked file is public forever
