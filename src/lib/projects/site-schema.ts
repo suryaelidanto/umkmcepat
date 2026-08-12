@@ -1,4 +1,23 @@
 import { type ProjectBrief } from "@/lib/projects/brief";
+import {
+  type HoursValue,
+  type PaymentMethodValue,
+  type SocialLinkValue,
+} from "@/lib/projects/brief-rich-fields";
+
+/** Rich content fields the brief may populate. All optional: the gate and
+ * prompt only enforce/render fields the brief actually filled, so a minimal
+ * 2-field brief (businessName + offer) is not penalized. */
+export type SiteSchemaProduct = {
+  name: string;
+  description?: string;
+  priceRange?: string;
+};
+
+export type SiteSchemaFaqItem = {
+  q: string;
+  a: string;
+};
 
 export type ProjectSiteSchema = {
   version: 1;
@@ -21,11 +40,35 @@ export type ProjectSiteSchema = {
     title: string;
     body: string;
   }>;
+  // Rich fields — optional, populated from brief when the owner provided them.
+  tagline?: string;
+  usp?: string[];
+  products?: SiteSchemaProduct[];
+  testimonials?: Array<{
+    quote: string;
+    author: string;
+    rating?: 1 | 2 | 3 | 4 | 5;
+  }>;
+  faq?: SiteSchemaFaqItem[];
+  socialLinks?: SocialLinkValue[];
+  currentPromo?: string;
+  hours?: HoursValue[];
+  paymentMethods?: PaymentMethodValue[];
+  priceRange?: string;
+  address?: string;
+  deliveryArea?: string;
 };
 
 const MAX_TEXT = 220;
 const MAX_SECTIONS = 5;
 const MAX_TRUST_POINTS = 4;
+const MAX_PRODUCTS = 12;
+const MAX_TESTIMONIALS = 8;
+const MAX_FAQ = 10;
+const MAX_USP = 6;
+const MAX_SOCIAL = 6;
+const MAX_HOURS = 7;
+const MAX_PAYMENTS = 8;
 const defaultTheme = {
   background: "#f6f7f4",
   foreground: "#111312",
@@ -161,7 +204,68 @@ export function createProjectSiteSchemaFromBrief(
       targetCustomer,
       targetCustomerDetail,
     }),
+    // Rich fields: only set when the brief actually populated them, so the
+    // prompt + gate can skip empty ones. A 2-field minimal brief yields a
+    // schema with no rich fields — the gate only enforces businessName/offer.
+    tagline: brief.tagline?.trim() || undefined,
+    usp:
+      brief.usp && brief.usp.length
+        ? brief.usp
+            .map((u) => u.trim())
+            .filter(Boolean)
+            .slice(0, MAX_USP)
+        : undefined,
+    products: briefProducts(brief),
+    testimonials: briefTestimonials(brief),
+    socialLinks:
+      brief.socialLinks && brief.socialLinks.length
+        ? brief.socialLinks.slice(0, MAX_SOCIAL)
+        : undefined,
+    currentPromo: brief.currentPromo?.trim() || undefined,
+    hours:
+      brief.hours && brief.hours.length
+        ? brief.hours.slice(0, MAX_HOURS)
+        : undefined,
+    paymentMethods:
+      brief.paymentMethods && brief.paymentMethods.length
+        ? brief.paymentMethods.slice(0, MAX_PAYMENTS)
+        : undefined,
+    priceRange: brief.priceRange?.trim() || undefined,
+    address: brief.address?.trim() || undefined,
+    deliveryArea: brief.deliveryArea?.trim() || undefined,
   };
+}
+
+function briefProducts(brief: ProjectBrief): SiteSchemaProduct[] | undefined {
+  if (!brief.productOrService || !brief.productOrService.length) {
+    return undefined;
+  }
+  const items = brief.productOrService
+    .map((item) => ({
+      name: item.name.trim(),
+      description: item.description?.trim() || undefined,
+      priceRange: item.priceRange?.trim() || undefined,
+    }))
+    .filter((p) => p.name)
+    .slice(0, MAX_PRODUCTS);
+  return items.length ? items : undefined;
+}
+
+function briefTestimonials(
+  brief: ProjectBrief,
+): ProjectSiteSchema["testimonials"] | undefined {
+  if (!brief.testimonials || !brief.testimonials.length) {
+    return undefined;
+  }
+  const items = brief.testimonials
+    .map((t) => ({
+      quote: t.quote.trim(),
+      author: t.author.trim(),
+      rating: t.rating,
+    }))
+    .filter((t) => t.quote && t.author)
+    .slice(0, MAX_TESTIMONIALS);
+  return items.length ? items : undefined;
 }
 
 export function parseProjectSiteSchema(
@@ -218,7 +322,253 @@ export function parseProjectSiteSchema(
       MAX_TRUST_POINTS,
     ),
     sections: sections.length ? sections : fallback.sections,
+    // Rich fields: round-trip only when the AI wrote them into site.ts.
+    tagline: cleanOptional(data.tagline, fallback.tagline, 160),
+    usp: cleanOptionalList(data.usp, fallback.usp, MAX_USP),
+    products: parseProductsField(data.products, fallback.products),
+    testimonials: parseTestimonialsField(
+      data.testimonials,
+      fallback.testimonials,
+    ),
+    faq: parseFaqField(data.faq, fallback.faq),
+    socialLinks: parseSocialLinksField(data.socialLinks, fallback.socialLinks),
+    currentPromo: cleanOptional(data.currentPromo, fallback.currentPromo, 220),
+    hours: parseHoursField(data.hours, fallback.hours),
+    paymentMethods: parsePaymentsField(
+      data.paymentMethods,
+      fallback.paymentMethods,
+    ),
+    priceRange: cleanOptional(data.priceRange, fallback.priceRange, 80),
+    address: cleanOptional(data.address, fallback.address, 160),
+    deliveryArea: cleanOptional(data.deliveryArea, fallback.deliveryArea, 120),
   };
+}
+
+function cleanOptional(
+  value: unknown,
+  fallback: string | undefined,
+  maxLength: number,
+): string | undefined {
+  if (typeof value === "string") {
+    const text = value.trim().replace(/\s+/g, " ");
+    return text ? text.slice(0, maxLength) : undefined;
+  }
+  return fallback;
+}
+
+function cleanOptionalList(
+  value: unknown,
+  fallback: string[] | undefined,
+  maxItems: number,
+): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const items = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean)
+    .slice(0, maxItems);
+  return items.length ? items : fallback;
+}
+
+function parseProductsField(
+  value: unknown,
+  fallback: SiteSchemaProduct[] | undefined,
+): SiteSchemaProduct[] | undefined {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const name = typeof obj.name === "string" ? obj.name.trim() : "";
+      if (!name) {
+        return null;
+      }
+      const description =
+        typeof obj.description === "string"
+          ? obj.description.trim() || undefined
+          : undefined;
+      const priceRange =
+        typeof obj.priceRange === "string"
+          ? obj.priceRange.trim() || undefined
+          : undefined;
+      const product: SiteSchemaProduct = { name, description, priceRange };
+      return product;
+    })
+    .filter((p): p is SiteSchemaProduct => p !== null)
+    .slice(0, MAX_PRODUCTS);
+  return items.length ? items : fallback;
+}
+
+function parseTestimonialsField(
+  value: unknown,
+  fallback: ProjectSiteSchema["testimonials"],
+): ProjectSiteSchema["testimonials"] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const quote = typeof obj.quote === "string" ? obj.quote.trim() : "";
+      const author = typeof obj.author === "string" ? obj.author.trim() : "";
+      if (!quote || !author) {
+        return null;
+      }
+      const rawRating = obj.rating;
+      const ratingNum =
+        typeof rawRating === "number" ? rawRating : Number(rawRating);
+      const rating: 1 | 2 | 3 | 4 | 5 | undefined = Number.isFinite(ratingNum)
+        ? (Math.min(5, Math.max(1, Math.round(ratingNum))) as 1 | 2 | 3 | 4 | 5)
+        : undefined;
+      const testimonial: {
+        quote: string;
+        author: string;
+        rating?: 1 | 2 | 3 | 4 | 5;
+      } = { quote, author };
+      if (rating !== undefined) {
+        testimonial.rating = rating;
+      }
+      return testimonial;
+    })
+    .filter(
+      (t): t is { quote: string; author: string; rating?: 1 | 2 | 3 | 4 | 5 } =>
+        t !== null,
+    )
+    .slice(0, MAX_TESTIMONIALS);
+  return items.length ? items : fallback;
+}
+
+function parseFaqField(
+  value: unknown,
+  fallback: ProjectSiteSchema["faq"],
+): ProjectSiteSchema["faq"] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const q = typeof obj.q === "string" ? obj.q.trim() : "";
+      const a = typeof obj.a === "string" ? obj.a.trim() : "";
+      if (!q || !a) {
+        return null;
+      }
+      // Trust beats spectacle: never keep FAQ pairs with empty answers.
+      return { q, a };
+    })
+    .filter(
+      (i): i is NonNullable<ProjectSiteSchema["faq"]>[number] => i !== null,
+    )
+    .slice(0, MAX_FAQ);
+  return items.length ? items : fallback;
+}
+
+function parseSocialLinksField(
+  value: unknown,
+  fallback: SocialLinkValue[] | undefined,
+): SocialLinkValue[] | undefined {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const platform = typeof obj.platform === "string" ? obj.platform : "";
+      const handle = typeof obj.handle === "string" ? obj.handle.trim() : "";
+      if (!platform || !handle) {
+        return null;
+      }
+      const url =
+        typeof obj.url === "string" ? obj.url.trim() || undefined : undefined;
+      const link: SocialLinkValue = {
+        platform: platform as SocialLinkValue["platform"],
+        handle,
+        url,
+      };
+      return link;
+    })
+    .filter((l): l is SocialLinkValue => l !== null)
+    .slice(0, MAX_SOCIAL);
+  return items.length ? items : fallback;
+}
+
+function parseHoursField(
+  value: unknown,
+  fallback: HoursValue[] | undefined,
+): HoursValue[] | undefined {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const items = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const dayRange =
+        typeof obj.dayRange === "string" ? obj.dayRange.trim() : "";
+      const open = typeof obj.open === "string" ? obj.open.trim() : "";
+      const close = typeof obj.close === "string" ? obj.close.trim() : "";
+      if (!dayRange || !open || !close) {
+        return null;
+      }
+      const note =
+        typeof obj.note === "string" ? obj.note.trim() || undefined : undefined;
+      const hour: HoursValue = { dayRange, open, close, note };
+      return hour;
+    })
+    .filter((h): h is HoursValue => h !== null)
+    .slice(0, MAX_HOURS);
+  return items.length ? items : fallback;
+}
+
+function parsePaymentsField(
+  value: unknown,
+  fallback: PaymentMethodValue[] | undefined,
+): PaymentMethodValue[] | undefined {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const items = value
+    .map((item) => {
+      if (typeof item === "string") {
+        return { method: item as PaymentMethodValue["method"] };
+      }
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const obj = item as Record<string, unknown>;
+      const method = typeof obj.method === "string" ? obj.method.trim() : "";
+      if (!method) {
+        return null;
+      }
+      const detail =
+        typeof obj.detail === "string"
+          ? obj.detail.trim() || undefined
+          : undefined;
+      const payment: PaymentMethodValue = {
+        method: method as PaymentMethodValue["method"],
+        detail,
+      };
+      return payment;
+    })
+    .filter((p): p is PaymentMethodValue => p !== null)
+    .slice(0, MAX_PAYMENTS);
+  return items.length ? items : fallback;
 }
 
 type BusinessDomain = {

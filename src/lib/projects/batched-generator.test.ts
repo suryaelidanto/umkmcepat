@@ -272,8 +272,9 @@ describe("runBatchedGenerate — admission + failure paths", () => {
   afterEach(() => vi.clearAllMocks());
 
   it("blocks before any AI call when the brief is incomplete (no energy spent)", async () => {
+    // The 2-field minimum requires businessName + offer. Empty offer blocks.
     const args = baseArgs();
-    args.brief = makeBrief({ contactOrCta: "" });
+    args.brief = makeBrief({ offer: "" });
     let caught: unknown;
     try {
       await runBatchedGenerate({ ...args, stepCharger: makeCharger() });
@@ -282,7 +283,7 @@ describe("runBatchedGenerate — admission + failure paths", () => {
     }
     expect(caught).toBeInstanceOf(BatchedAdmissionBlockedError);
     expect((caught as BatchedAdmissionBlockedError).reason).toMatch(
-      /kontak|cta|whatsapp/i,
+      /penawaran|rief belum/i,
     );
     expect(streamTextMock).not.toHaveBeenCalled();
     expect(chargeEnergyForStepMock).not.toHaveBeenCalled();
@@ -634,6 +635,61 @@ describe("collectBatchedGateIssues", () => {
           "--background: oklch(0.98 0.01 95); --foreground: oklch(0.2 0.01 95); --accent: oklch(0.6 0.15 40);",
       },
     );
+    expect(issues).toEqual([]);
+  });
+
+  it("rejects starter boilerplate CTAs and feature cards (scaffold rot)", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<div><h1>{site.businessName}</h1><p>{site.headline}</p><a href="/blog">Read the Blog</a><a href="https://github.com">View on GitHub</a></div>);\n}',
+        },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: oklch(0.99 0 0);" },
+    );
+    expect(issues.join("\n")).toMatch(/starter boilerplate|scaffold rot/);
+  });
+
+  it("flags populated site.ts fields not rendered in index.tsx (completeness gate)", () => {
+    // site.ts has products + testimonials + faq, but index.tsx only renders
+    // headline. The gate must catch each unrendered populated field.
+    const siteTs =
+      'export const site = { businessName: "Toko A", headline: "Selamat datang", subheadline: "", primaryCta: "Pesan", offer: "Barang", trustPoints: [], sections: [], products: [{ name: "A" }], testimonials: [{ quote: "q", author: "a" }], faq: [{ q: "q", a: "a" }], currentPromo: "", socialLinks: [] } as const;\nexport default site;';
+    const indexTsx =
+      'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<main><h1>{site.headline}</h1></main>);\n}';
+    const issues = collectBatchedGateIssues(
+      [
+        { path: "src/routes/index.tsx", content: indexTsx },
+        { path: "src/content/site.ts", content: siteTs },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: ok; --foreground: ok; --accent: ok;" },
+    );
+    const joined = issues.join("\n");
+    expect(joined).toMatch(/site\.offer/);
+    expect(joined).toMatch(/site\.primaryCta/);
+    expect(joined).toMatch(/site\.products/);
+    expect(joined).toMatch(/site\.testimonials/);
+    expect(joined).toMatch(/site\.faq/);
+  });
+
+  it("does not flag empty site.ts fields (data-driven — minimal brief not penalized)", () => {
+    // Only businessName + headline populated; everything else empty. The gate
+    // must only enforce rendering of populated fields, so a minimal brief is
+    // not penalized for skipping products/testimonials/faq.
+    const siteTs =
+      'export const site = { businessName: "Toko A", headline: "Selamat datang", subheadline: "", primaryCta: "", offer: "", trustPoints: [], sections: [], products: [], testimonials: [], faq: [], currentPromo: "", socialLinks: [] } as const;\nexport default site;';
+    const indexTsx =
+      'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<main><h1>{site.headline}</h1></main>);\n}';
+    const issues = collectBatchedGateIssues(
+      [
+        { path: "src/routes/index.tsx", content: indexTsx },
+        { path: "src/content/site.ts", content: siteTs },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: ok; --foreground: ok; --accent: ok;" },
+    );
+    // headline is populated and rendered — no issues expected.
     expect(issues).toEqual([]);
   });
 });

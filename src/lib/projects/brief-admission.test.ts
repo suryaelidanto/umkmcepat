@@ -59,28 +59,31 @@ describe("checkBatchedGenerateAdmission", () => {
     }
   });
 
-  it("blocks when contactOrCta / CTA info is missing", () => {
-    const result = checkBatchedGenerateAdmission({
-      brief: readyBrief({ contactOrCta: "" }),
+  it("admits a minimal brief with only businessName + offer + readyForBuild", () => {
+    // The 2-field minimum: contact, style, target customer are optional now.
+    // A build can start as soon as identity + offering are known.
+    const minimal = readyBrief({
+      contactOrCta: "",
+      stylePreference: "",
+      targetCustomer: "",
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toMatch(/kontak|cta|whatsapp/i);
+    const result = checkBatchedGenerateAdmission({ brief: minimal });
+    expect(result.ok).toBe(true);
+  });
+
+  it("does not block when contactOrCta / stylePreference / targetCustomer are missing (optional fields)", () => {
+    // These are rich fields now — the writer prompt + completeness gate skip
+    // empty ones. Admission only enforces the core: businessName + offer.
+    for (const patch of [
+      { contactOrCta: "" },
+      { stylePreference: "" },
+      { targetCustomer: "" },
+    ]) {
+      const result = checkBatchedGenerateAdmission({
+        brief: readyBrief(patch),
+      });
+      expect(result.ok).toBe(true);
     }
-  });
-
-  it("blocks when stylePreference is missing", () => {
-    const result = checkBatchedGenerateAdmission({
-      brief: readyBrief({ stylePreference: "" }),
-    });
-    expect(result.ok).toBe(false);
-  });
-
-  it("blocks when targetCustomer is missing", () => {
-    const result = checkBatchedGenerateAdmission({
-      brief: readyBrief({ targetCustomer: "" }),
-    });
-    expect(result.ok).toBe(false);
   });
 
   it("does not throw on null brief fields", () => {

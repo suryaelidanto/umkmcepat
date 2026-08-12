@@ -181,6 +181,128 @@ export function HomeRouteComponent() {
 }
 \`\`\`
 
+Example 3 — Catalog / retail (FULL multi-section landing — the pattern you MUST follow when site.ts has rich fields). Render EVERY populated field: hero, promo banner, product grid, order steps, testimonials, FAQ, social links. Never ship starter boilerplate ("Read the Blog", "View on GitHub", "⚡ Fast / 🎨 Beautiful / 📝 MDX Ready") — those are scaffold rot and the gate rejects them. If a field is empty, skip its section; if it has data, render it.
+\`\`\`tsx
+import { site } from "@/content/site";
+import { usePreviewReady } from "@/lib/preview-ready";
+import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export function HomeRouteComponent() {
+  usePreviewReady();
+  const waHref = site.primaryCta.toLowerCase().includes("whatsapp") || site.primaryCta.toLowerCase().includes("chat")
+    ? \`https://wa.me/?text=\${encodeURIComponent(site.headline)}\`
+    : "#kontak";
+  return (
+    <main className="mx-auto max-w-6xl px-6">
+      {/* Hero — always render eyebrow, headline, subheadline, primaryCta, secondaryCta */}
+      <section className="grid gap-8 md:grid-cols-2 items-center py-20">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{site.eyebrow}</p>
+          <h1 className="mt-2 text-5xl font-bold tracking-tight text-balance" style={{letterSpacing:"-0.03em"}}>{site.headline}</h1>
+          <p className="mt-4 max-w-[65ch] text-pretty text-muted-foreground">{site.subheadline}</p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button asChild><a href={waHref} target="_blank" rel="noopener noreferrer">{site.primaryCta}</a></Button>
+            <Button variant="outline" asChild><a href="#cara-order">{site.secondaryCta}</a></Button>
+          </div>
+        </div>
+        <img src="/placeholder.svg" alt={site.businessName} className="rounded-xl" />
+      </section>
+
+      {/* Promo banner — only when site.currentPromo is populated */}
+      {site.currentPromo ? (
+        <section aria-label="Promo" className="rounded-xl bg-accent/10 p-6 text-center">
+          <p className="font-medium text-accent-foreground">{site.currentPromo}</p>
+        </section>
+      ) : null}
+
+      {/* Trust points — always render when present */}
+      {site.trustPoints?.length ? (
+        <section className="grid gap-4 md:grid-cols-3 py-12">
+          {site.trustPoints.map((tp) => (
+            <div key={tp} className="rounded-xl border p-6 text-sm">{tp}</div>
+          ))}
+        </section>
+      ) : null}
+
+      {/* Product catalog — only when site.products is populated */}
+      {site.products?.length ? (
+        <section id="katalog" className="scroll-mt-24 py-12" aria-label="Katalog">
+          <h2 className="text-3xl font-semibold mb-8">Katalog</h2>
+          <div className="grid gap-6" style={{gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))"}}>
+            {site.products.map((p) => (
+              <Card key={p.name}>
+                <CardHeader><CardTitle>{p.name}</CardTitle></CardHeader>
+                <CardContent className="space-y-1">
+                  {p.description ? <p className="text-sm text-muted-foreground">{p.description}</p> : null}
+                  {p.priceRange ? <p className="font-semibold">{p.priceRange}</p> : null}
+                  <Button asChild size="sm" className="mt-3"><a href={waHref} target="_blank" rel="noopener noreferrer">{site.primaryCta}</a></Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Testimonials — only when site.testimonials is populated */}
+      {site.testimonials?.length ? (
+        <section aria-label="Testimoni" className="py-12">
+          <h2 className="text-3xl font-semibold mb-8">Testimoni</h2>
+          <div className="grid gap-6 md:grid-cols-3">
+            {site.testimonials.map((t) => (
+              <Card key={t.author}>
+                <CardContent className="pt-6">
+                  {t.rating ? <p className="text-accent">{"★".repeat(t.rating)}</p> : null}
+                  <p className="text-pretty">"{t.quote}"</p>
+                  <p className="mt-3 text-sm font-medium">{t.author}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* FAQ — only when site.faq is populated */}
+      {site.faq?.length ? (
+        <section aria-label="FAQ" className="py-12">
+          <h2 className="text-3xl font-semibold mb-8">FAQ</h2>
+          <Accordion type="single" collapsible>
+            {site.faq.map((item, i) => (
+              <AccordionItem key={i} value={\`q-\${i}\`}>
+                <AccordionTrigger>{item.q}</AccordionTrigger>
+                <AccordionContent>{item.a}</AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </section>
+      ) : null}
+
+      {/* Social links — only when populated */}
+      {site.socialLinks?.length ? (
+        <footer className="flex flex-wrap gap-4 py-12 border-t">
+          {site.socialLinks.map((s) => (
+            <a key={s.platform} href={s.url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground">{s.platform}</a>
+          ))}
+        </footer>
+      ) : null}
+    </main>
+  );
+}
+\`\`\`
+
+RENDER COMPLETENESS RULE (enforced by the gate — read carefully):
+- site.ts is fully populated. Before writing index.tsx, READ its fields. Every non-empty field MUST appear in the rendered JSX as a visible element (not just mentioned in a comment or unused variable).
+- Render: site.eyebrow, site.headline, site.subheadline, site.primaryCta (as a real <a>/<Button> with href), site.secondaryCta, site.trustPoints, site.sections.
+- If site.products has items, render them as cards in a grid (name + description + priceRange + CTA each).
+- If site.testimonials has items, render them (quote + author + rating stars).
+- If site.faq has items, render them as an accordion or list (q + a).
+- If site.currentPromo is set, render a promo banner.
+- If site.socialLinks has items, render them in a footer.
+- If a field is empty/undefined, SKIP its section. Do not invent data.
+- NEVER ship starter boilerplate: no "Read the Blog", no "View on GitHub", no "⚡ Fast / 🎨 Beautiful / 📝 MDX Ready", no "Welcome to the home page", no "Your new project is ready". The gate rejects these.
+- NEVER hardcode href="/blog" or href="https://github.com". CTAs link to WhatsApp, #kontak, or real business actions.
+
 ${DESIGN_DIRECTIVE}
 
 SCAFFOLD MANIFEST (the exact starter your files extend — do not rewrite these; src/router.tsx is the ONE exception — it is writer-owned, so DO rewrite it to register new routes per SPEED RULE 3):

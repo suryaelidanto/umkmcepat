@@ -326,6 +326,39 @@ export function implementationSpecFromBrief(
     },
   ];
 
+  // Rich content: only list components + content the brief actually populated.
+  // A 2-field brief (businessName + offer) yields Hero + Offer + Contact only.
+  if (schema.products?.length) {
+    components.push({
+      name: "ProductCatalog",
+      purpose: `Render ${schema.products.length} produk/jasa dari site.products sebagai kartu dengan nama, deskripsi, dan harga/priceRange.`,
+    });
+  }
+  if (schema.testimonials?.length) {
+    components.push({
+      name: "Testimonials",
+      purpose: `Render ${schema.testimonials.length} testimoni dari site.testimonials dengan kutipan, nama, dan rating bintang.`,
+    });
+  }
+  if (schema.faq?.length) {
+    components.push({
+      name: "Faq",
+      purpose: `Render ${schema.faq.length} pasangan Q/A dari site.faq sebagai accordion atau daftar.`,
+    });
+  }
+  if (schema.currentPromo) {
+    components.push({
+      name: "PromoBanner",
+      purpose: `Banner promo aktif: ${schema.currentPromo.slice(0, 120)}.`,
+    });
+  }
+  if (schema.socialLinks?.length) {
+    components.push({
+      name: "SocialLinks",
+      purpose: `Tautan sosial: ${schema.socialLinks.map((s) => s.platform).join(", ")}.`,
+    });
+  }
+
   const content: Record<string, unknown> = {
     offer,
     audience,
@@ -336,6 +369,16 @@ export function implementationSpecFromBrief(
     priceRange: brief.priceRange || undefined,
     paymentMethods: brief.paymentMethods || undefined,
     deliveryArea: brief.deliveryArea || undefined,
+    // Rich fields mirrored from site.ts so the writer prompt tells the AI what
+    // to render. Undefined fields are omitted from the prompt entirely.
+    products: schema.products,
+    testimonials: schema.testimonials,
+    faq: schema.faq,
+    socialLinks: schema.socialLinks,
+    currentPromo: schema.currentPromo,
+    hours: schema.hours,
+    address: schema.address,
+    usp: schema.usp,
   };
 
   const notes = ["spec_source:brief_fallback", ...cleanList(brief.notes, 8)];

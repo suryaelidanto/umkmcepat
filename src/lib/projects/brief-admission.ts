@@ -5,8 +5,11 @@
 // the batched prompt can't ask follow-up questions mid-stream, so anything
 // the writer needs must be present in the brief up front.
 //
-// Blocks on the same structural fields discuss-readiness treats as
-// blockers, plus the fields the writer prompt specifically consumes.
+// Blocks on the minimum buildable brief: identity (businessName) +
+// offering (offer) + readyForBuild flag. Rich fields (contact, style, target
+// customer, products, testimonials, FAQ) are optional — the writer prompt +
+// completeness gate skip empty ones, so a build can start as soon as the core
+// is known. This mirrors MIN_BRIEF_FIELDS in brief-flow.ts.
 import { z } from "zod";
 
 import type { ProjectBrief } from "./brief";
@@ -19,11 +22,8 @@ const requiredText = z
 
 const batchedBriefAdmissionSchema = z.object({
   businessName: requiredText,
-  contactOrCta: requiredText,
   offer: requiredText,
   readyForBuild: z.literal(true),
-  stylePreference: requiredText,
-  targetCustomer: requiredText,
 });
 
 export type BatchedBriefAdmissionResult =
@@ -46,11 +46,8 @@ export class BatchedAdmissionBlockedError extends Error {
 
 const FIELD_LABELS: Record<string, string> = {
   businessName: "nama usaha",
-  contactOrCta: "kontak atau CTA (misalnya WhatsApp)",
   offer: "penawaran utama",
   readyForBuild: "kesiapan build",
-  stylePreference: "preferensi visual",
-  targetCustomer: "target pelanggan",
 };
 
 /**
@@ -63,11 +60,8 @@ export function checkBatchedGenerateAdmission(input: {
 }): BatchedBriefAdmissionResult {
   const parsed = batchedBriefAdmissionSchema.safeParse({
     businessName: input.brief.businessName,
-    contactOrCta: input.brief.contactOrCta,
     offer: input.brief.offer,
     readyForBuild: input.brief.readyForBuild,
-    stylePreference: input.brief.stylePreference,
-    targetCustomer: input.brief.targetCustomer,
   });
 
   if (parsed.success) {

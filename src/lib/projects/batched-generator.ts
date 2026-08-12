@@ -86,6 +86,133 @@ const BANNED_URL_PATTERN =
 
 const REQUIRED_STAGE_PATHS = ["src/routes/index.tsx"] as const;
 
+/** Starter-scaffold boilerplate the writer must replace. Matches the default
+ * CTAs and feature-card copy from the TanStack starter — any hit means the AI
+ * shipped scaffold rot instead of rewriting the home page from site.ts. */
+const STARTER_BOILERPLATE_PATTERN =
+  /Read the Blog|View on GitHub|href="\/blog"|href="https:\/\/github\.com"|MDX Ready|Fast\s+\+\s+Beautiful|Beautiful\s+\+\s+MDX/i;
+
+/** Fields the gate enforces rendering for, in priority order. Only those the
+ * staged site.ts actually populated are checked — empty fields are skipped so
+ * a minimal 2-field brief is not penalized. */
+const RENDER_REQUIRED_SITE_FIELDS = [
+  "headline",
+  "subheadline",
+  "primaryCta",
+  "offer",
+  "trustPoints",
+  "sections",
+  "products",
+  "testimonials",
+  "faq",
+  "currentPromo",
+  "socialLinks",
+] as const;
+
+/** Regex-scan site.ts for which fields hold real data. Avoids eval — a
+ * malformed site object never crashes the gate. Handles both single-line
+ * and multi-line site.ts emissions. A field counts as populated when its
+ * value is a non-empty string, a non-empty array, or a non-empty object. */
+function detectPopulatedSiteFields(siteTsContent: string): readonly string[] {
+  const populated: string[] = [];
+  // Match each top-level key: 'field': value  or  field: value. Value is one
+  // of: quoted string, bracketed array, braced object, or bare scalar. Stops
+  // at the next comma or closing brace. Nested brackets/braces are not
+  // balanced — the schema's rich fields are arrays of flat objects, so a
+  // first-bracket cut is sufficient. ponytail: upgrade to a real TS parse if
+  // site.ts grows deeply nested content.
+  const fieldRe =
+    /"?([a-zA-Z_][a-zA-Z0-9_]*)"?\s*:\s*("[^"]*"|'[^']*'|\[[^\]]*\]|\{[^}]*\}|[^,}\n]*)/g;
+  let m: RegExpExecArray | null;
+  while ((m = fieldRe.exec(siteTsContent)) !== null) {
+    const field = m[1];
+    const rawValue = m[2].trim();
+    if (isPopulatedValue(rawValue)) {
+      populated.push(field);
+    }
+  }
+  return populated.filter((f) =>
+    RENDER_REQUIRED_SITE_FIELDS.includes(
+      f as (typeof RENDER_REQUIRED_SITE_FIELDS)[number],
+    ),
+  );
+}
+
+function isPopulatedValue(raw: string): boolean {
+  // String: non-empty after stripping quotes.
+  if (/^["'`]/.test(raw)) {
+    return raw.replace(/^["'`]|["'`]$/g, "").trim().length > 0;
+  }
+  // Array: at least one non-bracket, non-whitespace char inside.
+  if (raw.startsWith("[")) {
+    return /\[\s*[^\s\]]/.test(raw);
+  }
+  // Object: at least one non-brace, non-whitespace char inside.
+  if (raw.startsWith("{")) {
+    return /\{\s*[^\s\}]/.test(raw);
+  }
+  // Bare identifier/number: treat as populated (e.g. version: 1).
+  return raw.length > 0 && raw !== "undefined" && raw !== "null";
+}
+
+/** Parse index.tsx with the TypeScript compiler and return the set of site.*
+ * fields that appear inside JSX expression containers ({...}) or as JSX
+ * children — i.e. actually rendered, not just mentioned in a comment or
+ * assigned to an unused variable. This is the semantic check the old
+ * presence-regex gate could not do. */
+function renderedSiteFieldsInIndex(indexContent: string): Set<string> {
+  const rendered = new Set<string>();
+  const sourceFile = ts.createSourceFile(
+    "index.tsx",
+    indexContent,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ true,
+    ts.ScriptKind.TSX,
+  );
+  const visit = (node: ts.Node) => {
+    // site.<field> inside a JSX expression container {site.headline} counts
+    // as rendered. Also site.<field>.map(...) inside JSX renders.
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "site" &&
+      ts.isIdentifier(node.name)
+    ) {
+      if (isInsideJsx(node)) {
+        rendered.add(node.name.text);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return rendered;
+}
+
+/** Walk up parents: true when the site.<field> access is inside a JSX
+ * expression container ({...}) or is a JSX child. Comments, unused variable
+ * initializers, and console.log args do not count. */
+function isInsideJsx(node: ts.Node): boolean {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if (
+      ts.isJsxExpression(current) ||
+      ts.isJsxElement(current) ||
+      ts.isJsxSelfClosingElement(current) ||
+      ts.isJsxFragment(current) ||
+      ts.isJsxText(current)
+    ) {
+      return true;
+    }
+    // Stop at function/block boundaries — an access inside a non-JSX arrow
+    // fn body that is never called from JSX is not rendered.
+    if (ts.isFunctionDeclaration(current) || ts.isBlock(current)) {
+      return false;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Public types
 
@@ -210,20 +337,12 @@ export function collectBatchedGateIssues(
     );
   }
 
-  // The preview iframe hangs forever on "Menyiapkan tampilan website" unless
-  // usePreviewReady() is actually called from the home route. The scaffold's
-  // preview-ready.ts defines the hook, so its mere presence in the staged
-  // files is not enough — Vite tree-shakes unused modules. Mirrors the legacy
-  // checkAgentSourceQuality call-site assertion.
   if (indexFile && !/usePreviewReady\s*\(/.test(indexFile.content)) {
     issues.push(
       "src/routes/index.tsx must call usePreviewReady() inside HomeRouteComponent so the preview iframe unlocks.",
     );
   }
 
-  // Reject a home route that is only a generic stub ("Home"/"Welcome home")
-  // with no brief-derived content — it compiles and exports the component but
-  // ships a broken site. The brief content must be referenced.
   if (
     indexFile &&
     /welcome\s+to\s+the\s+home\s+page|>Home<\/h1>|>Welcome<\/h1>|Home page content goes here|Your new project is ready/i.test(
@@ -235,18 +354,25 @@ export function collectBatchedGateIssues(
     );
   }
 
-  // Stub that never references site.* is always generic — require brief-derived
-  // content. The writer must render from src/content/site.ts (site.headline,
-  // site.businessName, site.offer, etc.), not hard-coded Welcome.
   if (indexFile && !/site\./.test(indexFile.content)) {
     issues.push(
       "src/routes/index.tsx does not reference site.* — the home page must render from src/content/site.ts (site.headline, site.businessName, site.offer) so brief content appears.",
     );
   }
 
-  // site.ts schema-drift detector: only read fields that exist on the
-  // scaffold's site object. Invented fields (site.phone, site.tagline,
-  // site.name, site.address) fail tsc after the AI pass and burn repairs.
+  // Starter-boilerplate ban: reject the scaffold's default CTAs/copy that
+  // ship when the AI ignores site.ts. These literals only appear in the
+  // untouched starter, so any match means the writer did not rewrite the
+  // home page from the brief.
+  if (indexFile && STARTER_BOILERPLATE_PATTERN.test(indexFile.content)) {
+    issues.push(
+      'src/routes/index.tsx ships starter boilerplate ("Read the Blog", "View on GitHub", "⚡ Fast", "🎨 Beautiful", "📝 MDX Ready", or /blog + github.com hrefs) — rewrite the home page from site.* content. The gate rejects scaffold rot.',
+    );
+  }
+
+  // site.ts schema-drift detector: only read fields that exist on the site
+  // object. Invented fields (site.phone, site.tagline, site.name,
+  // site.address) fail tsc after the AI pass and burn repairs.
   const SITE_KNOWN_FIELDS = new Set([
     "businessName",
     "eyebrow",
@@ -260,6 +386,19 @@ export function collectBatchedGateIssues(
     "trustPoints",
     "sections",
     "version",
+    // Rich fields — optional but valid when the brief populated them.
+    "tagline",
+    "usp",
+    "products",
+    "testimonials",
+    "faq",
+    "socialLinks",
+    "currentPromo",
+    "hours",
+    "paymentMethods",
+    "priceRange",
+    "address",
+    "deliveryArea",
   ]);
   for (const file of stagedFiles) {
     if (!file.path.endsWith(".tsx")) {
@@ -274,7 +413,29 @@ export function collectBatchedGateIssues(
       }
       if (!SITE_KNOWN_FIELDS.has(field)) {
         issues.push(
-          `${file.path}: site.${field} does not exist on src/content/site.ts — use the actual fields (businessName, headline, offer, trustPoints, sections, ...).`,
+          `${file.path}: site.${field} does not exist on src/content/site.ts — use the actual fields (businessName, headline, offer, trustPoints, sections, products, testimonials, faq, ...).`,
+        );
+      }
+    }
+  }
+
+  // Render-completeness gate (data-driven): parse the staged site.ts to learn
+  // which fields the brief populated, then assert each populated field is
+  // actually RENDERED in index.tsx — not just mentioned in a comment or
+  // unused variable. This is the check that catches the failure mode where
+  // the writer references site.headline once but ships starter cards for
+  // everything else. Reads site.ts with a regex (not eval) so a malformed
+  // site object never crashes the gate.
+  if (indexFile) {
+    const siteFile = stagedFiles.find((f) => f.path === "src/content/site.ts");
+    const populatedFields = siteFile
+      ? detectPopulatedSiteFields(siteFile.content)
+      : [];
+    const unrendered = renderedSiteFieldsInIndex(indexFile.content);
+    for (const field of populatedFields) {
+      if (!unrendered.has(field)) {
+        issues.push(
+          `src/routes/index.tsx does not render site.${field} — site.ts has data for this field but it never appears inside JSX. Render it as a visible element, not a comment or unused variable.`,
         );
       }
     }

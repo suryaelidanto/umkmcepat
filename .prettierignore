@@ -28,4 +28,5 @@ storybook-static/
 docs/superpowers/
 
 .playwright-mcp/
+.firecrawl/
 tmp/
