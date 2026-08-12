@@ -1,4 +1,20 @@
 {
+  "cmc/deepseek/deepseek-v4-pro": {
+    "sourceModelId": "cmc/deepseek/deepseek-v4-pro",
+    "openRouterModelId": null,
+    "promptPrice": 4.35e-7,
+    "completionPrice": 8.7e-7,
+    "source": "https://commandcode.ai/models/deepseek-v4-pro",
+    "checkedAt": "2026-08-12"
+  },
+  "cmc/deepseek/deepseek-v4-flash": {
+    "sourceModelId": "cmc/deepseek/deepseek-v4-flash",
+    "openRouterModelId": null,
+    "promptPrice": 1.4e-7,
+    "completionPrice": 2.8e-7,
+    "source": "https://commandcode.ai/models/deepseek-v4-flash",
+    "checkedAt": "2026-08-12"
+  },
   "xiaomi/mimo-v2.5": {
     "sourceModelId": "xiaomi/mimo-v2.5",
     "openRouterModelId": "xiaomi/mimo-v2.5",

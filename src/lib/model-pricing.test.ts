@@ -105,6 +105,8 @@ describe("getModelPricing", () => {
 
   it("returns manual override pricing for every cheap combo primary", async () => {
     const cases = [
+      ["cmc/deepseek/deepseek-v4-pro", 0.000000435, 0.00000087],
+      ["cmc/deepseek/deepseek-v4-flash", 0.00000014, 0.00000028],
       ["xiaomi/mimo-v2.5", 0.00000014, 0.00000028],
       ["z-ai/glm-4.6v", 0.0000003, 0.0000009],
       ["moonshotai/kimi-k2.6", 0.000000589, 0.00000248],
