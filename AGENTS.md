@@ -4,16 +4,61 @@ Boot instructions for AI agents working on UMKM Cepat.
 
 ## Read first
 
-- `PRINCIPLES.md`: operating taste and quality bar.
-- `DEV.md`: local workflow, commands, quality gate, + the **Cleanliness contract** (behavior-preserving refactors, comment hygiene).
-- `PRODUCT.md`: required before product positioning, builder flow, generated-project UX, or design-system decisions.
-- `DESIGN.md`: required before UI, styling, layout, typography, colors, or components.
-- `docs/superpowers/README.md`: how to read specs/plans; many are historical decision trail, not current truth.
-- Key modules: `src/lib/s3-client.ts` (MinIO/R2), `src/lib/email.ts` (Resend), `src/lib/analytics.ts` (Umami), `src/lib/waitlist-enabled.ts` (gate toggle), `/media/<assetId>` route, `/admin` dashboard
-- Generation engine: contract-v1 only (`generationEngine` is always `contract-v1`; the legacy ToolLoopAgent engine is removed). Build/edit both use the batched/contract streaming writer: `src/lib/projects/batched-response.ts` (streamed `<file>` parser), `src/lib/projects/scaffold/manifest.ts` (auto-derived scaffold manifest), `brief-admission.ts`, `batched-generator.ts`, `batched-edit-targets.ts` + `batched-edit.ts`, wired via `build-attempt-worker.ts` / `edit-attempt-worker.ts`. There is no legacy fallback — a batched failure fails the attempt.
-- Observability: `AiCallRecord` table + `src/lib/ai-call-record.ts` (`recordAiCall`, `startAiCallTimer`, ttftMs capture). Query by `turnId`/`attemptId`/`projectId`. Raw payloads stay in `.data/tmp/ai-debug/requests.ndjson` (dev-only).
-- Discuss turn: `src/lib/projects/discuss-turn-worker.ts` makes ONE direct call via `getDiscussModel()`. Hedging (the 3-combo parallel race, `discuss.hedging`, `ai.model.discuss_hedge_2/3`, `addEnergyUsageLegs`) is removed.
-- Workspace cards: `WorkspaceCard` in `brief.ts` is `none | question | image_upload | build_recommendation`. The `image_upload` card (UI `ImageUploadComposer` in `WorkspacePrimitives.tsx`) collects jpeg/png/webp ≤5MB via `uploadTempImageFile`, single or multiple, always skippable. Answers persist `ProjectBrief.businessImages` (`{id, purpose}`) and are emitted in `briefToBuildPrompt` as `/media/<id> (purpose)` so the build agent's UPLOADED IMAGES placement instruction has real refs. `card-richness.ts` backfills a placeholder on text cards that lack one.
+- `PRINCIPLES.md` → taste
+- `DEV.md` → workflow + Cleanliness + typecheck/lint/test gate
+- `PRODUCT.md` → who/what for
+- `DESIGN.md` → tokens/UI
+- `docs/superpowers/README.md` → specs/plans are decision trail, trust source over old specs
+
+## What makes UMKM Cepat special
+
+Warm, restrained trust engine for busy Indonesian owners. Four non-negotiables:
+
+1. Trust beats spectacle — visible progress, honest states, no fake awards/prices/addresses
+2. One useful path — next action obvious: discuss → build → preview → edit → publish
+3. Portable output — generated Vite+Tailwind stands alone, no lock-in
+4. 100% free to succeed — every feature works on pilot Energy grant (500k), booster is optional extra, never a paywall
+
+## Glossary
+
+- brief = AI-owned facts/decisions (facts, offer, contact, product)
+- turn = one discuss cycle (user message → workspace card)
+- attempt = queued build/edit job (BullMQ)
+- handoff = spec → build bridge
+- scaffold = manifest-derived template (archetype + shadcn)
+- project = DB row + .data/project-*
+
+## How it works
+
+brief → discuss-turn-worker (ONE call) → build-planner → batched-generator / batched-edit → scaffold/manifest → generated-source → preview-proxy / runtime-supervisor
+One control-plane, many project rows, supervised generated runtimes.
+
+## Where code lives
+
+- `src/lib/projects/` — 224 files: brief-flow, batched-generator, batched-edit, build-attempt-worker
+- `src/routes/api.projects.*` — 40 handlers: generate, edit, preview, chat.turn, runtime
+- `src/components/projects/Workspace*` — shell, composer, preview
+- `src/lib/s3-client.ts` — storage (MinIO local / R2 prod)
+- `src/lib/projects/scaffold/` — archetypes + shadcn starter
+- Graphify → `bun run graph:update`, read `graph.html` before non-trivial discovery
+
+## Three ways to hurt yourself
+
+1. Killing infra by pattern — never pkill -f, use `bun run dev:reset` (kills only repo-owned PID on 3000)
+2. Writing to live `.data/project-*` or `.env` secrets to tracked files — public leak, fix is `sweep:project-orphans`
+3. `rm -rf .data` — use `bun run sweep:project-orphans`, thumbnails/snapshots regrow
+
+## Hit every surface — definition of done
+
+Before calling frontend done, check: build+edit both? preview + /media/<id> + thumbnail? /admin? Storybook if reusable UI? brief cards + /media refs emitted?
+
+## Dev servers
+
+`bun run infra` (full) / `infra:minimal` (Postgres+Redis only). App `http://localhost:3000`, `dev.log` at root + `docker compose logs`. Read `dev.log` grepping projectId/turnId first. `bun run dev:logs` tails.
+
+## Test data
+
+Empty DB = bad test. Seed worktree `.data` from real copy (never symlink live), bring `state.sqlite*` with VACUUM, keep secrets only if flow needs it.
 
 ## Commands
 
