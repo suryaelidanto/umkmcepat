@@ -275,7 +275,7 @@ export function collectBatchedPerFileIssues(input: {
   if (/\.(ts|tsx)$/.test(file.path)) {
     const transpiled = ts.transpileModule(file.content, {
       compilerOptions: {
-        jsx: file.path.endsWith(".tsx") ? ts.JsxEmit.ReactJSX : undefined,
+        ...(file.path.endsWith(".tsx") ? { jsx: ts.JsxEmit.ReactJSX } : {}),
         module: ts.ModuleKind.ESNext,
         target: ts.ScriptTarget.ES2023,
       },

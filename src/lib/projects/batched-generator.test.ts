@@ -40,6 +40,7 @@ vi.mock("@/lib/user-credits", () => ({
 import {
   buildBatchedWriterPrompt,
   collectBatchedGateIssues,
+  collectBatchedPerFileIssues,
   runBatchedGenerate,
 } from "./batched-generator";
 import { BatchedAdmissionBlockedError } from "./brief-admission";
@@ -577,6 +578,17 @@ describe("runBatchedGenerate — admission + failure paths", () => {
 });
 
 describe("collectBatchedGateIssues", () => {
+  it("accepts data-only TypeScript without a JSX compiler option", () => {
+    const issues = collectBatchedPerFileIssues({
+      allowedPackages: new Set(),
+      file: {
+        path: "src/content/surya.ts",
+        content: 'export const surya = { title: "SuryaPhone" } as const;',
+      },
+    });
+    expect(issues).toEqual([]);
+  });
+
   it("flags missing required files and placeholder URLs", () => {
     const issues = collectBatchedGateIssues(
       [{ path: "public/x.svg", content: "<svg />" }] as GeneratedProjectFile[],
