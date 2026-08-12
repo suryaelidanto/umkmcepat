@@ -2,9 +2,29 @@
 // Durable handoff read/selection helpers. Handoff rows are immutable
 // contract/plan pairs; execution status lives on attempts/builds, never here.
 import { prisma } from "@/lib/prisma";
+import {
+  parseBuildContract,
+  type BuildContractV1,
+} from "@/lib/projects/build-contract";
+import { hashBuildContract, hashBuildPlan } from "@/lib/projects/build-hash";
+import {
+  parseBuildPlan,
+  type BuildPlanV1,
+  validatePlanAgainstContract,
+} from "@/lib/projects/build-plan";
 
 export type ActiveHandoff = {
   id: string;
+  contractHash: string;
+  planHash: string;
+  contractRevision: number;
+  planRevision: number;
+};
+
+export type AcceptedBuildHandoff = {
+  id: string;
+  contract: BuildContractV1;
+  plan: BuildPlanV1;
   contractHash: string;
   planHash: string;
   contractRevision: number;
@@ -24,6 +44,68 @@ export type CreateHandoffInput = {
   contractRevision: number;
   planRevision: number;
 };
+
+export async function loadAcceptedHandoffForAttempt(input: {
+  attemptId: string;
+  projectId: string;
+  userId: string;
+}): Promise<AcceptedBuildHandoff> {
+  const attempt = await prisma.projectEditAttempt.findUnique({
+    where: { id: input.attemptId },
+    select: {
+      projectId: true,
+      userId: true,
+      handoff: true,
+    },
+  });
+  if (!attempt) {
+    throw new Error("accepted handoff missing");
+  }
+  if (
+    attempt.projectId !== input.projectId ||
+    attempt.userId !== input.userId
+  ) {
+    throw new Error("accepted handoff ownership mismatch");
+  }
+  const handoff = attempt.handoff;
+  if (
+    !handoff ||
+    handoff.projectId !== input.projectId ||
+    handoff.userId !== input.userId ||
+    handoff.status !== "accepted"
+  ) {
+    throw new Error("accepted handoff invalid");
+  }
+  const parsedContract = parseBuildContract(handoff.contract);
+  const parsedPlan = parseBuildPlan(handoff.plan);
+  if (!parsedContract.ok || !parsedPlan.ok) {
+    throw new Error("accepted handoff invalid");
+  }
+  const contract = parsedContract.value;
+  const plan = parsedPlan.value;
+  const contractHash = hashBuildContract(contract);
+  const planHash = hashBuildPlan(plan);
+  if (
+    contract.contentHash !== contractHash ||
+    plan.contentHash !== planHash ||
+    handoff.contractHash !== contractHash ||
+    handoff.planHash !== planHash
+  ) {
+    throw new Error("accepted handoff hash mismatch");
+  }
+  if (!validatePlanAgainstContract(plan, contract).ok) {
+    throw new Error("accepted handoff invalid");
+  }
+  return {
+    id: handoff.id,
+    contract,
+    plan,
+    contractHash,
+    planHash,
+    contractRevision: handoff.contractRevision,
+    planRevision: handoff.planRevision,
+  };
+}
 
 /** Create (or reuse) an immutable draft handoff for a contract/plan pair.
  * Idempotent on the revision-unique constraint; equal semantic content at a
