@@ -47,7 +47,18 @@ export type BatchedDiagnostic = {
 
 export type BatchedFile = { content: string; path: string };
 
+export type WriterDesignPlanV1 = {
+  contractHash: string;
+  recipeId: string;
+  mediaMode: "owner_assets" | "replaceable_slots" | "graphic" | "typographic";
+  visualThesis: string;
+  hierarchy: string[];
+  sectionOrder: string[];
+  signatureElement: string;
+};
+
 export type BatchedParseResult = {
+  designPlan: WriterDesignPlanV1 | null;
   diagnostics: BatchedDiagnostic[];
   done: { summary: string } | null;
   files: Map<string, BatchedFile>;
@@ -92,6 +103,7 @@ export type BatchedResponseParser = {
  * buffering forever.
  */
 const MAX_PROSE_SCAN = 199_000;
+const MAX_DESIGN_PLAN_CHARS = 8_192;
 
 type TagInfo = {
   attrs: Map<string, string>;
@@ -99,7 +111,74 @@ type TagInfo = {
   selfClosing: boolean;
 };
 
-export function createBatchedResponseParser(): BatchedResponseParser {
+function parseWriterDesignPlan(
+  raw: string,
+  fail: (message: string) => never,
+): WriterDesignPlanV1 {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return fail("invalid design-plan JSON.");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return fail("invalid design-plan object.");
+  }
+  const record = value as Record<string, unknown>;
+  const allowed = new Set([
+    "contractHash",
+    "recipeId",
+    "mediaMode",
+    "visualThesis",
+    "hierarchy",
+    "sectionOrder",
+    "signatureElement",
+  ]);
+  if (Object.keys(record).some((key) => !allowed.has(key))) {
+    return fail("invalid design-plan fields.");
+  }
+  const mediaModes = new Set([
+    "owner_assets",
+    "replaceable_slots",
+    "graphic",
+    "typographic",
+  ]);
+  const stringArray = (key: string): string[] | null => {
+    const item = record[key];
+    return Array.isArray(item) &&
+      item.every((value) => typeof value === "string")
+      ? item
+      : null;
+  };
+  const hierarchy = stringArray("hierarchy");
+  const sectionOrder = stringArray("sectionOrder");
+  if (
+    typeof record.contractHash !== "string" ||
+    !/^[0-9a-f]{64}$/.test(record.contractHash) ||
+    typeof record.recipeId !== "string" ||
+    typeof record.mediaMode !== "string" ||
+    !mediaModes.has(record.mediaMode) ||
+    typeof record.visualThesis !== "string" ||
+    !hierarchy ||
+    !sectionOrder ||
+    typeof record.signatureElement !== "string"
+  ) {
+    return fail("invalid design-plan shape.");
+  }
+  return {
+    contractHash: record.contractHash,
+    recipeId: record.recipeId,
+    mediaMode: record.mediaMode as WriterDesignPlanV1["mediaMode"],
+    visualThesis: record.visualThesis,
+    hierarchy,
+    sectionOrder,
+    signatureElement: record.signatureElement,
+  };
+}
+
+export function createBatchedResponseParser(options?: {
+  requireDesignPlan?: boolean;
+}): BatchedResponseParser {
   /**
    * Invariant: `pending` holds the unconsumed tail of the stream. Absolute
    * offset of `pending[0]` is `consumedChars`.
@@ -109,6 +188,7 @@ export function createBatchedResponseParser(): BatchedResponseParser {
   const files = new Map<string, BatchedFile>();
   const proposals: { path: string; reason: string }[] = [];
   const diagnostics: BatchedDiagnostic[] = [];
+  let designPlan: WriterDesignPlanV1 | null = null;
   let doneSummary: string | null = null;
   let hardError: BatchedParseError | null = null;
   let finalizeCalled = false;
@@ -331,7 +411,68 @@ export function createBatchedResponseParser(): BatchedResponseParser {
     const tag = parseTag(inner, tagOffset);
 
     switch (tag.name) {
+      case "design-plan": {
+        forbidExtraAttrs(tag, [], tagOffset);
+        if (tag.selfClosing) {
+          fail({
+            code: "malformed-tag",
+            message: "<design-plan> cannot be self-closing.",
+            offset: tagOffset,
+          });
+        }
+        if (designPlan) {
+          fail({
+            code: "duplicate-design-plan",
+            message: "only one design-plan is allowed.",
+            offset: tagOffset,
+          });
+        }
+        if (files.size || proposals.length || doneSummary !== null) {
+          fail({
+            code: "late-design-plan",
+            message: "design-plan must precede files and other blocks.",
+            offset: tagOffset,
+          });
+        }
+        const contentStart = gtIndex + 1;
+        const closeIndex = findTerminator("</design-plan>", contentStart);
+        if (closeIndex < 0) {
+          if (finalizeCalled) {
+            fail({
+              code: "truncated-design-plan",
+              message: "Stream ended mid-<design-plan> block.",
+              offset: tagOffset,
+            });
+          }
+          return false;
+        }
+        const raw = cleanContent(pending.slice(contentStart, closeIndex));
+        if (raw.length > MAX_DESIGN_PLAN_CHARS) {
+          fail({
+            code: "design-plan-too-large",
+            message: `design-plan exceeds ${MAX_DESIGN_PLAN_CHARS} characters.`,
+            offset: tagOffset,
+          });
+        }
+        designPlan = parseWriterDesignPlan(raw, (message) =>
+          fail({
+            code: "invalid-design-plan",
+            message,
+            offset: tagOffset,
+          }),
+        );
+        consume(closeIndex + "</design-plan>".length);
+        return true;
+      }
+
       case "file": {
+        if (options?.requireDesignPlan && !designPlan) {
+          fail({
+            code: "missing-design-plan",
+            message: "design-plan must precede files.",
+            offset: tagOffset,
+          });
+        }
         forbidExtraAttrs(tag, ["path"], tagOffset);
         if (tag.selfClosing) {
           fail({
@@ -448,7 +589,7 @@ export function createBatchedResponseParser(): BatchedResponseParser {
       default:
         fail({
           code: "unknown-tag",
-          message: `Unknown top-level tag <${tag.name}>. Only <file>, <propose>, <done> are allowed.`,
+          message: `Unknown top-level tag <${tag.name}>. Only <design-plan>, <file>, <propose>, <done> are allowed.`,
           offset: tagOffset,
         });
     }
@@ -502,7 +643,15 @@ export function createBatchedResponseParser(): BatchedResponseParser {
       if (hardError) {
         throw hardError;
       }
+      if (options?.requireDesignPlan && !designPlan) {
+        fail({
+          code: "missing-design-plan",
+          message: "design-plan is required.",
+          offset: consumedChars,
+        });
+      }
       finalResult = {
+        designPlan,
         diagnostics,
         done: doneSummary === null ? null : { summary: doneSummary },
         files,

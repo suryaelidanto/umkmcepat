@@ -222,7 +222,14 @@ export function createViteTanStackShadcnStarterFiles(
     },
     {
       path: "src/routes/index.tsx",
-      content: `import { ArrowRight } from "lucide-react";\nimport { Link } from "@tanstack/react-router";\n\nimport { Button } from "@/components/ui/button";\nimport { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";\nimport { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\n\n// Replace this with the real home page built from the brief\nexport function HomeRouteComponent() {\n  usePreviewReady();\n\n  return (\n    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col items-center justify-center gap-6 px-6 py-16">\n      <p className="text-sm font-medium text-muted-foreground">\n        {site.eyebrow}\n      </p>\n      <h1 className="text-center text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">\n        {site.headline}\n      </h1>\n      <p className="max-w-xl text-center text-base text-muted-foreground">\n        {site.subheadline}\n      </p>\n      <div className="flex flex-wrap items-center justify-center gap-3">\n        <Button size="lg" asChild>\n          <Link to="/" hash="kontak">\n            {site.primaryCta}\n            <ArrowRight className="size-4" />\n          </Link>\n        </Button>\n        <Button size="lg" variant="outline">\n          {site.secondaryCta}\n        </Button>\n      </div>\n      <Card className="mt-4 w-full max-w-xl">\n        <CardHeader>\n          <CardTitle>{site.businessName}</CardTitle>\n          <CardDescription>{site.offer}</CardDescription>\n        </CardHeader>\n        <CardContent>\n          <ul className="flex flex-col gap-2 text-sm text-muted-foreground">\n            {site.trustPoints.map((point) => (\n              <li key={point}>{point}</li>\n            ))}\n          </ul>\n        </CardContent>\n      </Card>\n    </main>\n  );\n}\n`,
+      content: `import { usePreviewReady } from "@/lib/preview-ready";
+
+export function HomeRouteComponent() {
+  usePreviewReady();
+
+  return <main data-generated-site-starter />;
+}
+`,
     },
     {
       path: "src/routes/not-found.tsx",

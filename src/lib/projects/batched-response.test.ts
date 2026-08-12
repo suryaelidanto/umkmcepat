@@ -41,6 +41,52 @@ describe("isAllowedBatchedPath", () => {
   });
 });
 
+describe("batched response parser — design plan", () => {
+  const designPlan = {
+    contractHash: "a".repeat(64),
+    recipeId: "retail-catalog",
+    mediaMode: "graphic",
+    visualThesis: "Etalase perangkat yang presisi.",
+    hierarchy: ["offer", "catalog", "contact"],
+    sectionOrder: ["catalog", "contact"],
+    signatureElement: "comparison rail",
+  };
+
+  it("parses one leading design plan before files", () => {
+    const parser = createBatchedResponseParser({ requireDesignPlan: true });
+    parser.push(
+      `<design-plan>${JSON.stringify(designPlan)}</design-plan><file path="src/a.ts">a</file><done summary="ok" />`,
+    );
+    const result = parser.finalize();
+    expect(result.designPlan).toEqual(designPlan);
+  });
+
+  it("rejects files before the required design plan", () => {
+    const parser = createBatchedResponseParser({ requireDesignPlan: true });
+    expect(() =>
+      parser.push('<file path="src/a.ts">a</file><done summary="ok" />'),
+    ).toThrow(/design-plan must precede files/);
+  });
+
+  it("rejects malformed, duplicate, or missing design plans", () => {
+    const malformed = createBatchedResponseParser({ requireDesignPlan: true });
+    expect(() => malformed.push("<design-plan>{bad}</design-plan>")).toThrow(
+      /invalid design-plan JSON/,
+    );
+
+    const duplicate = createBatchedResponseParser({ requireDesignPlan: true });
+    duplicate.push(`<design-plan>${JSON.stringify(designPlan)}</design-plan>`);
+    expect(() =>
+      duplicate.push(
+        `<design-plan>${JSON.stringify(designPlan)}</design-plan>`,
+      ),
+    ).toThrow(/only one design-plan/);
+
+    const missing = createBatchedResponseParser({ requireDesignPlan: true });
+    expect(() => missing.finalize()).toThrow(/design-plan is required/);
+  });
+});
+
 describe("batched response parser — well-formed", () => {
   it("parses a single file block and done", () => {
     const parser = createBatchedResponseParser();

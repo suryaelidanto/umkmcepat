@@ -1,3 +1,8 @@
+import type { GeneratedSiteContractV1 } from "@/lib/projects/generated-site-contract";
+import type {
+  GeneratedSiteGoldExample,
+  GeneratedSiteRecipeV1,
+} from "@/lib/projects/generated-site-recipes";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
@@ -73,10 +78,21 @@ export function buildGeneratedAppBuildSpec(
 export function buildBatchedWriterPrompt(input: {
   brief: ProjectBrief;
   implementationSpec?: ImplementationSpec;
+  contract?: GeneratedSiteContractV1;
+  recipe?: GeneratedSiteRecipeV1;
+  example?: GeneratedSiteGoldExample;
   projectId: string;
   schema: ProjectSiteSchema;
 }): { system: string; user: string } {
-  const { brief, implementationSpec, projectId, schema } = input;
+  const {
+    brief,
+    implementationSpec,
+    contract,
+    recipe,
+    example,
+    projectId,
+    schema,
+  } = input;
   const starterFiles = createViteTanStackShadcnStarterFiles(projectId, schema);
   const manifest = deriveScaffoldManifest(starterFiles);
   const appSpec = buildGeneratedAppBuildSpec({
@@ -85,13 +101,31 @@ export function buildBatchedWriterPrompt(input: {
     schema,
   });
 
+  const qualityContract =
+    contract && recipe && example
+      ? `GENERATED-SITE CONTRACT (immutable; overrides examples):
+${JSON.stringify(contract, null, 2)}
+
+SELECTED RECIPE:
+${JSON.stringify(recipe, null, 2)}
+
+ONE GOLD EXAMPLE (copy composition principles only; never copy literals, names, URLs, or identity):
+${example.source}
+
+FIRST BLOCK REQUIRED:
+<design-plan>{"contractHash":"${contract.contractHash}","recipeId":"${recipe.id}","mediaMode":"${contract.design.mediaMode}","visualThesis":"...","hierarchy":["..."],"sectionOrder":[${contract.page.requiredSections.map((section) => `"${section.id}"`).join(",")}],"signatureElement":"${contract.design.signatureElement}"}</design-plan>
+The design plan MUST precede every <file> block and match the immutable contract exactly.`
+      : "";
+
   const system = `You are a frontend coding writer for UMKM Cepat generated apps. Emit the whole project in ONE structured response — no tool calls, no markdown fences, no prose between blocks beyond short notes.
+
+${qualityContract}
 
 Business: ${implementationSpec?.businessName || schema.businessName} — ${implementationSpec?.appKind || "landing"} — ${(implementationSpec?.features || [schema.offer, schema.audience]).join(", ")}
 
 RESPONSE CONTRACT (strict — hard parse errors on any deviation):
 
-<file path="src/...">
+${contract ? '<design-plan>{"contractHash":"...","recipeId":"...","mediaMode":"...","visualThesis":"...","hierarchy":[],"sectionOrder":[],"signatureElement":"..."}</design-plan>\n' : ""}<file path="src/...">
 ...full raw file content (NOT JSON-escaped)...
 </file>
 <file path="src/...">

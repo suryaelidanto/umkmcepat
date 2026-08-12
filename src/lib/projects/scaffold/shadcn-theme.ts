@@ -1,31 +1,59 @@
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
 
-/**
- * Map the brief's theme tokens to shadcn/ui CSS variables (Tailwind v4,
- * CSS-first). The variable names MUST match what the seeded shadcn
- * "new-york" components reference (bg-background, text-foreground,
- * border-border, bg-primary, etc.).
- *
- * ponytail: only light mode is seeded; add a `.dark` block + `data-theme`
- * switching when dark mode is needed. shadcn components already ship
- * dark: variants that read the same var names.
- */
+export type ThemeContrastCheck = {
+  role: string;
+  foreground: string;
+  background: string;
+  ratio: number;
+  minimum: number;
+  pass: boolean;
+};
+
+export type CompiledShadcnTheme = {
+  css: string;
+  checks: ThemeContrastCheck[];
+};
+
 export function shadcnThemeCss(schema: ProjectSiteSchema): string {
-  const { background, foreground, muted, accent } = schema.theme;
+  return compileShadcnTheme(schema).css;
+}
+
+export function compileShadcnTheme(
+  schema: ProjectSiteSchema,
+): CompiledShadcnTheme {
+  const background = validHex(schema.theme.background);
+  const foreground = readable(schema.theme.foreground, background, 4.5);
+  const muted = validHex(schema.theme.muted);
+  const accent = validHex(schema.theme.accent);
   const border = mix(foreground, "transparent", 12);
   const input = mix(foreground, "transparent", 20);
   const card = background;
   const popover = background;
   const primary = accent;
-  const primaryForeground = contrastForeground(accent);
+  const primaryForeground = bestReadable(accent, 4.5);
   const secondary = mix(foreground, background, 8);
   const secondaryForeground = foreground;
-  const mutedForeground = muted;
-  const accentForeground = contrastForeground(accent);
+  const mutedForeground = readable(foreground, background, 4.5);
+  const accentForeground = bestReadable(accent, 4.5);
   const destructive = "#dc2626";
-  const destructiveForeground = "#ffffff";
+  const destructiveForeground = bestReadable(destructive, 4.5);
+  const ring = bestRing(accent, background);
 
-  return `@import "tailwindcss";
+  const checks = [
+    contrastCheck("foreground", foreground, background, 4.5),
+    contrastCheck("muted-foreground", mutedForeground, background, 4.5),
+    contrastCheck("primary-foreground", primaryForeground, primary, 4.5),
+    contrastCheck("accent-foreground", accentForeground, accent, 4.5),
+    contrastCheck(
+      "destructive-foreground",
+      destructiveForeground,
+      destructive,
+      4.5,
+    ),
+    contrastCheck("focus-ring", ring, background, 3),
+  ];
+
+  const css = `@import "tailwindcss";
 
 @theme inline {
   --color-background: var(--background);
@@ -71,7 +99,7 @@ export function shadcnThemeCss(schema: ProjectSiteSchema): string {
   --destructive-foreground: ${destructiveForeground};
   --border: ${border};
   --input: ${input};
-  --ring: ${accent};
+  --ring: ${ring};
   --radius: 0.625rem;
 }
 
@@ -96,28 +124,86 @@ export function shadcnThemeCss(schema: ProjectSiteSchema): string {
   }
 }
 `;
+
+  return { css, checks };
 }
 
-/** color-mix helper so the CSS stays readable. */
+export function contrastRatio(foreground: string, background: string): number {
+  const light = Math.max(
+    luminance(validHex(foreground)),
+    luminance(validHex(background)),
+  );
+  const dark = Math.min(
+    luminance(validHex(foreground)),
+    luminance(validHex(background)),
+  );
+  return (light + 0.05) / (dark + 0.05);
+}
+
+function contrastCheck(
+  role: string,
+  foreground: string,
+  background: string,
+  minimum: number,
+): ThemeContrastCheck {
+  const ratio = contrastRatio(foreground, background);
+  return {
+    role,
+    foreground,
+    background,
+    ratio,
+    minimum,
+    pass: ratio >= minimum,
+  };
+}
+
+function validHex(value: string): string {
+  const normalized = value.trim();
+  if (!/^#[0-9a-f]{6}$/i.test(normalized)) {
+    throw new Error(`invalid generated theme color: ${value}`);
+  }
+  return normalized;
+}
+
+function readable(
+  preferred: string,
+  background: string,
+  minimum: number,
+): string {
+  const normalized = validHex(preferred);
+  return contrastRatio(normalized, background) >= minimum
+    ? normalized
+    : bestReadable(background, minimum);
+}
+
+function bestReadable(background: string, minimum: number): string {
+  const black = "#0c0c0c";
+  const white = "#ffffff";
+  const blackRatio = contrastRatio(black, background);
+  const whiteRatio = contrastRatio(white, background);
+  const best = blackRatio >= whiteRatio ? black : white;
+  if (Math.max(blackRatio, whiteRatio) < minimum) {
+    throw new Error("generated theme cannot satisfy contrast requirement");
+  }
+  return best;
+}
+
+function bestRing(accent: string, background: string): string {
+  return contrastRatio(accent, background) >= 3
+    ? accent
+    : bestReadable(background, 3);
+}
+
+function luminance(hex: string): number {
+  const channels = [1, 3, 5].map(
+    (offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255,
+  );
+  const linear = channels.map((channel) =>
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+  );
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+}
+
 function mix(foreground: string, base: string, percent: number): string {
   return `color-mix(in srgb, ${foreground} ${percent}%, ${base})`;
-}
-
-/** White on dark accents, dark on light accents — fallback heuristic. */
-function contrastForeground(accent: string): string {
-  return isDarkColor(accent) ? "#ffffff" : "#0c0c0c";
-}
-
-/** Naive luminance gate — good enough for the brief's hex accent palette. */
-function isDarkColor(hex: string): boolean {
-  const match = /^#([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!match) {
-    return false;
-  }
-  const r = parseInt(match[1].slice(0, 2), 16);
-  const g = parseInt(match[1].slice(2, 4), 16);
-  const b = parseInt(match[1].slice(4, 6), 16);
-  // Relative luminance (sRGB) per WCAG.
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance < 0.5;
 }

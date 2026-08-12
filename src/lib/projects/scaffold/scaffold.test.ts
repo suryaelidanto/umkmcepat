@@ -121,19 +121,17 @@ describe("createViteTanStackShadcnStarterFiles", () => {
     expect(main).not.toContain("styles.css");
   });
 
-  it("index route has the Task-5 stale-starter marker comment and shadcn UI", () => {
+  it("index route is a neutral non-shipping marker, not a reusable design", () => {
     const index =
       files.find((f) => f.path === "src/routes/index.tsx")?.content ?? "";
-    expect(index).toContain(
-      "// Replace this with the real home page built from the brief",
-    );
-    expect(index).not.toContain("starterMessage");
-    expect(index).toContain("Card");
-    expect(index).toContain("Button");
+    expect(index).toContain("data-generated-site-starter");
     expect(index).toContain("usePreviewReady");
-    expect(index).toContain('import { Link } from "@tanstack/react-router"');
-    expect(index).toContain('<Link to="/" hash="kontak"');
-    expect(index).not.toContain('href="#kontak"');
+    expect(index).toContain("HomeRouteComponent");
+    expect(index).not.toContain("Card");
+    expect(index).not.toContain("Button");
+    expect(index).not.toContain("max-w-3xl");
+    expect(index).not.toContain("site.headline");
+    expect(index).not.toContain("primaryCta");
   });
 
   it("not-found route uses Button and links home", () => {

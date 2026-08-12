@@ -13,6 +13,11 @@ import { streamText } from "ai";
 import ts from "typescript";
 
 import type { StepCharger } from "@/lib/projects/energy-step-charger";
+import type { GeneratedSiteContractV1 } from "@/lib/projects/generated-site-contract";
+import type {
+  GeneratedSiteGoldExample,
+  GeneratedSiteRecipeV1,
+} from "@/lib/projects/generated-site-recipes";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
@@ -40,16 +45,19 @@ import {
   createBatchedResponseParser,
   type BatchedDiagnostic,
   type BatchedFile,
+  type WriterDesignPlanV1,
 } from "@/lib/projects/batched-response";
 import { type ProjectBrief } from "@/lib/projects/brief";
 import {
   BatchedAdmissionBlockedError,
   checkBatchedGenerateAdmission,
 } from "@/lib/projects/brief-admission";
+import { inspectGeneratedSiteSource } from "@/lib/projects/generated-site-gates";
 export { buildBatchedWriterPrompt } from "@/lib/projects/batched-prompt";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
 import { resolveShadcnDeps } from "@/lib/projects/scaffold/shadcn-components";
 import { SHADCN_COMPONENT_BY_NAME } from "@/lib/projects/scaffold/shadcn-components";
+import { compileShadcnTheme } from "@/lib/projects/scaffold/shadcn-theme";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
 // ---------------------------------------------------------------------------
@@ -492,6 +500,7 @@ export type BatchedStreamCallResult = {
   finishedText: boolean; // saw a <done/>
   parseError?: BatchedParseError;
   response: {
+    designPlan: WriterDesignPlanV1 | null;
     diagnostics: BatchedDiagnostic[];
     doneSummary: string | null;
     files: Map<string, { content: string; path: string }>;
@@ -586,6 +595,7 @@ export async function runOneStreamedResponse(args: {
   attemptId?: string;
   buildId?: string | null;
   retryCount: number;
+  requireDesignPlan?: boolean;
   stepCharger?: StepCharger;
   system: string;
   /** Ledger task. Phase 1 generate uses build-step/build-repair; Phase 2 edit uses "edit" for every leg. */
@@ -594,7 +604,9 @@ export async function runOneStreamedResponse(args: {
 }): Promise<BatchedStreamCallResult> {
   const requestedModel = getGenerationModel();
   const stopTimer = startAiCallTimer({ withTtft: true });
-  const parser = createBatchedResponseParser();
+  const parser = createBatchedResponseParser({
+    requireDesignPlan: args.requireDesignPlan,
+  });
   let modelServed: string | undefined;
   let usage: { inputTokens?: number; outputTokens?: number } | undefined;
   const writtenThisCall = new Set<string>();
@@ -700,6 +712,7 @@ export async function runOneStreamedResponse(args: {
       finishedText: sawDone,
       requestMs,
       response: {
+        designPlan: parsed.designPlan,
         diagnostics: parsed.diagnostics,
         doneSummary: parsed.done?.summary ?? null,
         files: parsed.files,
@@ -756,6 +769,7 @@ export async function runOneStreamedResponse(args: {
         finishedText: false,
         requestMs,
         response: {
+          designPlan: null,
           diagnostics: [],
           doneSummary: null,
           files: parserStagedMap(parser),
@@ -788,6 +802,7 @@ export async function runOneStreamedResponse(args: {
         parseError: error,
         requestMs,
         response: {
+          designPlan: null,
           diagnostics: [],
           doneSummary: null,
           // Keep whatever the parser staged before the hard error — a
@@ -812,6 +827,9 @@ export async function runBatchedGenerate(input: {
   brief: ProjectBrief;
   buildId?: string | null;
   implementationSpec?: ImplementationSpec;
+  contract?: GeneratedSiteContractV1;
+  recipe?: GeneratedSiteRecipeV1;
+  example?: GeneratedSiteGoldExample;
   onEvent?: BatchedGenerateEventSink;
   onFileStaged?: (file: BatchedFile) => void;
   projectId: string;
@@ -862,6 +880,9 @@ export async function runBatchedGenerate(input: {
   const writerPrompt = buildBatchedWriterPrompt({
     brief: input.brief,
     implementationSpec: input.implementationSpec,
+    contract: input.contract,
+    recipe: input.recipe,
+    example: input.example,
     projectId: input.projectId,
     schema: input.schema,
   });
@@ -875,6 +896,7 @@ export async function runBatchedGenerate(input: {
     phase: "writer",
     projectId: input.projectId,
     retryCount: 0,
+    requireDesignPlan: Boolean(input.contract),
     stepCharger: input.stepCharger,
     system: writerPrompt.system,
     user: writerPrompt.user,
@@ -1002,7 +1024,10 @@ export async function runBatchedGenerate(input: {
   proposals.push(...writerCall.response.proposals);
   lastDiagnostics = gateStage({
     allowedPackages,
+    contract: input.contract,
+    designPlan: writerCall.response.designPlan,
     indexCssForGate,
+    schema: input.schema,
     staged,
     starterFiles,
   });
@@ -1091,7 +1116,10 @@ export async function runBatchedGenerate(input: {
     }
     lastDiagnostics = gateStage({
       allowedPackages,
+      contract: input.contract,
+      designPlan: writerCall.response.designPlan,
       indexCssForGate,
+      schema: input.schema,
       staged,
       starterFiles,
     });
@@ -1264,7 +1292,10 @@ export async function runBatchedGenerate(input: {
 
 function gateStage(input: {
   allowedPackages: ReadonlySet<string>;
+  contract?: GeneratedSiteContractV1;
+  designPlan?: WriterDesignPlanV1 | null;
   indexCssForGate: string;
+  schema: ProjectSiteSchema;
   staged: Map<string, { content: string; path: string }>;
   starterFiles: GeneratedProjectFile[];
 }): string[] {
@@ -1298,6 +1329,24 @@ function gateStage(input: {
       indexCss: input.indexCssForGate,
     }),
   );
+  if (input.contract && input.designPlan) {
+    const starterIndexSource =
+      input.starterFiles.find((file) => file.path === "src/routes/index.tsx")
+        ?.content ?? "";
+    const report = inspectGeneratedSiteSource({
+      contract: input.contract,
+      designPlan: input.designPlan,
+      files: stagedFiles,
+      starterIndexSource,
+      themeChecks: compileShadcnTheme(input.schema).checks,
+    });
+    issues.push(
+      ...report.findings.map(
+        (finding) =>
+          `${finding.path ?? "src/routes/index.tsx"}: [${finding.code}] ${finding.message}`,
+      ),
+    );
+  }
   return issues;
 }
 
