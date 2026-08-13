@@ -49,7 +49,7 @@ Keep `Cek status antrean` as the primary action. Add a compact outline button la
 
 ### Footer
 
-Add a permanent compact outline button labeled `Join WhatsApp` alongside the existing legal and GitHub links. The legal and GitHub destinations remain plain links.
+Keep `Ketentuan`, `Privasi`, and `Github` together as one plain-link row. Place a permanent compact outline button labeled `Join WhatsApp` in a separate row beneath those links with 12–16px spacing. Both rows align left on mobile; the separation must make WhatsApp read as an action rather than another legal or repository link.
 
 ### Main navigation
 
@@ -75,7 +75,7 @@ Use one small reusable WhatsApp invitation component for the two prominent invit
 
 ## Verification
 
-- Component tests verify the invite URL, external-link behavior, exact `Join WhatsApp` label, button treatment at all four placements, and privacy note.
+- Component tests verify the invite URL, external-link behavior, exact `Join WhatsApp` label, button treatment at all four placements, footer separation from the plain-link row, and privacy note.
 - Existing waitlist behavior tests remain green.
 - Storybook covers the reusable invitation's homepage-secondary and waitlist-primary presentations if introduced.
 - Manually inspect mobile and desktop hierarchy to confirm the WhatsApp action does not compete with the main homepage CTA.
