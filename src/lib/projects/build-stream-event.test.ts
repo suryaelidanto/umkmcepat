@@ -89,7 +89,8 @@ describe("reduceBuildStreamEvent", () => {
   it("turns terminal errors into a friendly retryable step", () => {
     const result = reduceBuildStreamEvent({
       type: "error",
-      detail: "Server restart terputus. Coba jalankan build lagi.",
+      detail:
+        "Server restart terputus. Agent gagal compile. Coba jalankan build lagi.",
     });
 
     expect(result.kind).toBe("error");

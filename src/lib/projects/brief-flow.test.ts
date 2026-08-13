@@ -872,6 +872,9 @@ describe("normalizeWorkspaceTurn", () => {
       brief,
     );
     expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
+      expect(turn.workspaceCard.title).toBe("Siap dibuat");
+    }
     expect(turn.readyForBuild).toBe(true);
     expect(turn.brief.confidence).toBeGreaterThanOrEqual(95);
   });

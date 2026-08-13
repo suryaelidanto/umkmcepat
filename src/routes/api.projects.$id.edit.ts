@@ -234,7 +234,7 @@ async function handleEditPost(request: Request, routeId: string) {
 
   if (!baseFiles.length) {
     return Response.json(
-      { message: "Source preview belum tersedia untuk diedit." },
+      { message: "Tampilan website sebelumnya belum tersedia untuk diedit." },
       { status: 409 },
     );
   }

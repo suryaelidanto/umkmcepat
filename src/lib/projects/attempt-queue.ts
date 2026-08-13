@@ -248,8 +248,9 @@ export function abortAttemptJob(jobId: string): boolean {
 /** User-facing (Indonesian). Technical cause goes to devLog only. */
 const USER_JOB_FAILED = {
   discuss: "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
-  edit: "Edit belum berhasil diproses. Coba lagi sebentar.",
-  generate: "Build belum berhasil diproses. Coba jalankan ulang ya.",
+  edit: "Perubahan website belum berhasil diproses. Coba lagi sebentar.",
+  generate:
+    "Pembuatan website belum berhasil diproses. Coba buat ulang website ya.",
 } as const;
 
 async function failCleanAfterJobFailure(

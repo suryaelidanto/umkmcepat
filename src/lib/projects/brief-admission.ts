@@ -95,8 +95,8 @@ export function checkBatchedGenerateAdmission(input: {
   );
   const reason =
     blockers.length === 1
-      ? `Brief belum siap: ${labels[0]} masih kosong. Lengkapi diskusi dulu, lalu build ulang.`
-      : `Brief belum siap: ${labels.slice(0, 3).join(", ")}${labels.length > 3 ? ", dan lainnya" : ""} masih kosong. Lengkapi diskusi dulu, lalu build ulang.`;
+      ? `Brief belum siap: ${labels[0]} masih kosong. Lengkapi diskusi dulu, lalu buat ulang website.`
+      : `Brief belum siap: ${labels.slice(0, 3).join(", ")}${labels.length > 3 ? ", dan lainnya" : ""} masih kosong. Lengkapi diskusi dulu, lalu buat ulang website.`;
 
   return { ok: false, blockers, reason };
 }

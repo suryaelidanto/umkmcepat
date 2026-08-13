@@ -248,7 +248,7 @@ export function GeneratedPreviewFrame({
       {previewState === "stuck" ? (
         <div className="absolute inset-0">
           <PreviewIssueState
-            detail="Tampilan belum bisa dimuat otomatis. Mungkin server preview sedang dimatikan atau website belum sempat selesai render. Coba muat ulang, atau build ulang kalau masih gagal."
+            detail="Tampilan belum bisa dimuat otomatis. Mungkin server preview sedang dimatikan atau website belum sempat selesai dibuat. Coba muat ulang, atau buat ulang website kalau masih gagal."
             onRetry={onRecover}
             title="Tampilan tidak bisa dimuat"
           />

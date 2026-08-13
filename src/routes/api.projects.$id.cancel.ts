@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/projects/$id/cancel")({
             activeOperationExpiresAt: null,
             activeOperationKind: null,
             activeOperationToken: null,
-            buildLog: "Build dihentikan oleh pengguna.",
+            buildLog: "Pembuatan website dihentikan oleh pengguna.",
             buildStatus: "canceled",
             status: "failed",
           },
@@ -87,7 +87,7 @@ export const Route = createFileRoute("/api/projects/$id/cancel")({
           },
           data: {
             finishedAt: new Date(),
-            logText: "Build dihentikan oleh pengguna.",
+            logText: "Pembuatan website dihentikan oleh pengguna.",
             status: "canceled",
           },
         });

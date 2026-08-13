@@ -903,7 +903,7 @@ export async function runDiscussTurn({
           workspaceCard: { type: "none" },
         };
         chatText =
-          "Brief belum bisa disiapkan untuk build. Coba kirim jawaban terakhir sekali lagi.";
+          "Brief belum bisa disiapkan untuk membuat website. Coba kirim jawaban terakhir sekali lagi.";
         devLog("discuss", "handoff-preparation-failed", {
           projectId: project.id,
           turnId,

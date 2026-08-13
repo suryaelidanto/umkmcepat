@@ -149,6 +149,6 @@ const longOptionsQuestion: BriefQuestion = {
 
 const buildRecommendationCard = {
   type: "build_recommendation",
-  title: "Brief sudah cukup untuk mulai build",
+  title: "Website siap dibuat",
   summary: ["Target jelas", "CTA WhatsApp", "Area layanan disebutkan"],
 } satisfies WorkspaceCard;

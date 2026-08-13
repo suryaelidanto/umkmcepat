@@ -142,7 +142,7 @@ export async function handleGeneratePost(request: Request, routeId: string) {
     return Response.json(
       {
         code: "project_build_in_progress",
-        message: "Build masih berjalan untuk proyek ini.",
+        message: "Pembuatan website sedang berjalan untuk proyek ini.",
       },
       { status: 409 },
     );
@@ -156,7 +156,8 @@ export async function handleGeneratePost(request: Request, routeId: string) {
       return Response.json(
         {
           code: "project_handoff_required",
-          message: "Lengkapi diskusi dan tinjau brief sebelum mulai build.",
+          message:
+            "Lengkapi diskusi dan tinjau brief sebelum mulai buat website.",
         },
         { status: 409 },
       );
@@ -165,7 +166,8 @@ export async function handleGeneratePost(request: Request, routeId: string) {
       return Response.json(
         {
           code: "project_handoff_required",
-          message: "Lengkapi diskusi dan tinjau brief sebelum mulai build.",
+          message:
+            "Lengkapi diskusi dan tinjau brief sebelum mulai buat website.",
         },
         { status: 409 },
       );
@@ -202,7 +204,7 @@ export async function handleGeneratePost(request: Request, routeId: string) {
     return Response.json(
       {
         code: "project_build_in_progress",
-        message: "Build masih berjalan untuk proyek ini.",
+        message: "Pembuatan website sedang berjalan untuk proyek ini.",
       },
       { status: 409 },
     );
@@ -242,7 +244,8 @@ export async function handleGeneratePost(request: Request, routeId: string) {
           return Response.json(
             {
               code: "project_handoff_required",
-              message: "Lengkapi diskusi dan tinjau brief sebelum mulai build.",
+              message:
+                "Lengkapi diskusi dan tinjau brief sebelum mulai buat website.",
             },
             { status: 409 },
           );
@@ -251,7 +254,7 @@ export async function handleGeneratePost(request: Request, routeId: string) {
       }
       if (acceptance && !acceptance.created) {
         return Response.json(
-          { message: "Build ini sudah diproses." },
+          { message: "Website ini sudah diproses." },
           { status: 200 },
         );
       }
@@ -311,7 +314,7 @@ export async function handleGeneratePost(request: Request, routeId: string) {
     return Response.json(
       {
         code: "build_attempt_unavailable",
-        message: "Build belum bisa dimulai. Coba lagi sebentar.",
+        message: "Pembuatan website belum bisa dimulai. Coba lagi sebentar.",
       },
       { status: 503, headers: { "Retry-After": "3" } },
     );
@@ -341,12 +344,12 @@ export async function handleGeneratePost(request: Request, routeId: string) {
       detail: mapToUserFacingError(
         error instanceof Error ? error.message : String(error),
       ),
-      message: "Build belum bisa dimulai. Coba lagi sebentar.",
+      message: "Pembuatan website belum bisa dimulai. Coba lagi sebentar.",
     });
     return Response.json(
       {
         code: "build_attempt_unavailable",
-        message: "Build belum bisa dimulai. Coba lagi sebentar.",
+        message: "Pembuatan website belum bisa dimulai. Coba lagi sebentar.",
       },
       { status: 503, headers: { "Retry-After": "3" } },
     );

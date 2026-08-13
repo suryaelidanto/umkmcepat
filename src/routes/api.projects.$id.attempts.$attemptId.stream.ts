@@ -10,7 +10,7 @@ import {
 } from "@/lib/projects/build-attempt-pubsub";
 
 const RESTART_RECOVERY_ERROR_DETAIL =
-  "Server restart terputus. Coba jalankan build lagi.";
+  "Server restart terputus. Coba buat ulang website.";
 
 export const Route = createFileRoute(
   "/api/projects/$id/attempts/$attemptId/stream",
@@ -55,7 +55,7 @@ export async function handleAttemptStreamGet(
   });
   if (!attempt) {
     return Response.json(
-      { message: "Build attempt tidak ditemukan." },
+      { message: "Proses pembuatan website tidak ditemukan." },
       { status: 404 },
     );
   }
@@ -93,7 +93,7 @@ export async function handleAttemptStreamGet(
       detail:
         attempt.status === "canceled"
           ? "Proses dihentikan."
-          : "Build belum selesai.",
+          : "Website belum selesai.",
     });
   } else {
     replay.push({ type: "error", detail: RESTART_RECOVERY_ERROR_DETAIL });

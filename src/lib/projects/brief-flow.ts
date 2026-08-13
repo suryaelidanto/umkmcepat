@@ -922,15 +922,25 @@ function coerceQuestionOption(
 
 function buildRecommendationCard(
   brief: ProjectBrief,
-  title = "Brief sudah siap dibuild",
+  title = "Website siap dibuat",
   summary?: string[],
 ): WorkspaceCard {
   return {
     type: "build_recommendation",
     engine: "legacy-v1" as const,
-    title: cleanText(title, 80) || "Brief sudah siap dibuild",
+    title: friendlyBuildRecommendationTitle(title),
     summary: buildCardSummary(brief, summary),
   };
+}
+
+function friendlyBuildRecommendationTitle(title: string): string {
+  const cleaned = cleanText(title, 80) || "Website siap dibuat";
+  return cleaned
+    .replace(/^brief sudah siap dibuild$/i, "Website siap dibuat")
+    .replace(/\bmulai build\b/gi, "Mulai buat website")
+    .replace(/\bbuild ulang\b/gi, "Buat ulang website")
+    .replace(/\bdibuild\b/gi, "dibuat")
+    .replace(/\bbuild\b/gi, "pembuatan website");
 }
 
 function buildCardSummary(brief: ProjectBrief, summary?: string[]) {

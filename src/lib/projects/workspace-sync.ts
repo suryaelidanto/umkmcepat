@@ -156,7 +156,7 @@ export function getWorkspaceComposerState({
 }): WorkspaceComposerState {
   // A build_recommendation signature that has already been used to start a
   // build must never resurface — even if the build subsequently failed or
-  // succeeded. Retry uses the dedicated "Build ulang" CTA, not this card.
+  // succeeded. Retry uses the dedicated "Buat ulang website" CTA, not this card.
   const cardConsumed = isBuildRecommendationConsumed(card, consumedSignatures);
   const heldEffective = held && !cardConsumed;
 
@@ -345,7 +345,7 @@ export function getWorkspacePreviewIssue({
     return {
       detail: getSafePreviewIssueDetail(
         runtimeError,
-        "Tampilan website belum bisa dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal.",
+        "Tampilan website belum bisa dimuat. Coba muat ulang tampilan atau buat ulang website kalau masih gagal.",
       ),
       title: "Tampilan website belum bisa dimuat",
     };
@@ -361,16 +361,16 @@ export function getWorkspacePreviewIssue({
       return null; // Client will render old preview + progress banner
     }
     return {
-      detail: "Tampilan website akan muncul setelah build selesai.",
-      title: "Build website sedang berjalan",
+      detail: "Tampilan website akan muncul setelah pembuatan selesai.",
+      title: "Website sedang dibuat",
     };
   }
 
   if (runtimeUserFacingState === "build_failed_without_last_good") {
     return {
       detail:
-        "Build website belum berhasil dan belum ada tampilan sebelumnya. Tekan Build ulang untuk mencoba lagi.",
-      title: "Build website belum selesai",
+        "Website belum berhasil dibuat dan belum ada tampilan sebelumnya. Tekan Buat ulang website untuk mencoba lagi.",
+      title: "Website belum selesai",
     };
   }
 
@@ -393,8 +393,8 @@ export function getWorkspacePreviewIssue({
     ) {
       return {
         detail:
-          "File website belum berhasil dibuild. Tekan Build ulang — brief yang sudah siap tetap dipakai.",
-        title: "Build website belum selesai",
+          "File website belum berhasil dibuat. Tekan Buat ulang website — brief yang sudah siap tetap dipakai.",
+        title: "Website belum selesai",
       };
     }
   }
@@ -408,7 +408,7 @@ export function getWorkspacePreviewIssue({
   ) {
     return {
       detail:
-        "Tampilan website gagal dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal.",
+        "Tampilan website gagal dimuat. Coba muat ulang tampilan atau buat ulang website kalau masih gagal.",
       title: "Tampilan website gagal dimuat",
     };
   }

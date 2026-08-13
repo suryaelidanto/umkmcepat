@@ -191,7 +191,7 @@ export function WorkspaceHistoryDrawer({
               const buildLabel = snapshot.buildStatus
                 ? (BUILD_STATUS_LABEL[snapshot.buildStatus] ??
                   snapshot.buildStatus)
-                : "Tanpa build";
+                : "Belum ditampilkan";
               return (
                 <li
                   key={snapshot.id}

@@ -345,7 +345,7 @@ describe("workspace chat sync", () => {
       }),
     ).toEqual({
       detail:
-        "Tampilan website belum bisa dimuat. Coba muat ulang tampilan atau build ulang kalau masih gagal.",
+        "Tampilan website belum bisa dimuat. Coba muat ulang tampilan atau buat ulang website kalau masih gagal.",
       title: "Tampilan website belum bisa dimuat",
     });
   });
@@ -359,8 +359,8 @@ describe("workspace chat sync", () => {
         sourceStatus: null,
       }),
     ).toEqual({
-      detail: "Tampilan website akan muncul setelah build selesai.",
-      title: "Build website sedang berjalan",
+      detail: "Tampilan website akan muncul setelah pembuatan selesai.",
+      title: "Website sedang dibuat",
     });
     expect(
       getWorkspacePreviewIssue({
@@ -373,8 +373,8 @@ describe("workspace chat sync", () => {
       }),
     ).toEqual({
       detail:
-        "Build website belum berhasil dan belum ada tampilan sebelumnya. Tekan Build ulang untuk mencoba lagi.",
-      title: "Build website belum selesai",
+        "Website belum berhasil dibuat dan belum ada tampilan sebelumnya. Tekan Buat ulang website untuk mencoba lagi.",
+      title: "Website belum selesai",
     });
   });
 
@@ -394,7 +394,7 @@ describe("workspace chat sync", () => {
       sourceStatus: null,
     });
     expect(result).not.toBeNull();
-    expect(result?.title).toBe("Build website sedang berjalan");
+    expect(result?.title).toBe("Website sedang dibuat");
   });
 
   it("does not hide the last good preview when a newer build failed", () => {

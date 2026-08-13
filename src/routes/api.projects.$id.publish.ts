@@ -63,7 +63,9 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
 
         if (!build) {
           return Response.json(
-            { message: "Build berhasil belum tersedia untuk dipublish." },
+            {
+              message: "Website yang siap belum tersedia untuk dipublikasikan.",
+            },
             { status: 409 },
           );
         }

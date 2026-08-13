@@ -392,17 +392,17 @@ function getUserFacingRuntimeState({
 function getUserFacingRuntimeMessage(state: string) {
   switch (state) {
     case "building":
-      return "Build website sedang berjalan.";
+      return "Website sedang dibuat.";
     case "build_failed_without_last_good":
-      return "Build website belum berhasil dan belum ada tampilan sebelumnya.";
+      return "Website belum berhasil dibuat dan belum ada tampilan sebelumnya.";
     case "preview_failed":
       return "Tampilan website gagal dimuat. Coba muat ulang tampilan.";
     case "preview_starting":
       return "Tampilan website sedang disiapkan.";
     case "ready":
     case "ready_with_failed_latest_attempt":
-      return "Tampilan website siap dicek.";
+      return "Tampilan website siap dilihat.";
     default:
-      return "Website belum dibuild.";
+      return "Website belum dibuat.";
   }
 }

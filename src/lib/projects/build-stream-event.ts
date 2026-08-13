@@ -216,5 +216,6 @@ function friendlyErrorDetail(detail: string): string {
   return detail
     .replace(/\bbuild\b/gi, "pembuatan website")
     .replace(/\bsource\b/gi, "file website")
-    .replace(/\bcompile\b/gi, "pemeriksaan kode");
+    .replace(/\bcompile\b/gi, "pemeriksaan kode")
+    .replace(/\b(agent|worker|writer|batched)\b/gi, "proses website");
 }
