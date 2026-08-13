@@ -15,6 +15,7 @@ const {
   recordAiCallMock,
   getSettingSyncMock,
   primeSettingCacheMock,
+  prepareBuildHandoffMock,
 } = vi.hoisted(() => ({
   streamTextMock: vi.fn(),
   convertToModelMessagesMock: vi.fn(async () => []),
@@ -31,6 +32,7 @@ const {
     return fallback;
   }),
   primeSettingCacheMock: vi.fn(async () => undefined),
+  prepareBuildHandoffMock: vi.fn(),
   normalizeWorkspaceTurnMock: vi.fn(() => ({
     brief: { prompt: "p", confidence: 0 },
     projectTitle: "t",
@@ -109,6 +111,10 @@ vi.mock("@/lib/projects/attempt-queue", () => ({
   enqueueAttemptJob: enqueueAttemptJobMock,
 }));
 
+vi.mock("@/lib/projects/build-planner", () => ({
+  prepareBuildHandoff: prepareBuildHandoffMock,
+}));
+
 vi.mock("@/lib/projects/discuss-turn-pubsub", () => ({
   publishProgress: publishProgressMock,
 }));
@@ -130,7 +136,10 @@ vi.mock("@/lib/projects/ai-error-log", () => ({
     e instanceof Error ? e.message : String(e),
 }));
 
-vi.mock("@/lib/projects/brief-rich-fields", () => ({
+vi.mock("@/lib/projects/brief-rich-fields", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/lib/projects/brief-rich-fields")
+  >()),
   validateBrief: (b: unknown) => ({ cleaned: b ?? {}, dropped: [] }),
 }));
 
@@ -555,6 +564,10 @@ describe("runDiscussTurn worker", () => {
     // Display pacing must split one provider dump into many text-deltas.
     expect(textDeltas.length).toBeGreaterThan(1);
     expect(textDeltas.join("")).toBe(fullText);
+    expect(getSettingSyncMock).not.toHaveBeenCalledWith(
+      "discuss.partial_tool_streaming",
+      expect.anything(),
+    );
     const progressTypes = publishProgressMock.mock.calls
       .filter(([publishedTurnId]) => publishedTurnId === "ct_tool_only_text")
       .map(([, event]) => event.type);
@@ -635,6 +648,141 @@ describe("runDiscussTurn worker", () => {
       .flatMap((call) => call.slice(1))
       .join("\n");
     expect(persistedValues).toContain(repairText);
+  });
+
+  it("contract gate demotes the HP Surya recommendation while required canonical fields are missing", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: {
+        businessName: "HP Surya",
+        businessType: "retail",
+        offer: "HP bekas semua merek",
+        productOrService: null,
+        targetCustomer: "",
+        contactOrCta: "Lihat stok & harga",
+        contact: null,
+        stylePreference: "Bersih dan modern",
+        fieldState: {
+          address: "declined",
+          hours: "declined",
+          visuals: "declined",
+        },
+      },
+      projectTitle: "HP Surya",
+      workspaceCard: {
+        type: "build_recommendation",
+        title: "Rekomendasi build siap",
+        summary: ["HP bekas semua merek"],
+      },
+      readyForBuild: true,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Siap dibangun" },
+        {
+          type: "tool-call",
+          toolCallId: "tc-contract-blocked",
+          toolName: "presentWorkspaceCard",
+          input: {
+            assistantText: "Siap dibangun",
+            workspaceCard: { type: "build_recommendation" },
+          },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_contract_blocked",
+      project: { ...baseProject, generationEngine: "contract-v1" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    const cardEvent = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_contract_blocked" &&
+          event.type === "tool-output-available",
+      )
+      .map(([, event]) => event.output.workspaceCard)[0] as {
+      type: "question";
+      question: { id: string };
+    };
+    expect(cardEvent).toMatchObject({
+      type: "question",
+      question: { id: "audience" },
+    });
+    expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
+  });
+
+  it("contract gate never exposes a recommendation when handoff preparation fails", async () => {
+    const brief = {
+      businessName: "HP Surya",
+      businessType: "retail",
+      productOrService: [{ name: "HP bekas", isPrimary: true }],
+      targetCustomer: "Pembeli HP terjangkau",
+      contact: null,
+      contactOrCta: "Lihat stok & harga",
+      stylePreference: "Bersih dan modern",
+      fieldState: {
+        address: "declined",
+        hours: "declined",
+        visuals: "declined",
+      },
+    };
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief,
+      projectTitle: "HP Surya",
+      workspaceCard: {
+        type: "build_recommendation",
+        title: "Rekomendasi build siap",
+        summary: ["HP bekas"],
+      },
+      readyForBuild: true,
+    } as never);
+    prepareBuildHandoffMock.mockResolvedValue({
+      state: "failed",
+      reason: "contract validation failed",
+    });
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Siap dibangun" },
+        {
+          type: "tool-call",
+          toolCallId: "tc-contract-failed",
+          toolName: "presentWorkspaceCard",
+          input: {
+            assistantText: "Siap dibangun",
+            workspaceCard: { type: "build_recommendation" },
+          },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_contract_failed",
+      project: { ...baseProject, generationEngine: "contract-v1" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    const cardEvent = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_contract_failed" &&
+          event.type === "tool-output-available",
+      )
+      .map(([, event]) => event.output.workspaceCard)[0] as { type: string };
+    expect(cardEvent.type).not.toBe("build_recommendation");
   });
 
   it("legacy gate demotes a premature build recommendation to a question", async () => {

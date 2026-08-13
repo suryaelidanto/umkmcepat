@@ -23,13 +23,15 @@ import {
 import { getDiscussModel } from "@/lib/ai-models";
 import { writeAiRequestLog } from "@/lib/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai-timeouts";
-import { getSettingSync, primeSettingCache } from "@/lib/app-settings";
+import { primeSettingCache } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
+import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import { ensureQuestionCardRichness } from "@/lib/projects/card-richness";
 import {
   buildProjectChatContext,
@@ -302,15 +304,6 @@ export async function runDiscussTurn({
           toolInputJson += delta;
           if (fullText && !streamedToolAssistantText) {
             // Free chat text already streaming; don't dual-stream tool prose.
-            continue;
-          }
-          // Best-effort partial tool-JSON streaming, gated by the admin
-          // setting (default on).
-          const partialToolStreamingOn = getSettingSync(
-            "discuss.partial_tool_streaming",
-            true,
-          );
-          if (!partialToolStreamingOn) {
             continue;
           }
           const next = await nextAssistantTextDeltaFromPartialToolJson(
@@ -813,7 +806,32 @@ export async function runDiscussTurn({
       }
     }
 
-    const hasCard = workspaceTurn.workspaceCard.type !== "none";
+    if (
+      project.generationEngine === "contract-v1" &&
+      workspaceTurn.workspaceCard.type === "build_recommendation"
+    ) {
+      const canonicalBrief = parseCanonicalBrief(
+        workspaceTurn.brief,
+        project.prompt,
+      );
+      const readiness = evaluateBuildReadiness(canonicalBrief);
+      if (readiness.state === "blocked") {
+        workspaceTurn = {
+          ...workspaceTurn,
+          readyForBuild: false,
+          workspaceCard: {
+            type: "question",
+            question: readiness.nextQuestion,
+          },
+        };
+        chatText = "Masih ada informasi penting yang perlu dilengkapi dulu.";
+        devLog("discuss", "contract-readiness-blocked", {
+          projectId: project.id,
+          turnId,
+          blockers: readiness.blockers.map((blocker) => blocker.field),
+        });
+      }
+    }
 
     // Legacy readiness gate: the server, not model confidence, authorizes a
     // build recommendation. If structural decisions are still unresolved, the
@@ -842,6 +860,51 @@ export async function runDiscussTurn({
         });
       }
     }
+
+    if (
+      workspaceTurn.workspaceCard.type === "build_recommendation" &&
+      project.generationEngine === "contract-v1" &&
+      workspaceTurn.readyForBuild
+    ) {
+      const prepared = await prepareBuildHandoff({
+        projectId: project.id,
+        userId,
+        engine: "contract-v1",
+        brief: workspaceTurn.brief,
+        turnId,
+      });
+      if (prepared.state === "ready") {
+        workspaceTurn = {
+          ...workspaceTurn,
+          workspaceCard: {
+            ...workspaceTurn.workspaceCard,
+            handoffId: prepared.handoffId,
+            reviewHash: prepared.reviewHash,
+            reviewItems: prepared.reviewItems.map((item) => ({
+              id: item.id,
+              kind: item.kind,
+              label: item.label,
+              value: item.value,
+            })),
+          },
+        };
+      } else {
+        workspaceTurn = {
+          ...workspaceTurn,
+          readyForBuild: false,
+          workspaceCard: { type: "none" },
+        };
+        chatText =
+          "Brief belum bisa disiapkan untuk build. Coba kirim jawaban terakhir sekali lagi.";
+        devLog("discuss", "handoff-preparation-failed", {
+          projectId: project.id,
+          turnId,
+          reason: prepared.reason,
+        });
+      }
+    }
+
+    const hasCard = workspaceTurn.workspaceCard.type !== "none";
 
     devLog("discuss", "timings", {
       primaryMs,
@@ -896,48 +959,6 @@ export async function runDiscussTurn({
 
     if (hasCard) {
       const title = workspaceTurn.projectTitle || project.title;
-      // contract-v1: prepare an immutable handoff before showing the build
-      // card. legacy-v1 never runs this; it keeps post-click spec generation.
-      let handoffId: string | undefined;
-      let reviewHash: string | undefined;
-      let reviewItems: Array<{
-        id: string;
-        kind: string;
-        label: string;
-        value: string;
-      }> = [];
-      if (
-        workspaceTurn.workspaceCard.type === "build_recommendation" &&
-        project.generationEngine === "contract-v1" &&
-        workspaceTurn.readyForBuild
-      ) {
-        const prepared = await prepareBuildHandoff({
-          projectId: project.id,
-          userId,
-          engine: "contract-v1",
-          brief: workspaceTurn.brief,
-          turnId,
-        });
-        if (prepared.state === "ready") {
-          handoffId = prepared.handoffId;
-          reviewHash = prepared.reviewHash;
-          reviewItems = prepared.reviewItems.map((i) => ({
-            id: i.id,
-            kind: i.kind,
-            label: i.label,
-            value: i.value,
-          }));
-          workspaceTurn = {
-            ...workspaceTurn,
-            workspaceCard: {
-              ...workspaceTurn.workspaceCard,
-              handoffId,
-              reviewHash,
-              reviewItems,
-            },
-          };
-        }
-      }
       await writeAiRequestLog({
         event: "discuss:finish",
         model: modelName,
