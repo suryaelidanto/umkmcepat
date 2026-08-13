@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/projects/$id/generate")({
   },
 });
 
-async function handleGeneratePost(request: Request, routeId: string) {
+export async function handleGeneratePost(request: Request, routeId: string) {
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -148,6 +148,30 @@ async function handleGeneratePost(request: Request, routeId: string) {
     );
   }
 
+  // Contract-v1 must present valid handoff proof before any operation is
+  // claimed. Without this, a 503 from the later attempt branch masks the
+  // missing proof as a transient build error.
+  if (project.generationEngine === "contract-v1") {
+    if (!contractHandoffId || !contractReviewHash) {
+      return Response.json(
+        {
+          code: "project_handoff_required",
+          message: "Lengkapi diskusi dan tinjau brief sebelum mulai build.",
+        },
+        { status: 409 },
+      );
+    }
+    if (!/^[0-9a-f]{64}$/.test(contractReviewHash)) {
+      return Response.json(
+        {
+          code: "project_handoff_required",
+          message: "Lengkapi diskusi dan tinjau brief sebelum mulai build.",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const projectId = project.id;
   const projectPrompt = project.prompt;
 
@@ -188,23 +212,44 @@ async function handleGeneratePost(request: Request, routeId: string) {
 
   let earlyBuildId: string | null = null;
   try {
-    const isContractPath =
-      project.generationEngine === "contract-v1" &&
-      Boolean(contractHandoffId) &&
-      Boolean(contractReviewHash);
+    const isContractPath = project.generationEngine === "contract-v1";
 
     if (isContractPath) {
-      const acceptance = await acceptHandoffAndCreateAttempt({
-        projectId,
-        userId,
-        handoffId: contractHandoffId!,
-        reviewHash: contractReviewHash!,
-        generationEngine: project.generationEngine,
-        clientIdempotencyKey:
-          clientIdempotencyKey || `build_${randomUUID().replace(/-/g, "")}`,
-        attemptId: operationAttemptId,
-      });
-      if (!acceptance.created) {
+      let acceptance: { created: boolean } | null = null;
+      try {
+        acceptance = await acceptHandoffAndCreateAttempt({
+          projectId,
+          userId,
+          handoffId: contractHandoffId!,
+          reviewHash: contractReviewHash!,
+          generationEngine: project.generationEngine,
+          clientIdempotencyKey:
+            clientIdempotencyKey || `build_${randomUUID().replace(/-/g, "")}`,
+          attemptId: operationAttemptId,
+        });
+      } catch (acceptError) {
+        const message = acceptError instanceof Error ? acceptError.message : "";
+        if (
+          message.includes("review hash mismatch") ||
+          message.includes("handoff not found")
+        ) {
+          await finalizeProjectOperation({
+            data: { buildStatus: "failed", status: "failed" },
+            projectId,
+            token: operation.token,
+            userId,
+          }).catch(() => false);
+          return Response.json(
+            {
+              code: "project_handoff_required",
+              message: "Lengkapi diskusi dan tinjau brief sebelum mulai build.",
+            },
+            { status: 409 },
+          );
+        }
+        throw acceptError;
+      }
+      if (acceptance && !acceptance.created) {
         return Response.json(
           { message: "Build ini sudah diproses." },
           { status: 200 },
