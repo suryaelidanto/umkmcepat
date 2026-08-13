@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";
 import { useSession } from "@/lib/auth-client";
+import { resolveHomeAccessState } from "@/lib/home-access-state";
 import { prisma } from "@/lib/prisma";
 import {
   encodeProjectCursor,
@@ -244,10 +245,22 @@ function HomePage() {
     ...GATE_QUERY_OPTIONS,
     refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
-  const waitlisted =
-    status === "authenticated" &&
-    waitlistQuery.isSuccess &&
-    waitlistQuery.data.status !== "approved";
+  const [promptFocused, setPromptFocused] = useState(false);
+  const homeAccessState = resolveHomeAccessState({
+    authStatus: status,
+    hasUser,
+    hasWaitlistData: Boolean(waitlistQuery.data),
+    isApproved: waitlistQuery.data?.status === "approved",
+    waitlistStatus: waitlistQuery.status,
+  });
+  if (homeAccessState === "loading") {
+    return <HomeLoadingSkeleton />;
+  }
+  if (homeAccessState === "error") {
+    return <HomeAccessError onRetry={() => void waitlistQuery.refetch()} />;
+  }
+
+  const waitlisted = homeAccessState === "waitlisted";
   const ownEntry = waitlistQuery.data?.own ?? null;
   const ownStatus = ownEntry?.status ?? null;
   const waitlistBanner =
@@ -265,7 +278,6 @@ function HomePage() {
             body: "Isi formulir antrean dulu biar kami bisa review usahamu.",
             cta: "Isi formulir antrean",
           };
-  const [promptFocused, setPromptFocused] = useState(false);
   const siblingClass = promptFocused
     ? "transition-all duration-300 opacity-40 scale-[0.98]"
     : "transition-all duration-300";
@@ -368,6 +380,69 @@ function HomePage() {
           </ScrollReveal>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+function HomeLoadingSkeleton() {
+  return (
+    <div className="cursor-default bg-[#151515] text-surface-warm-white">
+      <ResetCursorOnMount />
+      <section
+        aria-busy="true"
+        aria-label="Memuat beranda"
+        className="relative isolate overflow-hidden px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10"
+        role="status"
+      >
+        <HeroAuroraBackground />
+        <div className="relative mx-auto flex max-w-4xl flex-col items-center">
+          <div className="h-24 w-full max-w-3xl animate-pulse rounded-radius-lg bg-surface-warm-white/10" />
+          <div className="mt-spacing-5 h-5 w-56 animate-pulse rounded bg-surface-warm-white/8" />
+          <div className="mt-spacing-7 h-24 w-full max-w-3xl animate-pulse rounded-[20px] border border-surface-warm-white/10 bg-surface-warm-white/[0.05]" />
+        </div>
+      </section>
+      <section
+        aria-hidden="true"
+        className="border-t border-surface-warm-white/10 bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 sm:px-spacing-9 lg:px-spacing-10"
+      >
+        <div className="mx-auto max-w-6xl">
+          <div className="h-10 w-56 animate-pulse rounded bg-surface-warm-white/10" />
+          <div className="mt-spacing-4 h-5 w-80 max-w-full animate-pulse rounded bg-surface-warm-white/8" />
+          <div className="mt-spacing-10 grid gap-spacing-5 md:grid-cols-2">
+            {["one", "two"].map((key) => (
+              <div
+                className="h-52 animate-pulse rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/[0.045]"
+                key={key}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function HomeAccessError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="cursor-default bg-[#151515] text-surface-warm-white">
+      <ResetCursorOnMount />
+      <section className="relative isolate overflow-hidden px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
+        <HeroAuroraBackground />
+        <div
+          className="relative mx-auto flex min-h-[24rem] max-w-xl flex-col items-center justify-center text-center"
+          role="alert"
+        >
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Beranda belum siap dimuat.
+          </h1>
+          <p className="mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/65">
+            Status akses belum bisa dicek. Coba lagi sebentar.
+          </p>
+          <Button className="mt-spacing-6" onClick={onRetry} type="button">
+            Coba lagi
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }

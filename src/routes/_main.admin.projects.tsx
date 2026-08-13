@@ -7,6 +7,7 @@ import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { resolveAsyncListState } from "@/lib/async-list-state";
 import { fetchJson } from "@/lib/query-client";
 
 type AdminProject = {
@@ -47,15 +48,40 @@ function formatDate(value: string) {
   });
 }
 
+function ProjectListSkeleton() {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-spacing-2" role="status">
+      {["one", "two", "three"].map((key) => (
+        <div
+          className="flex h-32 animate-pulse gap-spacing-3 rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-3"
+          key={key}
+        >
+          <span className="h-full w-36 shrink-0 rounded-radius-md bg-surface-warm-white/8" />
+          <div className="flex min-w-0 flex-1 flex-col gap-spacing-3 py-spacing-2">
+            <span className="h-4 w-48 max-w-full rounded bg-surface-warm-white/10" />
+            <span className="h-3 w-64 max-w-full rounded bg-surface-warm-white/8" />
+            <span className="h-6 w-24 rounded bg-surface-warm-white/8" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ProjectsPage() {
   const streamerMode = useStreamerMode();
   const [status, setStatus] = useState("active");
-  const { data } = useQuery({
+  const { data, isError, isPending, refetch } = useQuery({
     queryFn: () =>
       fetchJson<ProjectsResponse>(`/api/admin/projects?status=${status}`),
     queryKey: ["admin", "projects", status],
   });
   const projects = data?.projects ?? [];
+  const listState = resolveAsyncListState({
+    isError,
+    isPending,
+    items: data?.projects,
+  });
 
   return (
     <div className="flex flex-col gap-spacing-3">
@@ -65,7 +91,22 @@ function ProjectsPage() {
         value={status}
       />
 
-      {projects.length === 0 ? (
+      {listState === "loading" ? (
+        <ProjectListSkeleton />
+      ) : listState === "error" ? (
+        <div className="flex flex-col items-center gap-spacing-3 py-spacing-8 text-center">
+          <p className="text-sm text-surface-warm-white/70">
+            Proyek belum bisa dimuat.
+          </p>
+          <button
+            className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+            onClick={() => void refetch()}
+            type="button"
+          >
+            Coba lagi
+          </button>
+        </div>
+      ) : listState === "empty" ? (
         <p className="text-surface-warm-white/70">
           {status === "needs_attention"
             ? "Tidak ada proyek gagal."

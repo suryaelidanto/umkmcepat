@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Link } from "@/components/ui/link";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { useSession } from "@/lib/auth-client";
+import { resolveHomeAccessState } from "@/lib/home-access-state";
 import { usePathname } from "@/lib/navigation";
 import {
   fetchWaitlistStatus,
@@ -39,6 +40,44 @@ const WAITLISTED_OVERFLOW = [
   { href: "/terms", label: "Syarat" },
 ] as const;
 
+function MobileNavSkeleton() {
+  return (
+    <nav
+      aria-busy="true"
+      aria-label="Memuat navigasi utama"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-around border-t border-surface-warm-white/10 bg-[#151515]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      role="status"
+    >
+      {["one", "two", "three", "four", "more"].map((key) => (
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-1"
+          key={key}
+        >
+          <span className="size-5 animate-pulse rounded-full bg-surface-warm-white/10" />
+          <span className="h-2.5 w-10 animate-pulse rounded bg-surface-warm-white/8" />
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+function MobileNavError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <nav
+      aria-label="Navigasi utama"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-center border-t border-surface-warm-white/10 bg-[#151515]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    >
+      <button
+        className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/75"
+        onClick={onRetry}
+        type="button"
+      >
+        Muat ulang navigasi
+      </button>
+    </nav>
+  );
+}
+
 export function MobileNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -50,11 +89,22 @@ export function MobileNav() {
     ...GATE_QUERY_OPTIONS,
     refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
-  const waitlisted =
-    status === "authenticated" &&
-    waitlistQuery.isSuccess &&
-    waitlistQuery.data.status !== "approved";
+  const navigationState = resolveHomeAccessState({
+    authStatus: status,
+    hasUser: status !== "unauthenticated",
+    hasWaitlistData: Boolean(waitlistQuery.data),
+    isApproved: waitlistQuery.data?.status === "approved",
+    waitlistStatus: waitlistQuery.status,
+  });
+  const waitlisted = navigationState === "waitlisted";
   const isAdmin = session?.user?.admin === true;
+  if (navigationState === "loading") {
+    return <MobileNavSkeleton />;
+  }
+  if (navigationState === "error") {
+    return <MobileNavError onRetry={() => void waitlistQuery.refetch()} />;
+  }
+
   const items = waitlisted ? WAITLISTED_ITEMS : ITEMS;
   const overflow = (
     waitlisted ? [...WAITLISTED_OVERFLOW] : [...OVERFLOW]

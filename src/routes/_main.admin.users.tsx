@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { resolveAsyncListState } from "@/lib/async-list-state";
 import { fetchJson } from "@/lib/query-client";
 
 /** id-ID thousands: 1000000 → "1.000.000" */
@@ -63,13 +64,32 @@ export const Route = createFileRoute("/_main/admin/users")({
   component: UsersPage,
 });
 
+function UserListSkeleton() {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-spacing-3" role="status">
+      {["one", "two", "three"].map((key) => (
+        <div
+          className="flex h-20 animate-pulse items-center justify-between rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-3"
+          key={key}
+        >
+          <div className="flex flex-col gap-spacing-2">
+            <span className="h-4 w-36 rounded bg-surface-warm-white/10" />
+            <span className="h-3 w-52 rounded bg-surface-warm-white/8" />
+          </div>
+          <span className="h-9 w-24 rounded-radius-md bg-surface-warm-white/8" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function UsersPage() {
   const streamerMode = useStreamerMode();
   const [status, setStatus] = useState("all");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
-  const { data } = useQuery({
+  const { data, isError, isPending, refetch } = useQuery({
     queryFn: () =>
       fetchJson<UsersResponse>(
         `/api/admin/users?status=${status}&q=${encodeURIComponent(q)}&page=${page}`,
@@ -119,6 +139,11 @@ function UsersPage() {
   };
 
   const users = data?.users ?? [];
+  const listState = resolveAsyncListState({
+    isError,
+    isPending,
+    items: data?.users,
+  });
   return (
     <div className="flex flex-col gap-spacing-3">
       <AdminStatusFilter
@@ -138,7 +163,22 @@ function UsersPage() {
         placeholder="Cari nama atau email…"
         value={q}
       />
-      {users.length === 0 ? (
+      {listState === "loading" ? (
+        <UserListSkeleton />
+      ) : listState === "error" ? (
+        <div className="flex flex-col items-center gap-spacing-3 py-spacing-8 text-center">
+          <p className="text-sm text-surface-warm-white/70">
+            Pengguna belum bisa dimuat.
+          </p>
+          <button
+            className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+            onClick={() => void refetch()}
+            type="button"
+          >
+            Coba lagi
+          </button>
+        </div>
+      ) : listState === "empty" ? (
         <p className="text-surface-warm-white/70">Tidak ada pengguna.</p>
       ) : (
         users.map((u) => (

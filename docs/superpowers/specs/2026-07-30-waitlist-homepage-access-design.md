@@ -125,6 +125,13 @@ User-facing Indonesian:
 - rejected users: same limited marketing access as pending; `/waitlist` still shows rejection + reapply path
 - deep link to product route while waitlisted: redirect to `/waitlist` (or homepage with banner if already product-blocked elsewhere; prefer `/waitlist` for product deep links)
 
+## Loading behavior
+
+- A signed-in homepage waits for the access query before showing greeting, composer, or projects.
+- While the query is pending, `/` and mobile navigation show a quiet skeleton instead of product controls.
+- If the access query fails without cached data, the homepage and mobile navigation offer an honest retry action.
+- Admin users, projects, and transactions lists show loading placeholders until their first response; an empty message only appears after a successful empty response.
+
 ## Testing
 
 - waitlisted user can open `/` without redirect loop
