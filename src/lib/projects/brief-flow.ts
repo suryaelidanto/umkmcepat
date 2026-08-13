@@ -443,10 +443,59 @@ export function normalizeWorkspaceTurn(
       return value !== null && value !== undefined;
     })();
 
+    const isQuestionAlreadyAnswered = (() => {
+      if (workspaceCard.type !== "question") {
+        return false;
+      }
+      const qId = workspaceCard.question.id.toLowerCase().replace(/-/g, "_");
+      const fieldMap: Record<string, keyof ProjectBrief> = {
+        business_name: "businessName",
+        businessname: "businessName",
+        offer: "offer",
+        product_or_service: "offer",
+        product: "offer",
+        target_customer: "targetCustomer",
+        targetcustomer: "targetCustomer",
+        contact: "contactOrCta",
+        contact_or_cta: "contactOrCta",
+        contactorcta: "contactOrCta",
+        whatsapp: "contactOrCta",
+        style_preference: "stylePreference",
+        stylepreference: "stylePreference",
+        style: "stylePreference",
+        visual_direction: "stylePreference",
+        visual: "stylePreference",
+        audience: "targetCustomer",
+      };
+      let field: keyof ProjectBrief | undefined = fieldMap[qId];
+      if (!field) {
+        if (qId.includes("business") && qId.includes("name")) {
+          field = "businessName";
+        } else if (qId.includes("target") || qId.includes("audience")) {
+          field = "targetCustomer";
+        } else if (qId.includes("contact") || qId.includes("whatsapp")) {
+          field = "contactOrCta";
+        } else if (qId.includes("offer") || qId.includes("product")) {
+          field = "offer";
+        } else if (qId.includes("style") || qId.includes("visual")) {
+          field = "stylePreference";
+        }
+      }
+      if (!field) {
+        return false;
+      }
+      const value = brief[field];
+      if (typeof value === "string") {
+        return value.trim().length > 0;
+      }
+      return value !== null && value !== undefined;
+    })();
+
     if (
       promoteBuildConfirmQuestion ||
       promoteAfterAffirm ||
-      (isDuplicateStall && briefIsReady)
+      (isDuplicateStall && briefIsReady) ||
+      (briefIsReady && isQuestionAlreadyAnswered)
     ) {
       brief = withHandoffReadiness(brief);
       workspaceCard = buildRecommendationCard(brief, modelTitle, modelSummary);
