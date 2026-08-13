@@ -83,7 +83,10 @@ import {
   type ProjectSnapshotSourceType,
 } from "@/lib/projects/runtime-types";
 import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
-import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
+import {
+  createProjectSiteSchemaFromBrief,
+  createProjectSiteSchemaFromGeneratedContract,
+} from "@/lib/projects/site-schema";
 import { runShadowCritic } from "@/lib/projects/visual-critic";
 import { chargeEnergyForAiUsage } from "@/lib/user-credits";
 
@@ -668,7 +671,7 @@ export async function runBuildAttempt({
       generatedSiteContract = compileGeneratedSiteContract({
         contract: acceptedHandoff.contract,
         plan: acceptedHandoff.plan,
-        brief,
+        briefSnapshot: acceptedHandoff.briefSnapshot,
         photoEnabled: Boolean(
           getSettingSync("feature.composer_uploads_enabled", true),
         ),
@@ -677,6 +680,9 @@ export async function runBuildAttempt({
       generatedSiteExample = selectGeneratedSiteGoldExample({
         recipeId: generatedSiteRecipe.id,
         mediaMode: generatedSiteContract.design.mediaMode,
+      });
+      finalSchema = createProjectSiteSchemaFromGeneratedContract({
+        contract: generatedSiteContract,
       });
     } else {
       const implementationSpecPrompt = buildImplementationSpecPrompt(brief);

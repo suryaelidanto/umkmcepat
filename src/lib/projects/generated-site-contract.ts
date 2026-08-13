@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 
 import { canonicalJson } from "./build-hash";
+import { hashCanonicalBrief, type ProjectBriefV2 } from "./canonical-brief";
 
-import type { ProjectBrief } from "./brief";
 import type {
   HoursValue,
   PaymentMethodValue,
@@ -87,12 +87,18 @@ export type GeneratedSiteContractV1 = {
 export type GeneratedSiteContractCompileInput = {
   contract: BuildContractV1;
   plan: BuildPlanV1;
-  brief: ProjectBrief;
+  briefSnapshot: ProjectBriefV2;
   photoEnabled: boolean;
   recipe: GeneratedSiteRecipeV1;
 };
 
 const HASH_PREFIX = "umkmcepat:generated-site-contract:v1:";
+
+export function compileGeneratedSiteSnapshotHash(
+  briefSnapshot: ProjectBriefV2,
+): string {
+  return hashCanonicalBrief(briefSnapshot);
+}
 
 export function compileGeneratedSiteContract(
   input: GeneratedSiteContractCompileInput,
@@ -136,8 +142,10 @@ export function compileGeneratedSiteContract(
     business: {
       name: input.contract.identity.businessName,
       type:
-        input.contract.identity.businessType ?? input.brief.businessType ?? "",
-      audience: input.brief.targetCustomer || null,
+        input.contract.identity.businessType ??
+        input.briefSnapshot.business.type ??
+        "",
+      audience: input.briefSnapshot.audience || null,
       primaryJob: primaryJob.goal,
       primaryCta: {
         kind: normalizeCtaKind(primaryCta.kind),
@@ -147,20 +155,22 @@ export function compileGeneratedSiteContract(
     },
     content: {
       headline:
-        input.brief.tagline ||
-        input.brief.businessName ||
+        input.briefSnapshot.content.tagline ||
+        input.briefSnapshot.business.name ||
         input.contract.identity.businessName,
-      subheadline: input.brief.offer || primaryJob.goal,
-      offer: input.brief.offer || products.map((item) => item.name).join(", "),
-      promotion: input.brief.currentPromo,
-      trustPoints: input.brief.usp ?? [],
+      subheadline: snapshotPrimaryOffer(input.briefSnapshot) || primaryJob.goal,
+      offer:
+        snapshotPrimaryOffer(input.briefSnapshot) ||
+        products.map((item) => item.name).join(", "),
+      promotion: input.briefSnapshot.content.currentPromo,
+      trustPoints: input.briefSnapshot.content.usp ?? [],
       products,
       testimonials,
       faq: [],
-      usp: input.brief.usp ?? [],
+      usp: input.briefSnapshot.content.usp ?? [],
       hours,
       paymentMethods,
-      priceRange: input.brief.priceRange,
+      priceRange: input.briefSnapshot.content.priceRange,
       address: addressText(input.contract.facts),
       deliveryArea: serviceAreaText(input.contract.facts),
       socialLinks,
@@ -296,4 +306,9 @@ function addressText(facts: ContractFactV1[]): string | null {
 function serviceAreaText(facts: ContractFactV1[]): string | null {
   const areas = factArray<{ area: string }>(facts, "service_area");
   return areas.length ? areas.map((item) => item.area).join(", ") : null;
+}
+
+function snapshotPrimaryOffer(snapshot: ProjectBriefV2): string | null {
+  const primary = snapshot.offers.find((offer) => offer.isPrimary);
+  return (primary ?? snapshot.offers[0])?.name ?? null;
 }

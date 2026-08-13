@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { hashBuildContract, hashBuildPlan } from "./build-hash";
+import { parseCanonicalBrief } from "./canonical-brief";
 import { compileGeneratedSiteContract } from "./generated-site-contract";
 import { selectGeneratedSiteRecipe } from "./generated-site-recipes";
 
@@ -13,6 +14,7 @@ function fixtures(input?: {
   archetype?: string;
 }): {
   brief: ProjectBrief;
+  briefSnapshot: ReturnType<typeof parseCanonicalBrief>;
   contract: BuildContractV1;
   plan: BuildPlanV1;
 } {
@@ -187,7 +189,8 @@ function fixtures(input?: {
     secondaryCta: { label: "Lihat katalog", action: "browse" },
     readyForBuild: true,
   };
-  return { brief, contract, plan };
+  const briefSnapshot = parseCanonicalBrief(brief, brief.prompt);
+  return { brief, briefSnapshot, contract, plan };
 }
 
 function compile(input: {
@@ -195,8 +198,16 @@ function compile(input: {
   assets?: BuildContractV1["assets"];
 }) {
   const values = fixtures({ assets: input.assets });
+  const { brief: _brief, ...rest } = values as unknown as Record<
+    string,
+    unknown
+  >;
   return compileGeneratedSiteContract({
-    ...values,
+    ...(rest as unknown as {
+      briefSnapshot: ReturnType<typeof parseCanonicalBrief>;
+      contract: BuildContractV1;
+      plan: BuildPlanV1;
+    }),
     photoEnabled: input.photoEnabled,
     recipe: selectGeneratedSiteRecipe(values.plan.archetype),
   });
@@ -250,9 +261,14 @@ describe("compileGeneratedSiteContract", () => {
   it("rejects interactive apps in this phase", () => {
     const values = fixtures();
     values.plan.appKind = "interactive_app";
+    const { brief: _b, ...rest } = values as unknown as Record<string, unknown>;
     expect(() =>
       compileGeneratedSiteContract({
-        ...values,
+        ...(rest as unknown as {
+          briefSnapshot: ReturnType<typeof parseCanonicalBrief>;
+          contract: BuildContractV1;
+          plan: BuildPlanV1;
+        }),
         photoEnabled: false,
         recipe: selectGeneratedSiteRecipe(values.plan.archetype),
       }),

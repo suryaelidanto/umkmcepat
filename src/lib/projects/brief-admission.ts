@@ -13,6 +13,7 @@
 import { z } from "zod";
 
 import type { ProjectBrief } from "./brief";
+import type { ProjectBriefV2 } from "./canonical-brief";
 
 const requiredText = z
   .string({ error: "must be a string" })
@@ -55,6 +56,35 @@ const FIELD_LABELS: Record<string, string> = {
  * Never throws; always returns structured blockers + a single Indonesian
  * user-facing sentence for the UI error path.
  */
+export function checkContractGenerateAdmission(input: {
+  briefSnapshot: ProjectBriefV2;
+  contractHash: string;
+  planHash: string;
+}): BatchedBriefAdmissionResult {
+  const blockers: string[] = [];
+  if (!input.briefSnapshot.business.name.trim()) {
+    blockers.push("businessName");
+  }
+  if (!input.briefSnapshot.offers.length) {
+    blockers.push("offers");
+  }
+  if (!/^[0-9a-f]{64}$/.test(input.contractHash)) {
+    blockers.push("contractHash");
+  }
+  if (!/^[0-9a-f]{64}$/.test(input.planHash)) {
+    blockers.push("planHash");
+  }
+  if (blockers.length === 0) {
+    return { ok: true, blockers: [], reason: null };
+  }
+  const labels = blockers.map((f) => FIELD_LABELS[f] ?? f);
+  return {
+    ok: false,
+    blockers,
+    reason: `Kontrak belum siap: ${labels.join(", ")} belum valid.`,
+  };
+}
+
 export function checkBatchedGenerateAdmission(input: {
   brief: ProjectBrief;
 }): BatchedBriefAdmissionResult {

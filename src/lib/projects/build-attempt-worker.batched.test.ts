@@ -224,6 +224,7 @@ const baseContext = () => ({
 describe("runBuildAttempt — contract-v1 batched writer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    loadAcceptedHandoffMock.mockResolvedValue(null);
     getSettingSyncMock.mockImplementation(
       (_key: string, fallback: unknown) => fallback,
     );
@@ -313,8 +314,19 @@ describe("runBuildAttempt — contract-v1 batched writer", () => {
         fontStrategy: "system_stack",
       },
     };
+    const { parseCanonicalBrief } = await import("./canonical-brief");
+    const briefSnapshot = parseCanonicalBrief({
+      businessName: "Kopi Sela",
+      productOrService: [{ name: "Kopi", isPrimary: true }],
+      targetCustomer: "Pekerja",
+      contactOrCta: "Lihat menu",
+      stylePreference: "hangat",
+    });
     loadAcceptedHandoffMock.mockResolvedValue({
       id: "handoff-1",
+      briefSnapshot,
+      briefHash: "b".repeat(64),
+      briefRevision: 2,
       contract,
       plan,
       contractHash: contract.contentHash,

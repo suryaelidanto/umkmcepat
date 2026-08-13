@@ -240,6 +240,57 @@ export function createProjectSiteSchemaFromBrief(
   };
 }
 
+export function createProjectSiteSchemaFromGeneratedContract(input: {
+  contract: import("./generated-site-contract").GeneratedSiteContractV1;
+}): ProjectSiteSchema {
+  const c = input.contract;
+  const businessName = cleanText(c.business.name, "Usaha Lokal", 80);
+  const offer = cleanText(c.content.offer, c.business.primaryJob, 120);
+  const audience = cleanText(c.business.audience ?? "", "pelanggan baru", 80);
+  const primaryCta = cleanText(c.business.primaryCta.label, "Hubungi kami", 44);
+  return {
+    version: 1,
+    businessName,
+    eyebrow: "Website usaha",
+    headline: cleanText(c.content.headline, businessName, 110),
+    subheadline: cleanText(c.content.subheadline, c.business.primaryJob, 260),
+    primaryCta,
+    secondaryCta: "Lihat detail",
+    audience,
+    offer,
+    theme: defaultTheme,
+    trustPoints: c.content.trustPoints.slice(0, MAX_TRUST_POINTS).length
+      ? c.content.trustPoints.slice(0, MAX_TRUST_POINTS)
+      : ["Info jelas", "Mudah dihubungi", "Siap dibuka dari HP"],
+    sections: c.page.requiredSections.slice(0, MAX_SECTIONS).map((s) => ({
+      title: cleanText(s.purpose, "Bagian", 80),
+      body: cleanText(s.purpose, "Konten bagian.", 260),
+    })),
+    tagline: c.content.headline || undefined,
+    usp: c.content.usp.length ? c.content.usp.slice(0, MAX_USP) : undefined,
+    products: c.content.products.length
+      ? c.content.products.slice(0, MAX_PRODUCTS)
+      : undefined,
+    testimonials: c.content.testimonials.length
+      ? c.content.testimonials.slice(0, MAX_TESTIMONIALS)
+      : undefined,
+    faq: [],
+    socialLinks: c.content.socialLinks.length
+      ? c.content.socialLinks.slice(0, MAX_SOCIAL)
+      : undefined,
+    currentPromo: c.content.promotion || undefined,
+    hours: c.content.hours.length
+      ? c.content.hours.slice(0, MAX_HOURS)
+      : undefined,
+    paymentMethods: c.content.paymentMethods.length
+      ? c.content.paymentMethods.slice(0, MAX_PAYMENTS)
+      : undefined,
+    priceRange: c.content.priceRange || undefined,
+    address: c.content.address || undefined,
+    deliveryArea: c.content.deliveryArea || undefined,
+  };
+}
+
 function briefProducts(brief: ProjectBrief): SiteSchemaProduct[] | undefined {
   if (!brief.productOrService || !brief.productOrService.length) {
     return undefined;
