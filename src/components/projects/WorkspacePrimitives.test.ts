@@ -91,9 +91,7 @@ describe("ProcessingControl copy", () => {
     );
 
     expect(markup).toContain("Membuat website");
-    expect(markup).toContain(
-      "AI sedang menyiapkan file website dan tampilannya.",
-    );
+    expect(markup).toContain("Website sedang disiapkan.");
   });
 
   it("ignores the current build step in Diskusi mode", () => {

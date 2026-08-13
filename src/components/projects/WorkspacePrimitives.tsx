@@ -845,7 +845,7 @@ export function WorkspaceCardView({
               onClick={onBuild}
               className="rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
             >
-              Mulai build
+              Mulai buat website
             </Button>
             {onDiscuss ? (
               <Button

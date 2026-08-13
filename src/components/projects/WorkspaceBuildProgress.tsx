@@ -70,6 +70,9 @@ export function BuildProgressPanel({
     (step) => (step.status || "active") === "active",
   );
   const isRunning = isBuilding || hasActiveStep;
+  const completedStepCount = steps.filter(
+    (step) => (step.status ?? "active") === "done",
+  ).length;
 
   useEffect(() => {
     if (!isRunning) {
@@ -89,8 +92,8 @@ export function BuildProgressPanel({
     ? steps
     : [
         {
-          detail: "AI sedang membuka sesi build dan menyiapkan konteks proyek.",
-          label: "Memulai build",
+          detail: "Setiap bagian akan muncul saat selesai.",
+          label: "Menyiapkan website",
           status: "active" as const,
         },
       ];
@@ -100,13 +103,18 @@ export function BuildProgressPanel({
       <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
         <div>
           <p className="text-sm font-semibold text-surface-warm-white">
-            {isRunning ? "Proses sedang berjalan" : "Riwayat build terakhir"}
+            {isRunning ? "Website sedang dibuat" : "Riwayat pembuatan terakhir"}
           </p>
           <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
             {isRunning
-              ? "Tampilan website akan mengikuti hasil yang sudah berhasil dibaca."
-              : "Langkah build terakhir sudah selesai."}
+              ? "Setiap bagian akan muncul saat selesai."
+              : "Langkah pembuatan terakhir sudah selesai."}
           </p>
+          {isRunning && completedStepCount > 0 ? (
+            <p className="mt-spacing-2 text-xs font-medium text-surface-warm-white/62">
+              {completedStepCount} bagian sudah selesai
+            </p>
+          ) : null}
         </div>
         <div className="rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.055] px-spacing-3 py-spacing-2 text-xs tabular-nums text-surface-warm-white/68">
           {elapsedSeconds}s
@@ -262,7 +270,7 @@ export function ProcessingControl({
     mode === "Buat" ? "Membuat website" : "AI sedang memproses...";
   const fallbackDetail =
     mode === "Buat"
-      ? "AI sedang menyiapkan file website dan tampilannya."
+      ? "Website sedang disiapkan."
       : "Tunggu sebentar, jawaban akan muncul di sini.";
   const title =
     mode === "Buat" && currentStep?.label ? currentStep.label : fallbackTitle;
