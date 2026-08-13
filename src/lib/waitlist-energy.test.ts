@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { grantSignupEnergyMock, updateMock, updateManyMock, userFindFirstMock } =
-  vi.hoisted(() => ({
-    grantSignupEnergyMock: vi.fn(),
-    updateMock: vi.fn(),
-    updateManyMock: vi.fn(),
-    userFindFirstMock: vi.fn(),
-  }));
+const {
+  grantSignupEnergyMock,
+  transactionMock,
+  updateMock,
+  updateManyMock,
+  userFindFirstMock,
+} = vi.hoisted(() => ({
+  grantSignupEnergyMock: vi.fn(),
+  transactionMock: vi.fn(),
+  updateMock: vi.fn(),
+  updateManyMock: vi.fn(),
+  userFindFirstMock: vi.fn(),
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $transaction: transactionMock,
     user: { findFirst: userFindFirstMock },
     waitlistEntry: {
       update: updateMock,
@@ -31,6 +38,16 @@ describe("waitlist energy grant lifecycle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     grantSignupEnergyMock.mockResolvedValue(true);
+    transactionMock.mockImplementation(
+      async (callback: (tx: unknown) => unknown) =>
+        callback({
+          user: { findFirst: userFindFirstMock },
+          waitlistEntry: {
+            update: updateMock,
+            updateMany: updateManyMock,
+          },
+        }),
+    );
   });
 
   it("grants an already-linked user when approving", async () => {
@@ -41,7 +58,11 @@ describe("waitlist energy grant lifecycle", () => {
 
     await approveWaitlistEntry("w1", "admin1");
 
-    expect(grantSignupEnergyMock).toHaveBeenCalledWith("u-linked");
+    expect(grantSignupEnergyMock).toHaveBeenCalledWith(
+      "u-linked",
+      expect.objectContaining({ waitlistEntry: expect.any(Object) }),
+    );
+    expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(userFindFirstMock).not.toHaveBeenCalled();
   });
 
@@ -63,7 +84,10 @@ describe("waitlist energy grant lifecycle", () => {
       data: { linkedUserId: "u-email" },
       where: { id: "w1", linkedUserId: null },
     });
-    expect(grantSignupEnergyMock).toHaveBeenCalledWith("u-email");
+    expect(grantSignupEnergyMock).toHaveBeenCalledWith(
+      "u-email",
+      expect.objectContaining({ waitlistEntry: expect.any(Object) }),
+    );
   });
 
   it("grants after linking an approved entry on signup", async () => {

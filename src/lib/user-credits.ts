@@ -24,6 +24,7 @@ const DEFAULT_MIN_ENERGY_EDIT = 10_000;
 const DEFAULT_MIN_ENERGY_MODERATION = 500;
 
 type EnergyPricingProof = Awaited<ReturnType<typeof resolveModelPricing>>;
+type CreditDatabase = Pick<Prisma.TransactionClient, "$executeRaw">;
 
 export const PROJECT_LIMIT_DEFAULT = 5;
 
@@ -161,9 +162,10 @@ async function grantEnergy(
   userId: string,
   amount: number,
   reason: "grant:pilot" | "grant:admin",
+  database: CreditDatabase = prisma,
 ): Promise<boolean> {
   const expiry = new Date("9999-12-31T23:59:59.999Z");
-  const inserted = await prisma.$executeRaw`
+  const inserted = await database.$executeRaw`
     INSERT INTO "UserCredit" ("id", "userId", "amount", "inputTokens", "outputTokens", "reason", "expiresAt", "createdAt")
     VALUES (
       ${`c${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`},
@@ -180,8 +182,16 @@ async function grantEnergy(
   return inserted > 0;
 }
 
-export async function grantSignupEnergy(userId: string): Promise<boolean> {
-  return grantEnergy(userId, getEnergyConfig().signupGrant, "grant:pilot");
+export async function grantSignupEnergy(
+  userId: string,
+  database?: CreditDatabase,
+): Promise<boolean> {
+  return grantEnergy(
+    userId,
+    getEnergyConfig().signupGrant,
+    "grant:pilot",
+    database,
+  );
 }
 
 export async function grantAdminEnergy(

@@ -112,6 +112,20 @@ describe("grantSignupEnergy", () => {
     expect(sql).toContain('"UserCredit"');
     expect(sql).toContain("ON CONFLICT DO NOTHING");
   });
+
+  it("writes through a supplied transaction client", async () => {
+    const transactionExecuteRawMock = vi.fn().mockResolvedValue(1);
+    const transactionClient = {
+      $executeRaw: transactionExecuteRawMock,
+    };
+
+    await expect(
+      grantSignupEnergy("u-transaction", transactionClient),
+    ).resolves.toBe(true);
+
+    expect(transactionExecuteRawMock).toHaveBeenCalledTimes(1);
+    expect(prismaExecuteRawMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("chargeEnergyForAiUsage", () => {

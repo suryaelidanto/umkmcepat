@@ -7,6 +7,14 @@ const MIN_STORY_LENGTH = 80;
 
 export type WaitlistStatus = "pending" | "approved" | "rejected" | "waitlisted";
 
+export const WAITLIST_PENDING_STATUSES = ["pending", "waitlisted"] as const;
+
+export function isWaitlistPendingStatus(status: string): boolean {
+  return WAITLIST_PENDING_STATUSES.includes(
+    status as (typeof WAITLIST_PENDING_STATUSES)[number],
+  );
+}
+
 export function normalizeEmail(email: string): string | null {
   const trimmed = email.trim().toLowerCase();
   if (!trimmed) {
@@ -188,7 +196,7 @@ export async function listPendingWaitlist(
     status === "all"
       ? undefined
       : status === "pending"
-        ? { status: { in: ["pending", "waitlisted"] } }
+        ? { status: { in: [...WAITLIST_PENDING_STATUSES] } }
         : { status };
 
   const rows = await prisma.waitlistEntry.findMany({
@@ -225,35 +233,38 @@ export async function approveWaitlistEntry(
   entryId: string,
   reviewerId: string,
 ): Promise<void> {
-  const entry = await prisma.waitlistEntry.update({
-    data: {
-      reviewedAt: new Date(),
-      reviewerId,
-      status: "approved",
-    },
-    where: { id: entryId },
-    select: { email: true, linkedUserId: true },
-  });
-  let userId = entry.linkedUserId;
-  if (!userId) {
-    const email = normalizeEmail(entry.email);
-    const user = email
-      ? await prisma.user.findFirst({
-          where: { email: { equals: email, mode: "insensitive" } },
-          select: { id: true },
-        })
-      : null;
-    userId = user?.id ?? null;
-    if (userId) {
-      await prisma.waitlistEntry.updateMany({
-        data: { linkedUserId: userId },
-        where: { id: entryId, linkedUserId: null },
-      });
+  await prisma.$transaction(async (tx) => {
+    const entry = await tx.waitlistEntry.update({
+      data: {
+        reviewedAt: new Date(),
+        reviewerId,
+        status: "approved",
+      },
+      where: { id: entryId },
+      select: { email: true, linkedUserId: true },
+    });
+
+    let userId = entry.linkedUserId;
+    if (!userId) {
+      const email = normalizeEmail(entry.email);
+      const user = email
+        ? await tx.user.findFirst({
+            where: { email: { equals: email, mode: "insensitive" } },
+            select: { id: true },
+          })
+        : null;
+      userId = user?.id ?? null;
+      if (userId) {
+        await tx.waitlistEntry.updateMany({
+          data: { linkedUserId: userId },
+          where: { id: entryId, linkedUserId: null },
+        });
+      }
     }
-  }
-  if (userId) {
-    await grantSignupEnergy(userId);
-  }
+    if (userId) {
+      await grantSignupEnergy(userId, tx);
+    }
+  });
   devLog("waitlist", "approve", { entryId, reviewerId });
 }
 
