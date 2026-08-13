@@ -67,7 +67,7 @@ export function WhatsAppCommunityInvite({
               rel="noopener noreferrer"
               target="_blank"
             >
-              Gabung Grup WhatsApp
+              Join WhatsApp
             </Link>
           </Button>
           <p className="max-w-64 text-xs leading-5 text-surface-warm-white/50">

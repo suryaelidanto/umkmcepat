@@ -1,6 +1,7 @@
 "use client";
 
 import { WHATSAPP_UMKM_GROUP_URL } from "@/components/community/WhatsAppCommunityInvite";
+import { Button } from "@/components/ui/button";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
 
@@ -40,14 +41,16 @@ export function Footer() {
             >
               Privasi
             </Link>
-            <Link
-              href={WHATSAPP_UMKM_GROUP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
-            >
-              Grup WhatsApp UMKM
-            </Link>
+            <Button asChild size="sm" variant="outline">
+              <Link
+                className="border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
+                href={WHATSAPP_UMKM_GROUP_URL}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Join WhatsApp
+              </Link>
+            </Button>
             <Link
               href="https://github.com/suryaelidanto/umkmcepat"
               target="_blank"

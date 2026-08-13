@@ -325,14 +325,16 @@ function HomePage() {
                 <Button asChild size="sm">
                   <Link href="/waitlist">{waitlistBanner.cta}</Link>
                 </Button>
-                <Link
-                  className="text-xs text-surface-warm-white/62 underline-offset-4 transition hover:text-surface-warm-white hover:underline"
-                  href={WHATSAPP_UMKM_GROUP_URL}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  Sambil menunggu, gabung grup diskusi UMKM →
-                </Link>
+                <Button asChild size="sm" variant="outline">
+                  <Link
+                    className="border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
+                    href={WHATSAPP_UMKM_GROUP_URL}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    Join WhatsApp
+                  </Link>
+                </Button>
               </div>
             </HeroMotionItem>
           ) : (

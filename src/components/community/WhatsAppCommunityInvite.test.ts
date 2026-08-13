@@ -17,7 +17,9 @@ describe("WhatsAppCommunityInvite", () => {
     const markup = render("homepage");
 
     expect(markup).toContain("Tempat ngobrol untuk pelaku UMKM");
-    expect(markup).toContain("Gabung Grup WhatsApp");
+    expect(markup).toContain("Join WhatsApp");
+    expect(markup).not.toContain("Gabung Grup WhatsApp");
+    expect(markup).toContain('data-slot="button"');
     expect(markup).toContain('target="_blank"');
     expect(markup).toContain('rel="noopener noreferrer"');
     expect(markup).toContain(
@@ -33,6 +35,8 @@ describe("WhatsAppCommunityInvite", () => {
     expect(markup).toContain(
       "Kamu bisa bertanya dan kenalan dengan pelaku UMKM lainnya.",
     );
+    expect(markup).toContain("Join WhatsApp");
+    expect(markup).toContain('data-slot="button"');
     expect(markup).toContain("bg-surface-warm-white");
   });
 });
@@ -47,7 +51,10 @@ describe("WhatsApp discussion entry points", () => {
     expect(homeSource).toContain(
       '<WhatsAppCommunityInvite variant="homepage" />',
     );
-    expect(homeSource).toContain("Sambil menunggu, gabung grup diskusi UMKM");
+    expect(homeSource).toContain(
+      '<Button asChild size="sm" variant="outline">',
+    );
+    expect(homeSource).toContain("Join WhatsApp");
   });
 
   it("places the primary invitation on the waitlist success screen", () => {
@@ -58,10 +65,14 @@ describe("WhatsApp discussion entry points", () => {
     );
   });
 
-  it("places a permanent plain link in the footer", () => {
+  it("places a permanent compact button in the footer", () => {
     const footerSource = source("../common/Footer.tsx");
 
-    expect(footerSource).toContain("Grup WhatsApp UMKM");
+    expect(footerSource).toContain(
+      '<Button asChild size="sm" variant="outline">',
+    );
+    expect(footerSource).toContain("Join WhatsApp");
+    expect(footerSource).not.toContain("Grup WhatsApp UMKM");
     expect(footerSource).toContain("WHATSAPP_UMKM_GROUP_URL");
   });
 });
