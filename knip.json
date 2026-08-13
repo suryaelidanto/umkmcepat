@@ -44,6 +44,9 @@
     "src/components/admin/streamer-mode-context.tsx": ["exports", "files"],
     "src/components/admin/SensitiveText.tsx": ["exports", "files"],
     "src/lib/uploads/temp-image-client.ts": ["exports"],
-    "src/lib/uploads/temp-image-storage.ts": ["exports"]
+    "src/lib/uploads/temp-image-storage.ts": ["exports"],
+    "src/lib/projects/generated-site-contract.ts": ["exports"],
+    "src/lib/projects/brief-admission.ts": ["exports"],
+    "src/components/projects/WorkspaceShell.tsx": ["exports"]
   }
 }
