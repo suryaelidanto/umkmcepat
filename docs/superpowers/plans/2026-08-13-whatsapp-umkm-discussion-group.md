@@ -2,20 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Keep all four `Join WhatsApp` buttons while separating the footer action from its plain navigation-link row.
+**Goal:** Keep three contextual `Join WhatsApp` buttons while the footer remains a plain `Join Whatsapp` link beside Github.
 
-**Architecture:** Keep the shared URL and existing button treatments unchanged. Refine only `Footer` so its right-side area becomes a small vertical stack: one semantic navigation row for Ketentuan, Privasi, and Github, followed by the standalone WhatsApp button.
+**Architecture:** Keep the shared URL and existing button treatments for homepage, waitlist success, and pending banner unchanged. Revert only `Footer` so its WhatsApp destination renders as a plain link directly beside Github.
 
 **Tech Stack:** React 19, TypeScript, TanStack Start/Router, Tailwind CSS, Vitest, React server rendering, Storybook.
 
 ## Global Constraints
 
-- Every WhatsApp action uses the exact visible label `Join WhatsApp`.
-- Every WhatsApp action renders with the existing `Button` primitive.
+- Homepage, waitlist success, and pending banner use the exact visible label `Join WhatsApp`. Footer uses `Join Whatsapp`.
+- Homepage, waitlist, and pending banner render with the existing `Button` primitive; footer renders as a plain link.
 - The invite URL remains `https://chat.whatsapp.com/BzxjAg9SMfQK7dUHmUKxbg`.
-- Every action opens a new tab with `rel="noopener noreferrer"`.
-- Waitlist success uses a solid white button; homepage uses a regular outline button; pending banner and footer use compact outline buttons.
-- Footer navigation contains only Ketentuan, Privasi, and Github; its WhatsApp button sits in a separate row below with `gap-spacing-4`.
+- Every placement opens a new tab with `rel="noopener noreferrer"`.
+- Waitlist success uses a solid white button; homepage and pending banner use compact outline buttons; footer remains a plain link.
 - The pending waitlist-status action remains primary.
 - Do not add navigation items, floating controls, popups, sticky banners, icons, dependencies, or WhatsApp-green styling.
 - Leave unrelated commits and files untouched.
@@ -24,10 +23,9 @@
 
 ## File Structure
 
-- Modify `src/components/community/WhatsAppCommunityInvite.test.ts`: assert exact labels and all four button treatments.
-- Modify `src/components/community/WhatsAppCommunityInvite.tsx`: change the shared prominent CTA label.
-- Modify `src/routes/_main.index.tsx`: replace the pending text link with a compact outline button.
-- Modify `src/components/common/Footer.tsx`: place the compact outline button below a separate plain-link navigation row.
+- Modify `src/components/common/Footer.tsx`: render `Join Whatsapp` as a plain footer link directly beside Github.
+- Modify `src/components/community/WhatsAppCommunityInvite.test.ts`: assert three `Join WhatsApp` buttons and a plain footer `Join Whatsapp` link.
+- `src/components/community/WhatsAppCommunityInvite.tsx` and `src/routes/_main.index.tsx` require no change for this footer-only rollback.
 - `src/routes/_main.waitlist.tsx` and `src/stories/WhatsAppCommunityInvite.stories.tsx` require no structural change because they consume the shared component.
 
 ### Task 1: Specify the revised button behavior
@@ -137,32 +135,25 @@ bunx tsc --noEmit --incremental --tsBuildInfoFile .tsbuildinfo
 
 Expected: all commands exit 0.
 
-### Task 3: Separate the footer action and verify
+### Task 3: Restore the plain footer link and verify
 
 **Files:**
-- Modify: `src/components/community/WhatsAppCommunityInvite.test.ts`
 - Modify: `src/components/common/Footer.tsx`
+- Modify: `src/components/community/WhatsAppCommunityInvite.test.ts`
 
-- [ ] **Step 1: Add a failing footer hierarchy assertion**
+- [ ] **Step 1: Add a failing footer assertion**
 
-Assert the footer source contains a right-side `flex-col` wrapper with `gap-spacing-4`, closes the plain-link `nav` before rendering the WhatsApp `Button`, and keeps `Ketentuan`, `Privasi`, and `Github` inside the navigation.
+Assert `Footer.tsx` contains a single navigation with `Ketentuan`, `Privasi`, `Github`, and `Join Whatsapp`, does not contain `data-slot="button"`, and keeps the WhatsApp `Link` beside Github using the shared constant.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
 Run: `bunx vitest run --project unit src/components/community/WhatsAppCommunityInvite.test.ts`
 
-Expected: FAIL because the WhatsApp button is still nested inside `nav`.
+Expected: FAIL because the footer still renders a separated outline button.
 
-- [ ] **Step 3: Implement the footer hierarchy**
+- [ ] **Step 3: Implement the footer rollback**
 
-Wrap the link row and button in:
-
-```tsx
-<div className="flex flex-col items-start gap-spacing-4 md:items-end">
-  <nav className="flex flex-wrap gap-spacing-5 text-sm">...</nav>
-  <Button asChild size="sm" variant="outline">...</Button>
-</div>
-```
+Restore one `nav` row ordered `Ketentuan`, `Privasi`, `Github`, then `Join Whatsapp`; render the WhatsApp destination as a plain `Link` with `text-surface-warm-white/50` treatment; remove the standalone `Button` wrapper and its container.
 
 - [ ] **Step 4: Run focused tests, ESLint, and typecheck**
 
