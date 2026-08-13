@@ -10,7 +10,12 @@ import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { requireAdmin } from "@/lib/auth-admin";
-import { fetchJson } from "@/lib/query-client";
+import {
+  ADMIN_WAITLIST_POLL_MS,
+  fetchJson,
+  invalidateAdminWaitlistData,
+  queryKeys,
+} from "@/lib/query-client";
 import { listPendingWaitlist } from "@/lib/waitlist";
 
 type WaitlistStatusFilter = "pending" | "approved" | "rejected" | "all";
@@ -82,9 +87,12 @@ function WaitlistPage() {
       fetchJson<{ entries: AdminEntry[] }>(
         `/api/admin/waitlist?status=${status}`,
       ),
-    queryKey: ["admin", "waitlist", status],
+    queryKey: [...queryKeys.adminWaitlist, status],
     initialData:
       status === "pending" ? { entries: initial.entries } : undefined,
+    refetchInterval: ADMIN_WAITLIST_POLL_MS,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
   const act = useMutation({
@@ -98,9 +106,8 @@ function WaitlistPage() {
         headers: { "Content-Type": "application/json" },
         method: "POST",
       }),
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "waitlist"] });
-      queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
+    onSuccess: async (_data, vars) => {
+      await invalidateAdminWaitlistData(queryClient);
       toast.success(vars.action === "approve" ? "Disetujui." : "Ditolak.");
     },
     onError: () => toast.error("Gagal memproses. Coba lagi."),
@@ -125,6 +132,10 @@ function WaitlistPage() {
       ) : (
         entries.map((entry) => {
           const status = waitlistStatusDisplay(entry.status);
+          const rowActionPending =
+            act.isPending && act.variables?.entryId === entry.id;
+          const approving =
+            rowActionPending && act.variables?.action === "approve";
           return (
             <div
               className="rounded-radius-lg border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-4"
@@ -195,7 +206,7 @@ function WaitlistPage() {
                     }
                     type="button"
                   >
-                    Setujui
+                    {approving ? "Menyetujui..." : "Setujui"}
                   </button>
                   <button
                     className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
@@ -211,7 +222,7 @@ function WaitlistPage() {
                     }}
                     type="button"
                   >
-                    Tolak
+                    {rowActionPending && !approving ? "Menolak..." : "Tolak"}
                   </button>
                 </div>
               ) : null}

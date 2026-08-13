@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { requireAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
+import { WAITLIST_PENDING_STATUSES } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/admin/overview")({
   server: {
@@ -28,7 +29,9 @@ export const Route = createFileRoute("/api/admin/overview")({
           recentTransactions,
         ] = await Promise.all([
           prisma.user.count(),
-          prisma.waitlistEntry.count({ where: { status: "pending" } }),
+          prisma.waitlistEntry.count({
+            where: { status: { in: [...WAITLIST_PENDING_STATUSES] } },
+          }),
           prisma.project.count(),
           prisma.payment.count({
             where: { status: "COMPLETED", createdAt: { gte: monthStart } },
@@ -40,7 +43,7 @@ export const Route = createFileRoute("/api/admin/overview")({
           prisma.waitlistEntry.findMany({
             orderBy: { submittedAt: "desc" },
             take: 5,
-            where: { status: "pending" },
+            where: { status: { in: [...WAITLIST_PENDING_STATUSES] } },
             select: {
               businessName: true,
               id: true,

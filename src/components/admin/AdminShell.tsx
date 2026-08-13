@@ -16,7 +16,11 @@ import type { ReactNode } from "react";
 
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
 import { Link } from "@/components/ui/link";
-import { fetchJson } from "@/lib/query-client";
+import {
+  ADMIN_SUMMARY_POLL_MS,
+  fetchJson,
+  queryKeys,
+} from "@/lib/query-client";
 import { cn } from "@/lib/utils";
 
 type AdminNavCounts = {
@@ -81,7 +85,9 @@ function formatBadge(n: number): string {
 function useNavCounts(): AdminNavCounts {
   const q = useQuery({
     queryFn: () => fetchJson<AdminNavCounts>("/api/admin/nav-counts"),
-    queryKey: ["admin", "nav-counts"],
+    queryKey: queryKeys.adminNavCounts,
+    refetchInterval: ADMIN_SUMMARY_POLL_MS,
+    refetchOnReconnect: true,
     refetchOnWindowFocus: true,
   });
   return (

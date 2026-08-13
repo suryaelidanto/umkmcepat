@@ -2,12 +2,22 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   isAdminEmail,
+  isWaitlistPendingStatus,
   normalizeEmail,
   parseWaitlistImageRefs,
   validateWaitlistStory,
+  WAITLIST_PENDING_STATUSES,
 } from "@/lib/waitlist";
 
 describe("waitlist", () => {
+  it("defines the same pending set used by admin work queues", () => {
+    expect(WAITLIST_PENDING_STATUSES).toEqual(["pending", "waitlisted"]);
+    expect(isWaitlistPendingStatus("pending")).toBe(true);
+    expect(isWaitlistPendingStatus("waitlisted")).toBe(true);
+    expect(isWaitlistPendingStatus("approved")).toBe(false);
+    expect(isWaitlistPendingStatus("rejected")).toBe(false);
+  });
+
   afterEach(() => {
     delete process.env.ADMIN_EMAILS;
   });

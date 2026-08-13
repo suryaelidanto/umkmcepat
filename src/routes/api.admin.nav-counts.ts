@@ -4,6 +4,7 @@ import { projectWhere } from "@/lib/admin-projects";
 import { requireAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { getUnreadCounts } from "@/lib/support/service";
+import { WAITLIST_PENDING_STATUSES } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/admin/nav-counts")({
   server: {
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/api/admin/nav-counts")({
             ticketCounts,
           ] = await Promise.all([
             prisma.waitlistEntry.count({
-              where: { status: { in: ["pending", "waitlisted"] } },
+              where: { status: { in: [...WAITLIST_PENDING_STATUSES] } },
             }),
             prisma.payment.count({ where: { status: "PENDING" } }),
             prisma.project.count({ where: activeWhere }),
