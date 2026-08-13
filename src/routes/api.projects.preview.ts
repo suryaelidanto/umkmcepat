@@ -10,7 +10,6 @@ import {
 import { getAiModel } from "@/lib/ai";
 import { getDiscussModel, getModerationModel } from "@/lib/ai-models";
 import { moderateProjectRequest } from "@/lib/ai-moderation";
-import { getSettingSync } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import { prisma } from "@/lib/prisma";
@@ -259,57 +258,11 @@ async function handlePreviewPost(request: Request) {
     latestUserText = summary;
   }
 
-  const parallelModeration = getSettingSync(
-    "discuss.parallel_moderation",
-    false,
-  );
-  const moderationPromise =
-    latestUserText.trim() && parallelModeration
-      ? moderateProjectRequest(latestUserText, [], undefined, {
-          projectId: project.id,
-        })
-      : null;
-
-  if (latestUserText.trim() && !parallelModeration) {
-    let moderation;
-    try {
-      moderation = await moderateProjectRequest(latestUserText, [], undefined, {
+  const moderationPromise = latestUserText.trim()
+    ? moderateProjectRequest(latestUserText, [], undefined, {
         projectId: project.id,
-      });
-    } catch (error) {
-      console.error(
-        "[moderation] failed:",
-        error instanceof Error ? error.message : error,
-      );
-      return Response.json(
-        {
-          code: "moderation_unavailable",
-          message: "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
-        },
-        { status: 503, headers: { "Retry-After": "3" } },
-      );
-    }
-
-    if (moderation.usage) {
-      await chargeEnergyForAiUsage({
-        userId,
-        modelId: moderation.modelId || getModerationModel(),
-        inputTokens: moderation.usage.inputTokens,
-        outputTokens: moderation.usage.outputTokens,
-        reason: "moderation",
-      });
-    }
-
-    if (!moderation.allowed) {
-      return Response.json(
-        {
-          code: "project_request_blocked",
-          message: moderation.message || "Permintaan belum bisa diproses.",
-        },
-        { status: 400 },
-      );
-    }
-  }
+      })
+    : null;
 
   const currentBrief = parseProjectBrief(chatRow?.brief, project.prompt);
   const storedWorkspaceCard = parseWorkspaceCard(

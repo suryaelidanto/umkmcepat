@@ -1,4 +1,11 @@
+import { readFileSync } from "node:fs";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const previewRouteSource = readFileSync(
+  new URL("./api.projects.preview.ts", import.meta.url),
+  "utf8",
+);
 
 const {
   authMock,
@@ -128,6 +135,10 @@ async function callDiscussPost() {
 }
 
 describe("POST /api/projects/preview (discuss) — server-side turn flow", () => {
+  it("does not retain a parallel-moderation admin toggle", () => {
+    expect(previewRouteSource).not.toContain("discuss.parallel_moderation");
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({ user: { id: "u_test" } });
@@ -212,6 +223,41 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     const text = await response.text();
     expect(text).toContain("Halo balik!");
     expect(text).toContain("finish");
+  });
+
+  it("finishes moderation before claiming and enqueueing a discuss turn", async () => {
+    const order: string[] = [];
+    moderateProjectRequestMock.mockImplementation(async () => {
+      order.push("moderation");
+      return {
+        allowed: true,
+        modelId: "default-combo",
+        usage: { inputTokens: 0, outputTokens: 0 },
+      };
+    });
+    claimDiscussTurnMock.mockImplementation(async () => {
+      order.push("claim");
+      return { claimed: true, turnId: "ct_moderated" };
+    });
+
+    await callDiscussPost();
+
+    expect(order).toEqual(["moderation", "claim"]);
+  });
+
+  it("does not claim or enqueue when concurrent moderation denies the request", async () => {
+    moderateProjectRequestMock.mockResolvedValue({
+      allowed: false,
+      message: "Permintaan belum bisa diproses.",
+      modelId: "default-combo",
+      usage: { inputTokens: 0, outputTokens: 0 },
+    });
+
+    const response = await callDiscussPost();
+
+    expect(response.status).toBe(400);
+    expect(claimDiscussTurnMock).not.toHaveBeenCalled();
+    expect(enqueueAttemptJobMock).not.toHaveBeenCalled();
   });
 
   it("returns 409 project_chat_in_progress when a turn is already running", async () => {
