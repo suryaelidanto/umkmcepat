@@ -6,8 +6,8 @@ export const WHATSAPP_UMKM_GROUP_URL =
 
 const content = {
   homepage: {
-    body: "Tanya soal usaha, website, atau pemasaran digital. Berbagi pengalaman santai bersama pelaku UMKM lainnya.",
-    heading: "Tempat ngobrol untuk pelaku UMKM",
+    body: "Wadah ngobrol pelaku UMKM di UMKM Cepat.",
+    heading: "Komunitas UMKM Cepat",
   },
   waitlist: {
     body: "Kamu bisa bertanya dan kenalan dengan pelaku UMKM lainnya.",
@@ -46,34 +46,23 @@ export function WhatsAppCommunityInvite({
           </p>
         </div>
 
-        <div
+        <Button
+          asChild
+          variant={isHomepage ? "outline" : "default"}
           className={
             isHomepage
-              ? "flex shrink-0 flex-col items-start gap-spacing-3 sm:items-end"
-              : "flex flex-col items-center gap-spacing-3"
+              ? "border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
+              : "bg-surface-warm-white text-[#141413] hover:bg-surface-warm-white/90"
           }
         >
-          <Button
-            asChild
-            variant={isHomepage ? "outline" : "default"}
-            className={
-              isHomepage
-                ? "border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
-                : "bg-surface-warm-white text-[#141413] hover:bg-surface-warm-white/90"
-            }
+          <Link
+            href={WHATSAPP_UMKM_GROUP_URL}
+            rel="noopener noreferrer"
+            target="_blank"
           >
-            <Link
-              href={WHATSAPP_UMKM_GROUP_URL}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Join WhatsApp
-            </Link>
-          </Button>
-          <p className="max-w-64 text-xs leading-5 text-surface-warm-white/50">
-            Nomor WhatsApp kamu dapat terlihat oleh anggota grup.
-          </p>
-        </div>
+            Join WhatsApp
+          </Link>
+        </Button>
       </div>
     </div>
   );

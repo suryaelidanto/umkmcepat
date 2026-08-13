@@ -13,18 +13,18 @@ function render(variant: "homepage" | "waitlist") {
 }
 
 describe("WhatsAppCommunityInvite", () => {
-  it("renders a secondary homepage invitation with a privacy disclosure", () => {
+  it("renders the homepage community invitation", () => {
     const markup = render("homepage");
 
-    expect(markup).toContain("Tempat ngobrol untuk pelaku UMKM");
+    expect(markup).toContain("Komunitas UMKM Cepat");
+    expect(markup).toContain("Wadah ngobrol pelaku UMKM di UMKM Cepat.");
+    expect(markup).not.toContain(
+      "Nomor WhatsApp kamu dapat terlihat oleh anggota grup.",
+    );
     expect(markup).toContain("Join WhatsApp");
-    expect(markup).not.toContain("Gabung Grup WhatsApp");
     expect(markup).toContain('data-slot="button"');
     expect(markup).toContain('target="_blank"');
     expect(markup).toContain('rel="noopener noreferrer"');
-    expect(markup).toContain(
-      "Nomor WhatsApp kamu dapat terlihat oleh anggota grup.",
-    );
     expect(markup).toContain("border");
   });
 
