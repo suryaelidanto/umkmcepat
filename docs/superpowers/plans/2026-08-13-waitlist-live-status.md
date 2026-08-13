@@ -572,36 +572,20 @@ In `src/routes/_main.waitlist.tsx`:
 4. Replace the `statusQuery` declaration with:
 
 ```ts
-const [submittedAt, setSubmittedAt] = useState<number | null>(null);
 const statusQuery = useQuery({
   queryFn: fetchWaitlistStatus,
   queryKey: queryKeys.waitlistStatus,
   ...GATE_QUERY_OPTIONS,
   initialData: { status: null, own: initialOwn },
   initialDataUpdatedAt: 0,
-  refetchInterval: (query) => {
-    const data = query.state.data;
-    if (data?.status === "approved" || data?.own?.status === "rejected") {
-      return false;
-    }
-    if (data?.own?.status === "pending" || data?.own?.status === "waitlisted") {
-      return WAITLIST_PENDING_POLL_MS;
-    }
-    if (submittedAt !== null && query.state.dataUpdatedAt < submittedAt) {
-      return WAITLIST_PENDING_POLL_MS;
-    }
-    return false;
-  },
+  refetchInterval: (query) =>
+    submitted
+      ? WAITLIST_PENDING_POLL_MS
+      : waitlistPendingPollInterval(query.state.data),
 });
 ```
 
-5. Derive the page state from the shared response. A fresh response after a local submit must clear the local-only success fallback, including a response with no own entry:
-
-```ts
-const hasFreshPostSubmitResponse =
-  submittedAt !== null && statusQuery.dataUpdatedAt >= submittedAt;
-const submittedFallback = submitted && !hasFreshPostSubmitResponse;
-```
+5. Derive the page state from the shared response. The local success fallback is cleared only after the first canonical query refetch finishes, so a fresh response with no own entry returns to the form rather than polling forever:
 
 ```ts
 const ownStatus = statusQuery.data?.own?.status ?? null;
@@ -611,14 +595,14 @@ const ownIsDevSkip =
 const view = resolveWaitlistView({
   effectiveStatus: statusQuery.data?.status,
   ownStatus,
-  submitted: submittedFallback,
+  submitted,
 });
 const wasRejected = ownStatus === "rejected";
 ```
 
 6. Replace every `ownQuery.data?.own` reference with `statusQuery.data?.own`. The form-prefill effect should depend on `statusQuery.data?.own` and retain the current localStorage-first behavior.
 
-7. In the submit mutation's `onSuccess`, call `setSubmittedAt(Date.now())` immediately beside `setSubmitted(true)` before invalidating the canonical query. The fresh-response timestamp comparison then stops the local fallback and polling when the server response settles.
+7. In the submit mutation's `onSuccess`, call `setSubmitted(true)` before invalidating the canonical query, then call `setSubmitted(false)` immediately after the awaited invalidation. The temporary success fallback therefore lasts until the first canonical response settles; the response itself then decides whether the page shows success, approval, rejection, or the empty form.
 
 8. Use `statusQuery.data?.own?.id` for self-approval. Keep the existing endpoint and server authorization; remove the self-approval mutation's independent delayed `router.replace('/')` and success toast so the shared approval transition owns the single redirect/toast.
 

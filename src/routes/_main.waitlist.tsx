@@ -35,6 +35,7 @@ import {
   invalidateWaitlistStatus,
   queryKeys,
   WAITLIST_PENDING_POLL_MS,
+  waitlistPendingPollInterval,
 } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
 import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
@@ -157,7 +158,8 @@ function WaitlistPage() {
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
-  const approvalHandledRef = useRef(false);
+  const approvalTimerRef = useRef<number | null>(null);
+  const approvalToastShownRef = useRef(false);
   const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -209,55 +211,47 @@ function WaitlistPage() {
 
   // The shared status query owns both the effective gate and the user's own
   // entry so approval/rejection cannot leave the rendered page stale.
-  const [submittedAt, setSubmittedAt] = useState<number | null>(null);
   const statusQuery = useQuery({
     queryFn: fetchWaitlistStatus,
     queryKey: queryKeys.waitlistStatus,
     ...GATE_QUERY_OPTIONS,
     initialData: { status: null, own: initialOwn },
     initialDataUpdatedAt: 0,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data?.status === "approved" || data?.own?.status === "rejected") {
-        return false;
-      }
-      if (
-        data?.own?.status === "pending" ||
-        data?.own?.status === "waitlisted"
-      ) {
-        return WAITLIST_PENDING_POLL_MS;
-      }
-      if (submittedAt !== null && query.state.dataUpdatedAt < submittedAt) {
-        return WAITLIST_PENDING_POLL_MS;
-      }
-      return false;
-    },
+    refetchInterval: (query) =>
+      submitted
+        ? WAITLIST_PENDING_POLL_MS
+        : waitlistPendingPollInterval(query.state.data),
   });
   const isApproved = statusQuery.data?.status === "approved";
   const ownIsDevSkip =
     statusQuery.data?.own?.businessName.startsWith("[dev-skip]") ?? false;
   const ownStatus = statusQuery.data?.own?.status ?? null;
-  const hasFreshPostSubmitResponse =
-    submittedAt !== null && statusQuery.dataUpdatedAt >= submittedAt;
-  const submittedFallback = submitted && !hasFreshPostSubmitResponse;
   const view = resolveWaitlistView({
     effectiveStatus: statusQuery.data?.status,
     ownStatus,
-    submitted: submittedFallback,
+    submitted,
   });
   const wasRejected = ownStatus === "rejected";
 
   useEffect(() => {
-    if (!isApproved || approvalHandledRef.current) {
+    if (!isApproved || devSkipDone || approvalTimerRef.current !== null) {
       return;
     }
-    approvalHandledRef.current = true;
-    toast.success("Pendaftaran disetujui. Mengalihkan ke beranda...");
-    const timer = window.setTimeout(() => {
+    if (!approvalToastShownRef.current) {
+      approvalToastShownRef.current = true;
+      toast.success("Pendaftaran disetujui. Mengalihkan ke beranda...");
+    }
+    approvalTimerRef.current = window.setTimeout(() => {
+      approvalTimerRef.current = null;
       routerRef.current.replace("/");
     }, 900);
-    return () => window.clearTimeout(timer);
-  }, [isApproved]);
+    return () => {
+      if (approvalTimerRef.current !== null) {
+        window.clearTimeout(approvalTimerRef.current);
+        approvalTimerRef.current = null;
+      }
+    };
+  }, [devSkipDone, isApproved]);
 
   // Restore step and form values from localStorage when mounting/status settles.
   useEffect(() => {
@@ -347,7 +341,6 @@ function WaitlistPage() {
     },
     onSuccess: async () => {
       setSubmitted(true);
-      setSubmittedAt(Date.now());
       try {
         localStorage.removeItem("umkmcepat:waitlist:values");
         localStorage.removeItem("umkmcepat:waitlist:step");
@@ -355,6 +348,7 @@ function WaitlistPage() {
         console.error("Gagal membersihkan draft waitlist:", err);
       }
       await invalidateWaitlistStatus(queryClient);
+      setSubmitted(false);
       toast.success("Pendaftaran kamu sudah masuk antrian. Terima kasih!");
     },
   });
