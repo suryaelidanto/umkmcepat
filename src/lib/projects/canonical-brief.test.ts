@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyAiBriefPatch,
   createInitialCanonicalBrief,
   hashCanonicalBrief,
   parseCanonicalBrief,
@@ -118,6 +119,68 @@ describe("parseCanonicalBrief", () => {
     expect("offer" in parsed).toBe(false);
     expect("productOrService" in parsed).toBe(false);
     expect("readyForBuild" in parsed).toBe(false);
+  });
+
+  it("maps permissive legacy AI patches into canonical fields only", () => {
+    const patched = applyAiBriefPatch(createInitialCanonicalBrief("buat web"), {
+      businessName: "HP Surya",
+      productOrService: [{ name: "HP bekas", isPrimary: true }],
+      targetCustomer: "Pembeli HP hemat",
+      contact: {
+        channel: "whatsapp",
+        label: "Tanya stok",
+        value: "08123456789",
+      },
+      stylePreference: "Bersih dan terpercaya",
+      confidence: 99,
+      openQuestions: [],
+      readyForBuild: true,
+    });
+
+    expect(patched).toMatchObject({
+      version: 2,
+      business: { name: "HP Surya" },
+      offers: [{ name: "HP bekas", isPrimary: true }],
+      audience: "Pembeli HP hemat",
+      primaryAction: {
+        kind: "whatsapp",
+        label: "Tanya stok",
+        target: "08123456789",
+      },
+      visualDirection: "Bersih dan terpercaya",
+    });
+    for (const alias of [
+      "offer",
+      "productOrService",
+      "contactOrCta",
+      "contact",
+      "readyForBuild",
+      "confidence",
+      "openQuestions",
+    ]) {
+      expect(alias in patched).toBe(false);
+    }
+  });
+
+  it("accepts canonical patches without adding legacy aliases", () => {
+    const patched = applyAiBriefPatch(createInitialCanonicalBrief(), {
+      business: { category: "retail" },
+      offers: [{ name: "Laptop bekas", isPrimary: true }],
+      audience: "Pelajar",
+      primaryAction: {
+        kind: "phone",
+        label: "Telepon toko",
+        target: "08123456789",
+      },
+      visualDirection: "Modern",
+    });
+
+    expect(patched.business.category).toBe("retail");
+    expect(patched.offers[0]?.name).toBe("Laptop bekas");
+    expect(patched.audience).toBe("Pelajar");
+    expect(patched.primaryAction?.kind).toBe("phone");
+    expect(patched.visualDirection).toBe("Modern");
+    expect("productOrService" in patched).toBe(false);
   });
 
   it("hashes equal canonical content identically", () => {

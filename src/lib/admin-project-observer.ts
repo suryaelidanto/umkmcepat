@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { parseProjectBrief } from "./projects/brief";
 import { parseWorkspaceCard } from "./projects/brief-flow";
+import { parseCanonicalBrief } from "./projects/canonical-brief";
 import {
   CHAT_PAGE_SIZE,
   getProjectChatPage,
@@ -118,7 +119,10 @@ export async function loadProjectForViewer({
 }
 
 function toProjectViewerData(project: ProjectViewerRow): ProjectViewerData {
-  const initialBrief = parseProjectBrief(project.brief, project.prompt);
+  const initialBrief = parseProjectBrief(
+    parseCanonicalBrief(project.brief, project.prompt),
+    project.prompt,
+  );
   return {
     buildStatus: project.buildStatus,
     createdAt: project.createdAt.toISOString(),

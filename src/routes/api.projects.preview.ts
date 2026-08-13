@@ -19,6 +19,7 @@ import {
   parseProjectBrief,
 } from "@/lib/projects/brief";
 import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
@@ -264,7 +265,10 @@ async function handlePreviewPost(request: Request) {
       })
     : null;
 
-  const currentBrief = parseProjectBrief(chatRow?.brief, project.prompt);
+  const currentBrief = parseProjectBrief(
+    parseCanonicalBrief(chatRow?.brief, project.prompt),
+    project.prompt,
+  );
   const storedWorkspaceCard = parseWorkspaceCard(
     chatRow?.workspaceCard,
     currentBrief,
@@ -668,8 +672,9 @@ function persistProjectBrief({
   projectId: string;
   userId: string;
 }) {
+  const canonicalBrief = parseCanonicalBrief(brief);
   return prisma.$executeRaw`
-    UPDATE "Project" SET "brief" = ${JSON.stringify(brief)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
+    UPDATE "Project" SET "brief" = ${JSON.stringify(canonicalBrief)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
   `;
 }
 

@@ -11,6 +11,12 @@ import type { UmkmType, CleanedBrief } from "@/lib/projects/brief-rich-fields";
 import type { FieldStateMap } from "@/lib/projects/chat-memory";
 
 import { validateBrief } from "@/lib/projects/brief-rich-fields";
+import {
+  getPrimaryActionLabel,
+  getPrimaryOfferName,
+  parseCanonicalBrief,
+  type ProjectBriefV2,
+} from "@/lib/projects/canonical-brief";
 
 export type ProjectFact = {
   key: string;
@@ -230,6 +236,12 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
     return createInitialBrief(prompt);
   }
 
+  if ((value as { version?: unknown }).version === 2) {
+    return projectCanonicalBriefForLegacyConsumers(
+      parseCanonicalBrief(value, prompt),
+    );
+  }
+
   const input = value as Partial<ProjectBrief>;
   return {
     ...createInitialBrief(prompt),
@@ -282,6 +294,60 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
         ? (input.fieldState as FieldStateMap)
         : {},
     businessImages: normalizeBusinessImages(input.businessImages),
+  };
+}
+
+function projectCanonicalBriefForLegacyConsumers(
+  brief: ProjectBriefV2,
+): ProjectBrief {
+  const primaryOffer = getPrimaryOfferName(brief) ?? "";
+  const primaryActionLabel = getPrimaryActionLabel(brief) ?? "";
+  const contact =
+    brief.primaryAction?.kind !== "browse" && brief.primaryAction?.target
+      ? {
+          channel: brief.primaryAction.kind,
+          label: brief.primaryAction.label,
+          value: brief.primaryAction.target,
+        }
+      : null;
+
+  return {
+    ...createInitialBrief(brief.prompt),
+    prompt: brief.prompt,
+    businessName: brief.business.name,
+    businessType: brief.business.type,
+    offer: primaryOffer,
+    targetCustomer: brief.audience ?? "",
+    contactOrCta: primaryActionLabel,
+    stylePreference: brief.visualDirection ?? "",
+    facts: brief.provenance.facts,
+    decisions: brief.provenance.decisions,
+    productOrService: brief.offers.length ? brief.offers : null,
+    contact,
+    tagline: brief.content.tagline,
+    usp: brief.content.usp.length ? brief.content.usp : null,
+    priceRange: brief.content.priceRange,
+    hours: brief.content.hours.length ? brief.content.hours : null,
+    address: brief.content.address,
+    deliveryArea: brief.content.deliveryArea,
+    since: brief.content.since,
+    testimonials: brief.content.testimonials.length
+      ? brief.content.testimonials
+      : null,
+    certifications: brief.content.certifications.length
+      ? brief.content.certifications
+      : null,
+    paymentMethods: brief.content.paymentMethods.length
+      ? brief.content.paymentMethods
+      : null,
+    socialLinks: brief.content.socialLinks.length
+      ? brief.content.socialLinks
+      : null,
+    currentPromo: brief.content.currentPromo,
+    secondaryCta: brief.content.secondaryAction,
+    umkmType: brief.business.category,
+    fieldState: brief.fieldState,
+    businessImages: brief.assets,
   };
 }
 

@@ -216,21 +216,21 @@ export function applyAiBriefPatch(
     },
   };
 
-  if (hasKey("businessName")) {
-    const value = cleanText(input.businessName);
+  const businessPatch = asRecord(input.business);
+  if (hasKey("businessName") || businessPatch?.name !== undefined) {
+    const value = cleanText(input.businessName ?? businessPatch?.name);
     if (value) {
       next.business.name = value;
     }
   }
-  if (hasKey("businessType")) {
-    const value = cleanText(input.businessType);
+  if (hasKey("businessType") || businessPatch?.type !== undefined) {
+    const value = cleanText(input.businessType ?? businessPatch?.type);
     if (value) {
       next.business.type = value;
     }
   }
   if (hasKey("umkmType") || hasKey("business") || hasKey("category")) {
-    const raw =
-      input.umkmType ?? (asRecord(input.business)?.category as unknown);
+    const raw = input.umkmType ?? input.category ?? businessPatch?.category;
     if (raw !== undefined) {
       const parsed = parseUmkmType(raw);
       if (parsed) {
@@ -239,16 +239,14 @@ export function applyAiBriefPatch(
     }
   }
 
-  const hasProductPatch = hasKey("productOrService");
+  const hasProductPatch = hasKey("productOrService") || hasKey("offers");
   const hasOfferPatch = hasKey("offer");
   if (hasProductPatch) {
-    const offers = parseOffers(input.productOrService);
+    const rawOffers = input.offers ?? input.productOrService;
+    const offers = parseOffers(rawOffers);
     if (offers.length) {
       next.offers = ensurePrimaryOffer(offers);
-    } else if (
-      Array.isArray(input.productOrService) &&
-      input.productOrService.length === 0
-    ) {
+    } else if (Array.isArray(rawOffers) && rawOffers.length === 0) {
       next.offers = [];
     }
   } else if (hasOfferPatch) {

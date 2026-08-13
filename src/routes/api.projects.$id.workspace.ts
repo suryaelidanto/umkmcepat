@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
 import { parseProjectBrief } from "@/lib/projects/brief";
 import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import { isAdminEmail } from "@/lib/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/workspace")({
@@ -61,7 +62,10 @@ export const Route = createFileRoute("/api/projects/$id/workspace")({
 
           throw error;
         }
-        const brief = parseProjectBrief(workspaceRow?.brief, project.prompt);
+        const brief = parseProjectBrief(
+          parseCanonicalBrief(workspaceRow?.brief, project.prompt),
+          project.prompt,
+        );
 
         return Response.json({
           brief,

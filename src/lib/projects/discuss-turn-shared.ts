@@ -21,7 +21,10 @@ import { prisma } from "@/lib/prisma";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
-import { validateBrief } from "@/lib/projects/brief-rich-fields";
+import {
+  parseCanonicalBrief,
+  type ProjectBriefV2,
+} from "@/lib/projects/canonical-brief";
 import {
   extractAssistantTextFromToolInput,
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
@@ -37,21 +40,11 @@ export type RepairedToolCall = {
 };
 
 export function scrubBriefForStorage(
-  brief: ReturnType<typeof parseProjectBrief>,
-  readyForBuild: boolean,
-  projectId: string,
-): ReturnType<typeof parseProjectBrief> {
-  const { cleaned, dropped } = validateBrief(brief);
-  if (dropped.length > 0) {
-    console.warn("brief: dropped hallucinated fields", { dropped, projectId });
-  }
-  return {
-    ...brief,
-    ...cleaned,
-    businessName: cleaned.businessName ?? brief.businessName,
-    targetCustomer: cleaned.targetCustomer ?? brief.targetCustomer,
-    readyForBuild,
-  };
+  brief: ReturnType<typeof parseProjectBrief> | ProjectBriefV2,
+  _readyForBuild: boolean,
+  _projectId: string,
+): ProjectBriefV2 {
+  return parseCanonicalBrief(brief, brief.prompt);
 }
 
 export function persistProjectChatTurn({
@@ -70,8 +63,9 @@ export function persistProjectChatTurn({
   workspaceCard: unknown;
 }) {
   if (brief !== undefined && title !== undefined) {
+    const canonicalBrief = parseCanonicalBrief(brief);
     return prisma.$executeRaw`
-      UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(brief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
+      UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(canonicalBrief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
     `;
   }
   return prisma.$executeRaw`

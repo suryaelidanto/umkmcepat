@@ -29,6 +29,52 @@ describe("project brief", () => {
     ).toBe("Fashion");
   });
 
+  it("reads canonical V2 rows without losing discussion fields", () => {
+    const brief = parseProjectBrief(
+      {
+        version: 2,
+        prompt: "buat toko",
+        business: { name: "HP Surya", type: "Retail HP", category: "retail" },
+        offers: [{ name: "HP bekas", isPrimary: true }],
+        audience: "Pembeli HP hemat",
+        primaryAction: {
+          kind: "whatsapp",
+          label: "Tanya stok",
+          target: "08123456789",
+        },
+        visualDirection: "Bersih",
+        fieldState: { contact: "answered" },
+        content: { tagline: "HP hemat", usp: ["Bergaransi"] },
+        assets: [{ id: "logo-1", purpose: "logo" }],
+        provenance: {
+          facts: [{ key: "location", label: "Lokasi", value: "Bandung" }],
+          decisions: [],
+        },
+      },
+      "fallback",
+    );
+
+    expect(brief).toMatchObject({
+      version: 1,
+      prompt: "buat toko",
+      businessName: "HP Surya",
+      businessType: "Retail HP",
+      offer: "HP bekas",
+      productOrService: [{ name: "HP bekas", isPrimary: true }],
+      targetCustomer: "Pembeli HP hemat",
+      contactOrCta: "Tanya stok",
+      contact: {
+        channel: "whatsapp",
+        label: "Tanya stok",
+        value: "08123456789",
+      },
+      stylePreference: "Bersih",
+      tagline: "HP hemat",
+      usp: ["Bergaransi"],
+      businessImages: [{ id: "logo-1", purpose: "logo" }],
+    });
+  });
+
   it("persists typed UMKM classification and field state", () => {
     const brief = parseProjectBrief({
       umkmType: "fnb",

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { type DiscussAttemptJob } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
@@ -67,7 +68,10 @@ export async function runQueuedDiscussTurn(
   });
   const summary = parseProjectChatSummary(row.chatSummary);
   const memoryFacts = parseProjectMemoryFacts(row.memoryFacts);
-  const effectiveBrief = parseProjectBrief(row.brief, job.projectPrompt);
+  const effectiveBrief = parseProjectBrief(
+    parseCanonicalBrief(row.brief, job.projectPrompt),
+    job.projectPrompt,
+  );
   const previousWorkspaceCard: WorkspaceCard | undefined = row.workspaceCard
     ? parseWorkspaceCard(row.workspaceCard, effectiveBrief)
     : undefined;

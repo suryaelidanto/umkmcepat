@@ -37,14 +37,27 @@ describe("businessImages", () => {
     expect(briefToBuildPrompt(brief)).toContain("/media/a1");
   });
 
-  it("scrubBriefForStorage keeps businessImages", async () => {
+  it("scrubBriefForStorage persists canonical V2 without writable aliases", async () => {
     const { scrubBriefForStorage } = await import("./discuss-turn-shared");
     const brief = parseProjectBrief(
-      { businessImages: [{ id: "a1", purpose: "logo" }] },
+      {
+        businessName: "Kopi Sela",
+        productOrService: [{ name: "Kopi susu", isPrimary: true }],
+        businessImages: [{ id: "a1", purpose: "logo" }],
+        confidence: 99,
+        readyForBuild: true,
+      },
       "prompt",
     );
     const scrubbed = scrubBriefForStorage(brief, true, "p1");
-    expect(scrubbed.businessImages).toEqual([{ id: "a1", purpose: "logo" }]);
+
+    expect(scrubbed.version).toBe(2);
+    expect(scrubbed.business.name).toBe("Kopi Sela");
+    expect(scrubbed.offers[0]?.name).toBe("Kopi susu");
+    expect(scrubbed.assets).toEqual([{ id: "a1", purpose: "logo" }]);
+    expect("productOrService" in scrubbed).toBe(false);
+    expect("confidence" in scrubbed).toBe(false);
+    expect("readyForBuild" in scrubbed).toBe(false);
   });
 
   it("mergeProjectBriefPatch accumulates businessImages across turns", () => {
