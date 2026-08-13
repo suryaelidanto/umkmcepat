@@ -34,8 +34,7 @@ import {
   GATE_QUERY_OPTIONS,
   invalidateWaitlistStatus,
   queryKeys,
-  WAITLIST_PENDING_POLL_MS,
-  waitlistPendingPollInterval,
+  waitlistPagePollInterval,
 } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
 import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
@@ -218,9 +217,7 @@ function WaitlistPage() {
     initialData: { status: null, own: initialOwn },
     initialDataUpdatedAt: 0,
     refetchInterval: (query) =>
-      submitted
-        ? WAITLIST_PENDING_POLL_MS
-        : waitlistPendingPollInterval(query.state.data),
+      waitlistPagePollInterval(query.state.data, submitted),
   });
   const isApproved = statusQuery.data?.status === "approved";
   const ownIsDevSkip =

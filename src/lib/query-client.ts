@@ -70,6 +70,23 @@ export function waitlistPendingPollInterval(
   return false;
 }
 
+export function waitlistPagePollInterval(
+  data: WaitlistStatusResponse | undefined,
+  submitted: boolean,
+): number | false {
+  if (!submitted) {
+    return waitlistPendingPollInterval(data);
+  }
+  if (
+    data?.status === "approved" ||
+    data?.own?.status === "rejected" ||
+    data?.own?.status === "approved"
+  ) {
+    return false;
+  }
+  return WAITLIST_PENDING_POLL_MS;
+}
+
 export function fetchWaitlistStatus() {
   return fetchJson<WaitlistStatusResponse>("/api/user/waitlist", {
     cache: "no-store",

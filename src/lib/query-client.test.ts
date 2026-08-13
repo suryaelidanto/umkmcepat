@@ -10,6 +10,7 @@ import {
   invalidateAdminWaitlistData,
   queryKeys,
   restoreSnapshots,
+  waitlistPagePollInterval,
   waitlistPendingPollInterval,
   WAITLIST_PENDING_POLL_MS,
   type CachePatch,
@@ -62,6 +63,24 @@ describe("waitlistPendingPollInterval", () => {
 });
 
 describe("waitlist query freshness", () => {
+  it("stops submitted polling after a terminal server decision", () => {
+    expect(
+      waitlistPagePollInterval(
+        { status: "approved", own: ownStatus("approved") },
+        true,
+      ),
+    ).toBe(false);
+    expect(
+      waitlistPagePollInterval(
+        { status: null, own: ownStatus("rejected") },
+        true,
+      ),
+    ).toBe(false);
+    expect(waitlistPagePollInterval({ status: null, own: null }, true)).toBe(
+      WAITLIST_PENDING_POLL_MS,
+    );
+  });
+
   it("uses bounded user and admin polling intervals", () => {
     expect(WAITLIST_PENDING_POLL_MS).toBe(15_000);
     expect(ADMIN_WAITLIST_POLL_MS).toBe(15_000);
