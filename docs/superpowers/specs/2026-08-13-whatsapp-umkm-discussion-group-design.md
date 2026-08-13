@@ -24,8 +24,8 @@ Use this destination:
 
 Add one compact section directly after the existing `CommunitySection` FAQ block and before any signed-in-only project list. It is available to signed-out visitors and must not render between the hero CTA and the FAQ.
 
-- Heading: `Tempat ngobrol untuk pelaku UMKM`
-- Body: `Tanya soal usaha, website, atau pemasaran digital. Berbagi pengalaman santai bersama pelaku UMKM lainnya.`
+- Heading: `Komunitas UMKM Cepat`
+- Body: `Wadah ngobrol pelaku UMKM di UMKM Cepat.`
 - Action: secondary outline button labeled `Join WhatsApp`
 
 The button must remain visually secondary to the homepage's website-building action.

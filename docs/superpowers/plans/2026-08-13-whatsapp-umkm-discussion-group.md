@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Homepage, waitlist success, and pending banner use the exact visible label `Join WhatsApp`. Footer uses `Join Whatsapp`.
+- Homepage uses `Komunitas UMKM Cepat` and `Wadah ngobrol pelaku UMKM di UMKM Cepat.` Footer uses `Join Whatsapp`; homepage, waitlist, and pending banner use `Join WhatsApp`.
 - Homepage, waitlist, and pending banner render with the existing `Button` primitive; footer renders as a plain link.
 - The invite URL remains `https://chat.whatsapp.com/BzxjAg9SMfQK7dUHmUKxbg`.
 - Every placement opens a new tab with `rel="noopener noreferrer"`.
