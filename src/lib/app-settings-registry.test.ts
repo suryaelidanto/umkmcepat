@@ -1,4 +1,14 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
+
+const photoSettingConsumerSources = [
+  "projects/discuss-tool.ts",
+  "projects/brief-flow.ts",
+  "projects/build-attempt-worker.ts",
+].map((relativePath) =>
+  readFileSync(new URL(relativePath, import.meta.url), "utf8"),
+);
 
 import {
   APP_SETTINGS,
@@ -99,6 +109,13 @@ describe("APP_SETTINGS registry", () => {
       "discuss.partial_tool_streaming",
     ]) {
       expect(APP_SETTINGS.find((entry) => entry.key === key)).toBeUndefined();
+    }
+  });
+
+  it("uses Composer image uploads as the canonical photo setting", () => {
+    for (const source of photoSettingConsumerSources) {
+      expect(source).not.toContain("feature.builder_photo_enabled");
+      expect(source).toContain("feature.composer_uploads_enabled");
     }
   });
 });

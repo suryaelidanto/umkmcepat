@@ -278,14 +278,17 @@ Never use type="build_recommendation" — the site is already built; this is an 
 
   const photoEnabled = (() => {
     try {
-      return getSettingSync("feature.builder_photo_enabled", true) as boolean;
+      return getSettingSync(
+        "feature.composer_uploads_enabled",
+        true,
+      ) as boolean;
     } catch {
       return true;
     }
   })();
   const photoRule = photoEnabled
     ? ""
-    : "\nPHOTO FEATURE OFF: Builder photo questions are disabled via /admin/settings (feature.builder_photo_enabled=false). NEVER ask visuals, image_upload (visuals/photo/gambar), or media_strategy. Skip them entirely and pick the next unfilled applicable field.";
+    : "\nPHOTO FEATURE OFF: Builder photo questions are disabled via /admin/settings (feature.composer_uploads_enabled=false). NEVER ask visuals, image_upload (visuals/photo/gambar), or media_strategy. Skip them entirely and pick the next unfilled applicable field.";
 
   return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}
 
@@ -312,7 +315,10 @@ If the user explicitly asks to build now, still emit the build_recommendation ca
 export function buildCardSystemPrompt() {
   const photoEnabled = (() => {
     try {
-      return getSettingSync("feature.builder_photo_enabled", true) as boolean;
+      return getSettingSync(
+        "feature.composer_uploads_enabled",
+        true,
+      ) as boolean;
     } catch {
       return true;
     }

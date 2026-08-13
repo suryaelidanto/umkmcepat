@@ -580,7 +580,7 @@ function normalizeQuestionsArray(
 
 function isPhotoEnabled(): boolean {
   try {
-    return getSettingSync("feature.builder_photo_enabled", true) as boolean;
+    return getSettingSync("feature.composer_uploads_enabled", true) as boolean;
   } catch {
     return true;
   }

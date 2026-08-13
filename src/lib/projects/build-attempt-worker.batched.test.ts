@@ -252,7 +252,7 @@ describe("runBuildAttempt — contract-v1 batched writer", () => {
 
   it("enabled landing quality skips the spec call and passes the compiled contract", async () => {
     getSettingSyncMock.mockImplementation((key: string, fallback: unknown) => {
-      if (key === "feature.builder_photo_enabled") {
+      if (key === "feature.composer_uploads_enabled") {
         return false;
       }
       return fallback;

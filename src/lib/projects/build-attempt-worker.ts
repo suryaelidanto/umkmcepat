@@ -670,7 +670,7 @@ export async function runBuildAttempt({
         plan: acceptedHandoff.plan,
         brief,
         photoEnabled: Boolean(
-          getSettingSync("feature.builder_photo_enabled", true),
+          getSettingSync("feature.composer_uploads_enabled", true),
         ),
         recipe: generatedSiteRecipe,
       });
