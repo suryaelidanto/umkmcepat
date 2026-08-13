@@ -236,7 +236,7 @@ Do not paste raw component source from external pages.
 
 Hybrid model: **route loaders / `createServerFn`** own auth gates, ban checks, admin allowlist, and first paint. **TanStack Query** owns mutable client status after load.
 
-Gate keys such as `queryKeys.waitlistStatus` use `GATE_QUERY_OPTIONS` (10s stale, refetch on window focus + reconnect). While the user is waitlisted with a pending/waitlisted own entry, waitlist status polls every 30s. After waitlist submit or dev waitlist changes, call `invalidateWaitlistStatus` so `/` chrome updates without a full browser refresh.
+Gate keys such as `queryKeys.waitlistStatus` use `GATE_QUERY_OPTIONS` (10s stale, refetch on window focus + reconnect). While the user is waitlisted with a pending/waitlisted own entry, the canonical waitlist query polls every 15s and stops after approval, rejection, or no entry. After waitlist submit, admin approval/rejection, or dev waitlist changes, invalidate the shared status query so `/`, `/waitlist`, and the chrome converge without a full browser refresh. Admin waitlist, overview, and nav-count queries use bounded polling plus the same mutation invalidation; this is polling, not a WebSocket/SSE channel. Security gates remain server-owned.
 
 Do not migrate security gates fully to client-only queries.
 
