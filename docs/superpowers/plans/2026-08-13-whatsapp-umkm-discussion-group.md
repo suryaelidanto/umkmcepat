@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Keep three contextual `Join WhatsApp` buttons while the footer remains a plain `Join Whatsapp` link beside Github.
+**Goal:** Keep three contextual `Join WhatsApp` buttons with the homepage invite after the FAQ, while the footer remains a plain `Join Whatsapp` link beside Github.
 
-**Architecture:** Keep the shared URL and existing button treatments for homepage, waitlist success, and pending banner unchanged. Revert only `Footer` so its WhatsApp destination renders as a plain link directly beside Github.
+**Architecture:** Move the signed-out homepage placement so `WhatsAppCommunityInvite` renders after `CommunitySection` rather than between hero and FAQ. Pending banner, waitlist, and footer keep their existing treatments.
 
 **Tech Stack:** React 19, TypeScript, TanStack Start/Router, Tailwind CSS, Vitest, React server rendering, Storybook.
 
@@ -24,8 +24,8 @@
 ## File Structure
 
 - Modify `src/components/common/Footer.tsx`: render `Join Whatsapp` as a plain footer link directly beside Github.
-- Modify `src/components/community/WhatsAppCommunityInvite.test.ts`: assert three `Join WhatsApp` buttons and a plain footer `Join Whatsapp` link.
-- `src/components/community/WhatsAppCommunityInvite.tsx` and `src/routes/_main.index.tsx` require no change for this footer-only rollback.
+- Modify `src/routes/_main.index.tsx`: render `CommunitySection` before `WhatsAppCommunityInvite` so the FAQ stays ahead of the discussion invitation.
+- Modify `src/components/community/WhatsAppCommunityInvite.test.ts`: assert that signed-out homepage order is hero → FAQ → discussion invite.
 - `src/routes/_main.waitlist.tsx` and `src/stories/WhatsAppCommunityInvite.stories.tsx` require no structural change because they consume the shared component.
 
 ### Task 1: Specify the revised button behavior
