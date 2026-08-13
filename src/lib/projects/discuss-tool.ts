@@ -288,7 +288,7 @@ Never use type="build_recommendation" — the site is already built; this is an 
   })();
   const photoRule = photoEnabled
     ? ""
-    : "\nPHOTO FEATURE OFF: Builder photo questions are disabled via /admin/settings (feature.composer_uploads_enabled=false). NEVER ask visuals, image_upload (visuals/photo/gambar), or media_strategy. Skip them entirely and pick the next unfilled applicable field.";
+    : "\nPHOTO FEATURE OFF: Photo uploads are disabled via /admin/settings (feature.composer_uploads_enabled=false). NEVER ask photo-upload questions using visuals, media_strategy, or image_upload. Style choice cards such as visual_direction and style_preference remain allowed. Skip only photo uploads and pick the next unfilled applicable field.";
 
   return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}
 

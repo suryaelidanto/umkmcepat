@@ -575,23 +575,13 @@ function isPhotoEnabled(): boolean {
 function isPhotoQuestionId(id: string): boolean {
   const lower = id.toLowerCase();
   return (
-    lower === "visuals" ||
-    lower === "visual" ||
-    lower.includes("visual") ||
-    lower.includes("photo") ||
-    lower === "media_strategy" ||
-    lower.includes("media_")
+    lower === "visuals" || lower === "visual" || lower === "media_strategy"
   );
 }
 
 function isPhotoQuestionText(text: string): boolean {
   const q = text.toLowerCase();
-  return (
-    q.includes("foto") ||
-    q.includes("photo") ||
-    q.includes("gambar") ||
-    q.includes("visual")
-  );
+  return q.includes("foto") || q.includes("photo") || q.includes("gambar");
 }
 
 function normalizeWorkspaceCard(
