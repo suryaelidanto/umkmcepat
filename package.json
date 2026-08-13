@@ -4,6 +4,7 @@
   "private": false,
   "type": "module",
   "scripts": {
+    "brief:migrate": "bun scripts/migrate-canonical-briefs.ts",
     "build": "vite build",
     "check": "bun run check:locks && bun run check:fast",
     "check:commit": "bun run check:locks && bun scripts/check-staged.ts",

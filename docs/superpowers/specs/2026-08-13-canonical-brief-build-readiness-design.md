@@ -1,7 +1,7 @@
 # Canonical Brief and Build Readiness — Design
 
 **Date:** 2026-08-13
-**Status:** Draft for written review
+**Status:** Implemented
 **Scope:** Discussion readiness, build recommendation, handoff acceptance, and first-generation build inputs
 **Supersedes:** The brief/readiness assumptions in older generation specs where they conflict with this design
 **Preserves:** Contract-compiled single-shot generation, bounded qualification, and immutable handoff hashes
