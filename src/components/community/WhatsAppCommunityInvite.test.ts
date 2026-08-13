@@ -54,10 +54,11 @@ describe("WhatsApp discussion entry points", () => {
 
     expect(communitySectionIndex).toBeGreaterThan(-1);
     expect(inviteIndex).toBeGreaterThan(communitySectionIndex);
-    expect(homeSource).toContain(
-      '<Button asChild size="sm" variant="outline">',
+    expect(homeSource).toContain("isWaitingToBeApproved");
+    expect(homeSource).toMatch(/isWaitingToBeApproved[\s\S]*?Join WhatsApp/);
+    expect(homeSource).toMatch(
+      /ownStatus === "pending"[\s\S]*ownStatus === "waitlisted"/,
     );
-    expect(homeSource).toContain("Join WhatsApp");
   });
 
   it("places the primary invitation on the waitlist success screen", () => {

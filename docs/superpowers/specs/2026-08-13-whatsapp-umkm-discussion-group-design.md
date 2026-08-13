@@ -43,7 +43,7 @@ The existing waitlist submission confirmation and email-review explanation remai
 
 ### Pending homepage banner
 
-Keep `Cek status antrean` or `Perbaiki pendaftaran` as the sole primary action while the user is waiting to be approved. Do not render a WhatsApp action in this pending banner. The default `Isi formulir antrean` state may also keep a compact `Join WhatsApp` outline button only if the body is `Isi formulir antrean dulu...`, but the pending/rejected states must not show WhatsApp here.
+Keep `Cek status antrean` as the primary action while the user is waiting to be approved. Add a compact outline button labeled `Join WhatsApp` beside or below it, visible only when `ownStatus` is `pending` or `waitlisted`. Do not render a WhatsApp action in the default `Isi formulir antrean` state or the `Perbaiki pendaftaran` rejected state.
 
 ### Footer
 
@@ -55,7 +55,7 @@ Do not add WhatsApp to the desktop header or mobile primary navigation. A persis
 
 ## Interaction
 
-The homepage and waitlist-success actions use the exact visible label `Join WhatsApp` and render as buttons. The pending banner shows `Join WhatsApp` only in the `Isi formulir antrean` default state; pending/rejected states show no WhatsApp action. The footer uses a plain link labeled `Join Whatsapp`. Every placement opens the external invite in a new browser tab and uses safe external-link attributes. These user-requested English CTAs are explicit exceptions to the product's Indonesian-copy default. Use UMKM Cepat's existing neutral component vocabulary and do not add an icon or dependency.
+The homepage and waitlist-success actions use the exact visible label `Join WhatsApp` and render as buttons. The pending banner shows `Join WhatsApp` only while `ownStatus` is `pending` or `waitlisted`; the default and rejected states show no WhatsApp action. The footer uses a plain link labeled `Join Whatsapp`. Every placement opens the external invite in a new browser tab and uses safe external-link attributes. These user-requested English CTAs are explicit exceptions to the product's Indonesian-copy default. Use UMKM Cepat's existing neutral component vocabulary and do not add an icon or dependency.
 
 The direct invite remains explicit in one small shared constant or component boundary so a future WhatsApp Community migration does not require hunting through multiple pages. Do not add a redirect route, database setting, dependency, or admin configuration for this single destination.
 
@@ -73,7 +73,7 @@ Use one small reusable WhatsApp invitation component for the two prominent invit
 
 ## Verification
 
-- Component tests verify the invite URL, external-link behavior, `Join WhatsApp` buttons on homepage/waitlist, a plain `Join Whatsapp` footer link, and that the pending banner hides WhatsApp while the waitlist status is pending/waitlisted/rejected.
+- Component tests verify the invite URL, external-link behavior, `Join WhatsApp` buttons on homepage/waitlist, a plain `Join Whatsapp` footer link, and that the pending banner shows `Join WhatsApp` only while `ownStatus` is `pending` or `waitlisted`.
 - Existing waitlist behavior tests remain green.
 - Storybook covers the reusable invitation's homepage-secondary and waitlist-primary presentations if introduced.
 - Manually inspect mobile and desktop hierarchy to confirm the WhatsApp action does not compete with the main homepage CTA.
