@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Revise all four WhatsApp entry points to render as buttons with the exact label `Join WhatsApp`, while preserving contextual visual hierarchy.
+**Goal:** Keep all four `Join WhatsApp` buttons while separating the footer action from its plain navigation-link row.
 
-**Architecture:** Keep the shared URL and prominent homepage/waitlist invitation in `WhatsAppCommunityInvite`. Use the existing `Button asChild` pattern directly in the pending banner and footer so all destinations are semantic external links styled as buttons without creating another abstraction.
+**Architecture:** Keep the shared URL and existing button treatments unchanged. Refine only `Footer` so its right-side area becomes a small vertical stack: one semantic navigation row for Ketentuan, Privasi, and Github, followed by the standalone WhatsApp button.
 
 **Tech Stack:** React 19, TypeScript, TanStack Start/Router, Tailwind CSS, Vitest, React server rendering, Storybook.
 
@@ -15,6 +15,7 @@
 - The invite URL remains `https://chat.whatsapp.com/BzxjAg9SMfQK7dUHmUKxbg`.
 - Every action opens a new tab with `rel="noopener noreferrer"`.
 - Waitlist success uses a solid white button; homepage uses a regular outline button; pending banner and footer use compact outline buttons.
+- Footer navigation contains only Ketentuan, Privasi, and Github; its WhatsApp button sits in a separate row below with `gap-spacing-4`.
 - The pending waitlist-status action remains primary.
 - Do not add navigation items, floating controls, popups, sticky banners, icons, dependencies, or WhatsApp-green styling.
 - Leave unrelated commits and files untouched.
@@ -26,7 +27,7 @@
 - Modify `src/components/community/WhatsAppCommunityInvite.test.ts`: assert exact labels and all four button treatments.
 - Modify `src/components/community/WhatsAppCommunityInvite.tsx`: change the shared prominent CTA label.
 - Modify `src/routes/_main.index.tsx`: replace the pending text link with a compact outline button.
-- Modify `src/components/common/Footer.tsx`: replace the footer text link with a compact outline button.
+- Modify `src/components/common/Footer.tsx`: place the compact outline button below a separate plain-link navigation row.
 - `src/routes/_main.waitlist.tsx` and `src/stories/WhatsAppCommunityInvite.stories.tsx` require no structural change because they consume the shared component.
 
 ### Task 1: Specify the revised button behavior
@@ -136,7 +137,38 @@ bunx tsc --noEmit --incremental --tsBuildInfoFile .tsbuildinfo
 
 Expected: all commands exit 0.
 
-### Task 3: Verify and commit the revision
+### Task 3: Separate the footer action and verify
+
+**Files:**
+- Modify: `src/components/community/WhatsAppCommunityInvite.test.ts`
+- Modify: `src/components/common/Footer.tsx`
+
+- [ ] **Step 1: Add a failing footer hierarchy assertion**
+
+Assert the footer source contains a right-side `flex-col` wrapper with `gap-spacing-4`, closes the plain-link `nav` before rendering the WhatsApp `Button`, and keeps `Ketentuan`, `Privasi`, and `Github` inside the navigation.
+
+- [ ] **Step 2: Run the focused test and verify RED**
+
+Run: `bunx vitest run --project unit src/components/community/WhatsAppCommunityInvite.test.ts`
+
+Expected: FAIL because the WhatsApp button is still nested inside `nav`.
+
+- [ ] **Step 3: Implement the footer hierarchy**
+
+Wrap the link row and button in:
+
+```tsx
+<div className="flex flex-col items-start gap-spacing-4 md:items-end">
+  <nav className="flex flex-wrap gap-spacing-5 text-sm">...</nav>
+  <Button asChild size="sm" variant="outline">...</Button>
+</div>
+```
+
+- [ ] **Step 4: Run focused tests, ESLint, and typecheck**
+
+Run the component test, targeted ESLint for the two touched files, and `bunx tsc --noEmit --incremental --tsBuildInfoFile .tsbuildinfo`.
+
+### Task 4: Verify and commit the revision
 
 **Files:**
 - Modify: `src/components/community/WhatsAppCommunityInvite.test.ts`
