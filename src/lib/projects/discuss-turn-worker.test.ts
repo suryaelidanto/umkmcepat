@@ -835,7 +835,7 @@ describe("runDiscussTurn worker", () => {
       question: { id: string };
     };
     expect(cardEvent.type).toBe("question");
-    expect(cardEvent.question.id).toBe("businessName");
+    expect(cardEvent.question.id).toBe("business.name");
     expect(writeAiRequestLogMock).toHaveBeenCalled();
   });
 

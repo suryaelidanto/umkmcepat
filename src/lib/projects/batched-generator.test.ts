@@ -151,6 +151,8 @@ function makeBrief(overrides: Partial<ProjectBrief> = {}): ProjectBrief {
     stylePreference: "Hangat premium sederhana",
     productOrService: null,
     contact: null,
+    umkmType: "jasa_online",
+    fieldState: { visuals: "declined" },
     tagline: null,
     usp: null,
     priceRange: null,

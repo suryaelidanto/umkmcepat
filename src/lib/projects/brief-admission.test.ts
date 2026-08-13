@@ -8,89 +8,64 @@ function readyBrief(overrides: Partial<ProjectBrief> = {}): ProjectBrief {
   return {
     version: 1,
     notes: [],
-    readyForBuild: true,
+    readyForBuild: false,
     prompt: "coffee shop untuk kerja remote",
     businessName: "Kopi Sela",
     businessType: "Coffee shop kecil",
-    offer: "Espresso, manual brew, pastry",
+    offer: "Espresso",
+    productOrService: [{ name: "Espresso", isPrimary: true }],
     targetCustomer: "Mahasiswa dan pekerja remote",
     contactOrCta: "Pesan lewat WhatsApp",
+    contact: {
+      channel: "whatsapp",
+      label: "Pesan lewat WhatsApp",
+      value: "08123456789",
+    },
     stylePreference: "Hangat premium, tenang",
+    umkmType: "jasa_online",
+    fieldState: { visuals: "declined" },
     ...overrides,
   } as ProjectBrief;
 }
 
 describe("checkBatchedGenerateAdmission", () => {
-  it("admits a complete brief", () => {
+  it("admits a canonically complete brief without trusting readyForBuild", () => {
     const result = checkBatchedGenerateAdmission({ brief: readyBrief() });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.reason).toBeNull();
-    }
+
+    expect(result).toEqual({ ok: true, blockers: [], reason: null });
   });
 
-  it("blocks when brief is not marked readyForBuild", () => {
-    // Guard against generating when discuss-readiness still has structural
-    // blockers. brief-flow flips readyForBuild only when the brief is done.
-    const brief = readyBrief({ readyForBuild: false });
-    brief.fieldState = undefined;
-    const result = checkBatchedGenerateAdmission({ brief });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toMatch(/belum siap|rief belum/i);
-      expect(result.blockers.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("blocks when businessName or offer is empty, with Indonesian reason", () => {
-    for (const patch of [
-      { businessName: "" },
-      { businessName: "   " },
-      { offer: "" },
+  it("blocks when identity or offers are missing", () => {
+    for (const brief of [
+      readyBrief({ businessName: "" }),
+      readyBrief({ offer: "", productOrService: null }),
     ]) {
-      const result = checkBatchedGenerateAdmission({
-        brief: readyBrief(patch),
-      });
+      const result = checkBatchedGenerateAdmission({ brief });
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.reason).toMatch(/[A-Za-z]/);
-        expect(result.reason).not.toMatch(/[bf]ailed|error|invalid/i); // Indonesian, not English
+        expect(result.reason).toMatch(/belum siap/i);
       }
     }
   });
 
-  it("admits a minimal brief with only businessName + offer + readyForBuild", () => {
-    // The 2-field minimum: contact, style, target customer are optional now.
-    // A build can start as soon as identity + offering are known.
-    const minimal = readyBrief({
-      contactOrCta: "",
-      stylePreference: "",
-      targetCustomer: "",
-    });
-    const result = checkBatchedGenerateAdmission({ brief: minimal });
-    expect(result.ok).toBe(true);
-  });
-
-  it("does not block when contactOrCta / stylePreference / targetCustomer are missing (optional fields)", () => {
-    // These are rich fields now — the writer prompt + completeness gate skip
-    // empty ones. Admission only enforces the core: businessName + offer.
+  it("blocks every canonical structural requirement", () => {
     for (const patch of [
-      { contactOrCta: "" },
-      { stylePreference: "" },
       { targetCustomer: "" },
-    ]) {
+      { contactOrCta: "", contact: null },
+      { stylePreference: "" },
+      { fieldState: {} },
+    ] satisfies Array<Partial<ProjectBrief>>) {
       const result = checkBatchedGenerateAdmission({
         brief: readyBrief(patch),
       });
-      expect(result.ok).toBe(true);
+      expect(result.ok).toBe(false);
     }
   });
 
-  it("does not throw on null brief fields", () => {
-    const brief = readyBrief();
-    delete (brief as { productOrService?: unknown }).productOrService;
-    brief.businessName = null as unknown as string;
+  it("does not throw on malformed brief fields", () => {
+    const brief = readyBrief({ businessName: null as unknown as string });
     const result = checkBatchedGenerateAdmission({ brief });
+
     expect(result.ok).toBe(false);
   });
 });

@@ -434,7 +434,8 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     const briefText = briefCall
       ? briefCall.map((arg) => String(arg ?? "")).join("\n")
       : "";
-    expect(briefText).toContain('"businessImages"');
+    expect(briefText).toContain('"version":2');
+    expect(briefText).toContain('"assets"');
     expect(briefText).toContain("a1");
     expect(briefText).toContain("business-image");
   });

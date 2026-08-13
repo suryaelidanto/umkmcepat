@@ -5,8 +5,6 @@ import {
   briefToBuildPrompt,
   createInitialBrief,
   getMissingBriefFields,
-  isBriefReady,
-  isBriefReadyForBuild,
   mergeProjectBriefPatch,
   parseProjectBrief,
 } from "./brief";
@@ -18,7 +16,6 @@ describe("project brief", () => {
     const brief = createInitialBrief("buat web toko baju");
 
     expect(brief.prompt).toBe("buat web toko baju");
-    expect(isBriefReady(brief)).toBe(false);
     expect(getMissingBriefFields(brief)).toContain("businessType");
   });
 
@@ -98,7 +95,7 @@ describe("project brief", () => {
     });
   });
 
-  it("does not mark ready from legacy fields alone; confidence is the gate", () => {
+  it("keeps legacy fields available for prompts without authorizing readiness", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Fashion",
@@ -110,33 +107,11 @@ describe("project brief", () => {
       "buat web",
     );
 
-    expect(isBriefReady(brief)).toBe(false);
     expect(briefToBuildPrompt(brief)).toContain("Bidang usaha: Fashion");
-  });
-
-  it("marks ready only when AI confidence reaches 95 and no open questions remain", () => {
-    expect(
-      isBriefReady(
-        parseProjectBrief({ confidence: 94, openQuestions: [] }, "buat web"),
-      ),
-    ).toBe(false);
-    expect(
-      isBriefReady(
-        parseProjectBrief(
-          { confidence: 95, openQuestions: ["Jam buka belum jelas"] },
-          "buat web",
-        ),
-      ),
-    ).toBe(false);
-    expect(
-      isBriefReady(
-        parseProjectBrief({ confidence: 95, openQuestions: [] }, "buat web"),
-      ),
-    ).toBe(true);
   });
 });
 
-describe("applyBriefValidator + isBriefReadyForBuild", () => {
+describe("applyBriefValidator", () => {
   const fullClean: CleanedBrief = {
     businessName: "Kopi Tuku",
     productOrService: [{ name: "Kopi Susu", isPrimary: true }],
@@ -168,17 +143,6 @@ describe("applyBriefValidator + isBriefReadyForBuild", () => {
     currentPromo: null,
     secondaryCta: null,
   };
-
-  it("isBriefReadyForBuild is false when readyForBuild is false", () => {
-    const brief = applyBriefValidator({ ...fullClean, businessName: null });
-    expect(isBriefReadyForBuild(brief)).toBe(false);
-  });
-
-  it("isBriefReadyForBuild is true when readyForBuild is true and productOrService present", () => {
-    const brief = applyBriefValidator(fullClean);
-    brief.readyForBuild = true;
-    expect(isBriefReadyForBuild(brief)).toBe(true);
-  });
 
   it("applyBriefValidator populates all fields from a CleanedBrief", () => {
     const brief = applyBriefValidator(fullClean);
@@ -274,16 +238,5 @@ describe("mergeProjectBriefPatch typed rich fields", () => {
     expect(merged.contact).toBeNull();
     expect(merged.businessType).toBe("F&B");
     expect(merged.confidence).toBe(30);
-  });
-
-  it("opens the build gate when patch sets productOrService and readyForBuild", () => {
-    const brief = createInitialBrief("kopi tuku");
-    const merged = mergeProjectBriefPatch(brief, {
-      businessName: "Kopi Tuku",
-      productOrService: [{ name: "Kopi Susu", isPrimary: true }],
-    });
-    merged.readyForBuild = true;
-
-    expect(isBriefReadyForBuild(merged)).toBe(true);
   });
 });

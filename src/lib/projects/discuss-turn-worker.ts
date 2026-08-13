@@ -40,7 +40,6 @@ import {
   parseProjectChatSummary,
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
-import { evaluateDiscussReadiness } from "@/lib/projects/discuss-readiness";
 import {
   buildEarlyBuildWarning,
   demoteToReadinessQuestion,
@@ -841,13 +840,14 @@ export async function runDiscussTurn({
       project.generationEngine === "legacy-v1" &&
       workspaceTurn.workspaceCard.type === "build_recommendation"
     ) {
-      const readiness = evaluateDiscussReadiness({
-        brief: workspaceTurn.brief,
-        umkmType: workspaceTurn.brief.umkmType ?? undefined,
-      });
-      if (readiness.state === "needs_question") {
+      const readiness = evaluateBuildReadiness(
+        parseCanonicalBrief(workspaceTurn.brief, project.prompt),
+      );
+      if (readiness.state === "blocked") {
         if (requestsImmediateBuild(lastUserTextValue)) {
-          chatText = buildEarlyBuildWarning(readiness.blockers);
+          chatText = buildEarlyBuildWarning(
+            readiness.blockers.map((blocker) => blocker.field),
+          );
         } else {
           workspaceTurn = demoteToReadinessQuestion(workspaceTurn, readiness);
           chatText = READINESS_QUESTION_INTRO;
@@ -855,7 +855,7 @@ export async function runDiscussTurn({
         devLog("discuss", "gate", {
           projectId: project.id,
           turnId,
-          blockers: readiness.blockers,
+          blockers: readiness.blockers.map((blocker) => blocker.field),
           buildAllowed: requestsImmediateBuild(lastUserTextValue),
         });
       }

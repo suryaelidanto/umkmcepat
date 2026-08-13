@@ -1,7 +1,7 @@
 import type {
-  DiscussReadiness,
-  DiscussReadinessBlocker,
-} from "@/lib/projects/discuss-readiness";
+  BuildReadiness,
+  BuildReadinessField,
+} from "@/lib/projects/build-readiness";
 
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 
@@ -23,54 +23,35 @@ export function requestsImmediateBuild(text: string | undefined): boolean {
 export const READINESS_QUESTION_INTRO =
   "Satu hal lagi yang nentuin struktur situsnya, biar hasilnya pas.";
 
-const READINESS_QUESTIONS: Partial<Record<DiscussReadinessBlocker, string>> = {
-  businessName: "Nama usaha kamu apa?",
-  productOrService: "Usaha ini jual/layani apa?",
-  primaryOffer: "Dari beberapa produk tadi, mana yang paling jadi andalan?",
-  targetCustomer: "Siapa pelanggan utama yang paling mau kamu tarik?",
-  visualPreference: "Gaya situs yang kamu mau seperti apa?",
-  visuals: "Udah punya foto produk, atau aku bikin desain yang fokus teks?",
-  contact: "Nomor WhatsApp atau telepon yang bisa dihubungi?",
-  address: "Alamat lengkap usaha kamu di mana?",
-  hours: "Jam buka dan hari operasionalnya bagaimana?",
-  deliveryArea: "Area pengiriman atau layanan kamu sampai mana?",
-};
-
 export function demoteToReadinessQuestion(
   workspaceTurn: NonNullable<ReturnType<typeof normalizeWorkspaceTurn>>,
-  readiness: Extract<DiscussReadiness, { state: "needs_question" }>,
+  readiness: Extract<BuildReadiness, { state: "blocked" }>,
 ): NonNullable<ReturnType<typeof normalizeWorkspaceTurn>> {
-  const question = READINESS_QUESTIONS[readiness.nextFieldId];
   return {
     ...workspaceTurn,
     readyForBuild: false,
     workspaceCard: {
       type: "question",
-      question: {
-        id: readiness.nextFieldId,
-        question: question ?? READINESS_QUESTION_INTRO,
-        answerMode: "text",
-        selectionMode: "single",
-        options: [],
-      },
+      question: readiness.nextQuestion,
     },
   };
 }
 
-const READINESS_LABELS: Partial<Record<DiscussReadinessBlocker, string>> = {
-  businessName: "nama usaha",
+const READINESS_LABELS: Partial<Record<BuildReadinessField, string>> = {
+  "business.name": "nama usaha",
+  offers: "produk atau layanan",
   primaryOffer: "produk andalan",
-  targetCustomer: "target pelanggan",
-  visualPreference: "gaya situs",
-  visuals: "foto produk",
-  contact: "nomor kontak",
-  address: "alamat",
-  hours: "jam buka",
-  deliveryArea: "area pengiriman",
+  audience: "target pelanggan",
+  primaryAction: "aksi utama dan kontak",
+  visualDirection: "gaya situs",
+  assets: "foto produk",
+  "content.address": "alamat",
+  "content.hours": "jam buka",
+  "content.deliveryArea": "area pengiriman",
 };
 
 export function buildEarlyBuildWarning(
-  blockers: readonly DiscussReadinessBlocker[],
+  blockers: readonly BuildReadinessField[],
 ): string {
   const labels = blockers
     .map((blocker) => READINESS_LABELS[blocker])

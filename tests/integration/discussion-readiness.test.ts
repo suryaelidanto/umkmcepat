@@ -1,39 +1,58 @@
 import { describe, expect, it } from "vitest";
 
+import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
 import {
-  applyBriefValidator,
-  isBriefReadyForBuild,
-} from "@/lib/projects/brief";
-import { validateBrief } from "@/lib/projects/brief-rich-fields";
+  applyAiBriefPatch,
+  createInitialCanonicalBrief,
+} from "@/lib/projects/canonical-brief";
 
 describe("discussion readiness end-to-end", () => {
-  it("a brief with only businessName + productOrService is not ready", () => {
-    const brief = applyBriefValidator({
+  it("keeps an incomplete retail brief blocked", () => {
+    const brief = applyAiBriefPatch(createInitialCanonicalBrief(), {
       businessName: "Kopi Tuku",
+      umkmType: "retail",
       productOrService: [{ name: "Kopi Susu", isPrimary: true }],
     });
-    expect(isBriefReadyForBuild(brief)).toBe(false);
+
+    expect(evaluateBuildReadiness(brief).state).toBe("blocked");
   });
 
-  it("a brief with valid readyForBuild flag and mandatory fields is ready", () => {
-    const brief = applyBriefValidator({
+  it("authorizes only after every canonical requirement resolves", () => {
+    const brief = applyAiBriefPatch(createInitialCanonicalBrief(), {
       businessName: "Kopi Tuku",
+      umkmType: "jasa_online",
       productOrService: [{ name: "Kopi Susu", isPrimary: true }],
+      targetCustomer: "Pekerja remote",
+      contact: {
+        channel: "whatsapp",
+        label: "Pesan sekarang",
+        value: "08123456789",
+      },
+      stylePreference: "Hangat dan tenang",
+      fieldState: { visuals: "declined" },
     });
-    brief.readyForBuild = true;
-    expect(isBriefReadyForBuild(brief)).toBe(true);
+
+    expect(evaluateBuildReadiness(brief)).toEqual({
+      state: "ready",
+      blockers: [],
+    });
   });
 
-  it("a hallucinated contact is dropped, brief is still buildable when mandatory + flag are present", () => {
-    const { cleaned, dropped } = validateBrief({
+  it("keeps a contact label as a browse action without inventing a destination", () => {
+    const brief = applyAiBriefPatch(createInitialCanonicalBrief(), {
       businessName: "Kopi Tuku",
-      productOrService: [{ name: "Kopi Susu" }],
-      contact: { channel: "whatsapp", value: "hello world" },
+      umkmType: "jasa_online",
+      productOrService: [{ name: "Kopi Susu", isPrimary: true }],
+      targetCustomer: "Pekerja remote",
+      contactOrCta: "Pesan sekarang",
+      stylePreference: "Hangat dan tenang",
+      fieldState: { visuals: "declined" },
     });
-    expect(dropped).toContain("contact");
-    expect(cleaned.contact).toBeNull();
-    const brief = applyBriefValidator(cleaned);
-    brief.readyForBuild = true;
-    expect(isBriefReadyForBuild(brief)).toBe(true);
+    expect(brief.primaryAction).toEqual({
+      kind: "browse",
+      label: "Pesan sekarang",
+      target: null,
+    });
+    expect(evaluateBuildReadiness(brief).state).toBe("ready");
   });
 });

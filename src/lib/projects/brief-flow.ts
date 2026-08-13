@@ -15,9 +15,10 @@ import {
   type ImageUploadPurpose,
   type ProjectBrief,
   type WorkspaceCard,
-  BRIEF_CONFIDENCE_THRESHOLD,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
+import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
 const OPTION_LABEL_MAX_LENGTH = 120;
 const OPTION_DESCRIPTION_MAX_LENGTH = 180;
@@ -201,8 +202,6 @@ const USER_AFFIRM_START_RE =
 const USER_AFFIRM_BUILD_RE =
   /langsung\s*bangun|bangun\s*aja|mulai\s*build|mulai\s*bangun|build\s*sekarang|udah\s*dulu|cukup(\s*sudah)?/i;
 
-const MIN_BRIEF_FIELDS = ["businessName", "offer"] as const;
-
 /**
  * Deterministic mapping from the discuss model's fact keys (snake_case) to the
  * typed brief fields the batched build admission + MIN_BRIEF_FIELDS gate read.
@@ -228,20 +227,6 @@ const FACT_KEY_TO_BRIEF_FIELD: Record<string, string> = {
   address: "address",
   tagline: "tagline",
 };
-
-/** Basics known enough to show Mulai build (not model confidence). */
-export function hasMinimumBriefForBuild(brief: ProjectBrief): boolean {
-  const filled = MIN_BRIEF_FIELDS.filter((field) => {
-    const value = brief[field];
-    return typeof value === "string" && value.trim().length > 0;
-  });
-  // Minimum buildable brief: businessName + offer. Rich fields (contact,
-  // tagline, products, testimonials, FAQ, etc.) are optional and only render
-  // when populated — the completeness gate skips empty fields. This lets an
-  // owner start a build as soon as the core identity + offering are known,
-  // while the interview can keep enriching in parallel turns.
-  return filled.length >= MIN_BRIEF_FIELDS.length;
-}
 
 export function isBuildConfirmQuestion(question: {
   id?: string;
@@ -301,7 +286,7 @@ function withHandoffReadiness(brief: ProjectBrief): ProjectBrief {
   return {
     ...brief,
     businessType,
-    confidence: Math.max(brief.confidence ?? 0, BRIEF_CONFIDENCE_THRESHOLD),
+    confidence: Math.max(brief.confidence ?? 0, 95),
     openQuestions: [],
   };
 }
@@ -337,7 +322,8 @@ export function normalizeWorkspaceTurn(
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is
     // clear so Mulai build appears. No force-build UI; no auto-generate.
-    const minBrief = hasMinimumBriefForBuild(brief);
+    const briefIsReady =
+      evaluateBuildReadiness(parseCanonicalBrief(brief)).state === "ready";
     const modelTitle =
       workspaceCard.type === "build_recommendation"
         ? workspaceCard.title
@@ -348,12 +334,12 @@ export function normalizeWorkspaceTurn(
         : undefined;
 
     const promoteBuildConfirmQuestion =
-      minBrief &&
+      briefIsReady &&
       workspaceCard.type === "question" &&
       isBuildConfirmQuestion(workspaceCard.question);
 
     const promoteAfterAffirm =
-      minBrief &&
+      briefIsReady &&
       isUserAffirmingBuild(options.lastUserText) &&
       isBuildConfirmCard(options.previousWorkspaceCard);
 
@@ -451,7 +437,7 @@ export function normalizeWorkspaceTurn(
     if (
       promoteBuildConfirmQuestion ||
       promoteAfterAffirm ||
-      (isDuplicateStall && minBrief)
+      (isDuplicateStall && briefIsReady)
     ) {
       brief = withHandoffReadiness(brief);
       workspaceCard = buildRecommendationCard(brief, modelTitle, modelSummary);
@@ -459,11 +445,11 @@ export function normalizeWorkspaceTurn(
       // Duplicate id already answered but brief not yet build-ready — block the
       // repeat by returning none instead of re-asking the same question.
       workspaceCard = createFallbackWorkspaceCard(brief);
-    } else if (minBrief && workspaceCard.type === "build_recommendation") {
+    } else if (briefIsReady && workspaceCard.type === "build_recommendation") {
       // Model sent build card (or min-brief accepted it) — lock confidence for UI.
       brief = withHandoffReadiness(brief);
     } else if (
-      !minBrief &&
+      !briefIsReady &&
       workspaceCard.type === "none" &&
       (value.workspaceCard == null ||
         (typeof value.workspaceCard === "object" &&
@@ -657,7 +643,7 @@ function normalizeWorkspaceCard(
     // build_recommendation with an empty brief — the build then fell back to
     // the slow legacy loop instead of the fast batched writer. The typed
     // fields are what both the admission gate and MIN_BRIEF_FIELDS read.
-    if (hasMinimumBriefForBuild(brief)) {
+    if (evaluateBuildReadiness(parseCanonicalBrief(brief)).state === "ready") {
       return buildRecommendationCard(brief, title, summary);
     }
 

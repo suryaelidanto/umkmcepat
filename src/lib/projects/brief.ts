@@ -178,7 +178,7 @@ export type ProjectBriefPatch = Partial<
   fieldState?: FieldStateMap;
 };
 
-export const REQUIRED_BRIEF_FIELDS = [
+const LEGACY_BRIEF_PATCH_FIELDS = [
   "businessType",
   "offer",
   "targetCustomer",
@@ -186,12 +186,7 @@ export const REQUIRED_BRIEF_FIELDS = [
   "stylePreference",
 ] as const;
 
-// Legacy metadata fields still consumed by the build prompt and fallback, but
-// no longer the readiness gate. The gate is AI-owned confidence (see below).
-const REQUIRED_FIELDS = [...REQUIRED_BRIEF_FIELDS];
-
-/** Confidence threshold (0-100) the AI must reach before a build is recommended. */
-export const BRIEF_CONFIDENCE_THRESHOLD = 95;
+const REQUIRED_FIELDS = [...LEGACY_BRIEF_PATCH_FIELDS];
 
 export function createInitialBrief(prompt = ""): ProjectBrief {
   return {
@@ -484,34 +479,6 @@ export function isBriefQuestionId(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-export type BriefReadiness = {
-  ready: boolean;
-  confidence: number;
-  remainingOpenQuestions: string[];
-};
-
-/** Readiness is AI-owned confidence, not field completion. */
-export function getBriefReadiness(brief: ProjectBrief): BriefReadiness {
-  const confidence = brief.confidence ?? 0;
-  const answeredIds = new Set(brief.decisions?.map((d) => d.id) ?? []);
-  const remainingOpenQuestions = (brief.openQuestions ?? []).filter(
-    (q) => !answeredIds.has(q),
-  );
-
-  return {
-    confidence,
-    ready:
-      confidence >= BRIEF_CONFIDENCE_THRESHOLD &&
-      remainingOpenQuestions.length === 0,
-    remainingOpenQuestions,
-  };
-}
-
-/** Back-compat boolean view of readiness. Prefer getBriefReadiness for new code. */
-export function isBriefReady(brief: ProjectBrief) {
-  return getBriefReadiness(brief).ready;
-}
-
 export function briefToBuildPrompt(brief: ProjectBrief) {
   const lines = [
     `Permintaan awal: ${brief.prompt}`,
@@ -651,15 +618,6 @@ export function applyBriefValidator(
     targetCustomer: cleaned.targetCustomer ?? "",
     readyForBuild: false,
   };
-}
-
-export function isBriefReadyForBuild(brief: ProjectBrief): boolean {
-  return Boolean(
-    brief.readyForBuild &&
-    brief.businessName &&
-    brief.productOrService &&
-    brief.productOrService.length > 0,
-  );
 }
 
 function isString(value: unknown): value is string {

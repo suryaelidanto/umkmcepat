@@ -10,22 +10,10 @@
 // customer, products, testimonials, FAQ) are optional — the writer prompt +
 // completeness gate skip empty ones, so a build can start as soon as the core
 // is known. This mirrors MIN_BRIEF_FIELDS in brief-flow.ts.
-import { z } from "zod";
+import { evaluateBuildReadiness } from "./build-readiness";
+import { parseCanonicalBrief, type ProjectBriefV2 } from "./canonical-brief";
 
 import type { ProjectBrief } from "./brief";
-import type { ProjectBriefV2 } from "./canonical-brief";
-
-const requiredText = z
-  .string({ error: "must be a string" })
-  .trim()
-  .min(1)
-  .max(500);
-
-const batchedBriefAdmissionSchema = z.object({
-  businessName: requiredText,
-  offer: requiredText,
-  readyForBuild: z.literal(true),
-});
 
 export type BatchedBriefAdmissionResult =
   | { ok: true; blockers: []; reason: null }
@@ -47,8 +35,16 @@ export class BatchedAdmissionBlockedError extends Error {
 
 const FIELD_LABELS: Record<string, string> = {
   businessName: "nama usaha",
+  "business.name": "nama usaha",
   offer: "penawaran utama",
-  readyForBuild: "kesiapan build",
+  offers: "penawaran utama",
+  audience: "target pelanggan",
+  primaryAction: "aksi utama",
+  visualDirection: "arah visual",
+  assets: "foto atau keputusan media",
+  "content.address": "alamat",
+  "content.hours": "jam buka",
+  "content.deliveryArea": "area layanan",
 };
 
 /**
@@ -88,21 +84,12 @@ export function checkContractGenerateAdmission(input: {
 export function checkBatchedGenerateAdmission(input: {
   brief: ProjectBrief;
 }): BatchedBriefAdmissionResult {
-  const parsed = batchedBriefAdmissionSchema.safeParse({
-    businessName: input.brief.businessName,
-    offer: input.brief.offer,
-    readyForBuild: input.brief.readyForBuild,
-  });
-
-  if (parsed.success) {
+  const readiness = evaluateBuildReadiness(parseCanonicalBrief(input.brief));
+  if (readiness.state === "ready") {
     return { ok: true, blockers: [], reason: null };
   }
 
-  const blockers = [
-    ...new Set(
-      parsed.error.issues.map((issue) => String(issue.path[0] ?? "brief")),
-    ),
-  ];
+  const blockers = readiness.blockers.map((blocker) => blocker.field);
   const labels = blockers.map(
     (field) => FIELD_LABELS[field] ?? field.replace(/_/g, " "),
   );

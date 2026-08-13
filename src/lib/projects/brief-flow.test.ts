@@ -3,6 +3,26 @@ import { describe, expect, it } from "vitest";
 import { createInitialBrief, parseProjectBrief } from "./brief";
 import { normalizeWorkspaceTurn } from "./brief-flow";
 
+function parseBuildReadyBrief(value: Record<string, unknown>, prompt: string) {
+  const fieldState =
+    value.fieldState && typeof value.fieldState === "object"
+      ? value.fieldState
+      : {};
+  return parseProjectBrief(
+    {
+      ...value,
+      fieldState: {
+        address: "declined",
+        hours: "declined",
+        deliveryArea: "declined",
+        visuals: "declined",
+        ...fieldState,
+      },
+    },
+    prompt,
+  );
+}
+
 describe("normalizeWorkspaceTurn", () => {
   it("never throws and falls back when the tool input is empty", () => {
     const brief = createInitialBrief("jualan katering sekolah");
@@ -555,7 +575,7 @@ describe("normalizeWorkspaceTurn", () => {
   });
 
   it("accepts brief_review as build_recommendation when min brief is filled (even if confidence low)", () => {
-    const brief = parseProjectBrief(
+    const brief = parseBuildReadyBrief(
       {
         businessName: "Laundry Berkah",
         businessType: "Laundry kiloan",
@@ -596,7 +616,7 @@ describe("normalizeWorkspaceTurn", () => {
   });
 
   it("emits build_recommendation when AI sends brief_review and confidence is 95+", () => {
-    const brief = parseProjectBrief(
+    const brief = parseBuildReadyBrief(
       {
         businessName: "Laundry Berkah",
         businessType: "Laundry kiloan",
@@ -628,7 +648,7 @@ describe("normalizeWorkspaceTurn", () => {
   });
 
   it("accepts brief_review without nested question when min brief is filled", () => {
-    const brief = parseProjectBrief(
+    const brief = parseBuildReadyBrief(
       {
         businessName: "Laundry Berkah",
         businessType: "Laundry kiloan",
@@ -745,7 +765,7 @@ describe("normalizeWorkspaceTurn", () => {
     // The discuss model answers questions by appending facts only; the typed
     // fields must be promoted deterministically so a complete interview yields
     // a buildable brief.
-    const brief = parseProjectBrief(
+    const brief = parseBuildReadyBrief(
       {
         businessType: "fnb",
         confidence: 55,
@@ -795,7 +815,7 @@ describe("normalizeWorkspaceTurn", () => {
   });
 
   it("promotes build_confirm question to build_recommendation when brief is enough", () => {
-    const brief = parseProjectBrief(
+    const brief = parseBuildReadyBrief(
       {
         businessName: "Surya Beauty",
         businessType: "Salon",
@@ -828,7 +848,7 @@ describe("normalizeWorkspaceTurn", () => {
   });
 
   it("accepts build_recommendation when confidence is low but brief is enough", () => {
-    const brief = parseProjectBrief(
+    const brief = parseBuildReadyBrief(
       {
         businessName: "Surya Beauty",
         businessType: "Salon",
@@ -857,7 +877,7 @@ describe("normalizeWorkspaceTurn", () => {
   });
 
   it("preserves build recommendation as a handoff card, not a side effect", () => {
-    const brief = parseProjectBrief(
+    const brief = parseBuildReadyBrief(
       {
         businessName: "Jamu Surya",
         businessType: "Minuman herbal",
@@ -891,7 +911,7 @@ describe("normalizeWorkspaceTurn", () => {
   });
 
   it("promotes when user affirms after previous build_confirm card", () => {
-    const brief = parseProjectBrief(
+    const brief = parseBuildReadyBrief(
       {
         businessName: "Surya Beauty",
         businessType: "Salon",
@@ -972,7 +992,7 @@ describe("normalizeWorkspaceTurn", () => {
   });
 
   it("accepts a build recommendation with a flexible summary only when confidence is high", () => {
-    const brief = parseProjectBrief(
+    const brief = parseBuildReadyBrief(
       {
         businessName: "Dapur Bu Ani",
         businessType: "Katering sekolah",
