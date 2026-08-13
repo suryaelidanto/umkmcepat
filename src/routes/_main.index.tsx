@@ -251,6 +251,10 @@ function HomePage() {
     waitlistQuery.data.status !== "approved";
   const ownEntry = waitlistQuery.data?.own ?? null;
   const ownStatus = ownEntry?.status ?? null;
+  const isPendingRejected =
+    ownStatus === "pending" ||
+    ownStatus === "waitlisted" ||
+    ownStatus === "rejected";
   const waitlistBanner =
     ownStatus === "rejected"
       ? {
@@ -325,16 +329,18 @@ function HomePage() {
                 <Button asChild size="sm">
                   <Link href="/waitlist">{waitlistBanner.cta}</Link>
                 </Button>
-                <Button asChild size="sm" variant="outline">
-                  <Link
-                    className="border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
-                    href={WHATSAPP_UMKM_GROUP_URL}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    Join WhatsApp
-                  </Link>
-                </Button>
+                {!isPendingRejected ? (
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      className="border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
+                      href={WHATSAPP_UMKM_GROUP_URL}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Join WhatsApp
+                    </Link>
+                  </Button>
+                ) : null}
               </div>
             </HeroMotionItem>
           ) : (
