@@ -204,23 +204,25 @@ function HeroHeadline() {
         </span>
       ))}
       <span
-        className="hero-word relative"
+        className="hero-word"
         style={
           {
             "--word-delay": `${0.09 * HERO_LEAD_WORDS.length}s`,
           } as CSSProperties
         }
       >
-        {HERO_ACCENT}
-        <span
-          aria-hidden
-          className="hero-underline absolute inset-x-0 -bottom-1 h-[5px] origin-left rounded-full bg-emerald-400"
-          style={
-            {
-              "--underline-delay": `${0.09 * HERO_LEAD_WORDS.length + 0.55}s`,
-            } as CSSProperties
-          }
-        />
+        <span className="font-signature relative inline-block text-[1.28em] font-normal leading-[0.78] tracking-normal">
+          {HERO_ACCENT}
+          <span
+            aria-hidden
+            className="hero-underline absolute inset-x-0 -bottom-1 h-[5px] origin-left rounded-full bg-emerald-400"
+            style={
+              {
+                "--underline-delay": `${0.09 * HERO_LEAD_WORDS.length + 0.55}s`,
+              } as CSSProperties
+            }
+          />
+        </span>
       </span>
     </span>
   );

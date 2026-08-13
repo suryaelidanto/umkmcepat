@@ -13,7 +13,7 @@ export async function sendSupportReplyEmail(input: SupportReplyEmailInput) {
   const emailSubject = `Balasan Tiket #${shortTicketId}: ${input.subject} - UMKM Cepat`;
 
   const html = `
-    <div style="font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #d8d5cc; border-radius: 8px; background-color: #fcfbf8; color: #1c1c1c;">
+    <div style="font-family: Manrope, ui-sans-serif, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #d8d5cc; border-radius: 8px; background-color: #fcfbf8; color: #1c1c1c;">
       <h2 style="font-size: 18px; font-weight: 600; border-b: 1px solid #d8d5cc; padding-bottom: 10px; margin-top: 0;">UMKM Cepat Support</h2>
       <p style="font-size: 15px; color: #5f5f5d; line-height: 1.6;">Halo,</p>
       <p style="font-size: 15px; color: #1c1c1c; line-height: 1.6;">

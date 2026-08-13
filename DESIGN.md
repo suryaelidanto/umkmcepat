@@ -21,51 +21,57 @@ colors:
   github-red: "#ff4d4f"
 typography:
   display-hero:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "60px"
     fontWeight: "480"
     lineHeight: "60px"
     letterSpacing: "-0.055em"
+  signature-accent:
+    fontFamily: "Birthstone, cursive"
+    fontSize: "76.8px"
+    fontWeight: "400"
+    lineHeight: "59.9px"
+    letterSpacing: "normal"
   display-large:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "60px"
     fontWeight: "600"
     lineHeight: "66px"
     letterSpacing: "-1.5px"
   heading-xl:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "48px"
     fontWeight: "600"
     lineHeight: "52.8px"
     letterSpacing: "-1.2px"
   heading-lg:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "36px"
     fontWeight: "600"
     lineHeight: "39.6px"
     letterSpacing: "-0.9px"
   body-large:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "18px"
     fontWeight: "400"
     lineHeight: "24.75px"
   body-base:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "16px"
     fontWeight: "400"
     lineHeight: "24px"
   body-medium:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "15px"
     fontWeight: "400"
     lineHeight: "24px"
   body-small:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "14px"
     fontWeight: "400"
     lineHeight: "21px"
   label-emphasis:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "14px"
     fontWeight: "480"
     lineHeight: "21px"
@@ -173,11 +179,15 @@ The palette is warm-neutral and restrained. Aurora colors are decorative accents
 
 ## Typography
 
-**Display Font:** Plus Jakarta Sans with `ui-sans-serif, system-ui, sans-serif` fallback.  
-**Body Font:** Plus Jakarta Sans with the same fallback.  
-**Label/Mono Font:** Plus Jakarta Sans for labels; system monospace only for code/log output.
+**Display Font:** Manrope with `ui-sans-serif, system-ui, sans-serif` fallback.
 
-**Character:** Rounded enough to feel friendly, disciplined enough to support product workflows. Use one family across product UI for consistency.
+**Body Font:** Manrope with the same fallback.
+
+**Label/Mono Font:** Manrope for labels; system monospace only for code/log output.
+
+**Signature Accent:** Birthstone for “100% Gratis.” in the unauthenticated homepage hero only.
+
+**Character:** Manrope is rounded enough to feel friendly and disciplined enough to support product workflows. Use it consistently across product UI. Birthstone adds one human signature moment on the public hero; it must not appear in controls, workspace headings, or body copy.
 
 ### Hierarchy
 

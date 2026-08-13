@@ -42,13 +42,18 @@ export const Typography: Story = {
   render: () => (
     <FoundationCanvas
       title="Typography"
-      subtitle="Plus Jakarta Sans. Tight display tracking, readable body copy."
+      subtitle="Manrope throughout the product; Birthstone only for the public hero signature."
     >
       <div className="space-y-spacing-7 rounded-radius-3xl bg-surface-warm-white p-spacing-9 text-foreground-primary">
         <TextSample
           label="Display"
           className="text-[60px] font-[480] leading-[60px] tracking-[-0.055em]"
           text="Usahamu layak punya website."
+        />
+        <TextSample
+          label="Signature accent — public hero only"
+          className="font-signature text-6xl leading-none"
+          text="100% Gratis."
         />
         <TextSample
           label="Heading XL"

@@ -5,12 +5,13 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-plus-jakarta-sans);
+  --font-sans: var(--font-manrope);
+  --font-signature: var(--font-birthstone);
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
-  --font-plus-jakarta-sans:
-    "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-manrope: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-birthstone: "Birthstone", cursive;
   --color-surface-base: #eceae4;
   --color-foreground-primary: #1c1c1c;
   --color-surface-warm-white: #fcfbf8;
@@ -101,42 +102,42 @@
   --color-github-blue-deep: #0d6efd;
   --color-github-red: #ff4d4f;
 
-  --font-display-hero-family: "Plus Jakarta Sans";
+  --font-display-hero-family: "Manrope";
   --font-display-hero-size: 60px;
   --font-display-hero-weight: 480;
   --font-display-hero-line-height: 60px;
-  --font-display-large-family: "Plus Jakarta Sans";
+  --font-display-large-family: "Manrope";
   --font-display-large-size: 60px;
   --font-display-large-weight: 600;
   --font-display-large-line-height: 66px;
   --font-display-large-letter-spacing: -1.5px;
-  --font-heading-xl-family: "Plus Jakarta Sans";
+  --font-heading-xl-family: "Manrope";
   --font-heading-xl-size: 48px;
   --font-heading-xl-weight: 600;
   --font-heading-xl-line-height: 52.8px;
   --font-heading-xl-letter-spacing: -1.2px;
-  --font-heading-lg-family: "Plus Jakarta Sans";
+  --font-heading-lg-family: "Manrope";
   --font-heading-lg-size: 36px;
   --font-heading-lg-weight: 600;
   --font-heading-lg-line-height: 39.6px;
   --font-heading-lg-letter-spacing: -0.9px;
-  --font-body-base-family: "Plus Jakarta Sans";
+  --font-body-base-family: "Manrope";
   --font-body-base-size: 16px;
   --font-body-base-weight: 400;
   --font-body-base-line-height: 24px;
-  --font-body-small-family: "Plus Jakarta Sans";
+  --font-body-small-family: "Manrope";
   --font-body-small-size: 14px;
   --font-body-small-weight: 400;
   --font-body-small-line-height: 21px;
-  --font-body-medium-family: "Plus Jakarta Sans";
+  --font-body-medium-family: "Manrope";
   --font-body-medium-size: 15px;
   --font-body-medium-weight: 400;
   --font-body-medium-line-height: 24px;
-  --font-label-emphasis-family: "Plus Jakarta Sans";
+  --font-label-emphasis-family: "Manrope";
   --font-label-emphasis-size: 14px;
   --font-label-emphasis-weight: 480;
   --font-label-emphasis-line-height: 21px;
-  --font-body-large-family: "Plus Jakarta Sans";
+  --font-body-large-family: "Manrope";
   --font-body-large-size: 18px;
   --font-body-large-weight: 400;
   --font-body-large-line-height: 24.75px;
@@ -242,8 +243,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family:
-      var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-manrope);
     font-size: 16px;
     line-height: 24px;
   }

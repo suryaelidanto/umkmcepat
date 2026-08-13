@@ -27,7 +27,7 @@ export function wrapEmail(
 <head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background-color:#f4f3ef;">
   <div style="padding:32px 16px;background-color:#f4f3ef;">
-  <div style="font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;max-width:640px;margin:0 auto;padding:32px 40px;border:1px solid #d8d5cc;border-radius:8px;background-color:#fcfbf8;color:#1c1c1c;">
+  <div style="font-family:Manrope,ui-sans-serif,system-ui,sans-serif;max-width:640px;margin:0 auto;padding:32px 40px;border:1px solid #d8d5cc;border-radius:8px;background-color:#fcfbf8;color:#1c1c1c;">
     <h2 style="font-size:18px;font-weight:600;border-bottom:1px solid #d8d5cc;padding-bottom:10px;margin-top:0;">UMKM Cepat</h2>
     ${bodyHtml}
     ${ctaHtml}
