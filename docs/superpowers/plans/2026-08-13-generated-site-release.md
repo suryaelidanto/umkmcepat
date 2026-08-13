@@ -206,7 +206,7 @@ bun run check
 
 Expected: format, lint, typecheck, test, Knip, and docs each report success.
 
-- [ ] **Step 2: Restart only the repo-owned attempt worker with current code**
+- [x] **Step 2: Restart only the repo-owned attempt worker with current code**
 
 Stop the exact standalone worker PID after the current stale attempt reaches terminal state. Start the worker with:
 
@@ -216,15 +216,15 @@ nohup bun -e 'import { startAttemptQueueWorker } from "./src/lib/projects/attemp
 
 Do not use `pkill -f`; do not start duplicate workers.
 
-- [ ] **Step 3: Enqueue exactly one fresh build**
+- [x] **Step 3: Enqueue exactly one fresh build**
 
 Run the existing owner-checked `/tmp/rebuild-aisyah.ts` only after the worker imports current source. Record its `attemptId`, `buildId`, and `snapshotId`.
 
-- [ ] **Step 4: Poll terminal state with a hard limit**
+- [x] **Step 4: Poll terminal state with a hard limit**
 
 Poll the attempt/build every 20 seconds for at most 8 minutes. Stop on `succeeded` or `failed`. Record the exact `errorMessage` on failure; do not enqueue another attempt.
 
-- [ ] **Step 5: Verify source/build/browser evidence**
+- [x] **Step 5: Verify source/build/browser evidence**
 
 For a successful attempt, verify:
 
@@ -241,7 +241,7 @@ qualityProof.browserGateStatus = pass
 
 Read both gate reports from S3. Count 12 assertions per viewport: required-content-visible, primary-cta, internal-links, overflow, heading-overflow, image-health, media-policy, contrast, focus, touch-target, route-load, console-clean. Required total: `24/24`.
 
-- [ ] **Step 6: Verify preview and thumbnail**
+- [x] **Step 6: Verify preview and thumbnail**
 
 Fetch the project preview endpoint and inspect the thumbnail/build refs. Expected: HTTP 200, visible Indonesian content, no raw `site.ts` source, and a non-empty thumbnail ref.
 
@@ -256,7 +256,7 @@ Fetch the project preview endpoint and inspect the thumbnail/build refs. Expecte
 - Consumes: fresh local gate and E2E evidence from Task 4.
 - Produces: clean `dev` commit, green `dev` CI, merged/pushed `main`, green `main` CI, local branch `dev`.
 
-- [ ] **Step 1: Inspect tracked changes**
+- [x] **Step 1: Inspect tracked changes**
 
 Run:
 
@@ -268,7 +268,7 @@ git diff --stat
 
 Expected: only the 10 implementation/test files plus the spec and plan; no secrets, generated artifacts, lockfile pollution, or temp scripts.
 
-- [ ] **Step 2: Re-run local verification before commit**
+- [x] **Step 2: Re-run local verification before commit**
 
 Run:
 
@@ -278,7 +278,7 @@ bun run check
 
 Expected: 6/6 local checks pass.
 
-- [ ] **Step 3: Commit on `dev`**
+- [x] **Step 3: Commit on `dev`**
 
 Stage only the reviewed files and commit:
 
@@ -289,7 +289,7 @@ git commit -m "fix(generation): harden contract landing builds
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 4: Push `dev` and block on CI**
+- [x] **Step 4: Push `dev` and block on CI**
 
 Run:
 
@@ -301,7 +301,7 @@ gh run watch "$RUN_ID" --exit-status
 
 Expected: CI exits 0. If not, read failed logs and apply the repository CI-fix workflow before continuing.
 
-- [ ] **Step 5: Merge and verify `main`**
+- [x] **Step 5: Merge and verify `main`**
 
 Run:
 
@@ -315,7 +315,7 @@ git push origin main
 
 Expected: merge clean, local checks pass, push succeeds.
 
-- [ ] **Step 6: Block on `main` CI and return to `dev`**
+- [x] **Step 6: Block on `main` CI and return to `dev`**
 
 Run:
 
@@ -328,6 +328,6 @@ git status --short
 
 Expected: main CI exits 0; current branch is `dev`; worktree clean.
 
-- [ ] **Step 7: Produce the evidence report**
+- [x] **Step 7: Produce the evidence report**
 
 Report exact IDs, `24/24` browser result, `6/6` local checks, artifact refs, preview/thumbnail status, commit SHA, dev/main CI run IDs, and any explicitly unperformed authenticated UI test. Do not claim completion without fresh output for every hard metric.
