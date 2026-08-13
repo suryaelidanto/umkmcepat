@@ -32,6 +32,7 @@ import {
   fetchJson,
   fetchWaitlistStatus,
   GATE_QUERY_OPTIONS,
+  invalidateAdminWaitlistData,
   invalidateWaitlistStatus,
   queryKeys,
   waitlistPagePollInterval,
@@ -389,7 +390,7 @@ function WaitlistPage() {
       });
     },
     onSuccess: async () => {
-      await invalidateWaitlistStatus(queryClient);
+      await invalidateAdminWaitlistData(queryClient);
     },
     onError: (error) => {
       toast.error(
