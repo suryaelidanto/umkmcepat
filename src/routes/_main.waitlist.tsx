@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { resolveUserWaitlistStatus } from "./api.user.waitlist";
 
+import { WhatsAppCommunityInvite } from "@/components/community/WhatsAppCommunityInvite";
 import {
   FormField,
   chipClass,
@@ -1111,9 +1112,10 @@ function SuccessScreen({
         )}{" "}
         setelah kami cek.
       </p>
+      <WhatsAppCommunityInvite variant="waitlist" />
       <Link
         href="/"
-        className="mt-spacing-2 inline-flex items-center justify-center rounded-full bg-surface-warm-white px-spacing-6 py-spacing-3 text-sm font-medium text-[#141413] hover:bg-surface-warm-white/92"
+        className="text-sm text-surface-warm-white/60 underline-offset-4 transition hover:text-surface-warm-white hover:underline"
       >
         Lihat beranda
       </Link>

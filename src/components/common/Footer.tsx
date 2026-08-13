@@ -1,5 +1,6 @@
 "use client";
 
+import { WHATSAPP_UMKM_GROUP_URL } from "@/components/community/WhatsAppCommunityInvite";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
 
@@ -38,6 +39,14 @@ export function Footer() {
               className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
             >
               Privasi
+            </Link>
+            <Link
+              href={WHATSAPP_UMKM_GROUP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+            >
+              Grup WhatsApp UMKM
             </Link>
             <Link
               href="https://github.com/suryaelidanto/umkmcepat"

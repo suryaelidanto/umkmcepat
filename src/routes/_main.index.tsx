@@ -3,6 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useState, type CSSProperties } from "react";
 
+import {
+  WHATSAPP_UMKM_GROUP_URL,
+  WhatsAppCommunityInvite,
+} from "@/components/community/WhatsAppCommunityInvite";
 import { CommunitySection } from "@/components/home/CommunitySection";
 import { HeroAuroraBackground } from "@/components/home/HeroAuroraBackground";
 import {
@@ -321,6 +325,14 @@ function HomePage() {
                 <Button asChild size="sm">
                   <Link href="/waitlist">{waitlistBanner.cta}</Link>
                 </Button>
+                <Link
+                  className="text-xs text-surface-warm-white/62 underline-offset-4 transition hover:text-surface-warm-white hover:underline"
+                  href={WHATSAPP_UMKM_GROUP_URL}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Sambil menunggu, gabung grup diskusi UMKM →
+                </Link>
               </div>
             </HeroMotionItem>
           ) : (
@@ -334,7 +346,12 @@ function HomePage() {
         </HeroContentMotion>
       </section>
 
-      {!hasUser ? <CommunitySection /> : null}
+      {!hasUser ? (
+        <>
+          <WhatsAppCommunityInvite variant="homepage" />
+          <CommunitySection />
+        </>
+      ) : null}
 
       {hasUser && !waitlisted ? (
         <section className="border-t border-surface-warm-white/10 bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
