@@ -50,7 +50,7 @@ const recipes: GeneratedSiteRecipeV1[] = [
   {
     id: "retail-catalog",
     version: 1,
-    compatibleArchetypes: ["retail-catalog", "retail-grocery"],
+    compatibleArchetypes: ["retail", "retail-catalog", "retail-grocery"],
     composition:
       "Catalog-first hierarchy with a decisive offer, comparison rhythm, trust strip, and direct purchase action.",
     hierarchy: [

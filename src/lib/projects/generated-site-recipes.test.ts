@@ -27,6 +27,10 @@ describe("generated-site recipes", () => {
     );
   });
 
+  it("keeps retail on the catalog recipe instead of the generic fallback", () => {
+    expect(selectGeneratedSiteRecipe("retail").id).toBe("retail-catalog");
+  });
+
   it("falls back to generic for an unknown archetype", () => {
     expect(selectGeneratedSiteRecipe("unknown").id).toBe("generic");
   });

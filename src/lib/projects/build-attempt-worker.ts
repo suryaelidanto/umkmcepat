@@ -1023,6 +1023,7 @@ export async function runBuildAttempt({
             recipeRiskTags: generatedSiteRecipe.riskTags,
             sourceRiskSignals: [],
             browserReport,
+            deterministicSource: Boolean(generatedSiteContract),
             sampleRate: Number(
               getSettingSync("quality.generated_site_critic_sample_rate", 0.1),
             ),

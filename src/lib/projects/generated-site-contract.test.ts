@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { hashBuildContract, hashBuildPlan } from "./build-hash";
 import { parseCanonicalBrief } from "./canonical-brief";
-import { compileGeneratedSiteContract } from "./generated-site-contract";
+import {
+  compileGeneratedSiteContract,
+  createGeneratedSiteRouteSource,
+} from "./generated-site-contract";
 import { selectGeneratedSiteRecipe } from "./generated-site-recipes";
 
 import type { ProjectBrief } from "./brief";
@@ -214,6 +217,26 @@ function compile(input: {
 }
 
 describe("compileGeneratedSiteContract", () => {
+  it("derives public fashion copy when the accepted brief has no tagline", () => {
+    const values = fixtures();
+    const result = compileGeneratedSiteContract({
+      briefSnapshot: {
+        ...values.briefSnapshot,
+        content: { ...values.briefSnapshot.content, tagline: null },
+      },
+      contract: values.contract,
+      plan: values.plan,
+      photoEnabled: false,
+      recipe: selectGeneratedSiteRecipe(values.plan.archetype),
+    });
+
+    expect(result.content.headline).toBe("Pilih iPhone 13 dengan lebih mudah");
+    expect(result.content.subheadline).toContain("Lihat pilihan iPhone 13");
+    expect(result.content.trustPoints).toEqual(
+      expect.arrayContaining(["Kondisi unit tercatat"]),
+    );
+  });
+
   it("maps accepted facts, routes, CTA, and customer-facing sections", () => {
     const result = compile({ photoEnabled: false });
     expect(result.business.primaryCta).toMatchObject({
@@ -223,12 +246,32 @@ describe("compileGeneratedSiteContract", () => {
     });
     expect(result.content.products[0]?.name).toBe("iPhone 13");
     expect(result.content.socialLinks[0]?.url).toContain("instagram.com");
+    expect(
+      result.page.requiredSections.every(
+        (section) => !/intro|primary cta|hero|catalog/i.test(section.purpose),
+      ),
+    ).toBe(true);
     expect(result.page.requiredSections.map((section) => section.id)).toEqual([
       "catalog",
       "contact",
     ]);
     expect(JSON.stringify(result)).not.toContain("ProductCard");
     expect(result.contractHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("creates a compact route that renders accepted site fields", () => {
+    const source = createGeneratedSiteRouteSource(
+      compile({ photoEnabled: false }),
+    );
+
+    expect(source).toContain('import { site } from "@/content/site"');
+    expect(source).toContain("site.headline");
+    expect(source).toContain("site.primaryCta");
+    expect(source).toContain("site.products.map");
+    expect(source).toContain("site.trustPoints.map");
+    expect(source).toContain('id="catalog"');
+    expect(source).not.toContain("placeholder");
+    expect(source.length).toBeLessThan(7_000);
   });
 
   it("uses graphic or typographic media when photos are disabled", () => {

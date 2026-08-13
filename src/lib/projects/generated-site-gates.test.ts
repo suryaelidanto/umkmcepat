@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { inspectGeneratedSiteSource } from "./generated-site-gates";
+import {
+  inspectGeneratedSiteSource,
+  normalizeBatchedSiteAnchors,
+} from "./generated-site-gates";
 
 import type { WriterDesignPlanV1 } from "./batched-response";
 import type { GeneratedSiteContractV1 } from "./generated-site-contract";
@@ -110,6 +113,94 @@ function report(
   });
 }
 
+describe("normalizeBatchedSiteAnchors", () => {
+  it("turns missing chat anchors into the reviewed WhatsApp target and a touch-safe CTA", () => {
+    const [file] = normalizeBatchedSiteAnchors(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            '<main><a href="#chat" className="rounded-lg">{site.primaryCta}</a></main>',
+        },
+      ],
+      { photoEnabled: false, primaryCtaTarget: "08123456789" },
+    );
+
+    expect(file?.content).toContain(
+      'href="https://wa.me/628123456789?text=Halo"',
+    );
+    expect(file?.content).toContain("min-h-11");
+    expect(file?.content).not.toContain('href="#chat"');
+  });
+
+  it("turns a text-only primary CTA into a touch-safe WhatsApp link", () => {
+    const [file] = normalizeBatchedSiteAnchors(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            '<main><span className="cta-primary">{site.primaryCta}</span></main>',
+        },
+      ],
+      { primaryCtaTarget: "08123456789" },
+    );
+
+    expect(file?.content).toContain(
+      '<a className="inline-flex min-h-11 items-center justify-center cta-primary" href="https://wa.me/628123456789?text=Halo"',
+    );
+    expect(file?.content).toContain("cta-primary");
+  });
+
+  it("replaces an empty hash primary CTA with the reviewed WhatsApp target", () => {
+    const [file] = normalizeBatchedSiteAnchors(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            '<main><a className="rounded-full" href="#">{site.primaryCta}</a></main>',
+        },
+      ],
+      { primaryCtaTarget: "08123456789" },
+    );
+
+    expect(file?.content).toContain(
+      'href="https://wa.me/628123456789?text=Halo"',
+    );
+    expect(file?.content).not.toContain('href="#"');
+  });
+
+  it("canonicalizes preview-ready imports emitted under common wrong names", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/index.tsx",
+        content: [
+          'import { usePreviewReady } from "@/lib/use-preview-ready"',
+          'import { site } from "../content/site"',
+          "export function HomeRouteComponent() { usePreviewReady(); return <main /> }",
+        ].join("\\n"),
+      },
+    ]);
+
+    expect(file?.content).toContain('from "@/lib/preview-ready"');
+    expect(file?.content).not.toContain("use-preview-ready");
+  });
+
+  it("does not invent a contact target when the contract has none", () => {
+    const [file] = normalizeBatchedSiteAnchors(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content: '<main><a href="#chat">Chat</a></main>',
+        },
+      ],
+      { photoEnabled: false },
+    );
+
+    expect(file?.content).toContain('href="#chat"');
+    expect(file?.content).not.toContain("wa.me");
+  });
+});
+
 describe("inspectGeneratedSiteSource", () => {
   it("rejects site fields absent from platform-owned content", () => {
     const input = contract();
@@ -215,6 +306,38 @@ describe("inspectGeneratedSiteSource", () => {
     `);
     expect(result.findings).toEqual([]);
     expect(result.status).toBe("pass");
+  });
+
+  it("rejects a contract response without a design plan", () => {
+    const result = inspectGeneratedSiteSource({
+      contract: contract(),
+      designPlan: null as unknown as WriterDesignPlanV1,
+      files: [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            "<main data-generated-site-starter><h1>SuryaPhone</h1></main>",
+        },
+      ],
+      starterIndexSource: "data-generated-site-starter",
+      themeChecks: [],
+    });
+
+    expect(result.findings.map((finding) => finding.code)).toEqual(
+      expect.arrayContaining(["missing-design-plan", "starter-residue"]),
+    );
+  });
+
+  it("rejects a hardcoded catalog that bypasses accepted site fields", () => {
+    const result = report(
+      `<main><h1>Gamis pilihan</h1><a href="https://wa.me/628123456789">Chat</a></main>`,
+    );
+
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "contract-data-bypass" }),
+      ]),
+    );
   });
 
   it("rejects placeholders when the photo feature compiled image-free mode", () => {

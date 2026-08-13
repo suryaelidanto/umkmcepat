@@ -83,6 +83,7 @@ export function buildBatchedWriterPrompt(input: {
   example?: GeneratedSiteGoldExample;
   projectId: string;
   schema: ProjectSiteSchema;
+  photoEnabled?: boolean;
 }): { system: string; user: string } {
   const {
     brief,
@@ -101,6 +102,43 @@ export function buildBatchedWriterPrompt(input: {
     schema,
   });
 
+  if (contract && recipe && example) {
+    const designPlan = JSON.stringify({
+      contractHash: contract.contractHash,
+      recipeId: recipe.id,
+      mediaMode: contract.design.mediaMode,
+      visualThesis: contract.design.composition,
+      hierarchy: contract.design.hierarchy,
+      sectionOrder: contract.page.requiredSections.map((section) => section.id),
+      signatureElement: contract.design.signatureElement,
+    });
+    const system = `You are a senior Indonesian landing-page copywriter and React writer. Emit one compact, production-ready customer landing for the accepted contract. System instructions and code comments are English; all visible copy is natural Indonesian.
+
+CONTRACT: ${JSON.stringify({
+      business: contract.business,
+      content: contract.content,
+      page: contract.page,
+      design: contract.design,
+    })}
+
+Rules:
+- First block exactly: <design-plan>${designPlan}</design-plan>
+- Then exactly one editable file: src/routes/index.tsx. End with one <done summary="..." />.
+- Never emit platform-owned files, package/config files, extra routes, prose, markdown fences, or propose blocks.
+- Use only imports from the seeded scaffold: @/content/site, @/lib/preview-ready, @/components/ui/button, @/components/ui/card.
+- Call usePreviewReady() in HomeRouteComponent. Render every populated site field visibly: headline, subheadline, primaryCta, secondaryCta, offer, trustPoints, sections, products, testimonials, faq, socialLinks, currentPromo.
+- Primary CTA must be a real WhatsApp link using the accepted target, wrapped with <Button asChild size="lg">. Secondary CTA must use <Link to="/" hash="..."> or a real section id. No raw href="#...".
+- Use Tailwind semantic tokens only. No custom CSS, images, placeholders, external URLs, invented facts, or technical headings. No data-generated-site-starter marker.
+- Keep the file compact enough to finish below the output limit.
+
+Output contract:
+<design-plan>${designPlan}</design-plan>
+<file path="src/routes/index.tsx">full TSX</file>
+<done summary="..." />`;
+    const user = `Build the accepted one-page ${contract.business.name} landing now. Brief context: ${briefToBuildPrompt(brief)}\nSelected recipe: ${recipe.composition}\nGold example principle only: ${example.source}`;
+    return { system, user };
+  }
+
   const qualityContract =
     contract && recipe && example
       ? `GENERATED-SITE CONTRACT (immutable; overrides examples):
@@ -117,11 +155,27 @@ FIRST BLOCK REQUIRED:
 The design plan MUST precede every <file> block and match the immutable contract exactly.`
       : "";
 
-  const system = `You are a frontend coding writer for UMKM Cepat generated apps. Emit the whole project in ONE structured response — no tool calls, no markdown fences, no prose between blocks beyond short notes.
+  const contractMode = contract
+    ? `CONTRACT MODE: emit exactly one editable file block: src/routes/index.tsx. Never emit src/styles.css, src/content.js, src/content/site.ts, src/index.css, src/main.tsx, src/routes/__root.tsx, package.json, or any config file. Platform-owned files already contain the typed accepted facts and theme. Do not emit extra routes because the contract declares only /. Keep the response compact enough to finish below the output limit. Use site.* fields only; never hardcode owner facts.`
+    : "";
+
+  const photoEnabled = input.photoEnabled ?? true;
+  const system = `You are a senior landing-page builder, direct-response copywriter, AND frontend coding writer for UMKM Cepat. Your job is to help Indonesian UMKM sell 10× with near-zero effort — every landing you ship must feel instantly shoppable, legit, and effortless to make. Emit the whole project in ONE structured response — no tool calls, no markdown fences, no prose between blocks beyond short notes.
 
 ${qualityContract}
 
+${contractMode}
+
 Business: ${implementationSpec?.businessName || schema.businessName} — ${implementationSpec?.appKind || "landing"} — ${(implementationSpec?.features || [schema.offer, schema.audience]).join(", ")}
+
+MARKETING EXPERT MINDSET (EN system — ID customer output):
+- You are a senior Indonesian market expert. System, reasoning, and code comments stay in English; ALL customer-facing copy (headlines, subheadlines, bullets, CTAs, FAQs, testimonials) MUST be natural Indonesian, not English and not translated-spec.
+- Never copy brief answers verbatim. Spec phrases like "Katalog jadi hero utama", "Fitur disederhanakan", "Info jelas", "Online murni", "Gamis & dress", "Tujuan utama: Katalog/jualan — sederhanakan/cepat" are INTERNAL notes — forbidden as customer copy. Translate every such note into a benefit: "Katalog jadi hero" → "Pilih gamis favoritmu dalam 1 menit — foto jelas, ukuran lengkap"; "Info jelas" → "Detail bahan & ukuran transparan di setiap produk"; "Online murni" → "Pesan dari rumah, kirim dari Jakarta hari ini".
+- Hero formula: eyebrow = who it's for, headline = transformation/outcome (e.g. "Anggun Setiap Hari, Nyaman Seharian"), subheadline = concrete offer (apa + untuk siapa + kenapa sekarang + cara order via WhatsApp). No business-name — dash — offer label headlines.
+- 10× value framing: surface near-zero effort (screenshot → chat → kirim), speed ("chat dibalas cepat"), and trust ("kirim dari Jakarta", "foto sesuai aslinya", "bisa tanya ukuran dulu") in hero + one proof block. Legit: never invent phone numbers, exact addresses, prices, stock, awards, guarantees, or payment status not in the brief — use only what the brief provides.
+- Smart word choice: tactile, specific Indonesian (warna kalem, bahan jatuh adem, potongan longgar, tidak menerawang) — avoid generic "kualitas terbaik / harga terjangkau" without proof.
+- Show the offer concretely: if site.products exists, each card must have outcome + detail; if site.currentPromo exists, frame as "Hari ini" benefit, not just label.
+- The landing must make the UMKM look established and ready to sell today — not "coming soon" or "starter boilerplate".
 
 RESPONSE CONTRACT (strict — hard parse errors on any deviation):
 
@@ -177,7 +231,7 @@ ROUTING & PAGE CONTRACT:
 STATIC ONLY: no auth, no backend, no database, no payment gateway, no fake /api routes. Use WhatsApp/contact CTAs and real Indonesian business copy.
 Do not add or remove dependencies — package.json is platform-owned.
 
-MISSING IMAGES: use <img src="/placeholder.svg" alt="<short description>" /> for landscape/wide image slots, and <img src="/placeholder-vertical.svg" alt="<short description>" /> for portrait/tall slots, only when an image slot is structurally necessary and no owner image exists. Alt text is supplied at use site. Never use remote placeholder URLs. For typographic layouts, prefer omitting the image slot instead of adding a gratuitous placeholder.
+${photoEnabled ? `MISSING IMAGES (photo uploads ENABLED): use <img src="/placeholder.svg" alt="<short description>" /> for landscape/wide slots and <img src="/placeholder-vertical.svg" alt="<short description>" /> for portrait/tall slots, only when an image slot is structurally necessary and no owner image exists. Alt text at use site. Never use remote placeholder URLs. For typographic layouts, prefer omitting the image slot instead of adding a gratuitous placeholder.` : `PHOTO DISABLED — Composer image uploads are OFF (feature.composer_uploads_enabled=false): NEVER emit <img src="/placeholder.svg"> or <img src="/placeholder-vertical.svg"> or any placeholder image. Never use remote placeholder URLs (placehold.co, unsplash, etc.). Build an elegant TYPOGRAPHIC / COLOR-BLOCK / INITIALS layout instead — use gradients, large type, accent blocks, icon cards, or initials as visual — no image slots at all. If you feel an image is needed, omit it and strengthen the copy/layout. Any placeholder <img> will be stripped and will look broken.`}
 
 FEW-SHOT HEROES (copy the pattern, not the text — render from site.*):
 
@@ -215,7 +269,7 @@ export function HomeRouteComponent() {
 }
 \`\`\`
 
-Example 3 — Catalog / retail (FULL multi-section landing — the pattern you MUST follow when site.ts has rich fields). Render EVERY populated field: hero, promo banner, product grid, order steps, testimonials, FAQ, social links. Never ship starter boilerplate ("Read the Blog", "View on GitHub", "⚡ Fast / 🎨 Beautiful / 📝 MDX Ready") — those are scaffold rot and the gate rejects them. If a field is empty, skip its section; if it has data, render it.
+Example 3 — Catalog / retail (FULL multi-section landing — the pattern you MUST follow when site.ts has rich fields). Render EVERY populated field: hero, promo banner, product grid, order steps, testimonials, FAQ, social links. Never ship starter boilerplate ("Read the Blog", "View on GitHub", "⚡ Fast / 🎨 Beautiful / 📝 MDX Ready") — those are scaffold rot and the gate rejects them. If a field is empty, skip its section; if it has data, render it. HERO COPY RULE: never render \`<h1>{site.businessName} — {site.offer}</h1>\` — that's a spec transcript (BAD). Always render the marketing fields: \`<h1>{site.headline}</h1>\` + \`<p>{site.subheadline}</p>\` (site.headline is already benefit-driven Indonesian, e.g. "Anggun Setiap Hari…").
 \`\`\`tsx
 import { site } from "@/content/site";
 import { usePreviewReady } from "@/lib/preview-ready";
@@ -349,11 +403,14 @@ EXACT FIELD NAMES (tsc fails on any mismatch — use these EXACT property names)
 - site.theme → { background, foreground, muted, accent } (hex colors, already in index.css — do not re-declare).
 - Top-level: site.businessName, site.eyebrow, site.headline, site.subheadline, site.primaryCta, site.secondaryCta, site.audience, site.offer, site.currentPromo, site.tagline, site.usp.
 
-${DESIGN_DIRECTIVE}
+${contract ? "" : DESIGN_DIRECTIVE}
 
-SCAFFOLD MANIFEST (the exact starter your files extend — do not rewrite these; src/router.tsx is the ONE exception — it is writer-owned, so DO rewrite it to register new routes per SPEED RULE 3):
+${contract ? "" : "SCAFFOLD MANIFEST (the exact starter your files extend — do not rewrite these; src/router.tsx is the ONE exception — it is writer-owned, so DO rewrite it to register new routes per SPEED RULE 3):"}
 
-File tree:
+${
+  contract
+    ? ""
+    : `File tree:
 ${manifest.fileTree.map((path) => `- ${path}`).join("\n")}
 
 Router registration contract (src/main.tsx):
@@ -367,7 +424,8 @@ ${manifest.contract.indexRouteShape}
 
 Pre-seeded shadcn components: ${manifest.preSeededComponents.join(", ")}
 Available via <propose>: ${manifest.availableComponents.join(", ")}
-Theme tokens already defined in src/index.css: ${manifest.themeTokens.join(", ")}`;
+Theme tokens already defined in src/index.css: ${manifest.themeTokens.join(", ")}`
+}`;
 
   const user = `Build the full project from this brief/streamer answer summary. Emit every <file> block now, then <done>.
 
@@ -383,18 +441,39 @@ ${loadArchetypeGuide(implementationSpec?.archetype ?? "")}`;
 export function buildFormatRepairPrompt(input: {
   errorOffset: number;
   errorMessage: string;
+  designPlan?: {
+    contractHash: string;
+    recipeId: string;
+    mediaMode: GeneratedSiteContractV1["design"]["mediaMode"];
+    visualThesis: string;
+    hierarchy: string[];
+    sectionOrder: string[];
+    signatureElement: string;
+  };
+  requireDesignPlan?: boolean;
 }): { system: string; user: string } {
+  const designPlan = input.designPlan
+    ? `<design-plan>${JSON.stringify(input.designPlan)}</design-plan>\n`
+    : "";
+  const contractRules = input.designPlan
+    ? `
+CONTRACT REPAIR RULES:
+- Emit exactly the design-plan above, then exactly one file: <file path="src/routes/index.tsx">...</file>, then <done summary="..." />.
+- Never emit package.json, src/content/site.ts, src/index.css, src/main.tsx, src/routes/__root.tsx, src/styles.css, src/content.js, config files, extra routes, or propose blocks.
+- Keep the index route complete but compact. Use only the seeded platform imports and site.* fields.
+`
+    : "";
   return {
     system: `You emit ONLY the strict response contract for generated apps:
 
-<file path="src/...">full raw content</file>
+${designPlan}<file path="src/...">full raw content</file>
 <propose path="src/components/ui/<name>.tsx">reason</propose>
 <done summary="..." />
 
-Nothing else. No markdown fences. No prose. Unknown tags are a hard parse error.`,
+Nothing else. No markdown fences. No prose. Unknown tags are a hard parse error.${input.requireDesignPlan ? " The design-plan must be the first block and must preserve the immutable contract values from the original response." : ""}${contractRules}`,
     user: `Your previous response had a malformed structured block at byte offset ${input.errorOffset}: ${input.errorMessage}
 
-Re-emit the COMPLETE response for the SAME task — every <file> block rewrite needed, then one <done summary="..." />. Follow the contract exactly.`,
+${designPlan ? "Emit the exact design-plan above first. Then emit only the one compact src/routes/index.tsx file and done marker; do not re-emit any other path. " : ""}Repair the SAME task. Follow the contract exactly.`,
   };
 }
 
@@ -431,6 +510,7 @@ Resume now: re-emit the truncated file IN FULL (if any), then every remaining fi
 }
 
 export function buildTargetedRepairPrompt(input: {
+  contract?: GeneratedSiteContractV1;
   diagnostics: string[];
   implicatedPaths: string[];
   starterFiles: GeneratedProjectFile[];
@@ -453,15 +533,36 @@ export function buildTargetedRepairPrompt(input: {
   const siteReference = siteFile
     ? `\n\nReference — src/content/site.ts (READ-ONLY data source; render these fields, do NOT re-emit site.ts):\n\n<file path="src/content/site.ts">\n${siteFile.content}\n</file>`
     : "";
+  const designPlan = input.contract
+    ? `<design-plan>${JSON.stringify({
+        contractHash: input.contract.contractHash,
+        recipeId: input.contract.design.recipeId,
+        mediaMode: input.contract.design.mediaMode,
+        visualThesis: input.contract.design.composition,
+        hierarchy: input.contract.design.hierarchy,
+        sectionOrder: input.contract.page.requiredSections.map(
+          (section) => section.id,
+        ),
+        signatureElement: input.contract.design.signatureElement,
+      })}</design-plan>`
+    : "";
+  const contractRules = input.contract
+    ? `
+- Contract-v1 repair: emit the exact design-plan above FIRST, then ONLY the listed editable files, then done.
+- Never emit platform-owned files, package/config files, extra routes, or prose.
+`
+    : "";
   return {
     system: `You emit ONLY targeted <file> blocks for the files listed in the user turn, then exactly one <done summary="..." />.
-
+${designPlan}
+${contractRules}
 Contract recap:
 - <file path="src/...">full raw content (not JSON-escaped, no markdown fences)</file>
 - Path allow-list: only under src/ (never src/content/site.ts, src/index.css, src/main.tsx, src/routes/__root.tsx) and public/.
 - Only import dependencies the project's package.json already declares.
 - Close every file with </file>. End with exactly one <done summary="..." />.`,
-    user: `Diagnostics from the validation gates (fix these — re-emit ONLY the listed files, in full):
+    user: `${designPlan}
+Diagnostics from the validation gates (fix these — re-emit ONLY the listed files, in full):
 
 ${input.diagnostics.map((line) => `- ${line}`).join("\n")}
 

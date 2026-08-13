@@ -39,6 +39,7 @@ vi.mock("@/lib/user-credits", () => ({
 
 import {
   buildBatchedWriterPrompt,
+  buildFormatRepairPrompt,
   collectBatchedGateIssues,
   collectBatchedPerFileIssues,
   runBatchedGenerate,
@@ -906,6 +907,126 @@ describe("buildBatchedWriterPrompt", () => {
     expect(system).toContain("SPEED RULES");
     expect(system).toContain("<file path=");
     expect(user).toContain("Kopi Sela");
+  });
+
+  it("format repair prompt preserves the mandatory design plan", () => {
+    const { system, user } = buildFormatRepairPrompt({
+      designPlan: {
+        contractHash: "a".repeat(64),
+        recipeId: "retail-catalog",
+        mediaMode: "typographic",
+        visualThesis: "clear",
+        hierarchy: [],
+        sectionOrder: [],
+        signatureElement: "type",
+      },
+      errorMessage: "truncated",
+      errorOffset: 10,
+      requireDesignPlan: true,
+    });
+
+    expect(system).toContain("<design-plan>");
+    expect(user).toContain("design-plan");
+  });
+
+  it("contract prompt forces a compact route-only response", () => {
+    const brief = makeBrief();
+    const schema = createProjectSiteSchemaFromBrief(brief);
+    const { system } = buildBatchedWriterPrompt({
+      brief,
+      implementationSpec: undefined,
+      contract: {
+        schemaVersion: 1,
+        contractHash: "a".repeat(64),
+        business: {
+          name: schema.businessName,
+          type: "retail",
+          audience: schema.audience,
+          primaryJob: "Memilih produk",
+          primaryCta: {
+            kind: "whatsapp",
+            label: "Chat WhatsApp",
+            target: "08123456789",
+          },
+        },
+        content: {
+          headline: schema.headline,
+          subheadline: schema.subheadline,
+          offer: schema.offer,
+          promotion: null,
+          trustPoints: [],
+          products: [],
+          testimonials: [],
+          faq: [],
+          usp: [],
+          hours: [],
+          paymentMethods: [],
+          priceRange: null,
+          address: null,
+          deliveryArea: null,
+          socialLinks: [],
+        },
+        page: {
+          appKind: "landing",
+          archetype: "retail-catalog",
+          routes: [{ path: "/", purpose: "Landing", requiredContent: [] }],
+          requiredSections: [],
+          prohibitedClaims: [],
+        },
+        design: {
+          recipeId: "retail-catalog",
+          recipeVersion: 1,
+          composition: "catalog",
+          hierarchy: [],
+          typographyStrategy: "clear",
+          colorStrategy: "warm",
+          mediaMode: "typographic",
+          approvedAssets: [],
+          signatureElement: "type",
+          antiPatterns: [],
+        },
+      },
+      recipe: {
+        id: "retail-catalog",
+        version: 1,
+        compatibleArchetypes: ["retail-catalog"],
+        composition: "catalog",
+        hierarchy: [],
+        preferredPatterns: [],
+        avoidPatterns: [],
+        mediaGuidance: {
+          owner_assets: "",
+          replaceable_slots: "",
+          graphic: "",
+          typographic: "",
+        },
+        imageBenefiting: false,
+        requiredBrowserAssertions: [],
+        riskTags: [],
+      },
+      example: {
+        id: "retail-catalog-v1",
+        version: 1,
+        recipeId: "retail-catalog",
+        mediaModes: ["typographic"],
+        source: "<main />",
+        forbiddenLiterals: [],
+      },
+      projectId: "p1",
+      schema,
+      photoEnabled: false,
+    });
+    expect(system).toMatch(
+      /exactly one editable file|Then exactly one editable file/i,
+    );
+    expect(system).toMatch(
+      /Never emit platform-owned files|Never emit src\/(?:styles\.css|content\.js)/i,
+    );
+    expect(system).toContain(
+      "Keep the file compact enough to finish below the output limit",
+    );
+    expect(system.length).toBeLessThan(16_000);
+    expect(system).not.toContain("SCAFFOLD MANIFEST");
   });
 
   it("system prompt contains EXACT FIELD NAMES table so the AI uses correct property names", () => {

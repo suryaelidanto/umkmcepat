@@ -5,6 +5,92 @@ import type { GeneratedSiteContractV1 } from "./generated-site-contract";
 import type { GeneratedProjectFile } from "./generated-types";
 import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
 
+export function normalizeBatchedSiteAnchors(
+  files: GeneratedProjectFile[],
+  options?: { photoEnabled?: boolean; primaryCtaTarget?: string },
+): GeneratedProjectFile[] {
+  const photoEnabled = options?.photoEnabled ?? true;
+  const whatsappHref = toWhatsappHref(options?.primaryCtaTarget);
+  return files.map((file) => {
+    if (!file.path.endsWith(".tsx")) {
+      return file;
+    }
+    let content = file.content.replaceAll(
+      "@/lib/use-preview-ready",
+      "@/lib/preview-ready",
+    );
+    if (!photoEnabled) {
+      content = content.replaceAll(
+        /<img[^>]*src="\/placeholder[^"]*"[^>]*\/?>/g,
+        "",
+      );
+      content = content.replaceAll(/src="\/placeholder[^"]*"/g, "");
+    }
+    if (whatsappHref) {
+      content = content.replace(
+        /<a([^>]*?)href=["']#[a-z0-9-]*["']([^>]*?)>([\s\S]{0,240}?(?:site\.primaryCta|whatsapp|chat|pesan)[\s\S]{0,240}?)<\/a>/gi,
+        (_match, before: string, after: string, body: string) =>
+          `<a${before}href="${whatsappHref}" target="_blank" rel="noopener noreferrer"${after}>${body}</a>`,
+      );
+      content = content.replace(
+        /<span([^>]*?className=["'][^"']*(?:cta|primary)[^"']*["'][^>]*?)>([\s\S]{0,240}?site\.primaryCta[\s\S]{0,240}?)<\/span>/i,
+        (_match, attributes: string, body: string) =>
+          `<a${attributes} href="${whatsappHref}" target="_blank" rel="noopener noreferrer">${body}</a>`,
+      );
+    }
+    content = ensureCtaTouchTarget(content, whatsappHref);
+    return { ...file, content };
+  });
+}
+
+function toWhatsappHref(target: string | undefined): string | null {
+  if (!target || target.startsWith("#")) {
+    return null;
+  }
+  if (/^https:\/\/(?:wa\.me|api\.whatsapp\.com)\//i.test(target)) {
+    return target;
+  }
+  const digits = target.replace(/\D/g, "");
+  if (!digits) {
+    return null;
+  }
+  const phone = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+  return `https://wa.me/${phone}?text=Halo`;
+}
+
+function ensureCtaTouchTarget(
+  content: string,
+  whatsappHref: string | null,
+): string {
+  const hrefPattern = whatsappHref
+    ? `(?:${escapeHrefRegExp(whatsappHref)}|https://wa\\.me/[^"']+)`
+    : "https://wa\\.me/[^\"']+";
+  const anchorPattern = new RegExp(
+    `<a([^>]*?)href=["']${hrefPattern}["']([^>]*?)>`,
+    "gi",
+  );
+  return content.replace(anchorPattern, (match: string) => {
+    if (/min-h-11/.test(match) && /inline-flex|flex/.test(match)) {
+      return match;
+    }
+    if (/className=["'][^"']*["']/.test(match)) {
+      return match.replace(
+        /className=["']([^"']*)["']/,
+        (_classMatch, classes: string) =>
+          `className="inline-flex min-h-11 items-center justify-center ${classes}"`,
+      );
+    }
+    return match.replace(
+      "<a",
+      '<a className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground"',
+    );
+  });
+}
+
+function escapeHrefRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+}
+
 export type GeneratedSiteGateCategory =
   | "contract"
   | "content"
@@ -38,12 +124,16 @@ const ENGLISH_HEADING =
   /<h[1-6][^>]*>\s*(?:Products|Testimonials|Connect With Us)\s*</i;
 const PLACEHOLDER =
   /(?:\/placeholder(?:-vertical)?\.svg|replace this image|ganti foto)/i;
+const SPEC_COPY_LEAK =
+  /Katalog jadi hero utama|Fitur disederhanakan|Tujuan utama:\s*Katalog\/jualan|Info jelas|Online murni/i;
+const GENERATED_FIELD_PATTERN =
+  /site\.(headline|subheadline|primaryCta|offer|trustPoints|usp|sections|products|testimonials|faq|currentPromo|socialLinks)/;
 const STARTER_MARKER =
   /Replace this with the real home page built from the brief|data-generated-site-starter/;
 
 export function inspectGeneratedSiteSource(input: {
   contract: GeneratedSiteContractV1;
-  designPlan: WriterDesignPlanV1;
+  designPlan: WriterDesignPlanV1 | null;
   files: GeneratedProjectFile[];
   starterIndexSource: string;
   themeChecks: ThemeContrastCheck[];
@@ -76,10 +166,20 @@ export function inspectGeneratedSiteSource(input: {
   )?.content;
 
   if (
+    !input.designPlan ||
     input.designPlan.contractHash !== input.contract.contractHash ||
     input.designPlan.recipeId !== input.contract.design.recipeId ||
     input.designPlan.mediaMode !== input.contract.design.mediaMode
   ) {
+    if (!input.designPlan) {
+      add(
+        findings,
+        "contract",
+        "critical",
+        "missing-design-plan",
+        "Generated-site response omitted the required design plan.",
+      );
+    }
     add(
       findings,
       "contract",
@@ -89,7 +189,10 @@ export function inspectGeneratedSiteSource(input: {
     );
   }
   for (const section of input.contract.page.requiredSections) {
-    if (!input.designPlan.sectionOrder.includes(section.id)) {
+    if (
+      input.designPlan &&
+      !input.designPlan.sectionOrder.includes(section.id)
+    ) {
       add(
         findings,
         "contract",
@@ -129,6 +232,25 @@ export function inspectGeneratedSiteSource(input: {
       "high",
       "technical-heading",
       "Implementation component name appears as a customer-facing heading.",
+    );
+  }
+  if (SPEC_COPY_LEAK.test(source)) {
+    add(
+      findings,
+      "content",
+      "high",
+      "spec-copy-leak",
+      "Internal spec phrase leaked into customer copy (e.g. 'Katalog jadi hero utama' / 'Info jelas' / 'Online murni') — rewrite into benefit-driven Indonesian.",
+    );
+  }
+  if (index && !GENERATED_FIELD_PATTERN.test(index)) {
+    add(
+      findings,
+      "content",
+      "critical",
+      "contract-data-bypass",
+      "Generated home route does not render accepted site.* fields; hardcoded local catalog data bypasses the contract.",
+      "src/routes/index.tsx",
     );
   }
   if (/href=\{\s*\w+\.handle\s*\}/.test(source)) {
