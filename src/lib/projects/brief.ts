@@ -112,12 +112,20 @@ export type ImageUploadCard = {
   imageUpload: ImageUploadQuestion;
 };
 
+export type BuildRetryCard = {
+  type: "build_retry";
+  title: string;
+  summary: string[];
+  errorMessage?: string;
+};
+
 export type WorkspaceCard =
   | { type: "none" }
   | { type: "question"; question: BriefQuestion }
   | { type: "image_upload"; imageUpload: ImageUploadQuestion }
   | ContractBuildRecommendationCard
-  | LegacyBuildRecommendationCard;
+  | LegacyBuildRecommendationCard
+  | BuildRetryCard;
 
 export type ContractBuildRecommendationCard = {
   type: "build_recommendation";

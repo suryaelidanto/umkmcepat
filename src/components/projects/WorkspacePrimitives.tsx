@@ -863,5 +863,55 @@ export function WorkspaceCardView({
     );
   }
 
+  if (card.type === "build_retry") {
+    return (
+      <div className="border-y border-amber-500/15 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+        <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold leading-6 text-surface-warm-white">
+              {card.title}
+            </h2>
+            <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/66">
+              {card.errorMessage ||
+                "Bangunnya belum berhasil — bukan salahmu. Coba lagi atau perbaiki brief dulu."}
+            </p>
+            {card.summary.length > 0 ? (
+              <ul className="mt-spacing-4 divide-y divide-surface-warm-white/8 text-sm leading-6 text-surface-warm-white/66">
+                {card.summary.slice(0, 7).map((item, index) => (
+                  <li
+                    key={`${item}-${index}`}
+                    className="break-words py-spacing-3 first:pt-0 last:pb-0 [overflow-wrap:anywhere]"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-spacing-3 md:mt-spacing-6 md:flex-col md:items-stretch">
+            <Button
+              type="button"
+              disabled={!canBuild}
+              onClick={onBuild}
+              className="rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+            >
+              Coba bangun lagi
+            </Button>
+            {onDiscuss ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onDiscuss}
+                className="rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-5 text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+              >
+                Perbaiki brief dulu
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return null;
 }

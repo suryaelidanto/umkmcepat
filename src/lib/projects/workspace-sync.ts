@@ -120,6 +120,7 @@ export type WorkspaceComposerState =
   | "question"
   | "build_recommendation"
   | "held_build_recommendation"
+  | "build_retry"
   | "build_failed_with_last_good"
   | "post_build_review"
   | "post_build_chat"
@@ -154,6 +155,10 @@ export function getWorkspaceComposerState({
   held: boolean;
   postBuildChatOpen: boolean;
 }): WorkspaceComposerState {
+  if (card.type === "build_retry") {
+    return "build_retry";
+  }
+
   // A build_recommendation signature that has already been used to start a
   // build must never resurface — even if the build subsequently failed or
   // succeeded. Retry uses the dedicated "Buat ulang website" CTA, not this card.

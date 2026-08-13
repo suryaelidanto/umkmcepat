@@ -3603,9 +3603,10 @@ export function WorkspaceShell({
                   )}
                 </AnimatePresence>
               </motion.div>
-            ) : composerState === "build_recommendation" ? (
+            ) : composerState === "build_recommendation" ||
+              composerState === "build_retry" ? (
               <motion.div
-                key="composer-build-recommendation"
+                key={`composer-${composerState}`}
                 {...COMPOSER_TRANSITION}
               >
                 <WorkspaceCardView
