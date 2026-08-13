@@ -48,7 +48,6 @@ import {
   selectGeneratedSiteRecipe,
 } from "@/lib/projects/generated-site-recipes";
 import { classifyGeneratedSiteRisk } from "@/lib/projects/generated-site-risk";
-import { isGeneratedSiteQualityEnabled } from "@/lib/projects/generated-site-rollout";
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
@@ -87,7 +86,6 @@ import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generatio
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 import { runShadowCritic } from "@/lib/projects/visual-critic";
 import { chargeEnergyForAiUsage } from "@/lib/user-credits";
-import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
   "generated" satisfies ProjectSnapshotSourceType;
@@ -641,23 +639,11 @@ export async function runBuildAttempt({
       };
     }
 
-    const rollout = String(
-      getSettingSync("feature.generated_site_quality_rollout", "off"),
-    );
-    const owner = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true },
+    const acceptedHandoff = await loadAcceptedHandoffForAttempt({
+      attemptId,
+      projectId,
+      userId,
     });
-    const generatedSiteQualityEnabled = isGeneratedSiteQualityEnabled({
-      rollout,
-      admin: isAdminEmail(owner?.email ?? ""),
-      waitlistApproved: Boolean(
-        owner?.email && (await isWaitlistApproved(owner.email)),
-      ),
-    });
-    const acceptedHandoff = generatedSiteQualityEnabled
-      ? await loadAcceptedHandoffForAttempt({ attemptId, projectId, userId })
-      : null;
     const useGeneratedSiteQuality =
       acceptedHandoff !== null &&
       (acceptedHandoff.plan.appKind === "landing" ||
