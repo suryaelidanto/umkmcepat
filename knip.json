@@ -47,6 +47,7 @@
     "src/lib/uploads/temp-image-storage.ts": ["exports"],
     "src/lib/projects/generated-site-contract.ts": ["exports"],
     "src/lib/projects/brief-admission.ts": ["exports"],
-    "src/components/projects/WorkspaceShell.tsx": ["exports"]
+    "src/components/projects/WorkspaceShell.tsx": ["exports"],
+    "src/lib/projects/canonical-brief.ts": ["exports"]
   }
 }

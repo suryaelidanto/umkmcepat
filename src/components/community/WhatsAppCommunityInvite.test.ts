@@ -32,9 +32,6 @@ describe("WhatsAppCommunityInvite", () => {
     const markup = render("waitlist");
 
     expect(markup).toContain("Sambil menunggu, gabung obrolannya");
-    expect(markup).toContain(
-      "Kamu bisa bertanya dan kenalan dengan pelaku UMKM lainnya.",
-    );
     expect(markup).toContain("Join WhatsApp");
     expect(markup).toContain('data-slot="button"');
     expect(markup).toContain("bg-surface-warm-white");
@@ -45,7 +42,7 @@ describe("WhatsApp discussion entry points", () => {
   const source = (relativePath: string) =>
     readFileSync(new URL(relativePath, import.meta.url), "utf8");
 
-  it("places the invitation on the homepage after FAQ with the pending banner", () => {
+  it("places the invitation on the homepage after FAQ without a pending-banner WhatsApp action", () => {
     const homeSource = source("../../routes/_main.index.tsx");
     const communitySectionIndex = homeSource.indexOf("<CommunitySection");
     const inviteIndex = homeSource.indexOf(
@@ -54,11 +51,9 @@ describe("WhatsApp discussion entry points", () => {
 
     expect(communitySectionIndex).toBeGreaterThan(-1);
     expect(inviteIndex).toBeGreaterThan(communitySectionIndex);
-    expect(homeSource).toContain("isWaitingToBeApproved");
-    expect(homeSource).toMatch(/isWaitingToBeApproved[\s\S]*?Join WhatsApp/);
-    expect(homeSource).toMatch(
-      /ownStatus === "pending"[\s\S]*ownStatus === "waitlisted"/,
-    );
+    expect(homeSource).not.toContain("WHATSAPP_UMKM_GROUP_URL");
+    expect(homeSource).not.toContain("isWaitingToBeApproved");
+    expect(homeSource).not.toContain("Join WhatsApp");
   });
 
   it("places the primary invitation on the waitlist success screen", () => {

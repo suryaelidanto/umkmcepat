@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Homepage heading `Komunitas UMKM Cepat` and body `Wadah ngobrol pelaku UMKM di UMKM Cepat.`
-- Homepage and waitlist use `Join WhatsApp`; footer uses `Join Whatsapp`; pending banner shows `Join WhatsApp` only when `ownStatus` is `pending` or `waitlisted`.
+- Homepage and waitlist use `Join WhatsApp`; footer uses `Join Whatsapp`; pending banner shows no WhatsApp.
 - Homepage, waitlist, and pending banner render with the existing `Button` primitive; footer renders as a plain link.
 - The invite URL remains `https://chat.whatsapp.com/BzxjAg9SMfQK7dUHmUKxbg`.
 - Every placement opens a new tab with `rel="noopener noreferrer"`.
@@ -25,8 +25,8 @@
 ## File Structure
 
 - Modify `src/components/common/Footer.tsx`: render `Join Whatsapp` as a plain footer link directly beside Github.
-- Modify `src/routes/_main.index.tsx`: render `CommunitySection` before `WhatsAppCommunityInvite` and show `Join WhatsApp` in the pending banner only when `ownStatus` is `pending` or `waitlisted`.
-- Modify `src/components/community/WhatsAppCommunityInvite.test.ts`: assert signed-out homepage order, pending `isWaitingToBeApproved` guard, and `Join WhatsApp` placement.
+- Modify `src/routes/_main.index.tsx`: render `CommunitySection` before `WhatsAppCommunityInvite` with no WhatsApp action in the pending banner.
+- Modify `src/components/community/WhatsAppCommunityInvite.test.ts`: assert signed-out homepage order and no pending-banner WhatsApp.
 - `src/routes/_main.waitlist.tsx` and `src/stories/WhatsAppCommunityInvite.stories.tsx` require no structural change because they consume the shared component.
 
 ### Task 1: Specify the revised button behavior
@@ -136,24 +136,23 @@ bunx tsc --noEmit --incremental --tsBuildInfoFile .tsbuildinfo
 
 Expected: all commands exit 0.
 
-### Task 3: Restore footer link and guard pending WhatsApp
+### Task 3: Remove pending-banner WhatsApp
 
 **Files:**
-- Modify: `src/components/common/Footer.tsx`
 - Modify: `src/routes/_main.index.tsx`
 - Modify: `src/components/community/WhatsAppCommunityInvite.test.ts`
 
-- [ ] **Step 1: Assert footer and pending banner visibility**
+- [ ] **Step 1: Assert no pending-banner WhatsApp**
 
-Assert `Footer.tsx` contains one nav with `Ketentuan`, `Privasi`, `Github`, `Join Whatsapp` in order and no button. Assert `_main.index.tsx` wraps `Join WhatsApp` with `isWaitingToBeApproved` (`ownStatus === "pending" || ownStatus === "waitlisted"`).
+Assert `_main.index.tsx` contains no `WHATSAPP_UMKM_GROUP_URL`, no `isWaitingToBeApproved`, and no `Join WhatsApp`.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
-Run: `bunx vitest run --project unit src/components/community/WhatsAppCommunityInvite.test.ts`; expect failure until the pending guard is applied.
+Run: `bunx vitest run --project unit src/components/community/WhatsAppCommunityInvite.test.ts`; expect failure until the banner is cleaned.
 
-- [ ] **Step 3: Implement rollback and pending guard**
+- [ ] **Step 3: Remove the banner WhatsApp action**
 
-Restore footer `nav` order with plain `Link` for `Join Whatsapp`; gate the banner `Button asChild` with `{isWaitingToBeApproved && <Button ...>Join WhatsApp</Button>}`.
+Remove the pending-banner WhatsApp import, guard, and button so the banner renders only its status CTA.
 
 - [ ] **Step 4: Run focused tests, ESLint, and typecheck**
 
