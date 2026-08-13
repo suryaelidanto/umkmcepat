@@ -52,6 +52,28 @@ describe("canonical brief migration planning", () => {
     expect(rerun.supersedeDraftHandoffIds).toEqual([]);
   });
 
+  it("treats reordered canonical JSONB keys as already migrated", () => {
+    const migrated = planCanonicalBriefMigration(row());
+    const reordered = {
+      provenance: migrated.brief.provenance,
+      assets: migrated.brief.assets,
+      content: migrated.brief.content,
+      fieldState: migrated.brief.fieldState,
+      visualDirection: migrated.brief.visualDirection,
+      primaryAction: migrated.brief.primaryAction,
+      audience: migrated.brief.audience,
+      offers: migrated.brief.offers,
+      business: migrated.brief.business,
+      prompt: migrated.brief.prompt,
+      version: migrated.brief.version,
+    };
+    const rerun = planCanonicalBriefMigration(
+      row({ brief: reordered, workspaceCard: null, handoffs: [] }),
+    );
+
+    expect(rerun.pendingWrite).toBe(false);
+  });
+
   it("never supersedes accepted historical handoffs", () => {
     const plan = planCanonicalBriefMigration(
       row({

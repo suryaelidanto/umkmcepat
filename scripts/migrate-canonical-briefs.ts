@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../src/lib/prisma";
+import { canonicalJson } from "../src/lib/projects/build-hash";
 import { evaluateBuildReadiness } from "../src/lib/projects/build-readiness";
 import {
   parseCanonicalBrief,
@@ -53,7 +54,7 @@ export function planCanonicalBriefMigration(
     : clearStaleBuildCard(row.workspaceCard);
   const pendingWrite =
     !isCanonicalBrief(row.brief) ||
-    JSON.stringify(row.brief) !== JSON.stringify(brief) ||
+    canonicalJson(row.brief) !== canonicalJson(brief) ||
     workspaceCard !== row.workspaceCard ||
     supersedeDraftHandoffIds.length > 0;
 
