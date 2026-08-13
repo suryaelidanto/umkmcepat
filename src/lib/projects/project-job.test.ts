@@ -46,9 +46,10 @@ describe("deriveActiveProjectJob", () => {
     expect(job?.phase).toBe("building");
     expect(job?.startedAt).toBe("2026-07-16T00:00:10.000Z");
     expect(job?.buildId).toBe("b1");
-    expect(job?.steps.some((step) => step.label === "AI menulis source")).toBe(
-      true,
-    );
+    expect(
+      job?.steps.some((step) => step.label === "Menulis bagian website"),
+    ).toBe(true);
+    expect(job?.steps[0]?.detail).toBe("Bagian website selesai ditulis.");
     expect(mapActiveJobStepsToBuildProgress(job!.steps)[0].label).toBeTruthy();
   });
 
@@ -168,10 +169,11 @@ describe("deriveActiveProjectJob", () => {
     });
 
     expect(job?.steps.map((s) => s.label)).toEqual([
-      "AI menulis website",
+      "Menulis bagian website",
       "Menulis file",
     ]);
     expect(job?.steps[1]?.detail).toContain("src/routes/index.tsx");
+    expect(job?.steps[1]?.detail).toContain("Bagian website selesai ditulis.");
     expect(job?.steps[1]?.diff).toEqual([
       { text: "export function Home()", type: "add" },
       { text: "// starter", type: "delete" },

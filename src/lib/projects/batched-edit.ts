@@ -325,8 +325,8 @@ export async function runBatchedEdit(input: {
   );
 
   input.onEvent?.("progress", {
-    detail: "Satu respons AI menerapkan revisi (batched edit).",
-    label: "AI merevisi website",
+    detail: "Menerapkan revisi ke bagian website.",
+    label: "Merevisi website",
   });
 
   // Stage = batched overlay on the LIVE surface.
@@ -364,8 +364,8 @@ export async function runBatchedEdit(input: {
   // -- Format repair (1 round) on a hard parse error. -----------------------
   if (writerCall.parseError) {
     input.onEvent?.("progress", {
-      detail: "Respons AI tidak mengikuti kontrak — minta perbaikan format.",
-      label: "AI memperbaiki format respons",
+      detail: "Format hasil belum rapi — sedang diperbaiki.",
+      label: "Merapikan hasil website",
     });
     writerCall = await runOneStreamedResponse({
       abortSignal: input.abortSignal,
@@ -437,7 +437,7 @@ Re-emit the COMPLETE response for the SAME edit — every changed <file> block, 
     );
     input.onEvent?.("progress", {
       detail: `${lastDiagnostics.length} temuan validasi — perbaikan tertarget putaran ${repairRounds}/2.`,
-      label: "AI memperbaiki file",
+      label: "Merapikan bagian website",
     });
 
     const currentBlocks = implicatedPaths

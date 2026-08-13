@@ -238,6 +238,21 @@ describe("runBatchedEdit — happy path", () => {
 
     const ops = events.filter((e) => e.eventType === "operation");
     expect(ops.some((e) => e.path === "src/routes/index.tsx")).toBe(true);
+    expect(
+      ops.every(
+        (event) =>
+          typeof event.detail === "string" &&
+          !/writer|agent|worker|batched|compile/i.test(event.detail),
+      ),
+    ).toBe(true);
+    const progress = events.filter((e) => e.eventType === "progress");
+    expect(
+      progress.some(
+        (event) =>
+          event.label === "Merevisi website" &&
+          event.detail === "Menerapkan revisi ke bagian website.",
+      ),
+    ).toBe(true);
   });
 
   it("ambiguous instruction → prompt includes target list + self-selection directive", async () => {

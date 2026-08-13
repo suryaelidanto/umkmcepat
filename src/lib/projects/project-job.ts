@@ -1,3 +1,7 @@
+import {
+  friendlyBuildProgressDetail,
+  friendlyBuildProgressLabel,
+} from "@/lib/projects/build-stream-event";
 import { type DiffLine } from "@/lib/projects/diff";
 
 export type ProjectJobStep = {
@@ -121,14 +125,14 @@ function syntheticSteps(
   const base = [
     {
       at: startedAt,
-      detail: "AI membaca brief dan menyiapkan file website.",
-      label: "Menyiapkan source",
+      detail: "Membaca kebutuhan usaha dan menyiapkan website.",
+      label: "Menyiapkan website",
       status: "done" as const,
     },
     {
       at: startedAt,
-      detail: "Worker memvalidasi dan mengompilasi file website.",
-      label: "Build website",
+      detail: "Memeriksa bagian website sebelum ditampilkan.",
+      label: "Memeriksa website",
       status: "done" as const,
     },
   ];
@@ -137,8 +141,8 @@ function syntheticSteps(
     return [
       {
         at: startedAt,
-        detail: "AI sedang menulis dan merapikan file website.",
-        label: "AI menulis source",
+        detail: "Bagian website sedang ditulis satu per satu.",
+        label: "Menulis bagian website",
         status: "active",
       },
     ];
@@ -149,8 +153,8 @@ function syntheticSteps(
       base[0],
       {
         at: startedAt,
-        detail: "Build sedang berjalan di server.",
-        label: "Build website",
+        detail: "Bagian website sedang diperiksa.",
+        label: "Memeriksa website",
         status: "active",
       },
     ];
@@ -161,8 +165,8 @@ function syntheticSteps(
       ...base.map((step) => ({ ...step, status: "done" as const })),
       {
         at: startedAt,
-        detail: "Build berhenti sebelum tampilan siap.",
-        label: "Build belum selesai",
+        detail: "Pembuatan website berhenti sebelum tampilan siap.",
+        label: "Website belum selesai",
         status: "error",
       },
     ];
@@ -172,8 +176,8 @@ function syntheticSteps(
     return [
       {
         at: startedAt,
-        detail: "Proses dihentikan.",
-        label: "Build dihentikan",
+        detail: "Pembuatan website dihentikan.",
+        label: "Pembuatan dihentikan",
         status: "error",
       },
     ];
@@ -202,33 +206,39 @@ function stepsFromEvents(
             detail?: unknown;
             diff?: unknown;
             label?: unknown;
+            path?: unknown;
           })
         : null;
-    const label =
+    const rawLabel =
       typeof meta?.label === "string" && meta.label.trim()
         ? meta.label.trim()
         : event.type === "build.progress"
           ? event.message || "Proses berjalan"
           : event.type === "build.started"
-            ? "Build dimulai"
+            ? "Menyiapkan website"
             : event.type === "snapshot.created"
-              ? "Source disimpan"
+              ? "Bagian website tersimpan"
               : event.type === "build.succeeded"
-                ? "Build berhasil"
+                ? "Website siap dilihat"
                 : event.type === "build.failed"
-                  ? "Build gagal"
+                  ? "Website belum selesai"
                   : event.type === "build.canceled"
-                    ? "Build dihentikan"
+                    ? "Pembuatan dihentikan"
                     : null;
 
-    if (!label) {
+    if (!rawLabel) {
       continue;
     }
 
-    const detail =
+    const label = friendlyBuildProgressLabel(rawLabel);
+    const rawDetail =
       typeof meta?.detail === "string" && meta.detail.trim()
         ? meta.detail.trim()
         : event.message || label;
+    const detail = friendlyBuildProgressDetail(
+      rawDetail,
+      typeof meta?.path === "string" ? meta.path : undefined,
+    );
 
     const status: ProjectJobStep["status"] =
       event.type === "build.failed" || event.type === "build.canceled"
@@ -363,9 +373,9 @@ export function deriveActiveProjectJob({
     kind,
     message:
       phase === "generating"
-        ? "AI sedang menyiapkan file website."
+        ? "Website sedang dibuat."
         : phase === "building"
-          ? "Build website sedang berjalan di server."
+          ? "Website sedang diperiksa."
           : null,
     phase,
     startedAt,

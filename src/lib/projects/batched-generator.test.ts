@@ -244,6 +244,21 @@ describe("runBatchedGenerate — happy path", () => {
     expect(
       operationEvents.some((e) => e.path === "src/routes/katalog.tsx"),
     ).toBe(true);
+    expect(
+      operationEvents.every(
+        (event) =>
+          typeof event.detail === "string" &&
+          !/writer|agent|worker|batched|compile/i.test(event.detail),
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.eventType === "progress" &&
+          event.label === "Menulis bagian website" &&
+          event.detail === "Menulis bagian website satu per satu.",
+      ),
+    ).toBe(true);
 
     // Starter files merge; batched files overlay.
     const batchedArgs = baseArgs();

@@ -267,22 +267,22 @@ export async function runBuildAttempt({
         requestedMode: generateMode,
       });
       send("progress", {
-        label: "Source belum ada",
-        detail: "Menjalankan build pertama dari brief yang sudah siap.",
+        label: "Menyiapkan website",
+        detail: "Membuat website dari brief yang sudah siap.",
       });
     }
 
     if (effectiveMode === "retry_build") {
       send("progress", {
-        label: "Memuat source tersimpan",
-        detail: "Membangun ulang dari file tersimpan.",
+        label: "Memuat website tersimpan",
+        detail: "Menyiapkan pembuatan ulang dari bagian yang sudah ada.",
       });
 
       let sourceFiles = persistedSourceFiles;
 
       send("progress", {
-        label: "Build website dari source tersimpan",
-        detail: `${sourceFiles.length} file dimuat. Validasi build.`,
+        label: "Memeriksa website tersimpan",
+        detail: `${sourceFiles.length} bagian dimuat untuk diperiksa.`,
       });
 
       // Deterministic heal: rewrite unregistered <Link to="/x"> to hash
@@ -398,7 +398,7 @@ export async function runBuildAttempt({
 
       if (buildOk) {
         send("done", {
-          message: "Build ulang berhasil.",
+          message: "Website siap dilihat.",
           projectId,
         });
         void refreshProjectThumbnail({
@@ -411,8 +411,9 @@ export async function runBuildAttempt({
         // energy_exhausted informational event is the user-facing truth;
         // skip the contradicting "Build website gagal" failure message.
         send("progress", {
-          label: "Build website gagal",
-          detail: "File disimpan. Silakan cek log di tab Kode.",
+          label: "Website belum selesai",
+          detail:
+            "Bagian yang sudah selesai tetap tersimpan. Kamu bisa melihat detailnya di tab Kode.",
         });
         send("error", {
           message: "AI belum bisa membangun website ini.",
@@ -423,7 +424,7 @@ export async function runBuildAttempt({
           detail:
             getIndonesianBuildFailureSummary(
               classifyBuildFailure(finalBuildResult.log ?? ""),
-            ) ?? "Build gagal.",
+            ) ?? "Website belum selesai dibuat.",
         });
       }
 
@@ -432,7 +433,7 @@ export async function runBuildAttempt({
     }
 
     send("progress", {
-      label: "Memahami usaha dan target pembeli",
+      label: "Menyiapkan website",
       detail: "Membaca kebutuhan utama dari brief.",
     });
 
@@ -583,8 +584,8 @@ export async function runBuildAttempt({
       }
 
       send("progress", {
-        label: "AI mencoba sekali lagi",
-        detail: "Merancang ulang struktur halaman.",
+        label: "Menyusun halaman lagi",
+        detail: "Merapikan struktur halaman.",
       });
       await new Promise((resolve) => setTimeout(resolve, 2_000));
 
@@ -620,12 +621,13 @@ export async function runBuildAttempt({
       }
 
       send("progress", {
-        label: "Rancangan AI tidak lengkap",
-        detail: "Melanjutkan dengan rancangan dari brief.",
+        label: "Menyiapkan rancangan website",
+        detail:
+          "Rancangan awal belum lengkap, jadi kami melanjutkan dari brief.",
       });
       send("progress", {
-        label: "Pakai rancangan dari brief",
-        detail: "Menyusun landing page dari data usaha.",
+        label: "Membuat halaman utama",
+        detail: "Menyusun halaman utama dari data usaha.",
       });
       devLog("generate", "spec.fallback", {
         projectId,
@@ -708,8 +710,8 @@ export async function runBuildAttempt({
       throw new Error("Build operation lease was superseded.");
     }
     send("progress", {
-      label: "AI menulis website",
-      detail: "Agent coding menulis file source.",
+      label: "Membuat bagian website",
+      detail: "Menulis bagian website satu per satu.",
     });
 
     const saver = createProgressiveSaver({
@@ -860,15 +862,15 @@ export async function runBuildAttempt({
     }
 
     send("progress", {
-      label: "Source siap di-build",
-      detail: `${sourceGeneration.touchedFiles.length} file ditulis agent.`,
+      label: "Bagian website sudah siap",
+      detail: `${sourceGeneration.touchedFiles.length} bagian website selesai dibuat.`,
     });
     if (sourceGeneration.repairAttempts > 0) {
       send("operation", {
-        detail: `${sourceGeneration.repairAttempts} perbaikan build.`,
+        detail: `${sourceGeneration.repairAttempts} bagian website dirapikan.`,
         id: `repair-${sourceGeneration.repairAttempts}`,
         state: "succeeded",
-        title: "AI memperbaiki build",
+        title: "Merapikan tampilan",
         type: "check_app",
       });
     }
@@ -930,8 +932,8 @@ export async function runBuildAttempt({
       data: { buildId: build.id, snapshotId: snapshot.id },
     });
     send("progress", {
-      label: "Build masuk antrean",
-      detail: "Memvalidasi file website.",
+      label: "Memeriksa website",
+      detail: "Memeriksa file website sebelum ditampilkan.",
     });
     await prisma.runtimeEvent.create({
       data: createRuntimeEventData({
@@ -1137,15 +1139,16 @@ export async function runBuildAttempt({
 
     if (finalBuildOk) {
       send("progress", {
-        label: "Build website berhasil",
-        detail: "File website berhasil divalidasi.",
+        label: "Website sudah diperiksa",
+        detail: "Semua bagian website berhasil diperiksa.",
       });
     } else if (!sourceGeneration.energyExhausted) {
       // ponytail: on energy exhaustion the energy_exhausted event at :836
       // is the user-facing truth; skip the contradicting "gagal" progress.
       send("progress", {
-        label: "Build website gagal",
-        detail: "File disimpan. Silakan cek log di tab Kode.",
+        label: "Website belum selesai",
+        detail:
+          "Bagian yang sudah selesai tetap tersimpan. Kamu bisa melihat detailnya di tab Kode.",
       });
     }
     const latestProject = await prisma.project.findUnique({
@@ -1188,7 +1191,7 @@ export async function runBuildAttempt({
         .create({
           data: createRuntimeEventData({
             buildId: build.id,
-            message: "Build was canceled after the user stopped the job.",
+            message: "Pembuatan website dihentikan oleh kamu.",
             projectId: projectId,
             type: "build.canceled",
           }),
@@ -1257,7 +1260,7 @@ export async function runBuildAttempt({
           data: {
             errorMessage: finalBuildResult.ok
               ? null
-              : "Generated build failed.",
+              : "Website belum selesai dibuat.",
             finishedAt: new Date(),
             status: finalBuildResult.ok ? "succeeded" : "failed",
           },
@@ -1277,8 +1280,8 @@ export async function runBuildAttempt({
         data: createRuntimeEventData({
           buildId: build.id,
           message: finalBuildResult.ok
-            ? "Generated frontend build succeeded and dist artifact was stored."
-            : "Generated frontend build failed.",
+            ? "Website selesai dibuat dan siap dilihat."
+            : "Website belum selesai dibuat.",
           metadata: artifactRef ? { artifactRef } : undefined,
           projectId: projectId,
           type: finalBuildResult.ok ? "build.succeeded" : "build.failed",
@@ -1319,7 +1322,7 @@ export async function runBuildAttempt({
       // already told the user; don't emit a contradicting failure error.
       send("error", {
         message:
-          "Build website belum berhasil. Coba build ulang setelah cek brief.",
+          "Website belum berhasil dibuat. Coba buat ulang website setelah mengecek brief.",
       });
       return;
     }
@@ -1329,8 +1332,8 @@ export async function runBuildAttempt({
     }
 
     send("progress", {
-      label: "Website siap dicek",
-      detail: "Website siap ditinjau.",
+      label: "Website siap dilihat",
+      detail: "Website sudah selesai dibuat dan siap ditinjau.",
     });
     devLog("generate", "done", { projectId: projectId });
     send("done", { finalSchema });
@@ -1390,14 +1393,14 @@ export async function runBuildAttempt({
       );
     send("error", {
       message: emptyAgent
-        ? "AI belum menulis file website."
-        : "AI belum bisa membangun website ini.",
+        ? "Website belum selesai dibuat."
+        : "Website belum berhasil dibuat.",
       // Never surface raw exception text to the end user (may contain
       // internal paths/stack fragments). The raw message is already
       // preserved in devLog + the ProjectBuild logText for operators.
       detail: emptyAgent
-        ? "Agent tidak menulis source. Klik build ulang — biasanya berhasil di percobaan berikutnya."
-        : "Coba ulangi atau perbaiki deskripsi usahanya dulu.",
+        ? "Belum ada bagian website yang berhasil ditulis. Coba buat ulang website — biasanya berhasil di percobaan berikutnya."
+        : "Coba buat ulang website atau perbaiki deskripsi usahanya dulu.",
     });
   } finally {
     // Always debit if AI already ran (success or failure).

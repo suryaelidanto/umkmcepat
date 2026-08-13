@@ -90,15 +90,15 @@ export function reduceBuildStreamEvent(
   }
 
   if (event.type === "operation" && typeof event.title === "string") {
-    const title = event.title;
+    const title = friendlyBuildProgressLabel(event.title);
+    const operationDetail = friendlyBuildProgressDetail(
+      typeof event.detail === "string" ? event.detail : "Operasi selesai.",
+      typeof event.path === "string" ? event.path : undefined,
+    );
     const detail =
       typeof event.path === "string"
-        ? `${event.path} — ${
-            typeof event.detail === "string" ? event.detail : "Operasi selesai."
-          }`
-        : typeof event.detail === "string"
-          ? event.detail
-          : "Operasi selesai.";
+        ? `${event.path} — ${operationDetail}`
+        : operationDetail;
     return {
       kind: "progress",
       update: (current) =>
@@ -136,15 +136,15 @@ export function reduceBuildStreamEvent(
 
   if (event.type === "error") {
     const detail =
-      typeof event.detail === "string"
-        ? `Build berhenti sebelum tampilan website siap: ${event.detail}`
-        : "Build berhenti sebelum tampilan website siap. Coba ulangi build.";
+      typeof event.detail === "string" && event.detail.trim()
+        ? `Website belum selesai: ${friendlyErrorDetail(event.detail)}`
+        : "Website belum selesai. Coba buat ulang website.";
     return {
       kind: "error",
       update: (current) =>
         appendBuildProgressStep(current, {
           detail,
-          label: "Build belum selesai",
+          label: "Website belum selesai",
           status: "error",
         }),
     };
@@ -157,4 +157,64 @@ export function completeBuildStreamProgress(
   current: BuildProgressStep[],
 ): BuildProgressStep[] {
   return completeBuildProgressSteps(current);
+}
+
+export function friendlyBuildProgressLabel(label: string): string {
+  const normalized = label.trim();
+  if (/build.*(berhasil|succeed)/i.test(normalized)) {
+    return "Website siap dilihat";
+  }
+  if (/build.*(gagal|fail|belum)/i.test(normalized)) {
+    return "Website belum selesai";
+  }
+  if (/build.*(dihentikan|cancel)/i.test(normalized)) {
+    return "Pembuatan dihentikan";
+  }
+  if (/build.*(mulai|dimulai|start)/i.test(normalized)) {
+    return "Menyiapkan website";
+  }
+  if (/source.*(tersimpan|disimpan)/i.test(normalized)) {
+    return "Bagian website tersimpan";
+  }
+  if (/source.*siap|source belum/i.test(normalized)) {
+    return "Menyiapkan website";
+  }
+  if (/ai.*menulis|menulis.*source/i.test(normalized)) {
+    return "Menulis bagian website";
+  }
+  if (/ai.*merevisi|merevisi.*source/i.test(normalized)) {
+    return "Memperbarui website";
+  }
+  if (/ai.*memperbaiki.*build/i.test(normalized)) {
+    return "Merapikan tampilan";
+  }
+  return normalized;
+}
+
+export function friendlyBuildProgressDetail(
+  detail: string,
+  path?: string,
+): string {
+  const normalized = detail.trim();
+  const technical =
+    /\b(writer|agent|worker|batched|compile|compilasi|source)\b/i.test(
+      normalized,
+    );
+  if (!technical) {
+    return normalized;
+  }
+  const prefix = path && normalized.startsWith(path) ? `${path} — ` : "";
+  const friendly = /\b(compile|compilasi)\b/i.test(normalized)
+    ? "Website sedang diperiksa."
+    : /\bsource\b/i.test(normalized)
+      ? "Bagian website tersimpan."
+      : "Bagian website selesai ditulis.";
+  return `${prefix}${friendly}`;
+}
+
+function friendlyErrorDetail(detail: string): string {
+  return detail
+    .replace(/\bbuild\b/gi, "pembuatan website")
+    .replace(/\bsource\b/gi, "file website")
+    .replace(/\bcompile\b/gi, "pemeriksaan kode");
 }

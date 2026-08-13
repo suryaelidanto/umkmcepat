@@ -176,14 +176,14 @@ export async function runEditAttempt({
 
   if (!baseFiles.length) {
     await updateProjectEditAttempt(attempt.id, {
-      errorMessage: "Source preview belum tersedia untuk diedit.",
+      errorMessage: "Tampilan website sebelumnya belum tersedia untuk diedit.",
       finishedAt: new Date(),
       status: "failed",
     });
     await restoreProjectReadyState(project.id, userId, operation.token);
     publishBuildProgress(attemptId, {
       type: "error",
-      detail: "Source preview belum tersedia untuk diedit.",
+      detail: "Tampilan website sebelumnya belum tersedia untuk diedit.",
     });
     return;
   }
@@ -250,8 +250,8 @@ export async function runEditAttempt({
 
   try {
     persistEditProgress({
-      detail: "AI menerapkan revisi ke source website.",
-      title: "Merevisi website",
+      detail: "Website sedang diperbarui.",
+      title: "Memperbarui website",
     });
 
     const saver = createProgressiveSaver({
@@ -315,7 +315,7 @@ export async function runEditAttempt({
       modelId: getGenerationModel(),
       ok: true as const,
       operations: batched.writtenPaths.map((path) => ({
-        detail: "File ditulis writer batched.",
+        detail: "Bagian website selesai diperbarui.",
         id: path,
         path,
         state: "succeeded",
@@ -480,7 +480,7 @@ export async function runEditAttempt({
     await prisma.runtimeEvent.create({
       data: createRuntimeEventData({
         buildId: build.id,
-        message: "Edited source build queued.",
+        message: "Pembaruan website sedang diperiksa.",
         projectId: project.id,
         type: "build.started",
       }),

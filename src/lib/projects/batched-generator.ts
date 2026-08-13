@@ -766,7 +766,7 @@ export async function runOneStreamedResponse(args: {
               }
               args.onFileWritten?.(path);
               args.onEvent?.("operation", {
-                detail: "File ditulis writer batched.",
+                detail: "Bagian website selesai ditulis.",
                 path,
                 state: "succeeded",
                 title: "Menulis file",
@@ -965,8 +965,8 @@ export async function runBatchedGenerate(input: {
   const indexCssForGate = starterByPath.get("src/index.css")?.content ?? "";
 
   input.onEvent?.("progress", {
-    detail: "Satu respons AI menulis semua file (batched).",
-    label: "AI menulis website",
+    detail: "Menulis bagian website satu per satu.",
+    label: "Menulis bagian website",
   });
 
   // Stage = scaffold starter files as the base, overlaid by batched AI
