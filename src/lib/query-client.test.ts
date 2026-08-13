@@ -19,6 +19,17 @@ vi.mock("./auth-client", () => ({
   signOut: vi.fn().mockResolvedValue(undefined),
 }));
 
+function ownStatus(status: string) {
+  return {
+    businessName: "",
+    businessType: null,
+    id: "entry-1",
+    rejectionReason: null,
+    status,
+    story: "",
+  };
+}
+
 describe("waitlistPendingPollInterval", () => {
   it("polls only while gate is open and own entry is pending", () => {
     expect(waitlistPendingPollInterval(undefined)).toBe(false);
@@ -26,7 +37,7 @@ describe("waitlistPendingPollInterval", () => {
     expect(
       waitlistPendingPollInterval({
         status: null,
-        own: { status: "rejected" },
+        own: ownStatus("rejected"),
       }),
     ).toBe(false);
     expect(
@@ -38,13 +49,13 @@ describe("waitlistPendingPollInterval", () => {
     expect(
       waitlistPendingPollInterval({
         status: null,
-        own: { status: "pending" },
+        own: ownStatus("pending"),
       }),
     ).toBe(WAITLIST_PENDING_POLL_MS);
     expect(
       waitlistPendingPollInterval({
         status: null,
-        own: { status: "waitlisted" },
+        own: ownStatus("waitlisted"),
       }),
     ).toBe(WAITLIST_PENDING_POLL_MS);
   });

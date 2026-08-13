@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { ArrowLeft, ArrowRight, Check, ImagePlus, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -34,18 +34,19 @@ import {
   GATE_QUERY_OPTIONS,
   invalidateWaitlistStatus,
   queryKeys,
-  waitlistPendingPollInterval,
+  WAITLIST_PENDING_POLL_MS,
 } from "@/lib/query-client";
 import { getTurnstileSiteKey } from "@/lib/turnstile";
 import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
 import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
 import { getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
+import { resolveWaitlistView } from "@/lib/waitlist-view";
 
 // Server-side gate: must be signed-in AND (gate disabled OR not yet approved).
 // Runs in the route loader so the page never renders for users who shouldn't
 // see it, and so the own-entry status is already known on the very first
-// render — the client-side ownQuery below is seeded from this instead of
-// starting from `undefined`, which is what used to cause a form -> success
+// render — the client-side waitlist-status query below is seeded from this
+// instead of starting from `undefined`, which used to cause a form -> success
 // flash while the client fetch was still in flight.
 const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
   const session = await auth();
@@ -150,19 +151,13 @@ const EMPTY_VALUES: WaitlistValues = {
   storySince: BUSINESS_DURATIONS[0],
 };
 
-type OwnEntry = {
-  businessName: string;
-  businessType: string | null;
-  id: string;
-  rejectionReason: string | null;
-  status: string;
-  story: string;
-};
-
 function WaitlistPage() {
   const { own: initialOwn, isAdmin } = Route.useLoaderData();
   const { data: session } = useSession();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  const approvalHandledRef = useRef(false);
   const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -212,35 +207,59 @@ function WaitlistPage() {
     schema: waitlistSchema,
   });
 
-  // Pre-fill on first load from the user's last submission, or restore draft from localStorage.
-  const ownQuery = useQuery({
-    queryFn: () =>
-      fetchWaitlistStatus().then((data) => ({
-        own: (data.own as OwnEntry | null | undefined) ?? null,
-      })),
-    queryKey: ["user", "waitlist", "own"],
-    staleTime: 0,
-    initialData: { own: initialOwn },
-  });
-
+  // The shared status query owns both the effective gate and the user's own
+  // entry so approval/rejection cannot leave the rendered page stale.
+  const [submittedAt, setSubmittedAt] = useState<number | null>(null);
   const statusQuery = useQuery({
     queryFn: fetchWaitlistStatus,
     queryKey: queryKeys.waitlistStatus,
     ...GATE_QUERY_OPTIONS,
-    refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
+    initialData: { status: null, own: initialOwn },
+    initialDataUpdatedAt: 0,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.status === "approved" || data?.own?.status === "rejected") {
+        return false;
+      }
+      if (
+        data?.own?.status === "pending" ||
+        data?.own?.status === "waitlisted"
+      ) {
+        return WAITLIST_PENDING_POLL_MS;
+      }
+      if (submittedAt !== null && query.state.dataUpdatedAt < submittedAt) {
+        return WAITLIST_PENDING_POLL_MS;
+      }
+      return false;
+    },
   });
-  const isApproved = statusQuery.data?.status === "approved" || submitted;
+  const isApproved = statusQuery.data?.status === "approved";
   const ownIsDevSkip =
-    ownQuery.data?.own?.businessName.startsWith("[dev-skip]") ?? false;
-  const ownStatus = ownQuery.data?.own?.status;
-  // Pending/waitlisted means a real entry is already sitting in review — keep
-  // showing the "submitted" screen across reloads instead of re-showing the
-  // empty form. Rejected falls through to the form so the user can fix and
-  // resubmit; that branch shows the rejection reason instead.
-  const stillPending = ownStatus === "pending" || ownStatus === "waitlisted";
+    statusQuery.data?.own?.businessName.startsWith("[dev-skip]") ?? false;
+  const ownStatus = statusQuery.data?.own?.status ?? null;
+  const hasFreshPostSubmitResponse =
+    submittedAt !== null && statusQuery.dataUpdatedAt >= submittedAt;
+  const submittedFallback = submitted && !hasFreshPostSubmitResponse;
+  const view = resolveWaitlistView({
+    effectiveStatus: statusQuery.data?.status,
+    ownStatus,
+    submitted: submittedFallback,
+  });
   const wasRejected = ownStatus === "rejected";
 
-  // Restore step and form values from localStorage when mounting/ownQuery settles.
+  useEffect(() => {
+    if (!isApproved || approvalHandledRef.current) {
+      return;
+    }
+    approvalHandledRef.current = true;
+    toast.success("Pendaftaran disetujui. Mengalihkan ke beranda...");
+    const timer = window.setTimeout(() => {
+      routerRef.current.replace("/");
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [isApproved]);
+
+  // Restore step and form values from localStorage when mounting/status settles.
   useEffect(() => {
     try {
       const savedStep = localStorage.getItem("umkmcepat:waitlist:step");
@@ -267,7 +286,7 @@ function WaitlistPage() {
           form.setField("storyGoal", saved.storyGoal);
         }
       } else {
-        const own = ownQuery.data?.own;
+        const own = statusQuery.data?.own;
         if (own) {
           form.setField("businessName", own.businessName);
           form.setField("businessType", own.businessType ?? "");
@@ -276,8 +295,8 @@ function WaitlistPage() {
     } catch (err) {
       console.error("Gagal memuat draft waitlist dari localStorage:", err);
     }
-    // Only run on initial hydrate/hydration of ownQuery.
-  }, [ownQuery.data]);
+    // Only run on initial hydrate/hydration of the status query.
+  }, [statusQuery.data]);
 
   // Persist form values (except photo file object) to localStorage as the user types.
   useEffect(() => {
@@ -328,6 +347,7 @@ function WaitlistPage() {
     },
     onSuccess: async () => {
       setSubmitted(true);
+      setSubmittedAt(Date.now());
       try {
         localStorage.removeItem("umkmcepat:waitlist:values");
         localStorage.removeItem("umkmcepat:waitlist:step");
@@ -368,7 +388,7 @@ function WaitlistPage() {
   // from the route loader, never from user input.
   const adminSelfApproveMutation = useMutation({
     mutationFn: async () => {
-      const entryId = initialOwn?.id ?? ownQuery.data?.own?.id;
+      const entryId = initialOwn?.id ?? statusQuery.data?.own?.id;
       if (!entryId) {
         throw new Error("Tidak ada pendaftaran yang bisa disetujui.");
       }
@@ -378,9 +398,7 @@ function WaitlistPage() {
       });
     },
     onSuccess: async () => {
-      toast.success("Pendaftaran disetujui (admin bypass).");
       await invalidateWaitlistStatus(queryClient);
-      setTimeout(() => router.replace("/"), 1500);
     },
     onError: (error) => {
       toast.error(
@@ -445,15 +463,19 @@ function WaitlistPage() {
     );
   }
 
-  if (submitted || stillPending) {
+  if (view === "approval") {
+    return <ApprovalScreen />;
+  }
+
+  if (view === "success") {
     return (
       <SuccessScreen
         businessName={
-          form.values.businessName || ownQuery.data?.own?.businessName || ""
+          form.values.businessName || statusQuery.data?.own?.businessName || ""
         }
         email={session?.user?.email ?? undefined}
         isAdmin={isAdmin}
-        entryId={initialOwn?.id ?? ownQuery.data?.own?.id ?? undefined}
+        entryId={statusQuery.data?.own?.id}
         onAdminApprove={() => adminSelfApproveMutation.mutate()}
         isApproving={adminSelfApproveMutation.isPending}
       />
@@ -473,9 +495,9 @@ function WaitlistPage() {
           <p className="font-semibold text-surface-warm-white">
             Pendaftaran sebelumnya belum bisa kami terima
           </p>
-          {ownQuery.data?.own?.rejectionReason ? (
+          {statusQuery.data?.own?.rejectionReason ? (
             <p className="mt-spacing-2 text-surface-warm-white/70">
-              Alasan: {ownQuery.data.own.rejectionReason}
+              Alasan: {statusQuery.data.own.rejectionReason}
             </p>
           ) : null}
           <p className="mt-spacing-2 text-surface-warm-white/70">
@@ -733,7 +755,7 @@ function WaitlistPage() {
                 ? "Melewati..."
                 : "Lewati pendaftaran (admin bypass)"}
             </button>
-            {ownQuery.data?.own ? (
+            {statusQuery.data?.own ? (
               <button
                 className="text-[10px] uppercase tracking-wider text-aurora-rose/70 underline-offset-4 hover:text-aurora-rose hover:underline disabled:opacity-50"
                 disabled={devResetMutation.isPending}
@@ -1073,6 +1095,22 @@ function Step({
         {helper}
       </p>
       <div className="mt-spacing-8">{children}</div>
+    </div>
+  );
+}
+
+function ApprovalScreen() {
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-surface-warm-white">
+      <div className="flex size-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-emerald-300">
+        <Check className="size-7" strokeWidth={2.5} />
+      </div>
+      <h1 className="text-heading-xl font-semibold tracking-tight">
+        Pendaftaran disetujui!
+      </h1>
+      <p className="max-w-md text-sm text-surface-warm-white/60">
+        Mengalihkan kamu ke beranda untuk mulai membuat website.
+      </p>
     </div>
   );
 }
