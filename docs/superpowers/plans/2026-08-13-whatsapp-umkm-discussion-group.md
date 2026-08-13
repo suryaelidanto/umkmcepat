@@ -2,167 +2,174 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add restrained WhatsApp discussion-group entry points to the public homepage, waitlist waiting states, and footer without competing with website creation.
+**Goal:** Revise all four WhatsApp entry points to render as buttons with the exact label `Join WhatsApp`, while preserving contextual visual hierarchy.
 
-**Architecture:** Keep the external invite URL and prominent invitation presentation in one focused `WhatsAppCommunityInvite` component with `homepage` and `waitlist` variants. Existing route and footer layouts own their lighter text-link placements so the reusable component does not become a layout abstraction.
+**Architecture:** Keep the shared URL and prominent homepage/waitlist invitation in `WhatsAppCommunityInvite`. Use the existing `Button asChild` pattern directly in the pending banner and footer so all destinations are semantic external links styled as buttons without creating another abstraction.
 
 **Tech Stack:** React 19, TypeScript, TanStack Start/Router, Tailwind CSS, Vitest, React server rendering, Storybook.
 
 ## Global Constraints
 
-- The invite URL is `https://chat.whatsapp.com/BzxjAg9SMfQK7dUHmUKxbg`.
-- All WhatsApp actions open a new tab with `rel="noopener noreferrer"`.
-- User-facing copy is Indonesian.
-- Do not add a header/mobile-navigation item, popup, floating control, sticky banner, dependency, redirect route, database setting, or WhatsApp-green treatment.
-- Homepage uses a secondary outline action; waitlist success uses a primary action; pending banner and footer use plain text links.
-- Prominent invitations disclose that the member's phone number may be visible to other members.
-- Preserve the waitlist status CTA as the pending homepage banner's primary action.
+- Every WhatsApp action uses the exact visible label `Join WhatsApp`.
+- Every WhatsApp action renders with the existing `Button` primitive.
+- The invite URL remains `https://chat.whatsapp.com/BzxjAg9SMfQK7dUHmUKxbg`.
+- Every action opens a new tab with `rel="noopener noreferrer"`.
+- Waitlist success uses a solid white button; homepage uses a regular outline button; pending banner and footer use compact outline buttons.
+- The pending waitlist-status action remains primary.
+- Do not add navigation items, floating controls, popups, sticky banners, icons, dependencies, or WhatsApp-green styling.
+- Leave unrelated commits and files untouched.
 
 ---
 
 ## File Structure
 
-- Create `src/components/community/WhatsAppCommunityInvite.tsx`: invite URL, shared trust copy, and the two prominent visual variants.
-- Create `src/components/community/WhatsAppCommunityInvite.test.ts`: server-rendered behavior tests for content, hierarchy classes, and safe external-link attributes.
-- Create `src/stories/WhatsAppCommunityInvite.stories.tsx`: reusable homepage and waitlist visual states.
-- Modify `src/routes/_main.index.tsx`: render the homepage invitation after the hero and add the quiet pending-state link.
-- Modify `src/routes/_main.waitlist.tsx`: render the primary invitation before the secondary home action on the success screen.
-- Modify `src/components/common/Footer.tsx`: add the permanent plain WhatsApp link.
+- Modify `src/components/community/WhatsAppCommunityInvite.test.ts`: assert exact labels and all four button treatments.
+- Modify `src/components/community/WhatsAppCommunityInvite.tsx`: change the shared prominent CTA label.
+- Modify `src/routes/_main.index.tsx`: replace the pending text link with a compact outline button.
+- Modify `src/components/common/Footer.tsx`: replace the footer text link with a compact outline button.
+- `src/routes/_main.waitlist.tsx` and `src/stories/WhatsAppCommunityInvite.stories.tsx` require no structural change because they consume the shared component.
 
-### Task 1: Build and test the prominent invitation component
-
-**Files:**
-- Create: `src/components/community/WhatsAppCommunityInvite.test.ts`
-- Create: `src/components/community/WhatsAppCommunityInvite.tsx`
-- Create: `src/stories/WhatsAppCommunityInvite.stories.tsx`
-
-**Interfaces:**
-- Produces: `WHATSAPP_UMKM_GROUP_URL: string`
-- Produces: `WhatsAppCommunityInvite({ variant }: { variant: "homepage" | "waitlist" }): React.ReactElement`
-
-- [ ] **Step 1: Write the failing component tests**
-
-Create tests that server-render both variants and assert:
-
-```ts
-expect(homepage).toContain("Tempat ngobrol untuk pelaku UMKM");
-expect(homepage).toContain("Gabung Grup WhatsApp");
-expect(homepage).toContain('target="_blank"');
-expect(homepage).toContain('rel="noopener noreferrer"');
-expect(homepage).toContain("Nomor WhatsApp kamu dapat terlihat oleh anggota grup.");
-expect(homepage).toContain("border");
-expect(waitlist).toContain("Sambil menunggu, gabung obrolannya");
-expect(waitlist).toContain("Kamu bisa bertanya dan kenalan dengan pelaku UMKM lainnya.");
-expect(waitlist).toContain("bg-surface-warm-white");
-```
-
-- [ ] **Step 2: Run the test and verify RED**
-
-Run: `bunx vitest run --project unit src/components/community/WhatsAppCommunityInvite.test.ts`
-
-Expected: FAIL because `./WhatsAppCommunityInvite` does not exist.
-
-- [ ] **Step 3: Implement the minimal reusable component**
-
-Create a data map for the exact heading/body copy, export the URL constant, and render semantic section content. Use `Button asChild` around an external `Link`; apply `variant="outline"` on homepage and the existing light primary treatment on the dark waitlist surface. Include the privacy note beneath the action.
-
-- [ ] **Step 4: Run the focused test and verify GREEN**
-
-Run: `bunx vitest run --project unit src/components/community/WhatsAppCommunityInvite.test.ts`
-
-Expected: PASS with both variants covered.
-
-- [ ] **Step 5: Add Storybook states**
-
-Create two fullscreen dark-surface stories named `HomepageSecondary` and `WaitlistPrimary`, each rendering the corresponding component variant at realistic container widths.
-
-### Task 2: Wire every approved entry point
+### Task 1: Specify the revised button behavior
 
 **Files:**
-- Modify: `src/routes/_main.index.tsx`
-- Modify: `src/routes/_main.waitlist.tsx`
-- Modify: `src/components/common/Footer.tsx`
 - Modify: `src/components/community/WhatsAppCommunityInvite.test.ts`
 
 **Interfaces:**
-- Consumes: `WHATSAPP_UMKM_GROUP_URL`
-- Consumes: `WhatsAppCommunityInvite`
+- Consumes: `WhatsAppCommunityInvite({ variant }: { variant: "homepage" | "waitlist" })`
+- Verifies: all WhatsApp links use `Join WhatsApp` and button markup.
 
-- [ ] **Step 1: Extend tests for integration-facing copy**
+- [ ] **Step 1: Change tests before production code**
 
-Read the three owning source files and assert they reference the shared component/URL and approved labels:
+Update the prominent component assertions:
 
 ```ts
-expect(homeSource).toContain("<WhatsAppCommunityInvite variant=\"homepage\" />");
-expect(homeSource).toContain("Sambil menunggu, gabung grup diskusi UMKM");
-expect(waitlistSource).toContain("<WhatsAppCommunityInvite variant=\"waitlist\" />");
-expect(footerSource).toContain("Grup WhatsApp UMKM");
-expect(footerSource).toContain("WHATSAPP_UMKM_GROUP_URL");
+expect(markup).toContain("Join WhatsApp");
+expect(markup).not.toContain("Gabung Grup WhatsApp");
+expect(markup).toContain('data-slot="button"');
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+Update source assertions for the pending banner and footer:
+
+```ts
+expect(homeSource).toContain('<Button asChild size="sm" variant="outline">');
+expect(homeSource).toContain("Join WhatsApp");
+expect(footerSource).toContain('<Button asChild size="sm" variant="outline">');
+expect(footerSource).toContain("Join WhatsApp");
+expect(footerSource).not.toContain("Grup WhatsApp UMKM");
+```
+
+- [ ] **Step 2: Run tests and verify RED**
 
 Run: `bunx vitest run --project unit src/components/community/WhatsAppCommunityInvite.test.ts`
 
-Expected: FAIL because none of the owning surfaces references the invitation yet.
+Expected: FAIL because production still renders Indonesian text links in the pending banner and footer.
 
-- [ ] **Step 3: Implement approved placements**
+### Task 2: Implement contextual WhatsApp buttons
 
-In `_main.index.tsx`, render the homepage variant immediately after the hero only for signed-out visitors, before `CommunitySection`. In the existing pending banner, place a plain external link below the status button while retaining that status button as primary.
+**Files:**
+- Modify: `src/components/community/WhatsAppCommunityInvite.tsx`
+- Modify: `src/routes/_main.index.tsx`
+- Modify: `src/components/common/Footer.tsx`
 
-In `_main.waitlist.tsx`, render the waitlist variant inside `SuccessScreen` after the submission/email explanation and before `Lihat beranda`; restyle `Lihat beranda` as a quiet secondary text link.
+**Interfaces:**
+- Consumes: `Button` and `WHATSAPP_UMKM_GROUP_URL`.
 
-In `Footer.tsx`, add a plain external link labeled `Grup WhatsApp UMKM` alongside the existing navigation links.
+- [ ] **Step 1: Update the prominent shared CTA**
 
-- [ ] **Step 4: Run focused tests and static checks**
+Change only the shared visible action label:
+
+```tsx
+<Link href={WHATSAPP_UMKM_GROUP_URL} rel="noopener noreferrer" target="_blank">
+  Join WhatsApp
+</Link>
+```
+
+Preserve the existing outline homepage and solid waitlist classes.
+
+- [ ] **Step 2: Replace the pending text link**
+
+Wrap the existing external link in the compact outline button:
+
+```tsx
+<Button asChild size="sm" variant="outline">
+  <Link
+    className="border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
+    href={WHATSAPP_UMKM_GROUP_URL}
+    rel="noopener noreferrer"
+    target="_blank"
+  >
+    Join WhatsApp
+  </Link>
+</Button>
+```
+
+Keep the status button before this action so it remains primary.
+
+- [ ] **Step 3: Replace the footer text link**
+
+Import `Button` and wrap the external footer link:
+
+```tsx
+<Button asChild size="sm" variant="outline">
+  <Link
+    className="border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
+    href={WHATSAPP_UMKM_GROUP_URL}
+    rel="noopener noreferrer"
+    target="_blank"
+  >
+    Join WhatsApp
+  </Link>
+</Button>
+```
+
+Legal and GitHub destinations remain plain links.
+
+- [ ] **Step 4: Run focused verification**
 
 Run:
 
 ```bash
 bunx vitest run --project unit src/components/community/WhatsAppCommunityInvite.test.ts
-bunx eslint src/components/community/WhatsAppCommunityInvite.tsx src/components/community/WhatsAppCommunityInvite.test.ts src/stories/WhatsAppCommunityInvite.stories.tsx src/routes/_main.index.tsx src/routes/_main.waitlist.tsx src/components/common/Footer.tsx --max-warnings=0
+bunx eslint src/components/community/WhatsAppCommunityInvite.tsx src/components/community/WhatsAppCommunityInvite.test.ts src/routes/_main.index.tsx src/components/common/Footer.tsx --max-warnings=0
 bunx tsc --noEmit --incremental --tsBuildInfoFile .tsbuildinfo
 ```
 
 Expected: all commands exit 0.
 
-### Task 3: Verify and commit the atomic feature
+### Task 3: Verify and commit the revision
 
 **Files:**
-- All files listed above.
+- Modify: `src/components/community/WhatsAppCommunityInvite.test.ts`
+- Modify: `src/components/community/WhatsAppCommunityInvite.tsx`
+- Modify: `src/routes/_main.index.tsx`
+- Modify: `src/components/common/Footer.tsx`
 
-- [ ] **Step 1: Review requirements and diff**
+- [ ] **Step 1: Review the diff**
 
-Run:
+Run: `git diff --check && git diff --stat && git diff`
 
-```bash
-git diff --check
-git diff --stat
-git diff
-```
+Confirm exactly four production placements use `Join WhatsApp`, every placement is a button, hierarchy variants match the spec, and no unrelated file changed.
 
-Confirm every approved placement exists, no prohibited navigation/floating treatment was added, all external links are safe, and no unrelated file changed.
-
-- [ ] **Step 2: Run the repository quality gate**
+- [ ] **Step 2: Run the full quality gate**
 
 Run: `bun run check`
 
-Expected: lock guard, formatting, lint, typecheck, affected tests, Knip, and docs checks all exit 0.
+Expected: format, lint, typecheck, affected tests, Knip, and docs checks all exit 0.
 
-- [ ] **Step 3: Stage only the feature and commit**
+- [ ] **Step 3: Commit only the revision**
 
 Run:
 
 ```bash
-git add src/components/community/WhatsAppCommunityInvite.tsx src/components/community/WhatsAppCommunityInvite.test.ts src/stories/WhatsAppCommunityInvite.stories.tsx src/routes/_main.index.tsx src/routes/_main.waitlist.tsx src/components/common/Footer.tsx
+git add src/components/community/WhatsAppCommunityInvite.test.ts src/components/community/WhatsAppCommunityInvite.tsx src/routes/_main.index.tsx src/components/common/Footer.tsx
 git diff --cached --check
-git commit -m "feat(community): add WhatsApp discussion entry points"
+git commit -m "fix(community): make WhatsApp entry points buttons"
 ```
 
-Expected: one atomic feature commit containing only the UI, tests, and story.
+Expected: one local atomic code commit with four modified files.
 
-- [ ] **Step 4: Inspect final repository state**
+- [ ] **Step 4: Inspect final state**
 
-Run: `git status --short --branch && git log -3 --oneline`
+Run: `git status --short --branch --untracked-files=all && git log -5 --oneline`
 
-Expected: clean `dev` working tree, ahead of `origin/dev` by the local design, plan, and feature commits.
+Expected: no uncommitted files from this revision; `dev` remains local and ahead of `origin/dev`.
