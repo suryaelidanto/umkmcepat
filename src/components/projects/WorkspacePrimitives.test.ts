@@ -7,6 +7,7 @@ import {
   MobileMenuContent,
   PreviewIssueState,
   ProcessingControl,
+  WorkspaceCardView,
   WorkspaceTopBar,
 } from "./WorkspacePrimitives";
 
@@ -106,6 +107,26 @@ describe("ProcessingControl copy", () => {
 
     expect(markup).toContain("AI sedang memproses...");
     expect(markup).not.toContain("Menulis file");
+  });
+});
+
+describe("WorkspaceCardView action copy", () => {
+  it("invites the owner to make the website", () => {
+    const markup = renderToStaticMarkup(
+      createElement(WorkspaceCardView, {
+        card: {
+          type: "build_recommendation",
+          engine: "legacy-v1",
+          title: "Siap dibuat",
+          summary: ["Halaman utama"],
+        },
+        onBuild: vi.fn(),
+        onDiscuss: vi.fn(),
+      }),
+    );
+
+    expect(markup).toContain("Mulai buat website");
+    expect(markup).not.toContain("Mulai build");
   });
 });
 

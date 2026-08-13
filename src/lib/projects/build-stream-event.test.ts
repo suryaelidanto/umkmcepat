@@ -86,7 +86,7 @@ describe("reduceBuildStreamEvent", () => {
     });
   });
 
-  it("turns terminal errors into an Indonesian retryable step", () => {
+  it("turns terminal errors into a friendly retryable step", () => {
     const result = reduceBuildStreamEvent({
       type: "error",
       detail: "Server restart terputus. Coba jalankan build lagi.",
@@ -96,13 +96,15 @@ describe("reduceBuildStreamEvent", () => {
     if (result.kind !== "error") {
       throw new Error("expected error");
     }
-    expect(result.update([])[0]).toMatchObject({
-      label: "Build belum selesai",
+    const step = result.update([])[0];
+    expect(step).toMatchObject({
+      label: "Website belum selesai",
       status: "error",
     });
+    expect(step.detail).not.toMatch(/build/i);
   });
 
-  it("turns tool operation events into transparent progress rows", () => {
+  it("turns tool operation events into friendly progress rows", () => {
     const result = reduceBuildStreamEvent({
       type: "operation",
       title: "Menulis file",
@@ -115,11 +117,13 @@ describe("reduceBuildStreamEvent", () => {
     if (result.kind !== "progress") {
       throw new Error("expected progress");
     }
-    expect(result.update([])[0]).toMatchObject({
+    const step = result.update([])[0];
+    expect(step).toMatchObject({
       label: "Menulis file",
       detail: expect.stringContaining("src/routes/index.tsx"),
       status: "done",
     });
+    expect(step.detail).not.toMatch(/writer|agent|worker|batched|compile/i);
   });
 
   it("keeps expandable file diffs on write/replace operations", () => {

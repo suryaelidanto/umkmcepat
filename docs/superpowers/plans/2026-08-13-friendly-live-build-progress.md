@@ -35,11 +35,11 @@
 - Modify `src/lib/projects/build-stream-event.test.ts`: assert friendly reducer output and unchanged diff/path preservation.
 - Modify `src/lib/projects/build-progress-steps.test.ts`: preserve existing repeated-row, duration, hydration, and deduplication behavior tests; add completed-count fixture coverage if needed.
 - Modify `src/components/projects/WorkspaceBuildProgress.tsx`: replace generic fallback/header copy, display a truthful completed-row count, and preserve current active timer/expand behavior.
-- Create `src/components/projects/WorkspaceBuildProgress.test.tsx`: test fallback, active copy, count, and terminal copy using server-rendered markup.
+- Create `src/components/projects/WorkspaceBuildProgress.test.ts`: test fallback, active copy, count, and terminal copy using server-rendered markup.
 - Modify `src/components/projects/WorkspacePrimitives.tsx`: update build start/retry/progress copy while preserving controls and existing props.
 - Modify `src/components/projects/WorkspacePrimitives.test.tsx`: assert friendly processing copy and existing current-step/path behavior.
 - Modify `src/components/projects/BuildNotices.tsx`: update held recommendation, retry/recovery, completion, and action-button copy.
-- Create `src/components/projects/BuildNotices.test.tsx`: assert consumer copy and unchanged action labels/handlers.
+- Create `src/components/projects/BuildNotices.test.ts`: assert consumer copy and unchanged action labels/handlers.
 - Modify `src/components/projects/WorkspaceShell.tsx`: update start/retry/error/status strings and current-step fallback only; do not alter build state, stream handling, idempotency, or proof gates.
 - Modify `src/lib/projects/batched-edit.test.ts`: keep internal `writer`/`phase` assertions technical, but add consumer event-copy assertions if the edit event sink is exposed there.
 
@@ -48,8 +48,8 @@
 ### Task 1: Lock the real-progress and copy contracts with failing tests
 
 **Files:**
-- Create: `src/components/projects/WorkspaceBuildProgress.test.tsx`
-- Create: `src/components/projects/BuildNotices.test.tsx`
+- Create: `src/components/projects/WorkspaceBuildProgress.test.ts`
+- Create: `src/components/projects/BuildNotices.test.ts`
 - Modify: `src/lib/projects/build-stream-event.test.ts`
 - Modify: `src/lib/projects/build-progress-steps.test.ts`
 - Modify: `src/components/projects/WorkspacePrimitives.test.tsx`
@@ -107,9 +107,9 @@ Run:
 bunx vitest run \
   src/lib/projects/build-stream-event.test.ts \
   src/lib/projects/build-progress-steps.test.ts \
-  src/components/projects/WorkspaceBuildProgress.test.tsx \
+  src/components/projects/WorkspaceBuildProgress.test.ts \
   src/components/projects/WorkspacePrimitives.test.tsx \
-  src/components/projects/BuildNotices.test.tsx
+  src/components/projects/BuildNotices.test.ts
 ```
 
 Expected: the new copy assertions fail against the current technical/generic strings; existing progress-preservation tests pass.
@@ -120,9 +120,9 @@ Expected: the new copy assertions fail against the current technical/generic str
 git add \
   src/lib/projects/build-stream-event.test.ts \
   src/lib/projects/build-progress-steps.test.ts \
-  src/components/projects/WorkspaceBuildProgress.test.tsx \
+  src/components/projects/WorkspaceBuildProgress.test.ts \
   src/components/projects/WorkspacePrimitives.test.tsx \
-  src/components/projects/BuildNotices.test.tsx
+  src/components/projects/BuildNotices.test.ts
 git commit -m "test(progress): define friendly live build feedback"
 ```
 
@@ -215,7 +215,7 @@ git commit -m "fix(progress): describe real website work to owners"
 
 **Files:**
 - Modify: `src/components/projects/WorkspaceBuildProgress.tsx`
-- Create or modify: `src/components/projects/WorkspaceBuildProgress.test.tsx`
+- Create or modify: `src/components/projects/WorkspaceBuildProgress.test.ts`
 - Modify: `src/components/projects/WorkspacePrimitives.tsx`
 - Modify: `src/components/projects/WorkspacePrimitives.test.tsx`
 - Modify: `src/lib/projects/build-progress-steps.test.ts` if the count helper is extracted
@@ -269,7 +269,7 @@ Run:
 
 ```bash
 bunx vitest run \
-  src/components/projects/WorkspaceBuildProgress.test.tsx \
+  src/components/projects/WorkspaceBuildProgress.test.ts \
   src/components/projects/WorkspacePrimitives.test.tsx \
   src/lib/projects/build-progress-steps.test.ts
 ```
@@ -281,7 +281,7 @@ Expected: all rows, durations, active state, count, fallback, and controls pass.
 ```bash
 git add \
   src/components/projects/WorkspaceBuildProgress.tsx \
-  src/components/projects/WorkspaceBuildProgress.test.tsx \
+  src/components/projects/WorkspaceBuildProgress.test.ts \
   src/components/projects/WorkspacePrimitives.tsx \
   src/components/projects/WorkspacePrimitives.test.tsx \
   src/lib/projects/build-progress-steps.test.ts
@@ -294,7 +294,7 @@ git commit -m "feat(progress): show truthful build momentum"
 
 **Files:**
 - Modify: `src/components/projects/BuildNotices.tsx`
-- Create: `src/components/projects/BuildNotices.test.tsx`
+- Create: `src/components/projects/BuildNotices.test.ts`
 - Modify: `src/components/projects/WorkspacePrimitives.tsx`
 - Modify: `src/components/projects/WorkspacePrimitives.test.tsx`
 - Modify: `src/components/projects/WorkspaceShell.tsx`
@@ -329,7 +329,7 @@ Run:
 
 ```bash
 bunx vitest run \
-  src/components/projects/BuildNotices.test.tsx \
+  src/components/projects/BuildNotices.test.ts \
   src/components/projects/WorkspacePrimitives.test.tsx \
   src/components/projects/WorkspaceShell.test.tsx
 ```
@@ -341,7 +341,7 @@ Expected: copy assertions and existing build-card/proof behavior pass together.
 ```bash
 git add \
   src/components/projects/BuildNotices.tsx \
-  src/components/projects/BuildNotices.test.tsx \
+  src/components/projects/BuildNotices.test.ts \
   src/components/projects/WorkspacePrimitives.tsx \
   src/components/projects/WorkspacePrimitives.test.tsx \
   src/components/projects/WorkspaceShell.tsx \
@@ -386,9 +386,9 @@ bunx vitest run \
   src/lib/projects/batched-generator.test.ts \
   src/lib/projects/batched-edit.test.ts \
   src/lib/projects/batched-generator.truncated-retry.test.ts \
-  src/components/projects/WorkspaceBuildProgress.test.tsx \
+  src/components/projects/WorkspaceBuildProgress.test.ts \
   src/components/projects/WorkspacePrimitives.test.tsx \
-  src/components/projects/BuildNotices.test.tsx \
+  src/components/projects/BuildNotices.test.ts \
   src/components/projects/WorkspaceShell.test.tsx
 ```
 
@@ -399,11 +399,11 @@ Expected: all tests pass with no changes to actual file/diff/retry behavior.
 ```bash
 bunx prettier --check \
   src/components/projects/WorkspaceBuildProgress.tsx \
-  src/components/projects/WorkspaceBuildProgress.test.tsx \
+  src/components/projects/WorkspaceBuildProgress.test.ts \
   src/components/projects/WorkspacePrimitives.tsx \
   src/components/projects/WorkspacePrimitives.test.tsx \
   src/components/projects/BuildNotices.tsx \
-  src/components/projects/BuildNotices.test.tsx \
+  src/components/projects/BuildNotices.test.ts \
   src/components/projects/WorkspaceShell.tsx \
   src/lib/projects/build-stream-event.ts \
   src/lib/projects/build-stream-event.test.ts \
@@ -413,11 +413,11 @@ bunx prettier --check \
   src/lib/projects/project-job.ts
 bunx eslint \
   src/components/projects/WorkspaceBuildProgress.tsx \
-  src/components/projects/WorkspaceBuildProgress.test.tsx \
+  src/components/projects/WorkspaceBuildProgress.test.ts \
   src/components/projects/WorkspacePrimitives.tsx \
   src/components/projects/WorkspacePrimitives.test.tsx \
   src/components/projects/BuildNotices.tsx \
-  src/components/projects/BuildNotices.test.tsx \
+  src/components/projects/BuildNotices.test.ts \
   src/components/projects/WorkspaceShell.tsx \
   src/lib/projects/build-stream-event.ts \
   src/lib/projects/build-stream-event.test.ts \
