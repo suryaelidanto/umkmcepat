@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-13
 
-**Status:** Approved direction, pending written-spec review
+**Status:** Approved, revised after UI review
 
 ## Goal
 
@@ -26,7 +26,7 @@ Add one compact section directly after the hero and before the existing open-sou
 
 - Heading: `Tempat ngobrol untuk pelaku UMKM`
 - Body: `Tanya soal usaha, website, atau pemasaran digital. Berbagi pengalaman santai bersama pelaku UMKM lainnya.`
-- Action: secondary outline button labeled `Gabung Grup WhatsApp`
+- Action: secondary outline button labeled `Join WhatsApp`
 - Privacy note: `Nomor WhatsApp kamu dapat terlihat oleh anggota grup.`
 
 The button must remain visually secondary to the homepage's website-building action.
@@ -37,7 +37,7 @@ Make joining the group the most useful next action after a user submits the wait
 
 - Heading: `Sambil menunggu, gabung obrolannya`
 - Body: `Kamu bisa bertanya dan kenalan dengan pelaku UMKM lainnya.`
-- Primary action: `Gabung Grup WhatsApp`
+- Primary action: solid white button labeled `Join WhatsApp`
 - Secondary action: `Lihat beranda`
 - Privacy note: `Nomor WhatsApp kamu dapat terlihat oleh anggota grup.`
 
@@ -45,15 +45,11 @@ The existing waitlist submission confirmation and email-review explanation remai
 
 ### Pending homepage banner
 
-Keep `Cek status antrean` as the primary action. Add one quiet text link below it:
-
-`Sambil menunggu, gabung grup diskusi UMKM →`
-
-Do not add a second button.
+Keep `Cek status antrean` as the primary action. Add a compact outline button labeled `Join WhatsApp` beside or below it. The WhatsApp action must read as a button without matching the visual weight of the status action.
 
 ### Footer
 
-Add a permanent plain link labeled `Grup WhatsApp UMKM` alongside the existing legal and GitHub links.
+Add a permanent compact outline button labeled `Join WhatsApp` alongside the existing legal and GitHub links. The legal and GitHub destinations remain plain links.
 
 ### Main navigation
 
@@ -61,7 +57,7 @@ Do not add WhatsApp to the desktop header or mobile primary navigation. A persis
 
 ## Interaction
 
-All WhatsApp actions open the external invite in a new browser tab and use safe external-link attributes. Buttons and links use UMKM Cepat's existing neutral component vocabulary; a small WhatsApp icon is optional only if an existing compatible icon is already available.
+All WhatsApp actions use the exact visible label `Join WhatsApp`, render as buttons, open the external invite in a new browser tab, and use safe external-link attributes. This user-requested English CTA is an explicit exception to the product's Indonesian-copy default. Use UMKM Cepat's existing neutral component vocabulary: solid white only on waitlist success, regular outline on the homepage, and compact outline in the pending banner and footer. Do not add an icon or dependency.
 
 The direct invite remains explicit in one small shared constant or component boundary so a future WhatsApp Community migration does not require hunting through multiple pages. Do not add a redirect route, database setting, dependency, or admin configuration for this single destination.
 
@@ -75,11 +71,11 @@ The direct invite remains explicit in one small shared constant or component bou
 
 ## Reusable UI
 
-Use one small reusable WhatsApp invitation component only for the two prominent invitation surfaces if it prevents duplicated destination, labels, and privacy copy without forcing the banner or footer into the same layout. Add Storybook coverage if this becomes a reusable visual component. The pending banner and footer remain native to their existing layouts.
+Use one small reusable WhatsApp invitation component for the two prominent invitation surfaces and export the shared destination for the native pending-banner and footer layouts. All four surfaces use the existing `Button` primitive with links as children. Storybook covers the homepage outline and waitlist solid variants.
 
 ## Verification
 
-- Component tests verify the invite URL, external-link behavior, labels, and privacy note.
+- Component tests verify the invite URL, external-link behavior, exact `Join WhatsApp` label, button treatment at all four placements, and privacy note.
 - Existing waitlist behavior tests remain green.
 - Storybook covers the reusable invitation's homepage-secondary and waitlist-primary presentations if introduced.
 - Manually inspect mobile and desktop hierarchy to confirm the WhatsApp action does not compete with the main homepage CTA.
