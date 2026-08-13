@@ -3,8 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { signOut } from "./auth-client";
 import {
+  ADMIN_SUMMARY_POLL_MS,
+  ADMIN_WAITLIST_POLL_MS,
   applyPatches,
   fetchJson,
+  invalidateAdminWaitlistData,
+  queryKeys,
   restoreSnapshots,
   waitlistPendingPollInterval,
   WAITLIST_PENDING_POLL_MS,
@@ -43,6 +47,41 @@ describe("waitlistPendingPollInterval", () => {
         own: { status: "waitlisted" },
       }),
     ).toBe(WAITLIST_PENDING_POLL_MS);
+  });
+});
+
+describe("waitlist query freshness", () => {
+  it("uses bounded user and admin polling intervals", () => {
+    expect(WAITLIST_PENDING_POLL_MS).toBe(15_000);
+    expect(ADMIN_WAITLIST_POLL_MS).toBe(15_000);
+    expect(ADMIN_SUMMARY_POLL_MS).toBe(30_000);
+  });
+
+  it("invalidates the active admin and user waitlist surfaces", async () => {
+    const client = new QueryClient();
+    const invalidate = vi
+      .spyOn(client, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    await invalidateAdminWaitlistData(client);
+
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: queryKeys.adminWaitlist,
+      refetchType: "active",
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: queryKeys.adminNavCounts,
+      refetchType: "active",
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: queryKeys.adminOverview,
+      refetchType: "active",
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: queryKeys.waitlistStatus,
+      refetchType: "active",
+    });
+    expect(invalidate).toHaveBeenCalledTimes(4);
   });
 });
 

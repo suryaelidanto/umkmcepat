@@ -23,6 +23,8 @@ export const queryKeys = {
   projectChat: (projectId: string) => ["projects", projectId, "chat"] as const,
   waitlistStatus: ["waitlist-status"] as const,
   adminWaitlist: ["admin", "waitlist"] as const,
+  adminNavCounts: ["admin", "nav-counts"] as const,
+  adminOverview: ["admin", "overview"] as const,
   adminStreamerMode: ["admin", "streamer-mode"] as const,
   boosterPacks: ["booster-packs"] as const,
 };
@@ -35,16 +37,23 @@ export const GATE_QUERY_OPTIONS = {
   retry: 1,
 } as const;
 
-export const WAITLIST_PENDING_POLL_MS = 30_000;
+export const WAITLIST_PENDING_POLL_MS = 15_000;
+export const ADMIN_WAITLIST_POLL_MS = 15_000;
+export const ADMIN_SUMMARY_POLL_MS = 30_000;
+
+export type WaitlistOwnStatus = {
+  businessName: string;
+  businessType: string | null;
+  id: string;
+  rejectionReason: string | null;
+  status: string;
+  story: string;
+};
 
 export type WaitlistStatusResponse = {
   canUseDevTools?: boolean;
   status: string | null;
-  own?: {
-    businessName?: string;
-    id?: string;
-    status?: string;
-  } | null;
+  own?: WaitlistOwnStatus | null;
 };
 
 /** Poll while user is verified-but-not-approved and has a pending entry. */
@@ -70,11 +79,30 @@ export function fetchWaitlistStatus() {
 export async function invalidateWaitlistStatus(
   queryClient: QueryClient,
 ): Promise<void> {
-  await queryClient.invalidateQueries({ queryKey: queryKeys.waitlistStatus });
-  // Legacy own-only key used on /waitlist form prefill.
   await queryClient.invalidateQueries({
-    queryKey: ["user", "waitlist", "own"],
+    queryKey: queryKeys.waitlistStatus,
+    refetchType: "active",
   });
+}
+
+export async function invalidateAdminWaitlistData(
+  queryClient: QueryClient,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.adminWaitlist,
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.adminNavCounts,
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.adminOverview,
+      refetchType: "active",
+    }),
+    invalidateWaitlistStatus(queryClient),
+  ]);
 }
 
 export function createAppQueryClient() {
