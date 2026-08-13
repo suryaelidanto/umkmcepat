@@ -1,6 +1,6 @@
 # Friendly Live Build Progress Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make generation and edit/rebuild feel like a satisfying live workshop by exposing real stage and per-file progress in friendly Indonesian without simulating activity.
 
@@ -58,7 +58,7 @@
 - Consumes the existing `BuildProgressStep`, `reduceBuildStreamEvent`, `appendBuildProgressStep`, `BuildProgressPanel`, `ProcessingControl`, `HeldBuildRecommendationNotice`, and `CompletedBuildNotice` APIs.
 - Produces executable acceptance tests for friendly copy and unchanged real-progress behavior. No production interface changes are introduced in this task.
 
-- [ ] **Step 1: Add a failing reducer-copy test.** Extend `src/lib/projects/build-stream-event.test.ts` with a consumer-facing operation case:
+- [x] **Step 1: Add a failing reducer-copy test.** Extend `src/lib/projects/build-stream-event.test.ts` with a consumer-facing operation case:
 
 ```ts
 it("uses friendly file-operation copy while preserving the real path and diff", () => {
@@ -83,13 +83,13 @@ it("uses friendly file-operation copy while preserving the real path and diff", 
 });
 ```
 
-- [ ] **Step 2: Add a failing terminal-copy test.** Assert the error result uses `Website belum selesai` or the approved equivalent and does not contain `build` in its user-facing sentence. Keep the retry meaning intact.
+- [x] **Step 2: Add a failing terminal-copy test.** Assert the error result uses `Website belum selesai` or the approved equivalent and does not contain `build` in its user-facing sentence. Keep the retry meaning intact.
 
-- [ ] **Step 3: Add a failing progress-panel test.** Render `BuildProgressPanel` with three done steps and one active step using `renderToStaticMarkup`. Assert it contains `3 bagian sudah selesai`, `Website sedang dibuat`, and the active step label.
+- [x] **Step 3: Add a failing progress-panel test.** Render `BuildProgressPanel` with three done steps and one active step using `renderToStaticMarkup`. Assert it contains `3 bagian sudah selesai`, `Website sedang dibuat`, and the active step label.
 
-- [ ] **Step 4: Add a failing fallback test.** Render the panel with no steps and `isBuilding=true`. Assert it contains `Menyiapkan website` and does not contain `Memulai build` or technical vocabulary.
+- [x] **Step 4: Add a failing fallback test.** Render the panel with no steps and `isBuilding=true`. Assert it contains `Menyiapkan website` and does not contain `Memulai build` or technical vocabulary.
 
-- [ ] **Step 5: Add a failing notice/control copy test.** Assert:
+- [x] **Step 5: Add a failing notice/control copy test.** Assert:
 
 ```ts
 expect(markup).toContain("Mulai buat website");
@@ -99,7 +99,7 @@ expect(markup).not.toContain("Mulai build");
 
 Keep tests that assert actual current-step labels and file paths, because those prove real operation evidence remains visible.
 
-- [ ] **Step 6: Run the focused tests to verify RED.**
+- [x] **Step 6: Run the focused tests to verify RED.**
 
 Run:
 
@@ -114,7 +114,7 @@ bunx vitest run \
 
 Expected: the new copy assertions fail against the current technical/generic strings; existing progress-preservation tests pass.
 
-- [ ] **Step 7: Commit the red tests only.**
+- [x] **Step 7: Commit the red tests only.**
 
 ```bash
 git add \
@@ -143,7 +143,7 @@ git commit -m "test(progress): define friendly live build feedback"
 - Consumes existing `send("progress", ...)`, `onEvent("operation", ...)`, `publishBuildProgress`, and persisted project-job step objects.
 - Produces the same `BuildStreamEvent` shape and same operation identity/path/diff payloads with friendlier `label` and `detail` strings.
 
-- [ ] **Step 1: Update initial generation phase copy at real boundaries.** Use this vocabulary in `build-attempt-worker.ts` and `project-job.ts` where the corresponding stage already exists:
+- [x] **Step 1: Update initial generation phase copy at real boundaries.** Use this vocabulary in `build-attempt-worker.ts` and `project-job.ts` where the corresponding stage already exists:
 
 | Existing purpose | Consumer-facing copy |
 |---|---|
@@ -158,7 +158,7 @@ git commit -m "test(progress): define friendly live build feedback"
 
 Do not change internal status values such as `building`, `repairing`, `writer`, or `compile_error`.
 
-- [ ] **Step 2: Update the per-file operation detail in generation and edit paths.** Replace strings such as `File ditulis writer batched.` with `Bagian website selesai ditulis.`. Preserve:
+- [x] **Step 2: Update the per-file operation detail in generation and edit paths.** Replace strings such as `File ditulis writer batched.` with `Bagian website selesai ditulis.`. Preserve:
 
 ```ts
 args.onEvent?.("operation", {
@@ -172,15 +172,15 @@ args.onEvent?.("operation", {
 
 The path and diff remain unchanged.
 
-- [ ] **Step 3: Update edit/rebuild operation copy.** Replace `AI menerapkan revisi ke source website.` and `File ditulis writer batched.` with outcome-oriented Indonesian. Keep edit phases, durable operation rows, staged-file persistence, and failure behavior unchanged.
+- [x] **Step 3: Update edit/rebuild operation copy.** Replace `AI menerapkan revisi ke source website.` and `File ditulis writer batched.` with outcome-oriented Indonesian. Keep edit phases, durable operation rows, staged-file persistence, and failure behavior unchanged.
 
-- [ ] **Step 4: Update fallback/hydration copy.** Replace `Worker memvalidasi dan mengompilasi file website.`, `AI menulis source`, `Source disimpan`, and similar consumer-facing fallback strings in `project-job.ts`. Keep fallback steps derived from actual persisted state; do not insert additional synthetic rows.
+- [x] **Step 4: Update fallback/hydration copy.** Replace `Worker memvalidasi dan mengompilasi file website.`, `AI menulis source`, `Source disimpan`, and similar consumer-facing fallback strings in `project-job.ts`. Keep fallback steps derived from actual persisted state; do not insert additional synthetic rows.
 
-- [ ] **Step 5: Update reducer fallbacks.** In `build-stream-event.ts`, preserve `event.path`, `event.diff`, `durationMs`, `seq`, and statuses. Change only fallback labels/details and error copy to the approved friendly vocabulary.
+- [x] **Step 5: Update reducer fallbacks.** In `build-stream-event.ts`, preserve `event.path`, `event.diff`, `durationMs`, `seq`, and statuses. Change only fallback labels/details and error copy to the approved friendly vocabulary.
 
-- [ ] **Step 6: Add parity assertions.** Verify both generation and edit operation events produce the same friendly detail and retain the same path/diff. Keep internal test assertions such as `phase === "writer"` because they are not consumer-facing.
+- [x] **Step 6: Add parity assertions.** Verify both generation and edit operation events produce the same friendly detail and retain the same path/diff. Keep internal test assertions such as `phase === "writer"` because they are not consumer-facing.
 
-- [ ] **Step 7: Run focused tests to verify GREEN.**
+- [x] **Step 7: Run focused tests to verify GREEN.**
 
 Run:
 
@@ -195,7 +195,7 @@ bunx vitest run \
 
 Expected: all focused tests pass, including per-file event and repair behavior.
 
-- [ ] **Step 8: Commit the producer/reducer copy change.**
+- [x] **Step 8: Commit the producer/reducer copy change.**
 
 ```bash
 git add \
@@ -224,7 +224,7 @@ git commit -m "fix(progress): describe real website work to owners"
 - Consumes the existing `steps: BuildProgressStep[]`, `isBuilding`, `elapsedFrom`, and `currentStep` props.
 - Produces the same components and event interactions, plus a derived completed-row count rendered only from actual `status === "done"` rows.
 
-- [ ] **Step 1: Add the completed-count assertion before implementation.** The panel test must pass steps such as:
+- [x] **Step 1: Add the completed-count assertion before implementation.** The panel test must pass steps such as:
 
 ```ts
 const steps = [
@@ -237,7 +237,7 @@ const steps = [
 
 Assert the panel says `3 bagian sudah selesai` and never renders a percentage or estimated remaining time.
 
-- [ ] **Step 2: Implement the derived count.** Compute:
+- [x] **Step 2: Implement the derived count.** Compute:
 
 ```ts
 const completedStepCount = steps.filter(
@@ -247,7 +247,7 @@ const completedStepCount = steps.filter(
 
 Render the count only while running and only when it is greater than zero. Do not count the fallback row because it is not a completed operation.
 
-- [ ] **Step 3: Replace the empty-state fallback.** Use:
+- [x] **Step 3: Replace the empty-state fallback.** Use:
 
 ```ts
 {
@@ -259,11 +259,11 @@ Render the count only while running and only when it is greater than zero. Do no
 
 Keep the active pulse and 100ms timer behavior unchanged.
 
-- [ ] **Step 4: Update panel header copy.** Use `Website sedang dibuat` while active, `Riwayat pembuatan terakhir` while inactive, and `Website siap dilihat` for the successful terminal context where the existing component receives that state. Keep elapsed time and existing layout.
+- [x] **Step 4: Update panel header copy.** Use `Website sedang dibuat` while active, `Riwayat pembuatan terakhir` while inactive, and `Website siap dilihat` for the successful terminal context where the existing component receives that state. Keep elapsed time and existing layout.
 
-- [ ] **Step 5: Update `ProcessingControl` copy.** Use `Membuat website` or the newest real step label during generation, and a plain detail such as `Website sedang disiapkan.` when no real step exists. Preserve `Hentikan`, the `Diskusi` behavior, and the newest path/detail when available.
+- [x] **Step 5: Update `ProcessingControl` copy.** Use `Membuat website` or the newest real step label during generation, and a plain detail such as `Website sedang disiapkan.` when no real step exists. Preserve `Hentikan`, the `Diskusi` behavior, and the newest path/detail when available.
 
-- [ ] **Step 6: Run component and progress tests.**
+- [x] **Step 6: Run component and progress tests.**
 
 Run:
 
@@ -276,7 +276,7 @@ bunx vitest run \
 
 Expected: all rows, durations, active state, count, fallback, and controls pass.
 
-- [ ] **Step 7: Commit the live-panel change.**
+- [x] **Step 7: Commit the live-panel change.**
 
 ```bash
 git add \
@@ -304,7 +304,7 @@ git commit -m "feat(progress): show truthful build momentum"
 - Consumes existing callbacks and state props; no callback, route, API, or proof-gate changes.
 - Produces friendlier Indonesian actions and states while preserving the same click handlers and disabled behavior.
 
-- [ ] **Step 1: Add exact copy assertions.** Cover these minimum strings:
+- [x] **Step 1: Add exact copy assertions.** Cover these minimum strings:
 
 | Surface | Expected copy |
 |---|---|
@@ -317,13 +317,13 @@ git commit -m "feat(progress): show truthful build momentum"
 
 Also assert the existing `Buka rancangan`, `Lihat website`, `Chat dengan AI`, and stop/retry callbacks remain rendered.
 
-- [ ] **Step 2: Update `BuildNotices.tsx`.** Replace user-facing `build` phrases with the approved outcome language. Do not rename component/function identifiers or internal props.
+- [x] **Step 2: Update `BuildNotices.tsx`.** Replace user-facing `build` phrases with the approved outcome language. Do not rename component/function identifiers or internal props.
 
-- [ ] **Step 3: Update `WorkspacePrimitives.tsx`.** Replace the recommendation button and any visible completion phrase near the progress panel. Keep exact layout, button sizes, and handlers.
+- [x] **Step 3: Update `WorkspacePrimitives.tsx`.** Replace the recommendation button and any visible completion phrase near the progress panel. Keep exact layout, button sizes, and handlers.
 
-- [ ] **Step 4: Update `WorkspaceShell.tsx`.** Change only visible fallback/error/status text such as `Build belum mulai`, `Build dihentikan`, `Koneksi build terputus`, and retry instructions. Do not modify state transitions, stream subscriptions, handoff validation, idempotency keys, or local-storage signatures.
+- [x] **Step 4: Update `WorkspaceShell.tsx`.** Change only visible fallback/error/status text such as `Build belum mulai`, `Build dihentikan`, `Koneksi build terputus`, and retry instructions. Do not modify state transitions, stream subscriptions, handoff validation, idempotency keys, or local-storage signatures.
 
-- [ ] **Step 5: Run component/shell tests.**
+- [x] **Step 5: Run component/shell tests.**
 
 Run:
 
@@ -336,7 +336,7 @@ bunx vitest run \
 
 Expected: copy assertions and existing build-card/proof behavior pass together.
 
-- [ ] **Step 6: Commit the user-action copy change.**
+- [x] **Step 6: Commit the user-action copy change.**
 
 ```bash
 git add \
@@ -360,7 +360,7 @@ git commit -m "fix(progress): make build actions friendlier"
 **Interfaces:**
 - No new production interface. This task verifies that technical vocabulary remains internal and that generation/edit/rebuild copy is consistent.
 
-- [ ] **Step 1: Audit only consumer-facing surfaces.** Run:
+- [x] **Step 1: Audit only consumer-facing surfaces.** Run:
 
 ```bash
 rg -n -i "batch|batched|writer|agent|worker|compile|compilasi|source|mulai build|build ulang" \
@@ -377,7 +377,7 @@ rg -n -i "batch|batched|writer|agent|worker|compile|compilasi|source|mulai build
 
 Review each match manually. Internal identifiers/comments/test phase names may remain; consumer-visible strings must not.
 
-- [ ] **Step 2: Run the focused suite.**
+- [x] **Step 2: Run the focused suite.**
 
 ```bash
 bunx vitest run \
@@ -394,7 +394,7 @@ bunx vitest run \
 
 Expected: all tests pass with no changes to actual file/diff/retry behavior.
 
-- [ ] **Step 3: Run targeted formatting, lint, and typecheck.**
+- [x] **Step 3: Run targeted formatting, lint, and typecheck.**
 
 ```bash
 bunx prettier --check \
@@ -428,7 +428,7 @@ bunx eslint \
 bun run typecheck
 ```
 
-- [ ] **Step 4: Run the repository gate.**
+- [x] **Step 4: Run the repository gate.**
 
 ```bash
 bun run check
@@ -436,7 +436,7 @@ bun run check
 
 Expected: format, lint, typecheck, changed tests, Knip, and docs all pass.
 
-- [ ] **Step 5: Inspect the final local diff.**
+- [x] **Step 5: Inspect the final local diff.**
 
 ```bash
 git status --short --untracked-files=all
@@ -446,7 +446,7 @@ git log --oneline --decorate -8
 
 Confirm no screenshots, logs, secrets, generated artifacts, or unrelated peer-agent changes are included.
 
-- [ ] **Step 6: Commit any final focused correction separately.** If the audit finds a missed consumer-facing string, add a failing exact-string test, fix only that string, rerun the focused test and `bun run check`, then use:
+- [x] **Step 6: Commit any final focused correction separately.** If the audit finds a missed consumer-facing string, add a failing exact-string test, fix only that string, rerun the focused test and `bun run check`, then use:
 
 ```bash
 git add <only-corrected-files>
