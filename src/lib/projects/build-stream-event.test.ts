@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   createBuildStreamDeduper,
+  friendlyBuildProgressDetail,
+  friendlyBuildProgressLabel,
   reduceBuildStreamEvent,
 } from "./build-stream-event";
 
@@ -64,6 +66,17 @@ describe("createBuildStreamDeduper", () => {
         seq: 0,
       }),
     ).toBe(true);
+  });
+});
+
+describe("friendly progress copy", () => {
+  it("cleans technical labels and details from rehydrated events", () => {
+    expect(friendlyBuildProgressLabel("Build website")).toBe(
+      "Memeriksa website",
+    );
+    expect(
+      friendlyBuildProgressDetail("Build sedang berjalan di server."),
+    ).toBe("Website sedang diperiksa.");
   });
 });
 

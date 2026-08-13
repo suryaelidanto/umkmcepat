@@ -188,6 +188,9 @@ export function friendlyBuildProgressLabel(label: string): string {
   if (/ai.*memperbaiki.*build/i.test(normalized)) {
     return "Merapikan tampilan";
   }
+  if (/\bbuild\b/i.test(normalized)) {
+    return "Memeriksa website";
+  }
   return normalized;
 }
 
@@ -197,14 +200,14 @@ export function friendlyBuildProgressDetail(
 ): string {
   const normalized = detail.trim();
   const technical =
-    /\b(writer|agent|worker|batched|compile|compilasi|source)\b/i.test(
+    /\b(build|writer|agent|worker|batched|compile|compilasi|source)\b/i.test(
       normalized,
     );
   if (!technical) {
     return normalized;
   }
   const prefix = path && normalized.startsWith(path) ? `${path} — ` : "";
-  const friendly = /\b(compile|compilasi)\b/i.test(normalized)
+  const friendly = /\b(build|compile|compilasi)\b/i.test(normalized)
     ? "Website sedang diperiksa."
     : /\bsource\b/i.test(normalized)
       ? "Bagian website tersimpan."
