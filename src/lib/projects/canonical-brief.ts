@@ -176,6 +176,234 @@ export function hashCanonicalBrief(brief: ProjectBriefV2): string {
     .digest("hex");
 }
 
+export function getPrimaryOfferName(brief: ProjectBriefV2): string | null {
+  const primary = brief.offers.find((offer) => offer.isPrimary);
+  return (primary ?? brief.offers[0])?.name ?? null;
+}
+
+export function getPrimaryActionLabel(brief: ProjectBriefV2): string | null {
+  return brief.primaryAction?.label ?? null;
+}
+
+export function applyAiBriefPatch(
+  brief: ProjectBriefV2,
+  patch: unknown,
+): ProjectBriefV2 {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    return brief;
+  }
+  const input = patch as Record<string, unknown>;
+  const hasKey = (key: string) =>
+    Object.prototype.hasOwnProperty.call(input, key);
+  // eslint-disable-next-line prefer-const -- mutated via field assignments below
+  let next: ProjectBriefV2 = {
+    ...brief,
+    business: { ...brief.business },
+    fieldState: { ...brief.fieldState },
+    content: {
+      ...brief.content,
+      usp: [...brief.content.usp],
+      hours: [...brief.content.hours],
+      testimonials: [...brief.content.testimonials],
+      certifications: [...brief.content.certifications],
+      paymentMethods: [...brief.content.paymentMethods],
+      socialLinks: [...brief.content.socialLinks],
+    },
+    assets: [...brief.assets],
+    provenance: {
+      facts: [...brief.provenance.facts],
+      decisions: [...brief.provenance.decisions],
+    },
+  };
+
+  if (hasKey("businessName")) {
+    const value = cleanText(input.businessName);
+    if (value) {
+      next.business.name = value;
+    }
+  }
+  if (hasKey("businessType")) {
+    const value = cleanText(input.businessType);
+    if (value) {
+      next.business.type = value;
+    }
+  }
+  if (hasKey("umkmType") || hasKey("business") || hasKey("category")) {
+    const raw =
+      input.umkmType ?? (asRecord(input.business)?.category as unknown);
+    if (raw !== undefined) {
+      const parsed = parseUmkmType(raw);
+      if (parsed) {
+        next.business.category = parsed;
+      }
+    }
+  }
+
+  const hasProductPatch = hasKey("productOrService");
+  const hasOfferPatch = hasKey("offer");
+  if (hasProductPatch) {
+    const offers = parseOffers(input.productOrService);
+    if (offers.length) {
+      next.offers = ensurePrimaryOffer(offers);
+    } else if (
+      Array.isArray(input.productOrService) &&
+      input.productOrService.length === 0
+    ) {
+      next.offers = [];
+    }
+  } else if (hasOfferPatch) {
+    const legacy = cleanOptionalText(input.offer);
+    if (legacy) {
+      next.offers = [{ name: legacy, isPrimary: true }];
+    }
+  }
+
+  if (hasKey("targetCustomer") || hasKey("audience")) {
+    const raw = input.targetCustomer ?? input.audience;
+    const value = cleanOptionalText(raw);
+    if (value && value.length >= 3) {
+      next.audience = value;
+    } else if (value === "") {
+      next.audience = null;
+    } else if (hasKey("targetCustomer") || hasKey("audience")) {
+      const { cleaned } = validateBrief({ targetCustomer: raw });
+      if (cleaned.targetCustomer) {
+        next.audience = cleaned.targetCustomer;
+      }
+    }
+  }
+
+  if (hasKey("contact") || hasKey("contactOrCta") || hasKey("primaryAction")) {
+    if (hasKey("contact")) {
+      const contact = parseContact(input.contact);
+      if (contact) {
+        next.primaryAction = {
+          kind: contact.channel as CanonicalPrimaryActionKind,
+          label: contact.label?.trim() || defaultContactLabel(contact.channel),
+          target: contact.value,
+        };
+      }
+    } else if (hasKey("contactOrCta")) {
+      const label = cleanOptionalText(input.contactOrCta);
+      if (label) {
+        next.primaryAction = { kind: "browse", label, target: null };
+      }
+    } else if (hasKey("primaryAction")) {
+      const action = parseCanonicalAction(input.primaryAction);
+      if (action) {
+        next.primaryAction = action;
+      }
+    }
+  }
+
+  if (hasKey("stylePreference") || hasKey("visualDirection")) {
+    const raw = input.visualDirection ?? input.stylePreference;
+    const value = cleanOptionalText(raw);
+    next.visualDirection = value;
+  }
+
+  if (hasKey("fieldState")) {
+    const parsed = parseFieldState(input.fieldState);
+    next.fieldState = { ...next.fieldState, ...parsed };
+  }
+
+  const contentKeys: Array<keyof ProjectBriefV2["content"]> = [
+    "tagline",
+    "priceRange",
+    "address",
+    "deliveryArea",
+    "since",
+    "currentPromo",
+  ];
+  for (const key of contentKeys) {
+    if (hasKey(key)) {
+      const value = cleanOptionalText(input[key]);
+      (next.content as Record<string, unknown>)[key] = value;
+    }
+  }
+  if (hasKey("usp")) {
+    if (Array.isArray(input.usp)) {
+      const usp = (input.usp as unknown[])
+        .map((value) => cleanText(value))
+        .filter((value) => value.length >= 3);
+      next.content.usp = usp;
+    }
+  }
+  if (hasKey("secondaryCta") || hasKey("secondaryAction")) {
+    const raw = input.secondaryAction ?? input.secondaryCta;
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const rec = raw as Record<string, unknown>;
+      const label = cleanText(rec.label);
+      const action = cleanText(rec.action);
+      if (label && action) {
+        next.content.secondaryAction = { label, action };
+      }
+    } else if (raw === null) {
+      next.content.secondaryAction = null;
+    }
+  }
+  if (hasKey("hours") && Array.isArray(input.hours)) {
+    const { cleaned } = validateBrief({ hours: input.hours });
+    next.content.hours = cleaned.hours ?? [];
+  }
+  if (hasKey("testimonials") && Array.isArray(input.testimonials)) {
+    const { cleaned } = validateBrief({ testimonials: input.testimonials });
+    next.content.testimonials = cleaned.testimonials ?? [];
+  }
+  if (hasKey("certifications") && Array.isArray(input.certifications)) {
+    const { cleaned } = validateBrief({ certifications: input.certifications });
+    next.content.certifications = cleaned.certifications ?? [];
+  }
+  if (hasKey("paymentMethods") && Array.isArray(input.paymentMethods)) {
+    const { cleaned } = validateBrief({ paymentMethods: input.paymentMethods });
+    next.content.paymentMethods = cleaned.paymentMethods ?? [];
+  }
+  if (hasKey("socialLinks") && Array.isArray(input.socialLinks)) {
+    const { cleaned } = validateBrief({ socialLinks: input.socialLinks });
+    next.content.socialLinks = cleaned.socialLinks ?? [];
+  }
+
+  if (hasKey("businessImages") || hasKey("assets")) {
+    const raw = input.assets ?? input.businessImages;
+    const parsed = parseAssets(raw);
+    if (parsed.length || Array.isArray(raw)) {
+      const merged = new Map(next.assets.map((asset) => [asset.id, asset]));
+      for (const asset of parsed) {
+        merged.set(asset.id, asset);
+      }
+      next.assets = [...merged.values()].slice(-12);
+    }
+  }
+  if (hasKey("facts") && Array.isArray(input.facts)) {
+    const facts = parseFacts(input.facts);
+    const byKey = new Map(
+      next.provenance.facts.map((fact) => [fact.key, fact]),
+    );
+    for (const fact of facts) {
+      byKey.set(fact.key, fact);
+    }
+    next.provenance.facts = [...byKey.values()].slice(-40);
+  }
+  if (hasKey("decisions") && Array.isArray(input.decisions)) {
+    const decisions = parseDecisions(input.decisions);
+    const byId = new Map(
+      next.provenance.decisions.map((decision) => [decision.id, decision]),
+    );
+    for (const decision of decisions) {
+      byId.set(decision.id, decision);
+    }
+    next.provenance.decisions = [...byId.values()].slice(-40);
+  }
+  if (hasKey("prompt")) {
+    const value = cleanText(input.prompt);
+    if (value) {
+      next.prompt = value;
+    }
+  }
+
+  return next;
+}
+
 function parseV2(
   source: Record<string, unknown>,
   prompt: string,
