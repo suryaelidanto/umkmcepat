@@ -27,7 +27,6 @@ Add one compact section directly after the existing `CommunitySection` FAQ block
 - Heading: `Tempat ngobrol untuk pelaku UMKM`
 - Body: `Tanya soal usaha, website, atau pemasaran digital. Berbagi pengalaman santai bersama pelaku UMKM lainnya.`
 - Action: secondary outline button labeled `Join WhatsApp`
-- Privacy note: `Nomor WhatsApp kamu dapat terlihat oleh anggota grup.`
 
 The button must remain visually secondary to the homepage's website-building action.
 
@@ -39,7 +38,6 @@ Make joining the group the most useful next action after a user submits the wait
 - Body: `Kamu bisa bertanya dan kenalan dengan pelaku UMKM lainnya.`
 - Primary action: solid white button labeled `Join WhatsApp`
 - Secondary action: `Lihat beranda`
-- Privacy note: `Nomor WhatsApp kamu dapat terlihat oleh anggota grup.`
 
 The existing waitlist submission confirmation and email-review explanation remain visible above this invitation.
 
@@ -65,7 +63,7 @@ The direct invite remains explicit in one small shared constant or component bou
 
 - Keep visible focus styles and semantic links.
 - Button and link labels must make the external destination clear.
-- Prominent placements include the phone-number visibility note.
+- Keep the promotional nature restrained; avoid excessive emphasis.
 - Do not claim that admins will always answer, that membership is exclusive, or that joining affects waitlist approval.
 - Do not use color alone to identify the WhatsApp action.
 
@@ -75,7 +73,7 @@ Use one small reusable WhatsApp invitation component for the two prominent invit
 
 ## Verification
 
-- Component tests verify the invite URL, external-link behavior, button treatment and exact `Join WhatsApp` label on the three prominent placements, the footer's plain `Join Whatsapp` link beside Github, and the privacy note.
+- Component tests verify the invite URL, external-link behavior, button treatment and exact `Join WhatsApp`/`Join Whatsapp` labels on all placements.
 - Existing waitlist behavior tests remain green.
 - Storybook covers the reusable invitation's homepage-secondary and waitlist-primary presentations if introduced.
 - Manually inspect mobile and desktop hierarchy to confirm the WhatsApp action does not compete with the main homepage CTA.
