@@ -15,7 +15,8 @@ Decision trail for specs, plans, handoffs, and tickets. These files are not all 
 - Production hardening: `specs/2026-07-28-production-security-hardening-design.md` and `plans/2026-07-28-prod-hardening-phase-*.md`.
 - Payment: Mayar replaced Pakasir; see `specs/2026-07-29-mayar-payment-migration-design.md`.
 - Storage: local dev and production both use S3-compatible storage through MinIO/R2; see the newest storage specs, then `src/lib/s3-client.ts`.
-- Generation: batched and contract-compiled paths are rollout-gated in `/admin/settings`; check `src/lib/app-settings-registry.ts`, `src/lib/projects/build-attempt-worker.ts`, and `src/lib/projects/batched-generator.ts`.
+- Generation runtime: check `src/lib/app-settings-registry.ts`, `src/lib/projects/build-attempt-worker.ts`, and `src/lib/projects/batched-generator.ts`.
+- Proposed generation successor: start with `audits/2026-08-13-generated-site-quality-architecture-audit.md`, then `specs/2026-08-13-reference-calibrated-single-shot-generation-design.md` and `plans/2026-08-13-reference-calibrated-single-shot-generation.md`. It supersedes the old visual-skip/fixed-renderer direction but is not implemented yet.
 
 ## Supersession Rule
 

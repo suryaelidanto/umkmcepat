@@ -1,67 +1,68 @@
 {
-  "schemaVersion": 2,
-  "corpusVersion": "generated-site-quality-v1",
-  "evaluatorVersion": "2",
+  "schemaVersion": 3,
+  "baselineId": "deterministic-control-v1",
+  "corpusVersion": "reference-calibrated-v2",
+  "evaluatorVersion": "3",
   "cases": [
     {
-      "briefId": "retail-catalog",
-      "trials": [1, 2],
-      "fixture": "briefs/retail-catalog.json"
-    },
-    {
-      "briefId": "fnb-menu",
-      "trials": [1, 2],
-      "fixture": "briefs/fnb-menu.json"
-    },
-    {
-      "briefId": "local-service",
-      "trials": [1, 2],
-      "fixture": "briefs/local-service.json"
-    },
-    {
       "briefId": "appointment-service",
-      "trials": [1, 2],
-      "fixture": "briefs/appointment-service.json"
-    },
-    {
-      "briefId": "property-rental",
-      "trials": [1, 2],
-      "fixture": "briefs/property-rental.json"
+      "fixture": "briefs/appointment-service.json",
+      "trials": [1, 2]
     },
     {
       "briefId": "education-course",
-      "trials": [1, 2],
-      "fixture": "briefs/education-course.json"
+      "fixture": "briefs/education-course.json",
+      "trials": [1, 2]
     },
     {
-      "briefId": "online-service",
-      "trials": [1, 2],
-      "fixture": "briefs/online-service.json"
+      "briefId": "fnb-menu",
+      "fixture": "briefs/fnb-menu.json",
+      "trials": [1, 2]
     },
     {
       "briefId": "image-led",
-      "trials": [1, 2],
-      "fixture": "briefs/image-led.json"
+      "fixture": "briefs/image-led.json",
+      "trials": [1, 2]
+    },
+    {
+      "briefId": "local-service",
+      "fixture": "briefs/local-service.json",
+      "trials": [1, 2]
+    },
+    {
+      "briefId": "online-service",
+      "fixture": "briefs/online-service.json",
+      "trials": [1, 2]
     },
     {
       "briefId": "photo-off",
-      "trials": [1, 2],
-      "fixture": "briefs/photo-off.json"
+      "fixture": "briefs/photo-off.json",
+      "trials": [1, 2]
     },
     {
       "briefId": "photo-on-assets",
-      "trials": [1, 2],
-      "fixture": "briefs/photo-on-assets.json"
+      "fixture": "briefs/photo-on-assets.json",
+      "trials": [1, 2]
     },
     {
       "briefId": "photo-on-no-assets",
-      "trials": [1, 2],
-      "fixture": "briefs/photo-on-no-assets.json"
+      "fixture": "briefs/photo-on-no-assets.json",
+      "trials": [1, 2]
+    },
+    {
+      "briefId": "property-rental",
+      "fixture": "briefs/property-rental.json",
+      "trials": [1, 2]
+    },
+    {
+      "briefId": "retail-catalog",
+      "fixture": "briefs/retail-catalog.json",
+      "trials": [1, 2]
     },
     {
       "briefId": "sparse-two-field",
-      "trials": [1, 2],
-      "fixture": "briefs/sparse-two-field.json"
+      "fixture": "briefs/sparse-two-field.json",
+      "trials": [1, 2]
     }
   ]
 }

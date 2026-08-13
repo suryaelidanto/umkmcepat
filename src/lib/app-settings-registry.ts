@@ -100,6 +100,22 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: false,
   },
   {
+    key: "feature.reference_calibrated_generation_enabled",
+    category: "feature_flag",
+    tier: "basic",
+    type: "boolean",
+    label: "Reference-calibrated generated sites",
+    fallback: false,
+  },
+  {
+    key: "feature.reference_calibrated_generation_shadow",
+    category: "feature_flag",
+    tier: "basic",
+    type: "boolean",
+    label: "Reference-calibrated generation shadow mode",
+    fallback: true,
+  },
+  {
     key: "quality.generated_site_critic_sample_rate",
     category: "generated_quality",
     tier: "advanced",

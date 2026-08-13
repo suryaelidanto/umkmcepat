@@ -15,7 +15,16 @@
 // SEMANTIC gate: the runners (batched-generator / batched-edit) validate and
 // drop them at merge time so a stray emission triggers targeted repair
 // instead of a hard parse error.
+import {
+  parseWriterDesignPlanV2,
+  type WriterDesignPlanV2,
+} from "./generated-site-design-plan";
 import { SHADCN_COMPONENT_BY_NAME } from "./scaffold/shadcn-components";
+
+import type {
+  GeneratedSiteDesignKitV1,
+  GeneratedSiteKitMediaMode,
+} from "./generated-site-design-kits/types";
 
 export function isAllowedBatchedPath(path: string): boolean {
   if (!path || typeof path !== "string") {
@@ -59,6 +68,7 @@ export type WriterDesignPlanV1 = {
 
 export type BatchedParseResult = {
   designPlan: WriterDesignPlanV1 | null;
+  designPlanV2: WriterDesignPlanV2 | null;
   diagnostics: BatchedDiagnostic[];
   done: { summary: string } | null;
   files: Map<string, BatchedFile>;
@@ -178,6 +188,12 @@ function parseWriterDesignPlan(
 
 export function createBatchedResponseParser(options?: {
   requireDesignPlan?: boolean;
+  designPlanV2Expected?: {
+    contractHash: string;
+    kit: GeneratedSiteDesignKitV1;
+    mediaMode: GeneratedSiteKitMediaMode;
+    requiredSectionIds: string[];
+  };
 }): BatchedResponseParser {
   /**
    * Invariant: `pending` holds the unconsumed tail of the stream. Absolute
@@ -189,6 +205,7 @@ export function createBatchedResponseParser(options?: {
   const proposals: { path: string; reason: string }[] = [];
   const diagnostics: BatchedDiagnostic[] = [];
   let designPlan: WriterDesignPlanV1 | null = null;
+  let designPlanV2: WriterDesignPlanV2 | null = null;
   let doneSummary: string | null = null;
   let hardError: BatchedParseError | null = null;
   let finalizeCalled = false;
@@ -454,19 +471,37 @@ export function createBatchedResponseParser(options?: {
             offset: tagOffset,
           });
         }
-        designPlan = parseWriterDesignPlan(raw, (message) =>
-          fail({
-            code: "invalid-design-plan",
-            message,
-            offset: tagOffset,
-          }),
-        );
+        if (options?.designPlanV2Expected) {
+          try {
+            designPlanV2 = parseWriterDesignPlanV2({
+              value: JSON.parse(raw) as unknown,
+              expected: options.designPlanV2Expected,
+            });
+          } catch (error) {
+            fail({
+              code: "invalid-design-plan",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "invalid V2 design-plan",
+              offset: tagOffset,
+            });
+          }
+        } else {
+          designPlan = parseWriterDesignPlan(raw, (message) =>
+            fail({
+              code: "invalid-design-plan",
+              message,
+              offset: tagOffset,
+            }),
+          );
+        }
         consume(closeIndex + "</design-plan>".length);
         return true;
       }
 
       case "file": {
-        if (options?.requireDesignPlan && !designPlan) {
+        if (options?.requireDesignPlan && !designPlan && !designPlanV2) {
           fail({
             code: "missing-design-plan",
             message: "design-plan must precede files.",
@@ -645,7 +680,7 @@ export function createBatchedResponseParser(options?: {
       if (hardError) {
         throw hardError;
       }
-      if (options?.requireDesignPlan && !designPlan) {
+      if (options?.requireDesignPlan && !designPlan && !designPlanV2) {
         fail({
           code: "missing-design-plan",
           message: "design-plan is required.",
@@ -654,6 +689,7 @@ export function createBatchedResponseParser(options?: {
       }
       finalResult = {
         designPlan,
+        designPlanV2,
         diagnostics,
         done: doneSummary === null ? null : { summary: doneSummary },
         files,

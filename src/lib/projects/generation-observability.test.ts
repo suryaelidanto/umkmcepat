@@ -63,4 +63,41 @@ describe("sanitizeGenerationEvent", () => {
       browserMs: 320,
     });
   });
+
+  it("keeps bounded call and timing dimensions without private evidence", () => {
+    const sanitized = sanitizeGenerationEvent({
+      projectId: "p1",
+      kitId: "catalog-story",
+      kitVersion: 1,
+      writerCalls: 1,
+      criticCalls: 1,
+      correctionCalls: 0,
+      correctionReason: null,
+      criticalFindings: 0,
+      highFindings: 1,
+      writerMs: 4200,
+      criticMs: 800,
+      totalToDecisionMs: 9000,
+      editableBytes: 12000,
+      firstFileClosedMs: 3000,
+      prompt: "private prompt",
+      screenshotUrl: "https://private.invalid/image.jpg",
+    });
+    expect(sanitized).toMatchObject({
+      kitId: "catalog-story",
+      kitVersion: 1,
+      writerCalls: 1,
+      criticCalls: 1,
+      correctionCalls: 0,
+      correctionReason: null,
+      criticalFindings: 0,
+      highFindings: 1,
+      writerMs: 4200,
+      criticMs: 800,
+      totalToDecisionMs: 9000,
+      editableBytes: 12000,
+      firstFileClosedMs: 3000,
+    });
+    expect(JSON.stringify(sanitized)).not.toMatch(/private|prompt|screenshot/);
+  });
 });

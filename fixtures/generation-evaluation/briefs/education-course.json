@@ -1,17 +1,14 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "education-course",
-  "brief": {
-    "businessName": "Usaha Sintetis Education Course",
-    "businessType": "education-course",
-    "contact": "+62 811 0000 0000",
-    "description": "Fixture sintetis tanpa data pemilik nyata."
-  },
   "expected": {
     "recipeId": "education-course",
     "mediaMode": "graphic",
     "routes": ["/", "/program"],
-    "primaryCta": "Lihat program",
+    "primaryCta": {
+      "kind": "whatsapp",
+      "target": "+6281100000000"
+    },
     "requiredContent": ["businessName", "services", "usp"],
     "prohibitedClaims": ["nomor satu", "termurah", "pasti berhasil"],
     "browserAssertions": [
@@ -28,6 +25,173 @@
       "focus-visible",
       "touch-target"
     ],
-    "risk": "not_risky"
+    "risk": "not_risky",
+    "compatibleKitIds": ["editorial-airy", "catalog-story"],
+    "requiredRoutes": ["/", "/program"],
+    "requiredFactIds": ["offer-1", "contact-1"]
+  },
+  "briefSnapshot": {
+    "version": 2,
+    "prompt": "Buat website education-course.",
+    "business": {
+      "name": "Usaha Sintetis Education Course",
+      "type": "education-course",
+      "category": "kursus"
+    },
+    "offers": [
+      {
+        "name": "Penawaran education-course",
+        "description": "Pilihan yang dijelaskan dengan jelas.",
+        "isPrimary": true
+      }
+    ],
+    "audience": "Pemilik usaha dan calon pelanggan",
+    "primaryAction": {
+      "kind": "whatsapp",
+      "label": "Lihat program",
+      "target": "+6281100000000"
+    },
+    "visualDirection": "hangat dan jelas",
+    "fieldState": {},
+    "content": {
+      "tagline": null,
+      "usp": ["Informasi mudah dipahami"],
+      "priceRange": null,
+      "hours": [],
+      "address": null,
+      "deliveryArea": null,
+      "since": null,
+      "testimonials": [],
+      "certifications": [],
+      "paymentMethods": [],
+      "socialLinks": [],
+      "currentPromo": null,
+      "secondaryAction": null
+    },
+    "assets": [],
+    "provenance": {
+      "facts": [],
+      "decisions": []
+    }
+  },
+  "acceptedContract": {
+    "schemaVersion": 1,
+    "revision": 1,
+    "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "identity": {
+      "businessName": "Usaha Sintetis Education Course",
+      "businessType": "education-course"
+    },
+    "facts": [
+      {
+        "id": "offer-1",
+        "kind": "offer",
+        "value": [
+          {
+            "name": "Penawaran education-course",
+            "description": "Pilihan yang dijelaskan dengan jelas.",
+            "isPrimary": true
+          }
+        ],
+        "provenance": {
+          "source": "owner",
+          "turnId": "fixture",
+          "assetId": null,
+          "supersedesFactId": null,
+          "reviewItemId": null
+        }
+      },
+      {
+        "id": "contact-1",
+        "kind": "contact",
+        "value": {
+          "channel": "whatsapp",
+          "value": "+6281100000000",
+          "label": "Lihat program"
+        },
+        "provenance": {
+          "source": "owner",
+          "turnId": "fixture",
+          "assetId": null,
+          "supersedesFactId": null,
+          "reviewItemId": null
+        }
+      }
+    ],
+    "decisions": [],
+    "visitorJobs": [
+      {
+        "id": "job-primary",
+        "goal": "Membantu pengunjung mengambil langkah berikutnya",
+        "priority": "primary"
+      }
+    ],
+    "ctaIntents": [
+      {
+        "id": "cta-primary",
+        "kind": "whatsapp",
+        "label": "Lihat program",
+        "targetFactId": "contact-1"
+      }
+    ],
+    "hardRequirements": [],
+    "prohibitedClaims": [
+      {
+        "id": "claim-1",
+        "statement": "nomor satu"
+      },
+      {
+        "id": "claim-2",
+        "statement": "termurah"
+      },
+      {
+        "id": "claim-3",
+        "statement": "pasti berhasil"
+      }
+    ],
+    "preferences": {
+      "visualDirection": "hangat dan jelas",
+      "tone": "ramah",
+      "density": "balanced",
+      "motion": "minimal"
+    },
+    "assets": [],
+    "blockers": [],
+    "omissions": []
+  },
+  "acceptedPlan": {
+    "schemaVersion": 1,
+    "revision": 1,
+    "contractHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "appKind": "landing",
+    "archetype": "education-course",
+    "pages": [
+      {
+        "id": "home",
+        "path": "/",
+        "title": "Usaha Sintetis Education Course",
+        "purpose": "Beranda",
+        "visitorJobIds": ["job-primary"],
+        "requiredFactIds": ["offer-1", "contact-1"],
+        "sections": [
+          {
+            "id": "hero",
+            "purpose": "Penawaran utama",
+            "surfaceIntent": "contained",
+            "requiredFactIds": ["offer-1", "contact-1"],
+            "requiredAssetIds": []
+          }
+        ]
+      }
+    ],
+    "navigation": [],
+    "capabilities": ["static_content", "whatsapp_cta"],
+    "artDirection": {
+      "businessSpecificReference": "editorial-airy",
+      "antiReferences": ["starter-centered-card-stack"],
+      "imageStrategy": "graphic",
+      "fontStrategy": "system_stack"
+    }
   }
 }

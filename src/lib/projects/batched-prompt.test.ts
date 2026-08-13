@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTargetedRepairPrompt } from "./batched-prompt";
+import {
+  buildReferenceCalibratedWriterPrompt,
+  buildTargetedRepairPrompt,
+} from "./batched-prompt";
+import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
 
+import type { GeneratedSiteWriterContractV2 } from "./generated-site-contract";
 import type { GeneratedProjectFile } from "./generated-types";
 
 const SITE_TS = `export const site = {
@@ -16,6 +21,84 @@ export default site;`;
 
 const INDEX_TSX = `import { site } from "@/content/site";
 export function HomeRouteComponent() { return <main />; }`;
+
+function writerContract(): GeneratedSiteWriterContractV2 {
+  return {
+    schemaVersion: 2,
+    contractHash: "a".repeat(64),
+    handoff: { contractHash: "b".repeat(64), planHash: "c".repeat(64) },
+    business: {
+      name: "Usaha Sintetis",
+      type: "retail",
+      audience: "Pembeli",
+      primaryJob: "Memilih produk",
+      primaryCta: {
+        kind: "whatsapp",
+        label: "Chat WhatsApp",
+        target: "+6281100000000",
+      },
+    },
+    content: {
+      headline: "Pilih dengan mudah",
+      subheadline: "Lihat pilihan yang tersedia.",
+      offer: "Produk utama",
+      promotion: null,
+      trustPoints: ["Info jelas"],
+      products: [],
+      testimonials: [],
+      faq: [],
+      usp: [],
+      hours: [],
+      paymentMethods: [],
+      priceRange: null,
+      address: null,
+      deliveryArea: null,
+      socialLinks: [],
+    },
+    obligations: {
+      routes: [
+        {
+          path: "/",
+          purpose: "Beranda",
+          requiredFactIds: [],
+          requiredSectionIds: ["hero"],
+        },
+      ],
+      sections: [{ id: "hero", purpose: "Penawaran", requiredFactIds: [] }],
+      prohibitedClaims: [],
+    },
+    media: { mode: "graphic", approvedAssets: [] },
+    visualInputs: {
+      direction: "hangat",
+      density: "sparse",
+      selectedKitId: "bold-typographic",
+      selectedKitVersion: 1,
+    },
+  };
+}
+
+describe("buildReferenceCalibratedWriterPrompt", () => {
+  it("grounds one writer response in one executable kit without fixed-route prose", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+      hasOperationalDetails: false,
+    });
+    const prompt = buildReferenceCalibratedWriterPrompt({
+      contract: writerContract(),
+      kit,
+      projectId: "benchmark-project",
+      schema: {} as never,
+    });
+    expect(prompt.system).toContain("bold-typographic");
+    expect(prompt.system).toContain("full-field-lockup");
+    expect(prompt.system).toContain("<design-plan>");
+    expect(prompt.system).not.toContain("createGeneratedSiteRouteSource");
+    expect(prompt.user).toContain("Usaha Sintetis");
+  });
+});
 
 describe("buildTargetedRepairPrompt", () => {
   it("includes the site.ts data source so the model can render the named site.<field> instead of inventing local data", () => {

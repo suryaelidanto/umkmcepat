@@ -1,4 +1,8 @@
-import type { GeneratedSiteContractV1 } from "@/lib/projects/generated-site-contract";
+import type {
+  GeneratedSiteContractV1,
+  GeneratedSiteWriterContractV2,
+} from "@/lib/projects/generated-site-contract";
+import type { GeneratedSiteDesignKitV1 } from "@/lib/projects/generated-site-design-kits/types";
 import type {
   GeneratedSiteGoldExample,
   GeneratedSiteRecipeV1,
@@ -12,6 +16,127 @@ import { briefToBuildPrompt, type ProjectBrief } from "@/lib/projects/brief";
 import { DESIGN_DIRECTIVE } from "@/lib/projects/design-directive";
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
+
+export function buildReferenceCalibratedCorrectionPrompt(input: {
+  contract: GeneratedSiteWriterContractV2;
+  kit: GeneratedSiteDesignKitV1;
+  projectId: string;
+  acceptedPlan: unknown;
+  reason: string;
+  diagnostics: string[];
+  implicatedPaths: string[];
+  files: GeneratedProjectFile[];
+}): { system: string; user: string } {
+  return {
+    system: `You are correcting one generated Indonesian landing site response. Emit only one complete <design-plan>, full replacement <file> blocks for the implicated writable paths, and one <done summary="..." />. Use no tools, no markdown, no prose. Keep the immutable contract, kit, media mode, routes, facts, and protected scaffold unchanged. AI SDK retries are disabled and this is the only shared correction.`,
+    user: JSON.stringify({
+      contract: input.contract,
+      kit: {
+        id: input.kit.id,
+        version: input.kit.version,
+        patterns: input.kit.compositionPatterns,
+        sourceAssertions: input.kit.sourceAssertions,
+        antiPatterns: input.kit.antiPatterns,
+      },
+      acceptedPlan: input.acceptedPlan,
+      reason: input.reason,
+      diagnostics: input.diagnostics,
+      implicatedPaths: input.implicatedPaths,
+      files: input.files.filter((file) =>
+        input.implicatedPaths.includes(file.path),
+      ),
+      projectId: input.projectId,
+    }),
+  };
+}
+
+export function buildReferenceCalibratedWriterPrompt(input: {
+  contract: GeneratedSiteWriterContractV2;
+  kit: GeneratedSiteDesignKitV1;
+  projectId: string;
+  schema: ProjectSiteSchema;
+}): { system: string; user: string } {
+  const theme =
+    input.kit.themePolicy.backgroundLightness === "dark"
+      ? {
+          background: "#171b2b",
+          foreground: "#f3f4ff",
+          muted: "#2c3150",
+          accent: "#9d7cff",
+        }
+      : (input.schema?.theme ?? {
+          background: "#f7f3ec",
+          foreground: "#3d2b1f",
+          muted: "#e5ddd2",
+          accent: "#d4a017",
+        });
+  const planSeed = {
+    schemaVersion: 2,
+    contractHash: input.contract.contractHash,
+    kit: { id: input.kit.id, version: 1 },
+    mediaMode: input.contract.media.mode,
+    visualThesis:
+      input.kit.compositionPatterns[0]?.intent ?? "Content-led composition.",
+    compositionPatternId: input.kit.compositionPatterns[0]?.id ?? "",
+    palette: {
+      background: theme.background,
+      foreground: theme.foreground,
+      muted: theme.muted,
+      accent: theme.accent,
+    },
+    typography: {
+      displayRole: input.kit.typography.displayRole,
+      bodyRole: input.kit.typography.bodyRole,
+    },
+    sections: input.contract.obligations.sections.map((section) => ({
+      id: section.id,
+      treatment: "content-led",
+      surface: "base",
+      density: "regular",
+    })),
+    mobileStrategy: ["stack columns", "keep the primary action visible"],
+    signatureElement:
+      input.kit.compositionPatterns[0]?.id ?? "content hierarchy",
+  };
+  const writablePaths = [
+    "src/routes/index.tsx",
+    "src/components/site/sections.tsx",
+  ];
+  return {
+    system: `You are a senior Indonesian landing-page designer and React writer. Emit one complete customer-facing site in Indonesian. System instructions and code comments remain English. Use the selected executable design kit; do not fall back to a generic template.
+
+IMMUTABLE WRITER CONTRACT:
+${JSON.stringify(input.contract)}
+
+EXECUTABLE KIT:
+${JSON.stringify({
+  id: input.kit.id,
+  version: input.kit.version,
+  patterns: input.kit.compositionPatterns,
+  typography: input.kit.typography,
+  sourceAssertions: input.kit.sourceAssertions,
+  antiPatterns: input.kit.antiPatterns,
+})}
+
+RESPONSE CONTRACT:
+<design-plan>${JSON.stringify(planSeed)}</design-plan>
+<file path="src/routes/index.tsx">full raw TSX</file>
+<file path="src/components/site/sections.tsx">full raw TSX only when needed</file>
+<done summary="..." />
+
+Rules:
+- Emit exactly one design plan first, then only complete files under these writable paths: ${writablePaths.join(", ")}.
+- Use the seeded SiteSection, SiteStack, SiteSplit, and SiteCluster primitives from @/components/site/layout; never rewrite them.
+- Render every non-empty required field from the contract visibly. Do not invent facts, proof, products, prices, contacts, addresses, hours, guarantees, or claims.
+- Use semantic Tailwind tokens only. Do not emit raw palette literals, remote URLs, placeholders, empty media frames, or starter markers.
+- The primary CTA must use the accepted target and a real accessible action. Keep all interactive targets at least 44px tall.
+- Use one deliberate display/body type relationship, varied section rhythm, and the selected pattern's signature. Avoid identical card grids.
+- Keep the editable response under 32 KiB and finish with exactly one done marker. Do not emit tools, shell actions, markdown fences, or prose outside tags.
+- If the brief is sparse, keep the page sparse. Do not pad it with generic sections.
+`,
+    user: `Build ${input.contract.business.name} now from the immutable contract and selected kit. The generated project must stand alone after export. Project key: ${input.projectId}. The seeded content schema is ${input.schema?.businessName ?? input.contract.business.name}; read facts from @/content/site and never duplicate owner values in local invented arrays.`,
+  };
+}
 
 export function buildGeneratedAppBuildSpec(
   input:

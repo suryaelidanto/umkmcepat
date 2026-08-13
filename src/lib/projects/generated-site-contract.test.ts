@@ -4,12 +4,15 @@ import { hashBuildContract, hashBuildPlan } from "./build-hash";
 import { parseCanonicalBrief } from "./canonical-brief";
 import {
   compileGeneratedSiteContract,
-  createGeneratedSiteRouteSource,
+  compileGeneratedSiteWriterContractV2,
+  createDeterministicGeneratedSiteControlRoute,
 } from "./generated-site-contract";
+import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
 import { selectGeneratedSiteRecipe } from "./generated-site-recipes";
 
 import type { ProjectBrief } from "./brief";
 import type { BuildContractV1 } from "./build-contract";
+import type { AcceptedBuildHandoff } from "./build-handoffs";
 import type { BuildPlanV1 } from "./build-plan";
 
 function fixtures(input?: {
@@ -216,6 +219,23 @@ function compile(input: {
   });
 }
 
+function acceptedHandoff(
+  values: ReturnType<typeof fixtures>,
+): AcceptedBuildHandoff {
+  return {
+    id: "handoff-1",
+    briefSnapshot: values.briefSnapshot,
+    briefHash: "c".repeat(64),
+    briefRevision: 2,
+    contract: values.contract,
+    plan: values.plan,
+    contractHash: values.contract.contentHash,
+    planHash: values.plan.contentHash,
+    contractRevision: 1,
+    planRevision: 1,
+  };
+}
+
 describe("compileGeneratedSiteContract", () => {
   it("derives public fashion copy when the accepted brief has no tagline", () => {
     const values = fixtures();
@@ -260,7 +280,7 @@ describe("compileGeneratedSiteContract", () => {
   });
 
   it("creates a compact route that renders accepted site fields", () => {
-    const source = createGeneratedSiteRouteSource(
+    const source = createDeterministicGeneratedSiteControlRoute(
       compile({ photoEnabled: false }),
     );
 
@@ -298,6 +318,54 @@ describe("compileGeneratedSiteContract", () => {
   it("permits replaceable slots only for image-benefiting recipes", () => {
     expect(compile({ photoEnabled: true }).design.mediaMode).toBe(
       "replaceable_slots",
+    );
+  });
+
+  it("compiles the reference-calibrated V2 writer contract without default-theme rendering", () => {
+    const values = fixtures({ archetype: "retail-catalog" });
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "retail-catalog",
+      density: "rich",
+      mediaMode: "graphic",
+      primaryJobKind: "compare",
+      hasOperationalDetails: false,
+    });
+    const result = compileGeneratedSiteWriterContractV2({
+      handoff: acceptedHandoff(values),
+      briefSnapshot: values.briefSnapshot,
+      photoEnabled: false,
+      kit,
+    });
+    expect(result.schemaVersion).toBe(2);
+    expect(result.visualInputs.selectedKitId).toBe("catalog-story");
+    expect(result.media.mode).toBe("graphic");
+    expect(result.obligations.sections.map((section) => section.id)).toEqual([
+      "catalog",
+      "contact",
+    ]);
+    expect(result.content.products[0]?.name).toBe("iPhone 13");
+    expect(result.contractHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(result)).not.toContain("defaultTheme");
+  });
+
+  it("keeps sparse no-photo contracts image-free and rejects interactive apps", () => {
+    const values = fixtures({ archetype: "generic" });
+    values.plan.appKind = "interactive_app";
+    expect(() =>
+      compileGeneratedSiteWriterContractV2({
+        handoff: acceptedHandoff(values),
+        briefSnapshot: values.briefSnapshot,
+        photoEnabled: false,
+        kit: selectGeneratedSiteDesignKit({
+          archetype: "generic",
+          density: "sparse",
+          mediaMode: "typographic",
+          primaryJobKind: "inquire",
+          hasOperationalDetails: false,
+        }),
+      }),
+    ).toThrow(
+      "generated-site quality supports landing and marketing_site only",
     );
   });
 

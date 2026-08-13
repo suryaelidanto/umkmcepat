@@ -13,7 +13,7 @@ const browser: BrowserGateReport = {
 };
 
 describe("classifyGeneratedSiteRisk", () => {
-  it("keeps a deterministic platform route out of advisory critic sampling", () => {
+  it("does not exempt a deterministic route from visual risk evidence", () => {
     const result = classifyGeneratedSiteRisk({
       attemptId: "a-deterministic",
       recipeId: "retail-catalog",
@@ -24,7 +24,10 @@ describe("classifyGeneratedSiteRisk", () => {
       deterministicSource: true,
     });
 
-    expect(result).toEqual({ version: 1, risky: false, reasons: [] });
+    expect(result.risky).toBe(true);
+    expect(result.reasons.map((reason) => reason.category)).toEqual(
+      expect.arrayContaining(["image_led", "content_density", "sampled"]),
+    );
   });
 
   it("keeps a clean known recipe non-risky", () => {

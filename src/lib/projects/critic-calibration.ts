@@ -19,7 +19,7 @@ export type CalibrationDecision = {
 export const CRITIC_MIN_SAMPLES = 50;
 export const CRITIC_MIN_SEEDED_DEFECTS = 30;
 export const CRITIC_PRECISION_THRESHOLD = 0.9;
-export const CRITIC_RECALL_THRESHOLD = 0.7;
+export const CRITIC_RECALL_THRESHOLD = 0.8;
 
 export function evaluateCriticCalibration(
   input: CalibrationInput,

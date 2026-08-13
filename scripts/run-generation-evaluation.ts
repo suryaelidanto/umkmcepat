@@ -3,16 +3,22 @@ import { existsSync, readFileSync } from "node:fs";
 import {
   buildEvaluationReport,
   buildGeneratedSiteEvaluationReport,
+  buildGeneratedSiteEvaluationReportV3,
+  type BlindPreference,
   type EvaluationManifestV1,
   type EvaluationTrialResultV1,
   type GeneratedSiteEvaluationManifestV2,
   type GeneratedSiteEvaluationTrialV2,
+  type GeneratedSiteEvaluationManifestV3,
+  type GeneratedSiteEvaluationTrialV3,
 } from "../src/lib/projects/generation-evaluation";
 
 type CliArgs = {
   baselineId?: string;
   manifestPath?: string;
   resultsPath?: string;
+  preferencesPath?: string;
+  mappingPath?: string;
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -27,6 +33,12 @@ function parseArgs(argv: string[]): CliArgs {
     }
     if (key === "--results") {
       args.resultsPath = argv[index + 1];
+    }
+    if (key === "--preferences") {
+      args.preferencesPath = argv[index + 1];
+    }
+    if (key === "--mapping") {
+      args.mappingPath = argv[index + 1];
     }
   }
   return args;
@@ -48,8 +60,41 @@ function main() {
   const manifestPath =
     args.manifestPath ?? "fixtures/generation-evaluation/manifest.json";
   const manifest = readJson<
-    EvaluationManifestV1 | GeneratedSiteEvaluationManifestV2
+    | EvaluationManifestV1
+    | GeneratedSiteEvaluationManifestV2
+    | GeneratedSiteEvaluationManifestV3
   >(manifestPath, "manifest");
+
+  if (manifest.schemaVersion === 3) {
+    const resultsPath =
+      args.resultsPath ?? ".data/generation-evaluation/results.json";
+    const results = readJson<GeneratedSiteEvaluationTrialV3[]>(
+      resultsPath,
+      "runtime results",
+    );
+    const preferences = args.preferencesPath
+      ? readJson<unknown>(args.preferencesPath, "blind preferences")
+      : [];
+    const mappingPath =
+      args.mappingPath ??
+      (args.preferencesPath
+        ? `${args.preferencesPath.slice(0, args.preferencesPath.lastIndexOf("/"))}/mapping.json`
+        : undefined);
+    const mapping =
+      mappingPath && existsSync(mappingPath)
+        ? readJson<unknown>(mappingPath, "blind mapping")
+        : null;
+    const report = buildGeneratedSiteEvaluationReportV3(
+      manifest,
+      results,
+      normalizePreferences(preferences, mapping),
+    );
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    if (!report.release.pass) {
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   if (manifest.schemaVersion === 2) {
     const resultsPath =
@@ -80,6 +125,79 @@ function main() {
     results,
   );
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+}
+
+function normalizePreferences(
+  value: unknown,
+  mapping: unknown,
+): BlindPreference[] {
+  if (
+    Array.isArray(value) &&
+    value.every((item) => isNormalizedPreference(item))
+  ) {
+    return value;
+  }
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.choices) ||
+    !isRecord(mapping) ||
+    !isRecord(mapping.mapping)
+  ) {
+    return [];
+  }
+  const result: BlindPreference[] = [];
+  for (const choice of value.choices) {
+    if (
+      !isRecord(choice) ||
+      typeof choice.key !== "string" ||
+      (choice.choice !== "left" &&
+        choice.choice !== "right" &&
+        choice.choice !== "tie")
+    ) {
+      continue;
+    }
+    const [briefId, trialText] = choice.key.split(":");
+    const trial = trialText === "2" ? 2 : trialText === "1" ? 1 : null;
+    const pair = mapping.mapping[choice.key];
+    if (
+      !trial ||
+      !isRecord(pair) ||
+      (pair.leftArm !== "control" && pair.leftArm !== "treatment") ||
+      (pair.rightArm !== "control" && pair.rightArm !== "treatment")
+    ) {
+      continue;
+    }
+    const selectedArm =
+      choice.choice === "tie"
+        ? "tie"
+        : choice.choice === "left"
+          ? pair.leftArm
+          : pair.rightArm;
+    result.push({
+      briefId,
+      trial,
+      choice:
+        selectedArm === "tie"
+          ? "tie"
+          : selectedArm === "treatment"
+            ? "treatment"
+            : "control",
+    });
+  }
+  return result;
+}
+function isNormalizedPreference(value: unknown): value is BlindPreference {
+  return (
+    isRecord(value) &&
+    typeof value.briefId === "string" &&
+    (value.trial === 1 || value.trial === 2) &&
+    (value.choice === "control" ||
+      value.choice === "treatment" ||
+      value.choice === "tie")
+  );
+}
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 try {

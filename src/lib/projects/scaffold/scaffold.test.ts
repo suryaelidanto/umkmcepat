@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { isProtectedScaffoldPath } from "./protected-paths";
 import { SHADCN_COMPONENT_FILES } from "./shadcn-components";
 import { createViteTanStackShadcnStarterFiles } from "./vite-tanstack-shadcn-starter";
 
@@ -40,6 +41,25 @@ function schema() {
 describe("createViteTanStackShadcnStarterFiles", () => {
   const files = createViteTanStackShadcnStarterFiles("proj_1", schema());
   const paths = files.map((f) => f.path);
+
+  it("treats selected generated-site primitives as platform-owned", () => {
+    expect(isProtectedScaffoldPath("src/components/site/layout.tsx")).toBe(
+      true,
+    );
+  });
+
+  it("includes selected generated-site primitives when requested", () => {
+    const primitive = {
+      path: "src/components/site/layout.tsx",
+      content: "export const selectedKit = 'catalog-story';",
+    };
+    const selected = createViteTanStackShadcnStarterFiles(
+      "proj_kit",
+      schema(),
+      [primitive],
+    );
+    expect(selected).toContainEqual(primitive);
+  });
 
   it("includes the shadcn base files", () => {
     expect(paths).toContain("components.json");

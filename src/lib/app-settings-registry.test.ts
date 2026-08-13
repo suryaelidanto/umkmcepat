@@ -80,6 +80,21 @@ describe("APP_SETTINGS registry", () => {
     ).toBe(false);
   });
 
+  it("defaults reference-calibrated generation to disabled shadow mode", () => {
+    expect(
+      APP_SETTINGS.find(
+        (entry) =>
+          entry.key === "feature.reference_calibrated_generation_enabled",
+      ),
+    ).toMatchObject({ type: "boolean", fallback: false });
+    expect(
+      APP_SETTINGS.find(
+        (entry) =>
+          entry.key === "feature.reference_calibrated_generation_shadow",
+      ),
+    ).toMatchObject({ type: "boolean", fallback: true });
+  });
+
   it("keeps critic sampling in generated-site quality as a percentage", () => {
     expect(
       APP_SETTINGS.find(

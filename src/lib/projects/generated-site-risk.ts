@@ -37,9 +37,6 @@ export function classifyGeneratedSiteRisk(input: {
   sampleRate: number;
   deterministicSource?: boolean;
 }): GeneratedSiteRiskReportV1 {
-  if (input.deterministicSource) {
-    return { version: 1, risky: false, reasons: [] };
-  }
   const reasons: GeneratedSiteRiskReportV1["reasons"] = [];
   for (const tag of input.recipeRiskTags) {
     const category = riskCategory(tag);

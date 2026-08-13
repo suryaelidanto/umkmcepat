@@ -43,9 +43,12 @@ import {
   collectBatchedGateIssues,
   collectBatchedPerFileIssues,
   runBatchedGenerate,
+  runReferenceCalibratedGenerate,
 } from "./batched-generator";
 import { BatchedAdmissionBlockedError } from "./brief-admission";
 import { createStepCharger } from "./energy-step-charger";
+import { GeneratedSiteCallBudget } from "./generated-site-call-budget";
+import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
 import { type GeneratedProjectFile } from "./generated-types";
 import { createViteTanStackShadcnStarterFiles } from "./scaffold/vite-tanstack-shadcn-starter";
 import { createProjectSiteSchemaFromBrief } from "./site-schema";
@@ -197,6 +200,114 @@ const baseArgs = () => {
     userId: "u-test",
   };
 };
+
+describe("runReferenceCalibratedGenerate", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("uses one streamed writer instead of the deterministic route renderer", async () => {
+    const schema = createProjectSiteSchemaFromBrief(makeBrief());
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+      hasOperationalDetails: false,
+    });
+    const response = {
+      schemaVersion: 2,
+      contractHash: "a".repeat(64),
+      kit: { id: "bold-typographic", version: 1 },
+      mediaMode: "graphic",
+      visualThesis: "A bold, direct first view.",
+      compositionPatternId: "full-field-lockup",
+      palette: {
+        background: "#171b2b",
+        foreground: "#f3f4ff",
+        muted: "#2c3150",
+        accent: "#9d7cff",
+      },
+      typography: { displayRole: "sans", bodyRole: "sans" },
+      sections: [
+        { id: "hero", treatment: "lockup", surface: "base", density: "airy" },
+      ],
+      mobileStrategy: ["stack actions"],
+      signatureElement: "full-field-lockup",
+    };
+    const route = `import { SiteSection } from "@/components/site/layout";\nimport { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function HomeRouteComponent() { usePreviewReady(); return <main data-pattern="full-field-lockup"><SiteSection><h1>{site.headline}</h1><p>{site.subheadline}</p><p>{site.offer}</p><p>{site.trustPoints[0]}</p><a className="min-h-11" href="https://wa.me/6281100000000?text=Halo">{site.primaryCta}</a></SiteSection></main>; }`;
+    streamTextMock.mockReturnValueOnce(
+      writerStream(
+        `<design-plan>${JSON.stringify(response)}</design-plan><file path="src/routes/index.tsx">${route}</file><done summary="Selesai" />`,
+      ),
+    );
+    const contract = {
+      schemaVersion: 2 as const,
+      contractHash: "a".repeat(64),
+      handoff: { contractHash: "b".repeat(64), planHash: "c".repeat(64) },
+      business: {
+        name: "Kopi Sela",
+        type: "retail",
+        audience: "Pembeli",
+        primaryJob: "Memilih",
+        primaryCta: {
+          kind: "whatsapp" as const,
+          label: "Pesan",
+          target: "+6281100000000",
+        },
+      },
+      content: {
+        headline: "Pilih",
+        subheadline: "Lihat pilihan.",
+        offer: "Kopi",
+        promotion: null,
+        trustPoints: ["Jelas"],
+        products: [],
+        testimonials: [],
+        faq: [],
+        usp: [],
+        hours: [],
+        paymentMethods: [],
+        priceRange: null,
+        address: null,
+        deliveryArea: null,
+        socialLinks: [],
+      },
+      obligations: {
+        routes: [
+          {
+            path: "/",
+            purpose: "Beranda",
+            requiredFactIds: [],
+            requiredSectionIds: ["hero"],
+          },
+        ],
+        sections: [{ id: "hero", purpose: "Penawaran", requiredFactIds: [] }],
+        prohibitedClaims: [],
+      },
+      media: { mode: "graphic" as const, approvedAssets: [] },
+      visualInputs: {
+        direction: "gelap",
+        density: "sparse" as const,
+        selectedKitId: "bold-typographic" as const,
+        selectedKitVersion: 1 as const,
+      },
+    };
+    const result = await runReferenceCalibratedGenerate({
+      ...baseArgs(),
+      schema,
+      brief: makeBrief(),
+      contract,
+      kit,
+      budget: new GeneratedSiteCallBudget(),
+      stepCharger: makeCharger(),
+    });
+    expect(result.ok ? "" : result.reason).toBe("");
+    expect(result.ok).toBe(true);
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+    expect(recordAiCallMock).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "writer", retryCount: 0 }),
+    );
+  });
+});
 
 describe("runBatchedGenerate — happy path", () => {
   afterEach(() => vi.clearAllMocks());

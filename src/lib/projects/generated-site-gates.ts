@@ -1,9 +1,201 @@
 import ts from "typescript";
 
 import type { WriterDesignPlanV1 } from "./batched-response";
-import type { GeneratedSiteContractV1 } from "./generated-site-contract";
+import type {
+  GeneratedSiteContractV1,
+  GeneratedSiteWriterContractV2,
+} from "./generated-site-contract";
+import type { GeneratedSiteDesignKitV1 } from "./generated-site-design-kits/types";
+import type { WriterDesignPlanV2 } from "./generated-site-design-plan";
 import type { GeneratedProjectFile } from "./generated-types";
 import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
+
+export function inspectReferenceCalibratedSiteSource(input: {
+  contract: GeneratedSiteWriterContractV2;
+  kit: GeneratedSiteDesignKitV1;
+  designPlan: WriterDesignPlanV2 | null;
+  files: GeneratedProjectFile[];
+  starterIndexSource: string;
+  themeChecks: ThemeContrastCheck[];
+}): GeneratedSiteSourceGateReportV1 {
+  const findings: GeneratedSiteGateFinding[] = [];
+  const riskSignals: GeneratedSiteGateFinding[] = [];
+  const source = input.files
+    .filter((file) => file.path.endsWith(".tsx"))
+    .map((file) => file.content)
+    .join("\n");
+  const index = input.files.find(
+    (file) => file.path === "src/routes/index.tsx",
+  )?.content;
+  if (!input.designPlan) {
+    add(
+      findings,
+      "contract",
+      "critical",
+      "missing-design-plan-v2",
+      "V2 writer response omitted its design plan.",
+    );
+  } else if (
+    input.designPlan.contractHash !== input.contract.contractHash ||
+    input.designPlan.kit.id !== input.kit.id ||
+    input.designPlan.mediaMode !== input.contract.media.mode ||
+    input.designPlan.sectionOrder.length !==
+      input.contract.obligations.sections.length ||
+    !input.contract.obligations.sections.every((section) =>
+      input.designPlan?.sectionOrder.includes(section.id),
+    ) ||
+    !input.designPlan.sectionOrder.every((id) =>
+      input.contract.obligations.sections.some((section) => section.id === id),
+    )
+  ) {
+    add(
+      findings,
+      "contract",
+      "critical",
+      "design-plan-v2-mismatch",
+      "V2 design plan conflicts with the immutable contract or kit.",
+    );
+  }
+  if (
+    !index ||
+    STARTER_MARKER.test(index) ||
+    index.trim() === input.starterIndexSource.trim()
+  ) {
+    add(
+      findings,
+      "starter",
+      "critical",
+      "starter-residue",
+      "Generated route retains the platform starter.",
+      "src/routes/index.tsx",
+    );
+  }
+  if (
+    input.contract.media.mode !== "owner_assets" &&
+    PLACEHOLDER.test(source)
+  ) {
+    add(
+      findings,
+      "media",
+      "critical",
+      "placeholder-forbidden",
+      "No-photo V2 output cannot contain placeholder images.",
+    );
+  }
+  if (!source.includes("@/components/site/layout")) {
+    add(
+      findings,
+      "contract",
+      "high",
+      "kit-primitive-missing",
+      `Generated route does not use the selected ${input.kit.id} primitive.`,
+    );
+  }
+  if (
+    !source.includes(
+      input.designPlan?.compositionPatternId ?? "__missing_pattern__",
+    )
+  ) {
+    add(
+      findings,
+      "contract",
+      "high",
+      "kit-pattern-missing",
+      "Selected composition pattern is not reflected in source.",
+    );
+  }
+  if (source.includes("Pilihan yang mudah dilihat, ditanyakan, dan dipesan.")) {
+    add(
+      findings,
+      "genericness",
+      "high",
+      "fixed-renderer-fingerprint",
+      "Generated route retains the deterministic control copy.",
+    );
+  }
+  for (const claim of input.contract.obligations.prohibitedClaims) {
+    if (
+      claim.trim() &&
+      source.toLocaleLowerCase().includes(claim.toLocaleLowerCase())
+    ) {
+      add(
+        findings,
+        "claims",
+        "critical",
+        "prohibited-claim",
+        "Generated source contains a prohibited claim.",
+      );
+    }
+  }
+  if (/[#][0-9a-f]{6}/i.test(source)) {
+    add(
+      findings,
+      "accessibility",
+      "high",
+      "raw-palette-literal",
+      "Generated source redeclares a raw palette instead of semantic tokens.",
+    );
+  }
+  for (const check of input.themeChecks) {
+    if (!check.pass) {
+      add(
+        findings,
+        "accessibility",
+        "critical",
+        "theme-contrast",
+        `${check.role} contrast is below its minimum.`,
+      );
+    }
+  }
+  const requiredFields = ["headline", "subheadline", "primaryCta"];
+  const content = input.contract.content;
+  if (content.products.length) {
+    requiredFields.push("products");
+  }
+  if (content.trustPoints.length) {
+    requiredFields.push("trustPoints");
+  }
+  if (content.usp.length) {
+    requiredFields.push("usp");
+  }
+  if (content.promotion) {
+    requiredFields.push("currentPromo");
+  }
+  for (const field of requiredFields) {
+    if (!new RegExp(`\\bsite\\.${escapeRegExp(field)}\\b`).test(source)) {
+      add(
+        findings,
+        "content",
+        "high",
+        "missing-required-content",
+        `Required content site.${field} is not rendered.`,
+      );
+    }
+  }
+  const targetDigits = input.contract.business.primaryCta.target.replace(
+    /\D/g,
+    "",
+  );
+  if (
+    targetDigits &&
+    !source.includes(targetDigits) &&
+    !source.includes(`wa.me/${targetDigits}`)
+  ) {
+    add(
+      findings,
+      "cta",
+      "critical",
+      "primary-cta-target-missing",
+      "Primary CTA does not use the accepted target.",
+    );
+  }
+  return {
+    version: 1,
+    status: findings.length ? "fail" : "pass",
+    findings,
+    riskSignals,
+  };
+}
 
 export function normalizeBatchedSiteAnchors(
   files: GeneratedProjectFile[],

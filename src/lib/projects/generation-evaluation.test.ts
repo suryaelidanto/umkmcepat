@@ -3,11 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
   buildEvaluationReport,
   buildGeneratedSiteEvaluationReport,
+  buildGeneratedSiteEvaluationReportV3,
+  type BlindPreference,
   type EvaluationManifestV1,
   type EvaluationTrialResultV1,
   type GeneratedSiteEvaluationManifestV2,
   type GeneratedSiteEvaluationTrialV2,
+  type GeneratedSiteEvaluationManifestV3,
+  type GeneratedSiteEvaluationTrialV3,
 } from "./generation-evaluation";
+
+import type { GeneratedSiteCallBudgetSnapshot } from "./generated-site-call-budget";
 
 function manifestWithTwoTrials(): EvaluationManifestV1 {
   return {
@@ -90,6 +96,126 @@ function qualifyingV2Trials(): GeneratedSiteEvaluationTrialV2[] {
     entry.trials.map((trial) => qualifyingV2Trial(entry.briefId, trial)),
   );
 }
+
+describe("buildGeneratedSiteEvaluationReportV3", () => {
+  const v3Manifest: GeneratedSiteEvaluationManifestV3 = {
+    schemaVersion: 3,
+    baselineId: "control-v1",
+    corpusVersion: "corpus-v3",
+    evaluatorVersion: "3",
+    cases: Array.from({ length: 12 }, (_, index) => ({
+      briefId: `case-${index + 1}`,
+      fixture: `briefs/case-${index + 1}.json`,
+      trials: [1, 2] as const,
+    })),
+  };
+  const calls: GeneratedSiteCallBudgetSnapshot = {
+    writerCalls: 1,
+    criticCalls: 1,
+    correctionCalls: 0,
+    correctionReason: null,
+  };
+  function v3Trials(): GeneratedSiteEvaluationTrialV3[] {
+    const kits = [
+      "editorial-airy",
+      "menu-led-editorial",
+      "catalog-story",
+      "warm-commerce",
+      "bold-typographic",
+    ] as const;
+    return v3Manifest.cases.flatMap((entry, index) =>
+      entry.trials.flatMap((trial) => [
+        {
+          runId: "run-1",
+          arm: "reference-calibrated-v2" as const,
+          briefId: entry.briefId,
+          trial,
+          outcome: "pass" as const,
+          kitId: kits[index % kits.length],
+          calls,
+          totalToDecisionMs: 80_000,
+          firstFileClosedMs: 20_000,
+          editableBytes: 10_000,
+          technicalSuccess: true,
+          criticalAccessibilityFailures: 0,
+          brokenActionFailures: 0,
+          fabricatedFactFailures: 0,
+          placeholderMediaFailures: 0,
+          visualFindings: { critical: 0, high: 0, medium: 0, low: 0 },
+          compositionPatternId: `pattern-${index}`,
+          desktopEvidenceRef: "private-desktop",
+          mobileEvidenceRef: "private-mobile",
+        },
+        {
+          runId: "run-1",
+          arm: "deterministic-control-v1" as const,
+          briefId: entry.briefId,
+          trial,
+          outcome: "pass" as const,
+          kitId: "control" as const,
+          calls: {
+            writerCalls: 0,
+            criticCalls: 0,
+            correctionCalls: 0,
+            correctionReason: null,
+          },
+          totalToDecisionMs: 7_000,
+          firstFileClosedMs: null,
+          editableBytes: 0,
+          technicalSuccess: true,
+          criticalAccessibilityFailures: 0,
+          brokenActionFailures: 0,
+          fabricatedFactFailures: 0,
+          placeholderMediaFailures: 0,
+          visualFindings: { critical: 0, high: 0, medium: 0, low: 0 },
+          compositionPatternId: null,
+          desktopEvidenceRef: "private-control-desktop",
+          mobileEvidenceRef: "private-control-mobile",
+        },
+      ]),
+    );
+  }
+  function preferences(): BlindPreference[] {
+    return v3Manifest.cases.flatMap((entry) =>
+      entry.trials.map((trial) => ({
+        briefId: entry.briefId,
+        trial,
+        choice: "treatment" as const,
+      })),
+    );
+  }
+
+  it("passes only a complete 24-trial treatment/control corpus with blind labels", () => {
+    const report = buildGeneratedSiteEvaluationReportV3(
+      v3Manifest,
+      v3Trials(),
+      preferences(),
+    );
+    expect(report).toMatchObject({
+      scheduledTreatmentTrials: 24,
+      completedTreatmentTrials: 24,
+      release: { pass: true, reasons: [] },
+    });
+  });
+
+  it("keeps missing blind labels and bad call counts blocking release", () => {
+    const trials = v3Trials().map((trial) =>
+      trial.arm === "reference-calibrated-v2" &&
+      trial.briefId === "case-1" &&
+      trial.trial === 1
+        ? { ...trial, calls: { ...calls, criticCalls: 0 as const } }
+        : trial,
+    );
+    const report = buildGeneratedSiteEvaluationReportV3(v3Manifest, trials, []);
+    expect(report.release.pass).toBe(false);
+    expect(report.release.reasons).toEqual(
+      expect.arrayContaining([
+        "critic call count is not exactly one",
+        "blind preference input missing",
+      ]),
+    );
+  });
+});
 
 describe("buildGeneratedSiteEvaluationReport", () => {
   it("passes a complete qualifying corpus", () => {

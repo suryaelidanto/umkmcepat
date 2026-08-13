@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { qualifyGeneratedSite } from "./generated-site-qualification";
+import { GeneratedSiteCallBudget } from "./generated-site-call-budget";
+import {
+  qualifyGeneratedSite,
+  qualifyReferenceCalibratedSite,
+} from "./generated-site-qualification";
 
 import type { BrowserGateReport } from "./browser-gates";
 import type { GeneratedSiteRiskReportV1 } from "./generated-site-risk";
@@ -74,6 +78,86 @@ const criticFail: VisualCriticReport = {
     },
   ],
 };
+
+describe("qualifyReferenceCalibratedSite", () => {
+  it("requires one review and does not repair a clean candidate", async () => {
+    const review = vi.fn(async () => ({
+      status: "complete" as const,
+      findings: [],
+      modelId: "critic",
+    }));
+    const result = await qualifyReferenceCalibratedSite(files, {
+      runBrowser: async () => browser,
+      loadScreenshots: async () => [new Uint8Array([1])],
+      review,
+      repair: vi.fn(),
+      budget: new GeneratedSiteCallBudget(),
+    });
+    expect(result.ok).toBe(true);
+    expect(review).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails human-only visual findings without auto-repair", async () => {
+    const result = await qualifyReferenceCalibratedSite(files, {
+      runBrowser: async () => browser,
+      loadScreenshots: async () => [new Uint8Array([1])],
+      review: async () => ({
+        status: "complete",
+        modelId: "critic",
+        findings: [
+          {
+            category: "genericness",
+            severity: "high",
+            route: "/",
+            viewport: "desktop",
+            evidence: "generic",
+            kitReference: "reference",
+            proposedCorrection: "change",
+            verificationMode: "human_only",
+            verificationAssertions: [],
+            confidence: 0.9,
+          },
+        ],
+      }),
+      repair: vi.fn(),
+      budget: new GeneratedSiteCallBudget(),
+    });
+    expect(result).toMatchObject({ ok: false, visualRepairCount: 0 });
+  });
+
+  it("uses one machine-verifiable correction and does not call review again", async () => {
+    const runBrowser = vi.fn(async () => browser);
+    const review = vi.fn(async () => ({
+      status: "complete" as const,
+      modelId: "critic",
+      findings: [
+        {
+          category: "color_contrast" as const,
+          severity: "high" as const,
+          route: "/",
+          viewport: "desktop" as const,
+          evidence: "contrast",
+          kitReference: "kit",
+          proposedCorrection: "fix",
+          verificationMode: "browser_assertion" as const,
+          verificationAssertions: ["computed-contrast"],
+          confidence: 0.9,
+        },
+      ],
+    }));
+    const result = await qualifyReferenceCalibratedSite(files, {
+      runBrowser,
+      loadScreenshots: async () => [new Uint8Array([1])],
+      review,
+      repair: vi.fn(async () => files),
+      budget: new GeneratedSiteCallBudget(),
+    });
+    expect(result.ok).toBe(true);
+    expect(result.visualRepairCount).toBe(1);
+    expect(review).toHaveBeenCalledTimes(1);
+    expect(runBrowser).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("qualifyGeneratedSite", () => {
   it("keeps the clean path to browser gates only", async () => {

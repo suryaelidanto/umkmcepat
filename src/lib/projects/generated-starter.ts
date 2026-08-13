@@ -1,3 +1,5 @@
+import type { GeneratedSiteQualityProofV2 } from "@/lib/projects/generated-site-quality-proof";
+
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
 import { PLATFORM_VITE_CONFIG } from "@/lib/projects/generated-build-policy";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
@@ -361,7 +363,8 @@ export function createGeneratedSourceSnapshotMetadata(
       type: string;
     }>;
     repairAttempts?: number;
-    qualityProof?: GeneratedSiteQualityProofV1;
+    qualityProof?: GeneratedSiteQualityProofV1 | GeneratedSiteQualityProofV2;
+    referenceCalibratedQualityProof?: GeneratedSiteQualityProofV2;
     summary?: string;
     touchedFiles?: string[];
   },
@@ -379,6 +382,8 @@ export function createGeneratedSourceSnapshotMetadata(
           operationTrace: generation.operationTrace ?? [],
           repairAttempts: generation.repairAttempts ?? 0,
           qualityProof: generation.qualityProof,
+          referenceCalibratedQualityProof:
+            generation.referenceCalibratedQualityProof,
           summary: generation.summary,
           touchedFiles: generation.touchedFiles ?? [],
         }

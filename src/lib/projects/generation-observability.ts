@@ -23,6 +23,19 @@ export type SanitizedGenerationEvent = {
   outcome?: string;
   sourceGateFindings?: number;
   browserMs?: number;
+  kitId?: string;
+  kitVersion?: number;
+  writerCalls?: number;
+  criticCalls?: number;
+  correctionCalls?: number;
+  correctionReason?: string | null;
+  criticalFindings?: number;
+  highFindings?: number;
+  writerMs?: number;
+  criticMs?: number;
+  totalToDecisionMs?: number;
+  editableBytes?: number;
+  firstFileClosedMs?: number;
 };
 
 export function sanitizeGenerationEvent(
@@ -56,5 +69,19 @@ export function sanitizeGenerationEvent(
     outcome: str("outcome"),
     sourceGateFindings: numeric("sourceGateFindings"),
     browserMs: numeric("browserMs"),
+    kitId: str("kitId"),
+    kitVersion: numeric("kitVersion"),
+    writerCalls: numeric("writerCalls"),
+    criticCalls: numeric("criticCalls"),
+    correctionCalls: numeric("correctionCalls"),
+    correctionReason:
+      input.correctionReason === null ? null : str("correctionReason"),
+    criticalFindings: numeric("criticalFindings"),
+    highFindings: numeric("highFindings"),
+    writerMs: numeric("writerMs"),
+    criticMs: numeric("criticMs"),
+    totalToDecisionMs: numeric("totalToDecisionMs"),
+    editableBytes: numeric("editableBytes"),
+    firstFileClosedMs: numeric("firstFileClosedMs"),
   };
 }

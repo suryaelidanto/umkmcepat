@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   inspectGeneratedSiteSource,
+  inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
 } from "./generated-site-gates";
 
 import type { WriterDesignPlanV1 } from "./batched-response";
+import type { GeneratedSiteWriterContractV2 } from "./generated-site-contract";
 import type { GeneratedSiteContractV1 } from "./generated-site-contract";
+import type { GeneratedSiteDesignKitV1 } from "./generated-site-design-kits/types";
+import type { WriterDesignPlanV2 } from "./generated-site-design-plan";
 import type { GeneratedProjectFile } from "./generated-types";
 import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
 
@@ -112,6 +116,142 @@ function report(
     themeChecks,
   });
 }
+
+function v2Contract(): GeneratedSiteWriterContractV2 {
+  return {
+    schemaVersion: 2,
+    contractHash: "a".repeat(64),
+    handoff: { contractHash: "b".repeat(64), planHash: "c".repeat(64) },
+    business: {
+      name: "Sintetis",
+      type: "retail",
+      audience: "Pembeli",
+      primaryJob: "Memilih",
+      primaryCta: { kind: "whatsapp", label: "Chat", target: "+6281100000000" },
+    },
+    content: {
+      headline: "Pilih",
+      subheadline: "Lihat pilihan.",
+      offer: "Produk",
+      promotion: null,
+      trustPoints: ["Jelas"],
+      products: [],
+      testimonials: [],
+      faq: [],
+      usp: [],
+      hours: [],
+      paymentMethods: [],
+      priceRange: null,
+      address: null,
+      deliveryArea: null,
+      socialLinks: [],
+    },
+    obligations: {
+      routes: [
+        {
+          path: "/",
+          purpose: "Beranda",
+          requiredFactIds: [],
+          requiredSectionIds: ["hero"],
+        },
+      ],
+      sections: [{ id: "hero", purpose: "Penawaran", requiredFactIds: [] }],
+      prohibitedClaims: [],
+    },
+    media: { mode: "graphic", approvedAssets: [] },
+    visualInputs: {
+      direction: "hangat",
+      density: "sparse",
+      selectedKitId: "bold-typographic",
+      selectedKitVersion: 1,
+    },
+  };
+}
+
+function v2Kit(): GeneratedSiteDesignKitV1 {
+  return {
+    id: "bold-typographic" as const,
+    version: 1 as const,
+    referenceLabels: ["07"] as ["07"],
+    compatibleArchetypes: ["generic"],
+    compatibleMediaModes: ["graphic"],
+    compatibleDensities: ["sparse"],
+    compositionPatterns: [
+      { id: "full-field-lockup", intent: "", requires: [], forbids: [] },
+    ],
+    typography: {
+      displayRole: "sans" as const,
+      bodyRole: "sans" as const,
+      maxDisplayRem: 5,
+      maxBodyCh: 64,
+    },
+    themePolicy: {
+      temperature: "cool" as const,
+      backgroundLightness: "dark" as const,
+      accentSurfaceMaximum: 0.1,
+    },
+    rhythm: {
+      sectionSpacingRem: [3, 6] as [number, number],
+      allowAlternatingSurfaces: false,
+    },
+    primitiveFileIds: ["site-layout-v1"],
+    sourceAssertions: [],
+    browserAssertions: [],
+    criticRubric: [],
+    antiPatterns: [],
+  };
+}
+
+function _v2Plan(): WriterDesignPlanV2 {
+  return {
+    schemaVersion: 2,
+    contractHash: "a".repeat(64),
+    kit: { id: "bold-typographic", version: 1 },
+    mediaMode: "graphic",
+    visualThesis: "Bold clear promise",
+    compositionPatternId: "full-field-lockup",
+    palette: {
+      background: "#171b2b",
+      foreground: "#f3f4ff",
+      muted: "#2c3150",
+      accent: "#9d7cff",
+    },
+    typography: { displayRole: "sans", bodyRole: "sans" },
+    sections: [
+      { id: "hero", treatment: "lockup", surface: "base", density: "airy" },
+    ],
+    sectionOrder: ["hero"],
+    mobileStrategy: ["stack"],
+    signatureElement: "full-field-lockup",
+  };
+}
+
+describe("reference-calibrated generated site source gates", () => {
+  it("rejects fixed-renderer residue and no-photo placeholders", () => {
+    const result = inspectReferenceCalibratedSiteSource({
+      contract: v2Contract(),
+      kit: v2Kit(),
+      designPlan: null,
+      files: [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            '<main data-generated-site-starter><img src="/placeholder.svg" /></main>',
+        },
+      ],
+      starterIndexSource: "<main data-generated-site-starter />",
+      themeChecks: [],
+    });
+    expect(result.status).toBe("fail");
+    expect(result.findings.map((finding) => finding.code)).toEqual(
+      expect.arrayContaining([
+        "missing-design-plan-v2",
+        "starter-residue",
+        "placeholder-forbidden",
+      ]),
+    );
+  });
+});
 
 describe("normalizeBatchedSiteAnchors", () => {
   it("turns missing chat anchors into the reviewed WhatsApp target and a touch-safe CTA", () => {

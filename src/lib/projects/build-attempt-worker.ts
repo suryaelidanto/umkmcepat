@@ -44,10 +44,15 @@ import { runGeneratedSiteBrowserGates } from "@/lib/projects/generated-site-brow
 import { compileGeneratedSiteContract } from "@/lib/projects/generated-site-contract";
 import { qualifyGeneratedSite } from "@/lib/projects/generated-site-qualification";
 import {
+  sanitizeGeneratedSiteQualityProofV2,
+  type GeneratedSiteQualityProofV2,
+} from "@/lib/projects/generated-site-quality-proof";
+import {
   selectGeneratedSiteGoldExample,
   selectGeneratedSiteRecipe,
 } from "@/lib/projects/generated-site-recipes";
 import { classifyGeneratedSiteRisk } from "@/lib/projects/generated-site-risk";
+import { resolveApprovedReferenceCalibratedMode } from "@/lib/projects/generated-site-rollout";
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
@@ -665,6 +670,8 @@ export async function runBuildAttempt({
     let generatedSiteExample: ReturnType<
       typeof selectGeneratedSiteGoldExample
     > | null = null;
+    let referenceCalibratedQualityProof: GeneratedSiteQualityProofV2 | null =
+      null;
 
     if (useGeneratedSiteQuality && acceptedHandoff) {
       generatedSiteRecipe = selectGeneratedSiteRecipe(
@@ -738,68 +745,191 @@ export async function runBuildAttempt({
       onFilesChanged([...batchedStageFiles.values()]);
     };
 
+    const referenceCalibratedMode =
+      useGeneratedSiteQuality && acceptedHandoff
+        ? resolveApprovedReferenceCalibratedMode()
+        : "off";
+    let referenceCalibratedCandidate: Awaited<
+      ReturnType<
+        (typeof import("@/lib/projects/generated-site-shadow"))["runGeneratedSiteShadowCandidate"]
+      >
+    > | null = null;
+    if (
+      referenceCalibratedMode !== "off" &&
+      acceptedHandoff &&
+      generatedSiteContract
+    ) {
+      send("progress", {
+        label: "Menguji kualitas tampilan",
+        detail: "Menjalankan pemeriksaan referensi secara terpisah.",
+      });
+      try {
+        const { runGeneratedSiteShadowCandidate } =
+          await import("@/lib/projects/generated-site-shadow");
+        referenceCalibratedCandidate = await runGeneratedSiteShadowCandidate({
+          abortSignal,
+          attemptId,
+          buildId: runtimeBuildId,
+          projectId,
+          userId,
+          brief,
+          briefSnapshot: acceptedHandoff.briefSnapshot,
+          handoff: acceptedHandoff,
+          schema: finalSchema,
+          photoEnabled: Boolean(
+            getSettingSync("feature.composer_uploads_enabled", true),
+          ),
+          browserContract: generatedSiteContract,
+          build: (files, workspaceProjectId) =>
+            buildGeneratedProject(files, {
+              workspaceKey: `${workspaceProjectId}-reference-shadow`,
+            }),
+          runBrowser: (browserInput) =>
+            runGeneratedSiteBrowserGates(
+              { ...browserInput, timeoutMs: 10_000 },
+              {
+                storeEvidence: async (evidence) => {
+                  const refs = [
+                    await storeGateEvidence({
+                      projectId: evidence.projectId,
+                      candidateId: evidence.candidateId,
+                      kind: "report",
+                      route: evidence.route,
+                      viewport: evidence.viewport,
+                      value: evidence.value,
+                    }),
+                  ];
+                  if (evidence.screenshot) {
+                    refs.push(
+                      await storeGateScreenshotEvidence({
+                        projectId: evidence.projectId,
+                        candidateId: evidence.candidateId,
+                        route: evidence.route,
+                        viewport: evidence.viewport,
+                        bytes: evidence.screenshot,
+                      }),
+                    );
+                  }
+                  return refs;
+                },
+              },
+            ),
+          loadVisualEvidence: async (report) => {
+            const screenshots = await Promise.all(
+              report.evidenceIds
+                .filter((ref) => ref.endsWith(".jpg"))
+                .map((ref) => readGateEvidence<{ screenshot?: string }>(ref)),
+            );
+            return screenshots.flatMap((value) =>
+              value?.screenshot
+                ? [Buffer.from(value.screenshot, "base64")]
+                : [],
+            );
+          },
+        });
+        referenceCalibratedQualityProof = sanitizeGeneratedSiteQualityProofV2(
+          referenceCalibratedCandidate.proof,
+        );
+        devLog("generate", "reference_calibrated.shadow", {
+          calls: referenceCalibratedQualityProof.calls,
+          kitId: referenceCalibratedQualityProof.kitId,
+          outcome: referenceCalibratedQualityProof.outcome,
+          projectId,
+        });
+      } catch (error) {
+        devLog("generate", "reference_calibrated.shadow_error", {
+          error: error instanceof Error ? error.message : "unknown error",
+          projectId,
+        });
+      }
+    }
+
+    if (
+      referenceCalibratedMode === "replace" &&
+      (!referenceCalibratedCandidate || !referenceCalibratedCandidate.ok)
+    ) {
+      throw new Error(
+        "reference-calibrated replacement candidate did not qualify; last-known-good source is retained",
+      );
+    }
+
     const agentStartedAt = Date.now();
     // Contract-v1 single-shot writer: the ONLY generation path. Any batched
     // failure (parse, gates, repair budget, admission block) fails the attempt
     // outright — there is no legacy fallback. Abort propagates via the catch
     // below.
-    const batched = await runBatchedGenerate({
-      abortSignal,
-      attemptId,
-      brief,
-      buildId: runtimeBuildId,
-      implementationSpec,
-      ...(generatedSiteContract && generatedSiteRecipe && generatedSiteExample
+    const batched =
+      referenceCalibratedMode === "replace" && referenceCalibratedCandidate?.ok
         ? {
-            contract: generatedSiteContract,
-            recipe: generatedSiteRecipe,
-            example: generatedSiteExample,
+            ok: true as const,
+            files: referenceCalibratedCandidate.files,
+            designPlan: null,
+            designPlanV2: referenceCalibratedCandidate.designPlan,
+            repairRounds: 0,
+            summary: "Reference-calibrated candidate qualified.",
+            writtenPaths: referenceCalibratedCandidate.files
+              .filter((file) => file.path.startsWith("src/routes/"))
+              .map((file) => file.path),
           }
-        : {}),
-      onEvent(type, data) {
-        // Enrich write_file operations with unified diff so the UI can show
-        // exactly what changed (file created vs updated) in the "Menulis file" step.
-        if (
-          type === "operation" &&
-          data &&
-          typeof data === "object" &&
-          (data as { type?: string }).type === "write_file" &&
-          typeof (data as { path?: unknown }).path === "string"
-        ) {
-          const op = data as {
-            path: string;
-            diff?: unknown;
-            type: string;
-            title: string;
-            detail: string;
-          };
-          if (!Array.isArray(op.diff) || op.diff.length === 0) {
-            const newFile = batchedStageFiles.get(op.path);
-            if (newFile) {
-              const oldContent =
-                persistedSourceFiles.find((f) => f.path === op.path)?.content ??
-                "";
-              try {
-                const diff = generateDiff(oldContent, newFile.content);
-                // Keep diff bounded for the progress channel (avoid huge payloads)
-                const maxLines = 120;
-                const sliced =
-                  diff.length > maxLines ? diff.slice(0, maxLines) : diff;
-                (data as { diff?: typeof diff }).diff = sliced;
-              } catch {
-                // diff is best-effort; never fail the build on diff generation
+        : await runBatchedGenerate({
+            abortSignal,
+            attemptId,
+            brief,
+            buildId: runtimeBuildId,
+            implementationSpec,
+            ...(generatedSiteContract &&
+            generatedSiteRecipe &&
+            generatedSiteExample
+              ? {
+                  contract: generatedSiteContract,
+                  recipe: generatedSiteRecipe,
+                  example: generatedSiteExample,
+                }
+              : {}),
+            onEvent(type, data) {
+              // Enrich write_file operations with unified diff so the UI can show
+              // exactly what changed (file created vs updated) in the "Menulis file" step.
+              if (
+                type === "operation" &&
+                data &&
+                typeof data === "object" &&
+                (data as { type?: string }).type === "write_file" &&
+                typeof (data as { path?: unknown }).path === "string"
+              ) {
+                const op = data as {
+                  path: string;
+                  diff?: unknown;
+                  type: string;
+                  title: string;
+                  detail: string;
+                };
+                if (!Array.isArray(op.diff) || op.diff.length === 0) {
+                  const newFile = batchedStageFiles.get(op.path);
+                  if (newFile) {
+                    const oldContent =
+                      persistedSourceFiles.find((f) => f.path === op.path)
+                        ?.content ?? "";
+                    try {
+                      const diff = generateDiff(oldContent, newFile.content);
+                      // Keep diff bounded for the progress channel (avoid huge payloads)
+                      const maxLines = 120;
+                      const sliced =
+                        diff.length > maxLines ? diff.slice(0, maxLines) : diff;
+                      (data as { diff?: typeof diff }).diff = sliced;
+                    } catch {
+                      // diff is best-effort; never fail the build on diff generation
+                    }
+                  }
+                }
               }
-            }
-          }
-        }
-        send(type, data);
-      },
-      onFileStaged: persistBatchedStage,
-      projectId,
-      schema: finalSchema,
-      stepCharger: sourceStepCharger,
-      userId,
-    });
+              send(type, data);
+            },
+            onFileStaged: persistBatchedStage,
+            projectId,
+            schema: finalSchema,
+            stepCharger: sourceStepCharger,
+            userId,
+          });
 
     if (!batched.ok) {
       devLog("generate", "batched.failed", {
@@ -823,6 +953,7 @@ export async function runBuildAttempt({
         type: string;
       }[];
       repairAttempts: number;
+      referenceCalibratedQualityProof?: GeneratedSiteQualityProofV2;
       summary: string;
       touchedFiles: string[];
     } = {
@@ -832,6 +963,9 @@ export async function runBuildAttempt({
       generationMode: "agent-custom",
       operationTrace: [],
       repairAttempts: batched.repairRounds,
+      ...(referenceCalibratedQualityProof
+        ? { referenceCalibratedQualityProof }
+        : {}),
       summary: batched.summary,
       touchedFiles: touched,
     };
@@ -957,6 +1091,7 @@ export async function runBuildAttempt({
     if (
       buildResult.ok &&
       useGeneratedSiteQuality &&
+      referenceCalibratedMode !== "replace" &&
       generatedSiteContract &&
       generatedSiteRecipe &&
       acceptedHandoff

@@ -10,6 +10,10 @@ import type {
 } from "./brief-rich-fields";
 import type { BuildContractV1, ContractFactV1 } from "./build-contract";
 import type { BuildPlanV1 } from "./build-plan";
+import type {
+  GeneratedSiteDesignKitV1,
+  GeneratedSiteKitMediaMode,
+} from "./generated-site-design-kits/types";
 import type { GeneratedSiteRecipeV1 } from "./generated-site-recipes";
 import type {
   ProjectSiteSchema,
@@ -84,6 +88,19 @@ export type GeneratedSiteContractV1 = {
   };
 };
 
+export type GeneratedSiteHandoffInput = {
+  id: string;
+  briefSnapshot: ProjectBriefV2;
+  briefHash: string;
+  briefRevision: 2;
+  contract: BuildContractV1;
+  plan: BuildPlanV1;
+  contractHash: string;
+  planHash: string;
+  contractRevision: number;
+  planRevision: number;
+};
+
 export type GeneratedSiteContractCompileInput = {
   contract: BuildContractV1;
   plan: BuildPlanV1;
@@ -93,6 +110,42 @@ export type GeneratedSiteContractCompileInput = {
 };
 
 const HASH_PREFIX = "umkmcepat:generated-site-contract:v1:";
+const HASH_PREFIX_V2 = "umkmcepat:generated-site-writer-contract:v2:";
+
+export type GeneratedSiteWriterContractV2 = {
+  schemaVersion: 2;
+  contractHash: string;
+  handoff: {
+    contractHash: string;
+    planHash: string;
+  };
+  business: GeneratedSiteContractV1["business"];
+  content: GeneratedSiteContractV1["content"];
+  obligations: {
+    routes: Array<{
+      path: string;
+      purpose: string;
+      requiredFactIds: string[];
+      requiredSectionIds: string[];
+    }>;
+    sections: Array<{
+      id: string;
+      purpose: string;
+      requiredFactIds: string[];
+    }>;
+    prohibitedClaims: string[];
+  };
+  media: {
+    mode: Exclude<GeneratedSiteKitMediaMode, "replaceable_slots">;
+    approvedAssets: GeneratedSiteContractV1["design"]["approvedAssets"];
+  };
+  visualInputs: {
+    direction: string | null;
+    density: "sparse" | "regular" | "rich";
+    selectedKitId: GeneratedSiteDesignKitV1["id"];
+    selectedKitVersion: 1;
+  };
+};
 
 export function compileGeneratedSiteSnapshotHash(
   briefSnapshot: ProjectBriefV2,
@@ -100,7 +153,7 @@ export function compileGeneratedSiteSnapshotHash(
   return hashCanonicalBrief(briefSnapshot);
 }
 
-export function createGeneratedSiteRouteSource(
+export function createDeterministicGeneratedSiteControlRoute(
   contract: GeneratedSiteContractV1,
 ): string {
   const primaryActionHref = whatsappHref(contract.business.primaryCta.target);
@@ -152,6 +205,79 @@ export function HomeRouteComponent() {
   );
 }
 `;
+}
+
+export function compileGeneratedSiteWriterContractV2(input: {
+  handoff: GeneratedSiteHandoffInput;
+  briefSnapshot: ProjectBriefV2;
+  photoEnabled: boolean;
+  kit: GeneratedSiteDesignKitV1;
+}): GeneratedSiteWriterContractV2 {
+  const base = compileGeneratedSiteContract({
+    contract: input.handoff.contract,
+    plan: input.handoff.plan,
+    briefSnapshot: input.briefSnapshot,
+    photoEnabled: input.photoEnabled,
+    recipe: recipeForV2(input.handoff.plan.archetype),
+  });
+  const mediaMode: Exclude<GeneratedSiteKitMediaMode, "replaceable_slots"> =
+    input.photoEnabled && base.design.approvedAssets.length > 0
+      ? "owner_assets"
+      : input.kit.compatibleMediaModes.includes("graphic")
+        ? "graphic"
+        : "typographic";
+  if (!input.kit.compatibleMediaModes.includes(mediaMode)) {
+    throw new Error(
+      `generated-site kit ${input.kit.id} cannot render media mode ${mediaMode}`,
+    );
+  }
+  const sections = input.handoff.plan.pages.flatMap((page) =>
+    page.sections.map((section) => ({
+      id: section.id,
+      purpose: section.purpose,
+      requiredFactIds: section.requiredFactIds,
+    })),
+  );
+  const draft = {
+    schemaVersion: 2 as const,
+    contractHash: "",
+    handoff: {
+      contractHash: input.handoff.contractHash,
+      planHash: input.handoff.planHash,
+    },
+    business: base.business,
+    content: base.content,
+    obligations: {
+      routes: input.handoff.plan.pages.map((page) => ({
+        path: page.path,
+        purpose: page.purpose,
+        requiredFactIds: page.requiredFactIds,
+        requiredSectionIds: page.sections.map((section) => section.id),
+      })),
+      sections,
+      prohibitedClaims: input.handoff.contract.prohibitedClaims.map(
+        (claim) => claim.statement,
+      ),
+    },
+    media: {
+      mode: mediaMode,
+      approvedAssets: base.design.approvedAssets,
+    },
+    visualInputs: {
+      direction: input.handoff.contract.preferences.visualDirection,
+      density: densityForBrief(input.briefSnapshot),
+      selectedKitId: input.kit.id,
+      selectedKitVersion: 1 as const,
+    },
+  } satisfies Omit<GeneratedSiteWriterContractV2, "contractHash"> & {
+    contractHash: string;
+  };
+  return {
+    ...draft,
+    contractHash: createHash("sha256")
+      .update(HASH_PREFIX_V2 + canonicalJson(draft), "utf8")
+      .digest("hex"),
+  };
 }
 
 export function compileGeneratedSiteContract(
@@ -286,6 +412,67 @@ export function compileGeneratedSiteContract(
       .update(HASH_PREFIX + canonicalJson(draft), "utf8")
       .digest("hex"),
   };
+}
+
+function recipeForV2(archetype: string): GeneratedSiteRecipeV1 {
+  const recipeById: Record<string, GeneratedSiteRecipeV1> = {
+    "retail-catalog": {
+      id: "retail-catalog",
+      version: 1,
+      compatibleArchetypes: [archetype],
+      composition: "Catalog-first composition.",
+      hierarchy: ["offer", "catalog", "trust", "action"],
+      preferredPatterns: ["catalog comparison"],
+      avoidPatterns: [],
+      mediaGuidance: {
+        owner_assets: "Use approved owner assets.",
+        replaceable_slots: "Not used in V2.",
+        graphic: "Use local graphic composition.",
+        typographic: "Use typography-led composition.",
+      },
+      imageBenefiting: false,
+      requiredBrowserAssertions: [],
+      riskTags: [],
+    },
+    generic: {
+      id: "generic",
+      version: 1,
+      compatibleArchetypes: [archetype],
+      composition: "Job-first composition.",
+      hierarchy: ["identity", "details", "trust", "action"],
+      preferredPatterns: ["content-led hero"],
+      avoidPatterns: [],
+      mediaGuidance: {
+        owner_assets: "Use approved owner assets.",
+        replaceable_slots: "Not used in V2.",
+        graphic: "Use local graphic composition.",
+        typographic: "Use typography-led composition.",
+      },
+      imageBenefiting: false,
+      requiredBrowserAssertions: [],
+      riskTags: [],
+    },
+  };
+  return recipeById[archetype] ?? recipeById.generic;
+}
+
+function densityForBrief(
+  snapshot: ProjectBriefV2,
+): "sparse" | "regular" | "rich" {
+  const detailCount =
+    snapshot.offers.length +
+    snapshot.content.usp.length +
+    snapshot.content.testimonials.length +
+    snapshot.content.socialLinks.length +
+    snapshot.content.paymentMethods.length +
+    snapshot.content.hours.length;
+  if (detailCount >= 8) {
+    return "rich";
+  }
+  if (detailCount >= 3) {
+    return "regular";
+  }
+  return "sparse";
 }
 
 function resolveMediaMode(

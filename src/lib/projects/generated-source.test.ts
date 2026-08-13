@@ -12,6 +12,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { validateGeneratedAppManifest } from "./generated-app-manifest";
+import { createEmptyGeneratedSiteQualityProofV2 } from "./generated-site-quality-proof";
 import {
   assertSafeProjectFilePath,
   buildGeneratedProject,
@@ -400,6 +401,53 @@ describe("generated project source", () => {
       outcome: "pass",
     });
     expect(JSON.stringify(metadata)).not.toContain("screenshot");
+  });
+
+  it("persists a V2 proof beside the readable V1 proof", () => {
+    const schema = createProjectSiteSchemaFromBrief({
+      version: 1,
+      notes: [],
+      prompt: "test",
+      readyForBuild: false,
+      businessName: "Test",
+      businessType: "jasa_online",
+      offer: "Layanan",
+      targetCustomer: "Pemilik usaha",
+      contactOrCta: "Hubungi kami",
+      stylePreference: "Jelas",
+      productOrService: null,
+      contact: null,
+      umkmType: "jasa_online",
+      fieldState: {},
+      tagline: null,
+      usp: null,
+      priceRange: null,
+      visuals: null,
+      hours: null,
+      address: null,
+      deliveryArea: null,
+      since: null,
+      testimonials: null,
+      certifications: null,
+      paymentMethods: null,
+      socialLinks: null,
+      currentPromo: null,
+      secondaryCta: null,
+    } as never);
+    const proof = createEmptyGeneratedSiteQualityProofV2({
+      contractHash: "a".repeat(64),
+      planHash: "b".repeat(64),
+      kitId: "bold-typographic",
+      mediaMode: "graphic",
+    });
+    const metadata = createGeneratedSourceSnapshotMetadata([], schema, {
+      generationMode: "agent-custom",
+      referenceCalibratedQualityProof: proof,
+    });
+    expect(metadata.generation?.referenceCalibratedQualityProof).toMatchObject({
+      engine: "reference-calibrated-single-shot",
+      kitId: "bold-typographic",
+    });
   });
 
   it("does not invoke the command runner when generated builds are disabled", async () => {

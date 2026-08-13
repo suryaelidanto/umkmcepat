@@ -5,6 +5,7 @@ import {
   createBatchedResponseParser,
   isAllowedBatchedPath,
 } from "./batched-response";
+import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
 import {
   isProtectedScaffoldPath,
   PROTECTED_SCAFFOLD_PATHS,
@@ -84,6 +85,62 @@ describe("batched response parser — design plan", () => {
     expect(() =>
       parser.push('<file path="src/a.ts">a</file><done summary="ok" />'),
     ).toThrow(/design-plan must precede files/);
+  });
+
+  it("parses a V2 design plan through the shared semantic validator", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "retail-catalog",
+      density: "rich",
+      mediaMode: "graphic",
+      primaryJobKind: "compare",
+      hasOperationalDetails: false,
+    });
+    const plan = {
+      schemaVersion: 2,
+      contractHash: "b".repeat(64),
+      kit: { id: kit.id, version: 1 },
+      mediaMode: "graphic",
+      visualThesis: "A comparison-led catalog with a quiet close.",
+      compositionPatternId: "product-rail",
+      palette: {
+        background: "#f7f3ec",
+        foreground: "#3d2b1f",
+        muted: "#e5ddd2",
+        accent: "#d4a017",
+      },
+      typography: { displayRole: "serif", bodyRole: "sans" },
+      sections: [
+        {
+          id: "catalog",
+          treatment: "rail",
+          surface: "base",
+          density: "regular",
+        },
+        {
+          id: "contact",
+          treatment: "close",
+          surface: "contrast",
+          density: "regular",
+        },
+      ],
+      mobileStrategy: ["stack content", "keep actions visible"],
+      signatureElement: "comparison rail",
+    };
+    const parser = createBatchedResponseParser({
+      requireDesignPlan: true,
+      designPlanV2Expected: {
+        contractHash: "b".repeat(64),
+        kit,
+        mediaMode: "graphic",
+        requiredSectionIds: ["catalog", "contact"],
+      },
+    });
+    parser.push(
+      `<design-plan>${JSON.stringify(plan)}</design-plan><file path="src/routes/index.tsx">export function HomeRouteComponent() { return null; }</file><done summary="ok" />`,
+    );
+    const result = parser.finalize();
+    expect(result.designPlan).toBeNull();
+    expect(result.designPlanV2?.kit.id).toBe("catalog-story");
   });
 
   it("rejects malformed, duplicate, or missing design plans", () => {

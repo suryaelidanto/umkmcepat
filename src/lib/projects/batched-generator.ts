@@ -13,7 +13,16 @@ import { streamText } from "ai";
 import ts from "typescript";
 
 import type { StepCharger } from "@/lib/projects/energy-step-charger";
-import type { GeneratedSiteContractV1 } from "@/lib/projects/generated-site-contract";
+import type {
+  GeneratedSiteCallBudget,
+  GeneratedSiteCorrectionReason,
+} from "@/lib/projects/generated-site-call-budget";
+import type {
+  GeneratedSiteContractV1,
+  GeneratedSiteWriterContractV2,
+} from "@/lib/projects/generated-site-contract";
+import type { GeneratedSiteDesignKitV1 } from "@/lib/projects/generated-site-design-kits/types";
+import type { WriterDesignPlanV2 } from "@/lib/projects/generated-site-design-plan";
 import type {
   GeneratedSiteGoldExample,
   GeneratedSiteRecipeV1,
@@ -38,6 +47,8 @@ import { devLog } from "@/lib/dev-log";
 import {
   buildBatchedWriterPrompt,
   buildFormatRepairPrompt,
+  buildReferenceCalibratedCorrectionPrompt,
+  buildReferenceCalibratedWriterPrompt,
   buildTargetedRepairPrompt,
   buildTruncationResumePrompt,
 } from "@/lib/projects/batched-prompt";
@@ -53,14 +64,22 @@ import {
   BatchedAdmissionBlockedError,
   checkBatchedGenerateAdmission,
 } from "@/lib/projects/brief-admission";
-import { createGeneratedSiteRouteSource } from "@/lib/projects/generated-site-contract";
+import { createDeterministicGeneratedSiteControlRoute } from "@/lib/projects/generated-site-contract";
 import {
   inspectGeneratedSiteSource,
+  inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
 } from "@/lib/projects/generated-site-gates";
+import {
+  applyGeneratedSiteThemeV2,
+  compileGeneratedSiteThemeV2,
+} from "@/lib/projects/generated-site-theme";
+import { createGeneratedSitePrimitiveFiles } from "@/lib/projects/scaffold/generated-site-primitives";
 export {
   buildBatchedWriterPrompt,
   buildFormatRepairPrompt,
+  buildReferenceCalibratedCorrectionPrompt,
+  buildReferenceCalibratedWriterPrompt,
 } from "@/lib/projects/batched-prompt";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
 import { resolveShadcnDeps } from "@/lib/projects/scaffold/shadcn-components";
@@ -241,6 +260,7 @@ export type BatchedGenerateResult =
       ok: true;
       files: GeneratedProjectFile[];
       designPlan: WriterDesignPlanV1 | null;
+      designPlanV2?: WriterDesignPlanV2 | null;
       repairRounds: number;
       summary: string;
       writtenPaths: string[];
@@ -609,6 +629,7 @@ export type BatchedStreamCallResult = {
   parseError?: BatchedParseError;
   response: {
     designPlan: WriterDesignPlanV1 | null;
+    designPlanV2?: WriterDesignPlanV2 | null;
     diagnostics: BatchedDiagnostic[];
     doneSummary: string | null;
     files: Map<string, { content: string; path: string }>;
@@ -617,6 +638,7 @@ export type BatchedStreamCallResult = {
   usage?: { inputTokens?: number; outputTokens?: number };
   modelServed?: string;
   requestMs: number;
+  firstFileClosedMs?: number | null;
   /** Set when the stream fast-failed on a structurally broken .tsx block. */
   syntaxIssue?: string;
 };
@@ -704,6 +726,13 @@ export async function runOneStreamedResponse(args: {
   buildId?: string | null;
   retryCount: number;
   requireDesignPlan?: boolean;
+  designPlanV2Expected?: {
+    contractHash: string;
+    kit: GeneratedSiteDesignKitV1;
+    mediaMode: "owner_assets" | "graphic" | "typographic";
+    requiredSectionIds: string[];
+  };
+  maxRetries?: 0 | 2;
   stepCharger?: StepCharger;
   system: string;
   /** Ledger task. Phase 1 generate uses build-step/build-repair; Phase 2 edit uses "edit" for every leg. */
@@ -712,8 +741,11 @@ export async function runOneStreamedResponse(args: {
 }): Promise<BatchedStreamCallResult> {
   const requestedModel = getGenerationModel();
   const stopTimer = startAiCallTimer({ withTtft: true });
+  const callStartedAt = Date.now();
+  let firstFileClosedMs: number | null = null;
   const parser = createBatchedResponseParser({
     requireDesignPlan: args.requireDesignPlan,
+    designPlanV2Expected: args.designPlanV2Expected,
   });
   let modelServed: string | undefined;
   let usage: { inputTokens?: number; outputTokens?: number } | undefined;
@@ -734,7 +766,7 @@ export async function runOneStreamedResponse(args: {
     result = streamText({
       model: getAiModel(requestedModel),
       maxOutputTokens: args.requireDesignPlan ? 18_000 : 24_000,
-      maxRetries: 2,
+      maxRetries: args.maxRetries ?? 2,
       ...getNoReasoningCallOptions(),
       system: args.system,
       messages: [{ role: "user", content: args.user }],
@@ -760,6 +792,7 @@ export async function runOneStreamedResponse(args: {
               writtenThisCall.add(path);
               const stagedFile = parser.stagedFile(path);
               if (stagedFile) {
+                firstFileClosedMs ??= Date.now() - callStartedAt;
                 args.onFileStaged?.(stagedFile);
                 // Cheap per-file TSX gate at stage time: the tail of the
                 // response can't fix an already-broken block, but it CAN
@@ -825,8 +858,10 @@ export async function runOneStreamedResponse(args: {
     return {
       finishedText: sawDone,
       requestMs,
+      firstFileClosedMs,
       response: {
         designPlan: parsed.designPlan,
+        designPlanV2: parsed.designPlanV2,
         diagnostics: parsed.diagnostics,
         doneSummary: parsed.done?.summary ?? null,
         files: parsed.files,
@@ -882,8 +917,10 @@ export async function runOneStreamedResponse(args: {
       return {
         finishedText: false,
         requestMs,
+        firstFileClosedMs,
         response: {
           designPlan: null,
+          designPlanV2: null,
           diagnostics: [],
           doneSummary: null,
           files: parserStagedMap(parser),
@@ -915,8 +952,10 @@ export async function runOneStreamedResponse(args: {
         finishedText: false,
         parseError: error,
         requestMs,
+        firstFileClosedMs,
         response: {
           designPlan: null,
+          designPlanV2: null,
           diagnostics: [],
           doneSummary: null,
           // Keep whatever the parser staged before the hard error — a
@@ -1015,7 +1054,8 @@ export async function runBatchedGenerate(input: {
 
   if (input.contract) {
     const contract = input.contract;
-    const generatedRoute = createGeneratedSiteRouteSource(contract);
+    const generatedRoute =
+      createDeterministicGeneratedSiteControlRoute(contract);
     staged.set("src/routes/index.tsx", {
       path: "src/routes/index.tsx",
       content: generatedRoute,
@@ -1478,6 +1518,325 @@ export async function runBatchedGenerate(input: {
     repairRounds,
     summary: writerCall.response.doneSummary ?? "Ringkasan tidak tersedia.",
     writtenPaths: [...staged.keys()].sort(),
+  };
+}
+
+export type ReferenceCalibratedGenerateResult =
+  | {
+      ok: true;
+      files: GeneratedProjectFile[];
+      designPlan: WriterDesignPlanV2;
+      summary: string;
+      writtenPaths: string[];
+      writerMs: number;
+      firstFileClosedMs: number | null;
+      editableBytes: number;
+    }
+  | {
+      ok: false;
+      reason: string;
+      stagedFiles: GeneratedProjectFile[];
+      designPlan: WriterDesignPlanV2 | null;
+      writerMs: number;
+      firstFileClosedMs: number | null;
+      editableBytes: number;
+    };
+
+export async function runReferenceCalibratedGenerate(input: {
+  abortSignal?: AbortSignal;
+  attemptId?: string;
+  buildId?: string | null;
+  brief: ProjectBrief;
+  contract: GeneratedSiteWriterContractV2;
+  kit: GeneratedSiteDesignKitV1;
+  onEvent?: BatchedGenerateEventSink;
+  onFileStaged?: (file: BatchedFile) => void;
+  projectId: string;
+  schema: ProjectSiteSchema;
+  stepCharger?: StepCharger;
+  userId: string;
+  budget: GeneratedSiteCallBudget;
+}): Promise<ReferenceCalibratedGenerateResult> {
+  const primitiveFiles = createGeneratedSitePrimitiveFiles(input.kit);
+  const scaffoldFiles = createViteTanStackShadcnStarterFiles(
+    input.projectId,
+    input.schema,
+    primitiveFiles,
+  );
+  const starterFiles =
+    input.contract.media.mode === "owner_assets"
+      ? scaffoldFiles
+      : scaffoldFiles.filter(
+          (file) =>
+            file.path !== "public/placeholder.svg" &&
+            file.path !== "public/placeholder-vertical.svg",
+        );
+  const starterByPath = new Map(starterFiles.map((file) => [file.path, file]));
+  const staged = new Map<string, BatchedFile>(
+    starterFiles.map((file) => [file.path, file]),
+  );
+  const writerPrompt = buildReferenceCalibratedWriterPrompt({
+    contract: input.contract,
+    kit: input.kit,
+    projectId: input.projectId,
+    schema: input.schema,
+  });
+  const startedAt = Date.now();
+  input.budget.consumeWriter();
+  const writer = await runOneStreamedResponse({
+    abortSignal: input.abortSignal,
+    attemptId: input.attemptId,
+    buildId: input.buildId,
+    maxRetries: 0,
+    onEvent: input.onEvent,
+    onFileStaged: (file) => {
+      staged.set(file.path, file);
+      input.onFileStaged?.(file);
+    },
+    phase: "writer",
+    projectId: input.projectId,
+    retryCount: 0,
+    requireDesignPlan: true,
+    designPlanV2Expected: {
+      contractHash: input.contract.contractHash,
+      kit: input.kit,
+      mediaMode: input.contract.media.mode,
+      requiredSectionIds: input.contract.obligations.sections.map(
+        (section) => section.id,
+      ),
+    },
+    stepCharger: input.stepCharger,
+    system: writerPrompt.system,
+    task: "build-step",
+    user: writerPrompt.user,
+  });
+  const writerMs = Date.now() - startedAt;
+  const editableFiles = [...writer.response.files.values()];
+  const editableBytes = editableFiles.reduce(
+    (total, file) => total + file.content.length,
+    0,
+  );
+  for (const file of editableFiles) {
+    staged.set(file.path, file);
+  }
+  const designPlan = writer.response.designPlanV2 ?? null;
+  const firstFileClosedMs =
+    writer.firstFileClosedMs ?? (editableFiles.length > 0 ? writerMs : null);
+  if (editableFiles.length > 3 || editableBytes > 32 * 1024) {
+    return {
+      ok: false,
+      reason:
+        "reference-calibrated writer exceeded the editable file or byte budget",
+      stagedFiles: [...staged.values()],
+      designPlan,
+      writerMs,
+      firstFileClosedMs,
+      editableBytes,
+    };
+  }
+  if (
+    writer.parseError ||
+    !designPlan ||
+    writer.response.doneSummary === null
+  ) {
+    return {
+      ok: false,
+      reason:
+        writer.parseError?.message ??
+        "reference-calibrated writer omitted the design plan or done marker",
+      stagedFiles: [...staged.values()],
+      designPlan,
+      writerMs,
+      firstFileClosedMs,
+      editableBytes,
+    };
+  }
+  let themed: GeneratedProjectFile[];
+  let themeChecks: ReturnType<typeof compileGeneratedSiteThemeV2>["checks"];
+  try {
+    const theme = compileGeneratedSiteThemeV2({
+      kit: input.kit,
+      palette: designPlan.palette,
+    });
+    const merged = mergeFinalFiles(
+      starterFiles,
+      staged,
+      writer.response.proposals,
+    );
+    themed = applyGeneratedSiteThemeV2({
+      files: merged,
+      schema: input.schema,
+      theme,
+    });
+    themeChecks = theme.checks;
+    const protectedEmissions = editableFiles.filter((file) =>
+      isProtectedScaffoldPath(file.path),
+    );
+    if (protectedEmissions.length > 0) {
+      throw new Error(
+        `writer attempted to emit protected files: ${protectedEmissions.map((file) => file.path).join(", ")}`,
+      );
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : "generated theme failed",
+      stagedFiles: [...staged.values()],
+      designPlan,
+      writerMs,
+      firstFileClosedMs,
+      editableBytes,
+    };
+  }
+  const issues = editableFiles.flatMap((file) =>
+    collectBatchedPerFileIssues({
+      allowedPackages: allowedPackageNamesFrom(starterFiles),
+      file,
+    }),
+  );
+  const report = inspectReferenceCalibratedSiteSource({
+    contract: input.contract,
+    kit: input.kit,
+    designPlan,
+    files: themed,
+    starterIndexSource:
+      starterByPath.get("src/routes/index.tsx")?.content ?? "",
+    themeChecks,
+  });
+  issues.push(
+    ...report.findings.map(
+      (finding) =>
+        `${finding.path ?? "src/routes/index.tsx"}: [${finding.code}] ${finding.message}`,
+    ),
+  );
+  if (issues.length > 0) {
+    return {
+      ok: false,
+      reason: issues.slice(0, 5).join(" | "),
+      stagedFiles: themed,
+      designPlan,
+      writerMs,
+      firstFileClosedMs,
+      editableBytes,
+    };
+  }
+  return {
+    ok: true,
+    files: themed,
+    designPlan,
+    summary: writer.response.doneSummary,
+    writtenPaths: editableFiles.map((file) => file.path).sort(),
+    writerMs,
+    firstFileClosedMs,
+    editableBytes,
+  };
+}
+
+export type GeneratedSiteCorrectionRequest = {
+  reason: GeneratedSiteCorrectionReason;
+  diagnostics: string[];
+  implicatedPaths: string[];
+  acceptedPlan: WriterDesignPlanV2 | null;
+  stagedFiles: GeneratedProjectFile[];
+};
+
+export async function runGeneratedSiteCorrection(input: {
+  request: GeneratedSiteCorrectionRequest;
+  contract: GeneratedSiteWriterContractV2;
+  kit: GeneratedSiteDesignKitV1;
+  budget: GeneratedSiteCallBudget;
+  abortSignal?: AbortSignal;
+  projectId: string;
+}): Promise<{
+  files: GeneratedProjectFile[];
+  designPlan: WriterDesignPlanV2;
+}> {
+  if (input.budget.snapshot().correctionCalls === 0) {
+    input.budget.consumeCorrection(input.request.reason);
+  }
+  const prompt = buildReferenceCalibratedCorrectionPrompt({
+    contract: input.contract,
+    kit: input.kit,
+    projectId: input.projectId,
+    acceptedPlan: input.request.acceptedPlan,
+    reason: input.request.reason,
+    diagnostics: input.request.diagnostics,
+    implicatedPaths: input.request.implicatedPaths,
+    files: input.request.stagedFiles,
+  });
+  const response = await runOneStreamedResponse({
+    abortSignal: input.abortSignal,
+    attemptId: undefined,
+    buildId: null,
+    maxRetries: 0,
+    phase: "repair",
+    projectId: input.projectId,
+    retryCount: 0,
+    requireDesignPlan: true,
+    designPlanV2Expected: {
+      contractHash: input.contract.contractHash,
+      kit: input.kit,
+      mediaMode: input.contract.media.mode,
+      requiredSectionIds: input.contract.obligations.sections.map(
+        (section) => section.id,
+      ),
+    },
+    system: prompt.system,
+    task: "build-step",
+    user: prompt.user,
+  });
+  const designPlan = response.response.designPlanV2;
+  if (
+    response.parseError ||
+    !designPlan ||
+    response.response.doneSummary === null
+  ) {
+    throw new Error(
+      response.parseError?.message ??
+        "reference-calibrated correction omitted its design plan",
+    );
+  }
+  if (
+    designPlan.sectionOrder.length !==
+      input.contract.obligations.sections.length ||
+    input.contract.obligations.sections.some(
+      (section) => !designPlan.sectionOrder.includes(section.id),
+    )
+  ) {
+    throw new Error(
+      "reference-calibrated correction changed required sections",
+    );
+  }
+  const replacements = [...response.response.files.values()];
+  if (replacements.length === 0 || replacements.length > 3) {
+    throw new Error("reference-calibrated correction emitted no valid files");
+  }
+  if (
+    replacements.some(
+      (file) =>
+        !input.request.implicatedPaths.includes(file.path) ||
+        isProtectedScaffoldPath(file.path),
+    )
+  ) {
+    throw new Error(
+      "reference-calibrated correction changed its allowed scope",
+    );
+  }
+  const editableBytes = replacements.reduce(
+    (total, file) => total + file.content.length,
+    0,
+  );
+  if (editableBytes > 32 * 1024) {
+    throw new Error("reference-calibrated correction exceeded the byte budget");
+  }
+  const replacementByPath = new Map(
+    replacements.map((file) => [file.path, file]),
+  );
+  return {
+    files: input.request.stagedFiles.map(
+      (file) => replacementByPath.get(file.path) ?? file,
+    ),
+    designPlan,
   };
 }
 

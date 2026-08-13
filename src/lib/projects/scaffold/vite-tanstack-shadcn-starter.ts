@@ -29,6 +29,7 @@ import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 export function createViteTanStackShadcnStarterFiles(
   _projectId: string,
   schema: ProjectSiteSchema,
+  primitiveFiles: GeneratedProjectFile[] = [],
 ): GeneratedProjectFile[] {
   return [
     { path: "public/placeholder.svg", content: LANDSCAPE_PLACEHOLDER_SVG },
@@ -241,6 +242,7 @@ export function HomeRouteComponent() {
       path: "src/lib/preview-ready.ts",
       content: `import { useEffect } from "react";\n\nexport function usePreviewReady() {\n  useEffect(() => {\n    window.parent?.postMessage({ type: "generated-app-preview-ready" }, "*");\n  }, []);\n}\n`,
     },
+    ...primitiveFiles,
   ];
 }
 
