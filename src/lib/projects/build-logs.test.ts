@@ -37,7 +37,24 @@ describe("build logs", () => {
     expect(sanitized.length).toBeLessThanOrEqual(12_000);
   });
 
-  it("maps failure reasons to Indonesian user summaries", () => {
+  it("maps failure reasons to friendly website language", () => {
+    const reasons = [
+      "artifact_write_failure",
+      "blocked_package",
+      "compile_error",
+      "concurrency_limit",
+      "manifest_failure",
+      "stale_worker",
+      "timeout",
+      "unknown",
+    ] as const;
+
+    for (const reason of reasons) {
+      const summary = getIndonesianBuildFailureSummary(reason);
+      expect(summary).not.toMatch(
+        /\bbuild\b|build ulang|compile|worker|source/i,
+      );
+    }
     expect(getIndonesianBuildFailureSummary("blocked_package")).toContain(
       "paket",
     );
@@ -49,6 +66,6 @@ describe("build logs", () => {
     const staleMessage = getIndonesianBuildFailureSummary("stale_worker");
 
     expect(concurrencyMessage).not.toBe(staleMessage);
-    expect(concurrencyMessage).toMatch(/build lain|tunggu/i);
+    expect(concurrencyMessage).toMatch(/website lain|tunggu/i);
   });
 });

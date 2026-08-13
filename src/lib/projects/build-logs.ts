@@ -61,17 +61,19 @@ export function classifyBuildFailure(log: string): BuildFailureReason {
 export function getIndonesianBuildFailureSummary(reason: BuildFailureReason) {
   const summaries: Record<BuildFailureReason, string> = {
     artifact_write_failure:
-      "Build selesai, tapi file hasil website belum bisa disimpan. Coba ulangi.",
+      "Website selesai dibuat, tapi file hasilnya belum bisa disimpan. Coba ulangi.",
     blocked_package:
-      "Build ditolak karena website mencoba memakai paket yang belum didukung.",
+      "Website belum bisa dibuat karena memakai paket yang belum didukung.",
     compile_error:
-      "Build gagal karena kode website belum valid. Coba minta edit yang lebih sederhana atau build ulang.",
-    manifest_failure: "Build ditolak karena kontrak website belum lengkap.",
+      "Kode website belum valid. Coba minta edit yang lebih sederhana atau buat ulang website.",
+    manifest_failure: "Website belum lengkap untuk ditampilkan.",
     concurrency_limit:
-      "Server lagi memproses build lain. Tunggu sebentar lalu coba lagi.",
-    stale_worker: "Build terhenti terlalu lama. Coba jalankan ulang.",
-    timeout: "Build terlalu lama dan dihentikan. Coba sederhanakan permintaan.",
-    unknown: "Build belum berhasil. Coba ulangi atau ubah instruksi.",
+      "Server sedang memproses website lain. Tunggu sebentar lalu coba lagi.",
+    stale_worker:
+      "Pembuatan website terhenti terlalu lama. Coba buat ulang website.",
+    timeout:
+      "Pembuatan website terlalu lama dan dihentikan. Coba sederhanakan permintaan.",
+    unknown: "Website belum berhasil dibuat. Coba ulangi atau ubah instruksi.",
   };
 
   return summaries[reason];
