@@ -65,14 +65,21 @@ describe("WhatsApp discussion entry points", () => {
     );
   });
 
-  it("places a permanent compact button in the footer", () => {
+  it("separates the footer button from the plain navigation links", () => {
     const footerSource = source("../common/Footer.tsx");
+    const navigation = footerSource.match(/<nav[\s\S]*?<\/nav>/)?.[0] ?? "";
 
     expect(footerSource).toContain(
-      '<Button asChild size="sm" variant="outline">',
+      'className="flex flex-col items-start gap-spacing-4 md:items-end"',
+    );
+    expect(navigation).toContain("Ketentuan");
+    expect(navigation).toContain("Privasi");
+    expect(navigation).toContain("Github");
+    expect(navigation).not.toContain("Join WhatsApp");
+    expect(footerSource).toMatch(
+      /<\/nav>\s*<Button asChild size="sm" variant="outline">/,
     );
     expect(footerSource).toContain("Join WhatsApp");
-    expect(footerSource).not.toContain("Grup WhatsApp UMKM");
     expect(footerSource).toContain("WHATSAPP_UMKM_GROUP_URL");
   });
 });
