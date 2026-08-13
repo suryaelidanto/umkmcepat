@@ -25,11 +25,13 @@ const { prismaMock } = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 
 import {
+  createDraftHandoff,
   loadAcceptedHandoffForAttempt,
   loadActiveHandoff,
   selectQualifiedHandoff,
 } from "./build-handoffs";
 import { hashBuildContract, hashBuildPlan } from "./build-hash";
+import { hashCanonicalBrief, parseCanonicalBrief } from "./canonical-brief";
 
 import type { BuildContractV1 } from "./build-contract";
 import type { BuildPlanV1 } from "./build-plan";
@@ -108,6 +110,14 @@ describe("loadAcceptedHandoffForAttempt", () => {
 
   it("loads and validates the immutable accepted handoff", async () => {
     const { contract, plan } = acceptedPair();
+    const briefSnapshot = parseCanonicalBrief({
+      businessName: "Kopi Sela",
+      productOrService: [{ name: "Kopi", isPrimary: true }],
+      targetCustomer: "Pekerja",
+      contactOrCta: "Lihat menu",
+      stylePreference: "hangat",
+    });
+    const briefHash = hashCanonicalBrief(briefSnapshot);
     prismaMock.projectEditAttempt.findUnique.mockResolvedValue({
       id: "attempt-1",
       projectId: "project-1",
@@ -117,6 +127,9 @@ describe("loadAcceptedHandoffForAttempt", () => {
         projectId: "project-1",
         userId: "user-1",
         status: "accepted",
+        briefSnapshot,
+        briefHash,
+        briefRevision: 2,
         contract,
         plan,
         contractHash: contract.contentHash,
@@ -134,6 +147,9 @@ describe("loadAcceptedHandoffForAttempt", () => {
       }),
     ).resolves.toMatchObject({
       id: "handoff-1",
+      briefSnapshot,
+      briefHash,
+      briefRevision: 2,
       contract,
       plan,
       contractHash: contract.contentHash,
@@ -157,6 +173,69 @@ describe("loadAcceptedHandoffForAttempt", () => {
         userId: "user-1",
       }),
     ).rejects.toThrow(message);
+  });
+
+  it("rejects a new accepted handoff without a canonical snapshot", async () => {
+    const { contract, plan } = acceptedPair();
+    prismaMock.projectEditAttempt.findUnique.mockResolvedValue({
+      projectId: "project-1",
+      userId: "user-1",
+      handoff: {
+        id: "handoff-1",
+        projectId: "project-1",
+        userId: "user-1",
+        status: "accepted",
+        briefSnapshot: null,
+        briefHash: null,
+        briefRevision: null,
+        contract,
+        plan,
+        contractHash: contract.contentHash,
+        planHash: plan.contentHash,
+        contractRevision: 1,
+        planRevision: 1,
+      },
+    });
+
+    await expect(
+      loadAcceptedHandoffForAttempt({
+        attemptId: "attempt-1",
+        projectId: "project-1",
+        userId: "user-1",
+      }),
+    ).rejects.toThrow("accepted handoff brief snapshot missing");
+  });
+
+  it("rejects canonical brief hash drift", async () => {
+    const { contract, plan } = acceptedPair();
+    const briefSnapshot = parseCanonicalBrief({ businessName: "Kopi Sela" });
+    prismaMock.projectEditAttempt.findUnique.mockResolvedValue({
+      projectId: "project-1",
+      userId: "user-1",
+      handoff: {
+        id: "handoff-1",
+        projectId: "project-1",
+        userId: "user-1",
+        status: "accepted",
+        briefSnapshot,
+        briefHash: "0".repeat(64),
+        briefRevision: 2,
+        contract,
+        plan,
+        contractHash: contract.contentHash,
+        planHash: plan.contentHash,
+        contractRevision: 1,
+        planRevision: 1,
+      },
+    });
+
+    await expect(
+      loadAcceptedHandoffForAttempt({
+        attemptId: "attempt-1",
+        projectId: "project-1",
+        userId: "user-1",
+      }),
+    ).rejects.toThrow("accepted handoff brief hash mismatch");
   });
 
   it("rejects a non-accepted handoff", async () => {
@@ -184,6 +263,7 @@ describe("loadAcceptedHandoffForAttempt", () => {
 
   it("rejects canonical hash drift", async () => {
     const { contract, plan } = acceptedPair();
+    const briefSnapshot = parseCanonicalBrief({ businessName: "Kopi Sela" });
     prismaMock.projectEditAttempt.findUnique.mockResolvedValue({
       projectId: "project-1",
       userId: "user-1",
@@ -192,6 +272,9 @@ describe("loadAcceptedHandoffForAttempt", () => {
         projectId: "project-1",
         userId: "user-1",
         status: "accepted",
+        briefSnapshot,
+        briefHash: hashCanonicalBrief(briefSnapshot),
+        briefRevision: 2,
         contract,
         plan,
         contractHash: "0".repeat(64),
@@ -207,6 +290,52 @@ describe("loadAcceptedHandoffForAttempt", () => {
         userId: "user-1",
       }),
     ).rejects.toThrow("accepted handoff hash mismatch");
+  });
+});
+
+describe("createDraftHandoff", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("persists the canonical brief snapshot and its hash", async () => {
+    const { contract, plan } = acceptedPair();
+    const briefSnapshot = parseCanonicalBrief({
+      businessName: "Kopi Sela",
+      productOrService: [{ name: "Kopi", isPrimary: true }],
+    });
+    const briefHash = hashCanonicalBrief(briefSnapshot);
+    prismaMock.projectBuildHandoff.findUnique.mockResolvedValue(null);
+    prismaMock.projectBuildHandoff.create.mockResolvedValue({
+      id: "handoff-1",
+    });
+
+    await createDraftHandoff({
+      projectId: "project-1",
+      userId: "user-1",
+      engine: "contract-v1",
+      briefSnapshot,
+      briefHash,
+      briefRevision: 2,
+      contract,
+      plan,
+      contractHash: contract.contentHash,
+      planHash: plan.contentHash,
+      reviewItems: [],
+      reviewHash: "a".repeat(64),
+      contractRevision: 1,
+      planRevision: 1,
+    });
+
+    expect(prismaMock.projectBuildHandoff.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          briefSnapshot,
+          briefHash,
+          briefRevision: 2,
+        }),
+      }),
+    );
   });
 });
 

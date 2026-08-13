@@ -14,6 +14,7 @@ import {
   hashReviewItems,
 } from "./build-hash";
 import { parseBuildPlan } from "./build-plan";
+import { hashCanonicalBrief, parseCanonicalBrief } from "./canonical-brief";
 import { deriveReviewItems } from "./review-items";
 
 import type { ProjectBrief } from "./brief";
@@ -301,6 +302,8 @@ export async function prepareBuildHandoff(input: {
   brief: ProjectBrief;
   turnId?: string;
 }): Promise<PrepareHandoffResult> {
+  const briefSnapshot = parseCanonicalBrief(input.brief, input.brief.prompt);
+  const briefHash = hashCanonicalBrief(briefSnapshot);
   const contractResult = buildContractFromBrief(
     input.brief,
     { parseBuildContract, hashContract: hashBuildContract },
@@ -324,6 +327,9 @@ export async function prepareBuildHandoff(input: {
     projectId: input.projectId,
     userId: input.userId,
     engine: input.engine,
+    briefSnapshot,
+    briefHash,
+    briefRevision: 2,
     contract,
     plan: validatedPlan,
     contractHash: contract.contentHash,

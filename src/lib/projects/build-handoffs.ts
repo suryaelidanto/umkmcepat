@@ -12,6 +12,11 @@ import {
   type BuildPlanV1,
   validatePlanAgainstContract,
 } from "@/lib/projects/build-plan";
+import {
+  hashCanonicalBrief,
+  parseCanonicalBrief,
+  type ProjectBriefV2,
+} from "@/lib/projects/canonical-brief";
 
 export type ActiveHandoff = {
   id: string;
@@ -23,6 +28,9 @@ export type ActiveHandoff = {
 
 export type AcceptedBuildHandoff = {
   id: string;
+  briefSnapshot: ProjectBriefV2;
+  briefHash: string;
+  briefRevision: 2;
   contract: BuildContractV1;
   plan: BuildPlanV1;
   contractHash: string;
@@ -35,6 +43,9 @@ export type CreateHandoffInput = {
   projectId: string;
   userId: string;
   engine: string;
+  briefSnapshot: ProjectBriefV2;
+  briefHash: string;
+  briefRevision: 2;
   contract: unknown;
   plan: unknown;
   contractHash: string;
@@ -76,6 +87,20 @@ export async function loadAcceptedHandoffForAttempt(input: {
   ) {
     throw new Error("accepted handoff invalid");
   }
+  const rawBrief = asRecord(handoff.briefSnapshot);
+  if (
+    !rawBrief ||
+    rawBrief.version !== 2 ||
+    handoff.briefRevision !== 2 ||
+    typeof handoff.briefHash !== "string"
+  ) {
+    throw new Error("accepted handoff brief snapshot missing");
+  }
+  const briefSnapshot = parseCanonicalBrief(rawBrief);
+  const briefHash = hashCanonicalBrief(briefSnapshot);
+  if (handoff.briefHash !== briefHash) {
+    throw new Error("accepted handoff brief hash mismatch");
+  }
   const parsedContract = parseBuildContract(handoff.contract);
   const parsedPlan = parseBuildPlan(handoff.plan);
   if (!parsedContract.ok || !parsedPlan.ok) {
@@ -98,6 +123,9 @@ export async function loadAcceptedHandoffForAttempt(input: {
   }
   return {
     id: handoff.id,
+    briefSnapshot,
+    briefHash,
+    briefRevision: 2,
     contract,
     plan,
     contractHash,
@@ -131,6 +159,9 @@ export async function createDraftHandoff(
       projectId: input.projectId,
       userId: input.userId,
       engine: input.engine,
+      briefSnapshot: input.briefSnapshot as object,
+      briefHash: input.briefHash,
+      briefRevision: input.briefRevision,
       contract: input.contract as object,
       plan: input.plan as object,
       contractHash: input.contractHash,

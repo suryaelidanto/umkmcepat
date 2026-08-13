@@ -155,6 +155,9 @@ model ProjectBuildHandoff {
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   engine           String    @db.VarChar(32)
   status           String    @default("draft") @db.VarChar(32)
+  briefSnapshot    Json?
+  briefHash        String?   @db.VarChar(64)
+  briefRevision    Int?
   contract         Json
   plan             Json
   contractHash     String    @db.VarChar(64)
