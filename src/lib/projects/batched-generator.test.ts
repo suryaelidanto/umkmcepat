@@ -682,7 +682,7 @@ describe("collectBatchedGateIssues", () => {
       ] as GeneratedProjectFile[],
       { indexCss: "--background: oklch(0.99 0 0);" },
     );
-    expect(issues.join("\n")).toMatch(/primary WhatsApp CTA is a bare <a>/);
+    expect(issues.join("\n")).toMatch(/call-to-action anchor is a bare <a>/);
   });
 
   it("does not flag a Button-wrapped WhatsApp CTA", () => {
@@ -699,7 +699,58 @@ describe("collectBatchedGateIssues", () => {
           "--background: oklch(0.99 0 0); --foreground: ok; --accent: ok;",
       },
     );
-    expect(issues.join("\n")).not.toMatch(/primary WhatsApp CTA is a bare <a>/);
+    expect(issues.join("\n")).not.toMatch(
+      /call-to-action anchor is a bare <a>/,
+    );
+  });
+
+  it("flags arbitrary Tailwind color values instead of theme tokens", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<main className="bg-[#0b0b0d] text-[#d4af37]"><h1>{site.headline}</h1></main>);\n}',
+        },
+        {
+          path: "src/lib/preview-ready.ts",
+          content: "export function usePreviewReady() {}",
+        },
+        {
+          path: "src/content/site.ts",
+          content: 'export const site = { headline: "H" } as const;',
+        },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: ok; --foreground: ok; --accent: ok;" },
+    );
+    const joined = issues.join("\n");
+    expect(joined).toMatch(/bg-\[#/);
+    expect(joined).toMatch(/theme token/);
+  });
+
+  it("flags social links using handle as href instead of url", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<main>{site.socialLinks.map((s) => <a href={s.handle}>{s.platform}</a>)}</main>);\n}',
+        },
+        {
+          path: "src/lib/preview-ready.ts",
+          content: "export function usePreviewReady() {}",
+        },
+        {
+          path: "src/content/site.ts",
+          content:
+            'export const site = { headline: "H", socialLinks: [{platform:"ig",handle:"@x",url:"https://ig.com/x"}] } as const;',
+        },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: ok; --foreground: ok; --accent: ok;" },
+    );
+    expect(issues.join("\n")).toMatch(
+      /social.*handle.*url|href=.*social\.(handle|name)/i,
+    );
   });
 
   it("flags a generic stub home route with no brief content", () => {

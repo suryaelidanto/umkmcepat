@@ -136,4 +136,22 @@ describe("qualifyGeneratedSite", () => {
     });
     expect(result).toMatchObject({ ok: false, visualRepairCount: 0 });
   });
+
+  it("accepts a clean build when the critic cannot run (vision infra unavailable)", async () => {
+    // The vision model returned 0 tokens — no quality verdict, but the
+    // deterministic browser gate passed. Fail-closing every risky build when
+    // vision is broken blocks the whole pipeline; accept and flag for offline
+    // corpus review instead.
+    const result = await qualifyGeneratedSite(files, {
+      runBrowser: async () => browser,
+      classifyRisk: () => risky,
+      runCritic: async () => ({
+        status: "unknown",
+        mode: "shadow",
+        findings: [],
+      }),
+      repair: vi.fn(),
+    });
+    expect(result).toMatchObject({ ok: true, visualRepairCount: 0 });
+  });
 });

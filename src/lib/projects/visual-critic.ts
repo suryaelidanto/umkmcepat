@@ -97,6 +97,16 @@ export async function runShadowCritic(input: {
       findings = parseFindings(result.text);
     }
     if (!findings) {
+      // Distinguish a model that cannot process images (returns 0 tokens —
+      // no vision capability, or the upstream vision route is broken) from a
+      // model that returned unparseable output. A 0-token response is a
+      // vision-infrastructure gap, not a quality verdict: surface it as
+      // `unknown` so the qualification can accept a clean browser-gated build
+      // instead of fail-closing every risky build when the vision model is
+      // unavailable.
+      if (result.text.trim().length === 0) {
+        return { status: "unknown", mode: "shadow", findings: [] };
+      }
       return { status: "unavailable", mode: "shadow", findings: [] };
     }
     return {
@@ -147,6 +157,7 @@ function buildCriticPrompt(
 }
 
 function extractScreenshotParts(values: unknown[]): Uint8Array[] {
+  const seen = new Set<string>();
   const parts: Uint8Array[] = [];
   for (const value of values) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -156,13 +167,22 @@ function extractScreenshotParts(values: unknown[]): Uint8Array[] {
     if (typeof screenshot !== "string" || screenshot.length === 0) {
       continue;
     }
+    // The browser runner stores both a report (with the base64 screenshot
+    // embedded) and a standalone screenshot evidence object, so every image
+    // arrives twice. Dedupe by the base64 string and cap at two (mobile +
+    // desktop) — sending four large JPEGs to the vision model returns 0
+    // tokens.
+    if (seen.has(screenshot)) {
+      continue;
+    }
+    seen.add(screenshot);
     try {
       parts.push(Buffer.from(screenshot, "base64"));
     } catch {
       continue;
     }
   }
-  return parts;
+  return parts.slice(0, 2);
 }
 
 function parseFindings(text: string): VisualFinding[] | null {

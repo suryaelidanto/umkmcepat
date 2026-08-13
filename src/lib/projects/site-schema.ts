@@ -217,6 +217,10 @@ export function createProjectSiteSchemaFromBrief(
         : undefined,
     products: briefProducts(brief),
     testimonials: briefTestimonials(brief),
+    // faq is never populated from a brief (the brief type has no faq field),
+    // but the prompt often mentions "FAQ" so the model references site.faq.
+    // Emit an empty array so the field is always typed and safe to map/guard.
+    faq: [],
     socialLinks:
       brief.socialLinks && brief.socialLinks.length
         ? brief.socialLinks.slice(0, MAX_SOCIAL)

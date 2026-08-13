@@ -271,7 +271,7 @@ export function HomeRouteComponent() {
                 <CardContent className="space-y-1">
                   {p.description ? <p className="text-sm text-muted-foreground">{p.description}</p> : null}
                   {p.priceRange ? <p className="font-semibold">{p.priceRange}</p> : null}
-                  <Button asChild size="sm" className="mt-3"><a href={waHref} target="_blank" rel="noopener noreferrer">{site.primaryCta}</a></Button>
+                  <Button asChild size="lg" className="mt-3"><a href={waHref} target="_blank" rel="noopener noreferrer">{site.primaryCta}</a></Button>
                 </CardContent>
               </Card>
             ))}
@@ -336,12 +336,14 @@ RENDER COMPLETENESS RULE (enforced by the gate — read carefully):
 - If a field is empty/undefined, SKIP its section. Do not invent data.
 - NEVER ship starter boilerplate: no "Read the Blog", no "View on GitHub", no "⚡ Fast / 🎨 Beautiful / 📝 MDX Ready", no "Welcome to the home page", no "Your new project is ready". The gate rejects these.
 - NEVER hardcode href="/blog" or href="https://github.com". CTAs link to WhatsApp, #kontak, or real business actions.
+- EVERY call-to-action <Button asChild><a> MUST use size="lg" (44px min height). NEVER use size="sm" or size="default" on a CTA — the browser gate rejects any CTA under 44px and every CTA is checked, not just the hero. Nav/header chat buttons count too.
+- Use theme token utilities ONLY (bg-background, text-foreground, text-accent, border-border, bg-card, bg-accent). NEVER use arbitrary hex colors like bg-[#0b0b0d] or text-[#d4af37] — they bypass the compiled WCAG theme and re-theming will not propagate.
 
 EXACT FIELD NAMES (tsc fails on any mismatch — use these EXACT property names):
 - site.products[] → { name, description?, priceRange? } — NOT price, NOT title, NOT model.
 - site.testimonials[] → { quote, author, rating? } — NOT content, NOT name, NOT role, NOT comment.
 - site.faq[] → { q, a } — NOT question, NOT answer.
-- site.socialLinks[] → { platform, handle, url? } — NOT name, NOT link.
+- site.socialLinks[] → { platform, handle, url? } — NOT name, NOT link. Use social.url as the href (never social.handle — it is display text like "@suryaphone", not a URL).
 - site.sections[] → { title, body } — NOT content, NOT description.
 - site.trustPoints → string[] (array of strings, not objects).
 - site.theme → { background, foreground, muted, accent } (hex colors, already in index.css — do not re-declare).

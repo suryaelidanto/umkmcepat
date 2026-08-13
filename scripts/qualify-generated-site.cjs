@@ -139,6 +139,7 @@ mkdirSync(evidenceDir, { recursive: true });
                     }
                   }
                 }
+                const ctaAnchorSet = new Set(ctaCandidates);
                 const firstTarget = targets[0];
                 if (firstTarget instanceof HTMLElement) {
                   firstTarget.focus();
@@ -166,7 +167,7 @@ mkdirSync(evidenceDir, { recursive: true });
                     .filter((target) => {
                       if (
                         target instanceof HTMLAnchorElement &&
-                        target !== primaryCta
+                        !ctaAnchorSet.has(target)
                       ) {
                         return false;
                       }
@@ -186,7 +187,7 @@ mkdirSync(evidenceDir, { recursive: true });
                   touchTargets: targets.filter((target) => {
                     if (
                       target instanceof HTMLAnchorElement &&
-                      target !== primaryCta
+                      !ctaAnchorSet.has(target)
                     ) {
                       return false;
                     }

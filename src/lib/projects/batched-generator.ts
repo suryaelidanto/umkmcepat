@@ -495,17 +495,60 @@ export function collectBatchedGateIssues(
   // component so it inherits the 44px min-height from the design system. A
   // bare <a> renders at text height (~32px) and fails the browser
   // touch-target assertion after a full build — catch it here with a clear
-  // repair instruction instead.
+  // repair instruction instead. Also catch bare CTA-text anchors (Pesan/Chat/
+  // Order/Klaim/...) that are not WhatsApp links — the browser gate picks
+  // the largest such anchor as the primary CTA and fails it at ~32px.
   const WRAPPED_CTA =
     /<Button\b[^>]*>\s*<a[^>]*\bhref=["']https?:\/\/(?:wa\.me|api\.whatsapp\.com)/;
-  const ANY_CTA = /<a[^>]*\bhref=["']https?:\/\/(?:wa\.me|api\.whatsapp\.com)/;
+  const ANY_WA_CTA =
+    /<a[^>]*\bhref=["']https?:\/\/(?:wa\.me|api\.whatsapp\.com)/;
+  const CTA_TEXT =
+    /<a[^>]*>\s*[^<]{0,40}\b(?:Pesan|Chat|Order|Pesan\s+Sekarang|Klaim|Promo|Daftar|Hubungi|Beli|Beli\s+Sekarang|Chat\s+WhatsApp)\b/i;
   for (const file of stagedFiles) {
     if (!file.path.endsWith(".tsx")) {
       continue;
     }
-    if (ANY_CTA.test(file.content) && !WRAPPED_CTA.test(file.content)) {
+    const hasBareWaCta =
+      ANY_WA_CTA.test(file.content) && !WRAPPED_CTA.test(file.content);
+    // A bare CTA-text anchor is only flagged when it is NOT already inside a
+    // <Button> — detect by the absence of <Button wrapping any <a> in the file.
+    const hasButtonWrap = /<Button\b[^>]*>\s*<a/.test(file.content);
+    const hasBareTextCta = CTA_TEXT.test(file.content) && !hasButtonWrap;
+    if (hasBareWaCta || hasBareTextCta) {
       issues.push(
-        `${file.path}: primary WhatsApp CTA is a bare <a> — wrap it in <Button asChild><a href=... >...</a></Button> so it meets the 44px touch-target minimum.`,
+        `${file.path}: a call-to-action anchor is a bare <a> — wrap it in <Button asChild><a href=... >...</a></Button> so it meets the 44px touch-target minimum.`,
+      );
+    }
+  }
+
+  // Design-token discipline: the scaffold compiles a WCAG theme into
+  // src/index.css (--background, --foreground, --accent, ...) and exposes
+  // them as Tailwind utilities (bg-background, text-accent, border-border).
+  // Arbitrary hex color utilities (bg-[#0b0b0d], text-[#d4af37]) bypass the
+  // token system — a re-theme will not propagate, and contrast is not
+  // verified. Flag them so the model uses the themed utilities instead.
+  const ARBITRARY_COLOR =
+    /\b(?:bg|text|border|ring|fill|stroke|from|to|via|shadow|outline|divide|accent)-\[#[0-9a-fA-F]{3,8}\]/;
+  for (const file of stagedFiles) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    if (ARBITRARY_COLOR.test(file.content)) {
+      issues.push(
+        `${file.path}: uses arbitrary Tailwind color values (bg-[#...]/text-[#...]) — use the theme token utilities instead (bg-background, text-foreground, text-accent, border-border) so the compiled WCAG theme and re-theming propagate.`,
+      );
+    }
+  }
+
+  // Social-link href gate: site.socialLinks entries carry both `handle` and
+  // `url`; using `handle` ("@suryaphone") as href produces a broken link.
+  for (const file of stagedFiles) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    if (/href=\{social\.handle\}|href=\{s\.handle\}/.test(file.content)) {
+      issues.push(
+        `${file.path}: social link uses social.handle as href — use social.url (the full https://... link), not the handle text.`,
       );
     }
   }
