@@ -350,8 +350,8 @@ function HomePage() {
 
       {!hasUser ? (
         <>
-          <WhatsAppCommunityInvite variant="homepage" />
           <CommunitySection />
+          <WhatsAppCommunityInvite variant="homepage" />
         </>
       ) : null}
 

@@ -45,12 +45,15 @@ describe("WhatsApp discussion entry points", () => {
   const source = (relativePath: string) =>
     readFileSync(new URL(relativePath, import.meta.url), "utf8");
 
-  it("places the invitation on the homepage and pending banner", () => {
+  it("places the invitation on the homepage after FAQ with the pending banner", () => {
     const homeSource = source("../../routes/_main.index.tsx");
-
-    expect(homeSource).toContain(
+    const communitySectionIndex = homeSource.indexOf("<CommunitySection");
+    const inviteIndex = homeSource.indexOf(
       '<WhatsAppCommunityInvite variant="homepage" />',
     );
+
+    expect(communitySectionIndex).toBeGreaterThan(-1);
+    expect(inviteIndex).toBeGreaterThan(communitySectionIndex);
     expect(homeSource).toContain(
       '<Button asChild size="sm" variant="outline">',
     );
@@ -65,21 +68,17 @@ describe("WhatsApp discussion entry points", () => {
     );
   });
 
-  it("separates the footer button from the plain navigation links", () => {
+  it("lists the footer link directly beside Github", () => {
     const footerSource = source("../common/Footer.tsx");
     const navigation = footerSource.match(/<nav[\s\S]*?<\/nav>/)?.[0] ?? "";
 
-    expect(footerSource).toContain(
-      'className="flex flex-col items-start gap-spacing-4 md:items-end"',
-    );
     expect(navigation).toContain("Ketentuan");
     expect(navigation).toContain("Privasi");
     expect(navigation).toContain("Github");
-    expect(navigation).not.toContain("Join WhatsApp");
-    expect(footerSource).toMatch(
-      /<\/nav>\s*<Button asChild size="sm" variant="outline">/,
-    );
-    expect(footerSource).toContain("Join WhatsApp");
+    expect(navigation).toContain("Join Whatsapp");
+    expect(footerSource).not.toContain('data-slot="button"');
+    expect(navigation).toMatch(/Github[\s\S]*?Join Whatsapp/);
+    expect(footerSource).not.toContain("Join WhatsApp");
     expect(footerSource).toContain("WHATSAPP_UMKM_GROUP_URL");
   });
 });

@@ -1,7 +1,6 @@
 "use client";
 
 import { WHATSAPP_UMKM_GROUP_URL } from "@/components/community/WhatsAppCommunityInvite";
-import { Button } from "@/components/ui/button";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
 
@@ -28,40 +27,36 @@ export function Footer() {
             </p>
           </div>
 
-          <div className="flex flex-col items-start gap-spacing-4 md:items-end">
-            <nav className="flex flex-wrap gap-spacing-5 text-sm">
-              <Link
-                href="/terms"
-                className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
-              >
-                Ketentuan
-              </Link>
-              <Link
-                href="/privacy"
-                className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
-              >
-                Privasi
-              </Link>
-              <Link
-                href="https://github.com/suryaelidanto/umkmcepat"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
-              >
-                Github
-              </Link>
-            </nav>
-            <Button asChild size="sm" variant="outline">
-              <Link
-                className="border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
-                href={WHATSAPP_UMKM_GROUP_URL}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                Join WhatsApp
-              </Link>
-            </Button>
-          </div>
+          <nav className="flex flex-wrap gap-spacing-5 text-sm">
+            <Link
+              href="/terms"
+              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+            >
+              Ketentuan
+            </Link>
+            <Link
+              href="/privacy"
+              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+            >
+              Privasi
+            </Link>
+            <Link
+              href="https://github.com/suryaelidanto/umkmcepat"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+            >
+              Github
+            </Link>
+            <Link
+              href={WHATSAPP_UMKM_GROUP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+            >
+              Join Whatsapp
+            </Link>
+          </nav>
         </div>
 
         <p className="text-sm text-surface-warm-white/60">
