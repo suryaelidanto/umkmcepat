@@ -37,12 +37,12 @@ describe("validateSettingValue", () => {
     ).toMatch(/must be a boolean/);
   });
 
-  it("accepts generated-site quality rollout and critic sampling", () => {
+  it("accepts critic sampling only in generated-site quality", () => {
     expect(
       validateSettingValue(
-        "feature.generated_site_quality_rollout",
-        "internal",
-        "feature_flag",
+        "quality.generated_site_critic_sample_rate",
+        0.25,
+        "generated_quality",
       ),
     ).toBeNull();
     expect(
@@ -51,14 +51,20 @@ describe("validateSettingValue", () => {
         0.25,
         "feature_flag",
       ),
-    ).toBeNull();
-    expect(
-      validateSettingValue(
-        "feature.generated_site_quality_rollout",
-        "wrong",
-        "feature_flag",
-      ),
-    ).toMatch(/must be one of/);
+    ).toMatch(/Invalid key/);
+  });
+
+  it("rejects settled implementation controls", () => {
+    for (const key of [
+      "feature.builder_photo_enabled",
+      "feature.generated_site_quality_rollout",
+      "discuss.parallel_moderation",
+      "discuss.partial_tool_streaming",
+    ]) {
+      expect(validateSettingValue(key, true, "feature_flag")).toMatch(
+        /Invalid key/,
+      );
+    }
   });
 
   it("rejects the removed generation rollout key", () => {

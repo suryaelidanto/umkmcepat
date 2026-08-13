@@ -82,6 +82,7 @@ export const Route = createFileRoute("/api/admin/settings")({
           return {
             category: e.category,
             dbValue: db ?? null,
+            display: e.display ?? null,
             effectiveValue: db ?? env ?? e.fallback,
             env: e.env ?? null,
             fallback: e.fallback,

@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  fromDisplayNumber,
   getDirtyKeys,
   groupByTier,
   isDirtyEntry,
+  toDisplayNumber,
 } from "./-_main.admin.settings.helpers";
 
 import type { SettingEntry } from "./-_main.admin.settings.helpers";
@@ -11,6 +13,7 @@ import type { SettingEntry } from "./-_main.admin.settings.helpers";
 const baseEntry = (overrides: Partial<SettingEntry> = {}): SettingEntry => ({
   category: "feature_flag",
   dbValue: null,
+  display: null,
   effectiveValue: false,
   optionsSource: null,
   enumOptions: null,
@@ -88,6 +91,7 @@ const entry = (
 ): SettingEntry => ({
   category,
   dbValue: null,
+  display: null,
   effectiveValue: 1,
   env: null,
   fallback: 1,
@@ -101,6 +105,34 @@ const entry = (
   source: "fallback",
   tier,
   type: "number",
+});
+
+describe("percentage display values", () => {
+  const percentageEntry = baseEntry({
+    category: "generated_quality",
+    display: "percentage",
+    effectiveValue: 0.1,
+    fallback: 0.1,
+    key: "quality.generated_site_critic_sample_rate",
+    max: 1,
+    min: 0,
+    tier: "advanced",
+    type: "number",
+  });
+
+  test("converts a stored fraction to a percentage", () => {
+    expect(toDisplayNumber(percentageEntry, 0.1)).toBe(10);
+  });
+
+  test("converts an edited percentage to a stored fraction", () => {
+    expect(fromDisplayNumber(percentageEntry, 25)).toBe(0.25);
+  });
+
+  test("does not scale ordinary numeric settings", () => {
+    const numericEntry = baseEntry({ type: "number" });
+    expect(toDisplayNumber(numericEntry, 25)).toBe(25);
+    expect(fromDisplayNumber(numericEntry, 25)).toBe(25);
+  });
 });
 
 describe("groupByTier", () => {

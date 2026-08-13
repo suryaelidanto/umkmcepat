@@ -8,6 +8,7 @@ import {
 export type SettingEntry = {
   category: SettingCategory;
   dbValue: unknown;
+  display: "percentage" | null;
   effectiveValue: unknown;
   env: null | string;
   fallback: boolean | number | string;
@@ -27,6 +28,27 @@ export type CategoryGroup = {
   category: SettingCategory;
   entries: SettingEntry[];
 };
+
+export function toDisplayNumber(
+  entry: SettingEntry,
+  value: unknown,
+): number | "" {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "";
+  }
+  return entry.display === "percentage" ? numeric * 100 : numeric;
+}
+
+export function fromDisplayNumber(
+  entry: SettingEntry,
+  value: number | "",
+): number | "" {
+  if (value === "") {
+    return "";
+  }
+  return entry.display === "percentage" ? value / 100 : value;
+}
 
 export function isDirtyEntry(
   entry: SettingEntry,

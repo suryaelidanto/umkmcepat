@@ -4,6 +4,7 @@ export type SettingCategory =
   | "feature_flag"
   | "economics"
   | "booster"
+  | "generated_quality"
   | "ai"
   | "rate_limit"
   | "runtime"
@@ -15,6 +16,7 @@ export const CATEGORY_ORDER = [
   "feature_flag",
   "economics",
   "booster",
+  "generated_quality",
   "ai",
   "rate_limit",
   "runtime",
@@ -25,6 +27,7 @@ export const CATEGORY_TIER: Record<SettingCategory, SettingTier> = {
   feature_flag: "basic",
   economics: "basic",
   booster: "basic",
+  generated_quality: "advanced",
   ai: "advanced",
   rate_limit: "advanced",
   runtime: "advanced",
@@ -55,6 +58,7 @@ export type ConfigEntry = {
   // When set, /admin/settings renders a fixed-option select (enum). Mutually
   // exclusive with optionsSource.
   enumOptions?: readonly string[];
+  display?: "percentage";
 };
 
 // Source of truth for DB-overridable, non-secret config. Adding a setting
@@ -96,31 +100,15 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: true,
   },
   {
-    key: "feature.builder_photo_enabled",
-    category: "feature_flag",
-    tier: "basic",
-    type: "boolean",
-    label: "Builder photo questions (visuals / image_upload)",
-    fallback: true,
-  },
-  {
-    key: "feature.generated_site_quality_rollout",
-    category: "feature_flag",
-    tier: "advanced",
-    type: "string",
-    label: "Generated-site quality pipeline rollout",
-    fallback: "off",
-    enumOptions: ["off", "internal", "pilot", "all"],
-  },
-  {
     key: "quality.generated_site_critic_sample_rate",
-    category: "feature_flag",
+    category: "generated_quality",
     tier: "advanced",
     type: "number",
-    label: "Generated-site critic calibration sample rate",
+    label: "AI visual critic sample",
     fallback: 0.1,
     min: 0,
     max: 1,
+    display: "percentage",
   },
   // economics
   {
@@ -428,38 +416,9 @@ export const APP_SETTINGS: ConfigEntry[] = [
     max: 86400,
   },
   {
-    key: "discuss.chat.auto_retry_attempts",
-    category: "feature_flag",
-    tier: "advanced",
-    type: "number",
-    label: "Discuss chat auto-retry attempts",
-    fallback: 2,
-    min: 0,
-    max: 5,
-    env: "DISCUSS_CHAT_AUTO_RETRY_ATTEMPTS",
-  },
-  {
-    key: "discuss.partial_tool_streaming",
-    category: "feature_flag",
-    tier: "advanced",
-    type: "boolean",
-    label: "Discuss partial tool streaming",
-    fallback: true,
-    env: "DISCUSS_PARTIAL_TOOL_STREAMING",
-  },
-  {
-    key: "discuss.parallel_moderation",
-    category: "feature_flag",
-    tier: "advanced",
-    type: "boolean",
-    label: "Discuss parallel moderation (stream before verdict)",
-    fallback: false,
-    env: "DISCUSS_PARALLEL_MODERATION",
-  },
-  {
     key: "feature.thumbnail_capture_enabled",
     category: "feature_flag",
-    tier: "advanced",
+    tier: "basic",
     type: "boolean",
     label: "Thumbnail capture",
     fallback: true,
@@ -611,6 +570,17 @@ export const APP_SETTINGS: ConfigEntry[] = [
     max: 209715200,
   },
   // ai (optional — tunable live)
+  {
+    key: "discuss.chat.auto_retry_attempts",
+    category: "ai",
+    tier: "advanced",
+    type: "number",
+    label: "AI — discuss auto-retry attempts",
+    fallback: 2,
+    min: 0,
+    max: 5,
+    env: "DISCUSS_CHAT_AUTO_RETRY_ATTEMPTS",
+  },
   {
     key: "ai.timeout.moderation_ms",
     category: "ai",

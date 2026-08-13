@@ -43,19 +43,32 @@ describe("APP_SETTINGS registry", () => {
     }
   });
 
-  it("includes generated-site quality rollout and critic sampling", () => {
-    const rollout = APP_SETTINGS.find(
-      (entry) => entry.key === "feature.generated_site_quality_rollout",
+  it("keeps only basic boolean controls in feature flags", () => {
+    const featureFlags = APP_SETTINGS.filter(
+      (entry) => entry.category === "feature_flag",
     );
-    expect(rollout).toMatchObject({
-      type: "string",
-      fallback: "off",
-      enumOptions: ["off", "internal", "pilot", "all"],
-    });
-    const sampleRate = APP_SETTINGS.find(
-      (entry) => entry.key === "quality.generated_site_critic_sample_rate",
-    );
-    expect(sampleRate).toMatchObject({
+
+    expect(featureFlags.length).toBeGreaterThan(0);
+    expect(
+      featureFlags.every(
+        (entry) => entry.type === "boolean" && entry.tier === "basic",
+      ),
+    ).toBe(true);
+    expect(
+      featureFlags.find(
+        (entry) => entry.key === "feature.thumbnail_capture_enabled",
+      ),
+    ).toBeDefined();
+  });
+
+  it("keeps critic sampling in generated-site quality as a percentage", () => {
+    expect(
+      APP_SETTINGS.find(
+        (entry) => entry.key === "quality.generated_site_critic_sample_rate",
+      ),
+    ).toMatchObject({
+      category: "generated_quality",
+      display: "percentage",
       type: "number",
       fallback: 0.1,
       min: 0,
@@ -63,15 +76,30 @@ describe("APP_SETTINGS registry", () => {
     });
   });
 
-  it("includes the discuss chat auto-retry cap with safe default 2", () => {
-    const e = APP_SETTINGS.find(
-      (x) => x.key === "discuss.chat.auto_retry_attempts",
-    );
-    expect(e).toBeDefined();
-    expect(e?.type).toBe("number");
-    expect(e?.fallback).toBe(2);
-    expect(e?.min).toBe(0);
-    expect(e?.max).toBe(5);
+  it("keeps discuss auto-retry in advanced AI settings", () => {
+    expect(
+      APP_SETTINGS.find(
+        (entry) => entry.key === "discuss.chat.auto_retry_attempts",
+      ),
+    ).toMatchObject({
+      category: "ai",
+      tier: "advanced",
+      type: "number",
+      fallback: 2,
+      min: 0,
+      max: 5,
+    });
+  });
+
+  it("does not expose settled implementation controls", () => {
+    for (const key of [
+      "feature.builder_photo_enabled",
+      "feature.generated_site_quality_rollout",
+      "discuss.parallel_moderation",
+      "discuss.partial_tool_streaming",
+    ]) {
+      expect(APP_SETTINGS.find((entry) => entry.key === key)).toBeUndefined();
+    }
   });
 });
 
