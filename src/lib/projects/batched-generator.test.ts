@@ -52,6 +52,31 @@ import { createProjectSiteSchemaFromBrief } from "./site-schema";
 import type { ProjectBrief } from "./brief";
 import type { ImplementationSpec } from "./implementation-spec";
 
+/** Minimal scaffold base the gate resolves @/ imports against. Production
+ * seeds staged with the full starter set; unit tests pass only AI files, so
+ * include the modules HOME_TSX references to avoid false "Cannot find
+ * module" issues. */
+const SCAFFOLD_BASE_FILES: GeneratedProjectFile[] = [
+  {
+    path: "src/components/ui/button.tsx",
+    content: "export const Button = () => null;",
+  },
+  {
+    path: "src/components/ui/card.tsx",
+    content:
+      "export const Card = () => null; export const CardContent = () => null;",
+  },
+  {
+    path: "src/content/site.ts",
+    content:
+      'export const site = { eyebrow: "E", headline: "H", subheadline: "S", primaryCta: "C", offer: "O", trustPoints: [] } as const;',
+  },
+  {
+    path: "src/lib/preview-ready.ts",
+    content: "export function usePreviewReady() {}",
+  },
+];
+
 const HOME_TSX = `import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 
@@ -698,6 +723,7 @@ describe("collectBatchedGateIssues", () => {
   it("passes a clean stage", () => {
     const issues = collectBatchedGateIssues(
       [
+        ...SCAFFOLD_BASE_FILES,
         { path: "src/routes/index.tsx", content: HOME_TSX },
       ] as GeneratedProjectFile[],
       {
@@ -706,6 +732,32 @@ describe("collectBatchedGateIssues", () => {
       },
     );
     expect(issues).toEqual([]);
+  });
+
+  it("flags @/ imports to modules that are not staged (tsc Cannot find module)", () => {
+    const issues = collectBatchedGateIssues(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nimport { Button } from "@/components/ui/button";\nimport { wa } from "@/lib/wa";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<main><h1>{site.headline}</h1><Button>{site.primaryCta}</Button></main>);\n}',
+        },
+        {
+          path: "src/content/site.ts",
+          content:
+            'export const site = { headline: "H", primaryCta: "C" } as const;',
+        },
+        {
+          path: "src/lib/preview-ready.ts",
+          content: "export function usePreviewReady() {}",
+        },
+      ] as GeneratedProjectFile[],
+      { indexCss: "--background: ok; --foreground: ok; --accent: ok;" },
+    );
+    const joined = issues.join("\\n");
+    expect(joined).toMatch(/@\/lib\/wa/);
+    expect(joined).not.toMatch(/@\/content\/site/);
+    expect(joined).not.toMatch(/@\/lib\/preview-ready/);
   });
 
   it("rejects starter boilerplate CTAs and feature cards (scaffold rot)", () => {
@@ -733,6 +785,10 @@ describe("collectBatchedGateIssues", () => {
       [
         { path: "src/routes/index.tsx", content: indexTsx },
         { path: "src/content/site.ts", content: siteTs },
+        {
+          path: "src/lib/preview-ready.ts",
+          content: "export function usePreviewReady() {}",
+        },
       ] as GeneratedProjectFile[],
       { indexCss: "--background: ok; --foreground: ok; --accent: ok;" },
     );
@@ -756,6 +812,10 @@ describe("collectBatchedGateIssues", () => {
       [
         { path: "src/routes/index.tsx", content: indexTsx },
         { path: "src/content/site.ts", content: siteTs },
+        {
+          path: "src/lib/preview-ready.ts",
+          content: "export function usePreviewReady() {}",
+        },
       ] as GeneratedProjectFile[],
       { indexCss: "--background: ok; --foreground: ok; --accent: ok;" },
     );

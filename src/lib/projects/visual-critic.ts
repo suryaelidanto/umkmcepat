@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText, type ModelMessage } from "ai";
 
 import type { BuildContractV1 } from "./build-contract";
 
@@ -64,7 +64,11 @@ export async function runShadowCritic(input: {
     if (images.length === 0) {
       return { status: "unknown", mode: "shadow", findings: [] };
     }
-    const result = await generateText({
+    const criticPrompt = buildCriticPrompt(
+      { contract: input.contract, plan: input.plan },
+      images,
+    );
+    let result = await generateText({
       model: getAiModel(requestedModel),
       maxOutputTokens: 2_048,
       maxRetries: 1,
@@ -72,34 +76,26 @@ export async function runShadowCritic(input: {
       abortSignal: AbortSignal.timeout(getAiTimeoutMs("visualCritic")),
       ...getNoReasoningCallOptions(),
       telemetry: getAiTelemetry("generated-site-visual-critic"),
-      system: `You are a read-only generated-site visual critic. Return JSON only: {"findings":[{"category":"hierarchy|business_fit|layout_intent|responsive|typography|color_contrast|imagery|consistency|genericness|content_density","severity":"critical|high|medium|low","route":"/","viewport":"mobile|desktop","evidence":"specific visible evidence","proposedCorrection":"bounded correction","confidence":0.0}]}. Never propose facts, files, tools, deployment, or contract changes. Empty findings means the supplied evidence meets the rubric.`,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                contract: {
-                  identity: input.contract.identity,
-                  visitorJobs: input.contract.visitorJobs,
-                  ctaIntents: input.contract.ctaIntents,
-                  preferences: input.contract.preferences,
-                  prohibitedClaims: input.contract.prohibitedClaims,
-                },
-                plan: input.plan,
-              }),
-            },
-            ...images.map((data) => ({
-              type: "file" as const,
-              mediaType: "image/jpeg",
-              data,
-            })),
-          ],
-        },
-      ],
+      ...criticPrompt,
     });
-    const findings = parseFindings(result.text);
+    let findings = parseFindings(result.text);
+    // Vision models occasionally return an empty stream on the first attempt
+    // (upstream hiccup, not a quality signal). Retry exactly once before
+    // declaring the critic unavailable so a transient blank does not fail an
+    // otherwise-clean build.
+    if (!findings && result.text.trim().length === 0) {
+      result = await generateText({
+        model: getAiModel(requestedModel),
+        maxOutputTokens: 2_048,
+        maxRetries: 1,
+        temperature: 0,
+        abortSignal: AbortSignal.timeout(getAiTimeoutMs("visualCritic")),
+        ...getNoReasoningCallOptions(),
+        telemetry: getAiTelemetry("generated-site-visual-critic"),
+        ...criticPrompt,
+      });
+      findings = parseFindings(result.text);
+    }
     if (!findings) {
       return { status: "unavailable", mode: "shadow", findings: [] };
     }
@@ -112,6 +108,42 @@ export async function runShadowCritic(input: {
   } catch {
     return { status: "unavailable", mode: "shadow", findings: [] };
   }
+}
+
+const CRITIC_SYSTEM_PROMPT = `You are a read-only generated-site visual critic. Return JSON only: {"findings":[{"category":"hierarchy|business_fit|layout_intent|responsive|typography|color_contrast|imagery|consistency|genericness|content_density","severity":"critical|high|medium|low","route":"/","viewport":"mobile|desktop","evidence":"specific visible evidence","proposedCorrection":"bounded correction","confidence":0.0}]}. Never propose facts, files, tools, deployment, or contract changes. Empty findings means the supplied evidence meets the rubric.`;
+
+function buildCriticPrompt(
+  input: { contract: BuildContractV1; plan: unknown },
+  images: Uint8Array[],
+): { system: string; messages: ModelMessage[] } {
+  return {
+    system: CRITIC_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              contract: {
+                identity: input.contract.identity,
+                visitorJobs: input.contract.visitorJobs,
+                ctaIntents: input.contract.ctaIntents,
+                preferences: input.contract.preferences,
+                prohibitedClaims: input.contract.prohibitedClaims,
+              },
+              plan: input.plan,
+            }),
+          },
+          ...images.map((data) => ({
+            type: "file" as const,
+            mediaType: "image/jpeg",
+            data,
+          })),
+        ],
+      },
+    ],
+  };
 }
 
 function extractScreenshotParts(values: unknown[]): Uint8Array[] {

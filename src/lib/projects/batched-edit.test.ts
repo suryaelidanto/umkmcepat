@@ -90,6 +90,10 @@ function makeFiles(): GeneratedProjectFile[] {
     },
     { path: "src/routes/index.tsx", content: INDEX_TSX },
     { path: "src/routes/katalog.tsx", content: KATALOG_TSX },
+    {
+      path: "src/lib/preview-ready.ts",
+      content: "export function usePreviewReady() {}",
+    },
   ];
 }
 

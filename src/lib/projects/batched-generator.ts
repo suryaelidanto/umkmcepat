@@ -89,6 +89,10 @@ function allowedPackageNamesFrom(
 const IMPORT_SPECIFIER_PATTERN =
   /\b(?:import|export)[\s\S]*?\bfrom\s+["']([^"']+)["']|\bimport\s*[\(\s]["']([^"']+)["']/g;
 
+/** File extensions the @/ alias can resolve to (mirrors the tsconfig path
+ * mapping + Vite's default resolve.extensions). */
+const ALIAS_RESOLVE_EXTENSIONS = [".ts", ".tsx", ".d.ts"] as const;
+
 /** External placeholder/image hosts the design lint rejects. */
 const BANNED_URL_PATTERN =
   /https?:\/\/(?:www\.)?(?:placehold\.co|via\.placeholder\.com|picsum\.photos|unsplash\.com|images\.unsplash\.com|dummyimage\.com|loremflickr\.com|placekitten\.com|lorem\.picsum)/i;
@@ -502,6 +506,38 @@ export function collectBatchedGateIssues(
     if (ANY_CTA.test(file.content) && !WRAPPED_CTA.test(file.content)) {
       issues.push(
         `${file.path}: primary WhatsApp CTA is a bare <a> — wrap it in <Button asChild><a href=... >...</a></Button> so it meets the 44px touch-target minimum.`,
+      );
+    }
+  }
+
+  // Local alias import gate: @/foo must resolve to a staged source file
+  // (src/foo.{ts,tsx,d.ts} or src/foo/index.{ts,tsx}) or tsc fails with
+  // "Cannot find module". The per-file import allow-list skips all @/ paths
+  // because it cannot see the full file set — resolve them here against the
+  // staged paths so a phantom @/lib/wa or @/content/faq is caught before a
+  // full build.
+  const stagedPaths = new Set(stagedFiles.map((f) => f.path));
+  for (const file of stagedFiles) {
+    if (!/\.[mc]?[tj]sx?$/.test(file.path)) {
+      continue;
+    }
+    for (const match of file.content.matchAll(IMPORT_SPECIFIER_PATTERN)) {
+      const specifier = match[1] ?? match[2];
+      if (!specifier || !specifier.startsWith("@/")) {
+        continue;
+      }
+      const relative = specifier.slice(2);
+      if (
+        ALIAS_RESOLVE_EXTENSIONS.some(
+          (ext) =>
+            stagedPaths.has(`src/${relative}${ext}`) ||
+            stagedPaths.has(`src/${relative}/index${ext}`),
+        )
+      ) {
+        continue;
+      }
+      issues.push(
+        `${file.path}: imports "${specifier}" but no matching source file is staged — either emit src/${relative}.ts(x) or remove the import.`,
       );
     }
   }
