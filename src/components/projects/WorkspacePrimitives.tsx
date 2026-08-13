@@ -769,7 +769,7 @@ export function EmptyPreviewState() {
         </h2>
         <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/50">
           Tampilan website akan muncul setelah brief cukup jelas dan proses
-          build selesai.
+          pembuatan selesai.
         </p>
       </div>
     </div>

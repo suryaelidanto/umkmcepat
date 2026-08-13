@@ -16,10 +16,11 @@ export function HeldBuildRecommendationNotice({
       <div className="flex flex-wrap items-center justify-between gap-spacing-4">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-surface-warm-white">
-            Rancangan build disimpan
+            Rancangan website disimpan
           </p>
           <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/52">
-            Lanjutkan diskusi dulu, atau buka rancangan saat siap mulai build.
+            Lanjutkan diskusi dulu, atau buka rancangan saat siap membuat
+            website.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-spacing-2">
@@ -37,7 +38,7 @@ export function HeldBuildRecommendationNotice({
             onClick={onBuild}
             className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
           >
-            Mulai build
+            Mulai buat website
           </Button>
         </div>
       </div>
@@ -67,12 +68,14 @@ export function CompletedBuildNotice({
       <div className="flex flex-wrap items-center justify-between gap-spacing-4">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-surface-warm-white">
-            {isRecovery ? "Website terakhir masih aman" : "Website siap dicek"}
+            {isRecovery
+              ? "Website terakhir masih aman"
+              : "Website siap dilihat"}
           </p>
           <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/52">
             {isRecovery
-              ? "Build terbaru gagal, tapi tampilan terakhir yang berhasil tetap aman. Kamu bisa cek hasil lama atau lanjut ngobrol dengan AI."
-              : "Cek hasilnya dulu. Kalau ada yang kurang pas, lanjut ngobrol dengan AI."}
+              ? "Pembuatan terbaru belum selesai, tapi tampilan terakhir yang berhasil tetap aman. Kamu bisa cek hasil lama atau lanjut ngobrol dengan AI."
+              : "Lihat hasilnya dulu. Kalau ada yang kurang pas, lanjut ngobrol dengan AI."}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-spacing-2">

@@ -727,13 +727,11 @@ export function WorkspaceShell({
             : [
                 {
                   detail:
-                    job?.message ||
-                    result.message ||
-                    "Build website sedang berjalan di server.",
+                    job?.message || result.message || "Website sedang dibuat.",
                   label:
                     job?.kind === "edit"
                       ? "Merevisi website"
-                      : "Build berjalan",
+                      : "Memeriksa website",
                   status: "active" as const,
                 },
               ],
@@ -900,13 +898,13 @@ export function WorkspaceShell({
       });
 
       if (!response.ok) {
-        setRuntimeError("Build belum bisa dihentikan.");
+        setRuntimeError("Website belum bisa dihentikan.");
         return;
       }
 
       await loadRuntimeState();
     } catch {
-      setRuntimeError("Build belum bisa dihentikan.");
+      setRuntimeError("Website belum bisa dihentikan.");
     } finally {
       setIsCanceling(false);
     }
@@ -938,7 +936,7 @@ export function WorkspaceShell({
 
     // Permanently consume the current build_recommendation signature (if any)
     // so the same rancangan can never trigger another build. Retry must use
-    // the "Build ulang" CTA, not the original card. Outcome-agnostic.
+    // the "Buat ulang website" CTA, not the original card. Outcome-agnostic.
     const consumedSignature = getBuildRecommendationHoldSignature(
       workspaceCardRef.current,
     );
@@ -999,7 +997,8 @@ export function WorkspaceShell({
       });
 
       if (!response.ok) {
-        let detail = "Server belum bisa memulai proses build. Coba ulangi.";
+        let detail =
+          "Server belum bisa memulai pembuatan website. Coba ulangi.";
         try {
           const errorBody = (await response.json()) as { message?: string };
           if (errorBody.message) {
@@ -1012,7 +1011,7 @@ export function WorkspaceShell({
         setBuildProgress((current) =>
           appendBuildProgressStep(current, {
             detail,
-            label: "Build belum mulai",
+            label: "Website belum mulai dibuat",
             status: "error",
           }),
         );
@@ -1067,12 +1066,12 @@ export function WorkspaceShell({
         appendBuildProgressStep(current, {
           detail:
             (error as Error).name === "AbortError"
-              ? "Build dihentikan. Kamu bisa jalankan build lagi kapan saja."
-              : "Koneksi build terputus. Coba jalankan build lagi.",
+              ? "Pembuatan website dihentikan. Kamu bisa buat ulang website kapan saja."
+              : "Koneksi terputus. Coba buat ulang website.",
           label:
             (error as Error).name === "AbortError"
-              ? "Build dihentikan"
-              : "Build terputus",
+              ? "Pembuatan dihentikan"
+              : "Koneksi terputus",
           status: "error",
         }),
       );
@@ -2072,7 +2071,7 @@ export function WorkspaceShell({
     setBuildStartedAt(Date.now());
     setBuildProgress((current) =>
       appendBuildProgressStep(current, {
-        detail: "AI menerapkan komentar visual ke source preview terakhir.",
+        detail: "Menerapkan komentar visual ke tampilan website sebelumnya.",
         label: "Merevisi dari komentar visual",
         status: "active",
       }),
@@ -2155,7 +2154,7 @@ export function WorkspaceShell({
           appendBuildProgressStep(current, {
             detail:
               result?.message ||
-              "Komentar visual belum berhasil dibuild. Komentar tetap aman.",
+              "Komentar visual belum berhasil diterapkan. Komentar tetap aman.",
             label: "Revisi visual belum selesai",
             status: "error",
           }),
@@ -2293,7 +2292,7 @@ export function WorkspaceShell({
     setBuildStartedAt(Date.now());
     setBuildProgress((current) =>
       appendBuildProgressStep(current, {
-        detail: "AI menerapkan perubahan struktur ke source preview terakhir.",
+        detail: "Menerapkan perubahan struktur ke tampilan website sebelumnya.",
         label: "Merevisi struktur dari ubah langsung",
         status: "active",
       }),
@@ -2357,7 +2356,8 @@ export function WorkspaceShell({
         setBuildProgress((current) =>
           appendBuildProgressStep(current, {
             detail:
-              result?.message || "Perubahan belum berhasil dibuild. Coba lagi.",
+              result?.message ||
+              "Perubahan belum berhasil diterapkan. Coba lagi.",
             label: "Revisi belum selesai",
             status: "error",
           }),
