@@ -69,6 +69,15 @@ describe("APP_SETTINGS registry", () => {
         (entry) => entry.key === "feature.thumbnail_capture_enabled",
       ),
     ).toBeDefined();
+    expect(
+      featureFlags.find(
+        (entry) => entry.key === "feature.composer_uploads_enabled",
+      )?.fallback,
+    ).toBe(false);
+    expect(
+      featureFlags.find((entry) => entry.key === "feature.direct_edit_enabled")
+        ?.fallback,
+    ).toBe(false);
   });
 
   it("keeps critic sampling in generated-site quality as a percentage", () => {

@@ -89,7 +89,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     tier: "basic",
     type: "boolean",
     label: "Composer image uploads",
-    fallback: true,
+    fallback: false,
   },
   {
     key: "feature.direct_edit_enabled",
@@ -97,7 +97,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     tier: "basic",
     type: "boolean",
     label: "Workspace Ubah (element edit) mode",
-    fallback: true,
+    fallback: false,
   },
   {
     key: "quality.generated_site_critic_sample_rate",
