@@ -110,21 +110,30 @@ export type WorkspaceCard =
   | { type: "none" }
   | { type: "question"; question: BriefQuestion }
   | { type: "image_upload"; imageUpload: ImageUploadQuestion }
-  | {
-      type: "build_recommendation";
-      title: string;
-      summary: string[];
-      // contract-v1 only: opaque handoff id + review proof. These do NOT enter
-      // the consumed/hold signature (kept stable for legacy cards).
-      handoffId?: string;
-      reviewHash?: string;
-      reviewItems?: Array<{
-        id: string;
-        kind: string;
-        label: string;
-        value: string;
-      }>;
-    };
+  | ContractBuildRecommendationCard
+  | LegacyBuildRecommendationCard;
+
+export type ContractBuildRecommendationCard = {
+  type: "build_recommendation";
+  engine: "contract-v1";
+  title: string;
+  summary: string[];
+  handoffId: string;
+  reviewHash: string;
+  reviewItems: Array<{
+    id: string;
+    kind: string;
+    label: string;
+    value: string;
+  }>;
+};
+
+export type LegacyBuildRecommendationCard = {
+  type: "build_recommendation";
+  engine?: "legacy-v1";
+  title: string;
+  summary: string[];
+};
 
 export type ProjectBriefPatch = Partial<
   Pick<

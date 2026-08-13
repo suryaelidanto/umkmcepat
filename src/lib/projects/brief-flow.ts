@@ -951,6 +951,7 @@ function buildRecommendationCard(
 ): WorkspaceCard {
   return {
     type: "build_recommendation",
+    engine: "legacy-v1" as const,
     title: cleanText(title, 80) || "Brief sudah siap dibuild",
     summary: buildCardSummary(brief, summary),
   };

@@ -55,47 +55,38 @@ function makeBrief(overrides: Partial<ProjectBrief>): ProjectBrief {
 }
 
 describe("canStartBuild", () => {
-  it("returns true when brief is present, regardless of completeness gates", () => {
+  it("requires handoff proof for contract cards", () => {
+    const contractCard = {
+      type: "build_recommendation" as const,
+      engine: "contract-v1" as const,
+      title: "Siap",
+      summary: ["a"],
+      handoffId: "h1",
+      reviewHash: "a".repeat(64),
+      reviewItems: [],
+    };
+    const missingHash = {
+      ...contractCard,
+      reviewHash: "",
+    } as unknown as typeof contractCard;
+    expect(canStartBuild(contractCard)).toBe(true);
+    expect(canStartBuild(missingHash)).toBe(false);
     expect(
-      canStartBuild(
-        makeBrief({
-          productOrService: [{ name: "Kopi", isPrimary: true }],
-          readyForBuild: false,
-        }),
-      ),
+      canStartBuild({
+        type: "build_recommendation" as const,
+        title: "Siap",
+        summary: ["a"],
+      }),
     ).toBe(true);
-
     expect(
-      canStartBuild(
-        makeBrief({
-          businessName: "Kopi Tuku",
-          productOrService: [{ name: "Kopi", isPrimary: true }],
-          readyForBuild: true,
-        }),
-      ),
-    ).toBe(true);
-
-    expect(
-      canStartBuild(
-        makeBrief({
-          productOrService: [],
-          readyForBuild: true,
-        }),
-      ),
-    ).toBe(true);
-
-    expect(
-      canStartBuild(
-        makeBrief({
-          businessName: "",
-          productOrService: [{ name: "Kopi", isPrimary: true }],
-          readyForBuild: true,
-        }),
-      ),
-    ).toBe(true);
+      canStartBuild({
+        type: "question" as const,
+        question: { id: "q", question: "?", options: [] },
+      } as never),
+    ).toBe(false);
   });
 
-  it("returns false when brief is null or undefined", () => {
+  it("returns false when card is null or undefined", () => {
     expect(canStartBuild(null)).toBe(false);
     expect(canStartBuild(undefined)).toBe(false);
   });

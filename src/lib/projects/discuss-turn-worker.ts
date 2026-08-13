@@ -874,10 +874,18 @@ export async function runDiscussTurn({
         turnId,
       });
       if (prepared.state === "ready") {
+        const base = workspaceTurn.workspaceCard as {
+          type: "build_recommendation";
+          title: string;
+          summary: string[];
+        };
         workspaceTurn = {
           ...workspaceTurn,
           workspaceCard: {
-            ...workspaceTurn.workspaceCard,
+            type: "build_recommendation",
+            engine: "contract-v1" as const,
+            title: base.title,
+            summary: base.summary,
             handoffId: prepared.handoffId,
             reviewHash: prepared.reviewHash,
             reviewItems: prepared.reviewItems.map((item) => ({

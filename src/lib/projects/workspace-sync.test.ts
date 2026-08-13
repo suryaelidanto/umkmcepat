@@ -65,11 +65,15 @@ describe("workspace chat sync", () => {
   it("keeps the signature stable when handoffId/reviewHash are added (G6)", () => {
     const base: WorkspaceCard = {
       type: "build_recommendation",
+      engine: "legacy-v1",
       title: "Brief sudah siap dibuild",
       summary: ["Warung fisik", "Menu klasik"],
     };
     const withHandoff: WorkspaceCard = {
-      ...base,
+      type: "build_recommendation",
+      engine: "contract-v1",
+      title: "Brief sudah siap dibuild",
+      summary: ["Warung fisik", "Menu klasik"],
       handoffId: "h1",
       reviewHash: "r1",
       reviewItems: [{ id: "f1", kind: "fact", label: "contact", value: "..." }],

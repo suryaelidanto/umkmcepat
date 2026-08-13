@@ -977,12 +977,15 @@ export function WorkspaceShell({
       const activeCard = workspaceCardRef.current;
       const handoffFields =
         activeCard?.type === "build_recommendation" &&
-        activeCard.handoffId &&
-        activeCard.reviewHash
+        (activeCard as { engine?: string }).engine === "contract-v1" &&
+        "handoffId" in activeCard &&
+        (activeCard as { handoffId: string }).handoffId &&
+        "reviewHash" in activeCard &&
+        (activeCard as { reviewHash: string }).reviewHash
           ? {
-              handoffId: activeCard.handoffId,
-              reviewHash: activeCard.reviewHash,
-              idempotencyKey: `build-${projectId}-${activeCard.handoffId}`,
+              handoffId: (activeCard as { handoffId: string }).handoffId,
+              reviewHash: (activeCard as { reviewHash: string }).reviewHash,
+              idempotencyKey: `build-${projectId}-${(activeCard as { handoffId: string }).handoffId}`,
             }
           : undefined;
       const response = await fetch(`/api/projects/${projectId}/generate`, {
@@ -1093,7 +1096,7 @@ export function WorkspaceShell({
   // building from, then start the build. Gated on canStartBuild to mirror the
   // server-side readiness check.
   const handleStartBuild = useCallback(async () => {
-    if (readOnly || !canStartBuild(latestBrief) || !latestBrief) {
+    if (readOnly || !canStartBuild(workspaceCard) || !latestBrief) {
       return;
     }
 
@@ -1319,7 +1322,7 @@ export function WorkspaceShell({
     held: buildRecommendationHeld,
     postBuildChatOpen,
   });
-  const canStartBuildNow = canStartBuild(latestBrief);
+  const canStartBuildNow = canStartBuild(workspaceCard);
   const activeQuestionKey =
     workspaceCard.type === "question"
       ? workspaceCard.question.id
@@ -4217,13 +4220,31 @@ function readConsumedBuildRecommendationSignatures(
   }
 }
 
-// Pure gate: brief is non-null AND every readiness field passes. Mirrors the
-// server-side check at /api/projects/$id/generate.
-export function canStartBuild(brief: ProjectBrief | null | undefined): boolean {
-  if (!brief) {
+// Proof-carrying gate: contract-v1 requires valid handoff proof; legacy
+// remains buildable. The brief is still required (prevents stale-card builds).
+export function canStartBuild(
+  card: WorkspaceCard | null | undefined,
+  _brief?: ProjectBrief | null | undefined,
+): boolean {
+  if (!card || card.type !== "build_recommendation") {
     return false;
   }
+  if ((card as { engine?: string }).engine === "contract-v1") {
+    const c = card as { handoffId?: string; reviewHash?: string };
+    return Boolean(
+      c.handoffId && c.reviewHash && /^[0-9a-f]{64}$/.test(c.reviewHash),
+    );
+  }
   return true;
+}
+
+// Legacy single-arg bridge — callers passing only a brief (e.g. older tests)
+// keep compiling; they map to "no card yet" which is not buildable. During the
+// migration no prod path relies on this overload.
+export function canStartBuildFromBrief(
+  brief: ProjectBrief | null | undefined,
+): boolean {
+  return Boolean(brief);
 }
 
 // Fetch the server-side turn state. Returns `null` on a 404 (no turn row for
