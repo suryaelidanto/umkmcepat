@@ -314,10 +314,19 @@ export function normalizeWorkspaceTurn(
     brief,
   );
 
+  const originalCardType = (
+    unstringifyJsonObject(value.workspaceCard) as { type?: string } | null
+  )?.type;
+
   // Server-side enforcement: once the site is built, never re-offer
   // build_recommendation (that restarts the interview handoff). Clarifying
   // questions (e.g. which color) are still allowed for post-build edits.
-  if (options.hasBuiltSite && workspaceCard.type === "build_recommendation") {
+  if (
+    options.hasBuiltSite &&
+    (workspaceCard.type === "build_recommendation" ||
+      originalCardType === "build_recommendation" ||
+      originalCardType === "brief_review")
+  ) {
     workspaceCard = createFallbackWorkspaceCard(brief);
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is
@@ -628,25 +637,24 @@ function normalizeWorkspaceCard(
       : undefined;
     const title = typeof value.title === "string" ? value.title : undefined;
 
-    // Accept when minimum brief fields are known. The old confidence-only
-    // readiness check (confidence 95 + no open questions) let the model emit
-    // build_recommendation with an empty brief — the build then fell back to
-    // the slow legacy loop instead of the fast batched writer. The typed
-    // fields are what both the admission gate and MIN_BRIEF_FIELDS read.
-    if (evaluateBuildReadiness(parseCanonicalBrief(brief)).state === "ready") {
+    const readiness = evaluateBuildReadiness(parseCanonicalBrief(brief));
+    if (readiness.state === "ready") {
       return buildRecommendationCard(brief, title, summary);
     }
 
-    // Insufficient brief: fall through to a nested question if present so
-    // the interview keeps flowing. No force-build affordance.
     const rawQuestion =
       value.question ??
       (Array.isArray(value.questions) ? value.questions[0] : undefined);
     const question = normalizeQuestion(rawQuestion);
 
-    return question
-      ? { type: "question", question }
-      : createFallbackWorkspaceCard(brief);
+    if (question) {
+      return { type: "question", question };
+    }
+
+    return {
+      type: "question",
+      question: readiness.nextQuestion,
+    };
   }
 
   const rawQuestion =

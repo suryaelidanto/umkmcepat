@@ -4,6 +4,7 @@ import {
   type WorkspaceCard,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
+import { PHONE_RE } from "@/lib/projects/brief-rich-fields";
 
 export type WorkspaceAnswerPayload = {
   answer: string;
@@ -67,7 +68,18 @@ export function buildBriefPatchFromWorkspaceAnswers({
       { key: answer.questionId, label: question.question, value },
     ];
 
-    if (isLegacyBriefPatchField(answer.questionId)) {
+    if (isContactWhatsappId(answer.questionId)) {
+      const normalizedPhone = normalizePhoneValue(value);
+      if (normalizedPhone && PHONE_RE.test(normalizedPhone)) {
+        patch.contact = {
+          channel: "whatsapp",
+          value: normalizedPhone,
+        };
+        patch.contactOrCta = value;
+      } else if (value) {
+        patch.contactOrCta = value;
+      }
+    } else if (isLegacyBriefPatchField(answer.questionId)) {
       patch[answer.questionId] = value;
     } else {
       const promotedField = QUESTION_ID_TO_BRIEF_FIELD[answer.questionId] as
@@ -83,6 +95,18 @@ export function buildBriefPatchFromWorkspaceAnswers({
         | "tagline"
         | undefined;
       if (promotedField) {
+        if (
+          promotedField === "contactOrCta" &&
+          PHONE_RE.test(normalizePhoneValue(value) ?? "")
+        ) {
+          const normalizedPhone = normalizePhoneValue(value);
+          if (normalizedPhone) {
+            patch.contact = {
+              channel: "whatsapp",
+              value: normalizedPhone,
+            };
+          }
+        }
         patch[promotedField] = value;
       } else {
         patch.notes = [
@@ -320,6 +344,27 @@ function questionTextLooksLikeField(
   };
 
   return patterns[field]?.test(questionText) ?? false;
+}
+
+function isContactWhatsappId(id: string): boolean {
+  const lower = id.toLowerCase();
+  return (
+    lower === "contact_whatsapp" ||
+    lower === "contact-whatsapp" ||
+    lower === "whatsapp_number" ||
+    lower === "whatsapp-contact" ||
+    lower.includes("whatsapp")
+  );
+}
+
+function normalizePhoneValue(value: string): string | null {
+  const trimmed = value.trim();
+  const match = trimmed.match(/\+?\d[\d\s-]{6,}/);
+  if (!match) {
+    return null;
+  }
+  const normalized = match[0].replace(/[\s-]/g, "");
+  return normalized.length >= 7 ? normalized : null;
 }
 
 function normalizeAnswer(value: unknown) {

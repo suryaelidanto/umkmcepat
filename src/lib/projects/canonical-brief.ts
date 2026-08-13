@@ -284,7 +284,19 @@ export function applyAiBriefPatch(
     } else if (hasKey("contactOrCta")) {
       const label = cleanOptionalText(input.contactOrCta);
       if (label) {
-        next.primaryAction = { kind: "browse", label, target: null };
+        const phoneMatch = label.match(/\+?\d[\d\s-]{6,}/);
+        const normalizedPhone = phoneMatch
+          ? phoneMatch[0].replace(/[\s-]/g, "")
+          : null;
+        if (normalizedPhone && /^\+?\d{7,}$/.test(normalizedPhone)) {
+          next.primaryAction = {
+            kind: "whatsapp",
+            label: `Chat WhatsApp`,
+            target: normalizedPhone,
+          };
+        } else {
+          next.primaryAction = { kind: "browse", label, target: null };
+        }
       }
     } else if (hasKey("primaryAction")) {
       const action = parseCanonicalAction(input.primaryAction);

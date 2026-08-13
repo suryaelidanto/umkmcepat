@@ -2,6 +2,8 @@ import type { BriefQuestion } from "./brief";
 import type { ProjectBriefV2 } from "./canonical-brief";
 import type { FieldState, FieldStateMap } from "./chat-memory";
 
+import { getSettingSync } from "@/lib/app-settings";
+
 export type BuildReadinessField =
   | "business.name"
   | "offers"
@@ -145,10 +147,21 @@ function isPrimaryActionResolved(brief: ProjectBriefV2): boolean {
   );
 }
 
+function isPhotoEnabled(): boolean {
+  try {
+    return getSettingSync("feature.composer_uploads_enabled", true);
+  } catch {
+    return true;
+  }
+}
+
 function isStructuralFieldResolved(
   brief: ProjectBriefV2,
   field: BuildReadinessField,
 ): boolean {
+  if (field === "assets" && !isPhotoEnabled()) {
+    return true;
+  }
   if (field === "content.address" && brief.content.address?.trim()) {
     return true;
   }

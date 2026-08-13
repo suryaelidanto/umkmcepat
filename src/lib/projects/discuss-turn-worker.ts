@@ -805,30 +805,51 @@ export async function runDiscussTurn({
       }
     }
 
-    if (
-      project.generationEngine === "contract-v1" &&
-      workspaceTurn.workspaceCard.type === "build_recommendation"
-    ) {
+    const wasBuildRecommendationAttempt =
+      (toolInput as { workspaceCard?: { type?: string } } | null)?.workspaceCard
+        ?.type === "build_recommendation" ||
+      (toolInput as { workspaceCard?: { type?: string } } | null)?.workspaceCard
+        ?.type === "brief_review";
+
+    if (project.generationEngine === "contract-v1") {
       const canonicalBrief = parseCanonicalBrief(
         workspaceTurn.brief,
         project.prompt,
       );
       const readiness = evaluateBuildReadiness(canonicalBrief);
       if (readiness.state === "blocked") {
-        workspaceTurn = {
-          ...workspaceTurn,
-          readyForBuild: false,
-          workspaceCard: {
-            type: "question",
-            question: readiness.nextQuestion,
-          },
-        };
-        chatText = "Masih ada informasi penting yang perlu dilengkapi dulu.";
-        devLog("discuss", "contract-readiness-blocked", {
-          projectId: project.id,
-          turnId,
-          blockers: readiness.blockers.map((blocker) => blocker.field),
-        });
+        if (workspaceTurn.workspaceCard.type === "build_recommendation") {
+          workspaceTurn = {
+            ...workspaceTurn,
+            readyForBuild: false,
+            workspaceCard: {
+              type: "question",
+              question: readiness.nextQuestion,
+            },
+          };
+          chatText = "Masih ada informasi penting yang perlu dilengkapi dulu.";
+          devLog("discuss", "contract-readiness-blocked", {
+            projectId: project.id,
+            turnId,
+            blockers: readiness.blockers.map((blocker) => blocker.field),
+          });
+        } else if (
+          wasBuildRecommendationAttempt &&
+          workspaceTurn.workspaceCard.type === "question"
+        ) {
+          const isAlreadyReadinessQuestion =
+            workspaceTurn.workspaceCard.question.id ===
+            readiness.nextQuestion.id;
+          if (isAlreadyReadinessQuestion) {
+            chatText =
+              "Masih ada informasi penting yang perlu dilengkapi dulu.";
+            devLog("discuss", "contract-readiness-blocked", {
+              projectId: project.id,
+              turnId,
+              blockers: readiness.blockers.map((blocker) => blocker.field),
+            });
+          }
+        }
       }
     }
 
@@ -923,13 +944,22 @@ export async function runDiscussTurn({
     });
     const resolvedToolCallId = streamToolCallId || toolCallId;
 
+    const normalizedToolInput = hasCard
+      ? {
+          briefPatch: (toolInput as { briefPatch?: unknown } | null)
+            ?.briefPatch,
+          projectTitle: workspaceTurn.projectTitle || project.title,
+          workspaceCard: workspaceTurn.workspaceCard,
+        }
+      : {};
+
     // Always emit tool protocol events (including type:"none") so useChat
     // stream shape settles; product still forbids inventing question content.
     publishProgress(turnId, {
       type: "tool-input-available",
       toolCallId: resolvedToolCallId,
       toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-      input: hasCard ? (toolInput ?? {}) : {},
+      input: normalizedToolInput,
     });
     publishProgress(turnId, {
       type: "tool-output-available",
@@ -950,7 +980,7 @@ export async function runDiscussTurn({
           type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
           toolCallId: resolvedToolCallId,
           state: "output-available",
-          input: hasCard ? (toolInput ?? {}) : {},
+          input: normalizedToolInput,
           output: {
             workspaceCard: hasCard
               ? workspaceTurn.workspaceCard

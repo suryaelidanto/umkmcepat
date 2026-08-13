@@ -676,7 +676,7 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.readyForBuild).toBe(true);
   });
 
-  it("emits none when brief_review arrives with thin brief and no nested question", () => {
+  it("emits a deterministic readiness question when brief_review arrives with thin brief and no nested question", () => {
     const brief = parseProjectBrief(
       {
         businessType: "Laundry kiloan",
@@ -696,7 +696,11 @@ describe("normalizeWorkspaceTurn", () => {
       brief,
     );
 
-    expect(turn.workspaceCard.type).toBe("none");
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("business.name");
+    }
+    expect(turn.readyForBuild).toBe(false);
   });
 
   it("downgrades build_recommendation when brief is still too thin", () => {
@@ -757,7 +761,10 @@ describe("normalizeWorkspaceTurn", () => {
       brief,
     );
 
-    expect(turn.workspaceCard.type).toBe("none");
+    expect(turn.workspaceCard.type).toBe("question");
+    if (turn.workspaceCard.type === "question") {
+      expect(turn.workspaceCard.question.id).toBe("business.name");
+    }
     expect(turn.readyForBuild).toBe(false);
   });
 

@@ -82,7 +82,7 @@ const PAYMENT_METHODS: readonly PaymentMethod[] = [
   "cod",
 ] as const;
 
-const PHONE_RE = /^\+?\d[\d\s-]{6,}$/;
+export const PHONE_RE = /^\+?\d[\d\s-]{6,}$/;
 const HOURS_RE = /^\d{1,2}[:.]\d{2}$/;
 
 function isObject(v: unknown): v is Record<string, unknown> {
