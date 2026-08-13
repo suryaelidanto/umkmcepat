@@ -1,8 +1,8 @@
 # Waitlist Live Status and Admin Queue Consistency
 
-**Date:** 2026-08-13  
-**Status:** Approved for implementation by direct user instruction  
-**Scope:** Waitlist approval, rejection, and live client state  
+**Date:** 2026-08-13
+**Status:** Approved for implementation by direct user instruction
+**Scope:** Waitlist approval, rejection, and live client state
 **Related decisions:** `2026-07-29-admin-self-approve-on-waitlist-design.md`, `2026-07-30-waitlist-homepage-access-design.md`
 
 ## Goal
