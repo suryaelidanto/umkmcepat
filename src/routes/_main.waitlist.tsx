@@ -593,8 +593,6 @@ function WaitlistPage() {
           />
         ) : null}
 
-        {step === 3 ? <PublicContentNotice /> : null}
-
         {hasTurnstile && step === 3 ? (
           <p className="mt-spacing-4 text-xs text-surface-warm-white/50">
             Ada cek keamanan sebelum kirim.
@@ -763,21 +761,6 @@ function WaitlistPage() {
         ) : null}
       </form>
     </div>
-  );
-}
-
-function PublicContentNotice() {
-  return (
-    <aside className="mt-spacing-6 rounded-radius-lg border border-surface-warm-white/12 bg-surface-warm-white/[0.04] px-spacing-5 py-spacing-4 text-sm leading-6 text-surface-warm-white/70">
-      <p className="font-medium text-surface-warm-white/90">
-        Studi kasus publik
-      </p>
-      <p className="mt-spacing-2">
-        Cerita usaha dan foto yang kamu kirim bisa dipakai sebagai studi kasus
-        publik. Jangan isi data sensitif (alamat rumah, nomor rekening, data
-        pelanggan, dan sejenisnya). Nama akun dan email tetap privat.
-      </p>
-    </aside>
   );
 }
 
