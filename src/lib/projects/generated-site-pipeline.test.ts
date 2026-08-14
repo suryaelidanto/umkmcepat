@@ -224,6 +224,70 @@ describe("runGeneratedSitePipeline", () => {
     expect(result.proof.outcome).toBe("pass");
   });
 
+  it("records a consumed correction when a failed writer cannot be repaired", async () => {
+    const runCorrection = vi.fn(async () => {
+      throw new Error("correction response ended early");
+    });
+    const deps = {
+      deriveKitInput: vi.fn(() => ({
+        archetype: "generic",
+        density: "sparse",
+        mediaMode: "graphic",
+        primaryJobKind: "inquire",
+        hasOperationalDetails: false,
+      })),
+      selectKit: vi.fn(() => ({ id: "bold-typographic", version: 1 }) as never),
+      compileContract: vi.fn(
+        () =>
+          ({
+            contractHash: "a".repeat(64),
+            media: { mode: "graphic" },
+          }) as never,
+      ),
+      runWriter: vi.fn(async ({ budget }) => {
+        budget.consumeWriter();
+        return {
+          ok: false,
+          reason: "source gate failed",
+          stagedFiles: files,
+          designPlan: null,
+          writerMs: 1,
+          firstFileClosedMs: 1,
+          editableBytes: 10,
+        };
+      }),
+      build: vi.fn(),
+      runBrowser: vi.fn(),
+      loadVisualEvidence: vi.fn(),
+      reviewVisual: vi.fn(),
+      runCorrection,
+      now: vi.fn(() => 1),
+    } as unknown as GeneratedSitePipelineDeps;
+
+    const result = await runGeneratedSitePipeline(
+      {
+        attemptId: "a1",
+        buildId: null,
+        projectId: "p1",
+        userId: "u1",
+        brief: {} as never,
+        briefSnapshot: {} as never,
+        handoff: {} as never,
+        schema: {} as never,
+        photoEnabled: false,
+      },
+      deps,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(runCorrection).toHaveBeenCalledTimes(1);
+    expect(result.proof.calls).toMatchObject({
+      writerCalls: 1,
+      correctionCalls: 1,
+      correctionReason: "response_contract",
+    });
+  });
+
   it("does not invoke review when the browser has a hard failure", async () => {
     const reviewVisual = vi.fn();
     const deps = {

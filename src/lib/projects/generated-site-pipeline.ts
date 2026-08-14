@@ -269,6 +269,7 @@ export async function runGeneratedSitePipeline(
       reason: "response_contract",
     });
     if (!corrected) {
+      proof = withCalls(proof, budget);
       return failure(
         proof,
         "writer",
@@ -309,6 +310,7 @@ export async function runGeneratedSitePipeline(
       reason: "build",
     });
     if (!corrected) {
+      proof = withCalls(proof, budget);
       return failure(
         proof,
         "build",
@@ -370,6 +372,7 @@ export async function runGeneratedSitePipeline(
       reason: "browser",
     });
     if (!corrected) {
+      proof = withCalls(proof, budget);
       return failure(
         proof,
         "browser",
@@ -507,6 +510,7 @@ export async function runGeneratedSitePipeline(
       findings: blocking,
     });
     if (!corrected) {
+      proof = withCalls(proof, budget);
       return failure(
         proof,
         "visual_correction",

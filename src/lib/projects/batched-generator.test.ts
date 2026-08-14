@@ -43,6 +43,7 @@ import {
   collectBatchedGateIssues,
   collectBatchedPerFileIssues,
   runBatchedGenerate,
+  runGeneratedSiteCorrection,
   runReferenceCalibratedGenerate,
 } from "./batched-generator";
 import { BatchedAdmissionBlockedError } from "./brief-admission";
@@ -203,6 +204,55 @@ const baseArgs = () => {
 
 describe("runReferenceCalibratedGenerate", () => {
   afterEach(() => vi.clearAllMocks());
+
+  it("gives the bounded correction enough output budget to finish the route", async () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+      hasOperationalDetails: false,
+    });
+    const contract = {
+      contractHash: "a".repeat(64),
+      business: {
+        name: "Kopi Sela",
+        primaryCta: { target: "+6281100000000" },
+      },
+      content: {
+        products: [],
+        trustPoints: [],
+        usp: [],
+        promotion: null,
+      },
+      media: { mode: "graphic" },
+      obligations: {
+        routes: [{ path: "/", purpose: "Beranda" }],
+        sections: [{ id: "hero", purpose: "Penawaran" }],
+      },
+    } as never;
+    streamTextMock.mockReturnValueOnce(
+      writerStream(
+        `<file path="src/routes/index.tsx">${HOME_TSX}</file><done summary="Selesai" />`,
+      ),
+    );
+
+    await runGeneratedSiteCorrection({
+      request: {
+        reason: "source_gate",
+        diagnostics: ["src/routes/index.tsx: source gate failed"],
+        implicatedPaths: ["src/routes/index.tsx"],
+        acceptedPlan: null,
+        stagedFiles: [{ path: "src/routes/index.tsx", content: HOME_TSX }],
+      },
+      contract,
+      kit,
+      budget: new GeneratedSiteCallBudget(),
+      projectId: "p1",
+    });
+
+    expect(streamTextMock.mock.calls[0]?.[0]?.maxOutputTokens).toBe(24_000);
+  });
 
   it("uses one streamed writer instead of the deterministic route renderer", async () => {
     const schema = createProjectSiteSchemaFromBrief(makeBrief());
