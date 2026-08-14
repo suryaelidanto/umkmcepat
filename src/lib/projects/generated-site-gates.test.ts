@@ -391,6 +391,31 @@ describe("normalizeBatchedSiteAnchors", () => {
     );
   });
 
+  it("normalizes visual safety utility mistakes without changing content", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/index.tsx",
+        content:
+          '<main className="h-screen"><p className="text-muted">Jelas</p><li className="border-l-2 border-accent">Info</li></main>',
+      },
+    ]);
+
+    expect(file?.content).toContain("min-h-dvh");
+    expect(file?.content).toContain("text-muted-foreground");
+    expect(file?.content).not.toContain("h-screen");
+    expect(file?.content).not.toContain('text-muted"');
+    expect(file?.content).not.toContain("border-l-2");
+  });
+
+  it("anchors a pattern on a non-main route root", () => {
+    const [file] = normalizeBatchedSiteAnchors(
+      [{ path: "src/routes/index.tsx", content: "<div><h1>Home</h1></div>" }],
+      { compositionPatternId: "split-commerce-hero" },
+    );
+
+    expect(file?.content).toContain('<div data-pattern="split-commerce-hero">');
+  });
+
   it("repairs default route exports and void preview-hook value usage", () => {
     const [file] = normalizeBatchedSiteAnchors([
       {

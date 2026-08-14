@@ -385,6 +385,10 @@ export function normalizeBatchedSiteAnchors(
       );
     }
     if (file.path === "src/routes/index.tsx") {
+      content = content
+        .replace(/\bh-screen\b/g, "min-h-dvh")
+        .replace(/\btext-muted\b(?!-)/g, "text-muted-foreground")
+        .replace(/\bborder-(?:l|r)-(?:2|3|4|5|6|8|\[[^\]]+\])\b/g, "");
       content = normalizeGeneratedHomeRouteContract(content);
       if (options?.compositionPatternId) {
         content = ensureCompositionPatternAnchor(
@@ -444,8 +448,8 @@ function ensureCompositionPatternAnchor(
     return content.replace(existing, `data-pattern="${pattern}"`);
   }
   return content.replace(
-    /<main\b([^>]*)>/i,
-    `<main data-pattern="${pattern}"$1>`,
+    /<(main|div|section)\b([^>]*)>/i,
+    `<$1 data-pattern="${pattern}"$2>`,
   );
 }
 
