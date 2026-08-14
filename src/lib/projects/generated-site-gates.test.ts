@@ -255,6 +255,11 @@ describe("reference-calibrated generated site source gates", () => {
       "<p>01</p><p>02</p><p>03</p>",
       "numbered-scaffolding",
     ],
+    [
+      "uses uncompiled color utilities",
+      '<div className="bg-white text-white border-white">A</div>',
+      "uncompiled-theme-utility",
+    ],
   ])("rejects taste tell: %s", (_name, source, code) => {
     expect(
       inspectGeneratedSiteTasteSource({ source, sectionCount: 3 }),

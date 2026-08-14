@@ -86,6 +86,19 @@ export function inspectGeneratedSiteTasteSource(input: {
       "Generated route reads or declares palette colors instead of using compiled semantic theme tokens.",
     );
   }
+  if (
+    /\b(?:bg|text|border)-(?:white|black|gray(?:-[\w/]+)?|slate(?:-[\w/]+)?|zinc(?:-[\w/]+)?|stone(?:-[\w/]+)?|neutral(?:-[\w/]+)?)\b/.test(
+      input.source,
+    )
+  ) {
+    add(
+      findings,
+      "accessibility",
+      "high",
+      "uncompiled-theme-utility",
+      "Generated route uses a generic color utility instead of the compiled semantic theme tokens.",
+    );
+  }
   return findings;
 }
 
