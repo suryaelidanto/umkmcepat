@@ -1,5 +1,18 @@
 "use strict";
 
+const TRANSPARENT_CSS_COLOR_PATTERN = String.raw`^rgba\([^)]*,\s*0\s*\)$`;
+
+function isTransparentCssColor(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === "transparent" ||
+    new RegExp(TRANSPARENT_CSS_COLOR_PATTERN, "i").test(normalized)
+  );
+}
+
 function parseCssColor(value) {
   if (typeof value !== "string") {
     return null;
@@ -155,6 +168,8 @@ function findContrastFailures(entries) {
 module.exports = {
   contrastRatio,
   findContrastFailures,
+  isTransparentCssColor,
   minimumForText,
   parseCssColor,
+  TRANSPARENT_CSS_COLOR_PATTERN,
 };

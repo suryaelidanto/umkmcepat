@@ -4,6 +4,7 @@ const test = require("node:test");
 
 const {
   contrastRatio,
+  isTransparentCssColor,
   minimumForText,
 } = require("./generated-site-contrast.cjs");
 
@@ -17,4 +18,10 @@ test("light muted text on warm background fails AA", () => {
 
 test("large text uses the 3:1 threshold", () => {
   assert.equal(minimumForText({ fontSize: "24px", fontWeight: "400" }), 3);
+});
+
+test("recognizes transparent browser colors", () => {
+  assert.equal(isTransparentCssColor("transparent"), true);
+  assert.equal(isTransparentCssColor("rgba(0, 0, 0, 0)"), true);
+  assert.equal(isTransparentCssColor("rgba(0, 0, 0, 0.1)"), false);
 });

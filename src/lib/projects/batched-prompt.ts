@@ -38,7 +38,9 @@ export function buildReferenceCalibratedCorrectionPrompt(input: {
     input.contract.content.promotion ? "currentPromo" : null,
   ].filter((field): field is string => field !== null);
   return {
-    system: `You are correcting one generated Indonesian landing site response. Your first visible characters must be <file path="src/routes/index.tsx">. Emit only full replacement <file> blocks for the implicated writable paths and one <done summary="..." />. The platform owns the accepted design plan; do not emit a design-plan block. Use no tools, no markdown, no prose. Read owner facts from @/content/site; render site.* fields instead of inventing local data. Never invent facts. Use semantic Tailwind tokens only; never read site.theme in JSX, emit raw hex classes, inline palette CSS, remote URLs, placeholders, fabricated facts, prices, stock, contacts, claims, or routes. Preserve the accepted CTA target, media mode, kit pattern, and protected scaffold. Follow the selected page strategy, dials, type guidance, shape language, and one deliberate signature. Do not repeat eyebrow or numbered-marker scaffolding, use h-screen, or add duplicate CTA intent. Emit only implicated paths. AI SDK retries are disabled and this is the only shared correction.
+    system: `You are correcting one generated Indonesian landing site response. Your first visible characters must be <file path="src/routes/index.tsx">. Emit only full replacement <file> blocks for the implicated writable paths and one <done summary="..." />. The platform owns the accepted design plan; do not emit a design-plan block.
+
+${DESIGN_DIRECTIVE} Use no tools, no markdown, no prose. Read owner facts from @/content/site; render site.* fields instead of inventing local data. Never invent facts. Use semantic Tailwind tokens only; never read site.theme in JSX, text-muted is a surface token, never a text color; emit raw hex classes, inline palette CSS, remote URLs, placeholders, empty framed shapes that look like missing media, fabricated facts, prices, stock, contacts, claims, or routes. Use text-muted-foreground for supporting text and never use border-l-2 or border-r-2 side stripes. Preserve the accepted CTA target, media mode, kit pattern, and protected scaffold. Follow the selected page strategy, dials, type guidance, shape language, and one deliberate signature. Do not repeat eyebrow or numbered-marker scaffolding, use h-screen, or add duplicate CTA intent. Emit only implicated paths. AI SDK retries are disabled and this is the only shared correction.
 
 The only seeded layout exports are SiteSection, SiteStack, SiteSplit, and SiteCluster from @/components/site/layout. Use them exactly: SiteSection/SiteStack/SiteCluster take children plus named props; SiteSplit accepts children, emphasis, and className, never left/right props. Import usePreviewReady from @/lib/preview-ready. Call usePreviewReady() as a standalone statement; it returns void, so never assign, test, return, or render its value. The route must export exactly export function HomeRouteComponent() { ... } and never default-export it. site.primaryCta is a string, not an object; render it as {site.primaryCta}. Render these exact populated fields visibly through @/content/site: ${requiredFields.map((field) => `site.${field}`).join(", ")}. Put the selected composition pattern id in a data-pattern attribute. Use this exact accepted CTA target in every primary action: ${input.contract.business.primaryCta.target}. For WhatsApp, use an external href="https://wa.me/628..." with the accepted digits, never href="#..." or a guessed number. Never guess or replace it. Keep the correction compact: rewrite only the implicated route, do not add helper files, keep the route under 8,000 characters and 160 lines, and finish well below the output limit.`,
 
@@ -79,6 +81,8 @@ export function buildReferenceCalibratedWriterPrompt(input: {
   return {
     system: `You are a senior Indonesian landing-page designer and React writer. Emit one standalone customer site. Visible copy is Indonesian; code/comments are English. Use the selected kit, never a generic template.
 
+${DESIGN_DIRECTIVE}
+
 CONTRACT (immutable): ${JSON.stringify(input.contract)}
 READ-ONLY DATA SOURCE — src/content/site.ts:
 ${siteSource}
@@ -89,7 +93,7 @@ SEEDED PRIMITIVE API — src/components/site/layout.tsx:
 - SiteStack accepts children, gap: sm|md|lg|xl, className.
 - SiteSplit accepts children, emphasis: equal|leading|trailing, className. It does not accept left/right props.
 - SiteCluster accepts children, justify: start|center|between, className.
-Import usePreviewReady from "@/lib/preview-ready". Call usePreviewReady() as a standalone statement; it returns void, so never assign, test, return, or render its value. Export exactly export function HomeRouteComponent() { ... }, never a default export. Never read site.theme in JSX; use compiled semantic Tailwind tokens instead. site.primaryCta is a string; render {site.primaryCta}, never site.primaryCta.label.
+Import usePreviewReady from "@/lib/preview-ready". Call usePreviewReady() as a standalone statement; it returns void, so never assign, test, return, or render its value. Export exactly export function HomeRouteComponent() { ... }, never a default export. Never read site.theme in JSX; use compiled semantic Tailwind tokens instead. Use text-muted-foreground for supporting text; text-muted is a surface token, never a text color. Never use border-l-2 or border-r-2 side stripes or empty framed shapes that look like missing media. site.primaryCta is a string; render {site.primaryCta}, never site.primaryCta.label.
 
 KIT (immutable): ${JSON.stringify({
       id: input.kit.id,

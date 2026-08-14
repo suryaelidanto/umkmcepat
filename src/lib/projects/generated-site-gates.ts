@@ -89,7 +89,8 @@ export function inspectGeneratedSiteTasteSource(input: {
   if (
     /\b(?:bg|text|border)-(?:white|black|gray(?:-[\w/]+)?|slate(?:-[\w/]+)?|zinc(?:-[\w/]+)?|stone(?:-[\w/]+)?|neutral(?:-[\w/]+)?)\b/.test(
       input.source,
-    )
+    ) ||
+    /\btext-muted\b(?!-)/.test(input.source)
   ) {
     add(
       findings,
@@ -97,6 +98,15 @@ export function inspectGeneratedSiteTasteSource(input: {
       "high",
       "uncompiled-theme-utility",
       "Generated route uses a generic color utility instead of the compiled semantic theme tokens.",
+    );
+  }
+  if (/\bborder-(?:l|r)-(?:2|3|4|5|6|8|\[[^\]]+\])\b/.test(input.source)) {
+    add(
+      findings,
+      "genericness",
+      "high",
+      "side-stripe",
+      "Generated route uses a thick colored side stripe instead of a complete boundary or visual grouping.",
     );
   }
   return findings;
@@ -196,6 +206,19 @@ export function inspectReferenceCalibratedSiteSource(input: {
       "critical",
       "placeholder-forbidden",
       "No-photo V2 output cannot contain placeholder images.",
+    );
+  }
+  if (
+    input.contract.media.mode !== "owner_assets" &&
+    EMPTY_GRAPHIC_FRAME.test(index ?? "")
+  ) {
+    add(
+      findings,
+      "media",
+      "high",
+      "empty-graphic-frame",
+      "Image-free output contains an empty framed shape that reads as a missing product image.",
+      "src/routes/index.tsx",
     );
   }
   if (!source.includes("@/components/site/layout")) {
@@ -507,6 +530,8 @@ const ENGLISH_HEADING =
   /<h[1-6][^>]*>\s*(?:Products|Testimonials|Connect With Us)\s*</i;
 const PLACEHOLDER =
   /(?:\/placeholder(?:-vertical)?\.svg|replace this image|ganti foto)/i;
+const EMPTY_GRAPHIC_FRAME =
+  /<(?:span|div)\b(?=[^>]*\baria-hidden=["']true["'])(?=[^>]*\bclassName=["'][^"']*(?:aspect-|\bh-\d|\bw-\d)[^"']*(?:\bbg-|\bborder-)[^"']*["'])[^>]*\/>/i;
 const SPEC_COPY_LEAK =
   /Katalog jadi hero utama|Fitur disederhanakan|Tujuan utama:\s*Katalog\/jualan|Info jelas|Online murni/i;
 const GENERATED_FIELD_PATTERN =

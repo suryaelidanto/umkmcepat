@@ -260,6 +260,16 @@ describe("reference-calibrated generated site source gates", () => {
       '<div className="bg-white text-white border-white">A</div>',
       "uncompiled-theme-utility",
     ],
+    [
+      "uses the muted surface token as text",
+      '<p className="text-muted">A</p>',
+      "uncompiled-theme-utility",
+    ],
+    [
+      "uses a thick colored side stripe",
+      '<li className="border-l-2 border-accent">A</li>',
+      "side-stripe",
+    ],
   ])("rejects taste tell: %s", (_name, source, code) => {
     expect(
       inspectGeneratedSiteTasteSource({ source, sectionCount: 3 }),
@@ -317,6 +327,28 @@ describe("reference-calibrated generated site source gates", () => {
     expect(result.findings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: "compiled-theme-bypass" }),
+      ]),
+    );
+  });
+
+  it("rejects empty framed graphics in image-free mode", () => {
+    const result = inspectReferenceCalibratedSiteSource({
+      contract: v2Contract(),
+      kit: v2Kit(),
+      designPlan: _v2Plan(),
+      files: [
+        {
+          path: "src/routes/index.tsx",
+          content: `import { site } from "@/content/site"; import { usePreviewReady } from "@/lib/preview-ready"; import { SiteSection } from "@/components/site/layout"; export function HomeRouteComponent() { usePreviewReady(); return <main data-pattern="full-field-lockup"><SiteSection><h1>{site.headline}</h1><span aria-hidden="true" className="block h-40 w-32 rounded-lg border border-accent/30 bg-accent/10" /></SiteSection></main>; }`,
+        },
+      ],
+      starterIndexSource: "starter",
+      themeChecks: [],
+    });
+
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "empty-graphic-frame" }),
       ]),
     );
   });

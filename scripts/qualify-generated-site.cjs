@@ -4,7 +4,10 @@ const path = require("node:path");
 
 const { chromium } = require("playwright-core");
 
-const { findContrastFailures } = require("./generated-site-contrast.cjs");
+const {
+  findContrastFailures,
+  TRANSPARENT_CSS_COLOR_PATTERN,
+} = require("./generated-site-contrast.cjs");
 
 const [
   origin,
@@ -85,7 +88,11 @@ mkdirSync(evidenceDir, { recursive: true });
             errors.push(error instanceof Error ? error.message : String(error));
           }
           const metrics = loaded
-            ? await page.evaluate(() => {
+            ? await page.evaluate((transparentCssColorPattern) => {
+                const transparentColorPattern = new RegExp(
+                  transparentCssColorPattern,
+                  "i",
+                );
                 const visible = (element) => {
                   const style = getComputedStyle(element);
                   const rect = element.getBoundingClientRect();
@@ -180,7 +187,7 @@ mkdirSync(evidenceDir, { recursive: true });
                     const candidate = style.backgroundColor;
                     if (
                       candidate !== "transparent" &&
-                      !/^rgba\\([^)]*,\\s*0\\s*\\)$/i.test(candidate)
+                      !transparentColorPattern.test(candidate)
                     ) {
                       backgroundColor = candidate;
                       break;
@@ -261,7 +268,7 @@ mkdirSync(evidenceDir, { recursive: true });
                     bodyBackground !== "rgba(0, 0, 0, 0)",
                   contrastEntries,
                 };
-              })
+              }, TRANSPARENT_CSS_COLOR_PATTERN)
             : {
                 textLength: 0,
                 overflow: 0,

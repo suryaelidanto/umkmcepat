@@ -95,6 +95,7 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     });
     expect(prompt.system).toContain("bold-typographic");
     expect(prompt.system).toContain("full-field-lockup");
+    expect(prompt.system).toContain("DESIGN STANDARDS");
     expect(prompt.system).toContain(
       "platform supplies the accepted design plan",
     );
@@ -105,6 +106,9 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     expect(prompt.system).toContain("SiteSection accepts children");
     expect(prompt.system).toContain("site.primaryCta is a string");
     expect(prompt.system).toContain("Never read site.theme in JSX");
+    expect(prompt.system).toContain(
+      "text-muted is a surface token, never a text color",
+    );
     expect(prompt.system).toContain("one deliberate signature");
     expect(prompt.system).toContain(
       "Do not repeat eyebrow or numbered-marker scaffolding",
@@ -189,7 +193,11 @@ describe("buildReferenceCalibratedCorrectionPrompt", () => {
     });
 
     expect(prompt.system).toContain("@/content/site");
+    expect(prompt.system).toContain("DESIGN STANDARDS");
     expect(prompt.system).toContain("semantic Tailwind tokens");
+    expect(prompt.system).toContain(
+      "text-muted is a surface token, never a text color",
+    );
     expect(prompt.system).toContain("Never invent");
     expect(prompt.system).toContain("site.headline");
     expect(prompt.system).toContain("+6281100000000");
