@@ -490,6 +490,21 @@ export default function IndexRoute() {
     expect(file?.content).not.toContain('href="#"');
   });
 
+  it("normalizes unsupported SiteSplit emphasis and props", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/index.tsx",
+        content:
+          '<main><SiteSplit emphasis="left" left={<div />} right={<div />}>A</SiteSplit></main>',
+      },
+    ]);
+
+    expect(file?.content).toContain('emphasis="leading"');
+    expect(file?.content).not.toContain('emphasis="left"');
+    expect(file?.content).not.toContain(" left=");
+    expect(file?.content).not.toContain(" right=");
+  });
+
   it("moves unsupported SiteCluster gap props into Tailwind classes", () => {
     const [file] = normalizeBatchedSiteAnchors([
       {

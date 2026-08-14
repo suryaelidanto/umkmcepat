@@ -393,6 +393,17 @@ export function normalizeBatchedSiteAnchors(
           /<SiteCluster\b([^>]*)>/g,
           (_match: string, attributes: string) =>
             `<SiteCluster${attributes.replace(/\s+gap=["'][^"']*["']/i, "")}>`,
+        )
+        .replace(/\s+(?:left|right)=\{[^{}]*\}/gi, "")
+        .replace(
+          /<SiteSplit\b([^>]*)>/g,
+          (_match: string, attributes: string) => {
+            const normalized = attributes
+              .replace(/\bemphasis=["']left["']/i, 'emphasis="leading"')
+              .replace(/\bemphasis=["']right["']/i, 'emphasis="trailing"')
+              .replace(/\s+(?:left|right)=(?:"[^"]*"|'[^']*'|\{[^}]*\})/gi, "");
+            return `<SiteSplit${normalized}>`;
+          },
         );
       content = normalizeGeneratedHomeRouteContract(content);
       if (options?.compositionPatternId) {
