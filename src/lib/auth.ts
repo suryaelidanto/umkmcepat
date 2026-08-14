@@ -166,7 +166,7 @@ async function resolveAuthState(): Promise<AuthState> {
 
   const session = data as Session;
   if (!session.user?.id) {
-    return { session, banned: false };
+    return { session: null, banned: false };
   }
 
   try {

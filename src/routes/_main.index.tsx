@@ -319,7 +319,7 @@ function HomePage() {
               )}
             </h1>
             {waitlisted ? (
-              <p className="mt-spacing-4 max-w-2xl text-base leading-7 text-surface-warm-white/62">
+              <p className="mx-auto mt-spacing-4 max-w-2xl text-center text-base leading-7 text-surface-warm-white/62">
                 Setelah disetujui, kamu bisa buat website di sini.
               </p>
             ) : null}

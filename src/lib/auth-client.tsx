@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -19,24 +20,56 @@ type SessionContextValue = {
   update: (data?: Record<string, unknown>) => Promise<Session | null>;
 };
 
+type SessionRead = {
+  definitive: boolean;
+  session: Session | null;
+};
+
+export const SESSION_REVALIDATE_INTERVAL_MS = 60_000;
+
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-async function fetchSession(): Promise<Session | null> {
-  const response = await fetch("/api/auth/session", {
-    headers: { accept: "application/json" },
-  });
+async function readSession(): Promise<SessionRead> {
+  let response: Response;
+  try {
+    response = await fetch("/api/auth/session", {
+      headers: { accept: "application/json" },
+    });
+  } catch {
+    return { definitive: false, session: null };
+  }
 
+  // Do not log users out because the auth endpoint or tunnel is temporarily
+  // unavailable. An empty 200 response (or a 401) is the authoritative
+  // expired/invalid-session signal.
   if (!response.ok) {
-    return null;
+    return {
+      definitive: response.status === 401,
+      session: null,
+    };
   }
 
-  const data = (await response.json()) as Session | Record<string, never>;
+  try {
+    const data = (await response.json()) as Session | Record<string, never>;
 
-  if (!data || !Object.keys(data).length) {
-    return null;
+    if (!data || !Object.keys(data).length) {
+      return { definitive: true, session: null };
+    }
+
+    const session = data as Session;
+    if (!session.user?.id) {
+      return { definitive: true, session: null };
+    }
+
+    return { definitive: true, session };
+  } catch {
+    return { definitive: false, session: null };
   }
+}
 
-  return data as Session;
+async function fetchSession(): Promise<Session | null> {
+  const result = await readSession();
+  return result.definitive ? result.session : null;
 }
 
 // Drop-in replacement for next-auth/react SessionProvider. Fetches the session
@@ -56,11 +89,44 @@ export function SessionProvider({
         ? "authenticated"
         : "unauthenticated",
   );
+  const authenticatedRef = useRef(Boolean(session));
+  const signOutStartedRef = useRef(false);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
 
   const refresh = useCallback(async () => {
-    const next = await fetchSession();
-    setData(next);
-    setStatus(next ? "authenticated" : "unauthenticated");
+    if (refreshInFlightRef.current) {
+      return refreshInFlightRef.current;
+    }
+
+    const request = (async () => {
+      const result = await readSession();
+      if (!result.definitive) {
+        return;
+      }
+
+      const wasAuthenticated = authenticatedRef.current;
+      setData(result.session);
+      setStatus(result.session ? "authenticated" : "unauthenticated");
+      authenticatedRef.current = Boolean(result.session);
+
+      if (wasAuthenticated && !result.session && !signOutStartedRef.current) {
+        signOutStartedRef.current = true;
+        try {
+          await signOut({ callbackUrl: "/" });
+        } catch (error) {
+          console.error("Failed to clear expired session:", error);
+        }
+      }
+    })();
+
+    refreshInFlightRef.current = request;
+    try {
+      await request;
+    } finally {
+      if (refreshInFlightRef.current === request) {
+        refreshInFlightRef.current = null;
+      }
+    }
   }, []);
 
   // Mirrors next-auth/react useSession().update: POSTs the patch to Auth.js
@@ -100,6 +166,38 @@ export function SessionProvider({
       void refresh();
     }
   }, [refresh, session]);
+
+  useEffect(() => {
+    if (status !== "authenticated") {
+      return;
+    }
+
+    const revalidate = () => {
+      void refresh();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        revalidate();
+      }
+    };
+
+    revalidate();
+    window.addEventListener("focus", revalidate);
+    window.addEventListener("online", revalidate);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const intervalId = window.setInterval(
+      revalidate,
+      SESSION_REVALIDATE_INTERVAL_MS,
+    );
+
+    return () => {
+      window.removeEventListener("focus", revalidate);
+      window.removeEventListener("online", revalidate);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [refresh, status]);
 
   const value = useMemo<SessionContextValue>(
     () => ({ data, refresh, status, update }),

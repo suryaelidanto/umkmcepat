@@ -139,6 +139,22 @@ describe("getAuthState()", () => {
     expect(state).toEqual({ session: null, banned: false });
   });
 
+  it("returns guest state when the session has no user id", async () => {
+    vi.mocked(getRequest).mockReturnValue(
+      new Request("http://localhost:3000/x") as unknown as Request,
+    );
+    vi.mocked(Auth).mockResolvedValue(
+      new Response(JSON.stringify({ expires: "2026-09-12T22:58:18.342Z" }), {
+        status: 200,
+      }),
+    );
+
+    const state = await getAuthState();
+
+    expect(state).toEqual({ session: null, banned: false });
+    expect(prismaUserFindUniqueMock).not.toHaveBeenCalled();
+  });
+
   it("returns non-banned authed state when bannedAt is null", async () => {
     const mockRequest = new Request("http://localhost:3000/x", {
       headers: { cookie: "session-token=123" },

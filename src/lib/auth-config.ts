@@ -64,26 +64,31 @@ export const authConfig: AuthConfig = {
         return token;
       }
 
+      // A token without a subject cannot identify an application user. Return
+      // null so Auth.js clears malformed or legacy cookies.
+      if (!token.sub) {
+        return null;
+      }
+
       // Auto-logout stale JWTs: if User was deleted (TRUNCATE etc.) the
-      // cookie still decrypts but DB has no row. Force sign-out by
-      // returning an empty token so next session() is unauthenticated.
-      if (token.sub) {
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.sub },
-            select: { id: true, email: true },
-          });
-          if (!dbUser) {
-            return {} as typeof token;
-          }
-          // Keep admin flag fresh if allowlist changed since login.
-          if (dbUser.email) {
-            (token as { admin?: boolean }).admin = isAdminEmail(dbUser.email);
-          }
-        } catch {
-          // Fail open: if DB is down, keep existing token to avoid
-          // logging everyone out on a transient DB blip.
+      // cookie still decrypts but DB has no row. Auth.js treats an empty
+      // object as a valid token, so return null to make session() clear
+      // the cookie and report an unauthenticated session.
+      try {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { id: true, email: true },
+        });
+        if (!dbUser) {
+          return null;
         }
+        // Keep admin flag fresh if allowlist changed since login.
+        if (dbUser.email) {
+          (token as { admin?: boolean }).admin = isAdminEmail(dbUser.email);
+        }
+      } catch {
+        // Fail open: if DB is down, keep existing token to avoid
+        // logging everyone out on a transient DB blip.
       }
 
       if (trigger === "update") {

@@ -123,7 +123,7 @@ After deploying the one-time-grant migration, preview the existing approved-user
 
 ## Environment
 
-`.env.example` is the canonical placeholder list, grouped by concern (app, database, auth, AI, storage, email, payment, analytics, public sites) — read it directly rather than trusting a copy here; a stale duplicate of this block is exactly how past drift happened.
+`.env.example` is the canonical placeholder list, grouped by concern (app, database, auth, AI, storage, email, payment, analytics, public sites) — read it directly rather than trusting a copy here; a stale duplicate of this block is exactly how past drift happened. If an authenticated API request returns `401`, the client clears the invalid Auth.js session through `/api/auth/signout` and returns to `/`; protected user queries such as energy and support unread count must not be treated as guest-safe because that leaves stale sessions visible. `SessionProvider` also revalidates an authenticated session on focus, reconnect, visible-tab changes, and every 60 seconds.
 
 ### Per-action AI models
 

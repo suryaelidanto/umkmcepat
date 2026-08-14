@@ -41,6 +41,8 @@ export const WAITLIST_PENDING_POLL_MS = 15_000;
 export const ADMIN_WAITLIST_POLL_MS = 15_000;
 export const ADMIN_SUMMARY_POLL_MS = 30_000;
 
+let unauthorizedSignOut: Promise<void> | null = null;
+
 export type WaitlistOwnStatus = {
   businessName: string;
   businessType: string | null;
@@ -188,25 +190,23 @@ async function handleUnauthorizedError(
     return;
   }
 
-  // Endpoints that are designed to be guest-safe: they return 401 when the
-  // user is logged out, and the caller treats that as "no data" rather than
-  // "session corrupt". Without this skip, a guest visiting the site (e.g. on
-  // a fresh host where the auth cookie is for a different domain) would
-  // enter a signOut → reload → 401 → signOut loop.
-  if (
-    urlString.includes("/api/user/credits") ||
-    urlString.includes("/api/support/unread-count")
-  ) {
-    return;
+  if (unauthorizedSignOut) {
+    return unauthorizedSignOut;
   }
 
-  try {
-    const { signOut } = await import("./auth-client");
-    // Clean sign out and redirect to home landing page
-    await signOut({ callbackUrl: "/" });
-  } catch (error) {
-    console.error("Failed to sign out on 401:", error);
-  }
+  unauthorizedSignOut = (async () => {
+    try {
+      const { signOut } = await import("./auth-client");
+      // Clean sign out and redirect to home landing page.
+      await signOut({ callbackUrl: "/" });
+    } catch (error) {
+      console.error("Failed to sign out on 401:", error);
+    }
+  })().finally(() => {
+    unauthorizedSignOut = null;
+  });
+
+  return unauthorizedSignOut;
 }
 
 export function notifyEnergyChanged() {

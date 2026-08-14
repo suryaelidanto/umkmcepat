@@ -202,12 +202,8 @@ describe("useCacheMutation helpers", () => {
       vi.unstubAllGlobals();
     });
 
-    it("does not trigger signOut for guest-safe user endpoints returning 401", async () => {
-      // Endpoints like /api/user/credits are designed to be called by every
-      // page; a 401 just means "guest user" and must NOT trigger signOut
-      // (which would cause a redirect loop when a visitor lands on a host
-      // whose auth cookie is for a different domain).
-      for (const path of ["/api/user/credits"]) {
+    it("triggers signOut for protected user endpoints returning 401", async () => {
+      for (const path of ["/api/user/credits", "/api/support/unread-count"]) {
         vi.stubGlobal("window", {});
         const mockResponse = new Response(
           JSON.stringify({ message: "Unauthorized" }),
@@ -216,7 +212,8 @@ describe("useCacheMutation helpers", () => {
         vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse);
 
         await expect(fetchJson(path)).rejects.toThrow("Unauthorized");
-        expect(signOut).not.toHaveBeenCalled();
+        expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/" });
+        vi.clearAllMocks();
         vi.unstubAllGlobals();
       }
     });
