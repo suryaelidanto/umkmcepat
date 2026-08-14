@@ -387,6 +387,8 @@ export function normalizeBatchedSiteAnchors(
     if (file.path === "src/routes/index.tsx") {
       content = content
         .replace(/\bh-screen\b/g, "min-h-dvh")
+        .replace(/\bmin-min-h-dvh\b/g, "min-h-dvh")
+        .replace(/\s+data-generated-site-starter(?:=["'][^"']*["'])?/gi, "")
         .replace(/\btext-muted\b(?!-)/g, "text-muted-foreground")
         .replace(/\bborder-(?:l|r)-(?:2|3|4|5|6|8|\[[^\]]+\])\b/g, "")
         .replace(

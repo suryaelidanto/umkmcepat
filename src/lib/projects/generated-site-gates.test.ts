@@ -401,10 +401,22 @@ describe("normalizeBatchedSiteAnchors", () => {
     ]);
 
     expect(file?.content).toContain("min-h-dvh");
+    expect(file?.content).not.toContain("min-min-h-dvh");
     expect(file?.content).toContain("text-muted-foreground");
     expect(file?.content).not.toContain("h-screen");
     expect(file?.content).not.toContain('text-muted"');
     expect(file?.content).not.toContain("border-l-2");
+  });
+
+  it("removes internal starter metadata from the customer route", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/index.tsx",
+        content: '<main data-generated-site-starter="true">A</main>',
+      },
+    ]);
+
+    expect(file?.content).not.toContain("data-generated-site-starter");
   });
 
   it("anchors a pattern on a non-main route root", () => {
