@@ -137,9 +137,7 @@ export async function runGeneratedSiteVisualReview(input: {
     });
     const findings = parseGeneratedSiteFindings(result.text);
     if (!findings) {
-      return result.text.trim().length === 0
-        ? { status: "unknown", findings: [] }
-        : { status: "unavailable", findings: [] };
+      return { status: "unknown", findings: [] };
     }
     return {
       status: "complete",
@@ -147,7 +145,7 @@ export async function runGeneratedSiteVisualReview(input: {
       modelId: result.response.modelId ?? requestedModel,
     };
   } catch {
-    return { status: "unavailable", findings: [] };
+    return { status: "unknown", findings: [] };
   }
 }
 

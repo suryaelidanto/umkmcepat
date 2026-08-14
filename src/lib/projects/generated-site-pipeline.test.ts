@@ -148,6 +148,82 @@ describe("runGeneratedSitePipeline", () => {
     });
   });
 
+  it("accepts deterministic gates when visual review is unavailable", async () => {
+    const deps = {
+      deriveKitInput: vi.fn(() => ({
+        archetype: "generic",
+        density: "sparse",
+        mediaMode: "graphic",
+        primaryJobKind: "inquire",
+        hasOperationalDetails: false,
+      })),
+      selectKit: vi.fn(() => ({ id: "bold-typographic", version: 1 }) as never),
+      compileContract: vi.fn(
+        () =>
+          ({
+            contractHash: "a".repeat(64),
+            media: { mode: "graphic" },
+          }) as never,
+      ),
+      runWriter: vi.fn(async ({ budget }) => {
+        budget.consumeWriter();
+        return {
+          ok: true,
+          files,
+          designPlan: {
+            kit: { id: "bold-typographic", version: 1 },
+            contractHash: "a".repeat(64),
+            schemaVersion: 2,
+            mediaMode: "graphic",
+            visualThesis: "A strong visual thesis.",
+            compositionPatternId: "full-field-lockup",
+            palette: {
+              background: "#111111",
+              foreground: "#ffffff",
+              muted: "#222222",
+              accent: "#ff0000",
+            },
+            typography: { displayRole: "sans", bodyRole: "sans" },
+            sections: [],
+            sectionOrder: [],
+            mobileStrategy: ["stack"],
+            signatureElement: "lockup",
+          },
+          writerMs: 1,
+          firstFileClosedMs: 1,
+          editableBytes: 1,
+          summary: "ok",
+          writtenPaths: ["src/routes/index.tsx"],
+        } as never;
+      }),
+      build: vi.fn(async () => ({ ok: true, distFiles: [], log: "" })),
+      runBrowser: vi.fn(async () => browserReport),
+      loadVisualEvidence: vi.fn(async () => []),
+      reviewVisual: vi.fn(async () => ({ status: "unknown", findings: [] })),
+      runCorrection: vi.fn(),
+      now: vi.fn(() => 1),
+    } as unknown as GeneratedSitePipelineDeps;
+
+    const result = await runGeneratedSitePipeline(
+      {
+        attemptId: "a1",
+        buildId: null,
+        projectId: "p1",
+        userId: "u1",
+        brief: {} as never,
+        briefSnapshot: {} as never,
+        handoff: {} as never,
+        schema: {} as never,
+        photoEnabled: false,
+      },
+      deps,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.proof.gates.visual).toBe("unknown");
+    expect(result.proof.outcome).toBe("pass");
+  });
+
   it("does not invoke review when the browser has a hard failure", async () => {
     const reviewVisual = vi.fn();
     const deps = {

@@ -29,6 +29,50 @@ describe("generated-site quality proof v2", () => {
     });
   });
 
+  it("accepts deterministic gates with an unknown visual critic", () => {
+    const proof = createEmptyGeneratedSiteQualityProofV2({
+      contractHash: "a".repeat(64),
+      planHash: "b".repeat(64),
+      kitId: "warm-commerce",
+      mediaMode: "graphic",
+    });
+    expect(
+      sanitizeGeneratedSiteQualityProofV2({
+        ...proof,
+        outcome: "pass",
+        gates: {
+          response: "pass",
+          source: "pass",
+          build: "pass",
+          browser: "pass",
+          visual: "unknown",
+        },
+      }).gates.visual,
+    ).toBe("unknown");
+  });
+
+  it("rejects a visual fail even when deterministic gates pass", () => {
+    const proof = createEmptyGeneratedSiteQualityProofV2({
+      contractHash: "a".repeat(64),
+      planHash: "b".repeat(64),
+      kitId: "warm-commerce",
+      mediaMode: "graphic",
+    });
+    expect(() =>
+      sanitizeGeneratedSiteQualityProofV2({
+        ...proof,
+        outcome: "pass",
+        gates: {
+          response: "pass",
+          source: "pass",
+          build: "pass",
+          browser: "pass",
+          visual: "fail",
+        },
+      }),
+    ).toThrow("quality proof pass requires every gate");
+  });
+
   it("rejects proof that claims success with incomplete gates", () => {
     const proof = createEmptyGeneratedSiteQualityProofV2({
       contractHash: "a".repeat(64),

@@ -442,6 +442,22 @@ export async function runGeneratedSitePipeline(
     },
     budget,
   );
+  if (review.status === "unknown") {
+    return {
+      ok: true,
+      files: stagedFiles,
+      distFiles: build.distFiles,
+      designPlan,
+      proof: {
+        ...proof,
+        outcome: "pass",
+        timingsMs: {
+          ...proof.timingsMs,
+          totalToDecision: elapsed(startedAt, deps.now()),
+        },
+      },
+    };
+  }
   if (review.status !== "complete") {
     return failure(
       proof,

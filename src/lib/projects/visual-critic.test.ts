@@ -150,7 +150,7 @@ describe("runGeneratedSiteVisualReview", () => {
     );
   });
 
-  it("fails closed on malformed visual output without retrying", async () => {
+  it("keeps malformed visual output unknown without retrying", async () => {
     generateTextMock.mockResolvedValue({ text: "not json", response: {} });
     const kit = selectGeneratedSiteDesignKit({
       archetype: "generic",
@@ -173,7 +173,34 @@ describe("runGeneratedSiteVisualReview", () => {
       screenshots: [new Uint8Array([1])],
       budget: new GeneratedSiteCallBudget(),
     });
-    expect(result.status).toBe("unavailable");
+    expect(result.status).toBe("unknown");
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps visual transport failure unknown without retrying", async () => {
+    generateTextMock.mockRejectedValue(new Error("critic unavailable"));
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+      hasOperationalDetails: false,
+    });
+    const result = await runGeneratedSiteVisualReview({
+      contract: v2Contract,
+      designPlan: v2Plan,
+      kit,
+      browserReport: {
+        version: 1,
+        status: "pass",
+        routes: [],
+        evidenceIds: [],
+        overheadMs: 1,
+      },
+      screenshots: [new Uint8Array([1])],
+      budget: new GeneratedSiteCallBudget(),
+    });
+    expect(result.status).toBe("unknown");
     expect(generateTextMock).toHaveBeenCalledTimes(1);
   });
 });

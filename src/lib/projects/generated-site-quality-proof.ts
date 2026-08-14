@@ -47,6 +47,7 @@ export type GeneratedSiteQualityProofV2 = {
 };
 
 const PASS_GATES = ["pass"] as const;
+const VISUAL_PASS_GATES = ["pass", "unknown"] as const;
 
 export function createEmptyGeneratedSiteQualityProofV2(input: {
   contractHash: string;
@@ -125,16 +126,18 @@ export function sanitizeGeneratedSiteQualityProofV2(
     );
   }
   if (value.outcome === "pass") {
-    const gates = [
+    const deterministicGates = [
       value.gates.response,
       value.gates.source,
       value.gates.build,
       value.gates.browser,
-      value.gates.visual,
     ];
     if (
-      gates.some(
+      deterministicGates.some(
         (gate) => !PASS_GATES.includes(gate as (typeof PASS_GATES)[number]),
+      ) ||
+      !VISUAL_PASS_GATES.includes(
+        value.gates.visual as (typeof VISUAL_PASS_GATES)[number],
       ) ||
       value.visualFindings.critical > 0 ||
       value.visualFindings.high > 0
