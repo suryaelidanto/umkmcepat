@@ -2,13 +2,17 @@ import type {
   GeneratedSiteDesignKitId,
   GeneratedSiteDesignKitV1,
   GeneratedSiteKitMediaMode,
+  GeneratedSiteTasteProfile,
 } from "./generated-site-design-kits/types";
+import type { GeneratedSitePageStrategy } from "./generated-site-design-quality";
 
 export type WriterDesignPlanV2 = {
   schemaVersion: 2;
   contractHash: string;
   kit: { id: GeneratedSiteDesignKitId; version: 1 };
   mediaMode: GeneratedSiteKitMediaMode;
+  pageStrategy: GeneratedSitePageStrategy["mode"];
+  taste: GeneratedSiteTasteProfile;
   visualThesis: string;
   compositionPatternId: string;
   palette: {
@@ -50,6 +54,8 @@ type WriterDesignPlanV2FrameInput = {
   kit: GeneratedSiteDesignKitV1;
   mediaMode: GeneratedSiteKitMediaMode;
   requiredSectionIds: string[];
+  pageStrategy?: GeneratedSitePageStrategy["mode"];
+  taste?: GeneratedSiteTasteProfile;
   palette?: WriterDesignPlanV2["palette"];
 };
 
@@ -74,6 +80,8 @@ export function deriveDefaultWriterDesignPlanV2(
     contractHash: input.contractHash,
     kit: { id: input.kit.id, version: 1 },
     mediaMode: input.mediaMode,
+    pageStrategy: input.pageStrategy ?? "single",
+    taste: input.taste ?? input.kit.taste,
     visualThesis: pattern.intent,
     compositionPatternId: pattern.id,
     palette,
@@ -166,6 +174,8 @@ export function normalizeWriterDesignPlanV2Candidate(input: {
     contractHash: input.frame.contractHash,
     kit: input.frame.kit,
     mediaMode: input.frame.mediaMode,
+    pageStrategy: input.frame.pageStrategy,
+    taste: input.frame.taste,
     compositionPatternId: input.frame.compositionPatternId,
     palette: input.frame.palette,
     typography: input.frame.typography,
@@ -208,6 +218,8 @@ export function parseWriterDesignPlanV2(input: {
     "contractHash",
     "kit",
     "mediaMode",
+    "pageStrategy",
+    "taste",
     "visualThesis",
     "compositionPatternId",
     "palette",
@@ -233,6 +245,9 @@ export function parseWriterDesignPlanV2(input: {
       input.value.mediaMode as (typeof MEDIA_MODES)[number],
     ) ||
     input.value.mediaMode !== input.expected.mediaMode ||
+    (input.value.pageStrategy !== "single" &&
+      input.value.pageStrategy !== "multi") ||
+    !isTasteProfile(input.value.taste) ||
     typeof input.value.visualThesis !== "string" ||
     input.value.visualThesis.trim().length < 12 ||
     typeof input.value.compositionPatternId !== "string" ||
@@ -267,6 +282,15 @@ export function parseWriterDesignPlanV2(input: {
     !ROLES.includes(typographyValue.bodyRole as (typeof ROLES)[number])
   ) {
     throw new Error("invalid V2 design-plan typography");
+  }
+  if (
+    input.expected.pageStrategy &&
+    plan.pageStrategy !== input.expected.pageStrategy
+  ) {
+    throw new Error("V2 design-plan page strategy mismatch");
+  }
+  if (JSON.stringify(plan.taste) !== JSON.stringify(input.expected.kit.taste)) {
+    throw new Error("V2 design-plan taste profile mismatch");
   }
   const contractHash = expectString(plan.contractHash, "contract hash");
   const visualThesis = expectString(plan.visualThesis, "visual thesis");
@@ -307,6 +331,8 @@ export function parseWriterDesignPlanV2(input: {
       version: 1,
     },
     mediaMode: plan.mediaMode as GeneratedSiteKitMediaMode,
+    pageStrategy: plan.pageStrategy as GeneratedSitePageStrategy["mode"],
+    taste: plan.taste as GeneratedSiteTasteProfile,
     visualThesis,
     compositionPatternId,
     palette: {
@@ -362,6 +388,29 @@ function expectStringArray(value: unknown, label: string): string[] {
     throw new Error(`invalid V2 design-plan ${label}`);
   }
   return value;
+}
+
+function isTasteProfile(value: unknown): value is GeneratedSiteTasteProfile {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.variance === "number" &&
+    value.variance >= 1 &&
+    value.variance <= 10 &&
+    typeof value.motion === "number" &&
+    value.motion >= 1 &&
+    value.motion <= 10 &&
+    typeof value.density === "number" &&
+    value.density >= 1 &&
+    value.density <= 10 &&
+    (value.shape === "sharp" ||
+      value.shape === "soft" ||
+      value.shape === "pill") &&
+    typeof value.typeGuidance === "string" &&
+    value.typeGuidance.trim().length > 0 &&
+    value.signatureBudget === 1
+  );
 }
 
 function stringValue(value: unknown): string {

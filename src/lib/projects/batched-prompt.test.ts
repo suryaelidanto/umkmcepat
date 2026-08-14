@@ -95,10 +95,26 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     });
     expect(prompt.system).toContain("bold-typographic");
     expect(prompt.system).toContain("full-field-lockup");
-    expect(prompt.system).toContain("<design-plan>");
+    expect(prompt.system).toContain(
+      "platform supplies the accepted design plan",
+    );
+    expect(prompt.system).toContain(
+      'Your first visible characters must be <file path="src/routes/index.tsx">',
+    );
     expect(prompt.system).toContain("src/content/site.ts");
     expect(prompt.system).toContain("SiteSection accepts children");
     expect(prompt.system).toContain("site.primaryCta is a string");
+    expect(prompt.system).toContain("Never read site.theme in JSX");
+    expect(prompt.system).toContain("one deliberate signature");
+    expect(prompt.system).toContain(
+      "Do not repeat eyebrow or numbered-marker scaffolding",
+    );
+    expect(prompt.system).toContain("page strategy");
+    expect(prompt.system).toContain(kit.taste.typeGuidance);
+    expect(prompt.system).toContain(
+      "usePreviewReady() as a standalone statement",
+    );
+    expect(prompt.system).toContain("export function HomeRouteComponent()");
     expect(prompt.system).not.toContain("createGeneratedSiteRouteSource");
     expect(prompt.user).toContain("Usaha Sintetis");
   });
@@ -121,6 +137,29 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     expect(prompt.system).toContain("Emit no reasoning");
     expect(prompt.system).toContain("Never omit done");
     expect(prompt.system.length + prompt.user.length).toBeLessThan(12_000);
+  });
+
+  it("limits reference output to one compact route file", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+      hasOperationalDetails: false,
+    });
+    const prompt = buildReferenceCalibratedWriterPrompt({
+      contract: writerContract(),
+      kit,
+      projectId: "benchmark-project",
+      schema: {} as never,
+    });
+
+    expect(prompt.system).toContain(
+      "Writable paths only: src/routes/index.tsx.",
+    );
+    expect(prompt.system).toContain("Keep the route compact");
+    expect(prompt.system).toContain("8,000 characters");
+    expect(prompt.system).not.toContain("src/components/site/sections.tsx");
   });
 });
 
@@ -156,6 +195,8 @@ describe("buildReferenceCalibratedCorrectionPrompt", () => {
     expect(prompt.system).toContain("+6281100000000");
     expect(prompt.system).toContain("SiteSplit accepts children");
     expect(prompt.system).toContain("site.primaryCta is a string");
+    expect(prompt.system).toContain("Keep the correction compact");
+    expect(prompt.system).toContain("8,000 characters");
     expect(prompt.user).toContain("site.headline is not rendered");
     expect(prompt.user).toContain("src/routes/index.tsx");
   });

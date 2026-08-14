@@ -196,6 +196,8 @@ export function createBatchedResponseParser(options?: {
     requiredSectionIds: string[];
   };
   designPlanV2Fallback?: WriterDesignPlanV2;
+  implicitDoneSummary?: string;
+  stopAfterFilePath?: string;
 }): BatchedResponseParser {
   /**
    * Invariant: `pending` holds the unconsumed tail of the stream. Absolute
@@ -209,6 +211,7 @@ export function createBatchedResponseParser(options?: {
   let designPlan: WriterDesignPlanV1 | null = null;
   let designPlanV2: WriterDesignPlanV2 | null = null;
   let doneSummary: string | null = null;
+  let stoppedAfterFilePath = false;
   let hardError: BatchedParseError | null = null;
   let finalizeCalled = false;
   let finalResult: BatchedParseResult | null = null;
@@ -370,6 +373,10 @@ export function createBatchedResponseParser(options?: {
   function step(): boolean {
     if (!pending) {
       return false;
+    }
+    if (stoppedAfterFilePath) {
+      consume(pending.length);
+      return true;
     }
 
     const ltIndex = pending.indexOf("<");
@@ -570,6 +577,9 @@ export function createBatchedResponseParser(options?: {
         }
         files.set(path, { content, path });
         consume(closeIndex + "</file>".length);
+        if (path === options?.stopAfterFilePath) {
+          stoppedAfterFilePath = true;
+        }
         return true;
       }
 
@@ -706,7 +716,12 @@ export function createBatchedResponseParser(options?: {
         designPlan,
         designPlanV2,
         diagnostics,
-        done: doneSummary === null ? null : { summary: doneSummary },
+        done:
+          doneSummary !== null
+            ? { summary: doneSummary }
+            : stoppedAfterFilePath && options?.implicitDoneSummary
+              ? { summary: options.implicitDoneSummary }
+              : null,
         files,
         proposals,
       };

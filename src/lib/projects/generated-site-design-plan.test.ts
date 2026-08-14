@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
 import {
   deriveDefaultWriterDesignPlanV2,
+  normalizeWriterDesignPlanV2Candidate,
   parseWriterDesignPlanV2,
 } from "./generated-site-design-plan";
 
@@ -37,6 +38,8 @@ function validPlan() {
       accent: "#d4a017",
     },
     typography: { displayRole: "serif", bodyRole: "sans" },
+    pageStrategy: "single",
+    taste: expected().kit.taste,
     sections: [
       { id: "hero", treatment: "split", surface: "base", density: "airy" },
       {
@@ -78,12 +81,37 @@ describe("WriterDesignPlanV2", () => {
       mediaMode: "graphic",
       compositionPatternId: "asymmetric-catalog-hero",
       typography: { displayRole: "serif", bodyRole: "sans" },
+      pageStrategy: "single",
+      taste: expected().kit.taste,
       sectionOrder: ["hero", "catalog", "contact"],
     });
     expect(defaults.sections).toHaveLength(3);
     expect(defaults.mobileStrategy.length).toBeGreaterThan(0);
     expect(defaults.visualThesis.length).toBeGreaterThanOrEqual(12);
     expect(defaults.signatureElement.length).toBeGreaterThan(0);
+    expect(defaults.pageStrategy).toBe("single");
+    expect(defaults.taste).toEqual(expected().kit.taste);
+  });
+
+  it("does not accept candidate taste over the platform frame", () => {
+    const candidate = {
+      ...validPlan(),
+      pageStrategy: "multi",
+      taste: { ...expected().kit.taste, variance: 10 },
+    };
+    const frame = deriveDefaultWriterDesignPlanV2(expected());
+    expect(
+      parseWriterDesignPlanV2({
+        value: normalizeWriterDesignPlanV2Candidate({
+          value: candidate,
+          frame,
+        }),
+        expected: expected(),
+      }),
+    ).toMatchObject({
+      pageStrategy: "single",
+      taste: expected().kit.taste,
+    });
   });
 
   it.each([

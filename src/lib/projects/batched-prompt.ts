@@ -14,6 +14,7 @@ import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
 import { loadArchetypeGuide } from "@/lib/projects/archetypes";
 import { briefToBuildPrompt, type ProjectBrief } from "@/lib/projects/brief";
 import { DESIGN_DIRECTIVE } from "@/lib/projects/design-directive";
+import { deriveGeneratedSitePageStrategy } from "@/lib/projects/generated-site-design-quality";
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
@@ -37,9 +38,9 @@ export function buildReferenceCalibratedCorrectionPrompt(input: {
     input.contract.content.promotion ? "currentPromo" : null,
   ].filter((field): field is string => field !== null);
   return {
-    system: `You are correcting one generated Indonesian landing site response. Emit only one complete <design-plan>, full replacement <file> blocks for the implicated writable paths, and one <done summary="..." />. Use no tools, no markdown, no prose. Read owner facts from @/content/site; render site.* fields instead of inventing local data. Never invent facts. Use semantic Tailwind tokens only; never emit raw hex classes, inline palette CSS, remote URLs, placeholders, fabricated facts, prices, stock, contacts, claims, or routes. Preserve the accepted CTA target, media mode, kit pattern, and protected scaffold. Emit only implicated paths. AI SDK retries are disabled and this is the only shared correction.
+    system: `You are correcting one generated Indonesian landing site response. Your first visible characters must be <file path="src/routes/index.tsx">. Emit only full replacement <file> blocks for the implicated writable paths and one <done summary="..." />. The platform owns the accepted design plan; do not emit a design-plan block. Use no tools, no markdown, no prose. Read owner facts from @/content/site; render site.* fields instead of inventing local data. Never invent facts. Use semantic Tailwind tokens only; never read site.theme in JSX, emit raw hex classes, inline palette CSS, remote URLs, placeholders, fabricated facts, prices, stock, contacts, claims, or routes. Preserve the accepted CTA target, media mode, kit pattern, and protected scaffold. Follow the selected page strategy, dials, type guidance, shape language, and one deliberate signature. Do not repeat eyebrow or numbered-marker scaffolding, use h-screen, or add duplicate CTA intent. Emit only implicated paths. AI SDK retries are disabled and this is the only shared correction.
 
-The only seeded layout exports are SiteSection, SiteStack, SiteSplit, and SiteCluster from @/components/site/layout. Use them exactly: SiteSection/SiteStack/SiteCluster take children plus named props; SiteSplit accepts children, emphasis, and className, never left/right props. Import usePreviewReady from @/lib/preview-ready. The route must export HomeRouteComponent and call usePreviewReady(). site.primaryCta is a string, not an object; render it as {site.primaryCta}. Render these exact populated fields visibly through @/content/site: ${requiredFields.map((field) => `site.${field}`).join(", ")}. Put the selected composition pattern id in a data-pattern attribute. Use this exact accepted CTA target in every primary action: ${input.contract.business.primaryCta.target}. For WhatsApp, use an external href="https://wa.me/628..." with the accepted digits, never href="#..." or a guessed number. Never guess or replace it.`,
+The only seeded layout exports are SiteSection, SiteStack, SiteSplit, and SiteCluster from @/components/site/layout. Use them exactly: SiteSection/SiteStack/SiteCluster take children plus named props; SiteSplit accepts children, emphasis, and className, never left/right props. Import usePreviewReady from @/lib/preview-ready. Call usePreviewReady() as a standalone statement; it returns void, so never assign, test, return, or render its value. The route must export exactly export function HomeRouteComponent() { ... } and never default-export it. site.primaryCta is a string, not an object; render it as {site.primaryCta}. Render these exact populated fields visibly through @/content/site: ${requiredFields.map((field) => `site.${field}`).join(", ")}. Put the selected composition pattern id in a data-pattern attribute. Use this exact accepted CTA target in every primary action: ${input.contract.business.primaryCta.target}. For WhatsApp, use an external href="https://wa.me/628..." with the accepted digits, never href="#..." or a guessed number. Never guess or replace it. Keep the correction compact: rewrite only the implicated route, do not add helper files, keep the route under 8,000 characters and 160 lines, and finish well below the output limit.`,
 
     user: JSON.stringify({
       contract: input.contract,
@@ -47,6 +48,7 @@ The only seeded layout exports are SiteSection, SiteStack, SiteSplit, and SiteCl
         id: input.kit.id,
         version: input.kit.version,
         patterns: input.kit.compositionPatterns,
+        taste: input.kit.taste,
         sourceAssertions: input.kit.sourceAssertions,
         antiPatterns: input.kit.antiPatterns,
       },
@@ -71,53 +73,9 @@ export function buildReferenceCalibratedWriterPrompt(input: {
   projectId: string;
   schema: ProjectSiteSchema;
 }): { system: string; user: string } {
-  const theme =
-    input.kit.themePolicy.backgroundLightness === "dark"
-      ? {
-          background: "#171b2b",
-          foreground: "#f3f4ff",
-          muted: "#2c3150",
-          accent: "#9d7cff",
-        }
-      : (input.schema?.theme ?? {
-          background: "#f7f3ec",
-          foreground: "#3d2b1f",
-          muted: "#e5ddd2",
-          accent: "#d4a017",
-        });
-  const planSeed = {
-    schemaVersion: 2,
-    contractHash: input.contract.contractHash,
-    kit: { id: input.kit.id, version: 1 },
-    mediaMode: input.contract.media.mode,
-    visualThesis:
-      input.kit.compositionPatterns[0]?.intent ?? "Content-led composition.",
-    compositionPatternId: input.kit.compositionPatterns[0]?.id ?? "",
-    palette: {
-      background: theme.background,
-      foreground: theme.foreground,
-      muted: theme.muted,
-      accent: theme.accent,
-    },
-    typography: {
-      displayRole: input.kit.typography.displayRole,
-      bodyRole: input.kit.typography.bodyRole,
-    },
-    sections: input.contract.obligations.sections.map((section) => ({
-      id: section.id,
-      treatment: "content-led",
-      surface: "base",
-      density: "regular",
-    })),
-    mobileStrategy: ["stack columns", "keep the primary action visible"],
-    signatureElement:
-      input.kit.compositionPatterns[0]?.id ?? "content hierarchy",
-  };
-  const writablePaths = [
-    "src/routes/index.tsx",
-    "src/components/site/sections.tsx",
-  ];
+  const writablePaths = ["src/routes/index.tsx"];
   const siteSource = `export const site = ${JSON.stringify(input.schema, null, 2)} as const;`;
+  const pageStrategy = deriveGeneratedSitePageStrategy(input.contract);
   return {
     system: `You are a senior Indonesian landing-page designer and React writer. Emit one standalone customer site. Visible copy is Indonesian; code/comments are English. Use the selected kit, never a generic template.
 
@@ -131,30 +89,34 @@ SEEDED PRIMITIVE API — src/components/site/layout.tsx:
 - SiteStack accepts children, gap: sm|md|lg|xl, className.
 - SiteSplit accepts children, emphasis: equal|leading|trailing, className. It does not accept left/right props.
 - SiteCluster accepts children, justify: start|center|between, className.
-Import usePreviewReady from "@/lib/preview-ready". site.primaryCta is a string; render {site.primaryCta}, never site.primaryCta.label.
+Import usePreviewReady from "@/lib/preview-ready". Call usePreviewReady() as a standalone statement; it returns void, so never assign, test, return, or render its value. Export exactly export function HomeRouteComponent() { ... }, never a default export. Never read site.theme in JSX; use compiled semantic Tailwind tokens instead. site.primaryCta is a string; render {site.primaryCta}, never site.primaryCta.label.
 
 KIT (immutable): ${JSON.stringify({
       id: input.kit.id,
       version: input.kit.version,
       patterns: input.kit.compositionPatterns,
       typography: input.kit.typography,
+      taste: input.kit.taste,
+      pageStrategy,
       sourceAssertions: input.kit.sourceAssertions,
       antiPatterns: input.kit.antiPatterns,
     })}
 
-OUTPUT. Emit no reasoning, prose, markdown, tools, or unknown tags:
-<design-plan>${JSON.stringify(planSeed)}</design-plan>
-<file path="src/routes/index.tsx">complete raw TSX; first</file>
-<file path="src/components/site/sections.tsx">complete raw TSX only if needed</file>
+OUTPUT. Your first visible characters must be <file path="src/routes/index.tsx">. Emit no reasoning, prose, markdown, tools, design-plan block, or unknown tags; the platform supplies the accepted design plan:
+<file path="src/routes/index.tsx">complete raw TSX</file>
 <done summary="..." />
 
 Rules:
 - Writable paths only: ${writablePaths.join(", ")}.
-- Emit exactly one plan, complete files, then one done marker. Never omit done. Finish immediately.
+- Keep the route compact: emit one route file, no helper components, no repeated data, keep src/routes/index.tsx under 8,000 characters and 160 lines, and finish well below the output limit.
+- Emit exactly one complete route file, then one done marker. Never omit done. Finish immediately.
 - Compose @/components/site/layout primitives; do not rewrite them.
 - Render every populated contract fact. Never invent facts, claims, prices, contacts, routes, assets, or actions.
 - Preserve accepted CTA target, media mode, section IDs, kit identity, and semantic tokens.
-- No placeholders/remote URLs for graphic or typographic mode; no raw hex classes; actions ≥44px.
+- No placeholders/remote URLs for graphic or typographic mode; no raw hex classes or site.theme color reads; use compiled semantic tokens; actions ≥44px.
+- Follow the selected page strategy and taste dials. Make one deliberate signature, not a pile of decoration. Do not repeat eyebrow or numbered-marker scaffolding, use h-screen, emit em/en dashes, or duplicate CTA intent.
+- Keep the display/body type roles legible and use the selected kit type guidance: ${input.kit.taste.typeGuidance}
+- The hero must state the business outcome and accepted action quickly on mobile; sparse briefs stay sparse and rich briefs must not become one empty card.
 - Editable files ≤3 and content ≤32 KiB. Sparse briefs stay sparse.
 `,
     user: `Build the accepted Indonesian site for ${input.contract.business.name}. Read facts from @/content/site, do not invent local data. Project key: ${input.projectId}.`,

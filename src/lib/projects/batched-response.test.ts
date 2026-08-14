@@ -101,6 +101,8 @@ describe("batched response parser — design plan", () => {
       contractHash: "b".repeat(64),
       kit: { id: kit.id, version: 1 },
       mediaMode: "graphic",
+      pageStrategy: "single",
+      taste: kit.taste,
       visualThesis: "A comparison-led catalog with a quiet close.",
       compositionPatternId: "product-rail",
       palette: {
@@ -226,6 +228,42 @@ describe("batched response parser — design plan", () => {
     );
 
     expect(parser.finalize().designPlanV2).toEqual(fallback);
+  });
+
+  it("accepts a complete route when trailing writer output omits done", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "retail-catalog",
+      density: "rich",
+      mediaMode: "graphic",
+      primaryJobKind: "compare",
+      hasOperationalDetails: false,
+    });
+    const fallback = deriveDefaultWriterDesignPlanV2({
+      contractHash: "e".repeat(64),
+      kit,
+      mediaMode: "graphic",
+      requiredSectionIds: ["catalog"],
+    });
+    const parser = createBatchedResponseParser({
+      requireDesignPlan: true,
+      designPlanV2Expected: {
+        contractHash: "e".repeat(64),
+        kit,
+        mediaMode: "graphic",
+        requiredSectionIds: ["catalog"],
+      },
+      designPlanV2Fallback: fallback,
+      implicitDoneSummary: "Route file emitted.",
+      stopAfterFilePath: "src/routes/index.tsx",
+    });
+
+    parser.push(
+      '<file path="src/routes/index.tsx">export function HomeRouteComponent() { return null; }</file><file path="src/routes/ignored.tsx">ignored</file>',
+    );
+
+    const result = parser.finalize();
+    expect(result.done).toEqual({ summary: "Route file emitted." });
+    expect([...result.files.keys()]).toEqual(["src/routes/index.tsx"]);
   });
 
   it("rejects malformed, duplicate, or missing design plans", () => {

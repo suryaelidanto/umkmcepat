@@ -69,6 +69,7 @@ import {
   mergeWriterDesignPlanV2,
   type WriterDesignPlanV2,
 } from "@/lib/projects/generated-site-design-plan";
+import { deriveGeneratedSitePageStrategy } from "@/lib/projects/generated-site-design-quality";
 import {
   inspectGeneratedSiteSource,
   inspectReferenceCalibratedSiteSource,
@@ -752,6 +753,12 @@ export async function runOneStreamedResponse(args: {
     requireDesignPlan: args.requireDesignPlan,
     designPlanV2Expected: args.designPlanV2Expected,
     designPlanV2Fallback: args.designPlanV2Fallback,
+    implicitDoneSummary: args.designPlanV2Expected
+      ? "Route file emitted."
+      : undefined,
+    stopAfterFilePath: args.designPlanV2Expected
+      ? "src/routes/index.tsx"
+      : undefined,
   });
   let modelServed: string | undefined;
   let usage: { inputTokens?: number; outputTokens?: number } | undefined;
@@ -771,12 +778,19 @@ export async function runOneStreamedResponse(args: {
       : timeoutSignal;
     result = streamText({
       model: getAiModel(requestedModel),
-      maxOutputTokens: args.requireDesignPlan ? 18_000 : 24_000,
+      // The V2 contract permits one compact route. A lower ceiling prevents
+      // the writer from spending the response on scaffold repetition before
+      // it reaches the required done marker.
+      maxOutputTokens: args.requireDesignPlan
+        ? args.phase === "repair" || args.phase === "visual-repair"
+          ? 16_000
+          : 24_000
+        : 24_000,
       maxRetries: args.maxRetries ?? 2,
       ...getNoReasoningCallOptions(),
       system: args.system,
       messages: [{ role: "user", content: args.user }],
-      temperature: 0.35,
+      temperature: args.designPlanV2Expected ? 0.2 : 0.35,
       abortSignal,
       telemetry: getAiTelemetry("batched-generation-writer", {
         phase: args.phase,
@@ -1581,10 +1595,12 @@ export async function runReferenceCalibratedGenerate(input: {
   const staged = new Map<string, BatchedFile>(
     starterFiles.map((file) => [file.path, file]),
   );
+  const pageStrategy = deriveGeneratedSitePageStrategy(input.contract);
   const designPlanFrame = deriveDefaultWriterDesignPlanV2({
     contractHash: input.contract.contractHash,
     kit: input.kit,
     mediaMode: input.contract.media.mode,
+    pageStrategy: pageStrategy.mode,
     requiredSectionIds: input.contract.obligations.sections.map(
       (section) => section.id,
     ),
@@ -1683,6 +1699,11 @@ export async function runReferenceCalibratedGenerate(input: {
       files: merged,
       schema: input.schema,
       theme,
+    });
+    themed = normalizeBatchedSiteAnchors(themed, {
+      compositionPatternId: designPlan.compositionPatternId,
+      photoEnabled: input.contract.media.mode === "owner_assets",
+      primaryCtaTarget: input.contract.business.primaryCta.target,
     });
     themeChecks = theme.checks;
     const protectedEmissions = editableFiles.filter((file) =>
@@ -1801,6 +1822,7 @@ export async function runGeneratedSiteCorrection(input: {
       contractHash: input.contract.contractHash,
       kit: input.kit,
       mediaMode: input.contract.media.mode,
+      pageStrategy: deriveGeneratedSitePageStrategy(input.contract).mode,
       requiredSectionIds: input.contract.obligations.sections.map(
         (section) => section.id,
       ),
@@ -1853,8 +1875,24 @@ export async function runGeneratedSiteCorrection(input: {
   if (editableBytes > 32 * 1024) {
     throw new Error("reference-calibrated correction exceeded the byte budget");
   }
+  const normalizedReplacements = normalizeBatchedSiteAnchors(replacements, {
+    compositionPatternId: designPlan.compositionPatternId,
+    photoEnabled: input.contract.media.mode === "owner_assets",
+    primaryCtaTarget: input.contract.business.primaryCta.target,
+  });
+  if (
+    normalizedReplacements.some((file) =>
+      /\bsite\.theme\.(?:background|foreground|muted|accent)\b/.test(
+        file.content,
+      ),
+    )
+  ) {
+    throw new Error(
+      "reference-calibrated correction bypassed compiled semantic theme tokens",
+    );
+  }
   const replacementByPath = new Map(
-    replacements.map((file) => [file.path, file]),
+    normalizedReplacements.map((file) => [file.path, file]),
   );
   return {
     files: input.request.stagedFiles.map(
