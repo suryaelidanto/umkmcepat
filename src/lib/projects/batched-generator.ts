@@ -780,9 +780,14 @@ export async function runOneStreamedResponse(args: {
     result = streamText({
       model: getAiModel(requestedModel),
       // The V2 contract permits one compact route. The parser stops the
-      // stream as soon as that route closes, so the bounded call can afford
-      // upstream reasoning without truncating a repair before its done marker.
-      maxOutputTokens: 24_000,
+      // stream as soon as that route closes. Repairs get a larger ceiling
+      // because they must first understand the failed candidate before
+      // emitting a complete replacement.
+      maxOutputTokens:
+        args.requireDesignPlan &&
+        (args.phase === "repair" || args.phase === "visual-repair")
+          ? 32_000
+          : 24_000,
       maxRetries: args.maxRetries ?? 2,
       ...getNoReasoningCallOptions(),
       system: args.system,

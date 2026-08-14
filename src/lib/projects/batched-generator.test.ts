@@ -251,7 +251,7 @@ describe("runReferenceCalibratedGenerate", () => {
       projectId: "p1",
     });
 
-    expect(streamTextMock.mock.calls[0]?.[0]?.maxOutputTokens).toBe(24_000);
+    expect(streamTextMock.mock.calls[0]?.[0]?.maxOutputTokens).toBe(32_000);
   });
 
   it("uses one streamed writer instead of the deterministic route renderer", async () => {
