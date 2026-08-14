@@ -361,7 +361,7 @@ export function getWorkspacePreviewIssue({
     return {
       detail: getSafePreviewIssueDetail(
         runtimeError,
-        "Tampilan website belum bisa dimuat. Coba mulai ulang tampilan atau buat ulang website kalau masih gagal.",
+        "Tampilan website belum bisa dimuat. Coba muat ulang tampilan atau buat ulang website kalau masih gagal.",
       ),
       title: "Tampilan website belum bisa dimuat",
     };
@@ -424,7 +424,7 @@ export function getWorkspacePreviewIssue({
   ) {
     return {
       detail:
-        "Tampilan website gagal dimuat. Coba mulai ulang tampilan atau buat ulang website kalau masih gagal.",
+        "Tampilan website gagal dimuat. Coba muat ulang tampilan atau buat ulang website kalau masih gagal.",
       title: "Tampilan website gagal dimuat",
     };
   }

@@ -396,7 +396,7 @@ function getUserFacingRuntimeMessage(state: string) {
     case "build_failed_without_last_good":
       return "Website belum berhasil dibuat dan belum ada tampilan sebelumnya.";
     case "preview_failed":
-      return "Tampilan website gagal dimuat. Coba mulai ulang tampilan.";
+      return "Tampilan website gagal dimuat. Coba muat ulang tampilan.";
     case "preview_starting":
       return "Tampilan website sedang disiapkan.";
     case "ready":

@@ -139,8 +139,8 @@ describe("PreviewIssueState recovery actions", () => {
       }),
     );
 
-    expect(markup.match(/Mulai ulang tampilan/g)).toHaveLength(1);
-    expect(markup).not.toContain("Muat ulang tampilan");
+    expect(markup.match(/Muat ulang tampilan/g)).toHaveLength(1);
+    expect(markup).not.toContain("Mulai ulang tampilan");
     expect(markup.match(/Buat ulang website/g)).toHaveLength(1);
     expect(markup).not.toContain("Coba lagi");
   });

@@ -248,7 +248,7 @@ export function GeneratedPreviewFrame({
       {previewState === "stuck" ? (
         <div className="absolute inset-0">
           <PreviewIssueState
-            detail="Tampilan belum bisa dimuat otomatis. Mungkin server preview sedang dimatikan atau website belum sempat selesai dibuat. Coba mulai ulang tampilan, atau buat ulang website kalau masih gagal."
+            detail="Tampilan belum bisa dimuat otomatis. Mungkin server preview sedang dimatikan atau website belum sempat selesai dibuat. Coba muat ulang tampilan, atau buat ulang website kalau masih gagal."
             onRecover={onRecover}
             title="Tampilan tidak bisa dimuat"
           />
@@ -507,7 +507,7 @@ export function PreviewIssueState({
           <div className="mt-spacing-5 flex flex-wrap justify-center gap-spacing-3">
             {onRecover ? (
               <Button type="button" onClick={onRecover}>
-                Mulai ulang tampilan
+                Muat ulang tampilan
               </Button>
             ) : null}
             {onRebuild ? (

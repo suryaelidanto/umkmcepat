@@ -87,8 +87,8 @@ reload key and invalidates the runtime query. It will be changed to call
 
 ### UI copy (Indonesian, user-facing)
 
-- Restart button: "Mulai ulang tampilan" — re-materializes the existing build
-  (cheap). Distinct from the existing full rebuild "Coba lagi" / "Build ulang".
+- Restart button: "Muat ulang tampilan" — re-materializes the existing build
+  (cheap). Distinct from the existing full rebuild "Buat ulang website".
 - Keep the existing full-rebuild path untouched.
 
 ## Security analysis
