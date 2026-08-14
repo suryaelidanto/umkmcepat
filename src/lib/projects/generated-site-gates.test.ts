@@ -490,6 +490,19 @@ export default function IndexRoute() {
     expect(file?.content).not.toContain('href="#"');
   });
 
+  it("moves unsupported SiteCluster gap props into Tailwind classes", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/index.tsx",
+        content:
+          '<main><SiteCluster justify="start" gap="lg" className="items-center">A</SiteCluster></main>',
+      },
+    ]);
+
+    expect(file?.content).not.toContain('gap="lg"');
+    expect(file?.content).toContain('className="items-center"');
+  });
+
   it("canonicalizes preview-ready imports emitted under common wrong names", () => {
     const [file] = normalizeBatchedSiteAnchors([
       {

@@ -388,7 +388,12 @@ export function normalizeBatchedSiteAnchors(
       content = content
         .replace(/\bh-screen\b/g, "min-h-dvh")
         .replace(/\btext-muted\b(?!-)/g, "text-muted-foreground")
-        .replace(/\bborder-(?:l|r)-(?:2|3|4|5|6|8|\[[^\]]+\])\b/g, "");
+        .replace(/\bborder-(?:l|r)-(?:2|3|4|5|6|8|\[[^\]]+\])\b/g, "")
+        .replace(
+          /<SiteCluster\b([^>]*)>/g,
+          (_match: string, attributes: string) =>
+            `<SiteCluster${attributes.replace(/\s+gap=["'][^"']*["']/i, "")}>`,
+        );
       content = normalizeGeneratedHomeRouteContract(content);
       if (options?.compositionPatternId) {
         content = ensureCompositionPatternAnchor(

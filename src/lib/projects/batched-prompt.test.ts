@@ -104,6 +104,7 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     );
     expect(prompt.system).toContain("src/content/site.ts");
     expect(prompt.system).toContain("SiteSection accepts children");
+    expect(prompt.system).toContain("SiteCluster does not accept gap");
     expect(prompt.system).toContain("site.primaryCta is a string");
     expect(prompt.system).toContain("Never read site.theme in JSX");
     expect(prompt.system).toContain(
