@@ -353,6 +353,12 @@ export function normalizeBatchedSiteAnchors(
     photoEnabled?: boolean;
     primaryCtaTarget?: string;
     compositionPatternId?: string;
+    palette?: {
+      background: string;
+      foreground: string;
+      muted: string;
+      accent: string;
+    };
   },
 ): GeneratedProjectFile[] {
   const photoEnabled = options?.photoEnabled ?? true;
@@ -385,6 +391,9 @@ export function normalizeBatchedSiteAnchors(
       );
     }
     if (file.path === "src/routes/index.tsx") {
+      if (options?.palette) {
+        content = normalizeAcceptedPaletteLiterals(content, options.palette);
+      }
       content = content
         .replace(/\bh-screen\b/g, "min-h-dvh")
         .replace(/\bmin-min-h-dvh\b/g, "min-h-dvh")
@@ -418,6 +427,30 @@ export function normalizeBatchedSiteAnchors(
     content = ensureCtaTouchTarget(content, whatsappHref);
     return { ...file, content };
   });
+}
+
+function normalizeAcceptedPaletteLiterals(
+  content: string,
+  palette: {
+    background: string;
+    foreground: string;
+    muted: string;
+    accent: string;
+  },
+): string {
+  let normalized = content;
+  for (const [role, value] of Object.entries(palette)) {
+    const escaped = escapeHrefRegExp(value);
+    normalized = normalized.replace(
+      new RegExp(`\\b(bg|text|border)-\\[${escaped}\\]`, "gi"),
+      (_match: string, utility: string) => `${utility}-${role}`,
+    );
+    normalized = normalized.replace(
+      new RegExp(`\\b(fill|stroke)=["']${escaped}["']`, "gi"),
+      (_match: string, attribute: string) => `${attribute}="currentColor"`,
+    );
+  }
+  return normalized;
 }
 
 function normalizeGeneratedHomeRouteContract(content: string): string {

@@ -1709,6 +1709,7 @@ export async function runReferenceCalibratedGenerate(input: {
       compositionPatternId: designPlan.compositionPatternId,
       photoEnabled: input.contract.media.mode === "owner_assets",
       primaryCtaTarget: input.contract.business.primaryCta.target,
+      palette: designPlan.palette,
     });
     themeChecks = theme.checks;
     const protectedEmissions = editableFiles.filter((file) =>
@@ -1884,6 +1885,7 @@ export async function runGeneratedSiteCorrection(input: {
     compositionPatternId: designPlan.compositionPatternId,
     photoEnabled: input.contract.media.mode === "owner_assets",
     primaryCtaTarget: input.contract.business.primaryCta.target,
+    palette: designPlan.palette,
   });
   const tasteFindings = inspectGeneratedSiteTasteSource({
     source: normalizedReplacements.map((file) => file.content).join("\n"),

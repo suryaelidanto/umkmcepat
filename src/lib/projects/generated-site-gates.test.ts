@@ -391,6 +391,32 @@ describe("normalizeBatchedSiteAnchors", () => {
     );
   });
 
+  it("maps accepted palette literals onto compiled semantic tokens", () => {
+    const [file] = normalizeBatchedSiteAnchors(
+      [
+        {
+          path: "src/routes/index.tsx",
+          content:
+            '<main className="bg-[#f7f3ec] text-[#3d2b1f]"><svg fill="#d4a017" stroke="#3d2b1f" /></main>',
+        },
+      ],
+      {
+        palette: {
+          background: "#f7f3ec",
+          foreground: "#3d2b1f",
+          muted: "#e5ddd2",
+          accent: "#d4a017",
+        },
+      },
+    );
+
+    expect(file?.content).toContain("bg-background");
+    expect(file?.content).toContain("text-foreground");
+    expect(file?.content).toContain('fill="currentColor"');
+    expect(file?.content).toContain('stroke="currentColor"');
+    expect(file?.content).not.toContain("#f7f3ec");
+  });
+
   it("normalizes visual safety utility mistakes without changing content", () => {
     const [file] = normalizeBatchedSiteAnchors([
       {
