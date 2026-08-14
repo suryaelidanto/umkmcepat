@@ -248,8 +248,8 @@ export function GeneratedPreviewFrame({
       {previewState === "stuck" ? (
         <div className="absolute inset-0">
           <PreviewIssueState
-            detail="Tampilan belum bisa dimuat otomatis. Mungkin server preview sedang dimatikan atau website belum sempat selesai dibuat. Coba muat ulang, atau buat ulang website kalau masih gagal."
-            onRetry={onRecover}
+            detail="Tampilan belum bisa dimuat otomatis. Mungkin server preview sedang dimatikan atau website belum sempat selesai dibuat. Coba mulai ulang tampilan, atau buat ulang website kalau masih gagal."
+            onRecover={onRecover}
             title="Tampilan tidak bisa dimuat"
           />
         </div>
@@ -482,15 +482,13 @@ function getAnnotationPopoverPosition(
 
 export function PreviewIssueState({
   detail,
+  onRecover,
   onRebuild,
-  onRestart,
-  onRetry,
   title,
 }: {
   detail: string;
+  onRecover?: () => void;
   onRebuild?: () => void;
-  onRestart?: () => void;
-  onRetry?: () => void;
   title: string;
 }) {
   return (
@@ -505,15 +503,10 @@ export function PreviewIssueState({
         <p className="mx-auto mt-spacing-3 max-w-md text-sm leading-6 text-surface-warm-white/58">
           {detail}
         </p>
-        {onRestart || onRetry || onRebuild ? (
+        {onRecover || onRebuild ? (
           <div className="mt-spacing-5 flex flex-wrap justify-center gap-spacing-3">
-            {onRetry ? (
-              <Button type="button" onClick={onRetry}>
-                Muat ulang tampilan
-              </Button>
-            ) : null}
-            {onRestart ? (
-              <Button type="button" variant="outline" onClick={onRestart}>
+            {onRecover ? (
+              <Button type="button" onClick={onRecover}>
                 Mulai ulang tampilan
               </Button>
             ) : null}

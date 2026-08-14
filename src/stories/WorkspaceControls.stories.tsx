@@ -199,7 +199,7 @@ export const PreviewIssue: Story = {
       <PreviewIssueState
         title="Tampilan website gagal dimuat"
         detail="Tampilan website gagal dimuat. Periksa brief lalu buat ulang website bila diperlukan."
-        onRetry={() => undefined}
+        onRecover={() => undefined}
         onRebuild={() => undefined}
       />
     </div>

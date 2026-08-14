@@ -128,16 +128,20 @@ describe("WorkspaceCardView action copy", () => {
   });
 });
 
-describe("PreviewIssueState restart button", () => {
-  it("shows a restart button when onRestart is provided", () => {
+describe("PreviewIssueState recovery actions", () => {
+  it("renders one recovery action alongside the separate rebuild action", () => {
     const markup = renderToStaticMarkup(
       createElement(PreviewIssueState, {
         detail: "Tampilan website belum bisa dimuat.",
-        onRestart: vi.fn(),
+        onRecover: vi.fn(),
+        onRebuild: vi.fn(),
         title: "Tampilan website belum bisa dimuat",
       }),
     );
-    expect(markup).toContain("Mulai ulang tampilan");
+
+    expect(markup.match(/Mulai ulang tampilan/g)).toHaveLength(1);
+    expect(markup).not.toContain("Muat ulang tampilan");
+    expect(markup.match(/Coba lagi/g)).toHaveLength(1);
   });
 });
 

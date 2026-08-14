@@ -3838,11 +3838,10 @@ export function WorkspaceShell({
               ) : previewIssue && !(isBuilding && hasLastGoodPreview) ? (
                 <PreviewIssueState
                   detail={previewIssue.detail}
-                  onRebuild={readOnly ? undefined : () => void startBuild()}
-                  onRestart={
+                  onRecover={
                     readOnly ? undefined : () => void recoverPreviewRuntime()
                   }
-                  onRetry={() => void recoverPreviewRuntime()}
+                  onRebuild={readOnly ? undefined : () => void startBuild()}
                   title={previewIssue.title}
                 />
               ) : shouldRenderGeneratedPreview ||

@@ -143,7 +143,7 @@ async function getPreviewResponse({
 
     return createPreviewIssueResponse({
       detail:
-        "Tampilan website belum berhasil dimulai. Coba muat ulang tampilan.",
+        "Tampilan website belum berhasil dimulai. Coba mulai ulang tampilan.",
       status: 503,
       title: "Tampilan website belum bisa dimuat",
     });
