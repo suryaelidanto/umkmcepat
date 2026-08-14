@@ -6,9 +6,7 @@ import { toast } from "sonner";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
-import { MobileNav } from "@/components/common/MobileNav";
 import { useSession } from "@/lib/auth-client";
-import { shouldRenderMobileNav } from "@/lib/mobile-nav-model";
 import {
   useIsRoutePending,
   usePathname,
@@ -128,13 +126,8 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
         showDevBanner={isDevModeBannerVisible}
         showResetButton={Boolean(waitlistQuery.data?.own)}
       />
-      <main
-        className={`flex-1 ${shouldRenderMobileNav(sessionStatus) ? "pb-16" : ""} md:pb-0`}
-      >
-        {children}
-      </main>
+      <main className="flex-1">{children}</main>
       <Footer />
-      <MobileNav />
     </div>
   );
 }
