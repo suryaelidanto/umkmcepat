@@ -4,6 +4,8 @@ const path = require("node:path");
 
 const { chromium } = require("playwright-core");
 
+const { findContrastFailures } = require("./generated-site-contrast.cjs");
+
 const [
   origin,
   routesJson = '["/"]',
@@ -150,6 +152,59 @@ mkdirSync(evidenceDir, { recursive: true });
                 const bodyStyle = getComputedStyle(document.body);
                 const bodyColor = bodyStyle.color;
                 const bodyBackground = bodyStyle.backgroundColor;
+                const textElements = [
+                  ...document.querySelectorAll(
+                    "h1,h2,h3,h4,h5,h6,p,a,button,label,li,span",
+                  ),
+                ].filter((element) => {
+                  if (
+                    !visible(element) ||
+                    element.getAttribute("aria-hidden") === "true"
+                  ) {
+                    return false;
+                  }
+                  return [...element.childNodes].some(
+                    (node) =>
+                      node.nodeType === Node.TEXT_NODE &&
+                      (node.textContent || "").trim().length > 0,
+                  );
+                });
+                const contrastEntries = textElements.flatMap((element) => {
+                  let background = element;
+                  let backgroundColor = null;
+                  while (background) {
+                    const style = getComputedStyle(background);
+                    if (style.backgroundImage !== "none") {
+                      return [];
+                    }
+                    const candidate = style.backgroundColor;
+                    if (
+                      candidate !== "transparent" &&
+                      !/^rgba\\([^)]*,\\s*0\\s*\\)$/i.test(candidate)
+                    ) {
+                      backgroundColor = candidate;
+                      break;
+                    }
+                    background = background.parentElement;
+                  }
+                  if (!backgroundColor) {
+                    backgroundColor = bodyBackground;
+                  }
+                  const style = getComputedStyle(element);
+                  return [
+                    {
+                      background: backgroundColor,
+                      foreground: style.color,
+                      fontSize: style.fontSize,
+                      fontWeight: style.fontWeight,
+                      label: `${element.tagName.toLowerCase()}: ${(
+                        element.textContent || ""
+                      )
+                        .trim()
+                        .slice(0, 80)}`,
+                    },
+                  ];
+                });
                 return {
                   textLength: (document.body.innerText || "").trim().length,
                   overflow:
@@ -204,6 +259,7 @@ mkdirSync(evidenceDir, { recursive: true });
                   computedContrastKnown:
                     bodyColor !== "rgba(0, 0, 0, 0)" &&
                     bodyBackground !== "rgba(0, 0, 0, 0)",
+                  contrastEntries,
                 };
               })
             : {
@@ -216,7 +272,11 @@ mkdirSync(evidenceDir, { recursive: true });
                 touchTargets: 0,
                 focusVisible: false,
                 computedContrastKnown: false,
+                contrastEntries: [],
               };
+          const contrastFailures = findContrastFailures(
+            metrics.contrastEntries,
+          );
           const assertions = [
             { name: "route-load", status: loaded ? "pass" : "fail" },
             {
@@ -257,7 +317,20 @@ mkdirSync(evidenceDir, { recursive: true });
             },
             {
               name: "computed-contrast",
-              status: metrics.computedContrastKnown ? "pass" : "fail",
+              status:
+                metrics.computedContrastKnown && contrastFailures.length === 0
+                  ? "pass"
+                  : "fail",
+              detail:
+                contrastFailures.length > 0
+                  ? contrastFailures
+                      .slice(0, 5)
+                      .map(
+                        (failure) =>
+                          `${failure.label} ${failure.ratio.toFixed(2)}<${failure.minimum}`,
+                      )
+                      .join(" | ")
+                  : undefined,
             },
             {
               name: "focus-visible",

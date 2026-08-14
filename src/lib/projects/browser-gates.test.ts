@@ -72,6 +72,25 @@ describe("classifyBrowserReport", () => {
     expect(classifyBrowserReport(value)).toBe("fail");
   });
 
+  it("fails a rendered contrast assertion even when the report says pass", () => {
+    const value = report("pass");
+    value.routes = [
+      ...(["mobile", "desktop"] as const).map((viewport) => ({
+        route: "/",
+        viewport,
+        assertions: [
+          {
+            name: "computed-contrast" as const,
+            status: "fail" as const,
+            detail: "p: text 1.2<4.5",
+          },
+        ],
+      })),
+    ];
+    value.evidenceIds = ["mobile-report", "desktop-report"];
+    expect(classifyBrowserReport(value)).toBe("fail");
+  });
+
   it("exposes bounded browser execution constants", () => {
     expect(BROWSER_ROUTE_MAX).toBe(6);
     expect(BROWSER_NAVIGATION_TIMEOUT_MS).toBe(10_000);
