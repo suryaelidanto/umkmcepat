@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   inspectGeneratedSiteSource,
+  inspectGeneratedSiteTasteSource,
   inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
 } from "./generated-site-gates";
@@ -227,6 +228,39 @@ function _v2Plan(): WriterDesignPlanV2 {
 }
 
 describe("reference-calibrated generated site source gates", () => {
+  it.each([
+    [
+      "uses h-screen",
+      '<main className="h-screen">ok</main>',
+      "viewport-stability",
+    ],
+    ["uses an em dash", "<p>Jelas — cepat</p>", "llm-dash-tell"],
+    [
+      "repeats eyebrow scaffolding",
+      '<p className="uppercase tracking-wide">A</p>'.repeat(3),
+      "eyebrow-overuse",
+    ],
+    [
+      "uses numbered eyebrow scaffolding",
+      "<p>01</p><p>02</p><p>03</p>",
+      "numbered-scaffolding",
+    ],
+  ])("rejects taste tell: %s", (_name, source, code) => {
+    expect(
+      inspectGeneratedSiteTasteSource({ source, sectionCount: 3 }),
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ code })]));
+  });
+
+  it("accepts a restrained source taste profile", () => {
+    expect(
+      inspectGeneratedSiteTasteSource({
+        source:
+          '<main className="min-h-dvh text-foreground"><p className="text-accent">Pilihan jelas</p></main>',
+        sectionCount: 3,
+      }),
+    ).toEqual([]);
+  });
+
   it("accepts an international WhatsApp URL for a local accepted target", () => {
     const input = v2Contract();
     input.business.primaryCta.target = "08123456789";
@@ -248,6 +282,28 @@ describe("reference-calibrated generated site source gates", () => {
         (finding) => finding.code === "primary-cta-target-missing",
       ),
     ).toBe(false);
+  });
+
+  it("rejects generated routes that bypass compiled theme tokens", () => {
+    const result = inspectReferenceCalibratedSiteSource({
+      contract: v2Contract(),
+      kit: v2Kit(),
+      designPlan: _v2Plan(),
+      files: [
+        {
+          path: "src/routes/index.tsx",
+          content: `import { site } from "@/content/site"; import { usePreviewReady } from "@/lib/preview-ready"; import { SiteSection } from "@/components/site/layout"; export function HomeRouteComponent() { usePreviewReady(); return <main data-pattern="full-field-lockup" style={{ color: site.theme.muted }}><SiteSection><h1>{site.headline}</h1><p>{site.subheadline}</p><p>{site.primaryCta}</p></SiteSection></main>; }`,
+        },
+      ],
+      starterIndexSource: "starter",
+      themeChecks: [],
+    });
+
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "compiled-theme-bypass" }),
+      ]),
+    );
   });
 
   it("rejects fixed-renderer residue and no-photo placeholders", () => {
@@ -277,6 +333,36 @@ describe("reference-calibrated generated site source gates", () => {
 });
 
 describe("normalizeBatchedSiteAnchors", () => {
+  it("anchors the accepted composition pattern on the home route", () => {
+    const [file] = normalizeBatchedSiteAnchors(
+      [{ path: "src/routes/index.tsx", content: "<main><h1>Home</h1></main>" }],
+      { compositionPatternId: "split-commerce-hero" },
+    );
+
+    expect(file?.content).toContain(
+      '<main data-pattern="split-commerce-hero">',
+    );
+  });
+
+  it("repairs default route exports and void preview-hook value usage", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/index.tsx",
+        content: `import { usePreviewReady } from "@/lib/preview-ready";
+export default function IndexRoute() {
+  const previewReady = usePreviewReady();
+  return <main data-preview-ready={previewReady ? "true" : "false"} />;
+}`,
+      },
+    ]);
+
+    expect(file?.content).toContain("export function HomeRouteComponent()");
+    expect(file?.content).toContain("usePreviewReady();");
+    expect(file?.content).toContain("const previewReady = true;");
+    expect(file?.content).not.toContain("export default");
+    expect(file?.content).not.toContain("previewReady ?");
+  });
+
   it("turns missing chat anchors into the reviewed WhatsApp target and a touch-safe CTA", () => {
     const [file] = normalizeBatchedSiteAnchors(
       [

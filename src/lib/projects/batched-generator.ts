@@ -72,6 +72,7 @@ import {
 import { deriveGeneratedSitePageStrategy } from "@/lib/projects/generated-site-design-quality";
 import {
   inspectGeneratedSiteSource,
+  inspectGeneratedSiteTasteSource,
   inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
 } from "@/lib/projects/generated-site-gates";
@@ -1880,15 +1881,16 @@ export async function runGeneratedSiteCorrection(input: {
     photoEnabled: input.contract.media.mode === "owner_assets",
     primaryCtaTarget: input.contract.business.primaryCta.target,
   });
-  if (
-    normalizedReplacements.some((file) =>
-      /\bsite\.theme\.(?:background|foreground|muted|accent)\b/.test(
-        file.content,
-      ),
-    )
-  ) {
+  const tasteFindings = inspectGeneratedSiteTasteSource({
+    source: normalizedReplacements.map((file) => file.content).join("\n"),
+    sectionCount: input.contract.obligations.sections.length,
+  });
+  const blockingTasteFindings = tasteFindings.filter(
+    (finding) => finding.severity === "critical" || finding.severity === "high",
+  );
+  if (blockingTasteFindings.length > 0) {
     throw new Error(
-      "reference-calibrated correction bypassed compiled semantic theme tokens",
+      `reference-calibrated correction failed taste pre-flight: ${blockingTasteFindings.map((finding) => finding.code).join(", ")}`,
     );
   }
   const replacementByPath = new Map(

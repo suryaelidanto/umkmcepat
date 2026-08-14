@@ -10,6 +10,85 @@ import type { WriterDesignPlanV2 } from "./generated-site-design-plan";
 import type { GeneratedProjectFile } from "./generated-types";
 import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
 
+export function inspectGeneratedSiteTasteSource(input: {
+  source: string;
+  sectionCount: number;
+}): GeneratedSiteGateFinding[] {
+  const findings: GeneratedSiteGateFinding[] = [];
+  if (/\bh-screen\b/.test(input.source)) {
+    add(
+      findings,
+      "contract",
+      "high",
+      "viewport-stability",
+      "Generated route uses h-screen instead of a mobile-stable min-h-dvh layout.",
+    );
+  }
+  if (/[—–]/.test(input.source)) {
+    add(
+      findings,
+      "language",
+      "high",
+      "llm-dash-tell",
+      "Generated customer copy contains an em or en dash design tell.",
+    );
+  }
+  const classNames = [
+    ...input.source.matchAll(/className=["']([^"']+)["']/g),
+  ].map((match) => match[1]);
+  const eyebrowCount = classNames.filter(
+    (className) =>
+      /\buppercase\b/.test(className) &&
+      /\btracking(?:-[\w[\].-]+)?\b/.test(className),
+  ).length;
+  const allowedEyebrows = Math.max(1, Math.ceil(input.sectionCount / 3));
+  if (eyebrowCount > allowedEyebrows) {
+    add(
+      findings,
+      "genericness",
+      "high",
+      "eyebrow-overuse",
+      `Generated route uses ${eyebrowCount} tracked uppercase labels; at most ${allowedEyebrows} is allowed for ${input.sectionCount} sections.`,
+    );
+  }
+  const numberedMarkers = [
+    ...input.source.matchAll(/>\s*(?:0[1-9]|1[0-9])\s*</g),
+  ].length;
+  if (numberedMarkers >= 3) {
+    add(
+      findings,
+      "genericness",
+      "high",
+      "numbered-scaffolding",
+      "Generated route uses repeated numbered markers without a proven ordered process.",
+    );
+  }
+  if (/<h[1-6][^>]*className=["'][^"']*\bfont-mono\b/i.test(input.source)) {
+    add(
+      findings,
+      "genericness",
+      "medium",
+      "technical-display-type",
+      "Generated headings use a technical monospace treatment without a kit justification.",
+    );
+  }
+  if (
+    /\bsite\.theme\.(?:background|foreground|muted|accent)\b/.test(
+      input.source,
+    ) ||
+    /style=\{\{[^}]*\b(?:color|background|backgroundColor)\b/.test(input.source)
+  ) {
+    add(
+      findings,
+      "accessibility",
+      "high",
+      "compiled-theme-bypass",
+      "Generated route reads or declares palette colors instead of using compiled semantic theme tokens.",
+    );
+  }
+  return findings;
+}
+
 export function inspectReferenceCalibratedSiteSource(input: {
   contract: GeneratedSiteWriterContractV2;
   kit: GeneratedSiteDesignKitV1;
@@ -67,6 +146,30 @@ export function inspectReferenceCalibratedSiteSource(input: {
       "critical",
       "starter-residue",
       "Generated route retains the platform starter.",
+      "src/routes/index.tsx",
+    );
+  }
+  if (
+    index &&
+    !/export\s+(?:async\s+)?function\s+HomeRouteComponent\b/.test(index) &&
+    !/export\s+(?:const|let)\s+HomeRouteComponent\b/.test(index)
+  ) {
+    add(
+      findings,
+      "contract",
+      "high",
+      "home-route-export-missing",
+      "Generated route must export HomeRouteComponent for the platform router.",
+      "src/routes/index.tsx",
+    );
+  }
+  if (index && !/usePreviewReady\s*\(\s*\)/.test(index)) {
+    add(
+      findings,
+      "contract",
+      "high",
+      "preview-ready-hook-missing",
+      "Generated route must call usePreviewReady() so the preview iframe can unlock.",
       "src/routes/index.tsx",
     );
   }
@@ -136,6 +239,12 @@ export function inspectReferenceCalibratedSiteSource(input: {
       "Generated source redeclares a raw palette instead of semantic tokens.",
     );
   }
+  findings.push(
+    ...inspectGeneratedSiteTasteSource({
+      source,
+      sectionCount: input.contract.obligations.sections.length,
+    }),
+  );
   for (const check of input.themeChecks) {
     if (!check.pass) {
       add(
@@ -204,7 +313,11 @@ export function inspectReferenceCalibratedSiteSource(input: {
 
 export function normalizeBatchedSiteAnchors(
   files: GeneratedProjectFile[],
-  options?: { photoEnabled?: boolean; primaryCtaTarget?: string },
+  options?: {
+    photoEnabled?: boolean;
+    primaryCtaTarget?: string;
+    compositionPatternId?: string;
+  },
 ): GeneratedProjectFile[] {
   const photoEnabled = options?.photoEnabled ?? true;
   const whatsappHref = toWhatsappHref(options?.primaryCtaTarget);
@@ -235,9 +348,69 @@ export function normalizeBatchedSiteAnchors(
           `<a${attributes} href="${whatsappHref}" target="_blank" rel="noopener noreferrer">${body}</a>`,
       );
     }
+    if (file.path === "src/routes/index.tsx") {
+      content = normalizeGeneratedHomeRouteContract(content);
+      if (options?.compositionPatternId) {
+        content = ensureCompositionPatternAnchor(
+          content,
+          options.compositionPatternId,
+        );
+      }
+    }
     content = ensureCtaTouchTarget(content, whatsappHref);
     return { ...file, content };
   });
+}
+
+function normalizeGeneratedHomeRouteContract(content: string): string {
+  let normalized = content;
+  if (
+    !/\bexport\s+(?:async\s+)?function\s+HomeRouteComponent\b/.test(normalized)
+  ) {
+    normalized = normalized.replace(
+      /export\s+default\s+(async\s+)?function(?:\s+[A-Za-z_$][\w$]*)?\s*\(/,
+      (_match: string, asyncKeyword: string | undefined) =>
+        `export ${asyncKeyword ?? ""}function HomeRouteComponent(`,
+    );
+  }
+
+  const hookValueVariables = new Set<string>();
+  normalized = normalized.replace(
+    /\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*usePreviewReady\s*\(\s*\)\s*;?/g,
+    (_match: string, declaration: string, variable: string) => {
+      hookValueVariables.add(variable);
+      return `usePreviewReady(); ${declaration} ${variable} = true;`;
+    },
+  );
+  for (const variable of hookValueVariables) {
+    normalized = normalized.replace(
+      new RegExp(
+        `\\b${escapeHrefRegExp(variable)}\\s*\\?\\s*["']true["']\\s*:\\s*["']false["']`,
+        "g",
+      ),
+      '"true"',
+    );
+  }
+
+  return normalized;
+}
+
+function ensureCompositionPatternAnchor(
+  content: string,
+  compositionPatternId: string,
+): string {
+  const pattern = compositionPatternId.trim();
+  if (!/^[a-z0-9-]+$/i.test(pattern)) {
+    return content;
+  }
+  const existing = /data-pattern=["'][^"']*["']/i;
+  if (existing.test(content)) {
+    return content.replace(existing, `data-pattern="${pattern}"`);
+  }
+  return content.replace(
+    /<main\b([^>]*)>/i,
+    `<main data-pattern="${pattern}"$1>`,
+  );
 }
 
 function toWhatsappHref(target: string | undefined): string | null {
