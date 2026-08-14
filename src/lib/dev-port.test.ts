@@ -32,5 +32,12 @@ describe("dev port helpers", () => {
         repoRoot: "D:\\Code\\Side\\umkmcepat",
       }),
     ).toBe(false);
+    expect(
+      isRepoOwnedPortCommand({
+        commandLine:
+          "node /mnt/data/code/side/umkmcepat/node_modules/.bin/vite dev --port 3000",
+        repoRoot: "/mnt/data/code/side/umkmcepat",
+      }),
+    ).toBe(true);
   });
 });

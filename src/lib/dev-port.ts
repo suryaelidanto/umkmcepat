@@ -45,8 +45,11 @@ export function isRepoOwnedPortCommand({
   return (
     command.includes("/node_modules/next/") ||
     command.includes("/.next/") ||
+    command.includes("/node_modules/.bin/vite") ||
+    command.includes("/node_modules/vite/") ||
     /\bbun(\.exe)?\s+run\s+dev\b/.test(command) ||
-    /\bnext(\.cmd)?\s+dev\b/.test(command)
+    /\bnext(\.cmd)?\s+dev\b/.test(command) ||
+    /\bvite(\.cmd)?\s+dev\b/.test(command)
   );
 }
 

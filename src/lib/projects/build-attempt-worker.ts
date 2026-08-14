@@ -832,9 +832,17 @@ export async function runBuildAttempt({
         );
         devLog("generate", "reference_calibrated.shadow", {
           calls: referenceCalibratedQualityProof.calls,
+          failureClass: referenceCalibratedCandidate.ok
+            ? null
+            : referenceCalibratedCandidate.failureClass,
+          gates: referenceCalibratedQualityProof.gates,
           kitId: referenceCalibratedQualityProof.kitId,
           outcome: referenceCalibratedQualityProof.outcome,
+          output: referenceCalibratedQualityProof.output,
           projectId,
+          reason: referenceCalibratedCandidate.ok
+            ? null
+            : referenceCalibratedCandidate.safeMessage.slice(0, 1_000),
         });
       } catch (error) {
         devLog("generate", "reference_calibrated.shadow_error", {
