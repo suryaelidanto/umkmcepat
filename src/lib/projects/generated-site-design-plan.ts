@@ -204,6 +204,7 @@ export function parseWriterDesignPlanV2(input: {
     kit: GeneratedSiteDesignKitV1;
     mediaMode: GeneratedSiteKitMediaMode;
     requiredSectionIds: string[];
+    pageStrategy?: GeneratedSitePageStrategy["mode"];
   };
 }): WriterDesignPlanV2 {
   if (!isRecord(input.value)) {

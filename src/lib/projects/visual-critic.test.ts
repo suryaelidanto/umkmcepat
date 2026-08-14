@@ -97,6 +97,15 @@ const v2Plan: WriterDesignPlanV2 = {
   contractHash: v2Contract.contractHash,
   kit: { id: "bold-typographic", version: 1 },
   mediaMode: "graphic",
+  pageStrategy: "single",
+  taste: {
+    variance: 7,
+    motion: 2,
+    density: 3,
+    shape: "sharp",
+    typeGuidance: "Let a single sans display voice carry the statement.",
+    signatureBudget: 1,
+  },
   visualThesis: "Bold promise",
   compositionPatternId: "full-field-lockup",
   palette: {

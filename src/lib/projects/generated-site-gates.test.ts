@@ -191,6 +191,14 @@ function v2Kit(): GeneratedSiteDesignKitV1 {
       backgroundLightness: "dark" as const,
       accentSurfaceMaximum: 0.1,
     },
+    taste: {
+      variance: 7,
+      motion: 2,
+      density: 3,
+      shape: "sharp" as const,
+      typeGuidance: "Use a focused sans display and readable body.",
+      signatureBudget: 1 as const,
+    },
     rhythm: {
       sectionSpacingRem: [3, 6] as [number, number],
       allowAlternatingSurfaces: false,
@@ -209,6 +217,8 @@ function _v2Plan(): WriterDesignPlanV2 {
     contractHash: "a".repeat(64),
     kit: { id: "bold-typographic", version: 1 },
     mediaMode: "graphic",
+    pageStrategy: "single",
+    taste: v2Kit().taste,
     visualThesis: "Bold clear promise",
     compositionPatternId: "full-field-lockup",
     palette: {
