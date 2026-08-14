@@ -1,13 +1,18 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Home, Plus, User, Wallet } from "lucide-react";
+import { Home, User, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Link } from "@/components/ui/link";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { useSession } from "@/lib/auth-client";
 import { resolveHomeAccessState } from "@/lib/home-access-state";
+import {
+  resolveMobileNavModel,
+  shouldRenderMobileNav,
+  type MobileNavPrimaryItem,
+} from "@/lib/mobile-nav-model";
 import { usePathname } from "@/lib/navigation";
 import {
   fetchWaitlistStatus,
@@ -16,29 +21,13 @@ import {
   waitlistPendingPollInterval,
 } from "@/lib/query-client";
 
-const ITEMS = [
-  { href: "/", icon: Home, label: "Beranda" },
-  { href: "/projects", icon: Wallet, label: "Proyek" },
-  { href: "/projects/new", icon: Plus, label: "Buat" },
-  { href: "/profile", icon: User, label: "Akun" },
-] as const;
+const ICONS: Record<MobileNavPrimaryItem["icon"], LucideIcon> = {
+  account: User,
+  home: Home,
+  waitlist: User,
+};
 
-const WAITLISTED_ITEMS = [
-  { href: "/", icon: Home, label: "Beranda" },
-  { href: "/waitlist", icon: User, label: "Antrean" },
-] as const;
-
-const OVERFLOW = [
-  { href: "/waitlist", label: "Daftar antrean" },
-  { href: "/privacy", label: "Privasi" },
-  { href: "/terms", label: "Syarat" },
-  { href: "/admin", label: "Admin", adminOnly: true },
-] as const;
-
-const WAITLISTED_OVERFLOW = [
-  { href: "/privacy", label: "Privasi" },
-  { href: "/terms", label: "Syarat" },
-] as const;
+const MOBILE_NAV_SKELETON_ITEMS = ["one", "two", "more"] as const;
 
 function MobileNavSkeleton() {
   return (
@@ -48,7 +37,7 @@ function MobileNavSkeleton() {
       className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-around border-t border-surface-warm-white/10 bg-[#151515]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       role="status"
     >
-      {["one", "two", "three", "four", "more"].map((key) => (
+      {MOBILE_NAV_SKELETON_ITEMS.map((key) => (
         <div
           className="flex flex-1 flex-col items-center justify-center gap-1"
           key={key}
@@ -98,6 +87,9 @@ export function MobileNav() {
   });
   const waitlisted = navigationState === "waitlisted";
   const isAdmin = session?.user?.admin === true;
+  if (!shouldRenderMobileNav(status)) {
+    return null;
+  }
   if (navigationState === "loading") {
     return <MobileNavSkeleton />;
   }
@@ -105,10 +97,10 @@ export function MobileNav() {
     return <MobileNavError onRetry={() => void waitlistQuery.refetch()} />;
   }
 
-  const items = waitlisted ? WAITLISTED_ITEMS : ITEMS;
-  const overflow = (
-    waitlisted ? [...WAITLISTED_OVERFLOW] : [...OVERFLOW]
-  ).filter((item) => !("adminOnly" in item && item.adminOnly) || isAdmin);
+  const { overflow, primary: items } = resolveMobileNavModel({
+    isAdmin,
+    waitlisted,
+  });
 
   return (
     <>
@@ -117,7 +109,7 @@ export function MobileNav() {
         className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-around border-t border-surface-warm-white/10 bg-[#151515]/95 backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {items.map((item) => {
-          const Icon = item.icon;
+          const Icon = ICONS[item.icon];
           const active = pathname === item.href;
           return (
             <Link
@@ -131,15 +123,19 @@ export function MobileNav() {
             </Link>
           );
         })}
-        <button
-          aria-label="Lainnya"
-          className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] text-surface-warm-white/50"
-          onClick={() => setMoreOpen(true)}
-          type="button"
-        >
-          <span className="text-base">⋯</span>
-          <span>Lainnya</span>
-        </button>
+        {overflow.length > 0 ? (
+          <button
+            aria-expanded={moreOpen}
+            aria-haspopup="dialog"
+            aria-label="Lainnya"
+            className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] text-surface-warm-white/50"
+            onClick={() => setMoreOpen(true)}
+            type="button"
+          >
+            <span className="text-base">⋯</span>
+            <span>Lainnya</span>
+          </button>
+        ) : null}
       </nav>
       <MobileSheet onOpenChange={setMoreOpen} open={moreOpen} title="Lainnya">
         <ul className="flex flex-col gap-spacing-2">
