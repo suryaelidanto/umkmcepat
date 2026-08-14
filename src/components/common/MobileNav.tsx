@@ -34,12 +34,12 @@ function MobileNavSkeleton() {
     <nav
       aria-busy="true"
       aria-label="Memuat navigasi utama"
-      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-around border-t border-surface-warm-white/10 bg-[#151515]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-16 min-w-0 max-w-full items-stretch justify-around overflow-x-clip border-t border-surface-warm-white/10 bg-[#151515]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       role="status"
     >
       {MOBILE_NAV_SKELETON_ITEMS.map((key) => (
         <div
-          className="flex flex-1 flex-col items-center justify-center gap-1"
+          className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1"
           key={key}
         >
           <span className="size-5 animate-pulse rounded-full bg-surface-warm-white/10" />
@@ -54,7 +54,7 @@ function MobileNavError({ onRetry }: { onRetry: () => void }) {
   return (
     <nav
       aria-label="Navigasi utama"
-      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-center border-t border-surface-warm-white/10 bg-[#151515]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-16 min-w-0 max-w-full items-center justify-center overflow-x-clip border-t border-surface-warm-white/10 bg-[#151515]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     >
       <button
         className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-xs text-surface-warm-white/75"
@@ -106,7 +106,7 @@ export function MobileNav() {
     <>
       <nav
         aria-label="Navigasi utama"
-        className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-around border-t border-surface-warm-white/10 bg-[#151515]/95 backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex h-16 min-w-0 max-w-full items-stretch justify-around overflow-x-clip border-t border-surface-warm-white/10 bg-[#151515]/95 backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {items.map((item) => {
           const Icon = ICONS[item.icon];
@@ -114,12 +114,14 @@ export function MobileNav() {
           return (
             <Link
               aria-current={active ? "page" : undefined}
-              className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] ${active ? "text-surface-warm-white" : "text-surface-warm-white/50"}`}
+              className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[10px] ${active ? "text-surface-warm-white" : "text-surface-warm-white/50"}`}
               href={item.href}
               key={item.href}
             >
               <Icon className="size-5" />
-              <span>{item.label}</span>
+              <span className="max-w-full truncate whitespace-nowrap">
+                {item.label}
+              </span>
             </Link>
           );
         })}
@@ -128,7 +130,7 @@ export function MobileNav() {
             aria-expanded={moreOpen}
             aria-haspopup="dialog"
             aria-label="Lainnya"
-            className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] text-surface-warm-white/50"
+            className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[10px] text-surface-warm-white/50"
             onClick={() => setMoreOpen(true)}
             type="button"
           >
