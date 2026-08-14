@@ -45,6 +45,148 @@ const DENSITIES = ["compact", "regular", "airy"] as const;
 const ROLES = ["serif", "sans"] as const;
 const HEX = /^#[0-9a-f]{6}$/i;
 
+type WriterDesignPlanV2FrameInput = {
+  contractHash: string;
+  kit: GeneratedSiteDesignKitV1;
+  mediaMode: GeneratedSiteKitMediaMode;
+  requiredSectionIds: string[];
+  palette?: WriterDesignPlanV2["palette"];
+};
+
+export function deriveDefaultWriterDesignPlanV2(
+  input: WriterDesignPlanV2FrameInput,
+): WriterDesignPlanV2 {
+  if (input.requiredSectionIds.length === 0) {
+    throw new Error("V2 design-plan requires at least one section");
+  }
+  const pattern = input.kit.compositionPatterns[0];
+  if (!pattern) {
+    throw new Error(
+      `generated-site kit has no composition pattern: ${input.kit.id}`,
+    );
+  }
+  const palette =
+    input.palette && validPalette(input.palette)
+      ? input.palette
+      : defaultPalette(input.kit);
+  return {
+    schemaVersion: 2,
+    contractHash: input.contractHash,
+    kit: { id: input.kit.id, version: 1 },
+    mediaMode: input.mediaMode,
+    visualThesis: pattern.intent,
+    compositionPatternId: pattern.id,
+    palette,
+    typography: {
+      displayRole: input.kit.typography.displayRole,
+      bodyRole: input.kit.typography.bodyRole,
+    },
+    sections: input.requiredSectionIds.map((id, index) => ({
+      id,
+      treatment: "content-led",
+      surface: sectionSurface(input.kit, index),
+      density: input.requiredSectionIds.length === 1 ? "airy" : "regular",
+    })),
+    sectionOrder: [...input.requiredSectionIds],
+    mobileStrategy: ["stack sections", "keep the primary action visible"],
+    signatureElement: pattern.id,
+  };
+}
+
+export function mergeWriterDesignPlanV2(input: {
+  frame: WriterDesignPlanV2;
+  candidate: WriterDesignPlanV2;
+}): WriterDesignPlanV2 {
+  const candidateSections = new Map(
+    input.candidate.sections.map((section) => [section.id, section]),
+  );
+  return {
+    ...input.frame,
+    visualThesis: input.candidate.visualThesis,
+    sections: input.frame.sections.map((section) => ({
+      ...section,
+      treatment:
+        candidateSections.get(section.id)?.treatment ?? section.treatment,
+    })),
+    signatureElement: input.candidate.signatureElement,
+  };
+}
+
+function validPalette(palette: WriterDesignPlanV2["palette"]): boolean {
+  return Object.values(palette).every((value) => HEX.test(value));
+}
+
+function defaultPalette(
+  kit: GeneratedSiteDesignKitV1,
+): WriterDesignPlanV2["palette"] {
+  if (kit.themePolicy.backgroundLightness === "dark") {
+    return {
+      background: "#171b2b",
+      foreground: "#f3f4ff",
+      muted: "#2c3150",
+      accent: "#9d7cff",
+    };
+  }
+  return {
+    background: "#f7f3ec",
+    foreground: "#3d2b1f",
+    muted: "#e5ddd2",
+    accent: "#d4a017",
+  };
+}
+
+function sectionSurface(
+  kit: GeneratedSiteDesignKitV1,
+  index: number,
+): WriterDesignPlanV2["sections"][number]["surface"] {
+  if (!kit.rhythm.allowAlternatingSurfaces) {
+    return "base";
+  }
+  return index % 3 === 1 ? "muted" : index % 3 === 2 ? "contrast" : "base";
+}
+
+export function normalizeWriterDesignPlanV2Candidate(input: {
+  value: unknown;
+  frame: WriterDesignPlanV2;
+}): unknown {
+  if (!isRecord(input.value)) {
+    return input.value;
+  }
+  const rawSections = Array.isArray(input.value.sections)
+    ? input.value.sections
+    : [];
+  const candidateSections = new Map(
+    rawSections
+      .filter(isRecord)
+      .filter((section) => typeof section.id === "string")
+      .map((section) => [section.id, section]),
+  );
+  return {
+    schemaVersion: input.frame.schemaVersion,
+    contractHash: input.frame.contractHash,
+    kit: input.frame.kit,
+    mediaMode: input.frame.mediaMode,
+    compositionPatternId: input.frame.compositionPatternId,
+    palette: input.frame.palette,
+    typography: input.frame.typography,
+    mobileStrategy: input.frame.mobileStrategy,
+    visualThesis:
+      typeof input.value.visualThesis === "string" &&
+      input.value.visualThesis.trim().length >= 12
+        ? input.value.visualThesis
+        : input.frame.visualThesis,
+    sections: input.frame.sections.map((section) => ({
+      ...section,
+      treatment:
+        stringValue(candidateSections.get(section.id)?.treatment).trim() ||
+        section.treatment,
+    })),
+    signatureElement:
+      stringValue(input.value.signatureElement).trim() ||
+      input.frame.signatureElement,
+  };
+}
+
 export function parseWriterDesignPlanV2(input: {
   value: unknown;
   expected: {

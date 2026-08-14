@@ -176,10 +176,15 @@ export function inspectReferenceCalibratedSiteSource(input: {
     /\D/g,
     "",
   );
+  const canonicalTargetDigits = targetDigits.startsWith("0")
+    ? `62${targetDigits.slice(1)}`
+    : targetDigits;
   if (
     targetDigits &&
     !source.includes(targetDigits) &&
-    !source.includes(`wa.me/${targetDigits}`)
+    !source.includes(canonicalTargetDigits) &&
+    !source.includes(`wa.me/${targetDigits}`) &&
+    !source.includes(`wa.me/${canonicalTargetDigits}`)
   ) {
     add(
       findings,

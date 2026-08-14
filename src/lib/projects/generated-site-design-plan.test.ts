@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
-import { parseWriterDesignPlanV2 } from "./generated-site-design-plan";
+import {
+  deriveDefaultWriterDesignPlanV2,
+  parseWriterDesignPlanV2,
+} from "./generated-site-design-plan";
 
 function expected() {
   const kit = selectGeneratedSiteDesignKit({
@@ -63,6 +66,24 @@ describe("WriterDesignPlanV2", () => {
       kit: { id: "catalog-story", version: 1 },
       sectionOrder: ["hero", "catalog", "contact"],
     });
+  });
+
+  it("derives a complete deterministic frame when the writer omits its plan", () => {
+    const defaults = deriveDefaultWriterDesignPlanV2(expected());
+
+    expect(defaults).toMatchObject({
+      schemaVersion: 2,
+      contractHash: "a".repeat(64),
+      kit: { id: "catalog-story", version: 1 },
+      mediaMode: "graphic",
+      compositionPatternId: "asymmetric-catalog-hero",
+      typography: { displayRole: "serif", bodyRole: "sans" },
+      sectionOrder: ["hero", "catalog", "contact"],
+    });
+    expect(defaults.sections).toHaveLength(3);
+    expect(defaults.mobileStrategy.length).toBeGreaterThan(0);
+    expect(defaults.visualThesis.length).toBeGreaterThanOrEqual(12);
+    expect(defaults.signatureElement.length).toBeGreaterThan(0);
   });
 
   it.each([

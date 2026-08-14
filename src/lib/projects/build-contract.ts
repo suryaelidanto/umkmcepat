@@ -2,10 +2,11 @@
 // Versioned business contract carried from discussion through planning,
 // generation, repair, and edit. The server validates and normalizes every
 // draft; the model never writes facts directly.
-import type {
-  AddressValue,
-  CertificationValue,
-  ContactValue,
+import {
+  parseContact,
+  type AddressValue,
+  type CertificationValue,
+  type ContactValue,
   HoursValue,
   PaymentMethodValue,
   PriceValue,
@@ -144,6 +145,7 @@ function parseFactValue(kind: FactKind, value: unknown): boolean {
     case "promotion":
       return Array.isArray(value);
     case "contact":
+      return parseContact(value) !== null;
     case "address":
       return isRecord(value);
     default:

@@ -660,6 +660,10 @@ function normalizeWorkspaceCard(
     imageUpload?: unknown;
     summary?: unknown;
     title?: unknown;
+    engine?: unknown;
+    handoffId?: unknown;
+    reviewHash?: unknown;
+    reviewItems?: unknown;
   };
 
   if (value.type === "image_upload") {
@@ -676,6 +680,59 @@ function normalizeWorkspaceCard(
 
   if (value.type === "questions") {
     return normalizeQuestionsArray(value.questions, brief);
+  }
+
+  // Contract-v1 recommendation cards carry server-owned handoff proof. Pass
+  // them through unchanged — rebuilding would strip handoffId/reviewHash and
+  // break canStartBuild + the generate route's handoff gate. Still re-check
+  // readiness so a drifted brief never shows a buildable recommendation.
+  if (
+    value.type === "build_recommendation" &&
+    value.engine === "contract-v1" &&
+    typeof value.handoffId === "string" &&
+    typeof value.reviewHash === "string"
+  ) {
+    const readiness = evaluateBuildReadiness(parseCanonicalBrief(brief));
+    if (readiness.state !== "ready") {
+      return { type: "question", question: readiness.nextQuestion };
+    }
+
+    return {
+      type: "build_recommendation",
+      engine: "contract-v1" as const,
+      title:
+        typeof value.title === "string" ? value.title : "Website siap dibuat",
+      summary: Array.isArray(value.summary)
+        ? (value.summary as unknown[]).filter(
+            (item): item is string => typeof item === "string",
+          )
+        : [],
+      handoffId: value.handoffId,
+      reviewHash: value.reviewHash,
+      reviewItems: Array.isArray(value.reviewItems)
+        ? (value.reviewItems as unknown[]).filter(
+            (
+              item,
+            ): item is {
+              id: string;
+              kind: string;
+              label: string;
+              value: string;
+            } => {
+              if (!item || typeof item !== "object") {
+                return false;
+              }
+              const review = item as Record<string, unknown>;
+              return (
+                typeof review.id === "string" &&
+                typeof review.kind === "string" &&
+                typeof review.label === "string" &&
+                typeof review.value === "string"
+              );
+            },
+          )
+        : [],
+    };
   }
 
   if (value.type === "build_recommendation" || value.type === "brief_review") {

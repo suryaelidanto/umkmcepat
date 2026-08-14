@@ -506,13 +506,20 @@ function parseCanonicalAction(value: unknown): CanonicalPrimaryAction | null {
   }
   const kind = cleanText(action.kind);
   const label = cleanText(action.label);
+  const target = cleanOptionalText(action.target);
   if (!ACTION_KINDS.has(kind) || !label) {
+    return null;
+  }
+  if (
+    (kind === "whatsapp" || kind === "phone") &&
+    !parseContact({ channel: kind, value: target })
+  ) {
     return null;
   }
   return {
     kind: kind as CanonicalPrimaryActionKind,
     label,
-    target: cleanOptionalText(action.target),
+    target,
   };
 }
 

@@ -22,7 +22,6 @@ import type {
   GeneratedSiteWriterContractV2,
 } from "@/lib/projects/generated-site-contract";
 import type { GeneratedSiteDesignKitV1 } from "@/lib/projects/generated-site-design-kits/types";
-import type { WriterDesignPlanV2 } from "@/lib/projects/generated-site-design-plan";
 import type {
   GeneratedSiteGoldExample,
   GeneratedSiteRecipeV1,
@@ -65,6 +64,11 @@ import {
   checkBatchedGenerateAdmission,
 } from "@/lib/projects/brief-admission";
 import { createDeterministicGeneratedSiteControlRoute } from "@/lib/projects/generated-site-contract";
+import {
+  deriveDefaultWriterDesignPlanV2,
+  mergeWriterDesignPlanV2,
+  type WriterDesignPlanV2,
+} from "@/lib/projects/generated-site-design-plan";
 import {
   inspectGeneratedSiteSource,
   inspectReferenceCalibratedSiteSource,
@@ -732,6 +736,7 @@ export async function runOneStreamedResponse(args: {
     mediaMode: "owner_assets" | "graphic" | "typographic";
     requiredSectionIds: string[];
   };
+  designPlanV2Fallback?: WriterDesignPlanV2;
   maxRetries?: 0 | 2;
   stepCharger?: StepCharger;
   system: string;
@@ -746,6 +751,7 @@ export async function runOneStreamedResponse(args: {
   const parser = createBatchedResponseParser({
     requireDesignPlan: args.requireDesignPlan,
     designPlanV2Expected: args.designPlanV2Expected,
+    designPlanV2Fallback: args.designPlanV2Fallback,
   });
   let modelServed: string | undefined;
   let usage: { inputTokens?: number; outputTokens?: number } | undefined;
@@ -1575,6 +1581,14 @@ export async function runReferenceCalibratedGenerate(input: {
   const staged = new Map<string, BatchedFile>(
     starterFiles.map((file) => [file.path, file]),
   );
+  const designPlanFrame = deriveDefaultWriterDesignPlanV2({
+    contractHash: input.contract.contractHash,
+    kit: input.kit,
+    mediaMode: input.contract.media.mode,
+    requiredSectionIds: input.contract.obligations.sections.map(
+      (section) => section.id,
+    ),
+  });
   const writerPrompt = buildReferenceCalibratedWriterPrompt({
     contract: input.contract,
     kit: input.kit,
@@ -1605,6 +1619,7 @@ export async function runReferenceCalibratedGenerate(input: {
         (section) => section.id,
       ),
     },
+    designPlanV2Fallback: designPlanFrame,
     stepCharger: input.stepCharger,
     system: writerPrompt.system,
     task: "build-step",
@@ -1619,7 +1634,12 @@ export async function runReferenceCalibratedGenerate(input: {
   for (const file of editableFiles) {
     staged.set(file.path, file);
   }
-  const designPlan = writer.response.designPlanV2 ?? null;
+  const designPlan = writer.response.designPlanV2
+    ? mergeWriterDesignPlanV2({
+        frame: designPlanFrame,
+        candidate: writer.response.designPlanV2,
+      })
+    : designPlanFrame;
   const firstFileClosedMs =
     writer.firstFileClosedMs ?? (editableFiles.length > 0 ? writerMs : null);
   if (editableFiles.length > 3 || editableBytes > 32 * 1024) {
@@ -1634,16 +1654,12 @@ export async function runReferenceCalibratedGenerate(input: {
       editableBytes,
     };
   }
-  if (
-    writer.parseError ||
-    !designPlan ||
-    writer.response.doneSummary === null
-  ) {
+  if (writer.parseError || writer.response.doneSummary === null) {
     return {
       ok: false,
       reason:
         writer.parseError?.message ??
-        "reference-calibrated writer omitted the design plan or done marker",
+        "reference-calibrated writer omitted the design plan, editable files, or done marker",
       stagedFiles: [...staged.values()],
       designPlan,
       writerMs,
@@ -1781,6 +1797,14 @@ export async function runGeneratedSiteCorrection(input: {
         (section) => section.id,
       ),
     },
+    designPlanV2Fallback: deriveDefaultWriterDesignPlanV2({
+      contractHash: input.contract.contractHash,
+      kit: input.kit,
+      mediaMode: input.contract.media.mode,
+      requiredSectionIds: input.contract.obligations.sections.map(
+        (section) => section.id,
+      ),
+    }),
     system: prompt.system,
     task: "build-step",
     user: prompt.user,

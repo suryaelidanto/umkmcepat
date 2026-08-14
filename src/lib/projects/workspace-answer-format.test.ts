@@ -20,16 +20,14 @@ const question: BriefQuestion = {
 };
 
 describe("formatWorkspaceAnswerSelection", () => {
-  it("keeps option answer context by sending label and description", () => {
+  it("records the label only, dropping the option description", () => {
     expect(
       formatWorkspaceAnswerSelection(
         question,
         ["Menu klasik: nasi kucing, sate usus, gorengan, wedang jahe"],
         "option",
       ),
-    ).toBe(
-      "Menu klasik: nasi kucing, sate usus, gorengan, wedang jahe (Paket standar angkringan yang paling dikenal, harga terjangkau, menu sederhana.)",
-    );
+    ).toBe("Menu klasik: nasi kucing, sate usus, gorengan, wedang jahe");
   });
 
   it("keeps custom answers unchanged", () => {

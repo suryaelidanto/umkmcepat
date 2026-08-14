@@ -837,6 +837,12 @@ export function WorkspaceCardView({
                 </li>
               ))}
             </ul>
+            {!canBuild ? (
+              <p className="mt-spacing-4 rounded-[12px] border border-amber-500/24 bg-amber-500/[0.06] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white/82">
+                Ada informasi yang masih perlu dilengkapi. Lanjutkan diskusi
+                dulu sebelum membuat website.
+              </p>
+            ) : null}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-spacing-3 md:mt-spacing-6 md:flex-col md:items-stretch">
             <Button

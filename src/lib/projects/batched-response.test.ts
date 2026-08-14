@@ -6,6 +6,7 @@ import {
   isAllowedBatchedPath,
 } from "./batched-response";
 import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
+import { deriveDefaultWriterDesignPlanV2 } from "./generated-site-design-plan";
 import {
   isProtectedScaffoldPath,
   PROTECTED_SCAFFOLD_PATHS,
@@ -141,6 +142,90 @@ describe("batched response parser — design plan", () => {
     const result = parser.finalize();
     expect(result.designPlan).toBeNull();
     expect(result.designPlanV2?.kit.id).toBe("catalog-story");
+  });
+
+  it("normalizes model-specific section vocabulary onto the kit frame", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "retail-catalog",
+      density: "rich",
+      mediaMode: "graphic",
+      primaryJobKind: "compare",
+      hasOperationalDetails: false,
+    });
+    const frame = deriveDefaultWriterDesignPlanV2({
+      contractHash: "d".repeat(64),
+      kit,
+      mediaMode: "graphic",
+      requiredSectionIds: ["hero", "products"],
+    });
+    const candidate = {
+      ...frame,
+      sections: frame.sections.map((section) => ({
+        ...section,
+        surface: section.id === "hero" ? "subtle" : "dark",
+        density: "sparse",
+        treatment: `${section.id} treatment`,
+      })),
+      visualThesis: "A concise comparison story for decisive buyers.",
+      signatureElement: "numbered product notes",
+    };
+    const parser = createBatchedResponseParser({
+      requireDesignPlan: true,
+      designPlanV2Expected: {
+        contractHash: frame.contractHash,
+        kit,
+        mediaMode: "graphic",
+        requiredSectionIds: ["hero", "products"],
+      },
+      designPlanV2Fallback: frame,
+    });
+
+    parser.push(
+      `<design-plan>${JSON.stringify(candidate)}</design-plan><file path="src/routes/index.tsx">export function HomeRouteComponent() { return null; }</file><done summary="ok" />`,
+    );
+
+    const plan = parser.finalize().designPlanV2;
+    expect(plan?.sections.map((section) => section.surface)).toEqual(
+      frame.sections.map((section) => section.surface),
+    );
+    expect(plan?.sections.map((section) => section.treatment)).toEqual([
+      "hero treatment",
+      "products treatment",
+    ]);
+    expect(plan?.visualThesis).toBe(candidate.visualThesis);
+    expect(plan?.signatureElement).toBe(candidate.signatureElement);
+  });
+
+  it("uses the kit frame when a V2 writer omits its design plan", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "retail-catalog",
+      density: "rich",
+      mediaMode: "graphic",
+      primaryJobKind: "compare",
+      hasOperationalDetails: false,
+    });
+    const fallback = deriveDefaultWriterDesignPlanV2({
+      contractHash: "c".repeat(64),
+      kit,
+      mediaMode: "graphic",
+      requiredSectionIds: ["catalog"],
+    });
+    const parser = createBatchedResponseParser({
+      requireDesignPlan: true,
+      designPlanV2Expected: {
+        contractHash: "c".repeat(64),
+        kit,
+        mediaMode: "graphic",
+        requiredSectionIds: ["catalog"],
+      },
+      designPlanV2Fallback: fallback,
+    });
+
+    parser.push(
+      '<file path="src/routes/index.tsx">export function HomeRouteComponent() { return null; }</file><done summary="ok" />',
+    );
+
+    expect(parser.finalize().designPlanV2).toEqual(fallback);
   });
 
   it("rejects malformed, duplicate, or missing design plans", () => {

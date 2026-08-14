@@ -77,7 +77,7 @@ describe("canStartBuild", () => {
         title: "Siap",
         summary: ["a"],
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       canStartBuild({
         type: "question" as const,

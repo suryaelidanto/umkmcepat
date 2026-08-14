@@ -213,30 +213,10 @@ describe("runReferenceCalibratedGenerate", () => {
       primaryJobKind: "inquire",
       hasOperationalDetails: false,
     });
-    const response = {
-      schemaVersion: 2,
-      contractHash: "a".repeat(64),
-      kit: { id: "bold-typographic", version: 1 },
-      mediaMode: "graphic",
-      visualThesis: "A bold, direct first view.",
-      compositionPatternId: "full-field-lockup",
-      palette: {
-        background: "#171b2b",
-        foreground: "#f3f4ff",
-        muted: "#2c3150",
-        accent: "#9d7cff",
-      },
-      typography: { displayRole: "sans", bodyRole: "sans" },
-      sections: [
-        { id: "hero", treatment: "lockup", surface: "base", density: "airy" },
-      ],
-      mobileStrategy: ["stack actions"],
-      signatureElement: "full-field-lockup",
-    };
     const route = `import { SiteSection } from "@/components/site/layout";\nimport { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function HomeRouteComponent() { usePreviewReady(); return <main data-pattern="full-field-lockup"><SiteSection><h1>{site.headline}</h1><p>{site.subheadline}</p><p>{site.offer}</p><p>{site.trustPoints[0]}</p><a className="min-h-11" href="https://wa.me/6281100000000?text=Halo">{site.primaryCta}</a></SiteSection></main>; }`;
     streamTextMock.mockReturnValueOnce(
       writerStream(
-        `<design-plan>${JSON.stringify(response)}</design-plan><file path="src/routes/index.tsx">${route}</file><done summary="Selesai" />`,
+        `<file path="src/routes/index.tsx">${route}</file><done summary="Selesai" />`,
       ),
     );
     const contract = {

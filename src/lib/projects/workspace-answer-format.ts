@@ -1,23 +1,14 @@
 import { type BriefQuestion } from "@/lib/projects/brief";
 
+// Option descriptions are UI helper text, not part of the answer. Record the
+// label only so brief facts (offer, contact, style) stay clean.
 export function formatWorkspaceAnswerSelection(
-  question: BriefQuestion,
+  _question: BriefQuestion,
   selected: string[],
   source: "custom" | "option",
 ) {
   if (source === "custom") {
     return selected.join(", ");
   }
-
-  return selected
-    .map((label) => {
-      const option = question.options.find((item) => item.label === label);
-
-      if (!option) {
-        return label;
-      }
-
-      return `${option.label} (${option.description})`;
-    })
-    .join("; ");
+  return selected.join("; ");
 }

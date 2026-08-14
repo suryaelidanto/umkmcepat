@@ -323,7 +323,7 @@ export async function prepareBuildHandoff(input: {
 
   const reviewItems = deriveReviewItems(contract, validatedPlan);
   const reviewHashValue = hashReviewItems(reviewItems);
-  const { id } = await createDraftHandoff({
+  const created = await createDraftHandoff({
     projectId: input.projectId,
     userId: input.userId,
     engine: input.engine,
@@ -342,10 +342,10 @@ export async function prepareBuildHandoff(input: {
 
   return {
     state: "ready",
-    handoffId: id,
+    handoffId: created.id,
     contract,
     plan: validatedPlan,
-    reviewHash: reviewHashValue,
-    reviewItems,
+    reviewHash: created.reviewHash,
+    reviewItems: created.reviewItems as ReturnType<typeof deriveReviewItems>,
   };
 }

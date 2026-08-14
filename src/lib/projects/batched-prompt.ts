@@ -27,8 +27,20 @@ export function buildReferenceCalibratedCorrectionPrompt(input: {
   implicatedPaths: string[];
   files: GeneratedProjectFile[];
 }): { system: string; user: string } {
+  const requiredFields = [
+    "headline",
+    "subheadline",
+    "primaryCta",
+    input.contract.content.products.length ? "products" : null,
+    input.contract.content.trustPoints.length ? "trustPoints" : null,
+    input.contract.content.usp.length ? "usp" : null,
+    input.contract.content.promotion ? "currentPromo" : null,
+  ].filter((field): field is string => field !== null);
   return {
-    system: `You are correcting one generated Indonesian landing site response. Emit only one complete <design-plan>, full replacement <file> blocks for the implicated writable paths, and one <done summary="..." />. Use no tools, no markdown, no prose. Keep the immutable contract, kit, media mode, routes, facts, and protected scaffold unchanged. AI SDK retries are disabled and this is the only shared correction.`,
+    system: `You are correcting one generated Indonesian landing site response. Emit only one complete <design-plan>, full replacement <file> blocks for the implicated writable paths, and one <done summary="..." />. Use no tools, no markdown, no prose. Read owner facts from @/content/site; render site.* fields instead of inventing local data. Never invent facts. Use semantic Tailwind tokens only; never emit raw hex classes, inline palette CSS, remote URLs, placeholders, fabricated facts, prices, stock, contacts, claims, or routes. Preserve the accepted CTA target, media mode, kit pattern, and protected scaffold. Emit only implicated paths. AI SDK retries are disabled and this is the only shared correction.
+
+The only seeded layout exports are SiteSection, SiteStack, SiteSplit, and SiteCluster from @/components/site/layout. Use them exactly: SiteSection/SiteStack/SiteCluster take children plus named props; SiteSplit accepts children, emphasis, and className, never left/right props. Import usePreviewReady from @/lib/preview-ready. The route must export HomeRouteComponent and call usePreviewReady(). site.primaryCta is a string, not an object; render it as {site.primaryCta}. Render these exact populated fields visibly through @/content/site: ${requiredFields.map((field) => `site.${field}`).join(", ")}. Put the selected composition pattern id in a data-pattern attribute. Use this exact accepted CTA target in every primary action: ${input.contract.business.primaryCta.target}. For WhatsApp, use an external href="https://wa.me/628..." with the accepted digits, never href="#..." or a guessed number. Never guess or replace it.`,
+
     user: JSON.stringify({
       contract: input.contract,
       kit: {
@@ -46,6 +58,9 @@ export function buildReferenceCalibratedCorrectionPrompt(input: {
         input.implicatedPaths.includes(file.path),
       ),
       projectId: input.projectId,
+      siteSource: input.files.find(
+        (file) => file.path === "src/content/site.ts",
+      )?.content,
     }),
   };
 }
@@ -102,39 +117,47 @@ export function buildReferenceCalibratedWriterPrompt(input: {
     "src/routes/index.tsx",
     "src/components/site/sections.tsx",
   ];
+  const siteSource = `export const site = ${JSON.stringify(input.schema, null, 2)} as const;`;
   return {
-    system: `You are a senior Indonesian landing-page designer and React writer. Emit one complete customer-facing site in Indonesian. System instructions and code comments remain English. Use the selected executable design kit; do not fall back to a generic template.
+    system: `You are a senior Indonesian landing-page designer and React writer. Emit one standalone customer site. Visible copy is Indonesian; code/comments are English. Use the selected kit, never a generic template.
 
-IMMUTABLE WRITER CONTRACT:
-${JSON.stringify(input.contract)}
+CONTRACT (immutable): ${JSON.stringify(input.contract)}
+READ-ONLY DATA SOURCE — src/content/site.ts:
+${siteSource}
+Use import { site } from "@/content/site". Never copy facts into invented arrays.
 
-EXECUTABLE KIT:
-${JSON.stringify({
-  id: input.kit.id,
-  version: input.kit.version,
-  patterns: input.kit.compositionPatterns,
-  typography: input.kit.typography,
-  sourceAssertions: input.kit.sourceAssertions,
-  antiPatterns: input.kit.antiPatterns,
-})}
+SEEDED PRIMITIVE API — src/components/site/layout.tsx:
+- SiteSection accepts children, density: compact|regular|airy, surface: base|muted|contrast, width: reading|content|wide, id, className.
+- SiteStack accepts children, gap: sm|md|lg|xl, className.
+- SiteSplit accepts children, emphasis: equal|leading|trailing, className. It does not accept left/right props.
+- SiteCluster accepts children, justify: start|center|between, className.
+Import usePreviewReady from "@/lib/preview-ready". site.primaryCta is a string; render {site.primaryCta}, never site.primaryCta.label.
 
-RESPONSE CONTRACT:
+KIT (immutable): ${JSON.stringify({
+      id: input.kit.id,
+      version: input.kit.version,
+      patterns: input.kit.compositionPatterns,
+      typography: input.kit.typography,
+      sourceAssertions: input.kit.sourceAssertions,
+      antiPatterns: input.kit.antiPatterns,
+    })}
+
+OUTPUT. Emit no reasoning, prose, markdown, tools, or unknown tags:
 <design-plan>${JSON.stringify(planSeed)}</design-plan>
-<file path="src/routes/index.tsx">full raw TSX</file>
-<file path="src/components/site/sections.tsx">full raw TSX only when needed</file>
+<file path="src/routes/index.tsx">complete raw TSX; first</file>
+<file path="src/components/site/sections.tsx">complete raw TSX only if needed</file>
 <done summary="..." />
 
 Rules:
-- Emit exactly one design plan first, then only complete files under these writable paths: ${writablePaths.join(", ")}.
-- Use the seeded SiteSection, SiteStack, SiteSplit, and SiteCluster primitives from @/components/site/layout; never rewrite them.
-- Render every non-empty required field from the contract visibly. Do not invent facts, proof, products, prices, contacts, addresses, hours, guarantees, or claims.
-- Use semantic Tailwind tokens only. Do not emit raw palette literals, remote URLs, placeholders, empty media frames, or starter markers.
-- The primary CTA must use the accepted target and a real accessible action. Keep all interactive targets at least 44px tall.
-- Use one deliberate display/body type relationship, varied section rhythm, and the selected pattern's signature. Avoid identical card grids.
-- Keep the editable response under 32 KiB and finish with exactly one done marker. Do not emit tools, shell actions, markdown fences, or prose outside tags.
-- If the brief is sparse, keep the page sparse. Do not pad it with generic sections.
+- Writable paths only: ${writablePaths.join(", ")}.
+- Emit exactly one plan, complete files, then one done marker. Never omit done. Finish immediately.
+- Compose @/components/site/layout primitives; do not rewrite them.
+- Render every populated contract fact. Never invent facts, claims, prices, contacts, routes, assets, or actions.
+- Preserve accepted CTA target, media mode, section IDs, kit identity, and semantic tokens.
+- No placeholders/remote URLs for graphic or typographic mode; no raw hex classes; actions ≥44px.
+- Editable files ≤3 and content ≤32 KiB. Sparse briefs stay sparse.
 `,
-    user: `Build ${input.contract.business.name} now from the immutable contract and selected kit. The generated project must stand alone after export. Project key: ${input.projectId}. The seeded content schema is ${input.schema?.businessName ?? input.contract.business.name}; read facts from @/content/site and never duplicate owner values in local invented arrays.`,
+    user: `Build the accepted Indonesian site for ${input.contract.business.name}. Read facts from @/content/site, do not invent local data. Project key: ${input.projectId}.`,
   };
 }
 

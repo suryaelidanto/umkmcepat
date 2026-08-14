@@ -62,7 +62,7 @@ describe("workspace chat sync", () => {
     expect(isBuildRecommendationHeld(changedCard, signature)).toBe(false);
   });
 
-  it("keeps the signature stable when handoffId/reviewHash are added (G6)", () => {
+  it("changes the signature when handoffId/reviewHash are added", () => {
     const base: WorkspaceCard = {
       type: "build_recommendation",
       engine: "legacy-v1",
@@ -78,7 +78,7 @@ describe("workspace chat sync", () => {
       reviewHash: "r1",
       reviewItems: [{ id: "f1", kind: "fact", label: "contact", value: "..." }],
     };
-    expect(getBuildRecommendationHoldSignature(withHandoff)).toBe(
+    expect(getBuildRecommendationHoldSignature(withHandoff)).not.toBe(
       getBuildRecommendationHoldSignature(base),
     );
   });

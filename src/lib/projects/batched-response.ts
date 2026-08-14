@@ -16,6 +16,7 @@
 // drop them at merge time so a stray emission triggers targeted repair
 // instead of a hard parse error.
 import {
+  normalizeWriterDesignPlanV2Candidate,
   parseWriterDesignPlanV2,
   type WriterDesignPlanV2,
 } from "./generated-site-design-plan";
@@ -194,6 +195,7 @@ export function createBatchedResponseParser(options?: {
     mediaMode: GeneratedSiteKitMediaMode;
     requiredSectionIds: string[];
   };
+  designPlanV2Fallback?: WriterDesignPlanV2;
 }): BatchedResponseParser {
   /**
    * Invariant: `pending` holds the unconsumed tail of the stream. Absolute
@@ -473,8 +475,12 @@ export function createBatchedResponseParser(options?: {
         }
         if (options?.designPlanV2Expected) {
           try {
+            const value = JSON.parse(raw) as unknown;
+            const frame = options.designPlanV2Fallback;
             designPlanV2 = parseWriterDesignPlanV2({
-              value: JSON.parse(raw) as unknown,
+              value: frame
+                ? normalizeWriterDesignPlanV2Candidate({ value, frame })
+                : value,
               expected: options.designPlanV2Expected,
             });
           } catch (error) {
@@ -501,7 +507,12 @@ export function createBatchedResponseParser(options?: {
       }
 
       case "file": {
-        if (options?.requireDesignPlan && !designPlan && !designPlanV2) {
+        if (
+          options?.requireDesignPlan &&
+          !designPlan &&
+          !designPlanV2 &&
+          !options.designPlanV2Fallback
+        ) {
           fail({
             code: "missing-design-plan",
             message: "design-plan must precede files.",
@@ -681,11 +692,15 @@ export function createBatchedResponseParser(options?: {
         throw hardError;
       }
       if (options?.requireDesignPlan && !designPlan && !designPlanV2) {
-        fail({
-          code: "missing-design-plan",
-          message: "design-plan is required.",
-          offset: consumedChars,
-        });
+        if (options.designPlanV2Fallback) {
+          designPlanV2 = options.designPlanV2Fallback;
+        } else {
+          fail({
+            code: "missing-design-plan",
+            message: "design-plan is required.",
+            offset: consumedChars,
+          });
+        }
       }
       finalResult = {
         designPlan,

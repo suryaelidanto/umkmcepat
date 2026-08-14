@@ -331,6 +331,7 @@ export function WorkspaceShell({
   const prompt = initialPrompt.trim();
   const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
   const buildRecommendationConsumedKey = `umkmcepat:build-recommendation-consumed:${projectId}`;
+  const handoffProofStorageKey = `umkmcepat:handoff-proof:${projectId}`;
   const visualAnnotationStorageKey = `umkmcepat:visual-comments:${projectId}`;
   const hasStartedChat = useRef(false);
   const hasStartedBuild = useRef(false);
@@ -973,19 +974,31 @@ export function WorkspaceShell({
         hasPersistedSource,
       });
       const activeCard = workspaceCardRef.current;
-      const handoffFields =
-        activeCard?.type === "build_recommendation" &&
-        (activeCard as { engine?: string }).engine === "contract-v1" &&
-        "handoffId" in activeCard &&
-        (activeCard as { handoffId: string }).handoffId &&
-        "reviewHash" in activeCard &&
-        (activeCard as { reviewHash: string }).reviewHash
+      const cardProof =
+        activeCard?.type === "build_recommendation"
           ? {
-              handoffId: (activeCard as { handoffId: string }).handoffId,
-              reviewHash: (activeCard as { reviewHash: string }).reviewHash,
-              idempotencyKey: `build-${projectId}-${(activeCard as { handoffId: string }).handoffId}`,
+              handoffId: (activeCard as { handoffId?: string }).handoffId,
+              reviewHash: (activeCard as { reviewHash?: string }).reviewHash,
+            }
+          : null;
+      const persistedProof = readHandoffProof(handoffProofStorageKey);
+      const proof: HandoffProof | null =
+        cardProof?.handoffId && cardProof?.reviewHash
+          ? { handoffId: cardProof.handoffId, reviewHash: cardProof.reviewHash }
+          : persistedProof;
+      const handoffFields =
+        proof?.handoffId && proof?.reviewHash
+          ? {
+              handoffId: proof.handoffId,
+              reviewHash: proof.reviewHash,
+              // Per-invocation nonce: a retry is a genuinely new build and must
+              // not collide with the first attempt's idempotency key.
+              idempotencyKey: `build-${projectId}-${proof.handoffId}-${Date.now().toString(36)}`,
             }
           : undefined;
+      if (proof) {
+        writeHandoffProof(handoffProofStorageKey, proof);
+      }
       const response = await fetch(`/api/projects/${projectId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -4221,8 +4234,44 @@ function readConsumedBuildRecommendationSignatures(
   }
 }
 
-// Proof-carrying gate: contract-v1 requires valid handoff proof; legacy
-// remains buildable. The brief is still required (prevents stale-card builds).
+type HandoffProof = { handoffId: string; reviewHash: string };
+
+function readHandoffProof(storageKey: string): HandoffProof | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Partial<HandoffProof>;
+    if (
+      typeof parsed.handoffId === "string" &&
+      typeof parsed.reviewHash === "string"
+    ) {
+      return { handoffId: parsed.handoffId, reviewHash: parsed.reviewHash };
+    }
+  } catch {
+    // Ignore corrupt localStorage; the card proof still covers first builds.
+  }
+  return null;
+}
+
+function writeHandoffProof(storageKey: string, proof: HandoffProof): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(proof));
+  } catch {
+    // Non-fatal: a retry without persisted proof falls back to the server's
+    // handoff-required message instead of a silent dead button.
+  }
+}
+
+// Proof-carrying gate: every build_recommendation must carry a valid handoff
+// proof. The brief is still required (prevents stale-card builds).
 export function canStartBuild(
   card: WorkspaceCard | null | undefined,
   _brief?: ProjectBrief | null | undefined,
@@ -4230,13 +4279,10 @@ export function canStartBuild(
   if (!card || card.type !== "build_recommendation") {
     return false;
   }
-  if ((card as { engine?: string }).engine === "contract-v1") {
-    const c = card as { handoffId?: string; reviewHash?: string };
-    return Boolean(
-      c.handoffId && c.reviewHash && /^[0-9a-f]{64}$/.test(c.reviewHash),
-    );
-  }
-  return true;
+  const c = card as { handoffId?: string; reviewHash?: string };
+  return Boolean(
+    c.handoffId && c.reviewHash && /^[0-9a-f]{64}$/.test(c.reviewHash),
+  );
 }
 
 // Legacy single-arg bridge — callers passing only a brief (e.g. older tests)

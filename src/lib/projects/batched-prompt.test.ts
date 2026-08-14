@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildReferenceCalibratedCorrectionPrompt,
   buildReferenceCalibratedWriterPrompt,
   buildTargetedRepairPrompt,
 } from "./batched-prompt";
@@ -95,8 +96,68 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     expect(prompt.system).toContain("bold-typographic");
     expect(prompt.system).toContain("full-field-lockup");
     expect(prompt.system).toContain("<design-plan>");
+    expect(prompt.system).toContain("src/content/site.ts");
+    expect(prompt.system).toContain("SiteSection accepts children");
+    expect(prompt.system).toContain("site.primaryCta is a string");
     expect(prompt.system).not.toContain("createGeneratedSiteRouteSource");
     expect(prompt.user).toContain("Usaha Sintetis");
+  });
+
+  it("forbids reasoning and keeps the V2 output contract compact", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+      hasOperationalDetails: false,
+    });
+    const prompt = buildReferenceCalibratedWriterPrompt({
+      contract: writerContract(),
+      kit,
+      projectId: "benchmark-project",
+      schema: {} as never,
+    });
+
+    expect(prompt.system).toContain("Emit no reasoning");
+    expect(prompt.system).toContain("Never omit done");
+    expect(prompt.system.length + prompt.user.length).toBeLessThan(12_000);
+  });
+});
+
+describe("buildReferenceCalibratedCorrectionPrompt", () => {
+  it("makes source, fact, and correction scope constraints explicit", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+      hasOperationalDetails: false,
+    });
+    const prompt = buildReferenceCalibratedCorrectionPrompt({
+      contract: writerContract(),
+      kit,
+      projectId: "benchmark-project",
+      acceptedPlan: null,
+      reason: "source_gate",
+      diagnostics: ["site.headline is not rendered"],
+      implicatedPaths: ["src/routes/index.tsx"],
+      files: [
+        {
+          path: "src/routes/index.tsx",
+          content: "export function HomeRouteComponent() { return null; }",
+        },
+      ],
+    });
+
+    expect(prompt.system).toContain("@/content/site");
+    expect(prompt.system).toContain("semantic Tailwind tokens");
+    expect(prompt.system).toContain("Never invent");
+    expect(prompt.system).toContain("site.headline");
+    expect(prompt.system).toContain("+6281100000000");
+    expect(prompt.system).toContain("SiteSplit accepts children");
+    expect(prompt.system).toContain("site.primaryCta is a string");
+    expect(prompt.user).toContain("site.headline is not rendered");
+    expect(prompt.user).toContain("src/routes/index.tsx");
   });
 });
 

@@ -80,6 +80,18 @@ describe("parseCanonicalBrief", () => {
     expect(brief.content.socialLinks).toEqual([]);
   });
 
+  it("rejects an invalid direct WhatsApp action target", () => {
+    const brief = parseCanonicalBrief({
+      primaryAction: {
+        kind: "whatsapp",
+        label: "Chat",
+        target: "my number is 1234",
+      },
+    });
+
+    expect(brief.primaryAction).toBeNull();
+  });
+
   it("round-trips canonical v2 without legacy aliases", () => {
     const initial = createInitialCanonicalBrief("  Buat situs toko  ");
     const parsed = parseCanonicalBrief({

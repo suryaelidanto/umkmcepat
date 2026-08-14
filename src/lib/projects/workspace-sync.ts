@@ -89,7 +89,18 @@ export function getBuildRecommendationHoldSignature(card: WorkspaceCard) {
     return "";
   }
 
-  return JSON.stringify([card.title, card.summary]);
+  const c = card as {
+    title: string;
+    summary: string[];
+    handoffId?: string;
+    reviewHash?: string;
+  };
+  return JSON.stringify([
+    c.title,
+    c.summary,
+    c.handoffId ?? null,
+    c.reviewHash ?? null,
+  ]);
 }
 
 export function isBuildRecommendationHeld(

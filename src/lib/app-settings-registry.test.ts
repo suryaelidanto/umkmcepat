@@ -53,16 +53,23 @@ describe("APP_SETTINGS registry", () => {
     }
   });
 
-  it("keeps only basic boolean controls in feature flags", () => {
+  it("keeps feature flags boolean and demotes dev knobs to advanced", () => {
     const featureFlags = APP_SETTINGS.filter(
       (entry) => entry.category === "feature_flag",
     );
 
     expect(featureFlags.length).toBeGreaterThan(0);
+    expect(featureFlags.every((entry) => entry.type === "boolean")).toBe(true);
+    const demoted = ["feature.thumbnail_capture_enabled"];
     expect(
-      featureFlags.every(
-        (entry) => entry.type === "boolean" && entry.tier === "basic",
-      ),
+      featureFlags
+        .filter((entry) => !demoted.includes(entry.key))
+        .every((entry) => entry.tier === "basic"),
+    ).toBe(true);
+    expect(
+      featureFlags
+        .filter((entry) => demoted.includes(entry.key))
+        .every((entry) => entry.tier === "advanced"),
     ).toBe(true);
     expect(
       featureFlags.find(
@@ -78,21 +85,6 @@ describe("APP_SETTINGS registry", () => {
       featureFlags.find((entry) => entry.key === "feature.direct_edit_enabled")
         ?.fallback,
     ).toBe(false);
-  });
-
-  it("defaults reference-calibrated generation to disabled shadow mode", () => {
-    expect(
-      APP_SETTINGS.find(
-        (entry) =>
-          entry.key === "feature.reference_calibrated_generation_enabled",
-      ),
-    ).toMatchObject({ type: "boolean", fallback: false });
-    expect(
-      APP_SETTINGS.find(
-        (entry) =>
-          entry.key === "feature.reference_calibrated_generation_shadow",
-      ),
-    ).toMatchObject({ type: "boolean", fallback: true });
   });
 
   it("keeps critic sampling in generated-site quality as a percentage", () => {

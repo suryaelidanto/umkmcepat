@@ -137,10 +137,15 @@ export async function loadAcceptedHandoffForAttempt(input: {
 
 /** Create (or reuse) an immutable draft handoff for a contract/plan pair.
  * Idempotent on the revision-unique constraint; equal semantic content at a
- * later revision creates a distinct row. */
-export async function createDraftHandoff(
-  input: CreateHandoffInput,
-): Promise<{ id: string; reused: boolean }> {
+ * later revision creates a distinct row. Returns the stored review hash and
+ * review items so callers always emit a card that matches the row — never a
+ * freshly-computed hash that could diverge from the reused row. */
+export async function createDraftHandoff(input: CreateHandoffInput): Promise<{
+  id: string;
+  reused: boolean;
+  reviewHash: string;
+  reviewItems: unknown;
+}> {
   const existing = await prisma.projectBuildHandoff.findUnique({
     where: {
       projectId_contractRevision_planRevision: {
@@ -149,10 +154,59 @@ export async function createDraftHandoff(
         planRevision: input.planRevision,
       },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      contractHash: true,
+      planHash: true,
+      reviewHash: true,
+      reviewItems: true,
+    },
   });
   if (existing) {
-    return { id: existing.id, reused: true };
+    const sameContent =
+      existing.contractHash === input.contractHash &&
+      existing.planHash === input.planHash;
+    if (sameContent) {
+      return {
+        id: existing.id,
+        reused: true,
+        reviewHash: existing.reviewHash,
+        reviewItems: existing.reviewItems,
+      };
+    }
+    // Content changed at the same nominal revision: bump to the next
+    // contract revision instead of silently reusing a stale immutable row.
+    const latest = await prisma.projectBuildHandoff.findFirst({
+      where: { projectId: input.projectId },
+      orderBy: { contractRevision: "desc" },
+      select: { contractRevision: true },
+    });
+    const nextRevision = (latest?.contractRevision ?? 0) + 1;
+    const created = await prisma.projectBuildHandoff.create({
+      data: {
+        projectId: input.projectId,
+        userId: input.userId,
+        engine: input.engine,
+        briefSnapshot: input.briefSnapshot as object,
+        briefHash: input.briefHash,
+        briefRevision: input.briefRevision,
+        contract: input.contract as object,
+        plan: input.plan as object,
+        contractHash: input.contractHash,
+        planHash: input.planHash,
+        reviewItems: input.reviewItems as object,
+        reviewHash: input.reviewHash,
+        contractRevision: nextRevision,
+        planRevision: input.planRevision,
+      },
+      select: { id: true },
+    });
+    return {
+      id: created.id,
+      reused: false,
+      reviewHash: input.reviewHash,
+      reviewItems: input.reviewItems,
+    };
   }
   const created = await prisma.projectBuildHandoff.create({
     data: {
@@ -173,7 +227,12 @@ export async function createDraftHandoff(
     },
     select: { id: true },
   });
-  return { id: created.id, reused: false };
+  return {
+    id: created.id,
+    reused: false,
+    reviewHash: input.reviewHash,
+    reviewItems: input.reviewItems,
+  };
 }
 
 /** Resolve the selected contract-v1 deployment's handoff for a project. */

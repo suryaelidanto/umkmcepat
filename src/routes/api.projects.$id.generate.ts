@@ -236,7 +236,10 @@ export async function handleGeneratePost(request: Request, routeId: string) {
           message.includes("handoff not found")
         ) {
           await finalizeProjectOperation({
-            data: { buildStatus: "failed", status: "failed" },
+            // A stale/missing handoff is a client-state problem, not a real
+            // build failure. Release the lease and return to discuss so the
+            // user can continue — never poison the project into `failed`.
+            data: { buildStatus: "not_started", status: "discussing" },
             projectId,
             token: operation.token,
             userId,

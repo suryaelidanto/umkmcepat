@@ -7,6 +7,7 @@ const {
   buildGeneratedProjectMock,
   generateTextMock,
   loadAcceptedHandoffMock,
+  runGeneratedSiteShadowCandidateMock,
   qualifyGeneratedSiteMock,
 } = vi.hoisted(() => ({
   runBatchedGenerateMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
     ],
   })),
   loadAcceptedHandoffMock: vi.fn(),
+  runGeneratedSiteShadowCandidateMock: vi.fn(),
   qualifyGeneratedSiteMock: vi.fn(async (files) => ({
     ok: true,
     files,
@@ -191,6 +193,10 @@ vi.mock("@/lib/projects/project-thumbnail", () => ({
   refreshProjectThumbnail: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/lib/projects/generated-site-shadow", () => ({
+  runGeneratedSiteShadowCandidate: runGeneratedSiteShadowCandidateMock,
+}));
+
 vi.mock("@/lib/projects/build-attempt-pubsub", () => ({
   publishBuildProgress: vi.fn(),
 }));
@@ -251,7 +257,7 @@ describe("runBuildAttempt — contract-v1 batched writer", () => {
     }));
   });
 
-  it("enabled landing quality skips the spec call and passes the compiled contract", async () => {
+  it("landing quality uses the reference-calibrated candidate (no spec call, no batched writer)", async () => {
     getSettingSyncMock.mockImplementation((key: string, fallback: unknown) => {
       if (key === "feature.composer_uploads_enabled") {
         return false;
@@ -334,26 +340,58 @@ describe("runBuildAttempt — contract-v1 batched writer", () => {
       contractRevision: 1,
       planRevision: 1,
     });
-    runBatchedGenerateMock.mockResolvedValue({
+    runGeneratedSiteShadowCandidateMock.mockResolvedValue({
       ok: true,
       files: [{ path: "src/routes/index.tsx", content: "export const x = 1;" }],
-      repairRounds: 0,
-      summary: "writer ok",
-      writtenPaths: ["src/routes/index.tsx"],
+      designPlan: null,
+      proof: {
+        schemaVersion: 2,
+        engine: "reference-calibrated-single-shot",
+        contractHash: "c".repeat(64),
+        planHash: "p".repeat(64),
+        kitId: "editorial-airy",
+        kitVersion: 1,
+        designPlanHash: null,
+        mediaMode: "graphic",
+        calls: {
+          writerCalls: 1,
+          criticCalls: 1,
+          correctionCalls: 0,
+          correctionReason: null,
+        },
+        gates: {
+          response: "not_run",
+          source: "not_run",
+          build: "not_run",
+          browser: "not_run",
+          visual: "not_run",
+        },
+        visualFindings: { critical: 0, high: 0, medium: 0, low: 0 },
+        timingsMs: {
+          contract: 0,
+          writer: 0,
+          sourceGates: 0,
+          build: 0,
+          browser: 0,
+          critic: 0,
+          correction: 0,
+          totalToDecision: 0,
+        },
+        output: {
+          editableFileCount: 0,
+          editableBytes: 0,
+          firstFileClosedMs: null,
+        },
+        outcome: "fail",
+      },
     });
 
     await runBuildAttempt(baseContext());
 
     expect(loadAcceptedHandoffMock).toHaveBeenCalledTimes(1);
     expect(generateTextMock).not.toHaveBeenCalled();
-    expect(runBatchedGenerateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contract: expect.objectContaining({
-          page: expect.objectContaining({ appKind: "landing" }),
-          design: expect.objectContaining({ mediaMode: "graphic" }),
-        }),
-      }),
-    );
+    expect(runGeneratedSiteShadowCandidateMock).toHaveBeenCalledTimes(1);
+    expect(runBatchedGenerateMock).not.toHaveBeenCalled();
   });
 
   it("batched writer ALWAYS runs (no rollout flag, no legacy fallback)", async () => {

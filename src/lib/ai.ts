@@ -56,5 +56,8 @@ export function getAiModel(model = getDefaultAiModel()) {
 export function getNoReasoningCallOptions() {
   return {
     reasoning: "none" as const,
+    providerOptions: {
+      "9router": { reasoningEffort: "none" },
+    },
   };
 }

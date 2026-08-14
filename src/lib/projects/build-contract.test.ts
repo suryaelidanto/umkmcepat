@@ -71,6 +71,16 @@ describe("parseBuildContract", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("rejects an invalid WhatsApp contact target", () => {
+    const bad = baseContract();
+    bad.facts[0]!.value = {
+      channel: "whatsapp" as const,
+      value: "my number is 1234",
+    };
+
+    expect(parseBuildContract(bad).ok).toBe(false);
+  });
+
   it("rejects unknown fact kinds and duplicate fact ids", () => {
     const bad = baseContract();
     bad.facts[0]!.kind = "nope" as never;

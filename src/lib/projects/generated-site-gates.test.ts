@@ -227,6 +227,29 @@ function _v2Plan(): WriterDesignPlanV2 {
 }
 
 describe("reference-calibrated generated site source gates", () => {
+  it("accepts an international WhatsApp URL for a local accepted target", () => {
+    const input = v2Contract();
+    input.business.primaryCta.target = "08123456789";
+    const result = inspectReferenceCalibratedSiteSource({
+      contract: input,
+      kit: v2Kit(),
+      designPlan: _v2Plan(),
+      files: [
+        {
+          path: "src/routes/index.tsx",
+          content: `import { site } from "@/content/site"; import { usePreviewReady } from "@/lib/preview-ready"; import { SiteSection } from "@/components/site/layout"; export function HomeRouteComponent() { usePreviewReady(); return <main data-pattern="full-field-lockup"><SiteSection><h1>{site.headline}</h1><p>{site.subheadline}</p><a href="https://wa.me/628123456789">{site.primaryCta}</a></SiteSection></main>; }`,
+        },
+      ],
+      starterIndexSource: "starter",
+      themeChecks: [],
+    });
+    expect(
+      result.findings.some(
+        (finding) => finding.code === "primary-cta-target-missing",
+      ),
+    ).toBe(false);
+  });
+
   it("rejects fixed-renderer residue and no-photo placeholders", () => {
     const result = inspectReferenceCalibratedSiteSource({
       contract: v2Contract(),
