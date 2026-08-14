@@ -8,6 +8,16 @@ export type GeneratedSiteDesignKitId =
 export type GeneratedSiteKitDensity = "sparse" | "regular" | "rich";
 export type GeneratedSiteKitMediaMode =
   "owner_assets" | "graphic" | "typographic";
+
+export type GeneratedSiteTasteProfile = {
+  variance: number;
+  motion: number;
+  density: number;
+  shape: "sharp" | "soft" | "pill";
+  typeGuidance: string;
+  signatureBudget: 1;
+};
+
 export type GeneratedSitePrimaryJobKind =
   "browse" | "compare" | "inquire" | "book" | "visit";
 
@@ -35,6 +45,7 @@ export type GeneratedSiteDesignKitV1 = {
     backgroundLightness: "light" | "dark" | "either";
     accentSurfaceMaximum: number;
   };
+  taste: GeneratedSiteTasteProfile;
   rhythm: {
     sectionSpacingRem: [number, number];
     allowAlternatingSurfaces: boolean;

@@ -59,6 +59,15 @@ const kits: GeneratedSiteDesignKitV1[] = [
       backgroundLightness: "light",
       accentSurfaceMaximum: 0.1,
     },
+    taste: {
+      variance: 5,
+      motion: 2,
+      density: 3,
+      shape: "soft",
+      typeGuidance:
+        "Use a restrained serif display only when it clarifies the business story; keep body copy in a highly readable sans.",
+      signatureBudget: 1,
+    },
     rhythm: {
       sectionSpacingRem: [4, 8],
       allowAlternatingSurfaces: true,
@@ -126,6 +135,15 @@ const kits: GeneratedSiteDesignKitV1[] = [
       temperature: "warm",
       backgroundLightness: "light",
       accentSurfaceMaximum: 0.1,
+    },
+    taste: {
+      variance: 4,
+      motion: 2,
+      density: 5,
+      shape: "sharp",
+      typeGuidance:
+        "Use a clear display/body contrast for scanning choices; never let decorative type compete with menu details or ordering actions.",
+      signatureBudget: 1,
     },
     rhythm: {
       sectionSpacingRem: [4, 7],
@@ -202,6 +220,15 @@ const kits: GeneratedSiteDesignKitV1[] = [
       backgroundLightness: "light",
       accentSurfaceMaximum: 0.1,
     },
+    taste: {
+      variance: 6,
+      motion: 2,
+      density: 5,
+      shape: "soft",
+      typeGuidance:
+        "Give the catalog one confident display voice and a calm sans for product comparison; vary scale and surface instead of repeating cards.",
+      signatureBudget: 1,
+    },
     rhythm: {
       sectionSpacingRem: [4, 8],
       allowAlternatingSurfaces: true,
@@ -272,6 +299,15 @@ const kits: GeneratedSiteDesignKitV1[] = [
       backgroundLightness: "light",
       accentSurfaceMaximum: 0.1,
     },
+    taste: {
+      variance: 5,
+      motion: 2,
+      density: 4,
+      shape: "soft",
+      typeGuidance:
+        "Use one warm, legible display treatment for the offer and a steady sans for decisions; the shopping path matters more than decoration.",
+      signatureBudget: 1,
+    },
     rhythm: {
       sectionSpacingRem: [3.5, 7],
       allowAlternatingSurfaces: true,
@@ -340,6 +376,15 @@ const kits: GeneratedSiteDesignKitV1[] = [
       temperature: "cool",
       backgroundLightness: "dark",
       accentSurfaceMaximum: 0.1,
+    },
+    taste: {
+      variance: 7,
+      motion: 2,
+      density: 3,
+      shape: "sharp",
+      typeGuidance:
+        "Let a single sans display voice carry the statement; use weight, scale, and space for character instead of novelty fonts or effects.",
+      signatureBudget: 1,
     },
     rhythm: {
       sectionSpacingRem: [3, 6],

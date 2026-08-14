@@ -4,7 +4,9 @@ import {
   deriveGeneratedSiteKitSelectionInput,
   selectGeneratedSiteDesignKit,
 } from "./catalog";
+import { deriveGeneratedSitePageStrategy } from "../generated-site-design-quality";
 
+import type { GeneratedSiteWriterContractV2 } from "../generated-site-contract";
 import type { GeneratedSiteKitSelectionInput } from "./types";
 
 describe("generated-site design kit catalog", () => {
@@ -24,6 +26,14 @@ describe("generated-site design kit catalog", () => {
       expect(kit.browserAssertions.length).toBeGreaterThan(0);
       expect(kit.criticRubric.length).toBeGreaterThan(0);
       expect(kit.primitiveFileIds.length).toBeGreaterThan(0);
+      expect(kit.taste.variance).toBeGreaterThanOrEqual(1);
+      expect(kit.taste.variance).toBeLessThanOrEqual(10);
+      expect(kit.taste.motion).toBeGreaterThanOrEqual(1);
+      expect(kit.taste.motion).toBeLessThanOrEqual(10);
+      expect(kit.taste.density).toBeGreaterThanOrEqual(1);
+      expect(kit.taste.density).toBeLessThanOrEqual(10);
+      expect(kit.taste.signatureBudget).toBe(1);
+      expect(kit.taste.typeGuidance.trim()).not.toBe("");
     }
   });
 
@@ -80,6 +90,54 @@ describe("generated-site design kit catalog", () => {
     ],
   ] as const)("selects a compatible executable kit", (input, expected) => {
     expect(selectGeneratedSiteDesignKit(input)).toMatchObject({ id: expected });
+  });
+
+  it("keeps one primary job on one page", () => {
+    expect(
+      deriveGeneratedSitePageStrategy({
+        obligations: {
+          routes: [
+            {
+              path: "/",
+              purpose: "Beranda",
+              requiredFactIds: [],
+              requiredSectionIds: ["hero"],
+            },
+          ],
+        },
+      } as unknown as GeneratedSiteWriterContractV2),
+    ).toEqual({
+      mode: "single",
+      reason: "single-primary-job",
+      routeCount: 1,
+    });
+  });
+
+  it("does not collapse distinct accepted routes into one page", () => {
+    expect(
+      deriveGeneratedSitePageStrategy({
+        obligations: {
+          routes: [
+            {
+              path: "/",
+              purpose: "Beranda",
+              requiredFactIds: [],
+              requiredSectionIds: ["hero"],
+            },
+            {
+              path: "/katalog",
+              purpose: "Katalog",
+              requiredFactIds: ["offer-1"],
+              requiredSectionIds: ["catalog"],
+            },
+          ],
+        },
+      } as unknown as GeneratedSiteWriterContractV2),
+    ).toMatchObject({
+      mode: "multi",
+      reason: "distinct-routes",
+      routeCount: 2,
+    });
   });
 
   it("derives stable traits without copying owner copy", () => {
