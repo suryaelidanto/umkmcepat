@@ -52,6 +52,31 @@ describe("compileShadcnTheme", () => {
     expect(result.checks.every((check) => check.pass)).toBe(true);
   });
 
+  it("keeps muted surfaces readable for body text", () => {
+    const result = compileShadcnTheme(
+      schema({
+        background: "#f7f3ec",
+        foreground: "#3d2b1f",
+        muted: "#6b706d",
+        accent: "#d4a017",
+      }),
+    );
+    const muted = /--muted:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
+    const mutedForeground = /--muted-foreground:\s*(#[0-9a-f]{6})/i.exec(
+      result.css,
+    )?.[1];
+
+    expect(muted).toBeDefined();
+    expect(mutedForeground).toBeDefined();
+    expect(contrastRatio("#3d2b1f", muted!)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(mutedForeground!, muted!)).toBeGreaterThanOrEqual(4.5);
+    expect(
+      result.checks.some(
+        (check) => check.role === "muted-foreground" && check.pass,
+      ),
+    ).toBe(true);
+  });
+
   it("keeps the compatibility CSS entry point deterministic", () => {
     const value = schema({
       background: "#f7f7f7",

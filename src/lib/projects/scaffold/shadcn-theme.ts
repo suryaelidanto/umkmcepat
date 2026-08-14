@@ -23,7 +23,7 @@ export function compileShadcnTheme(
 ): CompiledShadcnTheme {
   const background = validHex(schema.theme.background);
   const foreground = readable(schema.theme.foreground, background, 4.5);
-  const muted = validHex(schema.theme.muted);
+  const muted = readableSurface(schema.theme.muted, foreground, background);
   const accent = validHex(schema.theme.accent);
   const border = mix(foreground, "transparent", 12);
   const input = mix(foreground, "transparent", 20);
@@ -33,7 +33,7 @@ export function compileShadcnTheme(
   const primaryForeground = bestReadable(accent, 4.5);
   const secondary = mix(foreground, background, 8);
   const secondaryForeground = foreground;
-  const mutedForeground = readable(foreground, background, 4.5);
+  const mutedForeground = readable(foreground, muted, 4.5);
   const accentForeground = bestReadable(accent, 4.5);
   const destructive = "#dc2626";
   const destructiveForeground = bestReadable(destructive, 4.5);
@@ -41,7 +41,8 @@ export function compileShadcnTheme(
 
   const checks = [
     contrastCheck("foreground", foreground, background, 4.5),
-    contrastCheck("muted-foreground", mutedForeground, background, 4.5),
+    contrastCheck("muted-surface", foreground, muted, 4.5),
+    contrastCheck("muted-foreground", mutedForeground, muted, 4.5),
     contrastCheck("primary-foreground", primaryForeground, primary, 4.5),
     contrastCheck("accent-foreground", accentForeground, accent, 4.5),
     contrastCheck(
@@ -163,6 +164,33 @@ function validHex(value: string): string {
     throw new Error(`invalid generated theme color: ${value}`);
   }
   return normalized;
+}
+
+function readableSurface(
+  preferred: string,
+  foreground: string,
+  background: string,
+): string {
+  const normalized = validHex(preferred);
+  if (contrastRatio(foreground, normalized) >= 4.5) {
+    return normalized;
+  }
+  const adjusted = blendHex(background, foreground, 8);
+  return contrastRatio(foreground, adjusted) >= 4.5 ? adjusted : background;
+}
+
+function blendHex(base: string, overlay: string, percent: number): string {
+  const baseChannels = [1, 3, 5].map((offset) =>
+    Number.parseInt(base.slice(offset, offset + 2), 16),
+  );
+  const overlayChannels = [1, 3, 5].map((offset) =>
+    Number.parseInt(overlay.slice(offset, offset + 2), 16),
+  );
+  const weight = percent / 100;
+  const channels = baseChannels.map((channel, index) =>
+    Math.round(channel + (overlayChannels[index] - channel) * weight),
+  );
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function readable(
