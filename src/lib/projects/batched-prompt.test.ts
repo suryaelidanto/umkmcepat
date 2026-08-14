@@ -96,6 +96,7 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     expect(prompt.system).toContain("bold-typographic");
     expect(prompt.system).toContain("full-field-lockup");
     expect(prompt.system).toContain("DESIGN STANDARDS");
+    expect(prompt.system).toContain("meaningful inline SVG");
     expect(prompt.system).toContain(
       "platform supplies the accepted design plan",
     );

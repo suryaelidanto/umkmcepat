@@ -18,7 +18,7 @@ import { deriveGeneratedSitePageStrategy } from "@/lib/projects/generated-site-d
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
-const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS (non-negotiable): Make the business job obvious in the first view and give the page one strong visual idea, not an empty card or generic template. Use readable contrast (body text ≥4.5:1), compiled semantic tokens, and text-muted-foreground for supporting text. text-muted is surface-only. Never use border-l-2/border-r-2 side stripes, empty framed shapes, fake media, gradients, repeated tracked eyebrows, or numbered scaffolding. Use varied rhythm, purposeful product information, and one deliberate signature. Keep the route compact and useful on mobile.`;
+const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS (non-negotiable): Make the business job obvious in the first view and give the page one strong visual idea, not an empty card or generic template. Use readable contrast (body text ≥4.5:1), compiled semantic tokens, and text-muted-foreground for supporting text. text-muted is surface-only. Never use border-l-2/border-r-2 side stripes, empty framed shapes, fake media, gradients, repeated tracked eyebrows, or numbered scaffolding. In graphic mode, use a meaningful inline SVG with visible paths or omit the media panel; never emit an empty span or div as a product image. Use varied rhythm, purposeful product information, and one deliberate signature. Keep the route compact and useful on mobile.`;
 
 export function buildReferenceCalibratedCorrectionPrompt(input: {
   contract: GeneratedSiteWriterContractV2;
