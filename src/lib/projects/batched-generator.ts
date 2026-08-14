@@ -837,6 +837,9 @@ export async function runOneStreamedResponse(args: {
           }
           lastFileCount = parser.stagedPaths.length;
         }
+        if (parser.stoppedAfterFilePath) {
+          break;
+        }
       } else if (part.type === "error") {
         throw part.error instanceof Error
           ? part.error

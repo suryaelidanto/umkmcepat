@@ -254,7 +254,7 @@ export function inspectReferenceCalibratedSiteSource(input: {
   }
   findings.push(
     ...inspectGeneratedSiteTasteSource({
-      source,
+      source: index ?? source,
       sectionCount: input.contract.obligations.sections.length,
     }),
   );

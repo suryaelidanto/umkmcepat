@@ -260,6 +260,7 @@ describe("batched response parser — design plan", () => {
     parser.push(
       '<file path="src/routes/index.tsx">export function HomeRouteComponent() { return null; }</file><file path="src/routes/ignored.tsx">ignored</file>',
     );
+    expect(parser.stoppedAfterFilePath).toBe(true);
 
     const result = parser.finalize();
     expect(result.done).toEqual({ summary: "Route file emitted." });

@@ -106,6 +106,8 @@ export type BatchedResponseParser = {
   stagedFile: (path: string) => BatchedFile | undefined;
   /** True once a hard error has latched. */
   readonly failed: boolean;
+  /** True when the configured complete-file stop boundary has been reached. */
+  readonly stoppedAfterFilePath: boolean;
 };
 
 /**
@@ -665,6 +667,9 @@ export function createBatchedResponseParser(options?: {
   return {
     get failed() {
       return hardError !== null;
+    },
+    get stoppedAfterFilePath() {
+      return stoppedAfterFilePath;
     },
     get stagedPaths() {
       return [...files.keys()];
