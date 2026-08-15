@@ -265,6 +265,31 @@ describe("reference-calibrated generated site source gates", () => {
       '<p className="text-muted">A</p>',
       "uncompiled-theme-utility",
     ],
+    // --color-card, --color-background, --color-popover, and --color-secondary
+    // are all registered Tailwind tokens (compileShadcnTheme needs them for
+    // bg-*), so text-card/text-background/etc. are syntactically valid but
+    // read a surface colour as text — invisible on that surface (ratio 1.00).
+    // Reproduced live: a real build failed computed-contrast at exactly 1.00.
+    [
+      "uses the card surface token as text",
+      '<p className="text-card">A</p>',
+      "uncompiled-theme-utility",
+    ],
+    [
+      "uses the background surface token as text",
+      '<p className="text-background">A</p>',
+      "uncompiled-theme-utility",
+    ],
+    [
+      "uses the popover surface token as text",
+      '<p className="text-popover">A</p>',
+      "uncompiled-theme-utility",
+    ],
+    [
+      "uses the secondary surface token as text",
+      '<p className="text-secondary">A</p>',
+      "uncompiled-theme-utility",
+    ],
     [
       "uses a thick colored side stripe",
       '<li className="border-l-2 border-accent">A</li>',

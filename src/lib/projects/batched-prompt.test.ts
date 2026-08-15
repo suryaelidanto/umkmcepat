@@ -194,7 +194,7 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     expect(prompt.system).toContain("site.primaryCta is a string");
     expect(prompt.system).toContain("Never read site.theme in JSX");
     expect(prompt.system).toContain(
-      "text-muted is a surface token, never a text color",
+      "text-muted, text-card, text-popover, text-secondary, and text-background are surface tokens, never text colors",
     );
     expect(prompt.system).toContain("one deliberate signature");
     expect(prompt.system).toContain(
@@ -283,7 +283,7 @@ describe("buildReferenceCalibratedCorrectionPrompt", () => {
     expect(prompt.system).toContain("DESIGN STANDARDS");
     expect(prompt.system).toContain("semantic Tailwind tokens");
     expect(prompt.system).toContain(
-      "text-muted is a surface token, never a text color",
+      "text-muted, text-card, text-popover, text-secondary, and text-background are surface tokens, never text colors",
     );
     expect(prompt.system).toContain("Never invent");
     expect(prompt.system).toContain("site.headline");

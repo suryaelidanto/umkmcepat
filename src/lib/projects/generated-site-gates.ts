@@ -10,6 +10,18 @@ import type { WriterDesignPlanV2 } from "./generated-site-design-plan";
 import type { GeneratedProjectFile } from "./generated-types";
 import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
 
+/**
+ * compileShadcnTheme registers --color-card, --color-background,
+ * --color-popover, --color-secondary, and --color-muted as real Tailwind
+ * tokens — bg-* needs them. That makes text-card, text-background, etc.
+ * syntactically valid but semantically wrong: they read a surface colour as
+ * text, so text-card on bg-card renders invisible (contrast ratio exactly
+ * 1.00). Only the -foreground-paired token is contrast-guaranteed as text.
+ * Reproduced live: a real build failed computed-contrast at 1.00 this way.
+ */
+const SURFACE_TOKEN_AS_TEXT =
+  /\btext-(?:muted|card|background|popover|secondary)\b(?!-)/;
+
 export function inspectGeneratedSiteTasteSource(input: {
   source: string;
   sectionCount: number;
@@ -90,7 +102,7 @@ export function inspectGeneratedSiteTasteSource(input: {
     /\b(?:bg|text|border)-(?:white|black|gray(?:-[\w/]+)?|slate(?:-[\w/]+)?|zinc(?:-[\w/]+)?|stone(?:-[\w/]+)?|neutral(?:-[\w/]+)?)\b/.test(
       input.source,
     ) ||
-    /\btext-muted\b(?!-)/.test(input.source)
+    SURFACE_TOKEN_AS_TEXT.test(input.source)
   ) {
     add(
       findings,
@@ -387,7 +399,15 @@ export function normalizeBatchedSiteAnchors(
         .replace(/\bh-screen\b/g, "min-h-dvh")
         .replace(/\bmin-min-h-dvh\b/g, "min-h-dvh")
         .replace(/\s+data-generated-site-starter(?:=["'][^"']*["'])?/gi, "")
+        // Surface tokens read as text (see SURFACE_TOKEN_AS_TEXT above) are
+        // self-healed to their real -foreground pairing before the gate ever
+        // has to reject the candidate. background has no background-foreground
+        // token — its pairing is plain foreground.
         .replace(/\btext-muted\b(?!-)/g, "text-muted-foreground")
+        .replace(/\btext-card\b(?!-)/g, "text-card-foreground")
+        .replace(/\btext-popover\b(?!-)/g, "text-popover-foreground")
+        .replace(/\btext-secondary\b(?!-)/g, "text-secondary-foreground")
+        .replace(/\btext-background\b(?!-)/g, "text-foreground")
         .replace(/\bborder-(?:l|r)-(?:2|3|4|5|6|8|\[[^\]]+\])\b/g, "")
         .replace(
           /<SiteCluster\b([^>]*)>/g,
