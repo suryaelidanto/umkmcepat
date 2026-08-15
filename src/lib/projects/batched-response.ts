@@ -20,12 +20,18 @@ import {
   parseWriterDesignPlanV2,
   type WriterDesignPlanV2,
 } from "./generated-site-design-plan";
+import {
+  parseWriterDesignPlanV3,
+  type WriterDesignPlanV3,
+} from "./professional-site-plan";
 import { SHADCN_COMPONENT_BY_NAME } from "./scaffold/shadcn-components";
 
 import type {
   GeneratedSiteDesignKitV1,
   GeneratedSiteKitMediaMode,
 } from "./generated-site-design-kits/types";
+import type { ProfessionalSiteBlueprintV1 } from "./professional-site-blueprint";
+import type { GeneratedSiteDesignKitV2 } from "./professional-site-kits";
 
 export function isAllowedBatchedPath(path: string): boolean {
   if (!path || typeof path !== "string") {
@@ -70,6 +76,8 @@ export type WriterDesignPlanV1 = {
 export type BatchedParseResult = {
   designPlan: WriterDesignPlanV1 | null;
   designPlanV2: WriterDesignPlanV2 | null;
+  designPlanV3: WriterDesignPlanV3 | null;
+  stoppedAfterRequiredFilePaths: boolean;
   diagnostics: BatchedDiagnostic[];
   done: { summary: string } | null;
   files: Map<string, BatchedFile>;
@@ -108,6 +116,8 @@ export type BatchedResponseParser = {
   readonly failed: boolean;
   /** True when the configured complete-file stop boundary has been reached. */
   readonly stoppedAfterFilePath: boolean;
+  /** True once every configured required V3 file has closed. */
+  readonly stoppedAfterRequiredFilePaths: boolean;
 };
 
 /**
@@ -191,6 +201,12 @@ function parseWriterDesignPlan(
 
 export function createBatchedResponseParser(options?: {
   requireDesignPlan?: boolean;
+  designPlanV3Expected?: {
+    blueprint: ProfessionalSiteBlueprintV1;
+    kit: GeneratedSiteDesignKitV2;
+  };
+  requiredFilePaths?: string[];
+  stopAfterRequiredFilePaths?: boolean;
   designPlanV2Expected?: {
     contractHash: string;
     kit: GeneratedSiteDesignKitV1;
@@ -212,8 +228,12 @@ export function createBatchedResponseParser(options?: {
   const diagnostics: BatchedDiagnostic[] = [];
   let designPlan: WriterDesignPlanV1 | null = null;
   let designPlanV2: WriterDesignPlanV2 | null = null;
+  let designPlanV3: WriterDesignPlanV3 | null = null;
   let doneSummary: string | null = null;
   let stoppedAfterFilePath = false;
+  let stoppedAfterRequiredFilePaths = false;
+  const requiredFilePaths = new Set(options?.requiredFilePaths ?? []);
+  const closedRequiredFilePaths = new Set<string>();
   let hardError: BatchedParseError | null = null;
   let finalizeCalled = false;
   let finalResult: BatchedParseResult | null = null;
@@ -376,7 +396,7 @@ export function createBatchedResponseParser(options?: {
     if (!pending) {
       return false;
     }
-    if (stoppedAfterFilePath) {
+    if (stoppedAfterFilePath || stoppedAfterRequiredFilePaths) {
       consume(pending.length);
       return true;
     }
@@ -448,7 +468,7 @@ export function createBatchedResponseParser(options?: {
             offset: tagOffset,
           });
         }
-        if (designPlan) {
+        if (designPlan || designPlanV2 || designPlanV3) {
           fail({
             code: "duplicate-design-plan",
             message: "only one design-plan is allowed.",
@@ -482,7 +502,24 @@ export function createBatchedResponseParser(options?: {
             offset: tagOffset,
           });
         }
-        if (options?.designPlanV2Expected) {
+        if (options?.designPlanV3Expected) {
+          try {
+            designPlanV3 = parseWriterDesignPlanV3({
+              value: JSON.parse(raw) as unknown,
+              blueprint: options.designPlanV3Expected.blueprint,
+              kit: options.designPlanV3Expected.kit,
+            });
+          } catch (error) {
+            fail({
+              code: "invalid-design-plan",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "invalid V3 design-plan",
+              offset: tagOffset,
+            });
+          }
+        } else if (options?.designPlanV2Expected) {
           try {
             const value = JSON.parse(raw) as unknown;
             const frame = options.designPlanV2Fallback;
@@ -520,6 +557,7 @@ export function createBatchedResponseParser(options?: {
           options?.requireDesignPlan &&
           !designPlan &&
           !designPlanV2 &&
+          !designPlanV3 &&
           !options.designPlanV2Fallback
         ) {
           fail({
@@ -581,6 +619,16 @@ export function createBatchedResponseParser(options?: {
         consume(closeIndex + "</file>".length);
         if (path === options?.stopAfterFilePath) {
           stoppedAfterFilePath = true;
+        }
+        if (requiredFilePaths.has(path)) {
+          closedRequiredFilePaths.add(path);
+          if (
+            options?.stopAfterRequiredFilePaths &&
+            requiredFilePaths.size > 0 &&
+            closedRequiredFilePaths.size === requiredFilePaths.size
+          ) {
+            stoppedAfterRequiredFilePaths = true;
+          }
         }
         return true;
       }
@@ -671,6 +719,9 @@ export function createBatchedResponseParser(options?: {
     get stoppedAfterFilePath() {
       return stoppedAfterFilePath;
     },
+    get stoppedAfterRequiredFilePaths() {
+      return stoppedAfterRequiredFilePaths;
+    },
     get stagedPaths() {
       return [...files.keys()];
     },
@@ -706,7 +757,12 @@ export function createBatchedResponseParser(options?: {
       if (hardError) {
         throw hardError;
       }
-      if (options?.requireDesignPlan && !designPlan && !designPlanV2) {
+      if (
+        options?.requireDesignPlan &&
+        !designPlan &&
+        !designPlanV2 &&
+        !designPlanV3
+      ) {
         if (options.designPlanV2Fallback) {
           designPlanV2 = options.designPlanV2Fallback;
         } else {
@@ -717,14 +773,31 @@ export function createBatchedResponseParser(options?: {
           });
         }
       }
+      if (
+        requiredFilePaths.size > 0 &&
+        closedRequiredFilePaths.size !== requiredFilePaths.size
+      ) {
+        fail({
+          code: "missing-required-file",
+          message: `Stream ended before all required files closed: ${[
+            ...requiredFilePaths,
+          ]
+            .filter((path) => !closedRequiredFilePaths.has(path))
+            .join(", ")}`,
+          offset: consumedChars,
+        });
+      }
       finalResult = {
         designPlan,
         designPlanV2,
+        designPlanV3,
+        stoppedAfterRequiredFilePaths,
         diagnostics,
         done:
           doneSummary !== null
             ? { summary: doneSummary }
-            : stoppedAfterFilePath && options?.implicitDoneSummary
+            : (stoppedAfterFilePath || stoppedAfterRequiredFilePaths) &&
+                options?.implicitDoneSummary
               ? { summary: options.implicitDoneSummary }
               : null,
         files,

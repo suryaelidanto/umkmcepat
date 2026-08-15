@@ -28,6 +28,9 @@ import type {
 } from "@/lib/projects/generated-site-recipes";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
+import type { ProfessionalSiteBlueprintV1 } from "@/lib/projects/professional-site-blueprint";
+import type { GeneratedSiteDesignKitV2 } from "@/lib/projects/professional-site-kits";
+import type { WriterDesignPlanV3 } from "@/lib/projects/professional-site-plan";
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 import {
@@ -629,20 +632,25 @@ export function collectBatchedGateIssues(
  * targeted repair). Exported so the batched edit runner (Phase 2) shares the
  * same call chassis — parser, per-file events, telemetry, write-through.
  */
-export type BatchedStreamCallResult = {
+export type BatchedStreamModelEvidence = {
+  modelRequested: string;
+  modelServed: string | null;
+};
+
+export type BatchedStreamCallResult = BatchedStreamModelEvidence & {
   errorClass?: string;
   finishedText: boolean; // saw a <done/>
   parseError?: BatchedParseError;
   response: {
     designPlan: WriterDesignPlanV1 | null;
     designPlanV2?: WriterDesignPlanV2 | null;
+    designPlanV3?: WriterDesignPlanV3 | null;
     diagnostics: BatchedDiagnostic[];
     doneSummary: string | null;
     files: Map<string, { content: string; path: string }>;
     proposals: { path: string; reason: string }[];
   };
   usage?: { inputTokens?: number; outputTokens?: number };
-  modelServed?: string;
   requestMs: number;
   firstFileClosedMs?: number | null;
   /** Set when the stream fast-failed on a structurally broken .tsx block. */
@@ -732,6 +740,12 @@ export async function runOneStreamedResponse(args: {
   buildId?: string | null;
   retryCount: number;
   requireDesignPlan?: boolean;
+  designPlanV3Expected?: {
+    blueprint: ProfessionalSiteBlueprintV1;
+    kit: GeneratedSiteDesignKitV2;
+  };
+  requiredFilePaths?: string[];
+  stopAfterRequiredFilePaths?: boolean;
   designPlanV2Expected?: {
     contractHash: string;
     kit: GeneratedSiteDesignKitV1;
@@ -752,6 +766,10 @@ export async function runOneStreamedResponse(args: {
   let firstFileClosedMs: number | null = null;
   const parser = createBatchedResponseParser({
     requireDesignPlan: args.requireDesignPlan,
+    designPlanV3Expected: args.designPlanV3Expected,
+    requiredFilePaths: args.requiredFilePaths,
+    stopAfterRequiredFilePaths:
+      args.stopAfterRequiredFilePaths ?? Boolean(args.designPlanV3Expected),
     designPlanV2Expected: args.designPlanV2Expected,
     designPlanV2Fallback: args.designPlanV2Fallback,
     implicitDoneSummary: args.designPlanV2Expected
@@ -784,11 +802,12 @@ export async function runOneStreamedResponse(args: {
       // because they must first understand the failed candidate before
       // emitting a complete replacement.
       maxOutputTokens:
-        args.requireDesignPlan &&
-        (args.phase === "repair" || args.phase === "visual-repair")
+        args.designPlanV3Expected ||
+        (args.requireDesignPlan &&
+          (args.phase === "repair" || args.phase === "visual-repair"))
           ? 32_000
           : 24_000,
-      maxRetries: args.maxRetries ?? 2,
+      maxRetries: args.designPlanV3Expected ? 0 : (args.maxRetries ?? 2),
       ...getNoReasoningCallOptions(),
       system: args.system,
       messages: [{ role: "user", content: args.user }],
@@ -838,7 +857,10 @@ export async function runOneStreamedResponse(args: {
           }
           lastFileCount = parser.stagedPaths.length;
         }
-        if (parser.stoppedAfterFilePath) {
+        if (
+          parser.stoppedAfterFilePath ||
+          parser.stoppedAfterRequiredFilePaths
+        ) {
           break;
         }
       } else if (part.type === "error") {
@@ -881,18 +903,20 @@ export async function runOneStreamedResponse(args: {
     }
 
     return {
+      modelRequested: requestedModel,
+      modelServed: modelServed ?? null,
       finishedText: sawDone,
       requestMs,
       firstFileClosedMs,
       response: {
         designPlan: parsed.designPlan,
         designPlanV2: parsed.designPlanV2,
+        designPlanV3: parsed.designPlanV3,
         diagnostics: parsed.diagnostics,
         doneSummary: parsed.done?.summary ?? null,
         files: parsed.files,
         proposals: parsed.proposals,
       },
-      ...(modelServed ? { modelServed } : {}),
       ...(usage ? { usage } : {}),
     };
   } catch (error) {
@@ -940,12 +964,15 @@ export async function runOneStreamedResponse(args: {
         });
       }
       return {
+        modelRequested: requestedModel,
+        modelServed: partialModel ?? null,
         finishedText: false,
         requestMs,
         firstFileClosedMs,
         response: {
           designPlan: null,
           designPlanV2: null,
+          designPlanV3: null,
           diagnostics: [],
           doneSummary: null,
           files: parserStagedMap(parser),
@@ -955,6 +982,11 @@ export async function runOneStreamedResponse(args: {
       };
     }
     const { requestMs, ttftMs } = stopTimer();
+    if (!modelServed && result) {
+      modelServed = (
+        await Promise.resolve(result.response).catch(() => undefined)
+      )?.modelId;
+    }
     const errorClass = classifyAiError(error);
     const ledgerTask =
       args.task ?? (args.phase === "writer" ? "build-step" : "build-repair");
@@ -974,6 +1006,8 @@ export async function runOneStreamedResponse(args: {
     if (error instanceof BatchedParseError) {
       return {
         errorClass,
+        modelRequested: requestedModel,
+        modelServed: modelServed ?? null,
         finishedText: false,
         parseError: error,
         requestMs,
@@ -981,6 +1015,7 @@ export async function runOneStreamedResponse(args: {
         response: {
           designPlan: null,
           designPlanV2: null,
+          designPlanV3: null,
           diagnostics: [],
           doneSummary: null,
           // Keep whatever the parser staged before the hard error — a

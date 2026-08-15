@@ -44,6 +44,7 @@ import {
   collectBatchedPerFileIssues,
   runBatchedGenerate,
   runGeneratedSiteCorrection,
+  runOneStreamedResponse,
   runReferenceCalibratedGenerate,
 } from "./batched-generator";
 import { BatchedAdmissionBlockedError } from "./brief-admission";
@@ -341,6 +342,26 @@ describe("runReferenceCalibratedGenerate", () => {
 
 describe("runBatchedGenerate — happy path", () => {
   afterEach(() => vi.clearAllMocks());
+
+  it("returns requested and served model evidence for every stream call", async () => {
+    streamTextMock.mockReturnValueOnce(
+      writerStream(
+        '<file path="src/a.ts">export const a = 1;</file><done summary="ok" />',
+      ),
+    );
+
+    const result = await runOneStreamedResponse({
+      phase: "writer",
+      projectId: "p1",
+      retryCount: 0,
+      system: "system",
+      user: "user",
+    });
+
+    expect(result.modelRequested).toBe("test/model");
+    expect(result.modelServed).toBe("served/model-x");
+    expect(result.response.designPlanV3).toBeNull();
+  });
 
   it("streams a valid multi-file response, emits file events, records writer telemetry", async () => {
     const responseText =

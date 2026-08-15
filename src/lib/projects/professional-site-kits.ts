@@ -323,6 +323,8 @@ const kits: GeneratedSiteDesignKitV2[] = [
     },
     primitiveFileIds: ["site-layout-v2"],
     allowedSectionTreatments: [
+      "split-feature",
+      "editorial-list",
       "asymmetric-catalog",
       "catalog-rail",
       "story-band",
