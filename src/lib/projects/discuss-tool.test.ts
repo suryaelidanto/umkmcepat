@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  alignAssistantTextWithCard,
   nextPartialWorkspaceCardFromToolJson,
   presentWorkspaceCardInputSchema,
 } from "./discuss-tool";
@@ -151,5 +152,73 @@ describe("nextPartialWorkspaceCardFromToolJson", () => {
       await nextPartialWorkspaceCardFromToolJson('{"assistantText":"Oke"}'),
     ).toBeNull();
     expect(await nextPartialWorkspaceCardFromToolJson("")).toBeNull();
+  });
+});
+
+describe("alignAssistantTextWithCard", () => {
+  const cardFor = (question: string) => ({
+    type: "question" as const,
+    question: {
+      id: "price_range",
+      question,
+      answerMode: "text" as const,
+      selectionMode: "single" as const,
+      required: false,
+      options: [],
+    },
+  });
+
+  it("replaces a chat question that contradicts the card", () => {
+    // Observed live: the model asked about visual style in the message while
+    // the card asked about price, so the owner answered a question they were
+    // never shown.
+    const aligned = alignAssistantTextWithCard(
+      "Targetnya sudah jelas; karena foto belum tersedia, kamu mau tampilan tipografi pedas tanpa foto atau ilustrasi makanan?",
+      cardFor("Kisaran harga menu Seblak Surya biasanya berapa?"),
+    );
+
+    expect(aligned).toBe(
+      "Targetnya sudah jelas. Kisaran harga menu Seblak Surya biasanya berapa?",
+    );
+  });
+
+  it("leaves a message that already asks the card's question", () => {
+    const text =
+      "Sip, areanya sudah dicatat; Kisaran harga menu Seblak Surya biasanya berapa?";
+
+    expect(
+      alignAssistantTextWithCard(
+        text,
+        cardFor("Kisaran harga menu Seblak Surya biasanya berapa?"),
+      ),
+    ).toBe(text);
+  });
+
+  it("falls back to the card question when there is no acknowledgement", () => {
+    expect(
+      alignAssistantTextWithCard(
+        "Mau pakai foto atau ilustrasi?",
+        cardFor("Jam bukanya kapan?"),
+      ),
+    ).toBe("Jam bukanya kapan?");
+  });
+
+  it("keeps a plain acknowledgement untouched", () => {
+    expect(
+      alignAssistantTextWithCard(
+        "Oke, sudah aku catat.",
+        cardFor("Jam bukanya kapan?"),
+      ),
+    ).toBe("Oke, sudah aku catat. Jam bukanya kapan?");
+  });
+
+  it("leaves non-question cards alone", () => {
+    expect(
+      alignAssistantTextWithCard("Website siap dibuat, cek ringkasannya ya?", {
+        type: "build_recommendation",
+        title: "Website siap dibuat",
+        summary: [],
+      }),
+    ).toBe("Website siap dibuat, cek ringkasannya ya?");
   });
 });

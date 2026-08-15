@@ -51,6 +51,7 @@ import {
   buildCardSystemPrompt,
   buildOneCallSystemPrompt,
   extractAssistantTextFromToolInput,
+  alignAssistantTextWithCard,
   nextAssistantTextDeltaFromPartialToolJson,
   nextPartialWorkspaceCardFromToolJson,
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
@@ -971,6 +972,13 @@ export async function runDiscussTurn({
         repairsUsed,
       },
     });
+
+    // Last word on coherence: the owner answers the card, so a message that
+    // asks something else never reaches the transcript.
+    chatText = alignAssistantTextWithCard(
+      chatText,
+      workspaceTurn.workspaceCard,
+    );
 
     const assistantMessage: UIMessage = {
       id: messageId,

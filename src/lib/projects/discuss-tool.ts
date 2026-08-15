@@ -343,6 +343,7 @@ Rules:
 - question.id must be a string (not a number)
 - question.options must be an array of objects with label and description strings (not plain strings)
 - Never include a catch-all "other"/"write your own" option in question.options — the UI already appends a custom-answer option automatically
+- assistantText and workspaceCard.question MUST ask the SAME question. Acknowledge the last answer, then ask exactly the card's question — never a different one, and never a second question the card does not carry
 - NEVER re-ask a question id that already appears in brief.facts/decisions — pick the next unfilled applicable field; re-asking the same id will be blocked
 - Set confidence to 95+ only when genuinely build-ready
 - Use "build_recommendation" when every structural decision is resolved or the user explicitly accepts an early build. Keep asking a question otherwise. The server authorizes build readiness; model confidence does not. Never surface confidence percentages or field counts to the user.
@@ -351,4 +352,58 @@ Rules:
 Output valid JSON only. Put the user-visible reply in assistantText, not as free chat prose.
 
 ${DISCUSS_SYSTEM_PROMPT}`;
+}
+
+/**
+ * The tool returns the chat sentence and the card in one object, and nothing
+ * made them agree: a turn shipped a message asking about visual style while
+ * the card asked about price, so the owner answered a question they were never
+ * shown. The card is what the owner actually answers, so it wins — the model's
+ * acknowledgement is kept and its diverging question is replaced.
+ */
+export function alignAssistantTextWithCard(
+  assistantText: string,
+  card: Record<string, unknown> | null | undefined,
+): string {
+  const question =
+    card?.type === "question" && isRecord(card.question)
+      ? card.question.question
+      : null;
+  const cardQuestion = typeof question === "string" ? question.trim() : "";
+  const text = assistantText.trim();
+  if (!cardQuestion) {
+    return text;
+  }
+  if (!text) {
+    return cardQuestion;
+  }
+  if (normalizeForCompare(text).includes(normalizeForCompare(cardQuestion))) {
+    return text;
+  }
+  const acknowledgement = acknowledgementOf(text);
+  return acknowledgement ? `${acknowledgement} ${cardQuestion}` : cardQuestion;
+}
+
+function normalizeForCompare(value: string): string {
+  return value.toLowerCase().replaceAll(/\s+/gu, " ").trim();
+}
+
+/** Everything before the message's final question, normalised to end in a stop. */
+function acknowledgementOf(text: string): string {
+  const lastQuestionMark = text.lastIndexOf("?");
+  const head = lastQuestionMark >= 0 ? text.slice(0, lastQuestionMark) : text;
+  const boundary = Math.max(
+    head.lastIndexOf("."),
+    head.lastIndexOf(";"),
+    head.lastIndexOf("!"),
+    head.lastIndexOf("?"),
+  );
+  const acknowledgement = (
+    boundary >= 0 ? head.slice(0, boundary) : lastQuestionMark >= 0 ? "" : head
+  ).trim();
+  return acknowledgement ? `${acknowledgement.replace(/[,;:]+$/u, "")}.` : "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
