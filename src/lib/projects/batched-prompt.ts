@@ -20,6 +20,7 @@ import { loadArchetypeGuide } from "@/lib/projects/archetypes";
 import { briefToBuildPrompt, type ProjectBrief } from "@/lib/projects/brief";
 import { DESIGN_DIRECTIVE } from "@/lib/projects/design-directive";
 import { deriveGeneratedSitePageStrategy } from "@/lib/projects/generated-site-design-quality";
+import { requiredContentFields } from "@/lib/projects/generated-site-gates";
 import {
   WRITER_DESIGN_PLAN_V3_DENSITIES,
   WRITER_DESIGN_PLAN_V3_MAX_BYTES,
@@ -99,6 +100,13 @@ ${direction.trim()}
     : "";
 }
 
+/** Mirrors the taste gate: at most ceil(sections / 3), never fewer than one. */
+function referenceCalibratedEyebrowBudget(
+  contract: GeneratedSiteWriterContractV2,
+): number {
+  return Math.max(1, Math.ceil(contract.obligations.sections.length / 3));
+}
+
 export function buildReferenceCalibratedWriterPrompt(input: {
   contract: GeneratedSiteWriterContractV2;
   kit: GeneratedSiteDesignKitV1;
@@ -146,7 +154,14 @@ Rules:
 - Keep the route compact: emit one route file, no helper components, no repeated data, keep src/routes/index.tsx under 8,000 characters and 160 lines, and finish well below the output limit.
 - Emit exactly one complete route file, then one done marker. Never omit done. Finish immediately.
 - Compose @/components/site/layout primitives; do not rewrite them.
-- Render every populated contract fact. Never invent facts, claims, prices, contacts, routes, assets, or actions.
+- Render every one of these populated fields visibly: ${requiredContentFields(
+      input.contract,
+    )
+      .map((field) => `site.${field}`)
+      .join(
+        ", ",
+      )}. Never invent facts, claims, prices, contacts, routes, assets, or actions.
+- At most ${referenceCalibratedEyebrowBudget(input.contract)} className may combine uppercase with tracking; give any other label a different treatment.
 - Preserve accepted CTA target, media mode, section IDs, kit identity, and semantic tokens.
 - No placeholders/remote URLs for graphic or typographic mode; no raw hex classes or site.theme color reads; use compiled semantic tokens; actions ≥44px.
 - Follow the selected page strategy and taste dials. Make one deliberate signature, not a pile of decoration. Do not repeat eyebrow or numbered-marker scaffolding, use h-screen, emit em/en dashes, or duplicate CTA intent.

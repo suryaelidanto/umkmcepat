@@ -6,6 +6,7 @@ import {
   buildTargetedRepairPrompt,
 } from "./batched-prompt";
 import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
+import { requiredContentFields } from "./generated-site-gates";
 
 import type { GeneratedSiteWriterContractV2 } from "./generated-site-contract";
 import type { GeneratedProjectFile } from "./generated-types";
@@ -79,6 +80,32 @@ function writerContract(): GeneratedSiteWriterContractV2 {
 }
 
 describe("buildReferenceCalibratedWriterPrompt", () => {
+  it("states the numeric gate rules the writer keeps failing", () => {
+    // A real build failed on both: 4 tracked uppercase labels where 1 was
+    // allowed, and site.usp never rendered. The prompt only said "do not
+    // repeat eyebrow scaffolding" and "render every populated contract fact".
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      hasOperationalDetails: false,
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+    });
+    const contract = writerContract();
+    const prompt = buildReferenceCalibratedWriterPrompt({
+      contract,
+      kit,
+      projectId: "benchmark-project",
+      schema: {} as never,
+    });
+
+    for (const field of requiredContentFields(contract)) {
+      expect(prompt.system).toContain(`site.${field}`);
+    }
+    expect(prompt.system).toMatch(/uppercase/i);
+    expect(prompt.system).toMatch(/\b1 className\b/);
+  });
+
   it("carries the frozen creative direction and omits the section without one", () => {
     const kit = selectGeneratedSiteDesignKit({
       archetype: "generic",

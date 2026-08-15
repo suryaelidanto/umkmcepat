@@ -814,7 +814,14 @@ export function inspectGeneratedSiteSource(input: {
   };
 }
 
-function requiredContentFields(contract: GeneratedSiteContractV1): string[] {
+/**
+ * Exported so the writer prompt can name these fields explicitly. "Render every
+ * populated contract fact" left the model guessing, and a real build failed
+ * because site.usp never made it into the route.
+ */
+export function requiredContentFields(contract: {
+  content: GeneratedSiteContractV1["content"];
+}): string[] {
   const fields = ["headline", "subheadline", "primaryCta"];
   const content = contract.content;
   if (content.products.length) {
