@@ -242,6 +242,27 @@ export function inspectReferenceCalibratedSiteSource(input: {
       `Generated route does not use the selected ${input.kit.id} primitive.`,
     );
   }
+  // A field JSON.stringify dropped (empty optional arrays become undefined)
+  // still type-checks as a template-literal read, so this can pass source
+  // review and fail only at the expensive tsc build step. Reproduced live:
+  // the writer referenced site.usp when the schema's usp was empty.
+  const siteValue = parseSiteValue(input.files);
+  if (siteValue) {
+    for (const file of input.files.filter((candidate) =>
+      candidate.path.endsWith(".tsx"),
+    )) {
+      for (const reference of invalidSiteReferences(file.content, siteValue)) {
+        add(
+          findings,
+          "content",
+          "critical",
+          "unknown-site-field",
+          `Generated source references ${reference}, which is absent from src/content/site.ts.`,
+          file.path,
+        );
+      }
+    }
+  }
   if (
     !source.includes(
       input.designPlan?.compositionPatternId ?? "__missing_pattern__",

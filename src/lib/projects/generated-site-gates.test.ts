@@ -334,6 +334,41 @@ describe("reference-calibrated generated site source gates", () => {
     ).toBe(false);
   });
 
+  it("rejects a route that references a site.* field the schema does not have", () => {
+    // Reproduced live: the writer referenced site.usp when the schema's usp
+    // was empty (JSON.stringify drops the undefined-valued key entirely), and
+    // the failure only surfaced as a TS compile error at the expensive build
+    // step because this gate had no unknown-site-field check — unlike
+    // inspectGeneratedSiteSource, which already has one.
+    const result = inspectReferenceCalibratedSiteSource({
+      contract: v2Contract(),
+      kit: v2Kit(),
+      designPlan: _v2Plan(),
+      files: [
+        {
+          path: "src/content/site.ts",
+          // Matches production emission: JSON.stringify always quotes keys.
+          // parseSiteValue uses JSON.parse, so unquoted JS-literal keys would
+          // silently fail to parse and skip this check entirely.
+          content:
+            'export const site = {"headline": "Pilih iPhone dengan kondisi jelas", "subheadline": "Bandingkan unit.", "primaryCta": "Chat WhatsApp"} as const;',
+        },
+        {
+          path: "src/routes/index.tsx",
+          content: `import { site } from "@/content/site"; import { usePreviewReady } from "@/lib/preview-ready"; import { SiteSection } from "@/components/site/layout"; export function HomeRouteComponent() { usePreviewReady(); return <main data-pattern="full-field-lockup"><SiteSection><h1>{site.headline}</h1><p>{site.subheadline}</p><p>{site.usp[0]}</p><a href="https://wa.me/628123456789">{site.primaryCta}</a></SiteSection></main>; }`,
+        },
+      ],
+      starterIndexSource: "starter",
+      themeChecks: [],
+    });
+
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "unknown-site-field" }),
+      ]),
+    );
+  });
+
   it("rejects generated routes that bypass compiled theme tokens", () => {
     const result = inspectReferenceCalibratedSiteSource({
       contract: v2Contract(),
