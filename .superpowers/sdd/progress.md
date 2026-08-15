@@ -56,4 +56,4 @@ Final verification: pending bun run check
 # SDD Progress — 2026-08-15 professional static-site generation
 Plan: docs/superpowers/plans/2026-08-15-professional-static-site-generation.md
 Task 1: complete (b5ae8143, executable professional design kits V2, review clean; 6 focused tests pass)
-Task 2: in progress (V3 contract and immutable professional blueprint)
+Task 2: complete (99cb9051, V3 contract and immutable professional blueprint, review clean; 22 focused tests pass, typecheck/lint clean)
