@@ -138,6 +138,8 @@ export type RunGeneratedSitePipelineResult =
       safeMessage: string;
       proof: GeneratedSiteQualityProofV2;
       stagedFiles: GeneratedProjectFile[];
+      /** Assertion ids that failed, so a rejection names itself in the log. */
+      failedAssertions?: string[];
     };
 
 export async function runGeneratedSitePipeline(
@@ -378,6 +380,7 @@ export async function runGeneratedSitePipeline(
         "browser",
         "generated-site browser qualification failed",
         stagedFiles,
+        failedBrowserAssertions(browser),
       );
     }
     stagedFiles = corrected.files;
@@ -411,6 +414,7 @@ export async function runGeneratedSitePipeline(
         "browser",
         "generated-site browser correction failed",
         stagedFiles,
+        failedBrowserAssertions(browser),
       );
     }
   }
@@ -659,12 +663,14 @@ function failure(
   failureClass: string,
   safeMessage: string,
   stagedFiles: GeneratedProjectFile[],
+  failedAssertions?: string[],
 ): RunGeneratedSitePipelineResult {
   return {
     ok: false,
     failureClass,
     safeMessage,
     stagedFiles,
+    ...(failedAssertions?.length ? { failedAssertions } : {}),
     proof: {
       ...proof,
       outcome: "fail",
@@ -688,4 +694,18 @@ function hashPlan(plan: WriterDesignPlanV2): string {
   return createHash("sha256")
     .update(JSON.stringify(plan), "utf8")
     .digest("hex");
+}
+
+/** Assertion ids that did not pass, as "route/viewport:id" — names only. */
+function failedBrowserAssertions(report: BrowserGateReport): string[] {
+  return report.routes.flatMap((route) =>
+    route.assertions
+      .filter((assertion) => assertion.status !== "pass")
+      .map(
+        (assertion) =>
+          `${route.route}/${route.viewport}:${assertion.name}${
+            assertion.detail ? ` (${assertion.detail})` : ""
+          }`,
+      ),
+  );
 }

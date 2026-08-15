@@ -255,6 +255,101 @@ describe("runReferenceCalibratedGenerate", () => {
     expect(streamTextMock.mock.calls[0]?.[0]?.maxOutputTokens).toBe(32_000);
   });
 
+  it("rejects a writer response that overwrites the protected site.ts", async () => {
+    // src/content/site.ts is always a starter path, so the old check
+    // (isProtectedScaffoldPath(path) && !starterPaths.has(path)) was always
+    // false for it and could never fire — the writer could silently replace
+    // the platform's normalized data file with its own fabricated copy.
+    // Otherwise identical to the passing "uses one streamed writer..." case
+    // below, so the only variable under test is the forged site.ts file.
+    const schema = createProjectSiteSchemaFromBrief(makeBrief());
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+      hasOperationalDetails: false,
+    });
+    const route = `import { SiteSection } from "@/components/site/layout";\nimport { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nexport function HomeRouteComponent() { usePreviewReady(); return <main data-pattern="full-field-lockup"><SiteSection><h1>{site.headline}</h1><p>{site.subheadline}</p><p>{site.offer}</p><p>{site.trustPoints[0]}</p><a className="min-h-11" href="https://wa.me/6281100000000?text=Halo">{site.primaryCta}</a></SiteSection></main>; }`;
+    const forgedSiteFile = `export const site = { headline: "Diskon 90%!" } as const;
+export default site;
+`;
+    // Placed before the required route: the parser's stopAfterFilePath cuts
+    // the stream the instant src/routes/index.tsx closes, so anything after
+    // it is never even parsed — a forged file has to arrive first to matter.
+    streamTextMock.mockReturnValueOnce(
+      writerStream(
+        `<file path="src/content/site.ts">${forgedSiteFile}</file><file path="src/routes/index.tsx">${route}</file><done summary="Selesai" />`,
+      ),
+    );
+    const contract = {
+      schemaVersion: 2 as const,
+      contractHash: "a".repeat(64),
+      handoff: { contractHash: "b".repeat(64), planHash: "c".repeat(64) },
+      business: {
+        name: "Kopi Sela",
+        type: "retail",
+        audience: "Pembeli",
+        primaryJob: "Memilih",
+        primaryCta: {
+          kind: "whatsapp" as const,
+          label: "Pesan",
+          target: "+6281100000000",
+        },
+      },
+      content: {
+        headline: "Pilih",
+        subheadline: "Lihat pilihan.",
+        offer: "Kopi",
+        promotion: null,
+        trustPoints: ["Jelas"],
+        products: [],
+        testimonials: [],
+        faq: [],
+        usp: [],
+        hours: [],
+        paymentMethods: [],
+        priceRange: null,
+        address: null,
+        deliveryArea: null,
+        socialLinks: [],
+      },
+      obligations: {
+        routes: [
+          {
+            path: "/",
+            purpose: "Beranda",
+            requiredFactIds: [],
+            requiredSectionIds: ["hero"],
+          },
+        ],
+        sections: [{ id: "hero", purpose: "Penawaran", requiredFactIds: [] }],
+        prohibitedClaims: [],
+      },
+      media: { mode: "graphic" as const, approvedAssets: [] },
+      visualInputs: {
+        direction: "gelap",
+        density: "sparse" as const,
+        selectedKitId: "bold-typographic" as const,
+        selectedKitVersion: 1 as const,
+      },
+    };
+    const result = await runReferenceCalibratedGenerate({
+      ...baseArgs(),
+      schema,
+      brief: makeBrief(),
+      contract,
+      kit,
+      budget: new GeneratedSiteCallBudget(),
+      stepCharger: makeCharger(),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.ok ? "" : result.reason).toMatch(
+      /attempted to emit protected files/,
+    );
+    expect(result.ok ? "" : result.reason).toMatch(/src\/content\/site\.ts/);
+  });
+
   it("uses one streamed writer instead of the deterministic route renderer", async () => {
     const schema = createProjectSiteSchemaFromBrief(makeBrief());
     const kit = selectGeneratedSiteDesignKit({

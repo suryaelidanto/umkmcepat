@@ -844,6 +844,14 @@ export async function runBuildAttempt({
           reason: referenceCalibratedCandidate.ok
             ? null
             : referenceCalibratedCandidate.safeMessage.slice(0, 1_000),
+          // "browser qualification failed" alone cannot be acted on; the
+          // assertion ids say which check rejected the page.
+          failedAssertions: referenceCalibratedCandidate.ok
+            ? null
+            : (referenceCalibratedCandidate.failedAssertions ?? []).slice(
+                0,
+                12,
+              ),
         });
       } catch (error) {
         devLog("generate", "reference_calibrated.shadow_error", {

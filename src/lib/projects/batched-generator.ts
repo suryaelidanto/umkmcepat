@@ -1699,6 +1699,29 @@ export async function runReferenceCalibratedGenerate(input: {
     : designPlanFrame;
   const firstFileClosedMs =
     writer.firstFileClosedMs ?? (editableFiles.length > 0 ? writerMs : null);
+  // Checked immediately, on every response shape — including a malformed one
+  // that returns early below — because mergeFinalFiles silently drops a
+  // protected-path overlay rather than rejecting it. Without this, a writer
+  // that ignored "read-only" and re-emitted src/content/site.ts with its own
+  // paraphrase of the facts would report ok:true with the forged content
+  // merely discarded, never surfaced. Checked against staged (what the writer
+  // actually emitted for the whole call), matching the gateStage fix above.
+  const forgedProtectedFiles = editableFiles.filter((file) =>
+    isProtectedScaffoldPath(file.path),
+  );
+  if (forgedProtectedFiles.length > 0) {
+    return {
+      ok: false,
+      reason: `reference-calibrated writer attempted to emit protected files: ${forgedProtectedFiles
+        .map((file) => file.path)
+        .join(", ")}`,
+      stagedFiles: [...staged.values()],
+      designPlan,
+      writerMs,
+      firstFileClosedMs,
+      editableBytes,
+    };
+  }
   if (editableFiles.length > 3 || editableBytes > 32 * 1024) {
     return {
       ok: false,
@@ -1748,14 +1771,6 @@ export async function runReferenceCalibratedGenerate(input: {
       palette: designPlan.palette,
     });
     themeChecks = theme.checks;
-    const protectedEmissions = editableFiles.filter((file) =>
-      isProtectedScaffoldPath(file.path),
-    );
-    if (protectedEmissions.length > 0) {
-      throw new Error(
-        `writer attempted to emit protected files: ${protectedEmissions.map((file) => file.path).join(", ")}`,
-      );
-    }
   } catch (error) {
     return {
       ok: false,
@@ -1970,12 +1985,18 @@ function gateStage(input: {
   starterFiles: GeneratedProjectFile[];
 }): string[] {
   const stagedFiles: GeneratedProjectFile[] = [...input.staged.values()];
-  const starterPaths = new Set(input.starterFiles.map((f) => f.path));
+  const starterByPath = new Map(input.starterFiles.map((f) => [f.path, f]));
   const issues: string[] = [];
-  // Flag protected scaffold paths the AI tried to overwrite — but NOT the
-  // pre-seeded starter files (those are the legitimate base layer).
-  for (const path of input.staged.keys()) {
-    if (isProtectedScaffoldPath(path) && !starterPaths.has(path)) {
+  // Flag protected scaffold paths the AI tried to overwrite. Presence in
+  // starterPaths is not evidence of legitimacy — every protected path is
+  // always pre-seeded from the starter, so a presence-only check could never
+  // fire; it must compare content against the starter's own version.
+  for (const [path, file] of input.staged) {
+    if (!isProtectedScaffoldPath(path)) {
+      continue;
+    }
+    const starterFile = starterByPath.get(path);
+    if (!starterFile || starterFile.content !== file.content) {
       issues.push(
         `${path}: protected scaffold file — never rewrite platform-owned source. Do NOT emit this file.`,
       );
@@ -1984,7 +2005,7 @@ function gateStage(input: {
   // Per-file checks (TSX parse, import allow-list) run ONLY on AI-emitted
   // files — the starter files are platform-owned and already validated.
   for (const file of stagedFiles) {
-    if (starterPaths.has(file.path)) {
+    if (starterByPath.has(file.path)) {
       continue;
     }
     issues.push(
