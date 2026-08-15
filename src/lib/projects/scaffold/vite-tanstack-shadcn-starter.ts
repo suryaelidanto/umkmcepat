@@ -264,7 +264,7 @@ export function toPackageName(value: string) {
  * empty strings makes every element share the same shape, so the generated
  * index route can safely read e.g. `pm.detail` without a TS error.
  */
-function normalizeSiteSchemaForEmit(schema: ProjectSiteSchema): object {
+export function normalizeSiteSchemaForEmit(schema: ProjectSiteSchema): object {
   const normalized = structuredClone(schema);
   if (Array.isArray(normalized.paymentMethods)) {
     normalized.paymentMethods = normalized.paymentMethods.map((entry) => ({

@@ -3,12 +3,15 @@ import { describe, expect, it } from "vitest";
 import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
 import {
   PROFESSIONAL_FONT_STACKS,
+  applyGeneratedSiteThemeV2,
   compileGeneratedSiteThemeV2,
   compileProfessionalSiteTheme,
 } from "./generated-site-theme";
 import { PROFESSIONAL_DESIGN_KITS } from "./professional-site-kits";
+import { normalizeSiteSchemaForEmit } from "./scaffold/vite-tanstack-shadcn-starter";
 
 import type { WriterDesignPlanV3 } from "./professional-site-plan";
+import type { ProjectSiteSchema } from "./site-schema";
 
 function professionalPlan(
   kitId: "catalog-story" | "bold-typographic" = "catalog-story",
@@ -172,5 +175,76 @@ describe("generated-site theme v2", () => {
         },
       }),
     ).toThrow("invalid generated theme palette");
+  });
+
+  it("keeps site.ts normalized when the theme injects the writer's palette", () => {
+    // The starter's own site.ts is correctly normalized
+    // (normalizeSiteSchemaForEmit fills missing product/paymentMethod keys
+    // with ""), but applyGeneratedSiteThemeV2 re-serialises src/content/site.ts
+    // from the RAW schema to inject site.theme, silently undoing that
+    // normalization. Reproduced live: a real build's writer referenced
+    // product.description and it genuinely did not exist on the re-emitted
+    // file's first product, a real TS union-narrowing error.
+    const rawSchema: ProjectSiteSchema = {
+      version: 1,
+      businessName: "Seblak Surya",
+      eyebrow: "Kuliner lokal",
+      headline: "H",
+      subheadline: "S",
+      primaryCta: "Pesan",
+      secondaryCta: "Menu",
+      audience: "Mahasiswa",
+      offer: "Seblak",
+      theme: {
+        background: "#000000",
+        foreground: "#000000",
+        muted: "#000000",
+        accent: "#000000",
+      },
+      trustPoints: [],
+      sections: [],
+      products: [
+        { name: "Seblak Ceker", priceRange: "Rp10.000" },
+        {
+          name: "Seblak Sultan",
+          description: "Lengkap",
+          priceRange: "Rp20.000",
+        },
+      ],
+      paymentMethods: [{ method: "cash" }, { method: "qris", detail: "app" }],
+    };
+    const theme = compileGeneratedSiteThemeV2({
+      kit: selectGeneratedSiteDesignKit({
+        archetype: "retail-catalog",
+        density: "rich",
+        mediaMode: "graphic",
+        primaryJobKind: "compare",
+        hasOperationalDetails: false,
+      }),
+      palette: {
+        background: "#f7f3ec",
+        foreground: "#3d2b1f",
+        muted: "#e5ddd2",
+        accent: "#d4a017",
+      },
+    });
+    const applied = applyGeneratedSiteThemeV2({
+      files: [{ path: "src/content/site.ts", content: "placeholder" }],
+      schema: rawSchema,
+      theme,
+    });
+    const siteFile = applied.find(
+      (file) => file.path === "src/content/site.ts",
+    );
+    const match = siteFile?.content.match(
+      /export const site = ([\s\S]+) as const;/,
+    );
+    const parsed = match
+      ? (JSON.parse(match[1]) as Record<string, unknown>)
+      : null;
+
+    expect(parsed).toEqual(
+      normalizeSiteSchemaForEmit({ ...rawSchema, theme: theme.schemaTheme }),
+    );
   });
 });
