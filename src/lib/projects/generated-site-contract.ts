@@ -4,17 +4,27 @@ import { canonicalJson } from "./build-hash";
 import { hashCanonicalBrief, type ProjectBriefV2 } from "./canonical-brief";
 
 import type {
+  CertificationValue,
   HoursValue,
   PaymentMethodValue,
   SocialLinkValue,
+  TestimonialValue,
 } from "./brief-rich-fields";
-import type { BuildContractV1, ContractFactV1 } from "./build-contract";
+import type {
+  BuildContractV1,
+  ContractFactV1,
+  FactKind,
+} from "./build-contract";
 import type { BuildPlanV1 } from "./build-plan";
 import type {
   GeneratedSiteDesignKitV1,
   GeneratedSiteKitMediaMode,
 } from "./generated-site-design-kits/types";
 import type { GeneratedSiteRecipeV1 } from "./generated-site-recipes";
+import type {
+  GeneratedSiteDesignKitV2,
+  ProfessionalContentRole,
+} from "./professional-site-kits";
 import type {
   ProjectSiteSchema,
   SiteSchemaFaqItem,
@@ -146,6 +156,519 @@ export type GeneratedSiteWriterContractV2 = {
     selectedKitVersion: 1;
   };
 };
+
+export type ProfessionalSiteBusinessV1 = {
+  name: string;
+  type: string;
+  audience: string | null;
+  primaryJob: string;
+};
+
+export type ProfessionalContentPath =
+  | "site.businessName"
+  | "site.heroTitle"
+  | "site.audience"
+  | "site.offers"
+  | "site.usp"
+  | "site.testimonials"
+  | "site.certifications"
+  | "site.hours"
+  | "site.paymentMethods"
+  | "site.priceRange"
+  | "site.address"
+  | "site.deliveryArea"
+  | "site.socialLinks"
+  | "site.promotion"
+  | "site.primaryCta"
+  | "site.secondaryCta"
+  | "site.otherFacts";
+
+export type ProfessionalSiteContentV1 = {
+  businessName: string;
+  businessType: string;
+  audience: string | null;
+  ownerTagline: string | null;
+  heroTitle: string;
+  offers: SiteSchemaProduct[];
+  usp: string[];
+  testimonials: TestimonialValue[];
+  certifications: CertificationValue[];
+  hours: HoursValue[];
+  paymentMethods: PaymentMethodValue[];
+  priceRange: string | null;
+  address: string | null;
+  deliveryArea: string | null;
+  socialLinks: SocialLinkValue[];
+  promotion: string | null;
+  primaryCta: {
+    intentId: string;
+    kind:
+      "whatsapp" | "phone" | "visit" | "browse" | "book" | "order" | "other";
+    label: string;
+    targetFactId: string | null;
+    href: string;
+  };
+  secondaryCta: { label: string; target: string; href: string } | null;
+  navigation: Array<{
+    fromPath: string;
+    toPath: string;
+    label: string;
+    href: string;
+  }>;
+  labels: {
+    catalog: "Pilihan";
+    proof: "Yang perlu diketahui";
+    process: "Cara memesan";
+    operations: "Informasi usaha";
+    contact: "Hubungi";
+  };
+  otherFacts: string[];
+};
+
+export type GeneratedSiteWriterContractV3 = {
+  schemaVersion: 3;
+  contractHash: string;
+  handoff: { contractHash: string; planHash: string };
+  business: ProfessionalSiteBusinessV1;
+  content: ProfessionalSiteContentV1;
+  factIndex: Array<{ id: string; kind: FactKind }>;
+  obligations: GeneratedSiteWriterContractV2["obligations"];
+  media: GeneratedSiteWriterContractV2["media"];
+  visualInputs: {
+    direction: string | null;
+    density: "sparse" | "regular" | "rich";
+    selectedKitId: GeneratedSiteDesignKitV2["id"];
+    selectedKitVersion: 2;
+  };
+};
+
+export type GeneratedSiteWriterContractV3Input = {
+  handoff: GeneratedSiteHandoffInput;
+  briefSnapshot: ProjectBriefV2;
+  photoEnabled: boolean;
+  kit: GeneratedSiteDesignKitV2;
+};
+
+export type ProfessionalRouteRoleInput = {
+  path: string;
+  purpose: string;
+  requiredFactIds: string[];
+  requiredSectionIds: string[];
+};
+
+export type ProfessionalSectionRoleInput = {
+  id: string;
+  purpose: string;
+  requiredFactIds: string[];
+};
+
+export function deriveProfessionalRouteRoles(input: {
+  handoff: GeneratedSiteHandoffInput;
+}): Array<{ path: string; roles: ProfessionalContentRole[] }> {
+  return deriveProfessionalRouteRolesFromObligations({
+    routes: input.handoff.plan.pages.map((page) => ({
+      path: page.path,
+      purpose: page.purpose,
+      requiredFactIds: page.requiredFactIds,
+      requiredSectionIds: page.sections.map((section) => section.id),
+    })),
+    sections: input.handoff.plan.pages.flatMap((page) =>
+      page.sections.map((section) => ({
+        id: section.id,
+        purpose: section.purpose,
+        requiredFactIds: section.requiredFactIds,
+      })),
+    ),
+    facts: input.handoff.contract.facts,
+  });
+}
+
+export function deriveProfessionalRouteRolesFromObligations(input: {
+  routes: ProfessionalRouteRoleInput[];
+  sections: ProfessionalSectionRoleInput[];
+  facts: ContractFactV1[];
+}): Array<{ path: string; roles: ProfessionalContentRole[] }> {
+  const factsById = new Map(input.facts.map((fact) => [fact.id, fact]));
+  const sectionsById = new Map(
+    input.sections.map((section) => [section.id, section]),
+  );
+  const roleOrder: ProfessionalContentRole[] = [
+    "identity",
+    "offer",
+    "catalog",
+    "proof",
+    "process",
+    "operations",
+    "story",
+    "faq",
+    "contact",
+  ];
+  return input.routes.map((route) => {
+    const roles = new Set<ProfessionalContentRole>();
+    const pageKinds = route.requiredFactIds.flatMap((factId) => {
+      const fact = factsById.get(factId);
+      return fact ? [fact.kind] : [];
+    });
+    roles.add(
+      classifyProfessionalContentRole({
+        id: route.path,
+        purpose: route.purpose,
+        requiredFactKinds: pageKinds,
+      }),
+    );
+    if (route.path === "/") {
+      roles.add("identity");
+    }
+    if (pageKinds.includes("offer")) {
+      roles.add("offer");
+    }
+    for (const sectionId of route.requiredSectionIds) {
+      const section = sectionsById.get(sectionId);
+      if (!section) {
+        continue;
+      }
+      roles.add(
+        classifyProfessionalContentRole({
+          id: section.id,
+          purpose: section.purpose,
+          requiredFactKinds: section.requiredFactIds.flatMap((factId) => {
+            const fact = factsById.get(factId);
+            return fact ? [fact.kind] : [];
+          }),
+        }),
+      );
+    }
+    if (pageKinds.includes("contact")) {
+      roles.add("contact");
+    }
+    return {
+      path: route.path,
+      roles: roleOrder.filter((role) => roles.has(role)),
+    };
+  });
+}
+
+export function classifyProfessionalContentRole(input: {
+  id: string;
+  purpose: string;
+  requiredFactKinds: string[];
+}): ProfessionalContentRole {
+  const text = `${input.id} ${input.purpose}`.toLowerCase();
+  const kinds = new Set(input.requiredFactKinds);
+  if (
+    kinds.has("contact") ||
+    /contact|kontak|hubung|order|pesan|booking|book/.test(text)
+  ) {
+    return "contact";
+  }
+  if (
+    kinds.has("hours") ||
+    kinds.has("address") ||
+    kinds.has("service_area") ||
+    kinds.has("payment_method") ||
+    /operat|hour|jam|location|lokasi|delivery|area layanan/.test(text)
+  ) {
+    return "operations";
+  }
+  if (
+    kinds.has("testimonial") ||
+    kinds.has("certification") ||
+    /proof|trust|testimoni|sertif|usp|bukti|kepercayaan/.test(text)
+  ) {
+    return "proof";
+  }
+  if (/faq|question|pertanyaan|tanya jawab/.test(text)) {
+    return "faq";
+  }
+  if (/process|proses|cara|step|langkah/.test(text)) {
+    return "process";
+  }
+  if (/story|cerita|about|tentang|sejarah/.test(text)) {
+    return "story";
+  }
+  if (
+    kinds.has("offer") &&
+    /catalog|katalog|product|produk|menu|property|properti|class|kelas|pilihan/.test(
+      text,
+    )
+  ) {
+    return "catalog";
+  }
+  if (/hero|intro|identity|beranda|home|usaha|business/.test(text)) {
+    return "identity";
+  }
+  if (kinds.has("offer") || /offer|penawaran|layanan/.test(text)) {
+    return "offer";
+  }
+  return "offer";
+}
+
+export function deriveProfessionalSiteSelectionInput(input: {
+  handoff: GeneratedSiteHandoffInput;
+  briefSnapshot: ProjectBriefV2;
+  photoEnabled: boolean;
+}): import("./professional-site-kits").ProfessionalSiteSelectionInput {
+  const routeRoles = deriveProfessionalRouteRoles(input);
+  const factCount = new Set(input.handoff.contract.facts.map((fact) => fact.id))
+    .size;
+  const contentCount =
+    input.briefSnapshot.offers.length +
+    input.briefSnapshot.content.usp.length +
+    input.briefSnapshot.content.testimonials.length +
+    input.briefSnapshot.content.certifications.length +
+    input.briefSnapshot.content.hours.length +
+    input.briefSnapshot.content.paymentMethods.length +
+    input.briefSnapshot.content.socialLinks.length;
+  const suppliedCount = factCount + contentCount;
+  const density =
+    suppliedCount >= 8 ? "rich" : suppliedCount >= 3 ? "regular" : "sparse";
+  const mediaMode =
+    input.photoEnabled && input.handoff.contract.assets.length > 0
+      ? "owner_assets"
+      : "graphic";
+  return {
+    archetype: input.handoff.plan.archetype,
+    density,
+    mediaMode,
+    hasOperationalDetails:
+      input.briefSnapshot.content.hours.length > 0 ||
+      Boolean(input.briefSnapshot.content.address) ||
+      Boolean(input.briefSnapshot.content.deliveryArea) ||
+      input.handoff.contract.facts.some(
+        (fact) =>
+          fact.kind === "hours" ||
+          fact.kind === "address" ||
+          fact.kind === "service_area" ||
+          fact.kind === "payment_method",
+      ),
+    routeRoles,
+  };
+}
+
+export function compileProfessionalPrimaryCta(input: {
+  contract: BuildContractV1;
+  plan: BuildPlanV1;
+  briefSnapshot: ProjectBriefV2;
+}): ProfessionalSiteContentV1["primaryCta"] {
+  const intent = input.contract.ctaIntents[0];
+  if (!intent || !intent.label.trim()) {
+    throw new Error("professional site requires an accepted primary CTA");
+  }
+  const targetFact = intent.targetFactId
+    ? input.contract.facts.find((fact) => fact.id === intent.targetFactId)
+    : undefined;
+  if (intent.targetFactId && !targetFact) {
+    throw new Error("professional site CTA target is unresolved");
+  }
+  const label = intent.label.trim();
+  const href = compileProfessionalCtaHref({
+    intent,
+    targetFact,
+    facts: input.contract.facts,
+    plan: input.plan,
+  });
+  if (!href) {
+    throw new Error("professional site CTA target is missing or unsafe");
+  }
+  return {
+    intentId: intent.id,
+    kind: intent.kind,
+    label,
+    targetFactId: intent.targetFactId ?? null,
+    href,
+  };
+}
+
+export function compileProfessionalSiteContent(input: {
+  handoff: GeneratedSiteHandoffInput;
+  briefSnapshot: ProjectBriefV2;
+  primaryCta: ProfessionalSiteContentV1["primaryCta"];
+}): ProfessionalSiteContentV1 {
+  const acceptedOffers = acceptedOfferFacts(input.handoff.contract.facts);
+  const secondaryAction = input.briefSnapshot.content.secondaryAction;
+  const secondaryHref = secondaryAction
+    ? compileAcceptedSecondaryHref({
+        action: secondaryAction.action,
+        plan: input.handoff.plan,
+        primaryCta: input.primaryCta,
+      })
+    : null;
+  const testimonials = acceptedArrayFacts(
+    input.handoff.contract.facts,
+    "testimonial",
+  );
+  const certifications = acceptedArrayFacts(
+    input.handoff.contract.facts,
+    "certification",
+  );
+  const hours = acceptedArrayFacts(input.handoff.contract.facts, "hours");
+  const paymentMethods = acceptedArrayFacts(
+    input.handoff.contract.facts,
+    "payment_method",
+  );
+  const socialLinks = acceptedArrayFacts(
+    input.handoff.contract.facts,
+    "social_link",
+  );
+  return {
+    businessName: input.handoff.contract.identity.businessName,
+    businessType:
+      input.handoff.contract.identity.businessType ??
+      input.briefSnapshot.business.type,
+    audience: input.briefSnapshot.audience,
+    ownerTagline: input.briefSnapshot.content.tagline,
+    heroTitle:
+      input.briefSnapshot.content.tagline ??
+      acceptedOffers[0]?.name ??
+      input.briefSnapshot.offers[0]?.name ??
+      input.handoff.contract.identity.businessName,
+    offers: acceptedOffers.length
+      ? acceptedOffers
+      : input.briefSnapshot.offers.map((offer) => ({ ...offer })),
+    usp: [...input.briefSnapshot.content.usp],
+    testimonials: testimonials.length
+      ? testimonials
+      : [...input.briefSnapshot.content.testimonials],
+    certifications: certifications.length
+      ? certifications
+      : [...input.briefSnapshot.content.certifications],
+    hours: hours.length ? hours : [...input.briefSnapshot.content.hours],
+    paymentMethods: paymentMethods.length
+      ? paymentMethods
+      : [...input.briefSnapshot.content.paymentMethods],
+    priceRange: input.briefSnapshot.content.priceRange,
+    address:
+      acceptedAddressText(input.handoff.contract.facts) ??
+      input.briefSnapshot.content.address,
+    deliveryArea:
+      acceptedServiceAreaText(input.handoff.contract.facts) ??
+      input.briefSnapshot.content.deliveryArea,
+    socialLinks: socialLinks.length
+      ? socialLinks
+      : [...input.briefSnapshot.content.socialLinks],
+    promotion: input.briefSnapshot.content.currentPromo,
+    primaryCta: input.primaryCta,
+    secondaryCta:
+      secondaryAction && secondaryHref
+        ? {
+            label: secondaryAction.label,
+            target: secondaryAction.action,
+            href: secondaryHref,
+          }
+        : null,
+    navigation: compileAcceptedNavigation(input.handoff.plan),
+    labels: {
+      catalog: "Pilihan",
+      proof: "Yang perlu diketahui",
+      process: "Cara memesan",
+      operations: "Informasi usaha",
+      contact: "Hubungi",
+    },
+    otherFacts: acceptedArrayFacts(input.handoff.contract.facts, "other"),
+  };
+}
+
+export function compileGeneratedSiteWriterContractV3(
+  input: GeneratedSiteWriterContractV3Input,
+): GeneratedSiteWriterContractV3 {
+  if (input.handoff.plan.appKind === "interactive_app") {
+    throw new Error(
+      "generated-site quality supports landing and marketing_site only",
+    );
+  }
+  const primaryJob = input.handoff.contract.visitorJobs.find(
+    (job) => job.priority === "primary",
+  );
+  if (!primaryJob) {
+    throw new Error("professional site requires a primary visitor job");
+  }
+  const duplicateFactIds = duplicateIds(
+    input.handoff.contract.facts.map((fact) => fact.id),
+  );
+  if (duplicateFactIds.length > 0) {
+    throw new Error(
+      `professional site has duplicate fact id: ${duplicateFactIds[0]}`,
+    );
+  }
+  validateProfessionalObligationFacts(input.handoff);
+  const primaryCta = compileProfessionalPrimaryCta({
+    contract: input.handoff.contract,
+    plan: input.handoff.plan,
+    briefSnapshot: input.briefSnapshot,
+  });
+  const draft = {
+    schemaVersion: 3 as const,
+    contractHash: "",
+    handoff: {
+      contractHash: input.handoff.contractHash,
+      planHash: input.handoff.planHash,
+    },
+    business: {
+      name: input.handoff.contract.identity.businessName,
+      type:
+        input.handoff.contract.identity.businessType ??
+        input.briefSnapshot.business.type,
+      audience: input.briefSnapshot.audience,
+      primaryJob: primaryJob.goal,
+    },
+    content: compileProfessionalSiteContent({
+      handoff: input.handoff,
+      briefSnapshot: input.briefSnapshot,
+      primaryCta,
+    }),
+    factIndex: input.handoff.contract.facts.map((fact) => ({
+      id: fact.id,
+      kind: fact.kind,
+    })),
+    obligations: {
+      routes: input.handoff.plan.pages.map((page) => ({
+        path: page.path,
+        purpose: page.purpose,
+        requiredFactIds: [...page.requiredFactIds],
+        requiredSectionIds: page.sections.map((section) => section.id),
+      })),
+      sections: input.handoff.plan.pages.flatMap((page) =>
+        page.sections.map((section) => ({
+          id: section.id,
+          purpose: section.purpose,
+          requiredFactIds: [...section.requiredFactIds],
+        })),
+      ),
+      prohibitedClaims: input.handoff.contract.prohibitedClaims.map(
+        (claim) => claim.statement,
+      ),
+    },
+    media: {
+      mode: professionalMediaMode(input, input.kit),
+      approvedAssets: input.handoff.contract.assets.map((asset) => ({
+        assetId: asset.assetId,
+        mediaPath: `/media/${asset.assetId}`,
+        purpose: asset.approvedPurpose,
+      })),
+    },
+    visualInputs: {
+      direction: input.handoff.contract.preferences.visualDirection,
+      density: deriveProfessionalSiteSelectionInput({
+        handoff: input.handoff,
+        briefSnapshot: input.briefSnapshot,
+        photoEnabled: input.photoEnabled,
+      }).density,
+      selectedKitId: input.kit.id,
+      selectedKitVersion: 2 as const,
+    },
+  } satisfies Omit<GeneratedSiteWriterContractV3, "contractHash"> & {
+    contractHash: string;
+  };
+  return {
+    ...draft,
+    contractHash: createHash("sha256")
+      .update(
+        "umkmcepat:generated-site-writer-contract:v3:" + canonicalJson(draft),
+        "utf8",
+      )
+      .digest("hex"),
+  };
+}
 
 export function compileGeneratedSiteSnapshotHash(
   briefSnapshot: ProjectBriefV2,
@@ -412,6 +935,394 @@ export function compileGeneratedSiteContract(
       .update(HASH_PREFIX + canonicalJson(draft), "utf8")
       .digest("hex"),
   };
+}
+
+function validateProfessionalObligationFacts(
+  handoff: GeneratedSiteHandoffInput,
+): void {
+  const factIds = new Set(handoff.contract.facts.map((fact) => fact.id));
+  const requiredFactIds = [
+    ...handoff.plan.pages.flatMap((page) => page.requiredFactIds),
+    ...handoff.plan.pages.flatMap((page) =>
+      page.sections.flatMap((section) => section.requiredFactIds),
+    ),
+  ];
+  for (const factId of requiredFactIds) {
+    if (!factIds.has(factId)) {
+      throw new Error(
+        `professional site obligation references unknown fact: ${factId}`,
+      );
+    }
+  }
+}
+
+function professionalMediaMode(
+  input: GeneratedSiteWriterContractV3Input,
+  kit: GeneratedSiteDesignKitV2,
+): Exclude<GeneratedSiteKitMediaMode, "replaceable_slots"> {
+  if (input.photoEnabled && input.handoff.contract.assets.length > 0) {
+    if (!kit.compatibleMediaModes.includes("owner_assets")) {
+      throw new Error(`professional site kit ${kit.id} rejects owner assets`);
+    }
+    return "owner_assets";
+  }
+  if (kit.compatibleMediaModes.includes("graphic")) {
+    return "graphic";
+  }
+  if (kit.compatibleMediaModes.includes("typographic")) {
+    return "typographic";
+  }
+  throw new Error(`professional site kit ${kit.id} has no no-asset media mode`);
+}
+
+function compileProfessionalCtaHref(input: {
+  intent: BuildContractV1["ctaIntents"][number];
+  targetFact: ContractFactV1 | undefined;
+  facts: ContractFactV1[];
+  plan: BuildPlanV1;
+}): string {
+  switch (input.intent.kind) {
+    case "whatsapp":
+      return contactHref(input.targetFact, "whatsapp");
+    case "phone":
+      return contactHref(input.targetFact, "phone");
+    case "order":
+    case "book":
+      return contactHref(input.targetFact, input.intent.kind);
+    case "visit":
+      return visitHref(input.targetFact, input.facts, input.plan);
+    case "browse":
+      return findAcceptedSectionOrRouteHref(
+        input.plan,
+        /catalog|katalog|menu|produk|kelas|pilihan/i,
+      );
+    case "other":
+      return acceptedActionTarget(input.targetFact);
+    default:
+      throw new Error(
+        `professional site CTA kind is unsupported: ${input.intent.kind}`,
+      );
+  }
+}
+
+function contactHref(
+  fact: ContractFactV1 | undefined,
+  kind: "whatsapp" | "phone" | "book" | "order",
+): string {
+  if (!fact || fact.kind !== "contact") {
+    throw new Error(
+      `professional site ${kind} CTA requires an accepted contact fact`,
+    );
+  }
+  const value = fact.value.value.trim();
+  const digits = value.replace(/\D/g, "");
+  if (digits.length < 7) {
+    throw new Error("professional site contact target is unsafe");
+  }
+  if (kind === "whatsapp") {
+    const normalized = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+    return `https://wa.me/${normalized}`;
+  }
+  return `tel:+${digits.startsWith("0") ? `62${digits.slice(1)}` : digits}`;
+}
+
+function visitHref(
+  targetFact: ContractFactV1 | undefined,
+  facts: ContractFactV1[],
+  plan: BuildPlanV1,
+): string {
+  if (targetFact?.kind === "contact" && targetFact.value.channel === "maps") {
+    return acceptedActionTarget(targetFact);
+  }
+  if (targetFact?.kind === "address") {
+    try {
+      return findAcceptedSectionOrRouteHref(
+        plan,
+        /contact|kontak|lokasi|address|alamat|operat/i,
+      );
+    } catch {
+      return "#contact";
+    }
+  }
+  const addressFacts = facts.filter((fact) => fact.kind === "address");
+  const mapFacts = facts.filter(
+    (fact) => fact.kind === "contact" && fact.value.channel === "maps",
+  );
+  if (addressFacts.length + mapFacts.length !== 1) {
+    throw new Error("professional site visit CTA target is ambiguous");
+  }
+  const fact = addressFacts[0] ?? mapFacts[0];
+  return visitHref(fact, facts, plan);
+}
+
+function acceptedActionTarget(fact: ContractFactV1 | undefined): string {
+  if (!fact) {
+    throw new Error("professional site action target is missing");
+  }
+  const raw =
+    fact.kind === "contact"
+      ? fact.value.value.trim()
+      : fact.kind === "other"
+        ? fact.value.trim()
+        : "";
+  if (!raw || raw === "#kontak") {
+    throw new Error("professional site action target is unsafe");
+  }
+  if (raw.startsWith("/")) {
+    return normalizeHashHistoryHref(raw);
+  }
+  if (raw.startsWith("#")) {
+    if (!/^#[a-z0-9-]+$/i.test(raw)) {
+      throw new Error("professional site action target is unsafe");
+    }
+    return raw;
+  }
+  const url = new URL(raw);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("professional site action target is unsafe");
+  }
+  if (url.username || url.password) {
+    throw new Error("professional site action target is unsafe");
+  }
+  return url.toString();
+}
+
+function findAcceptedSectionOrRouteHref(
+  plan: BuildPlanV1,
+  matcher: RegExp,
+): string {
+  const sectionMatches = plan.pages.flatMap((page) =>
+    page.sections.filter((section) =>
+      matcher.test(`${section.id} ${section.purpose}`),
+    ),
+  );
+  const sectionIds = [...new Set(sectionMatches.map((section) => section.id))];
+  if (sectionIds.length === 1) {
+    return `#${sectionIds[0]}`;
+  }
+  const routeMatches = plan.pages.filter((page) =>
+    matcher.test(`${page.id} ${page.purpose}`),
+  );
+  if (routeMatches.length === 1) {
+    return normalizeHashHistoryHref(routeMatches[0].path);
+  }
+  throw new Error("professional site action target is missing or ambiguous");
+}
+
+function compileAcceptedSecondaryHref(input: {
+  action: string;
+  plan: BuildPlanV1;
+  primaryCta: ProfessionalSiteContentV1["primaryCta"];
+}): string | null {
+  const action = input.action.trim();
+  if (!action) {
+    return null;
+  }
+  if (action === "browse") {
+    try {
+      return findAcceptedSectionOrRouteHref(
+        input.plan,
+        /catalog|katalog|menu|produk|kelas|pilihan/i,
+      );
+    } catch {
+      return null;
+    }
+  }
+  if (action === "visit" || action === "maps") {
+    try {
+      return findAcceptedSectionOrRouteHref(
+        input.plan,
+        /contact|kontak|lokasi|address|alamat|operat/i,
+      );
+    } catch {
+      return null;
+    }
+  }
+  if (action === input.primaryCta.intentId) {
+    return input.primaryCta.href;
+  }
+  if (action.startsWith("/") || action.startsWith("#")) {
+    return normalizeHashHistoryHref(action);
+  }
+  try {
+    const url = new URL(action);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return url.toString();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function compileAcceptedNavigation(
+  plan: BuildPlanV1,
+): ProfessionalSiteContentV1["navigation"] {
+  const pagesById = new Map(plan.pages.map((page) => [page.id, page]));
+  const edges = new Set<string>();
+  return plan.navigation.map((navigation) => {
+    const fromPage = pagesById.get(navigation.fromPageId);
+    const toPage = pagesById.get(navigation.toPageId);
+    const label = navigation.label.trim();
+    if (!fromPage || !toPage || !label || /[<>]/.test(label)) {
+      throw new Error("professional site navigation is invalid");
+    }
+    const edge = `${fromPage.path}->${toPage.path}`;
+    if (edges.has(edge)) {
+      throw new Error("professional site navigation contains duplicate edge");
+    }
+    edges.add(edge);
+    return {
+      fromPath: normalizeStaticPath(fromPage.path),
+      toPath: normalizeStaticPath(toPage.path),
+      label,
+      href: normalizeHashHistoryHref(toPage.path),
+    };
+  });
+}
+
+function normalizeStaticPath(path: string): string {
+  if (path.includes(":")) {
+    throw new Error("dynamic routes are unsupported");
+  }
+  if (path.includes("*")) {
+    throw new Error("wildcard routes are unsupported");
+  }
+  if (path === "/") {
+    return path;
+  }
+  if (!/^\/[a-z0-9-]+(\/[a-z0-9-]+)*$/.test(path)) {
+    throw new Error(`unsafe route path: ${path}`);
+  }
+  return path;
+}
+
+function normalizeHashHistoryHref(path: string): string {
+  if (path.startsWith("#")) {
+    if (!/^#[a-z0-9-]+$/i.test(path)) {
+      throw new Error("professional site internal target is unsafe");
+    }
+    return path;
+  }
+  return `#${normalizeStaticPath(path)}`;
+}
+
+function acceptedOfferFacts(facts: ContractFactV1[]): SiteSchemaProduct[] {
+  return facts.flatMap((fact) =>
+    fact.kind === "offer" ? fact.value.map((item) => ({ ...item })) : [],
+  );
+}
+
+function acceptedTestimonialFacts(facts: ContractFactV1[]): TestimonialValue[] {
+  return facts.flatMap((fact) =>
+    fact.kind === "testimonial" ? fact.value : [],
+  );
+}
+
+function acceptedCertificationFacts(
+  facts: ContractFactV1[],
+): CertificationValue[] {
+  return facts.flatMap((fact) =>
+    fact.kind === "certification" ? fact.value : [],
+  );
+}
+
+function acceptedHoursFacts(facts: ContractFactV1[]): HoursValue[] {
+  return facts.flatMap((fact) => (fact.kind === "hours" ? fact.value : []));
+}
+
+function acceptedPaymentFacts(facts: ContractFactV1[]): PaymentMethodValue[] {
+  return facts.flatMap((fact) =>
+    fact.kind === "payment_method" ? fact.value : [],
+  );
+}
+
+function acceptedSocialFacts(facts: ContractFactV1[]): SocialLinkValue[] {
+  return facts.flatMap((fact) =>
+    fact.kind === "social_link" ? fact.value : [],
+  );
+}
+
+function acceptedOtherFacts(facts: ContractFactV1[]): string[] {
+  return facts.flatMap((fact) => (fact.kind === "other" ? [fact.value] : []));
+}
+
+function acceptedArrayFacts(
+  facts: ContractFactV1[],
+  kind: "testimonial",
+): TestimonialValue[];
+function acceptedArrayFacts(
+  facts: ContractFactV1[],
+  kind: "certification",
+): CertificationValue[];
+function acceptedArrayFacts(
+  facts: ContractFactV1[],
+  kind: "hours",
+): HoursValue[];
+function acceptedArrayFacts(
+  facts: ContractFactV1[],
+  kind: "payment_method",
+): PaymentMethodValue[];
+function acceptedArrayFacts(
+  facts: ContractFactV1[],
+  kind: "social_link",
+): SocialLinkValue[];
+function acceptedArrayFacts(facts: ContractFactV1[], kind: "other"): string[];
+function acceptedArrayFacts(
+  facts: ContractFactV1[],
+  kind: FactKind,
+): Array<unknown> {
+  switch (kind) {
+    case "testimonial":
+      return acceptedTestimonialFacts(facts);
+    case "certification":
+      return acceptedCertificationFacts(facts);
+    case "hours":
+      return acceptedHoursFacts(facts);
+    case "payment_method":
+      return acceptedPaymentFacts(facts);
+    case "social_link":
+      return acceptedSocialFacts(facts);
+    case "other":
+      return acceptedOtherFacts(facts);
+    default:
+      return [];
+  }
+}
+
+function acceptedAddressText(facts: ContractFactV1[]): string | null {
+  const values = facts
+    .filter((fact) => fact.kind === "address")
+    .map((fact) =>
+      [fact.value.line1, fact.value.city, fact.value.postalCode]
+        .filter(Boolean)
+        .join(", "),
+    )
+    .filter(Boolean);
+  return values.length === 1
+    ? (values[0] ?? null)
+    : values.length > 1
+      ? values.join("; ")
+      : null;
+}
+
+function acceptedServiceAreaText(facts: ContractFactV1[]): string | null {
+  const values = facts.flatMap((fact) =>
+    fact.kind === "service_area" ? fact.value.map((item) => item.area) : [],
+  );
+  return values.length ? values.join(", ") : null;
+}
+
+function duplicateIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) {
+      duplicates.add(id);
+    }
+    seen.add(id);
+  }
+  return [...duplicates];
 }
 
 function recipeForV2(archetype: string): GeneratedSiteRecipeV1 {
