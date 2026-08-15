@@ -292,20 +292,9 @@ export function inspectReferenceCalibratedSiteSource(input: {
       );
     }
   }
-  const requiredFields = ["headline", "subheadline", "primaryCta"];
-  const content = input.contract.content;
-  if (content.products.length) {
-    requiredFields.push("products");
-  }
-  if (content.trustPoints.length) {
-    requiredFields.push("trustPoints");
-  }
-  if (content.usp.length) {
-    requiredFields.push("usp");
-  }
-  if (content.promotion) {
-    requiredFields.push("currentPromo");
-  }
+  const requiredFields = referenceCalibratedRequiredContentFields(
+    input.contract,
+  );
   for (const field of requiredFields) {
     if (!new RegExp(`\\bsite\\.${escapeRegExp(field)}\\b`).test(source)) {
       add(
@@ -819,6 +808,32 @@ export function inspectGeneratedSiteSource(input: {
  * populated contract fact" left the model guessing, and a real build failed
  * because site.usp never made it into the route.
  */
+/**
+ * The reference-calibrated gate's own list, exported so its writer prompt can
+ * name the fields. It differs from requiredContentFields: this path also
+ * demands trustPoints, and a build failed because the prompt was generated
+ * from the other list.
+ */
+export function referenceCalibratedRequiredContentFields(contract: {
+  content: GeneratedSiteContractV1["content"];
+}): string[] {
+  const fields = ["headline", "subheadline", "primaryCta"];
+  const content = contract.content;
+  if (content.products.length) {
+    fields.push("products");
+  }
+  if (content.trustPoints.length) {
+    fields.push("trustPoints");
+  }
+  if (content.usp.length) {
+    fields.push("usp");
+  }
+  if (content.promotion) {
+    fields.push("currentPromo");
+  }
+  return fields;
+}
+
 export function requiredContentFields(contract: {
   content: GeneratedSiteContractV1["content"];
 }): string[] {

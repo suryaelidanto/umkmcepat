@@ -20,7 +20,7 @@ import { loadArchetypeGuide } from "@/lib/projects/archetypes";
 import { briefToBuildPrompt, type ProjectBrief } from "@/lib/projects/brief";
 import { DESIGN_DIRECTIVE } from "@/lib/projects/design-directive";
 import { deriveGeneratedSitePageStrategy } from "@/lib/projects/generated-site-design-quality";
-import { requiredContentFields } from "@/lib/projects/generated-site-gates";
+import { referenceCalibratedRequiredContentFields } from "@/lib/projects/generated-site-gates";
 import {
   WRITER_DESIGN_PLAN_V3_DENSITIES,
   WRITER_DESIGN_PLAN_V3_MAX_BYTES,
@@ -154,7 +154,7 @@ Rules:
 - Keep the route compact: emit one route file, no helper components, no repeated data, keep src/routes/index.tsx under 8,000 characters and 160 lines, and finish well below the output limit.
 - Emit exactly one complete route file, then one done marker. Never omit done. Finish immediately.
 - Compose @/components/site/layout primitives; do not rewrite them.
-- Render every one of these populated fields visibly: ${requiredContentFields(
+- Render every one of these populated fields visibly: ${referenceCalibratedRequiredContentFields(
       input.contract,
     )
       .map((field) => `site.${field}`)

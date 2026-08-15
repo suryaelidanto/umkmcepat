@@ -6,7 +6,7 @@ import {
   buildTargetedRepairPrompt,
 } from "./batched-prompt";
 import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
-import { requiredContentFields } from "./generated-site-gates";
+import { referenceCalibratedRequiredContentFields } from "./generated-site-gates";
 
 import type { GeneratedSiteWriterContractV2 } from "./generated-site-contract";
 import type { GeneratedProjectFile } from "./generated-types";
@@ -99,7 +99,7 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
       schema: {} as never,
     });
 
-    for (const field of requiredContentFields(contract)) {
+    for (const field of referenceCalibratedRequiredContentFields(contract)) {
       expect(prompt.system).toContain(`site.${field}`);
     }
     expect(prompt.system).toMatch(/uppercase/i);
