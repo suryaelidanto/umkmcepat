@@ -233,6 +233,7 @@ function acceptedHandoff(
     planHash: values.plan.contentHash,
     contractRevision: 1,
     planRevision: 1,
+    creativeDirection: null,
   };
 }
 

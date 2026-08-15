@@ -7,6 +7,7 @@ import {
   type BuildContractV1,
   type ContractFactV1,
 } from "./build-contract";
+import { generateBuildCreativeDirection } from "./build-creative-direction";
 import { createDraftHandoff } from "./build-handoffs";
 import {
   hashBuildContract,
@@ -20,6 +21,7 @@ import { deriveReviewItems } from "./review-items";
 import type { ProjectBrief } from "./brief";
 import type { ContactValue } from "./brief-rich-fields";
 import type { BuildPlanV1 } from "./build-plan";
+import type { UIMessage } from "ai";
 
 export type PlannerDeps = {
   parseBuildContract: typeof parseBuildContract;
@@ -301,6 +303,7 @@ export async function prepareBuildHandoff(input: {
   engine: string;
   brief: ProjectBrief;
   turnId?: string;
+  messages?: UIMessage[];
 }): Promise<PrepareHandoffResult> {
   const briefSnapshot = parseCanonicalBrief(input.brief, input.brief.prompt);
   const briefHash = hashCanonicalBrief(briefSnapshot);
@@ -323,6 +326,18 @@ export async function prepareBuildHandoff(input: {
 
   const reviewItems = deriveReviewItems(contract, validatedPlan);
   const reviewHashValue = hashReviewItems(reviewItems);
+  // Written once from the discussion and frozen with the rest of the handoff,
+  // so a retry executes the same direction instead of re-imagining it.
+  const creative = input.messages?.length
+    ? await generateBuildCreativeDirection({
+        businessName: briefSnapshot.business.name,
+        businessType: briefSnapshot.business.type,
+        messages: input.messages,
+        projectId: input.projectId,
+        userId: input.userId,
+        turnId: input.turnId,
+      })
+    : null;
   const created = await createDraftHandoff({
     projectId: input.projectId,
     userId: input.userId,
@@ -338,6 +353,8 @@ export async function prepareBuildHandoff(input: {
     reviewHash: reviewHashValue,
     contractRevision: contract.revision,
     planRevision: validatedPlan.revision,
+    creativeDirection: creative?.direction ?? null,
+    creativeDirectionHash: creative?.hash ?? null,
   });
 
   return {

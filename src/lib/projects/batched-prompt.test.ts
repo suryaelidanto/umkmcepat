@@ -79,6 +79,37 @@ function writerContract(): GeneratedSiteWriterContractV2 {
 }
 
 describe("buildReferenceCalibratedWriterPrompt", () => {
+  it("carries the frozen creative direction and omits the section without one", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      hasOperationalDetails: false,
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+    });
+    const withDirection = buildReferenceCalibratedWriterPrompt({
+      contract: writerContract(),
+      kit,
+      projectId: "benchmark-project",
+      schema: {} as never,
+      creativeDirection:
+        "Lead with the filling portion a student can afford after class.",
+    });
+    const withoutDirection = buildReferenceCalibratedWriterPrompt({
+      contract: writerContract(),
+      kit,
+      projectId: "benchmark-project",
+      schema: {} as never,
+    });
+
+    expect(withDirection.system).toContain(
+      "Lead with the filling portion a student can afford after class.",
+    );
+    expect(withDirection.system).toMatch(/CREATIVE DIRECTION/);
+    expect(withDirection.system).toMatch(/never a source of facts/i);
+    expect(withoutDirection.system).not.toMatch(/CREATIVE DIRECTION/);
+  });
+
   it("grounds one writer response in one executable kit without fixed-route prose", () => {
     const kit = selectGeneratedSiteDesignKit({
       archetype: "generic",

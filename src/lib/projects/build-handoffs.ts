@@ -24,6 +24,8 @@ export type ActiveHandoff = {
   planHash: string;
   contractRevision: number;
   planRevision: number;
+  creativeDirection?: string | null;
+  creativeDirectionHash?: string | null;
 };
 
 export type AcceptedBuildHandoff = {
@@ -37,6 +39,7 @@ export type AcceptedBuildHandoff = {
   planHash: string;
   contractRevision: number;
   planRevision: number;
+  creativeDirection: string | null;
 };
 
 export type CreateHandoffInput = {
@@ -54,6 +57,8 @@ export type CreateHandoffInput = {
   reviewHash: string;
   contractRevision: number;
   planRevision: number;
+  creativeDirection?: string | null;
+  creativeDirectionHash?: string | null;
 };
 
 export async function loadAcceptedHandoffForAttempt(input: {
@@ -132,6 +137,7 @@ export async function loadAcceptedHandoffForAttempt(input: {
     planHash,
     contractRevision: handoff.contractRevision,
     planRevision: handoff.planRevision,
+    creativeDirection: handoff.creativeDirection ?? null,
   };
 }
 
@@ -198,6 +204,8 @@ export async function createDraftHandoff(input: CreateHandoffInput): Promise<{
         reviewHash: input.reviewHash,
         contractRevision: nextRevision,
         planRevision: input.planRevision,
+        creativeDirection: input.creativeDirection ?? null,
+        creativeDirectionHash: input.creativeDirectionHash ?? null,
       },
       select: { id: true },
     });
@@ -224,6 +232,8 @@ export async function createDraftHandoff(input: CreateHandoffInput): Promise<{
       reviewHash: input.reviewHash,
       contractRevision: input.contractRevision,
       planRevision: input.planRevision,
+      creativeDirection: input.creativeDirection ?? null,
+      creativeDirectionHash: input.creativeDirectionHash ?? null,
     },
     select: { id: true },
   });

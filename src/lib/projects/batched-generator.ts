@@ -1614,6 +1614,7 @@ export async function runReferenceCalibratedGenerate(input: {
   stepCharger?: StepCharger;
   userId: string;
   budget: GeneratedSiteCallBudget;
+  creativeDirection?: string | null;
 }): Promise<ReferenceCalibratedGenerateResult> {
   const primitiveFiles = createGeneratedSitePrimitiveFiles(input.kit);
   const scaffoldFiles = createViteTanStackShadcnStarterFiles(
@@ -1648,6 +1649,7 @@ export async function runReferenceCalibratedGenerate(input: {
     kit: input.kit,
     projectId: input.projectId,
     schema: input.schema,
+    creativeDirection: input.creativeDirection,
   });
   const startedAt = Date.now();
   input.budget.consumeWriter();

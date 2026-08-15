@@ -166,6 +166,10 @@ model ProjectBuildHandoff {
   reviewHash       String    @db.VarChar(64)
   contractRevision Int
   planRevision     Int
+  // Frozen expert direction written from the discussion at handoff time. Taste
+  // only — the contract stays the sole source of customer-facing facts.
+  creativeDirection     String? @db.Text
+  creativeDirectionHash String? @db.VarChar(64)
   acceptedAt       DateTime?
   supersededAt     DateTime?
   createdAt        DateTime  @default(now())

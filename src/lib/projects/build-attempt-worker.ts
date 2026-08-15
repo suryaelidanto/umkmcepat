@@ -780,6 +780,7 @@ export async function runBuildAttempt({
             getSettingSync("feature.composer_uploads_enabled", true),
           ),
           browserContract: generatedSiteContract,
+          creativeDirection: acceptedHandoff.creativeDirection,
           build: (files, workspaceProjectId) =>
             buildGeneratedProject(files, {
               workspaceKey: `${workspaceProjectId}-reference-shadow`,

@@ -30,7 +30,9 @@ Warm, restrained trust engine for busy Indonesian owners. Four non-negotiables:
 
 ## How it works
 
-brief → discuss-turn-worker (ONE call) → build-planner → batched-generator / batched-edit → scaffold/manifest → generated-source → preview-proxy / runtime-supervisor
+brief → discuss-turn-worker (ONE call) → build-planner (contract/plan deterministic + ONE creative-direction call, fail-open) → batched-generator / batched-edit → scaffold/manifest → generated-source → preview-proxy / runtime-supervisor
+
+Facts are deterministic, taste is not: the contract owns every customer-facing value, while the frozen creative direction on the handoff tells the writer what matters about this business. Direction never introduces a fact — source gates reject anything outside `site.*`.
 One control-plane, many project rows, supervised generated runtimes.
 
 ## Where code lives

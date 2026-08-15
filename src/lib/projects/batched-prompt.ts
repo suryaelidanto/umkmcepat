@@ -85,11 +85,26 @@ The only seeded layout exports are SiteSection, SiteStack, SiteSplit, and SiteCl
   };
 }
 
+/**
+ * Direction written from the owner's own conversation. It shapes taste only —
+ * every customer-facing value still comes from the accepted contract, and the
+ * source gates reject anything else.
+ */
+function creativeDirectionBlock(direction: string | null | undefined): string {
+  return direction?.trim()
+    ? `
+CREATIVE DIRECTION (from the owner's conversation; taste only, never a source of facts):
+${direction.trim()}
+`
+    : "";
+}
+
 export function buildReferenceCalibratedWriterPrompt(input: {
   contract: GeneratedSiteWriterContractV2;
   kit: GeneratedSiteDesignKitV1;
   projectId: string;
   schema: ProjectSiteSchema;
+  creativeDirection?: string | null;
 }): { system: string; user: string } {
   const writablePaths = ["src/routes/index.tsx"];
   const siteSource = `export const site = ${JSON.stringify(input.schema, null, 2)} as const;`;
@@ -98,7 +113,7 @@ export function buildReferenceCalibratedWriterPrompt(input: {
     system: `You are a senior Indonesian landing-page designer and React writer. Emit one standalone customer site. Visible copy is Indonesian; code/comments are English. Use the selected kit, never a generic template.
 
 ${REFERENCE_CALIBRATED_TASTE_RULES}
-
+${creativeDirectionBlock(input.creativeDirection)}
 CONTRACT (immutable): ${JSON.stringify(input.contract)}
 READ-ONLY DATA SOURCE — src/content/site.ts:
 ${siteSource}

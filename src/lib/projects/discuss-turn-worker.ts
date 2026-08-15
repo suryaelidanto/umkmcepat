@@ -893,6 +893,7 @@ export async function runDiscussTurn({
         engine: "contract-v1",
         brief: workspaceTurn.brief,
         turnId,
+        messages,
       });
       if (prepared.state === "ready") {
         const base = workspaceTurn.workspaceCard as {

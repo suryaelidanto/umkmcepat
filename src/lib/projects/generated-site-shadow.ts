@@ -38,6 +38,7 @@ export type GeneratedSiteShadowInput = {
   schema: ProjectSiteSchema;
   photoEnabled: boolean;
   browserContract: GeneratedSiteContractV1;
+  creativeDirection?: string | null;
   abortSignal?: AbortSignal;
   build: (
     files: GeneratedProjectFile[],
@@ -78,7 +79,11 @@ export async function runGeneratedSiteShadowCandidate(
         photoEnabled,
         kit,
       }),
-    runWriter: (writerInput) => runReferenceCalibratedGenerate(writerInput),
+    runWriter: (writerInput) =>
+      runReferenceCalibratedGenerate({
+        ...writerInput,
+        creativeDirection: input.creativeDirection,
+      }),
     build: input.build,
     runBrowser: async ({
       files,
