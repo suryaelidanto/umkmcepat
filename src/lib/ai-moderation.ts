@@ -162,6 +162,12 @@ export async function moderateProjectRequest(
       : label === "CLARIFY"
         ? { allowed: false, message: CLARIFY_MESSAGE, modelId, usage }
         : { allowed: true, modelId, usage };
+  if (!moderationResult.allowed) {
+    // A refused send creates no turn, so without this the message simply
+    // vanishes from every log and the owner looks stuck. Label only — never
+    // the message itself.
+    devLog("moderation", "refused", { label, model: modelId });
+  }
 
   if (!hasImages) {
     moderationCache.set(key, {
