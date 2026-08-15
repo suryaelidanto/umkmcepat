@@ -916,6 +916,13 @@ const ARRAY_METHODS = new Set([
   "isArray",
 ]);
 
+export function inspectSiteFieldReferences(input: {
+  content: string;
+  site: Record<string, unknown>;
+}): string[] {
+  return invalidSiteReferences(input.content, input.site);
+}
+
 function invalidSiteReferences(
   content: string,
   site: Record<string, unknown>,

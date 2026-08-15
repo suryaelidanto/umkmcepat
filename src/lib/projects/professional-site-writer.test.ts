@@ -6,7 +6,10 @@ import {
 } from "./batched-prompt";
 import { GeneratedSiteCallBudget } from "./generated-site-call-budget";
 import { PROFESSIONAL_DESIGN_KITS } from "./professional-site-kits";
-import { runProfessionalSiteGenerate } from "./professional-site-writer";
+import {
+  runProfessionalSiteCorrection,
+  runProfessionalSiteGenerate,
+} from "./professional-site-writer";
 
 import type { GeneratedSiteWriterContractV3 } from "./generated-site-contract";
 import type { GeneratedProjectFile } from "./generated-types";
@@ -259,10 +262,23 @@ function streamResult(
   };
 }
 
-const routeFile = (path: string): GeneratedProjectFile => ({
-  path,
-  content: `export function ${path === "src/routes/index.tsx" ? "HomeRouteComponent" : "KelasRouteComponent"}() { return <main>{"${path}"}</main>; }`,
-});
+const routeFile = (path: string): GeneratedProjectFile => {
+  const isHome = path === "src/routes/index.tsx";
+  const sectionId = isHome ? "hero" : "kelas";
+  return {
+    path,
+    content: `import { site } from "@/content/site";
+import { usePreviewReady } from "@/lib/preview-ready";
+export function ${isHome ? "HomeRouteComponent" : "KelasRouteComponent"}() {
+  usePreviewReady();
+  return <main data-pattern="full-field-lockup" className="font-body">
+    <section data-first-view className="font-display"><h1>{site.heroTitle}</h1><p>{site.businessName}</p><p>{site.audience}</p><p>{site.offers.map((offer) => <span key={offer.name}>{offer.name}</span>)}</p><a data-primary-action className="inline-flex min-h-11" href={site.primaryCta.href} target="_blank" rel="noopener noreferrer">{site.primaryCta.label}</a></section>
+    <section data-section-id="${sectionId}"><p>{site.heroTitle}</p></section>
+    ${isHome ? "<aside data-signature>{site.offers.map((offer) => <span key={offer.name}>{offer.name}</span>)}</aside>" : ""}
+  </main>;
+}`,
+  };
+};
 
 describe("professional site prompts", () => {
   it("includes the immutable V3 contract, blueprint, hooks, actions, and safety rules", () => {
@@ -388,6 +404,68 @@ describe("runProfessionalSiteGenerate", () => {
     expect(result.ok && result.writtenPaths).toContain(
       "src/components/site/generated-shell.tsx",
     );
+  });
+
+  it("runs the same source gate after the bounded correction", async () => {
+    const contract = makeContract();
+    const blueprint = makeBlueprint();
+    const acceptedPlan = makePlan(blueprint);
+    const budget = new GeneratedSiteCallBudget();
+    runOneStreamedResponseMock.mockResolvedValueOnce(
+      streamResult(blueprint, [routeFile("src/routes/index.tsx")]),
+    );
+    const result = await runProfessionalSiteCorrection({
+      contract,
+      blueprint,
+      kit,
+      acceptedPlan,
+      reason: "source_gate",
+      diagnostics: ["primary action hook"],
+      implicatedPaths: ["src/routes/index.tsx"],
+      files: [routeFile("src/routes/index.tsx")],
+      projectId: "project-1",
+      attemptId: "attempt-1",
+      buildId: null,
+      budget,
+    });
+    expect(result.ok).toBe(true);
+    expect(budget.snapshot().correctionCalls).toBe(1);
+    expect(runOneStreamedResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "repair",
+        maxRetries: 0,
+        requiredFilePaths: ["src/routes/index.tsx"],
+      }),
+    );
+    expect(result.ok && result.sourceReport.status).toBe("pass");
+  });
+
+  it("returns a categorized source-gate report instead of accepting an unsafe route", async () => {
+    const contract = makeContract();
+    const blueprint = makeBlueprint();
+    const unsafeRoute = routeFile("src/routes/index.tsx");
+    unsafeRoute.content = unsafeRoute.content.replace(
+      "data-primary-action",
+      "data-secondary-action",
+    );
+    runOneStreamedResponseMock.mockResolvedValueOnce(
+      streamResult(blueprint, [unsafeRoute]),
+    );
+    const result = await runProfessionalSiteGenerate({
+      contract,
+      blueprint,
+      kit,
+      projectId: "project-1",
+      userId: "user-1",
+      attemptId: "attempt-1",
+      buildId: null,
+      budget: new GeneratedSiteCallBudget(),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.ok ? null : result.sourceReport).toMatchObject({
+      status: "fail",
+      hardFailureCounts: { action: expect.any(Number) },
+    });
   });
 
   it.each([

@@ -2,9 +2,16 @@ import {
   runOneStreamedResponse,
   type BatchedGenerateEventSink,
 } from "./batched-generator";
-import { buildProfessionalSiteWriterPrompt } from "./batched-prompt";
+import {
+  buildProfessionalSiteCorrectionPrompt,
+  buildProfessionalSiteWriterPrompt,
+} from "./batched-prompt";
 import { compileProfessionalSiteTheme } from "./generated-site-theme";
 import { compileProfessionalSiteRouter } from "./professional-site-router";
+import {
+  inspectProfessionalStaticSiteSource,
+  type ProfessionalSiteSourceGateReportV1,
+} from "./professional-site-source-gates";
 import { createGeneratedSitePrimitiveFiles } from "./scaffold/generated-site-primitives";
 import { createViteTanStackShadcnStarterFiles } from "./scaffold/vite-tanstack-shadcn-starter";
 import { createFallbackProjectSiteSchema } from "./site-schema";
@@ -19,16 +26,7 @@ import type { ProfessionalSiteBlueprintV1 } from "./professional-site-blueprint"
 import type { GeneratedSiteDesignKitV2 } from "./professional-site-kits";
 import type { WriterDesignPlanV3 } from "./professional-site-plan";
 
-export type ProfessionalSiteHardFailureKind =
-  "fact" | "action" | "media" | "accessibility" | "route" | "contract";
-
-export type ProfessionalSiteSourceGateReportV1 = {
-  version: 1;
-  status: "pass" | "fail";
-  findings: Array<{ code: string; message: string; path?: string }>;
-  hardFailureCounts: Record<ProfessionalSiteHardFailureKind, number>;
-  professionalSignals: Array<{ code: string; path: string; detail: string }>;
-};
+export type { ProfessionalSiteSourceGateReportV1 } from "./professional-site-source-gates";
 
 export type ProfessionalSiteGenerateResult =
   | {
@@ -222,7 +220,30 @@ export async function runProfessionalSiteGenerate(input: {
         router,
       ],
     });
-    const sourceReport = createPendingSourceReport();
+    const sourceReport = inspectProfessionalStaticSiteSource({
+      contract: input.contract,
+      blueprint: input.blueprint,
+      kit: input.kit,
+      plan,
+      files,
+      starterFiles,
+      themeChecks: theme.checks,
+    });
+    if (sourceReport.status === "fail") {
+      return failure({
+        reason: `professional source gate failed: ${sourceReport.findings
+          .map((finding) => finding.code)
+          .join(", ")}`,
+        stagedFiles: files,
+        plan,
+        sourceReport,
+        modelRequested: writer.modelRequested,
+        modelServed: writer.modelServed,
+        writerMs,
+        firstFileClosedMs: writer.firstFileClosedMs ?? null,
+        editableBytes,
+      });
+    }
     return {
       ok: true,
       files,
@@ -248,6 +269,211 @@ export async function runProfessionalSiteGenerate(input: {
       modelServed: writer.modelServed,
       writerMs,
       firstFileClosedMs: writer.firstFileClosedMs ?? null,
+      editableBytes,
+    });
+  }
+}
+
+export async function runProfessionalSiteCorrection(input: {
+  contract: GeneratedSiteWriterContractV3;
+  blueprint: ProfessionalSiteBlueprintV1;
+  kit: GeneratedSiteDesignKitV2;
+  acceptedPlan: WriterDesignPlanV3;
+  reason: import("./generated-site-call-budget").GeneratedSiteCorrectionReason;
+  diagnostics: string[];
+  implicatedPaths: string[];
+  files: GeneratedProjectFile[];
+  projectId: string;
+  attemptId: string;
+  buildId: string | null;
+  budget: {
+    consumeCorrection: (
+      reason: import("./generated-site-call-budget").GeneratedSiteCorrectionReason,
+    ) => void;
+  };
+  abortSignal?: AbortSignal;
+  onEvent?: BatchedGenerateEventSink;
+  onFileStaged?: (file: { content: string; path: string }) => void;
+}): Promise<ProfessionalSiteGenerateResult> {
+  const writablePaths = new Set(requiredProfessionalFilePaths(input.blueprint));
+  const invalidPaths = input.implicatedPaths.filter(
+    (path) => !writablePaths.has(path),
+  );
+  if (input.implicatedPaths.length === 0 || invalidPaths.length > 0) {
+    return failure({
+      reason: invalidPaths.length
+        ? `professional correction implicated protected or unknown paths: ${invalidPaths.join(", ")}`
+        : "professional correction requires at least one implicated path",
+      stagedFiles: input.files,
+      plan: input.acceptedPlan,
+      modelRequested: "unrequested",
+      modelServed: null,
+      writerMs: 0,
+      firstFileClosedMs: null,
+      editableBytes: professionalEditableBytes({
+        plan: input.acceptedPlan,
+        files: input.files.filter((file) => writablePaths.has(file.path)),
+      }),
+    });
+  }
+  const schema = createFallbackProjectSiteSchema(input.contract.business.name);
+  const primitiveFiles = createGeneratedSitePrimitiveFiles(input.kit);
+  const starterFiles = filterMediaStarterFiles(
+    createViteTanStackShadcnStarterFiles(
+      input.projectId,
+      schema,
+      primitiveFiles,
+    ),
+    input.contract.media.mode,
+  );
+  const prompt = buildProfessionalSiteCorrectionPrompt({
+    contract: input.contract,
+    blueprint: input.blueprint,
+    kit: input.kit,
+    acceptedPlan: input.acceptedPlan,
+    reason: input.reason,
+    diagnostics: input.diagnostics,
+    implicatedPaths: input.implicatedPaths,
+    files: input.files,
+  });
+  const startedAt = Date.now();
+  input.budget.consumeCorrection(input.reason);
+  const response = await runOneStreamedResponse({
+    abortSignal: input.abortSignal,
+    attemptId: input.attemptId,
+    buildId: input.buildId,
+    designPlanV3Expected: {
+      blueprint: input.blueprint,
+      kit: input.kit,
+    },
+    maxRetries: 0,
+    onEvent: input.onEvent,
+    onFileStaged: input.onFileStaged,
+    phase: "repair",
+    projectId: input.projectId,
+    requiredFilePaths: input.implicatedPaths,
+    retryCount: 0,
+    requireDesignPlan: true,
+    stopAfterRequiredFilePaths: true,
+    system: prompt.system,
+    task: "build-step",
+    user: prompt.user,
+  });
+  const writerMs = response.requestMs || Date.now() - startedAt;
+  const responseFiles = [...response.response.files.values()];
+  const plan = response.response.designPlanV3 ?? null;
+  const editableBeforeCompile = input.files.filter((file) =>
+    writablePaths.has(file.path),
+  );
+  const editableByPath = new Map(
+    editableBeforeCompile.map((file) => [file.path, file]),
+  );
+  for (const file of responseFiles) {
+    if (!writablePaths.has(file.path)) {
+      return failure({
+        reason: `professional correction emitted an out-of-scope path: ${file.path}`,
+        stagedFiles: input.files,
+        plan,
+        modelRequested: response.modelRequested,
+        modelServed: response.modelServed,
+        writerMs,
+        firstFileClosedMs: response.firstFileClosedMs ?? null,
+        editableBytes: plan
+          ? professionalEditableBytes({ plan, files: responseFiles })
+          : 0,
+      });
+    }
+    editableByPath.set(file.path, file);
+  }
+  const missing = input.implicatedPaths.filter(
+    (path) => !response.response.files.has(path),
+  );
+  const sameAcceptedPlan =
+    plan !== null &&
+    JSON.stringify(plan) === JSON.stringify(input.acceptedPlan);
+  const editableBytes = plan
+    ? professionalEditableBytes({ plan, files: [...editableByPath.values()] })
+    : 0;
+  if (response.parseError || !plan || !sameAcceptedPlan || missing.length > 0) {
+    return failure({
+      reason:
+        response.parseError?.message ??
+        (missing.length > 0
+          ? `professional correction omitted implicated paths: ${missing.join(", ")}`
+          : "professional correction changed or omitted the accepted V3 plan"),
+      stagedFiles: input.files,
+      plan,
+      modelRequested: response.modelRequested,
+      modelServed: response.modelServed,
+      writerMs,
+      firstFileClosedMs: response.firstFileClosedMs ?? null,
+      editableBytes,
+    });
+  }
+  try {
+    const theme = compileProfessionalSiteTheme({
+      kit: input.kit,
+      plan: input.acceptedPlan,
+    });
+    const compiledFiles = mergeProfessionalFiles({
+      starterFiles,
+      editableFiles: [...editableByPath.values()],
+      protectedFiles: [
+        compileProfessionalSiteContentFile(input.contract.content),
+        { path: "src/index.css", content: theme.css },
+        compileProfessionalSiteRouter(input.blueprint.routes),
+      ],
+    });
+    const sourceReport = inspectProfessionalStaticSiteSource({
+      contract: input.contract,
+      blueprint: input.blueprint,
+      kit: input.kit,
+      plan: input.acceptedPlan,
+      files: compiledFiles,
+      starterFiles,
+      themeChecks: theme.checks,
+    });
+    if (sourceReport.status === "fail") {
+      return failure({
+        reason: `professional correction source gate failed: ${sourceReport.findings
+          .map((finding) => finding.code)
+          .join(", ")}`,
+        stagedFiles: compiledFiles,
+        plan: input.acceptedPlan,
+        sourceReport,
+        modelRequested: response.modelRequested,
+        modelServed: response.modelServed,
+        writerMs,
+        firstFileClosedMs: response.firstFileClosedMs ?? null,
+        editableBytes,
+      });
+    }
+    return {
+      ok: true,
+      files: compiledFiles,
+      plan: input.acceptedPlan,
+      summary:
+        response.response.doneSummary ?? "Professional correction emitted.",
+      writtenPaths: responseFiles.map((file) => file.path).sort(),
+      sourceReport,
+      modelRequested: response.modelRequested,
+      modelServed: response.modelServed,
+      writerMs,
+      firstFileClosedMs: response.firstFileClosedMs ?? null,
+      editableBytes,
+    };
+  } catch (error) {
+    return failure({
+      reason:
+        error instanceof Error
+          ? error.message
+          : "professional correction scaffold merge failed",
+      stagedFiles: input.files,
+      plan: input.acceptedPlan,
+      modelRequested: response.modelRequested,
+      modelServed: response.modelServed,
+      writerMs,
+      firstFileClosedMs: response.firstFileClosedMs ?? null,
       editableBytes,
     });
   }
@@ -323,24 +549,8 @@ function mergeProfessionalFiles(input: {
   return [...byPath.values()];
 }
 
-function createPendingSourceReport(): ProfessionalSiteSourceGateReportV1 {
-  return {
-    version: 1,
-    status: "pass",
-    findings: [],
-    hardFailureCounts: {
-      fact: 0,
-      action: 0,
-      media: 0,
-      accessibility: 0,
-      route: 0,
-      contract: 0,
-    },
-    professionalSignals: [],
-  };
-}
-
 function failure(input: {
+  sourceReport?: ProfessionalSiteSourceGateReportV1 | null;
   reason: string;
   stagedFiles: GeneratedProjectFile[];
   plan: WriterDesignPlanV3 | null;
@@ -355,7 +565,7 @@ function failure(input: {
     reason: input.reason,
     stagedFiles: input.stagedFiles,
     plan: input.plan,
-    sourceReport: null,
+    sourceReport: input.sourceReport ?? null,
     modelRequested: input.modelRequested,
     modelServed: input.modelServed,
     writerMs: input.writerMs,
