@@ -177,6 +177,7 @@ export function createProjectSiteSchemaFromBrief(
   const stylePreference = selectionLabel(rawStylePreference);
   const styleDetail = selectionDetail(rawStylePreference);
   const theme = themeForBrief(brief, domain.key);
+  const trustPoints = buildTrustPoints(offer, contactOrCta, stylePreference);
   const primaryCta = primaryCtaFor(rawContactOrCta);
   const secondaryCta = rawContactOrCta.toLowerCase().includes("maps")
     ? "Lihat lokasi"
@@ -193,7 +194,7 @@ export function createProjectSiteSchemaFromBrief(
     audience: targetCustomer,
     offer,
     theme,
-    trustPoints: buildTrustPoints(offer, contactOrCta, stylePreference),
+    trustPoints,
     sections: buildBriefSections({
       contactOrCta,
       contactDetail,
@@ -208,13 +209,18 @@ export function createProjectSiteSchemaFromBrief(
     // prompt + gate can skip empty ones. A 2-field minimal brief yields a
     // schema with no rich fields — the gate only enforces businessName/offer.
     tagline: brief.tagline?.trim() || undefined,
+    // compileGeneratedSiteContract auto-fills content.usp with the same
+    // grounded fallback (publicTrustPoints) when the brief supplied none,
+    // and the reference-calibrated gate requires site.usp whenever that ran
+    // — falling back here to the trustPoints already computed above (not
+    // fabricated further) keeps the two derivations satisfiable together.
     usp:
       brief.usp && brief.usp.length
         ? brief.usp
             .map((u) => u.trim())
             .filter(Boolean)
             .slice(0, MAX_USP)
-        : undefined,
+        : trustPoints.slice(0, MAX_USP),
     products: briefProducts(brief),
     testimonials: briefTestimonials(brief),
     // faq is never populated from a brief (the brief type has no faq field),

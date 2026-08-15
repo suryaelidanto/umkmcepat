@@ -11,6 +11,8 @@ import {
   resolveProjectSiteSchemaCandidate,
 } from "./site-schema-issues";
 
+import type { ProjectBrief } from "./brief";
+
 describe("project site schema", () => {
   it("creates a safe fallback schema from a prompt", () => {
     expect(
@@ -92,6 +94,49 @@ describe("project site schema", () => {
     expect(schema.primaryCta).toBe("Pesan via WhatsApp");
     expect(schema.sections.length).toBeGreaterThanOrEqual(4);
     expect(getProjectSiteSchemaQualityIssues(schema)).toEqual([]);
+  });
+
+  it("falls back usp to the already-computed trustPoints when the brief has none", () => {
+    // compileGeneratedSiteContract auto-fills content.usp with grounded
+    // fallback copy (publicTrustPoints) even when the brief's usp is empty,
+    // and referenceCalibratedRequiredContentFields requires site.usp whenever
+    // that fallback ran. Reproduced live: the writer had no site.usp to
+    // render at all — an unsatisfiable requirement — because this schema
+    // left usp undefined while the contract already considered it populated.
+    // trustPoints is computed unconditionally, two lines above usp, from the
+    // same grounded offer/contactOrCta/stylePreference fields, so reusing it
+    // costs nothing invented.
+    const schema = createProjectSiteSchemaFromBrief({
+      version: 1,
+      prompt: "buatkan saya website buat jualan angkringan",
+      businessName: "",
+      businessType: "Warung fisik yang juga ingin terima pesanan online",
+      offer: "Menu klasik: nasi kucing, sate usus",
+      targetCustomer: "Anak kos dan mahasiswa",
+      contactOrCta: "WA + link Google Maps",
+      stylePreference: "Hangat dan tradisional",
+      notes: [],
+      productOrService: null,
+      contact: null,
+      tagline: null,
+      usp: null,
+      priceRange: null,
+      visuals: null,
+      hours: null,
+      address: null,
+      deliveryArea: null,
+      since: null,
+      testimonials: null,
+      certifications: null,
+      paymentMethods: null,
+      socialLinks: null,
+      currentPromo: null,
+      secondaryCta: null,
+      readyForBuild: false,
+    } as ProjectBrief);
+
+    expect(schema.usp).toEqual(schema.trustPoints);
+    expect(schema.usp?.length).toBeGreaterThan(0);
   });
 
   it("turns option labels with parenthetical descriptions into natural site copy", () => {
