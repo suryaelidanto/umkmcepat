@@ -62,3 +62,4 @@ Task 4: complete (ae52e986, protected typography, theme, and hash-history routin
 Task 5: complete (54a72f64, bounded V3 writer and prompts, review clean; 12 Vitest tests pass, typecheck/lint clean)
 Task 6: complete (14c645b9, V3 source qualification gates and correction integration, review clean; 16 source-gate/writer tests pass, 66 focused tests, typecheck/lint clean)
 Task 7: complete (3183fb5f, browser qualification V2 and professional geometry evidence, review clean; 40 Vitest tests plus 9 Node contrast tests, typecheck/lint clean)
+Task 8: complete (f98095b7, category-complete professional critic, calibration contracts, and release manifest parser, review clean; 14 focused tests, 54 relevant Vitest tests, typecheck/lint clean)
