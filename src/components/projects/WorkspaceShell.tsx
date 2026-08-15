@@ -1883,11 +1883,20 @@ export function WorkspaceShell({
       switch (result.kind) {
         case "reload":
           await reloadLatestChat();
-          // A later turn succeeded, so neither failure banner may survive it —
-          // otherwise the owner reads "coba kirim ulang" above the card that
-          // turn just produced.
+          // A later turn succeeded, so a stale failure banner must not survive
+          // it. A terminal error is different: a refused send creates no turn
+          // at all, so this poll always sees the previous success and would
+          // erase the only explanation the owner ever gets.
           setResumeError(null);
-          clearError();
+          if (
+            !isTerminalChatError({
+              code: (error as ChatError | undefined)?.code,
+              message: error?.message,
+              status: (error as ChatError | undefined)?.status,
+            })
+          ) {
+            clearError();
+          }
           return;
         case "poll":
           await new Promise((resolve) =>
@@ -1912,7 +1921,7 @@ export function WorkspaceShell({
     return () => {
       canceled = true;
     };
-  }, [clearError, messages, projectId, reloadLatestChat, status]);
+  }, [clearError, error, messages, projectId, reloadLatestChat, status]);
 
   useEffect(() => {
     const previous = previousChatStatus.current;

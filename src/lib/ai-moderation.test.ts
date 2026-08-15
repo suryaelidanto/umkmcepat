@@ -210,8 +210,11 @@ describe("moderation prompt", () => {
     );
 
     expect(source).toMatch(/ongoing conversation/i);
-    expect(source).toMatch(/never merely because it is short/i);
-    // The refusal copy must not blame slowness the checker did not have.
+    // Binary by design: CLARIFY was a refusal wearing softer copy, and the
+    // fuzzy middle is what refused "ya". Real outages are handled by the
+    // route's moderation_unavailable path instead.
+    expect(source).toMatch(/exactly ALLOW or BLOCK/);
+    expect(source).not.toMatch(/CLARIFY/);
     expect(source).not.toMatch(/checker keamanan lagi lambat/i);
   });
 });
