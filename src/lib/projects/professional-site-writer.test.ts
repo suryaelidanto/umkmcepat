@@ -3,9 +3,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildProfessionalSiteCorrectionPrompt,
   buildProfessionalSiteWriterPrompt,
+  PROFESSIONAL_WRITER_PLAN_SKELETON_LABEL,
 } from "./batched-prompt";
 import { GeneratedSiteCallBudget } from "./generated-site-call-budget";
 import { PROFESSIONAL_DESIGN_KITS } from "./professional-site-kits";
+import {
+  parseWriterDesignPlanV3,
+  WRITER_DESIGN_PLAN_V3_DENSITIES,
+  WRITER_DESIGN_PLAN_V3_KEYS,
+  WRITER_DESIGN_PLAN_V3_MAX_BYTES,
+  WRITER_DESIGN_PLAN_V3_MOBILE_TRANSFORM_KEYS,
+  WRITER_DESIGN_PLAN_V3_PALETTE_KEYS,
+  WRITER_DESIGN_PLAN_V3_ROUTE_KEYS,
+  WRITER_DESIGN_PLAN_V3_SECTION_KEYS,
+  WRITER_DESIGN_PLAN_V3_SIGNATURE_KEYS,
+  WRITER_DESIGN_PLAN_V3_SURFACES,
+  WRITER_DESIGN_PLAN_V3_TYPOGRAPHY_KEYS,
+} from "./professional-site-plan";
+import { professionalPopulatedContentPaths } from "./professional-site-source-gates";
 import {
   runProfessionalSiteCorrection,
   runProfessionalSiteGenerate,
@@ -280,6 +295,61 @@ export function ${isHome ? "HomeRouteComponent" : "KelasRouteComponent"}() {
   };
 };
 
+/**
+ * The prompt states the plan shape as a real JSON skeleton whose creative
+ * fields are `<placeholder>` strings. Extracting and filling it here keeps the
+ * prompt and the strict parser provably in sync — a drifted prompt stops
+ * parsing instead of failing later against a live model.
+ */
+function extractPlanSkeleton(system: string): unknown {
+  const start = system.indexOf(PROFESSIONAL_WRITER_PLAN_SKELETON_LABEL);
+  if (start < 0) {
+    throw new Error("writer prompt is missing its design-plan skeleton");
+  }
+  const opening = system.indexOf("{", start);
+  let depth = 0;
+  for (let index = opening; index < system.length; index += 1) {
+    if (system[index] === "{") {
+      depth += 1;
+    } else if (system[index] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return JSON.parse(system.slice(opening, index + 1)) as unknown;
+      }
+    }
+  }
+  throw new Error("writer prompt design-plan skeleton is unterminated");
+}
+
+function fillPlanSkeleton(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(fillPlanSkeleton);
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        fillPlanSkeleton(entry),
+      ]),
+    );
+  }
+  if (typeof value !== "string") {
+    return value;
+  }
+  const placeholder = /^<(.+)>$/.exec(value);
+  if (!placeholder) {
+    return value;
+  }
+  const body = placeholder[1] ?? "";
+  if (body === "#rrggbb") {
+    return "#1a2b3c";
+  }
+  const [first] = body.split("|");
+  return first?.includes(" ") || !first
+    ? "Concrete bounded visual thesis."
+    : first;
+}
+
 describe("professional site prompts", () => {
   it("includes the immutable V3 contract, blueprint, hooks, actions, and safety rules", () => {
     const contract = makeContract();
@@ -299,6 +369,83 @@ describe("professional site prompts", () => {
     expect(prompt.user).toContain(contract.contractHash);
     expect(prompt.user).toContain(blueprint.blueprintHash);
     expect(prompt.user).toContain("full-field-lockup");
+  });
+
+  it("states the seeded module paths, hooks, and export the source gate requires", () => {
+    const blueprint = makeBlueprint();
+    const prompt = buildProfessionalSiteWriterPrompt({
+      contract: makeContract(),
+      blueprint,
+      kit,
+    });
+    expect(prompt.system).toContain("@/components/site/layout");
+    expect(prompt.system).toContain("@/lib/preview-ready");
+    expect(prompt.system).toContain("usePreviewReady()");
+    expect(prompt.system).toContain("@/content/site");
+    for (const route of blueprint.routes) {
+      expect(prompt.system).toContain(`export function ${route.exportName}`);
+    }
+    expect(prompt.system).toContain("default");
+    expect(prompt.system).toContain('target="_blank"');
+    expect(prompt.system).toContain('rel="noopener noreferrer"');
+    expect(prompt.system).toContain('data-section-id="');
+    expect(prompt.system).toContain('data-pattern="');
+    expect(prompt.system).toContain("min-h-11");
+    expect(prompt.system).toContain("text-muted-foreground");
+    for (const path of professionalPopulatedContentPaths(
+      makeContract().content,
+    )) {
+      expect(prompt.system).toContain(path);
+    }
+    expect(prompt.system).not.toContain("SiteFirstView");
+    expect(prompt.system).not.toContain("SiteSignature");
+  });
+
+  it("states a design-plan skeleton the strict V3 parser accepts", () => {
+    const contract = makeContract();
+    const blueprint = makeBlueprint();
+    const prompt = buildProfessionalSiteWriterPrompt({
+      contract,
+      blueprint,
+      kit,
+    });
+    const plan = parseWriterDesignPlanV3({
+      value: fillPlanSkeleton(extractPlanSkeleton(prompt.system)),
+      blueprint,
+      kit,
+    });
+    expect(plan.blueprintHash).toBe(blueprint.blueprintHash);
+    expect(plan.routes.map((route) => route.path)).toEqual(
+      blueprint.routes.map((route) => route.path),
+    );
+    expect(plan.signature.route).toBe(blueprint.signatureRoute);
+  });
+
+  it("names every strict V3 plan field so the prompt cannot drift from the parser", () => {
+    const prompt = buildProfessionalSiteWriterPrompt({
+      contract: makeContract(),
+      blueprint: makeBlueprint(),
+      kit,
+    });
+    for (const key of [
+      ...WRITER_DESIGN_PLAN_V3_KEYS,
+      ...WRITER_DESIGN_PLAN_V3_SIGNATURE_KEYS,
+      ...WRITER_DESIGN_PLAN_V3_TYPOGRAPHY_KEYS,
+      ...WRITER_DESIGN_PLAN_V3_PALETTE_KEYS,
+      ...WRITER_DESIGN_PLAN_V3_ROUTE_KEYS,
+      ...WRITER_DESIGN_PLAN_V3_SECTION_KEYS,
+      ...WRITER_DESIGN_PLAN_V3_MOBILE_TRANSFORM_KEYS,
+    ]) {
+      expect(prompt.system).toContain(`"${key}"`);
+    }
+    for (const value of [
+      ...WRITER_DESIGN_PLAN_V3_SURFACES,
+      ...WRITER_DESIGN_PLAN_V3_DENSITIES,
+      ...kit.allowedSectionTreatments,
+    ]) {
+      expect(prompt.system).toContain(value);
+    }
+    expect(prompt.system).toContain(WRITER_DESIGN_PLAN_V3_MAX_BYTES.toString());
   });
 
   it("limits correction output to implicated complete paths and the accepted plan", () => {

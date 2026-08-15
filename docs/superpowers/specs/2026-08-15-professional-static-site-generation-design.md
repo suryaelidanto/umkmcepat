@@ -541,6 +541,8 @@ The protected compiler still owns all semantic colors. It must verify:
 - accent area policy as evidence;
 - deterministic CSS for equal blueprint/plan inputs.
 
+A mid-tone background or accent can be too light for black text and too dark for white text at once. The compiler owns semantic colors, so it keeps the chosen hue and moves that surface the smallest deterministic step that admits readable text. It never lowers a contrast minimum, and it leaves an already-readable surface untouched.
+
 Only semantic Tailwind tokens may appear in generated TSX. Raw hex, named palette utilities, `site.theme` reads, color-bearing inline styles, and gradient text fail.
 
 ## Writer design plan V3
@@ -600,6 +602,8 @@ Validation requires:
 
 Plan prose is internal and cannot authorize customer-facing facts. The contract remains authoritative.
 
+The writer prompt states this schema as a JSON skeleton generated from the same key and enum lists the parser validates against, with `<placeholder>` values for the creative fields. A field the parser demands is therefore always a field the writer was shown, and the shape stays fixed while the taste stays free.
+
 ## Portable scaffold and routing
 
 ### Required DOM contracts
@@ -609,7 +613,7 @@ Generated route source uses these stable hooks:
 - first-view container: exactly one `data-first-view` in each route file, never in the shared shell;
 - primary action: exactly one `data-primary-action` in each route file on that route’s real actionable `<a>` or `<button>`, never on a wrapper or in the shared shell;
 - signature: exactly one `data-signature` in the declared signature route file, zero in every other route and the shared shell, grounded by the plan’s accepted source anchor;
-- every accepted section: `data-section-id="<accepted-id>"` through `SiteSection`;
+- every accepted section: a literal `data-section-id="<accepted-id>"` in the route file, on the element that carries that section. Synthesized identity and contact sections take a distinct id when an accepted section already uses it, so no two sections of a route share one hook;
 - each route’s selected pattern: exactly one route-root `data-pattern="<route-pattern-id>"` matching that route’s writer-plan entry.
 
 Source gates verify that the hooks are attached to real accepted content and CTA bindings, not empty elements. Browser evidence verifies that the signature has non-zero visible content; the critic judges whether it is specific and professionally executed.

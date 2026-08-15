@@ -41,15 +41,62 @@ export type WriterDesignPlanV3 = {
   }>;
 };
 
-const SURFACES = ["base", "muted", "contrast"] as const;
-const DENSITIES = ["compact", "regular", "airy"] as const;
-const FONT_STACKS = [
-  "editorial-serif",
-  "humanist-sans",
-  "geometric-sans",
-  "restrained-grotesk",
+/**
+ * The writer prompt is generated from these same lists, so a plan field can
+ * never be demanded by the parser without being stated to the writer.
+ */
+export const WRITER_DESIGN_PLAN_V3_KEYS = [
+  "schemaVersion",
+  "blueprintHash",
+  "visualThesis",
+  "signature",
+  "typography",
+  "palette",
+  "routes",
+  "mobileTransforms",
 ] as const;
-const SIGNATURE_ANCHORS = [
+export const WRITER_DESIGN_PLAN_V3_SIGNATURE_KEYS = [
+  "route",
+  "description",
+  "sourceAnchor",
+] as const;
+export const WRITER_DESIGN_PLAN_V3_TYPOGRAPHY_KEYS = [
+  "displayStackId",
+  "bodyStackId",
+] as const;
+export const WRITER_DESIGN_PLAN_V3_PALETTE_KEYS = [
+  "background",
+  "foreground",
+  "muted",
+  "accent",
+] as const;
+export const WRITER_DESIGN_PLAN_V3_ROUTE_KEYS = [
+  "path",
+  "patternId",
+  "sections",
+] as const;
+export const WRITER_DESIGN_PLAN_V3_SECTION_KEYS = [
+  "id",
+  "treatment",
+  "surface",
+  "density",
+] as const;
+export const WRITER_DESIGN_PLAN_V3_MOBILE_TRANSFORM_KEYS = [
+  "route",
+  "pattern",
+  "transform",
+] as const;
+export const WRITER_DESIGN_PLAN_V3_SURFACES = [
+  "base",
+  "muted",
+  "contrast",
+] as const;
+export const WRITER_DESIGN_PLAN_V3_DENSITIES = [
+  "compact",
+  "regular",
+  "airy",
+] as const;
+export const WRITER_DESIGN_PLAN_V3_SIGNATURE_ANCHORS = [
   "offer",
   "product",
   "process",
@@ -57,6 +104,23 @@ const SIGNATURE_ANCHORS = [
   "craft",
   "audience",
 ] as const;
+export const WRITER_DESIGN_PLAN_V3_MAX_BYTES = 6_144;
+export const WRITER_DESIGN_PLAN_V3_MIN_THESIS_CHARS = 12;
+export const WRITER_DESIGN_PLAN_V3_TRANSFORM_RELATIONSHIPS = [
+  "split",
+  "asymmetric",
+  "rail",
+] as const;
+
+const SURFACES = WRITER_DESIGN_PLAN_V3_SURFACES;
+const DENSITIES = WRITER_DESIGN_PLAN_V3_DENSITIES;
+const FONT_STACKS = [
+  "editorial-serif",
+  "humanist-sans",
+  "geometric-sans",
+  "restrained-grotesk",
+] as const;
+const SIGNATURE_ANCHORS = WRITER_DESIGN_PLAN_V3_SIGNATURE_ANCHORS;
 const HEX = /^#[0-9a-f]{6}$/i;
 
 export function parseWriterDesignPlanV3(input: {
@@ -71,23 +135,12 @@ export function parseWriterDesignPlanV3(input: {
     throw new Error("V3 design-plan kit does not match blueprint");
   }
   const serialized = JSON.stringify(input.value);
-  if (Buffer.byteLength(serialized, "utf8") > 6_144) {
-    throw new Error("V3 design-plan exceeds 6144 bytes");
+  if (Buffer.byteLength(serialized, "utf8") > WRITER_DESIGN_PLAN_V3_MAX_BYTES) {
+    throw new Error(
+      `V3 design-plan exceeds ${WRITER_DESIGN_PLAN_V3_MAX_BYTES} bytes`,
+    );
   }
-  assertExactKeys(
-    input.value,
-    [
-      "schemaVersion",
-      "blueprintHash",
-      "visualThesis",
-      "signature",
-      "typography",
-      "palette",
-      "routes",
-      "mobileTransforms",
-    ],
-    "V3 design-plan",
-  );
+  assertExactKeys(input.value, WRITER_DESIGN_PLAN_V3_KEYS, "V3 design-plan");
 
   const signature = parseSignature(input.value.signature, input);
   const typography = parseTypography(input.value.typography, input.kit);
@@ -105,7 +158,8 @@ export function parseWriterDesignPlanV3(input: {
     typeof input.value.blueprintHash !== "string" ||
     input.value.blueprintHash !== input.blueprint.blueprintHash ||
     typeof input.value.visualThesis !== "string" ||
-    input.value.visualThesis.trim().length < 12
+    input.value.visualThesis.trim().length <
+      WRITER_DESIGN_PLAN_V3_MIN_THESIS_CHARS
   ) {
     throw new Error("invalid V3 design-plan identity");
   }
@@ -132,11 +186,7 @@ function parseSignature(
   if (!isRecord(value)) {
     throw new Error("invalid V3 signature");
   }
-  assertExactKeys(
-    value,
-    ["route", "description", "sourceAnchor"],
-    "V3 signature",
-  );
+  assertExactKeys(value, WRITER_DESIGN_PLAN_V3_SIGNATURE_KEYS, "V3 signature");
   if (
     typeof value.route !== "string" ||
     typeof value.description !== "string" ||
@@ -166,7 +216,11 @@ function parseTypography(
   if (!isRecord(value)) {
     throw new Error("invalid V3 typography");
   }
-  assertExactKeys(value, ["displayStackId", "bodyStackId"], "V3 typography");
+  assertExactKeys(
+    value,
+    WRITER_DESIGN_PLAN_V3_TYPOGRAPHY_KEYS,
+    "V3 typography",
+  );
   if (
     typeof value.displayStackId !== "string" ||
     !isFontStackId(value.displayStackId) ||
@@ -186,11 +240,7 @@ function parsePalette(value: unknown): WriterDesignPlanV3["palette"] {
   if (!isRecord(value)) {
     throw new Error("invalid V3 palette");
   }
-  assertExactKeys(
-    value,
-    ["background", "foreground", "muted", "accent"],
-    "V3 palette",
-  );
+  assertExactKeys(value, WRITER_DESIGN_PLAN_V3_PALETTE_KEYS, "V3 palette");
   if (
     typeof value.background !== "string" ||
     typeof value.foreground !== "string" ||
@@ -223,7 +273,7 @@ function parseRoutes(
     if (!isRecord(rawRoute)) {
       throw new Error("invalid V3 design-plan route");
     }
-    assertExactKeys(rawRoute, ["path", "patternId", "sections"], "V3 route");
+    assertExactKeys(rawRoute, WRITER_DESIGN_PLAN_V3_ROUTE_KEYS, "V3 route");
     const blueprintRoute = blueprint.routes[index];
     if (
       !blueprintRoute ||
@@ -251,7 +301,7 @@ function parseRoutes(
       }
       assertExactKeys(
         rawSection,
-        ["id", "treatment", "surface", "density"],
+        WRITER_DESIGN_PLAN_V3_SECTION_KEYS,
         "V3 section",
       );
       const blueprintSection = blueprintRoute.sections[sectionIndex];
@@ -315,7 +365,7 @@ function parseMobileTransforms(
     }
     assertExactKeys(
       rawTransform,
-      ["route", "pattern", "transform"],
+      WRITER_DESIGN_PLAN_V3_MOBILE_TRANSFORM_KEYS,
       "V3 mobile transform",
     );
     if (
@@ -352,7 +402,9 @@ function parseMobileTransforms(
     );
     if (
       pattern &&
-      ["split", "asymmetric", "rail"].includes(pattern.desktopRelationship) &&
+      (
+        WRITER_DESIGN_PLAN_V3_TRANSFORM_RELATIONSHIPS as readonly string[]
+      ).includes(pattern.desktopRelationship) &&
       !transforms.some(
         (transform) =>
           transform.route === route.path &&

@@ -99,4 +99,55 @@ describe("compileShadcnTheme", () => {
       ),
     ).toThrow("invalid generated theme color");
   });
+  it("darkens an accent that admits neither black nor white text", () => {
+    const result = compileShadcnTheme(
+      schema({
+        background: "#ffffff",
+        foreground: "#161616",
+        muted: "#eeeeee",
+        accent: "#0077dd",
+      }),
+    );
+    const accent = /--accent:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
+    const primary = /--primary:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
+    expect(accent).toBeDefined();
+    expect(accent?.toLowerCase()).not.toBe("#0077dd");
+    expect(primary?.toLowerCase()).toBe(accent?.toLowerCase());
+    expect(result.checks.every((check) => check.pass)).toBe(true);
+    for (const role of ["primary-foreground", "accent-foreground"]) {
+      const check = result.checks.find((entry) => entry.role === role);
+      expect(check?.ratio).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("resolves a background that admits neither black nor white text", () => {
+    const result = compileShadcnTheme(
+      schema({
+        background: "#008866",
+        foreground: "#0b3b2e",
+        muted: "#0a3428",
+        accent: "#f5c451",
+      }),
+    );
+    const background = /--background:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
+    expect(background?.toLowerCase()).not.toBe("#008866");
+    expect(result.checks.every((check) => check.pass)).toBe(true);
+  });
+
+  it("leaves a readable accent untouched and stays deterministic", () => {
+    const build = () =>
+      compileShadcnTheme(
+        schema({
+          background: "#fff9f2",
+          foreground: "#2a211c",
+          muted: "#6f6259",
+          accent: "#c2410c",
+        }),
+      );
+    const first = build();
+    expect(
+      /--accent:\s*(#[0-9a-f]{6})/i.exec(first.css)?.[1]?.toLowerCase(),
+    ).toBe("#c2410c");
+    expect(build().css).toBe(first.css);
+  });
 });

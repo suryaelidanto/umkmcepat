@@ -290,7 +290,9 @@ export function createProfessionalRouteBinding(input: {
       ),
     );
     sections.unshift({
-      id: "hero",
+      // Two sections sharing an id would make data-section-id ambiguous for
+      // both the DOM contract and the plan's per-section treatment.
+      id: unusedSectionId("hero", sections),
       purpose: "Accepted identity, offer, and primary action",
       role: "identity",
       requiredFactIds: structuralFactIds,
@@ -310,7 +312,7 @@ export function createProfessionalRouteBinding(input: {
   if (!sections.some((section) => section.role === "contact")) {
     const targetFactId = input.content.primaryCta.targetFactId;
     sections.push({
-      id: "contact",
+      id: unusedSectionId("contact", sections),
       purpose: "Accepted primary action",
       role: "contact",
       requiredFactIds: targetFactId ? [targetFactId] : [],
@@ -698,6 +700,21 @@ function routeExportName(path: string): string {
     .split("/")
     .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`);
   return `${words.join("")}RouteComponent`;
+}
+
+function unusedSectionId(
+  preferred: string,
+  sections: ProfessionalRouteBinding["sections"],
+): string {
+  if (!sections.some((section) => section.id === preferred)) {
+    return preferred;
+  }
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${preferred}-${suffix}`;
+    if (!sections.some((section) => section.id === candidate)) {
+      return candidate;
+    }
+  }
 }
 
 function unique<T>(values: T[]): T[] {

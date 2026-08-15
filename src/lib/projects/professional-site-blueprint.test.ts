@@ -313,6 +313,41 @@ describe("professional site blueprints", () => {
     );
   });
 
+  it("keeps section ids unique when an accepted section is already named hero", () => {
+    const fixture = makeFixture(["/"]);
+    const kit = PROFESSIONAL_DESIGN_KITS.get("catalog-story");
+    if (!kit) {
+      throw new Error("blueprint fixture is incomplete");
+    }
+    const rename = (id: string): string => (id === "catalog" ? "hero" : id);
+    const blueprint = compileProfessionalSiteBlueprint({
+      contract: {
+        ...fixture.contract,
+        obligations: {
+          ...fixture.contract.obligations,
+          sections: fixture.contract.obligations.sections.map((section) => ({
+            ...section,
+            id: rename(section.id),
+          })),
+          routes: fixture.contract.obligations.routes.map((route) => ({
+            ...route,
+            requiredSectionIds: route.requiredSectionIds.map(rename),
+          })),
+        },
+      },
+      kit,
+    });
+    for (const route of blueprint.routes) {
+      const ids = route.sections.map((section) => section.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+    expect(
+      blueprint.routes[0]?.sections.some(
+        (section) => section.role === "identity",
+      ),
+    ).toBe(true);
+  });
+
   it("shares route role derivation between selection and blueprint", () => {
     const fixture = makeFixture(["/", "/kelas"]);
     const kit = PROFESSIONAL_DESIGN_KITS.get("catalog-story");

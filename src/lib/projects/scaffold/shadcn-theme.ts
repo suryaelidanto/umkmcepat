@@ -27,10 +27,13 @@ export function compileShadcnTheme(
   schema: ProjectSiteSchema,
   options: ShadcnThemeFontOptions = {},
 ): CompiledShadcnTheme {
-  const background = validHex(schema.theme.background);
+  const background = resolveReadableSurface(
+    validHex(schema.theme.background),
+    4.5,
+  );
   const foreground = readable(schema.theme.foreground, background, 4.5);
   const muted = readableSurface(schema.theme.muted, foreground, background);
-  const accent = validHex(schema.theme.accent);
+  const accent = resolveReadableSurface(validHex(schema.theme.accent), 4.5);
   const border = mix(foreground, "transparent", 12);
   const input = mix(foreground, "transparent", 20);
   const card = background;
@@ -216,6 +219,38 @@ function readable(
   return contrastRatio(normalized, background) >= minimum
     ? normalized
     : bestReadable(background, minimum);
+}
+
+/**
+ * A mid-tone surface can be too light for black text and too dark for white
+ * text at the same time. The compiler owns semantic colors, so it keeps the
+ * chosen hue and moves it the smallest deterministic step that admits readable
+ * text — rather than failing an attempt over a legitimate brand colour.
+ */
+function resolveReadableSurface(surface: string, minimum: number): string {
+  if (admitsReadableText(surface, minimum)) {
+    return surface;
+  }
+  for (let percent = 1; percent < 100; percent += 1) {
+    const darker = blendHex(surface, "#000000", percent);
+    if (admitsReadableText(darker, minimum)) {
+      return darker;
+    }
+    const lighter = blendHex(surface, "#ffffff", percent);
+    if (admitsReadableText(lighter, minimum)) {
+      return lighter;
+    }
+  }
+  return "#000000";
+}
+
+function admitsReadableText(surface: string, minimum: number): boolean {
+  return (
+    Math.max(
+      contrastRatio("#0c0c0c", surface),
+      contrastRatio("#ffffff", surface),
+    ) >= minimum
+  );
 }
 
 function bestReadable(background: string, minimum: number): string {

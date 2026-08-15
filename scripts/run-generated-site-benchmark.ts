@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { parseProjectBrief } from "../src/lib/projects/brief";
@@ -17,7 +17,10 @@ import {
   compileGeneratedSiteWriterContractV3,
 } from "../src/lib/projects/generated-site-contract";
 import { buildGeneratedProject } from "../src/lib/projects/generated-source";
-import { trialFromProfessionalResult } from "../src/lib/projects/generation-evaluation";
+import {
+  summarizeGenerationTrialDiagnostics,
+  trialFromProfessionalResult,
+} from "../src/lib/projects/generation-evaluation";
 import { deriveProfessionalRouteRoles } from "../src/lib/projects/professional-site-blueprint";
 import { compileProfessionalSiteBlueprint } from "../src/lib/projects/professional-site-blueprint";
 import {
@@ -329,6 +332,16 @@ async function runTreatment(
     });
   }
   const proof = pipelineResult.proof;
+  await recordTrialDiagnostic(runDir(base), {
+    briefId: fixture.id,
+    trial,
+    arm: "professional-static-v3",
+    outcome: proof.outcome,
+    failureClass: pipelineResult.ok ? null : pipelineResult.failureClass,
+    safeMessage: pipelineResult.ok ? null : pipelineResult.safeMessage,
+    gates: { ...proof.gates },
+    calls: proof.calls,
+  });
   const reportEvidence = pipelineResult.ok
     ? pipelineResult.browserReport.evidenceIds
     : [];
@@ -467,6 +480,31 @@ function categoryPredictions(
   ) as Partial<Record<ProfessionalReviewCategory, number>>;
 }
 
+function runDir(base: string): string {
+  return path.join(base, "..", "..");
+}
+
+/**
+ * Private per-trial progress. Without it a systematic treatment failure stays
+ * invisible until the whole corpus finishes, which is how a full calibration
+ * run was spent on trials that could never produce a sample.
+ */
+async function recordTrialDiagnostic(
+  directory: string,
+  input: Parameters<typeof summarizeGenerationTrialDiagnostics>[0],
+): Promise<void> {
+  const diagnostic = summarizeGenerationTrialDiagnostics(input);
+  await appendFile(
+    path.join(directory, "progress.jsonl"),
+    `${JSON.stringify(diagnostic)}\n`,
+  );
+  process.stdout.write(
+    `${input.briefId} trial-${input.trial} ${input.arm} ${input.outcome}${
+      diagnostic.failureClass ? ` ${diagnostic.failureClass}` : ""
+    }\n`,
+  );
+}
+
 function routeToken(route: string): string {
   return route === "/" ? "home" : route.slice(1).replaceAll("/", "-");
 }
@@ -525,6 +563,21 @@ async function runControl(
   } catch {
     outcome = "infrastructure_error";
   }
+  await recordTrialDiagnostic(runDir(base), {
+    briefId: fixture.id,
+    trial,
+    arm: "deterministic-control-v1",
+    outcome,
+    failureClass: outcome === "pass" ? null : outcome,
+    safeMessage: null,
+    gates: { browser: outcome },
+    calls: {
+      writerCalls: 0,
+      criticCalls: 0,
+      correctionCalls: 0,
+      correctionReason: null,
+    },
+  });
   return {
     runId,
     arm: "deterministic-control-v1",

@@ -1004,3 +1004,47 @@ function duplicateKeys(
   }
   return [...duplicates];
 }
+
+/**
+ * Per-trial diagnostics for the private run directory. A benchmark that fails
+ * the same way on every trial must say so while it runs, but the reason may
+ * quote generated route source — so the message is truncated and kept out of
+ * the shared telemetry surfaces entirely.
+ */
+export const GENERATION_TRIAL_DIAGNOSTIC_MESSAGE_LIMIT = 200;
+
+export type GenerationTrialDiagnostic = {
+  briefId: string;
+  trial: 1 | 2;
+  arm: GeneratedSiteEvaluationTrialV4["arm"];
+  outcome: GenerationTrialOutcome;
+  failureClass: string | null;
+  safeMessage: string;
+  gates: Record<string, string>;
+  calls: GeneratedSiteCallBudgetSnapshot;
+};
+
+export function summarizeGenerationTrialDiagnostics(input: {
+  briefId: string;
+  trial: 1 | 2;
+  arm: GeneratedSiteEvaluationTrialV4["arm"];
+  outcome: GenerationTrialOutcome;
+  failureClass: string | null;
+  safeMessage: string | null;
+  gates: Record<string, string>;
+  calls: GeneratedSiteCallBudgetSnapshot;
+}): GenerationTrialDiagnostic {
+  return {
+    briefId: input.briefId,
+    trial: input.trial,
+    arm: input.arm,
+    outcome: input.outcome,
+    failureClass: input.failureClass,
+    safeMessage: (input.safeMessage ?? "")
+      .replaceAll(/\s+/gu, " ")
+      .trim()
+      .slice(0, GENERATION_TRIAL_DIAGNOSTIC_MESSAGE_LIMIT),
+    gates: { ...input.gates },
+    calls: { ...input.calls },
+  };
+}

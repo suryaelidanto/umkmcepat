@@ -23,6 +23,15 @@ import { loadArchetypeGuide } from "@/lib/projects/archetypes";
 import { briefToBuildPrompt, type ProjectBrief } from "@/lib/projects/brief";
 import { DESIGN_DIRECTIVE } from "@/lib/projects/design-directive";
 import { deriveGeneratedSitePageStrategy } from "@/lib/projects/generated-site-design-quality";
+import {
+  WRITER_DESIGN_PLAN_V3_DENSITIES,
+  WRITER_DESIGN_PLAN_V3_MAX_BYTES,
+  WRITER_DESIGN_PLAN_V3_MIN_THESIS_CHARS,
+  WRITER_DESIGN_PLAN_V3_PALETTE_KEYS,
+  WRITER_DESIGN_PLAN_V3_SURFACES,
+  WRITER_DESIGN_PLAN_V3_TRANSFORM_RELATIONSHIPS,
+} from "@/lib/projects/professional-site-plan";
+import { professionalPopulatedContentPaths } from "@/lib/projects/professional-site-source-gates";
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
@@ -137,6 +146,65 @@ Rules:
   };
 }
 
+export const PROFESSIONAL_WRITER_PLAN_SKELETON_LABEL =
+  "DESIGN PLAN (exact JSON; every key shown is required and no other key is accepted):";
+
+/**
+ * Built from the parser's own key and enum lists so the writer is always told
+ * the plan shape the strict V3 parser will demand. Creative fields stay as
+ * `<placeholder>` values: the shape is fixed, the taste is not.
+ */
+function professionalPlanSkeleton(input: {
+  blueprint: ProfessionalSiteBlueprintV1;
+  kit: GeneratedSiteDesignKitV2;
+}): string {
+  const anchors = input.kit.allowedSignatureAnchors.filter((anchor) =>
+    input.blueprint.artDirection.signature.mustReference.includes(anchor),
+  );
+  const options = (values: readonly string[]): string =>
+    `<${values.join("|")}>`;
+  const routes = input.blueprint.routes.map((route) => ({
+    path: route.path,
+    patternId: options(route.allowedPatternIds),
+    sections: route.sections.map((section) => ({
+      id: section.id,
+      treatment: options(input.kit.allowedSectionTreatments),
+      surface: options(WRITER_DESIGN_PLAN_V3_SURFACES),
+      density: options(WRITER_DESIGN_PLAN_V3_DENSITIES),
+    })),
+  }));
+  return JSON.stringify(
+    {
+      schemaVersion: 3,
+      blueprintHash: input.blueprint.blueprintHash,
+      visualThesis: `<one English sentence of at least ${WRITER_DESIGN_PLAN_V3_MIN_THESIS_CHARS} characters>`,
+      signature: {
+        route: input.blueprint.signatureRoute,
+        description: "<one English sentence naming the accepted anchor>",
+        sourceAnchor: options(anchors),
+      },
+      typography: {
+        displayStackId: options(input.kit.typography.allowedDisplayStackIds),
+        bodyStackId: input.kit.typography.bodyStackId,
+      },
+      palette: {
+        background: "<#rrggbb>",
+        foreground: "<#rrggbb>",
+        muted: "<#rrggbb>",
+        accent: "<#rrggbb>",
+      },
+      routes,
+      mobileTransforms: input.blueprint.routes.map((route) => ({
+        route: route.path,
+        pattern: options(route.allowedPatternIds),
+        transform: "<one English sentence describing the mobile order>",
+      })),
+    },
+    null,
+    2,
+  );
+}
+
 export function buildProfessionalSiteWriterPrompt(input: {
   contract: GeneratedSiteWriterContractV3;
   blueprint: ProfessionalSiteBlueprintV1;
@@ -152,6 +220,18 @@ export function buildProfessionalSiteWriterPrompt(input: {
   const displayStacks: ProfessionalFontStackId[] = [
     ...input.kit.typography.allowedDisplayStackIds,
   ];
+  const writableExports = input.blueprint.routes
+    .map((route) => `export function ${route.exportName}()`)
+    .join(", ");
+  const eyebrowBudget = Math.max(
+    1,
+    Math.ceil(
+      input.blueprint.routes.reduce(
+        (total, route) => total + route.sections.length,
+        0,
+      ) / 3,
+    ),
+  );
   const system = `You are the single bounded writer for a standalone Indonesian static business site. Visible customer copy is Indonesian; code and internal reasoning are English. Execute the immutable professional blueprint instead of inventing a product strategy.
 
 PROFESSIONAL CONTRACT:
@@ -162,21 +242,42 @@ PROFESSIONAL CONTRACT:
 - Use hash-history routes supplied by the platform. Never register routes yourself.
 - All customer-facing values come from @/content/site. Shared-shell navigation comes from site.navigation. Do not add local customer-data arrays or objects, CSS generated content, dangerouslySetInnerHTML, or literal alt/aria-label/title copy.
 - Render only site.* values, punctuation, and the exact site.labels structural labels. Never invent facts, prices, stock, contacts, addresses, hours, proof, claims, capabilities, checkout, or payment state.
+- Render every one of these populated fields visibly: ${professionalPopulatedContentPaths(input.contract.content).join(", ")}.
+- Use compiled semantic tokens for colour: text-muted-foreground for secondary text, never bare text-muted, and never white, black, gray, slate, zinc, stone, or neutral utilities.
+- At most ${eyebrowBudget} className may combine uppercase with tracking; give the other labels a different treatment.
 - Use the exact site.primaryCta.label and site.primaryCta.href. Put data-primary-action on exactly one real actionable element per route.
 
+MODULES AND EXPORTS:
+- Import site content from @/content/site and usePreviewReady from @/lib/preview-ready; call usePreviewReady() once as a standalone statement that returns void.
+- The only seeded layout exports are SiteSection, SiteStack, SiteSplit, and SiteCluster from @/components/site/layout. SiteSection takes children, density compact|regular|airy, surface base|muted|contrast, width reading|content|wide, and className; never pass it an id. SiteSplit takes children, emphasis equal|leading|trailing, and className. SiteCluster takes no gap; put spacing in className.
+- Each route file exports exactly ${writableExports}; never add a default export.
+
 DOM CONTRACT:
+- Write every hook yourself as a literal attribute in the route file; no seeded component supplies one.
 - Each route file has exactly one data-first-view on populated identity/offer content.
-- Each route file has exactly one real actionable data-primary-action.
+- Each route file has exactly one real actionable data-primary-action on the <a> or <button> that carries the accepted CTA.
 - Put exactly one data-signature on the declared signature route and none elsewhere.
-- Use SiteSection with every blueprint section's exact data-section-id. Use the selected route data-pattern exactly once.
-- Use SiteFirstView and SiteSignature from the protected site-layout-v2 primitive; do not create wrappers that move their hooks to empty nodes.
+- Put the route's selected pattern on its root element exactly once, as data-pattern="<patternId>".
+- Give every accepted section its own element carrying data-section-id="<accepted-id>" exactly once.
+- External links, including every wa.me primary action, need target="_blank" and rel="noopener noreferrer".
+- The primary action must carry min-h-11 so its rendered touch target clears 44px.
 - Use semantic Tailwind tokens only. Never emit raw colors, font-family, remote font URLs, gradients used as text, h-screen, side stripes, nested cards, or placeholder media.
 - Use font-display and font-body roles only. Allowed display stacks: ${displayStacks.join(", ")}; body stack: ${input.kit.typography.bodyStackId}.
 - The one signature must reference an accepted ${input.blueprint.artDirection.signature.mustReference.join(", ")} anchor. Mobile transforms are explicit for split/asymmetric/rail patterns.
 - No fixed section count: omit unsupported sections and give supplied facts useful structure.
 
+${PROFESSIONAL_WRITER_PLAN_SKELETON_LABEL}
+${professionalPlanSkeleton({ blueprint: input.blueprint, kit: input.kit })}
+- Replace every <...> placeholder with one concrete value, choosing a single option where | separates alternatives.
+- Copy schemaVersion, blueprintHash, route paths, section ids, signature route, and bodyStackId exactly as shown.
+- List every route and every one of its sections in the order shown, and add nothing else.
+- Choose ${WRITER_DESIGN_PLAN_V3_PALETTE_KEYS.join(", ")} as #rrggbb hex for this specific business.
+- No more than two consecutive sections may share the same treatment and surface.
+- Each mobileTransforms pattern must equal that route's patternId, and ${WRITER_DESIGN_PLAN_V3_TRANSFORM_RELATIONSHIPS.join(", ")} patterns must have one.
+- The serialized plan must stay under ${WRITER_DESIGN_PLAN_V3_MAX_BYTES} bytes.
+
 OUTPUT:
-<design-plan>{WriterDesignPlanV3 JSON matching blueprintHash, one pattern per route, exact sections, palette, typography, signature, and mobileTransforms}</design-plan>
+<design-plan>the design plan JSON described above</design-plan>
 ${writablePaths.map((path) => `<file path="${path}">complete raw source</file>`).join("\n")}
 <done summary="..." />`;
   const user = `Immutable contract:\n${JSON.stringify(input.contract)}\n\nImmutable blueprint:\n${JSON.stringify(input.blueprint)}\n\nSelected executable kit:\n${JSON.stringify(

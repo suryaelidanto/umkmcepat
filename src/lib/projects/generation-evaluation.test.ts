@@ -12,6 +12,8 @@ import {
   type GeneratedSiteEvaluationManifestV3,
   type GeneratedSiteEvaluationTrialV3,
   buildGeneratedSiteEvaluationReportV4,
+  GENERATION_TRIAL_DIAGNOSTIC_MESSAGE_LIMIT,
+  summarizeGenerationTrialDiagnostics,
   trialFromProfessionalResult,
   type BlindPreferenceV2,
   type GeneratedSiteEvaluationManifestV4,
@@ -603,5 +605,67 @@ describe("trialFromProfessionalResult", () => {
       mobileEvidenceRefs: ["mobile-ref"],
       routePatternIds: ["split"],
     });
+  });
+  it("bounds a failed trial diagnostic to one short single-line reason", () => {
+    const summary = summarizeGenerationTrialDiagnostics({
+      briefId: "fnb-menu",
+      trial: 1,
+      arm: "professional-static-v3",
+      outcome: "fail",
+      failureClass: "source_gate",
+      safeMessage: `professional source gate failed:\n${"Nasi Goreng Spesial ".repeat(40)}`,
+      gates: {
+        response: "pass",
+        source: "fail",
+        build: "not_run",
+        browser: "not_run",
+        professionalVisual: "not_run",
+      },
+      calls: {
+        writerCalls: 1,
+        criticCalls: 0,
+        correctionCalls: 1,
+        correctionReason: "source_gate",
+      },
+    });
+    expect(summary.failureClass).toBe("source_gate");
+    expect(summary.gates.source).toBe("fail");
+    expect(summary.calls.correctionCalls).toBe(1);
+    expect(summary.safeMessage.length).toBeLessThanOrEqual(
+      GENERATION_TRIAL_DIAGNOSTIC_MESSAGE_LIMIT,
+    );
+    expect(
+      summary.safeMessage.startsWith("professional source gate failed"),
+    ).toBe(true);
+    expect(summary.safeMessage).not.toContain("\n");
+    expect(summary.safeMessage.endsWith("Spesial ".repeat(40).trim())).toBe(
+      false,
+    );
+  });
+
+  it("keeps a passing trial diagnostic free of any message", () => {
+    const summary = summarizeGenerationTrialDiagnostics({
+      briefId: "local-service",
+      trial: 2,
+      arm: "professional-static-v3",
+      outcome: "pass",
+      failureClass: null,
+      safeMessage: null,
+      gates: {
+        response: "pass",
+        source: "pass",
+        build: "pass",
+        browser: "pass",
+        professionalVisual: "pass",
+      },
+      calls: {
+        writerCalls: 1,
+        criticCalls: 1,
+        correctionCalls: 0,
+        correctionReason: null,
+      },
+    });
+    expect(summary.failureClass).toBeNull();
+    expect(summary.safeMessage).toBe("");
   });
 });

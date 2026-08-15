@@ -372,6 +372,35 @@ describe("professional static-site source gates", () => {
     );
   });
 
+  it("allows styled accepted-data lists and still rejects literal prose inside them", () => {
+    const styled = validRoute();
+    const clean = {
+      ...styled,
+      content: styled.content.replace(
+        "<span key={offer.name}>{offer.name}</span>",
+        '<span key={offer.name} className="font-display text-2xl">{offer.name}</span>',
+      ),
+    };
+    expect(
+      inspect([clean, siteFile(), cssFile(), routerFile()]).findings.map(
+        (finding) => finding.code,
+      ),
+    ).not.toContain("hard-coded-customer-copy");
+
+    const invented = {
+      ...styled,
+      content: styled.content.replace(
+        "<span key={offer.name}>{offer.name}</span>",
+        '<span key={offer.name} className="font-display">Harga spesial hari ini</span>',
+      ),
+    };
+    expect(
+      inspect([invented, siteFile(), cssFile(), routerFile()]).findings.map(
+        (finding) => finding.code,
+      ),
+    ).toContain("hard-coded-customer-copy");
+  });
+
   it("rejects unknown and unbound accepted data, claims, and customer literals", () => {
     const route = validRoute();
     const content = route.content

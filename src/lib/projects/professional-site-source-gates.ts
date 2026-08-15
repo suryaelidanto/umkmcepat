@@ -573,7 +573,9 @@ function inspectSiteContent(
   const routeSource = [...routeFiles, ...shellFiles]
     .map((file) => file.content)
     .join("\n");
-  const populatedPaths = populatedContentPaths(input.contract.content);
+  const populatedPaths = professionalPopulatedContentPaths(
+    input.contract.content,
+  );
   for (const path of populatedPaths) {
     if (!hasSitePath(routeSource, path)) {
       addHard(
@@ -1420,7 +1422,11 @@ function hasSitePath(source: string, path: string): boolean {
   return new RegExp(`\\b${escapeRegExp(path)}\\b`).test(source);
 }
 
-function populatedContentPaths(
+/**
+ * The writer prompt lists exactly these paths, so a field the gate demands is
+ * always a field the writer was told to render.
+ */
+export function professionalPopulatedContentPaths(
   content: GeneratedSiteWriterContractV3["content"],
 ): string[] {
   const values: Array<[string, unknown]> = [
@@ -1509,7 +1515,7 @@ function findCustomerSourceViolations(source: string): CustomerViolation[] {
           message: "Generated JSX uses dangerouslySetInnerHTML.",
         });
       }
-      if (name === "alt" || name === "aria-label" || name === "title") {
+      if (CUSTOMER_FACING_JSX_ATTRIBUTES.has(name)) {
         if (node.initializer && ts.isStringLiteral(node.initializer)) {
           pushText(node.initializer.text);
         } else if (
@@ -1563,12 +1569,26 @@ function isJsxChildExpression(node: ts.JsxExpression): boolean {
   return ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent);
 }
 
+const CUSTOMER_FACING_JSX_ATTRIBUTES = new Set(["alt", "aria-label", "title"]);
+
 function containsCustomerString(
   node: ts.Node,
   sourceFile: ts.SourceFile,
 ): boolean {
   let found = false;
   const visit = (child: ts.Node): void => {
+    // className, key, href, and data-* carry no customer prose. Counting them
+    // would make any styled list over accepted data unwritable.
+    if (
+      ts.isJsxAttribute(child) &&
+      !CUSTOMER_FACING_JSX_ATTRIBUTES.has(
+        ts.isIdentifier(child.name)
+          ? child.name.text
+          : child.name.getText(sourceFile),
+      )
+    ) {
+      return;
+    }
     if (
       ts.isStringLiteral(child) ||
       ts.isNoSubstitutionTemplateLiteral(child)
