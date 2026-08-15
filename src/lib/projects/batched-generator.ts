@@ -1650,6 +1650,7 @@ export async function runReferenceCalibratedGenerate(input: {
     projectId: input.projectId,
     schema: input.schema,
     creativeDirection: input.creativeDirection,
+    compositionPatternId: designPlanFrame.compositionPatternId,
   });
   const startedAt = Date.now();
   input.budget.consumeWriter();

@@ -100,6 +100,12 @@ ${direction.trim()}
     : "";
 }
 
+/** Mirrors the CTA gate, which greps the source for these digits. */
+function canonicalCtaDigits(contract: GeneratedSiteWriterContractV2): string {
+  const digits = contract.business.primaryCta.target.replace(/\D/gu, "");
+  return digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+}
+
 /** Mirrors the taste gate: at most ceil(sections / 3), never fewer than one. */
 function referenceCalibratedEyebrowBudget(
   contract: GeneratedSiteWriterContractV2,
@@ -113,6 +119,7 @@ export function buildReferenceCalibratedWriterPrompt(input: {
   projectId: string;
   schema: ProjectSiteSchema;
   creativeDirection?: string | null;
+  compositionPatternId?: string | null;
 }): { system: string; user: string } {
   const writablePaths = ["src/routes/index.tsx"];
   const siteSource = `export const site = ${JSON.stringify(input.schema, null, 2)} as const;`;
@@ -163,6 +170,7 @@ Rules:
       )}. Never invent facts, claims, prices, contacts, routes, assets, or actions.
 - At most ${referenceCalibratedEyebrowBudget(input.contract)} className may combine uppercase with tracking; give any other label a different treatment.
 - Preserve accepted CTA target, media mode, section IDs, kit identity, and semantic tokens.
+- Use these exact CTA digits in the primary action, as https://wa.me/${canonicalCtaDigits(input.contract)}: ${canonicalCtaDigits(input.contract)}. Never guess or reformat them.${input.compositionPatternId ? `\n- Put the selected composition pattern id in a data-pattern attribute exactly once: data-pattern="${input.compositionPatternId}".` : ""}
 - No placeholders/remote URLs for graphic or typographic mode; no raw hex classes or site.theme color reads; use compiled semantic tokens; actions ≥44px.
 - Follow the selected page strategy and taste dials. Make one deliberate signature, not a pile of decoration. Do not repeat eyebrow or numbered-marker scaffolding, use h-screen, emit em/en dashes, or duplicate CTA intent.
 - Keep the display/body type roles legible and use the selected kit type guidance: ${input.kit.taste.typeGuidance}

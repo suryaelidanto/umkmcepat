@@ -106,6 +106,33 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     expect(prompt.system).toMatch(/\b1 className\b/);
   });
 
+  it("gives the writer the exact CTA digits and the pattern id it is checked for", () => {
+    // kit-pattern-missing greps for the composition pattern id, and
+    // primary-cta-target-missing greps for the accepted digits. The writer
+    // prompt named neither, so both were unreachable by construction.
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      hasOperationalDetails: false,
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+    });
+    const contract = writerContract();
+    const prompt = buildReferenceCalibratedWriterPrompt({
+      contract,
+      kit,
+      projectId: "benchmark-project",
+      schema: {} as never,
+      compositionPatternId: "full-field-lockup",
+    });
+
+    expect(prompt.system).toContain("data-pattern");
+    expect(prompt.system).toContain("full-field-lockup");
+    expect(prompt.system).toContain(
+      contract.business.primaryCta.target.replace(/\D/g, ""),
+    );
+  });
+
   it("carries the frozen creative direction and omits the section without one", () => {
     const kit = selectGeneratedSiteDesignKit({
       archetype: "generic",
