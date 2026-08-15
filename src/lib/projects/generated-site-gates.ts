@@ -22,6 +22,61 @@ import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
 const SURFACE_TOKEN_AS_TEXT =
   /\btext-(?:muted|card|background|popover|secondary)\b(?!-)/;
 
+/**
+ * --muted-foreground/--card-foreground/--popover-foreground resolve to the
+ * theme's raw --foreground hex whenever it already reads on the light
+ * background/muted/card/popover surfaces — the common case, since that's
+ * what makes body text readable in the first place. SiteSection surface=
+ * "contrast" (and any element a writer hardcodes bg-foreground on) compiles
+ * to bg-foreground text-background, so a descendant that overrides with one
+ * of the light-surface foreground tokens paints text the same colour as the
+ * background. Reproduced live: a real build failed computed-contrast at
+ * 1.00 this way.
+ */
+const FOREGROUND_FAMILY_TEXT_TOKEN =
+  "text-(?:foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground)";
+
+function contrastSurfaceSpans(
+  source: string,
+): Array<{ start: number; end: number }> {
+  const openers = [
+    ...source.matchAll(/<SiteSection\b[^>]*\bsurface=["']contrast["'][^>]*>/g),
+    ...source.matchAll(
+      /<[A-Za-z][\w.]*\b[^>]*\bclassName=["'][^"']*\bbg-foreground\b[^"']*["'][^>]*>/g,
+    ),
+  ];
+  return openers.map((match) => {
+    const start = match.index ?? 0;
+    const nextSection = source.indexOf("<SiteSection", start + match[0].length);
+    return { start, end: nextSection === -1 ? source.length : nextSection };
+  });
+}
+
+function hasContrastSurfaceTextMismatch(source: string): boolean {
+  const pattern = new RegExp(`\\b${FOREGROUND_FAMILY_TEXT_TOKEN}\\b`);
+  return contrastSurfaceSpans(source).some(({ start, end }) =>
+    pattern.test(source.slice(start, end)),
+  );
+}
+
+function healContrastSurfaceText(content: string): string {
+  const spans = contrastSurfaceSpans(content);
+  if (!spans.length) {
+    return content;
+  }
+  const pattern = new RegExp(
+    `\\b${FOREGROUND_FAMILY_TEXT_TOKEN}\\b(/\\d{1,3})?`,
+    "g",
+  );
+  return content.replace(
+    pattern,
+    (match: string, opacity: string | undefined, offset: number) =>
+      spans.some((span) => offset >= span.start && offset < span.end)
+        ? `text-background${opacity ?? ""}`
+        : match,
+  );
+}
+
 export function inspectGeneratedSiteTasteSource(input: {
   source: string;
   sectionCount: number;
@@ -102,7 +157,8 @@ export function inspectGeneratedSiteTasteSource(input: {
     /\b(?:bg|text|border)-(?:white|black|gray(?:-[\w/]+)?|slate(?:-[\w/]+)?|zinc(?:-[\w/]+)?|stone(?:-[\w/]+)?|neutral(?:-[\w/]+)?)\b/.test(
       input.source,
     ) ||
-    SURFACE_TOKEN_AS_TEXT.test(input.source)
+    SURFACE_TOKEN_AS_TEXT.test(input.source) ||
+    hasContrastSurfaceTextMismatch(input.source)
   ) {
     add(
       findings,
@@ -453,6 +509,7 @@ export function normalizeBatchedSiteAnchors(
           options.compositionPatternId,
         );
       }
+      content = healContrastSurfaceText(content);
     }
     content = ensureCtaTouchTarget(content, whatsappHref);
     return { ...file, content };

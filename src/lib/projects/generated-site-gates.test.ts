@@ -290,6 +290,25 @@ describe("reference-calibrated generated site source gates", () => {
       '<p className="text-secondary">A</p>',
       "uncompiled-theme-utility",
     ],
+    // --muted-foreground/--card-foreground/--popover-foreground/--foreground
+    // all resolve to the theme's raw foreground hex whenever it already reads
+    // on the light background — which is the common case, since that's what
+    // makes body text readable in the first place. SiteSection surface=
+    // "contrast" compiles to bg-foreground text-background, so a child that
+    // overrides with one of those tokens paints text the same colour as the
+    // background. Reproduced live: a real build failed computed-contrast at
+    // 1.00 this way on a text-muted-foreground paragraph inside surface=
+    // "contrast".
+    [
+      "uses a light-surface foreground token as text inside a contrast surface section",
+      '<SiteSection surface="contrast"><p className="text-muted-foreground">A</p></SiteSection>',
+      "uncompiled-theme-utility",
+    ],
+    [
+      "uses a light-surface foreground token as text on its own bg-foreground element",
+      '<div className="bg-foreground text-foreground">A</div>',
+      "uncompiled-theme-utility",
+    ],
     [
       "uses a thick colored side stripe",
       '<li className="border-l-2 border-accent">A</li>',
@@ -482,7 +501,7 @@ describe("normalizeBatchedSiteAnchors", () => {
       {
         path: "src/routes/index.tsx",
         content:
-          '<main className="h-screen"><p className="text-muted">Jelas</p><li className="border-l-2 border-accent">Info</li></main>',
+          '<main className="h-screen"><p className="text-muted">Jelas</p><li className="border-l-2 border-accent">Info</li><div className="bg-foreground text-foreground/75">Kontak</div><SiteSection surface="contrast"><p className="text-muted-foreground">Info</p></SiteSection></main>',
       },
     ]);
 
@@ -492,6 +511,14 @@ describe("normalizeBatchedSiteAnchors", () => {
     expect(file?.content).not.toContain("h-screen");
     expect(file?.content).not.toContain('text-muted"');
     expect(file?.content).not.toContain("border-l-2");
+    // Reproduced live: text-muted-foreground inside SiteSection surface=
+    // "contrast" (which compiles to bg-foreground text-background) read at
+    // contrast ratio 1.00. Self-heal both a raw bg-foreground element's own
+    // mismatched text colour and a contrast section's descendant text colour
+    // to text-background, keeping any opacity suffix.
+    expect(file?.content).toContain("text-background/75");
+    expect(file?.content).not.toContain("text-foreground/75");
+    expect(file?.content).toContain('<p className="text-background">Info</p>');
   });
 
   it("removes internal starter metadata from the customer route", () => {

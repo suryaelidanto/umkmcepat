@@ -201,6 +201,13 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     expect(prompt.system).toContain(
       "text-muted, text-card, text-popover, text-secondary, and text-background are surface tokens, never text colors",
     );
+    // Reproduced live: text-muted-foreground inside SiteSection surface=
+    // "contrast" (which compiles to bg-foreground text-background) read at
+    // contrast ratio 1.00 — that token family is only readable against the
+    // light background/muted/card/popover surfaces.
+    expect(prompt.system).toContain(
+      'Inside SiteSection surface="contrast" or any bg-foreground element, text-foreground, text-muted-foreground, text-card-foreground, text-popover-foreground, and text-secondary-foreground are invisible too',
+    );
     expect(prompt.system).toContain("one deliberate signature");
     expect(prompt.system).toContain(
       "Do not repeat eyebrow or numbered-marker scaffolding",
@@ -289,6 +296,9 @@ describe("buildReferenceCalibratedCorrectionPrompt", () => {
     expect(prompt.system).toContain("semantic Tailwind tokens");
     expect(prompt.system).toContain(
       "text-muted, text-card, text-popover, text-secondary, and text-background are surface tokens, never text colors",
+    );
+    expect(prompt.system).toContain(
+      'inside surface="contrast" or any bg-foreground element, text-foreground, text-muted-foreground, text-card-foreground, text-popover-foreground, and text-secondary-foreground are invisible too',
     );
     expect(prompt.system).toContain("Never invent");
     expect(prompt.system).toContain("site.headline");
