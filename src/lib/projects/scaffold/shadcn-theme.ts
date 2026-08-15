@@ -14,12 +14,18 @@ export type CompiledShadcnTheme = {
   checks: ThemeContrastCheck[];
 };
 
+export type ShadcnThemeFontOptions = {
+  fontDisplay?: string;
+  fontBody?: string;
+};
+
 export function shadcnThemeCss(schema: ProjectSiteSchema): string {
   return compileShadcnTheme(schema).css;
 }
 
 export function compileShadcnTheme(
   schema: ProjectSiteSchema,
+  options: ShadcnThemeFontOptions = {},
 ): CompiledShadcnTheme {
   const background = validHex(schema.theme.background);
   const foreground = readable(schema.theme.foreground, background, 4.5);
@@ -38,6 +44,9 @@ export function compileShadcnTheme(
   const destructive = "#dc2626";
   const destructiveForeground = bestReadable(destructive, 4.5);
   const ring = bestRing(accent, background);
+  const fontDisplay =
+    options.fontDisplay ?? "ui-sans-serif, system-ui, sans-serif";
+  const fontBody = options.fontBody ?? "ui-sans-serif, system-ui, sans-serif";
 
   const checks = [
     contrastCheck("foreground", foreground, background, 4.5),
@@ -76,6 +85,8 @@ export function compileShadcnTheme(
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --font-display: var(--site-font-display);
+  --font-body: var(--site-font-body);
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
@@ -101,6 +112,8 @@ export function compileShadcnTheme(
   --border: ${border};
   --input: ${input};
   --ring: ${ring};
+  --site-font-display: ${fontDisplay};
+  --site-font-body: ${fontBody};
   --radius: 0.625rem;
 }
 
@@ -116,6 +129,7 @@ export function compileShadcnTheme(
   body {
     background: var(--background);
     color: var(--foreground);
+    font-family: var(--site-font-body);
   }
 }
 

@@ -10,11 +10,34 @@ import {
 import type { GeneratedSiteDesignKitV1 } from "./generated-site-design-kits/types";
 import type { WriterDesignPlanV2 } from "./generated-site-design-plan";
 import type { GeneratedProjectFile } from "./generated-types";
+import type {
+  GeneratedSiteDesignKitV2,
+  ProfessionalFontStackId,
+} from "./professional-site-kits";
+import type { WriterDesignPlanV3 } from "./professional-site-plan";
 
 export type CompiledGeneratedSiteThemeV2 = {
   schemaTheme: ProjectSiteSchema["theme"];
   css: string;
   checks: ThemeContrastCheck[];
+};
+
+export type CompiledGeneratedSiteThemeV3 = {
+  schemaTheme: ProjectSiteSchema["theme"];
+  css: string;
+  checks: ThemeContrastCheck[];
+  fontDisplay: string;
+  fontBody: string;
+};
+
+export const PROFESSIONAL_FONT_STACKS: Readonly<
+  Record<ProfessionalFontStackId, string>
+> = {
+  "editorial-serif": 'Georgia, Cambria, "Times New Roman", serif',
+  "humanist-sans": '"Segoe UI", Candara, Calibri, system-ui, sans-serif',
+  "geometric-sans":
+    'Avenir, Montserrat, "Century Gothic", system-ui, sans-serif',
+  "restrained-grotesk": "Arial, Helvetica, system-ui, sans-serif",
 };
 
 export function compileGeneratedSiteThemeV2(input: {
@@ -49,6 +72,55 @@ export function compileGeneratedSiteThemeV2(input: {
     schemaTheme: schema.theme,
     css: compiled.css,
     checks: compiled.checks,
+  };
+}
+
+export function compileProfessionalSiteTheme(input: {
+  kit: GeneratedSiteDesignKitV2;
+  plan: WriterDesignPlanV3;
+}): CompiledGeneratedSiteThemeV3 {
+  const fontDisplay =
+    PROFESSIONAL_FONT_STACKS[input.plan.typography.displayStackId];
+  const fontBody = PROFESSIONAL_FONT_STACKS[input.plan.typography.bodyStackId];
+  if (
+    !fontDisplay ||
+    !input.kit.typography.allowedDisplayStackIds.includes(
+      input.plan.typography.displayStackId,
+    ) ||
+    input.plan.typography.bodyStackId !== input.kit.typography.bodyStackId ||
+    !fontBody
+  ) {
+    throw new Error("professional site font stack is outside kit policy");
+  }
+  if (
+    !isHex(input.plan.palette.background) ||
+    !isHex(input.plan.palette.foreground) ||
+    !isHex(input.plan.palette.muted) ||
+    !isHex(input.plan.palette.accent)
+  ) {
+    throw new Error("invalid professional theme palette");
+  }
+  const backgroundLuminance = luminance(input.plan.palette.background);
+  if (
+    (input.kit.themePolicy.backgroundLightness === "dark" &&
+      backgroundLuminance > 0.4) ||
+    (input.kit.themePolicy.backgroundLightness === "light" &&
+      backgroundLuminance < 0.4)
+  ) {
+    throw new Error("professional theme background conflicts with kit policy");
+  }
+  const schema = createFallbackProjectSiteSchema(input.kit.id);
+  schema.theme = { ...input.plan.palette };
+  const compiled = compileShadcnTheme(schema, { fontDisplay, fontBody });
+  if (compiled.checks.some((check) => !check.pass)) {
+    throw new Error("professional theme failed contrast checks");
+  }
+  return {
+    schemaTheme: schema.theme,
+    css: compiled.css,
+    checks: compiled.checks,
+    fontDisplay,
+    fontBody,
   };
 }
 
