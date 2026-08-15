@@ -17,7 +17,7 @@ Decision trail for specs, plans, handoffs, and tickets. These files are not all 
 - Storage: local dev and production both use S3-compatible storage through MinIO/R2; see the newest storage specs, then `src/lib/s3-client.ts`.
 - Generation runtime: check `src/lib/app-settings-registry.ts`, `src/lib/projects/build-attempt-worker.ts`, and `src/lib/projects/batched-generator.ts`.
 - Current generated-site behavior: trust `DEV.md`, `DESIGN.md`, and source first; the 2026-08-13 reference-calibrated and 2026-08-14 design-quality documents are implemented historical foundations.
-- Proposed professional landing/static-site successor: `specs/2026-08-15-professional-static-site-generation-design.md` and `plans/2026-08-15-professional-static-site-generation.md`. It supersedes V2 visual-unknown acceptance, adds V3 professional qualification, and is not implemented yet.
+- Professional landing/static-site successor: `specs/2026-08-15-professional-static-site-generation-design.md` and `plans/2026-08-15-professional-static-site-generation.md`. V3 qualification and the V4 benchmark/calibration tooling are implemented behind blocked release authority; production selection remains disabled until private evidence and owner approval pass.
 
 ## Supersession Rule
 

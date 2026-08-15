@@ -1,67 +1,92 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "baselineId": "deterministic-control-v1",
-  "corpusVersion": "reference-calibrated-v2",
-  "evaluatorVersion": "3",
+  "treatmentId": "professional-static-v3",
+  "corpusVersion": "professional-static-v3",
+  "evaluatorVersion": "4",
   "cases": [
     {
       "briefId": "appointment-service",
       "fixture": "briefs/appointment-service.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["warm-commerce"],
       "trials": [1, 2]
     },
     {
       "briefId": "education-course",
       "fixture": "briefs/education-course.json",
+      "expectedRouteCount": 2,
+      "expectedKitIds": ["catalog-story"],
       "trials": [1, 2]
     },
     {
       "briefId": "fnb-menu",
       "fixture": "briefs/fnb-menu.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["menu-led-editorial"],
       "trials": [1, 2]
     },
     {
       "briefId": "image-led",
       "fixture": "briefs/image-led.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["catalog-story"],
       "trials": [1, 2]
     },
     {
       "briefId": "local-service",
       "fixture": "briefs/local-service.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["editorial-airy"],
       "trials": [1, 2]
     },
     {
       "briefId": "online-service",
       "fixture": "briefs/online-service.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["bold-typographic"],
       "trials": [1, 2]
     },
     {
       "briefId": "photo-off",
       "fixture": "briefs/photo-off.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["catalog-story"],
       "trials": [1, 2]
     },
     {
       "briefId": "photo-on-assets",
       "fixture": "briefs/photo-on-assets.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["catalog-story"],
       "trials": [1, 2]
     },
     {
       "briefId": "photo-on-no-assets",
       "fixture": "briefs/photo-on-no-assets.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["catalog-story"],
       "trials": [1, 2]
     },
     {
       "briefId": "property-rental",
       "fixture": "briefs/property-rental.json",
+      "expectedRouteCount": 2,
+      "expectedKitIds": ["catalog-story"],
       "trials": [1, 2]
     },
     {
       "briefId": "retail-catalog",
       "fixture": "briefs/retail-catalog.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["catalog-story"],
       "trials": [1, 2]
     },
     {
       "briefId": "sparse-two-field",
       "fixture": "briefs/sparse-two-field.json",
+      "expectedRouteCount": 1,
+      "expectedKitIds": ["editorial-airy"],
       "trials": [1, 2]
     }
   ]

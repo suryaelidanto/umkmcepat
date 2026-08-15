@@ -64,3 +64,4 @@ Task 6: complete (14c645b9, V3 source qualification gates and correction integra
 Task 7: complete (3183fb5f, browser qualification V2 and professional geometry evidence, review clean; 40 Vitest tests plus 9 Node contrast tests, typecheck/lint clean)
 Task 8: complete (f98095b7, category-complete professional critic, calibration contracts, and release manifest parser, review clean; 14 focused tests, 54 relevant Vitest tests, typecheck/lint clean)
 Task 9: complete (cf664724, V3 quality proof and final-review pipeline, review clean; 14 focused tests, 72 relevant tests, typecheck/lint clean)
+Task 10: complete (3b20e6f7, V4 benchmark integrity/report arithmetic, real professional-static-v3 runner, two multi-route fixtures, blind readiness normalization, 30 executable seeded-defect operators, private calibration preparation/review/evaluation tooling; bun run check green)

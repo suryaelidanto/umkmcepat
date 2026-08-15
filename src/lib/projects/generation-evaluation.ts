@@ -529,6 +529,443 @@ export function buildGeneratedSiteEvaluationReportV3(
   };
 }
 
+export type GeneratedSiteEvaluationManifestV4 = {
+  schemaVersion: 4;
+  baselineId: "deterministic-control-v1";
+  treatmentId: "professional-static-v3";
+  corpusVersion: string;
+  evaluatorVersion: string;
+  cases: Array<{
+    briefId: string;
+    fixture: string;
+    expectedRouteCount: 1 | 2 | 3;
+    expectedKitIds: GeneratedSiteDesignKitId[];
+    trials: [1, 2];
+  }>;
+};
+
+export type GeneratedSiteEvaluationTrialV4 = {
+  runId: string;
+  arm: "deterministic-control-v1" | "professional-static-v3";
+  briefId: string;
+  trial: 1 | 2;
+  outcome: GenerationTrialOutcome;
+  routeCount: number;
+  kitId: GeneratedSiteDesignKitId | "control";
+  calls: GeneratedSiteCallBudgetSnapshot;
+  totalToDecisionMs: number;
+  firstFileClosedMs: number | null;
+  editableBytes: number;
+  hardFailures: {
+    fact: number;
+    action: number;
+    media: number;
+    accessibility: number;
+    route: number;
+    contract: number;
+  };
+  professionalVisual: "pass" | "fail" | "unknown" | "not_run";
+  minimumProfessionalRating: number | null;
+  categoryRatings: Partial<Record<ProfessionalReviewCategoryV4, number>>;
+  routePatternIds: string[];
+  desktopEvidenceRefs: string[];
+  mobileEvidenceRefs: string[];
+};
+
+export type ProfessionalReviewCategoryV4 =
+  | "business_specificity"
+  | "first_view_hierarchy"
+  | "content_architecture"
+  | "composition_rhythm"
+  | "typography"
+  | "color_system"
+  | "media_integrity"
+  | "mobile_quality"
+  | "professional_finish";
+
+export type BlindPreferenceV2 = {
+  briefId: string;
+  trial: 1 | 2;
+  choice: "control" | "treatment" | "tie";
+  controlReady: boolean;
+  treatmentReady: boolean;
+};
+
+export type GeneratedSiteEvaluationReportV4 = {
+  schemaVersion: 4;
+  baselineId: "deterministic-control-v1";
+  treatmentId: "professional-static-v3";
+  corpusVersion: string;
+  evaluatorVersion: string;
+  scheduledTreatmentTrials: number;
+  completedTreatmentTrials: number;
+  metrics: {
+    totalP50Ms: number;
+    totalP95Ms: number;
+    firstFileP50Ms: number;
+    singlePageEditableBytesP95: number;
+    multiPageEditableBytesMax: number;
+    correctionRate: number;
+    decisiveTreatmentPreference: number;
+    tieRate: number;
+    treatmentReadyRate: number;
+    infrastructureErrors: number;
+    hardFailures: GeneratedSiteEvaluationTrialV4["hardFailures"];
+    professionalVisualFailures: number;
+    minimumProfessionalRating: number | null;
+    multiRoutePassingCases: number;
+  };
+  release: { pass: boolean; reasons: string[] };
+};
+
+export function trialFromProfessionalResult(input: {
+  runId: string;
+  arm: GeneratedSiteEvaluationTrialV4["arm"];
+  briefId: string;
+  trial: 1 | 2;
+  result: {
+    ok: boolean;
+    proof: {
+      outcome: GenerationTrialOutcome;
+      kitId: GeneratedSiteEvaluationTrialV4["kitId"];
+      calls: GeneratedSiteCallBudgetSnapshot;
+      output: {
+        routeCount: number;
+        editableBytes: number;
+        firstFileClosedMs: number | null;
+      };
+      timingsMs: { totalToDecision: number };
+      hardFailures: GeneratedSiteEvaluationTrialV4["hardFailures"];
+      gates: {
+        professionalVisual: GeneratedSiteEvaluationTrialV4["professionalVisual"];
+      };
+      professional: {
+        minimumRating: number | null;
+        categoryRatings: Partial<Record<ProfessionalReviewCategoryV4, number>>;
+      };
+    };
+  };
+  routePatternIds: string[];
+  desktopEvidenceRefs: string[];
+  mobileEvidenceRefs: string[];
+}): GeneratedSiteEvaluationTrialV4 {
+  return {
+    runId: input.runId,
+    arm: input.arm,
+    briefId: input.briefId,
+    trial: input.trial,
+    outcome: input.result.proof.outcome,
+    routeCount: input.result.proof.output.routeCount,
+    kitId: input.result.proof.kitId,
+    calls: input.result.proof.calls,
+    totalToDecisionMs: input.result.proof.timingsMs.totalToDecision,
+    firstFileClosedMs: input.result.proof.output.firstFileClosedMs,
+    editableBytes: input.result.proof.output.editableBytes,
+    hardFailures: { ...input.result.proof.hardFailures },
+    professionalVisual: input.result.proof.gates.professionalVisual,
+    minimumProfessionalRating: input.result.proof.professional.minimumRating,
+    categoryRatings: { ...input.result.proof.professional.categoryRatings },
+    routePatternIds: [...input.routePatternIds],
+    desktopEvidenceRefs: [...input.desktopEvidenceRefs],
+    mobileEvidenceRefs: [...input.mobileEvidenceRefs],
+  };
+}
+
+export function buildGeneratedSiteEvaluationReportV4(
+  manifest: GeneratedSiteEvaluationManifestV4,
+  results: GeneratedSiteEvaluationTrialV4[],
+  preferences: BlindPreferenceV2[] = [],
+): GeneratedSiteEvaluationReportV4 {
+  const scheduled = manifest.cases.flatMap((entry) =>
+    entry.trials.map((trial) => ({ briefId: entry.briefId, trial })),
+  );
+  const expected = new Set(scheduled.map(scheduledKey));
+  const treatment = results.filter(
+    (result) => result.arm === "professional-static-v3",
+  );
+  const controls = results.filter(
+    (result) => result.arm === "deterministic-control-v1",
+  );
+  const reasons: string[] = [];
+  const treatmentByKey = new Map(
+    treatment.map((result) => [scheduledKey(result), result]),
+  );
+  const controlByKey = new Map(
+    controls.map((result) => [scheduledKey(result), result]),
+  );
+  for (const key of expected) {
+    if (!treatmentByKey.has(key)) {
+      reasons.push(`missing treatment trial: ${key}`);
+    }
+    if (!controlByKey.has(key)) {
+      reasons.push(`missing control trial: ${key}`);
+    }
+  }
+  for (const result of results) {
+    if (!expected.has(scheduledKey(result))) {
+      reasons.push(`unexpected trial: ${scheduledKey(result)}`);
+    }
+  }
+  if (duplicateKeys(treatment).length > 0) {
+    reasons.push("duplicate treatment trial");
+  }
+  if (duplicateKeys(controls).length > 0) {
+    reasons.push("duplicate control trial");
+  }
+  if (treatment.length !== scheduled.length) {
+    reasons.push(`expected ${scheduled.length} treatment trials`);
+  }
+  if (controls.length !== scheduled.length) {
+    reasons.push(`expected ${scheduled.length} control trials`);
+  }
+  if (controls.some((result) => result.outcome !== "pass")) {
+    reasons.push("control outcome failure present");
+  }
+  for (const entry of manifest.cases) {
+    const caseTrials = treatment.filter(
+      (result) => result.briefId === entry.briefId,
+    );
+    for (const result of caseTrials) {
+      if (result.routeCount !== entry.expectedRouteCount) {
+        reasons.push(`route count mismatch: ${entry.briefId}`);
+      }
+      if (
+        result.kitId === "control" ||
+        !entry.expectedKitIds.includes(result.kitId)
+      ) {
+        reasons.push(`kit mismatch: ${entry.briefId}`);
+      }
+    }
+  }
+  const infrastructureErrors = treatment.filter(
+    (result) => result.outcome === "infrastructure_error",
+  ).length;
+  if (infrastructureErrors > 0) {
+    reasons.push("infrastructure errors present");
+  }
+  if (treatment.some((result) => result.outcome !== "pass")) {
+    reasons.push("treatment outcome failure present");
+  }
+  if (
+    treatment.some(
+      (result) =>
+        result.calls.writerCalls !== 1 || result.calls.criticCalls !== 1,
+    )
+  ) {
+    reasons.push("writer/critic call count is not exactly one");
+  }
+  const correctionRate = scheduled.length
+    ? treatment.filter((result) => result.calls.correctionCalls > 0).length /
+      scheduled.length
+    : 0;
+  if (
+    treatment.some((result) => result.calls.correctionCalls > 1) ||
+    correctionRate > 0.2
+  ) {
+    reasons.push("correction count/rate exceeds the release budget");
+  }
+  const hardFailureKeys = [
+    "fact",
+    "action",
+    "media",
+    "accessibility",
+    "route",
+    "contract",
+  ] as const;
+  const hardFailures = Object.fromEntries(
+    hardFailureKeys.map((key) => [
+      key,
+      treatment.reduce((total, result) => total + result.hardFailures[key], 0),
+    ]),
+  ) as GeneratedSiteEvaluationTrialV4["hardFailures"];
+  if (Object.values(hardFailures).some((count) => count > 0)) {
+    reasons.push(
+      "hard fact/action/media/accessibility/route/contract failure present",
+    );
+  }
+  const professionalVisualFailures = treatment.filter(
+    (result) => result.professionalVisual !== "pass",
+  ).length;
+  if (professionalVisualFailures > 0) {
+    reasons.push("professional visual status is not pass");
+  }
+  const categories: ProfessionalReviewCategoryV4[] = [
+    "business_specificity",
+    "first_view_hierarchy",
+    "content_architecture",
+    "composition_rhythm",
+    "typography",
+    "color_system",
+    "media_integrity",
+    "mobile_quality",
+    "professional_finish",
+  ];
+  for (const result of treatment) {
+    if (
+      result.minimumProfessionalRating === null ||
+      result.minimumProfessionalRating < 3
+    ) {
+      reasons.push("professional minimum rating below 3");
+      break;
+    }
+    if (
+      categories.some((category) => {
+        const rating = result.categoryRatings[category];
+        return rating === undefined || rating < 3;
+      })
+    ) {
+      reasons.push("professional category rating missing or below 3");
+      break;
+    }
+  }
+  const durations = treatment.map((result) => result.totalToDecisionMs);
+  const firstFiles = treatment
+    .map((result) => result.firstFileClosedMs)
+    .filter((value): value is number => value !== null);
+  const singlePageBytes = treatment
+    .filter((result) => result.routeCount === 1)
+    .map((result) => result.editableBytes);
+  const multiPageBytes = treatment
+    .filter((result) => result.routeCount > 1)
+    .map((result) => result.editableBytes);
+  const totalP50Ms = percentile(durations, 0.5);
+  const totalP95Ms = percentile(durations, 0.95);
+  const firstFileP50Ms = percentile(firstFiles, 0.5);
+  const singlePageEditableBytesP95 = percentile(singlePageBytes, 0.95);
+  const multiPageEditableBytesMax = multiPageBytes.length
+    ? Math.max(...multiPageBytes)
+    : 0;
+  if (totalP50Ms > 90_000) {
+    reasons.push("total decision p50 exceeds 90000ms");
+  }
+  if (totalP95Ms > 150_000) {
+    reasons.push("total decision p95 exceeds 150000ms");
+  }
+  if (firstFileP50Ms > 45_000) {
+    reasons.push("first editable file p50 exceeds 45000ms");
+  }
+  if (singlePageEditableBytesP95 > 32 * 1024) {
+    reasons.push("single-page editable p95 exceeds 32768 bytes");
+  }
+  if (multiPageEditableBytesMax > 48 * 1024) {
+    reasons.push("multi-page editable output exceeds 49152 bytes");
+  }
+  const expectedKitIds = new Set(
+    manifest.cases.flatMap((entry) => entry.expectedKitIds),
+  );
+  for (const kitId of expectedKitIds) {
+    if (!treatment.some((result) => result.kitId === kitId)) {
+      reasons.push(`kit lacks conformance case: ${kitId}`);
+    }
+  }
+  const multiRouteCases = new Set(
+    treatment
+      .filter((result) => result.outcome === "pass" && result.routeCount > 1)
+      .map((result) => result.briefId),
+  );
+  if (multiRouteCases.size < 2) {
+    reasons.push("fewer than two multi-route passing cases");
+  }
+  const patternCounts = new Map<string, number>();
+  const routeDenominator = treatment.reduce(
+    (total, result) => total + result.routeCount,
+    0,
+  );
+  for (const result of treatment) {
+    for (const pattern of result.routePatternIds) {
+      patternCounts.set(pattern, (patternCounts.get(pattern) ?? 0) + 1);
+    }
+  }
+  for (const [pattern, count] of patternCounts) {
+    if (count / Math.max(1, routeDenominator) > 0.5) {
+      reasons.push(`composition pattern overused: ${pattern}`);
+    }
+  }
+  const preferenceByKey = new Map(
+    preferences.map((preference) => [scheduledKey(preference), preference]),
+  );
+  if (preferenceByKey.size !== preferences.length) {
+    reasons.push("duplicate blind preference");
+  }
+  if (
+    preferences.some((preference) => !expected.has(scheduledKey(preference)))
+  ) {
+    reasons.push("unexpected blind preference");
+  }
+  const normalizedPreferences = scheduled
+    .map((entry) => preferenceByKey.get(scheduledKey(entry)))
+    .filter((value): value is BlindPreferenceV2 => value !== undefined);
+  if (normalizedPreferences.length !== scheduled.length) {
+    reasons.push("blind preference input missing");
+  }
+  const decisive = normalizedPreferences.filter(
+    (preference) => preference.choice !== "tie",
+  );
+  const decisiveTreatmentPreference = decisive.length
+    ? decisive.filter((preference) => preference.choice === "treatment")
+        .length / decisive.length
+    : 0;
+  const tieRate = scheduled.length
+    ? normalizedPreferences.filter((preference) => preference.choice === "tie")
+        .length / scheduled.length
+    : 0;
+  const treatmentReadyRate = normalizedPreferences.length
+    ? normalizedPreferences.filter((preference) => preference.treatmentReady)
+        .length / normalizedPreferences.length
+    : 0;
+  if (decisiveTreatmentPreference < 0.75) {
+    reasons.push("decisive treatment preference below 0.75");
+  }
+  if (tieRate > 0.25) {
+    reasons.push("blind preference ties exceed 0.25");
+  }
+  if (treatmentReadyRate < 0.9) {
+    reasons.push("treatment readiness below 0.90");
+  }
+  for (const entry of manifest.cases) {
+    const casePreferences = normalizedPreferences.filter(
+      (preference) => preference.briefId === entry.briefId,
+    );
+    if (
+      casePreferences.length === 2 &&
+      casePreferences.every((preference) => !preference.treatmentReady)
+    ) {
+      reasons.push(`case loses both treatment trials: ${entry.briefId}`);
+    }
+  }
+  const minimumProfessionalRating = treatment.length
+    ? Math.min(
+        ...treatment.map((result) => result.minimumProfessionalRating ?? 0),
+      )
+    : null;
+  return {
+    schemaVersion: 4,
+    baselineId: manifest.baselineId,
+    treatmentId: manifest.treatmentId,
+    corpusVersion: manifest.corpusVersion,
+    evaluatorVersion: manifest.evaluatorVersion,
+    scheduledTreatmentTrials: scheduled.length,
+    completedTreatmentTrials: treatment.length,
+    metrics: {
+      totalP50Ms,
+      totalP95Ms,
+      firstFileP50Ms,
+      singlePageEditableBytesP95,
+      multiPageEditableBytesMax,
+      correctionRate,
+      decisiveTreatmentPreference,
+      tieRate,
+      treatmentReadyRate,
+      infrastructureErrors,
+      hardFailures,
+      professionalVisualFailures,
+      minimumProfessionalRating,
+      multiRoutePassingCases: multiRouteCases.size,
+    },
+    release: { pass: reasons.length === 0, reasons: [...new Set(reasons)] },
+  };
+}
+
 function totalV3(
   results: GeneratedSiteEvaluationTrialV3[],
   key:

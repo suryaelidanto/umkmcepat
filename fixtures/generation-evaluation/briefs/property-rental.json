@@ -4,7 +4,7 @@
   "expected": {
     "recipeId": "property-rental",
     "mediaMode": "graphic",
-    "routes": ["/", "/unit"],
+    "routes": ["/", "/properti"],
     "primaryCta": {
       "kind": "whatsapp",
       "target": "+6281100000000"
@@ -27,7 +27,7 @@
     ],
     "risk": "risky",
     "compatibleKitIds": ["catalog-story"],
-    "requiredRoutes": ["/", "/unit"],
+    "requiredRoutes": ["/", "/properti"],
     "requiredFactIds": ["offer-1", "contact-1"]
   },
   "briefSnapshot": {
@@ -77,7 +77,7 @@
   "acceptedContract": {
     "schemaVersion": 1,
     "revision": 1,
-    "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "contentHash": "1da4d7426bb4d9eee297ec812e4e450499590f75d7331c6d3f1f45544adf8633",
     "identity": {
       "businessName": "Usaha Sintetis Property Rental",
       "businessType": "property-rental"
@@ -162,8 +162,8 @@
   "acceptedPlan": {
     "schemaVersion": 1,
     "revision": 1,
-    "contractHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-    "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "contractHash": "1da4d7426bb4d9eee297ec812e4e450499590f75d7331c6d3f1f45544adf8633",
+    "contentHash": "07c02dd22d9264e8857114f2b90928f4c325b3586b2e1d8c588090a47ec9c706",
     "appKind": "landing",
     "archetype": "property-rental",
     "pages": [
@@ -181,11 +181,48 @@
             "surfaceIntent": "contained",
             "requiredFactIds": ["offer-1", "contact-1"],
             "requiredAssetIds": []
+          },
+          {
+            "id": "properti-preview",
+            "purpose": "Daftar properti",
+            "surfaceIntent": "prose",
+            "requiredFactIds": ["offer-1"],
+            "requiredAssetIds": []
+          }
+        ]
+      },
+      {
+        "id": "properti",
+        "path": "/properti",
+        "title": "Properti Usaha Sintetis Property Rental",
+        "purpose": "Rincian unit",
+        "visitorJobIds": ["job-primary"],
+        "requiredFactIds": ["offer-1", "contact-1"],
+        "sections": [
+          {
+            "id": "identity-intro",
+            "purpose": "Identitas usaha",
+            "surfaceIntent": "contained",
+            "requiredFactIds": ["offer-1"],
+            "requiredAssetIds": []
+          },
+          {
+            "id": "unit-detail",
+            "purpose": "Daftar properti",
+            "surfaceIntent": "contained",
+            "requiredFactIds": ["offer-1"],
+            "requiredAssetIds": []
           }
         ]
       }
     ],
-    "navigation": [],
+    "navigation": [
+      {
+        "fromPageId": "home",
+        "toPageId": "properti",
+        "label": "Properti"
+      }
+    ],
     "capabilities": ["static_content", "whatsapp_cta"],
     "artDirection": {
       "businessSpecificReference": "catalog-story",

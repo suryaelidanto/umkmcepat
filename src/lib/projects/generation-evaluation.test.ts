@@ -11,9 +11,15 @@ import {
   type GeneratedSiteEvaluationTrialV2,
   type GeneratedSiteEvaluationManifestV3,
   type GeneratedSiteEvaluationTrialV3,
+  buildGeneratedSiteEvaluationReportV4,
+  trialFromProfessionalResult,
+  type BlindPreferenceV2,
+  type GeneratedSiteEvaluationManifestV4,
+  type GeneratedSiteEvaluationTrialV4,
 } from "./generation-evaluation";
 
 import type { GeneratedSiteCallBudgetSnapshot } from "./generated-site-call-budget";
+import type { GeneratedSiteDesignKitId } from "./generated-site-design-kits/types";
 
 function manifestWithTwoTrials(): EvaluationManifestV1 {
   return {
@@ -295,5 +301,307 @@ describe("buildGeneratedSiteEvaluationReport", () => {
     expect(report.metrics.firstBuildTechnicalSuccess).toBe(0.75);
     expect(report.metrics.deterministicQualityPass).toBe(0.75);
     expect(report.release.pass).toBe(false);
+  });
+});
+
+const v4Manifest: GeneratedSiteEvaluationManifestV4 = {
+  schemaVersion: 4,
+  baselineId: "deterministic-control-v1",
+  treatmentId: "professional-static-v3",
+  corpusVersion: "professional-static-v3",
+  evaluatorVersion: "4",
+  cases: Array.from({ length: 12 }, (_, index) => ({
+    briefId: `case-${index + 1}`,
+    fixture: `briefs/case-${index + 1}.json`,
+    expectedRouteCount: index < 2 ? 2 : 1,
+    expectedKitIds: [
+      [
+        "editorial-airy",
+        "menu-led-editorial",
+        "catalog-story",
+        "warm-commerce",
+        "bold-typographic",
+      ][index % 5] as GeneratedSiteDesignKitId,
+    ],
+    trials: [1, 2],
+  })),
+};
+
+const v4Calls = {
+  writerCalls: 1 as const,
+  criticCalls: 1 as const,
+  correctionCalls: 0 as const,
+  correctionReason: null,
+};
+
+function qualifyingV4Trials(): GeneratedSiteEvaluationTrialV4[] {
+  return v4Manifest.cases.flatMap((entry, index) =>
+    entry.trials.flatMap((trial) => {
+      const treatment: GeneratedSiteEvaluationTrialV4 = {
+        runId: "run-4",
+        arm: "professional-static-v3",
+        briefId: entry.briefId,
+        trial,
+        outcome: "pass",
+        routeCount: entry.expectedRouteCount,
+        kitId: entry.expectedKitIds[0]!,
+        calls: v4Calls,
+        totalToDecisionMs: 80_000,
+        firstFileClosedMs: 20_000,
+        editableBytes: entry.expectedRouteCount === 1 ? 10_000 : 30_000,
+        hardFailures: {
+          fact: 0,
+          action: 0,
+          media: 0,
+          accessibility: 0,
+          route: 0,
+          contract: 0,
+        },
+        professionalVisual: "pass",
+        minimumProfessionalRating: 3,
+        categoryRatings: {
+          business_specificity: 3,
+          first_view_hierarchy: 3,
+          content_architecture: 3,
+          composition_rhythm: 3,
+          typography: 3,
+          color_system: 3,
+          media_integrity: 3,
+          mobile_quality: 3,
+          professional_finish: 3,
+        },
+        routePatternIds: [`pattern-${index}`],
+        desktopEvidenceRefs: [`desktop-${entry.briefId}-${trial}`],
+        mobileEvidenceRefs: [`mobile-${entry.briefId}-${trial}`],
+      };
+      const control: GeneratedSiteEvaluationTrialV4 = {
+        ...treatment,
+        arm: "deterministic-control-v1",
+        kitId: "control",
+        calls: {
+          writerCalls: 0,
+          criticCalls: 0,
+          correctionCalls: 0,
+          correctionReason: null,
+        },
+        routePatternIds: [],
+        desktopEvidenceRefs: [],
+        mobileEvidenceRefs: [],
+      };
+      return [treatment, control];
+    }),
+  );
+}
+
+function v4Preferences(): BlindPreferenceV2[] {
+  return v4Manifest.cases.flatMap((entry) =>
+    entry.trials.map((trial) => ({
+      briefId: entry.briefId,
+      trial,
+      choice: "treatment" as const,
+      controlReady: false,
+      treatmentReady: true,
+    })),
+  );
+}
+
+describe("buildGeneratedSiteEvaluationReportV4", () => {
+  it("passes a complete 24-trial treatment/control release corpus", () => {
+    const report = buildGeneratedSiteEvaluationReportV4(
+      v4Manifest,
+      qualifyingV4Trials(),
+      v4Preferences(),
+    );
+    expect(report).toMatchObject({
+      schemaVersion: 4,
+      completedTreatmentTrials: 24,
+      release: { pass: true, reasons: [] },
+    });
+  });
+
+  it.each([
+    [
+      "missing treatment",
+      (trials: GeneratedSiteEvaluationTrialV4[]) =>
+        trials.filter(
+          (trial) =>
+            !(
+              trial.arm === "professional-static-v3" &&
+              trial.briefId === "case-1" &&
+              trial.trial === 1
+            ),
+        ),
+      "missing treatment trial: case-1:1",
+    ],
+    [
+      "infrastructure",
+      (trials: GeneratedSiteEvaluationTrialV4[]) =>
+        trials.map((trial) =>
+          trial.arm === "professional-static-v3" && trial.briefId === "case-1"
+            ? { ...trial, outcome: "infrastructure_error" as const }
+            : trial,
+        ),
+      "infrastructure errors present",
+    ],
+    [
+      "hard fact",
+      (trials: GeneratedSiteEvaluationTrialV4[]) =>
+        trials.map((trial) =>
+          trial.arm === "professional-static-v3"
+            ? { ...trial, hardFailures: { ...trial.hardFailures, fact: 1 } }
+            : trial,
+        ),
+      "hard fact/action/media/accessibility/route/contract failure present",
+    ],
+    [
+      "visual unknown",
+      (trials: GeneratedSiteEvaluationTrialV4[]) =>
+        trials.map((trial) =>
+          trial.arm === "professional-static-v3"
+            ? { ...trial, professionalVisual: "unknown" as const }
+            : trial,
+        ),
+      "professional visual status is not pass",
+    ],
+    [
+      "low rating",
+      (trials: GeneratedSiteEvaluationTrialV4[]) =>
+        trials.map((trial) =>
+          trial.arm === "professional-static-v3"
+            ? { ...trial, minimumProfessionalRating: 2 }
+            : trial,
+        ),
+      "professional minimum rating below 3",
+    ],
+  ] as const)("fails %s evidence", (_name, mutate, reason) => {
+    const report = buildGeneratedSiteEvaluationReportV4(
+      v4Manifest,
+      mutate(qualifyingV4Trials()),
+      v4Preferences(),
+    );
+    expect(report.release.pass).toBe(false);
+    expect(report.release.reasons).toContain(reason);
+  });
+
+  it("enforces speed, size, readiness, kit, multi-route, and pattern thresholds", () => {
+    const trials = qualifyingV4Trials().map((trial) =>
+      trial.arm === "professional-static-v3"
+        ? {
+            ...trial,
+            totalToDecisionMs: 150_001,
+            firstFileClosedMs: 45_001,
+            editableBytes: trial.routeCount === 1 ? 32_769 : 49 * 1024,
+            routePatternIds: ["same-pattern"],
+          }
+        : trial,
+    );
+    const preferences = v4Preferences().map((preference) => ({
+      ...preference,
+      choice: "tie" as const,
+      treatmentReady: false,
+    }));
+    const report = buildGeneratedSiteEvaluationReportV4(
+      v4Manifest,
+      trials,
+      preferences,
+    );
+    expect(report.release.pass).toBe(false);
+    expect(report.release.reasons).toEqual(
+      expect.arrayContaining([
+        "total decision p95 exceeds 150000ms",
+        "first editable file p50 exceeds 45000ms",
+        "treatment readiness below 0.90",
+        "decisive treatment preference below 0.75",
+        "blind preference ties exceed 0.25",
+        "case loses both treatment trials: case-1",
+      ]),
+    );
+  });
+});
+
+describe("trialFromProfessionalResult", () => {
+  it("copies non-zero proof, route, category, timing, and evidence fields", () => {
+    const proof = {
+      schemaVersion: 3 as const,
+      engine: "professional-static-single-shot" as const,
+      contractHash: "c",
+      blueprintHash: "b",
+      writerPlanHash: "p",
+      kitId: "warm-commerce" as const,
+      kitVersion: 2 as const,
+      mediaMode: "graphic" as const,
+      calls: v4Calls,
+      models: {
+        writerRequested: "requested",
+        writerServed: "served",
+        criticRequested: "critic",
+        criticServed: "critic-served",
+        correctionRequested: null,
+        correctionServed: null,
+      },
+      gates: {
+        response: "pass" as const,
+        source: "pass" as const,
+        build: "pass" as const,
+        browser: "pass" as const,
+        professionalVisual: "pass" as const,
+      },
+      hardFailures: {
+        fact: 2,
+        action: 1,
+        media: 0,
+        accessibility: 0,
+        route: 0,
+        contract: 0,
+      },
+      professional: {
+        promptVersion: "v1",
+        minimumRating: 3,
+        averageRating: 3.2,
+        categoryRatings: { business_specificity: 3 },
+        unknownReason: null,
+      },
+      timingsMs: {
+        contract: 1,
+        blueprint: 2,
+        writer: 3,
+        sourceGates: 4,
+        build: 5,
+        browser: 6,
+        critic: 7,
+        correction: 0,
+        totalToDecision: 8,
+      },
+      output: {
+        routeCount: 2,
+        editableFileCount: 3,
+        editableBytes: 1234,
+        firstFileClosedMs: 9,
+      },
+      outcome: "pass" as const,
+    };
+    const result = trialFromProfessionalResult({
+      runId: "run",
+      arm: "professional-static-v3",
+      briefId: "b1",
+      trial: 1,
+      result: {
+        ok: false,
+        proof,
+      },
+      routePatternIds: ["split"],
+      desktopEvidenceRefs: ["desktop-ref"],
+      mobileEvidenceRefs: ["mobile-ref"],
+    });
+    expect(result).toMatchObject({
+      outcome: "pass",
+      routeCount: 2,
+      totalToDecisionMs: 8,
+      editableBytes: 1234,
+      hardFailures: { fact: 2, action: 1 },
+      desktopEvidenceRefs: ["desktop-ref"],
+      mobileEvidenceRefs: ["mobile-ref"],
+      routePatternIds: ["split"],
+    });
   });
 });

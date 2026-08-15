@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "evaluatorVersion": "4",
+  "defects": [
+    {
+      "id": "business-copy-01",
+      "category": "business_specificity",
+      "severity": "blocker",
+      "operator": "replace-business-specific-copy",
+      "parameters": { "value": "Usaha Pilihan" },
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "business-copy-02",
+      "category": "business_specificity",
+      "severity": "blocker",
+      "operator": "remove-offer-binding",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "business-copy-03",
+      "category": "business_specificity",
+      "severity": "blocker",
+      "operator": "replace-audience-binding",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "first-view-hidden-cta",
+      "category": "first_view_hierarchy",
+      "severity": "blocker",
+      "operator": "move-primary-action-below-mobile-fold",
+      "parameters": { "minTopPx": 900 },
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "first-view-no-identity",
+      "category": "first_view_hierarchy",
+      "severity": "blocker",
+      "operator": "hide-first-view-identity",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "first-view-no-offer",
+      "category": "first_view_hierarchy",
+      "severity": "blocker",
+      "operator": "hide-first-view-offer",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "first-view-duplicate-action",
+      "category": "first_view_hierarchy",
+      "severity": "blocker",
+      "operator": "duplicate-primary-action",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "content-missing-section",
+      "category": "content_architecture",
+      "severity": "blocker",
+      "operator": "remove-required-section",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "content-wrong-route",
+      "category": "content_architecture",
+      "severity": "blocker",
+      "operator": "move-content-to-wrong-route",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "content-unknown-field",
+      "category": "content_architecture",
+      "severity": "blocker",
+      "operator": "add-unknown-site-field",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "rhythm-equal-treatment",
+      "category": "composition_rhythm",
+      "severity": "blocker",
+      "operator": "equalize-section-treatments",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "rhythm-card-wall",
+      "category": "composition_rhythm",
+      "severity": "blocker",
+      "operator": "repeat-card-treatment",
+      "parameters": { "count": 5 },
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "rhythm-uniform-spacing",
+      "category": "composition_rhythm",
+      "severity": "blocker",
+      "operator": "uniform-section-spacing",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "rhythm-nested-card",
+      "category": "composition_rhythm",
+      "severity": "blocker",
+      "operator": "nest-card-surfaces",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "type-too-small",
+      "category": "typography",
+      "severity": "blocker",
+      "operator": "shrink-body-type",
+      "parameters": { "fontSize": 12 },
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "type-overlarge-display",
+      "category": "typography",
+      "severity": "blocker",
+      "operator": "oversize-display-type",
+      "parameters": { "fontSize": 120 },
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "type-arbitrary-font",
+      "category": "typography",
+      "severity": "blocker",
+      "operator": "add-arbitrary-font",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "type-missing-role",
+      "category": "typography",
+      "severity": "blocker",
+      "operator": "remove-font-role",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "color-raw-palette",
+      "category": "color_system",
+      "severity": "blocker",
+      "operator": "add-raw-palette",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "color-low-contrast",
+      "category": "color_system",
+      "severity": "blocker",
+      "operator": "lower-contrast-theme",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "color-accent-wall",
+      "category": "color_system",
+      "severity": "blocker",
+      "operator": "cover-page-in-accent",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "media-placeholder",
+      "category": "media_integrity",
+      "severity": "blocker",
+      "operator": "add-placeholder-media",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "media-remote",
+      "category": "media_integrity",
+      "severity": "blocker",
+      "operator": "add-remote-media",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "media-empty-frame",
+      "category": "media_integrity",
+      "severity": "blocker",
+      "operator": "add-empty-media-frame",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "mobile-overflow",
+      "category": "mobile_quality",
+      "severity": "blocker",
+      "operator": "add-horizontal-overflow",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "mobile-hidden-nav",
+      "category": "mobile_quality",
+      "severity": "blocker",
+      "operator": "cover-section-with-fixed-nav",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "mobile-tiny-action",
+      "category": "mobile_quality",
+      "severity": "blocker",
+      "operator": "shrink-primary-touch-target",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "finish-starter-residue",
+      "category": "professional_finish",
+      "severity": "blocker",
+      "operator": "add-starter-residue",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "finish-gradient-text",
+      "category": "professional_finish",
+      "severity": "blocker",
+      "operator": "add-gradient-text",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    },
+    {
+      "id": "finish-numbered-scaffold",
+      "category": "professional_finish",
+      "severity": "blocker",
+      "operator": "add-numbered-scaffold",
+      "parameters": {},
+      "expectedRatingMaximum": 2
+    }
+  ]
+}

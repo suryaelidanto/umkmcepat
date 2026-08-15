@@ -4,7 +4,7 @@
   "expected": {
     "recipeId": "education-course",
     "mediaMode": "graphic",
-    "routes": ["/", "/program"],
+    "routes": ["/", "/kelas"],
     "primaryCta": {
       "kind": "whatsapp",
       "target": "+6281100000000"
@@ -27,7 +27,7 @@
     ],
     "risk": "not_risky",
     "compatibleKitIds": ["editorial-airy", "catalog-story"],
-    "requiredRoutes": ["/", "/program"],
+    "requiredRoutes": ["/", "/kelas"],
     "requiredFactIds": ["offer-1", "contact-1"]
   },
   "briefSnapshot": {
@@ -77,7 +77,7 @@
   "acceptedContract": {
     "schemaVersion": 1,
     "revision": 1,
-    "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "contentHash": "4e653fa563d5b5c878658db0c24a04ac2d5556f4b75e3d2ef1e5e45be19d2791",
     "identity": {
       "businessName": "Usaha Sintetis Education Course",
       "businessType": "education-course"
@@ -162,8 +162,8 @@
   "acceptedPlan": {
     "schemaVersion": 1,
     "revision": 1,
-    "contractHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-    "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "contractHash": "4e653fa563d5b5c878658db0c24a04ac2d5556f4b75e3d2ef1e5e45be19d2791",
+    "contentHash": "98c28ea88552714c36ec80bdd59c75596d8e59ed5fbeb3ca98a6618660280099",
     "appKind": "landing",
     "archetype": "education-course",
     "pages": [
@@ -181,14 +181,51 @@
             "surfaceIntent": "contained",
             "requiredFactIds": ["offer-1", "contact-1"],
             "requiredAssetIds": []
+          },
+          {
+            "id": "kelas-preview",
+            "purpose": "Katalog kelas",
+            "surfaceIntent": "prose",
+            "requiredFactIds": ["offer-1"],
+            "requiredAssetIds": []
+          }
+        ]
+      },
+      {
+        "id": "kelas",
+        "path": "/kelas",
+        "title": "Kelas Usaha Sintetis Education Course",
+        "purpose": "Rincian program",
+        "visitorJobIds": ["job-primary"],
+        "requiredFactIds": ["offer-1", "contact-1"],
+        "sections": [
+          {
+            "id": "identity-intro",
+            "purpose": "Identitas usaha",
+            "surfaceIntent": "contained",
+            "requiredFactIds": ["offer-1"],
+            "requiredAssetIds": []
+          },
+          {
+            "id": "program-detail",
+            "purpose": "Katalog kelas",
+            "surfaceIntent": "contained",
+            "requiredFactIds": ["offer-1"],
+            "requiredAssetIds": []
           }
         ]
       }
     ],
-    "navigation": [],
+    "navigation": [
+      {
+        "fromPageId": "home",
+        "toPageId": "kelas",
+        "label": "Kelas"
+      }
+    ],
     "capabilities": ["static_content", "whatsapp_cta"],
     "artDirection": {
-      "businessSpecificReference": "editorial-airy",
+      "businessSpecificReference": "catalog-story",
       "antiReferences": ["starter-centered-card-stack"],
       "imageStrategy": "graphic",
       "fontStrategy": "system_stack"

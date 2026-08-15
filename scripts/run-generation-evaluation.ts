@@ -4,6 +4,7 @@ import {
   buildEvaluationReport,
   buildGeneratedSiteEvaluationReport,
   buildGeneratedSiteEvaluationReportV3,
+  buildGeneratedSiteEvaluationReportV4,
   type BlindPreference,
   type EvaluationManifestV1,
   type EvaluationTrialResultV1,
@@ -11,7 +12,10 @@ import {
   type GeneratedSiteEvaluationTrialV2,
   type GeneratedSiteEvaluationManifestV3,
   type GeneratedSiteEvaluationTrialV3,
+  type GeneratedSiteEvaluationManifestV4,
+  type GeneratedSiteEvaluationTrialV4,
 } from "../src/lib/projects/generation-evaluation";
+import { normalizeBlindPreferencesV2 } from "../src/lib/projects/generation-evaluation-blind";
 
 type CliArgs = {
   baselineId?: string;
@@ -63,7 +67,39 @@ function main() {
     | EvaluationManifestV1
     | GeneratedSiteEvaluationManifestV2
     | GeneratedSiteEvaluationManifestV3
+    | GeneratedSiteEvaluationManifestV4
   >(manifestPath, "manifest");
+
+  if (manifest.schemaVersion === 4) {
+    const resultsPath =
+      args.resultsPath ?? ".data/generation-evaluation/results.json";
+    const results = readJson<GeneratedSiteEvaluationTrialV4[]>(
+      resultsPath,
+      "runtime results",
+    );
+    const preferences = args.preferencesPath
+      ? readJson<unknown>(args.preferencesPath, "blind preferences")
+      : [];
+    const mappingPath =
+      args.mappingPath ??
+      (args.preferencesPath
+        ? `${args.preferencesPath.slice(0, args.preferencesPath.lastIndexOf("/"))}/mapping.json`
+        : undefined);
+    const mapping =
+      mappingPath && existsSync(mappingPath)
+        ? readJson<unknown>(mappingPath, "blind mapping")
+        : null;
+    const report = buildGeneratedSiteEvaluationReportV4(
+      manifest,
+      results,
+      normalizeBlindPreferencesV2(preferences, mapping),
+    );
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    if (!report.release.pass) {
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   if (manifest.schemaVersion === 3) {
     const resultsPath =

@@ -146,21 +146,26 @@ Empty task value → default → hardcode `default-combo`. Admin dropdown loads 
 
 Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Home project thumbnails are derived JPEGs under `.data/project-thumbnails`; keep that directory persistent when thumbnail continuity matters, or let missing images fall back to the deterministic gradient until the next successful build or first preview recovery. Capture and generated-site qualification run in isolated Playwright subprocesses. Install Chromium/Chrome locally; set `PROJECT_THUMBNAIL_BROWSER_PATH` only to override browser discovery. Qualification blocks external requests, checks mobile and desktop, and stores DOM/report JSON plus JPEG evidence privately under S3 `gate-evidence/<projectId>/<candidateId>/`; non-selected evidence expires after 30 days. Evidence refs and owner copy never enter telemetry.
 
-### Reference-calibrated generation benchmark
+### Professional static-site V4 benchmark and calibration
 
-Runtime evidence is private and ignored under `.data/generation-evaluation/<run-id>/`; never write it into tracked fixtures. Prerequisites are Bun, a configured AI route, a working Vite build, and a Chromium/Chrome executable for browser gates. The runner does not require a product DB or publish a project:
+Runtime evidence is private and ignored under `.data/generation-evaluation/<run-id>/`; never write it into tracked fixtures. The tracked release manifest is intentionally blocked until private calibration, benchmark evidence, CI, and owner approval exist. Prerequisites are Bun, a configured AI route, a working Vite build, and Chromium/Chrome for browser gates:
 
 ```bash
-bun run graph:update
 bun run evaluate:generation:run
+bun run evaluate:generation:calibration:prepare -- --run-id <run-id>
+bun run evaluate:generation:calibration:review -- --run-id <run-id>
+# keep reviewer labels and adjudication private; never commit them
+bun run evaluate:generation:calibration -- --run-id <run-id> \
+  --reviewer-a <private-labels-a.json> \
+  --reviewer-b <private-labels-b.json> \
+  --adjudication <private-adjudication.json>
 bun run evaluate:generation:blind -- --run-id <run-id>
-# collect the downloaded preferences.json into the same private blind directory
 bun run evaluate:generation:report -- \
   --results .data/generation-evaluation/<run-id>/trials.json \
-  --preferences .data/generation-evaluation/<run-id>/blind/preferences.json
+  --preferences .data/generation-evaluation/<run-id>/blind/preferences-v2.json
 ```
 
-The manifest contains 12 synthetic cases and two trials each. The runner executes matching deterministic controls plus real V2 writer/build/browser/visual-review treatments, then writes sanitized trial metadata and private source/dist/evidence. The report keeps infrastructure failures in every denominator and requires exactly 24 treatment trials, writer=1 and critic=1, correction rate at most 0.20, no technical/fact/action/placeholder/critical-a11y/critical/high-visual failures, total p50 ≤90s and p95 ≤150s, first editable file p50 ≤45s, editable response p95 ≤32KiB, decisive treatment preference ≥75%, ties ≤25%, both trials not lost for any case, all five kit conformance cases, and no composition pattern over 50%. Thresholds are conjunctive; never change them to bless a failing run. The blind HTML randomizes left/right treatment placement and keeps arm, kit, source size, and timing out of the owner view. Debug call-budget fields in sanitized proof/telemetry (`writerCalls`, `criticCalls`, `correctionCalls`, `correctionReason`, `kitId`, timings, editableBytes) and correlate failures through attempt/snapshot/evidence IDs.
+The V4 manifest contains 12 cases, two trials each, and justified `/` plus `/kelas` and `/properti` multi-route fixtures. The runner executes deterministic controls plus the professional-static-v3 writer/build/browser/category-critic pipeline and persists real reports, timings, route patterns, mobile/desktop evidence refs, and hard-failure counts. Infrastructure failures remain in every treatment denominator. Release thresholds are conjunctive: exactly 24 treatment/control pairs, writer=1 and critic=1, correction rate ≤0.20, no hard fact/action/media/accessibility/route/contract failures, no visual `unknown`, every professional category ≥3, total p50 ≤90s and p95 ≤150s, first editable file p50 ≤45s, single-route p95 ≤32KiB, multi-route max ≤48KiB, treatment readiness ≥0.90, decisive treatment preference ≥75%, ties ≤25%, both trials not lost for any case, all five kits, at least two passing multi-route cases, and no route pattern over 50%. The blind HTML keeps arm mapping out of the reviewer view and records readiness separately for A/B; private mapping is applied only during report normalization. Do not change thresholds to bless a failing run. Calibration requires 50 samples, 30 seeded defects across all nine categories, blocker precision ≥0.90, recall ≥0.80, false-ready ≤0.05, P0 false accepts = 0, and both positive/negative category coverage.
 
 ## Graphify
 

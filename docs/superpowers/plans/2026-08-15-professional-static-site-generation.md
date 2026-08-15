@@ -2052,11 +2052,14 @@ git commit -m "feat(generation): enforce professional site qualification"
 - Modify: `scripts/run-generation-evaluation.ts`
 - Create: `scripts/create-professional-calibration-review.ts`
 - Create: `scripts/evaluate-professional-calibration.ts`
+- Create: `scripts/prepare-professional-calibration.ts`
+- Create: `src/lib/projects/generation-evaluation-blind.ts` / `.test.ts`
+- Create: `src/lib/projects/professional-site-defects.ts` / `.test.ts`
 - Modify: `fixtures/generation-evaluation/manifest.json`
 - Modify: `fixtures/generation-evaluation/briefs/education-course.json`
 - Modify: `fixtures/generation-evaluation/briefs/property-rental.json`
 - Create: `fixtures/generation-evaluation/professional-defects.json`
-- Modify: `package.json` — add `evaluate:generation:calibrate` pointing to the benchmark runner’s calibration mode
+- Modify: `package.json` — add `evaluate:generation:calibrate` plus private calibration prepare/review/evaluate commands
 
 **Interfaces:**
 
@@ -2236,7 +2239,7 @@ bun scripts/check-doc-links.ts
 
 Expected: PASS.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/lib/projects/generation-evaluation.ts src/lib/projects/generation-evaluation.test.ts scripts/run-generated-site-benchmark.ts scripts/create-generated-site-blind-review.ts scripts/run-generation-evaluation.ts scripts/create-professional-calibration-review.ts scripts/evaluate-professional-calibration.ts fixtures/generation-evaluation/manifest.json fixtures/generation-evaluation/briefs/education-course.json fixtures/generation-evaluation/briefs/property-rental.json fixtures/generation-evaluation/professional-defects.json package.json

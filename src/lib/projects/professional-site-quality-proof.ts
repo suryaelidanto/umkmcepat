@@ -275,23 +275,6 @@ export function sanitizeGeneratedSiteQualityProofV3(
   };
 }
 
-export function createProfessionalSiteQualityProof(input: {
-  base: GeneratedSiteQualityProofV3;
-  patch: Partial<GeneratedSiteQualityProofV3>;
-}): GeneratedSiteQualityProofV3 {
-  return sanitizeGeneratedSiteQualityProofV3({
-    ...input.base,
-    ...input.patch,
-    calls: { ...input.base.calls, ...input.patch.calls },
-    models: { ...input.base.models, ...input.patch.models },
-    gates: { ...input.base.gates, ...input.patch.gates },
-    hardFailures: { ...input.base.hardFailures, ...input.patch.hardFailures },
-    professional: { ...input.base.professional, ...input.patch.professional },
-    timingsMs: { ...input.base.timingsMs, ...input.patch.timingsMs },
-    output: { ...input.base.output, ...input.patch.output },
-  });
-}
-
 function validateBaseProof(value: GeneratedSiteQualityProofV3): void {
   if (
     value.schemaVersion !== 3 ||

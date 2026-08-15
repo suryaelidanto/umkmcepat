@@ -107,6 +107,8 @@ const kits: GeneratedSiteDesignKitV2[] = [
       "service-online",
       "professional-credibility",
       "generic",
+      "local-service",
+      "online-service",
     ],
     compatibleMediaModes: ["graphic", "typographic", "owner_assets"],
     compatibleDensities: ["sparse", "regular"],
@@ -351,7 +353,12 @@ const kits: GeneratedSiteDesignKitV2[] = [
     id: "warm-commerce",
     version: 2,
     referenceLabels: ["04"],
-    compatibleArchetypes: ["retail", "retail-catalog", "service-appointment"],
+    compatibleArchetypes: [
+      "retail",
+      "retail-catalog",
+      "service-appointment",
+      "appointment-service",
+    ],
     compatibleMediaModes: ["graphic", "typographic", "owner_assets"],
     compatibleDensities: ["regular", "rich"],
     compositionPatterns: [
@@ -438,6 +445,7 @@ const kits: GeneratedSiteDesignKitV2[] = [
       "agri-produce",
       "service-area",
       "service-online",
+      "online-service",
     ],
     compatibleMediaModes: ["graphic", "typographic", "owner_assets"],
     compatibleDensities: ["sparse", "regular"],
@@ -566,11 +574,14 @@ export function selectProfessionalSiteKit(
         input.archetype.startsWith("retail-catalog")
       ? "catalog-story"
       : input.archetype === "retail" ||
-          input.archetype === "service-appointment"
+          input.archetype === "service-appointment" ||
+          input.archetype === "appointment-service"
         ? "warm-commerce"
-        : input.density === "sparse" && !input.hasOperationalDetails
+        : input.archetype === "online-service"
           ? "bold-typographic"
-          : "editorial-airy";
+          : input.density === "sparse" && !input.hasOperationalDetails
+            ? "bold-typographic"
+            : "editorial-airy";
 
   return candidates.find((kit) => kit.id === preferredId) ?? candidates[0];
 }

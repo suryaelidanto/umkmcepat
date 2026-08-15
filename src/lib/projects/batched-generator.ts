@@ -87,8 +87,6 @@ import { createGeneratedSitePrimitiveFiles } from "@/lib/projects/scaffold/gener
 export {
   buildBatchedWriterPrompt,
   buildFormatRepairPrompt,
-  buildReferenceCalibratedCorrectionPrompt,
-  buildReferenceCalibratedWriterPrompt,
 } from "@/lib/projects/batched-prompt";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
 import { resolveShadcnDeps } from "@/lib/projects/scaffold/shadcn-components";

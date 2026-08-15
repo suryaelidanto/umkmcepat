@@ -181,6 +181,13 @@
             "surfaceIntent": "contained",
             "requiredFactIds": ["offer-1", "contact-1"],
             "requiredAssetIds": []
+          },
+          {
+            "id": "menu-preview",
+            "purpose": "Katalog menu",
+            "surfaceIntent": "prose",
+            "requiredFactIds": ["offer-1"],
+            "requiredAssetIds": []
           }
         ]
       }
