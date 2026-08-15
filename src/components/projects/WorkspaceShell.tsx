@@ -1883,7 +1883,11 @@ export function WorkspaceShell({
       switch (result.kind) {
         case "reload":
           await reloadLatestChat();
+          // A later turn succeeded, so neither failure banner may survive it —
+          // otherwise the owner reads "coba kirim ulang" above the card that
+          // turn just produced.
           setResumeError(null);
+          clearError();
           return;
         case "poll":
           await new Promise((resolve) =>
@@ -1908,7 +1912,7 @@ export function WorkspaceShell({
     return () => {
       canceled = true;
     };
-  }, [messages, projectId, reloadLatestChat, status]);
+  }, [clearError, messages, projectId, reloadLatestChat, status]);
 
   useEffect(() => {
     const previous = previousChatStatus.current;

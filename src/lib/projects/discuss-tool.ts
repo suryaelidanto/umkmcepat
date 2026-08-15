@@ -365,23 +365,41 @@ export function alignAssistantTextWithCard(
   assistantText: string,
   card: Record<string, unknown> | null | undefined,
 ): string {
-  const question =
-    card?.type === "question" && isRecord(card.question)
-      ? card.question.question
-      : null;
-  const cardQuestion = typeof question === "string" ? question.trim() : "";
+  const cardQuestion = cardQuestionOf(card);
   const text = assistantText.trim();
-  if (!cardQuestion) {
-    return text;
-  }
   if (!text) {
-    return cardQuestion;
+    return cardQuestion || ACKNOWLEDGED_FALLBACK;
   }
-  if (normalizeForCompare(text).includes(normalizeForCompare(cardQuestion))) {
+  if (cardQuestion) {
+    if (normalizeForCompare(text).includes(normalizeForCompare(cardQuestion))) {
+      return text;
+    }
+    const acknowledgement = acknowledgementOf(text);
+    return acknowledgement
+      ? `${acknowledgement} ${cardQuestion}`
+      : cardQuestion;
+  }
+  // No card question to answer — a trailing question would send the owner
+  // looking for an input that does not exist.
+  if (!text.includes("?")) {
     return text;
   }
-  const acknowledgement = acknowledgementOf(text);
-  return acknowledgement ? `${acknowledgement} ${cardQuestion}` : cardQuestion;
+  return acknowledgementOf(text) || ACKNOWLEDGED_FALLBACK;
+}
+
+const ACKNOWLEDGED_FALLBACK = "Semua yang penting sudah aku catat.";
+
+function cardQuestionOf(
+  card: Record<string, unknown> | null | undefined,
+): string {
+  const source =
+    card?.type === "question"
+      ? card.question
+      : card?.type === "image_upload"
+        ? card.imageUpload
+        : null;
+  const question = isRecord(source) ? source.question : null;
+  return typeof question === "string" ? question.trim() : "";
 }
 
 function normalizeForCompare(value: string): string {

@@ -212,13 +212,52 @@ describe("alignAssistantTextWithCard", () => {
     ).toBe("Oke, sudah aku catat. Jam bukanya kapan?");
   });
 
-  it("leaves non-question cards alone", () => {
+  it("drops a question the build card cannot answer", () => {
+    // Observed live: the message asked the owner to pick a visual style while
+    // the card underneath already declared the site ready to build.
     expect(
-      alignAssistantTextWithCard("Website siap dibuat, cek ringkasannya ya?", {
+      alignAssistantTextWithCard(
+        "Kisaran harganya sudah dicatat; kamu pilih tampilan tipografi pedas atau ilustrasi makanan tanpa foto?",
+        {
+          type: "build_recommendation",
+          title: "Website siap dibuat",
+          summary: [],
+        },
+      ),
+    ).toBe("Kisaran harganya sudah dicatat.");
+  });
+
+  it("keeps a build card message that asks nothing", () => {
+    const text = "Semua sudah lengkap, tinggal buat websitenya.";
+
+    expect(
+      alignAssistantTextWithCard(text, {
         type: "build_recommendation",
         title: "Website siap dibuat",
         summary: [],
       }),
-    ).toBe("Website siap dibuat, cek ringkasannya ya?");
+    ).toBe(text);
+  });
+
+  it("falls back to a neutral line when only a question remains", () => {
+    expect(
+      alignAssistantTextWithCard("Mau pakai foto atau ilustrasi?", {
+        type: "build_recommendation",
+        title: "Website siap dibuat",
+        summary: [],
+      }),
+    ).toBe("Semua yang penting sudah aku catat.");
+  });
+
+  it("aligns to an image upload card's own question", () => {
+    expect(
+      alignAssistantTextWithCard("Oke, dicatat; jam bukanya kapan?", {
+        type: "image_upload",
+        imageUpload: {
+          id: "logo",
+          question: "Punya foto produk yang mau dipakai?",
+        },
+      }),
+    ).toBe("Oke, dicatat. Punya foto produk yang mau dipakai?");
   });
 });
