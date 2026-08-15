@@ -132,7 +132,7 @@ ${creativeDirectionBlock(input.creativeDirection)}
 CONTRACT (immutable): ${JSON.stringify(input.contract)}
 READ-ONLY DATA SOURCE — src/content/site.ts:
 ${siteSource}
-Use import { site } from "@/content/site". Never copy facts into invented arrays.
+Use import { site } from "@/content/site". Never copy facts into invented arrays. Reference only the site.* keys that literally appear in the object above — never a field this business has no data for, even a common one like site.usp, just because it exists on other sites.
 
 SEEDED PRIMITIVE API — src/components/site/layout.tsx:
 - SiteSection accepts children, density: compact|regular|airy, surface: base|muted|contrast, width: reading|content|wide, id, className.

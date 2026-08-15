@@ -189,6 +189,11 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
       'Your first visible characters must be <file path="src/routes/index.tsx">',
     );
     expect(prompt.system).toContain("src/content/site.ts");
+    // Reproduced live: the writer referenced site.usp when this business's
+    // usp was empty and the key did not exist on the schema at all.
+    expect(prompt.system).toContain(
+      "never a field this business has no data for",
+    );
     expect(prompt.system).toContain("SiteSection accepts children");
     expect(prompt.system).toContain("SiteCluster does not accept gap");
     expect(prompt.system).toContain("site.primaryCta is a string");
