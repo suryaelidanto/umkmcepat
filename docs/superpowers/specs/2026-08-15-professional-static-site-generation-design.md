@@ -15,8 +15,9 @@ The platform will keep the fast bounded pipeline. It will not restore `ToolLoopA
 
 ```text
 accepted facts + accepted plan
-  -> professional site blueprint
-  -> executable design kit + protected portable scaffold
+  -> deterministic selection traits + route content roles
+  -> executable design kit
+  -> V3 contract + professional site blueprint + protected portable scaffold
   -> ONE streamed writer response
        <design-plan>bounded creative execution</design-plan>
        <file>complete route files</file>
@@ -197,6 +198,7 @@ Professional generation introduces new versions rather than changing historical 
 - `BrowserGateReportV2`
 - `GeneratedSiteProfessionalReviewV1`
 - `GeneratedSiteQualityProofV3`
+- `ProfessionalSiteReleaseManifestV1`
 - `GeneratedSiteEvaluationManifestV4` / `GeneratedSiteEvaluationTrialV4`
 
 Historical V1/V2 contracts and proofs remain readable in source snapshot metadata. New selected candidates use V3 only after calibration and release gates pass.
@@ -211,8 +213,9 @@ type GeneratedSiteWriterContractV3 = {
     contractHash: string;
     planHash: string;
   };
-  business: GeneratedSiteWriterContractV2["business"];
-  content: GeneratedSiteWriterContractV2["content"];
+  business: ProfessionalSiteBusinessV1;
+  content: ProfessionalSiteContentV1;
+  factIndex: Array<{ id: string; kind: FactKind }>;
   obligations: GeneratedSiteWriterContractV2["obligations"];
   media: GeneratedSiteWriterContractV2["media"];
   visualInputs: {
@@ -224,9 +227,90 @@ type GeneratedSiteWriterContractV3 = {
 };
 ```
 
-The V3 contract contains accepted facts and obligations only. It does not contain speculative customer copy, style scores, or model-generated claims.
+The V3 contract contains accepted fact values through the content projection, plus an ID/kind-only `factIndex` used to validate obligations and classify sections. The contract compiler also owns a pure fact-kind-to-content-path/display-text projection used by blueprint compilation; this mapping is never delegated to the writer. The index contains no duplicate IDs and every obligated `requiredFactId` must resolve exactly once. It does not contain speculative customer copy, style scores, or model-generated claims.
+
+### Accepted business and content projection
+
+```ts
+type ProfessionalSiteBusinessV1 = {
+  name: string;
+  type: string;
+  audience: string | null;
+  primaryJob: string;
+};
+```
+
+V3 does not reuse V2’s business CTA target or synthetic `publicHeadline()`, `publicSubheadline()`, `publicTrustPoints()`, or product-description fallbacks. Those helpers may create generic claims such as “mudah dipahami” that were never accepted facts.
+
+```ts
+type ProfessionalSiteContentV1 = {
+  businessName: string;
+  businessType: string;
+  audience: string | null;
+  ownerTagline: string | null;
+  heroTitle: string;
+  offers: SiteSchemaProduct[];
+  usp: string[];
+  testimonials: TestimonialValue[];
+  certifications: CertificationValue[];
+  hours: HoursValue[];
+  paymentMethods: PaymentMethodValue[];
+  priceRange: string | null;
+  address: string | null;
+  deliveryArea: string | null;
+  socialLinks: SocialLinkValue[];
+  promotion: string | null;
+  primaryCta: {
+    intentId: string;
+    kind: "whatsapp" | "phone" | "visit" | "browse" | "book" | "order" | "other";
+    label: string;
+    targetFactId: string | null;
+    href: string;
+  };
+  secondaryCta: { label: string; target: string; href: string } | null;
+  navigation: Array<{
+    fromPath: string;
+    toPath: string;
+    label: string;
+    href: string;
+  }>;
+  labels: {
+    catalog: "Pilihan";
+    proof: "Yang perlu diketahui";
+    process: "Cara memesan";
+    operations: "Informasi usaha";
+    contact: "Hubungi";
+  };
+  otherFacts: string[];
+};
+```
+
+Every factual value comes from accepted contract facts, canonical accepted fields, accepted plan navigation, visitor jobs, or accepted CTA intents. Optional content stays absent when unsupported. `heroTitle` is the first available accepted owner tagline, primary offer name, or business name. `labels` are the complete closed set of non-factual structural Indonesian labels. `otherFacts` contains accepted `other` fact strings only. The platform resolves the primary CTA directly from the first accepted CTA intent, never from V2’s `resolveCtaTarget()` fallback. WhatsApp, phone, order, and book intents require an accepted contact fact. Visit requires an accepted address/maps fact or one unambiguous accepted location route/section. Browse requires one unambiguous accepted catalog route/section. Other requires an accepted canonical action target that exactly matches an accepted fact or route/section. WhatsApp becomes `https://wa.me/<canonical-digits>`, phone becomes `tel:<accepted-number>`, accepted HTTP(S) targets remain unchanged, and accepted internal destinations become normalized hash-history hrefs. Missing, ambiguous, unresolved, or unsafe targets fail compilation; they never become `#kontak`, a guessed contact, or a generic fallback.
+
+Generated TSX may render customer-facing text only through `site.*` values and punctuation. It cannot hard-code new prose, local display-data arrays/objects, adjectives, urgency, quality claims, ease claims, alt-text claims, CSS/Tailwind generated `content`, `dangerouslySetInnerHTML`, or invented section copy. Source qualification uses the TypeScript AST to inspect JSX text and customer-facing string attributes (`alt`, `aria-label`, `title`, and action labels); any non-empty literal outside punctuation and the exact protected label set fails. Code strings such as class names, import paths, route paths, IDs, `data-*`, and accepted CTA hrefs are not customer copy.
+
+The writer may choose hierarchy, grouping, emphasis, visual relationships, and which unsupported optional section to omit. It does not become a second copywriter. No generic trust point, product description, FAQ, headline claim, urgency, speed, quality, or ease promise is synthesized by the platform.
+
+Navigation resolves accepted `fromPageId`/`toPageId` values against declared pages and compiles hash-history hrefs; unknown page IDs, duplicate edges, unsafe labels, or unsafe paths fail. The protected `src/content/site.ts` for V3 is compiled from this projection with the same shape and no fallback prose. The writer composes it; it does not replace it with local arrays.
 
 ## Professional site blueprint
+
+Before kit selection, the platform derives a small deterministic projection from the accepted handoff: archetype, density, media mode, operational-detail presence, and route content roles. It uses no generated copy. The selector chooses one compatible kit from that projection. The platform then compiles the V3 contract and one immutable blueprint before source generation. This removes the kit/blueprint dependency cycle.
+
+```ts
+type ProfessionalSiteSelectionInput = {
+  archetype: string;
+  density: "sparse" | "regular" | "rich";
+  mediaMode: "owner_assets" | "graphic" | "typographic";
+  hasOperationalDetails: boolean;
+  routeRoles: Array<{
+    path: string;
+    roles: ProfessionalContentRole[];
+  }>;
+};
+```
+
+Selection fails when no one kit can supply at least one compatible pattern for every route after structural hero/action bindings are considered.
 
 The platform compiles one immutable blueprint before source generation.
 
@@ -242,6 +326,25 @@ type ProfessionalContentRole =
   | "faq"
   | "contact";
 
+type ProfessionalContentPath =
+  | "site.businessName"
+  | "site.heroTitle"
+  | "site.audience"
+  | "site.offers"
+  | "site.usp"
+  | "site.testimonials"
+  | "site.certifications"
+  | "site.hours"
+  | "site.paymentMethods"
+  | "site.priceRange"
+  | "site.address"
+  | "site.deliveryArea"
+  | "site.socialLinks"
+  | "site.promotion"
+  | "site.primaryCta"
+  | "site.secondaryCta"
+  | "site.otherFacts";
+
 type ProfessionalRouteBinding = {
   path: string;
   filePath: string;
@@ -249,11 +352,21 @@ type ProfessionalRouteBinding = {
   purpose: string;
   primaryJob: string;
   requiredFactIds: string[];
+  requiredContentPaths: ProfessionalContentPath[];
+  firstView: {
+    identityText: string;
+    offerTexts: string[];
+    primaryCtaLabel: string;
+    primaryCtaHref: string;
+  };
+  allowedPatternIds: string[];
   sections: Array<{
     id: string;
     purpose: string;
     role: ProfessionalContentRole;
     requiredFactIds: string[];
+    requiredContentPaths: ProfessionalContentPath[];
+    requiredVisibleTexts: string[];
   }>;
 };
 
@@ -278,8 +391,8 @@ type ProfessionalSiteBlueprintV1 = {
   };
   firstView: {
     requiredRoles: ["identity", "offer", "primary-action"];
-    primaryCtaTarget: string;
   };
+  signatureRoute: string;
   artDirection: {
     subject: string;
     audience: string | null;
@@ -330,16 +443,19 @@ Blueprint derivation is pure and deterministic for the same contract and kit cat
 
 1. Validate one to three normalized routes.
 2. Bind each accepted route to a protected router import, file path, and exact export name.
-3. Classify every accepted section by purpose and required fact kinds.
-4. Derive content density from supplied facts, not generated word count.
-5. Choose compatible pattern candidates using actual prerequisites. A pattern whose `requires` are absent is not offered.
-6. Record accepted visual direction as a constraint, never as customer-facing copy.
-7. Derive one or more legitimate subject anchors from accepted facts.
-8. Set media mode from feature policy plus approved assets.
-9. Require explicit mobile transforms for split, asymmetric, rail, comparison, and media-led patterns.
-10. Hash the canonical blueprint.
+3. Resolve every `requiredFactId` against accepted contract facts; an unresolved ID fails compilation.
+4. Map every resolved fact kind to one or more protected content paths, then flatten its accepted display strings into bounded `requiredVisibleTexts`. An accepted fact with no projection mapping fails compilation.
+5. Classify every accepted section by purpose and resolved fact kinds.
+6. Verify each route has a first-view identity/offer section and a contact/action path. Derive route-specific first-view evidence from accepted business name, resolved route fact values, offers, and primary visitor job; `offerTexts` must be non-empty. For `/`, synthesize a structural hero obligation only when absent, binding it to accepted business/offer/CTA data without creating copy.
+7. Derive content density from supplied facts, not generated word count.
+8. Choose compatible pattern candidates independently for each route using that route’s roles and media mode. A pattern whose requirements are absent from that route is not offered.
+9. Record accepted visual direction as a constraint, never as customer-facing copy.
+10. Derive one or more legitimate subject anchors from accepted facts and choose one deterministic signature route, preferring `/` when compatible.
+11. Set media mode from feature policy plus approved assets.
+12. Require explicit mobile transforms for route-specific split, asymmetric, rail, comparison, and media-led patterns.
+13. Hash the canonical blueprint.
 
-The platform does not choose generic section copy or an automatic first catalog pattern. The writer chooses one compatible pattern in the same streamed response.
+The platform does not choose generic section copy or an automatic first catalog pattern. The writer chooses one compatible pattern per route in the same streamed response.
 
 ### Content-role classification
 
@@ -354,7 +470,7 @@ Classification follows purpose and fact kinds, in this priority order:
 - accepted questions and answers → `faq`;
 - contact/visit/book/order close → `contact`.
 
-Ambiguous sections retain their accepted purpose and use `offer`; they are never rewritten into invented proof.
+Ambiguous sections retain their accepted purpose and use `offer`; they are never rewritten into invented proof. Section synthesis is structural only: `hero` may be added to `/` when absent, and `contact` may be added to a route that owns the primary action. Both bind existing business/offer/CTA facts; neither adds visible fallback wording. No testimonial, proof, FAQ, catalog item, process, or operational section is synthesized without accepted content.
 
 ## Executable design kits V2
 
@@ -435,9 +551,9 @@ The writer emits a small bounded design plan before files in the same call.
 type WriterDesignPlanV3 = {
   schemaVersion: 3;
   blueprintHash: string;
-  patternId: string;
   visualThesis: string;
   signature: {
+    route: string;
     description: string;
     sourceAnchor: "offer" | "product" | "process" | "place" | "craft" | "audience";
   };
@@ -453,6 +569,7 @@ type WriterDesignPlanV3 = {
   };
   routes: Array<{
     path: string;
+    patternId: string;
     sections: Array<{
       id: string;
       treatment: string;
@@ -471,8 +588,8 @@ type WriterDesignPlanV3 = {
 Validation requires:
 
 - exact blueprint hash;
-- one compatible kit pattern;
-- exactly one signature with an allowed accepted-fact anchor;
+- exactly one route-compatible kit pattern per route;
+- exactly one site-wide signature with a declared existing route and an allowed accepted-fact anchor;
 - allowed typography stacks;
 - valid bounded palette;
 - every declared route and section exactly once;
@@ -489,12 +606,13 @@ Plan prose is internal and cannot authorize customer-facing facts. The contract 
 
 Generated route source uses these stable hooks:
 
-- first-view container: `data-first-view`;
-- primary action: `data-primary-action`;
+- first-view container: exactly one `data-first-view` in each route file, never in the shared shell;
+- primary action: exactly one `data-primary-action` in each route file on that route’s real actionable `<a>` or `<button>`, never on a wrapper or in the shared shell;
+- signature: exactly one `data-signature` in the declared signature route file, zero in every other route and the shared shell, grounded by the plan’s accepted source anchor;
 - every accepted section: `data-section-id="<accepted-id>"` through `SiteSection`;
-- selected pattern: `data-pattern="<pattern-id>"`.
+- each route’s selected pattern: exactly one route-root `data-pattern="<route-pattern-id>"` matching that route’s writer-plan entry.
 
-Source gates verify that the hooks are attached to real accepted content and CTA bindings, not empty elements.
+Source gates verify that the hooks are attached to real accepted content and CTA bindings, not empty elements. Browser evidence verifies that the signature has non-zero visible content; the critic judges whether it is specific and professionally executed.
 
 ### Route bindings
 
@@ -508,8 +626,9 @@ The platform derives writable files and export names:
 
 ### Output limits
 
-- `landing`: exactly one route file; plan plus editable source `<= 32 KiB`.
-- multi-route `marketing_site`: two or three route files plus one shared shell; editable source `<= 48 KiB`.
+- `landing`: exactly one route file; serialized plan JSON plus editable source `<= 32 KiB`.
+- multi-route `marketing_site`: two or three route files plus one shared shell; serialized plan JSON plus editable source `<= 48 KiB`.
+- `editableBytes` means UTF-8 bytes from serialized plan JSON plus full editable file contents, excluding protocol tags and the done summary; implementations use `Buffer.byteLength`, never JavaScript character count.
 - no other editable paths;
 - each file must close completely;
 - the parser may stop after all blueprint-required paths close and assign an implicit done summary;
@@ -526,7 +645,9 @@ Source qualification rejects:
 - protected-file emission;
 - wrong route export or protected router mismatch;
 - missing or fake first-view/primary-action/section hooks;
-- accepted fact or populated content omission;
+- accepted fact/content-path omission globally or from its bound route/section;
+- inherited V2/fallback copy in V3 content or source;
+- customer-facing JSX/string literal outside `site.*`, punctuation, and the exact protected structural label set;
 - invented or prohibited claim/literal;
 - wrong CTA label, target, kind, or external-link safety;
 - broken internal route or anchor;
@@ -580,17 +701,20 @@ Every declared route must pass:
 - `section-order`;
 - `typography-bounds`;
 - `content-hidden-by-navigation`;
-- `empty-media-frame`.
+- `empty-media-frame`;
+- `signature-presence`.
 
 ### Objective bounds
 
-- first-view identity, offer, and primary action are visible within the initial viewport;
+- each route’s declared identity text, at least one of its accepted offer texts, and exact primary action are visible within the initial viewport;
 - long body prose is at least `15px`, line-height at least `1.4`, and at most `78ch`;
 - display text does not exceed `96px` or tracking tighter than `-0.04em`;
 - primary/customer actions are at least `44×44px`;
-- accepted sections exist once, appear in accepted order, and have non-zero visible content;
+- accepted sections exist once, appear in accepted order, and visibly contain every bounded accepted text bound to that section;
 - sticky/fixed chrome cannot cover targeted content;
-- no large bounded media-like frame is empty of approved image, meaningful SVG, or text content.
+- no large bounded media-like frame is empty of approved image, meaningful SVG, or text content;
+- the signature route has exactly one visible non-empty signature; every other route has none;
+- each route has exactly one visible actionable primary-action hook.
 
 Browser V2 also records bounded professional signals and DOM geometry for review. Unsupported image/gradient contrast remains unknown and fails the affected assertion; it never silently passes.
 
@@ -626,7 +750,7 @@ type ProfessionalCategoryAssessment = {
   viewport: "both" | "mobile" | "desktop";
   evidence: string;
   blueprintReference: string;
-  suggestedRevision: string;
+  suggestedRevision: string | null;
   confidence: number;
 };
 
@@ -638,7 +762,18 @@ type GeneratedSiteProfessionalReviewV1 =
       servedModel: string;
       assessments: ProfessionalCategoryAssessment[];
     }
-  | { status: "unknown"; reason: "missing_evidence" | "transport" | "empty" | "malformed" | "incomplete" | "low_confidence" };
+  | {
+      status: "unknown";
+      reason:
+        | "missing_evidence"
+        | "transport"
+        | "empty"
+        | "malformed"
+        | "incomplete"
+        | "low_confidence"
+        | "uncalibrated_requested_model"
+        | "uncalibrated_served_model";
+    };
 ```
 
 ### Rating anchors
@@ -654,6 +789,7 @@ A route passes only when:
 
 - all nine categories appear exactly once;
 - every assessment has specific screenshot evidence and a valid blueprint reference;
+- ratings `1-2` include a concrete non-empty suggested revision; ratings `3-4` may use `null`;
 - every rating is at least `3`;
 - review-level confidence is at least `0.80`;
 - the parser and category coverage are complete.
@@ -675,8 +811,8 @@ Calibration is versioned by:
 
 Minimum release evidence:
 
-- at least `50` human-labeled page/viewport samples;
-- at least `30` deliberately seeded defect page/viewport samples;
+- at least `50` human-labeled route-pair samples, where one sample contains the same route’s mobile and desktop screenshots;
+- at least `30` deliberately seeded defect route-pair samples;
 - blocker precision `>= 0.90` for human ratings `1-2`;
 - blocker recall `>= 0.80`;
 - false-ready rate `<= 0.05`;
@@ -684,9 +820,50 @@ Minimum release evidence:
 - accepted reference 07 is not rejected merely for sparse content, bold type, or minimalism;
 - each of the nine categories has labeled positive and negative coverage.
 
+The private calibration corpus contains clean route pairs from the 24-trial run plus deterministic mutations of passing treatment source. Mutation operators are tracked and versioned; mutated source, builds, screenshots, predictions, reviewer labels, and adjudication remain private. The visual critic receives each route’s mobile+desktop pair exactly as production does.
+
+The calibration runner emits a private randomized `calibration/review.html` plus `calibration/samples.json`. Reviewer A and reviewer B each download a complete labels file. The evaluator requires the same sample/category key set from both files, computes ready/not-ready agreement, and writes an adjudication queue for every threshold disagreement. The final adjudicated labels file is the only human ground truth used for precision/recall; missing or duplicate labels fail evaluation.
+
 Calibration labels and screenshots remain private under `.data/generation-evaluation/`. A tracked aggregate summary may contain only version IDs, counts, rates, hashes, and pass/fail. It contains no owner copy, screenshots, prompts, contacts, or evidence URLs.
 
-A prompt, category contract, kit version, or configured route change invalidates prior calibration for release purposes.
+A prompt, category contract, kit version, configured route, or served writer/correction/critic model-set change invalidates prior calibration for release purposes. Because `default-combo` may change upstream membership, an unseen served model fails closed until a fresh calibration/benchmark release updates the manifest; the platform never silently broadens the set.
+
+### Machine-readable release authority
+
+Production selection reads one tracked sanitized manifest:
+
+```ts
+type ProfessionalSiteReleaseManifestV1 = {
+  schemaVersion: 1;
+  approved: boolean;
+  requestedModelId: string;
+  allowedWriterModelIds: string[];
+  allowedCriticModelIds: string[];
+  criticPromptVersion: string;
+  kitVersion: 2;
+  evaluatorVersion: string;
+  corpusVersion: string;
+  calibration: {
+    samples: number;
+    seededDefects: number;
+    blockerPrecision: number;
+    blockerRecall: number;
+    falseReadyRate: number;
+    p0FalseAccepts: number;
+  };
+  benchmark: {
+    runId: string;
+    completedTreatmentTrials: number;
+    treatmentReadyRate: number;
+    decisiveTreatmentPreference: number;
+  };
+  ownerApprovedAt: string | null;
+};
+```
+
+`config/professional-site-quality-release.json` starts blocked. Only the evidence checkpoint may set `approved: true`. It contains no secrets, prompts, screenshots, owner copy, contacts, mappings, or evidence URLs.
+
+Before production generation, the worker verifies the configured requested model ID and all version fields against the manifest. After each writer or correction call, the pipeline verifies the served model ID is in the calibrated writer set; after the critic call, it verifies the served model ID is in the calibrated critic set. A mismatch fails qualification with an explicit uncalibrated authority reason. Offline calibration runs use explicit `mode: "calibration"`; only production selection uses `mode: "selection"` with the approved manifest.
 
 ## Correction policy
 
@@ -731,6 +908,7 @@ If the critic rates any category below `3`, the candidate fails. The user may st
 | Writer/response/source/build/browser failure | One correction if unused; otherwise fail |
 | Browser infrastructure unavailable | `infrastructure_error` |
 | Critic missing/empty/malformed/incomplete/low-confidence | `visual: unknown`, overall fail/infrastructure error |
+| Requested or served model lacks release authority | Fail closed as uncalibrated; no selection |
 | Any professional category rating `1-2` | Professional rejection |
 | Correction still fails | Fail; no second correction |
 | Candidate fails at any point | Last-known-good source/build/deployment remains selected |
@@ -751,6 +929,14 @@ type GeneratedSiteQualityProofV3 = {
   kitVersion: 2;
   mediaMode: "owner_assets" | "graphic" | "typographic";
   calls: GeneratedSiteCallBudgetSnapshot;
+  models: {
+    writerRequested: string | null;
+    writerServed: string | null;
+    criticRequested: string | null;
+    criticServed: string | null;
+    correctionRequested: string | null;
+    correctionServed: string | null;
+  };
   gates: {
     response: "pass" | "fail" | "not_run";
     source: "pass" | "fail" | "not_run";
@@ -764,11 +950,10 @@ type GeneratedSiteQualityProofV3 = {
     media: number;
     accessibility: number;
     route: number;
+    contract: number;
   };
   professional: {
     promptVersion: string | null;
-    requestedModel: string | null;
-    servedModel: string | null;
     minimumRating: number | null;
     averageRating: number | null;
     categoryRatings: Partial<Record<ProfessionalReviewCategory, number>>;
@@ -795,7 +980,9 @@ type GeneratedSiteQualityProofV3 = {
 };
 ```
 
-A V3 pass requires all five gates to be `pass`, all hard-failure counts to be zero, every required category rating to be at least `3`, and exactly one writer plus one critic call. `unknown` can never coexist with `outcome: pass`.
+A V3 pass requires all five gates to be `pass`, all hard-failure counts to be zero, every required category rating to be at least `3`, exactly one writer plus one critic call, and writer/critic requested and served model IDs authorized by the approved release manifest in selection mode. `unknown` can never coexist with `outcome: pass`.
+
+For multiple routes, `categoryRatings` stores the minimum rating observed for each category across routes; `minimumRating` is the minimum across every assessment; `averageRating` is the arithmetic mean across every assessment.
 
 Proof sanitization strips all full copy, prompts, plan prose, screenshot references, owner facts, URLs, and private evidence.
 
@@ -850,12 +1037,12 @@ Execution and safety:
 - critic calls exactly `1` per trial;
 - corrections `0-1` per trial and correction rate `<= 20%`;
 - tool calls `0`;
-- fact, action, media, route, and critical accessibility failures `0`;
+- fact, action, media, route, contract, and critical accessibility failures `0`;
 - professional visual status `pass` for every trial;
 - minimum category rating `>= 3` for every route/trial;
 - all five kit families represented by a passing conformance case;
 - at least two multi-route cases pass every route;
-- no one composition pattern appears in more than `50%` of treatments.
+- no one route-level composition pattern appears in more than `50%` of all treatment routes.
 
 Human quality:
 
@@ -899,7 +1086,7 @@ Butik Senja proves the reported real failure is fixed; it does not replace corpu
 3. Run all 24 treatment/control trials.
 4. Complete blind preference and absolute-readiness review.
 5. Publish sanitized aggregate evidence and obtain owner approval.
-6. Integrate V3 into worker selection; preserve V2 proof readers only.
+6. Write the sanitized approved release manifest, then integrate V3 into worker selection; preserve V2 proof readers only.
 7. Regenerate Butik Senja and inspect private evidence.
 8. Run local checks, push `dev`, wait for CI, release `main`, wait for CI.
 9. Monitor correction rate, unknown visual rate, latency, and rejection categories.
@@ -910,7 +1097,7 @@ Rollback stops selecting V3 for new attempts and preserves already selected last
 
 ### Unit
 
-- V3 contract hashes and V2 historical readability;
+- V3 accepted-content projection, no fallback strings, contract hashes, and V2 historical readability;
 - route binding/path/export normalization and three-route cap;
 - content-role classification;
 - blueprint determinism and compatible pattern filtering;
@@ -969,7 +1156,7 @@ Update in the same implementation diff:
 ## Security and privacy
 
 - Runtime screenshots and human labels stay private and ignored under `.data/generation-evaluation/` or private S3 evidence.
-- Telemetry contains IDs, versions, counts, ratings, timings, and failure classes only.
+- Telemetry contains IDs, model IDs, versions, counts, ratings, timings, and failure classes only.
 - No prompts, owner copy, contact values, screenshot bytes/URLs, evidence refs, or business facts enter telemetry or tracked calibration summaries.
 - External network remains blocked during browser qualification.
 - Generated source can reference only approved `/media/<assetId>` paths or local source-owned graphics.
@@ -986,7 +1173,8 @@ Update in the same implementation diff:
 - The writer emits a bounded design plan and complete required route files in one stream.
 - No universal section count or universal page template.
 - Objective gates do not absorb subjective composition taste.
-- The critic must pass versioned human calibration before V3 selection.
+- The critic and observed writer/correction/critic model sets must pass versioned human calibration before V3 selection.
+- Production authority comes from the tracked sanitized release manifest; changed model/version authority fails closed.
 - Relative blind preference and absolute publish readiness are both required.
 - The 12-case/24-trial corpus is the release gate; Butik Senja is an additional real regression.
 - Failed candidates never replace last-known-good output.
