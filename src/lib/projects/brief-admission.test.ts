@@ -48,18 +48,27 @@ describe("checkBatchedGenerateAdmission", () => {
     }
   });
 
-  it("blocks every canonical structural requirement", () => {
+  it("blocks every canonical core requirement", () => {
     for (const patch of [
       { targetCustomer: "" },
       { contactOrCta: "", contact: null },
       { stylePreference: "" },
-      { fieldState: {} },
     ] satisfies Array<Partial<ProjectBrief>>) {
       const result = checkBatchedGenerateAdmission({
         brief: readyBrief(patch),
       });
       expect(result.ok).toBe(false);
     }
+  });
+
+  it("admits a brief whose structural detail was never asked", () => {
+    // Mirrors build readiness: nothing schedules the address/hours/photo
+    // questions, so an empty field state must not refuse the build.
+    const result = checkBatchedGenerateAdmission({
+      brief: readyBrief({ fieldState: {} }),
+    });
+
+    expect(result.ok).toBe(true);
   });
 
   it("does not throw on malformed brief fields", () => {

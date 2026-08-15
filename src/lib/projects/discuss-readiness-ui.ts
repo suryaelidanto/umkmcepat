@@ -44,10 +44,6 @@ const READINESS_LABELS: Partial<Record<BuildReadinessField, string>> = {
   audience: "target pelanggan",
   primaryAction: "aksi utama dan kontak",
   visualDirection: "gaya situs",
-  assets: "foto produk",
-  "content.address": "alamat",
-  "content.hours": "jam buka",
-  "content.deliveryArea": "area pengiriman",
 };
 
 export function buildEarlyBuildWarning(

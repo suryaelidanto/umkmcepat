@@ -88,7 +88,10 @@ describe("evaluateBuildReadiness", () => {
     expect(result).toEqual({ state: "ready", blockers: [] });
   });
 
-  it("blocks unresolved category-specific fields in deterministic order", () => {
+  it("stays buildable when structural detail was never asked", () => {
+    // Nothing schedules the address/hours/photo questions, so blocking on them
+    // deadlocked the build with no way for the owner to resolve it. The
+    // blueprint already omits sections it has no facts for.
     const result = evaluateBuildReadiness(
       readyBrief({
         business: { name: "Warung", type: "Kuliner", category: "fnb" },
@@ -96,20 +99,27 @@ describe("evaluateBuildReadiness", () => {
       }),
     );
 
+    expect(result).toEqual({ state: "ready", blockers: [] });
+  });
+
+  it("still blocks a missing core field for a category business", () => {
+    const result = evaluateBuildReadiness(
+      readyBrief({
+        business: { name: "Warung", type: "Kuliner", category: "fnb" },
+        fieldState: {},
+        audience: null,
+      }),
+    );
+
     expect(result).toMatchObject({
       state: "blocked",
-      blockers: [
-        { field: "content.address" },
-        { field: "content.hours" },
-        { field: "content.deliveryArea" },
-        { field: "assets" },
-      ],
-      nextQuestion: { id: "content.address" },
+      blockers: [{ field: "audience" }],
+      nextQuestion: { id: "audience" },
     });
   });
 
   it.each(["answered", "declined", "explicitly_empty"] as const)(
-    "treats an applicable field as resolved when it is %s",
+    "stays ready for a category business when detail is %s",
     (state) => {
       const result = evaluateBuildReadiness(
         readyBrief({

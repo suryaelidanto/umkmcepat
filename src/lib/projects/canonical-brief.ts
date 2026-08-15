@@ -448,7 +448,10 @@ function parseV2(
     business: {
       name: cleaned.businessName ?? "",
       type: cleanText(business.type),
-      category: parseUmkmType(business.category),
+      // A type of "fnb" already names the category; leaving it null made an
+      // fnb warung fall back to the generic "other" branch downstream.
+      category:
+        parseUmkmType(business.category) ?? parseUmkmType(business.type),
     },
     offers: ensurePrimaryOffer(cleaned.productOrService ?? []),
     audience: cleaned.targetCustomer,

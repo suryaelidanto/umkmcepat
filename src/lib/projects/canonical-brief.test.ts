@@ -210,4 +210,33 @@ describe("parseCanonicalBrief", () => {
     expect(hashCanonicalBrief(a)).toMatch(/^[a-f0-9]{64}$/);
     expect(hashCanonicalBrief(a)).toBe(hashCanonicalBrief(b));
   });
+  it("derives the category from a business type that names one", () => {
+    const brief = parseCanonicalBrief(
+      { version: 2, business: { name: "Ayam Nasi Enak", type: "fnb" } },
+      "Buat situs",
+    );
+
+    expect(brief.business.category).toBe("fnb");
+  });
+
+  it("keeps an explicit category over the business type", () => {
+    const brief = parseCanonicalBrief(
+      {
+        version: 2,
+        business: { name: "Toko", type: "fnb", category: "retail" },
+      },
+      "Buat situs",
+    );
+
+    expect(brief.business.category).toBe("retail");
+  });
+
+  it("leaves the category null when the type names no known kind", () => {
+    const brief = parseCanonicalBrief(
+      { version: 2, business: { name: "Toko", type: "warung pinggir jalan" } },
+      "Buat situs",
+    );
+
+    expect(brief.business.category).toBeNull();
+  });
 });

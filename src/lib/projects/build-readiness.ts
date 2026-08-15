@@ -1,20 +1,20 @@
 import type { BriefQuestion } from "./brief";
 import type { ProjectBriefV2 } from "./canonical-brief";
-import type { FieldState, FieldStateMap } from "./chat-memory";
 
-import { getSettingSync } from "@/lib/app-settings";
-
+/**
+ * Only fields without which an honest site cannot be built. Structural detail
+ * (address, hours, delivery area, photos) enriches a site when the owner
+ * supplies it, but never blocks: nothing schedules those questions, so gating
+ * on them deadlocked the build with no way for the owner to clear it, and the
+ * blueprint already omits sections it has no facts for.
+ */
 export type BuildReadinessField =
   | "business.name"
   | "offers"
   | "primaryOffer"
   | "audience"
   | "primaryAction"
-  | "visualDirection"
-  | "content.address"
-  | "content.hours"
-  | "content.deliveryArea"
-  | "assets";
+  | "visualDirection";
 
 export type BuildReadinessBlocker = {
   field: BuildReadinessField;
@@ -28,23 +28,6 @@ export type BuildReadiness =
       nextQuestion: BriefQuestion;
     }
   | { state: "ready"; blockers: [] };
-
-const STRUCTURAL_FIELDS: Record<
-  NonNullable<ProjectBriefV2["business"]["category"]>,
-  readonly BuildReadinessField[]
-> = {
-  fnb: ["content.address", "content.hours", "content.deliveryArea", "assets"],
-  retail: ["content.address", "content.hours", "assets"],
-  jasa_lokal: [
-    "content.address",
-    "content.hours",
-    "content.deliveryArea",
-    "assets",
-  ],
-  jasa_online: ["assets"],
-  kursus: ["content.hours", "assets"],
-  other: ["assets"],
-};
 
 const TARGET_REQUIRED_ACTIONS: ReadonlySet<string> = new Set([
   "whatsapp",
@@ -61,10 +44,6 @@ const QUESTIONS: Record<BuildReadinessField, string> = {
   audience: "Siapa pelanggan utama yang paling ingin kamu tarik?",
   primaryAction: "Setelah melihat website, pengunjung harus melakukan apa?",
   visualDirection: "Gaya website yang kamu inginkan seperti apa?",
-  "content.address": "Alamat usaha kamu di mana?",
-  "content.hours": "Jam buka dan hari operasionalnya bagaimana?",
-  "content.deliveryArea": "Area pengiriman atau layanan kamu sampai mana?",
-  assets: "Kamu punya foto usaha atau produk yang ingin dipakai?",
 };
 
 export function evaluateBuildReadiness(brief: ProjectBriefV2): BuildReadiness {
@@ -103,16 +82,6 @@ export function evaluateBuildReadiness(brief: ProjectBriefV2): BuildReadiness {
     });
   }
 
-  const category = brief.business.category ?? "other";
-  for (const field of STRUCTURAL_FIELDS[category]) {
-    if (!isStructuralFieldResolved(brief, field)) {
-      blockers.push({
-        field,
-        reason: `${field} unresolved for ${category}`,
-      });
-    }
-  }
-
   if (blockers.length === 0) {
     return { state: "ready", blockers: [] };
   }
@@ -144,63 +113,5 @@ function isPrimaryActionResolved(brief: ProjectBriefV2): boolean {
   }
   return (
     !TARGET_REQUIRED_ACTIONS.has(action.kind) || Boolean(action.target?.trim())
-  );
-}
-
-function isPhotoEnabled(): boolean {
-  try {
-    return getSettingSync("feature.composer_uploads_enabled", true);
-  } catch {
-    return true;
-  }
-}
-
-function isStructuralFieldResolved(
-  brief: ProjectBriefV2,
-  field: BuildReadinessField,
-): boolean {
-  if (field === "assets" && !isPhotoEnabled()) {
-    return true;
-  }
-  if (field === "content.address" && brief.content.address?.trim()) {
-    return true;
-  }
-  if (field === "content.hours" && brief.content.hours.length > 0) {
-    return true;
-  }
-  if (field === "content.deliveryArea" && brief.content.deliveryArea?.trim()) {
-    return true;
-  }
-  if (field === "assets" && brief.assets.length > 0) {
-    return true;
-  }
-  return isExplicitlyResolved(brief.fieldState, fieldStateKey(field));
-}
-
-function fieldStateKey(field: BuildReadinessField): keyof FieldStateMap | null {
-  switch (field) {
-    case "content.address":
-      return "address";
-    case "content.hours":
-      return "hours";
-    case "content.deliveryArea":
-      return "deliveryArea";
-    case "assets":
-      return "visuals";
-    default:
-      return null;
-  }
-}
-
-function isExplicitlyResolved(
-  fieldState: FieldStateMap,
-  key: keyof FieldStateMap | null,
-): boolean {
-  if (!key) {
-    return false;
-  }
-  const state: FieldState | undefined = fieldState[key];
-  return (
-    state === "answered" || state === "declined" || state === "explicitly_empty"
   );
 }
