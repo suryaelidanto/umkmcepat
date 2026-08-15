@@ -51,6 +51,30 @@ describe("buildCreativeDirectionPrompt", () => {
     );
   });
 
+  it("tells the model the owner has no photos to direct", () => {
+    const prompt = buildCreativeDirectionPrompt({
+      businessName: "Seblak Surya",
+      businessType: "fnb",
+      messages: transcript(),
+      mediaMode: "typographic",
+    });
+
+    expect(prompt.system).toMatch(/no photo/i);
+    expect(prompt.system).toMatch(/never.*photograph/i);
+  });
+
+  it("lets the model direct real photography when the owner supplied it", () => {
+    const prompt = buildCreativeDirectionPrompt({
+      businessName: "Seblak Surya",
+      businessType: "fnb",
+      messages: transcript(),
+      mediaMode: "owner_assets",
+    });
+
+    expect(prompt.system).toMatch(/photo/i);
+    expect(prompt.system).not.toMatch(/never.*photograph/i);
+  });
+
   it("drops non-text parts and keeps the transcript bounded", () => {
     const noisy = [
       ...transcript(),
@@ -85,6 +109,38 @@ describe("normalizeBuildCreativeDirection", () => {
     );
     expect(direction!.startsWith("Lead with the filling portion for a")).toBe(
       true,
+    );
+  });
+
+  it("ends on a whole sentence instead of a cut-off word", () => {
+    // Observed live: the writer received "Use a lively visual mot".
+    const sentence = "Lead with the ceker and keep the order button close. ";
+    const direction = normalizeBuildCreativeDirection(
+      sentence.repeat(40) + "Use a lively visual motif across the menu cards.",
+    );
+
+    expect(direction!.endsWith(".")).toBe(true);
+    expect(direction!.length).toBeLessThanOrEqual(
+      BUILD_CREATIVE_DIRECTION_MAX_CHARS,
+    );
+    expect(direction!.endsWith("close.")).toBe(true);
+  });
+
+  it("drops a dangling sentence even when the model stopped early", () => {
+    // Observed live at 817 chars, well under the cap: the model simply ran out
+    // mid-clause and the writer received "three oversized menu cards and".
+    const direction = normalizeBuildCreativeDirection(
+      "Lead with the ceker and keep ordering one tap away. A made-for-them idea: build the hero like a canteen order board with three oversized menu cards and",
+    );
+
+    expect(direction).toBe(
+      "Lead with the ceker and keep ordering one tap away.",
+    );
+  });
+
+  it("keeps text that has no sentence end rather than returning nothing", () => {
+    expect(normalizeBuildCreativeDirection("Lead with the ceker")).toBe(
+      "Lead with the ceker",
     );
   });
 

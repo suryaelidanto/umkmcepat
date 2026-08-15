@@ -336,6 +336,7 @@ export async function prepareBuildHandoff(input: {
         projectId: input.projectId,
         userId: input.userId,
         turnId: input.turnId,
+        mediaMode: validatedPlan.artDirection.imageStrategy,
       })
     : null;
   const created = await createDraftHandoff({

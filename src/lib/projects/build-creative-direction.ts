@@ -26,10 +26,14 @@ export const BUILD_CREATIVE_DIRECTION_MAX_CHARS = 1_200;
 
 const TRANSCRIPT_MAX_CHARS = 8_000;
 
+export type BuildCreativeDirectionMediaMode =
+  "owner_assets" | "graphic" | "typographic";
+
 export function buildCreativeDirectionPrompt(input: {
   businessName: string;
   businessType: string;
   messages: UIMessage[];
+  mediaMode?: BuildCreativeDirectionMediaMode;
 }): { system: string; user: string } {
   const system = `You are an expert brand and web designer who has shipped hundreds of sites for Indonesian small businesses. You are briefing the writer who will build this one.
 
@@ -46,7 +50,8 @@ Rules:
 - Direction only. Never invent or state a fact: no prices, discounts, awards, addresses, hours, guarantees, ratings, or claims. The writer reads facts from an accepted contract, not from you.
 - Write English prose for the writer. No JSON, no headings, no lists, no markdown.
 - Be concrete about this business. Generic advice is worse than nothing.
-- Stay under ${BUILD_CREATIVE_DIRECTION_MAX_CHARS} characters.`;
+- Stay under ${BUILD_CREATIVE_DIRECTION_MAX_CHARS} characters.
+${mediaRule(input.mediaMode)}`;
 
   const user = `Business name: ${input.businessName || "(not given yet)"}
 Business type: ${input.businessType || "(not given yet)"}
@@ -57,13 +62,43 @@ ${formatTranscript(input.messages)}`;
   return { system, user };
 }
 
+/**
+ * The owner usually has no photos, and the writer is forbidden from inventing
+ * media. Directing "close-up food photography" at a typographic site sends it
+ * chasing images that do not exist.
+ */
+function mediaRule(mode: BuildCreativeDirectionMediaMode | undefined): string {
+  return mode === "owner_assets"
+    ? "- The owner supplied photos. Direct how to use them."
+    : "- The owner has no photos. Direct type, colour, layout, and graphic shapes instead. Never ask for photography, image treatment, or picture-led composition.";
+}
+
 export function normalizeBuildCreativeDirection(
   value: string | undefined | null,
 ): string | null {
   const collapsed = (value ?? "").replaceAll(/\s+/gu, " ").trim();
-  return collapsed
-    ? collapsed.slice(0, BUILD_CREATIVE_DIRECTION_MAX_CHARS)
-    : null;
+  if (!collapsed) {
+    return null;
+  }
+  // End on a whole sentence so the last instruction is one the writer can
+  // follow. Both a hard slice and a model that simply ran out mid-clause have
+  // handed it dangling fragments.
+  return endOnWholeSentence(
+    collapsed.slice(0, BUILD_CREATIVE_DIRECTION_MAX_CHARS),
+  );
+}
+
+function endOnWholeSentence(value: string): string {
+  const trimmed = value.trimEnd();
+  if (/[.!?]$/u.test(trimmed)) {
+    return trimmed;
+  }
+  const lastStop = Math.max(
+    trimmed.lastIndexOf(". "),
+    trimmed.lastIndexOf("! "),
+    trimmed.lastIndexOf("? "),
+  );
+  return lastStop > 0 ? trimmed.slice(0, lastStop + 1) : trimmed;
 }
 
 export function hashBuildCreativeDirection(direction: string): string {
@@ -81,6 +116,7 @@ export async function generateBuildCreativeDirection(input: {
   projectId: string;
   userId: string;
   turnId?: string;
+  mediaMode?: BuildCreativeDirectionMediaMode;
 }): Promise<{ direction: string; hash: string } | null> {
   if (input.messages.length === 0) {
     return null;
