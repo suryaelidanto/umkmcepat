@@ -31,6 +31,7 @@ import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
+import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import { ensureQuestionCardRichness } from "@/lib/projects/card-richness";
 import {
@@ -908,7 +909,12 @@ export async function runDiscussTurn({
             type: "build_recommendation",
             engine: "contract-v1" as const,
             title: base.title,
-            summary: base.summary,
+            // Read from the frozen contract, never the model's prose, so the
+            // card cannot promise something the build will not produce.
+            summary: describeBuildRecommendation(
+              prepared.contract,
+              prepared.plan,
+            ),
             handoffId: prepared.handoffId,
             reviewHash: prepared.reviewHash,
             reviewItems: prepared.reviewItems.map((item) => ({
