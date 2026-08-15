@@ -105,7 +105,7 @@ describe("deriveScaffoldManifest", () => {
             "button",
             "card",
           ],
-          "tokenCount": 42,
+          "tokenCount": 46,
         }
       `);
     },
