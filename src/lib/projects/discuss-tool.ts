@@ -371,7 +371,7 @@ export function alignAssistantTextWithCard(
     return cardQuestion || ACKNOWLEDGED_FALLBACK;
   }
   if (cardQuestion) {
-    if (normalizeForCompare(text).includes(normalizeForCompare(cardQuestion))) {
+    if (asksTheSameQuestion(text, cardQuestion)) {
       return text;
     }
     const acknowledgement = acknowledgementOf(text);
@@ -400,6 +400,52 @@ function cardQuestionOf(
         : null;
   const question = isRecord(source) ? source.question : null;
   return typeof question === "string" ? question.trim() : "";
+}
+
+/**
+ * Verbatim match, or enough shared content words that the owner is being asked
+ * the same thing. The model often rephrases the card's question more warmly or
+ * with concrete options, and that wording is worth keeping.
+ */
+function asksTheSameQuestion(text: string, cardQuestion: string): boolean {
+  const normalized = normalizeForCompare(text);
+  if (normalized.includes(normalizeForCompare(cardQuestion))) {
+    return true;
+  }
+  const cardWords = contentWords(cardQuestion);
+  if (cardWords.length === 0) {
+    return false;
+  }
+  const textWords = new Set(contentWords(text));
+  const shared = cardWords.filter((word) => textWords.has(word)).length;
+  return shared / cardWords.length >= 0.5;
+}
+
+const QUESTION_STOPWORDS = new Set([
+  "yang",
+  "untuk",
+  "kamu",
+  "biasanya",
+  "paling",
+  "sudah",
+  "atau",
+  "dari",
+  "pada",
+  "saja",
+  "juga",
+  "mana",
+  "sama",
+]);
+
+function contentWords(value: string): string[] {
+  return [
+    ...new Set(
+      normalizeForCompare(value)
+        .replaceAll(/[^\p{L}\p{N}\s]/gu, " ")
+        .split(/\s+/u)
+        .filter((word) => word.length >= 4 && !QUESTION_STOPWORDS.has(word)),
+    ),
+  ];
 }
 
 function normalizeForCompare(value: string): string {

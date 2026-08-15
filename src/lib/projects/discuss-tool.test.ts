@@ -182,6 +182,32 @@ describe("alignAssistantTextWithCard", () => {
     );
   });
 
+  it("keeps the model's own wording when it asks the same question", () => {
+    // Rewriting every paraphrase would flatten warmer, more specific phrasing;
+    // only a materially different question is replaced.
+    const text =
+      "Sip, gaya pedasnya pas; nomor WhatsApp yang dipakai pelanggan untuk memesan berapa?";
+
+    expect(
+      alignAssistantTextWithCard(
+        text,
+        cardFor("Nomor WhatsApp pemesanan Seblak Surya berapa?"),
+      ),
+    ).toBe(text);
+  });
+
+  it("keeps a paraphrase that adds concrete options", () => {
+    const text =
+      "Nomor WhatsApp sudah siap; saat membuka halaman, pelanggan paling ingin langsung pesan atau melihat menu dulu?";
+
+    expect(
+      alignAssistantTextWithCard(
+        text,
+        cardFor("Saat membuka halaman, pelanggan paling ingin melakukan apa?"),
+      ),
+    ).toBe(text);
+  });
+
   it("leaves a message that already asks the card's question", () => {
     const text =
       "Sip, areanya sudah dicatat; Kisaran harga menu Seblak Surya biasanya berapa?";
