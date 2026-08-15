@@ -60,3 +60,4 @@ Task 2: complete (99cb9051, V3 contract and immutable professional blueprint, re
 Task 3: complete (67768bb8, strict V3 writer plans and complete multi-file streams, review clean; 85 Vitest tests pass, typecheck/lint clean)
 Task 4: complete (ae52e986, protected typography, theme, and hash-history routing, review clean; 17 focused tests pass, typecheck/lint clean)
 Task 5: complete (54a72f64, bounded V3 writer and prompts, review clean; 12 Vitest tests pass, typecheck/lint clean)
+Task 6: complete (14c645b9, V3 source qualification gates and correction integration, review clean; 16 source-gate/writer tests pass, 66 focused tests, typecheck/lint clean)
