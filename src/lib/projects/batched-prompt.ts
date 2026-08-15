@@ -1,6 +1,8 @@
+import type { GeneratedSiteCorrectionReason } from "@/lib/projects/generated-site-call-budget";
 import type {
   GeneratedSiteContractV1,
   GeneratedSiteWriterContractV2,
+  GeneratedSiteWriterContractV3,
 } from "@/lib/projects/generated-site-contract";
 import type { GeneratedSiteDesignKitV1 } from "@/lib/projects/generated-site-design-kits/types";
 import type {
@@ -9,6 +11,12 @@ import type {
 } from "@/lib/projects/generated-site-recipes";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
+import type { ProfessionalSiteBlueprintV1 } from "@/lib/projects/professional-site-blueprint";
+import type {
+  GeneratedSiteDesignKitV2,
+  ProfessionalFontStackId,
+} from "@/lib/projects/professional-site-kits";
+import type { WriterDesignPlanV3 } from "@/lib/projects/professional-site-plan";
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 import { loadArchetypeGuide } from "@/lib/projects/archetypes";
@@ -127,6 +135,98 @@ Rules:
 `,
     user: `Build the accepted Indonesian site for ${input.contract.business.name}. Read facts from @/content/site, do not invent local data. Project key: ${input.projectId}.`,
   };
+}
+
+export function buildProfessionalSiteWriterPrompt(input: {
+  contract: GeneratedSiteWriterContractV3;
+  blueprint: ProfessionalSiteBlueprintV1;
+  kit: GeneratedSiteDesignKitV2;
+}): { system: string; user: string } {
+  const writablePaths = input.blueprint.routes.map((route) => route.filePath);
+  if (input.blueprint.pageStrategy.mode === "multi") {
+    writablePaths.push("src/components/site/generated-shell.tsx");
+  }
+  const allowedPatterns = input.blueprint.routes.flatMap(
+    (route) => route.allowedPatternIds,
+  );
+  const displayStacks: ProfessionalFontStackId[] = [
+    ...input.kit.typography.allowedDisplayStackIds,
+  ];
+  const system = `You are the single bounded writer for a standalone Indonesian static business site. Visible customer copy is Indonesian; code and internal reasoning are English. Execute the immutable professional blueprint instead of inventing a product strategy.
+
+PROFESSIONAL CONTRACT:
+- One writer call, zero model tools (no model tools), no shell/browser/file tools, and maxRetries: 0.
+- Emit one leading <design-plan> JSON block, complete required <file> blocks, and one <done summary="..." />. No markdown or prose outside the protocol.
+- Writable paths only: ${writablePaths.join(", ")}.
+- Never emit protected content, theme, router, primitive, package, config, runtime, or preview files.
+- Use hash-history routes supplied by the platform. Never register routes yourself.
+- All customer-facing values come from @/content/site. Shared-shell navigation comes from site.navigation. Do not add local customer-data arrays or objects, CSS generated content, dangerouslySetInnerHTML, or literal alt/aria-label/title copy.
+- Render only site.* values, punctuation, and the exact site.labels structural labels. Never invent facts, prices, stock, contacts, addresses, hours, proof, claims, capabilities, checkout, or payment state.
+- Use the exact site.primaryCta.label and site.primaryCta.href. Put data-primary-action on exactly one real actionable element per route.
+
+DOM CONTRACT:
+- Each route file has exactly one data-first-view on populated identity/offer content.
+- Each route file has exactly one real actionable data-primary-action.
+- Put exactly one data-signature on the declared signature route and none elsewhere.
+- Use SiteSection with every blueprint section's exact data-section-id. Use the selected route data-pattern exactly once.
+- Use SiteFirstView and SiteSignature from the protected site-layout-v2 primitive; do not create wrappers that move their hooks to empty nodes.
+- Use semantic Tailwind tokens only. Never emit raw colors, font-family, remote font URLs, gradients used as text, h-screen, side stripes, nested cards, or placeholder media.
+- Use font-display and font-body roles only. Allowed display stacks: ${displayStacks.join(", ")}; body stack: ${input.kit.typography.bodyStackId}.
+- The one signature must reference an accepted ${input.blueprint.artDirection.signature.mustReference.join(", ")} anchor. Mobile transforms are explicit for split/asymmetric/rail patterns.
+- No fixed section count: omit unsupported sections and give supplied facts useful structure.
+
+OUTPUT:
+<design-plan>{WriterDesignPlanV3 JSON matching blueprintHash, one pattern per route, exact sections, palette, typography, signature, and mobileTransforms}</design-plan>
+${writablePaths.map((path) => `<file path="${path}">complete raw source</file>`).join("\n")}
+<done summary="..." />`;
+  const user = `Immutable contract:\n${JSON.stringify(input.contract)}\n\nImmutable blueprint:\n${JSON.stringify(input.blueprint)}\n\nSelected executable kit:\n${JSON.stringify(
+    {
+      id: input.kit.id,
+      version: input.kit.version,
+      patterns: input.kit.compositionPatterns,
+      treatments: input.kit.allowedSectionTreatments,
+      typography: input.kit.typography,
+      sourceAssertions: input.kit.sourceAssertions,
+      browserAssertions: input.kit.browserAssertions,
+      criticRubric: input.kit.criticRubric,
+      antiPatterns: input.kit.antiPatterns,
+    },
+  )}\n\nAllowed route patterns: ${[...new Set(allowedPatterns)].join(", ")}.`;
+  return { system, user };
+}
+
+export function buildProfessionalSiteCorrectionPrompt(input: {
+  contract: GeneratedSiteWriterContractV3;
+  blueprint: ProfessionalSiteBlueprintV1;
+  kit: GeneratedSiteDesignKitV2;
+  acceptedPlan: WriterDesignPlanV3 | null;
+  reason: GeneratedSiteCorrectionReason;
+  diagnostics: string[];
+  implicatedPaths: string[];
+  files: GeneratedProjectFile[];
+}): { system: string; user: string } {
+  const acceptedPlanBlock = input.acceptedPlan
+    ? `<design-plan>${JSON.stringify(input.acceptedPlan)}</design-plan>`
+    : "<design-plan>{emit one corrected WriterDesignPlanV3 matching the blueprint}</design-plan>";
+  const system = `You are using the only shared pre-review correction for a bounded professional static-site attempt. Emit the accepted design plan first, then only complete replacements for the implicated writable paths, then one done marker. The final critic has not run yet; there is no post-critic mutation.
+
+${acceptedPlanBlock}
+
+Rules:
+- Correct only reason ${input.reason} using the diagnostics. Keep contract, blueprint hash, routes, facts, CTA kind/label/href, media mode, kit, sections, signature route, and typography immutable.
+- Writable paths are exactly: ${input.implicatedPaths.join(", ")}. Never emit router, content, theme, primitive, package, config, runtime, preview, or unrelated files.
+- Use site.* values only, including site.navigation and site.labels. No hard-coded customer prose, local display data, generated CSS content, dangerouslySetInnerHTML, or customer-facing alt/aria-label/title literals.
+- Preserve all required hooks: exactly one first view, one real data-primary-action per route, one site-wide data-signature on the declared route, exact data-section-id values, and route data-pattern.
+- Use semantic tokens, font-display/font-body, approved local media only, and explicit mobile transforms. No tools, markdown, hidden retry, or extra correction. maxRetries: 0.
+
+<design-plan>...</design-plan>
+<file path="src/routes/...">complete raw replacement</file>
+<done summary="..." />`;
+  const user = `Contract:\n${JSON.stringify(input.contract)}\n\nBlueprint:\n${JSON.stringify(input.blueprint)}\n\nKit:\n${JSON.stringify(input.kit)}\n\nDiagnostics:\n${input.diagnostics.map((diagnostic) => `- ${diagnostic}`).join("\n")}\n\nImplicated paths and their current complete contents:\n${input.files
+    .filter((file) => input.implicatedPaths.includes(file.path))
+    .map((file) => `<file path="${file.path}">\n${file.content}\n</file>`)
+    .join("\n\n")}`;
+  return { system, user };
 }
 
 export function buildGeneratedAppBuildSpec(
