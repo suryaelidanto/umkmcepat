@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { generateText } from "ai";
 import { describe, expect, it, vi, type Mock } from "vitest";
 
@@ -195,5 +197,21 @@ describe("moderateProjectRequest", () => {
       allowed: true,
     });
     expect(generateTextMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("moderation prompt", () => {
+  it("tells the checker it is screening replies, not standalone requests", () => {
+    // "ya", "iya" and "boleh" were all refused as CLARIFY because the checker
+    // judged each message as if it were a whole website request.
+    const source = readFileSync(
+      new URL("./ai-moderation.ts", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toMatch(/ongoing conversation/i);
+    expect(source).toMatch(/never merely because it is short/i);
+    // The refusal copy must not blame slowness the checker did not have.
+    expect(source).not.toMatch(/checker keamanan lagi lambat/i);
   });
 });

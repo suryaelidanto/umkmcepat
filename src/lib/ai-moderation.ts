@@ -33,8 +33,11 @@ export type ModerationLedgerCorrelation = {
 
 const BLOCK_MESSAGE =
   "Maaf, AI tidak bisa membantu membuat website untuk topik ini. Kamu bisa ubah chat dan coba lagi.";
+// Honest copy: the checker answered, it just could not read the intent.
+// Telling the owner it was slow sent them retrying something that would fail
+// identically every time.
 const CLARIFY_MESSAGE =
-  "Checker keamanan lagi lambat. Coba kirim lagi sebentar ya.";
+  "Maksud pesannya belum kebaca jelas. Coba tulis sedikit lebih lengkap ya.";
 
 const MODERATION_CACHE_TTL_MS = 30 * 60 * 1000;
 const moderationCache = new Map<
@@ -100,7 +103,7 @@ export async function moderateProjectRequest(
               model: requestedModel,
             }),
             system:
-              "You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when intent is unclear but potentially unsafe. ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action.",
+              'You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW, BLOCK, or CLARIFY. You screen one message from an ongoing conversation in which the assistant asks the shop owner questions and the owner answers, so most messages are short replies such as "ya", "iya", "boleh", "Tunai", or "mahasiswa" that carry no request of their own. ALLOW those, and ALLOW normal small-business websites, landing pages, catalogs, menus, booking intent, contact forms, ordering flows, and calls to action. BLOCK gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, abusive impersonation of real brands/people/government, and explicit hateful/sexual profanity. CLARIFY only when a message states an intent that is both unclear and potentially unsafe — never merely because it is short, vague, or context-free.',
             messages: [{ role: "user", content: contentParts }],
           }),
           "moderation",
