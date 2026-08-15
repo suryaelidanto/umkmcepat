@@ -70,7 +70,7 @@ ${formatTranscript(input.messages)}`;
 function mediaRule(mode: BuildCreativeDirectionMediaMode | undefined): string {
   return mode === "owner_assets"
     ? "- The owner supplied photos. Direct how to use them."
-    : "- The owner has no photos. Direct type, colour, layout, and graphic shapes instead. Never ask for photography, image treatment, or picture-led composition.";
+    : "- The owner has no photos. Direct type, colour, layout, and graphic shapes instead. Never ask for photography, image treatment, or picture-led composition. Any graphic you describe must be drawable as inline SVG with visible paths; never as an empty box holding a background or border where a picture would go.";
 }
 
 export function normalizeBuildCreativeDirection(

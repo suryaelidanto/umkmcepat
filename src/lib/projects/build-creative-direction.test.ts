@@ -61,6 +61,8 @@ describe("buildCreativeDirectionPrompt", () => {
 
     expect(prompt.system).toMatch(/no photo/i);
     expect(prompt.system).toMatch(/never.*photograph/i);
+    // A graphic idea rendered as an empty styled box trips empty-graphic-frame.
+    expect(prompt.system).toMatch(/inline SVG/i);
   });
 
   it("lets the model direct real photography when the owner supplied it", () => {
