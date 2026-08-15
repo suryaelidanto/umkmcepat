@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "approved": false,
+  "requestedModelId": "default-combo",
+  "allowedWriterModelIds": [],
+  "allowedCriticModelIds": [],
+  "criticPromptVersion": "professional-static-review-v1",
+  "kitVersion": 2,
+  "evaluatorVersion": "4",
+  "corpusVersion": "professional-static-v3",
+  "calibration": {
+    "samples": 0,
+    "seededDefects": 0,
+    "blockerPrecision": 0,
+    "blockerRecall": 0,
+    "falseReadyRate": 1,
+    "p0FalseAccepts": 0
+  },
+  "benchmark": {
+    "runId": "blocked",
+    "completedTreatmentTrials": 0,
+    "treatmentReadyRate": 0,
+    "decisiveTreatmentPreference": 0
+  },
+  "ownerApprovedAt": null
+}
