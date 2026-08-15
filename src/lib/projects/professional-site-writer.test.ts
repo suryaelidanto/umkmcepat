@@ -448,6 +448,37 @@ describe("professional site prompts", () => {
     expect(prompt.system).toContain(WRITER_DESIGN_PLAN_V3_MAX_BYTES.toString());
   });
 
+  it("repeats the writer's module, hook, and content rules in the correction", () => {
+    const blueprint = makeBlueprint();
+    const contract = makeContract();
+    const correction = buildProfessionalSiteCorrectionPrompt({
+      contract,
+      blueprint,
+      kit,
+      acceptedPlan: makePlan(blueprint),
+      reason: "source_gate",
+      diagnostics: ["src/routes/index.tsx: missing data-primary-action"],
+      implicatedPaths: ["src/routes/index.tsx"],
+      files: [routeFile("src/routes/index.tsx")],
+    });
+    // A repair that does not know the primitive API reintroduces the very
+    // violations it was called to fix.
+    expect(correction.system).toContain("@/components/site/layout");
+    expect(correction.system).toContain("@/lib/preview-ready");
+    expect(correction.system).toContain("usePreviewReady()");
+    expect(correction.system).toContain("min-h-11");
+    expect(correction.system).toContain('rel="noopener noreferrer"');
+    expect(correction.system).toContain("text-muted-foreground");
+    for (const route of blueprint.routes) {
+      expect(correction.system).toContain(
+        `export function ${route.exportName}`,
+      );
+    }
+    for (const path of professionalPopulatedContentPaths(contract.content)) {
+      expect(correction.system).toContain(path);
+    }
+  });
+
   it("limits correction output to implicated complete paths and the accepted plan", () => {
     const contract = makeContract();
     const blueprint = makeBlueprint();

@@ -12,10 +12,7 @@ import type {
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
 import type { ProfessionalSiteBlueprintV1 } from "@/lib/projects/professional-site-blueprint";
-import type {
-  GeneratedSiteDesignKitV2,
-  ProfessionalFontStackId,
-} from "@/lib/projects/professional-site-kits";
+import type { GeneratedSiteDesignKitV2 } from "@/lib/projects/professional-site-kits";
 import type { WriterDesignPlanV3 } from "@/lib/projects/professional-site-plan";
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
 
@@ -205,24 +202,16 @@ function professionalPlanSkeleton(input: {
   );
 }
 
-export function buildProfessionalSiteWriterPrompt(input: {
+/**
+ * The concrete module, hook, and content facts a route file must satisfy.
+ * The correction runs precisely when one of these gates failed, so it needs
+ * the same facts as the writer — stating them once keeps the two in step.
+ */
+function professionalSourceRules(input: {
   contract: GeneratedSiteWriterContractV3;
   blueprint: ProfessionalSiteBlueprintV1;
   kit: GeneratedSiteDesignKitV2;
-}): { system: string; user: string } {
-  const writablePaths = input.blueprint.routes.map((route) => route.filePath);
-  if (input.blueprint.pageStrategy.mode === "multi") {
-    writablePaths.push("src/components/site/generated-shell.tsx");
-  }
-  const allowedPatterns = input.blueprint.routes.flatMap(
-    (route) => route.allowedPatternIds,
-  );
-  const displayStacks: ProfessionalFontStackId[] = [
-    ...input.kit.typography.allowedDisplayStackIds,
-  ];
-  const writableExports = input.blueprint.routes
-    .map((route) => `export function ${route.exportName}()`)
-    .join(", ");
+}): string {
   const eyebrowBudget = Math.max(
     1,
     Math.ceil(
@@ -232,20 +221,13 @@ export function buildProfessionalSiteWriterPrompt(input: {
       ) / 3,
     ),
   );
-  const system = `You are the single bounded writer for a standalone Indonesian static business site. Visible customer copy is Indonesian; code and internal reasoning are English. Execute the immutable professional blueprint instead of inventing a product strategy.
-
-PROFESSIONAL CONTRACT:
-- One writer call, zero model tools (no model tools), no shell/browser/file tools, and maxRetries: 0.
-- Emit one leading <design-plan> JSON block, complete required <file> blocks, and one <done summary="..." />. No markdown or prose outside the protocol.
-- Writable paths only: ${writablePaths.join(", ")}.
-- Never emit protected content, theme, router, primitive, package, config, runtime, or preview files.
-- Use hash-history routes supplied by the platform. Never register routes yourself.
-- All customer-facing values come from @/content/site. Shared-shell navigation comes from site.navigation. Do not add local customer-data arrays or objects, CSS generated content, dangerouslySetInnerHTML, or literal alt/aria-label/title copy.
-- Render only site.* values, punctuation, and the exact site.labels structural labels. Never invent facts, prices, stock, contacts, addresses, hours, proof, claims, capabilities, checkout, or payment state.
+  const writableExports = input.blueprint.routes
+    .map((route) => `export function ${route.exportName}()`)
+    .join(", ");
+  return `CONTENT RULES:
 - Render every one of these populated fields visibly: ${professionalPopulatedContentPaths(input.contract.content).join(", ")}.
 - Use compiled semantic tokens for colour: text-muted-foreground for secondary text, never bare text-muted, and never white, black, gray, slate, zinc, stone, or neutral utilities.
 - At most ${eyebrowBudget} className may combine uppercase with tracking; give the other labels a different treatment.
-- Use the exact site.primaryCta.label and site.primaryCta.href. Put data-primary-action on exactly one real actionable element per route.
 
 MODULES AND EXPORTS:
 - Import site content from @/content/site and usePreviewReady from @/lib/preview-ready; call usePreviewReady() once as a standalone statement that returns void.
@@ -262,8 +244,35 @@ DOM CONTRACT:
 - External links, including every wa.me primary action, need target="_blank" and rel="noopener noreferrer".
 - The primary action must carry min-h-11 so its rendered touch target clears 44px.
 - Use semantic Tailwind tokens only. Never emit raw colors, font-family, remote font URLs, gradients used as text, h-screen, side stripes, nested cards, or placeholder media.
-- Use font-display and font-body roles only. Allowed display stacks: ${displayStacks.join(", ")}; body stack: ${input.kit.typography.bodyStackId}.
-- The one signature must reference an accepted ${input.blueprint.artDirection.signature.mustReference.join(", ")} anchor. Mobile transforms are explicit for split/asymmetric/rail patterns.
+- Use font-display and font-body roles only. Allowed display stacks: ${[...input.kit.typography.allowedDisplayStackIds].join(", ")}; body stack: ${input.kit.typography.bodyStackId}.
+- The one signature must reference an accepted ${input.blueprint.artDirection.signature.mustReference.join(", ")} anchor. Mobile transforms are explicit for split/asymmetric/rail patterns.`;
+}
+
+export function buildProfessionalSiteWriterPrompt(input: {
+  contract: GeneratedSiteWriterContractV3;
+  blueprint: ProfessionalSiteBlueprintV1;
+  kit: GeneratedSiteDesignKitV2;
+}): { system: string; user: string } {
+  const writablePaths = input.blueprint.routes.map((route) => route.filePath);
+  if (input.blueprint.pageStrategy.mode === "multi") {
+    writablePaths.push("src/components/site/generated-shell.tsx");
+  }
+  const allowedPatterns = input.blueprint.routes.flatMap(
+    (route) => route.allowedPatternIds,
+  );
+  const system = `You are the single bounded writer for a standalone Indonesian static business site. Visible customer copy is Indonesian; code and internal reasoning are English. Execute the immutable professional blueprint instead of inventing a product strategy.
+
+PROFESSIONAL CONTRACT:
+- One writer call, zero model tools (no model tools), no shell/browser/file tools, and maxRetries: 0.
+- Emit one leading <design-plan> JSON block, complete required <file> blocks, and one <done summary="..." />. No markdown or prose outside the protocol.
+- Writable paths only: ${writablePaths.join(", ")}.
+- Never emit protected content, theme, router, primitive, package, config, runtime, or preview files.
+- Use hash-history routes supplied by the platform. Never register routes yourself.
+- All customer-facing values come from @/content/site. Shared-shell navigation comes from site.navigation. Do not add local customer-data arrays or objects, CSS generated content, dangerouslySetInnerHTML, or literal alt/aria-label/title copy.
+- Render only site.* values, punctuation, and the exact site.labels structural labels. Never invent facts, prices, stock, contacts, addresses, hours, proof, claims, capabilities, checkout, or payment state.
+- Use the exact site.primaryCta.label and site.primaryCta.href. Put data-primary-action on exactly one real actionable element per route.
+
+${professionalSourceRules(input)}
 - No fixed section count: omit unsupported sections and give supplied facts useful structure.
 
 ${PROFESSIONAL_WRITER_PLAN_SKELETON_LABEL}
@@ -308,7 +317,10 @@ export function buildProfessionalSiteCorrectionPrompt(input: {
 }): { system: string; user: string } {
   const acceptedPlanBlock = input.acceptedPlan
     ? `<design-plan>${JSON.stringify(input.acceptedPlan)}</design-plan>`
-    : "<design-plan>{emit one corrected WriterDesignPlanV3 matching the blueprint}</design-plan>";
+    : `${PROFESSIONAL_WRITER_PLAN_SKELETON_LABEL}\n${professionalPlanSkeleton({
+        blueprint: input.blueprint,
+        kit: input.kit,
+      })}`;
   const system = `You are using the only shared pre-review correction for a bounded professional static-site attempt. Emit the accepted design plan first, then only complete replacements for the implicated writable paths, then one done marker. The final critic has not run yet; there is no post-critic mutation.
 
 ${acceptedPlanBlock}
@@ -319,6 +331,8 @@ Rules:
 - Use site.* values only, including site.navigation and site.labels. No hard-coded customer prose, local display data, generated CSS content, dangerouslySetInnerHTML, or customer-facing alt/aria-label/title literals.
 - Preserve all required hooks: exactly one first view, one real data-primary-action per route, one site-wide data-signature on the declared route, exact data-section-id values, and route data-pattern.
 - Use semantic tokens, font-display/font-body, approved local media only, and explicit mobile transforms. No tools, markdown, hidden retry, or extra correction. maxRetries: 0.
+
+${professionalSourceRules(input)}
 
 <design-plan>...</design-plan>
 <file path="src/routes/...">complete raw replacement</file>
