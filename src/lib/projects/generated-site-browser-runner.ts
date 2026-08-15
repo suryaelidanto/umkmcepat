@@ -8,13 +8,26 @@ import path from "node:path";
 import type {
   BrowserAssertion,
   BrowserGateReport,
+  BrowserGateReportV2,
   BrowserRouteReport,
+  ProfessionalBrowserPolicy,
+  ProfessionalBrowserSignal,
 } from "./browser-gates";
-import type { GeneratedSiteContractV1 } from "./generated-site-contract";
+import type {
+  GeneratedSiteContractV1,
+  GeneratedSiteWriterContractV3,
+} from "./generated-site-contract";
 import type { GeneratedDistFile } from "./generated-types";
+import type { ProfessionalSiteBlueprintV1 } from "./professional-site-blueprint";
 
 type BrowserRunnerOutput = {
   routes: Array<BrowserRouteReport & { screenshot?: string }>;
+};
+
+type ProfessionalBrowserRunnerOutput = {
+  routes: Array<
+    BrowserGateReportV2["routes"][number] & { screenshot?: string }
+  >;
 };
 
 type BrowserRunnerDeps = {
@@ -22,6 +35,7 @@ type BrowserRunnerDeps = {
     files: GeneratedDistFile[];
     routes: string[];
     timeoutMs: number;
+    professionalPolicy?: ProfessionalBrowserPolicy;
   }) => Promise<string>;
   storeEvidence: (input: {
     projectId: string;
@@ -48,6 +62,114 @@ export function parseBrowserRunnerOutput(raw: string): BrowserRunnerOutput {
     throw new Error("generated-site browser output malformed");
   }
   return { routes: record.routes.map(parseRoute) };
+}
+
+export function parseProfessionalBrowserRunnerOutput(
+  raw: string,
+): ProfessionalBrowserRunnerOutput {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new Error("generated-site professional browser output malformed");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("generated-site professional browser output malformed");
+  }
+  const record = value as Record<string, unknown>;
+  if (!Array.isArray(record.routes)) {
+    throw new Error("generated-site professional browser output malformed");
+  }
+  return {
+    routes: record.routes.map(parseProfessionalRoute),
+  };
+}
+
+export async function runProfessionalSiteBrowserGates(
+  input: {
+    projectId: string;
+    candidateId: string;
+    files: GeneratedDistFile[];
+    contract: GeneratedSiteWriterContractV3;
+    blueprint: ProfessionalSiteBlueprintV1;
+    timeoutMs: number;
+  },
+  deps: Partial<BrowserRunnerDeps> = {},
+): Promise<BrowserGateReportV2> {
+  const startedAt = Date.now();
+  const policy = createProfessionalBrowserPolicy(input.blueprint);
+  try {
+    const raw = await (deps.execute ?? executeBrowserRunner)({
+      files: input.files,
+      routes: policy.routes.map((route) => route.path).slice(0, 6),
+      timeoutMs: input.timeoutMs,
+      professionalPolicy: policy,
+    });
+    const parsed = parseProfessionalBrowserRunnerOutput(raw);
+    const evidenceIds: string[] = [];
+    for (const route of parsed.routes) {
+      const screenshot = route.screenshot
+        ? Buffer.from(route.screenshot, "base64")
+        : undefined;
+      const evidence = await (deps.storeEvidence ?? (async () => []))({
+        projectId: input.projectId,
+        candidateId: input.candidateId,
+        route: route.route,
+        viewport: route.viewport,
+        value: route,
+        screenshot,
+      });
+      evidenceIds.push(...evidence);
+    }
+    const failed = parsed.routes.some((route) =>
+      route.assertions.some((assertion) => assertion.status !== "pass"),
+    );
+    return {
+      version: 2,
+      status: failed ? "fail" : "pass",
+      routes: parsed.routes.map(
+        ({ screenshot: _screenshot, ...route }) => route,
+      ),
+      evidenceIds,
+      overheadMs: Date.now() - startedAt,
+    };
+  } catch {
+    return {
+      version: 2,
+      status: "infrastructure_error",
+      routes: [],
+      evidenceIds: [],
+      overheadMs: Date.now() - startedAt,
+    };
+  }
+}
+
+export function createProfessionalBrowserPolicy(
+  blueprint: ProfessionalSiteBlueprintV1,
+): ProfessionalBrowserPolicy {
+  return {
+    routes: blueprint.routes.map((route) => ({
+      path: route.path,
+      sections: route.sections.map((section) => ({
+        id: section.id,
+        requiredVisibleTexts: [...section.requiredVisibleTexts],
+      })),
+      firstView: {
+        identityText: route.firstView.identityText,
+        offerTexts: [...route.firstView.offerTexts],
+        primaryCtaLabel: route.firstView.primaryCtaLabel,
+        primaryCtaHref: route.firstView.primaryCtaHref,
+      },
+    })),
+    signatureRoute: blueprint.signatureRoute,
+    typography: {
+      maxDisplayPx: 96,
+      minDisplayLetterSpacingEm: -0.04,
+      minBodyPx: 15,
+      minBodyLineHeight: 1.4,
+      maxBodyCh: 78,
+    },
+  };
 }
 
 export async function runGeneratedSiteBrowserGates(
@@ -110,6 +232,7 @@ async function executeBrowserRunner(input: {
   files: GeneratedDistFile[];
   routes: string[];
   timeoutMs: number;
+  professionalPolicy?: ProfessionalBrowserPolicy;
 }): Promise<string> {
   const server = await startArtifactServer(input.files);
   const evidenceDir = await mkdtemp(`${tmpdir()}/umkmcepat-site-gate-`);
@@ -119,6 +242,7 @@ async function executeBrowserRunner(input: {
       routes: input.routes,
       timeoutMs: input.timeoutMs,
       evidenceDir,
+      professionalPolicy: input.professionalPolicy,
     });
     const parsed = JSON.parse(raw) as {
       routes?: Array<Record<string, unknown>>;
@@ -172,6 +296,7 @@ function spawnRunner(input: {
   routes: string[];
   timeoutMs: number;
   evidenceDir: string;
+  professionalPolicy?: ProfessionalBrowserPolicy;
 }): Promise<string> {
   const script = path.resolve(
     process.cwd(),
@@ -189,6 +314,9 @@ function spawnRunner(input: {
         executable ?? "",
         String(input.timeoutMs),
         input.evidenceDir,
+        input.professionalPolicy
+          ? JSON.stringify(input.professionalPolicy)
+          : "",
       ],
       { stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
     );
@@ -243,6 +371,50 @@ function browserExecutable(): string | undefined {
 
 function normalizePath(value: string): string {
   return decodeURIComponent(value).replace(/^\/+/, "") || "index.html";
+}
+
+function parseProfessionalRoute(
+  value: unknown,
+): ProfessionalBrowserRunnerOutput["routes"][number] {
+  const route = parseRoute(value);
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("generated-site professional browser output malformed");
+  }
+  const record = value as Record<string, unknown>;
+  if (!Array.isArray(record.professionalSignals)) {
+    throw new Error("generated-site professional browser output malformed");
+  }
+  const signals: ProfessionalBrowserSignal[] = record.professionalSignals.map(
+    (signal) => {
+      if (!signal || typeof signal !== "object" || Array.isArray(signal)) {
+        throw new Error("generated-site professional browser output malformed");
+      }
+      const value = signal as Record<string, unknown>;
+      if (
+        typeof value.code !== "string" ||
+        typeof value.route !== "string" ||
+        (value.viewport !== "mobile" && value.viewport !== "desktop") ||
+        typeof value.detail !== "string"
+      ) {
+        throw new Error("generated-site professional browser output malformed");
+      }
+      return {
+        code: value.code,
+        route: value.route,
+        viewport: value.viewport,
+        detail: value.detail,
+      };
+    },
+  );
+  return {
+    ...route,
+    assertions: route.assertions.map((assertion) => ({
+      name: assertion.name as ProfessionalBrowserRunnerOutput["routes"][number]["assertions"][number]["name"],
+      status: assertion.status,
+      ...(assertion.detail ? { detail: assertion.detail } : {}),
+    })),
+    professionalSignals: signals,
+  };
 }
 
 function parseRoute(

@@ -5,7 +5,9 @@ import {
   BROWSER_NAVIGATION_TIMEOUT_MS,
   BROWSER_ROUTE_MAX,
   classifyBrowserReport,
+  classifyProfessionalBrowserReport,
   type BrowserGateReport,
+  type BrowserGateReportV2,
 } from "./browser-gates";
 
 function report(
@@ -17,6 +19,51 @@ function report(
     routes: [],
     evidenceIds: [],
     overheadMs: 0,
+  };
+}
+
+const professionalAssertionNames = [
+  "route-load",
+  "console-clean",
+  "required-content-visible",
+  "primary-cta",
+  "internal-links",
+  "horizontal-overflow",
+  "heading-overflow",
+  "image-health",
+  "media-policy",
+  "computed-contrast",
+  "focus-visible",
+  "touch-target",
+  "first-view-contract",
+  "section-coverage",
+  "section-order",
+  "typography-bounds",
+  "content-hidden-by-navigation",
+  "empty-media-frame",
+  "signature-presence",
+] as const;
+
+function professionalReport(routes = ["/"]): BrowserGateReportV2 {
+  return {
+    version: 2,
+    status: "pass",
+    routes: routes.flatMap((route) =>
+      (["mobile", "desktop"] as const).map((viewport) => ({
+        route,
+        viewport,
+        assertions: professionalAssertionNames.map((name) => ({
+          name,
+          status: "pass" as const,
+        })),
+        professionalSignals: [],
+      })),
+    ),
+    evidenceIds: routes.flatMap((route) => [
+      `${route}-mobile`,
+      `${route}-desktop`,
+    ]),
+    overheadMs: 1,
   };
 }
 
@@ -95,5 +142,68 @@ describe("classifyBrowserReport", () => {
     expect(BROWSER_ROUTE_MAX).toBe(6);
     expect(BROWSER_NAVIGATION_TIMEOUT_MS).toBe(10_000);
     expect(BROWSER_INFRA_RETRIES).toBe(1);
+  });
+});
+
+describe("classifyProfessionalBrowserReport", () => {
+  it("requires both viewports, all V1/V2 assertions, and evidence for every route", () => {
+    expect(
+      classifyProfessionalBrowserReport(professionalReport(["/", "/kelas"]), [
+        "/",
+        "/kelas",
+      ]),
+    ).toBe("pass");
+    const missingViewport = professionalReport();
+    missingViewport.routes = missingViewport.routes.filter(
+      (route) => route.viewport === "mobile",
+    );
+    expect(classifyProfessionalBrowserReport(missingViewport, ["/"])).toBe(
+      "fail",
+    );
+  });
+
+  it.each([
+    [
+      "missing assertion",
+      (report: BrowserGateReportV2) => {
+        report.routes[0]!.assertions.pop();
+      },
+    ],
+    [
+      "unknown assertion",
+      (report: BrowserGateReportV2) => {
+        report.routes[0]!.assertions[0]!.name = "unknown" as never;
+      },
+    ],
+    [
+      "duplicate route viewport",
+      (report: BrowserGateReportV2) => {
+        report.routes[1]!.viewport = "mobile";
+      },
+    ],
+    [
+      "malformed signal",
+      (report: BrowserGateReportV2) => {
+        report.routes[0]!.professionalSignals.push({
+          code: "bad",
+          route: "/kelas",
+          viewport: "mobile",
+          detail: "bad",
+        });
+      },
+    ],
+  ])("fails %s evidence", (_name, mutate) => {
+    const value = professionalReport();
+    mutate(value);
+    expect(classifyProfessionalBrowserReport(value, ["/"])).toBe("fail");
+  });
+
+  it("fails extra routes and non-pass statuses even when the outer report says pass", () => {
+    const value = professionalReport();
+    value.routes.push({ ...value.routes[0]!, route: "/extra" });
+    expect(classifyProfessionalBrowserReport(value, ["/"])).toBe("fail");
+    const failed = professionalReport();
+    failed.routes[0]!.assertions[0]!.status = "fail";
+    expect(classifyProfessionalBrowserReport(failed, ["/"])).toBe("fail");
   });
 });

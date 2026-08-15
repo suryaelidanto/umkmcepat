@@ -165,9 +165,172 @@ function findContrastFailures(entries) {
   });
 }
 
+function evaluateProfessionalTypography(input) {
+  const failures = [];
+  if (input.bodyFontSizePx < input.minBodyPx) {
+    failures.push(`body font ${input.bodyFontSizePx}px < ${input.minBodyPx}px`);
+  }
+  if (input.bodyLineHeightRatio < input.minBodyLineHeight) {
+    failures.push(
+      `body line-height ${input.bodyLineHeightRatio} < ${input.minBodyLineHeight}`,
+    );
+  }
+  if (input.bodyMaxCh > input.maxBodyCh) {
+    failures.push(`body measure ${input.bodyMaxCh}ch > ${input.maxBodyCh}ch`);
+  }
+  for (const heading of input.displayHeadings ?? []) {
+    if (heading.fontSizePx > input.maxDisplayPx) {
+      failures.push(
+        `display ${heading.fontSizePx}px > ${input.maxDisplayPx}px`,
+      );
+    }
+    if (heading.letterSpacingEm < input.minDisplayLetterSpacingEm) {
+      failures.push(
+        `display tracking ${heading.letterSpacingEm}em < ${input.minDisplayLetterSpacingEm}em`,
+      );
+    }
+  }
+  return { pass: failures.length === 0, failures };
+}
+
+function normalizeVisibleText(value) {
+  return String(value || "")
+    .replace(/\\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("id-ID");
+}
+
+function evaluateFirstViewContract(input) {
+  const failures = [];
+  const firstViewText = normalizeVisibleText(input.firstViewText);
+  if (input.firstViewCount !== undefined && input.firstViewCount !== 1) {
+    failures.push("first-view-count");
+  }
+  if (!input.firstViewVisible) {
+    failures.push("first-view-hidden");
+  }
+  if (
+    !normalizeVisibleText(input.identityText) ||
+    !firstViewText.includes(normalizeVisibleText(input.identityText))
+  ) {
+    failures.push("identity-missing");
+  }
+  for (const offer of input.offerTexts ?? []) {
+    if (!firstViewText.includes(normalizeVisibleText(offer))) {
+      failures.push("offer-missing");
+      break;
+    }
+  }
+  if (
+    input.primaryActionCount !== undefined &&
+    input.primaryActionCount !== 1
+  ) {
+    failures.push("primary-action-count");
+  }
+  const action = input.primaryAction;
+  if (
+    !action ||
+    !action.visible ||
+    normalizeVisibleText(action.label) !==
+      normalizeVisibleText(input.primaryCtaLabel) ||
+    action.href !== input.primaryCtaHref
+  ) {
+    failures.push("primary-action-mismatch");
+  }
+  return { pass: failures.length === 0, failures };
+}
+
+function evaluateSectionCoverage(input) {
+  const failures = [];
+  const actual = input.actualSections ?? [];
+  const seen = new Set();
+  for (const section of actual) {
+    if (seen.has(section.id)) {
+      failures.push(`duplicate:${section.id}`);
+    }
+    seen.add(section.id);
+  }
+  const expected = input.expectedSections ?? [];
+  for (const section of expected) {
+    const matches = actual.filter((candidate) => candidate.id === section.id);
+    if (matches.length !== 1 || !matches[0].visible) {
+      failures.push(`missing:${section.id}`);
+      continue;
+    }
+    const text = normalizeVisibleText(matches[0].text);
+    for (const requiredText of section.requiredVisibleTexts ?? []) {
+      if (!text.includes(normalizeVisibleText(requiredText))) {
+        failures.push(`text:${section.id}`);
+        break;
+      }
+    }
+  }
+  const expectedOrder = expected.map((section) => section.id).join("|");
+  const actualOrder = actual.map((section) => section.id).join("|");
+  if (expectedOrder !== actualOrder) {
+    failures.push("order");
+  }
+  return { pass: failures.length === 0, failures };
+}
+
+function rectanglesOverlap(left, right) {
+  return (
+    Math.max(
+      0,
+      Math.min(left.right, right.right) - Math.max(left.left, right.left),
+    ) *
+      Math.max(
+        0,
+        Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top),
+      ) >
+    0
+  );
+}
+
+function evaluateFixedOverlaps(input) {
+  const failures = [];
+  for (const fixed of input.fixedRects ?? []) {
+    for (const target of input.targetRects ?? []) {
+      if (rectanglesOverlap(fixed, target)) {
+        failures.push(`${fixed.label || "fixed"}:${target.label || "target"}`);
+      }
+    }
+  }
+  return { pass: failures.length === 0, failures };
+}
+
+function evaluateEmptyMediaFrame(input) {
+  const empty =
+    input.area >= 12000 &&
+    input.borderedOrBackgrounded &&
+    !input.visibleText &&
+    !input.hasImage &&
+    !input.hasSvgPath;
+  return { pass: !empty, failures: empty ? ["empty-media-frame"] : [] };
+}
+
+function evaluateSignaturePresence(input) {
+  const expected = input.route === input.signatureRoute;
+  const valid = expected
+    ? input.count === 1 && input.visibleCount === 1 && input.hasVisibleText
+    : input.count === 0;
+  return {
+    pass: valid,
+    failures: valid
+      ? []
+      : [expected ? "missing-or-duplicate-signature" : "unexpected-signature"],
+  };
+}
+
 module.exports = {
   contrastRatio,
   findContrastFailures,
+  evaluateEmptyMediaFrame,
+  evaluateFixedOverlaps,
+  evaluateFirstViewContract,
+  evaluateProfessionalTypography,
+  evaluateSectionCoverage,
+  evaluateSignaturePresence,
   isTransparentCssColor,
   minimumForText,
   parseCssColor,
