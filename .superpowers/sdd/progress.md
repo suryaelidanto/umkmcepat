@@ -52,3 +52,7 @@ Task 4 (SSR session into SessionProvider): complete (a468f6c, signed-in HTML sho
 Task 5 (landing HTML cache): complete (2c3ba87, 4/4 tests; regex fixed for authjs.session-token name; live guest=cache headers, authed=no-store)
 Task 6 (admin route split): complete (8f4bbc94 + c84336ed script fix; initial-load graph 256 modules/23.8 MB -> 141 modules/11.5 MB, recharts/motion gone; /admin 200; routeTree.gen.ts is gitignored by design)
 Final verification: pending bun run check
+
+# SDD Progress — 2026-08-15 professional static-site generation
+Plan: docs/superpowers/plans/2026-08-15-professional-static-site-generation.md
+Task 1: in progress (executable professional design kits V2)

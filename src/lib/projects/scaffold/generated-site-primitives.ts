@@ -1,12 +1,17 @@
 import type { GeneratedSiteDesignKitV1 } from "../generated-site-design-kits/types";
 import type { GeneratedProjectFile } from "../generated-types";
+import type { GeneratedSiteDesignKitV2 } from "../professional-site-kits";
+
+type GeneratedSiteKit = GeneratedSiteDesignKitV1 | GeneratedSiteDesignKitV2;
 
 const LAYOUT_SOURCE = (
   kitId: string,
+  version: "v1" | "v2",
 ): string => `import type { ReactElement, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const KIT_ID = "${kitId}";
+const KIT_VERSION = "${version}";
 
 const densityClasses = {
   compact: "py-12 md:py-16",
@@ -49,8 +54,16 @@ export function SiteSection({
   className?: string;
 }): ReactElement {
   return (
-    <section id={id} data-site-kit={KIT_ID} className={cn(surfaceClasses[surface], densityClasses[density], className)}>
-      <div className={cn("mx-auto w-full px-6", widthClasses[width])}>{children}</div>
+    <section
+      id={id}
+      data-site-kit={KIT_ID}
+      data-site-kit-version={KIT_VERSION}
+      data-section-id={id}
+      className={cn(surfaceClasses[surface], densityClasses[density], className)}
+    >
+      <div className={cn("mx-auto w-full px-6", widthClasses[width])}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -64,7 +77,11 @@ export function SiteStack({
   gap?: keyof typeof stackClasses;
   className?: string;
 }): ReactElement {
-  return <div className={cn("flex flex-col", stackClasses[gap], className)}>{children}</div>;
+  return (
+    <div className={cn("flex flex-col", stackClasses[gap], className)}>
+      {children}
+    </div>
+  );
 }
 
 export function SiteSplit({
@@ -76,8 +93,17 @@ export function SiteSplit({
   emphasis?: "equal" | "leading" | "trailing";
   className?: string;
 }): ReactElement {
-  const columns = emphasis === "leading" ? "md:grid-cols-[1.2fr_.8fr]" : emphasis === "trailing" ? "md:grid-cols-[.8fr_1.2fr]" : "md:grid-cols-2";
-  return <div className={cn("grid items-center gap-10 md:gap-16", columns, className)}>{children}</div>;
+  const columns =
+    emphasis === "leading"
+      ? "md:grid-cols-[1.2fr_.8fr]"
+      : emphasis === "trailing"
+        ? "md:grid-cols-[.8fr_1.2fr]"
+        : "md:grid-cols-2";
+  return (
+    <div className={cn("grid items-center gap-10 md:gap-16", columns, className)}>
+      {children}
+    </div>
+  );
 }
 
 export function SiteCluster({
@@ -89,23 +115,85 @@ export function SiteCluster({
   justify?: "start" | "center" | "between";
   className?: string;
 }): ReactElement {
-  const justifyClass = justify === "center" ? "justify-center" : justify === "between" ? "justify-between" : "justify-start";
-  return <div className={cn("flex flex-wrap items-center gap-3", justifyClass, className)}>{children}</div>;
+  const justifyClass =
+    justify === "center"
+      ? "justify-center"
+      : justify === "between"
+        ? "justify-between"
+        : "justify-start";
+  return (
+    <div className={cn("flex flex-wrap items-center gap-3", justifyClass, className)}>
+      {children}
+    </div>
+  );
+}
+
+${
+  version === "v2"
+    ? `export function SiteFirstView({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}): ReactElement {
+  return (
+    <section data-first-view className={cn("min-h-[70dvh]", className)}>
+      {children}
+    </section>
+  );
+}
+
+export function SiteSignature({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}): ReactElement {
+  return (
+    <div data-signature className={cn("relative", className)}>
+      {children}
+    </div>
+  );
+}
+`
+    : ""
 }
 `;
 
 export function createGeneratedSitePrimitiveFiles(
-  kit: GeneratedSiteDesignKitV1,
+  kit: GeneratedSiteKit,
 ): GeneratedProjectFile[] {
+  if (isProfessionalSiteKit(kit)) {
+    return [
+      {
+        path: "src/components/site/layout.tsx",
+        content: LAYOUT_SOURCE(kit.id, "v2"),
+      },
+    ];
+  }
+
   if (!kit.primitiveFileIds.includes("site-layout-v1")) {
     throw new Error(
       `generated-site kit lacks site layout primitive: ${kit.id}`,
     );
   }
+
   return [
     {
       path: "src/components/site/layout.tsx",
-      content: LAYOUT_SOURCE(kit.id),
+      content: LAYOUT_SOURCE(kit.id, "v1"),
     },
   ];
+}
+
+function isProfessionalSiteKit(
+  kit: GeneratedSiteKit,
+): kit is GeneratedSiteDesignKitV2 {
+  return (
+    kit.version === 2 &&
+    kit.primitiveFileIds.length === 1 &&
+    kit.primitiveFileIds[0] === "site-layout-v2"
+  );
 }
