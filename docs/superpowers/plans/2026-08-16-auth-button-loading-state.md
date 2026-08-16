@@ -2,16 +2,18 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the disabled public `Masuk` control visibly communicate auth hydration with a stable skeleton state.
+**Goal:** Make the disabled public `Masuk` control visibly communicate only unresolved auth with a stable skeleton state.
 
-**Architecture:** Keep the existing `AuthButton` session state and GitHub contributor query independent. Until the first client effect confirms hydration, or when `useSession().status` is `loading`, render the existing `Button` as a disabled, fixed-width control with an accessible Indonesian loading label and an aria-hidden pulsing skeleton; leave resolved signed-out and signed-in branches unchanged.
+**Status:** Implemented and verified with `bun run check`.
+
+**Architecture:** Keep the existing `AuthButton` session state and GitHub contributor query independent. Only when `useSession().status` is `loading`, render the existing `Button` as a disabled, fixed-width control with an accessible Indonesian loading label and an aria-hidden pulsing skeleton; render resolved signed-out and signed-in branches immediately.
 
 **Tech Stack:** React 19, TanStack Query, `react-dom/server` SSR tests, Vitest, Tailwind utility classes, Bun.
 
 ## Global Constraints
 
 - User-facing copy remains Indonesian.
-- The pre-hydration and loading control remains a real disabled button with `aria-busy="true"`; it must not become a fake link or page overlay.
+- The auth-loading control remains a real disabled button with `aria-busy="true"`; it must not become a fake link or page overlay.
 - GitHub contributor loading must not be added as a login prerequisite.
 - Reuse existing UMKM Cepat dark-header tokens, button component, spacing, and motion conventions.
 - No `any`, `as any`, `ts-ignore`, or new dependency.
@@ -28,7 +30,7 @@
 - Consumes: `AuthButton` and its existing `useSession()` loading branch.
 - Produces: a focused rendered-markup contract for the disabled loading control.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create a server-render test with mocked auth, navigation, query, and dialog dependencies:
 
@@ -76,7 +78,7 @@ describe("AuthButton", () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run:
 
@@ -94,12 +96,12 @@ visible `Masuk` text and does not contain the requested skeleton width/class.
 - Test: `src/components/common/AuthButton.test.ts`
 
 **Interfaces:**
-- Consumes: the local hydration flag and `status === "loading"` from `useSession()`.
-- Produces: a disabled `Button` before hydration or while loading, with
+- Consumes: `status === "loading"` from `useSession()`.
+- Produces: a disabled `Button` while auth is loading, with
   `aria-busy`, `aria-label="Memuat akses masuk"`, stable `min-w-[4.75rem]`, and
   an aria-hidden pulsing skeleton span.
 
-- [ ] **Step 1: Replace only the loading branch contents**
+- [x] **Step 1: Keep the loading branch scoped to unresolved auth**
 
 Use the existing button and dark-header styling, changing its contents to:
 
@@ -121,11 +123,11 @@ Use the existing button and dark-header styling, changing its contents to:
 ```
 
 Keep the existing `LoginConsentDialog` render and leave the authenticated and
-resolved unauthenticated branches unchanged. Add a `hydrated` state initialized
-to `false` and set it to `true` in a mount-only effect, then use
-`if (!hydrated || status === "loading")` for this loading branch.
+resolved unauthenticated branches unchanged. Use only
+`if (status === "loading")` for this loading branch; do not add a separate
+hydration gate.
 
-- [ ] **Step 2: Run the focused regression test**
+- [x] **Step 2: Run the focused regression test**
 
 Run:
 
@@ -135,7 +137,7 @@ bunx vitest run src/components/common/AuthButton.test.ts
 
 Expected: one test file passes with one test passing.
 
-- [ ] **Step 3: Run the nearest related UI tests**
+- [x] **Step 3: Run the nearest related UI tests**
 
 Run:
 
@@ -145,7 +147,7 @@ bunx vitest run src/components/common/AuthButton.test.ts src/components/communit
 
 Expected: all selected tests pass with zero failures.
 
-- [ ] **Step 4: Run the repository fast gate**
+- [x] **Step 4: Run the repository fast gate**
 
 Run:
 
@@ -155,7 +157,7 @@ bun run check
 
 Expected: format, lint, typecheck, tests, Knip, and docs all report success.
 
-- [ ] **Step 5: Commit the implementation**
+- [x] **Step 5: Commit the implementation**
 
 Run:
 

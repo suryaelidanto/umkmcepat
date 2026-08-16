@@ -29,11 +29,6 @@ export function AuthButton() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [boosterOpen, setBoosterOpen] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
 
   const unreadQuery = useQuery({
     queryFn: () =>
@@ -73,7 +68,7 @@ export function AuthButton() {
     };
   }, [open]);
 
-  if (!hydrated || status === "loading") {
+  if (status === "loading") {
     return (
       <>
         <Button
