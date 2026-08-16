@@ -782,7 +782,7 @@ export default function IndexRoute() {
     );
 
     expect(file?.content).toContain(
-      '<a className="inline-flex min-h-11 items-center justify-center cta-primary" href="https://wa.me/628123456789?text=Halo"',
+      '<a className="inline-flex min-h-11 min-w-11 items-center justify-center cta-primary" href="https://wa.me/628123456789?text=Halo"',
     );
     expect(file?.content).toContain("cta-primary");
   });
@@ -800,6 +800,18 @@ export default function IndexRoute() {
     );
 
     expect(file?.content).toContain("inline-flex min-h-11");
+  });
+
+  it("makes short action links wide enough for the touch target", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/katalog.tsx",
+        content:
+          '<a href="https://wa.me/628123456789" className="inline-flex min-h-11 items-center text-sm">{site.primaryCta}</a>',
+      },
+    ]);
+
+    expect(file?.content).toContain("min-w-11");
   });
 
   it("adds the accepted primary action to a generated route that omitted it", () => {

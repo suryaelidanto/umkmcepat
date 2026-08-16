@@ -1087,18 +1087,24 @@ function ensureActionTouchTargets(content: string): string {
 
 function makeTouchSafeAnchor(match: string): string {
   if (/min-h-11/.test(match) && /inline-flex|flex/.test(match)) {
-    return match;
+    if (/min-w-11/.test(match)) {
+      return match;
+    }
+    return match.replace(
+      /className=["']([^"']*)["']/,
+      (_classMatch, classes: string) => `className="min-w-11 ${classes}"`,
+    );
   }
   if (/className=["'][^"']*["']/.test(match)) {
     return match.replace(
       /className=["']([^"']*)["']/,
       (_classMatch, classes: string) =>
-        `className="inline-flex min-h-11 items-center justify-center ${classes}"`,
+        `className="inline-flex min-h-11 min-w-11 items-center justify-center ${classes}"`,
     );
   }
   return match.replace(
     "<a",
-    '<a className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground"',
+    '<a className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground"',
   );
 }
 
