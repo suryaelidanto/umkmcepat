@@ -139,6 +139,49 @@ describe("project site schema", () => {
     expect(schema.usp?.length).toBeGreaterThan(0);
   });
 
+  it("truncates an overlong offer at a word boundary with a visible ellipsis, never mid-word", () => {
+    // Reproduced live: a real build's offer text was hard-sliced to a fixed
+    // character count, landing mid-word and mid-clause with no closing
+    // punctuation ("...seblak ceker bakso sosis " with nothing after it) —
+    // reads as broken copy, not shortened copy, to the owner reviewing it.
+    const longOffer =
+      "Seblak Ceker sih yang paling laku sekarang, seblak ada 3 menu saat ini: seblak ceker Rp10.000, seblak ceker bakso sosis Rp15.000, seblak sultan Rp20.000 lengkap dengan kerupuk dan isian lengkap";
+    const schema = createProjectSiteSchemaFromBrief({
+      version: 1,
+      prompt: "Saya jualan seblak namanya Seblak Surya",
+      businessName: "Seblak Surya",
+      businessType: "fnb",
+      offer: longOffer,
+      targetCustomer: "Mahasiswa dan anak sekolah",
+      contactOrCta: "Chat WhatsApp ke 08123456789",
+      stylePreference: "Pedas dan menggugah selera",
+      notes: [],
+      productOrService: null,
+      contact: null,
+      tagline: null,
+      usp: null,
+      priceRange: null,
+      visuals: null,
+      hours: null,
+      address: null,
+      deliveryArea: null,
+      since: null,
+      testimonials: null,
+      certifications: null,
+      paymentMethods: null,
+      socialLinks: null,
+      currentPromo: null,
+      secondaryCta: null,
+      readyForBuild: false,
+    } as ProjectBrief);
+
+    expect(schema.offer.length).toBeLessThanOrEqual(120);
+    expect(schema.offer.endsWith("…")).toBe(true);
+    const truncatedBody = schema.offer.slice(0, -1);
+    const nextChar = longOffer[truncatedBody.length];
+    expect(nextChar === undefined || nextChar === " ").toBe(true);
+  });
+
   it("turns option labels with parenthetical descriptions into natural site copy", () => {
     const schema = createProjectSiteSchemaFromBrief({
       version: 1,

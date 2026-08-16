@@ -82,7 +82,20 @@ function cleanText(value: unknown, fallback: string, maxLength = MAX_TEXT) {
   }
 
   const text = value.trim().replace(/\s+/g, " ");
-  return text ? text.slice(0, maxLength) : fallback;
+  if (!text) {
+    return fallback;
+  }
+  if (text.length <= maxLength) {
+    return text;
+  }
+  // A hard slice can land mid-word with no signal it was cut — reads as
+  // broken copy, not shortened copy. Reproduced live: a real build's offer
+  // text silently trailed off mid-clause ("...seblak ceker bakso sosis "
+  // with no closing punctuation).
+  const truncated = text.slice(0, maxLength - 1);
+  const lastSpace = truncated.lastIndexOf(" ");
+  const wordSafe = lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated;
+  return `${wordSafe}…`;
 }
 
 function cleanHex(value: unknown, fallback: string) {
