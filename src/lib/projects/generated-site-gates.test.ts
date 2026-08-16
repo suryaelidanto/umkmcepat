@@ -309,6 +309,22 @@ describe("reference-calibrated generated site source gates", () => {
       '<div className="bg-foreground text-foreground">A</div>',
       "uncompiled-theme-utility",
     ],
+    // text-foreground is calibrated for the page's light background, not for
+    // bg-accent/bg-primary — compileShadcnTheme derives those independently
+    // and they are often a different-luminance hue. Reproduced live: a real
+    // build's CTA button paired bg-accent with bare text-foreground at
+    // 2.68:1, needing 4.5. Only *-foreground (accent-foreground/primary-
+    // foreground) is contrast-guaranteed there.
+    [
+      "uses a light-surface foreground token as text on its own bg-accent element",
+      '<a className="bg-accent text-foreground">A</a>',
+      "uncompiled-theme-utility",
+    ],
+    [
+      "uses a light-surface foreground token as text on its own bg-primary element",
+      '<a className="bg-primary text-muted-foreground">A</a>',
+      "uncompiled-theme-utility",
+    ],
     [
       "uses a thick colored side stripe",
       '<li className="border-l-2 border-accent">A</li>',
@@ -623,6 +639,30 @@ describe("normalizeBatchedSiteAnchors", () => {
     expect(file?.content).toContain("text-background/75");
     expect(file?.content).not.toContain("text-foreground/75");
     expect(file?.content).toContain('<p className="text-background">Info</p>');
+  });
+
+  // Reproduced live: a real build's CTA button paired bg-accent with bare
+  // text-foreground at 2.68:1, needing 4.5 — text-foreground is calibrated
+  // for the page's light background, not for bg-accent/bg-primary, which
+  // compileShadcnTheme derives independently. Heals to each element's own
+  // -foreground pairing (text-accent-foreground / text-primary-foreground),
+  // not a single hardcoded token, even though both resolve to the same
+  // colour today (primary reuses accent's value).
+  it("heals a light-surface text colour on its own bg-accent or bg-primary element", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/index.tsx",
+        content:
+          '<a className="bg-accent px-6 text-foreground">Chat</a><a className="bg-primary px-6 text-muted-foreground/80">Lihat</a>',
+      },
+    ]);
+
+    expect(file?.content).toContain(
+      '<a className="bg-accent px-6 text-accent-foreground">Chat</a>',
+    );
+    expect(file?.content).toContain(
+      '<a className="bg-primary px-6 text-primary-foreground/80">Lihat</a>',
+    );
   });
 
   // Reproduced live: a real writer response correctly emitted text-background

@@ -152,6 +152,59 @@ function healContrastSurfaceText(content: string): string {
   );
 }
 
+/**
+ * text-foreground and the other light-surface tokens are calibrated for the
+ * page's background/muted/card/popover surfaces, not for bg-accent or
+ * bg-primary — compileShadcnTheme derives those independently and they are
+ * often a different-luminance hue. compileShadcnTheme guarantees only
+ * accent-foreground/primary-foreground are readable there. Reproduced live:
+ * a real build's CTA button paired bg-accent with bare text-foreground at
+ * 2.68:1, needing 4.5.
+ */
+function accentSurfaceSpans(
+  source: string,
+): Array<{ start: number; end: number; token: "accent" | "primary" }> {
+  return [
+    ...source.matchAll(
+      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=["'][^"']*\bbg-(accent|primary)\b[^"']*["'][^>]*>/g,
+    ),
+  ].flatMap((match) =>
+    match[1] && (match[2] === "accent" || match[2] === "primary")
+      ? [{ ...elementSpan(source, match, match[1]), token: match[2] }]
+      : [],
+  );
+}
+
+const WRONG_TEXT_ON_ACCENT_OR_PRIMARY = new RegExp(
+  `\\btext-(?:background|${LIGHT_SURFACE_TEXT_TOKEN})\\b(?!-)`,
+);
+
+function hasAccentSurfaceTextMismatch(source: string): boolean {
+  return accentSurfaceSpans(source).some(({ start, end }) =>
+    WRONG_TEXT_ON_ACCENT_OR_PRIMARY.test(source.slice(start, end)),
+  );
+}
+
+function healAccentSurfaceText(content: string): string {
+  const spans = accentSurfaceSpans(content);
+  if (!spans.length) {
+    return content;
+  }
+  const pattern = new RegExp(
+    `\\btext-(?:background|${LIGHT_SURFACE_TEXT_TOKEN})\\b(?!-)(/\\d{1,3})?`,
+    "g",
+  );
+  return content.replace(
+    pattern,
+    (match: string, opacity: string | undefined, offset: number) => {
+      const span = spans.find(
+        (candidate) => offset >= candidate.start && offset < candidate.end,
+      );
+      return span ? `text-${span.token}-foreground${opacity ?? ""}` : match;
+    },
+  );
+}
+
 export function inspectGeneratedSiteTasteSource(input: {
   source: string;
   sectionCount: number;
@@ -239,7 +292,8 @@ export function inspectGeneratedSiteTasteSource(input: {
     ) ||
     SURFACE_TOKEN_AS_TEXT.test(input.source) ||
     hasContrastSurfaceTextMismatch(input.source) ||
-    hasMisplacedBackgroundText(input.source)
+    hasMisplacedBackgroundText(input.source) ||
+    hasAccentSurfaceTextMismatch(input.source)
   ) {
     add(
       findings,
@@ -591,6 +645,7 @@ export function normalizeBatchedSiteAnchors(
         );
       }
       content = healContrastSurfaceText(content);
+      content = healAccentSurfaceText(content);
     }
     content = ensureCtaTouchTarget(content, whatsappHref);
     return { ...file, content };

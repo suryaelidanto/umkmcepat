@@ -208,6 +208,12 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     expect(prompt.system).toContain(
       'Inside SiteSection surface="contrast" or any bg-foreground element, text-foreground, text-muted-foreground, text-card-foreground, text-popover-foreground, and text-secondary-foreground are invisible too',
     );
+    // Reproduced live: a real build's CTA button paired bg-accent with bare
+    // text-foreground at 2.68:1, needing 4.5 — text-foreground is calibrated
+    // for the page's light background, not for bg-accent/bg-primary.
+    expect(prompt.system).toContain(
+      "bg-accent and bg-primary need text-accent-foreground and text-primary-foreground",
+    );
     expect(prompt.system).toContain("one deliberate signature");
     expect(prompt.system).toContain(
       "Do not repeat eyebrow or numbered-marker scaffolding",
@@ -299,6 +305,9 @@ describe("buildReferenceCalibratedCorrectionPrompt", () => {
     );
     expect(prompt.system).toContain(
       'inside surface="contrast" or any bg-foreground element, text-foreground, text-muted-foreground, text-card-foreground, text-popover-foreground, and text-secondary-foreground are invisible too',
+    );
+    expect(prompt.system).toContain(
+      "bg-accent and bg-primary need text-accent-foreground and text-primary-foreground",
     );
     expect(prompt.system).toContain("Never invent");
     expect(prompt.system).toContain("site.headline");
