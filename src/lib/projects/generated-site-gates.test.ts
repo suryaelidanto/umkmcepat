@@ -834,6 +834,24 @@ export default function IndexRoute() {
     );
   });
 
+  it("heals light text when a child resets to a background surface", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/lokasi.tsx",
+        content:
+          '<SiteSection surface="contrast"><div className="bg-background p-7"><h2 className="text-background">Lokasi</h2><p className="text-background">Alamat</p><a href="https://wa.me/628123456789" className="bg-primary text-background">Chat</a></div></SiteSection>',
+      },
+    ]);
+
+    expect(file?.content).toContain(
+      '<h2 className="text-foreground">Lokasi</h2>',
+    );
+    expect(file?.content).toContain(
+      '<p className="text-foreground">Alamat</p>',
+    );
+    expect(file?.content).toContain("bg-primary text-primary-foreground");
+  });
+
   it("replaces an empty hash primary CTA with the reviewed WhatsApp target", () => {
     const [file] = normalizeBatchedSiteAnchors(
       [

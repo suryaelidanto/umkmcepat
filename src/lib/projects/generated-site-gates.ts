@@ -242,6 +242,89 @@ function healDynamicContrastSurfaceText(content: string): string {
   return normalized;
 }
 
+const LIGHT_SURFACE_KINDS = ["background", "muted", "card", "popover"] as const;
+const STRONG_SURFACE_KINDS = ["accent", "foreground", "primary"] as const;
+type LightSurfaceKind = (typeof LIGHT_SURFACE_KINDS)[number];
+type GeneratedSurfaceKind =
+  LightSurfaceKind | (typeof STRONG_SURFACE_KINDS)[number];
+
+function isGeneratedSurfaceKind(value: string): value is GeneratedSurfaceKind {
+  return [...LIGHT_SURFACE_KINDS, ...STRONG_SURFACE_KINDS].includes(
+    value as GeneratedSurfaceKind,
+  );
+}
+
+function isLightSurfaceKind(
+  value: GeneratedSurfaceKind,
+): value is LightSurfaceKind {
+  return LIGHT_SURFACE_KINDS.includes(value as LightSurfaceKind);
+}
+
+function generatedSurfaceClassSpans(
+  source: string,
+  kinds: readonly GeneratedSurfaceKind[],
+): Array<{
+  start: number;
+  end: number;
+  kind: GeneratedSurfaceKind;
+}> {
+  const kindPattern = kinds.join("|");
+  const openingTagPatterns = [
+    new RegExp(
+      `<([A-Za-z][\\w.]*)\\b[^>]*\\bclassName=["'][^"']*\\bbg-(${kindPattern})\\b[^"']*["'][^>]*>`,
+      "g",
+    ),
+    new RegExp(
+      `<([A-Za-z][\\w.]*)\\b[^>]*\\bclassName=\\{\`[^\`]*\\bbg-(${kindPattern})\\b[^\`]*\`[^>]*>`,
+      "g",
+    ),
+  ];
+  return openingTagPatterns.flatMap((pattern) =>
+    [...source.matchAll(pattern)].flatMap((match) => {
+      const tagName = match[1];
+      const kind = match[2];
+      return tagName && kind && isGeneratedSurfaceKind(kind)
+        ? [{ ...elementSpan(source, match, tagName), kind }]
+        : [];
+    }),
+  );
+}
+
+function healNestedLightSurfaceText(content: string): string {
+  const surfaceSpans = [
+    ...generatedSurfaceClassSpans(content, LIGHT_SURFACE_KINDS),
+    ...generatedSurfaceClassSpans(content, STRONG_SURFACE_KINDS),
+  ];
+  const pattern = /\btext-background\b(?!-)(\/\d{1,3})?/g;
+  let normalized = content;
+  for (const match of [...content.matchAll(pattern)].reverse()) {
+    const offset = match.index ?? 0;
+    const nearestSurface = surfaceSpans
+      .filter((span) => offset >= span.start && offset < span.end)
+      .sort((left, right) => {
+        if (left.start !== right.start) {
+          return right.start - left.start;
+        }
+        return (
+          Number(isLightSurfaceKind(left.kind)) -
+          Number(isLightSurfaceKind(right.kind))
+        );
+      })[0];
+    if (!nearestSurface || !isLightSurfaceKind(nearestSurface.kind)) {
+      continue;
+    }
+    const textToken =
+      nearestSurface.kind === "background"
+        ? "foreground"
+        : `${nearestSurface.kind}-foreground`;
+    const replacement = `text-${textToken}${match[1] ?? ""}`;
+    const start = offset;
+    const end = start + match[0].length;
+    normalized = `${normalized.slice(0, start)}${replacement}${normalized.slice(end)}`;
+  }
+  return normalized;
+}
+
 export function inspectGeneratedSiteTasteSource(input: {
   source: string;
   sectionCount: number;
@@ -816,6 +899,7 @@ export function normalizeBatchedSiteAnchors(
       content = healContrastSurfaceText(content);
       content = healAccentSurfaceText(content);
       content = healDynamicContrastSurfaceText(content);
+      content = healNestedLightSurfaceText(content);
     }
     if (file.path === "src/routes/index.tsx") {
       content = normalizeGeneratedHomeRouteContract(content);
