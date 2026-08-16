@@ -444,6 +444,9 @@
   }
 
   .hero-aurora-orbs {
+    background: #eceae4;
+  }
+  .dark .hero-aurora-orbs {
     background: #151515;
   }
 
@@ -501,15 +504,30 @@
     margin-left: -20vmax;
     background: radial-gradient(
       circle,
-      rgba(21, 21, 21, 0.95) 0%,
+      rgba(236, 234, 228, 0.95) 0%,
       transparent 70%
     );
     animation: hero-aurora-breathe 10s ease-in-out infinite;
+  }
+  .dark .hero-aurora-orb-core {
+    background: radial-gradient(
+      circle,
+      rgba(21, 21, 21, 0.95) 0%,
+      transparent 70%
+    );
   }
 
   .hero-aurora-static-vignette {
     position: absolute;
     inset: 0;
+    background: radial-gradient(
+      circle at 50% 18%,
+      rgba(236, 234, 228, 0.72) 0%,
+      rgba(236, 234, 228, 0.38) 18%,
+      transparent 42%
+    );
+  }
+  .dark .hero-aurora-static-vignette {
     background: radial-gradient(
       circle at 50% 18%,
       rgba(10, 10, 10, 0.72) 0%,

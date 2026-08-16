@@ -115,137 +115,140 @@ const deleteProjectFn = createServerFn({ method: "POST" })
       select: { id: true, thumbnailRef: true },
     });
 
-    // Gather artifact refs and deployment ids before the DB row is deleted,
-    // then stop runtimes and delete every on-disk/R2 resource best-effort.
-    // DB cascade removes snapshots/builds/deployments; resource cleanup must
-    // run first while the refs are still queryable.
-    if (project) {
-      const [snapshots, builds, deployments, assets] = await Promise.all([
-        prisma.projectSnapshot.findMany({
-          where: { projectId },
-          select: { sourceRef: true },
-        }),
-        prisma.projectBuild.findMany({
-          where: { projectId },
-          select: { artifactRef: true },
-        }),
-        prisma.projectDeployment.findMany({
-          where: { projectId },
-          select: { id: true },
-        }),
-        prisma.projectAsset.findMany({
-          where: { projectId },
-          select: { ref: true },
-        }),
-      ]);
-      const artifactRefs = [
-        ...snapshots.map((snapshot) => snapshot.sourceRef),
-        ...builds.map((build) => build.artifactRef),
-      ].filter((ref): ref is string => Boolean(ref));
-      const assetRefs = assets
-        .map((asset) => asset.ref)
-        .filter((ref): ref is string => Boolean(ref));
-      const { cleanupProjectResources } =
-        await import("@/lib/projects/project-cleanup");
-      const { getRuntimeSupervisor } =
-        await import("@/lib/projects/runtime-supervisor");
-      await cleanupProjectResources({
-        projectId: project.id,
-        artifactRefs,
-        assetRefs,
-        deploymentIds: deployments.map((deployment) => deployment.id),
-        thumbnailRef: project.thumbnailRef,
-        supervisor: getRuntimeSupervisor(),
-      });
+    if (!project) {
+      throw new Error("Project not found");
     }
 
-    await prisma.project.deleteMany({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-      },
+    await prisma.project.delete({
+      where: { id: projectId },
     });
+    return { success: true };
   });
 
-const HERO_LEAD_WORDS = ["Bikin", "Website", "UMKM", "dalam", "5", "Menit,"];
-const HERO_ACCENT = "100% Gratis.";
-const HERO_SUBLINE_WORDS = ["Tanpa coding,", "tanpa desainer,", "tanpa ribet."];
-
-// Delays the sub-hero until the headline underline bar has finished drawing.
-const SUBLINE_DELAY = 0.09 * HERO_LEAD_WORDS.length + 0.55 + 0.08;
-
-function HeroSubline() {
-  return (
-    <span className="flex flex-wrap justify-center gap-x-[0.28em]">
-      {HERO_SUBLINE_WORDS.map((word, i) => (
-        <span
-          key={word}
-          className="hero-word"
-          style={
-            { "--word-delay": `${SUBLINE_DELAY + 0.09 * i}s` } as CSSProperties
-          }
-        >
-          {word}
-        </span>
-      ))}
-    </span>
-  );
+function getGreetingName(fullName: string | null | undefined): string {
+  if (!fullName) {
+    return "";
+  }
+  const first = fullName.trim().split(" ")[0];
+  return first ? first.slice(0, 1).toUpperCase() + first.slice(1) : "";
 }
 
 function HeroHeadline() {
   return (
     <span className="flex flex-wrap justify-center gap-x-[0.13em] gap-y-1">
-      {HERO_LEAD_WORDS.map((word, i) => (
+      <span>Bikin</span>
+      <span>Website</span>
+      <span>UMKM</span>
+      <span>dalam</span>
+      <span>5</span>
+      <span>Menit,</span>
+      <span className="font-signature relative inline-block text-[1.28em] font-normal leading-[0.78] tracking-normal">
+        100% Gratis.
         <span
-          key={word}
-          className="hero-word"
-          style={{ "--word-delay": `${0.09 * i}s` } as CSSProperties}
-        >
-          {word}
-        </span>
-      ))}
-      <span
-        className="hero-word"
-        style={
-          {
-            "--word-delay": `${0.09 * HERO_LEAD_WORDS.length}s`,
-          } as CSSProperties
-        }
-      >
-        <span className="font-signature relative inline-block text-[1.28em] font-normal leading-[0.78] tracking-normal">
-          {HERO_ACCENT}
-          <span
-            aria-hidden
-            className="hero-underline absolute inset-x-0 -bottom-1 h-[5px] origin-left rounded-full bg-emerald-400"
-            style={
-              {
-                "--underline-delay": `${0.09 * HERO_LEAD_WORDS.length + 0.55}s`,
-              } as CSSProperties
-            }
-          />
-        </span>
+          aria-hidden="true"
+          className="absolute inset-x-0 -bottom-1 h-[5px] rounded-full bg-emerald-500 dark:bg-emerald-400"
+        />
       </span>
     </span>
   );
 }
 
+function HeroSubline() {
+  return "Tanpa coding, tanpa desainer, tanpa ribet.";
+}
+
+function CaraKerjaSection() {
+  return (
+    <section
+      className="border-t border-black/10 bg-[#eceae4] px-4 py-20 text-[#1c1c1c] transition-colors duration-200 dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10"
+      id="cara-kerja"
+    >
+      <div className="mx-auto max-w-5xl">
+        <div className="text-center">
+          <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-4xl">
+            Tiga langkah mudah
+          </h2>
+          <p className="mt-3 text-base text-[#5f5f5d] dark:text-surface-warm-white/60">
+            Tanpa perlu paham koding. Ceritakan usahamu, kami yang siapkan
+            sisanya.
+          </p>
+        </div>
+
+        <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3">
+          {/* Step 1 */}
+          <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
+            <span className="font-mono text-2xl font-bold text-aurora-orange">
+              01
+            </span>
+            <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+              Ceritakan usaha
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
+              Tulis nama toko, menu atau jasa yang kamu tawarkan, serta kontak
+              WhatsApp.
+            </p>
+          </div>
+
+          {/* Step 2 */}
+          <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
+            <span className="font-mono text-2xl font-bold text-aurora-orange">
+              02
+            </span>
+            <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+              AI bikin websitenya
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
+              Dalam beberapa menit, teks penawaran, susunan menu, dan tombol
+              order langsung siap.
+            </p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
+            <span className="font-mono text-2xl font-bold text-aurora-orange">
+              03
+            </span>
+            <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+              Bagikan ke pembeli
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
+              Sebar link ke WhatsApp, bio Instagram, atau Google Maps agar
+              pembeli bisa pesan langsung.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export const Route = createFileRoute("/_main/")({
-  loader: () => loadHome(),
+  loader: async () => loadHome(),
   component: HomePage,
 });
 
 function HomePage() {
-  const { greetingName, hasUser, initialNextCursor, initialProjects } =
-    Route.useLoaderData();
+  const {
+    greetingName,
+    hasUser,
+    initialNextCursor,
+    initialProjects,
+    overProjectLimit: _overProjectLimit,
+    projectCount: _projectCount,
+    projectLimit: _projectLimit,
+  } = Route.useLoaderData();
+
+  const [promptFocused, setPromptFocused] = useState(false);
   const { status } = useSession();
+
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
     queryFn: fetchWaitlistStatus,
-    enabled: status === "authenticated",
+    enabled: hasUser && status === "authenticated",
     ...GATE_QUERY_OPTIONS,
     refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
-  const [promptFocused, setPromptFocused] = useState(false);
+
   const homeAccessState = resolveHomeAccessState({
     authStatus: status,
     hasUser,
@@ -253,12 +256,6 @@ function HomePage() {
     isApproved: waitlistQuery.data?.status === "approved",
     waitlistStatus: waitlistQuery.status,
   });
-  if (homeAccessState === "loading") {
-    return <HomeLoadingSkeleton />;
-  }
-  if (homeAccessState === "error") {
-    return <HomeAccessError onRetry={() => void waitlistQuery.refetch()} />;
-  }
 
   const waitlisted = homeAccessState === "waitlisted";
   const ownEntry = waitlistQuery.data?.own ?? null;
@@ -291,7 +288,7 @@ function HomePage() {
   }
 
   return (
-    <div className="cursor-default bg-[#151515] text-surface-warm-white">
+    <div className="cursor-default bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white">
       <ResetCursorOnMount />
       <section className="relative isolate overflow-hidden px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
         <HeroAuroraBackground />
@@ -300,7 +297,7 @@ function HomePage() {
           <HeroMotionItem className={siblingClass}>
             <h1
               id="hero-heading"
-              className={`${hasUser || waitlisted ? "hero-block-in " : ""}max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-surface-warm-white`}
+              className={`${hasUser || waitlisted ? "hero-block-in " : ""}max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-[#1c1c1c] dark:text-surface-warm-white`}
             >
               {waitlisted ? (
                 greetingName ? (
@@ -319,19 +316,19 @@ function HomePage() {
               )}
             </h1>
             {waitlisted ? (
-              <p className="mx-auto mt-spacing-4 max-w-2xl text-center text-base leading-7 text-surface-warm-white/62">
+              <p className="mx-auto mt-spacing-4 max-w-2xl text-center text-base leading-7 text-[#5f5f5d] dark:text-surface-warm-white/62">
                 Setelah disetujui, kamu bisa buat website di sini.
               </p>
             ) : null}
             {!waitlisted && !hasUser ? (
-              <p className="mx-auto mt-spacing-7 max-w-2xl text-balance text-base leading-7 text-surface-warm-white/62 sm:text-lg">
+              <p className="mx-auto mt-spacing-7 max-w-2xl text-balance text-base leading-7 text-[#5f5f5d] dark:text-surface-warm-white/62 sm:text-lg">
                 <HeroSubline />
               </p>
             ) : null}
           </HeroMotionItem>
           {waitlisted ? (
             <HeroMotionItem className="w-full">
-              <div className="mx-auto mt-spacing-6 flex max-w-3xl flex-col items-center gap-spacing-3 rounded-[20px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-6 py-spacing-4 text-center text-sm text-surface-warm-white/82">
+              <div className="mx-auto mt-spacing-6 flex max-w-3xl flex-col items-center gap-spacing-3 rounded-[20px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-6 py-spacing-4 text-center text-sm text-[#1c1c1c] dark:text-surface-warm-white/82">
                 <p>{waitlistBanner.body}</p>
                 <Button asChild size="sm">
                   <Link href="/waitlist">{waitlistBanner.cta}</Link>
@@ -351,102 +348,34 @@ function HomePage() {
 
       {!hasUser ? (
         <>
+          <CaraKerjaSection />
           <CommunitySection />
           <WhatsAppCommunityInvite variant="homepage" />
         </>
       ) : null}
 
       {hasUser && !waitlisted ? (
-        <section className="border-t border-surface-warm-white/10 bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
+        <section className="border-t border-black/10 bg-[#eceae4] px-4 pb-spacing-15 pt-spacing-12 text-[#1c1c1c] transition-colors duration-200 dark:border-white/10 dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
           <ScrollReveal>
             <div className="mx-auto max-w-6xl text-left">
               <div className="max-w-2xl">
                 <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
                   Website kamu
                 </h2>
-                <p className="mt-spacing-4 text-sm leading-6 text-surface-warm-white/62 sm:text-base">
+                <p className="mt-spacing-4 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/62 sm:text-base">
                   Lanjutkan website terakhir atau buka arsip pekerjaanmu.
                 </p>
               </div>
 
-              <div className="mt-spacing-10">
-                <ProjectList
-                  initialProjects={initialProjects}
-                  initialNextCursor={initialNextCursor}
-                  deleteProject={deleteProject}
-                />
-              </div>
+              <ProjectList
+                initialProjects={initialProjects}
+                initialNextCursor={initialNextCursor}
+                deleteProject={deleteProject}
+              />
             </div>
           </ScrollReveal>
         </section>
       ) : null}
     </div>
   );
-}
-
-function HomeLoadingSkeleton() {
-  return (
-    <div className="cursor-default bg-[#151515] text-surface-warm-white">
-      <ResetCursorOnMount />
-      <section
-        aria-busy="true"
-        aria-label="Memuat beranda"
-        className="relative isolate overflow-hidden px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10"
-        role="status"
-      >
-        <HeroAuroraBackground />
-        <div className="relative mx-auto flex max-w-4xl flex-col items-center">
-          <div className="h-24 w-full max-w-3xl animate-pulse rounded-radius-lg bg-surface-warm-white/10" />
-          <div className="mt-spacing-5 h-5 w-56 animate-pulse rounded bg-surface-warm-white/8" />
-          <div className="mt-spacing-7 h-24 w-full max-w-3xl animate-pulse rounded-[20px] border border-surface-warm-white/10 bg-surface-warm-white/[0.05]" />
-        </div>
-      </section>
-      <section
-        aria-hidden="true"
-        className="border-t border-surface-warm-white/10 bg-[#151515] px-4 pb-spacing-15 pt-spacing-12 sm:px-spacing-9 lg:px-spacing-10"
-      >
-        <div className="mx-auto max-w-6xl">
-          <div className="h-10 w-56 animate-pulse rounded bg-surface-warm-white/10" />
-          <div className="mt-spacing-4 h-5 w-80 max-w-full animate-pulse rounded bg-surface-warm-white/8" />
-          <div className="mt-spacing-10 grid gap-spacing-5 md:grid-cols-2">
-            {["one", "two"].map((key) => (
-              <div
-                className="h-52 animate-pulse rounded-radius-2xl border border-surface-warm-white/10 bg-surface-warm-white/[0.045]"
-                key={key}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function HomeAccessError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div className="cursor-default bg-[#151515] text-surface-warm-white">
-      <ResetCursorOnMount />
-      <section className="relative isolate overflow-hidden px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
-        <HeroAuroraBackground />
-        <div
-          className="relative mx-auto flex min-h-[24rem] max-w-xl flex-col items-center justify-center text-center"
-          role="alert"
-        >
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Beranda belum siap dimuat.
-          </h1>
-          <p className="mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/65">
-            Status akses belum bisa dicek. Coba lagi sebentar.
-          </p>
-          <Button className="mt-spacing-6" onClick={onRetry} type="button">
-            Coba lagi
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function getGreetingName(name?: string | null) {
-  return name?.trim().split(/\s+/)[0]?.slice(0, 32) || "";
 }

@@ -305,7 +305,7 @@ export function HomePromptForm({
             onFocusChange?.(false);
           }
         }}
-        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-2xl border border-white/10 bg-[#1c1c1a] text-left shadow-[0_24px_48px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.05] transition-all duration-300 ease-out focus-within:scale-[1.05] focus-within:border-[#2f8cff]/55 focus-within:ring-[#2f8cff]/35 focus-within:shadow-[0_0_0_1px_rgba(47,140,255,0.25),0_36px_80px_rgba(0,0,0,0.6)]"
+        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-2xl border border-black/10 bg-white text-left shadow-[0_20px_48px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.04] transition-all duration-300 ease-out focus-within:scale-[1.03] focus-within:border-aurora-orange/60 focus-within:ring-aurora-orange/30 dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-[0_24px_48px_rgba(0,0,0,0.45)] dark:ring-white/[0.05] dark:focus-within:border-[#2f8cff]/55 dark:focus-within:ring-[#2f8cff]/35"
       >
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website
@@ -319,7 +319,7 @@ export function HomePromptForm({
           placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
           maxLength={PROJECT_REQUEST_MAX_LENGTH}
           disabled={isLoading}
-          className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-surface-warm-white outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-surface-warm-white/52 disabled:opacity-70 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
+          className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-[#1c1c1c] outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-[#1c1c1c]/45 disabled:opacity-70 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/52 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
         />
         {attachments.length > 0 ? (
           <div className="px-spacing-6 pb-spacing-4">
@@ -332,12 +332,12 @@ export function HomePromptForm({
           </div>
         ) : null}
         <div className="flex items-center justify-between gap-spacing-7 px-spacing-9 pb-spacing-7">
-          <span className="text-sm tabular-nums text-surface-warm-white/58">
+          <span className="text-sm tabular-nums text-[#5f5f5d] dark:text-surface-warm-white/58">
             {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
           </span>
           <div className="flex items-center gap-spacing-5">
             {isUploading || isLoading ? (
-              <span className="hidden text-sm text-surface-warm-white/58 sm:inline">
+              <span className="hidden text-sm text-[#5f5f5d] sm:inline dark:text-surface-warm-white/58">
                 {isUploading ? "Mengunggah gambar..." : "Menyiapkan..."}
               </span>
             ) : null}
@@ -388,7 +388,7 @@ export function HomePromptForm({
                 <button
                   type="button"
                   aria-label="Lampirkan gambar"
-                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-surface-warm-white/60 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white/90"
+                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5f5f5d] transition hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white/90"
                   onClick={() => setLoginOpen(true)}
                   title="Lampirkan gambar"
                 >
