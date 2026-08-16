@@ -204,13 +204,13 @@ function RootDocument({
   nonce?: string;
 }>) {
   return (
-    <html lang="id" suppressHydrationWarning>
+    <html lang="id" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body
         suppressHydrationWarning
-        className={cn("min-h-screen bg-[#151515] font-sans antialiased")}
+        className={cn("min-h-screen font-sans antialiased")}
       >
         <script
           nonce={nonce}

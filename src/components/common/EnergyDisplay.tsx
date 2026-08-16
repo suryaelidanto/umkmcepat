@@ -53,8 +53,8 @@ export function EnergyDisplay() {
 
   if (energyQuery.isPending && !stats) {
     return (
-      <div className="flex items-center gap-2 text-xs text-surface-warm-white/50">
-        <div className="size-2 animate-pulse rounded-full bg-surface-warm-white/30" />
+      <div className="flex items-center gap-2 text-xs text-[#5f5f5d] dark:text-surface-warm-white/50">
+        <div className="size-2 animate-pulse rounded-full bg-black/20 dark:bg-surface-warm-white/30" />
         <span>Energi…</span>
       </div>
     );
@@ -90,10 +90,10 @@ export function EnergyDisplay() {
         <div
           className={`size-2 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"} ${energyQuery.isFetching ? "animate-pulse" : ""}`}
         />
-        <span className="text-xs font-medium text-surface-warm-white/78">
+        <span className="text-xs font-medium text-[#1c1c1c] dark:text-surface-warm-white/78">
           {formatNumber(stats.remaining)}
         </span>
-        <span className="hidden text-xs text-surface-warm-white/50 min-[400px]:inline">
+        <span className="hidden text-xs text-[#5f5f5d] dark:text-surface-warm-white/50 min-[400px]:inline">
           Energi
         </span>
         <button
@@ -106,7 +106,7 @@ export function EnergyDisplay() {
         </button>
       </div>
 
-      <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-surface-warm-white/12 sm:block">
+      <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-black/10 dark:bg-surface-warm-white/12 sm:block">
         <div
           className={`h-full rounded-full transition-all duration-300 ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"}`}
           style={{ width: `${percentage}%` }}

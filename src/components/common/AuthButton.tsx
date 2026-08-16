@@ -83,11 +83,11 @@ export function AuthButton() {
           disabled
           aria-busy="true"
           aria-label="Memuat akses masuk"
-          className="min-w-[4.75rem] rounded-md border border-white/14 bg-transparent px-spacing-7 text-surface-warm-white opacity-50 cursor-not-allowed hover:bg-transparent focus-visible:ring-1 focus-visible:ring-white/50"
+          className="min-w-[4.75rem] rounded-md border border-black/15 bg-transparent px-spacing-7 text-[#1c1c1c] opacity-50 cursor-not-allowed hover:bg-transparent focus-visible:ring-1 focus-visible:ring-black/50 dark:border-white/14 dark:text-surface-warm-white dark:focus-visible:ring-white/50"
         >
           <span
             aria-hidden="true"
-            className="h-3.5 w-10 animate-pulse rounded bg-surface-warm-white/35"
+            className="h-3.5 w-10 animate-pulse rounded bg-black/20 dark:bg-surface-warm-white/35"
           />
         </Button>
         <LoginConsentDialog open={loginOpen} onOpenChange={setLoginOpen} />
@@ -103,7 +103,7 @@ export function AuthButton() {
           variant="outline"
           size="sm"
           onClick={() => setLoginOpen(true)}
-          className="rounded-md border border-white/14 bg-transparent px-spacing-7 text-surface-warm-white hover:bg-white/[0.06] focus-visible:ring-1 focus-visible:ring-white/50"
+          className="rounded-md border border-black/15 bg-black/[0.04] px-spacing-7 text-[#1c1c1c] font-semibold hover:bg-black/[0.08] focus-visible:ring-1 focus-visible:ring-black/50 dark:border-white/14 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-white/[0.06] dark:focus-visible:ring-white/50"
         >
           Masuk
         </Button>
