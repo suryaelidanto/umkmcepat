@@ -150,4 +150,26 @@ describe("compileShadcnTheme", () => {
     ).toBe("#c2410c");
     expect(build().css).toBe(first.css);
   });
+
+  // Reproduced live: a real build's writer used text-accent for an eyebrow
+  // label ("Pilihan menu"). resolveReadableSurface only validated accent as
+  // a background (admits readable black or white text on it) — this exact
+  // accent read at 2.15:1 as bare text against the page's own background,
+  // well under the 4.5 the browser gate required for that label.
+  it("keeps accent readable as bare text against the page background", () => {
+    const result = compileShadcnTheme(
+      schema({
+        background: "#f7f3ec",
+        foreground: "#3d2b1f",
+        muted: "#e5ddd2",
+        accent: "#d4a017",
+      }),
+    );
+    const accent = /--accent:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
+    const background = /--background:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
+    expect(accent).toBeDefined();
+    expect(background).toBeDefined();
+    expect(contrastRatio(accent!, background!)).toBeGreaterThanOrEqual(4.5);
+    expect(result.checks.every((check) => check.pass)).toBe(true);
+  });
 });

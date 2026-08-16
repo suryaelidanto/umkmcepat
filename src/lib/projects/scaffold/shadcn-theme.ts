@@ -33,7 +33,11 @@ export function compileShadcnTheme(
   );
   const foreground = readable(schema.theme.foreground, background, 4.5);
   const muted = readableSurface(schema.theme.muted, foreground, background);
-  const accent = resolveReadableSurface(validHex(schema.theme.accent), 4.5);
+  const accent = resolveReadableSurface(
+    validHex(schema.theme.accent),
+    4.5,
+    background,
+  );
   const border = mix(foreground, "transparent", 12);
   const input = mix(foreground, "transparent", 20);
   const card = background;
@@ -57,6 +61,7 @@ export function compileShadcnTheme(
     contrastCheck("muted-foreground", mutedForeground, muted, 4.5),
     contrastCheck("primary-foreground", primaryForeground, primary, 4.5),
     contrastCheck("accent-foreground", accentForeground, accent, 4.5),
+    contrastCheck("accent-as-text", accent, background, 4.5),
     contrastCheck(
       "destructive-foreground",
       destructiveForeground,
@@ -226,18 +231,34 @@ function readable(
  * text at the same time. The compiler owns semantic colors, so it keeps the
  * chosen hue and moves it the smallest deterministic step that admits readable
  * text — rather than failing an attempt over a legitimate brand colour.
+ *
+ * against, when given, adds a second constraint: the surface must also read
+ * as text against that colour, not just admit black/white text on itself.
+ * accent doubles as bare text (an accent-coloured eyebrow label) as well as
+ * a button background, and those are different constraints — a saturated
+ * mid-tone hue can easily admit black text on itself while still being too
+ * close in luminance to a light page background to serve as text on it.
+ * Reproduced live: a real theme's accent read at 2.15:1 as text against its
+ * own background, well under the 4.5 a real eyebrow label needed.
  */
-function resolveReadableSurface(surface: string, minimum: number): string {
-  if (admitsReadableText(surface, minimum)) {
+function resolveReadableSurface(
+  surface: string,
+  minimum: number,
+  against?: string,
+): string {
+  const admits = (candidate: string) =>
+    admitsReadableText(candidate, minimum) &&
+    (!against || contrastRatio(candidate, against) >= minimum);
+  if (admits(surface)) {
     return surface;
   }
   for (let percent = 1; percent < 100; percent += 1) {
     const darker = blendHex(surface, "#000000", percent);
-    if (admitsReadableText(darker, minimum)) {
+    if (admits(darker)) {
       return darker;
     }
     const lighter = blendHex(surface, "#ffffff", percent);
-    if (admitsReadableText(lighter, minimum)) {
+    if (admits(lighter)) {
       return lighter;
     }
   }
