@@ -220,7 +220,7 @@ describe("MobileMenuContent", () => {
 
   it("renders named sections: Tampilan, Aksi", () => {
     const markup = renderMenu();
-    expect(markup).toContain(">Tampilan<");
+    expect(markup).toContain(">Navigasi Tampilan<");
     expect(markup).toContain(">Aksi<");
   });
 

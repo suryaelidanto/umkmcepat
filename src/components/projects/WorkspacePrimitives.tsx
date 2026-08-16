@@ -409,7 +409,7 @@ export function MobileMenuContent({
     <div className="flex flex-col gap-spacing-5 text-[#1c1c1c] dark:text-surface-warm-white">
       <section className="flex flex-col gap-spacing-2">
         <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
-          Tampilan
+          Navigasi Tampilan
         </span>
         <div
           role="tablist"
@@ -436,19 +436,6 @@ export function MobileMenuContent({
             <Code2 className="size-4" />
             <span>Kode</span>
           </button>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-spacing-2">
-        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
-          Akun & Energi
-        </span>
-        <div className="flex items-center justify-between rounded-xl border border-black/10 bg-black/5 p-2 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
-          <EnergyDisplay />
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <AuthButton />
-          </div>
         </div>
       </section>
 
@@ -514,6 +501,19 @@ export function MobileMenuContent({
               variant="row"
             />
           ) : null}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-spacing-2 pt-2 border-t border-black/10 dark:border-surface-warm-white/10">
+        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
+          Akun & Tema
+        </span>
+        <div className="flex items-center justify-between rounded-xl px-1">
+          <EnergyDisplay />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <AuthButton />
+          </div>
         </div>
       </section>
     </div>

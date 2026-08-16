@@ -3992,12 +3992,27 @@ export function WorkspaceShell({
         className="sticky bottom-0 z-20 flex flex-col gap-1 border-t border-black/10 bg-[#eceae4] px-3 py-1.5 pb-[calc(env(safe-area-inset-bottom)+0.375rem)] dark:border-surface-warm-white/10 dark:bg-[#1b1b19] lg:hidden"
       >
         {projectTitle ? (
-          <span
-            className="mx-auto max-w-[280px] truncate text-[11px] font-medium text-[#5f5f5d] dark:text-surface-warm-white/50"
-            title={projectTitle}
-          >
-            {projectTitle}
-          </span>
+          <div className="mx-auto flex max-w-[280px] items-center justify-center gap-1.5">
+            <span
+              className="truncate text-[11px] font-medium text-[#5f5f5d] dark:text-surface-warm-white/50"
+              title={projectTitle}
+            >
+              {projectTitle}
+            </span>
+            {!readOnly ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftTitle(projectTitle);
+                  setIsRenaming(true);
+                }}
+                className="text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:text-surface-warm-white"
+                aria-label="Ubah nama website"
+              >
+                <Pencil className="size-3" />
+              </button>
+            ) : null}
+          </div>
         ) : null}
         <div className="flex w-full items-center justify-between gap-1.5">
           <a
