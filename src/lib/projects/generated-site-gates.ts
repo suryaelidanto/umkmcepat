@@ -125,7 +125,12 @@ export function inspectGeneratedSiteTasteSource(input: {
       "Generated route uses h-screen instead of a mobile-stable min-h-dvh layout.",
     );
   }
-  if (/[—–]/.test(input.source)) {
+  // A spaced dash ("word — word") is the AI phrasing tic this exists to
+  // catch. A tight dash directly between two tokens is the ordinary
+  // typographic range separator ({hour.open}–{hour.close} renders as
+  // "08.00–21.00"), not an AI tell — reproduced live: a real build's
+  // legitimate time-range copy was rejected by the unconditional check.
+  if (/\s[—–]|[—–]\s/.test(input.source)) {
     add(
       findings,
       "language",

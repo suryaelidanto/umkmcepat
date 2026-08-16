@@ -330,6 +330,20 @@ describe("reference-calibrated generated site source gates", () => {
     ).toEqual([]);
   });
 
+  // Reproduced live: {hour.open}–{hour.close} renders as a compact time
+  // range like "08.00–21.00". The llm-dash-tell check exists to catch the
+  // AI phrasing tic of a spaced dash as a sentence-level aside ("word — word"),
+  // not a tight en dash used as a numeric/day range separator — a normal,
+  // non-AI-specific typographic convention.
+  it("accepts an en dash used as a compact range separator", () => {
+    expect(
+      inspectGeneratedSiteTasteSource({
+        source: "<p>{hour.open}–{hour.close}</p>",
+        sectionCount: 3,
+      }),
+    ).toEqual([]);
+  });
+
   // Reproduced live: a real build's writer correctly emitted text-background
   // inside SiteSection surface="contrast" (which compiles to bg-foreground
   // text-background) and the source gate rejected it anyway, because the
