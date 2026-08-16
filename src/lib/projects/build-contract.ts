@@ -16,6 +16,7 @@ import {
   SocialLinkValue,
   TestimonialValue,
 } from "./brief-rich-fields";
+import { parseVisitorJobs } from "./visitor-jobs";
 
 export const FACT_KINDS = [
   "offer",
@@ -224,5 +225,16 @@ export function parseBuildContract(input: unknown): ContractParseResult {
     }
   }
 
-  return { ok: true, value: input as unknown as BuildContractV1 };
+  const visitorJobs = parseVisitorJobs(input.visitorJobs);
+  if (!visitorJobs.ok) {
+    return { ok: false, reason: visitorJobs.reason };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...input,
+      visitorJobs: visitorJobs.value,
+    } as unknown as BuildContractV1,
+  };
 }

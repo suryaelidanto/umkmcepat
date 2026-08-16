@@ -100,6 +100,19 @@ describe("parseBuildContract", () => {
     ai.facts[0]!.provenance.reviewItemId = null;
     expect(parseBuildContract(ai).ok).toBe(false);
   });
+
+  it("rejects malformed visitor jobs at the contract boundary", () => {
+    const bad = baseContract();
+    bad.visitorJobs = [
+      { id: "order", goal: "Pesan sate", priority: "primary" },
+      { id: "order", goal: "Cari lokasi", priority: "secondary" },
+    ];
+
+    expect(parseBuildContract(bad)).toEqual({
+      ok: false,
+      reason: "duplicate visitor job id: order",
+    });
+  });
 });
 
 describe("parseBuildPlan", () => {

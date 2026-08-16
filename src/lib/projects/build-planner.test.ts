@@ -80,6 +80,111 @@ describe("buildContractFromBrief", () => {
     ).toBe(true);
   });
 
+  it("preserves explicit visitor jobs and derives one route per distinct job", () => {
+    const multi = brief();
+    multi.visitorJobs = [
+      {
+        id: "primary",
+        goal: "Memahami menu dan memesan",
+        priority: "primary",
+      },
+      {
+        id: "browse-menu",
+        goal: "Membandingkan menu",
+        priority: "secondary",
+      },
+    ];
+
+    const result = buildContractFromBrief(multi, deps(), "turn-multi");
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(result.value.visitorJobs).toEqual(multi.visitorJobs);
+    const plan = buildPlanFromContract(result.value);
+    expect(plan.pages.map((page) => page.path)).toEqual(["/", "/katalog"]);
+    expect(plan.pages[0]?.visitorJobIds).toEqual(["primary"]);
+    expect(plan.pages[1]?.visitorJobIds).toEqual(["browse-menu"]);
+    expect(plan.navigation).toEqual([
+      { fromPageId: "home", toPageId: "browse-menu", label: "Katalog" },
+    ]);
+  });
+
+  it("does not split a single visitor job because its goal mentions a catalog", () => {
+    const single = brief();
+    single.visitorJobs = [
+      {
+        id: "primary",
+        goal: "Melihat katalog menu dan memesan",
+        priority: "primary",
+      },
+    ];
+
+    const result = buildContractFromBrief(single, deps(), "turn-single");
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(buildPlanFromContract(result.value).pages).toHaveLength(1);
+  });
+
+  it("rejects malformed explicit visitor jobs before creating a handoff", () => {
+    const invalid = brief();
+    Object.assign(invalid, {
+      visitorJobs: [
+        {
+          id: "primary",
+          goal: "Memahami menu",
+          priority: "primary",
+        },
+        {
+          id: "primary",
+          goal: "Menemukan lokasi",
+          priority: "secondary",
+        },
+      ],
+    });
+
+    const result = buildContractFromBrief(invalid, deps(), "turn-invalid");
+    expect(result).toEqual({
+      ok: false,
+      reason: "duplicate visitor job id: primary",
+    });
+  });
+
+  it("keeps secondary routes unique when two jobs share the same intent", () => {
+    const multi = brief();
+    multi.visitorJobs = [
+      {
+        id: "primary",
+        goal: "Memahami menu",
+        priority: "primary",
+      },
+      {
+        id: "browse-one",
+        goal: "Membandingkan menu pertama",
+        priority: "secondary",
+      },
+      {
+        id: "browse-two",
+        goal: "Membandingkan menu kedua",
+        priority: "secondary",
+      },
+    ];
+
+    const result = buildContractFromBrief(multi, deps(), "turn-collision");
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(
+      buildPlanFromContract(result.value).pages.map((page) => page.path),
+    ).toEqual(["/", "/katalog", "/katalog-2"]);
+  });
+
   it("fails without a concrete business name or offer", () => {
     const b = brief();
     b.businessName = "";

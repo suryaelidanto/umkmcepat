@@ -17,6 +17,7 @@ import {
 import { parseBuildPlan } from "./build-plan";
 import { hashCanonicalBrief, parseCanonicalBrief } from "./canonical-brief";
 import { deriveReviewItems } from "./review-items";
+import { parseVisitorJobs, type VisitorJob } from "./visitor-jobs";
 
 import type { ProjectBrief } from "./brief";
 import type { ContactValue } from "./brief-rich-fields";
@@ -47,6 +48,23 @@ export function buildContractFromBrief(
   }
   if (!brief.productOrService?.length) {
     return { ok: false, reason: "at least one offer required" };
+  }
+
+  const explicitVisitorJobs = brief.visitorJobs ?? [];
+  const parsedVisitorJobs = explicitVisitorJobs.length
+    ? parseVisitorJobs(explicitVisitorJobs)
+    : {
+        ok: true as const,
+        value: [
+          {
+            id: "primary-job",
+            goal: "Memahami dan membeli/memakai layanan",
+            priority: "primary" as const,
+          },
+        ],
+      };
+  if (!parsedVisitorJobs.ok) {
+    return { ok: false, reason: parsedVisitorJobs.reason };
   }
 
   const facts: ContractFactV1[] = [];
@@ -139,13 +157,7 @@ export function buildContractFromBrief(
       state: "answered",
       sourceTurnId: "",
     })),
-    visitorJobs: [
-      {
-        id: "primary-job",
-        goal: "Memahami dan membeli/memakai layanan",
-        priority: "primary",
-      },
-    ],
+    visitorJobs: parsedVisitorJobs.value,
     ctaIntents,
     hardRequirements: [],
     prohibitedClaims: [],
@@ -207,13 +219,24 @@ function buildCtaIntents(brief: ProjectBrief): BuildContractV1["ctaIntents"] {
   return [{ id: "cta-primary", kind: "browse", label: "Lihat" }];
 }
 
-/** Deterministic single-page plan derived from the contract. contract-v1
- * starts with a safe landing topology; the page-plan model call (deferred)
- * can expand pages later. The platform still owns topology correctness. */
+/** Deterministic route plan derived only from accepted visitor jobs. */
 export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
   const factIds = contract.facts.map((f) => f.id);
-  const hasCatalog = contract.visitorJobs.some((j) =>
-    /catalog|katalog|menu|list/i.test(j.goal),
+  const parsedVisitorJobs = parseVisitorJobs(contract.visitorJobs);
+  if (!parsedVisitorJobs.ok) {
+    throw new Error(parsedVisitorJobs.reason);
+  }
+  const primaryJob = parsedVisitorJobs.value.find(
+    (job) => job.priority === "primary",
+  );
+  if (!primaryJob) {
+    throw new Error("visitor jobs require exactly one primary job");
+  }
+  const secondaryJobs = parsedVisitorJobs.value.filter(
+    (job) => job.priority === "secondary",
+  );
+  const ctaFactIds = factIds.filter((id) =>
+    contract.ctaIntents.some((cta) => cta.targetFactId === id),
   );
   const pages: BuildPlanV1["pages"] = [
     {
@@ -221,10 +244,8 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
       path: "/",
       title: contract.identity.businessName || "Beranda",
       purpose: "Landing and primary conversion",
-      visitorJobIds: contract.visitorJobs.map((j) => j.id),
-      requiredFactIds: factIds.filter((id) =>
-        contract.ctaIntents.some((c) => c.targetFactId === id),
-      ),
+      visitorJobIds: [primaryJob.id],
+      requiredFactIds: ctaFactIds,
       sections: [
         {
           id: "hero",
@@ -237,24 +258,34 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
     },
   ];
 
-  if (hasCatalog && contract.visitorJobs.length) {
-    pages.push({
-      id: "katalog",
-      path: "/katalog",
-      title: "Katalog",
-      purpose: "Browse offers",
-      visitorJobIds: [],
-      requiredFactIds: [],
-      sections: [
-        {
-          id: "catalog",
-          purpose: "Offer listing",
-          surfaceIntent: "contained",
-          requiredFactIds: [],
-          requiredAssetIds: [],
-        },
-      ],
+  const usedPaths = new Set(pages.map((page) => page.path));
+  for (const [index, job] of secondaryJobs.entries()) {
+    const page = deriveSecondaryPage({
+      factIds,
+      job,
+      usedPaths,
+      index,
     });
+    usedPaths.add(page.path);
+    pages.push(page);
+  }
+
+  const hasCatalog = pages.some((page) =>
+    page.sections.some((section) => section.id === "catalog"),
+  );
+  const capabilities = new Set<BuildPlanV1["capabilities"][number]>([
+    "static_content",
+    "whatsapp_cta",
+  ]);
+  if (hasCatalog) {
+    capabilities.add("catalog");
+  }
+  if (
+    pages.some((page) =>
+      page.sections.some((section) => section.id === "operations"),
+    )
+  ) {
+    capabilities.add("location");
   }
 
   const plan: BuildPlanV1 = {
@@ -262,7 +293,7 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
     revision: 1,
     contractHash: contract.contentHash,
     contentHash: "",
-    appKind: hasCatalog ? "marketing_site" : "landing",
+    appKind: pages.length > 1 ? "marketing_site" : "landing",
     archetype: contract.identity.businessType || "generic",
     pages,
     navigation: pages.slice(1).map((p) => ({
@@ -270,7 +301,7 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
       toPageId: p.id,
       label: p.title,
     })),
-    capabilities: ["static_content", "whatsapp_cta"],
+    capabilities: [...capabilities],
     artDirection: {
       businessSpecificReference: contract.identity.businessName,
       antiReferences: [],
@@ -279,6 +310,133 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
     },
   };
   return { ...plan, contentHash: hashBuildPlan(plan) };
+}
+
+function deriveSecondaryPage(input: {
+  factIds: string[];
+  index: number;
+  job: VisitorJob;
+  usedPaths: ReadonlySet<string>;
+}): BuildPlanV1["pages"][number] {
+  const text = `${input.job.id} ${input.job.goal}`.toLowerCase();
+  if (/catalog|katalog|menu|produk|pilih|banding/.test(text)) {
+    return createJobPage(input, {
+      path: uniquePath("/katalog", input.usedPaths),
+      title: "Katalog",
+      purpose: "Browse offers",
+      section: {
+        id: "catalog",
+        purpose: "Offer listing",
+        requiredFactIds: existingFactIds(input.factIds, ["offer-primary"]),
+      },
+    });
+  }
+  if (/lokasi|alamat|datang|tempat|jam|area|local/.test(text)) {
+    return createJobPage(input, {
+      path: uniquePath("/lokasi", input.usedPaths),
+      title: "Lokasi dan jam",
+      purpose: "Find the business location and operating details",
+      section: {
+        id: "operations",
+        purpose: "Location and operating details",
+        requiredFactIds: existingFactIds(input.factIds, [
+          "address-primary",
+          "hours-primary",
+          "service-area-primary",
+        ]),
+      },
+    });
+  }
+  if (/pesan|order|beli|booking|hubung|tanya|konsult/.test(text)) {
+    return createJobPage(input, {
+      path: uniquePath("/pesan", input.usedPaths),
+      title: "Cara pesan",
+      purpose: "Understand how to contact and order",
+      section: {
+        id: "contact",
+        purpose: "Contact and order action",
+        requiredFactIds: existingFactIds(input.factIds, [
+          "offer-primary",
+          "contact-primary",
+        ]),
+      },
+    });
+  }
+
+  const fallback = slugifyRouteSegment(input.job.id || input.job.goal);
+  return createJobPage(input, {
+    path: uniquePath(
+      `/${fallback || `tujuan-${input.index + 1}`}`,
+      input.usedPaths,
+    ),
+    title: input.job.goal,
+    purpose: "Additional customer information",
+    section: {
+      id: `job-${input.job.id}`,
+      purpose: input.job.goal,
+      requiredFactIds: [],
+    },
+  });
+}
+
+function createJobPage(
+  input: {
+    job: VisitorJob;
+  },
+  page: {
+    path: string;
+    purpose: string;
+    section: {
+      id: string;
+      purpose: string;
+      requiredFactIds: string[];
+    };
+    title: string;
+  },
+): BuildPlanV1["pages"][number] {
+  return {
+    id: input.job.id === "home" ? "visitor-home" : input.job.id,
+    path: page.path,
+    title: page.title,
+    purpose: page.purpose,
+    visitorJobIds: [input.job.id],
+    requiredFactIds: page.section.requiredFactIds,
+    sections: [
+      {
+        id: page.section.id,
+        purpose: page.section.purpose,
+        surfaceIntent: "contained",
+        requiredFactIds: page.section.requiredFactIds,
+        requiredAssetIds: [],
+      },
+    ],
+  };
+}
+
+function existingFactIds(allFactIds: string[], requested: string[]): string[] {
+  const known = new Set(allFactIds);
+  return requested.filter((id) => known.has(id));
+}
+
+function uniquePath(base: string, usedPaths: ReadonlySet<string>): string {
+  if (!usedPaths.has(base)) {
+    return base;
+  }
+  for (let suffix = 2; suffix <= 3; suffix += 1) {
+    const candidate = `${base}-${suffix}`;
+    if (!usedPaths.has(candidate)) {
+      return candidate;
+    }
+  }
+  throw new Error("visitor job route limit exceeded");
+}
+
+function slugifyRouteSegment(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
 }
 
 export type PrepareHandoffResult =
