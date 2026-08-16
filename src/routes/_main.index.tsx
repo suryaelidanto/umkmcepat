@@ -355,7 +355,7 @@ function HomePage() {
       ) : null}
 
       {hasUser && !waitlisted ? (
-        <section className="border-t border-black/10 bg-[#eceae4] px-4 pb-spacing-15 pt-spacing-12 text-[#1c1c1c] transition-colors duration-200 dark:border-white/10 dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
+        <section className="bg-[#eceae4] px-4 pb-spacing-15 pt-spacing-12 text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
           <ScrollReveal>
             <div className="mx-auto max-w-6xl text-left">
               <div className="max-w-2xl">

@@ -82,7 +82,9 @@ export function WorkspaceHistoryButton({
       >
         <History
           className={
-            isRow ? "size-4 shrink-0 text-surface-warm-white/64" : "size-4"
+            isRow
+              ? "size-4 shrink-0 text-[#5f5f5d] dark:text-surface-warm-white/64"
+              : "size-4"
           }
         />
         <span className={isRow ? "flex-1 text-left" : "hidden sm:inline"}>

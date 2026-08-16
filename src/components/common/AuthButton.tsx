@@ -12,11 +12,14 @@ import {
 import { useEffect, useId, useRef, useState } from "react";
 
 import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { EnergyBoosterModal } from "@/components/payment/EnergyBoosterModal";
 import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
+import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { signOut, useSession } from "@/lib/auth-client";
 import { mask } from "@/lib/mask";
 import { usePathname } from "@/lib/navigation";
@@ -141,70 +144,132 @@ export function AuthButton() {
       </button>
 
       {open ? (
-        <div
-          id={menuId}
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-48 overflow-hidden rounded-lg border border-black/10 bg-[#fcfbf8] p-1 text-[#1c1c1c] shadow-xl transition-colors duration-200 dark:border-white/10 dark:bg-[#191918] dark:text-surface-warm-white"
-        >
-          <Link
-            href="/profile"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
+        <>
+          {/* Desktop dropdown */}
+          <div
+            id={menuId}
+            className="hidden sm:block absolute right-0 top-[calc(100%+0.5rem)] z-50 w-48 overflow-hidden rounded-lg border border-black/10 bg-[#fcfbf8] p-1 text-[#1c1c1c] shadow-xl transition-colors duration-200 dark:border-white/10 dark:bg-[#191918] dark:text-surface-warm-white"
           >
-            <UserRound className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
-            Profil
-          </Link>
-          {session.user.admin === true ? (
             <Link
-              href="/admin"
+              href="/profile"
               onClick={() => setOpen(false)}
               className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
             >
-              <Shield className="size-4 text-[#1c1c1c] dark:text-surface-warm-white" />
-              Admin
+              <UserRound className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+              Profil
             </Link>
-          ) : null}
-          {isBlockedPage ? null : (
+            {session.user.admin === true ? (
+              <Link
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
+              >
+                <Shield className="size-4 text-[#1c1c1c] dark:text-surface-warm-white" />
+                Admin
+              </Link>
+            ) : null}
+            {isBlockedPage ? null : (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setBoosterOpen(true);
+                }}
+                className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06] text-aurora-orange"
+              >
+                <Zap className="size-4 fill-aurora-orange/10 text-aurora-orange" />
+                <span>Tambah Energi</span>
+              </button>
+            )}
+            {!isBlockedPage ? (
+              <Link
+                href="/support"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
+              >
+                <div className="flex items-center gap-spacing-3">
+                  <LifeBuoy className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+                  <span>Dukungan</span>
+                </div>
+                {unreadCount > 0 ? (
+                  <span className="flex size-5 items-center justify-center rounded-full bg-aurora-orange text-[10px] font-bold text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                ) : null}
+              </Link>
+            ) : null}
             <button
               type="button"
               onClick={() => {
                 setOpen(false);
-                setBoosterOpen(true);
+                void signOut({ callbackUrl: "/" });
               }}
-              className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06] text-aurora-orange"
+              className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm text-[#5f5f5d] outline-none transition hover:bg-black/5 hover:text-aurora-rose focus-visible:bg-black/5 dark:text-surface-warm-white/62 dark:hover:bg-white/[0.06] dark:hover:text-aurora-rose dark:focus-visible:bg-white/[0.06]"
             >
-              <Zap className="size-4 fill-aurora-orange/10 text-aurora-orange" />
-              <span>Tambah Energi</span>
+              <LogOut className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+              Keluar
             </button>
-          )}
-          {!isBlockedPage ? (
-            <Link
-              href="/support"
-              onClick={() => setOpen(false)}
-              className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
-            >
-              <div className="flex items-center gap-spacing-3">
-                <LifeBuoy className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
-                <span>Dukungan</span>
+          </div>
+
+          {/* Mobile bottom sheet */}
+          <MobileSheet open={open} onOpenChange={setOpen}>
+            <div className="flex flex-col gap-4 text-[#1c1c1c] dark:text-surface-warm-white">
+              <div className="flex items-center justify-between rounded-xl border border-black/10 bg-black/5 p-3 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
+                <EnergyDisplay />
+                <ThemeToggle />
               </div>
-              {unreadCount > 0 ? (
-                <span className="flex size-5 items-center justify-center rounded-full bg-aurora-orange text-[10px] font-bold text-white">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              ) : null}
-            </Link>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              void signOut({ callbackUrl: "/" });
-            }}
-            className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm text-[#5f5f5d] outline-none transition hover:bg-black/5 hover:text-aurora-rose focus-visible:bg-black/5 dark:text-surface-warm-white/62 dark:hover:bg-white/[0.06] dark:hover:text-aurora-rose dark:focus-visible:bg-white/[0.06]"
-          >
-            <LogOut className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
-            Keluar
-          </button>
-        </div>
+
+              <div className="flex flex-col gap-1 divide-y divide-black/5 dark:divide-surface-warm-white/5">
+                <Link
+                  href="/profile"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
+                >
+                  <UserRound className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+                  Profil
+                </Link>
+                {session.user.admin === true ? (
+                  <Link
+                    href="/admin"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
+                  >
+                    <Shield className="size-4 text-[#1c1c1c] dark:text-surface-warm-white" />
+                    Admin
+                  </Link>
+                ) : null}
+                {!isBlockedPage ? (
+                  <Link
+                    href="/support"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center justify-between px-3 py-3 text-sm font-medium"
+                  >
+                    <div className="flex items-center gap-3">
+                      <LifeBuoy className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+                      <span>Dukungan</span>
+                    </div>
+                    {unreadCount > 0 ? (
+                      <span className="flex size-5 items-center justify-center rounded-full bg-aurora-orange text-[10px] font-bold text-white">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    ) : null}
+                  </Link>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    void signOut({ callbackUrl: "/" });
+                  }}
+                  className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium text-aurora-rose"
+                >
+                  <LogOut className="size-4 text-aurora-rose" />
+                  Keluar
+                </button>
+              </div>
+            </div>
+          </MobileSheet>
+        </>
       ) : null}
 
       <EnergyBoosterModal open={boosterOpen} onOpenChange={setBoosterOpen} />

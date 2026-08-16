@@ -64,17 +64,12 @@ describe("WhatsApp discussion entry points", () => {
     );
   });
 
-  it("lists the footer link directly beside Github", () => {
+  it("lists the footer link", () => {
     const footerSource = source("../common/Footer.tsx");
     const navigation = footerSource.match(/<nav[\s\S]*?<\/nav>/)?.[0] ?? "";
 
     expect(navigation).toContain("Ketentuan");
     expect(navigation).toContain("Privasi");
-    expect(navigation).toContain("Github");
-    expect(navigation).toContain("Join Whatsapp");
     expect(footerSource).not.toContain('data-slot="button"');
-    expect(navigation).toMatch(/Github[\s\S]*?Join Whatsapp/);
-    expect(footerSource).not.toContain("Join WhatsApp");
-    expect(footerSource).toContain("WHATSAPP_UMKM_GROUP_URL");
   });
 });

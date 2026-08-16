@@ -9,6 +9,7 @@ import {
   ArrowUp,
   Check,
   Globe2,
+  Menu,
   MessageCircle,
   PanelRightClose,
   PanelRightOpen,
@@ -59,6 +60,13 @@ import {
   type WorkspaceRuntimeControl,
 } from "@/components/projects/WorkspacePrimitives";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Link } from "@/components/ui/link";
 import {
   ResizableHandle,
@@ -279,6 +287,7 @@ export function WorkspaceShell({
   const [message, setMessage] = useState("");
   const [projectTitle, setProjectTitle] = useState(initialTitle);
   const [isRenaming, setIsRenaming] = useState(false);
+  const [mobileRenameOpen, setMobileRenameOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState(initialTitle);
   const [buildStatus, setBuildStatus] = useState(initialStatus);
   const hasInitialPreview = ["passed", "ready", "succeeded"].includes(
@@ -3153,12 +3162,12 @@ export function WorkspaceShell({
         <div className="min-w-0 flex-1">
           <Link
             href="/"
-            className="inline-flex items-center gap-spacing-2 text-xs text-[#5f5f5d] transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"
+            className="hidden items-center gap-spacing-2 text-xs text-[#5f5f5d] transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white sm:inline-flex"
           >
             <ArrowLeft className="size-3.5" />
             Dashboard
           </Link>
-          <div className="mt-spacing-3 flex items-center gap-spacing-2">
+          <div className="hidden sm:flex mt-spacing-3 items-center gap-spacing-2">
             {isRenaming ? (
               <input
                 value={draftTitle}
@@ -3988,34 +3997,70 @@ export function WorkspaceShell({
       ) : null}
       <nav
         aria-label="Pilih tampilan ruang kerja"
-        className="sticky bottom-0 z-20 flex h-14 shrink-0 items-center justify-between gap-1.5 border-t border-black/10 bg-[#eceae4] px-3 pb-[env(safe-area-inset-bottom)] dark:border-surface-warm-white/10 dark:bg-[#1b1b19] lg:hidden"
+        className="sticky bottom-0 z-20 flex flex-col gap-1 border-t border-black/10 bg-[#eceae4] px-3 py-1.5 pb-[calc(env(safe-area-inset-bottom)+0.375rem)] dark:border-surface-warm-white/10 dark:bg-[#1b1b19] lg:hidden"
       >
-        <a
-          href="/"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-black/10 text-[#5f5f5d] transition-colors hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8"
-          title="Kembali ke Dashboard"
-          aria-label="Kembali ke Dashboard"
-        >
-          <ArrowLeft className="size-4" />
-        </a>
-        <div className="flex flex-1 items-center gap-1.5 rounded-xl border border-black/10 bg-black/5 p-1 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
+        {projectTitle ? (
+          <div className="mx-auto flex max-w-[280px] items-center justify-center gap-1.5">
+            <span
+              className="truncate text-[11px] font-medium text-[#5f5f5d] dark:text-surface-warm-white/50"
+              title={projectTitle}
+            >
+              {projectTitle}
+            </span>
+            {!readOnly ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftTitle(projectTitle);
+                  setMobileRenameOpen(true);
+                }}
+                className="flex size-5 items-center justify-center rounded-full text-[#5f5f5d] transition-colors hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:bg-white/10 dark:hover:text-surface-warm-white"
+                aria-label="Ubah nama website"
+              >
+                <Pencil className="size-3" />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="flex w-full items-center justify-between gap-1.5">
+          <a
+            href="/"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-black/10 text-[#5f5f5d] transition-colors hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8"
+            title="Kembali ke Dashboard"
+            aria-label="Kembali ke Dashboard"
+          >
+            <ArrowLeft className="size-4" />
+          </a>
+          <div className="flex flex-1 items-center gap-1.5 rounded-xl border border-black/10 bg-black/5 p-1 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
+            <button
+              type="button"
+              aria-pressed={mobileSurface === "chat"}
+              onClick={openChatPanel}
+              className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70 cursor-pointer"
+            >
+              <MessageCircle className="size-3.5 shrink-0" />
+              <span className="truncate">Diskusi</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={mobileSurface === "preview"}
+              onClick={openPreviewPanel}
+              className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70 cursor-pointer"
+            >
+              <Globe2 className="size-3.5 shrink-0" />
+              <span className="truncate">Tampilan</span>
+            </button>
+          </div>
           <button
             type="button"
-            aria-pressed={mobileSurface === "chat"}
-            onClick={openChatPanel}
-            className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70"
+            aria-label="Buka menu proyek"
+            onClick={() => {
+              const el = document.getElementById("mobile-workspace-menu-btn");
+              el?.click();
+            }}
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-black/10 text-[#5f5f5d] transition-colors hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 cursor-pointer"
           >
-            <MessageCircle className="size-3.5 shrink-0" />
-            <span className="truncate">Diskusi</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={mobileSurface === "preview"}
-            onClick={openPreviewPanel}
-            className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70"
-          >
-            <Globe2 className="size-3.5 shrink-0" />
-            <span className="truncate">Tampilan</span>
+            <Menu className="size-4" />
           </button>
         </div>
       </nav>
@@ -4086,6 +4131,51 @@ export function WorkspaceShell({
           onSend={() => void sendVisualAnnotations()}
         />
       ) : null}
+      {/* Mobile Rename Modal */}
+      <Dialog open={mobileRenameOpen} onOpenChange={setMobileRenameOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ubah nama website</DialogTitle>
+            <DialogDescription>
+              Beri nama yang mudah dikenali untuk website usahamu.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <input
+              type="text"
+              value={draftTitle}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void saveProjectTitle();
+                  setMobileRenameOpen(false);
+                }
+              }}
+              className="h-11 w-full rounded-xl border border-black/15 bg-black/[0.02] px-3.5 text-sm font-semibold text-[#1c1c1c] outline-none focus:border-black/40 dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+              placeholder="Nama website..."
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setMobileRenameOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  void saveProjectTitle();
+                  setMobileRenameOpen(false);
+                }}
+              >
+                Simpan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

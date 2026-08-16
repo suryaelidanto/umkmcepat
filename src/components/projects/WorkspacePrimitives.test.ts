@@ -218,10 +218,9 @@ describe("MobileMenuContent", () => {
       ),
     );
 
-  it("renders three named sections: Tampilan, Tampilan perangkat, Aksi", () => {
+  it("renders named sections: Tampilan, Aksi", () => {
     const markup = renderMenu();
-    expect(markup).toContain(">Tampilan<");
-    expect(markup).toContain(">Tampilan perangkat<");
+    expect(markup).toContain(">Navigasi Tampilan<");
     expect(markup).toContain(">Aksi<");
   });
 
@@ -232,11 +231,6 @@ describe("MobileMenuContent", () => {
     expect(markup).toMatch(
       /role="tab"[^>]*aria-selected="false"[^>]*>[\s\S]*?Kode</,
     );
-  });
-
-  it("hides the Tampilan perangkat section when activeTab is code", () => {
-    const markup = renderMenu({ activeTab: "code" });
-    expect(markup).not.toContain(">Tampilan perangkat<");
   });
 
   it("hides the Ubah row when directEditFlagEnabled is false", () => {

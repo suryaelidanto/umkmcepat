@@ -355,7 +355,7 @@ export function HomePromptForm({
             onFocusChange?.(false);
           }
         }}
-        className="mx-auto mt-spacing-12 w-full max-w-3xl overflow-visible rounded-2xl border border-black/10 bg-white text-left shadow-[0_20px_48px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.04] transition-all duration-300 ease-out focus-within:scale-[1.03] focus-within:border-aurora-orange/60 focus-within:ring-aurora-orange/30 dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-[0_24px_48px_rgba(0,0,0,0.45)] dark:ring-white/[0.05] dark:focus-within:border-[#2f8cff]/55 dark:focus-within:ring-[#2f8cff]/35"
+        className="mx-auto mt-6 sm:mt-10 w-full max-w-3xl overflow-visible rounded-2xl border border-black/10 bg-white text-left shadow-[0_20px_48px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.04] transition-all duration-300 ease-out focus-within:scale-[1.02] focus-within:border-aurora-orange/60 focus-within:ring-aurora-orange/30 dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-[0_24px_48px_rgba(0,0,0,0.45)] dark:ring-white/[0.05] dark:focus-within:border-[#2f8cff]/55 dark:focus-within:ring-[#2f8cff]/35"
       >
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website
@@ -369,10 +369,10 @@ export function HomePromptForm({
           placeholder={placeholder ? `Contoh: ${placeholder}` : ""}
           maxLength={PROJECT_REQUEST_MAX_LENGTH}
           disabled={isLoading}
-          className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-[#1c1c1c] outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-[#1c1c1c]/45 disabled:opacity-70 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/52 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
+          className="h-28 w-full resize-none break-words bg-transparent px-4 pb-3 pt-4 text-sm leading-6 text-[#1c1c1c] outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-[#1c1c1c]/45 disabled:opacity-70 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/52 [-ms-overflow-style:none] sm:h-36 sm:px-spacing-9 sm:pb-spacing-7 sm:pt-spacing-9 sm:text-lg sm:leading-7 [&::-webkit-scrollbar]:hidden"
         />
         {attachments.length > 0 ? (
-          <div className="px-spacing-6 pb-spacing-4">
+          <div className="px-4 pb-3 sm:px-spacing-6 sm:pb-spacing-4">
             <ComposerAttachments
               attachments={attachments}
               onRemove={(id) =>
@@ -381,11 +381,11 @@ export function HomePromptForm({
             />
           </div>
         ) : null}
-        <div className="flex items-center justify-between gap-spacing-7 px-spacing-9 pb-spacing-7">
-          <span className="text-sm tabular-nums text-[#5f5f5d] dark:text-surface-warm-white/58">
+        <div className="flex items-center justify-between gap-3 px-4 pb-4 pt-1 sm:gap-spacing-7 sm:px-spacing-9 sm:pb-spacing-7 sm:pt-0">
+          <span className="text-xs sm:text-sm tabular-nums text-[#5f5f5d] dark:text-surface-warm-white/58">
             {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
           </span>
-          <div className="flex items-center gap-spacing-5">
+          <div className="flex items-center gap-3 sm:gap-spacing-5">
             {isUploading || isLoading ? (
               <span className="hidden text-sm text-[#5f5f5d] sm:inline dark:text-surface-warm-white/58">
                 {isUploading ? "Mengunggah gambar..." : "Menyiapkan..."}
@@ -451,12 +451,12 @@ export function HomePromptForm({
               size="icon"
               disabled={isLoading || isUploading || !prompt.trim()}
               aria-label="Buat website"
-              className="size-11 rounded-full bg-[#1c1c1c] text-white shadow-sm transition hover:bg-black hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 disabled:hover:scale-100 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30"
+              className="size-9 sm:size-11 rounded-full bg-[#1c1c1c] text-white shadow-sm transition hover:bg-black hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 disabled:hover:scale-100 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30"
             >
               {isLoading ? (
-                <Loader2 className="size-5 animate-spin" />
+                <Loader2 className="size-4 sm:size-5 animate-spin" />
               ) : (
-                <ArrowUp className="size-5" />
+                <ArrowUp className="size-4 sm:size-5" />
               )}
             </Button>
           </div>
