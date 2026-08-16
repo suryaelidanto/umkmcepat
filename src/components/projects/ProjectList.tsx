@@ -247,8 +247,17 @@ function ProjectCard({
   onDelete: (project: Project) => void;
 }) {
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-[#fcfbf8] shadow-sm transition-all duration-300 hover:border-black/20 hover:shadow-md dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.045] dark:shadow-none dark:hover:border-surface-warm-white/20 dark:hover:bg-surface-warm-white/[0.06]">
-      <ProjectPreviewThumb project={project} className="h-36 sm:h-44" />
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-[#fcfbf8] shadow-sm transition-all duration-300 hover:border-black/25 hover:shadow-md dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.045] dark:shadow-none dark:hover:border-surface-warm-white/25 dark:hover:bg-surface-warm-white/[0.06]">
+      <Link
+        href={`/projects/${project.id}`}
+        className="block overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-black/50 dark:focus-visible:ring-surface-warm-white"
+        aria-label={`Buka website ${project.title}`}
+      >
+        <ProjectPreviewThumb
+          project={project}
+          className="h-36 transition-transform duration-300 group-hover:scale-[1.02] sm:h-44"
+        />
+      </Link>
       <div className="flex flex-1 flex-col p-4 sm:p-5">
         <div className="flex items-start justify-between gap-2">
           <h3 className="line-clamp-1 text-base font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
@@ -280,7 +289,7 @@ function ProjectCard({
             variant="ghost"
             size="sm"
             onClick={() => onDelete(project)}
-            className="h-8 px-2 text-xs text-[#5f5f5d] hover:bg-red-500/10 hover:text-red-600 dark:text-surface-warm-white/60 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+            className="h-8 rounded-lg bg-red-500/10 px-2.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/20 hover:text-red-700 dark:bg-red-500/15 dark:text-red-400 dark:hover:bg-red-500/25"
           >
             Hapus
           </Button>

@@ -381,11 +381,11 @@ export function HomePromptForm({
             />
           </div>
         ) : null}
-        <div className="flex items-center justify-between gap-3 px-4 pb-3 sm:gap-spacing-7 sm:px-spacing-9 sm:pb-spacing-7">
+        <div className="flex items-center justify-between gap-3 px-4 pb-4 pt-1 sm:gap-spacing-7 sm:px-spacing-9 sm:pb-spacing-7 sm:pt-0">
           <span className="text-xs sm:text-sm tabular-nums text-[#5f5f5d] dark:text-surface-warm-white/58">
             {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
           </span>
-          <div className="flex items-center gap-spacing-5">
+          <div className="flex items-center gap-3 sm:gap-spacing-5">
             {isUploading || isLoading ? (
               <span className="hidden text-sm text-[#5f5f5d] sm:inline dark:text-surface-warm-white/58">
                 {isUploading ? "Mengunggah gambar..." : "Menyiapkan..."}
@@ -451,12 +451,12 @@ export function HomePromptForm({
               size="icon"
               disabled={isLoading || isUploading || !prompt.trim()}
               aria-label="Buat website"
-              className="size-11 rounded-full bg-[#1c1c1c] text-white shadow-sm transition hover:bg-black hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 disabled:hover:scale-100 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30"
+              className="size-9 sm:size-11 rounded-full bg-[#1c1c1c] text-white shadow-sm transition hover:bg-black hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 disabled:hover:scale-100 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30"
             >
               {isLoading ? (
-                <Loader2 className="size-5 animate-spin" />
+                <Loader2 className="size-4 sm:size-5 animate-spin" />
               ) : (
-                <ArrowUp className="size-5" />
+                <ArrowUp className="size-4 sm:size-5" />
               )}
             </Button>
           </div>
