@@ -2,12 +2,13 @@ import { useId } from "react";
 
 import { cn } from "@/lib/utils";
 
-const FIELD_LABEL_CLASSES = "text-xs font-semibold text-surface-warm-white/80";
+const FIELD_LABEL_CLASSES =
+  "text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80";
 const FIELD_REQUIRED_ICON = <span className="text-aurora-rose"> *</span>;
 const FIELD_INPUT_BASE =
-  "w-full rounded-radius-md border bg-transparent px-spacing-4 text-sm text-surface-warm-white outline-none transition placeholder:text-surface-warm-white/30 disabled:opacity-50";
+  "w-full rounded-radius-md border bg-transparent px-spacing-4 text-sm text-[#1c1c1c] outline-none transition placeholder:text-black/30 disabled:opacity-50 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30";
 const FIELD_INPUT_VALID =
-  "border-surface-warm-white/10 focus:border-aurora-orange/50 focus:ring-1 focus:ring-aurora-orange";
+  "border-black/15 focus:border-aurora-orange/50 focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10";
 const FIELD_INPUT_INVALID =
   "border-aurora-rose/60 focus:border-aurora-rose focus:ring-1 focus:ring-aurora-rose";
 const FIELD_ERROR_CLASSES = "mt-spacing-1 text-xs text-aurora-rose";
@@ -54,7 +55,9 @@ export function FormField({
         },
       })}
       {hint && !invalid ? (
-        <span className="text-xs text-surface-warm-white/50">{hint}</span>
+        <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/50">
+          {hint}
+        </span>
       ) : null}
       {invalid ? <span className={FIELD_ERROR_CLASSES}>{error}</span> : null}
     </div>
@@ -79,15 +82,13 @@ export const chipClass = ({
   invalid,
 }: {
   active: boolean;
-  invalid: boolean;
+  invalid?: boolean;
 }) =>
   cn(
-    "rounded-full border px-spacing-4 py-spacing-2 text-sm transition",
+    "rounded-radius-md border px-spacing-3 py-spacing-2 text-xs font-semibold transition",
     active
-      ? invalid
-        ? "border-aurora-rose/60 bg-aurora-rose/15 text-aurora-rose"
-        : "border-aurora-orange bg-aurora-orange/15 text-aurora-orange"
+      ? "border-aurora-orange/40 bg-aurora-orange/15 text-aurora-orange"
       : invalid
-        ? "border-aurora-rose/40 text-surface-warm-white/70 hover:border-aurora-rose/70 hover:text-surface-warm-white"
-        : "border-surface-warm-white/10 text-surface-warm-white/70 hover:border-surface-warm-white/30 hover:text-surface-warm-white",
+        ? "border-aurora-rose/60 text-aurora-rose hover:border-aurora-rose"
+        : "border-black/15 bg-black/[0.04] text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/10 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-surface-warm-white/5",
   );

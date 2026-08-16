@@ -475,9 +475,9 @@ function WaitlistPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-stretch px-spacing-4 pb-24 pt-spacing-8 text-surface-warm-white sm:px-spacing-8">
+    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-stretch px-spacing-4 pb-24 pt-spacing-8 text-[#1c1c1c] dark:text-surface-warm-white sm:px-spacing-8">
       <header className="flex flex-col items-center gap-spacing-3 pb-spacing-6 text-center">
-        <h1 className="text-heading-xl font-semibold tracking-tight">
+        <h1 className="text-heading-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
           Daftar Tunggu
         </h1>
       </header>
@@ -604,7 +604,7 @@ function WaitlistPage() {
             <button
               type="button"
               onClick={() => setStep((s) => Math.max(1, s - 1))}
-              className="flex items-center gap-spacing-2 text-sm text-surface-warm-white/60 transition hover:text-surface-warm-white"
+              className="flex items-center gap-spacing-2 text-sm text-[#5f5f5d] transition hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
             >
               <ArrowLeft className="size-4" />
               Kembali
@@ -697,7 +697,7 @@ function WaitlistPage() {
             <div className="flex flex-col-reverse gap-spacing-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                className="rounded-radius-lg px-spacing-7 py-spacing-3 text-sm text-surface-warm-white/70 transition hover:bg-white/[0.06] hover:text-surface-warm-white"
+                className="rounded-radius-lg px-spacing-7 py-spacing-3 text-sm text-[#5f5f5d] transition hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/70 dark:hover:bg-white/[0.06] dark:hover:text-surface-warm-white"
                 onClick={() => setConfirmOpen(false)}
                 disabled={submit.isPending}
               >
@@ -781,19 +781,21 @@ function ProgressBar({ currentStep }: { currentStep: number }) {
                     ? "bg-aurora-orange text-[#151515]"
                     : isDone
                       ? "bg-aurora-orange/20 text-aurora-orange"
-                      : "bg-surface-warm-white/10 text-surface-warm-white/60"
+                      : "bg-black/10 text-[#5f5f5d] dark:bg-surface-warm-white/10 dark:text-surface-warm-white/60"
                 }`}
               >
                 {isDone ? <Check className="size-4" /> : stepNumber}
               </div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-surface-warm-white/60">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5f5f5d] dark:text-surface-warm-white/60">
                 {label}
               </span>
             </div>
             {index < steps.length - 1 ? (
               <div
                 className={`mb-4 h-px w-10 transition ${
-                  isDone ? "bg-aurora-orange/40" : "bg-surface-warm-white/10"
+                  isDone
+                    ? "bg-aurora-orange/40"
+                    : "bg-black/10 dark:bg-surface-warm-white/10"
                 }`}
               />
             ) : null}
@@ -1062,11 +1064,11 @@ function Step({
 }) {
   return (
     <div className="flex flex-col">
-      <h2 className="text-center text-heading-lg font-semibold tracking-tight text-surface-warm-white">
+      <h2 className="text-center text-heading-lg font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
         {question}
         {required ? <span className="text-aurora-rose"> *</span> : null}
       </h2>
-      <p className="mt-spacing-2 text-center text-sm text-surface-warm-white/60">
+      <p className="mt-spacing-2 text-center text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
         {helper}
       </p>
       <div className="mt-spacing-8">{children}</div>
