@@ -48,8 +48,8 @@ describe("AuthButton", () => {
 
     const markup = renderAuthButton();
 
-    expect(markup).toMatch(/<button[^>]*>Masuk<\/button>/);
-    expect(markup).not.toMatch(/<button[^>]*\sdisabled(?:=|>)/);
+    expect(markup).toMatch(/<a[^>]*href="#login"[^>]*>Masuk<\/a>/);
+    expect(markup).not.toMatch(/<a[^>]*\saria-disabled(?:=|>)/);
     expect(markup).not.toContain('aria-busy="true"');
   });
 });

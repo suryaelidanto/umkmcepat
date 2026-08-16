@@ -6,7 +6,7 @@
 
 **Status:** Implemented and verified with `bun run check`.
 
-**Architecture:** Keep the existing `AuthButton` session state and GitHub contributor query independent. Only when `useSession().status` is `loading`, render the existing `Button` as a disabled, fixed-width control with an accessible Indonesian loading label and an aria-hidden pulsing skeleton; render resolved signed-out and signed-in branches immediately.
+**Architecture:** Keep the existing `AuthButton` session state and GitHub contributor query independent. Only when `useSession().status` is `loading`, render the existing `Button` as a disabled, fixed-width control with an accessible Indonesian loading label and an aria-hidden pulsing skeleton. Render the resolved signed-out branch immediately as a native `#login` anchor fallback, then open the existing dialog after hydration or on a hydrated click; leave the signed-in branch unchanged.
 
 **Tech Stack:** React 19, TanStack Query, `react-dom/server` SSR tests, Vitest, Tailwind utility classes, Bun.
 
@@ -14,6 +14,8 @@
 
 - User-facing copy remains Indonesian.
 - The auth-loading control remains a real disabled button with `aria-busy="true"`; it must not become a fake link or page overlay.
+- The resolved signed-out control uses a same-page native anchor only as a
+  progressive-enhancement fallback; it is not a new navigation destination.
 - GitHub contributor loading must not be added as a login prerequisite.
 - Reuse existing UMKM Cepat dark-header tokens, button component, spacing, and motion conventions.
 - No `any`, `as any`, `ts-ignore`, or new dependency.
@@ -99,7 +101,8 @@ visible `Masuk` text and does not contain the requested skeleton width/class.
 - Consumes: `status === "loading"` from `useSession()`.
 - Produces: a disabled `Button` while auth is loading, with
   `aria-busy`, `aria-label="Memuat akses masuk"`, stable `min-w-[4.75rem]`, and
-  an aria-hidden pulsing skeleton span.
+  an aria-hidden pulsing skeleton span; a native `#login` anchor when the
+  resolved signed-out branch is rendered.
 
 - [x] **Step 1: Keep the loading branch scoped to unresolved auth**
 
@@ -122,10 +125,12 @@ Use the existing button and dark-header styling, changing its contents to:
 </Button>
 ```
 
-Keep the existing `LoginConsentDialog` render and leave the authenticated and
-resolved unauthenticated branches unchanged. Use only
-`if (status === "loading")` for this loading branch; do not add a separate
-hydration gate.
+Keep the existing `LoginConsentDialog` render and leave the authenticated branch
+unchanged. Use only `if (status === "loading")` for the loading branch; do not
+add a separate hydration gate. Render the resolved signed-out control with
+`Button asChild` and an anchor to `#login`. Prevent its default navigation once
+hydrated to open the dialog, and consume an initial `#login` hash in a mount
+effect so pre-hydration clicks are replayed.
 
 - [x] **Step 2: Run the focused regression test**
 

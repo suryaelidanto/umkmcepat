@@ -19,23 +19,25 @@ that preserves the normal `Masuk` dimensions and uses a compact skeleton label
 with a subtle loading indicator. The control will keep `aria-busy="true"`, an
 Indonesian accessible label such as `Memuat akses masuk`, and disabled pointer
 and keyboard behavior. When the server or client has already resolved the
-session, the existing signed-out `Masuk` button or signed-in account control
-renders immediately; no hydration flag or contributor request gates it.
+session, the signed-out `Masuk` control renders immediately as a native
+`#login` anchor fallback and becomes the existing modal-opening control once
+hydrated. The signed-in account control remains unchanged; no hydration flag or
+contributor request gates it.
 
 This keeps the header stable, explains why clicking is unavailable, and avoids
 making login depend on the unrelated contributor API request.
 
 ## Scope and behavior
 
-- Change only the public `AuthButton` loading branch and its focused tests.
+- Change only the public `AuthButton` loading/signed-out branches and their
+  focused tests.
 - Reuse the existing button component, spacing, border, and dark header
   treatment; do not introduce a new visual language or page overlay.
 - Use a fixed-width skeleton treatment so the header does not shift when the
   text changes from loading to `Masuk`.
 - Do not add a client hydration wait to the resolved signed-out branch. The
-  server-rendered button may still be non-interactive until React attaches its
-  handler, which is inherent to a client-side `onClick` control and is separate
-  from auth or contributor loading.
+  server-rendered anchor remains natively clickable before React attaches its
+  handler, which is separate from auth or contributor loading.
 - Respect reduced motion by relying on the existing pulse utility behavior and
   ensuring the loading state remains understandable without animation.
 - Do not change session fetching, contributor fetching, login dialog behavior,
@@ -43,13 +45,17 @@ making login depend on the unrelated contributor API request.
 
 ## Accessibility and failure behavior
 
-- The control remains a real disabled button, not a fake link.
+- The auth-loading control remains a real disabled button, not a fake link.
+- The resolved signed-out control is a same-page native anchor so a click is not
+  lost before React hydration. Once hydrated, its click handler prevents the
+  hash navigation and opens `LoginConsentDialog`; a pre-hydration `#login` hash
+  is consumed on mount and opens the same dialog.
 - `aria-busy` and an explicit accessible label communicate the state to assistive
   technology.
 - The loading state has sufficient contrast against the dark header and keeps a
   stable hit area for layout consistency.
 - If session loading fails and resolves to unauthenticated, the normal `Masuk`
-  button appears as soon as that auth state is available; no contributor
+  control appears as soon as that auth state is available; no contributor
   request can block it.
 
 ## Verification
