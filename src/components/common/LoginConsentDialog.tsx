@@ -1,5 +1,6 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 
 import { LegalDocumentContent } from "@/components/legal/LegalDocumentContent";
@@ -52,6 +53,8 @@ export function LoginConsentDialog({
   title?: string;
   turnstileSiteKey?: string;
 }) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
   const [activeLegalDocument, setActiveLegalDocument] = useState<
     "privacy" | "terms" | null
   >(null);
@@ -113,7 +116,7 @@ export function LoginConsentDialog({
         "expired-callback": () => setTurnstileToken(""),
         sitekey: turnstileSiteKey,
         size: "normal",
-        theme: "dark",
+        theme: isDark ? "dark" : "light",
         "timeout-callback": () => setTurnstileToken(""),
       });
 
@@ -194,18 +197,18 @@ export function LoginConsentDialog({
         ) : null}
 
         <div className="space-y-spacing-4">
-          <label className="flex gap-spacing-4 rounded-radius-xl border border-surface-warm-white/10 bg-surface-warm-white/[0.055] p-spacing-5 text-sm leading-6 text-surface-warm-white/78 transition hover:bg-surface-warm-white/[0.075]">
+          <label className="flex gap-spacing-4 rounded-radius-xl border border-black/10 bg-black/[0.03] p-spacing-5 text-sm leading-6 text-[#1c1c1c] transition hover:bg-black/[0.05] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.055] dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/[0.075]">
             <input
               type="checkbox"
               checked={agrees}
               onChange={(event) => setAgrees(event.target.checked)}
-              className="mt-1 size-4 accent-surface-warm-white"
+              className="mt-1 size-4 accent-[#1c1c1c] dark:accent-surface-warm-white"
             />
             <span>
               Saya setuju dengan{" "}
               <button
                 type="button"
-                className="font-medium underline underline-offset-4 hover:text-surface-warm-white"
+                className="font-medium underline underline-offset-4 hover:text-black dark:hover:text-surface-warm-white"
                 onClick={(event) => {
                   event.preventDefault();
                   setActiveLegalDocument("terms");
@@ -216,7 +219,7 @@ export function LoginConsentDialog({
               dan{" "}
               <button
                 type="button"
-                className="font-medium underline underline-offset-4 hover:text-surface-warm-white"
+                className="font-medium underline underline-offset-4 hover:text-black dark:hover:text-surface-warm-white"
                 onClick={(event) => {
                   event.preventDefault();
                   setActiveLegalDocument("privacy");
@@ -230,16 +233,16 @@ export function LoginConsentDialog({
         </div>
 
         {activeLegalDocument ? (
-          <div className="max-h-[42vh] overflow-y-auto rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/[0.045] p-spacing-6">
+          <div className="max-h-[42vh] overflow-y-auto rounded-radius-lg border border-black/10 bg-black/[0.02] p-spacing-6 text-[#1c1c1c] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.045] dark:text-surface-warm-white">
             <LegalDocumentContent compact documentKey={activeLegalDocument} />
           </div>
         ) : null}
 
-        {error ? <p className="text-sm text-[#ffb4a8]">{error}</p> : null}
+        {error ? <p className="text-sm text-aurora-rose">{error}</p> : null}
 
         <Button
           type="button"
-          className="h-12 w-full gap-spacing-4 bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86"
+          className="h-12 w-full gap-spacing-4 bg-[#1c1c1c] text-white hover:bg-[#1c1c1c]/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
           disabled={!canContinue || isVerifying}
           onClick={continueWithGoogle}
         >

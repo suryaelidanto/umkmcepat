@@ -1,5 +1,6 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -378,6 +379,14 @@ export function CodeView({
   isLoading: boolean;
   onRetry: () => void;
 }) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const sortedFiles = useMemo(
     () =>
       [...files].sort((a, b) =>
@@ -540,13 +549,13 @@ export function CodeView({
             height="100%"
             language={getEditorLanguage(selectedFile?.path)}
             value={selectedFile?.content || ""}
-            theme="vs-dark"
+            theme={mounted && !isDark ? "vs" : "vs-dark"}
             loading={
               <div
                 role="status"
-                className="flex h-full min-h-0 items-center justify-center gap-spacing-3 bg-[#10100f] text-sm text-surface-warm-white/64"
+                className="flex h-full min-h-0 items-center justify-center gap-spacing-3 bg-black/5 text-sm text-[#5f5f5d] dark:bg-[#10100f] dark:text-surface-warm-white/64"
               >
-                <div className="size-5 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
+                <div className="size-5 animate-spin rounded-full border-2 border-black/10 border-t-black/60 dark:border-surface-warm-white/12 dark:border-t-surface-warm-white/82" />
                 Memuat editor kode...
               </div>
             }
