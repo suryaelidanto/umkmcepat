@@ -103,7 +103,7 @@ export function EnergyDisplay() {
           title="Top-up Energi Premium"
         >
           <PlusIcon className="size-3" />
-          <span className="hidden xs:inline">Topup</span>
+          <span>Topup</span>
         </button>
       </div>
 
