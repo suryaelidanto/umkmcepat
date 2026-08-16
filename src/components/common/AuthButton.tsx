@@ -24,6 +24,7 @@ import { fetchJson } from "@/lib/query-client";
 
 export function AuthButton() {
   const { data: session, status } = useSession();
+  const streamerMode = useStreamerMode();
   const pathname = usePathname();
   const isBlockedPage = pathname === "/blocked";
   const [loginOpen, setLoginOpen] = useState(false);
@@ -112,7 +113,6 @@ export function AuthButton() {
     );
   }
 
-  const streamerMode = useStreamerMode();
   const rawName = session.user.name ?? null;
   const displayName =
     streamerMode && rawName
