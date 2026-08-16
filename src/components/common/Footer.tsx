@@ -43,7 +43,7 @@ export function Footer() {
           </nav>
         </div>
 
-        <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
+        <p className="w-full text-center text-sm text-[#5f5f5d] dark:text-surface-warm-white/60 sm:text-left">
           © {new Date().getFullYear()} UMKM Cepat
         </p>
       </div>

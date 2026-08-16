@@ -60,6 +60,13 @@ import {
   type WorkspaceRuntimeControl,
 } from "@/components/projects/WorkspacePrimitives";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Link } from "@/components/ui/link";
 import {
   ResizableHandle,
@@ -280,6 +287,7 @@ export function WorkspaceShell({
   const [message, setMessage] = useState("");
   const [projectTitle, setProjectTitle] = useState(initialTitle);
   const [isRenaming, setIsRenaming] = useState(false);
+  const [mobileRenameOpen, setMobileRenameOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState(initialTitle);
   const [buildStatus, setBuildStatus] = useState(initialStatus);
   const hasInitialPreview = ["passed", "ready", "succeeded"].includes(
@@ -4004,9 +4012,9 @@ export function WorkspaceShell({
                 type="button"
                 onClick={() => {
                   setDraftTitle(projectTitle);
-                  setIsRenaming(true);
+                  setMobileRenameOpen(true);
                 }}
-                className="text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:text-surface-warm-white"
+                className="flex size-5 items-center justify-center rounded-full text-[#5f5f5d] transition-colors hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:bg-white/10 dark:hover:text-surface-warm-white"
                 aria-label="Ubah nama website"
               >
                 <Pencil className="size-3" />
@@ -4123,6 +4131,51 @@ export function WorkspaceShell({
           onSend={() => void sendVisualAnnotations()}
         />
       ) : null}
+      {/* Mobile Rename Modal */}
+      <Dialog open={mobileRenameOpen} onOpenChange={setMobileRenameOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ubah nama website</DialogTitle>
+            <DialogDescription>
+              Beri nama yang mudah dikenali untuk website usahamu.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <input
+              type="text"
+              value={draftTitle}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void saveProjectTitle();
+                  setMobileRenameOpen(false);
+                }
+              }}
+              className="h-11 w-full rounded-xl border border-black/15 bg-black/[0.02] px-3.5 text-sm font-semibold text-[#1c1c1c] outline-none focus:border-black/40 dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+              placeholder="Nama website..."
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setMobileRenameOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  void saveProjectTitle();
+                  setMobileRenameOpen(false);
+                }}
+              >
+                Simpan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

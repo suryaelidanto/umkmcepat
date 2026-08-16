@@ -275,12 +275,11 @@ function ProjectCard({
         <p className="mt-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/54">
           Diubah {formatDate(project.updatedAt)}
         </p>
-        <div className="mt-4 flex items-center justify-between gap-2 pt-2 border-t border-black/5 dark:border-surface-warm-white/5">
+        <div className="mt-4 grid grid-cols-2 gap-2 pt-3 border-t border-black/5 dark:border-surface-warm-white/5">
           <Button
             asChild
-            variant="outline"
             size="sm"
-            className="h-8 rounded-lg border-black/15 bg-black/[0.03] px-3 text-xs font-semibold text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/12"
+            className="h-8 w-full rounded-lg bg-[#1c1c1c] text-xs font-semibold text-white shadow-xs transition hover:bg-black active:scale-95 dark:bg-surface-warm-white dark:text-[#1c1c1c] dark:hover:bg-white"
           >
             <Link href={`/projects/${project.id}`}>Buka</Link>
           </Button>
@@ -289,7 +288,7 @@ function ProjectCard({
             variant="ghost"
             size="sm"
             onClick={() => onDelete(project)}
-            className="h-8 rounded-lg bg-red-500/10 px-2.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/20 hover:text-red-700 dark:bg-red-500/15 dark:text-red-400 dark:hover:bg-red-500/25"
+            className="h-8 w-full rounded-lg bg-red-500/10 text-xs font-semibold text-red-600 shadow-xs transition hover:bg-red-500/20 active:scale-95 dark:bg-red-500/15 dark:text-red-400 dark:hover:bg-red-500/25"
           >
             Hapus
           </Button>
@@ -330,11 +329,7 @@ function ProjectPreviewThumb({
       style={{
         background: `radial-gradient(circle at ${mark.glowX}% ${mark.glowY}%, ${mark.glowColor} 0%, transparent 60%), linear-gradient(${mark.angle}deg, ${mark.from} 0%, ${mark.to} 100%)`,
       }}
-    >
-      <div className="flex max-w-[85%] items-center justify-center rounded-xl bg-black/25 px-4 py-2 text-center font-sans text-sm font-bold tracking-tight text-white backdrop-blur-md shadow-md line-clamp-2">
-        {project.title}
-      </div>
-    </div>
+    />
   );
 }
 
