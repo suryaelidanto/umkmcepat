@@ -376,12 +376,12 @@ describe("reference-calibrated generated site source gates", () => {
 
   // Reproduced live: a bg-foreground illustration div sat near the top of a
   // surface="base" section (no contrast surface at all). Its own tag has no
-  // reliable closing marker the way </SiteSection> does for the primitive
-  // above — div nesting is arbitrary — so treating "until the next
-  // SiteSection" as its scope let the span swallow the rest of the section:
-  // a real build's product description and usp list, both well after the
-  // div's own </div>, were wrongly read as inside its scope and left with
-  // an invisible text-background.
+  // fixed marker like </SiteSection> to bound a scan by — div nesting is
+  // arbitrary — so a scan bounded by "the next SiteSection" swallowed the
+  // rest of the section: a real build's product description and usp list,
+  // both well after the div's own </div>, were wrongly read as inside its
+  // scope and left with an invisible text-background. Only the div's own
+  // true matching close is a correct bound.
   it("still flags text-background far outside a bg-foreground element's own tag", () => {
     const source =
       '<SiteSection surface="base"><div className="flex bg-foreground p-8"><svg /></div><p className="text-background">Elsewhere</p></SiteSection>';
@@ -397,6 +397,40 @@ describe("reference-calibrated generated site source gates", () => {
     ]);
     expect(file?.content).toContain(
       '<p className="text-foreground">Elsewhere</p>',
+    );
+  });
+
+  // Reproduced live: a real build's contact block correctly paired
+  // bg-foreground text-background on its own div, then a heading and
+  // paragraph *inside* it overrode with bare text-foreground — invisible
+  // against that same bg-foreground. The tag's own attribute string is not
+  // enough; descendants inside its true matching close must be scanned too.
+  it("still flags text-foreground inside a bg-foreground element's descendants", () => {
+    const source =
+      '<div className="mt-20 bg-foreground p-6 text-background"><h2 className="text-foreground">Pesan atau datang langsung.</h2></div>';
+    expect(
+      inspectGeneratedSiteTasteSource({ source, sectionCount: 3 }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "uncompiled-theme-utility" }),
+      ]),
+    );
+    const [file] = normalizeBatchedSiteAnchors([
+      { path: "src/routes/index.tsx", content: source },
+    ]);
+    expect(file?.content).toContain(
+      '<h2 className="text-background">Pesan atau datang langsung.</h2>',
+    );
+  });
+
+  it("bounds a bg-foreground element's descendant scan by its own matching close, not a sibling's", () => {
+    const source =
+      '<div className="bg-foreground p-6 text-background"><p>Inside</p></div><p className="text-foreground">Sibling</p>';
+    const [file] = normalizeBatchedSiteAnchors([
+      { path: "src/routes/index.tsx", content: source },
+    ]);
+    expect(file?.content).toContain(
+      '<p className="text-foreground">Sibling</p>',
     );
   });
 

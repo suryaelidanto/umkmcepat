@@ -43,42 +43,69 @@ const LIGHT_SURFACE_TEXT_TOKEN =
   "foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground";
 const FOREGROUND_FAMILY_TEXT_TOKEN = `text-(?:${LIGHT_SURFACE_TEXT_TOKEN})`;
 
+/**
+ * Finds tagName's real matching close by tracking open/close depth from
+ * searchFrom, so a span can be bounded correctly regardless of arbitrary
+ * nesting in between. A fixed marker ("next SiteSection", "own tag only")
+ * is either too wide (swallows unrelated later siblings once there's
+ * nothing nearer to stop at) or too narrow (misses real descendants) —
+ * both were tried and both broke on real generated output. Only true tag
+ * balance bounds a span correctly in general.
+ */
+function findMatchingClose(
+  source: string,
+  searchFrom: number,
+  tagName: string,
+): number {
+  const marker = new RegExp(`<${tagName}\\b|</${tagName}>`, "g");
+  marker.lastIndex = searchFrom;
+  let depth = 1;
+  let match: RegExpExecArray | null;
+  while (depth > 0 && (match = marker.exec(source))) {
+    if (match[0].startsWith("</")) {
+      depth -= 1;
+      if (depth === 0) {
+        return match.index;
+      }
+    } else {
+      depth += 1;
+    }
+  }
+  return source.length;
+}
+
+function elementSpan(
+  source: string,
+  match: RegExpMatchArray,
+  tagName: string,
+): { start: number; end: number } {
+  const start = match.index ?? 0;
+  const tagEnd = start + match[0].length;
+  if (/\/\s*>$/.test(match[0])) {
+    return { start, end: tagEnd };
+  }
+  return { start, end: findMatchingClose(source, tagEnd, tagName) };
+}
+
 function contrastSurfaceSpans(
   source: string,
 ): Array<{ start: number; end: number }> {
   const sectionSpans = [
     ...source.matchAll(/<SiteSection\b[^>]*\bsurface=["']contrast["'][^>]*>/g),
-  ].map((match) => {
-    const start = match.index ?? 0;
-    const searchFrom = start + match[0].length;
-    // Bounded by whichever comes first: the next section starting, or this
-    // one's own close. Without the close, a trailing contrast section with
-    // no sibling after it left the span open through the rest of the file.
-    const boundaries = [
-      source.indexOf("<SiteSection", searchFrom),
-      source.indexOf("</SiteSection>", searchFrom),
-    ].filter((index) => index !== -1);
-    const end = boundaries.length ? Math.min(...boundaries) : source.length;
-    return { start, end };
-  });
-  // A writer-hardcoded bg-foreground element has no reliable closing-tag
-  // marker to bound a descendant scan the way </SiteSection> does above —
-  // div nesting is arbitrary. Scanning to "the next SiteSection" swallowed
-  // unrelated later content when this was tried. Reproduced live: a real
-  // build's product description and usp list, both well past a small
-  // bg-foreground illustration div's own </div>, were wrongly read as
-  // inside its scope and left with an invisible text-background. So this
-  // only covers the tag's own attribute string — same-element
-  // co-occurrence, not descendants.
-  const ownTagSpans = [
+  ].map((match) => elementSpan(source, match, "SiteSection"));
+  // Reproduced live: a real build's contact block correctly paired
+  // bg-foreground text-background on its own div, then a heading and
+  // paragraph *inside* it overrode with bare text-foreground — invisible
+  // against that same bg-foreground. Descendants must be scanned, bounded
+  // by this element's own matching close (see findMatchingClose above).
+  const elementSpans = [
     ...source.matchAll(
-      /<[A-Za-z][\w.]*\b[^>]*\bclassName=["'][^"']*\bbg-foreground\b[^"']*["'][^>]*>/g,
+      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=["'][^"']*\bbg-foreground\b[^"']*["'][^>]*>/g,
     ),
-  ].map((match) => ({
-    start: match.index ?? 0,
-    end: (match.index ?? 0) + match[0].length,
-  }));
-  return [...sectionSpans, ...ownTagSpans];
+  ].flatMap((match) =>
+    match[1] ? [elementSpan(source, match, match[1])] : [],
+  );
+  return [...sectionSpans, ...elementSpans];
 }
 
 function hasContrastSurfaceTextMismatch(source: string): boolean {
