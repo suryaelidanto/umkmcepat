@@ -101,7 +101,7 @@ export function WorkspaceTopBar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
     <>
-      <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-black/10 bg-[#eceae4] px-spacing-3 py-spacing-2 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
+      <div className="hidden min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-black/10 bg-[#eceae4] px-spacing-3 py-spacing-2 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white sm:flex sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
         <div className="hidden min-w-0 items-center justify-start gap-spacing-3 sm:flex sm:w-auto">
           <button
             type="button"
@@ -436,6 +436,19 @@ export function MobileMenuContent({
             <Code2 className="size-4" />
             <span>Kode</span>
           </button>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-spacing-2">
+        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
+          Akun & Energi
+        </span>
+        <div className="flex items-center justify-between rounded-xl border border-black/10 bg-black/5 p-2 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
+          <EnergyDisplay />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <AuthButton />
+          </div>
         </div>
       </section>
 

@@ -3159,7 +3159,7 @@ export function WorkspaceShell({
             <ArrowLeft className="size-3.5" />
             Dashboard
           </Link>
-          <div className="mt-spacing-1 sm:mt-spacing-3 flex items-center gap-spacing-2">
+          <div className="hidden sm:flex mt-spacing-3 items-center gap-spacing-2">
             {isRenaming ? (
               <input
                 value={draftTitle}
