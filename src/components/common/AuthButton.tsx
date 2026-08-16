@@ -22,8 +22,6 @@ import { mask } from "@/lib/mask";
 import { usePathname } from "@/lib/navigation";
 import { fetchJson } from "@/lib/query-client";
 
-const LOGIN_HASH = "#login";
-
 export function AuthButton() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
@@ -31,18 +29,10 @@ export function AuthButton() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [boosterOpen, setBoosterOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (window.location.hash !== LOGIN_HASH) {
-      return;
-    }
-
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `${window.location.pathname}${window.location.search}`,
-    );
-    setLoginOpen(true);
+    setHydrated(true);
   }, []);
 
   const unreadQuery = useQuery({
@@ -83,7 +73,7 @@ export function AuthButton() {
     };
   }, [open]);
 
-  if (status === "loading") {
+  if (!hydrated || status === "loading") {
     return (
       <>
         <Button
@@ -109,20 +99,13 @@ export function AuthButton() {
     return (
       <>
         <Button
-          asChild
+          type="button"
           variant="outline"
           size="sm"
+          onClick={() => setLoginOpen(true)}
           className="rounded-md border border-white/14 bg-transparent px-spacing-7 text-surface-warm-white hover:bg-white/[0.06] focus-visible:ring-1 focus-visible:ring-white/50"
         >
-          <a
-            href={LOGIN_HASH}
-            onClick={(event) => {
-              event.preventDefault();
-              setLoginOpen(true);
-            }}
-          >
-            Masuk
-          </a>
+          Masuk
         </Button>
         <LoginConsentDialog open={loginOpen} onOpenChange={setLoginOpen} />
       </>

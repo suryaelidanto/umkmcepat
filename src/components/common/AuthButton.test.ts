@@ -43,13 +43,13 @@ describe("AuthButton", () => {
     expect(markup).not.toMatch(/>Masuk<\/button>/);
   });
 
-  it("renders the login control immediately when auth is resolved", () => {
+  it("keeps the login control loading before client hydration", () => {
     sessionState.status = "unauthenticated";
 
     const markup = renderAuthButton();
 
-    expect(markup).toMatch(/<a[^>]*href="#login"[^>]*>Masuk<\/a>/);
-    expect(markup).not.toMatch(/<a[^>]*\saria-disabled(?:=|>)/);
-    expect(markup).not.toContain('aria-busy="true"');
+    expect(markup).toMatch(/<button[^>]*\sdisabled(?:=|>)/);
+    expect(markup).toContain('aria-label="Memuat akses masuk"');
+    expect(markup).toContain("animate-pulse");
   });
 });
