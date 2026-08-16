@@ -215,6 +215,13 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
       "bg-accent and bg-primary need text-accent-foreground and text-primary-foreground",
     );
     expect(prompt.system).toContain("one deliberate signature");
+    // Reproduced live: a real build rendered site.trustPoints and site.usp
+    // as two adjacent sections with byte-identical items — visibly
+    // repetitive, since usp falls back to trustPoints verbatim whenever
+    // the brief has no distinct usp of its own.
+    expect(prompt.system).toContain(
+      "site.trustPoints and site.usp are often the same values — never render both",
+    );
     expect(prompt.system).toContain(
       "Do not repeat eyebrow or numbered-marker scaffolding",
     );
@@ -308,6 +315,9 @@ describe("buildReferenceCalibratedCorrectionPrompt", () => {
     );
     expect(prompt.system).toContain(
       "bg-accent and bg-primary need text-accent-foreground and text-primary-foreground",
+    );
+    expect(prompt.system).toContain(
+      "site.trustPoints and site.usp are often the same values — never render both",
     );
     expect(prompt.system).toContain("Never invent");
     expect(prompt.system).toContain("site.headline");
