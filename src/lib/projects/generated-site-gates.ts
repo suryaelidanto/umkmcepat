@@ -11,16 +11,18 @@ import type { GeneratedProjectFile } from "./generated-types";
 import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
 
 /**
- * compileShadcnTheme registers --color-card, --color-background,
- * --color-popover, --color-secondary, and --color-muted as real Tailwind
- * tokens — bg-* needs them. That makes text-card, text-background, etc.
- * syntactically valid but semantically wrong: they read a surface colour as
- * text, so text-card on bg-card renders invisible (contrast ratio exactly
- * 1.00). Only the -foreground-paired token is contrast-guaranteed as text.
- * Reproduced live: a real build failed computed-contrast at 1.00 this way.
+ * compileShadcnTheme registers --color-card, --color-popover,
+ * --color-secondary, and --color-muted as real Tailwind tokens — bg-* needs
+ * them. That makes text-card, text-muted, etc. syntactically valid but
+ * semantically wrong: they read a surface colour as text, so text-card on
+ * bg-card renders invisible (contrast ratio exactly 1.00). Only the
+ * -foreground-paired token is contrast-guaranteed as text. text-background
+ * is deliberately not in this list — see FOREGROUND_FAMILY_TEXT_TOKEN below,
+ * it is the one surface token that IS a valid text colour, but only inside
+ * a contrast-surface scope. Reproduced live: a real build failed computed-
+ * contrast at 1.00 this way.
  */
-const SURFACE_TOKEN_AS_TEXT =
-  /\btext-(?:muted|card|background|popover|secondary)\b(?!-)/;
+const SURFACE_TOKEN_AS_TEXT = /\btext-(?:muted|card|popover|secondary)\b(?!-)/;
 
 /**
  * --muted-foreground/--card-foreground/--popover-foreground resolve to the
@@ -30,11 +32,16 @@ const SURFACE_TOKEN_AS_TEXT =
  * "contrast" (and any element a writer hardcodes bg-foreground on) compiles
  * to bg-foreground text-background, so a descendant that overrides with one
  * of the light-surface foreground tokens paints text the same colour as the
- * background. Reproduced live: a real build failed computed-contrast at
- * 1.00 this way.
+ * background. text-background is the mirror image: correct only inside that
+ * scope, invisible everywhere else (bg-background is the default surface).
+ * Reproduced live: a real build failed computed-contrast at 1.00 with a
+ * light-surface foreground token inside a contrast scope, and a separate
+ * real build's source gate rejected a correct text-background inside a
+ * contrast scope because this check used to be scope-blind.
  */
-const FOREGROUND_FAMILY_TEXT_TOKEN =
-  "text-(?:foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground)";
+const LIGHT_SURFACE_TEXT_TOKEN =
+  "foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground";
+const FOREGROUND_FAMILY_TEXT_TOKEN = `text-(?:${LIGHT_SURFACE_TEXT_TOKEN})`;
 
 function contrastSurfaceSpans(
   source: string,
@@ -47,8 +54,16 @@ function contrastSurfaceSpans(
   ];
   return openers.map((match) => {
     const start = match.index ?? 0;
-    const nextSection = source.indexOf("<SiteSection", start + match[0].length);
-    return { start, end: nextSection === -1 ? source.length : nextSection };
+    const searchFrom = start + match[0].length;
+    // Bounded by whichever comes first: the next section starting, or this
+    // one's own close. Without the close, a trailing contrast section with
+    // no sibling after it left the span open through the rest of the file.
+    const boundaries = [
+      source.indexOf("<SiteSection", searchFrom),
+      source.indexOf("</SiteSection>", searchFrom),
+    ].filter((index) => index !== -1);
+    const end = boundaries.length ? Math.min(...boundaries) : source.length;
+    return { start, end };
   });
 }
 
@@ -59,21 +74,40 @@ function hasContrastSurfaceTextMismatch(source: string): boolean {
   );
 }
 
+function hasMisplacedBackgroundText(source: string): boolean {
+  const spans = contrastSurfaceSpans(source);
+  const pattern = /\btext-background\b(?!-)/g;
+  for (const match of source.matchAll(pattern)) {
+    const offset = match.index ?? 0;
+    if (!spans.some((span) => offset >= span.start && offset < span.end)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function healContrastSurfaceText(content: string): string {
   const spans = contrastSurfaceSpans(content);
-  if (!spans.length) {
-    return content;
-  }
   const pattern = new RegExp(
-    `\\b${FOREGROUND_FAMILY_TEXT_TOKEN}\\b(/\\d{1,3})?`,
+    `\\btext-(background|(?:${LIGHT_SURFACE_TEXT_TOKEN}))\\b(?!-)(/\\d{1,3})?`,
     "g",
   );
   return content.replace(
     pattern,
-    (match: string, opacity: string | undefined, offset: number) =>
-      spans.some((span) => offset >= span.start && offset < span.end)
-        ? `text-background${opacity ?? ""}`
-        : match,
+    (
+      match: string,
+      token: string,
+      opacity: string | undefined,
+      offset: number,
+    ) => {
+      const inScope = spans.some(
+        (span) => offset >= span.start && offset < span.end,
+      );
+      if (token === "background") {
+        return inScope ? match : `text-foreground${opacity ?? ""}`;
+      }
+      return inScope ? `text-background${opacity ?? ""}` : match;
+    },
   );
 }
 
@@ -158,7 +192,8 @@ export function inspectGeneratedSiteTasteSource(input: {
       input.source,
     ) ||
     SURFACE_TOKEN_AS_TEXT.test(input.source) ||
-    hasContrastSurfaceTextMismatch(input.source)
+    hasContrastSurfaceTextMismatch(input.source) ||
+    hasMisplacedBackgroundText(input.source)
   ) {
     add(
       findings,
@@ -478,13 +513,13 @@ export function normalizeBatchedSiteAnchors(
         .replace(/\s+data-generated-site-starter(?:=["'][^"']*["'])?/gi, "")
         // Surface tokens read as text (see SURFACE_TOKEN_AS_TEXT above) are
         // self-healed to their real -foreground pairing before the gate ever
-        // has to reject the candidate. background has no background-foreground
-        // token — its pairing is plain foreground.
+        // has to reject the candidate. text-background is handled separately
+        // by healContrastSurfaceText below, since its correct pairing depends
+        // on whether it sits inside a contrast-surface scope.
         .replace(/\btext-muted\b(?!-)/g, "text-muted-foreground")
         .replace(/\btext-card\b(?!-)/g, "text-card-foreground")
         .replace(/\btext-popover\b(?!-)/g, "text-popover-foreground")
         .replace(/\btext-secondary\b(?!-)/g, "text-secondary-foreground")
-        .replace(/\btext-background\b(?!-)/g, "text-foreground")
         .replace(/\bborder-(?:l|r)-(?:2|3|4|5|6|8|\[[^\]]+\])\b/g, "")
         .replace(
           /<SiteCluster\b([^>]*)>/g,

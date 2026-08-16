@@ -330,6 +330,36 @@ describe("reference-calibrated generated site source gates", () => {
     ).toEqual([]);
   });
 
+  // Reproduced live: a real build's writer correctly emitted text-background
+  // inside SiteSection surface="contrast" (which compiles to bg-foreground
+  // text-background) and the source gate rejected it anyway, because the
+  // pre-existing bare-text-background check has no notion of scope — it was
+  // written back when text-background was wrong everywhere. text-background
+  // is the one surface token that IS a valid text colour, but only there.
+  it("accepts text-background inside a contrast surface section", () => {
+    expect(
+      inspectGeneratedSiteTasteSource({
+        source:
+          '<SiteSection surface="contrast"><p className="text-background/75">A</p></SiteSection>',
+        sectionCount: 3,
+      }),
+    ).toEqual([]);
+  });
+
+  it("still rejects text-background outside a contrast surface section", () => {
+    expect(
+      inspectGeneratedSiteTasteSource({
+        source:
+          '<SiteSection surface="contrast"><p>A</p></SiteSection><p className="text-background">B</p>',
+        sectionCount: 3,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "uncompiled-theme-utility" }),
+      ]),
+    );
+  });
+
   it("accepts an international WhatsApp URL for a local accepted target", () => {
     const input = v2Contract();
     input.business.primaryCta.target = "08123456789";
@@ -519,6 +549,30 @@ describe("normalizeBatchedSiteAnchors", () => {
     expect(file?.content).toContain("text-background/75");
     expect(file?.content).not.toContain("text-foreground/75");
     expect(file?.content).toContain('<p className="text-background">Info</p>');
+  });
+
+  // Reproduced live: a real writer response correctly emitted text-background
+  // inside SiteSection surface="contrast". The pre-existing bare-text-
+  // background self-heal step predates that scope and blindly rewrote every
+  // bare text-background to text-foreground, which would have broken an
+  // already-correct contrast pairing had the later contrast-aware step not
+  // existed to round-trip it back — fragile. Healing must recognise the
+  // token is already correct in scope and leave it untouched outright.
+  it("leaves text-background untouched inside a contrast surface section", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/index.tsx",
+        content:
+          '<main><SiteSection surface="contrast"><p className="text-background/75">Info</p></SiteSection><p className="text-background">Outside</p></main>',
+      },
+    ]);
+
+    expect(file?.content).toContain(
+      '<p className="text-background/75">Info</p>',
+    );
+    expect(file?.content).toContain(
+      '<p className="text-foreground">Outside</p>',
+    );
   });
 
   it("removes internal starter metadata from the customer route", () => {
