@@ -29,6 +29,10 @@ import {
   WRITER_DESIGN_PLAN_V3_SURFACES,
   WRITER_DESIGN_PLAN_V3_TRANSFORM_RELATIONSHIPS,
 } from "@/lib/projects/professional-site-plan";
+import {
+  generatedRouteBinding,
+  type GeneratedRouteBinding,
+} from "@/lib/projects/professional-site-router";
 import { professionalPopulatedContentPaths } from "@/lib/projects/professional-site-source-gates";
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
@@ -54,12 +58,19 @@ export function buildReferenceCalibratedCorrectionPrompt(input: {
     input.contract.content.usp.length ? "usp" : null,
     input.contract.content.promotion ? "currentPromo" : null,
   ].filter((field): field is string => field !== null);
+  const routeBindings = generatedRouteBindings(input.contract);
+  const multiRoute = routeBindings.length > 1;
+  const editableBudget = multiRoute ? "48 KiB" : "32 KiB";
+  const firstWritablePath = input.implicatedPaths[0] ?? "src/routes/index.tsx";
+  const routeExports = routeBindings
+    .map((route) => `export function ${route.exportName}()`)
+    .join(", ");
   return {
-    system: `You are correcting one generated Indonesian landing site response. Your first visible characters must be <file path="src/routes/index.tsx">. Emit only full replacement <file> blocks for the implicated writable paths and one <done summary="..." />. The platform owns the accepted design plan; do not emit a design-plan block.
+    system: `You are correcting one generated Indonesian landing site response. Your first visible characters must be <file path="${firstWritablePath}">. Emit only full replacement <file> blocks for the implicated writable paths and one <done summary="..." />. The platform owns the accepted design plan; do not emit a design-plan block.
 
 ${REFERENCE_CALIBRATED_TASTE_RULES} Use no tools, no markdown, no prose. Read owner facts from @/content/site; render site.* fields instead of inventing local data. Never invent facts. Use semantic Tailwind tokens only; never read site.theme in JSX, text-muted, text-card, text-popover, text-secondary, and text-background are surface tokens, never text colors; inside surface="contrast" or any bg-foreground element, text-foreground, text-muted-foreground, text-card-foreground, text-popover-foreground, and text-secondary-foreground are invisible too, use text-background there instead; bg-accent and bg-primary need text-accent-foreground and text-primary-foreground, not text-foreground or any other token; emit raw hex classes, inline palette CSS, remote URLs, placeholders, empty framed shapes that look like missing media, fabricated facts, prices, stock, contacts, claims, or routes. Use text-muted-foreground for supporting text and never use border-l-2 or border-r-2 side stripes. Preserve the accepted CTA target, media mode, kit pattern, and protected scaffold. Follow the selected page strategy, dials, type guidance, shape language, and one deliberate signature. Do not repeat eyebrow or numbered-marker scaffolding, use h-screen, or add duplicate CTA intent. Emit only implicated paths. AI SDK retries are disabled and this is the only shared correction.
 
-The only seeded layout exports are SiteSection, SiteStack, SiteSplit, and SiteCluster from @/components/site/layout. Use them exactly: SiteSection/SiteStack/SiteCluster take children plus named props; SiteCluster does not accept gap; put spacing in className. SiteSplit accepts children, emphasis equal|leading|trailing, and className; never left/right props or left/right emphasis values. Import usePreviewReady from @/lib/preview-ready. Call usePreviewReady() as a standalone statement; it returns void, so never assign, test, return, or render its value. The route must export exactly export function HomeRouteComponent() { ... } and never default-export it. site.primaryCta is a string, not an object; render it as {site.primaryCta}. Render these exact populated fields visibly through @/content/site: ${requiredFields.map((field) => `site.${field}`).join(", ")}. Put the selected composition pattern id in a data-pattern attribute. Use this exact accepted CTA target in every primary action: ${input.contract.business.primaryCta.target}. For WhatsApp, use an external href="https://wa.me/628..." with the accepted digits, never href="#..." or a guessed number. Never guess or replace it. Keep the correction compact: rewrite only the implicated route, do not add helper files, keep the route under 8,000 characters and 160 lines, and finish well below the output limit.`,
+ The only seeded layout exports are SiteSection, SiteStack, SiteSplit, and SiteCluster from @/components/site/layout. Use them exactly: SiteSection/SiteStack/SiteCluster take children plus named props; SiteCluster does not accept gap; put spacing in className. SiteSplit accepts children, emphasis equal|leading|trailing, and className; never left/right props or left/right emphasis values. Import usePreviewReady from @/lib/preview-ready. Call usePreviewReady() as a standalone statement; it returns void, so never assign, test, return, or render its value. The route exports must be exactly ${routeExports} and never default-export them. ${multiRoute ? "The shared shell must remain in src/components/site/generated-shell.tsx and every route must use it; do not add another helper." : "Do not add helper files."} site.primaryCta is a string, not an object; render it as {site.primaryCta}. Render these exact populated fields visibly through @/content/site: ${requiredFields.map((field) => `site.${field}`).join(", ")}. Put the selected composition pattern id in a data-pattern attribute. Use this exact accepted CTA target in every primary action: ${input.contract.business.primaryCta.target}. For WhatsApp, use an external href="https://wa.me/628..." with the accepted digits, never href="#..." or a guessed number. Never guess or replace it. Keep the correction compact: rewrite only the implicated paths, keep total editable content under ${editableBudget}, keep each route under 8,000 characters and 160 lines, and finish well below the output limit.`,
 
     user: JSON.stringify({
       contract: input.contract,
@@ -121,7 +132,11 @@ export function buildReferenceCalibratedWriterPrompt(input: {
   creativeDirection?: string | null;
   compositionPatternId?: string | null;
 }): { system: string; user: string } {
-  const writablePaths = ["src/routes/index.tsx"];
+  const routeBindings = generatedRouteBindings(input.contract);
+  const writablePaths = referenceCalibratedWritablePaths(input.contract);
+  const multiRoute = routeBindings.length > 1;
+  const editableBudget = multiRoute ? "48 KiB" : "32 KiB";
+  const firstWritablePath = writablePaths[0] ?? "src/routes/index.tsx";
   const siteSource = `export const site = ${JSON.stringify(input.schema, null, 2)} as const;`;
   const pageStrategy = deriveGeneratedSitePageStrategy(input.contract);
   return {
@@ -152,16 +167,21 @@ KIT (immutable): ${JSON.stringify({
       antiPatterns: input.kit.antiPatterns,
     })}
 
-OUTPUT. Your first visible characters must be <file path="src/routes/index.tsx">. Emit no reasoning, prose, markdown, tools, design-plan block, or unknown tags; the platform supplies the accepted design plan:
-<file path="src/routes/index.tsx">complete raw TSX</file>
+OUTPUT. Your first visible characters must be <file path="${firstWritablePath}">. Emit no reasoning, prose, markdown, tools, design-plan block, or unknown tags; the platform supplies the accepted design plan:
+${writablePaths.map((path) => `<file path="${path}">complete raw source</file>`).join("\n")}
 <done summary="..." />
 
 Rules:
 - Writable paths only: ${writablePaths.join(", ")}.
-- Keep the route compact: emit one route file, no helper components, no repeated data, keep src/routes/index.tsx under 8,000 characters and 160 lines, and finish well below the output limit.
-- Emit exactly one complete route file, then one done marker. Never omit done. Finish immediately.
+- Emit exactly one complete file block for each listed path, in the listed order, then one done marker. Never omit a route or done. Finish immediately.
+- The accepted routes are: ${routeBindings.map((route) => `${route.path} -> ${route.filePath} -> ${route.exportName}`).join("; ")}.
+- Route exports: ${routeBindings.map((route) => `export function ${route.exportName}()`).join(", ")}.
+- Each route file must export exactly its listed component, call usePreviewReady() as a standalone statement, and render the accepted route purpose using site.* data. Never default-export a route.
+${multiRoute ? "- Multi-route output must include src/components/site/generated-shell.tsx exporting GeneratedShell. Use the shared shell from every route and use accepted route links only; do not duplicate the shell markup in route files." : "- Keep the single route compact: do not add helper components or repeated data."}
+- Keep total editable content under ${editableBudget}; each route should stay compact and finish well below the output limit.
+- Keep each route under 8,000 characters and 160 lines. Never omit done.
 - Compose @/components/site/layout primitives; do not rewrite them.
-- Render every one of these populated fields visibly: ${referenceCalibratedRequiredContentFields(
+- Render every one of these populated fields visibly across the route files: ${referenceCalibratedRequiredContentFields(
       input.contract,
     )
       .map((field) => `site.${field}`)
@@ -176,10 +196,29 @@ Rules:
 - Follow the selected page strategy and taste dials. Make one deliberate signature, not a pile of decoration. Do not repeat eyebrow or numbered-marker scaffolding, use h-screen, emit em/en dashes, or duplicate CTA intent.
 - Keep the display/body type roles legible and use the selected kit type guidance: ${input.kit.taste.typeGuidance}
 - The hero must state the business outcome and accepted action quickly on mobile; sparse briefs stay sparse and rich briefs must not become one empty card.
-- Editable files ≤3 and content ≤32 KiB. Sparse briefs stay sparse.
+- Editable files ≤${writablePaths.length} and content ≤${editableBudget}. Sparse briefs stay sparse.
 `,
     user: `Build the accepted Indonesian site for ${input.contract.business.name}. Read facts from @/content/site, do not invent local data. Project key: ${input.projectId}.`,
   };
+}
+
+function generatedRouteBindings(
+  contract: GeneratedSiteWriterContractV2,
+): GeneratedRouteBinding[] {
+  return contract.obligations.routes.map((route) =>
+    generatedRouteBinding(route.path),
+  );
+}
+
+export function referenceCalibratedWritablePaths(
+  contract: GeneratedSiteWriterContractV2,
+): string[] {
+  const routes = generatedRouteBindings(contract);
+  const paths = routes.map((route) => route.filePath);
+  if (routes.length > 1) {
+    paths.push("src/components/site/generated-shell.tsx");
+  }
+  return paths;
 }
 
 export const PROFESSIONAL_WRITER_PLAN_SKELETON_LABEL =

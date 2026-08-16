@@ -1,5 +1,7 @@
 import ts from "typescript";
 
+import { generatedRouteBinding } from "./professional-site-router";
+
 import type { WriterDesignPlanV1 } from "./batched-response";
 import type {
   GeneratedSiteContractV1,
@@ -332,6 +334,11 @@ export function inspectReferenceCalibratedSiteSource(input: {
   const index = input.files.find(
     (file) => file.path === "src/routes/index.tsx",
   )?.content;
+  const routeBindings = input.contract.obligations.routes.map((route) =>
+    generatedRouteBinding(route.path),
+  );
+  const filesByPath = new Map(input.files.map((file) => [file.path, file]));
+  const router = filesByPath.get("src/router.tsx")?.content;
   if (!input.designPlan) {
     add(
       findings,
@@ -398,6 +405,109 @@ export function inspectReferenceCalibratedSiteSource(input: {
       "Generated route must call usePreviewReady() so the preview iframe can unlock.",
       "src/routes/index.tsx",
     );
+  }
+  for (const route of routeBindings) {
+    const routeSource = filesByPath.get(route.filePath)?.content;
+    if (!routeSource) {
+      add(
+        findings,
+        "contract",
+        "critical",
+        "route-file-missing",
+        `Generated contract route ${route.path} is missing its route file.`,
+        route.filePath,
+      );
+      continue;
+    }
+    const exportsRoute =
+      new RegExp(
+        `export\\s+(?:async\\s+)?function\\s+${escapeRegExp(route.exportName)}\\b`,
+      ).test(routeSource) ||
+      new RegExp(
+        `export\\s+(?:const|let)\\s+${escapeRegExp(route.exportName)}\\b`,
+      ).test(routeSource);
+    if (!exportsRoute) {
+      add(
+        findings,
+        "contract",
+        "high",
+        "route-export-missing",
+        `Generated route ${route.path} must export ${route.exportName}.`,
+        route.filePath,
+      );
+    }
+    if (!/usePreviewReady\s*\(\s*\)/.test(routeSource)) {
+      add(
+        findings,
+        "contract",
+        "high",
+        "preview-ready-hook-missing",
+        `Generated route ${route.path} must call usePreviewReady() so the preview iframe can unlock.`,
+        route.filePath,
+      );
+    }
+  }
+  if (!router) {
+    add(
+      findings,
+      "contract",
+      "critical",
+      "compiled-router-missing",
+      "Generated site is missing the platform-compiled route table.",
+      "src/router.tsx",
+    );
+  } else {
+    for (const route of routeBindings) {
+      const routeImport = `./${route.filePath.replace(/^src\//, "").replace(/\.tsx$/, "")}`;
+      if (
+        !router.includes(`{ ${route.exportName} } from "${routeImport}"`) ||
+        !router.includes(`path: ${JSON.stringify(route.path)}`)
+      ) {
+        add(
+          findings,
+          "contract",
+          "critical",
+          "compiled-router-route-missing",
+          `Compiled router does not register ${route.path} with its generated route component.`,
+          "src/router.tsx",
+        );
+      }
+    }
+  }
+  if (routeBindings.length > 1) {
+    const shell = filesByPath.get(
+      "src/components/site/generated-shell.tsx",
+    )?.content;
+    if (
+      !shell ||
+      !/export\s+(?:function|const)\s+GeneratedShell\b/.test(shell)
+    ) {
+      add(
+        findings,
+        "contract",
+        "critical",
+        "shared-shell-missing",
+        "Multi-page output must provide the shared GeneratedShell component.",
+        "src/components/site/generated-shell.tsx",
+      );
+    }
+    for (const route of routeBindings) {
+      const routeSource = filesByPath.get(route.filePath)?.content;
+      if (
+        routeSource &&
+        !routeSource.includes('from "@/components/site/generated-shell"') &&
+        !routeSource.includes("from '@/components/site/generated-shell'")
+      ) {
+        add(
+          findings,
+          "contract",
+          "high",
+          "shared-shell-bypass",
+          `Multi-page route ${route.path} must use the shared GeneratedShell component.`,
+          route.filePath,
+        );
+      }
+    }
   }
   if (
     input.contract.media.mode !== "owner_assets" &&
@@ -501,7 +611,17 @@ export function inspectReferenceCalibratedSiteSource(input: {
   }
   findings.push(
     ...inspectGeneratedSiteTasteSource({
-      source: index ?? source,
+      source: routeBindings
+        .map((route) => filesByPath.get(route.filePath)?.content ?? "")
+        .concat(
+          routeBindings.length > 1
+            ? [
+                filesByPath.get("src/components/site/generated-shell.tsx")
+                  ?.content ?? "",
+              ]
+            : [],
+        )
+        .join("\n"),
       sectionCount: input.contract.obligations.sections.length,
     }),
   );
@@ -603,7 +723,12 @@ export function normalizeBatchedSiteAnchors(
           `<a${attributes} href="${whatsappHref}" target="_blank" rel="noopener noreferrer">${body}</a>`,
       );
     }
-    if (file.path === "src/routes/index.tsx") {
+    const isGeneratedRouteSource =
+      (file.path.startsWith("src/routes/") &&
+        file.path !== "src/routes/__root.tsx" &&
+        file.path !== "src/routes/not-found.tsx") ||
+      file.path === "src/components/site/generated-shell.tsx";
+    if (isGeneratedRouteSource) {
       if (options?.palette) {
         content = normalizeAcceptedPaletteLiterals(content, options.palette);
       }
@@ -637,6 +762,10 @@ export function normalizeBatchedSiteAnchors(
             return `<SiteSplit${normalized}>`;
           },
         );
+      content = healContrastSurfaceText(content);
+      content = healAccentSurfaceText(content);
+    }
+    if (file.path === "src/routes/index.tsx") {
       content = normalizeGeneratedHomeRouteContract(content);
       if (options?.compositionPatternId) {
         content = ensureCompositionPatternAnchor(
@@ -644,8 +773,6 @@ export function normalizeBatchedSiteAnchors(
           options.compositionPatternId,
         );
       }
-      content = healContrastSurfaceText(content);
-      content = healAccentSurfaceText(content);
     }
     content = ensureCtaTouchTarget(content, whatsappHref);
     return { ...file, content };

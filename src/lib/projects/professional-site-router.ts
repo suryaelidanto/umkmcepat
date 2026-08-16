@@ -1,8 +1,22 @@
 import type { GeneratedProjectFile } from "./generated-types";
 import type { ProfessionalRouteBinding } from "./professional-site-blueprint";
 
-export function compileProfessionalSiteRouter(
-  routes: readonly ProfessionalRouteBinding[],
+export type GeneratedRouteBinding = Pick<
+  ProfessionalRouteBinding,
+  "path" | "filePath" | "exportName"
+>;
+
+export function generatedRouteBinding(path: string): GeneratedRouteBinding {
+  return {
+    path,
+    filePath:
+      path === "/" ? "src/routes/index.tsx" : `src/routes/${path.slice(1)}.tsx`,
+    exportName: routeExportName(path),
+  };
+}
+
+export function compileGeneratedSiteRouter(
+  routes: readonly GeneratedRouteBinding[],
 ): GeneratedProjectFile {
   validateRoutes(routes);
   const imports = routes.map(
@@ -47,7 +61,13 @@ declare module "@tanstack/react-router" {
   };
 }
 
-function validateRoutes(routes: readonly ProfessionalRouteBinding[]): void {
+export function compileProfessionalSiteRouter(
+  routes: readonly ProfessionalRouteBinding[],
+): GeneratedProjectFile {
+  return compileGeneratedSiteRouter(routes);
+}
+
+function validateRoutes(routes: readonly GeneratedRouteBinding[]): void {
   if (routes.length < 1 || routes.length > 3) {
     throw new Error("professional site router supports one to three routes");
   }
@@ -94,7 +114,7 @@ function validateRoutes(routes: readonly ProfessionalRouteBinding[]): void {
   }
 }
 
-function routeImportPath(route: ProfessionalRouteBinding): string {
+function routeImportPath(route: GeneratedRouteBinding): string {
   return `./${route.filePath.replace(/^src\//, "").replace(/\.tsx$/, "")}`;
 }
 
@@ -105,6 +125,20 @@ function routeVariableName(path: string): string {
   const words = path
     .slice(1)
     .split("/")
+    .flatMap((word) => word.split("-"))
     .map((word) => `${word.charAt(0).toLowerCase()}${word.slice(1)}`);
   return `${words.join("")}Route`;
+}
+
+function routeExportName(path: string): string {
+  if (path === "/") {
+    return "HomeRouteComponent";
+  }
+  const words = path
+    .slice(1)
+    .split("/")
+    .flatMap((word) => word.split("-"))
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`);
+  return `${words.join("")}RouteComponent`;
 }

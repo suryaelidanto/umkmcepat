@@ -167,6 +167,7 @@ function makeFixture(paths: string[] = ["/"]): Fixture {
       label: "Pesan lewat WhatsApp",
       target: "+628123456789",
     },
+    visitorJobs: [],
     visualDirection: "hangat dan tenang",
     fieldState: {},
     content: {

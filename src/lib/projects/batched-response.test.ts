@@ -267,6 +267,54 @@ describe("batched response parser — design plan", () => {
     expect([...result.files.keys()]).toEqual(["src/routes/index.tsx"]);
   });
 
+  it("stops after every required multi-page writer file closes", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "retail-catalog",
+      density: "rich",
+      mediaMode: "graphic",
+      primaryJobKind: "compare",
+      hasOperationalDetails: false,
+    });
+    const fallback = deriveDefaultWriterDesignPlanV2({
+      contractHash: "f".repeat(64),
+      kit,
+      mediaMode: "graphic",
+      requiredSectionIds: ["catalog"],
+    });
+    const requiredFilePaths = [
+      "src/routes/index.tsx",
+      "src/routes/katalog.tsx",
+      "src/components/site/generated-shell.tsx",
+    ];
+    const parser = createBatchedResponseParser({
+      requireDesignPlan: true,
+      designPlanV2Expected: {
+        contractHash: "f".repeat(64),
+        kit,
+        mediaMode: "graphic",
+        requiredSectionIds: ["catalog"],
+      },
+      designPlanV2Fallback: fallback,
+      requiredFilePaths,
+      stopAfterRequiredFilePaths: true,
+      implicitDoneSummary: "Route files emitted.",
+    });
+
+    parser.push(
+      requiredFilePaths
+        .map(
+          (path) =>
+            `<file path="${path}">export const Generated = () => null;</file>`,
+        )
+        .join("") + '<file path="src/routes/ignored.tsx">ignored</file>',
+    );
+
+    expect(parser.stoppedAfterRequiredFilePaths).toBe(true);
+    const result = parser.finalize();
+    expect(result.done).toEqual({ summary: "Route files emitted." });
+    expect([...result.files.keys()]).toEqual(requiredFilePaths);
+  });
+
   it("rejects malformed, duplicate, or missing design plans", () => {
     const malformed = createBatchedResponseParser({ requireDesignPlan: true });
     expect(() => malformed.push("<design-plan>{bad}</design-plan>")).toThrow(

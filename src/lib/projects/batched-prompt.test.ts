@@ -79,6 +79,29 @@ function writerContract(): GeneratedSiteWriterContractV2 {
   };
 }
 
+function multiWriterContract(): GeneratedSiteWriterContractV2 {
+  const base = writerContract();
+  return {
+    ...base,
+    obligations: {
+      ...base.obligations,
+      routes: [
+        ...base.obligations.routes,
+        {
+          path: "/katalog",
+          purpose: "Browse offers",
+          requiredFactIds: [],
+          requiredSectionIds: ["catalog"],
+        },
+      ],
+      sections: [
+        ...base.obligations.sections,
+        { id: "catalog", purpose: "Offer listing", requiredFactIds: [] },
+      ],
+    },
+  };
+}
+
 describe("buildReferenceCalibratedWriterPrompt", () => {
   it("states the numeric gate rules the writer keeps failing", () => {
     // A real build failed on both: 4 tracked uppercase labels where 1 was
@@ -276,6 +299,29 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     expect(prompt.system).toContain("Keep the route compact");
     expect(prompt.system).toContain("8,000 characters");
     expect(prompt.system).not.toContain("src/components/site/sections.tsx");
+  });
+
+  it("lists every accepted route and a shared shell for multi-route output", () => {
+    const kit = selectGeneratedSiteDesignKit({
+      archetype: "generic",
+      density: "sparse",
+      mediaMode: "graphic",
+      primaryJobKind: "inquire",
+      hasOperationalDetails: false,
+    });
+    const prompt = buildReferenceCalibratedWriterPrompt({
+      contract: multiWriterContract(),
+      kit,
+      projectId: "benchmark-project",
+      schema: {} as never,
+    });
+
+    expect(prompt.system).toContain(
+      "Writable paths only: src/routes/index.tsx, src/routes/katalog.tsx, src/components/site/generated-shell.tsx.",
+    );
+    expect(prompt.system).toContain("export function KatalogRouteComponent()");
+    expect(prompt.system).toContain("shared shell");
+    expect(prompt.system).toContain("48 KiB");
   });
 });
 

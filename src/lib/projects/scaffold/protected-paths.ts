@@ -9,6 +9,7 @@ export const PROTECTED_SCAFFOLD_PATHS: readonly string[] = [
   "src/content/site.ts",
   "src/index.css",
   "src/main.tsx",
+  "src/router.tsx",
   "src/routes/__root.tsx",
   "src/lib/preview-ready.ts",
   "src/lib/utils.ts",

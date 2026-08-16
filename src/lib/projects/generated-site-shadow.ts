@@ -2,6 +2,7 @@ import {
   runGeneratedSiteCorrection,
   runReferenceCalibratedGenerate,
 } from "./batched-generator";
+import { referenceCalibratedWritablePaths } from "./batched-prompt";
 import { compileGeneratedSiteWriterContractV2 } from "./generated-site-contract";
 import {
   deriveGeneratedSiteKitSelectionInput,
@@ -132,7 +133,7 @@ export async function runGeneratedSiteShadowCandidate(
         request: {
           reason,
           diagnostics: findings.map((finding) => finding.evidence),
-          implicatedPaths: ["src/routes/index.tsx"],
+          implicatedPaths: referenceCalibratedWritablePaths(contract),
           acceptedPlan: designPlan,
           stagedFiles: files,
         },

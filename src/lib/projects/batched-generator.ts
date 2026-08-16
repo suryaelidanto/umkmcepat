@@ -51,6 +51,7 @@ import {
   buildFormatRepairPrompt,
   buildReferenceCalibratedCorrectionPrompt,
   buildReferenceCalibratedWriterPrompt,
+  referenceCalibratedWritablePaths,
   buildTargetedRepairPrompt,
   buildTruncationResumePrompt,
 } from "@/lib/projects/batched-prompt";
@@ -83,6 +84,10 @@ import {
   applyGeneratedSiteThemeV2,
   compileGeneratedSiteThemeV2,
 } from "@/lib/projects/generated-site-theme";
+import {
+  compileGeneratedSiteRouter,
+  generatedRouteBinding,
+} from "@/lib/projects/professional-site-router";
 import { createGeneratedSitePrimitiveFiles } from "@/lib/projects/scaffold/generated-site-primitives";
 export {
   buildBatchedWriterPrompt,
@@ -767,15 +772,17 @@ export async function runOneStreamedResponse(args: {
     designPlanV3Expected: args.designPlanV3Expected,
     requiredFilePaths: args.requiredFilePaths,
     stopAfterRequiredFilePaths:
-      args.stopAfterRequiredFilePaths ?? Boolean(args.designPlanV3Expected),
+      args.stopAfterRequiredFilePaths ??
+      Boolean(args.designPlanV3Expected || args.requiredFilePaths?.length),
     designPlanV2Expected: args.designPlanV2Expected,
     designPlanV2Fallback: args.designPlanV2Fallback,
     implicitDoneSummary: args.designPlanV2Expected
       ? "Route file emitted."
       : undefined,
-    stopAfterFilePath: args.designPlanV2Expected
-      ? "src/routes/index.tsx"
-      : undefined,
+    stopAfterFilePath:
+      args.designPlanV2Expected && !args.requiredFilePaths?.length
+        ? "src/routes/index.tsx"
+        : undefined,
   });
   let modelServed: string | undefined;
   let usage: { inputTokens?: number; outputTokens?: number } | undefined;
@@ -801,6 +808,8 @@ export async function runOneStreamedResponse(args: {
       // emitting a complete replacement.
       maxOutputTokens:
         args.designPlanV3Expected ||
+        (args.designPlanV2Expected &&
+          (args.requiredFilePaths?.length ?? 0) > 1) ||
         (args.requireDesignPlan &&
           (args.phase === "repair" || args.phase === "visual-repair"))
           ? 32_000
@@ -1652,6 +1661,7 @@ export async function runReferenceCalibratedGenerate(input: {
     creativeDirection: input.creativeDirection,
     compositionPatternId: designPlanFrame.compositionPatternId,
   });
+  const requiredWriterPaths = referenceCalibratedWritablePaths(input.contract);
   const startedAt = Date.now();
   input.budget.consumeWriter();
   const writer = await runOneStreamedResponse({
@@ -1668,6 +1678,8 @@ export async function runReferenceCalibratedGenerate(input: {
     projectId: input.projectId,
     retryCount: 0,
     requireDesignPlan: true,
+    requiredFilePaths: requiredWriterPaths,
+    stopAfterRequiredFilePaths: true,
     designPlanV2Expected: {
       contractHash: input.contract.contractHash,
       kit: input.kit,
@@ -1722,7 +1734,29 @@ export async function runReferenceCalibratedGenerate(input: {
       editableBytes,
     };
   }
-  if (editableFiles.length > 3 || editableBytes > 32 * 1024) {
+  const expectedPaths = new Set(requiredWriterPaths);
+  const unexpectedPaths = editableFiles
+    .map((file) => file.path)
+    .filter((path) => !expectedPaths.has(path));
+  const missingPaths = requiredWriterPaths.filter(
+    (path) => !editableFiles.some((file) => file.path === path),
+  );
+  if (unexpectedPaths.length > 0 || missingPaths.length > 0) {
+    return {
+      ok: false,
+      reason: `reference-calibrated writer route coverage mismatch: ${[
+        ...unexpectedPaths.map((path) => `unexpected ${path}`),
+        ...missingPaths.map((path) => `missing ${path}`),
+      ].join(", ")}`,
+      stagedFiles: [...staged.values()],
+      designPlan,
+      writerMs,
+      firstFileClosedMs,
+      editableBytes,
+    };
+  }
+  const editableLimit = requiredWriterPaths.length > 1 ? 48 * 1024 : 32 * 1024;
+  if (editableBytes > editableLimit) {
     return {
       ok: false,
       reason:
@@ -1770,6 +1804,14 @@ export async function runReferenceCalibratedGenerate(input: {
       primaryCtaTarget: input.contract.business.primaryCta.target,
       palette: designPlan.palette,
     });
+    const router = compileGeneratedSiteRouter(
+      input.contract.obligations.routes.map((route) =>
+        generatedRouteBinding(route.path),
+      ),
+    );
+    themed = themed.some((file) => file.path === router.path)
+      ? themed.map((file) => (file.path === router.path ? router : file))
+      : [...themed, router];
     themeChecks = theme.checks;
   } catch (error) {
     return {
@@ -1867,6 +1909,8 @@ export async function runGeneratedSiteCorrection(input: {
     projectId: input.projectId,
     retryCount: 0,
     requireDesignPlan: true,
+    requiredFilePaths: input.request.implicatedPaths,
+    stopAfterRequiredFilePaths: true,
     designPlanV2Expected: {
       contractHash: input.contract.contractHash,
       kit: input.kit,
@@ -1911,7 +1955,20 @@ export async function runGeneratedSiteCorrection(input: {
     );
   }
   const replacements = [...response.response.files.values()];
-  if (replacements.length === 0 || replacements.length > 3) {
+  const expectedPaths = new Set(input.request.implicatedPaths);
+  const unexpectedPaths = replacements
+    .map((file) => file.path)
+    .filter((path) => !expectedPaths.has(path));
+  const missingPaths = input.request.implicatedPaths.filter(
+    (path) => !replacements.some((file) => file.path === path),
+  );
+  if (
+    replacements.length === 0 ||
+    unexpectedPaths.length > 0 ||
+    missingPaths.length > 0 ||
+    replacements.length >
+      referenceCalibratedWritablePaths(input.contract).length
+  ) {
     throw new Error("reference-calibrated correction emitted no valid files");
   }
   if (
@@ -1929,7 +1986,9 @@ export async function runGeneratedSiteCorrection(input: {
     (total, file) => total + file.content.length,
     0,
   );
-  if (editableBytes > 32 * 1024) {
+  const editableLimit =
+    input.request.implicatedPaths.length > 1 ? 48 * 1024 : 32 * 1024;
+  if (editableBytes > editableLimit) {
     throw new Error("reference-calibrated correction exceeded the byte budget");
   }
   const normalizedReplacements = normalizeBatchedSiteAnchors(replacements, {

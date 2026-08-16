@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { compileProfessionalSiteRouter } from "./professional-site-router";
+import {
+  compileGeneratedSiteRouter,
+  compileProfessionalSiteRouter,
+} from "./professional-site-router";
 
 import type { ProfessionalRouteBinding } from "./professional-site-blueprint";
 
@@ -88,5 +91,47 @@ describe("compileProfessionalSiteRouter", () => {
     ],
   ])("rejects %s", (_label, routes) => {
     expect(() => compileProfessionalSiteRouter(routes)).toThrow();
+  });
+});
+
+describe("compileGeneratedSiteRouter", () => {
+  it("registers every live V2 route without requiring professional metadata", () => {
+    const file = compileGeneratedSiteRouter([
+      {
+        path: "/",
+        filePath: "src/routes/index.tsx",
+        exportName: "HomeRouteComponent",
+      },
+      {
+        path: "/katalog",
+        filePath: "src/routes/katalog.tsx",
+        exportName: "KatalogRouteComponent",
+      },
+    ]);
+
+    expect(file.content).toContain(
+      'import { KatalogRouteComponent } from "./routes/katalog"',
+    );
+    expect(file.content).toContain('path: "/katalog"');
+    expect(file.content).toContain(
+      "rootRoute.addChildren([indexRoute, katalogRoute, notFoundRoute])",
+    );
+  });
+
+  it("rejects unsafe or incomplete live bindings", () => {
+    expect(() =>
+      compileGeneratedSiteRouter([
+        {
+          path: "/",
+          filePath: "src/routes/index.tsx",
+          exportName: "HomeRouteComponent",
+        },
+        {
+          path: "/katalog/:id",
+          filePath: "src/routes/katalog.tsx",
+          exportName: "KatalogRouteComponent",
+        },
+      ]),
+    ).toThrow();
   });
 });
