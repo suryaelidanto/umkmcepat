@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { devLog } from "@/lib/dev-log";
 import { sendPaymentReceipt } from "@/lib/email/templates";
 import { getMayarTransaction, verifyMayarWebhookRequest } from "@/lib/mayar";
 import { prisma } from "@/lib/prisma";
@@ -43,8 +44,7 @@ export const Route = createFileRoute("/api/payment/webhook")({
         }
 
         // Structured log after verification, before any DB access.
-        // eslint-disable-next-line no-console
-        console.log(`[webhook] Received event: ${payload.event}`);
+        devLog("payment", `Received event: ${payload.event}`);
 
         if (payload.event !== "payment.received") {
           return Response.json({
@@ -191,15 +191,15 @@ export const Route = createFileRoute("/api/payment/webhook")({
           }
 
           if (!result) {
-            // eslint-disable-next-line no-console
-            console.log(
-              `[webhook] Race condition: payment for transactionId ${transactionId} already claimed by another handler`,
+            devLog(
+              "payment",
+              `Race condition: payment for transactionId ${transactionId} already claimed by another handler`,
             );
           }
 
-          // eslint-disable-next-line no-console
-          console.log(
-            `[webhook] Successfully processed payment for transactionId: ${transactionId}`,
+          devLog(
+            "payment",
+            `Successfully processed payment for transactionId: ${transactionId}`,
           );
           return Response.json({
             success: true,

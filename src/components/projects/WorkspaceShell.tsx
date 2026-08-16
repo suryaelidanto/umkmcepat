@@ -27,7 +27,6 @@ import {
 import { type PanelImperativeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
 
-import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import {
   CompletedBuildNotice,
   HeldBuildRecommendationNotice,
@@ -3115,7 +3114,7 @@ export function WorkspaceShell({
   }
 
   const chatPanelClass =
-    "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#1b1b19] p-spacing-4 sm:p-spacing-5";
+    "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#eceae4] p-spacing-4 text-[#1c1c1c] transition-colors duration-200 dark:bg-[#1b1b19] dark:text-surface-warm-white sm:p-spacing-5";
   const previewPanelClass = "h-full min-h-0 min-w-0";
 
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -3154,7 +3153,7 @@ export function WorkspaceShell({
         <div className="min-w-0 flex-1">
           <Link
             href="/"
-            className="inline-flex items-center gap-spacing-2 text-xs text-surface-warm-white/58 hover:text-surface-warm-white"
+            className="inline-flex items-center gap-spacing-2 text-xs text-[#5f5f5d] transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"
           >
             <ArrowLeft className="size-3.5" />
             Dashboard
@@ -3176,7 +3175,7 @@ export function WorkspaceShell({
                   }
                 }}
                 autoFocus
-                className="min-w-0 flex-1 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/8 px-spacing-3 py-spacing-2 text-base font-semibold text-surface-warm-white outline-none focus:border-surface-warm-white/30"
+                className="min-w-0 flex-1 rounded-radius-md border border-black/15 bg-black/[0.03] px-spacing-3 py-spacing-2 text-base font-semibold text-[#1c1c1c] outline-none focus:border-black/30 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:focus:border-surface-warm-white/30"
               />
             ) : (
               <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
@@ -3205,11 +3204,10 @@ export function WorkspaceShell({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-spacing-2">
-          <EnergyDisplay />
           <button
             type="button"
             onClick={showPreviewPanel ? closePreviewPanel : openPreviewPanel}
-            className="hidden rounded-full border border-surface-warm-white/10 p-spacing-3 text-surface-warm-white/62 hover:bg-surface-warm-white/8 hover:text-surface-warm-white lg:block"
+            className="hidden rounded-full border border-black/10 p-spacing-3 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/62 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white lg:block"
             aria-label={showPreviewPanel ? "Tutup tampilan" : "Buka tampilan"}
           >
             {showPreviewPanel ? (
@@ -3426,7 +3424,7 @@ export function WorkspaceShell({
                 {...COMPOSER_TRANSITION}
                 className="mt-spacing-3"
               >
-                <div className="mb-spacing-2 inline-flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs w-fit">
+                <div className="mb-spacing-2 inline-flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs w-fit dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
                   {(
                     [
                       { label: "Pilihan", value: "options" },
@@ -3447,7 +3445,7 @@ export function WorkspaceShell({
                       {questionComposerMode === tab.value && (
                         <motion.span
                           layoutId="question-composer-tab"
-                          className="absolute inset-0 rounded-radius-sm bg-surface-warm-white"
+                          className="absolute inset-0 rounded-radius-sm bg-[#fcfbf8] shadow-xs dark:bg-surface-warm-white"
                           transition={{
                             type: "spring",
                             stiffness: 500,
@@ -3459,8 +3457,8 @@ export function WorkspaceShell({
                         className={cn(
                           "relative z-10 flex items-center gap-spacing-2",
                           questionComposerMode === tab.value
-                            ? "text-foreground-primary"
-                            : "text-surface-warm-white/58 hover:text-surface-warm-white",
+                            ? "text-[#1c1c1c] font-semibold dark:text-foreground-primary"
+                            : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white",
                         )}
                       >
                         {tab.label}
@@ -3530,7 +3528,7 @@ export function WorkspaceShell({
                       onSubmit={handleMessageSubmit}
                       className="min-w-0"
                     >
-                      <div className="rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+                      <div className="rounded-[28px] border border-black/10 bg-[#fcfbf8] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sm dark:border-surface-warm-white/12 dark:bg-[#262622] dark:shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
                         <label htmlFor="workspace-message" className="sr-only">
                           Pesan untuk AI
                         </label>
@@ -3688,7 +3686,7 @@ export function WorkspaceShell({
                 ) : null}
                 <form
                   onSubmit={handleMessageSubmit}
-                  className="mt-spacing-3 min-w-0 rounded-[28px] border border-surface-warm-white/12 bg-[#262622] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                  className="mt-spacing-3 min-w-0 rounded-[28px] border border-black/10 bg-[#fcfbf8] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sm dark:border-surface-warm-white/12 dark:bg-[#262622] dark:shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
                 >
                   <label htmlFor="workspace-message" className="sr-only">
                     Pesan untuk AI
@@ -3831,7 +3829,7 @@ export function WorkspaceShell({
             setMobileSurface("preview");
           }}
         />
-        <div className="min-h-0 flex-1 overflow-hidden bg-[#10100f]">
+        <div className="min-h-0 flex-1 overflow-hidden bg-[#f7f4ed] dark:bg-[#10100f]">
           {activeTab === "preview" ? (
             <div
               id="workspace-preview-panel"
@@ -3978,7 +3976,7 @@ export function WorkspaceShell({
 
   return (
     <div
-      className="flex h-dvh flex-col overflow-hidden bg-[#10100f] text-surface-warm-white"
+      className="flex h-dvh flex-col overflow-hidden bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#10100f] dark:text-surface-warm-white"
       onTouchEnd={handleTouchEnd}
       onTouchStart={handleTouchStart}
     >
@@ -3990,7 +3988,7 @@ export function WorkspaceShell({
       ) : null}
       <nav
         aria-label="Pilih tampilan ruang kerja"
-        className="sticky bottom-0 z-20 flex h-12 shrink-0 items-stretch gap-spacing-1 border-t border-surface-warm-white/10 bg-[#1b1b19] px-spacing-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="sticky bottom-0 z-20 flex h-12 shrink-0 items-stretch gap-spacing-1 border-t border-black/10 bg-[#eceae4] px-spacing-2 pb-[env(safe-area-inset-bottom)] dark:border-surface-warm-white/10 dark:bg-[#1b1b19] lg:hidden"
       >
         <button
           type="button"

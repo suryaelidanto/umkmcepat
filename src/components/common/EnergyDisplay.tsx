@@ -100,18 +100,11 @@ export function EnergyDisplay() {
           type="button"
           onClick={() => setModalOpen(true)}
           className="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-[#ff7a59]/15 px-1.5 py-0.5 text-[10px] font-semibold text-aurora-orange transition hover:bg-[#ff7a59]/25 active:scale-95 focus:outline-none sm:ml-1 sm:gap-1 sm:px-2 sm:text-[11px]"
-          title="Top-up Energi Premium"
+          title="Tambah Energi"
         >
           <PlusIcon className="size-3" />
-          <span className="hidden xs:inline">Topup</span>
+          <span>Tambah</span>
         </button>
-      </div>
-
-      <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-black/10 dark:bg-surface-warm-white/12 sm:block">
-        <div
-          className={`h-full rounded-full transition-all duration-300 ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"}`}
-          style={{ width: `${percentage}%` }}
-        />
       </div>
 
       <EnergyBoosterModal open={modalOpen} onOpenChange={setModalOpen} />

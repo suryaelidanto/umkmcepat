@@ -228,7 +228,7 @@ export function ProjectList({
               type="button"
               onClick={handleDelete}
               disabled={isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
             >
               {isPending ? "Menghapus..." : "Hapus"}
             </Button>

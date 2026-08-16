@@ -22,7 +22,10 @@ import {
 import { motion } from "motion/react";
 import { useState } from "react";
 
+import { AuthButton } from "@/components/common/AuthButton";
+import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import { EnergyLedgerButton } from "@/components/common/EnergyLedgerButton";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { WorkspaceHistoryButton } from "@/components/projects/WorkspaceHistoryDrawer";
 import { Button } from "@/components/ui/button";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
@@ -99,12 +102,12 @@ export function WorkspaceTopBar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
     <>
-      <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
+      <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-black/10 bg-[#eceae4] px-spacing-3 py-spacing-2 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
         <div className="hidden min-w-0 items-center justify-start gap-spacing-3 sm:flex sm:w-auto">
           <button
             type="button"
             onClick={chatCollapsed ? openChatPanel : closeChatPanel}
-            className="hidden h-9 w-9 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white md:inline-flex cursor-pointer"
+            className="hidden h-9 w-9 items-center justify-center rounded-radius-md border border-black/10 p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white md:inline-flex cursor-pointer"
             aria-label={chatCollapsed ? "Buka chat" : "Tutup chat"}
           >
             {chatCollapsed ? (
@@ -116,7 +119,7 @@ export function WorkspaceTopBar({
           <div
             role="tablist"
             aria-label="Konten tampilan"
-            className="hidden md:flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+            className="hidden md:flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
           >
             <TabButton
               active={activeTab === "preview"}
@@ -157,6 +160,57 @@ export function WorkspaceTopBar({
               Kode
             </TabButton>
           </div>
+
+          {activeTab === "preview" ? (
+            <>
+              <div className="hidden h-4 w-px bg-black/10 dark:bg-surface-warm-white/10 md:block" />
+              <div
+                role="tablist"
+                aria-label="Tampilan viewport"
+                className="hidden md:flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
+              >
+                <TabButton
+                  active={viewport === "desktop"}
+                  id="viewport-desktop-tab"
+                  controls="workspace-preview-panel"
+                  onClick={() => setViewport("desktop")}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowRight") {
+                      event.preventDefault();
+                      setViewport("mobile");
+                      (
+                        event.currentTarget.nextElementSibling as HTMLElement
+                      )?.focus();
+                    }
+                  }}
+                  icon={<Monitor className="size-4" />}
+                  layoutId="workspace-viewport-tab"
+                >
+                  Komputer
+                </TabButton>
+                <TabButton
+                  active={viewport === "mobile"}
+                  id="viewport-mobile-tab"
+                  controls="workspace-preview-panel"
+                  onClick={() => setViewport("mobile")}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowLeft") {
+                      event.preventDefault();
+                      setViewport("desktop");
+                      (
+                        event.currentTarget
+                          .previousElementSibling as HTMLElement
+                      )?.focus();
+                    }
+                  }}
+                  icon={<Smartphone className="size-4" />}
+                  layoutId="workspace-viewport-tab"
+                >
+                  HP
+                </TabButton>
+              </div>
+            </>
+          ) : null}
           {annotationAvailable &&
           activeTab === "preview" &&
           directEditFlagEnabled ? (
@@ -179,23 +233,35 @@ export function WorkspaceTopBar({
 
         {/* Mobile-only bar: project title + kebab */}
         <div className="flex w-full items-center justify-between gap-spacing-2 sm:hidden">
-          {title ? (
-            <span
-              className="min-w-0 truncate text-sm font-medium text-surface-warm-white/82"
-              title={title}
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={chatCollapsed ? openChatPanel : closeChatPanel}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-md border border-black/10 p-1 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
+              aria-label={chatCollapsed ? "Buka diskusi" : "Tutup diskusi"}
             >
-              {title}
-            </span>
-          ) : (
-            <span aria-hidden="true" />
-          )}
+              {chatCollapsed ? (
+                <PanelLeftOpen className="size-4" />
+              ) : (
+                <PanelLeftClose className="size-4" />
+              )}
+            </button>
+            {title ? (
+              <span
+                className="min-w-0 truncate text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white/90"
+                title={title}
+              >
+                {title}
+              </span>
+            ) : null}
+          </div>
           <button
             type="button"
             aria-label="Buka menu"
             aria-haspopup="dialog"
             aria-expanded={isMobileMenuOpen}
             onClick={() => setIsMobileMenuOpen(true)}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md border border-surface-warm-white/10 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white cursor-pointer"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-md border border-black/10 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
           >
             <Menu className="size-4" />
           </button>
@@ -246,52 +312,11 @@ export function WorkspaceTopBar({
           {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
           {runtime ? <RuntimeControl runtime={runtime} /> : null}
 
-          {activeTab === "preview" ? (
-            <div
-              role="tablist"
-              aria-label="Tampilan viewport"
-              className="hidden md:flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
-            >
-              <TabButton
-                active={viewport === "desktop"}
-                id="viewport-desktop-tab"
-                controls="workspace-preview-panel"
-                onClick={() => setViewport("desktop")}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowRight") {
-                    event.preventDefault();
-                    setViewport("mobile");
-                    (
-                      event.currentTarget.nextElementSibling as HTMLElement
-                    )?.focus();
-                  }
-                }}
-                icon={<Monitor className="size-4" />}
-                layoutId="workspace-viewport-tab"
-              >
-                Komputer
-              </TabButton>
-              <TabButton
-                active={viewport === "mobile"}
-                id="viewport-mobile-tab"
-                controls="workspace-preview-panel"
-                onClick={() => setViewport("mobile")}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft") {
-                    event.preventDefault();
-                    setViewport("desktop");
-                    (
-                      event.currentTarget.previousElementSibling as HTMLElement
-                    )?.focus();
-                  }
-                }}
-                icon={<Smartphone className="size-4" />}
-                layoutId="workspace-viewport-tab"
-              >
-                HP
-              </TabButton>
-            </div>
-          ) : null}
+          <div className="hidden h-4 w-px bg-black/10 dark:bg-surface-warm-white/10 sm:block" />
+
+          <EnergyDisplay />
+          <ThemeToggle />
+          <AuthButton />
         </div>
       </div>
       <MobileSheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -348,7 +373,7 @@ function TabButton({
       {active && (
         <motion.span
           layoutId={layoutId}
-          className="absolute inset-0 rounded-radius-sm bg-surface-warm-white/10"
+          className="absolute inset-0 rounded-radius-sm bg-black/10 dark:bg-surface-warm-white/10"
           transition={{ type: "spring", stiffness: 500, damping: 30 }}
         />
       )}
@@ -356,8 +381,8 @@ function TabButton({
         className={cn(
           "relative z-10 flex items-center gap-spacing-2",
           active
-            ? "text-surface-warm-white"
-            : "text-surface-warm-white/58 hover:text-surface-warm-white",
+            ? "text-[#1c1c1c] dark:text-surface-warm-white"
+            : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white",
         )}
       >
         {icon}
@@ -406,22 +431,22 @@ export function MobileMenuContent({
   };
 
   return (
-    <div className="flex flex-col gap-spacing-5">
+    <div className="flex flex-col gap-spacing-5 text-[#1c1c1c] dark:text-surface-warm-white">
       <section className="flex flex-col gap-spacing-2">
-        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-surface-warm-white/44">
+        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
           Tampilan
         </span>
         <div
           role="tablist"
           aria-label="Konten tampilan"
-          className="flex h-9 w-full items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+          className="flex h-9 w-full items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
         >
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === "preview"}
             onClick={() => pickTab("preview")}
-            className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "preview" ? "bg-surface-warm-white/10 text-surface-warm-white" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+            className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "preview" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
           >
             <Globe2 className="size-4" />
             <span>Tampilan</span>
@@ -431,7 +456,7 @@ export function MobileMenuContent({
             role="tab"
             aria-selected={activeTab === "code"}
             onClick={() => pickTab("code")}
-            className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "code" ? "bg-surface-warm-white/10 text-surface-warm-white" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+            className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "code" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
           >
             <Code2 className="size-4" />
             <span>Kode</span>
@@ -441,13 +466,13 @@ export function MobileMenuContent({
 
       {activeTab === "preview" ? (
         <section className="flex flex-col gap-spacing-2">
-          <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-surface-warm-white/44">
+          <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
             Tampilan perangkat
           </span>
           <div
             role="tablist"
             aria-label="Tampilan viewport"
-            className="flex h-9 w-full items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+            className="flex h-9 w-full items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
           >
             <button
               type="button"
@@ -457,7 +482,7 @@ export function MobileMenuContent({
                 setViewport("desktop");
                 onClose();
               }}
-              className={`flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${viewport === "desktop" ? "bg-surface-warm-white/10 text-surface-warm-white" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+              className={`flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${viewport === "desktop" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
             >
               <Monitor className="size-4" />
               <span>Komputer</span>
@@ -470,7 +495,7 @@ export function MobileMenuContent({
                 setViewport("mobile");
                 onClose();
               }}
-              className={`flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${viewport === "mobile" ? "bg-surface-warm-white/10 text-surface-warm-white" : "text-surface-warm-white/58 hover:text-surface-warm-white"}`}
+              className={`flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${viewport === "mobile" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
             >
               <Smartphone className="size-4" />
               <span>HP</span>
@@ -480,7 +505,7 @@ export function MobileMenuContent({
       ) : null}
 
       <section className="flex flex-col gap-spacing-2">
-        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-surface-warm-white/44">
+        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
           Aksi
         </span>
         <div className="flex flex-col gap-spacing-1">
@@ -497,10 +522,10 @@ export function MobileMenuContent({
               aria-label={
                 directEditActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
               }
-              className={`inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm cursor-pointer ${directEditActive ? "bg-[#8fd3ff]/12 text-[#d6f0ff]" : "text-surface-warm-white/82 hover:bg-surface-warm-white/8"}`}
+              className={`inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm cursor-pointer ${directEditActive ? "bg-[#8fd3ff]/12 text-[#d6f0ff]" : "text-[#1c1c1c] hover:bg-black/5 dark:text-surface-warm-white/82 dark:hover:bg-surface-warm-white/8"}`}
             >
               <MessageSquarePlus
-                className={`size-4 shrink-0 ${directEditActive ? "text-[#8fd3ff]" : "text-surface-warm-white/64"}`}
+                className={`size-4 shrink-0 ${directEditActive ? "text-[#8fd3ff]" : "text-[#5f5f5d] dark:text-surface-warm-white/64"}`}
               />
               <span className="flex-1 text-left">
                 {directEditActive ? "Ubah aktif" : "Ubah"}
@@ -513,11 +538,11 @@ export function MobileMenuContent({
               target="_blank"
               rel="noopener noreferrer"
               onClick={onClose}
-              className="inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm text-surface-warm-white/82 hover:bg-surface-warm-white/8"
+              className="inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm text-[#1c1c1c] hover:bg-black/5 dark:text-surface-warm-white/82 dark:hover:bg-surface-warm-white/8"
             >
-              <LifeBuoy className="size-4 shrink-0 text-surface-warm-white/64" />
+              <LifeBuoy className="size-4 shrink-0 text-[#5f5f5d] dark:text-surface-warm-white/64" />
               <span className="flex-1 text-left">Hubungi Dukungan</span>
-              <ChevronRight className="size-4 text-surface-warm-white/40" />
+              <ChevronRight className="size-4 text-black/30 dark:text-surface-warm-white/40" />
             </a>
           ) : null}
           {projectId ? (
@@ -566,7 +591,7 @@ function RuntimeControl({
             rel="noreferrer"
             onClick={onActivate}
             aria-label="Buka website yang diterbitkan"
-            className="inline-flex h-11 w-full items-center justify-center gap-spacing-2 rounded-radius-md bg-surface-warm-white px-spacing-4 text-sm font-medium text-foreground-primary hover:bg-surface-warm-white/90"
+            className="inline-flex h-11 w-full items-center justify-center gap-spacing-2 rounded-radius-md bg-[#1c1c1c] px-spacing-4 text-sm font-semibold text-white shadow-xs hover:bg-black dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/90"
           >
             <ExternalLink className="size-4" />
             <span>Buka website</span>
@@ -584,7 +609,7 @@ function RuntimeControl({
                 ? "Sedang menerbitkan website..."
                 : "Terbitkan website ke domain publik"
             }
-            className="inline-flex h-11 w-full items-center justify-center gap-spacing-2 rounded-radius-md bg-surface-warm-white px-spacing-4 text-sm font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-50 cursor-pointer"
+            className="inline-flex h-11 w-full items-center justify-center gap-spacing-2 rounded-radius-md bg-[#1c1c1c] px-spacing-4 text-sm font-semibold text-white shadow-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/90 cursor-pointer"
           >
             {runtime.isPublishing ? (
               <Loader2 className="size-4 animate-spin" />
@@ -605,10 +630,10 @@ function RuntimeControl({
           target="_blank"
           rel="noreferrer"
           aria-label="Buka website yang diterbitkan"
-          className="inline-flex h-9 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
         >
-          <ExternalLink className="size-4" />
-          <span className="hidden sm:inline">Buka</span>
+          <ExternalLink className="size-3.5" />
+          <span>Buka Website</span>
         </a>
       ) : (
         <button
@@ -620,16 +645,14 @@ function RuntimeControl({
               ? "Sedang menerbitkan website..."
               : "Terbitkan website ke domain publik"
           }
-          className="inline-flex h-9 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 text-xs text-surface-warm-white/70 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-35 cursor-pointer"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-black/30 disabled:hover:bg-black/5 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/90 dark:disabled:bg-white/5 dark:disabled:text-white/30 cursor-pointer"
         >
           {runtime.isPublishing ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-3.5 animate-spin" />
           ) : (
-            <Globe2 className="size-4" />
+            <Globe2 className="size-3.5" />
           )}
-          <span className="hidden sm:inline">
-            {runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}
-          </span>
+          <span>{runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}</span>
         </button>
       )}
     </div>
@@ -762,12 +785,12 @@ export function VisualFeedbackWidget({
 
 export function EmptyPreviewState() {
   return (
-    <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
+    <div className="grid min-h-full place-items-center bg-[#f7f4ed] p-spacing-10 text-center text-[#1c1c1c] transition-colors duration-200 dark:bg-[#10100f] dark:text-surface-warm-white">
       <div>
-        <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white">
+        <h2 className="text-3xl font-semibold tracking-[-0.05em] text-[#1c1c1c] dark:text-surface-warm-white">
           Belum ada tampilan website
         </h2>
-        <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/50">
+        <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/50">
           Tampilan website akan muncul setelah brief cukup jelas dan proses
           pembuatan selesai.
         </p>
@@ -821,13 +844,13 @@ export function WorkspaceCardView({
 
   if (card.type === "build_recommendation") {
     return (
-      <div className="border-y border-surface-warm-white/10 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+      <div className="rounded-2xl border border-black/10 bg-[#fcfbf8] px-spacing-5 py-spacing-5 shadow-sm transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#1b1b18] dark:shadow-none">
         <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold leading-6 text-surface-warm-white">
+            <h2 className="text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
               {card.title}
             </h2>
-            <ul className="mt-spacing-4 divide-y divide-surface-warm-white/8 text-sm leading-6 text-surface-warm-white/66">
+            <ul className="mt-spacing-4 divide-y divide-black/5 text-sm leading-6 text-[#5f5f5d] dark:divide-surface-warm-white/8 dark:text-surface-warm-white/66">
               {card.summary.slice(0, 7).map((item, index) => (
                 <li
                   key={`${item}-${index}`}
@@ -838,7 +861,7 @@ export function WorkspaceCardView({
               ))}
             </ul>
             {!canBuild ? (
-              <p className="mt-spacing-4 rounded-[12px] border border-amber-500/24 bg-amber-500/[0.06] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white/82">
+              <p className="mt-spacing-4 rounded-[12px] border border-amber-500/24 bg-amber-500/[0.06] px-spacing-4 py-spacing-3 text-sm leading-6 text-[#1c1c1c] dark:text-surface-warm-white/82">
                 Ada informasi yang masih perlu dilengkapi. Lanjutkan diskusi
                 dulu sebelum membuat website.
               </p>
@@ -849,7 +872,7 @@ export function WorkspaceCardView({
               type="button"
               disabled={!canBuild}
               onClick={onBuild}
-              className="rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+              className="rounded-[12px] bg-[#1c1c1c] px-spacing-5 text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
             >
               Mulai buat website
             </Button>
@@ -871,18 +894,18 @@ export function WorkspaceCardView({
 
   if (card.type === "build_retry") {
     return (
-      <div className="border-y border-amber-500/15 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+      <div className="rounded-2xl border border-amber-500/20 bg-[#fcfbf8] px-spacing-5 py-spacing-5 shadow-sm transition-colors duration-200 dark:border-amber-500/15 dark:bg-[#1b1b18] dark:shadow-none">
         <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold leading-6 text-surface-warm-white">
+            <h2 className="text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
               {card.title}
             </h2>
-            <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/66">
+            <p className="mt-spacing-2 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/66">
               {card.errorMessage ||
                 "Bangunnya belum berhasil — bukan salahmu. Coba lagi atau perbaiki brief dulu."}
             </p>
             {card.summary.length > 0 ? (
-              <ul className="mt-spacing-4 divide-y divide-surface-warm-white/8 text-sm leading-6 text-surface-warm-white/66">
+              <ul className="mt-spacing-4 divide-y divide-black/5 text-sm leading-6 text-[#5f5f5d] dark:divide-surface-warm-white/8 dark:text-surface-warm-white/66">
                 {card.summary.slice(0, 7).map((item, index) => (
                   <li
                     key={`${item}-${index}`}
@@ -899,7 +922,7 @@ export function WorkspaceCardView({
               type="button"
               disabled={!canBuild}
               onClick={onBuild}
-              className="rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+              className="rounded-[12px] bg-[#1c1c1c] px-spacing-5 text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
             >
               Coba bangun lagi
             </Button>
@@ -908,7 +931,7 @@ export function WorkspaceCardView({
                 type="button"
                 variant="outline"
                 onClick={onDiscuss}
-                className="rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-5 text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+                className="rounded-[12px] border-black/15 bg-transparent px-spacing-5 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
               >
                 Perbaiki brief dulu
               </Button>

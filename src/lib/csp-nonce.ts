@@ -2,17 +2,24 @@
 // The AsyncLocalStorage store is initialized on the server startup (server.ts)
 // or test startup (csp-nonce.test.ts) to keep browser bundles clean of node:* imports.
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 declare global {
-  var __nonceStore: any;
+  var __nonceStore:
+    | {
+        getStore: () => string | undefined;
+        run: <R>(store: string, callback: () => R) => R;
+      }
+    | undefined;
 }
 
 export function getNonceStore() {
   if (typeof window !== "undefined") {
     throw new Error("Nonce store is only available on the server side");
   }
-  return globalThis.__nonceStore;
+  const store = globalThis.__nonceStore;
+  if (!store) {
+    throw new Error("Nonce store is not initialized");
+  }
+  return store;
 }
 
 export function getNonce(): string | undefined {

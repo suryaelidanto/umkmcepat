@@ -67,6 +67,14 @@ function getProjectCreateIdempotencyKey(prompt: string) {
   return idempotencyKey;
 }
 
+const PROMPT_PLACEHOLDERS = [
+  "Saya jual katering rumahan di Jogja, mau ada daftar menu harian sama tombol order WhatsApp...",
+  "Tolong buatkan website pangkas rambut pria, ada daftar harga potong sama jam buka...",
+  "Mau website laundry kiloan, butuh info harga per kilo, alamat outlet, dan kontak WhatsApp...",
+  "Tolong buatin website bengkel motor & ganti oli di Bandung, ada daftar servis, lokasi maps, jam operasional, dan nomor darurat...",
+  "Saya mau website kedai kopi susu & roti bakar, tolong tampilkan menu favorit, promo mingguan, alamat cabang, dan tombol pesan WhatsApp...",
+];
+
 export function HomePromptForm({
   onFocusChange,
 }: {
@@ -82,6 +90,48 @@ export function HomePromptForm({
   const uploadsEnabled = useFeatureFlag("feature.composer_uploads_enabled");
   const hasAutoContinued = useRef(false);
   const isSubmittingRef = useRef(false);
+
+  // Typewriter placeholder animation
+  const [placeholder, setPlaceholder] = useState("");
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (prompt) {
+      return;
+    }
+
+    const currentPhrase = PROMPT_PLACEHOLDERS[phraseIndex];
+    let timer: ReturnType<typeof setTimeout>;
+
+    if (!isDeleting && charIndex < currentPhrase.length) {
+      // Type forward
+      timer = setTimeout(() => {
+        setPlaceholder(currentPhrase.slice(0, charIndex + 1));
+        setCharIndex((prev) => prev + 1);
+      }, 25);
+    } else if (!isDeleting && charIndex >= currentPhrase.length) {
+      // Pause 3 seconds at full text
+      timer = setTimeout(() => {
+        setIsDeleting(true);
+      }, 3000);
+    } else if (isDeleting && charIndex > 0) {
+      // Untype backward fast
+      timer = setTimeout(() => {
+        setPlaceholder(currentPhrase.slice(0, charIndex - 1));
+        setCharIndex((prev) => prev - 1);
+      }, 12);
+    } else if (isDeleting && charIndex === 0) {
+      // 1-second pause when empty, then start next phrase (loops infinitely)
+      timer = setTimeout(() => {
+        setIsDeleting(false);
+        setPhraseIndex((prev) => (prev + 1) % PROMPT_PLACEHOLDERS.length);
+      }, 1000);
+    }
+
+    return () => clearTimeout(timer);
+  }, [charIndex, isDeleting, phraseIndex, prompt]);
 
   // Waitlist gate: never show the create form to signed-in users who have not
   // been approved. While the status query is still loading, keep the form
@@ -316,7 +366,7 @@ export function HomePromptForm({
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           onKeyDown={handlePromptKeyDown}
-          placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
+          placeholder={placeholder ? `Contoh: ${placeholder}` : ""}
           maxLength={PROJECT_REQUEST_MAX_LENGTH}
           disabled={isLoading}
           className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-[#1c1c1c] outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-[#1c1c1c]/45 disabled:opacity-70 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/52 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
@@ -401,7 +451,7 @@ export function HomePromptForm({
               size="icon"
               disabled={isLoading || isUploading || !prompt.trim()}
               aria-label="Buat website"
-              className="size-11 rounded-full bg-white text-[#141413] hover:bg-white/92 disabled:opacity-45"
+              className="size-11 rounded-full bg-[#1c1c1c] text-white shadow-sm transition hover:bg-black hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 disabled:hover:scale-100 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30"
             >
               {isLoading ? (
                 <Loader2 className="size-5 animate-spin" />
