@@ -61,6 +61,7 @@ describe("canonical brief migration planning", () => {
       fieldState: migrated.brief.fieldState,
       visualDirection: migrated.brief.visualDirection,
       primaryAction: migrated.brief.primaryAction,
+      visitorJobs: migrated.brief.visitorJobs,
       audience: migrated.brief.audience,
       offers: migrated.brief.offers,
       business: migrated.brief.business,
