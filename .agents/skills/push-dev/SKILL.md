@@ -36,6 +36,11 @@ Format: `type(scope): description`
 All commits must end with:
 `Co-Authored-By: Claude <noreply@anthropic.com>`
 
+When `push-main` opens or reuses the release PR, its title must use the same
+Conventional Commit format because squash merging uses that title as the
+commit subject on `main`. Keep it specific and imperative; never use generic
+titles such as `Dev`, `Release`, `Update`, or `Merge pull request`.
+
 Example command:
 ```bash
 git commit -m "feat(auth): add email verification

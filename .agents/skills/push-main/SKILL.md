@@ -27,10 +27,34 @@ Check for an open `dev` → `main` PR:
 gh pr list --base main --head dev --state open --limit 1
 ```
 
-If none exists, create one using the release commits for the title and body:
+The PR title becomes the commit subject on `main`, so it must be a concise
+Conventional Commit title in the imperative mood:
+
+```text
+type(scope): imperative release summary
+```
+
+Use a real scope and describe the user-visible or engineering change. Never
+use generic titles such as `Dev`, `Release`, `Update`, or `Merge pull request`.
+Examples:
+
+```text
+fix(navigation): preserve loading through route transitions
+chore(ci): align protected branch release flow
+```
+
+If an existing release PR has a generic title, fix it before merging:
 
 ```bash
-gh pr create --base main --head dev --title "<release title>" --body "<release summary>"
+gh pr edit <PR_NUMBER> --title "type(scope): imperative release summary"
+```
+
+If none exists, create one using the same title and a useful release body:
+
+```bash
+gh pr create --base main --head dev \
+  --title "type(scope): imperative release summary" \
+  --body "<release summary>"
 ```
 
 Do not check out `main`, merge locally, or push `origin main` in this skill.
@@ -49,11 +73,18 @@ with admin privileges.
 
 ### 4. Merge through GitHub
 
-After the PR checks are green, merge through GitHub and keep the `dev` branch:
+After the PR checks are green, squash-merge through GitHub and keep the `dev`
+branch:
 
 ```bash
-gh pr merge <PR_NUMBER> --merge --delete-branch=false
+gh pr merge <PR_NUMBER> --squash --delete-branch=false
 ```
+
+Squash merging keeps `dev`'s detailed commit history while creating one clean
+release commit on `main`. GitHub derives its subject from the PR title and
+appends `(#PR_NUMBER)`, for example:
+`fix(navigation): preserve loading through route transitions (#27)`.
+Never use regular `--merge`, rebase locally, or bypass the required checks.
 
 ### 5. Watch post-merge main CI
 
