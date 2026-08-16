@@ -96,15 +96,9 @@ export function HomePromptForm({
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isWaiting, setIsWaiting] = useState(false);
 
   useEffect(() => {
-    // Stop animating if user typed something
     if (prompt) {
-      return;
-    }
-
-    if (isWaiting) {
       return;
     }
 
@@ -112,36 +106,32 @@ export function HomePromptForm({
     let timer: ReturnType<typeof setTimeout>;
 
     if (!isDeleting && charIndex < currentPhrase.length) {
-      // Typing forward
+      // Type forward
       timer = setTimeout(() => {
         setPlaceholder(currentPhrase.slice(0, charIndex + 1));
         setCharIndex((prev) => prev + 1);
-      }, 30);
-    } else if (!isDeleting && charIndex === currentPhrase.length) {
-      // Pause at complete phrase before deleting
-      setIsWaiting(true);
+      }, 25);
+    } else if (!isDeleting && charIndex >= currentPhrase.length) {
+      // Pause 3 seconds at full text
       timer = setTimeout(() => {
-        setIsWaiting(false);
         setIsDeleting(true);
       }, 3000);
     } else if (isDeleting && charIndex > 0) {
-      // Deleting backward
+      // Untype backward fast
       timer = setTimeout(() => {
         setPlaceholder(currentPhrase.slice(0, charIndex - 1));
         setCharIndex((prev) => prev - 1);
-      }, 15);
+      }, 12);
     } else if (isDeleting && charIndex === 0) {
-      // Pause 1 second before starting next phrase
-      setIsWaiting(true);
+      // 1-second pause when empty, then start next phrase (loops infinitely)
       timer = setTimeout(() => {
         setIsDeleting(false);
-        setIsWaiting(false);
         setPhraseIndex((prev) => (prev + 1) % PROMPT_PLACEHOLDERS.length);
       }, 1000);
     }
 
     return () => clearTimeout(timer);
-  }, [charIndex, isDeleting, isWaiting, phraseIndex, prompt]);
+  }, [charIndex, isDeleting, phraseIndex, prompt]);
 
   // Waitlist gate: never show the create form to signed-in users who have not
   // been approved. While the status query is still loading, keep the form
