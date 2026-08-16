@@ -374,6 +374,32 @@ describe("reference-calibrated generated site source gates", () => {
     );
   });
 
+  // Reproduced live: a bg-foreground illustration div sat near the top of a
+  // surface="base" section (no contrast surface at all). Its own tag has no
+  // reliable closing marker the way </SiteSection> does for the primitive
+  // above — div nesting is arbitrary — so treating "until the next
+  // SiteSection" as its scope let the span swallow the rest of the section:
+  // a real build's product description and usp list, both well after the
+  // div's own </div>, were wrongly read as inside its scope and left with
+  // an invisible text-background.
+  it("still flags text-background far outside a bg-foreground element's own tag", () => {
+    const source =
+      '<SiteSection surface="base"><div className="flex bg-foreground p-8"><svg /></div><p className="text-background">Elsewhere</p></SiteSection>';
+    expect(
+      inspectGeneratedSiteTasteSource({ source, sectionCount: 3 }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "uncompiled-theme-utility" }),
+      ]),
+    );
+    const [file] = normalizeBatchedSiteAnchors([
+      { path: "src/routes/index.tsx", content: source },
+    ]);
+    expect(file?.content).toContain(
+      '<p className="text-foreground">Elsewhere</p>',
+    );
+  });
+
   it("accepts an international WhatsApp URL for a local accepted target", () => {
     const input = v2Contract();
     input.business.primaryCta.target = "08123456789";

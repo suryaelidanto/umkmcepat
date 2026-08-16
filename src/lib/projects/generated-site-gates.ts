@@ -46,13 +46,9 @@ const FOREGROUND_FAMILY_TEXT_TOKEN = `text-(?:${LIGHT_SURFACE_TEXT_TOKEN})`;
 function contrastSurfaceSpans(
   source: string,
 ): Array<{ start: number; end: number }> {
-  const openers = [
+  const sectionSpans = [
     ...source.matchAll(/<SiteSection\b[^>]*\bsurface=["']contrast["'][^>]*>/g),
-    ...source.matchAll(
-      /<[A-Za-z][\w.]*\b[^>]*\bclassName=["'][^"']*\bbg-foreground\b[^"']*["'][^>]*>/g,
-    ),
-  ];
-  return openers.map((match) => {
+  ].map((match) => {
     const start = match.index ?? 0;
     const searchFrom = start + match[0].length;
     // Bounded by whichever comes first: the next section starting, or this
@@ -65,6 +61,24 @@ function contrastSurfaceSpans(
     const end = boundaries.length ? Math.min(...boundaries) : source.length;
     return { start, end };
   });
+  // A writer-hardcoded bg-foreground element has no reliable closing-tag
+  // marker to bound a descendant scan the way </SiteSection> does above —
+  // div nesting is arbitrary. Scanning to "the next SiteSection" swallowed
+  // unrelated later content when this was tried. Reproduced live: a real
+  // build's product description and usp list, both well past a small
+  // bg-foreground illustration div's own </div>, were wrongly read as
+  // inside its scope and left with an invisible text-background. So this
+  // only covers the tag's own attribute string — same-element
+  // co-occurrence, not descendants.
+  const ownTagSpans = [
+    ...source.matchAll(
+      /<[A-Za-z][\w.]*\b[^>]*\bclassName=["'][^"']*\bbg-foreground\b[^"']*["'][^>]*>/g,
+    ),
+  ].map((match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+  }));
+  return [...sectionSpans, ...ownTagSpans];
 }
 
 function hasContrastSurfaceTextMismatch(source: string): boolean {
