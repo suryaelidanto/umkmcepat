@@ -1,6 +1,6 @@
 ---
 name: push-dev
-description: Use to commit and push changes on the `dev` branch. Handles local verification, Conventional Commits, pushing, and watching CI. Incorporates CI fixing flow if the push fails CI checks.
+description: Use when changes on `dev` must be committed, pushed, and validated by CI.
 ---
 
 # Push Dev
@@ -50,11 +50,22 @@ git push origin dev
 ```
 
 ### 4. Watch CI (blocking — do not stop until green/red)
-After pushing, find the newest run and **block on it** so you never stop mid-run waiting for a re-prompt:
+After pushing, find the run for the exact pushed commit and **block on it** so
+you never watch another concurrent push or stop mid-run waiting for a re-prompt:
 ```bash
-RUN_ID=$(gh run list --branch dev --limit 1 --json databaseId --jq '.[0].databaseId')
+DEV_SHA=$(git rev-parse HEAD)
+RUN_ID=$(gh run list --branch dev --limit 20 --json databaseId,headSha --jq ".[] | select(.headSha == \"$DEV_SHA\") | .databaseId" | head -n 1)
+if [ -z "$RUN_ID" ]; then
+  echo "No dev CI run found for $DEV_SHA" >&2
+  exit 1
+fi
 gh run watch "$RUN_ID" --exit-status      # blocks until run finishes; exits non-zero on failure
 ```
 `gh run watch --exit-status` is the gate. Do not `gh run list` and stop — that snapshot returns while the run is still in progress and forces the user to re-prompt you. Always block until the run reports a terminal state.
 
-If the run failed, invoke `@.agents/skills/fix-ci` to view logs (`gh run view "$RUN_ID" --log-failed`), apply a minimal fix, push again, then **watch the new run to completion** — loop until green.
+If the run failed, invoke `fix-ci` to view logs (`gh run view "$RUN_ID" --log-failed`), apply a minimal fix, push again, then **watch the new run to completion** — loop until green.
+
+## Release handoff
+
+A green `dev` run is the handoff to `push-main`. Do not check out, merge, or
+push `main` from this skill.

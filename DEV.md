@@ -52,7 +52,7 @@ bun run prod:down      # stop production stack (volumes persist)
 bun run prod:rebuild   # rebuild + restart (after code changes)
 ```
 
-The app binds `127.0.0.1:3000`; put Cloudflare Tunnel / Nginx / Caddy in front for TLS. `.github/workflows/deploy.yml` is a backup/disabled deploy workflow (manual-only with `confirm_deploy=true`); uncomment its `push:` trigger when the VPS is provisioned.
+The app binds `127.0.0.1:3000`; put Cloudflare Tunnel / Nginx / Caddy in front for TLS. Deployment is not configured in GitHub Actions yet; add a dedicated workflow when the VPS is provisioned.
 
 Server logs are written to `dev.log` at the repo root automatically during `bun run dev` (no toggle). Tail it live in a second terminal:
 
