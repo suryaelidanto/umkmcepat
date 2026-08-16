@@ -68,11 +68,11 @@ function getProjectCreateIdempotencyKey(prompt: string) {
 }
 
 const PROMPT_PLACEHOLDERS = [
-  "Tolong buatkan website buat jualan ayam geprek & jus buah, biar pelanggan gampang lihat menu terus langsung order via WhatsApp...",
-  "Saya mau dong buatin website bengkel motor & servis panggilan di Bandung, ada info layanan, maps lokasi, sama nomor darurat...",
-  "Tolong bikinin website katalog gamis & hijab rumahan di Solo, lengkap sama pilihan ukuran, foto produk, dan tombol kontak admin...",
-  "Mau buat website jasa cuci sepatu & apparel premium, tolong kasih daftar harga paket, review pelanggan, dan alamat antar jemput...",
-  "Buatin website kedai kopi susu & pastry kekinian dong, butuh info menu favorit, promo mingguan, sama alamat cabang...",
+  "Saya jual katering rumahan di Jogja, mau ada daftar menu harian sama tombol order WhatsApp...",
+  "Tolong buatkan website pangkas rambut pria, ada daftar harga potong sama jam buka...",
+  "Mau website laundry kiloan, butuh info harga per kilo, alamat outlet, dan kontak WhatsApp...",
+  "Tolong buatin website bengkel motor & ganti oli di Bandung, ada daftar servis, lokasi maps, jam operasional, dan nomor darurat...",
+  "Saya mau website kedai kopi susu & roti bakar, tolong tampilkan menu favorit, promo mingguan, alamat cabang, dan tombol pesan WhatsApp...",
 ];
 
 export function HomePromptForm({
