@@ -350,16 +350,15 @@ function buildFileTree(files: GeneratedProjectFile[]) {
 }
 
 function EmptyCodeState({ buildStatus }: { buildStatus: string }) {
+  void buildStatus;
   return (
-    <div className="grid h-full min-h-0 place-items-center bg-[#10100f] p-spacing-6 text-center text-surface-warm-white">
-      <div className="max-w-sm rounded-[24px] border border-surface-warm-white/10 bg-[#181816] px-spacing-6 py-spacing-6">
-        <p className="text-sm font-semibold">Belum ada source yang dibuat</p>
-        <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/54">
-          Kode website muncul setelah AI menulis file (termasuk bila build
-          gagal). Jalankan build pertama dari rancangan jika masih kosong.
+    <div className="grid h-full min-h-0 place-items-center bg-[#f7f4ed] p-spacing-6 text-center text-[#1c1c1c] transition-colors duration-200 dark:bg-[#10100f] dark:text-surface-warm-white">
+      <div className="max-w-sm rounded-[24px] border border-black/10 bg-[#fcfbf8] px-spacing-6 py-spacing-6 shadow-sm dark:border-surface-warm-white/10 dark:bg-[#181816] dark:shadow-none">
+        <p className="text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
+          Belum ada kode
         </p>
-        <p className="mt-spacing-4 text-xs text-surface-warm-white/34">
-          Status: {buildStatus}
+        <p className="mt-spacing-2 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/54">
+          Kode website akan muncul otomatis saat website mulai dibuat.
         </p>
       </div>
     </div>

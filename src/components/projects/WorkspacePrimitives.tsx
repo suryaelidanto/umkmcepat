@@ -160,6 +160,57 @@ export function WorkspaceTopBar({
               Kode
             </TabButton>
           </div>
+
+          {activeTab === "preview" ? (
+            <>
+              <div className="hidden h-4 w-px bg-black/10 dark:bg-surface-warm-white/10 md:block" />
+              <div
+                role="tablist"
+                aria-label="Tampilan viewport"
+                className="hidden md:flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
+              >
+                <TabButton
+                  active={viewport === "desktop"}
+                  id="viewport-desktop-tab"
+                  controls="workspace-preview-panel"
+                  onClick={() => setViewport("desktop")}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowRight") {
+                      event.preventDefault();
+                      setViewport("mobile");
+                      (
+                        event.currentTarget.nextElementSibling as HTMLElement
+                      )?.focus();
+                    }
+                  }}
+                  icon={<Monitor className="size-4" />}
+                  layoutId="workspace-viewport-tab"
+                >
+                  Komputer
+                </TabButton>
+                <TabButton
+                  active={viewport === "mobile"}
+                  id="viewport-mobile-tab"
+                  controls="workspace-preview-panel"
+                  onClick={() => setViewport("mobile")}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowLeft") {
+                      event.preventDefault();
+                      setViewport("desktop");
+                      (
+                        event.currentTarget
+                          .previousElementSibling as HTMLElement
+                      )?.focus();
+                    }
+                  }}
+                  icon={<Smartphone className="size-4" />}
+                  layoutId="workspace-viewport-tab"
+                >
+                  HP
+                </TabButton>
+              </div>
+            </>
+          ) : null}
           {annotationAvailable &&
           activeTab === "preview" &&
           directEditFlagEnabled ? (
@@ -248,53 +299,6 @@ export function WorkspaceTopBar({
           {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
           {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
           {runtime ? <RuntimeControl runtime={runtime} /> : null}
-
-          {activeTab === "preview" ? (
-            <div
-              role="tablist"
-              aria-label="Tampilan viewport"
-              className="hidden md:flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
-            >
-              <TabButton
-                active={viewport === "desktop"}
-                id="viewport-desktop-tab"
-                controls="workspace-preview-panel"
-                onClick={() => setViewport("desktop")}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowRight") {
-                    event.preventDefault();
-                    setViewport("mobile");
-                    (
-                      event.currentTarget.nextElementSibling as HTMLElement
-                    )?.focus();
-                  }
-                }}
-                icon={<Monitor className="size-4" />}
-                layoutId="workspace-viewport-tab"
-              >
-                Komputer
-              </TabButton>
-              <TabButton
-                active={viewport === "mobile"}
-                id="viewport-mobile-tab"
-                controls="workspace-preview-panel"
-                onClick={() => setViewport("mobile")}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft") {
-                    event.preventDefault();
-                    setViewport("desktop");
-                    (
-                      event.currentTarget.previousElementSibling as HTMLElement
-                    )?.focus();
-                  }
-                }}
-                icon={<Smartphone className="size-4" />}
-                layoutId="workspace-viewport-tab"
-              >
-                HP
-              </TabButton>
-            </div>
-          ) : null}
 
           <div className="hidden h-4 w-px bg-black/10 dark:bg-surface-warm-white/10 sm:block" />
 
