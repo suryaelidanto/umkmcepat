@@ -51,6 +51,22 @@ export function useIsRoutePending(): boolean {
 
 type PushReplaceOptions = { href: string };
 
+type NavigationRouter = {
+  navigate: (options: { replace?: boolean; to: string }) => Promise<void>;
+};
+
+export function navigateTo(
+  router: NavigationRouter | null,
+  href: string,
+  replace = false,
+): Promise<void> {
+  if (!router) {
+    return Promise.resolve();
+  }
+
+  return router.navigate(replace ? { replace: true, to: href } : { to: href });
+}
+
 // next/navigation's useRouter exposed push/replace taking a string href.
 // TanStack Router's navigate takes { to }. This wrapper preserves call sites
 // like router.replace("/") and router.push("/projects/new").
@@ -64,10 +80,10 @@ export function useRouter() {
 
   return {
     push: (href: string, _options?: PushReplaceOptions) => {
-      void router?.navigate({ to: href });
+      return navigateTo(router, href);
     },
     replace: (href: string, _options?: PushReplaceOptions) => {
-      void router?.navigate({ to: href, replace: true });
+      return navigateTo(router, href, true);
     },
     refresh: () => {
       void router?.invalidate();

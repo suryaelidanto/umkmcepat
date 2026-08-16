@@ -364,7 +364,7 @@ function WaitlistPage() {
       setDevSkipDone(true);
       toast.success("Pendaftaran di-skip (admin bypass).");
       await invalidateWaitlistStatus(queryClient);
-      setTimeout(() => router.replace("/"), 1500);
+      setTimeout(() => void router.replace("/"), 1500);
     },
     onError: (error) => {
       toast.error(

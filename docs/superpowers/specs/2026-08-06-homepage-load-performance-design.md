@@ -41,6 +41,8 @@ Measured on the running dev server (`bun run dev`, port 3000), warm process, 202
 - `CommunitySection` becomes a client-fetching component: `useQuery` gated on `typeof window !== "undefined"` (never fetches during SSR), skeleton rows while pending.
 - The contributor list reserves its measured skeleton height as data arrives, so shorter or chartless responses do not pull later homepage sections through the user's viewport.
 - Initial TanStack Router scroll restoration is skipped once, preventing hydration from overriding an early user scroll; later route navigations keep normal scroll-to-top behavior.
+- `MainChrome` follows the committed pathname for `/waitlist`, keeping the outgoing homepage chrome stable until the waitlist route is ready.
+- First-project creation keeps its loading state through the awaited `/projects/[id]` navigation, so the submit control cannot look idle while the workspace is still loading.
 - `loadHome` no longer fetches contributors. Guest TTFB drops from ~1.2 s to ~0.6 s.
 
 ### D2. Hero + sections visible at paint (fixes #6)

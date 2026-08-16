@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isWaitlistPagePath,
   isWaitlistGateBypassPath,
   isWaitlistMarketingPublicPath,
 } from "./waitlist-route-access";
+
+describe("isWaitlistPagePath", () => {
+  it("waits for the committed pathname instead of the in-flight target", () => {
+    expect(isWaitlistPagePath("/")).toBe(false);
+    expect(isWaitlistPagePath("/waitlist")).toBe(true);
+  });
+});
 
 describe("isWaitlistMarketingPublicPath", () => {
   it("allows marketing and gate pages", () => {
