@@ -12,6 +12,7 @@ const SITE = {
   trustPoints: ["Kondisi tercatat"],
   usp: ["Kondisi unit tercatat"],
   products: [{ name: "iPhone 13", description: "Battery health tercatat" }],
+  paymentMethods: [{ method: "qris" }],
   sections: [{ title: "Katalog", description: "Daftar unit" }],
   testimonials: [],
   socialLinks: [
@@ -103,6 +104,7 @@ export function HomeRouteComponent() {
       {site.trustPoints.map((t) => <div key={t}>{t}</div>)}
       {site.usp.map((u) => <div key={u}>{u}</div>)}
       {site.products.map((p) => <div key={p.name}>{p.name}</div>)}
+      <p>{site.paymentMethods.join(" dan ")}</p>
       {site.sections.map((s) => <section key={s.title}>{s.title}</section>)}
     </main>
   );
@@ -128,5 +130,10 @@ describe("inspectGeneratedSiteSource — array method calls", () => {
       (f) => f.code === "unknown-site-field",
     );
     expect(unknownField).toEqual([]);
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "structured-array-serialization" }),
+      ]),
+    );
   });
 });

@@ -248,6 +248,14 @@ type LightSurfaceKind = (typeof LIGHT_SURFACE_KINDS)[number];
 type GeneratedSurfaceKind =
   LightSurfaceKind | (typeof STRONG_SURFACE_KINDS)[number];
 
+const STRUCTURED_ARRAY_DISPLAY_FIELDS = [
+  ["paymentMethods", "method"],
+  ["socialLinks", "handle"],
+  ["products", "name"],
+  ["testimonials", "quote"],
+  ["faq", "q"],
+] as const;
+
 function isGeneratedSurfaceKind(value: string): value is GeneratedSurfaceKind {
   return [...LIGHT_SURFACE_KINDS, ...STRONG_SURFACE_KINDS].includes(
     value as GeneratedSurfaceKind,
@@ -323,6 +331,17 @@ function healNestedLightSurfaceText(content: string): string {
     normalized = `${normalized.slice(0, start)}${replacement}${normalized.slice(end)}`;
   }
   return normalized;
+}
+
+function normalizeStructuredArraySerializations(content: string): string {
+  return STRUCTURED_ARRAY_DISPLAY_FIELDS.reduce(
+    (normalized, [field, displayField]) =>
+      normalized.replace(
+        new RegExp(`\\bsite\\.${field}\\s*\\.\\s*join\\s*\\(`, "g"),
+        `site.${field}.map((item) => item.${displayField}).join(`,
+      ),
+    content,
+  );
 }
 
 export function inspectGeneratedSiteTasteSource(input: {
@@ -695,6 +714,19 @@ export function inspectReferenceCalibratedSiteSource(input: {
           file.path,
         );
       }
+      for (const reference of structuredArraySerializationReferences(
+        file.content,
+        siteValue,
+      )) {
+        add(
+          findings,
+          "content",
+          "high",
+          "structured-array-serialization",
+          `Generated source serializes structured site data through ${reference}; render its display field instead.`,
+          file.path,
+        );
+      }
     }
   }
   if (
@@ -863,6 +895,7 @@ export function normalizeBatchedSiteAnchors(
         file.path !== "src/routes/not-found.tsx") ||
       file.path === "src/components/site/generated-shell.tsx";
     if (isGeneratedRouteSource) {
+      content = normalizeStructuredArraySerializations(content);
       if (options?.palette) {
         content = normalizeAcceptedPaletteLiterals(content, options.palette);
       }
@@ -1291,6 +1324,19 @@ export function inspectGeneratedSiteSource(input: {
           file.path,
         );
       }
+      for (const reference of structuredArraySerializationReferences(
+        file.content,
+        siteValue,
+      )) {
+        add(
+          findings,
+          "content",
+          "high",
+          "structured-array-serialization",
+          `Generated source serializes structured site data through ${reference}; render its display field instead.`,
+          file.path,
+        );
+      }
     }
   }
   const requiredFields = requiredContentFields(input.contract);
@@ -1529,6 +1575,50 @@ function invalidSiteReferences(
   };
   visit(source);
   return [...invalid];
+}
+
+function structuredArraySerializationReferences(
+  content: string,
+  site: Record<string, unknown>,
+): string[] {
+  const source = ts.createSourceFile(
+    "generated.tsx",
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const invalid = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isPropertyAccessExpression(node)) {
+      const chain = propertyChain(node);
+      const method = chain?.[chain.length - 1];
+      const parentValue =
+        chain && chain.length > 2
+          ? valueAtPath(site, chain.slice(1, -1))
+          : undefined;
+      if (
+        chain?.[0] === "site" &&
+        method === "join" &&
+        isStructuredObjectArray(parentValue)
+      ) {
+        invalid.add(chain.join("."));
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return [...invalid];
+}
+
+function isStructuredObjectArray(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.some(
+      (item) =>
+        typeof item === "object" && item !== null && !Array.isArray(item),
+    )
+  );
 }
 
 function inspectMapCallback(

@@ -852,6 +852,20 @@ export default function IndexRoute() {
     expect(file?.content).toContain("bg-primary text-primary-foreground");
   });
 
+  it("renders structured payment values through their display field", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/lokasi.tsx",
+        content: '<p>{site.paymentMethods.join(" dan ")}</p>',
+      },
+    ]);
+
+    expect(file?.content).toContain(
+      'site.paymentMethods.map((item) => item.method).join(" dan ")',
+    );
+    expect(file?.content).not.toContain("site.paymentMethods.join");
+  });
+
   it("replaces an empty hash primary CTA with the reviewed WhatsApp target", () => {
     const [file] = normalizeBatchedSiteAnchors(
       [
