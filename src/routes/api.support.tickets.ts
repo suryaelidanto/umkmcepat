@@ -75,9 +75,16 @@ export const Route = createFileRoute("/api/support/tickets")({
           return Response.json(result, { status: 201 });
         } catch (error) {
           const raw = error instanceof Error ? error.message : "";
-          console.error("[support] create ticket failed:", raw);
+          console.error("[support] create ticket failed:", raw, error);
+          const mapped = mapToUserFacingError(raw);
           return Response.json(
-            { message: mapToUserFacingError(raw) },
+            {
+              message:
+                mapped === "Permintaan belum bisa diproses. Coba lagi nanti." &&
+                raw
+                  ? raw
+                  : mapped,
+            },
             { status: 400 },
           );
         }

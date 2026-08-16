@@ -124,7 +124,7 @@ function WaitlistPage() {
       />
 
       {entries.length === 0 ? (
-        <p className="text-surface-warm-white/70">
+        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
           {status === "pending"
             ? "Belum ada pendaftar menunggu."
             : "Tidak ada di filter ini."}
@@ -138,12 +138,12 @@ function WaitlistPage() {
             rowActionPending && act.variables?.action === "approve";
           return (
             <div
-              className="rounded-radius-lg border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-4"
+              className="rounded-radius-lg border border-black/10 bg-[#fcfbf8] p-spacing-4 shadow-sm transition-colors duration-200 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:shadow-none"
               key={entry.id}
             >
               <div className="flex items-start justify-between gap-spacing-3">
                 <div className="min-w-0">
-                  <p className="font-medium">
+                  <p className="font-medium text-[#1c1c1c] dark:text-surface-warm-white">
                     {streamerMode ? (
                       <SensitiveText kind="name" value={entry.businessName} />
                     ) : (
@@ -151,11 +151,11 @@ function WaitlistPage() {
                     )}
                   </p>
                   {entry.businessType ? (
-                    <p className="text-sm text-surface-warm-white/70">
+                    <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
                       {entry.businessType}
                     </p>
                   ) : null}
-                  <p className="text-sm text-surface-warm-white/70">
+                  <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
                     {streamerMode ? (
                       <SensitiveText kind="email" value={entry.email} />
                     ) : (
@@ -163,7 +163,7 @@ function WaitlistPage() {
                     )}
                   </p>
                   {entry.phone ? (
-                    <p className="text-sm text-surface-warm-white/70">
+                    <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
                       {streamerMode ? (
                         <SensitiveText kind="phone" value={entry.phone} />
                       ) : (
@@ -176,7 +176,7 @@ function WaitlistPage() {
                   {status.label}
                 </AdminStatusBadge>
               </div>
-              <p className="mt-spacing-2 line-clamp-4 text-sm text-surface-warm-white">
+              <p className="mt-spacing-2 line-clamp-4 text-sm text-[#1c1c1c] dark:text-surface-warm-white">
                 {entry.story}
               </p>
               {entry.rejectionReason ? (
@@ -189,7 +189,7 @@ function WaitlistPage() {
                   {Array.from({ length: entry.imageCount }).map((_, index) => (
                     <img
                       alt={`${entry.businessName} (${index + 1}/${entry.imageCount})`}
-                      className="max-h-48 rounded-radius-md border border-surface-warm-white/12"
+                      className="max-h-48 rounded-radius-md border border-black/10 dark:border-surface-warm-white/12"
                       key={`${entry.id}-${index}`}
                       src={`/api/admin/waitlist/image/${entry.id}/${index}?v=2`}
                     />

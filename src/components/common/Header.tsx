@@ -59,8 +59,8 @@ export function Header({
         <div aria-hidden="true" />
 
         <div className="flex items-center justify-end gap-3">
-          <ThemeToggle />
           <EnergyDisplay />
+          <ThemeToggle />
           <AuthButton />
         </div>
       </div>

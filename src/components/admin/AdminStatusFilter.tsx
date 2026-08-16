@@ -22,10 +22,10 @@ export function AdminStatusFilter({
         return (
           <button
             className={cn(
-              "rounded-radius-md px-spacing-3 py-spacing-2 text-sm",
+              "rounded-radius-md px-spacing-3 py-spacing-2 text-sm font-medium transition-colors",
               active
-                ? "bg-surface-warm-white/15 text-surface-warm-white"
-                : "border border-surface-warm-white/15 text-surface-warm-white/70",
+                ? "bg-black/10 text-[#1c1c1c] dark:bg-surface-warm-white/15 dark:text-surface-warm-white"
+                : "border border-black/15 bg-black/[0.03] text-[#5f5f5d] hover:bg-black/[0.06] hover:text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-transparent dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/5",
             )}
             key={opt.value}
             onClick={() => onChange(opt.value)}

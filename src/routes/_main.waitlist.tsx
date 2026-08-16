@@ -642,7 +642,7 @@ function WaitlistPage() {
                   }
                   if (storyTooShort) {
                     toast.error(
-                      "Total jawabannya minimal 80 karakter biar kami yakin.",
+                      "Tulis minimal 80 karakter untuk melengkapi cerita usahamu.",
                     );
                     return;
                   }
@@ -846,7 +846,7 @@ function Step1({
       </FormField>
 
       <div className="mt-spacing-6">
-        <span className="text-xs font-semibold text-surface-warm-white/80">
+        <span className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80">
           Jenis usaha (opsional)
         </span>
         <div className="mt-spacing-3 flex flex-wrap gap-spacing-2">
@@ -918,7 +918,7 @@ function Step2({
 
       <div className="mt-spacing-5">
         <div className="flex items-end justify-between">
-          <span className="text-xs font-semibold text-surface-warm-white/80">
+          <span className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80">
             Sudah jualan sejak kapan?
             <span className="text-aurora-rose"> *</span>
           </span>
@@ -954,7 +954,7 @@ function Step2({
           errorMessage("storyGoal") ||
           ((touched.storyGoal || touched.storyOffers || touched.storySince) &&
           storyTooShort
-            ? "Total jawabannya minimal 80 karakter biar kami yakin."
+            ? "Tulis minimal 80 karakter untuk melengkapi cerita usahamu."
             : null)
         }
         label="Mau bikin website buat apa?"

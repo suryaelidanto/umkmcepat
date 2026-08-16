@@ -124,18 +124,18 @@ export function AuthButton() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex max-w-[12rem] items-center gap-spacing-3 rounded-md border border-transparent bg-transparent px-spacing-2 py-spacing-1.5 text-sm text-surface-warm-white transition hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40 sm:max-w-[15rem] sm:px-spacing-3"
+        className="flex max-w-[12rem] items-center gap-spacing-3 rounded-md border border-transparent bg-transparent px-spacing-2 py-spacing-1.5 text-sm text-[#1c1c1c] transition hover:bg-black/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black/40 dark:text-surface-warm-white dark:hover:bg-white/[0.05] dark:focus-visible:ring-white/40 sm:max-w-[15rem] sm:px-spacing-3"
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={open ? "Tutup menu akun" : "Buka menu akun"}
       >
         <AvatarFrame
           seed={displayName}
-          className="size-6 bg-surface-warm-white text-[10px] font-semibold text-foreground-primary"
+          className="size-6 bg-black/10 text-[10px] font-semibold text-[#1c1c1c] dark:bg-surface-warm-white dark:text-foreground-primary"
         />
         <span className="hidden min-w-0 truncate sm:block">{displayName}</span>
         <ChevronDown
-          className={`size-4 shrink-0 text-surface-warm-white/58 transition ${open ? "rotate-180" : ""}`}
+          className={`size-4 shrink-0 text-[#5f5f5d] transition dark:text-surface-warm-white/58 ${open ? "rotate-180" : ""}`}
           aria-hidden="true"
         />
       </button>
@@ -143,23 +143,23 @@ export function AuthButton() {
       {open ? (
         <div
           id={menuId}
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-48 overflow-hidden rounded-lg border border-white/10 bg-[#191918] p-1 text-surface-warm-white shadow-xl"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-48 overflow-hidden rounded-lg border border-black/10 bg-[#fcfbf8] p-1 text-[#1c1c1c] shadow-xl transition-colors duration-200 dark:border-white/10 dark:bg-[#191918] dark:text-surface-warm-white"
         >
           <Link
             href="/profile"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06]"
+            className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
           >
-            <UserRound className="size-4 text-surface-warm-white/62" />
+            <UserRound className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
             Profil
           </Link>
           {session.user.admin === true ? (
             <Link
               href="/admin"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06]"
+              className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
             >
-              <Shield className="size-4 text-surface-warm-white/62" />
+              <Shield className="size-4 text-[#1c1c1c] dark:text-surface-warm-white" />
               Admin
             </Link>
           ) : null}
@@ -170,37 +170,43 @@ export function AuthButton() {
                 setOpen(false);
                 setBoosterOpen(true);
               }}
-              className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06] text-[#ff7a59]"
+              className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06] text-aurora-orange"
             >
-              <Zap className="size-4 fill-[#ff7a59]/10 text-[#ff7a59]" />
-              Tambah Energi
+              <Zap className="size-4 fill-aurora-orange/10 text-aurora-orange" />
+              <span>Tambah Energi</span>
             </button>
           )}
-          <Link
-            href="/support"
-            onClick={() => setOpen(false)}
-            className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06]"
-          >
-            <div className="flex items-center gap-spacing-3">
-              <LifeBuoy className="size-4 text-surface-warm-white/62" />
-              <span>Dukungan</span>
-            </div>
-            {unreadCount > 0 ? (
-              <span className="flex size-5 items-center justify-center rounded-full bg-[#ff7a59] text-[10px] font-bold text-white">
-                {unreadCount}
-              </span>
-            ) : null}
-          </Link>
+          {!isBlockedPage ? (
+            <Link
+              href="/support"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
+            >
+              <div className="flex items-center gap-spacing-3">
+                <LifeBuoy className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+                <span>Dukungan</span>
+              </div>
+              {unreadCount > 0 ? (
+                <span className="flex size-5 items-center justify-center rounded-full bg-aurora-orange text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              ) : null}
+            </Link>
+          ) : null}
           <button
             type="button"
-            onClick={() => signOut({ callbackUrl: "/" })}
-            className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-white/[0.06] focus-visible:bg-white/[0.06]"
+            onClick={() => {
+              setOpen(false);
+              void signOut({ callbackUrl: "/" });
+            }}
+            className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm text-[#5f5f5d] outline-none transition hover:bg-black/5 hover:text-aurora-rose focus-visible:bg-black/5 dark:text-surface-warm-white/62 dark:hover:bg-white/[0.06] dark:hover:text-aurora-rose dark:focus-visible:bg-white/[0.06]"
           >
-            <LogOut className="size-4 text-surface-warm-white/62" />
+            <LogOut className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
             Keluar
           </button>
         </div>
       ) : null}
+
       <EnergyBoosterModal open={boosterOpen} onOpenChange={setBoosterOpen} />
     </div>
   );

@@ -99,10 +99,11 @@ export function EnergyDisplay() {
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="ml-1 flex size-5 items-center justify-center rounded-full bg-[#ff7a59]/10 text-[#ff7a59] transition hover:bg-[#ff7a59]/20 active:scale-95 focus:outline-none"
+          className="ml-1 inline-flex items-center gap-1 rounded-full bg-[#ff7a59]/15 px-2 py-0.5 text-[11px] font-semibold text-aurora-orange transition hover:bg-[#ff7a59]/25 active:scale-95 focus:outline-none"
           title="Top-up Energi Premium"
         >
           <PlusIcon className="size-3" />
+          <span>Topup</span>
         </button>
       </div>
 
