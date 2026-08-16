@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const sessionState = vi.hoisted(() => ({
   data: null,
-  status: "loading" as const,
+  status: "loading" as "loading" | "unauthenticated",
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -28,8 +28,12 @@ vi.mock("@/components/payment/EnergyBoosterModal", () => ({
 import { AuthButton } from "./AuthButton";
 
 describe("AuthButton", () => {
+  function renderAuthButton() {
+    return renderToStaticMarkup(createElement(AuthButton));
+  }
+
   it("renders an accessible disabled skeleton while auth hydrates", () => {
-    const markup = renderToStaticMarkup(createElement(AuthButton));
+    const markup = renderAuthButton();
 
     expect(markup).toMatch(/<button[^>]*disabled/);
     expect(markup).toContain('aria-busy="true"');
@@ -37,5 +41,15 @@ describe("AuthButton", () => {
     expect(markup).toContain("animate-pulse");
     expect(markup).toContain("min-w-[4.75rem]");
     expect(markup).not.toMatch(/>Masuk<\/button>/);
+  });
+
+  it("keeps the login control in loading state before client hydration", () => {
+    sessionState.status = "unauthenticated";
+
+    const markup = renderAuthButton();
+
+    expect(markup).toMatch(/<button[^>]*disabled/);
+    expect(markup).toContain('aria-label="Memuat akses masuk"');
+    expect(markup).toContain("animate-pulse");
   });
 });

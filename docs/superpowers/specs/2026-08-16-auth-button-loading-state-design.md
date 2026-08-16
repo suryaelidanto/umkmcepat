@@ -12,13 +12,14 @@ independent GitHub contributor section is still loading.
 
 ## Decision
 
-Keep auth hydration and GitHub contributor loading as independent states. While
-`useSession().status` is `loading`, `AuthButton` will render a disabled button
-that preserves the normal `Masuk` dimensions and uses a compact skeleton label
-with a subtle loading indicator. The control will keep `aria-busy="true"`, an
-Indonesian accessible label such as `Memuat akses masuk`, and disabled pointer
-and keyboard behavior. Once auth resolves, the existing signed-out `Masuk`
-button or signed-in account control returns unchanged.
+Keep auth hydration and GitHub contributor loading as independent states. Until
+the client has hydrated, or while `useSession().status` is `loading`,
+`AuthButton` will render a disabled button that preserves the normal `Masuk`
+dimensions and uses a compact skeleton label with a subtle loading indicator.
+The control will keep `aria-busy="true"`, an Indonesian accessible label such as
+`Memuat akses masuk`, and disabled pointer and keyboard behavior. Once the
+client is hydrated and auth resolves, the existing signed-out `Masuk` button or
+signed-in account control returns unchanged.
 
 This keeps the header stable, explains why clicking is unavailable, and avoids
 making login depend on the unrelated contributor API request.
@@ -30,6 +31,8 @@ making login depend on the unrelated contributor API request.
   treatment; do not introduce a new visual language or page overlay.
 - Use a fixed-width skeleton treatment so the header does not shift when the
   text changes from loading to `Masuk`.
+- Keep the server-rendered and pre-hydration button non-interactive so the page
+  never presents an enabled-looking control before React attaches its handler.
 - Respect reduced motion by relying on the existing pulse utility behavior and
   ensuring the loading state remains understandable without animation.
 - Do not change session fetching, contributor fetching, login dialog behavior,
@@ -43,7 +46,8 @@ making login depend on the unrelated contributor API request.
 - The loading state has sufficient contrast against the dark header and keeps a
   stable hit area for layout consistency.
 - If session hydration fails and resolves to unauthenticated, the normal
-  clickable `Masuk` button appears; no contributor request can block it.
+  clickable `Masuk` button appears after hydration; no contributor request can
+  block it.
 
 ## Verification
 
