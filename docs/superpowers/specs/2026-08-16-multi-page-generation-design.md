@@ -1,6 +1,6 @@
 # Contract-driven multi-page generation
 
-**Date:** 2026-08-16  
+**Date:** 2026-08-16
 **Status:** Approved for implementation in the live contract-v1/V2 generation path
 
 ## Problem
