@@ -5,6 +5,7 @@ import {
   createRouter,
   createMemoryHistory,
 } from "@tanstack/react-router";
+import { ThemeProvider } from "next-themes";
 
 import { createAppQueryClient } from "../src/lib/query-client";
 
@@ -27,7 +28,9 @@ const withQueryClient: Decorator = (Story) => {
   const queryClient = createAppQueryClient();
   return (
     <QueryClientProvider client={queryClient}>
-      <Story />
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <Story />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };
@@ -72,8 +75,8 @@ const preview: Preview = {
           type: "tablet",
         },
         desktop: {
-          name: "Desktop 1440",
-          styles: { height: "900px", width: "1440px" },
+          name: "Desktop 1280",
+          styles: { height: "900px", width: "1280px" },
           type: "desktop",
         },
       },

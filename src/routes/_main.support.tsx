@@ -233,13 +233,13 @@ function SupportPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-spacing-4 pb-24 pt-spacing-4 text-surface-warm-white">
-      <div className="flex items-center justify-between border-b border-surface-warm-white/10 pb-spacing-4">
+    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-spacing-4 pb-24 pt-spacing-4 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white">
+      <div className="flex items-center justify-between border-b border-black/10 pb-spacing-4 dark:border-surface-warm-white/10">
         <div>
-          <h1 className="text-heading-lg font-semibold tracking-tight">
+          <h1 className="text-heading-lg font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
             Pusat Bantuan & Dukungan
           </h1>
-          <p className="text-sm text-surface-warm-white/60">
+          <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
             Kirim kendala teknis, pembayaran, atau pertanyaan umum Anda di sini.
           </p>
         </div>
@@ -255,12 +255,14 @@ function SupportPage() {
       </div>
 
       {formOpen && (
-        <div className="mt-spacing-4 rounded-radius-lg border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-5">
-          <div className="flex items-center justify-between border-b border-surface-warm-white/10 pb-spacing-3">
-            <h2 className="text-lg font-medium">Buat Tiket Baru</h2>
+        <div className="mt-spacing-4 rounded-radius-lg border border-black/10 bg-black/[0.02] p-spacing-5 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
+          <div className="flex items-center justify-between border-b border-black/10 pb-spacing-3 dark:border-surface-warm-white/10">
+            <h2 className="text-lg font-medium text-[#1c1c1c] dark:text-surface-warm-white">
+              Buat Tiket Baru
+            </h2>
             <button
               onClick={() => setFormOpen(false)}
-              className="text-surface-warm-white/60 hover:text-surface-warm-white"
+              className="text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
             >
               <X className="size-5" />
             </button>
@@ -273,7 +275,7 @@ function SupportPage() {
             <div className="flex flex-col gap-spacing-1">
               <label
                 htmlFor="subject"
-                className="text-xs font-semibold text-surface-warm-white/80"
+                className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
               >
                 Subjek Kendala
               </label>
@@ -285,14 +287,14 @@ function SupportPage() {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Contoh: Eror saat generate halaman kontak / Pembayaran energi belum masuk"
-                className="h-10 w-full rounded-radius-md border border-surface-warm-white/10 bg-transparent px-spacing-3 text-sm outline-none focus:ring-1 focus:ring-aurora-orange"
+                className="h-10 w-full rounded-radius-md border border-black/15 bg-transparent px-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
               />
             </div>
 
             <div className="flex flex-col gap-spacing-1">
               <label
                 htmlFor="category"
-                className="text-xs font-semibold text-surface-warm-white/80"
+                className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
               >
                 Kategori
               </label>
@@ -300,7 +302,7 @@ function SupportPage() {
                 id="category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as SupportCategory)}
-                className="h-10 w-full rounded-radius-md border border-surface-warm-white/10 bg-[#171715] px-spacing-3 text-sm outline-none focus:ring-1 focus:ring-aurora-orange"
+                className="h-10 w-full rounded-radius-md border border-black/15 bg-[#fcfbf8] px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white"
               >
                 {Object.keys(CATEGORY_LABELS).map((cat) => (
                   <option key={cat} value={cat}>
@@ -313,7 +315,7 @@ function SupportPage() {
             <div className="flex flex-col gap-spacing-1">
               <label
                 htmlFor="body"
-                className="text-xs font-semibold text-surface-warm-white/80"
+                className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
               >
                 Detail Pesan
               </label>
@@ -324,12 +326,12 @@ function SupportPage() {
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Jelaskan secara rinci kendala Anda..."
-                className="w-full rounded-radius-md border border-surface-warm-white/10 bg-transparent p-spacing-3 text-sm outline-none focus:ring-1 focus:ring-aurora-orange resize-y"
+                className="w-full resize-y rounded-radius-md border border-black/15 bg-transparent p-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
               />
             </div>
 
             <div className="flex flex-col gap-spacing-2">
-              <span className="text-xs font-semibold text-surface-warm-white/80">
+              <span className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80">
                 Lampiran Gambar (Maks 3, Opsional)
               </span>
               <div className="flex flex-wrap gap-spacing-3">
@@ -345,9 +347,9 @@ function SupportPage() {
                 ))}
 
                 {attachments.length < 3 && (
-                  <label className="flex size-16 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-surface-warm-white/20 bg-surface-warm-white/5 hover:border-surface-warm-white/40 hover:bg-surface-warm-white/10">
-                    <ImagePlus className="size-5 text-surface-warm-white/60" />
-                    <span className="mt-1 text-[9px] text-surface-warm-white/60">
+                  <label className="flex size-16 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-black/20 bg-black/[0.03] hover:border-black/40 hover:bg-black/[0.06] dark:border-surface-warm-white/20 dark:bg-surface-warm-white/5 dark:hover:border-surface-warm-white/40 dark:hover:bg-surface-warm-white/10">
+                    <ImagePlus className="size-5 text-[#5f5f5d] dark:text-surface-warm-white/60" />
+                    <span className="mt-1 text-[9px] text-[#5f5f5d] dark:text-surface-warm-white/60">
                       Upload
                     </span>
                     <input
@@ -362,7 +364,7 @@ function SupportPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-spacing-3 border-t border-surface-warm-white/10 pt-spacing-4">
+            <div className="flex justify-end gap-spacing-3 border-t border-black/10 pt-spacing-4 dark:border-surface-warm-white/10">
               <Button
                 type="button"
                 variant="outline"
@@ -385,7 +387,7 @@ function SupportPage() {
       )}
 
       <div className="mt-spacing-6 flex flex-col gap-spacing-3">
-        <h2 className="text-lg font-medium border-b border-surface-warm-white/5 pb-2">
+        <h2 className="border-b border-black/5 pb-2 text-lg font-medium dark:border-surface-warm-white/5">
           Tiket Anda
         </h2>
 

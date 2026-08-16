@@ -76,14 +76,14 @@ export function ProfileNameForm({ initialName }: { initialName: string }) {
       <div className="flex flex-col gap-spacing-6 sm:flex-row sm:items-center">
         <AvatarFrame
           seed={name}
-          className="grid size-20 place-items-center border border-white/10 bg-white/[0.04]"
+          className="grid size-20 place-items-center border border-black/10 bg-black/[0.03] text-[#1c1c1c] dark:border-white/10 dark:bg-white/[0.04] dark:text-surface-warm-white"
         />
       </div>
 
-      <div className="border-t border-white/[0.07] pt-spacing-7">
+      <div className="border-t border-black/10 pt-spacing-7 dark:border-white/[0.07]">
         <label
           htmlFor="profile-name"
-          className="text-sm font-medium text-surface-warm-white"
+          className="text-sm font-medium text-[#1c1c1c] dark:text-surface-warm-white"
         >
           Nama
         </label>
@@ -94,18 +94,18 @@ export function ProfileNameForm({ initialName }: { initialName: string }) {
           onChange={(event) => setName(event.target.value)}
           maxLength={100}
           autoComplete="name"
-          className="mt-spacing-3 w-full rounded-lg border border-white/10 bg-transparent px-spacing-5 py-spacing-4 text-base text-surface-warm-white outline-none transition placeholder:text-surface-warm-white/34 focus:border-white/30 focus:ring-1 focus:ring-white/20"
+          className="mt-spacing-3 w-full rounded-lg border border-black/15 bg-transparent px-spacing-5 py-spacing-4 text-base text-[#1c1c1c] outline-none transition placeholder:text-black/30 focus:border-aurora-orange/60 focus:ring-1 focus:ring-aurora-orange/30 dark:border-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-white/30 dark:focus:ring-white/20"
           placeholder="Nama kamu"
         />
       </div>
 
-      {error ? <p className="text-sm text-[#ffb4a6]">{error}</p> : null}
+      {error ? <p className="text-sm text-aurora-rose">{error}</p> : null}
 
-      <div className="flex justify-end border-t border-white/[0.07] pt-spacing-7">
+      <div className="flex justify-end border-t border-black/10 pt-spacing-7 dark:border-white/[0.07]">
         <Button
           type="submit"
           disabled={!isChanged || isSaving}
-          className="rounded-lg bg-white px-spacing-8 text-[#141413] hover:bg-white/90 disabled:opacity-40"
+          className="rounded-lg bg-[#1c1c1c] px-spacing-8 text-white hover:bg-[#1c1c1c]/90 disabled:opacity-40 dark:bg-white dark:text-[#141413] dark:hover:bg-white/90"
         >
           {isSaving ? (
             <>

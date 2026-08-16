@@ -123,7 +123,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[#151515]">
+    <div className="relative flex min-h-screen flex-col bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-[#fcfbf8]">
       <Header
         devResetPending={devResetMutation.isPending}
         onDevReset={() => devResetMutation.mutate()}

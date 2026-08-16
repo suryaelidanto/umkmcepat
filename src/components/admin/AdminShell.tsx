@@ -105,10 +105,10 @@ function StreamerPill() {
   return (
     <span
       className={cn(
-        "rounded-radius-sm border px-2 py-0.5 text-[10px] font-medium",
+        "rounded-radius-sm border px-2 py-0.5 text-[10px] font-medium transition-colors",
         on
-          ? "border-surface-warm-white/40 bg-surface-warm-white/10"
-          : "border-surface-warm-white/15 text-surface-warm-white/50",
+          ? "border-black/30 bg-black/10 text-[#1c1c1c] dark:border-surface-warm-white/40 dark:bg-surface-warm-white/10 dark:text-surface-warm-white"
+          : "border-black/15 text-[#5f5f5d] dark:border-surface-warm-white/15 dark:text-surface-warm-white/50",
       )}
     >
       Streamer {on ? "ON" : "OFF"}
@@ -121,7 +121,7 @@ function NavBadge({ count }: { count: number }) {
     return null;
   }
   return (
-    <span className="flex min-w-4.5 items-center justify-center rounded-full bg-surface-warm-white/20 px-1 text-[9px] font-bold tabular-nums">
+    <span className="flex min-w-4.5 items-center justify-center rounded-full bg-black/10 px-1 text-[9px] font-bold tabular-nums text-[#1c1c1c] dark:bg-surface-warm-white/20 dark:text-surface-warm-white">
       {formatBadge(count)}
     </span>
   );
@@ -134,7 +134,7 @@ function AdminNav() {
   return (
     <nav
       aria-label="Navigasi admin"
-      className="flex gap-1 overflow-x-auto border-b border-surface-warm-white/10 py-2"
+      className="flex gap-1 overflow-x-auto border-b border-black/10 py-2 transition-colors dark:border-surface-warm-white/10"
     >
       {TABS.map((tab) => {
         const active =
@@ -147,10 +147,10 @@ function AdminNav() {
           <Link
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-2 whitespace-nowrap rounded-radius-md px-spacing-3 py-spacing-2 text-sm",
+              "flex items-center gap-2 whitespace-nowrap rounded-radius-md px-spacing-3 py-spacing-2 text-sm transition-colors",
               active
-                ? "bg-surface-warm-white/15 font-medium text-surface-warm-white"
-                : "text-surface-warm-white/70 hover:bg-surface-warm-white/8",
+                ? "bg-black/10 font-medium text-[#1c1c1c] dark:bg-surface-warm-white/15 dark:text-surface-warm-white"
+                : "text-[#5f5f5d] hover:bg-black/5 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8",
             )}
             href={tab.to}
             key={tab.to}
@@ -168,10 +168,10 @@ function AdminNav() {
 /** Dense wide admin chrome. */
 export function AdminShell({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-spacing-4 pb-24 pt-spacing-4 text-surface-warm-white">
+    <main className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-spacing-4 pb-24 pt-spacing-4 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white">
       <header className="mb-spacing-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.14em] text-surface-warm-white/45">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-[#5f5f5d] dark:text-surface-warm-white/45">
             Kontrol
           </p>
           <h1 className="text-2xl font-semibold">Admin</h1>

@@ -6,13 +6,13 @@ import { Link } from "@/components/ui/link";
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/[0.07] bg-[#151515] text-surface-warm-white">
+    <footer className="border-t border-black/10 bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white">
       <div className="mx-auto flex max-w-7xl flex-col gap-spacing-7 px-4 py-spacing-9 sm:px-6 lg:px-spacing-10">
         <div className="flex flex-col gap-spacing-9 md:flex-row md:items-center md:justify-between">
           <div>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-radius-lg text-lg font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#151515]"
+              className="inline-flex items-center gap-2 rounded-radius-lg text-lg font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-[#1c1c1c] dark:focus-visible:ring-surface-warm-white"
             >
               <Image
                 src="/brand/umkmcepat-logo.svg"
@@ -22,7 +22,7 @@ export function Footer() {
               />
               <span>UMKM Cepat</span>
             </Link>
-            <p className="mt-2 max-w-md text-sm leading-6 text-surface-warm-white/50">
+            <p className="mt-2 max-w-md text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/50">
               Buat website dan alat digital untuk usaha kecil dengan bantuan AI.
             </p>
           </div>
@@ -30,13 +30,13 @@ export function Footer() {
           <nav className="flex flex-wrap gap-spacing-5 text-sm">
             <Link
               href="/terms"
-              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className="text-[#5f5f5d] outline-none transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/50 dark:hover:text-surface-warm-white"
             >
               Ketentuan
             </Link>
             <Link
               href="/privacy"
-              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className="text-[#5f5f5d] outline-none transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/50 dark:hover:text-surface-warm-white"
             >
               Privasi
             </Link>
@@ -44,7 +44,7 @@ export function Footer() {
               href="https://github.com/suryaelidanto/umkmcepat"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className="text-[#5f5f5d] outline-none transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/50 dark:hover:text-surface-warm-white"
             >
               Github
             </Link>
@@ -52,14 +52,14 @@ export function Footer() {
               href={WHATSAPP_UMKM_GROUP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-surface-warm-white/50 outline-none transition-colors hover:text-surface-warm-white focus-visible:text-surface-warm-white"
+              className="text-[#5f5f5d] outline-none transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/50 dark:hover:text-surface-warm-white"
             >
               Join Whatsapp
             </Link>
           </nav>
         </div>
 
-        <p className="text-sm text-surface-warm-white/60">
+        <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
           © {new Date().getFullYear()} UMKM Cepat
         </p>
       </div>

@@ -24,12 +24,12 @@ export function WhatsAppCommunityInvite({
   if (!isHomepage) {
     return (
       <div className="flex w-full flex-col items-center gap-3 text-center">
-        <p className="text-sm leading-6 text-surface-warm-white/70">
+        <p className="text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/70">
           {content.waitlist.heading}
         </p>
         <Button
           asChild
-          className="bg-surface-warm-white text-[#141413] hover:bg-surface-warm-white/90"
+          className="bg-[#1c1c1c] text-white hover:bg-[#1c1c1c]/90 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-surface-warm-white/90"
         >
           <Link
             href={WHATSAPP_UMKM_GROUP_URL}
@@ -46,19 +46,19 @@ export function WhatsAppCommunityInvite({
   const invitation = content.homepage;
   const invitationContent = (
     <div className="mx-auto max-w-6xl">
-      <div className="flex flex-col items-start justify-between gap-spacing-7 rounded-radius-2xl border border-surface-warm-white/12 bg-surface-warm-white/[0.04] px-spacing-7 py-spacing-8 sm:flex-row sm:items-center sm:px-spacing-9">
+      <div className="flex flex-col items-start justify-between gap-spacing-7 rounded-radius-2xl border border-black/10 bg-black/[0.02] px-spacing-7 py-spacing-8 transition-colors dark:border-surface-warm-white/12 dark:bg-surface-warm-white/[0.04] sm:flex-row sm:items-center sm:px-spacing-9">
         <div className="max-w-2xl">
-          <h2 className="text-2xl font-semibold tracking-[-0.04em] text-surface-warm-white sm:text-3xl">
+          <h2 className="text-2xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-3xl">
             {invitation.heading}
           </h2>
-          <p className="mt-spacing-3 text-sm leading-6 text-surface-warm-white/68">
+          <p className="mt-spacing-3 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/68">
             {invitation.body}
           </p>
         </div>
         <Button
           asChild
           variant="outline"
-          className="border-surface-warm-white/18 bg-transparent text-surface-warm-white hover:bg-surface-warm-white/[0.07]"
+          className="border-black/15 bg-black/[0.04] text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/18 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-surface-warm-white/[0.07]"
         >
           <Link
             href={WHATSAPP_UMKM_GROUP_URL}
@@ -72,14 +72,10 @@ export function WhatsAppCommunityInvite({
     </div>
   );
 
-  if (!isHomepage) {
-    return invitationContent;
-  }
-
   return (
     <section
       aria-label="Grup diskusi UMKM"
-      className="bg-[#151515] px-4 pb-spacing-14 sm:px-spacing-9 lg:px-spacing-10"
+      className="bg-[#eceae4] px-4 pb-spacing-14 transition-colors duration-200 dark:bg-[#151515] sm:px-spacing-9 lg:px-spacing-10"
     >
       {invitationContent}
     </section>

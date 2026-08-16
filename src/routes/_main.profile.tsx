@@ -17,7 +17,7 @@ function ProfilePage() {
   const { initialName } = Route.useLoaderData();
 
   return (
-    <main className="min-h-[calc(100dvh-4rem)] bg-[#151515] px-4 py-spacing-12 text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
+    <main className="min-h-[calc(100dvh-4rem)] bg-[#eceae4] px-4 py-spacing-12 text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
       <section className="mx-auto w-full max-w-xl">
         <ProfileNameForm initialName={initialName} />
       </section>

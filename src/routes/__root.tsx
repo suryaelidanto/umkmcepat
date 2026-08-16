@@ -97,12 +97,12 @@ export const Route = createRootRoute({
 
 function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#151515] px-4 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#eceae4] px-4 text-center text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white">
       <AlertTriangle className="mb-6 size-16 text-yellow-600" />
-      <h1 className="mb-4 text-4xl font-bold tracking-tight text-white sm:text-6xl">
+      <h1 className="mb-4 text-4xl font-bold tracking-tight text-[#1c1c1c] dark:text-white sm:text-6xl">
         404 - Halaman tidak ditemukan
       </h1>
-      <p className="mt-4 max-w-md text-lg leading-8 text-gray-300">
+      <p className="mt-4 max-w-md text-lg leading-8 text-[#5f5f5d] dark:text-gray-300">
         URL salah ketik atau halaman ini sudah tidak tersedia.
       </p>
       <div className="mt-10 flex items-center justify-center gap-x-6">
@@ -131,14 +131,14 @@ function RootError({ error, reset }: { error: Error; reset: () => void }) {
   const isDbDown = isDbUnavailableError(error);
   if (isDbDown) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#151515] px-4 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#eceae4] px-4 text-center text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white">
         <AlertTriangle className="mb-6 size-16 text-yellow-600" />
-        <h1 className="mb-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        <h1 className="mb-4 text-3xl font-bold tracking-tight text-[#1c1c1c] dark:text-white sm:text-4xl">
           Layanan sedang pemeliharaan
         </h1>
-        <p className="mt-4 max-w-md text-lg leading-8 text-gray-300">
+        <p className="mt-4 max-w-md text-lg leading-8 text-[#5f5f5d] dark:text-gray-300">
           Database sedang tidak tersedia. Coba lagi sebentar atau jalankan{" "}
-          <code className="rounded bg-white/10 px-1.5 py-0.5 text-sm text-white">
+          <code className="rounded bg-black/10 px-1.5 py-0.5 text-sm text-[#1c1c1c] dark:bg-white/10 dark:text-white">
             bun run infra
           </code>{" "}
           jika di lokal.
@@ -160,12 +160,12 @@ function RootError({ error, reset }: { error: Error; reset: () => void }) {
     );
   }
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#151515] px-4 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#eceae4] px-4 text-center text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white">
       <AlertTriangle className="mb-6 size-16 text-red-600" />
-      <h1 className="mb-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+      <h1 className="mb-4 text-3xl font-bold tracking-tight text-[#1c1c1c] dark:text-white sm:text-4xl">
         Terjadi kesalahan
       </h1>
-      <p className="mt-4 max-w-md text-lg leading-8 text-gray-300">
+      <p className="mt-4 max-w-md text-lg leading-8 text-[#5f5f5d] dark:text-gray-300">
         Maaf, terjadi kesalahan tak terduga. Coba lagi.
       </p>
       <div className="mt-10 flex items-center justify-center gap-x-6">
@@ -177,7 +177,7 @@ function RootError({ error, reset }: { error: Error; reset: () => void }) {
         </Button>
       </div>
       {process.env.NODE_ENV !== "production" && (
-        <pre className="mt-6 max-h-40 max-w-md overflow-auto rounded bg-white/10 p-3 text-left text-xs text-gray-300">
+        <pre className="mt-6 max-h-40 max-w-md overflow-auto rounded bg-black/5 p-3 text-left text-xs text-[#1c1c1c] dark:bg-white/10 dark:text-gray-300">
           {error.message}
         </pre>
       )}
@@ -204,13 +204,13 @@ function RootDocument({
   nonce?: string;
 }>) {
   return (
-    <html lang="id" suppressHydrationWarning>
+    <html lang="id" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body
         suppressHydrationWarning
-        className={cn("min-h-screen bg-[#151515] font-sans antialiased")}
+        className={cn("min-h-screen font-sans antialiased")}
       >
         <script
           nonce={nonce}
