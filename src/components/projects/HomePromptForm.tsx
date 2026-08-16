@@ -182,13 +182,14 @@ export function HomePromptForm({
       };
     },
     invalidateKeys: [queryKeys.projects, queryKeys.energy],
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Server persisted files (if any) and returned the project. Clear
       // attachments client-side and navigate to the new project.
       revokeAll(attachments);
       setAttachments([]);
       window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);
-      router.push(data.path);
+      // Keep the mutation pending until the workspace route has loaded.
+      await router.push(data.path);
     },
     onError: (error) => {
       setErrorMessage(

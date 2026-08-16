@@ -20,7 +20,10 @@ import {
   queryKeys,
   waitlistPendingPollInterval,
 } from "@/lib/query-client";
-import { isWaitlistGateBypassPath } from "@/lib/waitlist-route-access";
+import {
+  isWaitlistGateBypassPath,
+  isWaitlistPagePath,
+} from "@/lib/waitlist-route-access";
 
 export function MainChrome({ children }: { children: React.ReactNode }) {
   // Layout must follow the *committed* page (Outlet), not the in-flight target.
@@ -34,8 +37,8 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
 
   const isWorkspace =
     pathname.startsWith("/projects/") && pathname !== "/projects/new";
-  const isWaitlistPage =
-    pathname === "/waitlist" || targetPathname === "/waitlist";
+  const isWaitlistPage = isWaitlistPagePath(pathname);
+  const isNavigatingToWaitlist = targetPathname === "/waitlist";
 
   // Waitlist gate: only meaningful for signed-in users. Anonymous users get
   // status null and are left alone (landing + /waitlist are reachable). A
@@ -53,7 +56,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   const previousAuthStatus = useRef(sessionStatus);
 
   useEffect(() => {
-    if (isWaitlistPage) {
+    if (isWaitlistPage || isNavigatingToWaitlist) {
       return;
     }
 
@@ -75,10 +78,11 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       waitlistQuery.data.status !== "approved" &&
       (justLoggedIn || !isWaitlistGateBypassPath(pathname))
     ) {
-      router.replace("/waitlist");
+      void router.replace("/waitlist");
     }
   }, [
     isWaitlistPage,
+    isNavigatingToWaitlist,
     pathname,
     router,
     sessionStatus,

@@ -1,3 +1,7 @@
+export function isWaitlistPagePath(pathname: string): boolean {
+  return pathname === "/waitlist";
+}
+
 export function isWaitlistMarketingPublicPath(pathname: string): boolean {
   return (
     pathname === "/" ||
