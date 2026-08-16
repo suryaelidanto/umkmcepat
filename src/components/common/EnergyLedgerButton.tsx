@@ -42,7 +42,9 @@ export function EnergyLedgerButton({
         <Zap
           className={cn(
             "shrink-0",
-            isRow ? "size-4 text-surface-warm-white/64" : "size-4",
+            isRow
+              ? "size-4 text-[#5f5f5d] dark:text-surface-warm-white/64"
+              : "size-4",
           )}
         />
         <span className={cn(isRow ? "flex-1 text-left" : "hidden sm:inline")}>

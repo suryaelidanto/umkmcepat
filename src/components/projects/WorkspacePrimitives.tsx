@@ -6,7 +6,6 @@ import {
   ExternalLink,
   Globe2,
   Loader2,
-  Menu,
   MessageSquarePlus,
   Monitor,
   PanelLeftClose,
@@ -72,7 +71,7 @@ export function WorkspaceTopBar({
   directEditActions,
   runtime,
   projectId,
-  title,
+  title: _title,
   onPickTab,
 }: {
   activeTab: BuildTab;
@@ -231,41 +230,16 @@ export function WorkspaceTopBar({
           ) : null}
         </div>
 
-        {/* Mobile-only bar: project title + kebab */}
-        <div className="flex w-full items-center justify-between gap-spacing-2 sm:hidden">
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={chatCollapsed ? openChatPanel : closeChatPanel}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-md border border-black/10 p-1 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
-              aria-label={chatCollapsed ? "Buka diskusi" : "Tutup diskusi"}
-            >
-              {chatCollapsed ? (
-                <PanelLeftOpen className="size-4" />
-              ) : (
-                <PanelLeftClose className="size-4" />
-              )}
-            </button>
-            {title ? (
-              <span
-                className="min-w-0 truncate text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white/90"
-                title={title}
-              >
-                {title}
-              </span>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            aria-label="Buka menu"
-            aria-haspopup="dialog"
-            aria-expanded={isMobileMenuOpen}
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-md border border-black/10 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
-          >
-            <Menu className="size-4" />
-          </button>
-        </div>
+        {/* Mobile menu trigger hidden anchor */}
+        <button
+          id="mobile-workspace-menu-btn"
+          type="button"
+          aria-label="Buka menu"
+          aria-haspopup="dialog"
+          aria-expanded={isMobileMenuOpen}
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="hidden"
+        />
 
         {/* Desktop cluster (unchanged) */}
         <div className="hidden min-w-0 w-full items-center justify-between gap-spacing-2 sm:flex sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
@@ -421,13 +395,14 @@ export function MobileMenuContent({
   onPickTab,
   onClose,
 }: MobileMenuContentProps) {
+  void viewport;
+  void setViewport;
   const pickTab = (tab: BuildTab) => {
     if (onPickTab) {
       onPickTab(tab);
     } else {
       setActiveTab(tab);
     }
-    onClose();
   };
 
   return (
@@ -463,46 +438,6 @@ export function MobileMenuContent({
           </button>
         </div>
       </section>
-
-      {activeTab === "preview" ? (
-        <section className="flex flex-col gap-spacing-2">
-          <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
-            Tampilan perangkat
-          </span>
-          <div
-            role="tablist"
-            aria-label="Tampilan viewport"
-            className="flex h-9 w-full items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewport === "desktop"}
-              onClick={() => {
-                setViewport("desktop");
-                onClose();
-              }}
-              className={`flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${viewport === "desktop" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
-            >
-              <Monitor className="size-4" />
-              <span>Komputer</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewport === "mobile"}
-              onClick={() => {
-                setViewport("mobile");
-                onClose();
-              }}
-              className={`flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${viewport === "mobile" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
-            >
-              <Smartphone className="size-4" />
-              <span>HP</span>
-            </button>
-          </div>
-        </section>
-      ) : null}
 
       <section className="flex flex-col gap-spacing-2">
         <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
