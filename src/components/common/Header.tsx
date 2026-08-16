@@ -58,8 +58,10 @@ export function Header({
         </Link>
 
         <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-3">
-          <EnergyDisplay />
-          <ThemeToggle />
+          <div className="hidden sm:flex sm:items-center sm:gap-3">
+            <EnergyDisplay />
+            <ThemeToggle />
+          </div>
           <AuthButton />
         </div>
       </div>

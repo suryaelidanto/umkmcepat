@@ -247,35 +247,40 @@ function ProjectCard({
   onDelete: (project: Project) => void;
 }) {
   return (
-    <article className="group flex flex-col overflow-hidden rounded-radius-2xl border border-black/10 bg-[#fcfbf8] shadow-sm transition-colors duration-200 hover:bg-[#f7f4ed] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.045] dark:shadow-none dark:hover:bg-surface-warm-white/[0.06]">
-      <ProjectPreviewThumb project={project} className="h-40 sm:h-44" />
-      <div className="flex min-h-36 flex-1 flex-col p-spacing-5">
-        <h3 className="line-clamp-2 text-base font-semibold tracking-[-0.035em] text-[#1c1c1c] dark:text-surface-warm-white">
-          <Link
-            href={`/projects/${project.id}`}
-            className="rounded-radius-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-black/50 dark:focus-visible:ring-surface-warm-white"
-          >
-            {project.title}
-          </Link>
-        </h3>
-        <p className="mt-spacing-2 text-sm text-[#5f5f5d] dark:text-surface-warm-white/54">
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-[#fcfbf8] shadow-sm transition-all duration-300 hover:border-black/20 hover:shadow-md dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.045] dark:shadow-none dark:hover:border-surface-warm-white/20 dark:hover:bg-surface-warm-white/[0.06]">
+      <ProjectPreviewThumb project={project} className="h-36 sm:h-44" />
+      <div className="flex flex-1 flex-col p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="line-clamp-1 text-base font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+            <Link
+              href={`/projects/${project.id}`}
+              className="rounded-radius-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-black/50 dark:focus-visible:ring-surface-warm-white"
+            >
+              {project.title}
+            </Link>
+          </h3>
+          <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+            Aktif
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/54">
           Diubah {formatDate(project.updatedAt)}
         </p>
-        <div className="mt-auto flex items-center gap-spacing-3 pt-spacing-5">
+        <div className="mt-4 flex items-center justify-between gap-2 pt-2 border-t border-black/5 dark:border-surface-warm-white/5">
           <Button
             asChild
             variant="outline"
             size="sm"
-            className="rounded-radius-lg border-black/15 bg-black/[0.04] text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/12"
+            className="h-8 rounded-lg border-black/15 bg-black/[0.03] px-3 text-xs font-semibold text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/12"
           >
             <Link href={`/projects/${project.id}`}>Buka</Link>
           </Button>
           <Button
             type="button"
-            variant="destructive"
+            variant="ghost"
             size="sm"
             onClick={() => onDelete(project)}
-            className="rounded-radius-lg bg-destructive/10 text-destructive hover:bg-destructive/20"
+            className="h-8 px-2 text-xs text-[#5f5f5d] hover:bg-red-500/10 hover:text-red-600 dark:text-surface-warm-white/60 dark:hover:bg-red-500/10 dark:hover:text-red-400"
           >
             Hapus
           </Button>
