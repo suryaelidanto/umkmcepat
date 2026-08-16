@@ -834,13 +834,13 @@ export function WorkspaceCardView({
 
   if (card.type === "build_recommendation") {
     return (
-      <div className="border-y border-surface-warm-white/10 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+      <div className="rounded-2xl border border-black/10 bg-[#fcfbf8] px-spacing-5 py-spacing-5 shadow-sm transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#1b1b18] dark:shadow-none">
         <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold leading-6 text-surface-warm-white">
+            <h2 className="text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
               {card.title}
             </h2>
-            <ul className="mt-spacing-4 divide-y divide-surface-warm-white/8 text-sm leading-6 text-surface-warm-white/66">
+            <ul className="mt-spacing-4 divide-y divide-black/5 text-sm leading-6 text-[#5f5f5d] dark:divide-surface-warm-white/8 dark:text-surface-warm-white/66">
               {card.summary.slice(0, 7).map((item, index) => (
                 <li
                   key={`${item}-${index}`}
@@ -851,7 +851,7 @@ export function WorkspaceCardView({
               ))}
             </ul>
             {!canBuild ? (
-              <p className="mt-spacing-4 rounded-[12px] border border-amber-500/24 bg-amber-500/[0.06] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white/82">
+              <p className="mt-spacing-4 rounded-[12px] border border-amber-500/24 bg-amber-500/[0.06] px-spacing-4 py-spacing-3 text-sm leading-6 text-[#1c1c1c] dark:text-surface-warm-white/82">
                 Ada informasi yang masih perlu dilengkapi. Lanjutkan diskusi
                 dulu sebelum membuat website.
               </p>
@@ -862,7 +862,7 @@ export function WorkspaceCardView({
               type="button"
               disabled={!canBuild}
               onClick={onBuild}
-              className="rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+              className="rounded-[12px] bg-[#1c1c1c] px-spacing-5 text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
             >
               Mulai buat website
             </Button>
@@ -884,18 +884,18 @@ export function WorkspaceCardView({
 
   if (card.type === "build_retry") {
     return (
-      <div className="border-y border-amber-500/15 bg-[#1b1b18] px-spacing-5 py-spacing-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+      <div className="rounded-2xl border border-amber-500/20 bg-[#fcfbf8] px-spacing-5 py-spacing-5 shadow-sm transition-colors duration-200 dark:border-amber-500/15 dark:bg-[#1b1b18] dark:shadow-none">
         <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold leading-6 text-surface-warm-white">
+            <h2 className="text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
               {card.title}
             </h2>
-            <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/66">
+            <p className="mt-spacing-2 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/66">
               {card.errorMessage ||
                 "Bangunnya belum berhasil — bukan salahmu. Coba lagi atau perbaiki brief dulu."}
             </p>
             {card.summary.length > 0 ? (
-              <ul className="mt-spacing-4 divide-y divide-surface-warm-white/8 text-sm leading-6 text-surface-warm-white/66">
+              <ul className="mt-spacing-4 divide-y divide-black/5 text-sm leading-6 text-[#5f5f5d] dark:divide-surface-warm-white/8 dark:text-surface-warm-white/66">
                 {card.summary.slice(0, 7).map((item, index) => (
                   <li
                     key={`${item}-${index}`}
@@ -912,7 +912,7 @@ export function WorkspaceCardView({
               type="button"
               disabled={!canBuild}
               onClick={onBuild}
-              className="rounded-[12px] bg-surface-warm-white px-spacing-5 text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+              className="rounded-[12px] bg-[#1c1c1c] px-spacing-5 text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
             >
               Coba bangun lagi
             </Button>
@@ -921,7 +921,7 @@ export function WorkspaceCardView({
                 type="button"
                 variant="outline"
                 onClick={onDiscuss}
-                className="rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-5 text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+                className="rounded-[12px] border-black/15 bg-transparent px-spacing-5 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
               >
                 Perbaiki brief dulu
               </Button>
