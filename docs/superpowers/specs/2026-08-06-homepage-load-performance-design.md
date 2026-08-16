@@ -37,6 +37,7 @@ Measured on the running dev server (`bun run dev`, port 3000), warm process, 202
 - `getCommunityContributors` + helpers move from `CommunitySection.tsx` into a new server-only `src/lib/community-contributors.ts`.
 - Fetches gain `AbortSignal.timeout(2000)` (safety net) and an in-memory TTL cache (15 min, single-flight, mirroring the `primeSettingCache` pattern in `app-settings.ts`).
 - New public route `GET /api/community/contributors` serves the cached value with `Cache-Control: public, max-age=900, s-maxage=900`.
+- Contributor cards filter automation accounts before sorting in both stats and fallback responses: the case-insensitive `claude` exclusion, GitHub's `type: "Bot"`, and the `[bot]` login suffix (including `blacksmith-sh[bot]`).
 - `CommunitySection` becomes a client-fetching component: `useQuery` gated on `typeof window !== "undefined"` (never fetches during SSR), skeleton rows while pending.
 - `loadHome` no longer fetches contributors. Guest TTFB drops from ~1.2 s to ~0.6 s.
 

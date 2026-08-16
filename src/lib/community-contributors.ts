@@ -2,6 +2,7 @@ type GithubStatsContributor = {
   total: number;
   author: {
     login: string;
+    type?: string;
     avatar_url: string;
     html_url: string;
   };
@@ -15,6 +16,7 @@ type GithubStatsContributor = {
 
 type GithubContributor = {
   login: string;
+  type?: string;
   contributions: number;
   avatar_url: string;
   html_url: string;
@@ -84,6 +86,15 @@ export function formatCompact(value: number) {
   return value.toLocaleString("id-ID");
 }
 
+function isBotContributor(login: string, type?: string) {
+  const normalizedLogin = login.trim().toLowerCase();
+  return (
+    normalizedLogin === "claude" ||
+    type?.trim().toLowerCase() === "bot" ||
+    normalizedLogin.endsWith("[bot]")
+  );
+}
+
 async function getTopContributors(): Promise<ContributorCard[]> {
   try {
     // GitHub computes /stats/contributors lazily and often returns 202 with an
@@ -106,7 +117,8 @@ async function getTopContributors(): Promise<ContributorCard[]> {
 
     return stats
       .filter(
-        (contributor) => contributor.author.login.toLowerCase() !== "claude",
+        (contributor) =>
+          !isBotContributor(contributor.author.login, contributor.author.type),
       )
       .map((contributor) => {
         const weeks = contributor.weeks
@@ -170,7 +182,9 @@ async function getContributorsFallback(): Promise<ContributorCard[]> {
       return [];
     }
     return body
-      .filter((contributor) => contributor.login.toLowerCase() !== "claude")
+      .filter(
+        (contributor) => !isBotContributor(contributor.login, contributor.type),
+      )
       .map((contributor) => ({
         login: contributor.login,
         avatarUrl: `${contributor.avatar_url}&s=104`,
