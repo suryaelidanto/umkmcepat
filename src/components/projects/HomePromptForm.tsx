@@ -451,7 +451,7 @@ export function HomePromptForm({
               size="icon"
               disabled={isLoading || isUploading || !prompt.trim()}
               aria-label="Buat website"
-              className="size-11 rounded-full bg-white text-[#141413] hover:bg-white/92 disabled:opacity-45"
+              className="size-11 rounded-full bg-[#1c1c1c] text-white shadow-sm transition hover:bg-black hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 disabled:hover:scale-100 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30"
             >
               {isLoading ? (
                 <Loader2 className="size-5 animate-spin" />
