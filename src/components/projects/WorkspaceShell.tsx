@@ -3424,7 +3424,7 @@ export function WorkspaceShell({
                 {...COMPOSER_TRANSITION}
                 className="mt-spacing-3"
               >
-                <div className="mb-spacing-2 inline-flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs w-fit">
+                <div className="mb-spacing-2 inline-flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs w-fit dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
                   {(
                     [
                       { label: "Pilihan", value: "options" },
@@ -3445,7 +3445,7 @@ export function WorkspaceShell({
                       {questionComposerMode === tab.value && (
                         <motion.span
                           layoutId="question-composer-tab"
-                          className="absolute inset-0 rounded-radius-sm bg-surface-warm-white"
+                          className="absolute inset-0 rounded-radius-sm bg-[#fcfbf8] shadow-xs dark:bg-surface-warm-white"
                           transition={{
                             type: "spring",
                             stiffness: 500,
@@ -3457,8 +3457,8 @@ export function WorkspaceShell({
                         className={cn(
                           "relative z-10 flex items-center gap-spacing-2",
                           questionComposerMode === tab.value
-                            ? "text-foreground-primary"
-                            : "text-surface-warm-white/58 hover:text-surface-warm-white",
+                            ? "text-[#1c1c1c] font-semibold dark:text-foreground-primary"
+                            : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white",
                         )}
                       >
                         {tab.label}

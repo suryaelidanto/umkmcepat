@@ -618,7 +618,7 @@ function RuntimeControl({
           target="_blank"
           rel="noreferrer"
           aria-label="Buka website yang diterbitkan"
-          className="inline-flex h-9 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-black/10 bg-transparent px-2.5 text-xs font-medium text-[#1c1c1c] transition-colors hover:border-black/20 hover:bg-black/[0.04] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
         >
           <ExternalLink className="size-4" />
           <span className="hidden sm:inline">Buka</span>
@@ -633,7 +633,7 @@ function RuntimeControl({
               ? "Sedang menerbitkan website..."
               : "Terbitkan website ke domain publik"
           }
-          className="inline-flex h-9 items-center justify-center gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 px-spacing-3 text-xs text-surface-warm-white/70 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-35 cursor-pointer"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-black/10 bg-transparent px-2.5 text-xs font-medium text-[#5f5f5d] transition-colors hover:border-black/20 hover:bg-black/[0.04] hover:text-[#1c1c1c] disabled:cursor-not-allowed disabled:opacity-35 dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
         >
           {runtime.isPublishing ? (
             <Loader2 className="size-4 animate-spin" />
