@@ -204,8 +204,14 @@ function RootDocument({
   nonce?: string;
 }>) {
   return (
-    <html lang="id" className="dark" suppressHydrationWarning>
+    <html lang="id" suppressHydrationWarning>
       <head>
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{
+            __html: `!function(){try{var d=document.documentElement,c=d.classList;c.remove('dark','light');var e=localStorage.getItem('theme');var t=e||'dark';c.add(t);d.style.colorScheme=t}catch(e){}}();`,
+          }}
+        />
         <HeadContent />
       </head>
       <body

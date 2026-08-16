@@ -40,10 +40,10 @@ export function ThemeToggle() {
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="1.75"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="size-4 text-[#1c1c1c]"
+          className="size-4 text-[#5f5f5d] transition-colors hover:text-[#1c1c1c]"
           aria-hidden="true"
         >
           <circle cx="12" cy="12" r="4" />
