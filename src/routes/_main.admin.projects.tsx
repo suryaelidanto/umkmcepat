@@ -53,14 +53,14 @@ function ProjectListSkeleton() {
     <div aria-busy="true" className="flex flex-col gap-spacing-2" role="status">
       {["one", "two", "three"].map((key) => (
         <div
-          className="flex h-32 animate-pulse gap-spacing-3 rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-3"
+          className="flex h-32 animate-pulse gap-spacing-3 rounded-radius-md border border-black/10 bg-black/[0.03] p-spacing-3 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
           key={key}
         >
-          <span className="h-full w-36 shrink-0 rounded-radius-md bg-surface-warm-white/8" />
+          <span className="h-full w-36 shrink-0 rounded-radius-md bg-black/5 dark:bg-surface-warm-white/8" />
           <div className="flex min-w-0 flex-1 flex-col gap-spacing-3 py-spacing-2">
-            <span className="h-4 w-48 max-w-full rounded bg-surface-warm-white/10" />
-            <span className="h-3 w-64 max-w-full rounded bg-surface-warm-white/8" />
-            <span className="h-6 w-24 rounded bg-surface-warm-white/8" />
+            <span className="h-4 w-48 max-w-full rounded bg-black/10 dark:bg-surface-warm-white/10" />
+            <span className="h-3 w-64 max-w-full rounded bg-black/5 dark:bg-surface-warm-white/8" />
+            <span className="h-6 w-24 rounded bg-black/5 dark:bg-surface-warm-white/8" />
           </div>
         </div>
       ))}
@@ -95,11 +95,11 @@ function ProjectsPage() {
         <ProjectListSkeleton />
       ) : listState === "error" ? (
         <div className="flex flex-col items-center gap-spacing-3 py-spacing-8 text-center">
-          <p className="text-sm text-surface-warm-white/70">
+          <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
             Proyek belum bisa dimuat.
           </p>
           <button
-            className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+            className="rounded-radius-md border border-black/15 px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
             onClick={() => void refetch()}
             type="button"
           >
@@ -107,7 +107,7 @@ function ProjectsPage() {
           </button>
         </div>
       ) : listState === "empty" ? (
-        <p className="text-surface-warm-white/70">
+        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
           {status === "needs_attention"
             ? "Tidak ada proyek gagal."
             : status === "active"
@@ -118,11 +118,11 @@ function ProjectsPage() {
         <div className="flex flex-col gap-spacing-2">
           {projects.map((project) => (
             <article
-              className="rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
+              className="rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
               key={project.id}
             >
               <div className="flex flex-col gap-spacing-3 sm:flex-row sm:items-start">
-                <div className="h-24 w-full shrink-0 overflow-hidden rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/8 sm:w-36">
+                <div className="h-24 w-full shrink-0 overflow-hidden rounded-radius-md border border-black/10 bg-black/5 sm:w-36 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8">
                   {project.thumbnailUrl ? (
                     <img
                       alt={`Thumbnail ${project.title}`}
@@ -130,14 +130,14 @@ function ProjectsPage() {
                       src={project.thumbnailUrl}
                     />
                   ) : (
-                    <div className="grid h-full place-items-center text-xs text-surface-warm-white/48">
+                    <div className="grid h-full place-items-center text-xs text-[#5f5f5d] dark:text-surface-warm-white/48">
                       Belum ada thumbnail
                     </div>
                   )}
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-spacing-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <h2 className="truncate font-medium text-surface-warm-white">
+                    <h2 className="truncate font-medium text-[#1c1c1c] dark:text-surface-warm-white">
                       <a
                         className="underline-offset-2 hover:underline"
                         href={`/projects/${project.id}`}
@@ -149,7 +149,7 @@ function ProjectsPage() {
                         )}
                       </a>
                     </h2>
-                    <p className="mt-spacing-1 text-surface-warm-white/70">
+                    <p className="mt-spacing-1 text-[#5f5f5d] dark:text-surface-warm-white/70">
                       {streamerMode && project.owner.name ? (
                         <SensitiveText kind="name" value={project.owner.name} />
                       ) : (
@@ -176,7 +176,7 @@ function ProjectsPage() {
                       Build: {project.buildStatus}
                     </AdminStatusBadge>
                     <a
-                      className="rounded-radius-sm border border-surface-warm-white/20 px-spacing-2 py-spacing-1 text-surface-warm-white underline-offset-2 hover:bg-surface-warm-white/8 hover:underline"
+                      className="rounded-radius-sm border border-black/15 px-spacing-2 py-spacing-1 text-[#1c1c1c] underline-offset-2 hover:bg-black/5 hover:underline dark:border-surface-warm-white/20 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
                       href={`/projects/${project.id}`}
                     >
                       Lihat detail
@@ -184,7 +184,7 @@ function ProjectsPage() {
                   </div>
                 </div>
               </div>
-              <dl className="mt-spacing-3 grid gap-spacing-2 text-xs text-surface-warm-white/70 sm:grid-cols-2">
+              <dl className="mt-spacing-3 grid gap-spacing-2 text-xs text-[#5f5f5d] sm:grid-cols-2 dark:text-surface-warm-white/70">
                 <div>
                   <dt className="sr-only">Dibuat</dt>
                   <dd>Dibuat {formatDate(project.createdAt)}</dd>

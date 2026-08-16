@@ -1,4 +1,20 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createFileRoute,
+  Outlet,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
+import { ImagePlus, Loader2, MessageSquare, Plus, X } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import type { SupportCategory, SupportTicketStatus } from "@prisma/client";
+
+import { Button } from "@/components/ui/button";
+import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
+import { Link } from "@/components/ui/link";
+import { fetchJson } from "@/lib/query-client";
 
 export const Route = createFileRoute("/_main/support")({
   component: SupportPage,

@@ -120,15 +120,24 @@ function AdminTicketsPage() {
           value={statusFilter}
         />
         <select
-          className="h-10 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-3 text-sm text-surface-warm-white outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/40"
+          className="h-10 rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 text-sm text-[#1c1c1c] outline-none focus-visible:ring-2 focus-visible:ring-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:focus-visible:ring-surface-warm-white/40"
           onChange={(e) =>
             setCategoryFilter(e.target.value as SupportCategory | "ALL")
           }
           value={categoryFilter}
         >
-          <option value="ALL">Semua Kategori</option>
+          <option
+            value="ALL"
+            className="bg-[#eceae4] text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
+          >
+            Semua Kategori
+          </option>
           {Object.keys(CATEGORY_LABELS).map((cat) => (
-            <option key={cat} value={cat}>
+            <option
+              key={cat}
+              value={cat}
+              className="bg-[#eceae4] text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
+            >
               {CATEGORY_LABELS[cat as SupportCategory]}
             </option>
           ))}
@@ -137,10 +146,10 @@ function AdminTicketsPage() {
 
       {ticketsQuery.isLoading ? (
         <div className="flex justify-center py-spacing-12">
-          <Loader2 className="size-6 animate-spin text-surface-warm-white/60" />
+          <Loader2 className="size-6 animate-spin text-[#5f5f5d] dark:text-surface-warm-white/60" />
         </div>
       ) : ticketsQuery.data?.tickets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-surface-warm-white/10 py-spacing-12 text-center text-surface-warm-white/40">
+        <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-12 text-center text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
           <MessageSquare className="size-8 opacity-40" />
           <p className="mt-spacing-3 text-sm">
             Tidak ada tiket bantuan yang ditemukan.
@@ -160,7 +169,7 @@ function AdminTicketsPage() {
               <Link
                 key={ticket.id}
                 href={`/admin/tickets/${ticket.id}`}
-                className={`relative flex flex-col gap-spacing-2 rounded-radius-md border p-spacing-4 transition ${needsReply ? "border-aurora-orange/30 bg-aurora-orange/5 hover:bg-aurora-orange/8" : "border-surface-warm-white/10 bg-surface-warm-white/5 hover:bg-surface-warm-white/8"}`}
+                className={`relative flex flex-col gap-spacing-2 rounded-radius-md border p-spacing-4 transition ${needsReply ? "border-aurora-orange/30 bg-aurora-orange/5 hover:bg-aurora-orange/8 text-[#1c1c1c] dark:text-surface-warm-white" : "border-black/10 bg-[#fcfbf8] text-[#1c1c1c] hover:border-black/20 hover:bg-black/[0.02] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"}`}
               >
                 {needsReply && (
                   <span
@@ -171,7 +180,7 @@ function AdminTicketsPage() {
 
                 <div className="flex items-start justify-between gap-spacing-3 pl-spacing-2">
                   <div className="flex items-center gap-spacing-2">
-                    <span className="text-xs font-mono text-surface-warm-white/40">
+                    <span className="text-xs font-mono text-[#5f5f5d] dark:text-surface-warm-white/40">
                       #{shortId}
                     </span>
                     <span
@@ -188,16 +197,16 @@ function AdminTicketsPage() {
                       );
                     })()}
                   </div>
-                  <span className="text-[10px] text-surface-warm-white/40">
+                  <span className="text-[10px] text-[#5f5f5d] dark:text-surface-warm-white/40">
                     {formatTimeAgo(ticket.updatedAt)}
                   </span>
                 </div>
 
                 <div className="pl-spacing-2">
-                  <h3 className="font-semibold text-sm line-clamp-1">
+                  <h3 className="font-semibold text-sm line-clamp-1 text-[#1c1c1c] dark:text-surface-warm-white">
                     {ticket.subject}
                   </h3>
-                  <div className="mt-1 text-xs text-surface-warm-white/60">
+                  <div className="mt-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
                     Pengguna:{" "}
                     <SensitiveText
                       value={ticket.user.email}
@@ -206,7 +215,7 @@ function AdminTicketsPage() {
                     />
                   </div>
                   {lastMsg && (
-                    <p className="mt-spacing-2 text-xs text-surface-warm-white/50 line-clamp-1 italic">
+                    <p className="mt-spacing-2 text-xs text-[#5f5f5d] dark:text-surface-warm-white/50 line-clamp-1 italic">
                       {lastMsg.authorRole === "user" ? "User: " : "Admin: "} "
                       {lastMsg.body}"
                     </p>

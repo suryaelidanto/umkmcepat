@@ -40,26 +40,24 @@ export function Header({
           </div>
         </div>
       ) : null}
-      <div className="mx-auto grid h-14 max-w-7xl grid-cols-[auto_1fr_auto] items-center px-spacing-7 sm:px-spacing-9 lg:px-spacing-10">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="flex items-center gap-2 justify-self-start whitespace-nowrap rounded-radius-md text-base font-semibold tracking-tight text-[#1c1c1c] outline-none dark:text-surface-warm-white sm:text-lg"
+          className="flex min-w-0 shrink items-center gap-2 rounded-radius-md text-base font-semibold tracking-tight text-[#1c1c1c] outline-none dark:text-surface-warm-white sm:text-lg"
           aria-label="UMKM Cepat beranda"
         >
           <Image
             src="/brand/umkmcepat-logo.svg"
             alt="Logo UMKM Cepat"
-            width={32}
-            height={32}
+            width={28}
+            height={28}
             priority
+            className="shrink-0 sm:size-8"
           />
-          <span>UMKM Cepat</span>
+          <span className="truncate">UMKM Cepat</span>
         </Link>
 
-        <div aria-hidden="true" />
-
-        <div className="flex items-center justify-end gap-3">
-          <ThemeToggle />
+        <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-3">
           <EnergyDisplay />
           <ThemeToggle />
           <AuthButton />

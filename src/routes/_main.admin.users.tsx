@@ -69,14 +69,14 @@ function UserListSkeleton() {
     <div aria-busy="true" className="flex flex-col gap-spacing-3" role="status">
       {["one", "two", "three"].map((key) => (
         <div
-          className="flex h-20 animate-pulse items-center justify-between rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-3"
+          className="flex h-20 animate-pulse items-center justify-between rounded-radius-md border border-black/10 bg-black/[0.03] p-spacing-3 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
           key={key}
         >
           <div className="flex flex-col gap-spacing-2">
-            <span className="h-4 w-36 rounded bg-surface-warm-white/10" />
-            <span className="h-3 w-52 rounded bg-surface-warm-white/8" />
+            <span className="h-4 w-36 rounded bg-black/10 dark:bg-surface-warm-white/10" />
+            <span className="h-3 w-52 rounded bg-black/5 dark:bg-surface-warm-white/8" />
           </div>
-          <span className="h-9 w-24 rounded-radius-md bg-surface-warm-white/8" />
+          <span className="h-9 w-24 rounded-radius-md bg-black/5 dark:bg-surface-warm-white/8" />
         </div>
       ))}
     </div>
@@ -155,7 +155,7 @@ function UsersPage() {
         value={status}
       />
       <input
-        className="rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-3 py-spacing-2 text-sm"
+        className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] placeholder:text-[#5f5f5d] focus:outline-none focus:ring-1 focus:ring-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/50 dark:focus:ring-surface-warm-white"
         onChange={(e) => {
           setQ(e.target.value);
           setPage(1);
@@ -167,11 +167,11 @@ function UsersPage() {
         <UserListSkeleton />
       ) : listState === "error" ? (
         <div className="flex flex-col items-center gap-spacing-3 py-spacing-8 text-center">
-          <p className="text-sm text-surface-warm-white/70">
+          <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
             Pengguna belum bisa dimuat.
           </p>
           <button
-            className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+            className="rounded-radius-md border border-black/15 px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
             onClick={() => void refetch()}
             type="button"
           >
@@ -179,29 +179,31 @@ function UsersPage() {
           </button>
         </div>
       ) : listState === "empty" ? (
-        <p className="text-surface-warm-white/70">Tidak ada pengguna.</p>
+        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
+          Tidak ada pengguna.
+        </p>
       ) : (
         users.map((u) => (
           <div
-            className="flex items-center justify-between rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
+            className="flex items-center justify-between rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
             key={u.id}
           >
             <div>
-              <p className="font-medium">
+              <p className="font-medium text-[#1c1c1c] dark:text-surface-warm-white">
                 {streamerMode && u.name ? (
                   <SensitiveText kind="name" value={u.name} />
                 ) : (
                   (u.name ?? "Tanpa nama")
                 )}
               </p>
-              <p className="text-surface-warm-white">
+              <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
                 {streamerMode && u.email ? (
                   <SensitiveText kind="email" value={u.email} />
                 ) : (
                   u.email
                 )}
               </p>
-              <div className="mt-spacing-1 flex flex-wrap items-center gap-spacing-2 text-surface-warm-white/70">
+              <div className="mt-spacing-1 flex flex-wrap items-center gap-spacing-2 text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
                 <span>{u.projectsCount} proyek</span>
                 {u.bannedAt ? (
                   <AdminStatusBadge tone="danger">Diblokir</AdminStatusBadge>
@@ -210,14 +212,14 @@ function UsersPage() {
             </div>
             <div className="flex gap-spacing-2">
               <button
-                className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+                className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
                 onClick={() => openGrant(u)}
                 type="button"
               >
                 Tambah energi
               </button>
               <button
-                className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+                className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
                 onClick={() =>
                   ban.mutate({
                     action: u.bannedAt ? "unban" : "ban",
@@ -235,18 +237,18 @@ function UsersPage() {
       {data && data.totalPages > 1 ? (
         <div className="flex gap-spacing-2">
           <button
-            className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm disabled:opacity-40"
+            className="rounded-radius-md border border-black/15 px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] disabled:opacity-40 dark:border-surface-warm-white/15 dark:text-surface-warm-white"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             type="button"
           >
             Sebelumnya
           </button>
-          <span className="px-spacing-2 py-spacing-2 text-sm text-surface-warm-white/70">
+          <span className="px-spacing-2 py-spacing-2 text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
             {page} / {data.totalPages}
           </span>
           <button
-            className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm disabled:opacity-40"
+            className="rounded-radius-md border border-black/15 px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] disabled:opacity-40 dark:border-surface-warm-white/15 dark:text-surface-warm-white"
             disabled={page >= data.totalPages}
             onClick={() => setPage((p) => p + 1)}
             type="button"
@@ -272,12 +274,12 @@ function UsersPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-spacing-3">
-            <label className="text-sm text-surface-warm-white/80">
+            <label className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/80">
               Jumlah energi
             </label>
             <input
               autoFocus
-              className="rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-3 py-spacing-2 text-sm"
+              className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
               inputMode="numeric"
               onChange={(e) => setGrantRaw(e.target.value)}
               placeholder="1.000.000"
@@ -285,14 +287,14 @@ function UsersPage() {
             />
             <div className="flex justify-end gap-spacing-2">
               <button
-                className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm"
+                className="rounded-radius-md border border-black/15 px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
                 onClick={() => setGrantTarget(null)}
                 type="button"
               >
                 Batal
               </button>
               <button
-                className="rounded-radius-md bg-surface-warm-white px-spacing-3 py-spacing-2 text-sm text-foreground-primary disabled:opacity-40"
+                className="rounded-radius-md bg-[#1c1c1c] px-spacing-3 py-spacing-2 text-sm text-surface-warm-white hover:bg-black disabled:opacity-40 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
                 disabled={grantAmount === "" || grantAmount <= 0}
                 onClick={() => {
                   if (grantTarget && grantAmount !== "" && grantAmount > 0) {
