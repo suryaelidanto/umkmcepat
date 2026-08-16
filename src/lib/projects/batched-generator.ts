@@ -1800,6 +1800,7 @@ export async function runReferenceCalibratedGenerate(input: {
     });
     themed = normalizeBatchedSiteAnchors(themed, {
       compositionPatternId: designPlan.compositionPatternId,
+      ensurePrimaryCta: true,
       photoEnabled: input.contract.media.mode === "owner_assets",
       primaryCtaTarget: input.contract.business.primaryCta.target,
       palette: designPlan.palette,
@@ -1993,6 +1994,7 @@ export async function runGeneratedSiteCorrection(input: {
   }
   const normalizedReplacements = normalizeBatchedSiteAnchors(replacements, {
     compositionPatternId: designPlan.compositionPatternId,
+    ensurePrimaryCta: true,
     photoEnabled: input.contract.media.mode === "owner_assets",
     primaryCtaTarget: input.contract.business.primaryCta.target,
     palette: designPlan.palette,

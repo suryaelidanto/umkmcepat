@@ -207,6 +207,41 @@ function healAccentSurfaceText(content: string): string {
   );
 }
 
+function healDynamicContrastSurfaceText(content: string): string {
+  const candidates = [
+    ...content.matchAll(
+      /<([A-Za-z][\w.]*)\b(?=[^>]*\bclassName=\{`)(?=[^>]*\bbg-foreground\b)[^>]*>/g,
+    ),
+  ].flatMap((match) =>
+    match[1] ? [elementSpan(content, match, match[1])] : [],
+  );
+  const spans = candidates.filter(
+    (span, index) =>
+      !candidates.some(
+        (other, otherIndex) =>
+          index !== otherIndex &&
+          other.start <= span.start &&
+          other.end >= span.end,
+      ),
+  );
+  const pattern = new RegExp(
+    `\\btext-(?:${LIGHT_SURFACE_TEXT_TOKEN})\\b(?!-)(/\\d{1,3})?`,
+    "g",
+  );
+  let normalized = content;
+  for (const span of spans.sort((left, right) => right.start - left.start)) {
+    const fragment = normalized
+      .slice(span.start, span.end)
+      .replace(
+        pattern,
+        (_match: string, opacity: string | undefined) =>
+          `text-background${opacity ?? ""}`,
+      );
+    normalized = `${normalized.slice(0, span.start)}${fragment}${normalized.slice(span.end)}`;
+  }
+  return normalized;
+}
+
 export function inspectGeneratedSiteTasteSource(input: {
   source: string;
   sectionCount: number;
@@ -443,6 +478,21 @@ export function inspectReferenceCalibratedSiteSource(input: {
         "high",
         "preview-ready-hook-missing",
         `Generated route ${route.path} must call usePreviewReady() so the preview iframe can unlock.`,
+        route.filePath,
+      );
+    }
+    if (
+      !containsAcceptedCtaTarget(
+        routeSource,
+        input.contract.business.primaryCta.target,
+      )
+    ) {
+      add(
+        findings,
+        "cta",
+        "high",
+        "route-primary-cta-missing",
+        `Generated route ${route.path} must render the accepted primary action.`,
         route.filePath,
       );
     }
@@ -692,6 +742,7 @@ export function normalizeBatchedSiteAnchors(
       muted: string;
       accent: string;
     };
+    ensurePrimaryCta?: boolean;
   },
 ): GeneratedProjectFile[] {
   const photoEnabled = options?.photoEnabled ?? true;
@@ -764,6 +815,7 @@ export function normalizeBatchedSiteAnchors(
         );
       content = healContrastSurfaceText(content);
       content = healAccentSurfaceText(content);
+      content = healDynamicContrastSurfaceText(content);
     }
     if (file.path === "src/routes/index.tsx") {
       content = normalizeGeneratedHomeRouteContract(content);
@@ -773,6 +825,16 @@ export function normalizeBatchedSiteAnchors(
           options.compositionPatternId,
         );
       }
+    }
+    if (
+      options?.ensurePrimaryCta &&
+      isGeneratedRouteSource &&
+      file.path.startsWith("src/routes/")
+    ) {
+      content = ensureGeneratedRoutePrimaryCta(content, whatsappHref);
+    }
+    if (isGeneratedRouteSource) {
+      content = ensureActionTouchTargets(content);
     }
     content = ensureCtaTouchTarget(content, whatsappHref);
     return { ...file, content };
@@ -869,6 +931,60 @@ function toWhatsappHref(target: string | undefined): string | null {
   return `https://wa.me/${phone}?text=Halo`;
 }
 
+function containsAcceptedCtaTarget(source: string, target: string): boolean {
+  const digits = target.replace(/\D/g, "");
+  if (!digits) {
+    return source.includes("site.primaryCta");
+  }
+  const canonical = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+  return (
+    source.includes(digits) ||
+    source.includes(canonical) ||
+    source.includes(`wa.me/${digits}`) ||
+    source.includes(`wa.me/${canonical}`)
+  );
+}
+
+function ensureGeneratedRoutePrimaryCta(
+  content: string,
+  whatsappHref: string | null,
+): string {
+  if (!whatsappHref || content.includes(whatsappHref)) {
+    return content;
+  }
+  const action = `<div className="mt-10"><a href="${whatsappHref}" className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground">{site.primaryCta} via WhatsApp</a></div>`;
+  const closingMain = content.lastIndexOf("</main>");
+  if (closingMain < 0) {
+    return `${content}\n${action}`;
+  }
+  return `${content.slice(0, closingMain)}${action}\n${content.slice(closingMain)}`;
+}
+
+function ensureActionTouchTargets(content: string): string {
+  const actionPattern =
+    /<a([^>]*?)href=["'][^"']+["']([^>]*?)>([\s\S]{0,240}?(?:site\.primaryCta|hubungi|pesan|lihat|mulai|daftar|janji|konsultasi|whatsapp|chat)[\s\S]{0,240}?)<\/a>/gi;
+  return content.replace(actionPattern, (match: string) =>
+    makeTouchSafeAnchor(match),
+  );
+}
+
+function makeTouchSafeAnchor(match: string): string {
+  if (/min-h-11/.test(match) && /inline-flex|flex/.test(match)) {
+    return match;
+  }
+  if (/className=["'][^"']*["']/.test(match)) {
+    return match.replace(
+      /className=["']([^"']*)["']/,
+      (_classMatch, classes: string) =>
+        `className="inline-flex min-h-11 items-center justify-center ${classes}"`,
+    );
+  }
+  return match.replace(
+    "<a",
+    '<a className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground"',
+  );
+}
+
 function ensureCtaTouchTarget(
   content: string,
   whatsappHref: string | null,
@@ -880,22 +996,9 @@ function ensureCtaTouchTarget(
     `<a([^>]*?)href=["']${hrefPattern}["']([^>]*?)>`,
     "gi",
   );
-  return content.replace(anchorPattern, (match: string) => {
-    if (/min-h-11/.test(match) && /inline-flex|flex/.test(match)) {
-      return match;
-    }
-    if (/className=["'][^"']*["']/.test(match)) {
-      return match.replace(
-        /className=["']([^"']*)["']/,
-        (_classMatch, classes: string) =>
-          `className="inline-flex min-h-11 items-center justify-center ${classes}"`,
-      );
-    }
-    return match.replace(
-      "<a",
-      '<a className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground"',
-    );
-  });
+  return content.replace(anchorPattern, (match: string) =>
+    makeTouchSafeAnchor(match),
+  );
 }
 
 function escapeHrefRegExp(value: string): string {

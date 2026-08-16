@@ -473,6 +473,28 @@ describe("reference-calibrated generated site source gates", () => {
     ).toBe(false);
   });
 
+  it("requires the accepted primary action on every contract route", () => {
+    const result = inspectReferenceCalibratedSiteSource({
+      contract: v2Contract(),
+      kit: v2Kit(),
+      designPlan: _v2Plan(),
+      files: [
+        {
+          path: "src/routes/index.tsx",
+          content: `import { site } from "@/content/site"; import { usePreviewReady } from "@/lib/preview-ready"; import { SiteSection } from "@/components/site/layout"; export function HomeRouteComponent() { usePreviewReady(); return <main data-pattern="full-field-lockup"><SiteSection><h1>{site.headline}</h1><p>{site.subheadline}</p><p>{site.primaryCta}</p></SiteSection></main>; }`,
+        },
+      ],
+      starterIndexSource: "starter",
+      themeChecks: [],
+    });
+
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "route-primary-cta-missing" }),
+      ]),
+    );
+  });
+
   it("rejects a route that references a site.* field the schema does not have", () => {
     // Reproduced live: the writer referenced site.usp when the schema's usp
     // was empty (JSON.stringify drops the undefined-valued key entirely), and
@@ -763,6 +785,53 @@ export default function IndexRoute() {
       '<a className="inline-flex min-h-11 items-center justify-center cta-primary" href="https://wa.me/628123456789?text=Halo"',
     );
     expect(file?.content).toContain("cta-primary");
+  });
+
+  it("makes generated action links touch-safe, including multi-page navigation", () => {
+    const [file] = normalizeBatchedSiteAnchors(
+      [
+        {
+          path: "src/components/site/generated-shell.tsx",
+          content:
+            '<nav><a href="/katalog" className="font-semibold">Lihat katalog</a></nav>',
+        },
+      ],
+      { primaryCtaTarget: "08123456789" },
+    );
+
+    expect(file?.content).toContain("inline-flex min-h-11");
+  });
+
+  it("adds the accepted primary action to a generated route that omitted it", () => {
+    const [file] = normalizeBatchedSiteAnchors(
+      [
+        {
+          path: "src/routes/lokasi.tsx",
+          content: "<main><h1>{site.headline}</h1></main>",
+        },
+      ],
+      { ensurePrimaryCta: true, primaryCtaTarget: "08123456789" },
+    );
+
+    expect(file?.content).toContain(
+      'href="https://wa.me/628123456789?text=Halo"',
+    );
+    expect(file?.content).toContain("site.primaryCta");
+    expect(file?.content).toContain("min-h-11");
+  });
+
+  it("heals dynamic foreground surfaces and their descendants", () => {
+    const [file] = normalizeBatchedSiteAnchors([
+      {
+        path: "src/routes/katalog.tsx",
+        content: `<article className={\`rounded-xl \${index === 0 ? "bg-foreground text-foreground" : "bg-muted text-foreground"}\`}><h2 className={\`\${index === 0 ? "text-foreground" : "text-foreground"}\`}>Produk</h2></article>`,
+      },
+    ]);
+
+    expect(file?.content).toContain("bg-foreground text-background");
+    expect(file?.content).not.toContain(
+      '"text-foreground" : "text-foreground"',
+    );
   });
 
   it("replaces an empty hash primary CTA with the reviewed WhatsApp target", () => {

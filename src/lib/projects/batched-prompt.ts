@@ -177,6 +177,7 @@ Rules:
 - The accepted routes are: ${routeBindings.map((route) => `${route.path} -> ${route.filePath} -> ${route.exportName}`).join("; ")}.
 - Route exports: ${routeBindings.map((route) => `export function ${route.exportName}()`).join(", ")}.
 - Each route file must export exactly its listed component, call usePreviewReady() as a standalone statement, and render the accepted route purpose using site.* data. Never default-export a route.
+- Every route file, including operational pages such as location, must include one visible primary WhatsApp action using the exact accepted target and a min-h-11 touch target. Do not leave the primary action only on the home route.
 ${multiRoute ? "- Multi-route output must include src/components/site/generated-shell.tsx exporting GeneratedShell. Use the shared shell from every route and use accepted route links only; do not duplicate the shell markup in route files." : "- Keep the single route compact: do not add helper components or repeated data."}
 - Keep total editable content under ${editableBudget}; each route should stay compact and finish well below the output limit.
 - Keep each route under 8,000 characters and 160 lines. Never omit done.
@@ -193,6 +194,7 @@ ${multiRoute ? "- Multi-route output must include src/components/site/generated-
 - Use these exact CTA digits in the primary action, as https://wa.me/${canonicalCtaDigits(input.contract)}: ${canonicalCtaDigits(input.contract)}. Never guess or reformat them.${input.compositionPatternId ? `\n- Put the selected composition pattern id in a data-pattern attribute exactly once: data-pattern="${input.compositionPatternId}".` : ""}
 - No placeholders/remote URLs for graphic or typographic mode; no raw hex classes or site.theme color reads; use compiled semantic tokens; actions ≥44px.
 - Draw every graphic as inline SVG with visible paths. Never emit a self-closing span or div whose only content is sizing plus a background or border — that reads as a missing image and is rejected.
+- Keep foreground/contrast surfaces in static class strings with their readable text pairing; do not hide bg-foreground and text-foreground combinations inside conditional template classes.
 - Follow the selected page strategy and taste dials. Make one deliberate signature, not a pile of decoration. Do not repeat eyebrow or numbered-marker scaffolding, use h-screen, emit em/en dashes, or duplicate CTA intent.
 - Keep the display/body type roles legible and use the selected kit type guidance: ${input.kit.taste.typeGuidance}
 - The hero must state the business outcome and accepted action quickly on mobile; sparse briefs stay sparse and rich briefs must not become one empty card.
