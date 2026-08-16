@@ -39,6 +39,8 @@ Measured on the running dev server (`bun run dev`, port 3000), warm process, 202
 - New public route `GET /api/community/contributors` serves the cached value with `Cache-Control: public, max-age=900, s-maxage=900`.
 - Contributor cards filter automation accounts before sorting in both stats and fallback responses: the case-insensitive `claude` exclusion, GitHub's `type: "Bot"`, and the `[bot]` login suffix (including `blacksmith-sh[bot]`).
 - `CommunitySection` becomes a client-fetching component: `useQuery` gated on `typeof window !== "undefined"` (never fetches during SSR), skeleton rows while pending.
+- The contributor list reserves its measured skeleton height as data arrives, so shorter or chartless responses do not pull later homepage sections through the user's viewport.
+- Initial TanStack Router scroll restoration is skipped once, preventing hydration from overriding an early user scroll; later route navigations keep normal scroll-to-top behavior.
 - `loadHome` no longer fetches contributors. Guest TTFB drops from ~1.2 s to ~0.6 s.
 
 ### D2. Hero + sections visible at paint (fixes #6)

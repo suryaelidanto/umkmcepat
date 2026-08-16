@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { SponsorTable } from "@/components/home/SponsorTable";
@@ -28,6 +29,35 @@ function useCommunityContributors() {
     enabled: typeof window !== "undefined",
     ...CONTRIBUTOR_QUERY_OPTIONS,
   });
+}
+
+export function reserveContributorHeight(
+  current: number | undefined,
+  measured: number,
+) {
+  if (!Number.isFinite(measured) || measured <= 0) {
+    return current;
+  }
+
+  return current === undefined ? measured : Math.max(current, measured);
+}
+
+function useReservedContributorHeight(state: "pending" | "loaded" | "empty") {
+  const ref = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number>();
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) {
+      return;
+    }
+
+    setHeight((current) =>
+      reserveContributorHeight(current, element.getBoundingClientRect().height),
+    );
+  }, [state]);
+
+  return { height, ref };
 }
 
 const sponsors = [
@@ -112,7 +142,7 @@ function MiniChart({
 
 function ContributorSkeleton() {
   return (
-    <div className="mt-spacing-8 divide-y divide-white/[0.07] border-t border-white/[0.07]">
+    <>
       {[0, 1, 2].map((index) => (
         <div
           key={index}
@@ -121,15 +151,15 @@ function ContributorSkeleton() {
           <div className="flex min-w-0 items-center gap-spacing-4">
             <span className="w-5 shrink-0" />
             <div className="size-10 shrink-0 animate-pulse rounded-full bg-white/10" />
-            <div className="min-w-0 space-y-spacing-2">
+            <div className="min-h-[42px] min-w-0 space-y-spacing-2">
               <div className="h-4 w-28 animate-pulse rounded bg-white/10" />
               <div className="h-3 w-40 animate-pulse rounded bg-white/10" />
             </div>
           </div>
-          <div className="h-16 w-full animate-pulse rounded bg-white/10 sm:w-48" />
+          <div className="mt-spacing-5 h-16 w-full animate-pulse rounded bg-white/10 sm:w-48" />
         </div>
       ))}
-    </div>
+    </>
   );
 }
 
@@ -142,6 +172,14 @@ export function CommunitySection() {
       (contributor.weeks ?? []).map((week) => week.commits),
     ),
   );
+  const contributorState = contributorsQuery.isPending
+    ? "pending"
+    : contributors.length > 0
+      ? "loaded"
+      : "empty";
+  const contributorLayout = useReservedContributorHeight(contributorState);
+  const showContributorList =
+    contributorState !== "empty" || contributorLayout.height !== undefined;
 
   return (
     <section className="bg-[#151515] px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
@@ -178,61 +216,72 @@ export function CommunitySection() {
               </div>
             </div>
 
-            {contributorsQuery.isPending ? (
-              <ContributorSkeleton />
-            ) : contributors.length ? (
-              <div className="mt-spacing-8 divide-y divide-white/[0.07] border-t border-white/[0.07]">
-                {contributors.map((contributor, index) => (
-                  <div
-                    key={contributor.login}
-                    className="flex flex-col gap-spacing-5 py-spacing-6 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex min-w-0 items-center gap-spacing-4">
-                      <span className="w-5 shrink-0 text-sm text-surface-warm-white/40">
-                        #{index + 1}
-                      </span>
-                      <Image
-                        src={contributor.avatarUrl}
-                        alt={`Foto profil ${contributor.login}`}
-                        width={40}
-                        height={40}
-                        className="size-10 shrink-0 rounded-full"
-                        unoptimized
-                      />
-                      <div className="min-w-0">
-                        <a
-                          href={contributor.profileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="truncate text-base font-semibold text-surface-warm-white transition hover:underline"
-                        >
-                          {contributor.login}
-                        </a>
-                        <p className="mt-spacing-1 text-xs text-surface-warm-white/50">
-                          <span>{contributor.recentCommits} commits</span>
-                          {contributor.weeks ? (
-                            <>
-                              <span className="ml-spacing-3 text-github-blue">
-                                +{formatCompact(contributor.recentAdditions)}
-                              </span>
-                              <span className="ml-spacing-2 text-github-red">
-                                -{formatCompact(contributor.recentDeletions)}
-                              </span>
-                            </>
-                          ) : null}
-                        </p>
+            {showContributorList ? (
+              <div
+                className="mt-spacing-8 divide-y divide-white/[0.07] border-t border-white/[0.07]"
+                ref={contributorLayout.ref}
+                style={
+                  contributorLayout.height === undefined
+                    ? undefined
+                    : { minHeight: contributorLayout.height }
+                }
+              >
+                {contributorsQuery.isPending ? <ContributorSkeleton /> : null}
+                {!contributorsQuery.isPending
+                  ? contributors.map((contributor, index) => (
+                      <div
+                        key={contributor.login}
+                        className="flex flex-col gap-spacing-5 py-spacing-6 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex min-w-0 items-center gap-spacing-4">
+                          <span className="w-5 shrink-0 text-sm text-surface-warm-white/40">
+                            #{index + 1}
+                          </span>
+                          <Image
+                            src={contributor.avatarUrl}
+                            alt={`Foto profil ${contributor.login}`}
+                            width={40}
+                            height={40}
+                            className="size-10 shrink-0 rounded-full"
+                            unoptimized
+                          />
+                          <div className="min-w-0">
+                            <a
+                              href={contributor.profileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="truncate text-base font-semibold text-surface-warm-white transition hover:underline"
+                            >
+                              {contributor.login}
+                            </a>
+                            <p className="mt-spacing-1 text-xs text-surface-warm-white/50">
+                              <span>{contributor.recentCommits} commits</span>
+                              {contributor.weeks ? (
+                                <>
+                                  <span className="ml-spacing-3 text-github-blue">
+                                    +
+                                    {formatCompact(contributor.recentAdditions)}
+                                  </span>
+                                  <span className="ml-spacing-2 text-github-red">
+                                    -
+                                    {formatCompact(contributor.recentDeletions)}
+                                  </span>
+                                </>
+                              ) : null}
+                            </p>
+                          </div>
+                        </div>
+                        {contributor.weeks ? (
+                          <div className="w-full sm:w-48">
+                            <MiniChart
+                              weeks={contributor.weeks}
+                              maxCommits={maxCommits}
+                            />
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
-                    {contributor.weeks ? (
-                      <div className="w-full sm:w-48">
-                        <MiniChart
-                          weeks={contributor.weeks}
-                          maxCommits={maxCommits}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
+                    ))
+                  : null}
               </div>
             ) : null}
           </div>
