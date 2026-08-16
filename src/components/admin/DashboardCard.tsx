@@ -12,7 +12,7 @@ export function DashboardCard({
   return (
     <div
       className={cn(
-        "flex flex-col overflow-hidden rounded-radius-lg border border-surface-warm-white/12 bg-surface-warm-white/[0.04]",
+        "flex flex-col overflow-hidden rounded-radius-lg border border-black/10 bg-[#fcfbf8] shadow-sm transition-colors duration-200 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/[0.04] dark:shadow-none",
         className,
       )}
     >
