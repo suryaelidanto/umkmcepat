@@ -67,6 +67,14 @@ function getProjectCreateIdempotencyKey(prompt: string) {
   return idempotencyKey;
 }
 
+const PROMPT_PLACEHOLDERS = [
+  "Tolong buatkan website buat jualan ayam geprek & jus buah, biar pelanggan gampang lihat menu terus langsung order via WhatsApp...",
+  "Saya mau dong buatin website bengkel motor & servis panggilan di Bandung, ada info layanan, maps lokasi, sama nomor darurat...",
+  "Tolong bikinin website katalog gamis & hijab rumahan di Solo, lengkap sama pilihan ukuran, foto produk, dan tombol kontak admin...",
+  "Mau buat website jasa cuci sepatu & apparel premium, tolong kasih daftar harga paket, review pelanggan, dan alamat antar jemput...",
+  "Buatin website kedai kopi susu & pastry kekinian dong, butuh info menu favorit, promo mingguan, sama alamat cabang...",
+];
+
 export function HomePromptForm({
   onFocusChange,
 }: {
@@ -82,6 +90,58 @@ export function HomePromptForm({
   const uploadsEnabled = useFeatureFlag("feature.composer_uploads_enabled");
   const hasAutoContinued = useRef(false);
   const isSubmittingRef = useRef(false);
+
+  // Typewriter placeholder animation
+  const [placeholder, setPlaceholder] = useState("");
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isWaiting, setIsWaiting] = useState(false);
+
+  useEffect(() => {
+    // Stop animating if user typed something
+    if (prompt) {
+      return;
+    }
+
+    if (isWaiting) {
+      return;
+    }
+
+    const currentPhrase = PROMPT_PLACEHOLDERS[phraseIndex];
+    let timer: ReturnType<typeof setTimeout>;
+
+    if (!isDeleting && charIndex < currentPhrase.length) {
+      // Typing forward
+      timer = setTimeout(() => {
+        setPlaceholder(currentPhrase.slice(0, charIndex + 1));
+        setCharIndex((prev) => prev + 1);
+      }, 30);
+    } else if (!isDeleting && charIndex === currentPhrase.length) {
+      // Pause at complete phrase before deleting
+      setIsWaiting(true);
+      timer = setTimeout(() => {
+        setIsWaiting(false);
+        setIsDeleting(true);
+      }, 3000);
+    } else if (isDeleting && charIndex > 0) {
+      // Deleting backward
+      timer = setTimeout(() => {
+        setPlaceholder(currentPhrase.slice(0, charIndex - 1));
+        setCharIndex((prev) => prev - 1);
+      }, 15);
+    } else if (isDeleting && charIndex === 0) {
+      // Pause 1 second before starting next phrase
+      setIsWaiting(true);
+      timer = setTimeout(() => {
+        setIsDeleting(false);
+        setIsWaiting(false);
+        setPhraseIndex((prev) => (prev + 1) % PROMPT_PLACEHOLDERS.length);
+      }, 1000);
+    }
+
+    return () => clearTimeout(timer);
+  }, [charIndex, isDeleting, isWaiting, phraseIndex, prompt]);
 
   // Waitlist gate: never show the create form to signed-in users who have not
   // been approved. While the status query is still loading, keep the form
@@ -316,7 +376,11 @@ export function HomePromptForm({
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           onKeyDown={handlePromptKeyDown}
-          placeholder="Tulis kebutuhan usahamu di sini... contoh: Saya jual produk rumahan dan ingin pelanggan bisa pesan lewat WhatsApp."
+          placeholder={
+            placeholder
+              ? `Contoh: ${placeholder}`
+              : "Tulis kebutuhan usahamu di sini..."
+          }
           maxLength={PROJECT_REQUEST_MAX_LENGTH}
           disabled={isLoading}
           className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-[#1c1c1c] outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-[#1c1c1c]/45 disabled:opacity-70 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/52 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"

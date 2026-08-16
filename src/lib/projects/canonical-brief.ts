@@ -205,8 +205,7 @@ export function applyAiBriefPatch(
   const input = patch as Record<string, unknown>;
   const hasKey = (key: string) =>
     Object.prototype.hasOwnProperty.call(input, key);
-  // eslint-disable-next-line prefer-const -- mutated via field assignments below
-  let next: ProjectBriefV2 = {
+  const next: ProjectBriefV2 = {
     ...brief,
     business: { ...brief.business },
     fieldState: { ...brief.fieldState },

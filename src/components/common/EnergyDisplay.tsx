@@ -107,13 +107,6 @@ export function EnergyDisplay() {
         </button>
       </div>
 
-      <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-black/10 dark:bg-surface-warm-white/12 sm:block">
-        <div
-          className={`h-full rounded-full transition-all duration-300 ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"}`}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-
       <EnergyBoosterModal open={modalOpen} onOpenChange={setModalOpen} />
     </div>
   );
