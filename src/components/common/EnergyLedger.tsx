@@ -79,8 +79,8 @@ export function EnergyLedger({
 
   if (entries === undefined && query.isPending && !query.data) {
     return (
-      <div className="flex items-center gap-spacing-2 text-body-small text-surface-warm-white/55">
-        <div className="size-2 animate-pulse rounded-full bg-surface-warm-white/30" />
+      <div className="flex items-center gap-spacing-2 text-body-small text-[#5f5f5d] dark:text-surface-warm-white/55">
+        <div className="size-2 animate-pulse rounded-full bg-black/20 dark:bg-surface-warm-white/30" />
         <span>Memuat catatan energi…</span>
       </div>
     );
@@ -98,7 +98,7 @@ export function EnergyLedger({
 
   if (resolvedEntries.length === 0) {
     return (
-      <p className="text-body-small text-surface-warm-white/55">
+      <p className="text-body-small text-[#5f5f5d] dark:text-surface-warm-white/55">
         Belum ada catatan pemakaian energi.
       </p>
     );
@@ -109,19 +109,19 @@ export function EnergyLedger({
       {resolvedEntries.map((entry) => (
         <li
           key={entry.id}
-          className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-white/[0.08] bg-white/[0.03] px-spacing-6 py-spacing-5"
+          className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-black/10 bg-black/[0.02] px-spacing-6 py-spacing-5 dark:border-white/[0.08] dark:bg-white/[0.03]"
         >
           <div className="flex min-w-0 flex-col gap-spacing-1">
-            <span className="text-body-small font-medium text-surface-warm-white">
+            <span className="text-body-small font-medium text-[#1c1c1c] dark:text-surface-warm-white">
               {reasonLabel(entry.reason)}
             </span>
-            <span className="text-body-small text-surface-warm-white/55">
+            <span className="text-body-small text-[#5f5f5d] dark:text-surface-warm-white/55">
               {formatDateTime(entry.createdAt)} ·{" "}
               {formatNumber(entry.inputTokens)}/
               {formatNumber(entry.outputTokens)} token
             </span>
           </div>
-          <span className="text-body-small font-medium text-surface-warm-white tabular-nums">
+          <span className="text-body-small font-medium text-[#1c1c1c] tabular-nums dark:text-surface-warm-white">
             −{formatNumber(Math.abs(entry.amount))}
           </span>
         </li>

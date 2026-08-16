@@ -3988,26 +3988,36 @@ export function WorkspaceShell({
       ) : null}
       <nav
         aria-label="Pilih tampilan ruang kerja"
-        className="sticky bottom-0 z-20 flex h-12 shrink-0 items-stretch gap-spacing-1 border-t border-black/10 bg-[#eceae4] px-spacing-2 pb-[env(safe-area-inset-bottom)] dark:border-surface-warm-white/10 dark:bg-[#1b1b19] lg:hidden"
+        className="sticky bottom-0 z-20 flex h-14 shrink-0 items-center justify-between gap-1.5 border-t border-black/10 bg-[#eceae4] px-3 pb-[env(safe-area-inset-bottom)] dark:border-surface-warm-white/10 dark:bg-[#1b1b19] lg:hidden"
       >
-        <button
-          type="button"
-          aria-pressed={mobileSurface === "chat"}
-          onClick={openChatPanel}
-          className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-spacing-2 truncate rounded-radius-lg text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
+        <a
+          href="/"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-black/10 text-[#5f5f5d] transition-colors hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8"
+          title="Kembali ke Dashboard"
+          aria-label="Kembali ke Dashboard"
         >
-          <MessageCircle className="size-4 shrink-0" />
-          <span className="truncate">Diskusi</span>
-        </button>
-        <button
-          type="button"
-          aria-pressed={mobileSurface === "preview"}
-          onClick={openPreviewPanel}
-          className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-spacing-2 truncate rounded-radius-lg text-sm font-medium aria-pressed:bg-surface-warm-white aria-pressed:text-foreground-primary"
-        >
-          <Globe2 className="size-4 shrink-0" />
-          <span className="truncate">Tampilan</span>
-        </button>
+          <ArrowLeft className="size-4" />
+        </a>
+        <div className="flex flex-1 items-center gap-1.5 rounded-xl border border-black/10 bg-black/5 p-1 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
+          <button
+            type="button"
+            aria-pressed={mobileSurface === "chat"}
+            onClick={openChatPanel}
+            className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70"
+          >
+            <MessageCircle className="size-3.5 shrink-0" />
+            <span className="truncate">Diskusi</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={mobileSurface === "preview"}
+            onClick={openPreviewPanel}
+            className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70"
+          >
+            <Globe2 className="size-3.5 shrink-0" />
+            <span className="truncate">Tampilan</span>
+          </button>
+        </div>
       </nav>
       {/* Mobile/tablet: single full-screen surface toggled by bottom nav */}
       {!isDesktop ? (

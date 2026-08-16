@@ -533,19 +533,6 @@ export function MobileMenuContent({
             </button>
           ) : null}
           {projectId ? (
-            <a
-              href="/support"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onClose}
-              className="inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm text-[#1c1c1c] hover:bg-black/5 dark:text-surface-warm-white/82 dark:hover:bg-surface-warm-white/8"
-            >
-              <LifeBuoy className="size-4 shrink-0 text-[#5f5f5d] dark:text-surface-warm-white/64" />
-              <span className="flex-1 text-left">Hubungi Dukungan</span>
-              <ChevronRight className="size-4 text-black/30 dark:text-surface-warm-white/40" />
-            </a>
-          ) : null}
-          {projectId ? (
             <WorkspaceHistoryButton
               onActivate={onClose}
               projectId={projectId}
@@ -558,6 +545,19 @@ export function MobileMenuContent({
               projectId={projectId}
               variant="row"
             />
+          ) : null}
+          {projectId ? (
+            <a
+              href="/support"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onClose}
+              className="inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm text-[#1c1c1c] hover:bg-black/5 dark:text-surface-warm-white/82 dark:hover:bg-surface-warm-white/8"
+            >
+              <LifeBuoy className="size-4 shrink-0 text-[#5f5f5d] dark:text-surface-warm-white/64" />
+              <span className="flex-1 text-left">Hubungi Dukungan</span>
+              <ChevronRight className="size-4 text-black/30 dark:text-surface-warm-white/40" />
+            </a>
           ) : null}
           {runtime ? (
             <RuntimeControl
