@@ -22,7 +22,10 @@ import {
 import { motion } from "motion/react";
 import { useState } from "react";
 
+import { AuthButton } from "@/components/common/AuthButton";
+import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import { EnergyLedgerButton } from "@/components/common/EnergyLedgerButton";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { WorkspaceHistoryButton } from "@/components/projects/WorkspaceHistoryDrawer";
 import { Button } from "@/components/ui/button";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
@@ -99,12 +102,12 @@ export function WorkspaceTopBar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
     <>
-      <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#171715] px-spacing-3 py-spacing-2 sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
+      <div className="flex min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-black/10 bg-[#eceae4] px-spacing-3 py-spacing-2 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
         <div className="hidden min-w-0 items-center justify-start gap-spacing-3 sm:flex sm:w-auto">
           <button
             type="button"
             onClick={chatCollapsed ? openChatPanel : closeChatPanel}
-            className="hidden h-9 w-9 items-center justify-center rounded-radius-md border border-surface-warm-white/10 p-spacing-2 text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-surface-warm-white md:inline-flex cursor-pointer"
+            className="hidden h-9 w-9 items-center justify-center rounded-radius-md border border-black/10 p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white md:inline-flex cursor-pointer"
             aria-label={chatCollapsed ? "Buka chat" : "Tutup chat"}
           >
             {chatCollapsed ? (
@@ -116,7 +119,7 @@ export function WorkspaceTopBar({
           <div
             role="tablist"
             aria-label="Konten tampilan"
-            className="hidden md:flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+            className="hidden md:flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
           >
             <TabButton
               active={activeTab === "preview"}
@@ -250,7 +253,7 @@ export function WorkspaceTopBar({
             <div
               role="tablist"
               aria-label="Tampilan viewport"
-              className="hidden md:flex h-9 items-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-0.5 text-xs"
+              className="hidden md:flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
             >
               <TabButton
                 active={viewport === "desktop"}
@@ -292,6 +295,12 @@ export function WorkspaceTopBar({
               </TabButton>
             </div>
           ) : null}
+
+          <div className="hidden h-4 w-px bg-black/10 dark:bg-surface-warm-white/10 sm:block" />
+
+          <EnergyDisplay />
+          <ThemeToggle />
+          <AuthButton />
         </div>
       </div>
       <MobileSheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -348,7 +357,7 @@ function TabButton({
       {active && (
         <motion.span
           layoutId={layoutId}
-          className="absolute inset-0 rounded-radius-sm bg-surface-warm-white/10"
+          className="absolute inset-0 rounded-radius-sm bg-black/10 dark:bg-surface-warm-white/10"
           transition={{ type: "spring", stiffness: 500, damping: 30 }}
         />
       )}
@@ -356,8 +365,8 @@ function TabButton({
         className={cn(
           "relative z-10 flex items-center gap-spacing-2",
           active
-            ? "text-surface-warm-white"
-            : "text-surface-warm-white/58 hover:text-surface-warm-white",
+            ? "text-[#1c1c1c] dark:text-surface-warm-white"
+            : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white",
         )}
       >
         {icon}
@@ -762,12 +771,12 @@ export function VisualFeedbackWidget({
 
 export function EmptyPreviewState() {
   return (
-    <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
+    <div className="grid min-h-full place-items-center bg-[#f7f4ed] p-spacing-10 text-center text-[#1c1c1c] transition-colors duration-200 dark:bg-[#10100f] dark:text-surface-warm-white">
       <div>
-        <h2 className="text-3xl font-semibold tracking-[-0.05em] text-surface-warm-white">
+        <h2 className="text-3xl font-semibold tracking-[-0.05em] text-[#1c1c1c] dark:text-surface-warm-white">
           Belum ada tampilan website
         </h2>
-        <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-surface-warm-white/50">
+        <p className="mx-auto mt-spacing-4 max-w-md text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/50">
           Tampilan website akan muncul setelah brief cukup jelas dan proses
           pembuatan selesai.
         </p>
