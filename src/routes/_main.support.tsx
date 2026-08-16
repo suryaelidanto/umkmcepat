@@ -1,35 +1,22 @@
-import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   Outlet,
-  redirect,
   useRouter,
   useRouterState,
 } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import { ImagePlus, Loader2, MessageSquare, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import type { SupportCategory, SupportTicketStatus } from "@prisma/client";
+
 import { Button } from "@/components/ui/button";
 import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { Link } from "@/components/ui/link";
-import { auth } from "@/lib/auth";
 import { fetchJson } from "@/lib/query-client";
 
-const requireAuth = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw redirect({ to: "/" });
-  }
-  return { ok: true };
-});
-
 export const Route = createFileRoute("/_main/support")({
-  beforeLoad: async () => {
-    await requireAuth();
-  },
   component: SupportPage,
 });
 
@@ -393,12 +380,12 @@ function SupportPage() {
 
         {ticketsQuery.isLoading ? (
           <div className="flex justify-center py-spacing-8">
-            <Loader2 className="size-6 animate-spin text-surface-warm-white/60" />
+            <Loader2 className="size-6 animate-spin text-[#5f5f5d] dark:text-surface-warm-white/60" />
           </div>
         ) : ticketsQuery.data?.tickets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-surface-warm-white/10 py-spacing-10 text-center">
-            <MessageSquare className="size-8 text-surface-warm-white/30" />
-            <p className="mt-spacing-3 text-sm text-surface-warm-white/60">
+          <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-10 text-center dark:border-surface-warm-white/10">
+            <MessageSquare className="size-8 text-black/30 dark:text-surface-warm-white/30" />
+            <p className="mt-spacing-3 text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
               Belum ada tiket bantuan yang dibuat.
             </p>
           </div>
@@ -411,11 +398,11 @@ function SupportPage() {
                 <Link
                   key={ticket.id}
                   href={`/support/${ticket.id}`}
-                  className="flex flex-col gap-spacing-2 rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 p-spacing-4 transition hover:bg-surface-warm-white/8 hover:border-surface-warm-white/20"
+                  className="flex flex-col gap-spacing-2 rounded-radius-md border border-black/10 bg-black/[0.02] p-spacing-4 transition hover:border-black/20 hover:bg-black/[0.05] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:hover:border-surface-warm-white/20 dark:hover:bg-surface-warm-white/8"
                 >
                   <div className="flex items-start justify-between gap-spacing-3">
                     <div className="flex items-center gap-spacing-2">
-                      <span className="text-xs font-mono text-surface-warm-white/40">
+                      <span className="font-mono text-xs text-[#5f5f5d] dark:text-surface-warm-white/40">
                         #{shortId}
                       </span>
                       <span
@@ -428,24 +415,24 @@ function SupportPage() {
                       className={`rounded-radius-sm px-2 py-0.5 text-[10px] font-bold ${
                         ticket.status === "OPEN"
                           ? "bg-aurora-orange/15 text-aurora-orange"
-                          : "bg-surface-warm-white/10 text-surface-warm-white/50"
+                          : "bg-black/10 text-black/60 dark:bg-surface-warm-white/10 dark:text-surface-warm-white/50"
                       }`}
                     >
                       {ticket.status === "OPEN" ? "BUKA" : "SELESAI"}
                     </span>
                   </div>
 
-                  <h3 className="font-semibold text-sm line-clamp-1">
+                  <h3 className="line-clamp-1 font-semibold text-sm">
                     {ticket.subject}
                   </h3>
 
                   {lastMsg && (
-                    <p className="text-xs text-surface-warm-white/60 line-clamp-1">
+                    <p className="line-clamp-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
                       {lastMsg.body}
                     </p>
                   )}
 
-                  <div className="flex justify-end text-[10px] text-surface-warm-white/40 border-t border-surface-warm-white/5 pt-spacing-2 mt-spacing-1">
+                  <div className="mt-spacing-1 flex justify-end border-t border-black/5 pt-spacing-2 text-[10px] text-[#5f5f5d] dark:border-surface-warm-white/5 dark:text-surface-warm-white/40">
                     Aktif {formatTimeAgo(ticket.updatedAt)}
                   </div>
                 </Link>

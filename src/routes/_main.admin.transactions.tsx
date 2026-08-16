@@ -130,17 +130,19 @@ function TransactionsPage() {
           </button>
         </div>
       ) : listState === "empty" ? (
-        <p className="text-surface-warm-white/70">Tidak ada transaksi.</p>
+        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
+          Tidak ada transaksi.
+        </p>
       ) : (
         txs.map((t) => {
           const payment = paymentStatusDisplay(t.status);
           return (
             <div
-              className="rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
+              className="rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm shadow-sm transition-colors duration-200 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:shadow-none"
               key={t.orderId}
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono">
+                <span className="font-mono text-[#5f5f5d] dark:text-surface-warm-white/80">
                   {streamerMode ? (
                     <SensitiveText kind="orderId" value={t.orderId} />
                   ) : (
@@ -151,7 +153,7 @@ function TransactionsPage() {
                   {payment.label}
                 </AdminStatusBadge>
               </div>
-              <p className="text-surface-warm-white">
+              <p className="mt-1 font-medium text-[#1c1c1c] dark:text-surface-warm-white">
                 {streamerMode ? (
                   <>
                     <SensitiveText
@@ -173,7 +175,7 @@ function TransactionsPage() {
                 )}
               </p>
               {t.paymentNumber ? (
-                <p className="text-surface-warm-white/70">
+                <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
                   {streamerMode ? (
                     <SensitiveText kind="orderId" value={t.paymentNumber} />
                   ) : (
@@ -183,7 +185,7 @@ function TransactionsPage() {
               ) : null}
               {t.status === "PENDING" ? (
                 <button
-                  className="mt-spacing-2 rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
+                  className="mt-spacing-2 rounded-radius-md border border-black/15 bg-black/[0.04] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] transition hover:bg-black/[0.08] dark:border-surface-warm-white/15 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
                   onClick={() => verify.mutate(t.orderId)}
                   type="button"
                 >

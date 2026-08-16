@@ -234,20 +234,20 @@ function AdminTicketThreadPage() {
   };
 
   return (
-    <div className="flex h-[80dvh] w-full flex-col pb-20 text-surface-warm-white">
+    <div className="flex h-[80dvh] w-full flex-col pb-20 text-[#1c1c1c] dark:text-surface-warm-white">
       {/* Header */}
-      <div className="flex flex-col gap-spacing-2 border-b border-surface-warm-white/10 pb-spacing-4">
+      <div className="flex flex-col gap-spacing-2 border-b border-black/10 pb-spacing-4 dark:border-surface-warm-white/10">
         <div className="flex items-center gap-spacing-3">
           <Link
             href="/admin/tickets"
-            className="text-surface-warm-white/60 hover:text-surface-warm-white"
+            className="text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
           >
             <ArrowLeft className="size-5" />
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="text-md font-semibold truncate">{ticket.subject}</h1>
-            <div className="flex flex-wrap items-center gap-x-spacing-2 gap-y-spacing-1 mt-1 text-xs text-surface-warm-white/60">
-              <span className="font-mono text-surface-warm-white/40">
+            <h1 className="text-md truncate font-semibold">{ticket.subject}</h1>
+            <div className="mt-1 flex flex-wrap items-center gap-x-spacing-2 gap-y-spacing-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+              <span className="font-mono text-[#5f5f5d]/70 dark:text-surface-warm-white/40">
                 #{shortId}
               </span>
               <span>•</span>
@@ -262,7 +262,7 @@ function AdminTicketThreadPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between mt-spacing-2">
+        <div className="mt-spacing-2 flex items-center justify-between">
           {(() => {
             const display = ticketStatusDisplay(ticket.status);
             return (
@@ -286,19 +286,19 @@ function AdminTicketThreadPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-spacing-4 flex flex-col gap-spacing-4 scrollbar-thin">
+      <div className="scrollbar-thin flex flex-1 flex-col gap-spacing-4 overflow-y-auto py-spacing-4">
         {ticket.messages.map((msg) => {
           const isUser = msg.authorRole === "user";
           return (
             <div
               key={msg.id}
-              className={`flex flex-col max-w-[85%] ${isUser ? "self-start items-start" : "self-end items-end"}`}
+              className={`flex max-w-[85%] flex-col ${isUser ? "items-start self-start" : "items-end self-end"}`}
             >
               <div
                 className={`rounded-radius-lg px-spacing-4 py-spacing-5 text-base ${
                   isUser
-                    ? "bg-[#1c1c1c] border border-surface-warm-white/10 text-surface-warm-white rounded-tl-none"
-                    : "bg-surface-warm-white/10 text-surface-warm-white rounded-tr-none"
+                    ? "rounded-tl-none border border-black/10 bg-[#fcfbf8] text-[#1c1c1c] dark:border-surface-warm-white/10 dark:bg-[#1c1c1c] dark:text-surface-warm-white"
+                    : "rounded-tr-none bg-black/5 text-[#1c1c1c] dark:bg-surface-warm-white/10 dark:text-surface-warm-white"
                 }`}
               >
                 <div className="whitespace-pre-wrap leading-relaxed">
@@ -306,19 +306,19 @@ function AdminTicketThreadPage() {
                 </div>
 
                 {msg.assetIds && msg.assetIds.length > 0 && (
-                  <div className="flex flex-wrap gap-spacing-2 mt-spacing-3">
+                  <div className="mt-spacing-3 flex flex-wrap gap-spacing-2">
                     {msg.assetIds.map((assetId) => (
                       <a
                         key={assetId}
                         href={`/api/support/assets/${assetId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block rounded-radius-md overflow-hidden border border-surface-warm-white/10"
+                        className="block overflow-hidden rounded-radius-md border border-black/10 dark:border-surface-warm-white/10"
                       >
                         <img
                           src={`/api/support/assets/${assetId}`}
                           alt="Attachment"
-                          className="h-16 w-16 object-cover hover:opacity-80 transition"
+                          className="h-16 w-16 object-cover transition hover:opacity-80"
                         />
                       </a>
                     ))}
@@ -326,7 +326,7 @@ function AdminTicketThreadPage() {
                 )}
               </div>
 
-              <span className="text-[10px] text-surface-warm-white/40 mt-spacing-1.5 px-1">
+              <span className="mt-spacing-1.5 px-1 text-[10px] text-[#5f5f5d] dark:text-surface-warm-white/40">
                 {isUser ? "User" : "Admin"} •{" "}
                 {new Date(msg.createdAt).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -343,7 +343,7 @@ function AdminTicketThreadPage() {
       {isOpen ? (
         <form
           onSubmit={handleSend}
-          className="border-t border-surface-warm-white/10 pt-spacing-4 flex flex-col gap-spacing-3"
+          className="flex flex-col gap-spacing-3 border-t border-black/10 pt-spacing-4 dark:border-surface-warm-white/10"
         >
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-spacing-2 px-1">
@@ -362,7 +362,7 @@ function AdminTicketThreadPage() {
 
           <div className="flex items-center gap-spacing-3">
             {attachments.length < 3 && (
-              <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/60 hover:bg-surface-warm-white/10">
+              <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-radius-md border border-black/10 bg-black/[0.02] text-[#5f5f5d] hover:bg-black/5 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white/60 dark:hover:bg-surface-warm-white/10">
                 <ImagePlus className="size-5" />
                 <input
                   type="file"
@@ -379,13 +379,13 @@ function AdminTicketThreadPage() {
               value={replyBody}
               onChange={(e) => setReplyBody(e.target.value)}
               placeholder="Tulis balasan sebagai admin..."
-              className="h-10 flex-1 rounded-radius-md border border-surface-warm-white/10 bg-transparent px-spacing-3 text-sm outline-none focus:ring-1 focus:ring-aurora-orange"
+              className="h-10 flex-1 rounded-radius-md border border-black/10 bg-transparent px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white"
             />
 
             <Button
               type="submit"
               size="sm"
-              className="h-10 shrink-0 flex items-center gap-2"
+              className="flex h-10 shrink-0 items-center gap-2"
               disabled={
                 !replyBody.trim() || attachments.some((item) => item.uploading)
               }
@@ -396,7 +396,7 @@ function AdminTicketThreadPage() {
           </div>
         </form>
       ) : (
-        <div className="border-t border-surface-warm-white/10 py-spacing-4 text-center text-xs text-surface-warm-white/40">
+        <div className="border-t border-black/10 py-spacing-4 text-center text-xs text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
           Tiket ini telah selesai ditangani.
         </div>
       )}

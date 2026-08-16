@@ -90,7 +90,7 @@ function CategorySection({
 
   return (
     <section>
-      <h2 className="mb-spacing-3 text-lg font-semibold capitalize">
+      <h2 className="mb-spacing-3 text-lg font-semibold capitalize text-[#1c1c1c] dark:text-surface-warm-white">
         {group.category.replace("_", " ")}
       </h2>
       <div className="flex flex-col gap-spacing-3">
@@ -98,19 +98,19 @@ function CategorySection({
           const value = draft[entry.key] ?? entry.effectiveValue;
           return (
             <div
-              className="flex items-center justify-between gap-spacing-3 rounded-radius-md border border-surface-warm-white/12 bg-surface-warm-white/5 p-spacing-3 text-sm"
+              className="flex items-center justify-between gap-spacing-3 rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
               key={entry.key}
             >
               <div>
-                <p>
+                <p className="font-medium text-[#1c1c1c] dark:text-surface-warm-white">
                   {entry.label}
                   {entry.requiresRestart ? (
-                    <span className="ml-spacing-2 rounded-radius-sm bg-surface-warm-white/15 px-spacing-2 py-spacing-1 text-xs text-surface-warm-white/80">
+                    <span className="ml-spacing-2 rounded-radius-sm bg-black/10 px-spacing-2 py-spacing-1 text-xs text-[#5f5f5d] dark:bg-surface-warm-white/15 dark:text-surface-warm-white/80">
                       perlu restart
                     </span>
                   ) : null}
                 </p>
-                <p className="text-surface-warm-white/70">
+                <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
                   Sumber: {entry.source} · fallback: {String(entry.fallback)}
                 </p>
               </div>
@@ -119,7 +119,7 @@ function CategorySection({
                   className={
                     value === true
                       ? "rounded-radius-md bg-emerald-600 px-spacing-3 py-spacing-2 text-white"
-                      : "rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
+                      : "rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
                   }
                   onClick={() => setDraft({ ...draft, [entry.key]: !value })}
                   type="button"
@@ -129,7 +129,7 @@ function CategorySection({
               ) : entry.type === "number" ? (
                 <div className="flex items-center gap-spacing-2">
                   <input
-                    className="w-36 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm tabular-nums text-surface-warm-white"
+                    className="w-36 rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-2 py-spacing-1 text-sm tabular-nums text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
                     inputMode="numeric"
                     onChange={(e) =>
                       setDraft({
@@ -144,31 +144,26 @@ function CategorySection({
                     value={formatGroupedNumber(toDisplayNumber(entry, value))}
                   />
                   {entry.display === "percentage" ? (
-                    <span className="text-surface-warm-white/70">%</span>
+                    <span className="text-[#5f5f5d] dark:text-surface-warm-white/70">
+                      %
+                    </span>
                   ) : null}
                 </div>
               ) : entry.optionsSource === "nine_router_models" ? (
                 <div className="flex flex-col items-end gap-spacing-1">
                   <select
-                    className="max-w-xs rounded-radius-md border border-surface-warm-white/15 px-spacing-2 py-spacing-1 text-sm"
+                    className="max-w-xs rounded-radius-md border border-black/15 bg-[#eceae4] px-spacing-2 py-spacing-1 text-sm text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-[#18181b] dark:text-[#fafafa]"
                     disabled={isPending}
                     onChange={(e) =>
                       setDraft({ ...draft, [entry.key]: e.target.value })
                     }
-                    style={{
-                      backgroundColor: "#18181b",
-                      color: "#fafafa",
-                    }}
                     value={modelSelectValue(value, defaultModelId)}
                   >
                     {modelSelectOptions(value, modelIds, defaultModelId).map(
                       (id) => (
                         <option
                           key={id}
-                          style={{
-                            backgroundColor: "#ffffff",
-                            color: "#18181b",
-                          }}
+                          className="bg-white text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
                           value={id}
                         >
                           {id === defaultModelId ? `${id} (default)` : id}
@@ -181,19 +176,19 @@ function CategorySection({
                   !modelIds.includes(
                     modelSelectValue(value, defaultModelId),
                   ) ? (
-                    <p className="text-xs text-amber-200/90">
+                    <p className="text-xs text-amber-600 dark:text-amber-200/90">
                       Tidak ada di daftar combo 9Router
                     </p>
                   ) : null}
                   {modelsLoadFailed || modelIds.length === 0 ? (
-                    <p className="text-xs text-surface-warm-white/60">
+                    <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
                       Daftar combo 9Router kosong / gagal dimuat
                     </p>
                   ) : null}
                 </div>
               ) : entry.enumOptions && entry.enumOptions.length ? (
                 <select
-                  className="rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
+                  className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-2 py-spacing-1 text-sm text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
                   disabled={isPending}
                   onChange={(e) =>
                     setDraft({ ...draft, [entry.key]: e.target.value })
@@ -208,7 +203,7 @@ function CategorySection({
                 </select>
               ) : (
                 <input
-                  className="w-32 rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-2 py-spacing-1 text-sm text-surface-warm-white"
+                  className="w-32 rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-2 py-spacing-1 text-sm text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
                   onChange={(e) =>
                     setDraft({
                       ...draft,
@@ -225,7 +220,7 @@ function CategorySection({
       </div>
       <div className="mt-spacing-3 flex items-center gap-spacing-2">
         <button
-          className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white/80 hover:bg-surface-warm-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-radius-md border border-black/15 px-spacing-3 py-spacing-2 text-sm text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] disabled:cursor-not-allowed disabled:opacity-50 dark:border-surface-warm-white/15 dark:text-surface-warm-white/80 dark:hover:bg-surface-warm-white/10 dark:hover:text-surface-warm-white"
           disabled={!hasDirty}
           onClick={() => {
             const next = { ...draft };
@@ -239,7 +234,7 @@ function CategorySection({
           Reset
         </button>
         <button
-          className="rounded-radius-md bg-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-radius-md bg-black/10 px-spacing-3 py-spacing-2 text-sm font-medium text-[#1c1c1c] hover:bg-black/15 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-warm-white/15 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/20"
           disabled={!hasDirty || isPending}
           onClick={() => {
             const values: Record<string, unknown> = {};

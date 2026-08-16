@@ -4,7 +4,6 @@ import {
   ZapIcon,
   CreditCardIcon,
   CheckCircle2Icon,
-  AlertCircleIcon,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -100,99 +99,104 @@ export function EnergyBoosterModal({
     }
   }, [open]);
 
-  // Polling payment status when a session is active
+  // Polling payment status when we have an active session
   useEffect(() => {
-    if (!paymentSession || paymentStatus !== "PENDING") {
+    if (!paymentSession?.orderId || paymentStatus === "SUCCESS") {
       return;
     }
 
-    let isSubscribed = true;
     const interval = setInterval(async () => {
       try {
-        const data = await fetchJson<PaymentStatusResponse>(
+        const res = await fetchJson<PaymentStatusResponse>(
           `/api/payment/status/${paymentSession.orderId}`,
-          { cache: "no-store" },
         );
-
-        if (isSubscribed && data.success) {
-          setPaymentStatus(data.status);
-
-          if (data.status === "COMPLETED") {
-            toast.success(
-              "Pembayaran berhasil! Energi premium telah ditambahkan.",
-            );
-            // Refresh energy cache and notify UI.
-            await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
-            notifyEnergyChanged();
-            clearInterval(interval);
-          } else if (data.status === "FAILED") {
-            toast.error("Pembayaran gagal. Silakan coba lagi.");
-            clearInterval(interval);
-          }
+        if (res.success && res.status === "SUCCESS") {
+          setPaymentStatus("SUCCESS");
+          notifyEnergyChanged();
+          await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+          toast.success("Pembayaran Berhasil! Energi telah ditambahkan.");
+          clearInterval(interval);
         }
-      } catch (err) {
-        // Fail silently in polling to prevent console noise.
-        console.warn("Polling payment status failed:", err);
+      } catch {
+        // Silent fail on polling error
       }
     }, 4000);
 
-    return () => {
-      isSubscribed = false;
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [paymentSession, paymentStatus, queryClient]);
 
   const handleBuy = async (packId: BoosterPackId) => {
-    if (creatingLockRef.current) {
+    if (creatingLockRef.current || isCreating) {
       return;
     }
+
     creatingLockRef.current = true;
     setIsCreating(true);
+
     try {
-      const data = await fetchJson<PaymentSession>("/api/payment/create", {
+      const res = await fetchJson<PaymentSession>("/api/payment/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageId: packId }),
+        body: JSON.stringify({ packId }),
       });
 
-      if (data.success) {
-        setPaymentSession(data);
+      if (res.success && res.paymentUrl) {
+        setPaymentSession(res);
         setPaymentStatus("PENDING");
+        // Open payment in new window/tab
+        window.open(res.paymentUrl, "_blank");
       } else {
-        toast.error("Gagal membuat pembayaran. Coba beberapa saat lagi.");
+        toast.error("Gagal membuat sesi pembayaran. Coba lagi nanti.");
       }
     } catch (err) {
-      console.error("[EnergyBoosterModal] error creating payment:", err);
       toast.error(
-        err instanceof Error ? err.message : "Terjadi kesalahan koneksi.",
+        err instanceof Error ? err.message : "Terjadi kesalahan pembayaran.",
       );
     } finally {
-      creatingLockRef.current = false;
       setIsCreating(false);
+      creatingLockRef.current = false;
     }
   };
 
-  const formatRupiah = (value: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const formatEnergy = (value: number) => {
-    return new Intl.NumberFormat("id-ID").format(value);
+  const handleSimulatePayment = async () => {
+    if (!paymentSession?.orderId) {
+      return;
+    }
+    try {
+      await fetchJson("/api/payment/webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "payment.received",
+          data: {
+            id: paymentSession.orderId,
+            status: "SUCCESS",
+          },
+        }),
+      });
+      setPaymentStatus("SUCCESS");
+      notifyEnergyChanged();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      toast.success("Simulasi pembayaran berhasil!");
+    } catch {
+      toast.error("Gagal melakukan simulasi pembayaran.");
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md border border-[#d8d5cc]/60 bg-[#161614] text-[#fcfbf8] rounded-radius-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <ZapIcon className="size-5 fill-[#ff7a59] text-[#ff7a59]" />
+      <DialogContent
+        showCloseButton
+        className="max-w-md border border-black/10 bg-[#fcfbf8] text-[#1c1c1c] transition-colors duration-200 dark:border-white/[0.08] dark:bg-[#161614] dark:text-surface-warm-white p-6"
+      >
+        <DialogHeader className="gap-1 text-left">
+          <DialogTitle className="flex items-center gap-2 text-xl font-bold text-[#1c1c1c] dark:text-surface-warm-white">
+            <ZapIcon className="size-5 fill-aurora-orange text-aurora-orange" />
             <span>Booster Energi UMKM</span>
           </DialogTitle>
-          <DialogDescription className="text-surface-warm-white/60">
+          <DialogDescription className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
             Energi kamu habis? Beli paket booster tambahan sekali bayar. Berlaku
             selamanya & tidak kedaluwarsa.
           </DialogDescription>
@@ -201,19 +205,19 @@ export function EnergyBoosterModal({
         {!paymentSession ? (
           <div className="flex flex-col gap-4">
             {packsQuery.isLoading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm text-surface-warm-white/60">
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
                 <Loader2Icon className="size-4 animate-spin" />
                 Memuat paket…
               </div>
             ) : packsQuery.isError || !packsQuery.data?.packs?.length ? (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <p className="text-sm text-surface-warm-white/70">
+                <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
                   Paket belum bisa dimuat. Coba lagi.
                 </p>
                 <button
                   type="button"
                   onClick={() => void packsQuery.refetch()}
-                  className="rounded-radius-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-surface-warm-white hover:bg-white/5"
+                  className="rounded-radius-lg border border-black/15 px-3 py-1.5 text-xs font-semibold text-[#1c1c1c] hover:bg-black/5 dark:border-white/15 dark:text-surface-warm-white dark:hover:bg-white/5"
                 >
                   Muat ulang
                 </button>
@@ -233,22 +237,22 @@ export function EnergyBoosterModal({
                       onClick={() => setSelectedPack(key)}
                       className={`relative flex items-center justify-between rounded-radius-lg border p-4 text-left transition cursor-pointer ${
                         isSelected
-                          ? "border-[#ff7a59] bg-[#ff7a59]/5 text-white"
-                          : "border-white/[0.08] bg-white/[0.01] hover:border-white/15"
+                          ? "border-[#ff7a59] bg-[#ff7a59]/10 text-[#1c1c1c] dark:bg-[#ff7a59]/5 dark:text-white"
+                          : "border-black/10 bg-black/[0.02] hover:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.01] dark:hover:border-white/15"
                       }`}
                     >
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-bold text-surface-warm-white">
+                          <span className="text-sm font-bold text-[#1c1c1c] dark:text-surface-warm-white">
                             {local.label}
                           </span>
                           {key === "popular" && (
-                            <span className="rounded bg-[#ff7a59]/10 px-1.5 py-0.5 text-[8px] font-bold text-[#ff7a59] uppercase tracking-wider">
+                            <span className="rounded bg-[#ff7a59]/15 px-1.5 py-0.5 text-[8px] font-bold text-[#ff7a59] uppercase tracking-wider">
                               Terlaris
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-surface-warm-white/55">
+                        <span className="text-[10px] text-[#5f5f5d] dark:text-surface-warm-white/55">
                           {local.desc}
                         </span>
                         <span className="text-xs font-semibold text-[#ff7a59] mt-0.5">
@@ -262,7 +266,7 @@ export function EnergyBoosterModal({
                             <span className="rounded bg-red-500 text-white font-semibold px-1.5 py-0.5 text-[8px] font-bold">
                               Hemat {pack.discountPercent}%
                             </span>
-                            <span className="text-[10px] text-white/35 line-through">
+                            <span className="text-[10px] text-[#5f5f5d] dark:text-white/35 line-through">
                               {formatRupiah(pack.compareAtAmount)}
                             </span>
                           </div>
@@ -277,12 +281,11 @@ export function EnergyBoosterModal({
               </div>
             )}
 
-            {/* High contrast visual primary CTA button (very visible white bg on dark modal) */}
             <button
               type="button"
               disabled={isCreating}
               onClick={() => handleBuy(selectedPack)}
-              className="flex w-full items-center justify-center gap-2 rounded-radius-lg bg-[#fcfbf8] py-3 text-sm font-bold text-[#1c1c1c] transition duration-200 hover:bg-[#eceae4] active:scale-[0.98] cursor-pointer disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-radius-lg bg-[#1c1c1c] py-3 text-sm font-bold text-white transition duration-200 hover:bg-[#1c1c1c]/90 active:scale-[0.98] cursor-pointer disabled:opacity-50 dark:bg-[#fcfbf8] dark:text-[#1c1c1c] dark:hover:bg-[#eceae4]"
             >
               {isCreating ? (
                 <>
@@ -298,91 +301,81 @@ export function EnergyBoosterModal({
             </button>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-4 py-4 text-center">
-            {paymentStatus === "PENDING" && (
+          <div className="flex flex-col items-center gap-5 py-4 text-center">
+            {paymentStatus === "SUCCESS" ? (
               <>
-                <span className="text-xs text-[#ff7a59] font-bold uppercase tracking-widest animate-pulse">
-                  Menunggu Pembayaran
-                </span>
-                <a
-                  href={paymentSession.paymentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-radius-lg bg-[#fcfbf8] px-6 py-3 text-sm font-bold text-[#1c1c1c] transition duration-200 hover:bg-[#eceae4] active:scale-[0.98] cursor-pointer"
-                >
-                  <CreditCardIcon className="size-4" />
-                  <span>Bayar Sekarang (QRIS)</span>
-                </a>
-                {isDev && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(paymentSession.orderId);
-                      toast.success("Order ID copied to clipboard!");
-                    }}
-                    className="rounded border border-dashed border-white/20 bg-white/5 px-2.5 py-1 text-[10px] text-surface-warm-white/70 font-mono hover:bg-white/10 transition cursor-pointer select-all"
-                  >
-                    Dev Order ID: {paymentSession.orderId} (Click to copy)
-                  </button>
-                )}
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-surface-warm-white/50">
-                    Total Pembayaran:
-                  </span>
-                  <span className="text-lg font-bold text-[#f7a441]">
-                    {formatRupiah(paymentSession.amount)}
-                  </span>
-                  <span className="text-[10px] text-surface-warm-white/40 max-w-xs leading-normal mt-2">
-                    Klik tombol di atas untuk membuka halaman pembayaran QRIS.
-                    Setelah membayar, kembali ke sini — status akan diperbarui
-                    otomatis.
-                  </span>
+                <div className="flex size-14 items-center justify-center rounded-full bg-green-500/10 text-green-500">
+                  <CheckCircle2Icon className="size-8" />
                 </div>
-              </>
-            )}
-
-            {paymentStatus === "COMPLETED" && (
-              <div className="flex flex-col items-center gap-2 py-6">
-                <CheckCircle2Icon className="size-16 text-green-400 animate-bounce" />
-                <span className="text-lg font-bold text-surface-warm-white">
-                  Pembayaran Sukses!
-                </span>
-                <span className="text-xs text-surface-warm-white/60 max-w-xs leading-normal">
-                  Terima kasih, energi booster premium Anda telah ditambahkan
-                  secara instan dan sudah siap digunakan.
-                </span>
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-lg font-bold text-[#1c1c1c] dark:text-surface-warm-white">
+                    Pembayaran Berhasil!
+                  </h3>
+                  <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
+                    Energi berhasil ditambahkan ke akun Anda. Anda bisa langsung
+                    melanjutkan membuat website.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}
-                  className="mt-4 rounded-lg bg-white/[0.08] px-6 py-2 text-xs font-semibold hover:bg-white/[0.12] transition"
+                  className="w-full rounded-radius-lg bg-green-600 py-2.5 text-xs font-bold text-white hover:bg-green-500"
                 >
-                  Tutup
+                  Selesai
                 </button>
-              </div>
-            )}
+              </>
+            ) : (
+              <>
+                <div className="flex size-14 items-center justify-center rounded-full bg-[#ff7a59]/10 text-[#ff7a59]">
+                  <Loader2Icon className="size-8 animate-spin" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-lg font-bold text-[#1c1c1c] dark:text-surface-warm-white">
+                    Menunggu Pembayaran
+                  </h3>
+                  <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
+                    Silakan selesaikan pembayaran QRIS di tab browser yang
+                    terbuka. Halaman ini akan otomatis diperbarui.
+                  </p>
+                </div>
 
-            {paymentStatus === "FAILED" && (
-              <div className="flex flex-col items-center gap-2 py-6">
-                <AlertCircleIcon className="size-16 text-red-400 animate-pulse" />
-                <span className="text-lg font-bold text-surface-warm-white">
-                  Pembayaran Gagal
-                </span>
-                <span className="text-xs text-surface-warm-white/60 max-w-xs leading-normal">
-                  Terjadi masalah dalam pemrosesan transaksi. Silakan hubungi
-                  support atau coba lagi.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPaymentSession(null)}
-                  className="mt-4 rounded-lg bg-aurora-orange px-6 py-2 text-xs font-semibold text-white hover:bg-aurora-orange/90 transition"
-                >
-                  Coba Lagi
-                </button>
-              </div>
+                <div className="flex w-full flex-col gap-2 pt-2">
+                  <a
+                    href={paymentSession.paymentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex w-full items-center justify-center gap-2 rounded-radius-lg border border-black/15 bg-black/[0.04] py-2.5 text-xs font-bold text-[#1c1c1c] hover:bg-black/[0.08] dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                  >
+                    Buka Ulang Halaman Pembayaran
+                  </a>
+
+                  {isDev && (
+                    <button
+                      type="button"
+                      onClick={handleSimulatePayment}
+                      className="w-full rounded-radius-lg bg-[#ff7a59]/20 py-2 text-xs font-semibold text-[#ff7a59] hover:bg-[#ff7a59]/30"
+                    >
+                      [DEV] Simulasi Bayar Berhasil
+                    </button>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
       </DialogContent>
     </Dialog>
   );
+}
+
+function formatRupiah(amount: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatEnergy(amount: number): string {
+  return new Intl.NumberFormat("id-ID").format(amount);
 }

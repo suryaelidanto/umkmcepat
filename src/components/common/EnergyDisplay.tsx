@@ -86,23 +86,24 @@ export function EnergyDisplay() {
         .filter(Boolean)
         .join("\n")}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1 sm:gap-1.5">
         <div
-          className={`size-2 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"} ${energyQuery.isFetching ? "animate-pulse" : ""}`}
+          className={`size-2 shrink-0 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"} ${energyQuery.isFetching ? "animate-pulse" : ""}`}
         />
         <span className="text-xs font-medium text-[#1c1c1c] dark:text-surface-warm-white/78">
           {formatNumber(stats.remaining)}
         </span>
-        <span className="hidden text-xs text-[#5f5f5d] dark:text-surface-warm-white/50 min-[400px]:inline">
+        <span className="hidden text-xs text-[#5f5f5d] dark:text-surface-warm-white/50 md:inline">
           Energi
         </span>
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="ml-1 flex size-5 items-center justify-center rounded-full bg-[#ff7a59]/10 text-[#ff7a59] transition hover:bg-[#ff7a59]/20 active:scale-95 focus:outline-none"
+          className="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-[#ff7a59]/15 px-1.5 py-0.5 text-[10px] font-semibold text-aurora-orange transition hover:bg-[#ff7a59]/25 active:scale-95 focus:outline-none sm:ml-1 sm:gap-1 sm:px-2 sm:text-[11px]"
           title="Top-up Energi Premium"
         >
           <PlusIcon className="size-3" />
+          <span className="hidden xs:inline">Topup</span>
         </button>
       </div>
 

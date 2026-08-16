@@ -312,13 +312,13 @@ function ProjectPreviewThumb({
 
   return (
     <div
-      className={`relative flex w-full items-center justify-center overflow-hidden ${className ?? ""}`}
+      className={`relative flex w-full items-center justify-center p-6 text-center overflow-hidden ${className ?? ""}`}
       style={{
         background: `radial-gradient(circle at ${mark.glowX}% ${mark.glowY}%, ${mark.glowColor} 0%, transparent 60%), linear-gradient(${mark.angle}deg, ${mark.from} 0%, ${mark.to} 100%)`,
       }}
     >
-      <div className="flex size-14 items-center justify-center rounded-2xl bg-black/20 font-mono text-xl font-bold text-white backdrop-blur-sm shadow-inner">
-        {project.title.slice(0, 2).toUpperCase()}
+      <div className="flex max-w-[85%] items-center justify-center rounded-xl bg-black/25 px-4 py-2 text-center font-sans text-sm font-bold tracking-tight text-white backdrop-blur-md shadow-md line-clamp-2">
+        {project.title}
       </div>
     </div>
   );
