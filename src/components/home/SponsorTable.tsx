@@ -33,11 +33,11 @@ export function SponsorTable({
     <div
       className={
         flat
-          ? "mt-spacing-8 border-t border-black/10 transition-colors dark:border-white/[0.07]"
-          : "mt-spacing-8 overflow-hidden rounded-[22px] border border-black/10 bg-black/[0.02] transition-colors dark:border-surface-warm-white/10 dark:bg-[#151515]"
+          ? "mt-spacing-8 border-t border-black/15 transition-colors dark:border-white/[0.07]"
+          : "mt-spacing-8 overflow-hidden rounded-[22px] border border-black/15 bg-black/[0.02] transition-colors dark:border-surface-warm-white/10 dark:bg-[#151515]"
       }
     >
-      <ul className="divide-y divide-black/10 transition-colors dark:divide-surface-warm-white/10 sm:hidden">
+      <ul className="divide-y divide-black/12 transition-colors dark:divide-surface-warm-white/10 sm:hidden">
         {visibleSponsors.map((sponsor) => (
           <li
             key={`${sponsor.donorName}-${sponsor.date}`}
@@ -57,7 +57,7 @@ export function SponsorTable({
                   href={sponsor.brandUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-semibold text-[#1c1c1c] underline decoration-black/24 underline-offset-4 transition hover:decoration-black dark:text-surface-warm-white dark:decoration-surface-warm-white/24 dark:hover:decoration-surface-warm-white"
+                  className="font-semibold text-[#1c1c1c] underline decoration-black/30 underline-offset-4 transition hover:decoration-black dark:text-surface-warm-white dark:decoration-surface-warm-white/24 dark:hover:decoration-surface-warm-white"
                 >
                   {sponsor.brandName}
                 </a>
@@ -67,7 +67,7 @@ export function SponsorTable({
                 </span>
               )}
             </div>
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
+            <p className="text-sm text-[#3f3f3d] dark:text-surface-warm-white/70">
               {sponsor.support}
             </p>
             <p className="text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
@@ -81,16 +81,18 @@ export function SponsorTable({
         <thead
           className={
             flat
-              ? "border-b border-black/10 text-left text-[#5f5f5d] dark:border-white/[0.07] dark:text-surface-warm-white/50"
-              : "bg-black/[0.03] text-left text-[#5f5f5d] dark:bg-surface-warm-white/[0.055] dark:text-surface-warm-white/50"
+              ? "border-b border-black/15 text-left font-semibold text-[#3f3f3d] dark:border-white/[0.07] dark:text-surface-warm-white/50"
+              : "bg-black/[0.04] text-left font-semibold text-[#3f3f3d] dark:bg-surface-warm-white/[0.055] dark:text-surface-warm-white/50"
           }
         >
           <tr>
-            <th className="px-spacing-5 py-spacing-4 font-medium">Tanggal</th>
-            <th className="px-spacing-5 py-spacing-4 font-medium">Donatur</th>
-            <th className="px-spacing-5 py-spacing-4 font-medium">Sumber</th>
-            <th className="px-spacing-5 py-spacing-4 font-medium">Dukungan</th>
-            <th className="px-spacing-5 py-spacing-4 text-right font-medium">
+            <th className="px-spacing-5 py-spacing-4 font-semibold">Tanggal</th>
+            <th className="px-spacing-5 py-spacing-4 font-semibold">Donatur</th>
+            <th className="px-spacing-5 py-spacing-4 font-semibold">Sumber</th>
+            <th className="px-spacing-5 py-spacing-4 font-semibold">
+              Dukungan
+            </th>
+            <th className="px-spacing-5 py-spacing-4 text-right font-semibold">
               Nilai
             </th>
           </tr>
@@ -98,13 +100,13 @@ export function SponsorTable({
         <tbody
           className={
             flat
-              ? "divide-y divide-black/10 dark:divide-white/[0.07]"
-              : "divide-y divide-black/10 dark:divide-surface-warm-white/10"
+              ? "divide-y divide-black/12 dark:divide-white/[0.07]"
+              : "divide-y divide-black/12 dark:divide-surface-warm-white/10"
           }
         >
           {visibleSponsors.map((sponsor) => (
             <tr key={`${sponsor.donorName}-${sponsor.date}`}>
-              <td className="px-spacing-5 py-spacing-5 text-[#5f5f5d] dark:text-surface-warm-white/58">
+              <td className="px-spacing-5 py-spacing-5 text-[#3f3f3d] dark:text-surface-warm-white/58">
                 {sponsor.date}
               </td>
               <td className="px-spacing-5 py-spacing-5">
@@ -118,7 +120,7 @@ export function SponsorTable({
                     href={sponsor.brandUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-semibold text-[#1c1c1c] underline decoration-black/24 underline-offset-4 transition hover:decoration-black dark:text-surface-warm-white dark:decoration-surface-warm-white/24 dark:hover:decoration-surface-warm-white"
+                    className="font-semibold text-[#1c1c1c] underline decoration-black/30 underline-offset-4 transition hover:decoration-black dark:text-surface-warm-white dark:decoration-surface-warm-white/24 dark:hover:decoration-surface-warm-white"
                   >
                     {sponsor.brandName}
                   </a>
@@ -128,7 +130,7 @@ export function SponsorTable({
                   </span>
                 )}
               </td>
-              <td className="px-spacing-5 py-spacing-5 text-[#5f5f5d] dark:text-surface-warm-white/70">
+              <td className="px-spacing-5 py-spacing-5 text-[#3f3f3d] dark:text-surface-warm-white/70">
                 {sponsor.support}
               </td>
               <td className="px-spacing-5 py-spacing-5 text-right font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
@@ -143,8 +145,8 @@ export function SponsorTable({
         <div
           className={
             flat
-              ? "flex flex-col gap-spacing-4 border-t border-black/10 px-0 py-spacing-4 text-sm text-[#5f5f5d] dark:border-white/[0.07] dark:text-surface-warm-white/52 sm:flex-row sm:items-center sm:justify-between"
-              : "flex flex-col gap-spacing-4 border-t border-black/10 bg-[#eceae4] px-spacing-5 py-spacing-4 text-sm text-[#5f5f5d] dark:border-surface-warm-white/10 dark:bg-[#151515] dark:text-surface-warm-white/52 sm:flex-row sm:items-center sm:justify-between"
+              ? "flex flex-col gap-spacing-4 border-t border-black/15 px-0 py-spacing-4 text-sm text-[#3f3f3d] dark:border-white/[0.07] dark:text-surface-warm-white/52 sm:flex-row sm:items-center sm:justify-between"
+              : "flex flex-col gap-spacing-4 border-t border-black/15 bg-[#eceae4] px-spacing-5 py-spacing-4 text-sm text-[#3f3f3d] dark:border-surface-warm-white/10 dark:bg-[#151515] dark:text-surface-warm-white/52 sm:flex-row sm:items-center sm:justify-between"
           }
         >
           <span>
@@ -157,8 +159,8 @@ export function SponsorTable({
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               className={
                 flat
-                  ? "rounded-md border border-black/15 px-spacing-4 py-spacing-2 text-[#1c1c1c] transition hover:bg-black/[0.06] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/14 dark:text-surface-warm-white dark:hover:bg-white/[0.06]"
-                  : "rounded-radius-lg border border-black/15 px-spacing-4 py-spacing-2 text-[#1c1c1c] transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-surface-warm-white/12 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
+                  ? "rounded-md border border-black/20 px-spacing-4 py-spacing-2 font-medium text-[#1c1c1c] transition hover:bg-black/[0.06] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/14 dark:text-surface-warm-white dark:hover:bg-white/[0.06]"
+                  : "rounded-radius-lg border border-black/20 px-spacing-4 py-spacing-2 font-medium text-[#1c1c1c] transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-surface-warm-white/12 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
               }
             >
               Sebelumnya
@@ -171,8 +173,8 @@ export function SponsorTable({
               }
               className={
                 flat
-                  ? "rounded-md border border-black/15 px-spacing-4 py-spacing-2 text-[#1c1c1c] transition hover:bg-black/[0.06] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/14 dark:text-surface-warm-white dark:hover:bg-white/[0.06]"
-                  : "rounded-radius-lg border border-black/15 px-spacing-4 py-spacing-2 text-[#1c1c1c] transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-surface-warm-white/12 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
+                  ? "rounded-md border border-black/20 px-spacing-4 py-spacing-2 font-medium text-[#1c1c1c] transition hover:bg-black/[0.06] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/14 dark:text-surface-warm-white dark:hover:bg-white/[0.06]"
+                  : "rounded-radius-lg border border-black/20 px-spacing-4 py-spacing-2 font-medium text-[#1c1c1c] transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-surface-warm-white/12 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
               }
             >
               Berikutnya

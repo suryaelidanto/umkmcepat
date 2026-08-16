@@ -267,11 +267,13 @@ export function CommunitySection() {
                           </div>
                         </div>
 
-                        {contributor.weeks && contributor.weeks.length > 0 ? (
-                          <MiniChart
-                            weeks={contributor.weeks}
-                            maxCommits={maxCommits}
-                          />
+                        {contributor.weeks ? (
+                          <div className="mt-spacing-5 h-16 w-full sm:mt-0 sm:w-48">
+                            <MiniChart
+                              weeks={contributor.weeks}
+                              maxCommits={maxCommits}
+                            />
+                          </div>
                         ) : null}
                       </div>
                     ))
@@ -315,7 +317,7 @@ export function CommunitySection() {
               {faqs.map((faq) => (
                 <details
                   key={faq.question}
-                  className="group grid grid-rows-[auto_0fr] transition-[grid-template-rows] duration-300 ease-out open:grid-rows-[auto_1fr]"
+                  className="group transition-all duration-200"
                 >
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-spacing-6 py-spacing-5 text-base font-semibold text-[#1c1c1c] outline-none transition dark:text-surface-warm-white [&::-webkit-details-marker]:hidden">
                     {faq.question}
@@ -324,10 +326,12 @@ export function CommunitySection() {
                       <X className="absolute size-4 -rotate-90 opacity-0 transition-all duration-300 ease-out group-open:rotate-0 group-open:opacity-100" />
                     </span>
                   </summary>
-                  <div className="overflow-hidden">
-                    <p className="pb-spacing-6 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/68">
-                      {faq.answer}
-                    </p>
+                  <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out group-open:grid-rows-[1fr]">
+                    <div className="overflow-hidden">
+                      <p className="pb-spacing-6 text-sm leading-6 text-[#5f5f5d] transition-opacity duration-300 dark:text-surface-warm-white/68">
+                        {faq.answer}
+                      </p>
+                    </div>
                   </div>
                 </details>
               ))}

@@ -204,7 +204,7 @@ function RootDocument({
   nonce?: string;
 }>) {
   return (
-    <html lang="id" className="dark" suppressHydrationWarning>
+    <html lang="id" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

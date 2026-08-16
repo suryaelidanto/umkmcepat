@@ -160,7 +160,7 @@ function HeroSubline() {
 function CaraKerjaSection() {
   return (
     <section
-      className="border-t border-black/10 bg-[#eceae4] px-4 py-20 text-[#1c1c1c] transition-colors duration-200 dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10"
+      className="border-t-0 bg-[#eceae4] px-4 py-20 text-[#1c1c1c] transition-colors duration-200 dark:border-t dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10"
       id="cara-kerja"
     >
       <div className="mx-auto max-w-5xl">
