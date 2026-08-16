@@ -618,10 +618,10 @@ function RuntimeControl({
           target="_blank"
           rel="noreferrer"
           aria-label="Buka website yang diterbitkan"
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-black/10 bg-transparent px-2.5 text-xs font-medium text-[#1c1c1c] transition-colors hover:border-black/20 hover:bg-black/[0.04] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
         >
-          <ExternalLink className="size-4" />
-          <span className="hidden sm:inline">Buka</span>
+          <ExternalLink className="size-3.5" />
+          <span>Buka Website</span>
         </a>
       ) : (
         <button
@@ -633,16 +633,14 @@ function RuntimeControl({
               ? "Sedang menerbitkan website..."
               : "Terbitkan website ke domain publik"
           }
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-black/10 bg-transparent px-2.5 text-xs font-medium text-[#5f5f5d] transition-colors hover:border-black/20 hover:bg-black/[0.04] hover:text-[#1c1c1c] disabled:cursor-not-allowed disabled:opacity-35 dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#ff7a59] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-[#ff7a59]/90 active:scale-95 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-black/30 disabled:hover:bg-black/5 dark:disabled:bg-white/5 dark:disabled:text-white/30 cursor-pointer"
         >
           {runtime.isPublishing ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-3.5 animate-spin" />
           ) : (
-            <Globe2 className="size-4" />
+            <Globe2 className="size-3.5" />
           )}
-          <span className="hidden sm:inline">
-            {runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}
-          </span>
+          <span>{runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}</span>
         </button>
       )}
     </div>
