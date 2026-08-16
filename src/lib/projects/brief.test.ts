@@ -47,6 +47,18 @@ describe("project brief", () => {
           facts: [{ key: "location", label: "Lokasi", value: "Bandung" }],
           decisions: [],
         },
+        visitorJobs: [
+          {
+            id: "primary",
+            goal: "Memahami pilihan",
+            priority: "primary",
+          },
+          {
+            id: "lokasi",
+            goal: "Menemukan lokasi",
+            priority: "secondary",
+          },
+        ],
       },
       "fallback",
     );
@@ -69,7 +81,37 @@ describe("project brief", () => {
       tagline: "HP hemat",
       usp: ["Bergaransi"],
       businessImages: [{ id: "logo-1", purpose: "logo" }],
+      visitorJobs: [
+        { id: "primary", goal: "Memahami pilihan", priority: "primary" },
+        { id: "lokasi", goal: "Menemukan lokasi", priority: "secondary" },
+      ],
     });
+  });
+
+  it("keeps malformed visitor-job patches from creating a route", () => {
+    const brief = createInitialBrief("buat web");
+    const merged = mergeProjectBriefPatch(brief, {
+      visitorJobs: [
+        { id: "primary", goal: "Pilih menu", priority: "primary" },
+        { id: "primary", goal: "Cari lokasi", priority: "secondary" },
+      ],
+    });
+
+    expect(merged.visitorJobs).toEqual([]);
+  });
+
+  it("round-trips an explicit visitor-job patch", () => {
+    const merged = mergeProjectBriefPatch(createInitialBrief(), {
+      visitorJobs: [
+        { id: "primary", goal: "Pilih menu", priority: "primary" },
+        { id: "lokasi", goal: "Cari lokasi", priority: "secondary" },
+      ],
+    });
+
+    expect(merged.visitorJobs).toEqual([
+      { id: "primary", goal: "Pilih menu", priority: "primary" },
+      { id: "lokasi", goal: "Cari lokasi", priority: "secondary" },
+    ]);
   });
 
   it("persists typed UMKM classification and field state", () => {

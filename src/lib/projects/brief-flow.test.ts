@@ -60,6 +60,66 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("question");
   });
 
+  it("keeps explicit visitor jobs and ignores an invalid replacement", () => {
+    const brief = createInitialBrief("buat web kedai");
+    const turn = normalizeWorkspaceTurn(
+      {
+        briefPatch: {
+          visitorJobs: [
+            {
+              id: "primary",
+              goal: "Memilih menu dan memesan",
+              priority: "primary",
+            },
+            {
+              id: "location",
+              goal: "Menemukan lokasi kedai",
+              priority: "secondary",
+            },
+          ],
+        },
+        workspaceCard: { type: "none" },
+      },
+      brief,
+    );
+
+    expect(turn.brief.visitorJobs).toEqual([
+      {
+        id: "primary",
+        goal: "Memilih menu dan memesan",
+        priority: "primary",
+      },
+      {
+        id: "location",
+        goal: "Menemukan lokasi kedai",
+        priority: "secondary",
+      },
+    ]);
+
+    const unchanged = normalizeWorkspaceTurn(
+      {
+        briefPatch: {
+          visitorJobs: [
+            {
+              id: "primary",
+              goal: "Memilih menu dan memesan",
+              priority: "primary",
+            },
+            {
+              id: "primary",
+              goal: "Menemukan lokasi kedai",
+              priority: "secondary",
+            },
+          ],
+        },
+        workspaceCard: { type: "none" },
+      },
+      turn.brief,
+    );
+
+    expect(unchanged.brief.visitorJobs).toEqual(turn.brief.visitorJobs);
+  });
+
   it("drops a malformed question without inventing a fallback question", () => {
     const brief = parseProjectBrief(
       { businessType: "Katering", targetCustomer: "Anak sekolah" },

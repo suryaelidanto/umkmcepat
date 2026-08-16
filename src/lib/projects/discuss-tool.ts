@@ -34,6 +34,15 @@ export const presentWorkspaceCardInputSchema = z.object({
       stylePreference: z.string().optional(),
       notes: z.array(z.string()).optional(),
       openQuestions: z.array(z.string()).optional(),
+      visitorJobs: z
+        .array(
+          z.object({
+            id: z.string().optional(),
+            goal: z.string().optional(),
+            priority: z.string().optional(),
+          }),
+        )
+        .optional(),
       productOrService: z
         .array(
           z.object({

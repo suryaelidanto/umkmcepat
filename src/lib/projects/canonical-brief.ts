@@ -12,6 +12,11 @@ import {
   type UmkmType,
 } from "./brief-rich-fields";
 import { canonicalJson } from "./build-hash";
+import {
+  normalizeVisitorJobs,
+  parseVisitorJobs,
+  type VisitorJob,
+} from "./visitor-jobs";
 
 import type { BusinessImageRef, ProjectDecision, ProjectFact } from "./brief";
 import type { FieldState, FieldStateMap } from "./chat-memory";
@@ -34,6 +39,7 @@ export type ProjectBriefV2 = {
     category: UmkmType | null;
   };
   offers: ProductOrServiceItem[];
+  visitorJobs: VisitorJob[];
   audience: string | null;
   primaryAction: CanonicalPrimaryAction | null;
   visualDirection: string | null;
@@ -95,6 +101,7 @@ export function createInitialCanonicalBrief(prompt = ""): ProjectBriefV2 {
     prompt: cleanText(prompt),
     business: { name: "", type: "", category: null },
     offers: [],
+    visitorJobs: [],
     audience: null,
     primaryAction: null,
     visualDirection: null,
@@ -157,6 +164,9 @@ export function migrateLegacyBrief(
       category: parseUmkmType(source.umkmType),
     },
     offers,
+    visitorJobs: Array.isArray(source.visitorJobs)
+      ? normalizeVisitorJobs(source.visitorJobs)
+      : [],
     audience: cleaned.targetCustomer,
     primaryAction: legacyPrimaryAction(source),
     visualDirection: cleanOptionalText(source.stylePreference),
@@ -209,6 +219,7 @@ export function applyAiBriefPatch(
       paymentMethods: [...brief.content.paymentMethods],
       socialLinks: [...brief.content.socialLinks],
     },
+    visitorJobs: [...brief.visitorJobs],
     assets: [...brief.assets],
     provenance: {
       facts: [...brief.provenance.facts],
@@ -310,6 +321,13 @@ export function applyAiBriefPatch(
     const raw = input.visualDirection ?? input.stylePreference;
     const value = cleanOptionalText(raw);
     next.visualDirection = value;
+  }
+
+  if (hasKey("visitorJobs") && Array.isArray(input.visitorJobs)) {
+    const parsed = parseVisitorJobs(input.visitorJobs);
+    if (parsed.ok) {
+      next.visitorJobs = parsed.value;
+    }
   }
 
   if (hasKey("fieldState")) {
@@ -454,6 +472,9 @@ function parseV2(
         parseUmkmType(business.category) ?? parseUmkmType(business.type),
     },
     offers: ensurePrimaryOffer(cleaned.productOrService ?? []),
+    visitorJobs: Array.isArray(source.visitorJobs)
+      ? normalizeVisitorJobs(source.visitorJobs)
+      : [],
     audience: cleaned.targetCustomer,
     primaryAction: parseCanonicalAction(source.primaryAction),
     visualDirection: cleanOptionalText(source.visualDirection),

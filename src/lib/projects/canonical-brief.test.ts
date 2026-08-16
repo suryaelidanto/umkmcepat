@@ -109,6 +109,10 @@ describe("parseCanonicalBrief", () => {
         target: "08123456789",
       },
       visualDirection: "Bersih dan modern",
+      visitorJobs: [
+        { id: "primary", goal: "Pilih produk", priority: "primary" },
+        { id: "lokasi", goal: "Temukan lokasi", priority: "secondary" },
+      ],
     });
 
     expect(parsed).toMatchObject({
@@ -127,6 +131,10 @@ describe("parseCanonicalBrief", () => {
         target: "08123456789",
       },
       visualDirection: "Bersih dan modern",
+      visitorJobs: [
+        { id: "primary", goal: "Pilih produk", priority: "primary" },
+        { id: "lokasi", goal: "Temukan lokasi", priority: "secondary" },
+      ],
     });
     expect("offer" in parsed).toBe(false);
     expect("productOrService" in parsed).toBe(false);
@@ -209,6 +217,40 @@ describe("parseCanonicalBrief", () => {
 
     expect(hashCanonicalBrief(a)).toMatch(/^[a-f0-9]{64}$/);
     expect(hashCanonicalBrief(a)).toBe(hashCanonicalBrief(b));
+  });
+
+  it("includes visitor jobs in the canonical hash", () => {
+    const one = parseCanonicalBrief({
+      version: 2,
+      business: { name: "Toko", type: "Retail", category: "retail" },
+      offers: [{ name: "Produk", isPrimary: true }],
+      visitorJobs: [
+        { id: "primary", goal: "Pilih produk", priority: "primary" },
+      ],
+    });
+    const two = parseCanonicalBrief({
+      ...one,
+      visitorJobs: [
+        { id: "primary", goal: "Pilih produk", priority: "primary" },
+        { id: "lokasi", goal: "Temukan lokasi", priority: "secondary" },
+      ],
+    });
+
+    expect(hashCanonicalBrief(one)).not.toBe(hashCanonicalBrief(two));
+  });
+
+  it("preserves visitor jobs in an AI patch", () => {
+    const patched = applyAiBriefPatch(createInitialCanonicalBrief(), {
+      visitorJobs: [
+        { id: "primary", goal: "Pilih produk", priority: "primary" },
+        { id: "pesan", goal: "Mengirim pesanan", priority: "secondary" },
+      ],
+    });
+
+    expect(patched.visitorJobs).toEqual([
+      { id: "primary", goal: "Pilih produk", priority: "primary" },
+      { id: "pesan", goal: "Mengirim pesanan", priority: "secondary" },
+    ]);
   });
   it("derives the category from a business type that names one", () => {
     const brief = parseCanonicalBrief(

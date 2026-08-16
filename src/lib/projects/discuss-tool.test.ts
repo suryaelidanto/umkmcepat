@@ -36,6 +36,29 @@ describe("presentWorkspaceCard inputSchema tolerates stringified JSON fields", (
     expect(result.success).toBe(true);
   });
 
+  it("accepts explicit visitor jobs in a brief patch", () => {
+    const result = parse({
+      assistantText: "Aku catat dua tujuan pengunjungnya.",
+      briefPatch: {
+        visitorJobs: [
+          {
+            id: "primary",
+            goal: "Memilih menu dan memesan",
+            priority: "primary",
+          },
+          {
+            id: "location",
+            goal: "Menemukan lokasi kedai",
+            priority: "secondary",
+          },
+        ],
+      },
+      workspaceCard: { type: "none" },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("accepts briefPatch and workspaceCard as JSON strings (the combo model failure mode)", () => {
     const result = parse({
       assistantText: "Aku siap bantu. Nama usahanya apa?",

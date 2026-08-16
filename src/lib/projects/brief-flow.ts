@@ -20,6 +20,7 @@ import {
 import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
+import { parseVisitorJobs, type VisitorJob } from "@/lib/projects/visitor-jobs";
 const OPTION_LABEL_MAX_LENGTH = 120;
 const OPTION_DESCRIPTION_MAX_LENGTH = 180;
 
@@ -31,6 +32,7 @@ export type WorkspaceTurnToolInput = {
     contactOrCta?: string;
     decisions?: Array<{ answer?: string; id?: string; question?: string }>;
     facts?: Array<{ key?: string; label?: string; value?: string }>;
+    visitorJobs?: VisitorJob[];
     notes?: string[];
     offer?: string;
     openQuestions?: string[];
@@ -75,6 +77,13 @@ export function applyBriefPatch(
 
     if (value) {
       next[field] = value;
+    }
+  }
+
+  if (patch.visitorJobs !== undefined) {
+    const parsed = parseVisitorJobs(patch.visitorJobs);
+    if (parsed.ok) {
+      next.visitorJobs = parsed.value;
     }
   }
 

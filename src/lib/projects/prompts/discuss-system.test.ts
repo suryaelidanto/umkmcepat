@@ -49,6 +49,12 @@ describe("DISCUSS_SYSTEM_PROMPT", () => {
     expect(DISCUSS_SYSTEM_PROMPT).not.toMatch(/95\+/);
   });
 
+  it("explains when the model may record distinct visitor jobs", () => {
+    expect(DISCUSS_SYSTEM_PROMPT).toMatch(/visitor job/i);
+    expect(DISCUSS_SYSTEM_PROMPT).toMatch(/distinct/i);
+    expect(DISCUSS_SYSTEM_PROMPT).toMatch(/katalog/i);
+  });
+
   it("forbids hallucinating values", () => {
     expect(DISCUSS_SYSTEM_PROMPT.toLowerCase()).toContain("hallucinat");
   });

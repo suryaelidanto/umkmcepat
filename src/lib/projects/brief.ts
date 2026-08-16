@@ -17,6 +17,11 @@ import {
   parseCanonicalBrief,
   type ProjectBriefV2,
 } from "@/lib/projects/canonical-brief";
+import {
+  normalizeVisitorJobs,
+  parseVisitorJobs,
+  type VisitorJob,
+} from "@/lib/projects/visitor-jobs";
 
 export type ProjectFact = {
   key: string;
@@ -40,6 +45,7 @@ export type ProjectBrief = {
   prompt: string;
   facts?: ProjectFact[];
   decisions?: ProjectDecision[];
+  visitorJobs?: VisitorJob[];
   businessName: string;
   businessType: string;
   offer: string;
@@ -175,6 +181,7 @@ export type ProjectBriefPatch = Partial<
     | "currentPromo"
     | "secondaryCta"
     | "businessImages"
+    | "visitorJobs"
   >
 > & {
   confidence?: number;
@@ -202,6 +209,7 @@ export function createInitialBrief(prompt = ""): ProjectBrief {
     prompt: prompt.trim(),
     facts: [],
     decisions: [],
+    visitorJobs: [],
     businessName: "",
     businessType: "",
     offer: "",
@@ -257,6 +265,9 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
     stylePreference: stringValue(input.stylePreference),
     facts: normalizeFacts(input.facts),
     decisions: normalizeDecisions(input.decisions),
+    visitorJobs: Array.isArray(input.visitorJobs)
+      ? normalizeVisitorJobs(input.visitorJobs)
+      : [],
     notes: Array.isArray(input.notes)
       ? input.notes.filter(isString).slice(-12)
       : [],
@@ -325,6 +336,7 @@ function projectCanonicalBriefForLegacyConsumers(
     stylePreference: brief.visualDirection ?? "",
     facts: brief.provenance.facts,
     decisions: brief.provenance.decisions,
+    visitorJobs: brief.visitorJobs,
     productOrService: brief.offers.length ? brief.offers : null,
     contact,
     tagline: brief.content.tagline,
@@ -388,6 +400,13 @@ export function mergeProjectBriefPatch(
 
   if (Array.isArray(patch.decisions)) {
     next.decisions = mergeDecisions(next.decisions ?? [], patch.decisions);
+  }
+
+  if (patch.visitorJobs !== undefined) {
+    const parsed = parseVisitorJobs(patch.visitorJobs);
+    if (parsed.ok) {
+      next.visitorJobs = parsed.value;
+    }
   }
 
   if (Array.isArray(patch.notes)) {
@@ -501,6 +520,9 @@ export function briefToBuildPrompt(brief: ProjectBrief) {
       : "",
     brief.decisions?.length
       ? `Keputusan diskusi: ${brief.decisions.map((decision) => `${decision.question}: ${decision.answer}`).join("; ")}`
+      : "",
+    brief.visitorJobs?.length
+      ? `Tujuan pengunjung: ${brief.visitorJobs.map((job) => `${job.priority}: ${job.goal}`).join("; ")}`
       : "",
     brief.notes.length ? `Catatan tambahan: ${brief.notes.join("; ")}` : "",
     brief.businessImages?.length
