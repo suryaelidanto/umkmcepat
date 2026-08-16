@@ -366,11 +366,7 @@ export function HomePromptForm({
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           onKeyDown={handlePromptKeyDown}
-          placeholder={
-            placeholder
-              ? `Contoh: ${placeholder}`
-              : "Tulis kebutuhan usahamu di sini..."
-          }
+          placeholder={placeholder ? `Contoh: ${placeholder}` : ""}
           maxLength={PROJECT_REQUEST_MAX_LENGTH}
           disabled={isLoading}
           className="h-40 w-full resize-none break-words bg-transparent px-spacing-9 pb-spacing-7 pt-spacing-9 text-base leading-7 text-[#1c1c1c] outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-[#1c1c1c]/45 disabled:opacity-70 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/52 [-ms-overflow-style:none] sm:h-36 sm:text-lg [&::-webkit-scrollbar]:hidden"
