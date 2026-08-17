@@ -22,6 +22,7 @@ type Project = {
   id: string;
   thumbnailBuildId?: string | null;
   thumbnailRef?: string | null;
+  thumbnailUpdatedAt?: Date | string | null;
   title: string;
   updatedAt: Date | string;
 };
@@ -306,6 +307,9 @@ function ProjectPreviewThumb({
   className?: string;
 }) {
   const mark = useMemo(() => createProjectMark(project.title), [project.title]);
+  const version = project.thumbnailUpdatedAt
+    ? new Date(project.thumbnailUpdatedAt).getTime()
+    : 0;
 
   if (project.thumbnailRef) {
     return (
@@ -313,7 +317,7 @@ function ProjectPreviewThumb({
         className={`relative w-full overflow-hidden bg-black/[0.04] dark:bg-[#121211] ${className ?? ""}`}
       >
         <Image
-          src={`/api/projects/${project.id}/thumbnail`}
+          src={`/api/projects/${project.id}/thumbnail?v=${version}`}
           alt={project.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
