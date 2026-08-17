@@ -3838,7 +3838,7 @@ export function WorkspaceShell({
             setMobileSurface("preview");
           }}
         />
-        <div className="min-h-0 flex-1 overflow-hidden bg-[#f7f4ed] dark:bg-[#10100f]">
+        <div className="min-h-0 flex-1 overflow-hidden bg-background">
           {activeTab === "preview" ? (
             <div
               id="workspace-preview-panel"
@@ -3847,10 +3847,10 @@ export function WorkspaceShell({
               className="h-full min-h-0"
             >
               {isBuilding && !hasLastGoodPreview ? (
-                <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
+                <div className="grid min-h-full place-items-center bg-background p-spacing-10 text-center">
                   <div className="flex flex-col items-center gap-spacing-4 text-center">
-                    <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
-                    <p className="text-sm font-medium text-surface-warm-white/78">
+                    <div className="size-9 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+                    <p className="text-sm font-medium text-foreground">
                       Menyiapkan pratinjau website...
                     </p>
                   </div>
