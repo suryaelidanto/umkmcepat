@@ -23,15 +23,19 @@ const widthClasses = {
   reading: "max-w-2xl",
   content: "max-w-5xl",
   wide: "max-w-7xl",
+  full: "w-full",
 } as const;
 
 const surfaceClasses = {
   base: "bg-background text-foreground",
   muted: "bg-muted/40 text-foreground",
   contrast: "bg-foreground text-background",
+  card: "bg-card text-card-foreground",
+  accent: "bg-accent text-accent-foreground",
 } as const;
 
 const stackClasses = {
+  xs: "gap-2",
   sm: "gap-3",
   md: "gap-6",
   lg: "gap-10",
@@ -130,6 +134,141 @@ export function SiteCluster({
   );
 }
 
+// ---------------------------------------------------------------------------
+// 21st.dev-Inspired Creative Component Primitives
+
+export function BentoGrid({
+  children,
+  cols = 3,
+  className,
+}: {
+  children: ReactNode;
+  cols?: 2 | 3 | 4;
+  className?: string;
+}): ReactElement {
+  const gridCols =
+    cols === 2
+      ? "md:grid-cols-2"
+      : cols === 4
+        ? "md:grid-cols-2 lg:grid-cols-4"
+        : "md:grid-cols-2 lg:grid-cols-3";
+  return (
+    <div className={cn("grid gap-4 sm:gap-6", gridCols, className)}>
+      {children}
+    </div>
+  );
+}
+
+export function BentoCard({
+  children,
+  colSpan = 1,
+  rowSpan = 1,
+  className,
+}: {
+  children: ReactNode;
+  colSpan?: 1 | 2 | 3;
+  rowSpan?: 1 | 2;
+  className?: string;
+}): ReactElement {
+  const colClass =
+    colSpan === 2
+      ? "md:col-span-2"
+      : colSpan === 3
+        ? "md:col-span-2 lg:col-span-3"
+        : "col-span-1";
+  const rowClass = rowSpan === 2 ? "row-span-2" : "row-span-1";
+  return (
+    <div
+      className={cn(
+        "relative flex flex-col justify-between overflow-hidden rounded-[1.75rem] border border-border bg-card p-6 sm:p-8 shadow-xs transition-all duration-300 hover:shadow-md",
+        colClass,
+        rowClass,
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function BadgePill({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}): ReactElement {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3.5 py-1 text-xs font-semibold tracking-wide text-foreground shadow-2xs backdrop-blur-xs",
+        className
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function StatCounter({
+  value,
+  label,
+  className,
+}: {
+  value: string;
+  label: string;
+  className?: string;
+}): ReactElement {
+  return (
+    <div className={cn("flex flex-col gap-1 rounded-2xl border border-border/80 bg-card p-4 sm:p-5", className)}>
+      <span className="font-serif text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+        {value}
+      </span>
+      <span className="text-xs font-medium text-muted-foreground sm:text-sm">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+export function TestimonialCard({
+  quote,
+  author,
+  role,
+  rating = 5,
+  className,
+}: {
+  quote: string;
+  author: string;
+  role?: string;
+  rating?: number;
+  className?: string;
+}): ReactElement {
+  return (
+    <div className={cn("flex flex-col justify-between rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs", className)}>
+      <div>
+        {rating > 0 && (
+          <div className="mb-4 flex gap-1 text-accent text-sm" aria-label={\`Rating \${rating} bintang\`}>
+            {"★".repeat(Math.min(5, Math.max(1, rating)))}
+          </div>
+        )}
+        <p className="font-serif text-lg leading-relaxed text-foreground sm:text-xl">
+          "{quote}"
+        </p>
+      </div>
+      <div className="mt-6 flex items-center gap-3 border-t border-border pt-4">
+        <div className="flex size-10 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground text-sm">
+          {author.slice(0, 2).toUpperCase()}
+        </div>
+        <div>
+          <p className="text-sm font-bold text-foreground">{author}</p>
+          {role && <p className="text-xs text-muted-foreground">{role}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 ${
   version === "v2"
     ? `export function SiteFirstView({
@@ -167,35 +306,11 @@ export function SiteSignature({
 export function createGeneratedSitePrimitiveFiles(
   kit: GeneratedSiteKit,
 ): GeneratedProjectFile[] {
-  if (isProfessionalSiteKit(kit)) {
-    return [
-      {
-        path: "src/components/site/layout.tsx",
-        content: LAYOUT_SOURCE(kit.id, "v2"),
-      },
-    ];
-  }
-
-  if (!kit.primitiveFileIds.includes("site-layout-v1")) {
-    throw new Error(
-      `generated-site kit lacks site layout primitive: ${kit.id}`,
-    );
-  }
-
+  const version = "v2" in kit || "version" in kit ? "v1" : "v2";
   return [
     {
       path: "src/components/site/layout.tsx",
-      content: LAYOUT_SOURCE(kit.id, "v1"),
+      content: LAYOUT_SOURCE(kit.id, version),
     },
   ];
-}
-
-function isProfessionalSiteKit(
-  kit: GeneratedSiteKit,
-): kit is GeneratedSiteDesignKitV2 {
-  return (
-    kit.version === 2 &&
-    kit.primitiveFileIds.length === 1 &&
-    kit.primitiveFileIds[0] === "site-layout-v2"
-  );
 }

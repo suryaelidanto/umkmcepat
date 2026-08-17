@@ -34,10 +34,20 @@ import {
   type GeneratedRouteBinding,
 } from "@/lib/projects/professional-site-router";
 import { professionalPopulatedContentPaths } from "@/lib/projects/professional-site-source-gates";
+import { getFormattedShadcnRegistryPrompt } from "@/lib/projects/scaffold/component-catalog";
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
-const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS (non-negotiable): Make the business job obvious in the first view and give the page one strong visual idea, not an empty card or generic template. Use readable contrast (body text ≥4.5:1), compiled semantic tokens, and text-muted-foreground for supporting text. text-muted, text-card, text-popover, text-secondary, and text-background are surface-only — each reads as its own background colour when used as text, so text-card on bg-card is invisible. Inside SiteSection surface="contrast" or any bg-foreground element, text-foreground, text-muted-foreground, text-card-foreground, text-popover-foreground, and text-secondary-foreground are invisible too — use text-background there instead. bg-accent and bg-primary need text-accent-foreground and text-primary-foreground — not text-foreground or any other token. Structured site arrays contain objects: render paymentMethods with item.method and optional item.detail, products with item.name, socialLinks with item.handle, and other records through their fields; never interpolate an object array or call .join directly on it. Never use border-l-2/border-r-2 side stripes, empty framed shapes, fake media, gradients, repeated tracked eyebrows, or numbered scaffolding. In graphic mode, use a meaningful inline SVG with visible paths or omit the media panel; never emit an empty span or div as a product image. Use varied rhythm, purposeful product information, and one deliberate signature. site.trustPoints and site.usp are often the same values — never render both as separate adjacent sections with identical items; pick whichever fits the section better and skip the other. Keep the route compact and useful on mobile.`;
+const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS (Shadcn/UI Masterpiece & Component Registry):
+${getFormattedShadcnRegistryPrompt()}
+
+CORE COMPOSITION PRINCIPLES:
+- Compose high-converting, bespoke landing pages using the components listed in the registry above. Avoid generic templates or monotonous equal-card grids.
+- Asymmetrical Bento Layout: Give primary offers/flagship items a wider card (colSpan=2), flanked by micro-feature cards and stat counters.
+- Visual Polish: Pair features with domain-tailored Lucide icons (<Sparkles>, <Clock>, <ShieldCheck>, <Phone>, <MapPin>, etc.), BadgePill tags, and StatCounter badges.
+- Surface Temperature & Contrast: Alternate section surfaces (base -> muted -> contrast -> accent) to create clear visual rhythm.
+- Action & Conversion: Primary CTA must be prominent, clearly visible, and touch-safe (min-h-11 min-w-11) pointing to the accepted WhatsApp target.
+- Keep the route compact and useful on mobile. In graphic mode, use a meaningful inline SVG with visible paths or omit the media panel. site.trustPoints and site.usp are often the same values — never render both as separate adjacent sections with identical items.`;
 
 export function buildReferenceCalibratedCorrectionPrompt(input: {
   contract: GeneratedSiteWriterContractV2;
@@ -644,138 +654,26 @@ Do not add or remove dependencies — package.json is platform-owned.
 
 ${photoEnabled ? `MISSING IMAGES (photo uploads ENABLED): use <img src="/placeholder.svg" alt="<short description>" /> for landscape/wide slots and <img src="/placeholder-vertical.svg" alt="<short description>" /> for portrait/tall slots, only when an image slot is structurally necessary and no owner image exists. Alt text at use site. Never use remote placeholder URLs. For typographic layouts, prefer omitting the image slot instead of adding a gratuitous placeholder.` : `PHOTO DISABLED — Composer image uploads are OFF (feature.composer_uploads_enabled=false): NEVER emit <img src="/placeholder.svg"> or <img src="/placeholder-vertical.svg"> or any placeholder image. Never use remote placeholder URLs (placehold.co, unsplash, etc.). Build an elegant TYPOGRAPHIC / COLOR-BLOCK / INITIALS layout instead — use gradients, large type, accent blocks, icon cards, or initials as visual — no image slots at all. If you feel an image is needed, omit it and strengthen the copy/layout. Any placeholder <img> will be stripped and will look broken.`}
 
-FEW-SHOT HEROES (copy the pattern, not the text — render from site.*):
+CREATIVE COMPOSITION CONTRACT & 21ST.DEV PRIMITIVES (Zero Template-Lock):
+Do NOT follow a single fixed wireframe or copy a static example. Reason dynamically about the business domain, audience, and offer to synthesize a custom masterpiece using these available layout building blocks:
 
-Example 1 — Warung Sate (friendly/warm, variance 8):
-\`\`\`tsx
-import { site } from "@/content/site";
-import { usePreviewReady } from "@/lib/preview-ready";
-import { Button } from "@/components/ui/button";
-export function HomeRouteComponent() {
-  usePreviewReady();
-  return (<main className="mx-auto max-w-6xl px-6 py-12">
-    <section className="grid gap-8 md:grid-cols-2 items-center py-16">
-      <div><p className="text-sm font-medium text-muted-foreground">{site.eyebrow}</p>
-        <h1 className="text-5xl font-bold tracking-tight text-balance" style={{letterSpacing:"-0.03em"}}>{site.headline}</h1>
-        <p className="mt-4 max-w-[65ch] text-pretty text-muted-foreground">{site.subheadline}</p>
-        <div className="mt-6 flex gap-3"><Button asChild><a href="#kontak">{site.primaryCta}</a></Button><Button variant="outline">{site.secondaryCta}</Button></div>
-      </div>
-      <img src="/placeholder.svg" alt="Warung sate" className="rounded-xl" />
-    </section>
-    <section className="grid gap-4 md:grid-cols-3"><div className="rounded-xl border p-6">{site.trustPoints[0]}</div><div className="rounded-xl border p-6">{site.trustPoints[1]}</div><div className="rounded-xl border p-6">{site.trustPoints[2]}</div></section>
-  </main>);
-}
-\`\`\`
+1. Bento & Grid Primitives (from @/components/site/layout):
+   - <BentoGrid cols={2|3|4}>: Asymmetrical, scannable layout container.
+   - <BentoCard colSpan={1|2|3} rowSpan={1|2}>: Rich card container. Use colSpan=2 for primary hero offers or flagship products, flanked by 1-span cards for micro-details.
+   - <StatCounter value="..." label="...">: Numerical credibility highlights (e.g. "1.500+ Alumni", "30 Hari Garansi", "Mulai 35rb").
+   - <BadgePill>: Subtle pill tags with glassmorphism for category, location, or guarantee chips.
+   - <TestimonialCard quote="..." author="..." role="..." rating={5}>: Verified quote card with author avatar badge.
+   - <SiteSection density="compact"|"regular"|"airy" surface="base"|"muted"|"contrast"|"card"|"accent" width="reading"|"content"|"wide"|"full">: Section rhythm wrapper.
 
-Example 2 — Laundry Kiloan (clean/trust, variance 8):
-\`\`\`tsx
-import { site } from "@/content/site";
-import { usePreviewReady } from "@/lib/preview-ready";
-export function HomeRouteComponent() {
-  usePreviewReady();
-  return (<main className="mx-auto max-w-5xl px-6">
-    <section className="py-20 text-center"><h1 className="text-5xl font-semibold text-balance">{site.headline}</h1><p className="mx-auto mt-4 max-w-[65ch] text-pretty text-muted-foreground">{site.subheadline}</p></section>
-    <section className="grid gap-6" style={{gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))"}}>{site.sections.slice(0,3).map(s=><article key={s.title} className="border rounded-xl p-6"><h3 className="font-semibold">{s.title}</h3><p className="text-sm text-muted-foreground">{s.body}</p></article>)}</section>
-  </main>);
-}
-\`\`\`
+2. Shadcn UI Components (from @/components/ui/*):
+   - <Button size="lg" className="rounded-full">, <Accordion>, <Card>, <Badge>, <Tabs>.
+   - Lucide icons (<Check>, <Clock>, <ShieldCheck>, <Sparkles>, <Star>, <Phone>, <MapPin>, etc.) to anchor features with real iconography.
 
-Example 3 — Catalog / retail (FULL multi-section landing — the pattern you MUST follow when site.ts has rich fields). Render EVERY populated field: hero, promo banner, product grid, order steps, testimonials, FAQ, social links. Never ship starter boilerplate ("Read the Blog", "View on GitHub", "⚡ Fast / 🎨 Beautiful / 📝 MDX Ready") — those are scaffold rot and the gate rejects them. If a field is empty, skip its section; if it has data, render it. HERO COPY RULE: never render \`<h1>{site.businessName} — {site.offer}</h1>\` — that's a spec transcript (BAD). Always render the marketing fields: \`<h1>{site.headline}</h1>\` + \`<p>{site.subheadline}</p>\` (site.headline is already benefit-driven Indonesian, e.g. "Anggun Setiap Hari…").
-\`\`\`tsx
-import { site } from "@/content/site";
-import { usePreviewReady } from "@/lib/preview-ready";
-import { Button } from "@/components/ui/button";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-export function HomeRouteComponent() {
-  usePreviewReady();
-  const waHref = site.primaryCta.toLowerCase().includes("whatsapp") || site.primaryCta.toLowerCase().includes("chat")
-    ? \`https://wa.me/?text=\${encodeURIComponent(site.headline)}\`
-    : "#kontak";
-  return (
-    <main className="mx-auto max-w-6xl px-6">
-      {/* Hero — always render eyebrow, headline, subheadline, primaryCta, secondaryCta */}
-      <section className="grid gap-8 md:grid-cols-2 items-center py-20">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{site.eyebrow}</p>
-          <h1 className="mt-2 text-5xl font-bold tracking-tight text-balance" style={{letterSpacing:"-0.03em"}}>{site.headline}</h1>
-          <p className="mt-4 max-w-[65ch] text-pretty text-muted-foreground">{site.subheadline}</p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button asChild><a href={waHref} target="_blank" rel="noopener noreferrer">{site.primaryCta}</a></Button>
-            <Button variant="outline" asChild><a href="#cara-order">{site.secondaryCta}</a></Button>
-          </div>
-        </div>
-        <img src="/placeholder.svg" alt={site.businessName} className="rounded-xl" />
-      </section>
-
-      {/* Promo banner — only when site.currentPromo is populated */}
-      {site.currentPromo ? (
-        <section aria-label="Promo" className="rounded-xl bg-accent/10 p-6 text-center">
-          <p className="font-medium text-accent-foreground">{site.currentPromo}</p>
-        </section>
-      ) : null}
-
-      {/* Trust points — always render when present */}
-      {site.trustPoints?.length ? (
-        <section className="grid gap-4 md:grid-cols-3 py-12">
-          {site.trustPoints.map((tp) => (
-            <div key={tp} className="rounded-xl border p-6 text-sm">{tp}</div>
-          ))}
-        </section>
-      ) : null}
-
-      {/* Product catalog — only when site.products is populated */}
-      {site.products?.length ? (
-        <section id="katalog" className="scroll-mt-24 py-12" aria-label="Katalog">
-          <h2 className="text-3xl font-semibold mb-8">Katalog</h2>
-          <div className="grid gap-6" style={{gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))"}}>
-            {site.products.map((p) => (
-              <Card key={p.name}>
-                <CardHeader><CardTitle>{p.name}</CardTitle></CardHeader>
-                <CardContent className="space-y-1">
-                  {p.description ? <p className="text-sm text-muted-foreground">{p.description}</p> : null}
-                  {p.priceRange ? <p className="font-semibold">{p.priceRange}</p> : null}
-                  <Button asChild size="lg" className="mt-3"><a href={waHref} target="_blank" rel="noopener noreferrer">{site.primaryCta}</a></Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {/* Testimonials — only when site.testimonials is populated */}
-      {site.testimonials?.length ? (
-        <section aria-label="Testimoni" className="py-12">
-          <h2 className="text-3xl font-semibold mb-8">Testimoni</h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            {site.testimonials.map((t) => (
-              <Card key={t.author}>
-                <CardContent className="pt-6">
-                  {t.rating ? <p className="text-accent">{"★".repeat(t.rating)}</p> : null}
-                  <p className="text-pretty">"{t.quote}"</p>
-                  <p className="mt-3 text-sm font-medium">{t.author}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {/* FAQ — only when site.faq is populated */}
-      {site.faq?.length ? (
-        <section aria-label="FAQ" className="py-12">
-          <h2 className="text-3xl font-semibold mb-8">FAQ</h2>
-          <Accordion type="single" collapsible>
-            {site.faq.map((item, i) => (
-              <AccordionItem key={i} value={\`q-\${i}\`}>
-                <AccordionTrigger>{item.q}</AccordionTrigger>
-                <AccordionContent>{item.a}</AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </section>
-      ) : null}
+3. Composition Principles:
+   - Make the first viewport instantly communicate the core value proposition.
+   - Vary section surface temperatures: alternate base -> muted -> contrast -> accent to create visual rhythm.
+   - Every CTA must be high-contrast, prominent, and touch-safe (min-h-11 min-w-11) pointing to the accepted WhatsApp target.
+   - On mobile, multi-column grids must collapse gracefully into natural vertical reading order.
 
       {/* Social links — only when populated */}
       {site.socialLinks?.length ? (
