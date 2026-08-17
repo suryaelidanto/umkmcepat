@@ -103,7 +103,14 @@ function contrastSurfaceSpans(
   ].flatMap((match) =>
     match[1] ? [elementSpan(source, match, match[1])] : [],
   );
-  return [...sectionSpans, ...elementSpans];
+  const containerSpans = [
+    ...source.matchAll(
+      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=(?:\{`|["'])[^"'`]*\bbg-background\/\d+[^"'`]*(?:`\}|["'])[^>]*>/g,
+    ),
+  ].flatMap((match) =>
+    match[1] ? [elementSpan(source, match, match[1])] : [],
+  );
+  return [...sectionSpans, ...elementSpans, ...containerSpans];
 }
 
 function hasContrastSurfaceTextMismatch(source: string): boolean {
@@ -126,24 +133,12 @@ function hasMisplacedBackgroundText(source: string): boolean {
 }
 
 function healContrastSurfaceText(content: string): string {
-  let normalized = content;
-  // Match any SiteSection surface="contrast" and replace light text tokens with text-background
-  normalized = normalized.replace(
-    /<SiteSection\b(?=[^>]*\bsurface=["']contrast["'])[\s\S]*?<\/SiteSection>/gi,
-    (sectionMatch: string) => {
-      return sectionMatch.replace(
-        /\btext-(?:foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground)\b(?!-)(\/\d{1,3})?/g,
-        (_match, opacity) => `text-background${opacity ?? ""}`,
-      );
-    },
-  );
-
-  const spans = contrastSurfaceSpans(normalized);
+  const spans = contrastSurfaceSpans(content);
   const pattern = new RegExp(
     `\\btext-(background|(?:${LIGHT_SURFACE_TEXT_TOKEN}))\\b(?!-)(/\\d{1,3})?`,
     "g",
   );
-  return normalized.replace(
+  return content.replace(
     pattern,
     (
       match: string,
