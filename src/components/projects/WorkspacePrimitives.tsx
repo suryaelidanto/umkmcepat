@@ -829,7 +829,7 @@ export function WorkspaceCardView({
                 type="button"
                 variant="outline"
                 onClick={onDiscuss}
-                className="rounded-[12px] border-surface-warm-white/12 bg-transparent px-spacing-5 text-surface-warm-white/78 hover:bg-surface-warm-white/8"
+                className="rounded-[12px] border-black/15 bg-transparent px-spacing-5 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
               >
                 Lanjut diskusi dulu
               </Button>
