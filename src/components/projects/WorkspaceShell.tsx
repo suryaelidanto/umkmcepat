@@ -328,7 +328,14 @@ export function WorkspaceShell({
   ] = useState<Set<string>>(() =>
     readConsumedBuildRecommendationSignatures(projectId),
   );
-  const [postBuildChatOpen, setPostBuildChatOpen] = useState(false);
+  // Initial postBuildChatOpen should default to true if the project already has
+  // active chat messages or a pending build_recommendation card so that chat
+  // and recommendation cards are immediately interactive on page load.
+  const [postBuildChatOpen, setPostBuildChatOpen] = useState(
+    () =>
+      initialMessages.length > 0 ||
+      initialWorkspaceCard.type === "build_recommendation",
+  );
   const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
   const [chatCursor, setChatCursor] = useState<number | null>(
     initialChatCursor,
