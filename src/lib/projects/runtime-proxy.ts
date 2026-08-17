@@ -163,6 +163,8 @@ export function applyPreviewSandboxHeaders(
   { noindex = true }: { noindex?: boolean } = {},
 ) {
   headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Headers", "*");
+  headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
   headers.set("Content-Security-Policy", "sandbox allow-scripts");
   headers.set("Cross-Origin-Resource-Policy", "cross-origin");
 
@@ -360,16 +362,6 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
 
   let active = false;
-  let selectedId = null;
-  let idCounter = 0;
-  const blocks = new Map();
-  const removedIds = new Set();
-  let hoverBox = null;
-
-  const style = document.createElement('style');
-  style.textContent =
-    '.umkm-edit-hover{position:absolute;z-index:2147483644;pointer-events:none;border:2px solid #0d9488;border-radius:10px;background:rgba(13,148,136,.08)}';
-  document.head.appendChild(style);
   let hoverBox = null;
   const markers = new Map();
 

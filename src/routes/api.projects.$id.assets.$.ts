@@ -17,6 +17,11 @@ import {
 export const Route = createFileRoute("/api/projects/$id/assets/$")({
   server: {
     handlers: {
+      OPTIONS: () => {
+        const res = new Response(null, { status: 204 });
+        applyPreviewSandboxHeaders(res.headers);
+        return res;
+      },
       GET: async ({ request, params }) => {
         const { id } = params;
         const _splat = params._splat ?? "";

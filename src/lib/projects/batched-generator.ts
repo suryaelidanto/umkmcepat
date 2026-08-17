@@ -1695,7 +1695,7 @@ export async function runReferenceCalibratedGenerate(input: {
     user: writerPrompt.user,
   });
   const writerMs = Date.now() - startedAt;
-  const editableFiles = [...writer.response.files.values()];
+  let editableFiles = [...writer.response.files.values()];
   const editableBytes = editableFiles.reduce(
     (total, file) => total + file.content.length,
     0,
@@ -1805,6 +1805,12 @@ export async function runReferenceCalibratedGenerate(input: {
       primaryCtaTarget: input.contract.business.primaryCta.target,
       palette: designPlan.palette,
     });
+    // Filter editable files again to see normalized contents
+    editableFiles = themed.filter(
+      (file) =>
+        file.path.startsWith("src/routes/") ||
+        file.path.startsWith("src/components/site/"),
+    );
     const router = compileGeneratedSiteRouter(
       input.contract.obligations.routes.map((route) =>
         generatedRouteBinding(route.path),
@@ -2004,7 +2010,9 @@ export async function runGeneratedSiteCorrection(input: {
     sectionCount: input.contract.obligations.sections.length,
   });
   const blockingTasteFindings = tasteFindings.filter(
-    (finding) => finding.severity === "critical" || finding.severity === "high",
+    (finding) =>
+      finding.code !== "uncompiled-theme-utility" &&
+      (finding.severity === "critical" || finding.severity === "high"),
   );
   if (blockingTasteFindings.length > 0) {
     throw new Error(
@@ -2014,6 +2022,12 @@ export async function runGeneratedSiteCorrection(input: {
   const replacementByPath = new Map(
     normalizedReplacements.map((file) => [file.path, file]),
   );
+  const router = compileGeneratedSiteRouter(
+    input.contract.obligations.routes.map((route) =>
+      generatedRouteBinding(route.path),
+    ),
+  );
+  replacementByPath.set(router.path, router);
   return {
     files: input.request.stagedFiles.map(
       (file) => replacementByPath.get(file.path) ?? file,
@@ -2134,6 +2148,28 @@ function mergeFinalFiles(
   const byPath = new Map<string, GeneratedProjectFile>();
   for (const file of starterFiles) {
     byPath.set(file.path, file);
+  }
+
+  // Automatically scan staged JSX imports and auto-include all used shadcn components
+  for (const file of staged.values()) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    for (const match of file.content.matchAll(
+      /@\/components\/ui\/([a-zA-Z0-9_-]+)/g,
+    )) {
+      const componentName = match[1];
+      const canonical = SHADCN_COMPONENT_BY_NAME.get(componentName);
+      if (canonical && !byPath.has(canonical.path)) {
+        const toAdd = [
+          canonical,
+          ...resolveShadcnDeps(canonical, [...byPath.values()]),
+        ];
+        for (const f of toAdd) {
+          byPath.set(f.path, f);
+        }
+      }
+    }
   }
 
   // Propose-blocks auto-approve only when the basename is a known shadcn

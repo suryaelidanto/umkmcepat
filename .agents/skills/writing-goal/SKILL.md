@@ -118,14 +118,10 @@ If you cannot close an exploit, say so in the goal — that is an honest "blocke
 
 A second agent with **no context** must be able to read your terminal report alone and confirm done / not-done from the verification surface. If a context-less agent could not, your verification surface is self-assessment — rewrite slot 3. This is why DONE requires pasted output: it is the only slot a stranger can check.
 
-## Loop mode — carrying the goal across iterations
+## Goal presentation
 
-When the run spans wake-ups, context does not survive but the goal must. Write it to a file (`GOAL.md` in the working or scratchpad directory) with two sections:
+Present the contract directly in the conversation response using the standard format. Do not write it to a file unless explicitly requested by the user.
 
-- **Contract** — the nine slots, plus any amendments, newest last.
-- **Ledger** — one append-only line per iteration: what changed, verification output, checklist deltas, and the no-progress counter.
-
-Each iteration: **read the goal file first** → pick the next action from slot 7 → act → append to the ledger → evaluate slot 9 → continue or emit the terminal report. The ledger is what makes "nothing left to do" and "completely stuck" mechanically decidable instead of a vibe, and it is what stops you from re-trying a fix that already failed three wake-ups ago.
 
 ## Output format (REQUIRED)
 

@@ -1421,7 +1421,12 @@ function resolveCtaTarget(
   }
   const fact = facts.find((item) => item.id === targetFactId);
   if (!fact || fact.kind !== "contact") {
-    return "";
+    // Fall back to any available contact fact if the specific targetFactId is missing
+    const anyContact = facts.find((item) => item.kind === "contact");
+    if (anyContact && anyContact.kind === "contact") {
+      return anyContact.value.value;
+    }
+    return "#kontak";
   }
   return fact.value.value;
 }
@@ -1514,9 +1519,9 @@ function publicTrustPoints(
     return supplied;
   }
   return [
-    "Pilihan utama terlihat jelas",
-    "Detail produk mudah dipahami",
-    `${ctaLabel} mudah ditemukan`,
+    "Garansi kualitas dan pengerjaan rapi",
+    `Konsultasi langsung via ${ctaLabel}`,
+    "Proses mudah dan transparan",
   ];
 }
 
@@ -1525,7 +1530,7 @@ function publicProductCopy(product: SiteSchemaProduct): SiteSchemaProduct {
   if (!description || isInternalCopy(description)) {
     return {
       ...product,
-      description: "Pilihan utama yang bisa kamu tanyakan sebelum pesan.",
+      description: `Layanan ${product.name.toLowerCase()} dengan pengerjaan profesional dan rapi.`,
     };
   }
   return product;

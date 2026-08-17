@@ -95,14 +95,10 @@ function contrastSurfaceSpans(
   const sectionSpans = [
     ...source.matchAll(/<SiteSection\b[^>]*\bsurface=["']contrast["'][^>]*>/g),
   ].map((match) => elementSpan(source, match, "SiteSection"));
-  // Reproduced live: a real build's contact block correctly paired
-  // bg-foreground text-background on its own div, then a heading and
-  // paragraph *inside* it overrode with bare text-foreground — invisible
-  // against that same bg-foreground. Descendants must be scanned, bounded
-  // by this element's own matching close (see findMatchingClose above).
+  // Scan any element with bg-foreground in className string or template literal
   const elementSpans = [
     ...source.matchAll(
-      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=["'][^"']*\bbg-foreground\b[^"']*["'][^>]*>/g,
+      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=(?:\{`|["'])[^"'`]*\bbg-foreground\b[^"'`]*(?:`\}|["'])[^>]*>/g,
     ),
   ].flatMap((match) =>
     match[1] ? [elementSpan(source, match, match[1])] : [],
@@ -130,12 +126,24 @@ function hasMisplacedBackgroundText(source: string): boolean {
 }
 
 function healContrastSurfaceText(content: string): string {
-  const spans = contrastSurfaceSpans(content);
+  let normalized = content;
+  // Match any SiteSection surface="contrast" and replace light text tokens with text-background
+  normalized = normalized.replace(
+    /<SiteSection\b(?=[^>]*\bsurface=["']contrast["'])[\s\S]*?<\/SiteSection>/gi,
+    (sectionMatch: string) => {
+      return sectionMatch.replace(
+        /\btext-(?:foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground)\b(?!-)(\/\d{1,3})?/g,
+        (_match, opacity) => `text-background${opacity ?? ""}`,
+      );
+    },
+  );
+
+  const spans = contrastSurfaceSpans(normalized);
   const pattern = new RegExp(
     `\\btext-(background|(?:${LIGHT_SURFACE_TEXT_TOKEN}))\\b(?!-)(/\\d{1,3})?`,
     "g",
   );
-  return content.replace(
+  return normalized.replace(
     pattern,
     (
       match: string,
@@ -318,30 +326,75 @@ function healNestedLightSurfaceText(content: string): string {
           Number(isLightSurfaceKind(right.kind))
         );
       })[0];
-    if (!nearestSurface || !isLightSurfaceKind(nearestSurface.kind)) {
-      continue;
+    if (nearestSurface && isLightSurfaceKind(nearestSurface.kind)) {
+      const textToken =
+        nearestSurface.kind === "background"
+          ? "foreground"
+          : `${nearestSurface.kind}-foreground`;
+      const replacement = `text-${textToken}${match[1] ?? ""}`;
+      const start = offset;
+      const end = start + match[0].length;
+      normalized = `${normalized.slice(0, start)}${replacement}${normalized.slice(end)}`;
     }
-    const textToken =
-      nearestSurface.kind === "background"
-        ? "foreground"
-        : `${nearestSurface.kind}-foreground`;
-    const replacement = `text-${textToken}${match[1] ?? ""}`;
-    const start = offset;
-    const end = start + match[0].length;
-    normalized = `${normalized.slice(0, start)}${replacement}${normalized.slice(end)}`;
   }
   return normalized;
 }
 
 function normalizeStructuredArraySerializations(content: string): string {
-  return STRUCTURED_ARRAY_DISPLAY_FIELDS.reduce(
-    (normalized, [field, displayField]) =>
-      normalized.replace(
+  let normalized = STRUCTURED_ARRAY_DISPLAY_FIELDS.reduce(
+    (acc, [field, displayField]) =>
+      acc.replace(
         new RegExp(`\\bsite\\.${field}\\s*\\.\\s*join\\s*\\(`, "g"),
         `site.${field}.map((item) => item.${displayField}).join(`,
       ),
     content,
   );
+  // Normalize any mapping over structured arrays
+  normalized = normalized.replace(
+    /site\.sections\.map\(\(([A-Za-z0-9_]+)(?:,\s*[A-Za-z0-9_]+)?\)\s*=>\s*<([A-Za-z0-9_]+)([\s\S]*?)<\/\2>\)/g,
+    (_match: string, param: string, tag: string, inside: string) => {
+      const fixedInside = inside
+        .replace(
+          new RegExp(`key=\\{${param}\\}`, "g"),
+          `key={typeof ${param} === "string" ? ${param} : ${param}?.title || ${param}?.name || JSON.stringify(${param})}`,
+        )
+        .replace(
+          new RegExp(`\\{${param}\\}`, "g"),
+          `{typeof ${param} === "string" ? ${param} : ${param}?.title || ${param}?.name || ${param}?.body || ""}`,
+        );
+      return `site.sections.map((${param}: any) => <${tag}${fixedInside}</${tag}>)`;
+    },
+  );
+  normalized = normalized.replace(
+    /site\.sections\.map\(\(([A-Za-z0-9_]+)(?:,\s*[A-Za-z0-9_]+)?\)\s*=>\s*\(([\s\S]*?)\)\)/g,
+    (_match: string, param: string, body: string) => {
+      const fixedBody = body
+        .replace(
+          new RegExp(`key=\\{${param}\\}`, "g"),
+          `key={typeof ${param} === "string" ? ${param} : ${param}?.title || ${param}?.name || JSON.stringify(${param})}`,
+        )
+        .replace(
+          new RegExp(`\\{${param}\\}`, "g"),
+          `{typeof ${param} === "string" ? ${param} : ${param}?.title || ${param}?.name || ${param}?.body || ""}`,
+        );
+      return `site.sections.map((${param}: any) => (${fixedBody}))`;
+    },
+  );
+  normalized = normalized.replace(
+    /<pre[^>]*>\s*\{JSON\.stringify\([^}]+\)\}\s*<\/pre>/gi,
+    "",
+  );
+  normalized = normalized.replace(
+    /\{typeof\s+([A-Za-z0-9_]+)\s*===\s*["']string["']\s*\?\s*\1\s*:\s*JSON\.stringify\(\1\)\}/g,
+    (_match: string, variable: string) =>
+      `{typeof ${variable} === "string" ? ${variable} : (${variable} as any)?.title || (${variable} as any)?.name || (${variable} as any)?.method || (${variable} as any)?.quote || ""}`,
+  );
+  normalized = normalized.replace(
+    /\{JSON\.stringify\(([A-Za-z0-9_]+)\)\}/g,
+    (_match: string, variable: string) =>
+      `{typeof ${variable} === "string" ? ${variable} : (${variable} as any)?.title || (${variable} as any)?.name || (${variable} as any)?.method || (${variable} as any)?.quote || ""}`,
+  );
+  return normalized;
 }
 
 export function inspectGeneratedSiteTasteSource(input: {
@@ -876,6 +929,11 @@ export function normalizeBatchedSiteAnchors(
         "",
       );
       content = content.replaceAll(/src="\/placeholder[^"]*"/g, "");
+      // Remove self-closing empty framed placeholder boxes in image-free mode
+      content = content.replace(
+        /<(?:span|div)\b(?=[^>]*\baria-hidden=["']true["'])(?=[^>]*\bclassName=["'][^"']*(?:aspect-|\bh-\d|\bw-\d)[^"']*(?:\bbg-|\bborder-)[^"']*["'])[^>]*\/>/gi,
+        "",
+      );
     }
     if (whatsappHref) {
       content = content.replace(
@@ -899,20 +957,58 @@ export function normalizeBatchedSiteAnchors(
       if (options?.palette) {
         content = normalizeAcceptedPaletteLiterals(content, options.palette);
       }
+      // Any remaining raw hex literal in classes/inline styles gets mapped to semantic tokens
+      content = content.replace(
+        /\b(?:bg|text|border)-\[#[0-9a-f]{3,8}\]/gi,
+        (match: string) => {
+          if (match.startsWith("bg-")) {
+            return "bg-accent";
+          }
+          if (match.startsWith("text-")) {
+            return "text-foreground";
+          }
+          if (match.startsWith("border-")) {
+            return "border-border";
+          }
+          return match;
+        },
+      );
+      content = content.replace(/#[0-9a-f]{6}/gi, () => {
+        return "currentColor";
+      });
       content = content
         .replace(/\bh-screen\b/g, "min-h-dvh")
         .replace(/\bmin-min-h-dvh\b/g, "min-h-dvh")
         .replace(/\s+data-generated-site-starter(?:=["'][^"']*["'])?/gi, "")
-        // Surface tokens read as text (see SURFACE_TOKEN_AS_TEXT above) are
-        // self-healed to their real -foreground pairing before the gate ever
-        // has to reject the candidate. text-background is handled separately
-        // by healContrastSurfaceText below, since its correct pairing depends
-        // on whether it sits inside a contrast-surface scope.
+        // Normalize uppercase tracking eyebrows if overused
+        .replace(/\buppercase\s+tracking(?:-[\w[\].-]+)?\b/g, "font-medium")
+        .replace(/\btracking(?:-[\w[\].-]+)?\s+uppercase\b/g, "font-medium")
+        .replace(/font-medium\]/g, "font-medium")
+        // Map generic raw tailwind color utilities onto semantic theme tokens
+        .replace(
+          /\b(?:bg|text|border)-(?:white|black|gray(?:-[\w/]+)?|slate(?:-[\w/]+)?|zinc(?:-[\w/]+)?|stone(?:-[\w/]+)?|neutral(?:-[\w/]+)?)\b/g,
+          (match: string) => {
+            if (match.startsWith("bg-")) {
+              return "bg-muted";
+            }
+            if (match.startsWith("text-")) {
+              return "text-foreground";
+            }
+            if (match.startsWith("border-")) {
+              return "border-border";
+            }
+            return match;
+          },
+        )
         .replace(/\btext-muted\b(?!-)/g, "text-muted-foreground")
         .replace(/\btext-card\b(?!-)/g, "text-card-foreground")
         .replace(/\btext-popover\b(?!-)/g, "text-popover-foreground")
         .replace(/\btext-secondary\b(?!-)/g, "text-secondary-foreground")
         .replace(/\bborder-(?:l|r)-(?:2|3|4|5|6|8|\[[^\]]+\])\b/g, "")
+        .replace(
+          /\bborder\b([^"']*)\btext-background\b/g,
+          "border$1text-foreground",
+        )
         .replace(
           /<SiteCluster\b([^>]*)>/g,
           (_match: string, attributes: string) =>
@@ -948,7 +1044,11 @@ export function normalizeBatchedSiteAnchors(
       isGeneratedRouteSource &&
       file.path.startsWith("src/routes/")
     ) {
-      content = ensureGeneratedRoutePrimaryCta(content, whatsappHref);
+      content = ensureGeneratedRoutePrimaryCta(
+        content,
+        whatsappHref,
+        options?.primaryCtaTarget,
+      );
     }
     if (isGeneratedRouteSource) {
       content = ensureActionTouchTargets(content);
@@ -1065,8 +1165,18 @@ function containsAcceptedCtaTarget(source: string, target: string): boolean {
 function ensureGeneratedRoutePrimaryCta(
   content: string,
   whatsappHref: string | null,
+  rawTarget?: string,
 ): string {
-  if (!whatsappHref || content.includes(whatsappHref)) {
+  if (!whatsappHref) {
+    return content;
+  }
+  // Check if content already contains the primary CTA target or WhatsApp link
+  if (
+    content.includes(whatsappHref) ||
+    (rawTarget && containsAcceptedCtaTarget(content, rawTarget)) ||
+    content.includes("site.primaryCta") ||
+    /https:\/\/(?:wa\.me|api\.whatsapp\.com)/.test(content)
+  ) {
     return content;
   }
   const action = `<div className="mt-10"><a href="${whatsappHref}" className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground">{site.primaryCta} via WhatsApp</a></div>`;
@@ -1079,7 +1189,7 @@ function ensureGeneratedRoutePrimaryCta(
 
 function ensureActionTouchTargets(content: string): string {
   const actionPattern =
-    /<a([^>]*?)href=["'][^"']+["']([^>]*?)>([\s\S]{0,240}?(?:site\.primaryCta|hubungi|pesan|lihat|mulai|daftar|janji|konsultasi|whatsapp|chat)[\s\S]{0,240}?)<\/a>/gi;
+    /<a([^>]*?)href=["'][^"']+["']([^>]*?)>([\s\S]{0,240}?)<\/a>/gi;
   return content.replace(actionPattern, (match: string) =>
     makeTouchSafeAnchor(match),
   );
@@ -1545,6 +1655,22 @@ export function inspectSiteFieldReferences(input: {
   return invalidSiteReferences(input.content, input.site);
 }
 
+const STRING_METHODS = new Set([
+  "toLowerCase",
+  "toUpperCase",
+  "trim",
+  "slice",
+  "startsWith",
+  "endsWith",
+  "includes",
+  "replace",
+  "replaceAll",
+  "split",
+  "charAt",
+  "substring",
+  "toString",
+]);
+
 function invalidSiteReferences(
   content: string,
   site: Record<string, unknown>,
@@ -1561,16 +1687,20 @@ function invalidSiteReferences(
     if (ts.isPropertyAccessExpression(node)) {
       const chain = propertyChain(node);
       if (chain?.[0] === "site" && !pathExists(site, chain.slice(1))) {
-        // Array method calls (site.<field>.map/filter/length/...) on an
-        // array-valued field are legitimate; pathExists fails them because the
-        // method name is not a data key. Skip when the parent chain resolves to
-        // an array so genuine unknown data fields are still caught.
+        // Array or string method calls on matching data fields are legitimate.
+        // pathExists fails them because the method name is not a data key.
+        // Skip when the parent chain resolves to an array or string.
         const method = chain[chain.length - 1];
         const parent = chain.slice(0, -1);
         const parentValue =
           parent.length > 1 ? valueAtPath(site, parent.slice(1)) : site;
         if (ARRAY_METHODS.has(method) && Array.isArray(parentValue)) {
           // legitimate array method — do not flag.
+        } else if (
+          STRING_METHODS.has(method) &&
+          typeof parentValue === "string"
+        ) {
+          // legitimate string method — do not flag.
         } else {
           invalid.add(chain.join("."));
         }
