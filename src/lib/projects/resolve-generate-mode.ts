@@ -15,10 +15,6 @@ export function resolveGenerateMode(input: {
   generationEngine?: string;
   hasAcceptedHandoff?: boolean;
 }): GenerateMode {
-  const isContract = input.generationEngine === "contract-v1";
-  if (isContract && input.hasAcceptedHandoff) {
-    return "retry_build";
-  }
   if (input.requestedMode === "retry_build" && input.hasPersistedSource) {
     return "retry_build";
   }

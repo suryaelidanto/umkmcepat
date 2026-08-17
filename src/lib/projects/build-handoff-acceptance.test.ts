@@ -16,7 +16,7 @@ import { resolveGenerateMode } from "./resolve-generate-mode";
 describe("resolveGenerateMode (contract-v1)", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("reuses the accepted handoff on retry instead of re-entering first_generate", () => {
+  it("reuses retry_build when requested and source exists", () => {
     const mode = resolveGenerateMode({
       requestedMode: "retry_build",
       hasPersistedSource: true,
@@ -26,14 +26,14 @@ describe("resolveGenerateMode (contract-v1)", () => {
     expect(mode).toBe("retry_build");
   });
 
-  it("never re-enters first_generate when a contract handoff is already accepted", () => {
+  it("runs first_generate when first_generate is requested even if contract handoff is accepted", () => {
     const mode = resolveGenerateMode({
       requestedMode: "first_generate",
       hasPersistedSource: false,
       generationEngine: "contract-v1",
       hasAcceptedHandoff: true,
     });
-    expect(mode).toBe("retry_build");
+    expect(mode).toBe("first_generate");
   });
 
   it("keeps legacy behavior when engine is legacy-v1", () => {
