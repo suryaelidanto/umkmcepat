@@ -1519,9 +1519,9 @@ function publicTrustPoints(
     return supplied;
   }
   return [
-    "Pilihan utama terlihat jelas",
-    "Detail produk mudah dipahami",
-    `${ctaLabel} mudah ditemukan`,
+    "Garansi kualitas dan pengerjaan rapi",
+    `Konsultasi langsung via ${ctaLabel}`,
+    "Proses mudah dan transparan",
   ];
 }
 
@@ -1530,7 +1530,7 @@ function publicProductCopy(product: SiteSchemaProduct): SiteSchemaProduct {
   if (!description || isInternalCopy(description)) {
     return {
       ...product,
-      description: "Pilihan utama yang bisa kamu tanyakan sebelum pesan.",
+      description: `Layanan ${product.name.toLowerCase()} dengan pengerjaan profesional dan rapi.`,
     };
   }
   return product;

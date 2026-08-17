@@ -38,16 +38,22 @@ import { getFormattedShadcnRegistryPrompt } from "@/lib/projects/scaffold/compon
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
-const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS (Shadcn/UI Masterpiece & Component Registry):
+const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS (High-Impact Masterpiece & Component Registry):
 ${getFormattedShadcnRegistryPrompt()}
 
-CORE COMPOSITION PRINCIPLES:
-- Compose high-converting, bespoke landing pages using the components listed in the registry above. Avoid generic templates or monotonous equal-card grids.
-- Asymmetrical Bento Layout: Give primary offers/flagship items a wider card (colSpan=2), flanked by micro-feature cards and stat counters.
-- Visual Polish: Pair features with domain-tailored Lucide icons (<Sparkles>, <Clock>, <ShieldCheck>, <Phone>, <MapPin>, etc.), BadgePill tags, and StatCounter badges.
-- Surface Temperature & Contrast: Alternate section surfaces (base -> muted -> contrast -> accent) to create clear visual rhythm.
-- Action & Conversion: Primary CTA must be prominent, clearly visible, and touch-safe (min-h-11 min-w-11) pointing to the accepted WhatsApp target.
-- Keep the route compact and useful on mobile. In graphic mode, use a meaningful inline SVG with visible paths or omit the media panel. site.trustPoints and site.usp are often the same values — never render both as separate adjacent sections with identical items.`;
+CREATIVE MASTERPIECE PRINCIPLES:
+- DO NOT generate generic minimalist templates or predictable 2-column wireframes with crude SVG line drawings.
+- HERO SHOWCASE: For image-free mode, do NOT draw crude abstract SVG doodles. Build a rich **Interactive Value Showcase Card** with floating price badges (<BadgePill>), real Lucide icons (<Sparkles>, <ShieldCheck>, <Clock>, <Phone>, <Award>), and micro-highlights (<StatCounter>).
+- BENTO & SERVICES LAYOUT:
+  - If 4 services: Use a balanced 2x2 grid (<div className="grid gap-5 md:grid-cols-2">) or 4-column cards. Never leave an orphaned empty cell.
+  - Highlight key services with distinct pill badges (<BadgePill>Mulai 35rb</BadgePill>), clear service titles, benefit descriptions, and individual action buttons.
+- SECTION FLOW & SURFACE CONTRAST:
+  - Hero: Base surface with bold display typography (text-5xl to text-7xl font-serif tracking-tight).
+  - Features/Catalog: Muted surface (bg-muted/40) with rich Bento cards.
+  - Operational/Trust: Contrast surface (surface="contrast" or bg-foreground) with text-background text pairing and prominent icons.
+- CONVERSION ACTION: Prominent, high-contrast, rounded-full primary WhatsApp button (min-h-11 min-w-11) with arrow icon (<ArrowUpRight className="ml-2 size-4" />).
+- COPY QUALITY: Zero internal prompt phrasing ("Pilihan utama...", "Detail produk..."). Use natural, confident Indonesian marketing benefits.
+- In graphic mode, use a meaningful inline SVG with visible paths or omit the media panel. Keep the route compact and useful on mobile. site.trustPoints and site.usp are often the same values — never render both as separate adjacent sections with identical items.`;
 
 export function buildReferenceCalibratedCorrectionPrompt(input: {
   contract: GeneratedSiteWriterContractV2;

@@ -191,9 +191,9 @@ export const COMPLETE_COMPONENT_REGISTRY: ComponentDocumentation[] = [
 ];
 
 export function getFormattedShadcnRegistryPrompt(): string {
-  const categories = COMPLETE_COMPONENT_REGISTRY.map(
-    (c) => `- ${c.name} (${c.module}): ${c.description}`,
-  ).join("\n");
+  const categories = COMPLETE_COMPONENT_REGISTRY.slice(0, 15)
+    .map((c) => `- ${c.name} (${c.module}): ${c.description}`)
+    .join("\n");
 
   return `PRE-INSTALLED SHADCN/UI & CREATIVE REGISTRY:
 All 45+ components and layout primitives are pre-installed in the scaffold (Button, Card, Accordion, Badge, Tabs, Carousel, Avatar, Dialog, Sheet, BentoGrid, BentoCard, StatCounter, BadgePill, TestimonialCard, Lucide icons, etc.). Import and compose them directly.
