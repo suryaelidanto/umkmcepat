@@ -3695,7 +3695,7 @@ export function WorkspaceShell({
                 ) : null}
                 <form
                   onSubmit={handleMessageSubmit}
-                  className="mt-spacing-3 min-w-0 rounded-[28px] border border-black/10 bg-[#fcfbf8] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sm dark:border-surface-warm-white/12 dark:bg-[#262622] dark:shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+                  className="mt-spacing-3 min-w-0 rounded-[28px] border border-border bg-card p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sm"
                 >
                   <label htmlFor="workspace-message" className="sr-only">
                     Pesan untuk AI
@@ -3730,7 +3730,7 @@ export function WorkspaceShell({
                           ? "Minta perubahan, contoh: buat lebih premium..."
                           : "Jawab pilihan atau tulis kebutuhanmu..."
                     }
-                    className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                    className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                     disabled={sessionExpired || authStatus !== "authenticated"}
                   />
                   <div className="flex items-center justify-end gap-spacing-4">
@@ -3783,7 +3783,7 @@ export function WorkspaceShell({
                           !message.trim() ||
                           hasUploadingAttachments(pendingAttachments)
                         }
-                        className="size-9 rounded-full bg-surface-warm-white text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-50"
+                        className="size-9 rounded-full bg-[#1c1c1c] text-white shadow-sm transition hover:bg-black hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 disabled:hover:scale-100 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30"
                         aria-label="Kirim pesan"
                       >
                         <ArrowUp className="size-4" />

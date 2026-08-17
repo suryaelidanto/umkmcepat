@@ -12,13 +12,13 @@ export function HeldBuildRecommendationNotice({
   onOpen: () => void;
 }) {
   return (
-    <div className="rounded-[22px] border border-border bg-surface-warm-white px-spacing-5 py-spacing-4 shadow-sm dark:border-surface-warm-white/10 dark:bg-[#1d1d1a] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+    <div className="rounded-[22px] border border-border bg-card px-spacing-5 py-spacing-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-spacing-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground dark:text-surface-warm-white">
+          <p className="text-sm font-semibold text-foreground">
             Rancangan website disimpan
           </p>
-          <p className="mt-spacing-1 text-xs leading-5 text-text-secondary dark:text-surface-warm-white/52">
+          <p className="mt-spacing-1 text-xs leading-5 text-muted-foreground">
             Lanjutkan diskusi dulu, atau buka rancangan saat siap membuat
             website.
           </p>
@@ -28,7 +28,7 @@ export function HeldBuildRecommendationNotice({
             type="button"
             variant="outline"
             onClick={onOpen}
-            className="h-9 rounded-[12px] border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
+            className="h-9 rounded-[12px] border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted"
           >
             Buka rancangan
           </Button>
@@ -36,7 +36,7 @@ export function HeldBuildRecommendationNotice({
             type="button"
             disabled={!canBuild}
             onClick={onBuild}
-            className="h-9 rounded-[12px] bg-foreground text-background px-spacing-4 text-xs hover:bg-foreground/90 disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+            className="h-9 rounded-[12px] bg-[#1c1c1c] text-white px-spacing-4 text-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white"
           >
             Mulai buat website
           </Button>
