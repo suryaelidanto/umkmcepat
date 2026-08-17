@@ -492,15 +492,15 @@ export function PreviewIssueState({
   title: string;
 }) {
   return (
-    <div className="grid min-h-full place-items-center bg-[#10100f] p-spacing-10 text-center">
-      <div className="max-w-lg rounded-[24px] border border-[#ffb4a6]/20 bg-[#241d1a] px-spacing-7 py-spacing-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-        <div className="mx-auto grid size-11 place-items-center rounded-full border border-[#ffb4a6]/28 bg-[#ffb4a6]/10 text-[#ffb4a6]">
+    <div className="grid min-h-full place-items-center bg-muted/20 p-spacing-10 text-center">
+      <div className="max-w-lg rounded-[24px] border border-border bg-card px-spacing-7 py-spacing-7 shadow-sm">
+        <div className="mx-auto grid size-11 place-items-center rounded-full border border-destructive/30 bg-destructive/10 text-destructive">
           <RefreshCw className="size-5" aria-hidden="true" />
         </div>
-        <h2 className="mt-spacing-5 text-2xl font-semibold tracking-[-0.02em] text-surface-warm-white">
+        <h2 className="mt-spacing-5 text-2xl font-semibold tracking-tight text-foreground">
           {title}
         </h2>
-        <p className="mx-auto mt-spacing-3 max-w-md text-sm leading-6 text-surface-warm-white/58">
+        <p className="mx-auto mt-spacing-3 max-w-md text-sm leading-6 text-muted-foreground">
           {detail}
         </p>
         {onRecover || onRebuild ? (
