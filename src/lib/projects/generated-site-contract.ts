@@ -1421,7 +1421,12 @@ function resolveCtaTarget(
   }
   const fact = facts.find((item) => item.id === targetFactId);
   if (!fact || fact.kind !== "contact") {
-    return "";
+    // Fall back to any available contact fact if the specific targetFactId is missing
+    const anyContact = facts.find((item) => item.kind === "contact");
+    if (anyContact && anyContact.kind === "contact") {
+      return anyContact.value.value;
+    }
+    return "#kontak";
   }
   return fact.value.value;
 }

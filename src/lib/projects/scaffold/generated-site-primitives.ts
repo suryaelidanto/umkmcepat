@@ -112,7 +112,7 @@ export function SiteCluster({
   className,
 }: {
   children: ReactNode;
-  justify?: "start" | "center" | "between";
+  justify?: "start" | "center" | "between" | "end";
   className?: string;
 }): ReactElement {
   const justifyClass =
@@ -120,7 +120,9 @@ export function SiteCluster({
       ? "justify-center"
       : justify === "between"
         ? "justify-between"
-        : "justify-start";
+        : justify === "end"
+          ? "justify-end"
+          : "justify-start";
   return (
     <div className={cn("flex flex-wrap items-center gap-3", justifyClass, className)}>
       {children}

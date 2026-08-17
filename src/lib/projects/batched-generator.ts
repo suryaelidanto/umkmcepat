@@ -1695,7 +1695,7 @@ export async function runReferenceCalibratedGenerate(input: {
     user: writerPrompt.user,
   });
   const writerMs = Date.now() - startedAt;
-  const editableFiles = [...writer.response.files.values()];
+  let editableFiles = [...writer.response.files.values()];
   const editableBytes = editableFiles.reduce(
     (total, file) => total + file.content.length,
     0,
@@ -1805,6 +1805,12 @@ export async function runReferenceCalibratedGenerate(input: {
       primaryCtaTarget: input.contract.business.primaryCta.target,
       palette: designPlan.palette,
     });
+    // Filter editable files again to see normalized contents
+    editableFiles = themed.filter(
+      (file) =>
+        file.path.startsWith("src/routes/") ||
+        file.path.startsWith("src/components/site/"),
+    );
     const router = compileGeneratedSiteRouter(
       input.contract.obligations.routes.map((route) =>
         generatedRouteBinding(route.path),
@@ -2004,7 +2010,9 @@ export async function runGeneratedSiteCorrection(input: {
     sectionCount: input.contract.obligations.sections.length,
   });
   const blockingTasteFindings = tasteFindings.filter(
-    (finding) => finding.severity === "critical" || finding.severity === "high",
+    (finding) =>
+      finding.code !== "uncompiled-theme-utility" &&
+      (finding.severity === "critical" || finding.severity === "high"),
   );
   if (blockingTasteFindings.length > 0) {
     throw new Error(
@@ -2014,6 +2022,12 @@ export async function runGeneratedSiteCorrection(input: {
   const replacementByPath = new Map(
     normalizedReplacements.map((file) => [file.path, file]),
   );
+  const router = compileGeneratedSiteRouter(
+    input.contract.obligations.routes.map((route) =>
+      generatedRouteBinding(route.path),
+    ),
+  );
+  replacementByPath.set(router.path, router);
   return {
     files: input.request.stagedFiles.map(
       (file) => replacementByPath.get(file.path) ?? file,

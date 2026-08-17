@@ -313,7 +313,7 @@ function ProjectPreviewThumb({
         className={`relative w-full overflow-hidden bg-black/[0.04] dark:bg-[#121211] ${className ?? ""}`}
       >
         <Image
-          src={`/media/${project.thumbnailRef}`}
+          src={`/api/projects/${project.id}/thumbnail`}
           alt={project.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
