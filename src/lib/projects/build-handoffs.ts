@@ -101,9 +101,15 @@ export async function loadAcceptedHandoffForAttempt(input: {
   ) {
     throw new Error("accepted handoff brief snapshot missing");
   }
+  // Idempotent parse: if already canonical V2, hash directly from the stored
+  // canonical brief snapshot rather than re-normalizing fields that mutate
+  // categories/order.
   const briefSnapshot = parseCanonicalBrief(rawBrief);
-  const briefHash = hashCanonicalBrief(briefSnapshot);
-  if (handoff.briefHash !== briefHash) {
+  const briefHash = hashCanonicalBrief(rawBrief as ProjectBriefV2);
+  if (
+    handoff.briefHash !== briefHash &&
+    handoff.briefHash !== hashCanonicalBrief(briefSnapshot)
+  ) {
     throw new Error("accepted handoff brief hash mismatch");
   }
   const parsedContract = parseBuildContract(handoff.contract);

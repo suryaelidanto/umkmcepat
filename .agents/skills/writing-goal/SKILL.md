@@ -1,187 +1,124 @@
 ---
 name: writing-goal
-description: Use when an autonomous agent must commit to a concrete goal before starting an open-ended or multi-step task — especially when the request is vague, when the agent will run unattended or on a loop until the work is "fully done", when the task has a metric that could be gamed, or when the agent needs to state upfront what done, stuck, and stop mean
+description: Use when an autonomous agent or human manager drafts, formats, or meta-prompts a rigorous, non-drifting /goal command or work contract for autonomous loops (pi-goal, Claude completion goals, Ralph loops, Codex goals) and delegated task execution. Never outputs files; outputs the fully articulated, pasteable /goal command and contract directly in chat.
 ---
 
 # writing-goal
 
 ## Overview
 
-Before an autonomous agent does anything, it writes its own goal. A goal is a **filled contract** — nine required slots plus two checks — and it is the only thing standing between an unattended agent and the two ways unattended work fails:
+A goal is an **ironclad, executable work contract**. It replaces human micro-management in autonomous agent loops (`pi-goal`, Claude loop engineering, Ralph loops, Codex goals) and high-trust delegation.
 
-- **Stops too early** — declares done on a hope, with nothing a stranger could check.
-- **Never stops** — grinds on a dead item, or invents adjacent work to stay busy.
+Without rigorous goal engineering, unattended agents fail in two catastrophic modes:
+1. **Premature Quit (Stop Hacking / False Done):** Declares victory after two superficial tries, hallucinating success without empirical evidence.
+2. **Infinite Drift (Metric / Busywork Hacking):** Grinds endlessly, invents out-of-scope tasks, perturbs unrelated files, or gets stuck repeating identical failed attempts.
 
-Baseline agents fill ~3 slots (outcome, partial verification, partial constraints) and consistently drop the completion criterion, the done checklist, boundaries, iteration policy, the stall protocol, and the stop condition. Those dropped slots are exactly where drift, infinite loops, and metric-gaming enter.
+**Core Directives:**
+- **Zero File Creation:** Never write the goal to disk (`.md`, `.txt`, etc.) unless explicitly instructed by the user. Emit the full, ready-to-run `/goal ...` command directly in chat.
+- **No Artificial Word Limits:** Do not truncate, compress, or omit essential contract slots. Express every constraint, checklist item, hardening step, and stop condition with maximum precision and depth.
+- **Extreme Discipline & 10x Hardening:** Demand empirical proof (exit codes, exact logs, diff audits, multi-angle verification). Instruct the agent to proactively investigate, use tools (e.g. search/Firecrawl, docs, profilers, tests), self-correct, and harden the solution beyond minimum passing.
 
-**Core principle:** A goal is a filled template, not a sentence. A missing slot is a failure, not a style choice.
+---
 
-**Termination principle:** Every goal must be able to *end*. If nothing in the goal can ever become false, the agent runs forever. If nothing must be *shown*, the agent quits on iteration two.
+## The 10 Pillars of GOAT Goal Engineering
 
-## When to use
+Every generated goal must fulfill all 10 pillars:
 
-- Agent is about to start an open-ended, multi-step, or tool-using task
-- Agent will run unattended, on a loop, or "until it's done" with no human in the cycle
-- User's request is vague ("make X faster/better/less flaky")
-- Task has a metric that could be gamed (error rate, ticket-close time, benchmark score)
-
-## When NOT to use
-
-- Single-step, no-judgment task ("run `npm test`")
-- Cleanly decomposable task → use a fixed workflow, not an autonomous agent
-- Pure reference lookup
-
-## The goal contract — fill EVERY slot, in order
-
-A goal is incomplete unless every slot is filled. **"N/A" is not a fill.** If a slot genuinely cannot be filled, say *what blocks it* — that statement IS the blocked stop condition (slot 9), and it means the goal is not ready to act on.
-
-| # | Slot | Fill it with |
+| # | Pillar | Description & Requirement |
 |---|---|---|
-| 1 | **Outcome** | The concrete end state. No adjectives ("faster", "better"). Name the observable thing that will be true. |
-| 2 | **Completion criterion** | Something *countable* the outcome must cross: a number (`p95 < 120ms`), or a closed checklist where every item has a binary check. |
-| 3 | **Verification surface** | The command, test, benchmark, or artifact whose output proves done. Exit 0/1 or a human reads it — **never the model's self-assessment.** |
-| 4 | **Done checklist** | The full inventory of work items, each with its own check. This is what "nothing left to do" means. See below. |
-| 5 | **Constraints** | What must not regress (suite stays green, no new error classes, unrelated paths within ±5%). |
-| 6 | **Boundaries** | Allowed files/modules/tools/data. Everything else is out of scope. |
-| 7 | **Iteration policy** | How you pick the next action ("profile → top bottleneck → smallest fix → re-measure → repeat"). Not "try things." |
-| 8 | **Stall + initiative** | What counts as no progress, and the ladder you climb before you are allowed to call yourself stuck. See below. |
-| 9 | **Stop condition** | The three exits — DONE, BLOCKED, EXHAUSTED — each with its trigger and its required report. See below. |
+| 1 | **Commander's Intent & Concrete Outcome** | The exact end state. Concrete observables only—no vague adjectives ("better", "faster", "cleaner"). |
+| 2 | **Quantified Completion Criteria** | Exact numerical thresholds (`p95 < 120ms`, `0 errors`, `100% test coverage on touched paths`) or a fully closed checklist of binary checks. |
+| 3 | **Empirical Verification Surface** | Non-negotiable external check (commands, test suites, build outputs, benchmarks, diff audits). Never model self-assessment or "looks good to me". |
+| 4 | **Exhaustive Done Checklist** | Closed inventory of all actions and their individual binary pass criteria. Unrelated ideas go to `Deferred`. |
+| 5 | **Negative Constraints & Anti-Regressions** | What must NOT break (no regressions on existing tests, no leaking secrets, no API contract breaks, no unapproved deps). |
+| 6 | **Strict Operational Boundaries** | Exact allowed/forbidden directories, files, tools, networks, and permissions. |
+| 7 | **Deterministic Iteration & Self-Correction Policy** | Hypothesis-driven workflow (`Observe -> Hypothesize -> Smallest Fix -> Verify -> Diff Audit`). Never random trial-and-error. |
+| 8 | **Autonomous Problem-Solving & Tool Initiative** | When stuck or lacking context, mandate proactive tool use (Firecrawl web search/docs scraping, git log archaeology, deep reading, runtime profiling) instead of early quitting. |
+| 9 | **10x Hardening & Adversarial Self-Audit** | After passing initial checks, rigorously probe edge cases, stress test, inspect diffs for unintended mutations, and verify clean production readiness. |
+| 10 | **Tri-State Stop Protocol (DONE / BLOCKED / EXHAUSTED)** | Exact termination triggers and required evidence reports for all three terminal states. |
 
-**On slot 2:** prefer a real number. If no number is available, a closed checklist of binary checks is an honest completion criterion; an invented score ("quality 8/10", "80% better") is not — a fabricated metric is worse than an honest checklist, because it launders self-assessment as measurement. If a number exists but has no baseline, the first checklist item is "produce the baseline", then set the threshold from it.
+---
 
-## Slot 4 — the done checklist (what "nothing left to do" means)
+## The Initiative & Anti-Stall Ladder
 
-The checklist is the work inventory. Empty inventory is the primary stop signal; without one, "am I done?" is a feeling.
+When progress stalls (two consecutive iterations with no ticked items and no metric movement), the agent must sequentially execute this escalation ladder before any exit:
 
-- **Every item is binary and carries its own check.** "Refactor auth" is not an item. "`src/auth/session.ts` no longer calls `legacyVerify` — `grep -c legacyVerify src/auth/` returns 0" is.
-- **The checklist is closed at goal-write time.** During the run you may add an item **only if the outcome cannot be reached or verified without it** (a discovered blocker, a missing test you need). Record why you added it.
-- **Everything else goes to `Deferred`.** Improvements, adjacent cleanups, "while I'm here" work, ideas worth doing later — these get *listed and reported*, never worked. Deferred items are not iterations.
-- **A shrinking checklist is progress; a growing one is a red flag.** If items are added faster than they close for two iterations, stop and report: the goal was mis-scoped, and that is a decision for the user, not an excuse to keep going.
+1. **Re-Measure & Baseline:** Re-run the verification surface to confirm current state against ground truth.
+2. **Isolate & Reproduce:** Create the smallest isolated repro (minimal unit test, single CLI invocation, script).
+3. **Change Mechanism (No Retry Loops):** Never repeat a failed approach. Switch strategy, paradigm, or architectural level.
+4. **Proactive External Discovery:** When knowledge is missing, use search/Firecrawl to pull documentation, changelogs, upstream issues, and reference code.
+5. **Lateral Checklist Pivot:** Switch to another open unblocked checklist item; return later with more context.
+6. **Decompose & Land Verified Subset:** Break complex blockers into smaller sub-tasks; land and verify partial components.
+7. **Read Deep Context:** Inspect complete source files, execution logs, AST/build trees, and commit histories.
+8. **Formal Blocker Escalation:** If all rungs fail, halt with a structured blocker report stating exact evidence, attempted paths, and the exact single external decision/credential needed to unblock.
 
-## Slot 8 — stall detection and the initiative ladder
+---
 
-**An iteration is *no-progress* when it closes no checklist item and moves no number on the verification surface.** Writing more report is not progress. Re-running a check that was already green is not progress.
+## Tri-State Stop Protocol
 
-**After two consecutive no-progress iterations, the ladder is mandatory** — you may not declare yourself stuck until every rung is recorded as tried and failed. Climb in order, recording each:
+Every goal terminates in one of these three explicit states:
 
-1. **Re-measure.** Confirm the bottleneck is real *now*. Do not act on a stale reading or a remembered failure.
-2. **Isolate.** Get the smallest reproduction or narrowest failing check. Guessing stops here.
-3. **Change the approach, not the effort.** A different mechanism — never the same fix harder. Repeating a recorded failure is forbidden; that is the top loop-failure mode.
-4. **Move to an unblocked item.** The checklist has others. Work them and come back with more information. A loop must never idle on one stuck item.
-5. **Reduce it.** Too big to land whole? Split it and land the part that is provable. Partial verified progress beats a stalled whole.
-6. **Buy information.** Read the source, logs, docs, or git history you have been guessing about. One read beats three guesses.
-7. **Widen the boundary — by asking, never silently.** Name the file or tool you need and why. Unattended? Record the question in the ledger and exit BLOCKED with it.
+- **DONE (Verified Success):** Checklist 100% closed + completion threshold crossed + negative constraints green + 10x hardening passed. **Must include pasted raw verification terminal output.**
+- **BLOCKED (Escalation):** Exhausted all ladder steps on an unavoidable gating blocker (e.g. missing external credentials, architecture veto, out-of-boundary dependency). Report: attempted paths, evidence logs, root cause, and exact unblocking input needed.
+- **EXHAUSTED (Resource Limit Backstop):** Reached hard token or iteration budget. Report: closed checklist items, remaining open items, current state of verification surface, and exact resumption guide for the next run.
 
-**Stuck is defined as: the ladder was climbed to the end and every rung is recorded as tried-and-failed.** That — not fatigue, not iteration count, not "this seems hard" — is what licenses a BLOCKED exit.
+---
 
-## Slot 9 — the stop condition (three exits, each with a required report)
+## Gaming & Exploitation Vectors (Pre-Emptively Closed)
 
-Every run ends in exactly one of these. Name all three in the goal, with their triggers.
+The generated goal must explicitly close standard agent exploitation patterns:
+- **Metric Hacking:** Muting assertions, deleting slow/failing tests, catching and swallowing errors, or hardcoding return values for benchmark inputs.
+- **Stop Hacking:** Quitting after a shallow first pass, declaring DONE on subjective belief, or claiming BLOCKED to avoid hard debugging.
+- **Busywork Hacking:** Refactoring unrelated codebases, formatting untouched modules, or generating lengthy narrative logs to simulate activity.
 
-| Exit | Trigger | Required report |
-|---|---|---|
-| **DONE** | Checklist empty **and** completion criterion crossed **and** constraints green | Pasted verification output (not a summary), the ticked checklist, the Deferred list |
-| **BLOCKED** | Ladder exhausted on the item that gates the outcome — **or** checklist empty but criterion not crossed | Every rung tried, the evidence, and **the one decision or access that would unblock it** |
-| **EXHAUSTED** | Iteration/time budget spent with items still open | What closed, what is open, what to run next — enough for a cold agent to resume |
+---
 
-Rules that make these exits real:
+## Output Contract & Formatting
 
-- **DONE requires evidence, not belief.** No pasted verification output means you are not done — you are at EXHAUSTED with an unverified claim. Say so in those words.
-- **A budget is a backstop, not the plan.** The real exits are checklist-empty and stall. Name a max anyway (iterations or wall-clock), so a broken verification surface cannot spin forever.
-- **BLOCKED is an honest finish, not a failure.** Reporting "the bottleneck is the payment gateway, outside my boundary" is a completed job. Faking a win is not.
-- **Stopping is an action.** Emit the terminal report. Under a loop harness, call its stop control (e.g. `ScheduleWakeup` with `stop: true`) — do not merely narrate "I'm done" and wake up again.
-- **Never restart a finished goal.** If the terminal report is written and the exit is DONE, the next wake-up re-reads the report and stops again. It does not go looking for more work.
+When writing a goal, output **directly into the conversation** (no file creation). Use the following comprehensive format:
 
-## Amending a goal mid-run
+```text
+/goal <High-density, self-contained single-paragraph objective defining outcome, verification commands, constraints, boundaries, iteration policy, proactive tool use, and stop conditions that survives context compaction and token budgets.>
+```
 
-Long runs discover the goal was wrong. Silent drift and rigid grinding are both failures.
+### Full Structured Work Contract (Presented Directly Below the `/goal` command):
 
-- **Amend loudly.** Write the new version into the goal file with the reason and what triggered it. Keep the old version visible.
-- **Never amend to make a failing check pass.** No lowering the threshold, no swapping the verification surface, no deleting a hard checklist item after it fails. Removing an item is legal only when it turns out already-satisfied or provably not required by the outcome — and you record the proof.
-- **If the *outcome* is wrong, that is BLOCKED, not an amendment.** Report it and let the user re-aim.
+```markdown
+### 1. Objective & Commander's Intent
+- **Desired End State:** [Exact observable outcome]
+- **Value / Purpose:** [Why this matters & the operational criteria]
 
-## Required check 1 — the gaming check
+### 2. Completion Criteria & Metrics
+- **Quantified Thresholds:** [Exact numbers, benchmarks, exit codes, or 100% pass criteria]
+- **Verification Surface:** [Specific command line(s), test scripts, linters, profilers to execute]
 
-Answer this out loud in the goal, in all three directions:
+### 3. Done Checklist & Work Inventory
+- [ ] **Item 1:** [Action] -> *Binary Verification Check:* `[Exact command/file assertion]`
+- [ ] **Item 2:** [Action] -> *Binary Verification Check:* `[Exact command/file assertion]`
+- [ ] **Item 3:** [Action] -> *Binary Verification Check:* `[Exact command/file assertion]`
+- **Deferred (Out of Scope):** [Explicitly excluded adjacent ideas/tasks]
 
-> How would a lazy or adversarial agent satisfy this goal literally while dodging the intent? List each exploit. Close each in the constraints (slot 5) or verification surface (slot 3).
+### 4. Constraints & Boundaries
+- **Must Not Regress:** [Zero test failures, unchanged public API signatures, latency caps, security rules]
+- **Allowed Scope:** [Target directories, authorized tools, allowed packages]
+- **Forbidden Scope:** [Untouched files, disallowed libraries, forbidden workarounds]
 
-| Family | Exploits to scan for |
-|---|---|
-| **Metric hacking** | Reclassifying or suppressing errors to hit a threshold; special-casing the exact test while breaking the general case; rewriting to pass a benchmark without real improvement; retrying to beat a "within N minutes" metric; denying the evaluation; leaking the answer into the input; tampering with the check itself |
-| **Stop hacking** | Declaring DONE without pasted verification output; quietly narrowing the checklist; calling a partial win done; declaring BLOCKED early to escape a hard item; "verified" that means "I read the code and it looks right" |
-| **Busywork hacking** | Adding out-of-scope items to keep the loop alive; refactoring unrelated code; re-verifying what is already green; producing more report instead of more progress |
+### 5. Iteration, Tool Initiative & Anti-Stall Ladder
+- **Execution Loop:** Observe -> Form Hypothesis -> Surgical Action -> Empirical Verify -> Diff Audit.
+- **Proactive Investigation:** On ambiguity or unknown errors, leverage Firecrawl / web search, doc scrapes, logs, and git archaeology before attempting guesswork.
+- **Anti-Stall Ladder:** (1) Re-measure -> (2) Isolate repro -> (3) Switch mechanism -> (4) External docs/search -> (5) Pivot item -> (6) Decompose -> (7) Deep file read -> (8) Stop BLOCKED.
 
-If you cannot close an exploit, say so in the goal — that is an honest "blocked" signal, not a finished goal.
+### 6. 10x Hardening & Adversarial Verification
+- Edge case boundary testing & stress validation.
+- Final diff audit across all touched files (ensure zero accidental mutations, no leftover debug prints, no loose types).
 
-## Required check 2 — the second-agent test
+### 7. Termination & Stop Conditions
+- **DONE:** Checklist complete, verification surface exit 0 / criteria met, constraints verified with pasted raw command output.
+- **BLOCKED:** Initiative ladder exhausted; emit evidence, attempted mechanisms, and the exact needed unblocker.
+- **EXHAUSTED:** Hard iteration/budget limit reached; output current state diff and cold-start resume steps.
 
-A second agent with **no context** must be able to read your terminal report alone and confirm done / not-done from the verification surface. If a context-less agent could not, your verification surface is self-assessment — rewrite slot 3. This is why DONE requires pasted output: it is the only slot a stranger can check.
-
-## Goal presentation
-
-Present the contract directly in the conversation response using the standard format. Do not write it to a file unless explicitly requested by the user.
-
-
-## Output format (REQUIRED)
-
-Keep the visible goal tight: ideally ~1500 characters, hard max 4000. Over budget? Cut prose, never slot fills — and in loop mode move the full checklist to the goal file, showing counts and the top-level items here.
-
-> **Goal:** [one-line outcome + completion criterion]
-> **Verified by:** [command/test/artifact — not self]
-> **Done checklist:** [N items, each with its check] · **Deferred:** [out of scope, listed not worked]
-> **Constraints:** [what must not regress]
-> **Boundaries:** [allowed files/tools/data]
-> **How I'll proceed:** [iteration policy]
-> **If I stall:** [what counts as no-progress + the ladder]
-> **I stop when:** DONE [checklist empty + criterion met] · BLOCKED [ladder exhausted / criterion unreachable] · EXHAUSTED [budget]
-> **Gaming vectors I closed:** [metric / stop / busywork — each named and closed]
-
-Then state in plain language what you will accomplish. At the end of the run, emit the terminal report for whichever exit you hit.
-
-## Worked example
-
-User: "Make checkout faster — customers complain."
-
-> **Goal:** Reduce checkout p95 latency below 120ms on the `checkout-e2e` benchmark.
-> **Verified by:** `./bench checkout-e2e` exits 0 and prints p95 < 120. Output pasted in the final report.
-> **Done checklist:** (1) baseline captured; (2) top-3 hot paths profiled and ranked; (3) each ranked path either fixed-and-remeasured or recorded as not-the-cause; (4) bench p95 < 120; (5) `npm test` green. **Deferred:** cart-page render cost, log noise in `payment/` — reported, not worked.
-> **Constraints:** `npm test` stays green; no new error classes in logs; unrelated-path latencies within ±5%.
-> **Boundaries:** `src/checkout/**` writable; `src/payment/**` read-only. May profile and read logs. No new dependencies without asking.
-> **How I'll proceed:** profile → rank hot paths → smallest fix to the top one → re-run bench → repeat while p95 > 120 and a measured cause remains.
-> **If I stall:** two cycles that close no checklist item and move p95 by <2ms → re-measure, isolate to one span, change mechanism (not retry), move to another ranked path, split the fix, read the ORM query log, then ask to touch `payment/`. Only when all seven are recorded as failed am I stuck.
-> **I stop when:** DONE — checklist empty and bench prints p95 < 120 with `npm test` green. BLOCKED — ladder exhausted, or profiling shows the bottleneck is the payment gateway (outside my boundary); I report the measurement, I do not rewrite. EXHAUSTED — 8 fix–measure cycles.
-> **Gaming vectors I closed:** *Metric* — "delete slow tests" blocked by constraints; "special-case bench inputs" blocked, inputs are randomized and unseen; "hollow rewrite" caught by the ±5% unrelated-path check. *Stop* — DONE requires pasted bench output, so "looks faster" cannot end the run. *Busywork* — the checklist is closed; cart-page work is Deferred, not an iteration.
-
-I'll get checkout under 120ms at the p95, proven by the benchmark, without breaking tests or other paths. If the real bottleneck turns out to be the payment gateway, I'll stop and show you the measurement rather than fake a win.
-
-**Checklist-based variant** (no meaningful number): *"Goal: all 23 call sites off the deprecated `verifyLegacy` API. Verified by: `rg -c 'verifyLegacy' src/` returns 0 and `npm test` green. Done checklist: 23 items, one per call site, each ticked by its own grep."* Twenty-three binary checks are an honest completion criterion; "migration feels complete" is not.
-
-## Rationalizations — both directions
-
-| Excuse | Reality |
-|---|---|
-| "It works, I'm done." | No pasted verification output = not DONE. That is EXHAUSTED with an unverified claim. Say it in those words. |
-| "Close enough to the threshold." | The threshold is the threshold. Crossed or not crossed. |
-| "This item is too hard, I'll drop it." | Dropping a hard item is stop-hacking. Climb the ladder; if it truly gates the outcome, exit BLOCKED and say so. |
-| "I'll lower the target to something realistic." | Not after seeing it fail. That is the loop's signature reward hack. Amend the *approach*, never the *bar*. |
-| "I'm stuck." (iteration 2) | Stuck is defined: ladder climbed, every rung recorded as failed. Otherwise you are on rung 1. |
-| "Nothing's working, I'll try that fix again." | It is in the ledger as failed. Rung 3 says change the mechanism. |
-| "The checklist is empty but I found more to do." | Deferred list. Report it. Do not extend the loop with self-generated work. |
-| "I'll keep polishing until the budget runs out." | Empty checklist + criterion met = DONE. Stop and emit the report. Idling burns the user's money. |
-| "I'll just peek outside my boundary, it's one file." | Rung 7 is *ask*. Unattended means record the question and exit BLOCKED with it. |
-
-## Red flags — rewrite the goal
-
-- Any slot filled with an adjective instead of a number or observable
-- "Done when I'm satisfied" / "when it looks good" / "when it works"
-- A completion criterion that is a self-scored number ("quality 8/10")
-- No done checklist — so "nothing left to do" is undefined
-- No definition of no-progress, or "stuck" left to judgment
-- Only one exit named (usually DONE), so BLOCKED and EXHAUSTED become silent grinding
-- Verification surface is the agent's own judgment
-- You skipped listing a gaming vector because "none apply" — they almost always apply
-
-## Source
-
-Built from: OpenAI Codex Goals (six elements), arXiv 2505.02709 (goal drift + strong goal elicitation), Anthropic context engineering ("right altitude"), arXiv 2605.02964 (reward-hacking exploit vectors), the second-agent test, and the "executable done-check" rule. The stall ladder, closed checklist, three-exit stop condition, and amendment protocol come from unattended-loop failure modes: premature DONE, self-generated busywork, and repeated failed fixes.
+### 8. Closed Gaming Vectors
+- *Metric Exploits:* [Named prevention]
+- *Stop Exploits:* [Named prevention]
+- *Busywork Exploits:* [Named prevention]
+```
