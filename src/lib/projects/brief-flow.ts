@@ -327,16 +327,16 @@ export function normalizeWorkspaceTurn(
     unstringifyJsonObject(value.workspaceCard) as { type?: string } | null
   )?.type;
 
-  // Server-side enforcement: once the site is built, never re-offer
-  // build_recommendation (that restarts the interview handoff). Clarifying
-  // questions (e.g. which color) are still allowed for post-build edits.
+  // Server-side enforcement: when a site is built, allow build_recommendation if the user explicitly affirms rebuilding/updating
   if (
     options.hasBuiltSite &&
     (workspaceCard.type === "build_recommendation" ||
       originalCardType === "build_recommendation" ||
       originalCardType === "brief_review")
   ) {
-    workspaceCard = createFallbackWorkspaceCard(brief);
+    if (!isUserAffirmingBuild(options.lastUserText)) {
+      workspaceCard = createFallbackWorkspaceCard(brief);
+    }
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is
     // clear so Mulai build appears. No force-build UI; no auto-generate.
