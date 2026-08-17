@@ -119,7 +119,6 @@ import {
   nextRetryAttempt,
 } from "@/lib/projects/discuss-chat-error";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
-import { resolveGenerateMode } from "@/lib/projects/resolve-generate-mode";
 import {
   createImageReplaceEditInstruction,
   createVisualAnnotationEditInstruction,
@@ -974,13 +973,10 @@ export function WorkspaceShell({
     try {
       // Mode follows real persisted source only — failed status alone must not
       // force retry_build (empty-source dead-end). Server re-resolves anyway.
-      const hasPersistedSource =
-        runtimeQuery.data?.hasPersistedSource === true ||
-        sourceFiles.length > 0;
-      const generateMode = resolveGenerateMode({
-        requestedMode: hasPersistedSource ? "retry_build" : "first_generate",
-        hasPersistedSource,
-      });
+      // When rebuilding with a new handoff proof or first generation, run
+      // first_generate so the full generation pipeline runs instead of only
+      // replaying old source.
+      const generateMode = "first_generate" as const;
       const activeCard = workspaceCardRef.current;
       const cardProof =
         activeCard?.type === "build_recommendation"
