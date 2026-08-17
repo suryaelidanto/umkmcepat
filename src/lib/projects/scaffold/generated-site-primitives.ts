@@ -220,7 +220,7 @@ export function StatCounter({
   className?: string;
 }): ReactElement {
   return (
-    <div className={cn("flex flex-col gap-1 rounded-2xl border border-border/80 bg-card p-4 sm:p-5", className)}>
+    <div className={cn("flex flex-col gap-1 rounded-2xl border border-border/80 bg-card/90 p-4 sm:p-5 shadow-xs backdrop-blur-xs", className)}>
       <span className="font-serif text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
         {value}
       </span>

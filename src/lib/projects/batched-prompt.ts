@@ -38,22 +38,13 @@ import { getFormattedShadcnRegistryPrompt } from "@/lib/projects/scaffold/compon
 import { deriveScaffoldManifest } from "@/lib/projects/scaffold/manifest";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
-const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS (High-Impact Masterpiece & Component Registry):
+const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS:
 ${getFormattedShadcnRegistryPrompt()}
-
-CREATIVE MASTERPIECE PRINCIPLES:
-- DO NOT generate generic minimalist templates or predictable 2-column wireframes with crude SVG line drawings.
-- HERO SHOWCASE: For image-free mode, do NOT draw crude abstract SVG doodles. Build a rich **Interactive Value Showcase Card** with floating price badges (<BadgePill>), real Lucide icons (<Sparkles>, <ShieldCheck>, <Clock>, <Phone>, <Award>), and micro-highlights (<StatCounter>).
-- BENTO & SERVICES LAYOUT:
-  - If 4 services: Use a balanced 2x2 grid (<div className="grid gap-5 md:grid-cols-2">) or 4-column cards. Never leave an orphaned empty cell.
-  - Highlight key services with distinct pill badges (<BadgePill>Mulai 35rb</BadgePill>), clear service titles, benefit descriptions, and individual action buttons.
-- SECTION FLOW & SURFACE CONTRAST:
-  - Hero: Base surface with bold display typography (text-5xl to text-7xl font-serif tracking-tight).
-  - Features/Catalog: Muted surface (bg-muted/40) with rich Bento cards.
-  - Operational/Trust: Contrast surface (surface="contrast" or bg-foreground) with text-background text pairing and prominent icons.
-- CONVERSION ACTION: Prominent, high-contrast, rounded-full primary WhatsApp button (min-h-11 min-w-11) with arrow icon (<ArrowUpRight className="ml-2 size-4" />).
-- COPY QUALITY: Zero internal prompt phrasing ("Pilihan utama...", "Detail produk..."). Use natural, confident Indonesian marketing benefits.
-- In graphic mode, use a meaningful inline SVG with visible paths or omit the media panel. Keep the route compact and useful on mobile. site.trustPoints and site.usp are often the same values — never render both as separate adjacent sections with identical items.`;
+- In graphic mode, use a meaningful inline SVG with visible paths or omit the media panel. Keep the route compact and useful on mobile. site.trustPoints and site.usp are often the same values — never render both as separate adjacent sections with identical items.
+- HERO SHOWCASE: For image-free mode, build a rich value showcase bento with price badges (<BadgePill>), real Lucide icons, and micro-stats (<StatCounter>).
+- BENTO CATALOG: Use <BentoGrid> and <BentoCard> with featured primary prominence (<BentoCard colSpan={2}>). Every card gets distinct icon, title, description, price badge, and consultation action.
+- SURFACE RHYTHM: Hero base surface, catalog muted surface (bg-muted/40), and logistics contrast surface (surface="contrast") with text-background.
+- CONVERSION: High-contrast rounded-full primary WhatsApp CTA button with <MessageCircle className="mr-2 size-4" /> and <ArrowUpRight className="ml-2 size-4" /> (min-h-11).`;
 
 export function buildReferenceCalibratedCorrectionPrompt(input: {
   contract: GeneratedSiteWriterContractV2;

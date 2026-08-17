@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { classifyBrowserReport, type BrowserGateReport } from "./browser-gates";
 import { GeneratedSiteCallBudget } from "./generated-site-call-budget";
+import { normalizeBatchedSiteAnchors } from "./generated-site-gates";
 import {
   createEmptyGeneratedSiteQualityProofV2,
   type GeneratedSiteQualityProofV2,
@@ -279,7 +280,14 @@ export async function runGeneratedSitePipeline(
         stagedFiles,
       );
     }
-    stagedFiles = corrected.files;
+    const normalized = normalizeBatchedSiteAnchors(corrected.files, {
+      compositionPatternId: corrected.designPlan.compositionPatternId,
+      ensurePrimaryCta: true,
+      photoEnabled: contract.media.mode === "owner_assets",
+      primaryCtaTarget: contract.business.primaryCta.target,
+      palette: corrected.designPlan.palette,
+    });
+    stagedFiles = normalized;
     designPlan = corrected.designPlan;
     proof = withCalls(
       {
@@ -383,7 +391,14 @@ export async function runGeneratedSitePipeline(
         failedBrowserAssertions(browser),
       );
     }
-    stagedFiles = corrected.files;
+    const normalized = normalizeBatchedSiteAnchors(corrected.files, {
+      compositionPatternId: corrected.designPlan.compositionPatternId,
+      ensurePrimaryCta: true,
+      photoEnabled: contract.media.mode === "owner_assets",
+      primaryCtaTarget: contract.business.primaryCta.target,
+      palette: corrected.designPlan.palette,
+    });
+    stagedFiles = normalized;
     designPlan = corrected.designPlan;
     build = await deps.build(stagedFiles, input.projectId);
     if (!build.ok) {

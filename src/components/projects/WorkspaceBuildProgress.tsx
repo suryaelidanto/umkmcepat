@@ -30,7 +30,7 @@ function StepDuration({
   if (isActive && startedAt) {
     const liveSec = Math.max(0, (now - startedAt) / 1000);
     return (
-      <span className="text-xs font-medium tabular-nums text-surface-warm-white/40">
+      <span className="text-xs font-medium tabular-nums text-muted-foreground">
         {liveSec.toFixed(1)}s
       </span>
     );
@@ -39,13 +39,13 @@ function StepDuration({
   if (durationMs !== undefined) {
     if (durationMs < 1000) {
       return (
-        <span className="text-xs font-medium tabular-nums text-surface-warm-white/40">
+        <span className="text-xs font-medium tabular-nums text-muted-foreground">
           {durationMs}ms
         </span>
       );
     }
     return (
-      <span className="text-xs font-medium tabular-nums text-surface-warm-white/40">
+      <span className="text-xs font-medium tabular-nums text-muted-foreground">
         {(durationMs / 1000).toFixed(1)}s
       </span>
     );
@@ -99,24 +99,24 @@ export function BuildProgressPanel({
       ];
 
   return (
-    <div className="overflow-hidden rounded-[24px] border border-surface-warm-white/10 bg-[#20201d] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/8 px-spacing-5 py-spacing-4">
+    <div className="overflow-hidden rounded-[24px] border border-border bg-card shadow-xs">
+      <div className="flex items-center justify-between gap-spacing-4 border-b border-border px-spacing-5 py-spacing-4">
         <div>
-          <p className="text-sm font-semibold text-surface-warm-white">
+          <p className="text-sm font-semibold text-foreground">
             {isRunning ? "Website sedang dibuat" : "Riwayat pembuatan terakhir"}
           </p>
-          <p className="mt-spacing-1 text-xs text-surface-warm-white/46">
+          <p className="mt-spacing-1 text-xs text-muted-foreground">
             {isRunning
               ? "Setiap bagian akan muncul saat selesai."
               : "Langkah pembuatan terakhir sudah selesai."}
           </p>
           {isRunning && completedStepCount > 0 ? (
-            <p className="mt-spacing-2 text-xs font-medium text-surface-warm-white/62">
+            <p className="mt-spacing-2 text-xs font-medium text-foreground">
               {completedStepCount} bagian sudah selesai
             </p>
           ) : null}
         </div>
-        <div className="rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.055] px-spacing-3 py-spacing-2 text-xs tabular-nums text-surface-warm-white/68">
+        <div className="rounded-full border border-border bg-muted/60 px-spacing-3 py-spacing-2 text-xs tabular-nums text-muted-foreground">
           {elapsedSeconds}s
         </div>
       </div>
@@ -168,21 +168,21 @@ export function BuildProgressPanel({
                     : undefined
                 }
                 aria-expanded={hasDiff ? isExpanded : undefined}
-                className={`flex flex-col rounded-[18px] border border-surface-warm-white/8 bg-surface-warm-white/[0.035] p-spacing-4 select-none ${hasDiff ? "cursor-pointer hover:bg-surface-warm-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-warm-white/30" : ""}`}
+                className={`flex flex-col rounded-[18px] border border-border/70 bg-card p-spacing-4 select-none ${hasDiff ? "cursor-pointer hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : ""}`}
               >
                 <div className="flex items-start justify-between gap-spacing-3 w-full">
                   <div className="flex items-start gap-spacing-4 min-w-0 flex-1">
                     <div
-                      className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border ${isError ? "border-[#ffb4a6]/40 bg-[#ffb4a6]/10 text-[#ffb4a6]" : isActive ? "border-surface-warm-white/18 bg-surface-warm-white/10 text-surface-warm-white" : "border-[#8ce99a]/30 bg-[#8ce99a]/10 text-[#8ce99a]"}`}
+                      className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border ${isError ? "border-destructive/40 bg-destructive/10 text-destructive" : isActive ? "border-primary/40 bg-primary/10 text-primary" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}
                     >
                       <span
                         className={`block ${isActive ? "size-3 animate-pulse rounded-full bg-current" : "size-2 bg-current"}`}
                       />
                     </div>
-                    <span className="text-sm text-surface-warm-white text-left pt-1 leading-5 min-w-0">
+                    <span className="text-sm text-foreground text-left pt-1 leading-5 min-w-0">
                       <span className="font-semibold">{step.label}</span>
                       {step.detail && step.detail !== step.label ? (
-                        <span className="font-normal text-surface-warm-white/50">
+                        <span className="font-normal text-muted-foreground">
                           {" "}
                           — {step.detail}
                         </span>
@@ -197,7 +197,7 @@ export function BuildProgressPanel({
                       startedAt={step.startedAt}
                     />
                     {hasDiff && (
-                      <div className="text-surface-warm-white/40">
+                      <div className="text-muted-foreground">
                         {isExpanded ? (
                           <ChevronUp className="size-4" />
                         ) : (
@@ -280,19 +280,17 @@ export function ProcessingControl({
       : fallbackDetail;
 
   return (
-    <div className="mt-spacing-3 overflow-hidden rounded-[22px] border border-surface-warm-white/10 bg-[#242421] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+    <div className="mt-spacing-3 overflow-hidden rounded-[22px] border border-border bg-card shadow-xs">
       <div className="flex items-center justify-between gap-spacing-4 px-spacing-5 py-spacing-4">
         <div className="flex min-w-0 items-center gap-spacing-4">
-          <div className="grid size-10 shrink-0 place-items-center rounded-full border border-surface-warm-white/10 bg-surface-warm-white/[0.045]">
-            <span className="size-4 animate-spin rounded-full border-2 border-surface-warm-white/18 border-t-surface-warm-white/78" />
+          <div className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-muted/60">
+            <span className="size-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-spacing-2">
-              <p className="text-sm font-semibold text-surface-warm-white">
-                {title}
-              </p>
+              <p className="text-sm font-semibold text-foreground">{title}</p>
             </div>
-            <p className="mt-spacing-1 text-xs leading-5 text-surface-warm-white/50">
+            <p className="mt-spacing-1 text-xs leading-5 text-muted-foreground">
               {detail}
             </p>
           </div>
@@ -301,7 +299,7 @@ export function ProcessingControl({
           type="button"
           variant="outline"
           onClick={onStop}
-          className="h-9 shrink-0 rounded-full border-surface-warm-white/12 bg-transparent px-spacing-4 text-xs text-surface-warm-white/82 hover:bg-surface-warm-white/8"
+          className="h-9 shrink-0 rounded-full border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted"
         >
           Hentikan
         </Button>
