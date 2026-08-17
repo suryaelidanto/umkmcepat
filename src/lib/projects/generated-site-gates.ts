@@ -103,14 +103,7 @@ function contrastSurfaceSpans(
   ].flatMap((match) =>
     match[1] ? [elementSpan(source, match, match[1])] : [],
   );
-  const containerSpans = [
-    ...source.matchAll(
-      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=(?:\{`|["'])[^"'`]*\bbg-background\/\d+[^"'`]*(?:`\}|["'])[^>]*>/g,
-    ),
-  ].flatMap((match) =>
-    match[1] ? [elementSpan(source, match, match[1])] : [],
-  );
-  return [...sectionSpans, ...elementSpans, ...containerSpans];
+  return [...sectionSpans, ...elementSpans];
 }
 
 function hasContrastSurfaceTextMismatch(source: string): boolean {
@@ -133,12 +126,23 @@ function hasMisplacedBackgroundText(source: string): boolean {
 }
 
 function healContrastSurfaceText(content: string): string {
-  const spans = contrastSurfaceSpans(content);
+  let normalized = content;
+  normalized = normalized.replace(
+    /<SiteSection\b(?=[^>]*\bsurface=["']contrast["'])[^>]*>([\s\S]*?)<\/SiteSection>/gi,
+    (sectionMatch: string) => {
+      return sectionMatch.replace(
+        /\btext-(?:foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground)\b(?!-)(\/\d{1,3})?/g,
+        (_match, opacity) => `text-background${opacity ?? ""}`,
+      );
+    },
+  );
+
+  const spans = contrastSurfaceSpans(normalized);
   const pattern = new RegExp(
     `\\btext-(background|(?:${LIGHT_SURFACE_TEXT_TOKEN}))\\b(?!-)(/\\d{1,3})?`,
     "g",
   );
-  return content.replace(
+  return normalized.replace(
     pattern,
     (
       match: string,
@@ -1020,6 +1024,16 @@ export function normalizeBatchedSiteAnchors(
             return `<SiteSplit${normalized}>`;
           },
         );
+      // Ensure any text inside surface="contrast" never retains text-foreground
+      content = content.replace(
+        /<SiteSection\b(?=[^>]*\bsurface=["']contrast["'])[\s\S]*?<\/SiteSection>/gi,
+        (sectionMatch: string) => {
+          return sectionMatch.replace(
+            /\btext-(?:foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground)\b(?!-)(\/\d{1,3})?/g,
+            (_match, opacity) => `text-background${opacity ?? ""}`,
+          );
+        },
+      );
       content = healContrastSurfaceText(content);
       content = healAccentSurfaceText(content);
       content = healDynamicContrastSurfaceText(content);
@@ -1209,7 +1223,7 @@ function makeTouchSafeAnchor(match: string): string {
   }
   return match.replace(
     "<a",
-    '<a className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground"',
+    '<a className="inline-flex min-h-11 min-w-11 items-center justify-center"',
   );
 }
 

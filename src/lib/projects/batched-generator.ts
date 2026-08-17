@@ -1805,6 +1805,23 @@ export async function runReferenceCalibratedGenerate(input: {
       primaryCtaTarget: input.contract.business.primaryCta.target,
       palette: designPlan.palette,
     });
+    // Extra normalization pass to guarantee no text-foreground remains in contrast sections
+    themed = themed.map((file) => {
+      if (file.path.startsWith("src/routes/")) {
+        let content = file.content;
+        content = content.replace(
+          /<SiteSection\b(?=[^>]*\bsurface=["']contrast["'])[\s\S]*?<\/SiteSection>/gi,
+          (sectionMatch: string) => {
+            return sectionMatch.replace(
+              /\btext-(?:foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground)\b(?!-)(\/\d{1,3})?/g,
+              (_match, opacity) => `text-background${opacity ?? ""}`,
+            );
+          },
+        );
+        return { ...file, content };
+      }
+      return file;
+    });
     // Filter editable files again to see normalized contents
     editableFiles = themed.filter(
       (file) =>
