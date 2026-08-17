@@ -18,6 +18,7 @@ import { getAiTimeoutMs } from "@/lib/ai-timeouts";
 import { getSettingSync } from "@/lib/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
+import { runAgenticGenerate } from "@/lib/projects/agentic-generator";
 import {
   runBatchedGenerate,
   runOneStreamedResponse,
@@ -870,122 +871,158 @@ export async function runBuildAttempt({
       );
     }
 
+    const configuredEngine = getSettingSync(
+      "generation.default_engine",
+      "batched",
+    ) as string;
+    const isAgentic =
+      configuredEngine === "agentic" && !referenceCalibratedCandidate?.ok;
+
     const agentStartedAt = Date.now();
-    // Contract-v1 single-shot writer: the ONLY generation path. Any batched
-    // failure (parse, gates, repair budget, admission block) fails the attempt
-    // outright — there is no legacy fallback. Abort propagates via the catch
-    // below.
-    const batched =
-      referenceCalibratedMode === "replace" && referenceCalibratedCandidate?.ok
-        ? {
-            ok: true as const,
-            files: referenceCalibratedCandidate.files,
-            designPlan: null,
-            designPlanV2: referenceCalibratedCandidate.designPlan,
-            repairRounds: 0,
-            summary: "Reference-calibrated candidate qualified.",
-            writtenPaths: referenceCalibratedCandidate.files
-              .filter((file) => file.path.startsWith("src/routes/"))
-              .map((file) => file.path),
-          }
-        : await runBatchedGenerate({
-            abortSignal,
-            attemptId,
-            brief,
-            buildId: runtimeBuildId,
-            implementationSpec,
-            ...(generatedSiteContract &&
-            generatedSiteRecipe &&
-            generatedSiteExample
-              ? {
-                  contract: generatedSiteContract,
-                  recipe: generatedSiteRecipe,
-                  example: generatedSiteExample,
-                }
-              : {}),
-            onEvent(type, data) {
-              // Enrich write_file operations with unified diff so the UI can show
-              // exactly what changed (file created vs updated) in the "Menulis file" step.
-              if (
-                type === "operation" &&
-                data &&
-                typeof data === "object" &&
-                (data as { type?: string }).type === "write_file" &&
-                typeof (data as { path?: unknown }).path === "string"
-              ) {
-                const op = data as {
-                  path: string;
-                  diff?: unknown;
-                  type: string;
-                  title: string;
-                  detail: string;
-                };
-                if (!Array.isArray(op.diff) || op.diff.length === 0) {
-                  const newFile = batchedStageFiles.get(op.path);
-                  if (newFile) {
-                    const oldContent =
-                      persistedSourceFiles.find((f) => f.path === op.path)
-                        ?.content ?? "";
-                    try {
-                      const diff = generateDiff(oldContent, newFile.content);
-                      // Keep diff bounded for the progress channel (avoid huge payloads)
-                      const maxLines = 120;
-                      const sliced =
-                        diff.length > maxLines ? diff.slice(0, maxLines) : diff;
-                      (data as { diff?: typeof diff }).diff = sliced;
-                    } catch {
-                      // diff is best-effort; never fail the build on diff generation
-                    }
-                  }
-                }
-              }
-              send(type, data);
-            },
-            onFileStaged: persistBatchedStage,
-            projectId,
-            schema: finalSchema,
-            stepCharger: sourceStepCharger,
-            userId,
-          });
-
-    if (!batched.ok) {
-      devLog("generate", "batched.failed", {
-        projectId,
-        reason: batched.reason,
-        repairRounds: batched.repairRounds,
-      });
-      throw new Error(batched.reason || "Batched generation failed.");
-    }
-
-    const touched = batched.writtenPaths;
-    const sourceGeneration: {
-      buildSpec: string;
-      energyExhausted: boolean;
+    let generationOutput: {
       files: GeneratedProjectFile[];
-      generationMode: "agent-custom";
-      operationTrace: {
+      generationMode: "agent-custom" | "agentic";
+      operationTrace: Array<{
         detail: string;
         state: string;
         title: string;
         type: string;
-      }[];
+      }>;
       repairAttempts: number;
-      referenceCalibratedQualityProof?: GeneratedSiteQualityProofV2;
       summary: string;
       touchedFiles: string[];
-    } = {
-      buildSpec: buildPrompt,
-      energyExhausted: sourceStepCharger.isExhausted(),
-      files: batched.files,
-      generationMode: "agent-custom",
-      operationTrace: [],
-      repairAttempts: batched.repairRounds,
-      ...(referenceCalibratedQualityProof
-        ? { referenceCalibratedQualityProof }
-        : {}),
-      summary: batched.summary,
-      touchedFiles: touched,
+      energyExhausted: boolean;
+      buildSpec: string;
+      referenceCalibratedQualityProof?: GeneratedSiteQualityProofV2;
     };
+
+    if (isAgentic) {
+      send("progress", {
+        label: "Membuat website interaktif",
+        detail: "AI Agent sedang menulis dan merancang struktur landing page.",
+      });
+      const agenticResult = await runAgenticGenerate({
+        abortSignal,
+        attemptId,
+        brief,
+        buildId: runtimeBuildId,
+        onEvent: (type, data) => send(type, data),
+        onFileStaged: persistBatchedStage,
+        projectId,
+        schema: finalSchema,
+        stepCharger: sourceStepCharger,
+        userId,
+      });
+
+      generationOutput = {
+        buildSpec: buildPrompt,
+        energyExhausted: sourceStepCharger.isExhausted(),
+        files: agenticResult.files,
+        generationMode: "agentic",
+        operationTrace: agenticResult.operationTrace,
+        repairAttempts: 0,
+        summary: agenticResult.summary,
+        touchedFiles: agenticResult.touchedFiles,
+      };
+    } else {
+      const batched =
+        referenceCalibratedMode === "replace" &&
+        referenceCalibratedCandidate?.ok
+          ? {
+              ok: true as const,
+              files: referenceCalibratedCandidate.files,
+              designPlan: null,
+              designPlanV2: referenceCalibratedCandidate.designPlan,
+              repairRounds: 0,
+              summary: "Reference-calibrated candidate qualified.",
+              writtenPaths: referenceCalibratedCandidate.files
+                .filter((file) => file.path.startsWith("src/routes/"))
+                .map((file) => file.path),
+            }
+          : await runBatchedGenerate({
+              abortSignal,
+              attemptId,
+              brief,
+              buildId: runtimeBuildId,
+              implementationSpec,
+              ...(generatedSiteContract &&
+              generatedSiteRecipe &&
+              generatedSiteExample
+                ? {
+                    contract: generatedSiteContract,
+                    recipe: generatedSiteRecipe,
+                    example: generatedSiteExample,
+                  }
+                : {}),
+              onEvent(type, data) {
+                if (
+                  type === "operation" &&
+                  data &&
+                  typeof data === "object" &&
+                  (data as { type?: string }).type === "write_file" &&
+                  typeof (data as { path?: unknown }).path === "string"
+                ) {
+                  const op = data as {
+                    path: string;
+                    diff?: unknown;
+                    type: string;
+                    title: string;
+                    detail: string;
+                  };
+                  if (!Array.isArray(op.diff) || op.diff.length === 0) {
+                    const newFile = batchedStageFiles.get(op.path);
+                    if (newFile) {
+                      const oldContent =
+                        persistedSourceFiles.find((f) => f.path === op.path)
+                          ?.content ?? "";
+                      try {
+                        const diff = generateDiff(oldContent, newFile.content);
+                        const maxLines = 120;
+                        const sliced =
+                          diff.length > maxLines
+                            ? diff.slice(0, maxLines)
+                            : diff;
+                        (data as { diff?: typeof diff }).diff = sliced;
+                      } catch {
+                        // diff is best-effort
+                      }
+                    }
+                  }
+                }
+                send(type, data);
+              },
+              onFileStaged: persistBatchedStage,
+              projectId,
+              schema: finalSchema,
+              stepCharger: sourceStepCharger,
+              userId,
+            });
+
+      if (!batched.ok) {
+        devLog("generate", "batched.failed", {
+          projectId,
+          reason: batched.reason,
+          repairRounds: batched.repairRounds,
+        });
+        throw new Error(batched.reason || "Batched generation failed.");
+      }
+
+      generationOutput = {
+        buildSpec: buildPrompt,
+        energyExhausted: sourceStepCharger.isExhausted(),
+        files: batched.files,
+        generationMode: "agent-custom",
+        operationTrace: [],
+        repairAttempts: batched.repairRounds,
+        ...(referenceCalibratedQualityProof
+          ? { referenceCalibratedQualityProof }
+          : {}),
+        summary: batched.summary,
+        touchedFiles: batched.writtenPaths,
+      };
+    }
+
+    const sourceGeneration = generationOutput;
     agentMs = Date.now() - agentStartedAt;
     if (sourceGeneration.energyExhausted) {
       send("energy_exhausted", {
@@ -1232,7 +1269,7 @@ export async function runBuildAttempt({
         recipeId: generatedSiteRecipe.id,
         recipeVersion: generatedSiteRecipe.version,
         exampleId: generatedSiteExample?.id ?? "none",
-        designPlanVersion: batched.designPlan ? 1 : null,
+        designPlanVersion: null,
         sourceGateStatus: "pass",
         browserGateStatus:
           qualification.browserReport?.status ?? "infrastructure_error",

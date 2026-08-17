@@ -644,6 +644,15 @@ export const APP_SETTINGS: ConfigEntry[] = [
     optionsSource: "nine_router_models",
   },
   {
+    key: "generation.default_engine",
+    category: "ai",
+    tier: "advanced",
+    type: "string",
+    label: "Generation — Default Engine Mode",
+    fallback: "agentic",
+    env: "GENERATION_DEFAULT_ENGINE",
+  },
+  {
     key: "ai.timeout.discuss_card_ms",
     category: "ai",
     tier: "advanced",
