@@ -196,7 +196,7 @@ export function GeneratedPreviewFrame({
   }, [annotationMarkers, ready, reloadKey]);
 
   return (
-    <div className="relative flex h-full min-h-0 justify-center overflow-hidden bg-[#10100f]">
+    <div className="relative flex h-full min-h-0 justify-center overflow-hidden bg-background">
       <div
         className={`${viewport === "mobile" ? "max-w-[min(100%,430px)]" : "max-w-none"} relative h-full w-full`}
       >
@@ -254,14 +254,14 @@ export function GeneratedPreviewFrame({
           />
         </div>
       ) : !ready ? (
-        <div className="absolute inset-0 grid place-items-center bg-[#10100f]">
+        <div className="absolute inset-0 grid place-items-center bg-background">
           <div className="flex flex-col items-center gap-spacing-4 text-center">
-            <div className="size-9 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
+            <div className="size-9 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
             <div>
-              <p className="text-sm font-medium text-surface-warm-white/78">
+              <p className="text-sm font-medium text-foreground">
                 Menyiapkan tampilan website...
               </p>
-              <p className="mt-spacing-1 text-xs text-surface-warm-white/50">
+              <p className="mt-spacing-1 text-xs text-muted-foreground">
                 Preview akan muncul setelah website selesai render.
               </p>
             </div>
