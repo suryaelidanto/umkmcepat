@@ -3320,47 +3320,50 @@ export function WorkspaceShell({
             </div>
           ) : error &&
             (error as ChatError).code === "project_request_blocked" ? (
-            <div className="rounded-[18px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-5 py-spacing-4">
+            <div className="rounded-[18px] border border-amber-500/30 bg-amber-50/80 px-spacing-5 py-spacing-4 dark:border-yellow-500/24 dark:bg-yellow-500/[0.06]">
               <div className="flex items-start gap-spacing-3">
-                <span className="mt-0.5 text-yellow-400" aria-hidden>
+                <span
+                  className="mt-0.5 text-amber-600 dark:text-yellow-400"
+                  aria-hidden
+                >
                   ⚠️
                 </span>
-                <p className="text-sm leading-6 text-surface-warm-white/78">
+                <p className="text-sm leading-6 text-foreground/85 dark:text-surface-warm-white/78">
                   {error.message}
                 </p>
               </div>
             </div>
           ) : error && (error as ChatError).code === "chat_turn_too_large" ? (
-            <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-              <p className="text-sm font-medium text-[#ffb4a6]">
+            <div className="rounded-[18px] border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 dark:border-[#ffb4a6]/24 dark:bg-[#ffb4a6]/[0.06]">
+              <p className="text-sm font-medium text-destructive dark:text-[#ffb4a6]">
                 Pesan terlalu panjang. Ringkas dulu sebelum dikirim.
               </p>
             </div>
           ) : error ? (
-            <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-              <p className="text-sm font-medium text-[#ffb4a6]">
+            <div className="rounded-[18px] border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 dark:border-[#ffb4a6]/24 dark:bg-[#ffb4a6]/[0.06]">
+              <p className="text-sm font-medium text-destructive dark:text-[#ffb4a6]">
                 {toUserFacingDiscussError(error.message)}
               </p>
               {!readOnly ? (
                 <Button
                   type="button"
                   onClick={() => void retryChat()}
-                  className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                  className="mt-spacing-3 h-9 rounded-full bg-foreground px-spacing-5 text-xs text-background hover:bg-foreground/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
                 >
                   Kirim ulang
                 </Button>
               ) : null}
             </div>
           ) : resumeError ? (
-            <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
-              <p className="text-sm font-medium text-[#ffb4a6]">
+            <div className="rounded-[18px] border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 dark:border-[#ffb4a6]/24 dark:bg-[#ffb4a6]/[0.06]">
+              <p className="text-sm font-medium text-destructive dark:text-[#ffb4a6]">
                 {resumeError.message}
               </p>
               {!readOnly ? (
                 <Button
                   type="button"
                   onClick={() => void retryChat()}
-                  className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                  className="mt-spacing-3 h-9 rounded-full bg-foreground px-spacing-5 text-xs text-background hover:bg-foreground/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
                 >
                   {resumeError.retryText}
                 </Button>
