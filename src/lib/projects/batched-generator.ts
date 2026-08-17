@@ -2150,6 +2150,28 @@ function mergeFinalFiles(
     byPath.set(file.path, file);
   }
 
+  // Automatically scan staged JSX imports and auto-include all used shadcn components
+  for (const file of staged.values()) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    for (const match of file.content.matchAll(
+      /@\/components\/ui\/([a-zA-Z0-9_-]+)/g,
+    )) {
+      const componentName = match[1];
+      const canonical = SHADCN_COMPONENT_BY_NAME.get(componentName);
+      if (canonical && !byPath.has(canonical.path)) {
+        const toAdd = [
+          canonical,
+          ...resolveShadcnDeps(canonical, [...byPath.values()]),
+        ];
+        for (const f of toAdd) {
+          byPath.set(f.path, f);
+        }
+      }
+    }
+  }
+
   // Propose-blocks auto-approve only when the basename is a known shadcn
   // registry component at the canonical path; never trust proposed content
   // for anything else — we materialize the platform-owned source ourselves.

@@ -311,14 +311,10 @@ function healNestedLightSurfaceText(content: string): string {
     ...generatedSurfaceClassSpans(content, LIGHT_SURFACE_KINDS),
     ...generatedSurfaceClassSpans(content, STRONG_SURFACE_KINDS),
   ];
-  const contrastSpans = contrastSurfaceSpans(content);
   const pattern = /\btext-background\b(?!-)(\/\d{1,3})?/g;
   let normalized = content;
   for (const match of [...content.matchAll(pattern)].reverse()) {
     const offset = match.index ?? 0;
-    const inContrast = contrastSpans.some(
-      (span) => offset >= span.start && offset < span.end,
-    );
     const nearestSurface = surfaceSpans
       .filter((span) => offset >= span.start && offset < span.end)
       .sort((left, right) => {
@@ -330,12 +326,9 @@ function healNestedLightSurfaceText(content: string): string {
           Number(isLightSurfaceKind(right.kind))
         );
       })[0];
-    if (
-      (!inContrast && !nearestSurface) ||
-      (nearestSurface && isLightSurfaceKind(nearestSurface.kind))
-    ) {
+    if (nearestSurface && isLightSurfaceKind(nearestSurface.kind)) {
       const textToken =
-        !nearestSurface || nearestSurface.kind === "background"
+        nearestSurface.kind === "background"
           ? "foreground"
           : `${nearestSurface.kind}-foreground`;
       const replacement = `text-${textToken}${match[1] ?? ""}`;
