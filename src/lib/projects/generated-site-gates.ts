@@ -1044,7 +1044,11 @@ export function normalizeBatchedSiteAnchors(
       isGeneratedRouteSource &&
       file.path.startsWith("src/routes/")
     ) {
-      content = ensureGeneratedRoutePrimaryCta(content, whatsappHref);
+      content = ensureGeneratedRoutePrimaryCta(
+        content,
+        whatsappHref,
+        options?.primaryCtaTarget,
+      );
     }
     if (isGeneratedRouteSource) {
       content = ensureActionTouchTargets(content);
@@ -1161,8 +1165,18 @@ function containsAcceptedCtaTarget(source: string, target: string): boolean {
 function ensureGeneratedRoutePrimaryCta(
   content: string,
   whatsappHref: string | null,
+  rawTarget?: string,
 ): string {
-  if (!whatsappHref || content.includes(whatsappHref)) {
+  if (!whatsappHref) {
+    return content;
+  }
+  // Check if content already contains the primary CTA target or WhatsApp link
+  if (
+    content.includes(whatsappHref) ||
+    (rawTarget && containsAcceptedCtaTarget(content, rawTarget)) ||
+    content.includes("site.primaryCta") ||
+    /https:\/\/(?:wa\.me|api\.whatsapp\.com)/.test(content)
+  ) {
     return content;
   }
   const action = `<div className="mt-10"><a href="${whatsappHref}" className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground">{site.primaryCta} via WhatsApp</a></div>`;
