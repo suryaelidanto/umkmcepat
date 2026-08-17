@@ -100,6 +100,15 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: false,
   },
   {
+    key: "feature.generation_engine_agentic",
+    category: "feature_flag",
+    tier: "basic",
+    type: "boolean",
+    label:
+      "Agentic Tool Loop Generator (ON = Agentic multi-step, OFF = Single-shot contract)",
+    fallback: false,
+  },
+  {
     key: "quality.generated_site_critic_sample_rate",
     category: "generated_quality",
     tier: "advanced",

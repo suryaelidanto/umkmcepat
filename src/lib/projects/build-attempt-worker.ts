@@ -871,12 +871,11 @@ export async function runBuildAttempt({
       );
     }
 
-    const configuredEngine = getSettingSync(
-      "generation.default_engine",
-      "batched",
-    ) as string;
-    const isAgentic =
-      configuredEngine === "agentic" && !referenceCalibratedCandidate?.ok;
+    const isAgenticFlag = getSettingSync(
+      "feature.generation_engine_agentic",
+      false,
+    ) as boolean;
+    const isAgentic = isAgenticFlag && !referenceCalibratedCandidate?.ok;
 
     const agentStartedAt = Date.now();
     let generationOutput: {
