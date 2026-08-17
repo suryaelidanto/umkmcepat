@@ -354,7 +354,11 @@ export function createGeneratedSourceSnapshotMetadata(
   generation?: {
     buildSpec?: string;
     generationMode?:
-      "agent-custom" | "agent-partial" | "loop-detected" | "retry_build";
+      | "agent-custom"
+      | "agentic"
+      | "agent-partial"
+      | "loop-detected"
+      | "retry_build";
     operationTrace?: Array<{
       detail: string;
       path?: string;
